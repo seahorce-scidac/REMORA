@@ -2,6 +2,7 @@ AMREX_HOME      ?= $(ROMSX_HOME)/Submodules/AMReX
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs
 
 EBASE = ROMSX
+USE_RPATH = TRUE
 
 ROMSX_SOURCE_DIR = $(ROMSX_HOME)/Source
 include $(ROMSX_SOURCE_DIR)/Make.package
@@ -55,6 +56,8 @@ ifeq ($(USE_NETCDF), TRUE)
   DEFINES += -DROMSX_USE_NETCDF
   includes += $(shell pkg-config --cflags netcdf)
   LIBRARIES += $(shell pkg-config --libs netcdf)
+  includes += $(shell pkg-config --cflags netcdf-cxx4_parallel)
+  LIBRARIES += $(shell pkg-config --libs netcdf-cxx4_parallel)
 endif
 
 ifeq ($(USE_HDF5), TRUE)
