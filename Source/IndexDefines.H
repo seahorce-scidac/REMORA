@@ -10,13 +10,27 @@
 #define RhoKE_comp     2 // for Deardorff LES Model
 #define RhoQKE_comp    3 // for MYNN PBL Model
 #define RhoScalar_comp 4
+#define Omega_comp     5
+
+#ifdef ROMSX_USE_SALINITY
+#define Salt_comp      6
+#ifdef ROMSX_USE_MOISTURE
+#define RhoQv_comp     7
+#define RhoQc_comp     8
+#define NVAR           9
+#else
+#define NVAR           7
+#endif
+#else
 
 #ifdef ROMSX_USE_MOISTURE
-#define RhoQv_comp     5
-#define RhoQc_comp     6
-#define NVAR           7
+#define RhoQv_comp     6
+#define RhoQc_comp     7
+#define NVAR           8
 #else
-#define NVAR           5
+#define NVAR           6
+#endif
+
 #endif
 
 // Cell-centered primitive variables
@@ -99,6 +113,10 @@ namespace Cons {
         RhoKE,
         RhoQKE,
         RhoScalar,
+        Omega,
+#ifdef ROMSX_USE_SALINITY
+        Salt,
+#endif
 #ifdef ROMSX_USE_MOISTURE
         RhoQv,
         RhoQc,

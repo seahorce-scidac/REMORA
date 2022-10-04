@@ -37,6 +37,7 @@ ROMSX::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::strin
     // Get state variables in the same order as we define them,
     // since they may be in any order in the input list
     Vector<std::string> tmp_plot_names;
+
     for (int i = 0; i < Cons::NumVars; ++i) {
         if ( containerHasElement(plot_var_names, cons_names[i]) ) {
             tmp_plot_names.push_back(cons_names[i]);

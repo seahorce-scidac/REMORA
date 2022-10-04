@@ -7,15 +7,15 @@ amrex.fpe_trap_invalid = 1
 fabarray.mfiter_tile_size = 1024 1024 1024
 
 # PROBLEM SIZE & GEOMETRY
-geometry.prob_lo     = -25600.   0.    0.
-geometry.prob_hi     =  25600. 400. 6400.
+geometry.prob_lo     =      0.     0.    0.
+geometry.prob_hi     =  41000. 80000.  150.
 
-amr.n_cell           =  2048   4    256   # dx=dy=dz=25 m, Straka et al 1993 / Xue et al 2000
-amr.n_cell           =   41   80     16   # dx=dy=dz=100 m, Straka et al 1993 / Xue et al 2000
+amr.n_cell           =  41     80      16
 
 # periodic in x to match WRF setup
-# - as an alternative, could use symmetry at x=0 and outflow at x=25600
-geometry.is_periodic = 1 1 0
+geometry.is_periodic = 1 0 0
+ylo.type = "SlipWall"
+yhi.type = "SlipWall"
 zlo.type = "SlipWall"
 zhi.type = "SlipWall"
 
@@ -38,7 +38,7 @@ romsx.check_int       = -57600      # number of timesteps between checkpoints
 # PLOTFILES
 romsx.plot_file_1     = plt        # prefix of plotfile name
 romsx.plot_int_1      = 1000       # number of timesteps between plotfiles
-romsx.plot_vars_1     = density x_velocity y_velocity z_velocity pressure theta pres_hse dens_hse pert_pres pert_dens
+romsx.plot_vars_1     = omega salt rhotheta
 
 # SOLVER CHOICE
 romsx.use_gravity = true
@@ -56,5 +56,6 @@ romsx.dynamicViscosity = 75.0 # [kg/(m-s)] ==> nu = 75.0 m^2/s
 romsx.alpha_T = 75.0 # [m^2/s]
 
 # PROBLEM PARAMETERS (optional)
+prob.R0 = 1027.0
 prob.S0 = 35.0
 prob.T0 = 10.0

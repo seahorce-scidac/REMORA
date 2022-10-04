@@ -25,9 +25,12 @@ DEBUG = FALSE
 
 BL_NO_FORT = TRUE
 
+# Physics
+SALINITY = TRUE
+
 # GNU Make
 Bpack := ./Make.package
 Blocs := .
 ROMSX_HOME := ../..
-ROMSX_PROBLEM_DIR = $(ROMSX_HOME)/Exec/DoubleGyre
+ROMSX_PROBLEM_DIR = $(ROMSX_HOME)/Exec/Upwelling
 include $(ROMSX_HOME)/Exec/Make.ROMSX

@@ -25,6 +25,9 @@ DEBUG = FALSE
 
 BL_NO_FORT = TRUE
 
+# Physics
+SALINITY = TRUE
+
 # GNU Make
 Bpack := ./Make.package
 Blocs := .

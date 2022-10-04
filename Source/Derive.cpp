@@ -163,4 +163,34 @@ romsx_derQKE(
 {
   romsx_derrhodivide(bx, dromsxab, datfab, RhoQKE_comp);
 }
+
+void
+romsx_deromega(
+  const amrex::Box& bx,
+  amrex::FArrayBox& dromsxab,
+  int /*dcomp*/,
+  int /*ncomp*/,
+  const amrex::FArrayBox& datfab,
+  const amrex::Geometry& /*geomdata*/,
+  amrex::Real /*time*/,
+  const int* /*bcrec*/,
+  const int /*level*/)
+{
+  romsx_derrhodivide(bx, dromsxab, datfab, Omega_comp);
+}
+
+void
+romsx_dersalt(
+  const amrex::Box& bx,
+  amrex::FArrayBox& dromsxab,
+  int /*dcomp*/,
+  int /*ncomp*/,
+  const amrex::FArrayBox& datfab,
+  const amrex::Geometry& /*geomdata*/,
+  amrex::Real /*time*/,
+  const int* /*bcrec*/,
+  const int /*level*/)
+{
+  romsx_derrhodivide(bx, dromsxab, datfab, Salt_comp);
+}
 }

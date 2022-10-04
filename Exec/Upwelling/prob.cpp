@@ -17,6 +17,7 @@ amrex_probinit(
 {
   // Parse params
   ParmParse pp("prob");
+  pp.query("R0", parms.R0);
   pp.query("S0", parms.S0);
   pp.query("T0", parms.T0);
   /*
@@ -45,9 +46,10 @@ init_custom_prob(
 
   AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
 
-  const Real& rho_sfc   = p_0 / (R_d*parms.T_0);
-  const Real& thetabar  = parms.T_0;
+  const Real& rho_sfc   = p_0 / (R_d*parms.T0);
+  const Real& thetabar  = parms.T0;
   const Real& dz        = geomdata.CellSize()[2];
+  const Real& el        = geomdata.ProbHi()[1];
   const Real& prob_lo_z = geomdata.ProbLo()[2];
 
     amrex::ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
@@ -58,22 +60,35 @@ init_custom_prob(
 
         const Real x = prob_lo[0] + (i + 0.5) * dx[0];
         const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-
-	const Real val1=(44.69_rt/39.382_rt)*(44.69_rt/39.382_rt);
-	const Real val2=val1*(ProbParams::rho0*100.0_rt/ProbParams::g)*(5.0E-5_rt/((42.689_rt/44.69_rt)*(42.689_rt/44.69_rt)));
-        Real val3=ProbParams::T0+val2*std::exp(z_r(i,j,k)/100.0_rt)*
-	  (10.0_rt-0.4_rt*tanh(z_r(i,j,k)/100.0_rt));
-	Real val4=yr(i,j)/el;
-        state(i,j,k,itemp)=val3-3.0_rt*val4;
-#ifdef SALINITY
-        state(i,j,k,isalt)=34.5_rt-0.001_rt*z_r(i,j,k)-val4;
-#endif
+        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
 
         state(i, j, k, RhoTheta_comp) = 1.;
         state(i, j, k, Rho_comp) = 1.;
 
+#if 0
+	const Real val1=(44.69_rt/39.382_rt)*(44.69_rt/39.382_rt);
+	const Real val2=val1*(parms.rho0*100.0_rt/parms.g)*(5.0E-5_rt/((42.689_rt/44.69_rt)*(42.689_rt/44.69_rt)));
+        Real val3=parms.T0+val2*std::exp(z_r(i,j,k)/100.0_rt)*
+	  (10.0_rt-0.4_rt*tanh(z_r(i,j,k)/100.0_rt));
+	Real val4=yr(i,j)/el;
+        state(i,j,k,RhoTheta_comp)=val3-3.0_rt*val4; // This may be missing rho effects
+#ifdef ROMSX_USE_SALINITY
+        state(i,j,k,Salt_comp)=34.5_rt-0.001_rt*z_r(i,j,k)-val4;
+#endif
+#else
+	const Real val1=(44.69_rt/39.382_rt)*(44.69_rt/39.382_rt);
+	const Real val2=val1*(parms.rho0*100.0_rt/parms.g)*(5.0E-5_rt/((42.689_rt/44.69_rt)*(42.689_rt/44.69_rt)));
+        Real val3=parms.T0+val2*std::exp(z/100.0_rt)*
+	  (10.0_rt-0.4_rt*tanh(z/100.0_rt));
+	Real val4=y/el;
+        state(i,j,k,RhoTheta_comp)=val3-3.0_rt*val4; // This may be missing rho effects
+#ifdef ROMSX_USE_SALINITY
+        state(i,j,k,Salt_comp)=34.5_rt-0.001_rt*z-val4;
+#endif
+#endif
+
         // Set scalar = 0 everywhere
-        state(i, j, k, RhoScalar_comp) = 0.0;
+        state(i, j, k, RhoScalar_comp) = parms.rho0;
     });
 
   // Construct a box that is on x-faces
@@ -81,7 +96,7 @@ init_custom_prob(
   // Set the x-velocity
   amrex::ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
-      x_vel(i, j, k) = parms.U_0;
+      x_vel(i, j, k) = 0.0;
   });
 
   // Construct a box that is on y-faces
