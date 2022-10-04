@@ -1,0 +1,15 @@
+CEXE_sources += BoundaryConditions_xvel.cpp
+CEXE_sources += BoundaryConditions_yvel.cpp
+CEXE_sources += BoundaryConditions_zvel.cpp
+CEXE_sources += BoundaryConditions_cons.cpp
+
+CEXE_sources += ROMSX_FillPatch.cpp
+
+CEXE_sources += ROMSX_PhysBCFunct.cpp
+CEXE_headers += ROMSX_PhysBCFunct.H
+
+CEXE_headers += TimeInterpolatedData.H
+
+CEXE_headers += DirectionSelector.H
+CEXE_headers += PlaneAverage.H
+CEXE_headers += VelPlaneAverage.H

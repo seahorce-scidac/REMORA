@@ -1,0 +1,40 @@
+// Main landing page for Doxygen Documentation
+
+/**
+\mainpage Regional Ocean Modeling built on AMReX: ROMSX
+
+  \tableofcontents
+
+  \section Introduction
+
+  ROMSX is currently under development as a next-generation version of
+  the Regional Ocean Modeling System (ROMS). It is designed to run on a wide range
+  of machines, from laptops to multicore CPU and hybrid CPU-GPU systems.
+
+  \section amr Adaptive Mesh Refinement
+
+  ROMSX is built on
+  <a href="https://github.com/AMReX-Codes/amrex">AMReX</a> an adaptive
+  mesh refinement software framework, which provides the underlying
+  software infrastructure for block structured adaptive mesh refinement
+  operations. Full AMReX documentation can be found in the
+  <a href="https://amrex-codes.github.io/amrex/docs_html/">user guide</a>
+  and in the
+  <a href="https://amrex-codes.github.io/amrex/tutorials_html/">
+  guided tutorials and example codes</a>
+
+  \section getting_started Getting Started
+
+  To get started, please see the
+  <a href="https://github.com/seahorce-scidac/COAWST/blob/development/ROMSX/README.rst">
+  README</a> at GitHub.
+
+  \section dev_model Development Model
+
+  Please see the
+  <a href="https://github.com/seahorce-scidac/COAWST/blob/development/ROMSX/CONTRIBUTING.md">
+  CONTRIBUTING</a> document on GitHub for details on how to contribute to
+  this project.
+
+*/
+

@@ -1,0 +1,28 @@
+#ifndef _PROBCOMMON_H_
+#define _PROBCOMMON_H_
+
+#include <AMReX_Geometry.H>
+#include <AMReX_FArrayBox.H>
+
+void amrex_probinit (
+  const amrex_real* problo,
+  const amrex_real* probhi);
+
+void
+init_custom_prob (
+  const amrex::Box& bx,
+  amrex::Array4<amrex::Real      > const& state,
+  amrex::Array4<amrex::Real      > const& x_vel,
+  amrex::Array4<amrex::Real      > const& y_vel,
+  amrex::Array4<amrex::Real      > const& z_vel,
+  amrex::Array4<amrex::Real      > const& r_hse,
+  amrex::Array4<amrex::Real      > const& p_hse,
+  amrex::Array4<amrex::Real const> const& z_nd,
+  amrex::Array4<amrex::Real const> const& z_cc,
+  amrex::GeometryData const& geomdata);
+
+void
+init_custom_terrain (const amrex::Geometry& geom,
+                           amrex::MultiFab& z_phys_nd,
+                     const amrex::Real& time = 0.0);
+#endif

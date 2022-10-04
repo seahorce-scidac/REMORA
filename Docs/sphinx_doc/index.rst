@@ -1,0 +1,101 @@
+:orphan:
+
+ROMSX
+-----
+
+ROMSX is currently under development as a next-generation version of the Regional Ocean Modeling System (ROMS).
+
+ROMSX is built on `AMReX <https://github.com/AMReX-Codes/amrex>`_,
+an adaptive mesh refinement software framework, which provides the underlying software infrastructure for
+block structured AMR operations.
+The full AMReX documentation can be found `here <https://amrex-codes.github.io/amrex/docs_html/>`_ and the tutorials can be found `here <https://amrex-codes.github.io/amrex/tutorials_html/>`_.
+
+ROMSX is designed to run on machines from laptops to multicore CPU and hybrid CPU/GPU systems.
+
+This documentation is currently under development, there are detailed resources available on `the ROMS Documentation Portal <https://www.myroms.org/wiki/Documentation_Portal>`_ for the Regional Ocean Modeling System.
+
+..
+  For details on the equations that ROMSX solves, see the :ref:`theory section <theory>`.
+
+.. raw:: html
+
+   <style>
+   /* front page: hide chapter titles
+    * needed for consistent HTML-PDF-EPUB chapters
+    */
+   div#userguide.section,
+   div#theory.section,
+   div#implementation.section,
+   div#goals.section,
+   </style>
+
+.. toctree::
+   :hidden:
+
+   coc
+
+.. toctree::
+   :caption: USER GUIDE
+   :maxdepth: 1
+   :hidden:
+
+   GettingStarted.rst
+   Inputs.rst
+
+..
+  toctree::
+   :caption: THEORY
+   :maxdepth: 1
+   :hidden:
+   theory/NavierStokesEquations.rst
+   theory/DNSvsLES.rst
+   theory/PBLschemes.rst
+   theory/Forcings.rst
+   theory/UnitsAndConstants.rst
+
+.. toctree::
+   :caption: IMPLEMENTATION
+   :maxdepth: 1
+   :hidden:
+
+   ArakawaCGrid.rst
+   TimeAdvance.rst
+   Discretizations.rst
+   MeshRefinement.rst
+   BoundaryConditions.rst
+   Derived.rst
+   Checkpoint.rst
+   Plotfiles.rst
+   Visualization.rst
+
+..
+  toctree::
+   :caption: COUPLING TO AMR-WIND
+   :maxdepth: 1
+   :hidden:
+
+   CouplingToAMRWind.rst
+
+..
+  toctree::
+   :caption: ERF vs WRF
+   :maxdepth: 1
+   :hidden:
+
+   ERFvsWRF.rst
+
+..
+  toctree::
+   :caption: TESTING
+   :maxdepth: 1
+   :hidden:
+
+   RegressionTests.rst
+
+..
+  toctree::
+   :caption: GOALS
+   :maxdepth: 1
+   :hidden:
+
+   Applications_Requirements.rst

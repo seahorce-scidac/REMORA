@@ -1,0 +1,53 @@
+# latex intermediates
+*.aux
+*.log
+*.dvi
+*.toc
+*.bbl
+*.blg
+*.lof
+*.lot
+*.idx
+*.ilg
+*.ind
+*.backup
+Docs/*.out
+Docs/*.ps
+Docs/*.pdf
+Docs/*/*.pdf
+UsersGuide/*.out
+UsersGuide/*.pdf
+
+# emacs temporaries
+*~
+\#*
+\.#*
+
+# executables
+*.ex
+*.exe
+
+# plt and chk files
+plt*
+chk*
+diffs*
+*plt?????
+*chk?????
+*bl_prof
+*plt?????.old*
+*chk?????.old*
+*diffs.old*
+*bl_prof.old*
+
+# build directories
+o/
+d/
+f/
+t/
+tmp_build_dir/
+AMReX_buildInfo.cpp
+
+Backtrace.*
+
+Build/*
+!Build/cmake*sh
