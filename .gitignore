@@ -51,3 +51,4 @@ Backtrace.*
 
 Build/*
 !Build/cmake*sh
+!Build/in2inputs.sh

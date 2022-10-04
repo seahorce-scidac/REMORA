@@ -20,43 +20,43 @@ zlo.type = "SlipWall"
 zhi.type = "SlipWall"
 
 # TIME STEP CONTROL
-romsx.fixed_dt       = 1.0      # fixed time step [s] -- Straka et al 1993
-romsx.fixed_fast_dt  = 0.25     # fixed time step [s] -- Straka et al 1993
+erf.fixed_dt       = 1.0      # fixed time step [s] -- Straka et al 1993
+erf.fixed_fast_dt  = 0.25     # fixed time step [s] -- Straka et al 1993
 
 # DIAGNOSTICS & VERBOSITY
-romsx.sum_interval   = 1       # timesteps between computing mass
-romsx.v              = 1       # verbosity in ROMSX.cpp
+erf.sum_interval   = 1       # timesteps between computing mass
+erf.v              = 1       # verbosity in ERF.cpp
 amr.v                = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
 amr.max_level       = 0       # maximum level number allowed
 
 # CHECKPOINT FILES
-romsx.check_file      = chk        # root name of checkpoint file
-romsx.check_int       = 1000       # number of timesteps between checkpoints
+erf.check_file      = chk        # root name of checkpoint file
+erf.check_int       = 1000       # number of timesteps between checkpoints
 
 # PLOTFILES
-romsx.plot_file_1     = plt        # prefix of plotfile name
-romsx.plot_int_1      = 3840       # number of timesteps between plotfiles
-romsx.plot_vars_1     = density x_velocity y_velocity z_velocity pressure theta pres_hse dens_hse
+erf.plot_file_1     = plt        # prefix of plotfile name
+erf.plot_int_1      = 3840       # number of timesteps between plotfiles
+erf.plot_vars_1     = density x_velocity y_velocity z_velocity pressure theta pres_hse dens_hse
 
 # SOLVER CHOICE
-romsx.alpha_T = 0.0
-romsx.alpha_C = 0.0
-romsx.use_gravity = true
-romsx.use_coriolis = false
-romsx.use_rayleigh_damping = false
-romsx.spatial_order = 2
+erf.alpha_T = 0.0
+erf.alpha_C = 0.0
+erf.use_gravity = true
+erf.use_coriolis = false
+erf.use_rayleigh_damping = false
+erf.spatial_order = 2
 
-romsx.les_type         = "None"
-romsx.molec_diff_type  = "ConstantAlpha"
+erf.les_type         = "None"
+erf.molec_diff_type  = "ConstantAlpha"
 # diffusion = 75 m^2/s, rho_0 = 1e5/(287*300) = 1.1614401858
-romsx.dynamicViscosity = 87.108013935 # kg/(m-s)
+erf.dynamicViscosity = 87.108013935 # kg/(m-s)
 
 # PROBLEM PARAMETERS (optional)
 prob.T_0 = 300.0
 prob.U_0 = 0.0
 
 # SETTING THE TIME STEP
-romsx.change_max     = 1.05    # multiplier by which dt can change in one time step
-romsx.init_shrink    = 1.0     # scale back initial timestep
+erf.change_max     = 1.05    # multiplier by which dt can change in one time step
+erf.init_shrink    = 1.0     # scale back initial timestep
