@@ -187,7 +187,9 @@ public:
                             amrex::Vector<amrex::FArrayBox>& NC_MSFM_fab,
                             amrex::Vector<amrex::FArrayBox>& NC_SST_fab,
                             amrex::Vector<amrex::FArrayBox>& NC_C1H_fab,  amrex::Vector<amrex::FArrayBox>& NC_C2H_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_PH_fab, amrex::Vector<amrex::FArrayBox>& NC_PHB_fab);
+                            amrex::Vector<amrex::FArrayBox>& NC_RDNW_fab,
+                            amrex::Vector<amrex::FArrayBox>& NC_PH_fab, amrex::Vector<amrex::FArrayBox>& NC_PHB_fab,
+                            amrex::Vector<amrex::FArrayBox>& NC_ALB_fab, amrex::Vector<amrex::FArrayBox>& NC_PB_fab);
 
     // Copy from the NC*fabs into the MultiFabs holding the initial data
     void init_state_from_wrfinput(int lev,
@@ -208,6 +210,16 @@ public:
     void init_terrain_from_wrfinput(int lev,  amrex::FArrayBox& z_phys,
                                     const amrex::Vector<amrex::FArrayBox>& NC_PH_fab,
                                     const amrex::Vector<amrex::FArrayBox>& NC_PHB_fab);
+
+    // Copy from NC_PB fabs into the MultiFab holding the base state
+    void init_base_state_from_wrfinput(int lev, const amrex::Box& bx,
+                                       amrex::FArrayBox& p_hse_fab,
+                                       amrex::FArrayBox& pi_hse_fab,
+                                       amrex::FArrayBox& r_hse_fab,
+                                       const amrex::FArrayBox& z_phys_nd_fab,
+                                       const amrex::FArrayBox& z_phys_cc_fab,
+                                       const amrex::Vector<amrex::FArrayBox>& NC_ALB_fab,
+                                       const amrex::Vector<amrex::FArrayBox>& NC_PB_fab);
 #endif //ROMSX_USE_NETCDF
 
     std::string pp_prefix {"romsx"};
@@ -248,7 +260,7 @@ private:
                     amrex::Real time_mt, amrex::Real delta_t,
                     amrex::Vector<amrex::MultiFab>& mf);
 
-    // compute new multifabs by coping in data from valid region and filling ghost cells
+    // compute new multifabs by copying in data from valid region and filling ghost cells
     // works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
     // unlike FillPatch, FillIntermediatePatch will use the supplied multifabs instead of fine level data.
     // This is to support filling boundary cells at an intermediate time between old/new times
@@ -509,6 +521,29 @@ private:
 
     // NetCDF initialization (wrfinput) file
     static amrex::Vector<amrex::Vector<std::string>> nc_init_file;
+
+    // NetCDF initialization (wrfbdy) file
+    static std::string nc_bdy_file;
+
+    // Text input_sounding file
+    static std::string input_sounding_file;
+
+    // 1D CDF output (for ingestion in AMR-Wind)
+    static int         output_1d_column;
+    static int         column_interval;
+    static amrex::Real column_per;
+    static amrex::Real column_loc_x;
+    static amrex::Real column_loc_y;
+    static std::string column_file_name;
+
+    // 2D BndryRegister output (for ingestion in AMR-Wind)
+    static int         output_bndry_planes;
+    static int         bndry_output_planes_interval;
+    static amrex::Real bndry_output_planes_per;
+    static amrex::Real bndry_output_planes_start_time;
+
+    // 2D BndryRegister input
+    static int          input_bndry_planes;
 
     static int ng_dens_hse;
     static int ng_pres_hse;

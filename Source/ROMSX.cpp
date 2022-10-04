@@ -49,6 +49,7 @@ std::string ROMSX::init_type        = "custom";
 
 // NetCDF wrfinput (initialization) file(s)
 amrex::Vector<amrex::Vector<std::string>> ROMSX::nc_init_file = {{""}}; // Must provide via input
+std::string ROMSX::nc_bdy_file;
 
 amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 

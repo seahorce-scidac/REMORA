@@ -327,7 +327,7 @@ ROMSX::FillCoarsePatch (int lev, Real time, Real time_mt, Real delta_t,
                            m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1] 
 #ifdef ROMSX_USE_NETCDF
                           ,init_type,bdy_data_xlo,bdy_data_xhi,
-                           bdy_data_ylo,bdy_data_yhi,bdy_time_intervalk
+                           bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                            );
     ROMSXPhysBCFunct fphysbc(lev,time_mt,delta_t,geom[lev],

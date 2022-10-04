@@ -56,14 +56,14 @@ public:
           m_var_idx(var_idx), m_terrain_type(terrain_type), m_data(data),
           m_bc_extdir_vals(bc_extdir_vals),
           m_z_phys_nd(z_phys_nd),
-          m_detJ_cc(detJ_cc) 
+          m_detJ_cc(detJ_cc)
 #ifdef ROMSX_USE_NETCDF
          ,m_init_type(init_type),
           m_bdy_data_xlo(bdy_data_xlo),
           m_bdy_data_xhi(bdy_data_xhi),
           m_bdy_data_ylo(bdy_data_ylo),
           m_bdy_data_yhi(bdy_data_yhi),
-          m_bdy_time_interval(bdy_time_interval  
+          m_bdy_time_interval(bdy_time_interval)
 #endif
           {}
 
