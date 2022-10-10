@@ -255,7 +255,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 	       countp[3-i]=box.length(i);
 	   }
 
-           startp[0]=istep[0];
+           startp[0]=total_plot_file_step_1+1;
            countp[0]=1;
            stride[0]=1;
           for (int k(0); k < ncomp; ++k) {

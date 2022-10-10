@@ -449,6 +449,8 @@ private:
     int last_plot_file_step_1;
     int last_plot_file_step_2;
 
+    int total_plot_file_step_1 = -1;
+
     int last_check_file_step;
     int plot_file_on_restart = 1;
 

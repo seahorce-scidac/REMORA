@@ -85,6 +85,7 @@ ROMSX::PlotFileVarNames ( Vector<std::string> plot_var_names ) const
 void
 ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
 {
+
     const Vector<std::string> varnames = PlotFileVarNames(plot_var_names);
     const int ncomp_mf = varnames.size();
 
@@ -562,6 +563,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
              int lev   = 0;
              int which = 0;
              writeNCPlotFile(lev, which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
+             total_plot_file_step_1 += 1;
 #endif
         } else {
             amrex::Print() << "User specified plot_filetype = " << plotfile_type << std::endl;
@@ -624,6 +626,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
              for (int lev = 0; lev <= finest_level; ++lev) {
                  for (int which = 0; which < num_boxes_at_level[lev]; which++) {
                      writeNCPlotFile(lev, which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
+                     total_plot_file_step_1 += 1;
                  }
              }
 #endif
