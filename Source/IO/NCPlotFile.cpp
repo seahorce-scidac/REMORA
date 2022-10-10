@@ -90,8 +90,6 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_dim(nx_name,   n_cells[0]);
      ncf.def_dim(ny_name,   n_cells[1]);
      ncf.def_dim(nz_name,   n_cells[2]);
-     amrex::Print()<<n_cells[0]<<"\t"<<n_cells[1]<<"\t"<<n_cells[2]<<std::endl;
-     amrex::Print()<<num_pts<<"\t"<<nblocks<<std::endl;
      
      ncf.def_var("probLo"  ,   NC_FLOAT,  {ndim_name});
      ncf.def_var("probHi"  ,   NC_FLOAT,  {ndim_name});
@@ -107,7 +105,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_var("z_grid", NC_FLOAT, {nb_name, nz_name});
 
      for (int i = 0; i < plot_var_names.size(); i++) {
-       ncf.def_var(plot_var_names[i], NC_FLOAT, {nx_name, ny_name, nz_name});
+       ncf.def_var(plot_var_names[i], NC_FLOAT, {nz_name, ny_name, nx_name});
      }
 
      ncf.exit_def_mode();
@@ -239,31 +237,23 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 	   std::vector<size_t> countp(4);
    	   std::vector<ptrdiff_t> stride(4);
 
-           stride[0]=1;//array_version.istride;
-           stride[1]=array_version.jstride;
-           stride[2]=array_version.kstride;
+           stride[0]=(ptrdiff_t) (&(array_version(1,0,0,0))-&(array_version(0,0,0.0)));
+           stride[1]=(ptrdiff_t) (&(array_version(0,1,0,0))-&(array_version(0,0,0.0)))/stride[0];
+           stride[2]=(ptrdiff_t) (&(array_version(0,0,1,0))-&(array_version(0,0,0.0)))/stride[1];
            for (int i=0;i<3;i++) {
-	       startp[i]=box.smallEnd(i);
-	       countp[i]=box.length(i);
-	       amrex::Print()<<startp[i]<<"\t"<<countp[i]<<"\t"<<stride[i]<<std::endl;
-
+	       startp[2-i]=box.smallEnd(i);
+	       countp[2-i]=box.length(i);
 	   }
 
-	   startp[3]=0;
+	   startp[3]=istep[0];
            countp[3]=1;
            stride[3]=1;
-           for (int k(0); k < ncomp; ++k) {
-	     amrex::Print()<<box<<"\n"<<plot_var_names[k]<<std::endl;
-     	     amrex::Print()<<box.smallEnd()<<"\n"<<plot_var_names[k]<<std::endl;
-	     amrex::Print()<<array_version(startp[0]+countp[0],startp[1]+countp[1],startp[2]+countp[2],k)<<std::endl;
-     	     amrex::Print()<<(array_version.dataPtr())[(0-startp[0])*stride[0]+(0-startp[1])*stride[1]+(0-startp[2])*stride[2]]<<std::endl;
-
-	   }
           for (int k(0); k < ncomp; ++k) {
               auto data = plotMF[lev]->get(fai).dataPtr(k);
               auto nc_plot_var = ncf.var(plot_var_names[k]);
               nc_plot_var.par_access(NC_INDEPENDENT);
-              nc_plot_var.put(data, startp, countp, stride);
+              nc_plot_var.put(data, startp, countp);
+	      //              nc_plot_var.put(data, startp, countp, stride);
           }
           nfai++;
        }
