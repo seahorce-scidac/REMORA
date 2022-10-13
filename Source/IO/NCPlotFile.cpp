@@ -43,21 +43,28 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
          const std::string& extension = amrex::Concatenate("_d",lev+1+which_subdomain,2);
          FullPath += extension + ".nc";
      }
-
+#ifdef ROMSX_USE_HISTORYFILE
      bool not_empty_file = true;
      if (true) {
          FullPath = plot_file_1 + "_his.nc";
 	 not_empty_file = amrex::FileSystem::Exists(FullPath);
      }
+#endif
 
      amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << "\nFor step "<<istep[0]<<std::endl;
 
+#ifdef ROMSX_USE_HISTORYFILE
      // open netcdf file to write data
      auto ncf = not_empty_file ?
        ncutils::NCFile::open_par(FullPath, NC_WRITE | NC_NETCDF4 | NC_MPIIO,
                                  amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
        ncutils::NCFile::create_par(FullPath, NC_NETCDF4 | NC_MPIIO,
                                    amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+#else
+     // open netcdf file to write data
+     auto ncf = ncutils::NCFile::create_par(FullPath, NC_NETCDF4 | NC_MPIIO,
+                                   amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+#endif
 
      int nblocks = grids[lev].size();
 
@@ -87,7 +94,9 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      const std::string ny_name   = "NY";
      const std::string nz_name   = "NZ";
      const std::string flev_name = "FINEST_LEVEL";
+#ifdef ROMSX_USE_HISTORYFILE
      if(!not_empty_file) {
+#endif
      ncf.enter_def_mode();
      ncf.put_attr("title", "ROMSX NetCDF Plot data output");
      ncf.def_dim(nt_name,   NC_UNLIMITED);
@@ -112,13 +121,20 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_var("x_grid", NC_FLOAT, {nb_name, nx_name});
      ncf.def_var("y_grid", NC_FLOAT, {nb_name, ny_name});
      ncf.def_var("z_grid", NC_FLOAT, {nb_name, nz_name});
-
+#ifdef ROMSX_USE_HISTORYFILE
      for (int i = 0; i < plot_var_names.size(); i++) {
        ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, nz_name, ny_name, nx_name});
      }
+#else
+     for (int i = 0; i < plot_var_names.size(); i++) {
+       ncf.def_var(plot_var_names[i], NC_FLOAT, {nz_name, ny_name, nx_name});
+     }
+#endif
 
      ncf.exit_def_mode();
+#ifdef ROMSX_USE_HISTORYFILE
      }
+#endif
      {
       // We are doing single-level writes but it doesn't have to be level 0
       //
@@ -242,22 +258,29 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
        if (subdomain.contains(box)) {
            long unsigned numpts = box.numPts();
            auto array_version = plotMF[lev]->array(fai);
-	   std::vector<size_t> startp(4);
-	   std::vector<size_t> countp(4);
-   	   std::vector<ptrdiff_t> stride(4);
 
-           stride[2]=(ptrdiff_t) (&(array_version(1,0,0,0))-&(array_version(0,0,0.0)));
-           stride[1]=(ptrdiff_t) (&(array_version(0,1,0,0))-&(array_version(0,0,0.0)))/stride[2];
-           stride[0]=(ptrdiff_t) (&(array_version(0,0,1,0))-&(array_version(0,0,0.0)))/stride[1];
+	   #ifdef ROMSX_USE_HISTORYFILE
+	   int num_var_dims=AMREX_SPACEDIM+1;
+	   #else
+	   int num_var_dims=AMREX_SPACEDIM;
+	   #endif
+	   std::vector<size_t> startp(num_var_dims);
+	   std::vector<size_t> countp(num_var_dims);
+   	   std::vector<ptrdiff_t> stride(num_var_dims);
+
+           stride[num_var_dims-1]=(ptrdiff_t) (&(array_version(1,0,0,0))-&(array_version(0,0,0.0)));
+           stride[num_var_dims-2]=(ptrdiff_t) (&(array_version(0,1,0,0))-&(array_version(0,0,0.0)))/stride[num_var_dims];
+           stride[num_var_dims-3]=(ptrdiff_t) (&(array_version(0,0,1,0))-&(array_version(0,0,0.0)))/stride[num_var_dims-1];
 
            for (int i=0;i<3;i++) {
-	       startp[3-i]=box.smallEnd(i);
-	       countp[3-i]=box.length(i);
+	       startp[num_var_dims-1-i]=box.smallEnd(i);
+	       countp[num_var_dims-1-i]=box.length(i);
 	   }
-
+#ifdef ROMSX_USE_HISTORYFILE
            startp[0]=total_plot_file_step_1+1;
            countp[0]=1;
            stride[0]=1;
+#endif
           for (int k(0); k < ncomp; ++k) {
               auto data = plotMF[lev]->get(fai).dataPtr(k);
               auto nc_plot_var = ncf.var(plot_var_names[k]);
