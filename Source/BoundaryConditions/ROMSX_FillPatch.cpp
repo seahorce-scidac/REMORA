@@ -33,16 +33,16 @@ ROMSX::GetDataAtTime (int lev, Real time)
         // do first order interpolation in time between [t_old[lev], t_new[lev]]
         // time interpolation includes the ghost cells
         for (int i = 0; i < Vars::NumTypes; ++i) {
-            MultiFab* mf_temp = new MultiFab(vars_new[lev][i].boxArray(),
-                                             vars_new[lev][i].DistributionMap(),
-                                             vars_new[lev][i].nComp(), vars_new[lev][i].nGrowVect());
-            mf_temp->setVal(0.0_rt);
+            MultiFab* mf_tmp = new MultiFab(vars_new[lev][i].boxArray(),
+                                            vars_new[lev][i].DistributionMap(),
+                                            vars_new[lev][i].nComp(), vars_new[lev][i].nGrowVect());
+            mf_tmp->setVal(0.0_rt);
 
             const Real dt_fraction = (time - t_old[lev]) / (t_new[lev] - t_old[lev]);
-            MultiFab::Saxpy(*mf_temp, 1.0_rt - dt_fraction, vars_old[lev][i], 0, 0, mf_temp->nComp(), mf_temp->nGrowVect());
-            MultiFab::Saxpy(*mf_temp,          dt_fraction, vars_new[lev][i], 0, 0, mf_temp->nComp(), mf_temp->nGrowVect());
+            MultiFab::Saxpy(*mf_tmp, 1.0_rt - dt_fraction, vars_old[lev][i], 0, 0, mf_tmp->nComp(), mf_tmp->nGrowVect());
+            MultiFab::Saxpy(*mf_tmp,          dt_fraction, vars_new[lev][i], 0, 0, mf_tmp->nComp(), mf_tmp->nGrowVect());
 
-            data.add_var(mf_temp, data.owning);
+            data.add_var(mf_tmp, data.owning);
         }
         data.set_time(time);
     }
@@ -239,7 +239,7 @@ ROMSX::FillIntermediatePatch (int lev, Real time, Real time_mt, Real delta_t,
         }
         else
         {
-            MultiFab mf_temp(mf.boxArray(), mf.DistributionMap(), ncomp, mf.nGrowVect());
+            MultiFab mf_tmp(mf.boxArray(), mf.DistributionMap(), ncomp, mf.nGrowVect());
 
             TimeInterpolatedData cdata = GetDataAtTime(lev-1, time);
             Vector<MultiFab*> cmf = {&cdata.get_var(var_idx)};
@@ -266,16 +266,16 @@ ROMSX::FillIntermediatePatch (int lev, Real time, Real time_mt, Real delta_t,
 #endif
                                    );
 
-            amrex::FillPatchTwoLevels(mf_temp, ngvect, time, cmf, ctime, fmf, ftime,
+            amrex::FillPatchTwoLevels(mf_tmp, ngvect, time, cmf, ctime, fmf, ftime,
                                       0, icomp, ncomp, geom[lev-1], geom[lev],
                                       cphysbc, 0, fphysbc, 0, refRatio(lev-1),
                                       mapper, domain_bcs_type, bccomp);
 
-            // Replace mf with mf_temp
+            // Replace mf with mf_tmp
             if (ncomp == mf.nComp())
-                std::swap(mf_temp, mf);
+                std::swap(mf_tmp, mf);
             else
-                MultiFab::Copy(mf,mf_temp,0,0,1,mf.nGrowVect());
+                MultiFab::Copy(mf,mf_tmp,0,0,1,mf.nGrowVect());
         }
     }
 }

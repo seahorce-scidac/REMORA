@@ -494,7 +494,7 @@ private:
     const amrex::Vector<std::string> cons_names { "density", "rhotheta", "rhoKE", "rhoQKE", "rhoadv_0", "omega", "salt"};
 
     // Note that the order of variable names here must match the order in Derive.cpp
-    const amrex::Vector<std::string> derived_names {"pressure", "soundspeed", "temp", "theta", "KE", "QKE", "scalar", "pres_hse",
+    const amrex::Vector<std::string> derived_names {"pressure", "soundspeed", "KE", "QKE", "scalar", "pres_hse",
                                                     "dens_hse", "pert_pres", "pert_dens", "dpdx", "dpdy",
                                                     "pres_hse_x", "pres_hse_y", "z_phys", "detJ"
                                                    };

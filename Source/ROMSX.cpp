@@ -428,40 +428,40 @@ ROMSX::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 void
 ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMapping& dm)
 {
-    Vector<MultiFab> temp_lev_new(Vars::NumTypes);
-    Vector<MultiFab> temp_lev_old(Vars::NumTypes);
+    Vector<MultiFab> tmp_lev_new(Vars::NumTypes);
+    Vector<MultiFab> tmp_lev_old(Vars::NumTypes);
 
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order);
 
-    temp_lev_new[Vars::cons].define(ba, dm, Cons::NumVars, ngrow_state);
-    temp_lev_old[Vars::cons].define(ba, dm, Cons::NumVars, ngrow_state);
+    tmp_lev_new[Vars::cons].define(ba, dm, Cons::NumVars, ngrow_state);
+    tmp_lev_old[Vars::cons].define(ba, dm, Cons::NumVars, ngrow_state);
 
-    temp_lev_new[Vars::xvel].define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
-    temp_lev_old[Vars::xvel].define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
+    tmp_lev_new[Vars::xvel].define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
+    tmp_lev_old[Vars::xvel].define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
 
-    temp_lev_new[Vars::yvel].define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
-    temp_lev_old[Vars::yvel].define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
+    tmp_lev_new[Vars::yvel].define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
+    tmp_lev_old[Vars::yvel].define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
 
-    temp_lev_new[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
-    temp_lev_old[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
+    tmp_lev_new[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
+    tmp_lev_old[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
     // Moving terrain
     Real time_mt = time - 0.5*dt[lev];
 
     // This will fill the temporary MultiFabs with data from vars_new
-    FillPatch(lev, time, time_mt, dt[lev], temp_lev_new);
-    FillPatch(lev, time, time_mt, dt[lev], temp_lev_old);
+    FillPatch(lev, time, time_mt, dt[lev], tmp_lev_new);
+    FillPatch(lev, time, time_mt, dt[lev], tmp_lev_old);
 
     for (int var_idx = 0; var_idx < Vars::NumTypes; ++var_idx) {
-        std::swap(temp_lev_new[var_idx], vars_new[lev][var_idx]);
-        std::swap(temp_lev_old[var_idx], vars_old[lev][var_idx]);
+        std::swap(tmp_lev_new[var_idx], vars_new[lev][var_idx]);
+        std::swap(tmp_lev_old[var_idx], vars_old[lev][var_idx]);
     }
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200;
 
-    initialize_integrator(lev, temp_lev_new[Vars::cons],temp_lev_new[Vars::xvel]);
+    initialize_integrator(lev, tmp_lev_new[Vars::cons],tmp_lev_new[Vars::xvel]);
 }
 
 // Delete level data

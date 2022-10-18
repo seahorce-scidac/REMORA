@@ -176,8 +176,6 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         // Note: All derived variables must be computed in order of "derived_names" defined in ROMSX.H
         calculate_derived("pressure",    derived::romsx_derpres);
         calculate_derived("soundspeed",  derived::romsx_dersoundspeed);
-        calculate_derived("temp",        derived::romsx_dertemp);
-        calculate_derived("theta",       derived::romsx_dertheta);
         calculate_derived("KE",          derived::romsx_derKE);
         calculate_derived("QKE",         derived::romsx_derQKE);
         calculate_derived("scalar",      derived::romsx_derscalar);
