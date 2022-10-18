@@ -6,9 +6,9 @@
 #include <cmath>
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::Real getTgivenRandRTh(const amrex::Real rho, const amrex::Real rhotheta)
+amrex::Real getTgivenRandTh(const amrex::Real rho, const amrex::Real temp)
 {
-    amrex::Real p_loc = p_0 * std::pow(R_d * rhotheta * ip_0, Gamma);
+    amrex::Real p_loc = p_0 * std::pow(R_d * temp * ip_0, Gamma);
     return p_loc / (R_d * rho);
 }
 
@@ -17,13 +17,6 @@ amrex::Real getThgivenRandT(const amrex::Real rho, const amrex::Real T)
 {
     amrex::Real p_loc = rho * R_d * T;
     return T * std::pow((p_0/p_loc),rdOcp);
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::Real getPgivenRTh(const amrex::Real rhotheta)
-{
-    // diagnostic relation for the full pressure
-    return p_0 * std::pow(R_d * rhotheta * ip_0, Gamma);
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -38,13 +31,6 @@ amrex::Real getdPdRgivenConstantTheta(const amrex::Real rho, const amrex::Real t
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::Real getPprimegivenRTh(const amrex::Real rhotheta, const amrex::Real pres_hse_at_k)
-{
-    // diagnostic relation for the full pressure
-    return p_0 * std::pow(R_d * rhotheta * ip_0, Gamma) - pres_hse_at_k;
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 amrex::Real getExnergivenP(const amrex::Real P)
 {
     // Exner function pi in terms of P
@@ -52,14 +38,7 @@ amrex::Real getExnergivenP(const amrex::Real P)
 }
 
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::Real getExnergivenRTh(const amrex::Real rhotheta)
-{
-    // Exner function pi in terms of (rho theta)
-    return std::pow(R_d * rhotheta * ip_0, Gamma * rdOcp);
-}
-
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::Real getRhoThetagivenP(const amrex::Real p)
+amrex::Real getTempgivenP(const amrex::Real p)
 {
     // diagnostic relation for the full pressure
     return std::pow(p*std::pow(p_0, Gamma-1), iGamma) * iR_d;

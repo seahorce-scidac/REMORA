@@ -8,7 +8,7 @@ void
 ROMSX::read_from_wrfinput(int lev, int idx,
                         Vector<FArrayBox>& NC_xvel_fab, Vector<FArrayBox>& NC_yvel_fab,
                         Vector<FArrayBox>& NC_zvel_fab, Vector<FArrayBox>& NC_rho_fab,
-                        Vector<FArrayBox>& NC_rhop_fab, Vector<FArrayBox>& NC_rhotheta_fab,
+                        Vector<FArrayBox>& NC_rhop_fab, Vector<FArrayBox>& NC_temp_fab,
                         Vector<FArrayBox>& NC_MUB_fab ,
                         Vector<FArrayBox>& NC_MSFU_fab, Vector<FArrayBox>& NC_MSFV_fab,
                         Vector<FArrayBox>& NC_MSFM_fab,
@@ -46,7 +46,7 @@ ROMSX::read_from_wrfinput(int lev, int idx,
     NC_zvel_fab[idx].resize(wbx,1);
     NC_rho_fab[idx].resize(input_box,1);
     NC_rhop_fab[idx].resize(input_box, 1);
-    NC_rhotheta_fab[idx].resize(input_box,1);
+    NC_temp_fab[idx].resize(input_box,1);
 
     // Height on w-faces
     NC_PH_fab[idx].resize(wbx,1);
@@ -76,7 +76,7 @@ ROMSX::read_from_wrfinput(int lev, int idx,
         FArrayBox host_NC_zvel_fab    (NC_zvel_fab[idx].box(),     NC_zvel_fab[idx].nComp(),amrex::The_Pinned_Arena());
         FArrayBox host_NC_rho_fab     (NC_rho_fab[idx].box(),      NC_rho_fab[idx].nComp(),amrex::The_Pinned_Arena());
         FArrayBox host_NC_rhop_fab(NC_rhop_fab[idx].box(), NC_rhop_fab[idx].nComp(),amrex::The_Pinned_Arena());
-        FArrayBox host_NC_rhotheta_fab(NC_rhotheta_fab[idx].box(), NC_rhotheta_fab[idx].nComp(),amrex::The_Pinned_Arena());
+        FArrayBox host_NC_temp_fab(NC_temp_fab[idx].box(), NC_temp_fab[idx].nComp(),amrex::The_Pinned_Arena());
         FArrayBox host_NC_PH_fab (NC_PH_fab[idx].box(),  NC_PH_fab[idx].nComp(),amrex::The_Pinned_Arena());
         FArrayBox host_NC_PHB_fab(NC_PHB_fab[idx].box(), NC_PHB_fab[idx].nComp(),amrex::The_Pinned_Arena());
 
@@ -97,7 +97,7 @@ ROMSX::read_from_wrfinput(int lev, int idx,
         FArrayBox host_NC_zvel_fab    (NC_zvel_fab[idx]    , amrex::make_alias, 0, NC_zvel_fab[idx].nComp());
         FArrayBox host_NC_rho_fab     (NC_rho_fab[idx]     , amrex::make_alias, 0, NC_rho_fab[idx].nComp());
         FArrayBox host_NC_rhop_fab(NC_rhop_fab[idx], amrex::make_alias, 0, NC_rhop_fab[idx].nComp());
-        FArrayBox host_NC_rhotheta_fab(NC_rhotheta_fab[idx], amrex::make_alias, 0, NC_rhotheta_fab[idx].nComp());
+        FArrayBox host_NC_temp_fab(NC_temp_fab[idx], amrex::make_alias, 0, NC_temp_fab[idx].nComp());
         FArrayBox host_NC_PH_fab      (NC_PH_fab[idx]      , amrex::make_alias, 0, NC_PH_fab[idx].nComp());
         FArrayBox host_NC_PHB_fab     (NC_PHB_fab[idx]     , amrex::make_alias, 0, NC_PHB_fab[idx].nComp());
         FArrayBox host_NC_PB_fab      (NC_PB_fab[idx]      , amrex::make_alias, 0, NC_PB_fab[idx].nComp());
@@ -123,7 +123,7 @@ ROMSX::read_from_wrfinput(int lev, int idx,
             NC_fabs.push_back(&host_NC_zvel_fab);      NC_names.push_back("W");    NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
             NC_fabs.push_back(&host_NC_rho_fab);       NC_names.push_back("ALB");  NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
             NC_fabs.push_back(&host_NC_rhop_fab),      NC_names.push_back("AL");   NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
-            NC_fabs.push_back(&host_NC_rhotheta_fab);  NC_names.push_back("T");    NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
+            NC_fabs.push_back(&host_NC_temp_fab);  NC_names.push_back("T");    NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
             NC_fabs.push_back(&host_NC_PH_fab);        NC_names.push_back("PH");   NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
             NC_fabs.push_back(&host_NC_PHB_fab);       NC_names.push_back("PHB");  NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
             NC_fabs.push_back(&host_NC_PB_fab);        NC_names.push_back("PB");   NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
@@ -156,7 +156,7 @@ ROMSX::read_from_wrfinput(int lev, int idx,
         ParallelDescriptor::Bcast(host_NC_zvel_fab.dataPtr(),NC_zvel_fab[idx].box().numPts(),ioproc);
         ParallelDescriptor::Bcast(host_NC_rho_fab.dataPtr(),NC_rho_fab[idx].box().numPts(),ioproc);
         ParallelDescriptor::Bcast(host_NC_rhop_fab.dataPtr(), NC_rhop_fab[idx].box().numPts(), ioproc);
-        ParallelDescriptor::Bcast(host_NC_rhotheta_fab.dataPtr(),NC_rhotheta_fab[idx].box().numPts(),ioproc);
+        ParallelDescriptor::Bcast(host_NC_temp_fab.dataPtr(),NC_temp_fab[idx].box().numPts(),ioproc);
         ParallelDescriptor::Bcast(host_NC_PHB_fab.dataPtr() ,NC_PHB_fab[idx].box().numPts(),ioproc);
         ParallelDescriptor::Bcast(host_NC_PH_fab.dataPtr()  ,NC_PH_fab[idx].box().numPts() ,ioproc);
         ParallelDescriptor::Bcast(host_NC_PB_fab.dataPtr()  ,NC_PB_fab[idx].box().numPts(),ioproc);
@@ -181,8 +181,8 @@ ROMSX::read_from_wrfinput(int lev, int idx,
                                            NC_rho_fab[idx].dataPtr());
          Gpu::copy(Gpu::hostToDevice, host_NC_rhop_fab.dataPtr(), host_NC_rhop_fab.dataPtr()+host_NC_rhop_fab.size(),
                                            NC_rhop_fab[idx].dataPtr());
-         Gpu::copy(Gpu::hostToDevice, host_NC_rhotheta_fab.dataPtr(), host_NC_rhotheta_fab.dataPtr()+host_NC_rhotheta_fab.size(),
-                                           NC_rhotheta_fab[idx].dataPtr());
+         Gpu::copy(Gpu::hostToDevice, host_NC_temp_fab.dataPtr(), host_NC_temp_fab.dataPtr()+host_NC_temp_fab.size(),
+                                           NC_temp_fab[idx].dataPtr());
          Gpu::copy(Gpu::hostToDevice, host_NC_PH_fab.dataPtr(), host_NC_PH_fab.dataPtr()+host_NC_PH_fab.size(),
                                            NC_PH_fab[idx].dataPtr());
          Gpu::copy(Gpu::hostToDevice, host_NC_PHB_fab.dataPtr(), host_NC_PHB_fab.dataPtr()+host_NC_PHB_fab.size(),
@@ -243,9 +243,9 @@ ROMSX::read_from_wrfinput(int lev, int idx,
         NC_rho_fab[idx].template invert<RunOn::Device>(1.0);
 
         const Real theta_ref = 300.0;
-        NC_rhotheta_fab[idx].template plus<RunOn::Device>(theta_ref);
+        NC_temp_fab[idx].template plus<RunOn::Device>(theta_ref);
 
         // Now multiply by rho to get (rho theta) instead of theta
-        NC_rhotheta_fab[idx].template mult<RunOn::Device>(NC_rho_fab[idx],0,0,1);
+        NC_temp_fab[idx].template mult<RunOn::Device>(NC_rho_fab[idx],0,0,1);
 }
 #endif // ROMSX_USE_NETCDF

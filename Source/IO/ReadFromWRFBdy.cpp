@@ -542,7 +542,7 @@ convert_wrfbdy_data(int which, const Box& domain, Vector<Vector<FArrayBox>>& bdy
                     const FArrayBox& NC_C1H_fab, const FArrayBox& NC_C2H_fab,
                     const FArrayBox& NC_RDNW_fab,
                     const FArrayBox& NC_xvel_fab, const FArrayBox& NC_yvel_fab,
-                    const FArrayBox& NC_rho_fab, const FArrayBox& NC_rhotheta_fab)
+                    const FArrayBox& NC_rho_fab, const FArrayBox& NC_temp_fab)
 {
     // These were filled from wrfinput
     Array4<Real const> c1h_arr  = NC_C1H_fab.const_array();
@@ -558,7 +558,7 @@ convert_wrfbdy_data(int which, const Box& domain, Vector<Vector<FArrayBox>>& bdy
     Array4<Real const> u_arr   = NC_xvel_fab.const_array();
     Array4<Real const> v_arr   = NC_yvel_fab.const_array();
     Array4<Real const> r_arr   = NC_rho_fab.const_array();
-    Array4<Real const> rth_arr = NC_rhotheta_fab.const_array();
+    Array4<Real const> rth_arr = NC_temp_fab.const_array();
 
     int ntimes = bdy_data.size();
     for (int nt = 0; nt < ntimes; nt++)
@@ -693,7 +693,7 @@ convert_wrfbdy_data(int which, const Box& domain, Vector<Vector<FArrayBox>>& bdy
                 amrex::Print() << "Max norm of diff between initial r and bdy r on hi y face: " << diff.norm(0) << std::endl;
 
             diff.template copy<RunOn::Device>(bdy_data[0][WRFBdyVars::T]);
-            diff.template minus<RunOn::Device>(NC_rhotheta_fab);
+            diff.template minus<RunOn::Device>(NC_temp_fab);
             if (which == 0)
                 amrex::Print() << "Max norm of diff between initial rTh and bdy rTh on lo x face: " << diff.norm(0) << std::endl;
             if (which == 1)

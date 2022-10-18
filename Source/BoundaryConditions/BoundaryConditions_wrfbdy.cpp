@@ -42,7 +42,7 @@ void ROMSXPhysBCFunct::fill_from_wrfbdy (int lev, const Box& bx, const Array4<Re
        ivar = WRFBdyVars::V; // V
     } else  if (bccomp_in == BCVars::Rho_bc_comp) {
        ivar = WRFBdyVars::R; // R
-    } else  if (bccomp_in == BCVars::RhoTheta_bc_comp) {
+    } else  if (bccomp_in == BCVars::Temp_bc_comp) {
        ivar = WRFBdyVars::T; // T
     } else {
        amrex::Print() << "In fill_from_wrfbdy: icomp = " << icomp << " , bccomp = " << bccomp_in << " , ncomp = " << ncomp << std::endl;

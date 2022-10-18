@@ -12,7 +12,7 @@ void ROMSX::init_bcs ()
     {
         // These are simply defaults for Dirichlet faces -- they should be over-written below
         m_bc_extdir_vals[BCVars::Rho_bc_comp][ori]       =  1.0;
-        m_bc_extdir_vals[BCVars::RhoTheta_bc_comp][ori] = -1.0; // It is important to set this negative
+        m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] = -1.0; // It is important to set this negative
                                                // because the sign is tested on below
         m_bc_extdir_vals[BCVars::RhoKE_bc_comp][ori]     = 0.0;
         m_bc_extdir_vals[BCVars::RhoQKE_bc_comp][ori]     = 0.0;
@@ -62,7 +62,7 @@ void ROMSX::init_bcs ()
 
             Real theta_in;
             pp.get("theta", theta_in);
-            m_bc_extdir_vals[BCVars::RhoTheta_bc_comp][ori] = rho_in*theta_in;
+            m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] = rho_in*theta_in;
 
             Real scalar_in = 0.;
             if (pp.query("scalar", scalar_in))
@@ -99,7 +99,7 @@ void ROMSX::init_bcs ()
             Real theta_in;
             if (pp.query("theta", theta_in))
             {
-               m_bc_extdir_vals[BCVars::RhoTheta_bc_comp][ori] = theta_in*m_bc_extdir_vals[BCVars::Rho_bc_comp][ori];
+               m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] = theta_in*m_bc_extdir_vals[BCVars::Rho_bc_comp][ori];
             }
         }
         else if (bc_type == "slipwall")
@@ -112,7 +112,7 @@ void ROMSX::init_bcs ()
             Real theta_in;
             if (pp.query("theta", theta_in))
             {
-               m_bc_extdir_vals[BCVars::RhoTheta_bc_comp][ori] = theta_in*m_bc_extdir_vals[BCVars::Rho_bc_comp][ori];
+               m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] = theta_in*m_bc_extdir_vals[BCVars::Rho_bc_comp][ori];
             }
 
         }
@@ -269,13 +269,13 @@ void ROMSX::init_bcs ()
                 if (side == Orientation::low) {
                     for (int i = 0; i < NVAR; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, ROMSXBCType::foextrap);
-                    if (m_bc_extdir_vals[BCVars::RhoTheta_bc_comp][ori] > 0.)
-                        domain_bcs_type[BCVars::RhoTheta_bc_comp].setLo(dir, ROMSXBCType::ext_dir);
+                    if (m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] > 0.)
+                        domain_bcs_type[BCVars::Temp_bc_comp].setLo(dir, ROMSXBCType::ext_dir);
                 } else {
                     for (int i = 0; i < NVAR; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, ROMSXBCType::foextrap);
-                    if (m_bc_extdir_vals[BCVars::RhoTheta_bc_comp][ori] > 0.)
-                        domain_bcs_type[BCVars::RhoTheta_bc_comp].setHi(dir, ROMSXBCType::ext_dir);
+                    if (m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] > 0.)
+                        domain_bcs_type[BCVars::Temp_bc_comp].setHi(dir, ROMSXBCType::ext_dir);
                 }
             }
             else if (bct == ROMSX_BC::slip_wall)
@@ -283,13 +283,13 @@ void ROMSX::init_bcs ()
                 if (side == Orientation::low) {
                     for (int i = 0; i < NVAR; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, ROMSXBCType::foextrap);
-                    if (m_bc_extdir_vals[BCVars::RhoTheta_bc_comp][ori] > 0.)
-                        domain_bcs_type[BCVars::RhoTheta_bc_comp].setLo(dir, ROMSXBCType::ext_dir);
+                    if (m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] > 0.)
+                        domain_bcs_type[BCVars::Temp_bc_comp].setLo(dir, ROMSXBCType::ext_dir);
                 } else {
                     for (int i = 0; i < NVAR; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, ROMSXBCType::foextrap);
-                    if (m_bc_extdir_vals[BCVars::RhoTheta_bc_comp][ori] > 0.)
-                        domain_bcs_type[BCVars::RhoTheta_bc_comp].setHi(dir, ROMSXBCType::ext_dir);
+                    if (m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] > 0.)
+                        domain_bcs_type[BCVars::Temp_bc_comp].setHi(dir, ROMSXBCType::ext_dir);
                 }
             }
             else if (bct == ROMSX_BC::inflow)

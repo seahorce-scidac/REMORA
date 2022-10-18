@@ -140,7 +140,7 @@ ROMSX::writeToNCColumnFile(const int lev,
         const int jalpha = j - jloc;
         ucol[idx_vec] += velx(i+iloc_shift,j,k) * alpha_u(ialpha, jalpha);
         vcol[idx_vec] += vely(i,j+jloc_shift,k) * alpha_v(ialpha, jalpha);
-        thetacol[idx_vec] += state(i,j,k,RhoTheta_comp) / state(i,j,k,Rho_comp)
+        thetacol[idx_vec] += state(i,j,k,Temp_comp) / state(i,j,k,Rho_comp)
           * alpha_theta(ialpha, jalpha);
       });
     }

@@ -37,51 +37,6 @@ romsx_dernull(
 }
 
 void
-romsx_derpres(
-  const amrex::Box& bx,
-  amrex::FArrayBox& dromsxab,
-  int /*dcomp*/,
-  int /*ncomp*/,
-  const amrex::FArrayBox& datfab,
-  const amrex::Geometry& /*geomdata*/,
-  amrex::Real /*time*/,
-  const int* /*bcrec*/,
-  const int /*level*/)
-{
-  auto const dat = datfab.array();
-  auto pfab      = dromsxab.array();
-
-  amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-    const amrex::Real rhotheta = dat(i, j, k, RhoTheta_comp);
-    AMREX_ALWAYS_ASSERT(rhotheta > 0.);
-    pfab(i,j,k) = getPgivenRTh(rhotheta);
-  });
-}
-
-void
-romsx_dersoundspeed(
-  const amrex::Box& bx,
-  amrex::FArrayBox& dromsxab,
-  int /*dcomp*/,
-  int /*ncomp*/,
-  const amrex::FArrayBox& datfab,
-  const amrex::Geometry& /*geomdata*/,
-  amrex::Real /*time*/,
-  const int* /*bcrec*/,
-  const int /*level*/)
-{
-  auto const dat = datfab.array();
-  auto cfab      = dromsxab.array();
-
-  amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-    const amrex::Real rhotheta = dat(i, j, k, RhoTheta_comp);
-    const amrex::Real rho      = dat(i, j, k, Rho_comp);
-    AMREX_ALWAYS_ASSERT(rhotheta > 0.);
-    cfab(i,j,k) = std::sqrt(Gamma * getPgivenRTh(rhotheta) / rho);
-  });
-}
-
-void
 romsx_derscalar(
   const amrex::Box& bx,
   amrex::FArrayBox& dromsxab,

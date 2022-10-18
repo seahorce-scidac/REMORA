@@ -62,10 +62,10 @@ init_custom_prob(
         const Real y = prob_lo[1] + (j + 0.5) * dx[1];
         const Real z = prob_lo[2] + (k + 0.5) * dx[2];
 
-        state(i, j, k, RhoTheta_comp) = 1.;
+        state(i, j, k, Temp_comp) = 1.;
         state(i, j, k, Rho_comp) = 1.;
 
-        state(i,j,k,RhoTheta_comp)=parms.T0+8.0*std::exp(z/50.0_rt);
+        state(i,j,k,Temp_comp)=parms.T0+8.0*std::exp(z/50.0_rt);
 #ifdef ROMSX_USE_SALINITY
         state(i,j,k,Salt_comp)=parms.S0;
 #endif

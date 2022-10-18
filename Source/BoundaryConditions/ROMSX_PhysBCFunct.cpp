@@ -159,8 +159,8 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
                     if (m_init_type == "real") {
                         int icomp_for_wrfbdy, ncomp_for_wrfbdy, bccomp_for_wrfbdy;
                         if (m_var_idx == Vars::cons) {
-                            icomp_for_wrfbdy = RhoTheta_comp;
-                            bccomp_for_wrfbdy = BCVars::RhoTheta_bc_comp;
+                            icomp_for_wrfbdy = Temp_comp;
+                            bccomp_for_wrfbdy = BCVars::Temp_bc_comp;
                             ncomp_for_wrfbdy = 1; // (Because we are currently only filling U, V, W, T)
                         } else {
                             icomp_for_wrfbdy = icomp;

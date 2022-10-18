@@ -6,7 +6,7 @@
 
 // Cell-centered state variables
 #define Rho_comp       0
-#define RhoTheta_comp  1
+#define Temp_comp  1
 #define RhoKE_comp     2 // for Deardorff LES Model
 #define RhoQKE_comp    3 // for MYNN PBL Model
 #define RhoScalar_comp 4
@@ -34,7 +34,7 @@
 #endif
 
 // Cell-centered primitive variables
-#define PrimTheta_comp   RhoTheta_comp -1
+#define PrimTheta_comp   Temp_comp -1
 #define PrimKE_comp      RhoKE_comp    -1
 #define PrimQKE_comp     RhoQKE_comp   -1
 #define PrimScalar_comp  RhoScalar_comp-1
@@ -50,7 +50,7 @@ namespace BCVars {
     enum {
         cons_bc = 0,
         Rho_bc_comp = 0,
-        RhoTheta_bc_comp,
+        Temp_bc_comp,
         RhoKE_bc_comp,
         RhoQKE_bc_comp,
         RhoScalar_bc_comp,
@@ -110,7 +110,7 @@ namespace Vars {
 namespace Cons {
     enum {
         Rho = 0,
-        RhoTheta,
+        Temp,
         RhoKE,
         RhoQKE,
         RhoScalar,

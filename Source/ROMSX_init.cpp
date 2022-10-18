@@ -176,7 +176,7 @@ ROMSX::init_state_from_wrfinput(int lev, FArrayBox& state_fab,
                               const Vector<FArrayBox>& NC_yvel_fab,
                               const Vector<FArrayBox>& NC_zvel_fab,
                               const Vector<FArrayBox>& NC_rho_fab,
-                              const Vector<FArrayBox>& NC_rhotheta_fab)
+                              const Vector<FArrayBox>& NC_temp_fab)
 {
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -200,7 +200,7 @@ ROMSX::init_state_from_wrfinput(int lev, FArrayBox& state_fab,
         state_fab.template copy<RunOn::Device>(NC_rho_fab[idx], 0, Rho_comp, 1);
 
         // This copies (rho*theta)
-        state_fab.template copy<RunOn::Device>(NC_rhotheta_fab[idx], 0, RhoTheta_comp, 1);
+        state_fab.template copy<RunOn::Device>(NC_temp_fab[idx], 0, Temp_comp, 1);
     } // idx
 }
 

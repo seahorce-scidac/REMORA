@@ -62,12 +62,11 @@ init_custom_prob(
         Real val3=ProbParams::T0+val2*std::exp(z_r(i,j,k)/100.0_rt)*
 	  (10.0_rt-0.4_rt*tanh(z_r(i,j,k)/100.0_rt));
 	Real val4=yr(i,j)/el;
-        state(i,j,k,itemp)=val3-3.0_rt*val4;
+        state(i,j,k,Temp_comp)=val3-3.0_rt*val4;
 #ifdef SALINITY
-        state(i,j,k,isalt)=34.5_rt-0.001_rt*z_r(i,j,k)-val4;
+        state(i,j,k,Salt_comp)=34.5_rt-0.001_rt*z_r(i,j,k)-val4;
 #endif
 
-        state(i, j, k, RhoTheta_comp) = 1.;
         state(i, j, k, Rho_comp) = 1.;
 
         // Set scalar = 0 everywhere
