@@ -7,8 +7,8 @@ amrex.fpe_trap_invalid = 1
 fabarray.mfiter_tile_size = 1024 1024 1024
 
 # PROBLEM SIZE & GEOMETRY
-geometry.prob_lo     =      0.     0.    0.
-geometry.prob_hi     =  41000. 80000.  150.
+geometry.prob_lo     =      0.     0.    -150.
+geometry.prob_hi     =  41000. 80000.       0.
 
 amr.n_cell           =  41     80      16
 
@@ -58,4 +58,4 @@ romsx.alpha_T = 75.0 # [m^2/s]
 # PROBLEM PARAMETERS (optional)
 prob.R0 = 1027.0
 prob.S0 = 35.0
-prob.T0 = 10.0
+prob.T0 = 14.0

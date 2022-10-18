@@ -65,26 +65,9 @@ init_custom_prob(
         state(i, j, k, RhoTheta_comp) = 1.;
         state(i, j, k, Rho_comp) = 1.;
 
-#if 0
-	const Real val1=(44.69_rt/39.382_rt)*(44.69_rt/39.382_rt);
-	const Real val2=val1*(parms.rho0*100.0_rt/parms.g)*(5.0E-5_rt/((42.689_rt/44.69_rt)*(42.689_rt/44.69_rt)));
-        Real val3=parms.T0+val2*std::exp(z_r(i,j,k)/100.0_rt)*
-	  (10.0_rt-0.4_rt*tanh(z_r(i,j,k)/100.0_rt));
-	Real val4=yr(i,j)/el;
-        state(i,j,k,RhoTheta_comp)=val3-3.0_rt*val4; // This may be missing rho effects
+        state(i,j,k,RhoTheta_comp)=parms.T0+8.0*std::exp(z/50.0_rt);
 #ifdef ROMSX_USE_SALINITY
-        state(i,j,k,Salt_comp)=34.5_rt-0.001_rt*z_r(i,j,k)-val4;
-#endif
-#else
-	const Real val1=(44.69_rt/39.382_rt)*(44.69_rt/39.382_rt);
-	const Real val2=val1*(parms.rho0*100.0_rt/parms.g)*(5.0E-5_rt/((42.689_rt/44.69_rt)*(42.689_rt/44.69_rt)));
-        Real val3=parms.T0+val2*std::exp(z/100.0_rt)*
-	  (10.0_rt-0.4_rt*tanh(z/100.0_rt));
-	Real val4=y/el;
-        state(i,j,k,RhoTheta_comp)=val3-3.0_rt*val4; // This may be missing rho effects
-#ifdef ROMSX_USE_SALINITY
-        state(i,j,k,Salt_comp)=34.5_rt-0.001_rt*z-val4;
-#endif
+        state(i,j,k,Salt_comp)=parms.S0;
 #endif
 
         // Set scalar = 0 everywhere
