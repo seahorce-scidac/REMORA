@@ -19,6 +19,11 @@ init_custom_prob (
   amrex::Array4<amrex::Real      > const& p_hse,
   amrex::Array4<amrex::Real const> const& z_nd,
   amrex::Array4<amrex::Real const> const& z_cc,
+  amrex::Array4<amrex::Real const> const& z_w,
+  amrex::Array4<amrex::Real const> const& z_r,
+  amrex::Array4<amrex::Real const> const& Hz,
+  amrex::Array4<amrex::Real const> const& h,
+  amrex::Array4<amrex::Real const> const& Zt_avg1,
   amrex::GeometryData const& geomdata);
 
 void

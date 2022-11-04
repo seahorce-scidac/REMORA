@@ -5,6 +5,7 @@
 #include "AMReX_ParmParse.H"
 #include "AMReX_MultiFab.H"
 #include "IndexDefines.H"
+#include "DepthStretchTransform.H"
 
 using namespace amrex;
 
@@ -40,6 +41,11 @@ init_custom_prob(
         Array4<Real      > const& p_hse,
         Array4<Real const> const& z_nd,
         Array4<Real const> const& z_cc,
+        Array4<Real const> const& z_w,
+        Array4<Real const> const& z_r,
+        Array4<Real const> const& Hz,
+        Array4<Real const> const& h,
+        Array4<Real const> const& Zt_avg1,
         GeometryData const& geomdata)
 {
   const int khi = geomdata.Domain().bigEnd()[2];
@@ -51,8 +57,8 @@ init_custom_prob(
   const Real& dz        = geomdata.CellSize()[2];
   const Real& el        = geomdata.ProbHi()[1];
   const Real& prob_lo_z = geomdata.ProbLo()[2];
-
-    amrex::ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  amrex::Print()<<FArrayBox(z_r)<<std::endl;
+    ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
         // Geometry (note we must include these here to get the data on device)
         const auto prob_lo         = geomdata.ProbLo();
@@ -60,7 +66,7 @@ init_custom_prob(
 
         const Real x = prob_lo[0] + (i + 0.5) * dx[0];
         const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
+        const Real z = z_r(i,j,k);
 
         state(i, j, k, Temp_comp) = 1.;
         state(i, j, k, Rho_comp) = 1.;
@@ -75,32 +81,32 @@ init_custom_prob(
     });
 
   // Construct a box that is on x-faces
-  const amrex::Box& xbx = amrex::surroundingNodes(bx,0);
+  const Box& xbx = surroundingNodes(bx,0);
   // Set the x-velocity
-  amrex::ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
       x_vel(i, j, k) = 0.0;
   });
 
   // Construct a box that is on y-faces
-  const amrex::Box& ybx = amrex::surroundingNodes(bx,1);
+  const Box& ybx = surroundingNodes(bx,1);
 
   // Set the y-velocity
-  amrex::ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
       y_vel(i, j, k) = 0.0;
   });
 
   // Construct a box that is on z-faces
-  const amrex::Box& zbx = amrex::surroundingNodes(bx,2);
+  const Box& zbx = surroundingNodes(bx,2);
 
   // Set the z-velocity
-  amrex::ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
       z_vel(i, j, k) = 0.0;
   });
 
-  amrex::Gpu::streamSynchronize();
+  Gpu::streamSynchronize();
 }
 
 void
@@ -116,7 +122,7 @@ init_custom_terrain(const Geometry& /*geom*/, MultiFab& z_phys_nd,
     for ( MFIter mfi(z_phys_nd, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         // Grown box with no z range
-        amrex::Box xybx = mfi.growntilebox(ngrow);
+        Box xybx = mfi.growntilebox(ngrow);
         xybx.setRange(2,0);
 
         Array4<Real> const& z_arr = z_phys_nd.array(mfi);
