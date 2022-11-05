@@ -351,11 +351,11 @@ ROMSX::init_custom(int lev)
         Array4<Real const> z_nd_arr = (solverChoice.use_terrain) ? z_phys_nd[lev]->const_array(mfi) : Array4<Real const>{};
         Array4<Real const> z_cc_arr = (solverChoice.use_terrain) ? z_phys_cc[lev]->const_array(mfi) : Array4<Real const>{};
 
-      Array4<const Real> const& z_w_arr = (mf_z_w)->array(mfi);
-      Array4<const Real> const& z_r_arr = (mf_z_r)->array(mfi);
-      Array4<const Real> const& Hz_arr  = (mf_Hz)->array(mfi);
-      Array4<const Real> const& h_arr  = (mf_h)->array(mfi);
-      Array4<const Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
+        Array4<const Real> const& z_w_arr = (mf_z_w)->array(mfi);
+        Array4<const Real> const& z_r_arr = (mf_z_r)->array(mfi);
+        Array4<const Real> const& Hz_arr  = (mf_Hz)->array(mfi);
+        Array4<const Real> const& h_arr  = (mf_h)->array(mfi);
+        Array4<const Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
 
         Array4<Real> r_hse_arr = r_hse.array(mfi);
         Array4<Real> p_hse_arr = p_hse.array(mfi);

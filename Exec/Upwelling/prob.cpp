@@ -57,7 +57,7 @@ init_custom_prob(
   const Real& dz        = geomdata.CellSize()[2];
   const Real& el        = geomdata.ProbHi()[1];
   const Real& prob_lo_z = geomdata.ProbLo()[2];
-  amrex::Print()<<FArrayBox(z_r)<<std::endl;
+
     ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
         // Geometry (note we must include these here to get the data on device)
@@ -66,8 +66,13 @@ init_custom_prob(
 
         const Real x = prob_lo[0] + (i + 0.5) * dx[0];
         const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-        const Real z = z_r(i,j,k);
-
+        const Real z = prob_lo[2] + (k + 0.5) * dx[2];//z_w(i,j,k);
+	/*
+	if(i==1&&j==1&&k==0)
+	  Print()<<z_r(i,j,k)<<"\t"<<z_w(i,j,k)<<"\t"<<Hz(i,j,k)<<"\t"<<h(i,j,k)<<"\t"<<Zt_avg1(i,j,k)<<"\t"<<std::endl;
+	if(i==0&&j==0&&k==0)
+	  Print()<<z_r(i,j,k)<<"\t"<<z_w(i,j,k)<<"\t"<<Hz(i,j,k)<<"\t"<<h(i,j,k)<<"\t"<<Zt_avg1(i,j,k)<<"\t"<<std::endl;
+	*/
         state(i, j, k, Temp_comp) = 1.;
         state(i, j, k, Rho_comp) = 1.;
 
