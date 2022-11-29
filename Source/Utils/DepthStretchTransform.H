@@ -49,7 +49,7 @@ ROMSX::set_depth (int lev)
       int nz = subdomain.length(2);
 
       auto N = nz; // Number of vertical "levels" aka, NZ
-      Real hc=min(geomdata.ProbLo(0),solverChoice.tcline); // Do we need to enforce min here?
+      Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
 
       // ROMS Transform 2
       amrex::ParallelFor(bx, ncomp,
@@ -61,10 +61,10 @@ ROMSX::set_depth (int lev)
 	//This is the z for the bottom of the cell this k corresponds to
 	//   if we weren't stretching and transforming
         const Real z = prob_lo[2] + (k) * dx[2];
-	//	h_arr(i,j,0) = -z; // conceptually
+        h_arr(i,j,0) = -z; // conceptually
 	
 
-	h_arr(i,j,0) = -prob_lo[2];
+	//	h_arr(i,j,0) = -prob_lo[2];
         /*
         Real cff_r=hc*sc_r(k);
         Real cff_w=hc*sc_w(k);
@@ -84,11 +84,24 @@ ROMSX::set_depth (int lev)
         const auto dx              = geomdata.CellSize();
         const Real z = prob_lo[2] + (k) * dx[2];
         */
-	Real ds = 1.0_rt / z;
+	Real ds = 1.0_rt / Real(N);
 	
 	Real cff_r, cff_w, cff1_r, cff1_w, cff2_r, cff2_w, Csur, Cbot;
 	Real sc_r,sc_w,Cs_r,Cs_w;
-	if(k==N-1) // end of array
+	/*
+	if(i==0&&j==0&&k==0)
+	  {
+	amrex::Print()<<ds<<"\t"<<z<<"\t"<<k<<std::endl;
+	amrex::Print()<<solverChoice.theta_s<<std::endl;
+	amrex::Print()<<solverChoice.theta_b<<std::endl;
+	amrex::Print()<<hc<<std::endl;
+	  }
+	*/
+	if(i==0&&j==0)
+	amrex::Print()<<"------------------------------------------"<<std::endl;
+	if(i==0&&j==0)
+	  amrex::Print()<<ds<<"\t"<<z<<"\t"<<k<<std::endl;
+	if(k==N) // end of array // pretend we're storing 0?
 	{
 	sc_w=0.0; //sc_w / hc
         Cs_w=0.0; //Cs_w
@@ -115,13 +128,19 @@ ROMSX::set_depth (int lev)
 	  else
             Cs_w=Csur;
 	}
+
 	cff_w=hc*sc_w;
         cff1_w=Cs_w;
+	if(i==0&&j==0)
+	amrex::Print()<<Cs_w<<std::endl;
+	if(i==0&&j==0)
+	amrex::Print()<<sc_w<<std::endl;
+
 	//cff_r => sc_r *hc
 	//cff1_r => Cs_r
 	//Don't do anything special for first/last index
 	{
-	  sc_r=ds*(k-N-0.5_rt);
+	  sc_r=ds*(k-N+0.5_rt);
           if (solverChoice.theta_s > 0.0_rt)
             Csur=(1.0_rt-std::cosh(solverChoice.theta_s*sc_r))/
 	      (std::cosh(solverChoice.theta_s)-1.0_rt);
@@ -138,10 +157,18 @@ ROMSX::set_depth (int lev)
 	}
 	cff_r=hc*sc_r;
 	cff1_r=Cs_r;
+	if(i==0&&j==0)
+	amrex::Print()<<Cs_r<<std::endl;
+	if(i==0&&j==0)
+	amrex::Print()<<sc_r<<std::endl;
         ////////////////////////////////////////////////////////////////////
 	Real hwater=h_arr(i,j,0);
 	if(k==0)
+	  {
           z_w_arr(i,j,k) = -h_arr(i,j,0);
+	  //extra guess added (maybe not actually defined in ROMS)
+          z_r_arr(i,j,k) = -h_arr(i,j,0);
+	  }
         else
 	{
 	//Note, we are not supporting ICESHELF flag
@@ -153,10 +180,20 @@ ROMSX::set_depth (int lev)
 	  z_r_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
 	//Note, we are not supporting ICESHELF flag
 	  Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+	  //  if(i==0&&j==0)
+	  //	  amrex::Print()<<Hz_arr(i,j,k)<<std::endl;
+
 	}
+	//	if(i==0&&j==0)
+	//	  amrex::Print()<<z_w_arr(i,j,k)<<std::endl;
+	//	if(i==0&&j==0)
+	//	  amrex::Print()<<z_r_arr(i,j,k)<<std::endl;
+	if(i==0&&j==0)
+	amrex::Print()<<"------------------------------------------"<<std::endl;
       });
 
     } // mf
+      exit(0);
   
 }
 
