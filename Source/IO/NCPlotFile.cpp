@@ -138,12 +138,12 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
 #ifdef ROMSX_USE_HISTORYFILE
      for (int i = 0; i < plot_var_names.size(); i++) {
-       ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, nz_name, ny_name, nx_name});
+       ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, z_r_name, eta_name, xi_name});
      }
      
 #else
      for (int i = 0; i < plot_var_names.size(); i++) {
-       ncf.def_var(plot_var_names[i], NC_FLOAT, {nz_name, ny_name, nx_name});
+       ncf.def_var(plot_var_names[i], NC_FLOAT, {z_r_name, eta_name, xi_name});
      }
 
 #endif
@@ -270,6 +270,12 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
    size_t nfai = 0;
    const int ncomp = plotMF[lev]->nComp();
 
+   //   std::vector<Real> x_grid;//(box.length(0));
+   //   std::vector<Real> y_grid;//(box.length(1));
+   //      std::vector<Real> z_grid(box.length(2));
+   std::vector<Real> z_r_grid;//(box.length(2));
+   std::vector<Real> z_w_grid;//(box.length(2));
+
    for (amrex::MFIter fai(*plotMF[lev]); fai.isValid(); ++fai) {
        auto box             = fai.validbox();
        if (subdomain.contains(box)) {
@@ -305,7 +311,73 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
               nc_plot_var.put(data, startp, countp);
               //              nc_plot_var.put(data, startp, countp, stride);
           }
-          nfai++;
+          auto z_r_arr = z_r[lev]->array(fai);
+          auto z_w_arr = z_w[lev]->array(fai);
+          const auto & geomdata = geom[lev].data();
+          x_grid.clear(); y_grid.clear(); z_r_grid.clear(); z_w_grid.clear();
+          x_grid.resize(box.length(0));
+          y_grid.resize(box.length(1));
+          //      z_grid.resize(box.length(2));
+          z_r_grid.resize(box.length(2));
+          z_w_grid.resize(box.length(2));
+
+          for(int i=box.smallEnd(0); i<=box.bigEnd(0);i++)
+            for(int j=box.smallEnd(1); j<=box.bigEnd(1);j++)
+              for(int k=box.smallEnd(2); k<=box.bigEnd(2);k++)
+          {
+            // Geometry (note we must include these here to get the data on device)
+            const auto prob_lo         = geomdata.ProbLo();
+            const auto dx              = geomdata.CellSize();
+
+            Real x = prob_lo[0] + (i + 0.5) * dx[0];
+            Real y = prob_lo[1] + (j + 0.5) * dx[1];
+            //      const Real z = prob_lo[2] + (k + 0.5) * dx[2];
+            Real z_r_con = z_r_arr(i,j,k);
+            Real z_w_con = z_w_arr(i,j,k);
+
+            //      if(j==0&&k==0)
+            //              x_grid.push_back(x);
+            x_grid[i-box.smallEnd(0)]=x;
+            //            if(i==0&&k==0)
+            //              y_grid.push_back(y);
+            y_grid[j-box.smallEnd(1)]=y;
+            //      z_grid[k-box.smallEnd(2)]=z;
+            /*
+              if(i==0&&j==0) {
+              z_r_grid.push_back(z_r_con);
+              z_w_grid.push_back(z_w_con);
+              }*/
+            z_r_grid[k-box.smallEnd(2)]=z_r_con;
+            z_w_grid[k-box.smallEnd(2)]=z_w_con;
+
+          }
+          {
+            auto nc_plot_var = ncf.var(xi_name);
+            nc_plot_var.par_access(NC_COLLECTIVE);
+            nc_plot_var.put(x_grid.data(), {box.smallEnd(0)}, {box.length(0)});
+          }
+          {
+            auto nc_plot_var = ncf.var(eta_name);
+            nc_plot_var.par_access(NC_COLLECTIVE);
+            nc_plot_var.put(y_grid.data(), {box.smallEnd(1)}, {box.length(1)});
+          }
+          /*
+          {
+            auto nc_plot_var = ncf.var(z_name);
+            nc_plot_var.par_access(NC_COLLECTIVE);
+            nc_plot_var.put(z_grid.data(), {box.smallEnd(2)}, {box.length(2)});
+            }*/
+          {
+            auto nc_plot_var = ncf.var(z_r_name);
+            nc_plot_var.par_access(NC_COLLECTIVE);
+            nc_plot_var.put(z_r_grid.data(), {box.smallEnd(2)}, {box.length(2)});
+          }
+          {
+            auto nc_plot_var = ncf.var(z_w_name);
+            nc_plot_var.par_access(NC_COLLECTIVE);
+            nc_plot_var.put(z_w_grid.data(), {box.smallEnd(2)}, {box.length(2)});
+          }
+
        }
    }
 
