@@ -47,7 +47,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      bool not_empty_file = true;
      if (true) {
          FullPath = plot_file_1 + "_his.nc";
-	 not_empty_file = amrex::FileSystem::Exists(FullPath);
+         not_empty_file = amrex::FileSystem::Exists(FullPath);
      }
 #endif
 
@@ -122,14 +122,24 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_var("y_grid", NC_FLOAT, {nb_name, ny_name});
      ncf.def_var("z_grid", NC_FLOAT, {nb_name, nz_name});
 
+     ncf.def_var("z_r_grid", NC_FLOAT, {nb_name, nz_name});
+     ncf.def_var("z_w_grid", NC_FLOAT, {nb_name, nz_name});
 #ifdef ROMSX_USE_HISTORYFILE
      for (int i = 0; i < plot_var_names.size(); i++) {
        ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, nz_name, ny_name, nx_name});
      }
+     /*
+     ncf.def_var("z_r", NC_FLOAT, {nt_name, nz_name, ny_name, nx_name});
+     ncf.def_var("z_w", NC_FLOAT, {nt_name, nz_name, ny_name, nx_name});
+     */
 #else
      for (int i = 0; i < plot_var_names.size(); i++) {
        ncf.def_var(plot_var_names[i], NC_FLOAT, {nz_name, ny_name, nx_name});
      }
+     /*
+     ncf.def_var("z_r", NC_FLOAT, {nz_name, ny_name, nx_name});
+     ncf.def_var("z_w", NC_FLOAT, {nz_name, ny_name, nx_name});
+     */
 #endif
 
      ncf.exit_def_mode();
@@ -220,6 +230,8 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
     std::vector<Real> x_grid;
     std::vector<Real> y_grid;
     std::vector<Real> z_grid;
+    std::vector<Real> z_r_grid;
+    std::vector<Real> z_w_grid;
     for (int i = 0; i < grids[lev].size(); ++i) {
         auto box = grids[lev][i];
         if (subdomain.contains(box)) {
@@ -251,6 +263,42 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
        }
    }
 
+   MultiFab* mf_z_w = z_w[lev].get();
+   MultiFab* mf_z_r = z_r[lev].get();
+
+   for ( MFIter mfi(*mf_z_w, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+   {
+      auto box = mfi.validbox();
+      auto zlen = static_cast<long unsigned int>(box.length(2));
+      Array4<Real> const& z_w_arr = (mf_z_w)->array(mfi);
+      Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
+      z_r_grid.clear(); z_w_grid.clear();
+      std::vector<size_t> startp(2);
+      std::vector<size_t> countp(2);
+      startp[0]=0;
+      countp[0]=1;
+      startp[1]=box.smallEnd(2);
+      countp[1]=0;
+
+      for (auto k4 = box.smallEnd(2); k4 < box.bigEnd(2); ++k4) {
+        if(box.contains(amrex::IntVect(0,0,k4)))
+        {
+          z_r_grid.push_back(z_r_arr(0,0,k4));
+          z_w_grid.push_back(z_w_arr(0,0,k4));
+          countp[1]=box.length(2);
+          amrex::Print()<<z_r_arr(0,0,k4)<<"\t"<<startp[0]<<"\t"<<countp[0]<<std::endl;
+        }
+      }
+      if(countp[1]>0)
+      {
+        auto nc_z_r_grid = ncf.var("z_r_grid");
+        nc_z_r_grid.par_access(NC_COLLECTIVE);
+        nc_z_r_grid.put(z_r_grid.data(), startp, countp);
+        auto nc_z_w_grid = ncf.var("z_w_grid");
+        nc_z_w_grid.par_access(NC_COLLECTIVE);
+        nc_z_w_grid.put(z_w_grid.data(), startp, countp);
+      }
+   }
    size_t nfai = 0;
    const int ncomp = plotMF[lev]->nComp();
 
@@ -260,23 +308,23 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
            long unsigned numpts = box.numPts();
            auto array_version = plotMF[lev]->array(fai);
 
-	   #ifdef ROMSX_USE_HISTORYFILE
-	   int num_var_dims=AMREX_SPACEDIM+1;
-	   #else
-	   int num_var_dims=AMREX_SPACEDIM;
-	   #endif
-	   std::vector<size_t> startp(num_var_dims);
-	   std::vector<size_t> countp(num_var_dims);
-   	   std::vector<ptrdiff_t> stride(num_var_dims);
+           #ifdef ROMSX_USE_HISTORYFILE
+           int num_var_dims=AMREX_SPACEDIM+1;
+           #else
+           int num_var_dims=AMREX_SPACEDIM;
+           #endif
+           std::vector<size_t> startp(num_var_dims);
+           std::vector<size_t> countp(num_var_dims);
+           std::vector<ptrdiff_t> stride(num_var_dims);
 
            stride[num_var_dims-1]=(ptrdiff_t) (&(array_version(1,0,0,0))-&(array_version(0,0,0.0)));
            stride[num_var_dims-2]=(ptrdiff_t) (&(array_version(0,1,0,0))-&(array_version(0,0,0.0)))/stride[num_var_dims];
            stride[num_var_dims-3]=(ptrdiff_t) (&(array_version(0,0,1,0))-&(array_version(0,0,0.0)))/stride[num_var_dims-1];
 
            for (int i=0;i<3;i++) {
-	       startp[num_var_dims-1-i]=box.smallEnd(i);
-	       countp[num_var_dims-1-i]=box.length(i);
-	   }
+               startp[num_var_dims-1-i]=box.smallEnd(i);
+               countp[num_var_dims-1-i]=box.length(i);
+           }
 #ifdef ROMSX_USE_HISTORYFILE
            startp[0]=total_plot_file_step_1+1;
            countp[0]=1;
@@ -287,10 +335,24 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
               auto nc_plot_var = ncf.var(plot_var_names[k]);
               nc_plot_var.par_access(NC_COLLECTIVE);
               nc_plot_var.put(data, startp, countp);
-	      //              nc_plot_var.put(data, startp, countp, stride);
+              //              nc_plot_var.put(data, startp, countp, stride);
           }
+          /*
+          {
+          auto z_w_data = z_w[lev]->get(fai).dataPtr();
+          auto nc_plot_var = ncf.var("z_w");
+          nc_plot_var.par_access(NC_COLLECTIVE);
+          nc_plot_var.put(z_w_data, startp, countp);
+          }
+          {
+          auto z_r_data = z_r[lev]->get(fai).dataPtr();
+          auto nc_plot_var = ncf.var("z_r");
+          nc_plot_var.par_access(NC_COLLECTIVE);
+          nc_plot_var.put(z_r_data, startp, countp);
+          }*/
           nfai++;
        }
    }
+
    ncf.close();
 }
