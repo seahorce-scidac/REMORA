@@ -90,13 +90,13 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      const std::string ndim_name = "num_geo_dimensions";
      const std::string np_name   = "num_points_per_block";
      const std::string nb_name   = "num_blocks";
-     const std::string nx_name   = "NX";
-     const std::string ny_name   = "NY";
-     const std::string nz_name   = "NZ";
-     const std::string xi_name   = "XI";
-     const std::string eta_name   = "ETA";
-     const std::string z_r_name   = "Z_R";
-     const std::string z_w_name   = "Z_W";
+     const std::string x_r_name   = "x_rho";
+     const std::string y_r_name   = "y_rho";
+     const std::string z_name   = "z";
+     const std::string xi_name   = "xi_rho";
+     const std::string eta_name   = "eta_rho";
+     const std::string z_r_name   = "z_rho";
+     const std::string z_w_name   = "z_w";
      const std::string flev_name = "FINEST_LEVEL";
 #ifdef ROMSX_USE_HISTORYFILE
      if(!not_empty_file) {
@@ -109,19 +109,19 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_dim(nb_name,   nblocks);
      ncf.def_dim(flev_name, flev);
 
-     ncf.def_dim(nx_name,   n_cells[0]);
-     ncf.def_dim(ny_name,   n_cells[1]);
-     ncf.def_dim(nz_name,   n_cells[2]);
-
      ncf.def_dim(xi_name,   n_cells[0]);
      ncf.def_dim(eta_name,   n_cells[1]);
+     ncf.def_dim(z_name,   n_cells[2]);
+
+     ncf.def_dim(x_r_name,   n_cells[0]);
+     ncf.def_dim(y_r_name,   n_cells[1]);
      ncf.def_dim(z_r_name,   n_cells[2]);
      ncf.def_dim(z_w_name,   n_cells[2]);
 
-     ncf.def_var("XI",   NC_FLOAT, {xi_name});
-     ncf.def_var("ETA",  NC_FLOAT,  {eta_name});
-     ncf.def_var("Z_R",  NC_FLOAT,  {z_r_name});
-     ncf.def_var("Z_W",  NC_FLOAT,  {z_w_name});
+     ncf.def_var("x_rho",   NC_FLOAT, {x_r_name});
+     ncf.def_var("y_rho",  NC_FLOAT,  {y_r_name});
+     ncf.def_var("z_rho",  NC_FLOAT,  {z_r_name});
+     ncf.def_var("z_w",  NC_FLOAT,  {z_w_name});
      
      ncf.def_var("probLo"  ,   NC_FLOAT,  {ndim_name});
      ncf.def_var("probHi"  ,   NC_FLOAT,  {ndim_name});
@@ -132,18 +132,18 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_var("Geom.bigend"  , NC_INT, {flev_name, ndim_name});
      ncf.def_var("CellSize"     , NC_FLOAT, {flev_name, ndim_name});
 
-     ncf.def_var("x_grid", NC_FLOAT, {nb_name, nx_name});
-     ncf.def_var("y_grid", NC_FLOAT, {nb_name, ny_name});
-     ncf.def_var("z_grid", NC_FLOAT, {nb_name, nz_name});
+     ncf.def_var("x_grid", NC_FLOAT, {nb_name, x_r_name});
+     ncf.def_var("y_grid", NC_FLOAT, {nb_name, y_r_name});
+     ncf.def_var("z_grid", NC_FLOAT, {nb_name, z_name});
 
 #ifdef ROMSX_USE_HISTORYFILE
      for (int i = 0; i < plot_var_names.size(); i++) {
-       ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, z_r_name, eta_name, xi_name});
+       ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, z_r_name, y_r_name, x_r_name});
      }
      
 #else
      for (int i = 0; i < plot_var_names.size(); i++) {
-       ncf.def_var(plot_var_names[i], NC_FLOAT, {z_r_name, eta_name, xi_name});
+       ncf.def_var(plot_var_names[i], NC_FLOAT, {z_r_name, y_r_name, x_r_name});
      }
 
 #endif
@@ -352,12 +352,12 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
           }
           {
-            auto nc_plot_var = ncf.var(xi_name);
+            auto nc_plot_var = ncf.var(x_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
             nc_plot_var.put(x_grid.data(), {box.smallEnd(0)}, {box.length(0)});
           }
           {
-            auto nc_plot_var = ncf.var(eta_name);
+            auto nc_plot_var = ncf.var(y_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
             nc_plot_var.put(y_grid.data(), {box.smallEnd(1)}, {box.length(1)});
           }
