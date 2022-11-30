@@ -93,6 +93,10 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      const std::string nx_name   = "NX";
      const std::string ny_name   = "NY";
      const std::string nz_name   = "NZ";
+     const std::string xi_name   = "XI";
+     const std::string eta_name   = "ETA";
+     const std::string z_r_name   = "Z_R";
+     const std::string z_w_name   = "Z_W";
      const std::string flev_name = "FINEST_LEVEL";
 #ifdef ROMSX_USE_HISTORYFILE
      if(!not_empty_file) {
@@ -108,6 +112,16 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_dim(nx_name,   n_cells[0]);
      ncf.def_dim(ny_name,   n_cells[1]);
      ncf.def_dim(nz_name,   n_cells[2]);
+
+     ncf.def_dim(xi_name,   n_cells[0]);
+     ncf.def_dim(eta_name,   n_cells[1]);
+     ncf.def_dim(z_r_name,   n_cells[2]);
+     ncf.def_dim(z_w_name,   n_cells[2]);
+
+     ncf.def_var("XI",   NC_FLOAT, {xi_name});
+     ncf.def_var("ETA",  NC_FLOAT,  {eta_name});
+     ncf.def_var("Z_R",  NC_FLOAT,  {z_r_name});
+     ncf.def_var("Z_W",  NC_FLOAT,  {z_w_name});
      
      ncf.def_var("probLo"  ,   NC_FLOAT,  {ndim_name});
      ncf.def_var("probHi"  ,   NC_FLOAT,  {ndim_name});
@@ -127,16 +141,10 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
        ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, nz_name, ny_name, nx_name});
      }
      
-     ncf.def_var("z_r", NC_FLOAT, {nt_name, nz_name, ny_name, nx_name});
-     ncf.def_var("z_w", NC_FLOAT, {nt_name, nz_name, ny_name, nx_name});
-     
 #else
      for (int i = 0; i < plot_var_names.size(); i++) {
        ncf.def_var(plot_var_names[i], NC_FLOAT, {nz_name, ny_name, nx_name});
      }
-
-     ncf.def_var("z_r", NC_FLOAT, {nz_name, ny_name, nx_name});
-     ncf.def_var("z_w", NC_FLOAT, {nz_name, ny_name, nx_name});
 
 #endif
 
@@ -228,8 +236,6 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
     std::vector<Real> x_grid;
     std::vector<Real> y_grid;
     std::vector<Real> z_grid;
-    std::vector<Real> z_r_grid;
-    std::vector<Real> z_w_grid;
     for (int i = 0; i < grids[lev].size(); ++i) {
         auto box = grids[lev][i];
         if (subdomain.contains(box)) {
@@ -298,19 +304,6 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
               nc_plot_var.par_access(NC_COLLECTIVE);
               nc_plot_var.put(data, startp, countp);
               //              nc_plot_var.put(data, startp, countp, stride);
-          }
-          
-          {
-          auto z_w_data = z_w[lev]->get(fai).dataPtr();
-          auto nc_plot_var = ncf.var("z_w");
-          nc_plot_var.par_access(NC_COLLECTIVE);
-          nc_plot_var.put(z_w_data, startp, countp);
-          }
-          {
-          auto z_r_data = z_r[lev]->get(fai).dataPtr();
-          auto nc_plot_var = ncf.var("z_r");
-          nc_plot_var.par_access(NC_COLLECTIVE);
-          nc_plot_var.put(z_r_data, startp, countp);
           }
           nfai++;
        }
