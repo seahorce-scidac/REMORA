@@ -116,17 +116,17 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
      ncf.def_dim(x_r_name,   n_cells[1]*n_cells[0]);
      ncf.def_dim(y_r_name,   n_cells[1]*n_cells[0]);
-     ncf.def_dim(z_r_name,   n_cells[2]);
+     ncf.def_dim(z_r_name,   n_cells[2]*n_cells[1]*n_cells[0]);
      ncf.def_dim(z_w_name,   n_cells[2]);
      ncf.def_dim(s_r_name,   n_cells[2]);
 
      ncf.def_var("xi_rho",   NC_FLOAT, {xi_name});
      ncf.def_var("eta_rho",  NC_FLOAT,  {eta_name});
-     ncf.def_var("x_rho",   NC_FLOAT, {eta_name, xi_name});
-     ncf.def_var("y_rho",  NC_FLOAT,  {eta_name, xi_name});
-     ncf.def_var("z_rho",  NC_FLOAT,  {z_name});
      ncf.def_var("z_w",  NC_FLOAT,  {z_w_name});
      ncf.def_var("s_rho",  NC_FLOAT,  {s_r_name});
+     ncf.def_var("x_rho",   NC_FLOAT, {eta_name, xi_name});
+     ncf.def_var("y_rho",  NC_FLOAT,  {eta_name, xi_name});
+     ncf.def_var("z_rho",  NC_FLOAT,  {s_r_name, eta_name, xi_name});
      
      ncf.def_var("probLo"  ,   NC_FLOAT,  {ndim_name});
      ncf.def_var("probHi"  ,   NC_FLOAT,  {ndim_name});
@@ -143,12 +143,12 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
 #ifdef ROMSX_USE_HISTORYFILE
      for (int i = 0; i < plot_var_names.size(); i++) {
-       ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, z_r_name, eta_name, xi_name});
+       ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, s_r_name, eta_name, xi_name});
      }
      
 #else
      for (int i = 0; i < plot_var_names.size(); i++) {
-       ncf.def_var(plot_var_names[i], NC_FLOAT, {z_r_name, eta_name, xi_name});
+       ncf.def_var(plot_var_names[i], NC_FLOAT, {s_r_name, eta_name, xi_name});
      }
 
 #endif
@@ -350,10 +350,18 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 	  nc_plot_var.put(data, {box.smallEnd(1)+indexOffset,box.smallEnd(0)+indexOffset}, {box.length(1), box.length(0)});
 	  }
 	  {
+	  auto data = z_r[lev]->get(fai).dataPtr();
+	  auto nc_plot_var = ncf.var(z_r_name);
+	  nc_plot_var.par_access(NC_COLLECTIVE);
+	  nc_plot_var.put(data, {box.smallEnd(2), box.smallEnd(1)+indexOffset,box.smallEnd(0)+indexOffset}, {box.length(2), box.length(1), box.length(0)});
+	  }
+	  {
 	  auto data = s_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(s_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
 	  nc_plot_var.put(data, {box.smallEnd(2)}, {box.length(2)});
+	    for(int k=0;k<16;k++)
+	      amrex::Print()<<"k: "<<k<<"\t"<<(data)[k]<<std::endl;	  
 	  }
           auto z_r_arr = z_r[lev]->array(fai);
           auto z_w_arr = z_w[lev]->array(fai);
@@ -368,6 +376,8 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
           z_r_grid.resize(box.length(2));
           z_w_grid.resize(box.length(2));
 
+	  //	  amrex::Print()<<amrex::FArrayBox(z_r_arr)<<std::endl;
+	  amrex::Print()<<(*z_r[0])[0]<<std::endl;
           for(int i=box.smallEnd(0); i<=box.bigEnd(0);i++)
             for(int j=box.smallEnd(1); j<=box.bigEnd(1);j++)
               for(int k=box.smallEnd(2); k<=box.bigEnd(2);k++)
@@ -398,6 +408,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
               }*/
             z_r_grid[k-box.smallEnd(2)]=z_r_con;
             z_w_grid[k-box.smallEnd(2)]=z_w_con;
+	    amrex::Print()<<"ijk"<<i<<"\t"<<j<<"\t"<<k<<"\t"<<z_r_con<<std::endl;
 
           }
           /*
@@ -426,12 +437,14 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
             auto nc_plot_var = ncf.var(z_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
             nc_plot_var.put(z_grid.data(), {box.smallEnd(2)}, {box.length(2)});
-            }*/
+            }
           {
+	    for(int k=0;k<16;k++)
+	      amrex::Print()<<"k"<<k<<"\t"<<(z_r_grid.data())[k]<<std::endl;
             auto nc_plot_var = ncf.var(z_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
             nc_plot_var.put(z_r_grid.data(), {box.smallEnd(2)}, {box.length(2)});
-          }
+	    }*/
           {
             auto nc_plot_var = ncf.var(z_w_name);
             nc_plot_var.par_access(NC_COLLECTIVE);

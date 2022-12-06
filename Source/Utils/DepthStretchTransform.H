@@ -212,7 +212,9 @@ ROMSX::set_depth (int lev)
           {
           z_w_arr(i,j,k) = -h_arr(i,j,0);
           //extra guess added (maybe not actually defined in ROMS)
-          z_r_arr(i,j,k) = -h_arr(i,j,0);
+	  Real hinv=1.0_rt/(hc+hwater);
+	  cff2_r=(cff_r+cff1_r*hwater)*hinv;
+	  z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
           }
         else
         {
@@ -223,6 +225,8 @@ ROMSX::set_depth (int lev)
 
           z_w_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_w;
           z_r_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
+	  if(i==0&&j==0)
+	    amrex::Print()<<"k="<<k<<"\t"<<z_r_arr(i,j,k)<<std::endl;
         //Note, we are not supporting ICESHELF flag
           Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
 
