@@ -230,13 +230,14 @@ ROMSX::set_depth (int lev)
       });
 
     } // mf
+    /*
     z_w[lev]->FillBoundary(geom[lev].periodicity());
     z_r[lev]->FillBoundary(geom[lev].periodicity());
     s_r[lev]->FillBoundary(geom[lev].periodicity());
     Hz[lev]->FillBoundary(geom[lev].periodicity());
     hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
-  
+    */  
 }
 
 #endif

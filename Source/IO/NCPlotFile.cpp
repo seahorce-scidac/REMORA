@@ -80,7 +80,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
      int nx = subdomain.length(0)+2;
      int ny = subdomain.length(1)+2;
-     int nz = subdomain.length(2)+2;
+     int nz = subdomain.length(2);
      n_cells.push_back(nx); n_cells.push_back(ny); n_cells.push_back(nz);
      int num_pts = nx * ny * nz;
 
@@ -288,7 +288,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
    print_state(*y_r[lev],amrex::IntVect(-1,-1,0),0);
    amrex::Print()<<"\n---------------"<<std::endl;
    for (amrex::MFIter fai(*plotMF[lev]); fai.isValid(); ++fai) {
-       auto box             = fai.growntilebox();
+     auto box             = (fai.tilebox().grow(amrex::IntVect(1,1,0)));
        if (subdomain.contains(box)||true) {
            long unsigned numpts = box.numPts();
            auto array_version = plotMF[lev]->array(fai);
@@ -317,7 +317,10 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
            stride[num_var_dims-3]=(ptrdiff_t) (&(array_version(0,0,1,0))-&(array_version(0,0,0.0)))/stride[num_var_dims-1];
 */
            for (int i=0;i<3;i++) {
+	     if(i!=2)
                startp[num_var_dims-1-i]=box.smallEnd(i)+indexOffset;
+	     else
+	       startp[num_var_dims-1-i]=box.smallEnd(i);
                countp[num_var_dims-1-i]=box.length(i);
 	       amrex::Print()<<"box.smallEnd(i)+indexOffset;"<<box.smallEnd(i)+indexOffset<<"box.length(i);"<<box.length(i)<<std::endl;
            }
@@ -350,7 +353,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 	  auto data = s_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(s_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, {box.smallEnd(2)+indexOffset}, {box.length(2)});
+	  nc_plot_var.put(data, {box.smallEnd(2)}, {box.length(2)});
 	  }
           auto z_r_arr = z_r[lev]->array(fai);
           auto z_w_arr = z_w[lev]->array(fai);
@@ -427,12 +430,12 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
           {
             auto nc_plot_var = ncf.var(z_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(z_r_grid.data(), {box.smallEnd(2)+indexOffset}, {box.length(2)});
+            nc_plot_var.put(z_r_grid.data(), {box.smallEnd(2)}, {box.length(2)});
           }
           {
             auto nc_plot_var = ncf.var(z_w_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(z_w_grid.data(), {box.smallEnd(2)+indexOffset}, {box.length(2)});
+            nc_plot_var.put(z_w_grid.data(), {box.smallEnd(2)}, {box.length(2)});
           }
 
        }
@@ -440,3 +443,4 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
    ncf.close();
 }
+
