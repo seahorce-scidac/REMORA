@@ -82,6 +82,7 @@ ROMSX::set_depth (int lev)
       int nz = subdomain.length(2);
 
       auto N = nz; // Number of vertical "levels" aka, NZ
+      //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
 
       // ROMS Transform 2
@@ -95,7 +96,33 @@ ROMSX::set_depth (int lev)
         //   if we weren't stretching and transforming
         const Real z = prob_lo[2] + (k) * dx[2];
         h_arr(i,j,0) = -prob_lo[2]; // conceptually
-        
+	//Using depth as a flat quantity instead of val2
+	/*
+      IF (NSperiodic(ng)) THEN
+        DO i=IstrT,IendT
+          IF (i.le.Lm(ng)/2) THEN
+            val1=REAL(i,r8)
+          ELSE
+            val1=REAL(Lm(ng)+1-i,r8)
+          END IF
+          val2=MIN(depth,84.5_r8+66.526_r8*TANH((val1-10.0_r8)/7.0_r8))
+          DO j=JstrT,JendT
+            h(i,j)=depth
+          END DO
+        END DO
+      ELSE IF (EWperiodic(ng)) THEN
+        DO j=JstrT,JendT
+          IF (j.le.Mm(ng)/2) THEN
+            val1=REAL(j,r8)
+          ELSE
+            val1=REAL(Mm(ng)+1-j,r8)
+          END IF
+          val2=MIN(depth,84.5_r8+66.526_r8*TANH((val1-10.0_r8)/7.0_r8))
+          DO i=IstrT,IendT
+            h(i,j)=depth
+          END DO
+        END DO
+	END IF*/        
 
         //      h_arr(i,j,0) = -prob_lo[2];
         /*
