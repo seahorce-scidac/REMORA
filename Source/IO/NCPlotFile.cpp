@@ -78,9 +78,9 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
          subdomain = boxes_at_level[lev][which_subdomain];
      }
 
-     int nx = subdomain.length(0);
-     int ny = subdomain.length(1);
-     int nz = subdomain.length(2);
+     int nx = subdomain.length(0)+2;
+     int ny = subdomain.length(1)+2;
+     int nz = subdomain.length(2)+2;
      n_cells.push_back(nx); n_cells.push_back(ny); n_cells.push_back(nz);
      int num_pts = nx * ny * nz;
 
@@ -241,7 +241,8 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
     std::vector<Real> x_grid;
     std::vector<Real> y_grid;
     std::vector<Real> z_grid;
-    for (int i = 0; i < grids[lev].size(); ++i) {
+    /*
+   for (int i = 0; i < grids[lev].size(); ++i) {
         auto box = grids[lev][i];
         if (subdomain.contains(box)) {
             RealBox gridloc = RealBox(grids[lev][i], geom[lev].CellSize(), geom[lev].ProbLo());
@@ -271,7 +272,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
             nc_z_grid.put(z_grid.data(), {static_cast<long unsigned int>(i), 0}, {1, zlen});
        }
    }
-
+*/
    size_t nfai = 0;
    const int ncomp = plotMF[lev]->nComp();
 
@@ -282,12 +283,25 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
    //      std::vector<Real> z_grid(box.length(2));
    std::vector<Real> z_r_grid;//(box.length(2));
    std::vector<Real> z_w_grid;//(box.length(2));
-
+   const int indexOffset = 1;
+   print_state(*x_r[lev],amrex::IntVect(-1,-1,0),0);
+   print_state(*y_r[lev],amrex::IntVect(-1,-1,0),0);
+   amrex::Print()<<"\n---------------"<<std::endl;
    for (amrex::MFIter fai(*plotMF[lev]); fai.isValid(); ++fai) {
-       auto box             = fai.validbox();
-       if (subdomain.contains(box)) {
+       auto box             = fai.growntilebox();
+       if (subdomain.contains(box)||true) {
            long unsigned numpts = box.numPts();
            auto array_version = plotMF[lev]->array(fai);
+	   auto x_r_arr = x_r[lev]->array(fai);
+	   amrex::Print()<<box<<std::endl;
+	   amrex::Print()<<subdomain<<std::endl;
+	   amrex::Print()<<subdomain.contains(box)<<std::endl;
+	   amrex::Print()<<array_version(-1,-1,-1,0)<<std::endl;
+	   amrex::Print()<<array_version(0,0,0,0)<<std::endl;
+	   amrex::Print()<<x_r_arr(0,0,0)<<std::endl;
+	   amrex::Print()<<x_r_arr(-1,-1,0)<<std::endl;
+	   amrex::Print()<<x_r_arr(0,0,0,0)<<std::endl;
+	   amrex::Print()<<x_r_arr(-1,-1,0,0)<<std::endl;
 
            #ifdef ROMSX_USE_HISTORYFILE
            int num_var_dims=AMREX_SPACEDIM+1;
@@ -297,14 +311,15 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
            std::vector<size_t> startp(num_var_dims);
            std::vector<size_t> countp(num_var_dims);
            std::vector<ptrdiff_t> stride(num_var_dims);
-
+	   /*
            stride[num_var_dims-1]=(ptrdiff_t) (&(array_version(1,0,0,0))-&(array_version(0,0,0.0)));
            stride[num_var_dims-2]=(ptrdiff_t) (&(array_version(0,1,0,0))-&(array_version(0,0,0.0)))/stride[num_var_dims];
            stride[num_var_dims-3]=(ptrdiff_t) (&(array_version(0,0,1,0))-&(array_version(0,0,0.0)))/stride[num_var_dims-1];
-
+*/
            for (int i=0;i<3;i++) {
-               startp[num_var_dims-1-i]=box.smallEnd(i);
+               startp[num_var_dims-1-i]=box.smallEnd(i)+indexOffset;
                countp[num_var_dims-1-i]=box.length(i);
+	       amrex::Print()<<"box.smallEnd(i)+indexOffset;"<<box.smallEnd(i)+indexOffset<<"box.length(i);"<<box.length(i)<<std::endl;
            }
 #ifdef ROMSX_USE_HISTORYFILE
            startp[0]=total_plot_file_step_1+1;
@@ -323,19 +338,19 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 	  auto data = x_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(x_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, {box.smallEnd(1),box.smallEnd(0)}, {box.length(1), box.length(0)});
+	  nc_plot_var.put(data, {box.smallEnd(1)+indexOffset,box.smallEnd(0)+indexOffset}, {box.length(1), box.length(0)});
 	  }
 	  {
 	  auto data = y_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(y_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, {box.smallEnd(1),box.smallEnd(0)}, {box.length(1), box.length(0)});
+	  nc_plot_var.put(data, {box.smallEnd(1)+indexOffset,box.smallEnd(0)+indexOffset}, {box.length(1), box.length(0)});
 	  }
 	  {
 	  auto data = s_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(s_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, {box.smallEnd(2)}, {box.length(2)});
+	  nc_plot_var.put(data, {box.smallEnd(2)+indexOffset}, {box.length(2)});
 	  }
           auto z_r_arr = z_r[lev]->array(fai);
           auto z_w_arr = z_w[lev]->array(fai);
@@ -396,12 +411,12 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
           {
             auto nc_plot_var = ncf.var(xi_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(xi_grid.data(), {box.smallEnd(0)}, {box.length(0)});
+            nc_plot_var.put(xi_grid.data(), {box.smallEnd(0)+indexOffset}, {box.length(0)});
           }
           {
             auto nc_plot_var = ncf.var(eta_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(eta_grid.data(), {box.smallEnd(1)}, {box.length(1)});
+            nc_plot_var.put(eta_grid.data(), {box.smallEnd(1)+indexOffset}, {box.length(1)});
           }
           /*
           {
@@ -412,12 +427,12 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
           {
             auto nc_plot_var = ncf.var(z_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(z_r_grid.data(), {box.smallEnd(2)}, {box.length(2)});
+            nc_plot_var.put(z_r_grid.data(), {box.smallEnd(2)+indexOffset}, {box.length(2)});
           }
           {
             auto nc_plot_var = ncf.var(z_w_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(z_w_grid.data(), {box.smallEnd(2)}, {box.length(2)});
+            nc_plot_var.put(z_w_grid.data(), {box.smallEnd(2)+indexOffset}, {box.length(2)});
           }
 
        }

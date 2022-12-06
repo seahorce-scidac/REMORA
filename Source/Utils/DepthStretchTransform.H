@@ -20,7 +20,7 @@ ROMSX::set_2darrays (int lev)
 
       Array4<Real> const& x_r_arr = (mf_x_r)->array(mfi);
       Array4<Real> const& y_r_arr = (mf_y_r)->array(mfi);
-      const Box& bx = mfi.tilebox();
+      const Box& bx = mfi.growntilebox();
       const auto & geomdata = geom[lev].data();
       int ncomp = 1;
 
@@ -36,6 +36,8 @@ ROMSX::set_2darrays (int lev)
 
       });
     }
+    x_r[lev]->FillBoundary(geom[lev].periodicity());
+    y_r[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 void
@@ -64,7 +66,7 @@ ROMSX::set_depth (int lev)
       Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
       Array4<Real> const& s_r_arr = (mf_s_r)->array(mfi);
       Array4<Real> const& Hz_arr  = (mf_Hz)->array(mfi);
-      const Box& bx = mfi.tilebox();
+      const Box& bx = mfi.growntilebox();
       Array4<Real> const& h_arr  = (mf_h)->array(mfi);
       Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
       const auto & geomdata = geom[lev].data();
@@ -228,6 +230,12 @@ ROMSX::set_depth (int lev)
       });
 
     } // mf
+    z_w[lev]->FillBoundary(geom[lev].periodicity());
+    z_r[lev]->FillBoundary(geom[lev].periodicity());
+    s_r[lev]->FillBoundary(geom[lev].periodicity());
+    Hz[lev]->FillBoundary(geom[lev].periodicity());
+    hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+    Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
   
 }
 
