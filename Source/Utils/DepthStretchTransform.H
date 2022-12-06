@@ -36,8 +36,8 @@ ROMSX::set_2darrays (int lev)
 
       });
     }
-    x_r[lev]->FillBoundary(geom[lev].periodicity());
-    y_r[lev]->FillBoundary(geom[lev].periodicity());
+    //    x_r[lev]->FillBoundary(geom[lev].periodicity());
+    //    y_r[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 void
@@ -66,7 +66,7 @@ ROMSX::set_depth (int lev)
       Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
       Array4<Real> const& s_r_arr = (mf_s_r)->array(mfi);
       Array4<Real> const& Hz_arr  = (mf_Hz)->array(mfi);
-      const Box& bx = mfi.growntilebox();
+      const Box& bx = mfi.tilebox();
       Array4<Real> const& h_arr  = (mf_h)->array(mfi);
       Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
       const auto & geomdata = geom[lev].data();
