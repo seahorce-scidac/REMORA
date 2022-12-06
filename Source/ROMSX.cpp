@@ -523,6 +523,13 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     }
     BoxArray ba2d(std::move(bl2d));
 
+    BoxList bl1d = ba.boxList();
+    for (auto& b : bl1d) {
+        b.setRange(0,0);
+        b.setRange(1,0);
+    }
+    BoxArray ba1d(std::move(bl1d));
+
     mapfac_m.resize(lev+1);
     mapfac_u.resize(lev+1);
     mapfac_v.resize(lev+1);
@@ -571,6 +578,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 
     hOfTheConfusingName.resize(lev+1);
     Zt_avg1.resize(lev+1);
+    s_r.resize(lev+1);
     z_w.resize(lev+1);
     z_r.resize(lev+1);
     y_r.resize(lev+1);
@@ -579,6 +587,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 
     hOfTheConfusingName[lev].reset(new MultiFab(ba,dm,1,0));
     Zt_avg1[lev].reset(new MultiFab(ba,dm,1,0));
+    s_r[lev].reset(new MultiFab(ba1d,dm,1,0));
     z_w[lev].reset(new MultiFab(ba,dm,1,0));
     z_r[lev].reset(new MultiFab(ba,dm,1,0));
     y_r[lev].reset(new MultiFab(ba2d,dm,1,0));

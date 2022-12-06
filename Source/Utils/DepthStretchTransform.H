@@ -45,6 +45,7 @@ ROMSX::set_depth (int lev)
     auto& lev_old = vars_old[lev];
     std::unique_ptr<MultiFab>& mf_z_w = z_w[lev];
     std::unique_ptr<MultiFab>& mf_z_r = z_r[lev];
+    std::unique_ptr<MultiFab>& mf_s_r = s_r[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = Hz[lev];
     std::unique_ptr<MultiFab>& mf_h  = hOfTheConfusingName[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
@@ -61,6 +62,7 @@ ROMSX::set_depth (int lev)
 
       Array4<Real> const& z_w_arr = (mf_z_w)->array(mfi);
       Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
+      Array4<Real> const& s_r_arr = (mf_s_r)->array(mfi);
       Array4<Real> const& Hz_arr  = (mf_Hz)->array(mfi);
       const Box& bx = mfi.tilebox();
       Array4<Real> const& h_arr  = (mf_h)->array(mfi);
@@ -170,6 +172,8 @@ ROMSX::set_depth (int lev)
           else
             Cs_r=Csur;
         }
+	if(i==0&&j==0)
+	s_r_arr(0,0,k) = sc_r;
         cff_r=hc*sc_r;
         cff1_r=Cs_r;
 

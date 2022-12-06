@@ -430,6 +430,7 @@ private:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> y_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_w;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> s_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Zt_avg1;
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_m;
