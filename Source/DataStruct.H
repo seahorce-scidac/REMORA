@@ -333,7 +333,7 @@ struct SolverChoice {
     // Stretching and depth parameters which may need to be read from inputs
     amrex::Real theta_s = 3.0;
     amrex::Real theta_b = 0.0;
-    amrex::Real tcline  = 25.0;
+    amrex::Real tcline  = 150.0;
 
     // Molecular transport model
     MolecDiffType molec_diff_type;

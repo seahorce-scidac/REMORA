@@ -94,7 +94,7 @@ ROMSX::set_depth (int lev)
         //This is the z for the bottom of the cell this k corresponds to
         //   if we weren't stretching and transforming
         const Real z = prob_lo[2] + (k) * dx[2];
-        h_arr(i,j,0) = -z; // conceptually
+        h_arr(i,j,0) = -prob_lo[2]; // conceptually
         
 
         //      h_arr(i,j,0) = -prob_lo[2];
