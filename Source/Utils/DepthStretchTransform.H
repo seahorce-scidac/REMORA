@@ -8,6 +8,37 @@
 using namespace amrex;
 
 void
+ROMSX::set_2darrays (int lev)
+{
+    auto& lev_new = vars_new[lev];
+    auto& lev_old = vars_old[lev];
+    std::unique_ptr<MultiFab>& mf_x_r = x_r[lev];
+    std::unique_ptr<MultiFab>& mf_y_r = y_r[lev];
+
+    for ( MFIter mfi(*(mf_x_r), TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+
+      Array4<Real> const& x_r_arr = (mf_x_r)->array(mfi);
+      Array4<Real> const& y_r_arr = (mf_y_r)->array(mfi);
+      const Box& bx = mfi.tilebox();
+      const auto & geomdata = geom[lev].data();
+      int ncomp = 1;
+
+      amrex::ParallelFor(bx, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      {
+        const auto prob_lo         = geomdata.ProbLo();
+        const auto dx              = geomdata.CellSize();
+
+        x_r_arr(i,j,0) = prob_lo[0] + (i + 0.5) * dx[0];
+        y_r_arr(i,j,0) = prob_lo[1] + (j + 0.5) * dx[1];
+	//        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
+
+      });
+    }
+}
+
+void
 ROMSX::set_depth (int lev)
 {
     auto& lev_new = vars_new[lev];

@@ -113,14 +113,16 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_dim(eta_name,   n_cells[1]);
      ncf.def_dim(z_name,   n_cells[2]);
 
-     ncf.def_dim(x_r_name,   n_cells[0]);
-     ncf.def_dim(y_r_name,   n_cells[1]);
+     ncf.def_dim(x_r_name,   n_cells[1]*n_cells[0]);
+     ncf.def_dim(y_r_name,   n_cells[1]*n_cells[0]);
      ncf.def_dim(z_r_name,   n_cells[2]);
      ncf.def_dim(z_w_name,   n_cells[2]);
 
-     ncf.def_var("x_rho",   NC_FLOAT, {x_r_name});
-     ncf.def_var("y_rho",  NC_FLOAT,  {y_r_name});
-     ncf.def_var("z_rho",  NC_FLOAT,  {z_r_name});
+     ncf.def_var("xi_rho",   NC_FLOAT, {xi_name});
+     ncf.def_var("eta_rho",  NC_FLOAT,  {eta_name});
+     ncf.def_var("x_rho",   NC_FLOAT, {eta_name, xi_name});
+     ncf.def_var("y_rho",  NC_FLOAT,  {eta_name, xi_name});
+     ncf.def_var("z_rho",  NC_FLOAT,  {z_name});
      ncf.def_var("z_w",  NC_FLOAT,  {z_w_name});
      
      ncf.def_var("probLo"  ,   NC_FLOAT,  {ndim_name});
@@ -138,12 +140,12 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
 #ifdef ROMSX_USE_HISTORYFILE
      for (int i = 0; i < plot_var_names.size(); i++) {
-       ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, z_r_name, y_r_name, x_r_name});
+       ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, z_r_name, eta_name, xi_name});
      }
      
 #else
      for (int i = 0; i < plot_var_names.size(); i++) {
-       ncf.def_var(plot_var_names[i], NC_FLOAT, {z_r_name, y_r_name, x_r_name});
+       ncf.def_var(plot_var_names[i], NC_FLOAT, {z_r_name, eta_name, xi_name});
      }
 
 #endif
@@ -272,6 +274,8 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
    //   std::vector<Real> x_grid;//(box.length(0));
    //   std::vector<Real> y_grid;//(box.length(1));
+   std::vector<Real> xi_grid;//(box.length(0));
+   std::vector<Real> eta_grid;//(box.length(1));
    //      std::vector<Real> z_grid(box.length(2));
    std::vector<Real> z_r_grid;//(box.length(2));
    std::vector<Real> z_w_grid;//(box.length(2));
@@ -311,12 +315,28 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
               nc_plot_var.put(data, startp, countp);
               //              nc_plot_var.put(data, startp, countp, stride);
           }
+
+	  {
+	  auto data = x_r[lev]->get(fai).dataPtr();
+	  auto nc_plot_var = ncf.var(x_r_name);
+	  nc_plot_var.par_access(NC_COLLECTIVE);
+	  nc_plot_var.put(data, {box.smallEnd(1),box.smallEnd(0)}, {box.length(1), box.length(0)});
+	  }
+	  {
+	  auto data = y_r[lev]->get(fai).dataPtr();
+	  auto nc_plot_var = ncf.var(y_r_name);
+	  nc_plot_var.par_access(NC_COLLECTIVE);
+	  nc_plot_var.put(data, {box.smallEnd(1),box.smallEnd(0)}, {box.length(1), box.length(0)});
+	  }
           auto z_r_arr = z_r[lev]->array(fai);
           auto z_w_arr = z_w[lev]->array(fai);
           const auto & geomdata = geom[lev].data();
           x_grid.clear(); y_grid.clear(); z_r_grid.clear(); z_w_grid.clear();
           x_grid.resize(box.length(0));
           y_grid.resize(box.length(1));
+	  xi_grid.clear(); eta_grid.clear();
+          xi_grid.resize(box.length(0));
+          eta_grid.resize(box.length(1));
           //      z_grid.resize(box.length(2));
           z_r_grid.resize(box.length(2));
           z_w_grid.resize(box.length(2));
@@ -338,9 +358,11 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
             //      if(j==0&&k==0)
             //              x_grid.push_back(x);
             x_grid[i-box.smallEnd(0)]=x;
+	    xi_grid[i-box.smallEnd(0)]=i;
             //            if(i==0&&k==0)
             //              y_grid.push_back(y);
             y_grid[j-box.smallEnd(1)]=y;
+	    eta_grid[j-box.smallEnd(1)]=j;
             //      z_grid[k-box.smallEnd(2)]=z;
             /*
               if(i==0&&j==0) {
@@ -351,6 +373,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
             z_w_grid[k-box.smallEnd(2)]=z_w_con;
 
           }
+          /*
           {
             auto nc_plot_var = ncf.var(x_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
@@ -360,6 +383,16 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
             auto nc_plot_var = ncf.var(y_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
             nc_plot_var.put(y_grid.data(), {box.smallEnd(1)}, {box.length(1)});
+          }*/
+          {
+            auto nc_plot_var = ncf.var(xi_name);
+            nc_plot_var.par_access(NC_COLLECTIVE);
+            nc_plot_var.put(xi_grid.data(), {box.smallEnd(0)}, {box.length(0)});
+          }
+          {
+            auto nc_plot_var = ncf.var(eta_name);
+            nc_plot_var.par_access(NC_COLLECTIVE);
+            nc_plot_var.put(eta_grid.data(), {box.smallEnd(1)}, {box.length(1)});
           }
           /*
           {

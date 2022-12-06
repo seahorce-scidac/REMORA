@@ -247,6 +247,8 @@ private:
 
     void initialize_integrator(int lev, amrex::MultiFab& cons_mf, amrex::MultiFab& vel_mf);
 
+    void set_2darrays (int lev);
+
     void set_depth (int lev);
 
 #ifdef ROMSX_USE_NETCDF
@@ -424,6 +426,8 @@ private:
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> hOfTheConfusingName;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Hz;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> x_r;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> y_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_w;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Zt_avg1;
