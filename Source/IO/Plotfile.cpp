@@ -199,7 +199,8 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         {
             for ( MFIter mfi(mf[lev],TilingIfNotGPU()); mfi.isValid(); ++mfi)
             {
-	        const Box& bx = (mfi.tilebox()).grow(ngrow_vars);
+              Box bx = mfi.tilebox();
+              bx.grow(ngrow_vars);
                 const Array4<Real>& derdat  = mf[lev].array(mfi);
                 const Array4<Real const>& S_arr = vars_new[lev][Vars::cons].const_array(mfi);
                 const Array4<Real const>& r0_arr = r_hse.const_array(mfi);
@@ -241,7 +242,8 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
                 MultiFab::Copy(mf_nd[lev],*z_phys_nd[lev],0,2,1,0);
                 Real dz = Geom()[lev].CellSizeArray()[2];
                 for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
- 		    const Box& bx = (mfi.tilebox()).grow(ngrow_vars);
+                    Box bx = mfi.tilebox();
+                    bx.grow(ngrow_vars);
                     Array4<      Real> mf_arr = mf_nd[lev].array(mfi);
                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
                         mf_arr(i,j,k,2) -= k * dz;

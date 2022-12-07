@@ -13,9 +13,9 @@ geometry.prob_hi     =  41000. 80000.       0.
 amr.n_cell           =  41     80      16
 
 # periodic in x to match WRF setup
-geometry.is_periodic = 1 1 0
-#ylo.type = "SlipWall"
-#yhi.type = "SlipWall"
+geometry.is_periodic = 1 0 0
+ylo.type = "SlipWall"
+yhi.type = "SlipWall"
 zlo.type = "SlipWall"
 zhi.type = "SlipWall"
 

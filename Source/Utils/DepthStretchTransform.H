@@ -66,7 +66,8 @@ ROMSX::set_depth (int lev)
       Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
       Array4<Real> const& s_r_arr = (mf_s_r)->array(mfi);
       Array4<Real> const& Hz_arr  = (mf_Hz)->array(mfi);
-      const Box& bx = mfi.tilebox();
+      Box bx = mfi.tilebox();
+      bx.grow(IntVect(1,1,0));
       Array4<Real> const& h_arr  = (mf_h)->array(mfi);
       Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
       const auto & geomdata = geom[lev].data();
@@ -225,8 +226,6 @@ ROMSX::set_depth (int lev)
 
           z_w_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_w;
           z_r_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
-	  if(i==0&&j==0)
-	    amrex::Print()<<"k="<<k<<"\t"<<z_r_arr(i,j,k)<<std::endl;
         //Note, we are not supporting ICESHELF flag
           Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
 
@@ -234,10 +233,9 @@ ROMSX::set_depth (int lev)
       });
 
     } // mf
-    
+    /*
     z_w[lev]->FillBoundary(geom[lev].periodicity());
     z_r[lev]->FillBoundary(geom[lev].periodicity());
-    /*
     s_r[lev]->FillBoundary(geom[lev].periodicity());
     Hz[lev]->FillBoundary(geom[lev].periodicity());
     hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());

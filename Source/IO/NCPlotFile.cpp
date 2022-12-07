@@ -65,8 +65,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      auto ncf = ncutils::NCFile::create_par(FullPath, NC_NETCDF4 | NC_MPIIO,
                                    amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
 #endif
-
-     int nblocks = grids[lev].size();
+     int nblocks = (plotMF[lev]->boxArray()).size();
 
      // We only do single-level writes when using NetCDF format
      int flev    = lev;
@@ -282,24 +281,14 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
    std::vector<Real> z_r_grid;//(box.length(2));
    std::vector<Real> z_w_grid;//(box.length(2));
    const int indexOffset = 1;
-   print_state(*x_r[lev],amrex::IntVect(-1,-1,0),0);
-   print_state(*y_r[lev],amrex::IntVect(-1,-1,0),0);
-   amrex::Print()<<"\n---------------"<<std::endl;
+
    for (amrex::MFIter fai(*plotMF[lev]); fai.isValid(); ++fai) {
-     auto box             = (fai.tilebox().grow(amrex::IntVect(1,1,0)));
+       Box box = fai.tilebox();
+       box.grow(IntVect(1,1,0));
        if (subdomain.contains(box)||true) {
            long unsigned numpts = box.numPts();
            auto array_version = plotMF[lev]->array(fai);
 	   auto x_r_arr = x_r[lev]->array(fai);
-	   amrex::Print()<<box<<std::endl;
-	   amrex::Print()<<subdomain<<std::endl;
-	   amrex::Print()<<subdomain.contains(box)<<std::endl;
-	   amrex::Print()<<array_version(-1,-1,-1,0)<<std::endl;
-	   amrex::Print()<<array_version(0,0,0,0)<<std::endl;
-	   amrex::Print()<<x_r_arr(0,0,0)<<std::endl;
-	   amrex::Print()<<x_r_arr(-1,-1,0)<<std::endl;
-	   amrex::Print()<<x_r_arr(0,0,0,0)<<std::endl;
-	   amrex::Print()<<x_r_arr(-1,-1,0,0)<<std::endl;
 
            #ifdef ROMSX_USE_HISTORYFILE
            int num_var_dims=AMREX_SPACEDIM+1;
@@ -308,35 +297,25 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
            #endif
            std::vector<size_t> startp(num_var_dims);
            std::vector<size_t> countp(num_var_dims);
-           std::vector<ptrdiff_t> stride(num_var_dims);
-	   /*
-           stride[num_var_dims-1]=(ptrdiff_t) (&(array_version(1,0,0,0))-&(array_version(0,0,0.0)));
-           stride[num_var_dims-2]=(ptrdiff_t) (&(array_version(0,1,0,0))-&(array_version(0,0,0.0)))/stride[num_var_dims];
-           stride[num_var_dims-3]=(ptrdiff_t) (&(array_version(0,0,1,0))-&(array_version(0,0,0.0)))/stride[num_var_dims-1];
-*/
+
            for (int i=0;i<3;i++) {
+	     //Only use ghost cells in x and y direction
 	     if(i!=2)
                startp[num_var_dims-1-i]=box.smallEnd(i)+indexOffset;
 	     else
 	       startp[num_var_dims-1-i]=box.smallEnd(i);
                countp[num_var_dims-1-i]=box.length(i);
-	       amrex::Print()<<"box.smallEnd(i)+indexOffset;"<<box.smallEnd(i)+indexOffset<<"box.length(i);"<<box.length(i)<<std::endl;
            }
 #ifdef ROMSX_USE_HISTORYFILE
            startp[0]=total_plot_file_step_1+1;
            countp[0]=1;
-           stride[0]=1;
 #endif
           for (int k(0); k < ncomp; ++k) {
               auto data = plotMF[lev]->get(fai).dataPtr(k);
               auto nc_plot_var = ncf.var(plot_var_names[k]);
               nc_plot_var.par_access(NC_COLLECTIVE);
               nc_plot_var.put(data, startp, countp);
-	      amrex::Print()<<plot_var_names[k]<<std::endl;
-	      amrex::Print()<<(*plotMF[lev])[0]<<std::endl;
-              //              nc_plot_var.put(data, startp, countp, stride);
           }
-
 	  {
 	  auto data = x_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(x_r_name);
@@ -366,8 +345,6 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 	  auto nc_plot_var = ncf.var(s_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
 	  nc_plot_var.put(data, {box.smallEnd(2)}, {box.length(2)});
-	    for(int k=0;k<16;k++)
-	      amrex::Print()<<"k: "<<k<<"\t"<<(data)[k]<<std::endl;	  
 	  }
           auto z_r_arr = z_r[lev]->array(fai);
           auto z_w_arr = z_w[lev]->array(fai);
@@ -378,13 +355,10 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 	  xi_grid.clear(); eta_grid.clear(); vert_grid.clear();
           xi_grid.resize(box.length(0));
           eta_grid.resize(box.length(1));
-          //      z_grid.resize(box.length(2));
 	  vert_grid.resize(box.length(2));
           z_r_grid.resize(box.length(2));
           z_w_grid.resize(box.length(2));
 
-	  //	  amrex::Print()<<amrex::FArrayBox(z_r_arr)<<std::endl;
-	  amrex::Print()<<(*z_r[0])[0]<<std::endl;
           for(int i=box.smallEnd(0); i<=box.bigEnd(0);i++)
             for(int j=box.smallEnd(1); j<=box.bigEnd(1);j++)
               for(int k=box.smallEnd(2); k<=box.bigEnd(2);k++)
@@ -416,8 +390,6 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
               }*/
             z_r_grid[k-box.smallEnd(2)]=z_r_con;
             z_w_grid[k-box.smallEnd(2)]=z_w_con;
-	    amrex::Print()<<"ijk"<<i<<"\t"<<j<<"\t"<<k<<"\t"<<z_r_con<<std::endl;
-
           }
           /*
           {
