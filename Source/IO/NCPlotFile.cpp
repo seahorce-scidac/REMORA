@@ -145,7 +145,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
      ncf.def_var("x_grid", NC_FLOAT, {nb_name, x_r_name});
      ncf.def_var("y_grid", NC_FLOAT, {nb_name, y_r_name});
-     ncf.def_var("z_grid", NC_FLOAT, {nb_name, z_name});
+     ncf.def_var("z_grid", NC_FLOAT, {nb_name, z_r_name});
 
 #ifdef ROMSX_USE_HISTORYFILE
      for (int i = 0; i < plot_var_names.size(); i++) {
