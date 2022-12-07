@@ -72,6 +72,10 @@ init_custom_prob(
         state(i, j, k, Rho_comp) = 1.;
 
         state(i,j,k,Temp_comp)=parms.T0+8.0*std::exp(z/50.0_rt);
+	if(i==0&&j==0)
+	printf("%d %d %d %25.5g %25.5g %25.5g %25.5g\n",i,j,k,x,y,z,state(i,j,k,Temp_comp));
+	if(i==0&&j==0)
+	  printf("%d %d %d %25.5g %25.5g %25.5g\n",i,j,k,parms.T0,parms.T0+8.0*std::exp(-150/50.0_rt),parms.T0+8.0*std::exp(-140.2/50.0_rt));
 #ifdef ROMSX_USE_SALINITY
         state(i,j,k,Salt_comp)=parms.S0;
 #endif

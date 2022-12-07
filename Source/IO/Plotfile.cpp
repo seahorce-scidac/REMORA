@@ -88,6 +88,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
 
     const Vector<std::string> varnames = PlotFileVarNames(plot_var_names);
     const int ncomp_mf = varnames.size();
+    const auto ngrow_vars = IntVect(1,1,0);
 
     // We fillpatch here because some of the derived quantities require derivatives
     //     which require ghost cells to be filled
@@ -103,7 +104,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
 
     Vector<MultiFab> mf(finest_level+1);
     for (int lev = 0; lev <= finest_level; ++lev) {
-        mf[lev].define(grids[lev], dmap[lev], ncomp_mf, 1);
+        mf[lev].define(grids[lev], dmap[lev], ncomp_mf, ngrow_vars);
     }
 
     Vector<MultiFab> mf_nd(finest_level+1);
@@ -122,7 +123,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         AMREX_ALWAYS_ASSERT(cons_names.size() == Cons::NumVars);
         for (int i = 0; i < Cons::NumVars; ++i) {
             if (containerHasElement(plot_var_names, cons_names[i])) {
-                MultiFab::Copy(mf[lev],vars_new[lev][Vars::cons],i,mf_comp,1,1);
+	      MultiFab::Copy(mf[lev],vars_new[lev][Vars::cons],i,mf_comp,1,ngrow_vars);
                 mf_comp++;
             }
         }
@@ -184,13 +185,13 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         if (containerHasElement(plot_var_names, "pres_hse"))
         {
             // p_0 is second component of base_state
-            MultiFab::Copy(mf[lev],p_hse,0,mf_comp,1,1);
+            MultiFab::Copy(mf[lev],p_hse,0,mf_comp,1,ngrow_vars);
             mf_comp += 1;
         }
         if (containerHasElement(plot_var_names, "dens_hse"))
         {
             // r_0 is first component of base_state
-            MultiFab::Copy(mf[lev],r_hse,0,mf_comp,1,1);
+            MultiFab::Copy(mf[lev],r_hse,0,mf_comp,1,ngrow_vars);
             mf_comp ++;
         }
 
@@ -198,7 +199,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         {
             for ( MFIter mfi(mf[lev],TilingIfNotGPU()); mfi.isValid(); ++mfi)
             {
-                const Box& bx = mfi.growntilebox();
+	        const Box& bx = (mfi.tilebox()).grow(ngrow_vars);
                 const Array4<Real>& derdat  = mf[lev].array(mfi);
                 const Array4<Real const>& S_arr = vars_new[lev][Vars::cons].const_array(mfi);
                 const Array4<Real const>& r0_arr = r_hse.const_array(mfi);
@@ -212,13 +213,13 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         if (solverChoice.use_terrain) {
             if (containerHasElement(plot_var_names, "z_phys"))
             {
-                MultiFab::Copy(mf[lev],*z_phys_cc[lev],0,mf_comp,1,1);
+                MultiFab::Copy(mf[lev],*z_phys_cc[lev],0,mf_comp,1,ngrow_vars);
                 mf_comp ++;
             }
 
             if (containerHasElement(plot_var_names, "detJ"))
             {
-                MultiFab::Copy(mf[lev],*detJ_cc[lev],0,mf_comp,1,1);
+                MultiFab::Copy(mf[lev],*detJ_cc[lev],0,mf_comp,1,ngrow_vars);
                 mf_comp ++;
             }
         } // use_terrain
@@ -240,7 +241,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
                 MultiFab::Copy(mf_nd[lev],*z_phys_nd[lev],0,2,1,0);
                 Real dz = Geom()[lev].CellSizeArray()[2];
                 for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                    const Box& bx = mfi.growntilebox();
+ 		    const Box& bx = (mfi.tilebox()).grow(ngrow_vars);
                     Array4<      Real> mf_arr = mf_nd[lev].array(mfi);
                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
                         mf_arr(i,j,k,2) -= k * dz;
