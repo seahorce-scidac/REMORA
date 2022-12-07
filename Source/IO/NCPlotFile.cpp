@@ -124,10 +124,6 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_dim(z_w_name,   n_cells[2]);
      ncf.def_dim(s_r_name,   n_cells[2]);
 
-     ncf.def_var("xi_rho",   NC_FLOAT, {xi_name});
-     ncf.def_var("eta_rho",  NC_FLOAT,  {eta_name});
-     ncf.def_var("vert_rho",  NC_FLOAT,  {vert_name});
-     ncf.def_var("z_rho2",  NC_FLOAT,  {z_r_name2});
      ncf.def_var("z_w",  NC_FLOAT,  {z_w_name});
      ncf.def_var("s_rho",  NC_FLOAT,  {s_r_name});
      ncf.def_var("x_rho",   NC_FLOAT, {eta_name, xi_name});
@@ -146,6 +142,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_var("x_grid", NC_FLOAT, {nb_name, x_r_name});
      ncf.def_var("y_grid", NC_FLOAT, {nb_name, y_r_name});
      ncf.def_var("z_grid", NC_FLOAT, {nb_name, z_r_name});
+     ncf.def_var("z_w_grid", NC_FLOAT, {nb_name, z_w_name});
 
 #ifdef ROMSX_USE_HISTORYFILE
      for (int i = 0; i < plot_var_names.size(); i++) {
@@ -365,6 +362,12 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 	  nc_plot_var.put(data, startp, countp);
 	  }
 	  {
+	  auto data = z_w[lev]->get(fai).dataPtr();
+	  auto nc_plot_var = ncf.var(z_w_name);
+	  nc_plot_var.par_access(NC_COLLECTIVE);
+	  nc_plot_var.put(data, startp, countp);
+	  }
+	  {
 	  auto data = s_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(s_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
@@ -432,7 +435,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
             auto nc_plot_var = ncf.var(y_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
             nc_plot_var.put(y_grid.data(), {box.smallEnd(1)}, {box.length(1)});
-          }*/
+          }
           {
             auto nc_plot_var = ncf.var(xi_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
@@ -448,7 +451,6 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
             nc_plot_var.par_access(NC_COLLECTIVE);
             nc_plot_var.put(vert_grid.data(), {box.smallEnd(2)}, {box.length(2)});
 	  }
-          /*
           {
             auto nc_plot_var = ncf.var(z_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
