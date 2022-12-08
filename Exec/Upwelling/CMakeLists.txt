@@ -1,4 +1,4 @@
-set(romsx_exe_name double_gyre)
+set(romsx_exe_name upwelling)
 
 add_executable(${romsx_exe_name} "")
 target_sources(${romsx_exe_name}

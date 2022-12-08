@@ -58,8 +58,8 @@ create a problem directory with a name in ``Exec/<prob_name>``. This problem dir
 run where the simulation is run until convergence or a solution is developed. This problem setup could comprise
 of a more complex physics than the corresponding tests for regression at ``Tests/test_files/<test_name>``. Prepare
 toned down versions of the input file(s) for each combination of physics that a regression test is desired.
-For example, ``DoubleGyre`` problem with input file ``Exec/DoubleGyre/inputs`` solves the double gyre problem. The corresponding regression test is driven by the input files
-``Tests/test_files/DoubleGyre/DoubleGyre.i``.
+For example, ``Upwelling`` problem with input file ``Exec/Upwelling/inputs`` solves the double gyre problem. The corresponding regression test is driven by the input files
+``Tests/test_files/Upwelling/Upwelling.i``.
 
 Any file in the test directory will be copied during CMake configure to the test's working directory.
 The input files meant for regression test run only until a few time steps. The reference solution that the

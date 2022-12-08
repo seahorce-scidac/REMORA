@@ -85,7 +85,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
      int n_data_items = plotMF[lev]->nComp();
 
-     const std::string nt_name   = "num_time_steps";
+     const std::string nt_name   = "ocean_time";
      const std::string ndim_name = "num_geo_dimensions";
      const std::string np_name   = "num_points_per_block";
      const std::string nb_name   = "num_blocks";
@@ -117,7 +117,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_dim(z_r_name,   n_cells[2]*n_cells[1]*n_cells[0]);
      ncf.def_dim(z_w_name,   n_cells[2]*n_cells[1]*n_cells[0]);
 
-     ncf.def_var("z_w",  NC_FLOAT,  {z_w_name});
+     ncf.def_var("z_w",  NC_FLOAT,  {s_r_name, eta_name, xi_name});
      ncf.def_var("s_rho",  NC_FLOAT,  {s_r_name});
      ncf.def_var("x_rho",   NC_FLOAT, {eta_name, xi_name});
      ncf.def_var("y_rho",  NC_FLOAT,  {eta_name, xi_name});
@@ -332,13 +332,13 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 	  auto data = z_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(z_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, startp, countp);
+	  nc_plot_var.put(data, {box.smallEnd(2), box.smallEnd(1)+indexOffset,box.smallEnd(0)+indexOffset}, {box.length(2), box.length(1), box.length(0)});
 	  }
 	  {
-	  auto data = z_w[lev]->get(fai).dataPtr();
+          auto data = z_w[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(z_w_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, startp, countp);
+	  nc_plot_var.put(data, {box.smallEnd(2), box.smallEnd(1)+indexOffset,box.smallEnd(0)+indexOffset}, {box.length(2), box.length(1), box.length(0)});
 	  }
 	  {
 	  auto data = s_r[lev]->get(fai).dataPtr();

@@ -32,5 +32,6 @@ SALINITY = TRUE
 Bpack := ./Make.package
 Blocs := .
 ROMSX_HOME := ../..
-ROMSX_PROBLEM_DIR = $(ROMSX_HOME)/Exec/DoubleGyre
+ROMSX_PROBLEM_DIR = $(ROMSX_HOME)/Exec/Upwelling
+DEFINES += -DROMSX_USE_HISTORYFILE
 include $(ROMSX_HOME)/Exec/Make.ROMSX
