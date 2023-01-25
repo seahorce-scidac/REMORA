@@ -48,7 +48,3 @@ tmp_build_dir/
 AMReX_buildInfo.cpp
 
 Backtrace.*
-
-Build/*
-!Build/cmake*sh
-!Build/in2inputs.sh
