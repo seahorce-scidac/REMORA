@@ -221,15 +221,15 @@ ad_VolCons(north) ==  F                            ! northern boundary
 
 ! Time-Stepping parameters.
 
-      NTIMES == 1440
+      NTIMES == 100
           DT == 300.0d0
      NDTFAST == 30
 
 ! Number of timesteps for computing observation impacts during the
 ! analysis-forecast cycle.
 
-  NTIMES_ANA == 1440                               ! analysis interval
-  NTIMES_FCT == 1440                               ! forecast interval
+  NTIMES_ANA == 100                               ! analysis interval
+  NTIMES_FCT == 100                               ! forecast interval
 
 ! Model iteration loops parameters.
 
@@ -259,7 +259,7 @@ ad_VolCons(north) ==  F                            ! northern boundary
 ! Output history, quicksave, average, and diagnostic files parameters.
 
      LDEFOUT == T
-        NHIS == 72
+        NHIS == 1
      NDEFHIS == 0
         NQCK == 0
      NDEFQCK == 0

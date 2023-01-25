@@ -1,6 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 999999
-stop_time = 900.0
+stop_time = 30000.0
 
 amrex.fpe_trap_invalid = 1
 
@@ -20,8 +20,9 @@ zlo.type = "SlipWall"
 zhi.type = "SlipWall"
 
 # TIME STEP CONTROL
-romsx.fixed_dt       = 1.0      # fixed time step [s] -- Straka et al 1993
-romsx.fixed_fast_dt  = 0.25     # fixed time step [s] -- Straka et al 1993
+romsx.fixed_dt       = 300.0 # Timestep size (seconds)
+# NDTFAST  = 30.0 # Number of baratropic steps => 300.0/30.0 = 10.0
+romsx.fixed_fast_dt  = 10.0 # Baratropic timestep size (seconds)
 
 # DIAGNOSTICS & VERBOSITY
 romsx.sum_interval   = 1       # timesteps between computing mass
@@ -37,7 +38,7 @@ romsx.check_int       = -57600      # number of timesteps between checkpoints
 
 # PLOTFILES
 romsx.plot_file_1     = plt        # prefix of plotfile name
-romsx.plot_int_1      = 1000       # number of timesteps between plotfiles
+romsx.plot_int_1      = 1          # number of timesteps between plotfiles
 romsx.plot_vars_1     = omega salt temp
 
 # SOLVER CHOICE
