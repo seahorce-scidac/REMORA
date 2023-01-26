@@ -27,6 +27,7 @@
 #endif
 
 #include <ROMSX_Math.H>
+#include <ROMSX_PhysBCFunct.H>
 #include <IndexDefines.H>
 #include <TimeInterpolatedData.H>
 #include <DataStruct.H>
@@ -128,18 +129,23 @@ public:
     amrex::Real estTimeStep (int lev) const;
 
     // Interface for advancing the data at one level by one "slow" timestep
-    void romsx_advance (int level,
+    void romsx_advance(int level,
                        amrex::MultiFab& cons_old,  amrex::MultiFab& cons_new,
                        amrex::MultiFab& xvel_old,  amrex::MultiFab& yvel_old,  amrex::MultiFab& zvel_old,
                        amrex::MultiFab& xvel_new,  amrex::MultiFab& yvel_new,  amrex::MultiFab& zvel_new,
+#if 0
                        amrex::MultiFab& xmom_old,  amrex::MultiFab& ymom_old,  amrex::MultiFab& zmom_old,
                        amrex::MultiFab& xmom_new,  amrex::MultiFab& ymom_new,  amrex::MultiFab& zmom_new,
                        amrex::MultiFab& xmom_crse, amrex::MultiFab& ymom_crse, amrex::MultiFab& zmom_crse,
-                       amrex::MultiFab& source,
+#endif
+		       amrex::MultiFab& source,
                        const amrex::Geometry fine_geom,
-                       const amrex::Real dt, const amrex::Real time,
-                       amrex::InterpFaceRegister* ifr,
-                      amrex::MultiFab* r0, amrex::MultiFab* p0, amrex::MultiFab* pi0);
+                       const amrex::Real dt, const amrex::Real time
+#if 0
+		       ,amrex::InterpFaceRegister* ifr);
+#else
+                      );
+#endif
  
     amrex::MultiFab& build_fine_mask(int lev);
 
@@ -257,6 +263,10 @@ private:
 
     // more flexible version of AverageDown() that lets you average down across multiple levels
     void AverageDownTo (int crse_lev);
+
+    // compute a new multifab by copying in phi from valid region and filling ghost cells
+    // works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
+    void FillPatch (int lev, amrex::Real time, const amrex::Vector<amrex::MultiFab*>& mf);
 
     // compute a new multifab by copying in phi from valid region and filling ghost cells
     // works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
@@ -411,6 +421,7 @@ private:
     amrex::Vector<amrex::Real> t_old;
     amrex::Vector<amrex::Real> dt;
 
+    amrex::Vector<std::unique_ptr<ROMSXPhysBCFunct>> physbcs;
     // array of multifabs to store the solution at each level of refinement
     // after advancing a level we use "swap".
 

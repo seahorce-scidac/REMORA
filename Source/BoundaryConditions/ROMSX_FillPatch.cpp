@@ -5,6 +5,89 @@
 
 using namespace amrex;
 
+PhysBCFunctNoOp null_bc;
+
+//
+// Fill valid and ghost data in the MultiFab "mf"
+// This version fills the MultiFab mf in valid regions with the "state data" at the given time;
+// values in mf when it is passed in are *not* used.
+//
+void
+ROMSX::FillPatch (int lev, Real time, const Vector<MultiFab*>& mfs)
+{
+    BL_PROFILE_VAR("ROMSX::FillPatch()",ROMSX_FillPatch);
+    int bccomp;
+    amrex::Interpolater* mapper = nullptr;
+
+    for (int var_idx = 0; var_idx < Vars::NumTypes; ++var_idx) {
+        MultiFab& mf = *mfs[var_idx];
+        const int icomp = 0;
+        const int ncomp = mf.nComp();
+
+        if (var_idx == Vars::cons)
+        {
+            bccomp = 0;
+            mapper = &cell_cons_interp;
+        }
+        else if (var_idx == Vars::xvel)
+        {
+            bccomp = BCVars::xvel_bc;
+            mapper = &face_linear_interp;
+        }
+        else if (var_idx == Vars::yvel)
+        {
+            bccomp = BCVars::yvel_bc;
+            mapper = &face_linear_interp;
+        }
+        else if (var_idx == Vars::zvel)
+        {
+            bccomp = BCVars::zvel_bc;
+            mapper = &face_linear_interp;
+        } else {
+          amrex::Abort("Dont recognize this variable type in ROMSX_Fillpatch");
+        }
+
+        if (lev == 0)
+        {
+            Vector<MultiFab*> fmf = {&vars_old[lev][var_idx], &vars_new[lev][var_idx]};
+            Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+            amrex::FillPatchSingleLevel(mf, time, fmf, ftime, icomp, icomp, ncomp,
+                                        geom[lev], null_bc, bccomp);
+        }
+        else
+        {
+            Vector<MultiFab*> fmf = {&vars_old[lev][var_idx], &vars_new[lev][var_idx]};
+            Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+            Vector<MultiFab*> cmf = {&vars_old[lev-1][var_idx], &vars_new[lev-1][var_idx]};
+            Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
+
+            amrex::FillPatchTwoLevels(mf, time, cmf, ctime, fmf, ftime,
+                                      0, icomp, ncomp, geom[lev-1], geom[lev],
+                                      null_bc, bccomp, null_bc, bccomp, refRatio(lev-1),
+                                      mapper, domain_bcs_type, bccomp);
+        } // lev > 0
+    } // var_idx
+
+    // ***************************************************************************
+    // Physical bc's at domain boundary
+    // ***************************************************************************
+    bool cons_only = false;
+    int icomp_cons = 0;
+    int ncomp_cons = mfs[Vars::cons]->nComp();
+
+    IntVect ngvect_cons = mfs[Vars::cons]->nGrowVect();
+    IntVect ngvect_vels = mfs[Vars::xvel]->nGrowVect();
+    //tweaked physbcs
+    for(auto& mf : mfs)
+    (*physbcs[lev])(*mf,icomp_cons,ncomp_cons,ngvect_cons,time,cons_only);
+    /*
+    if (m_r2d) amrex::Abort("ReadBoundaryPlanes is not supported");//fill_from_bndryregs(mfs,time);
+#ifdef ROMSX_USE_NETCDF
+    if (init_type == "real") amrex::Abort("This init type is not supported");//fill_from_wrfbdy(mfs,time);
+#endif
+    */
+}
+
 // utility to copy in data from old/new data into a struct that holds data for FillPatching
 TimeInterpolatedData
 ROMSX::GetDataAtTime (int lev, Real time)
