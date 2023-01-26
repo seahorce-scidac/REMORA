@@ -74,8 +74,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     V_new.setVal(1.e34,V_new.nGrowVect());
     W_new.setVal(1.e34,W_new.nGrowVect());
 
-    const Vector<MultiFab*> mfs = {&vars_old[lev][Vars::cons], &vars_old[lev][Vars::xvel], &vars_old[lev][Vars::yvel], &vars_old[lev][Vars::zvel]};
-    FillPatch(lev, time, mfs);
+    auto& lev_old = vars_old[lev];
+    // Moving terrain
+    Real time_mt = t_new[lev] - 0.5*dt[lev];
+    FillPatch(lev, time, time_mt, dt[lev], lev_old);
 
 #if 0
     MultiFab* S_crse;

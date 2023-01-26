@@ -79,7 +79,10 @@ ROMSX::FillPatch (int lev, Real time, const Vector<MultiFab*>& mfs)
     IntVect ngvect_vels = mfs[Vars::xvel]->nGrowVect();
     //tweaked physbcs
     for(auto& mf : mfs)
+    {
+	amrex::Abort("Need to initialize physbcs");
     (*physbcs[lev])(*mf,icomp_cons,ncomp_cons,ngvect_cons,time,cons_only);
+    }
     /*
     if (m_r2d) amrex::Abort("ReadBoundaryPlanes is not supported");//fill_from_bndryregs(mfs,time);
 #ifdef ROMSX_USE_NETCDF
