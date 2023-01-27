@@ -611,15 +611,15 @@
             cff1=0.5_r8+Gamma
             cff2=0.5_r8-Gamma
           END IF
-          DO j=Jstr,Jend
-            DO i=Istr,Iend
-              t(i,j,k,3,itrc)=Hz(i,j,k)*(cff1*t(i,j,k,nstp,itrc)+       &
-     &                                   cff2*t(i,j,k,nnew,itrc))-      &
-     &                        cff*pm(i,j)*pn(i,j)*                      &
-     &                        (FX(i+1,j)-FX(i,j)+                       &
-     &                         FE(i,j+1)-FE(i,j))
-            END DO
-          END DO
+!          DO j=Jstr,Jend
+!            DO i=Istr,Iend
+!              t(i,j,k,3,itrc)=Hz(i,j,k)*(cff1*t(i,j,k,nstp,itrc)+       &
+!     &                                   cff2*t(i,j,k,nnew,itrc))-      &
+!     &                        cff*pm(i,j)*pn(i,j)*                      &
+!     &                        (FX(i+1,j)-FX(i,j)+                       &
+!     &                         FE(i,j+1)-FE(i,j))
+!            END DO
+!          END DO
         END DO K_LOOP
       END DO T_LOOP1
 
@@ -643,9 +643,9 @@
           DO k=1,N(ng)
             DO j=Jstr,Jend
               DO i=Istr,Iend
-                t(i,j,k,3,iage)=t(i,j,k,3,iage)+                        &
-     &                          cff*Hz(i,j,k)*                          &
-     &                          t(i,j,k,nnew,inert(itrc))
+                t(i,j,k,3,iage)=t(i,j,k,3,iage)!+                        &
+!     &                          cff*Hz(i,j,k)*                          &
+!     &                t(i,j,k,nnew,inert(itrc))
               END DO
             END DO
           END DO
@@ -873,9 +873,9 @@
           DO k=1,N(ng)
             DO i=Istr,Iend
               cff1=cff*pm(i,j)*pn(i,j)
-              t(i,j,k,3,itrc)=DC(i,k)*                                  &
-     &                        (t(i,j,k,3,itrc)-                         &
-     &                         cff1*(FC(i,k)-FC(i,k-1)))
+!              t(i,j,k,3,itrc)=DC(i,k)*                                  &
+!     &                        (t(i,j,k,3,itrc)-                         &
+!     &                         cff1*(FC(i,k)-FC(i,k-1)))
             END DO
           END DO
         END DO T_LOOP2
@@ -951,7 +951,7 @@
             DO i=Istr,Iend
               cff1=Hz(i,j,k)*t(i,j,k,nstp,itrc)
               cff2=FC(i,k)-FC(i,k-1)
-              t(i,j,k,nnew,itrc)=cff1+cff2
+!              t(i,j,k,nnew,itrc)=cff1+cff2
 #  ifdef DIAGNOSTICS_TS
               DiaTwrk(i,j,k,itrc,iTrate)=cff1
               DiaTwrk(i,j,k,itrc,iTvdif)=cff2
@@ -1196,19 +1196,19 @@
      &                   nstp, 3,                                       &
      &                   t)
 
-        IF (EWperiodic(ng).or.NSperiodic(ng)) THEN
-          CALL exchange_r3d_tile (ng, tile,                             &
-     &                            LBi, UBi, LBj, UBj, 1, N(ng),         &
-     &                            t(:,:,:,3,itrc))
-        END IF
+!        IF (EWperiodic(ng).or.NSperiodic(ng)) THEN
+!          CALL exchange_r3d_tile (ng, tile,                             &
+!     &                            LBi, UBi, LBj, UBj, 1, N(ng),         &
+!     &                            t(:,:,:,3,itrc))
+!        END IF
       END DO
 
 #  ifdef DISTRIBUTE
-      CALL mp_exchange4d (ng, tile, iNLM, 1,                            &
-     &                    LBi, UBi, LBj, UBj, 1, N(ng), 1, NT(ng),      &
-     &                    NghostPoints,                                 &
-     &                    EWperiodic(ng), NSperiodic(ng),               &
-     &                    t(:,:,:,3,:))
+!      CALL mp_exchange4d (ng, tile, iNLM, 1,                            &
+!     &                    LBi, UBi, LBj, UBj, 1, N(ng), 1, NT(ng),      &
+!     &                    NghostPoints,                                 &
+!     &                    EWperiodic(ng), NSperiodic(ng),               &
+!     &                    t(:,:,:,3,:))
 #  endif
 # endif
 !
