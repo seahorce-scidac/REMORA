@@ -232,6 +232,14 @@ public:
 
     amrex::Vector<amrex::Vector<amrex::MultiFab> > vars_new;
     amrex::Vector<amrex::Vector<amrex::MultiFab> > vars_old;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> hOfTheConfusingName;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> Hz;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> x_r;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> y_r;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_r;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_w;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> s_r;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> Zt_avg1;
 
 private:
 
@@ -434,15 +442,6 @@ private:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>>   detJ_cc_new;
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_t_rk;
-
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> hOfTheConfusingName;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> Hz;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> x_r;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> y_r;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_r;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_w;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> s_r;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> Zt_avg1;
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_m;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_u;

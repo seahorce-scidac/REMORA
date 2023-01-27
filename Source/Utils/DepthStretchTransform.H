@@ -21,11 +21,11 @@ ROMSX::set_2darrays (int lev)
       Array4<Real> const& x_r_arr = (mf_x_r)->array(mfi);
       Array4<Real> const& y_r_arr = (mf_y_r)->array(mfi);
       const Box& bx = mfi.growntilebox();
-      const auto & geomdata = geom[lev].data();
+      const auto & geomdata = Geom(lev).data();
       int ncomp = 1;
 
-      amrex::ParallelFor(bx, ncomp,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      amrex::LoopConcurrentOnCpu(bx, ncomp,
+      [=] (int i, int j, int k, int n)
       {
         const auto prob_lo         = geomdata.ProbLo();
         const auto dx              = geomdata.CellSize();
@@ -70,7 +70,7 @@ ROMSX::set_depth (int lev)
       bx.grow(IntVect(1,1,0));
       Array4<Real> const& h_arr  = (mf_h)->array(mfi);
       Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
-      const auto & geomdata = geom[lev].data();
+      const auto & geomdata = Geom(lev).data();
 
       int ncomp = 1;
       Box subdomain;
@@ -89,8 +89,8 @@ ROMSX::set_depth (int lev)
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
 
       // ROMS Transform 2
-      amrex::ParallelFor(bx, ncomp,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      amrex::LoopConcurrentOnCpu(bx, ncomp,
+      [=] (int i, int j, int k, int n)
       {
         //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
         const auto prob_lo         = geomdata.ProbLo();

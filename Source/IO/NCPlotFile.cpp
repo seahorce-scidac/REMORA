@@ -280,7 +280,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
    //      std::vector<Real> z_grid(box.length(2));
    std::vector<Real> z_r_grid;//(box.length(2));
    std::vector<Real> z_w_grid;//(box.length(2));
-   const int indexOffset = 1;
+   const unsigned long indexOffset = 1;
 
    for (amrex::MFIter fai(*plotMF[lev]); fai.isValid(); ++fai) {
        Box box = fai.tilebox();
@@ -320,48 +320,48 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 	  auto data = x_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(x_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, {box.smallEnd(1)+indexOffset,box.smallEnd(0)+indexOffset}, {box.length(1), box.length(0)});
+	  nc_plot_var.put(data, {(unsigned long) box.smallEnd(1)+indexOffset,(unsigned long) box.smallEnd(0)+indexOffset}, {(unsigned long) box.length(1), (unsigned long) box.length(0)});
 	  }
 	  {
 	  auto data = y_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(y_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, {box.smallEnd(1)+indexOffset,box.smallEnd(0)+indexOffset}, {box.length(1), box.length(0)});
+	  nc_plot_var.put(data, {(unsigned long) box.smallEnd(1)+indexOffset,(unsigned long) box.smallEnd(0)+indexOffset}, {(unsigned long) box.length(1), (unsigned long) box.length(0)});
 	  }
 	  {
 	  auto data = z_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(z_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, {box.smallEnd(2), box.smallEnd(1)+indexOffset,box.smallEnd(0)+indexOffset}, {box.length(2), box.length(1), box.length(0)});
+	  nc_plot_var.put(data, {(unsigned long) box.smallEnd(2), (unsigned long) box.smallEnd(1)+indexOffset,(unsigned long) box.smallEnd(0)+indexOffset}, {(unsigned long) box.length(2), (unsigned long) box.length(1), (unsigned long) box.length(0)});
 	  }
 	  {
           auto data = z_w[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(z_w_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, {box.smallEnd(2), box.smallEnd(1)+indexOffset,box.smallEnd(0)+indexOffset}, {box.length(2), box.length(1), box.length(0)});
+	  nc_plot_var.put(data, {(unsigned long) box.smallEnd(2), (unsigned long) box.smallEnd(1)+indexOffset,(unsigned long) box.smallEnd(0)+indexOffset}, {(unsigned long) box.length(2), (unsigned long) box.length(1), (unsigned long) box.length(0)});
 	  }
 	  {
 	  auto data = s_r[lev]->get(fai).dataPtr();
 	  auto nc_plot_var = ncf.var(s_r_name);
 	  nc_plot_var.par_access(NC_COLLECTIVE);
-	  nc_plot_var.put(data, {box.smallEnd(2)}, {box.length(2)});
+	  nc_plot_var.put(data, {(unsigned long) box.smallEnd(2)}, {(unsigned long) box.length(2)});
 	  }
           auto z_r_arr = z_r[lev]->array(fai);
           auto z_w_arr = z_w[lev]->array(fai);
           const auto & geomdata = geom[lev].data();
           x_grid.clear(); y_grid.clear(); z_r_grid.clear(); z_w_grid.clear();
-          x_grid.resize(box.length(0));
-          y_grid.resize(box.length(1));
+          x_grid.resize((unsigned long) box.length(0));
+          y_grid.resize((unsigned long) box.length(1));
 	  xi_grid.clear(); eta_grid.clear(); vert_grid.clear();
-          xi_grid.resize(box.length(0));
-          eta_grid.resize(box.length(1));
-	  vert_grid.resize(box.length(2));
-          z_r_grid.resize(box.length(2));
-          z_w_grid.resize(box.length(2));
+          xi_grid.resize((unsigned long) box.length(0));
+          eta_grid.resize((unsigned long) box.length(1));
+	  vert_grid.resize((unsigned long) box.length(2));
+          z_r_grid.resize((unsigned long) box.length(2));
+          z_w_grid.resize((unsigned long) box.length(2));
 
-          for(int i=box.smallEnd(0); i<=box.bigEnd(0);i++)
-            for(int j=box.smallEnd(1); j<=box.bigEnd(1);j++)
-              for(int k=box.smallEnd(2); k<=box.bigEnd(2);k++)
+          for(int i=(unsigned long) box.smallEnd(0); i<=box.bigEnd(0);i++)
+            for(int j=(unsigned long) box.smallEnd(1); j<=box.bigEnd(1);j++)
+              for(int k=(unsigned long) box.smallEnd(2); k<=box.bigEnd(2);k++)
           {
             // Geometry (note we must include these here to get the data on device)
             const auto prob_lo         = geomdata.ProbLo();
@@ -375,59 +375,59 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
             //      if(j==0&&k==0)
             //              x_grid.push_back(x);
-            x_grid[i-box.smallEnd(0)]=x;
-	    xi_grid[i-box.smallEnd(0)]=i;
+            x_grid[i-(unsigned long) box.smallEnd(0)]=x;
+	    xi_grid[i-(unsigned long) box.smallEnd(0)]=i;
             //            if(i==0&&k==0)
             //              y_grid.push_back(y);
-            y_grid[j-box.smallEnd(1)]=y;
-	    eta_grid[j-box.smallEnd(1)]=j;
-	    vert_grid[k-box.smallEnd(2)]=z_r_con;
-            //      z_grid[k-box.smallEnd(2)]=z;
+            y_grid[j-(unsigned long) box.smallEnd(1)]=y;
+	    eta_grid[j-(unsigned long) box.smallEnd(1)]=j;
+	    vert_grid[k-(unsigned long) box.smallEnd(2)]=z_r_con;
+            //      z_grid[k-(unsigned long) box.smallEnd(2)]=z;
             /*
               if(i==0&&j==0) {
               z_r_grid.push_back(z_r_con);
               z_w_grid.push_back(z_w_con);
               }*/
-            z_r_grid[k-box.smallEnd(2)]=z_r_con;
-            z_w_grid[k-box.smallEnd(2)]=z_w_con;
+            z_r_grid[k-(unsigned long) box.smallEnd(2)]=z_r_con;
+            z_w_grid[k-(unsigned long) box.smallEnd(2)]=z_w_con;
           }
           /*
           {
             auto nc_plot_var = ncf.var(x_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(x_grid.data(), {box.smallEnd(0)}, {box.length(0)});
+            nc_plot_var.put(x_grid.data(), {(unsigned long) box.smallEnd(0)}, {(unsigned long) box.length(0)});
           }
           {
             auto nc_plot_var = ncf.var(y_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(y_grid.data(), {box.smallEnd(1)}, {box.length(1)});
+            nc_plot_var.put(y_grid.data(), {(unsigned long) box.smallEnd(1)}, {(unsigned long) box.length(1)});
           }
           {
             auto nc_plot_var = ncf.var(xi_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(xi_grid.data(), {box.smallEnd(0)+indexOffset}, {box.length(0)});
+            nc_plot_var.put(xi_grid.data(), {(unsigned long) box.smallEnd(0)+indexOffset}, {(unsigned long) box.length(0)});
           }
           {
             auto nc_plot_var = ncf.var(eta_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(eta_grid.data(), {box.smallEnd(1)+indexOffset}, {box.length(1)});
+            nc_plot_var.put(eta_grid.data(), {(unsigned long) box.smallEnd(1)+indexOffset}, {(unsigned long) box.length(1)});
           }
           {
             auto nc_plot_var = ncf.var(z_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(z_grid.data(), {box.smallEnd(2)}, {box.length(2)});
+            nc_plot_var.put(z_grid.data(), {(unsigned long) box.smallEnd(2)}, {(unsigned long) box.length(2)});
             }
           {
 	    for(int k=0;k<16;k++)
 	      amrex::Print()<<"k"<<k<<"\t"<<(z_r_grid.data())[k]<<std::endl;
             auto nc_plot_var = ncf.var(z_r_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(z_r_grid.data(), {box.smallEnd(2)}, {box.length(2)});
+            nc_plot_var.put(z_r_grid.data(), {(unsigned long) box.smallEnd(2)}, {(unsigned long) box.length(2)});
 	  }
           {
             auto nc_plot_var = ncf.var(z_w_name);
             nc_plot_var.par_access(NC_COLLECTIVE);
-            nc_plot_var.put(z_w_grid.data(), {box.smallEnd(2)}, {box.length(2)});
+            nc_plot_var.put(z_w_grid.data(), {(unsigned long) box.smallEnd(2)}, {(unsigned long) box.length(2)});
 	  }*/
 
        }
