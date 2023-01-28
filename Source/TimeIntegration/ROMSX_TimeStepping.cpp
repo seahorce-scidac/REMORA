@@ -134,12 +134,28 @@ void ROMSX::romsx_advance(int level,
     //  Time step momentum equation in the XI-direction.
     //-----------------------------------------------------------------------
 
-    MultiFab mf_AK(ba,dm,1,IntVect(1,1,0));
-    MultiFab mf_DC(ba,dm,1,IntVect(1,1,0));
-    MultiFab mf_Hzk(ba,dm,1,IntVect(1,1,0));
-    std::unique_ptr<MultiFab>& mf_Akv = Akv[lev];
-    std::unique_ptr<MultiFab>& mf_Hk = Hk[lev];
+    // Scratch space for time integrator
+    amrex::Vector<amrex::MultiFab> rU_old;
+    amrex::Vector<amrex::MultiFab> rU_new;
+    amrex::Vector<amrex::MultiFab> rV_old;
+    amrex::Vector<amrex::MultiFab> rV_new;
+    amrex::Vector<amrex::MultiFab> rW_old;
+    amrex::Vector<amrex::MultiFab> rW_new;
 
+    const BoxArray & ba = cons_old.boxArray();
+    const DistributionMapping & dm = cons_old.DistributionMap();
+    //Only used locally, probably should be rearranged into FArrayBox declaration
+    MultiFab mf_AK(ba,dm,1,IntVect(1,1,0)); //2d missing j coordinate
+    MultiFab mf_DC(ba,dm,1,IntVect(1,1,0)); //2d missing j coordinate
+    MultiFab mf_Hzk(ba,dm,1,IntVect(1,1,0)); //2d missing j coordinate
+    std::unique_ptr<MultiFab>& mf_Akv = Akv[level];
+    std::unique_ptr<MultiFab>& mf_Hz = Hz[level];
+
+    int ncomp = 1;
+    int iic = istep[level] - 1;
+    int ntfirst = 1;
+
+    const auto dxi              = Geom(level).InvCellSizeArray();
     for ( MFIter mfi(*(mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& AK = (mf_AK).array(mfi);
@@ -149,14 +165,22 @@ void ROMSX::romsx_advance(int level,
 	Array4<Real> const& Hz = (mf_Hz)->array(mfi);
 	Box bx = mfi.tilebox();
 	bx.grow(IntVect(1,1,0));
-	const auto & geomdata = Geom(lev).data();
-	int ncomp = 1;
-	int iic = istep - 1;
-	int ntfirst = 1;
-	Real dt = dt[lev];
-        const auto invdx              = geomdata.InvCellSize();
-	amrex::LoopConcurrentOnCpu(bx, ncomp,
-	[=] (int i, int j, int k, int n)
+	FArrayBox Huon(bx,1,amrex::The_Async_Arena);
+	//rhs3d work arrays
+	FArrayBox Huxx(bx,1,amrex::The_Async_Arena);
+	FArrayBox Huee(bx,1,amrex::The_Async_Arena);
+	FArrayBox Hvxx(bx,1,amrex::The_Async_Arena);
+	FArrayBox Hvee(bx,1,amrex::The_Async_Arena);
+	FArrayBox uxx(bx,1,amrex::The_Async_Arena);
+	FArrayBox uee(bx,1,amrex::The_Async_Arena);
+	FArrayBox vxx(bx,1,amrex::The_Async_Arena);
+	FArrayBox vee(bx,1,amrex::The_Async_Arena);
+	FArrayBox UFx(bx,1,amrex::The_Async_Arena);
+	FArrayBox UFe(bx,1,amrex::The_Async_Arena);
+	FArrayBox VFx(bx,1,amrex::The_Async_Arena);
+	FArrayBox VFe(bx,1,amrex::The_Async_Arena);
+	amrex::ParallelFor(bx, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
 	        Real cff;
 	        AK(i,0,k)=0.5*(Akv(i-1,j,k)+
@@ -165,24 +189,24 @@ void ROMSX::romsx_advance(int level,
 		  Hzk(i,0,k)=0.5*(Hz(i-1,j,k)+
 				  Hz(i  ,j,k));
 
-		if(icc==ntfirst)
+		if(iic==ntfirst)
 		  cff=0.25*dt;
-		else if(icc==ntfirst+1)
+		else if(iic==ntfirst+1)
 		  cff=0.25*dt*3.0/2.0;
 		else
 		  cff=0.25*dt*23.0/12.0;
 
-		DC(i,0,0)=cff*(2*invdx[0])*(2*invdx[1]);
+		DC(i,0,0)=cff*(2*dxi[0])*(2*dxi[1]);
 		
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
-		xvel_new(i,j,k)=xvel_new(i,j,k)+
-		  DC(i,0,0)*ru(i,j,k,nrhs);
+		//		xvel_new(i,j,k)=xvel_new(i,j,k)+
+		//		  DC(i,0,0)*ru(i,j,k,nrhs);
 
     //  Time step right-hand-side terms.
     //            u(i,j,k,nnew)=u(i,j,k,nnew)+                                &
     //     &                    DC(i,0)*ru(i,j,k,nrhs)
     
-    exit(1);
+		amrex::Abort("testing");
 
     //  Backward substitution.
     //            u(i,j,k,nnew)=u(i,j,k,nnew)+cff
@@ -260,5 +284,6 @@ void ROMSX::romsx_advance(int level,
     //-----------------------------------------------------------------------
     //  Exchange boundary data.
     //-----------------------------------------------------------------------
+	    });
     }
 }
