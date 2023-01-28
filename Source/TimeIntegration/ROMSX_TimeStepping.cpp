@@ -79,44 +79,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     Real time_mt = t_new[lev] - 0.5*dt[lev];
     FillPatch(lev, time, time_mt, dt[lev], lev_old);
 
-#if 0
-    MultiFab* S_crse;
-    MultiFab rU_crse, rV_crse, rW_crse;
-    // Scratch space for time integrator
-    amrex::Vector<amrex::MultiFab> rU_old;
-    amrex::Vector<amrex::MultiFab> rU_new;
-    amrex::Vector<amrex::MultiFab> rV_old;
-    amrex::Vector<amrex::MultiFab> rV_new;
-    amrex::Vector<amrex::MultiFab> rW_old;
-    amrex::Vector<amrex::MultiFab> rW_new;
-
-    if (lev > 0)
-    {
-        S_crse = &vars_old[lev-1][Vars::cons];
-
-        MultiFab& U_crse = vars_old[lev-1][Vars::xvel];
-        MultiFab& V_crse = vars_old[lev-1][Vars::yvel];
-        MultiFab& W_crse = vars_old[lev-1][Vars::zvel];
-
-        rU_crse.define(U_crse.boxArray(), U_crse.DistributionMap(), 1, U_crse.nGrow());
-        rV_crse.define(V_crse.boxArray(), V_crse.DistributionMap(), 1, V_crse.nGrow());
-        rW_crse.define(W_crse.boxArray(), W_crse.DistributionMap(), 1, W_crse.nGrow());
-
-        VelocityToMomentum(U_crse, U_crse.nGrowVect(),
-                           V_crse, V_crse.nGrowVect(),
-                           W_crse, W_crse.nGrowVect(),
-                          *S_crse,rU_crse,rV_crse,rW_crse);
-    }
-
-    const auto& local_ref_ratio = (lev > 0) ? ref_ratio[lev-1] : IntVect(1,1,1);
-
-    InterpFaceRegister ifr;
-    if (lev > 0)
-    {
-        ifr.define(S_old.boxArray(), S_old.DistributionMap(), Geom(lev), local_ref_ratio);
-    }
-#endif
-
     const BoxArray&            ba = S_old.boxArray();
     const DistributionMapping& dm = S_old.DistributionMap();
 
@@ -151,18 +113,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                   cons_mf, S_new,
                   U_old, V_old, W_old,
                   U_new, V_new, W_new,
-#if 0
-                  rU_old[lev], rV_old[lev], rW_old[lev],
-                  rU_new[lev], rV_new[lev], rW_new[lev],
-                  rU_crse, rV_crse, rW_crse,
-#endif
                   source,
                   Geom(lev), dt_lev, time
-#if 0
-		  ,&ifr);
-#else
     );
-#endif
 }
 
     // Interface for advancing the data at one level by one "slow" timestep
@@ -170,19 +123,10 @@ void ROMSX::romsx_advance(int level,
                           amrex::MultiFab& cons_old,  amrex::MultiFab& cons_new,
                           amrex::MultiFab& xvel_old,  amrex::MultiFab& yvel_old,  amrex::MultiFab& zvel_old,
                           amrex::MultiFab& xvel_new,  amrex::MultiFab& yvel_new,  amrex::MultiFab& zvel_new,
-#if 0
-                          amrex::MultiFab& xmom_old,  amrex::MultiFab& ymom_old,  amrex::MultiFab& zmom_old,
-                          amrex::MultiFab& xmom_new,  amrex::MultiFab& ymom_new,  amrex::MultiFab& zmom_new,
-                          amrex::MultiFab& xmom_crse, amrex::MultiFab& ymom_crse, amrex::MultiFab& zmom_crse,
-#endif
 		          amrex::MultiFab& source,
                           const amrex::Geometry fine_geom,
                           const amrex::Real dt, const amrex::Real time
-#if 0
-                          ,amrex::InterpFaceRegister* ifr);
-#else
                           )
-#endif
 {
 
     //-----------------------------------------------------------------------
