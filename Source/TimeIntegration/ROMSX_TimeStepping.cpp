@@ -164,8 +164,8 @@ void ROMSX::romsx_advance(int level,
 	Array4<Real> const& Akv = (mf_Akv)->array(mfi);
 	Array4<Real> const& Hz = (mf_Hz)->array(mfi);
 	Box bx = mfi.tilebox();
-	bx.grow(IntVect(1,1,0));
 	FArrayBox Huon(bx,1,amrex::The_Async_Arena);
+	FArrayBox Hvom(bx,1,amrex::The_Async_Arena);
 	//rhs3d work arrays
 	FArrayBox Huxx(bx,1,amrex::The_Async_Arena);
 	FArrayBox Huee(bx,1,amrex::The_Async_Arena);
@@ -179,6 +179,159 @@ void ROMSX::romsx_advance(int level,
 	FArrayBox UFe(bx,1,amrex::The_Async_Arena);
 	FArrayBox VFx(bx,1,amrex::The_Async_Arena);
 	FArrayBox VFe(bx,1,amrex::The_Async_Arena);
+
+	amrex::ParallelFor(bx, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+	    {
+	//should not include grow cells	      
+	      uxx(i,j)=u(i-1,j,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i+1,j,k,nrhs);
+	      //neglecting terms about periodicity since testing only periodic for now
+	      Huxx(i,j)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
+
+	      //should not include grow cell in positive i direction
+	      Real cff;
+	      Real cff1=u(i  ,j,k,nrhs)+u(i+1,j,k,nrhs);
+	      if (cff1 > 0.0)
+		cff=uxx(i,j);
+	      else
+		cff=uxx(i+1,j);
+	      UFx(i,j)=0.25*(cff1+Gadv*cff)*
+		(Huon(i  ,j,k)+
+		 Huon(i+1,j,k)+
+		 Gadv*0.5*(Huxx(i  ,j)+
+			   Huxx(i+1,j)));
+		//should not include grow cells
+	      uee(i,j)=u(i,j-1,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i,j+1,k,nrhs);
+	      //neglecting terms about periodicity since testing only periodic for now
+	      Hvxx(i,j)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
+	      cff1=u(i,j  ,k,nrhs)+u(i,j-1,k,nrhs);
+	      Real cff2=Hvom(i,j,k)+Hvom(i-1,j,k);
+	      if (cff2>0.0)
+		cff=uee(i,j-1);
+	      else
+		cff=uee(i,j);
+	      UFe(i,j)=0.25*(cff1+Gadv*cff)*
+		(cff2+Gadv*0.5*(Hvxx(i  ,j)+
+				Hvxx(i-1,j)));
+	      vxx(i,j)=v(i-1,j,k,nrhs)-2.0_r8*v(i,j,k,nrhs)+
+		v(i+1,j,k,nrhs);
+	      //neglecting terms about periodicity since testing only periodic for now
+	      Huee(i,j)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
+	      cff1=v(i  ,j,k,nrhs)+v(i-1,j,k,nrhs);
+	      cff2=Huon(i,j,k)+Huon(i,j-1,k);
+	      if (cff2>0.0)
+		cff=vxx(i-1,j);
+	      else
+		cff=vxx(i,j);
+	      VFx(i,j)=0.25*(cff1+Gadv*cff)*
+		(cff2+Gadv*0.5*(Huee(i,j  )+
+				Huee(i,j-1)));
+	      vee(i,j)=v(i,j-1,k,nrhs)-2.0*v(i,j,k,nrhs)+
+		v(i,j+1,k,nrhs);
+	      Hvee(i,j)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
+	      //neglecting terms about periodicity since testing only periodic for now
+	      cff1=v(i,j  ,k,nrhs)+v(i,j+1,k,nrhs);
+	      if (cff1>0.0)
+		cff=vee(i,j);
+	      else
+		cff=vee(i,j+1);
+	      VFe(i,j)=0.25*(cff1+Gadv*cff)*
+                    (Hvom(i,j  ,k)+
+                     Hvom(i,j+1,k)+
+                     Gadv*0.5_r8*(Hvee(i,j  )+
+                                  Hvee(i,j+1)));
+
+	      //
+	      //  Add in horizontal advection.
+	      //
+
+	      cff1=UFx(i,j)-UFx(i-1,j);
+	      cff2=UFe(i,j+1)-UFe(i,j);
+	      cff=cff1+cff2;
+	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
+	      cff1=VFx(i+1,j)-VFx(i,j);
+	      cff2=VFe(i,j)-VFe(i,j-1);
+	      cff=cff1+cff2;
+	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
+
+	      //-----------------------------------------------------------------------
+	      //  Add in vertical advection.
+	      //-----------------------------------------------------------------------
+	      cff1=9.0/16.0;
+	      cff2=1.0/16.0;
+	      if(k>=2&&k<=N-2)
+	      {
+	      FC(i,k)=(cff1*(u(i,j,k  ,nrhs)+
+			     u(i,j,k+1,nrhs))-
+		       cff2*(u(i,j,k-1,nrhs)+
+			     u(i,j,k+2,nrhs)))*
+		      (cff1*(W(i  ,j,k)+
+			     W(i-1,j,k))-
+		       cff2*(W(i+1,j,k)+
+			     W(i-2,j,k)));
+	      }
+	      else if(k==0) // this needs to be split up so that the following can be concurent
+		{
+		  FC(i,N)=0.0;
+		  FC(i,N-1)=(cff1*(u(i,j,N-1,nrhs)+
+				   u(i,j,N  ,nrhs))-
+			     cff2*(u(i,j,N-2,nrhs)+
+				   u(i,j,N  ,nrhs)))*
+		            (cff1*(W(i  ,j,N-1)+
+				   W(i-1,j,N-1))-
+			     cff2*(W(i+1,j,N-1)+
+				   W(i-2,j,N-1)));
+		  FC(i,1)=(cff1*(u(i,j,1,nrhs)+
+				 u(i,j,2,nrhs))-
+			   cff2*(u(i,j,1,nrhs)+
+				 u(i,j,3,nrhs)))*
+		          (cff1*(W(i  ,j,1)+
+				 W(i-1,j,1))-
+			   cff2*(W(i+1,j,1)+
+				 W(i-2,j,1)));
+		  FC(i,0)=0.0;
+		}
+	      cff=FC(i,k)-FC(i,k-1);
+	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
+	      if(j>=2)
+	      {
+	      if(k>=2&&k<=N-2)
+	      {
+	      FC(i,k)=(cff1*(v(i,j,k  ,nrhs)+
+			     v(i,j,k+1,nrhs))-
+		       cff2*(v(i,j,k-1,nrhs)+
+			     v(i,j,k+2,nrhs)))*
+		      (cff1*(W(i,j  ,k)+
+			     W(i,j-1,k))-
+		       cff2*(W(i,j+1,k)+
+			     W(i,j-2,k)));
+	      }
+	      else if(k==0) // this needs to be split up so that the following can be concurent
+		{
+		  FC(i,N)=0.0;
+		  FC(i,N-1)=(cff1*(v(i,j,N-1,nrhs)+
+				   v(i,j,N  ,nrhs))-
+			     cff2*(v(i,j,N-2,nrhs)+
+				   v(i,j,N  ,nrhs)))*
+		            (cff1*(W(i,j  ,N-1)+
+				   W(i,j-1,N-1))-
+			     cff2*(W(i,j+1,N-1)+
+				   W(i,j-2,N-1)));
+		  FC(i,1)=(cff1*(v(i,j,1,nrhs)+
+				 v(i,j,2,nrhs))-
+			   cff2*(v(i,j,1,nrhs)+
+				 v(i,j,3,nrhs)))*
+		          (cff1*(W(i,j  ,1)+
+				 W(i,j-1,1))-
+			   cff2*(W(i,j+1,1)+
+				 W(i,j-2,1)));
+		  FC(i,0)=0.0;
+		}
+	      cff=FC(i,k)-FC(i,k-1);
+	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
+	      }
+	     });
+	bx.grow(IntVect(1,1,0));
 	amrex::ParallelFor(bx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
