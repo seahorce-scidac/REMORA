@@ -225,6 +225,7 @@ public:
     amrex::Vector<amrex::Vector<amrex::MultiFab> > vars_old;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> hOfTheConfusingName;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Hz;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> Akv;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> x_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> y_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_r;
@@ -255,6 +256,8 @@ private:
     void set_2darrays (int lev);
 
     void set_depth (int lev);
+
+    void set_vmix (int lev);
 
 #ifdef ROMSX_USE_NETCDF
     void init_from_wrfinput(int lev);

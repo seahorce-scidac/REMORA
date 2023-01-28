@@ -129,13 +129,60 @@ void ROMSX::romsx_advance(int level,
                           )
 {
 
+  print_state(xvel_old,amrex::IntVect(AMREX_D_DECL(3,3,3)));
     //-----------------------------------------------------------------------
     //  Time step momentum equation in the XI-direction.
     //-----------------------------------------------------------------------
 
+    MultiFab mf_AK(ba,dm,1,IntVect(1,1,0));
+    MultiFab mf_DC(ba,dm,1,IntVect(1,1,0));
+    MultiFab mf_Hzk(ba,dm,1,IntVect(1,1,0));
+    std::unique_ptr<MultiFab>& mf_Akv = Akv[lev];
+    std::unique_ptr<MultiFab>& mf_Hk = Hk[lev];
+
+    for ( MFIter mfi(*(mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& AK = (mf_AK).array(mfi);
+	Array4<Real> const& DC = (mf_DC).array(mfi);
+	Array4<Real> const& Hzk = (mf_Hzk).array(mfi);
+	Array4<Real> const& Akv = (mf_Akv)->array(mfi);
+	Array4<Real> const& Hz = (mf_Hz)->array(mfi);
+	Box bx = mfi.tilebox();
+	bx.grow(IntVect(1,1,0));
+	const auto & geomdata = Geom(lev).data();
+	int ncomp = 1;
+	int iic = istep - 1;
+	int ntfirst = 1;
+	Real dt = dt[lev];
+        const auto invdx              = geomdata.InvCellSize();
+	amrex::LoopConcurrentOnCpu(bx, ncomp,
+	[=] (int i, int j, int k, int n)
+            {
+	        Real cff;
+	        AK(i,0,k)=0.5*(Akv(i-1,j,k)+
+			       Akv(i  ,j,k));
+		if(k!=0)
+		  Hzk(i,0,k)=0.5*(Hz(i-1,j,k)+
+				  Hz(i  ,j,k));
+
+		if(icc==ntfirst)
+		  cff=0.25*dt;
+		else if(icc==ntfirst+1)
+		  cff=0.25*dt*3.0/2.0;
+		else
+		  cff=0.25*dt*23.0/12.0;
+
+		DC(i,0,0)=cff*(2*invdx[0])*(2*invdx[1]);
+		
+		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
+		xvel_new(i,j,k)=xvel_new(i,j,k)+
+		  DC(i,0,0)*ru(i,j,k,nrhs);
+
     //  Time step right-hand-side terms.
     //            u(i,j,k,nnew)=u(i,j,k,nnew)+                                &
     //     &                    DC(i,0)*ru(i,j,k,nrhs)
+    
+    exit(1);
 
     //  Backward substitution.
     //            u(i,j,k,nnew)=u(i,j,k,nnew)+cff
@@ -213,4 +260,5 @@ void ROMSX::romsx_advance(int level,
     //-----------------------------------------------------------------------
     //  Exchange boundary data.
     //-----------------------------------------------------------------------
-  }
+    }
+}

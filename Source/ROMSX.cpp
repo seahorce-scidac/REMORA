@@ -584,6 +584,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     y_r.resize(lev+1);
     x_r.resize(lev+1);
     Hz.resize(lev+1);
+    Akv.resize(lev+1);
 
     hOfTheConfusingName[lev].reset(new MultiFab(ba,dm,1,IntVect(1,1,0)));
     Zt_avg1[lev].reset(new MultiFab(ba,dm,1,IntVect(1,1,0)));
@@ -593,11 +594,13 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     y_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(1,1,0)));
     x_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(1,1,0)));
     Hz[lev].reset(new MultiFab(ba,dm,1,IntVect(1,1,0)));
+    Akv[lev].reset(new MultiFab(ba,dm,1,IntVect(1,1,0)));
 
     initialize_integrator(lev, lev_new[Vars::cons],lev_new[Vars::xvel]);
 
     set_2darrays(lev);
     set_depth(lev);
+    set_vmix(lev);
 }
 
 void

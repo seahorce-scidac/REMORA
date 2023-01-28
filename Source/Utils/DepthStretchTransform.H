@@ -40,6 +40,32 @@ ROMSX::set_2darrays (int lev)
     //    y_r[lev]->FillBoundary(geom[lev].periodicity());
 }
 
+void ROMSX::set_vmix (int lev)
+{
+    auto& lev_new = vars_new[lev];
+    auto& lev_old = vars_old[lev];
+    std::unique_ptr<MultiFab>& mf_Akv = Akv[lev];
+    std::unique_ptr<MultiFab>& mf_z_w = z_w[lev];
+
+    for ( MFIter mfi(*(mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+      Array4<Real> const& Akv_arr = (mf_Akv)->array(mfi);
+      Array4<Real> const& z_w_arr = (mf_z_w)->array(mfi);
+      Box bx = mfi.tilebox();
+      bx.grow(IntVect(1,1,0));
+      const auto & geomdata = Geom(lev).data();
+      int ncomp = 1;
+
+      amrex::LoopConcurrentOnCpu(bx, ncomp,
+      [=] (int i, int j, int k, int n)
+      {
+
+        Akv_arr(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w_arr(i,j,k)/150.0);
+
+      });
+    }
+}
+
 void
 ROMSX::set_depth (int lev)
 {
