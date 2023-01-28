@@ -25,7 +25,7 @@ cd ../../../
 
 cd COAWST
 sed -i s/'\/global\/homes\/h\/hetland\/COAWST'/'$(pwd)'/g coawst.bash
-git checkout ROMS/Include/upwelling.h
+#git checkout ROMS/Include/upwelling.h
 
 module swap cray-hdf5-parallel cray-hdf5
 module swap cray-netcdf-hdf5parallel cray-netcdf

@@ -14,7 +14,7 @@
 
 #define ROMS_MODEL
 #define UV_ADV
-//#undef UV_COR
+
 #define UV_LDRAG
 #define UV_VIS2
 #undef  MIX_GEO_UV
@@ -36,7 +36,7 @@
 
 #define ANA_GRID
 #define ANA_INITIAL
-//#undef ANA_SMFLUX
+#define ANA_SMFLUX
 #define ANA_STFLUX
 #define ANA_SSFLUX
 #define ANA_BTFLUX

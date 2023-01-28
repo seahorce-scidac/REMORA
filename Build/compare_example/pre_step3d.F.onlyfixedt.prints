@@ -988,8 +988,8 @@
           FC(i,0)=0.0_r8
           FC(i,N(ng))=0.0_r8
 # else
-          FC(i,0)=0.0!dt(ng)*bustr(i,j)
-          FC(i,N(ng))=0.0!dt(ng)*sustr(i,j)
+          FC(i,0)=dt(ng)*bustr(i,j)
+          FC(i,N(ng))=dt(ng)*sustr(i,j)
 #  ifdef WET_DRY
           FC(i,N(ng))=FC(i,N(ng))*umask_wet(i,j)
 #  endif
@@ -1008,7 +1008,11 @@
             DO i=IstrU,Iend
               cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k))
               cff2=FC(i,k)-FC(i,k-1)
-!              u(i,j,k,nnew)=cff1+cff2
+              u(i,j,k,nnew)=cff1+cff2
+              IF (i.eq.3.and.j.eq.3.and.k.eq.3) THEN
+                 print*,cff1,cff2,u(i,j,k,nnew)
+!                 STOP
+              ENDIF
 # ifdef DIAGNOSTICS_UV
               DO idiag=1,M3pgrd
                 DiaU3wrk(i,j,k,idiag)=0.0_r8
@@ -1024,9 +1028,13 @@
               cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k))
               cff2=FC(i,k)-FC(i,k-1)
               cff3=0.5_r8*DC(i,0)
-!              u(i,j,k,nnew)=cff1-                                       &
-!     &                      cff3*ru(i,j,k,indx)+                        &
-!     &                      cff2
+              u(i,j,k,nnew)=cff1-                                       &
+     &                      cff3*ru(i,j,k,indx)+                        &
+     &                      cff2
+              IF (i.eq.3.and.j.eq.3.and.k.eq.3) THEN
+                 print*,cff1,cff2,cff3,ru(i,j,k,indx),u(i,j,k,nnew)
+!                 STOP
+              ENDIF
 # ifdef DIAGNOSTICS_UV
               DO idiag=1,M3pgrd
                 DiaU3wrk(i,j,k,idiag)=-cff3*DiaRU(i,j,k,indx,idiag)
@@ -1047,10 +1055,15 @@
             DO i=IstrU,Iend
               cff3=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k))
               cff4=FC(i,k)-FC(i,k-1)
-!              u(i,j,k,nnew)=cff3+                                       &
-!     &                      DC(i,0)*(cff1*ru(i,j,k,nrhs)-               &
-!     &                               cff2*ru(i,j,k,indx))+              &
-!     &                      cff4
+              u(i,j,k,nnew)=cff3+                                       &
+     &                      DC(i,0)*(cff1*ru(i,j,k,nrhs)-               &
+     &                               cff2*ru(i,j,k,indx))+              &
+     &                      cff4
+              IF (i.eq.3.and.j.eq.3.and.k.eq.3) THEN
+                 print*,cff1,cff2,cff3,cff4,ru(i,j,k,indx),             &
+                 ru(i,j,k,nrhs),DC(i,0),u(i,j,k,nnew)
+                 STOP
+              ENDIF
 # ifdef DIAGNOSTICS_UV
               DO idiag=1,M3pgrd
                 DiaU3wrk(i,j,k,idiag)=DC(i,0)*                          &
@@ -1096,8 +1109,8 @@
             FC(i,0)=0.0_r8
             FC(i,N(ng))=0.0_r8
 # else
-            FC(i,0)=0.0!dt(ng)*bvstr(i,j)
-            FC(i,N(ng))=0.0!dt(ng)*svstr(i,j)
+            FC(i,0)=dt(ng)*bvstr(i,j)
+            FC(i,N(ng))=dt(ng)*svstr(i,j)
 #  ifdef WET_DRY
             FC(i,N(ng))=FC(i,N(ng))*vmask_wet(i,j)
 #  endif
@@ -1115,7 +1128,7 @@
               DO i=Istr,Iend
                 cff1=v(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i,j-1,k))
                 cff2=FC(i,k)-FC(i,k-1)
-!                v(i,j,k,nnew)=cff1+cff2
+                v(i,j,k,nnew)=cff1+cff2
 # ifdef DIAGNOSTICS_UV
                 DO idiag=1,M3pgrd
                   DiaV3wrk(i,j,k,idiag)=0.0_r8
@@ -1131,9 +1144,9 @@
                 cff1=v(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i,j-1,k))
                 cff2=FC(i,k)-FC(i,k-1)
                 cff3=0.5_r8*DC(i,0)
-!                v(i,j,k,nnew)=cff1-                                     &
-!     &                        cff3*rv(i,j,k,indx)+                      &
-!     &                        cff2
+                v(i,j,k,nnew)=cff1-                                     &
+     &                        cff3*rv(i,j,k,indx)+                      &
+     &                        cff2
 # ifdef DIAGNOSTICS_UV
                 DO idiag=1,M3pgrd
                   DiaV3wrk(i,j,k,idiag)=-cff3*DiaRV(i,j,k,indx,idiag)
@@ -1154,10 +1167,10 @@
               DO i=Istr,Iend
                 cff3=v(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i,j-1,k))
                 cff4=FC(i,k)-FC(i,k-1)
-!                v(i,j,k,nnew)=cff3+                                     &
-!     &                        DC(i,0)*(cff1*rv(i,j,k,nrhs)-             &
-!     &                                 cff2*rv(i,j,k,indx))+            &
-!     &                        cff4
+                v(i,j,k,nnew)=cff3+                                     &
+     &                        DC(i,0)*(cff1*rv(i,j,k,nrhs)-             &
+     &                                 cff2*rv(i,j,k,indx))+            &
+     &                        cff4
 # ifdef DIAGNOSTICS_UV
                 DO idiag=1,M3pgrd
                   DiaV3wrk(i,j,k,idiag)=DC(i,0)*                        &
