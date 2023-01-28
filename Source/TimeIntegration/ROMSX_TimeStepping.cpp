@@ -61,19 +61,19 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab& V_new = vars_new[lev][Vars::yvel];
     MultiFab& W_new = vars_new[lev][Vars::zvel];
 
-    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),0);
-    MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),0);
-    MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),0);
-    MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),0);
+    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),1);
+    MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),1);
+    MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),1);
+    MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),1);
 
     //////////    //pre_step3d corrections to boundaries
-
+    /*
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
     U_new.setVal(1.e34,U_new.nGrowVect());
     V_new.setVal(1.e34,V_new.nGrowVect());
     W_new.setVal(1.e34,W_new.nGrowVect());
-
+    */
     auto& lev_old = vars_old[lev];
     // Moving terrain
     Real time_mt = t_new[lev] - 0.5*dt[lev];
@@ -134,14 +134,6 @@ void ROMSX::romsx_advance(int level,
     //  Time step momentum equation in the XI-direction.
     //-----------------------------------------------------------------------
 
-    // Scratch space for time integrator
-    amrex::Vector<amrex::MultiFab> rU_old;
-    amrex::Vector<amrex::MultiFab> rU_new;
-    amrex::Vector<amrex::MultiFab> rV_old;
-    amrex::Vector<amrex::MultiFab> rV_new;
-    amrex::Vector<amrex::MultiFab> rW_old;
-    amrex::Vector<amrex::MultiFab> rW_new;
-
     const BoxArray & ba = cons_old.boxArray();
     const DistributionMapping & dm = cons_old.DistributionMap();
     //Only used locally, probably should be rearranged into FArrayBox declaration
@@ -150,10 +142,31 @@ void ROMSX::romsx_advance(int level,
     MultiFab mf_Hzk(ba,dm,1,IntVect(1,1,0)); //2d missing j coordinate
     std::unique_ptr<MultiFab>& mf_Akv = Akv[level];
     std::unique_ptr<MultiFab>& mf_Hz = Hz[level];
+    //Consider passing these into the advance function or renaming relevant things
+    MultiFab mf_u(ba,dm,1,IntVect(1,1,0));
+    MultiFab mf_v(ba,dm,1,IntVect(1,1,0));
+    MultiFab mf_w(ba,dm,1,IntVect(1,1,0));
+    MultiFab mf_ru(ba,dm,1,IntVect(1,1,0));
+    MultiFab mf_rv(ba,dm,1,IntVect(1,1,0));
+    MultiFab mf_rw(ba,dm,1,IntVect(1,1,0));
+    // We need to set these because otherwise in the first call to romsx_advance we may
+    //    read uninitialized data on ghost values in setting the bc's on the velocities
+    mf_u.setVal(1.e34,mf_u.nGrowVect());
+    mf_v.setVal(1.e34,mf_v.nGrowVect());
+    mf_w.setVal(1.e34,mf_w.nGrowVect());
+    MultiFab::Copy(mf_u,xvel_new,0,0,xvel_new.nComp(),1);
+    MultiFab::Copy(mf_v,yvel_new,0,0,yvel_new.nComp(),1);
+    MultiFab::Copy(mf_w,zvel_new,0,0,zvel_new.nComp(),1);
 
-    int ncomp = 1;
-    int iic = istep[level] - 1;
-    int ntfirst = 1;
+    //////////    //pre_step3d corrections to boundaries
+
+    const int ncomp = 1;
+    const int iic = istep[level] - 1;
+    const int ntfirst = 1;
+    //check this////////////
+    const int nrhs = ncomp-1;
+    const int nnew = ncomp-1;
+    const Real Gadv = -0.25;
 
     const auto dxi              = Geom(level).InvCellSizeArray();
     for ( MFIter mfi(*(mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -163,30 +176,89 @@ void ROMSX::romsx_advance(int level,
 	Array4<Real> const& Hzk = (mf_Hzk).array(mfi);
 	Array4<Real> const& Akv = (mf_Akv)->array(mfi);
 	Array4<Real> const& Hz = (mf_Hz)->array(mfi);
-	Box bx = mfi.tilebox();
-	FArrayBox Huon(bx,1,amrex::The_Async_Arena);
-	FArrayBox Hvom(bx,1,amrex::The_Async_Arena);
-	//rhs3d work arrays
-	FArrayBox Huxx(bx,1,amrex::The_Async_Arena);
-	FArrayBox Huee(bx,1,amrex::The_Async_Arena);
-	FArrayBox Hvxx(bx,1,amrex::The_Async_Arena);
-	FArrayBox Hvee(bx,1,amrex::The_Async_Arena);
-	FArrayBox uxx(bx,1,amrex::The_Async_Arena);
-	FArrayBox uee(bx,1,amrex::The_Async_Arena);
-	FArrayBox vxx(bx,1,amrex::The_Async_Arena);
-	FArrayBox vee(bx,1,amrex::The_Async_Arena);
-	FArrayBox UFx(bx,1,amrex::The_Async_Arena);
-	FArrayBox UFe(bx,1,amrex::The_Async_Arena);
-	FArrayBox VFx(bx,1,amrex::The_Async_Arena);
-	FArrayBox VFe(bx,1,amrex::The_Async_Arena);
+	Array4<Real> const& u = (mf_u).array(mfi);
+	Array4<Real> const& v = (mf_v).array(mfi);
+	Array4<Real> const& w = (mf_w).array(mfi);
+	Array4<Real> const& ru = (mf_ru).array(mfi);
+	Array4<Real> const& rv = (mf_rv).array(mfi);
+	Array4<Real> const& rw = (mf_rw).array(mfi);
+	const Box & bx = mfi.tilebox();
 
+	const Box & gbx = mfi.growntilebox();
+	//	gbx.grow(IntVect(1,1,0));
+	//0 40;0 79;0 15
+	// vs
+	//0 42 ; 1 80
+
+	FArrayBox fab_pn(gbx,1,amrex::The_Async_Arena);
+	FArrayBox fab_pm(gbx,1,amrex::The_Async_Arena);
+	FArrayBox fab_on_u(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_om_v(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_Huon(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_Hvom(bx,1,amrex::The_Async_Arena);
+	//rhs3d work arrays
+	FArrayBox fab_Huxx(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_Huee(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_Hvxx(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_Hvee(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_uxx(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_uee(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_vxx(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_vee(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_UFx(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_UFe(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_VFx(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_VFe(bx,1,amrex::The_Async_Arena);
+
+	auto pn=fab_pn.array();
+	auto pm=fab_pm.array();
+	auto on_u=fab_on_u.array();
+	auto om_v=fab_om_v.array();
+	auto Huon=fab_Huon.array();
+	auto Hvom=fab_Hvom.array();
+	auto Huxx=fab_Huxx.array();
+	auto Huee=fab_Huee.array();
+	auto Hvxx=fab_Hvxx.array();
+	auto Hvee=fab_Hvee.array();
+	auto uxx=fab_uxx.array();
+	auto uee=fab_uee.array();
+	auto vxx=fab_vxx.array();
+	auto vee=fab_vee.array();
+	auto UFx=fab_UFx.array();
+	auto UFe=fab_UFe.array();
+	auto VFx=fab_VFx.array();
+	auto VFe=fab_VFe.array();
+	/*
+	amrex::ParallelFor(gbx, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+	    {
+	      pm(i,j,0)=dxi[0];
+	      pn(i,j,0)=dxi[1];
+	    });
 	amrex::ParallelFor(bx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
+	      om_v(i,j,0)=2.0/(pm(i,j-1,0)+pm(i,j,0));
+	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,om_v(i,j,0),pm(i,j-1,0),pm(i,j,0));
+	      on_u(i,j,0)=2.0/(pn(i-1,j,0)+pn(i,j,0));
+	      //-----------------------------------------------------------------------
+	      //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
+	      //-----------------------------------------------------------------------
+	      Huon(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k))*u(i,j,k,nrhs)*   
+		on_u(i,j,0);
+	      Hvom(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k,nrhs)*   
+		om_v(i,j,0);
+	      //	      if(i==0&&j==1)
+		{
+		  //		  printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i-1,j,k,nrhs),-2.0*u(i,j,k,nrhs),u(i+1,j,k,nrhs));
+		}
 	//should not include grow cells	      
-	      uxx(i,j)=u(i-1,j,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i+1,j,k,nrhs);
+	      uxx(i,j,0)=u(i-1,j,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i+1,j,k,nrhs);
 	      //neglecting terms about periodicity since testing only periodic for now
-	      Huxx(i,j)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
+	      Huxx(i,j,0)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
+	    });
+	amrex::Abort();
+	      /*
 
 	      //should not include grow cell in positive i direction
 	      Real cff;
@@ -330,9 +402,9 @@ void ROMSX::romsx_advance(int level,
 	      cff=FC(i,k)-FC(i,k-1);
 	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
 	      }
-	     });
-	bx.grow(IntVect(1,1,0));
-	amrex::ParallelFor(bx, ncomp,
+	      });*/
+
+	amrex::ParallelFor(gbx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
 	        Real cff;
