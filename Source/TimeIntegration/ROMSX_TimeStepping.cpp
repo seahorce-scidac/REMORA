@@ -61,10 +61,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab& V_new = vars_new[lev][Vars::yvel];
     MultiFab& W_new = vars_new[lev][Vars::zvel];
 
-    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),1);
-    MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),1);
-    MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),1);
-    MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),1);
+    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),0);
+    MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
+    MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
+    MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
 
     //////////    //pre_step3d corrections to boundaries
     /*
@@ -154,15 +154,13 @@ void ROMSX::romsx_advance(int level,
     mf_u.setVal(1.e34,mf_u.nGrowVect());
     mf_v.setVal(1.e34,mf_v.nGrowVect());
     mf_w.setVal(1.e34,mf_w.nGrowVect());
-    MultiFab::Copy(mf_u,xvel_new,0,0,xvel_new.nComp(),1);
-    MultiFab::Copy(mf_v,yvel_new,0,0,yvel_new.nComp(),1);
-    MultiFab::Copy(mf_w,zvel_new,0,0,zvel_new.nComp(),1);
+    MultiFab::Copy(mf_u,xvel_new,0,0,xvel_new.nComp(),mf_u.nGrowVect());
+    MultiFab::Copy(mf_v,yvel_new,0,0,yvel_new.nComp(),mf_v.nGrowVect());
+    MultiFab::Copy(mf_w,zvel_new,0,0,zvel_new.nComp(),mf_w.nGrowVect());
 
-    //////////    //pre_step3d corrections to boundaries
-
-    const int ncomp = 1;
-    const int iic = istep[level] - 1;
-    const int ntfirst = 1;
+    int ncomp = 1;
+    int iic = istep[level] - 1;
+    int ntfirst = 1;
     //check this////////////
     const int nrhs = ncomp-1;
     const int nnew = ncomp-1;
@@ -182,14 +180,12 @@ void ROMSX::romsx_advance(int level,
 	Array4<Real> const& ru = (mf_ru).array(mfi);
 	Array4<Real> const& rv = (mf_rv).array(mfi);
 	Array4<Real> const& rw = (mf_rw).array(mfi);
-	const Box & bx = mfi.tilebox();
 
-	const Box & gbx = mfi.growntilebox();
-	//	gbx.grow(IntVect(1,1,0));
-	//0 40;0 79;0 15
-	// vs
-	//0 42 ; 1 80
-
+	Box bx = mfi.tilebox();
+	//copy the tilebox
+	Box gbx = bx;
+	//make only gbx be grown to match multifabs
+	gbx.grow(IntVect(1,1,0));
 	FArrayBox fab_pn(gbx,1,amrex::The_Async_Arena);
 	FArrayBox fab_pm(gbx,1,amrex::The_Async_Arena);
 	FArrayBox fab_on_u(bx,1,amrex::The_Async_Arena);
@@ -228,7 +224,7 @@ void ROMSX::romsx_advance(int level,
 	auto UFe=fab_UFe.array();
 	auto VFx=fab_VFx.array();
 	auto VFe=fab_VFe.array();
-	/*
+
 	amrex::ParallelFor(gbx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
@@ -239,8 +235,11 @@ void ROMSX::romsx_advance(int level,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
 	      om_v(i,j,0)=2.0/(pm(i,j-1,0)+pm(i,j,0));
-	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,om_v(i,j,0),pm(i,j-1,0),pm(i,j,0));
+	      //	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,om_v(i,j,0),pm(i,j-1,0),pm(i,j,0));
 	      on_u(i,j,0)=2.0/(pn(i-1,j,0)+pn(i,j,0));
+	      //	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,on_u(i,j,0),pn(i-1,j,0),pn(i,j,0));
+	      //	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Hz(i,j,k),Hz(i-1,j,k),u(i,j,k,nrhs));
+	      //	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Hz(i,j,k),Hz(i,j-1,k),v(i,j,k,nrhs));
 	      //-----------------------------------------------------------------------
 	      //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
 	      //-----------------------------------------------------------------------
@@ -248,6 +247,10 @@ void ROMSX::romsx_advance(int level,
 		on_u(i,j,0);
 	      Hvom(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k,nrhs)*   
 		om_v(i,j,0);
+	  	    });
+	amrex::ParallelFor(bx, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+	    {
 	      //	      if(i==0&&j==1)
 		{
 		  //		  printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i-1,j,k,nrhs),-2.0*u(i,j,k,nrhs),u(i+1,j,k,nrhs));
@@ -256,154 +259,13 @@ void ROMSX::romsx_advance(int level,
 	      uxx(i,j,0)=u(i-1,j,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i+1,j,k,nrhs);
 	      //neglecting terms about periodicity since testing only periodic for now
 	      Huxx(i,j,0)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
-	    });
-	amrex::Abort();
-	      /*
-
-	      //should not include grow cell in positive i direction
-	      Real cff;
-	      Real cff1=u(i  ,j,k,nrhs)+u(i+1,j,k,nrhs);
-	      if (cff1 > 0.0)
-		cff=uxx(i,j);
-	      else
-		cff=uxx(i+1,j);
-	      UFx(i,j)=0.25*(cff1+Gadv*cff)*
-		(Huon(i  ,j,k)+
-		 Huon(i+1,j,k)+
-		 Gadv*0.5*(Huxx(i  ,j)+
-			   Huxx(i+1,j)));
-		//should not include grow cells
-	      uee(i,j)=u(i,j-1,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i,j+1,k,nrhs);
-	      //neglecting terms about periodicity since testing only periodic for now
-	      Hvxx(i,j)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
-	      cff1=u(i,j  ,k,nrhs)+u(i,j-1,k,nrhs);
-	      Real cff2=Hvom(i,j,k)+Hvom(i-1,j,k);
-	      if (cff2>0.0)
-		cff=uee(i,j-1);
-	      else
-		cff=uee(i,j);
-	      UFe(i,j)=0.25*(cff1+Gadv*cff)*
-		(cff2+Gadv*0.5*(Hvxx(i  ,j)+
-				Hvxx(i-1,j)));
-	      vxx(i,j)=v(i-1,j,k,nrhs)-2.0_r8*v(i,j,k,nrhs)+
-		v(i+1,j,k,nrhs);
-	      //neglecting terms about periodicity since testing only periodic for now
-	      Huee(i,j)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
-	      cff1=v(i  ,j,k,nrhs)+v(i-1,j,k,nrhs);
-	      cff2=Huon(i,j,k)+Huon(i,j-1,k);
-	      if (cff2>0.0)
-		cff=vxx(i-1,j);
-	      else
-		cff=vxx(i,j);
-	      VFx(i,j)=0.25*(cff1+Gadv*cff)*
-		(cff2+Gadv*0.5*(Huee(i,j  )+
-				Huee(i,j-1)));
-	      vee(i,j)=v(i,j-1,k,nrhs)-2.0*v(i,j,k,nrhs)+
-		v(i,j+1,k,nrhs);
-	      Hvee(i,j)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
-	      //neglecting terms about periodicity since testing only periodic for now
-	      cff1=v(i,j  ,k,nrhs)+v(i,j+1,k,nrhs);
-	      if (cff1>0.0)
-		cff=vee(i,j);
-	      else
-		cff=vee(i,j+1);
-	      VFe(i,j)=0.25*(cff1+Gadv*cff)*
-                    (Hvom(i,j  ,k)+
-                     Hvom(i,j+1,k)+
-                     Gadv*0.5_r8*(Hvee(i,j  )+
-                                  Hvee(i,j+1)));
-
-	      //
-	      //  Add in horizontal advection.
-	      //
-
-	      cff1=UFx(i,j)-UFx(i-1,j);
-	      cff2=UFe(i,j+1)-UFe(i,j);
-	      cff=cff1+cff2;
-	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
-	      cff1=VFx(i+1,j)-VFx(i,j);
-	      cff2=VFe(i,j)-VFe(i,j-1);
-	      cff=cff1+cff2;
-	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
-
-	      //-----------------------------------------------------------------------
-	      //  Add in vertical advection.
-	      //-----------------------------------------------------------------------
-	      cff1=9.0/16.0;
-	      cff2=1.0/16.0;
-	      if(k>=2&&k<=N-2)
-	      {
-	      FC(i,k)=(cff1*(u(i,j,k  ,nrhs)+
-			     u(i,j,k+1,nrhs))-
-		       cff2*(u(i,j,k-1,nrhs)+
-			     u(i,j,k+2,nrhs)))*
-		      (cff1*(W(i  ,j,k)+
-			     W(i-1,j,k))-
-		       cff2*(W(i+1,j,k)+
-			     W(i-2,j,k)));
-	      }
-	      else if(k==0) // this needs to be split up so that the following can be concurent
-		{
-		  FC(i,N)=0.0;
-		  FC(i,N-1)=(cff1*(u(i,j,N-1,nrhs)+
-				   u(i,j,N  ,nrhs))-
-			     cff2*(u(i,j,N-2,nrhs)+
-				   u(i,j,N  ,nrhs)))*
-		            (cff1*(W(i  ,j,N-1)+
-				   W(i-1,j,N-1))-
-			     cff2*(W(i+1,j,N-1)+
-				   W(i-2,j,N-1)));
-		  FC(i,1)=(cff1*(u(i,j,1,nrhs)+
-				 u(i,j,2,nrhs))-
-			   cff2*(u(i,j,1,nrhs)+
-				 u(i,j,3,nrhs)))*
-		          (cff1*(W(i  ,j,1)+
-				 W(i-1,j,1))-
-			   cff2*(W(i+1,j,1)+
-				 W(i-2,j,1)));
-		  FC(i,0)=0.0;
-		}
-	      cff=FC(i,k)-FC(i,k-1);
-	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
-	      if(j>=2)
-	      {
-	      if(k>=2&&k<=N-2)
-	      {
-	      FC(i,k)=(cff1*(v(i,j,k  ,nrhs)+
-			     v(i,j,k+1,nrhs))-
-		       cff2*(v(i,j,k-1,nrhs)+
-			     v(i,j,k+2,nrhs)))*
-		      (cff1*(W(i,j  ,k)+
-			     W(i,j-1,k))-
-		       cff2*(W(i,j+1,k)+
-			     W(i,j-2,k)));
-	      }
-	      else if(k==0) // this needs to be split up so that the following can be concurent
-		{
-		  FC(i,N)=0.0;
-		  FC(i,N-1)=(cff1*(v(i,j,N-1,nrhs)+
-				   v(i,j,N  ,nrhs))-
-			     cff2*(v(i,j,N-2,nrhs)+
-				   v(i,j,N  ,nrhs)))*
-		            (cff1*(W(i,j  ,N-1)+
-				   W(i,j-1,N-1))-
-			     cff2*(W(i,j+1,N-1)+
-				   W(i,j-2,N-1)));
-		  FC(i,1)=(cff1*(v(i,j,1,nrhs)+
-				 v(i,j,2,nrhs))-
-			   cff2*(v(i,j,1,nrhs)+
-				 v(i,j,3,nrhs)))*
-		          (cff1*(W(i,j  ,1)+
-				 W(i,j-1,1))-
-			   cff2*(W(i,j+1,1)+
-				 W(i,j-2,1)));
-		  FC(i,0)=0.0;
-		}
-	      cff=FC(i,k)-FC(i,k-1);
-	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
-	      }
-	      });*/
-
+	      //	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Huon(i+1,j,k),uxx(i,j,0),Huxx(i,j,0));
+	    });/*
+	amrex::ParallelFor(bx, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+	    {
+	    });*/
+	amrex::Abort("testing1");
 	amrex::ParallelFor(gbx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {

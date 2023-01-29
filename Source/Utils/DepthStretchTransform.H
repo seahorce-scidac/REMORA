@@ -242,6 +242,7 @@ ROMSX::set_depth (int lev)
 	  Real hinv=1.0_rt/(hc+hwater);
 	  cff2_r=(cff_r+cff1_r*hwater)*hinv;
 	  z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
+	  Hz_arr(i,j,k)=1.e34;//z_w_arr(i,j,k+1)-z_w_arr(i,j,k);
           }
         else
         {
