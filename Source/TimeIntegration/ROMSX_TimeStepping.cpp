@@ -149,6 +149,7 @@ void ROMSX::romsx_advance(int level,
     MultiFab mf_ru(ba,dm,1,IntVect(1,1,0));
     MultiFab mf_rv(ba,dm,1,IntVect(1,1,0));
     MultiFab mf_rw(ba,dm,1,IntVect(1,1,0));
+    MultiFab mf_W(ba,dm,1,IntVect(1,1,0));
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
     mf_u.setVal(1.e34,mf_u.nGrowVect());
@@ -157,6 +158,7 @@ void ROMSX::romsx_advance(int level,
     MultiFab::Copy(mf_u,xvel_new,0,0,xvel_new.nComp(),mf_u.nGrowVect());
     MultiFab::Copy(mf_v,yvel_new,0,0,yvel_new.nComp(),mf_v.nGrowVect());
     MultiFab::Copy(mf_w,zvel_new,0,0,zvel_new.nComp(),mf_w.nGrowVect());
+    MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
 
     int ncomp = 1;
     int iic = istep[level] - 1;
@@ -165,6 +167,7 @@ void ROMSX::romsx_advance(int level,
     const int nrhs = ncomp-1;
     const int nnew = ncomp-1;
     const Real Gadv = -0.25;
+    auto N = Geom(level).ProbLength(2); // Number of vertical "levels" aka, NZ
 
     const auto dxi              = Geom(level).InvCellSizeArray();
     for ( MFIter mfi(*(mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -180,12 +183,14 @@ void ROMSX::romsx_advance(int level,
 	Array4<Real> const& ru = (mf_ru).array(mfi);
 	Array4<Real> const& rv = (mf_rv).array(mfi);
 	Array4<Real> const& rw = (mf_rw).array(mfi);
+	Array4<Real> const& W = (mf_W).array(mfi);
 
 	Box bx = mfi.tilebox();
 	//copy the tilebox
 	Box gbx = bx;
 	//make only gbx be grown to match multifabs
 	gbx.grow(IntVect(1,1,0));
+	FArrayBox fab_FC(bx,1,amrex::The_Async_Arena);
 	FArrayBox fab_pn(gbx,1,amrex::The_Async_Arena);
 	FArrayBox fab_pm(gbx,1,amrex::The_Async_Arena);
 	FArrayBox fab_on_u(bx,1,amrex::The_Async_Arena);
@@ -206,6 +211,7 @@ void ROMSX::romsx_advance(int level,
 	FArrayBox fab_VFx(bx,1,amrex::The_Async_Arena);
 	FArrayBox fab_VFe(bx,1,amrex::The_Async_Arena);
 
+	auto FC=fab_FC.array();
 	auto pn=fab_pn.array();
 	auto pm=fab_pm.array();
 	auto on_u=fab_on_u.array();
@@ -316,7 +322,99 @@ void ROMSX::romsx_advance(int level,
                      Gadv*0.5*(Hvee(i,j  ,0)+
                                Hvee(i,j+1,0)));
 	    });
-	amrex::Abort("testing1");
+	amrex::ParallelFor(bx, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+	    {
+	      //
+	      //  Add in horizontal advection.
+	      //
+
+	      Real cff1=UFx(i,j,0)-UFx(i-1,j,0);
+	      Real cff2=UFe(i,j+1,0)-UFe(i,j,0);
+	      Real cff=cff1+cff2;
+	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
+	      cff1=VFx(i+1,j,0)-VFx(i,j,0);
+	      cff2=VFe(i,j,0)-VFe(i,j-1,0);
+	      cff=cff1+cff2;
+	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
+
+	      //-----------------------------------------------------------------------
+	      //  Add in vertical advection.
+	      //-----------------------------------------------------------------------
+	      cff1=9.0/16.0;
+	      cff2=1.0/16.0;
+	      if(k>=2&&k<=N-2)
+	      {
+		FC(i,0,k)=(cff1*(u(i,j,k  ,nrhs)+
+			     u(i,j,k+1,nrhs))-
+		       cff2*(u(i,j,k-1,nrhs)+
+			     u(i,j,k+2,nrhs)))*
+		      (cff1*(W(i  ,j,k)+
+			     W(i-1,j,k))-
+		       cff2*(W(i+1,j,k)+
+			     W(i-2,j,k)));
+	      }
+	      else if(k==0) // this needs to be split up so that the following can be concurent
+		{
+		  FC(i,0,N)=0.0;
+		  FC(i,0,N-1)=(cff1*(u(i,j,N-1,nrhs)+
+				   u(i,j,N  ,nrhs))-
+			     cff2*(u(i,j,N-2,nrhs)+
+				   u(i,j,N  ,nrhs)))*
+		            (cff1*(W(i  ,j,N-1)+
+				   W(i-1,j,N-1))-
+			     cff2*(W(i+1,j,N-1)+
+				   W(i-2,j,N-1)));
+		  FC(i,0,1)=(cff1*(u(i,j,1,nrhs)+
+				 u(i,j,2,nrhs))-
+			   cff2*(u(i,j,1,nrhs)+
+				 u(i,j,3,nrhs)))*
+		          (cff1*(W(i  ,j,1)+
+				 W(i-1,j,1))-
+			   cff2*(W(i+1,j,1)+
+				 W(i-2,j,1)));
+		  FC(i,0,0)=0.0;
+		}
+	      cff=FC(i,0,k)-FC(i,0,k-1);
+	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
+	      if(j>=2)
+	      {
+	      if(k>=2&&k<=N-2)
+	      {
+		FC(i,0,k)=(cff1*(v(i,j,k  ,nrhs)+
+			     v(i,j,k+1,nrhs))-
+		       cff2*(v(i,j,k-1,nrhs)+
+			     v(i,j,k+2,nrhs)))*
+		      (cff1*(W(i,j  ,k)+
+			     W(i,j-1,k))-
+		       cff2*(W(i,j+1,k)+
+			     W(i,j-2,k)));
+	      }
+	      else if(k==0) // this needs to be split up so that the following can be concurent
+		{
+		  FC(i,0,N)=0.0;
+		  FC(i,0,N-1)=(cff1*(v(i,j,N-1,nrhs)+
+				   v(i,j,N  ,nrhs))-
+			     cff2*(v(i,j,N-2,nrhs)+
+				   v(i,j,N  ,nrhs)))*
+		            (cff1*(W(i,j  ,N-1)+
+				   W(i,j-1,N-1))-
+			     cff2*(W(i,j+1,N-1)+
+				   W(i,j-2,N-1)));
+		  FC(i,0,1)=(cff1*(v(i,j,1,nrhs)+
+				 v(i,j,2,nrhs))-
+			   cff2*(v(i,j,1,nrhs)+
+				 v(i,j,3,nrhs)))*
+		          (cff1*(W(i,j  ,1)+
+				 W(i,j-1,1))-
+			   cff2*(W(i,j+1,1)+
+				 W(i,j-2,1)));
+		  FC(i,0,0)=0.0;
+		}
+	      cff=FC(i,0,k)-FC(i,0,k-1);
+	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
+	      }
+	    });
 	amrex::ParallelFor(gbx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -337,9 +435,10 @@ void ROMSX::romsx_advance(int level,
 		DC(i,0,0)=cff*(2*dxi[0])*(2*dxi[1]);
 		
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
-		//		xvel_new(i,j,k)=xvel_new(i,j,k)+
-		//		  DC(i,0,0)*ru(i,j,k,nrhs);
-
+		printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
+		u(i,j,k)=u(i,j,k)+
+		  DC(i,0,0)*ru(i,j,k,nrhs);
+	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
     //  Time step right-hand-side terms.
     //            u(i,j,k,nnew)=u(i,j,k,nnew)+                                &
     //     &                    DC(i,0)*ru(i,j,k,nrhs)
