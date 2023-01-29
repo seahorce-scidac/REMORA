@@ -260,11 +260,62 @@ void ROMSX::romsx_advance(int level,
 	      //neglecting terms about periodicity since testing only periodic for now
 	      Huxx(i,j,0)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
 	      //	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Huon(i+1,j,k),uxx(i,j,0),Huxx(i,j,0));
-	    });/*
+	    });
 	amrex::ParallelFor(bx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
-	    });*/
+      	      Real cff;
+	      Real cff1=u(i  ,j,k,nrhs)+u(i+1,j,k,nrhs);
+	      if (cff1 > 0.0)
+		cff=uxx(i,j,0);
+	      else
+		cff=uxx(i+1,j,0);
+	      UFx(i,j,0)=0.25*(cff1+Gadv*cff)*
+		(Huon(i  ,j,k)+
+		 Huon(i+1,j,k)+
+		 Gadv*0.5*(Huxx(i  ,j,0)+
+			   Huxx(i+1,j,0)));
+		//should not include grow cells
+	      uee(i,j,0)=u(i,j-1,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i,j+1,k,nrhs);
+	      //neglecting terms about periodicity since testing only periodic for now
+	      Hvxx(i,j,0)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
+	      cff1=u(i,j  ,k,nrhs)+u(i,j-1,k,nrhs);
+	      Real cff2=Hvom(i,j,k)+Hvom(i-1,j,k);
+	      if (cff2>0.0)
+		cff=uee(i,j-1,0);
+	      else
+		cff=uee(i,j,0);
+	      UFe(i,j,0)=0.25*(cff1+Gadv*cff)*
+		(cff2+Gadv*0.5*(Hvxx(i  ,j,0)+
+				Hvxx(i-1,j,0)));
+	      vxx(i,j,0)=v(i-1,j,k,nrhs)-2.0*v(i,j,k,nrhs)+
+		v(i+1,j,k,nrhs);
+	      //neglecting terms about periodicity since testing only periodic for now
+	      Huee(i,j,0)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
+	      cff1=v(i  ,j,k,nrhs)+v(i-1,j,k,nrhs);
+	      cff2=Huon(i,j,k)+Huon(i,j-1,k);
+	      if (cff2>0.0)
+		cff=vxx(i-1,j,0);
+	      else
+		cff=vxx(i,j,0);
+	      VFx(i,j,0)=0.25*(cff1+Gadv*cff)*
+		(cff2+Gadv*0.5*(Huee(i,j  ,0)+
+				Huee(i,j-1,0)));
+	      vee(i,j,0)=v(i,j-1,k,nrhs)-2.0*v(i,j,k,nrhs)+
+		v(i,j+1,k,nrhs);
+	      Hvee(i,j,0)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
+	      //neglecting terms about periodicity since testing only periodic for now
+	      cff1=v(i,j  ,k,nrhs)+v(i,j+1,k,nrhs);
+	      if (cff1>0.0)
+		cff=vee(i,j,0);
+	      else
+		cff=vee(i,j+1,0);
+	      VFe(i,j,0)=0.25*(cff1+Gadv*cff)*
+                    (Hvom(i,j  ,k)+
+                     Hvom(i,j+1,k)+
+                     Gadv*0.5*(Hvee(i,j  ,0)+
+                               Hvee(i,j+1,0)));
+	    });
 	amrex::Abort("testing1");
 	amrex::ParallelFor(gbx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
