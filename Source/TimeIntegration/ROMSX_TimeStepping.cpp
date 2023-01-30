@@ -190,6 +190,8 @@ void ROMSX::romsx_advance(int level,
 	Box gbx = bx;
 	//make only gbx be grown to match multifabs
 	gbx.grow(IntVect(1,1,0));
+	amrex::Print()<<"bx for most fabs set to:  \t"<<bx<<std::endl;
+	amrex::Print()<<"gbx for grown fabs set to:\t"<<gbx<<std::endl;
 	FArrayBox fab_FC(bx,1,amrex::The_Async_Arena);
 	FArrayBox fab_pn(gbx,1,amrex::The_Async_Arena);
 	FArrayBox fab_pm(gbx,1,amrex::The_Async_Arena);
@@ -435,15 +437,15 @@ void ROMSX::romsx_advance(int level,
 		DC(i,0,0)=cff*(2*dxi[0])*(2*dxi[1]);
 		
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
-		printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
-		u(i,j,k)=u(i,j,k)+
-		  DC(i,0,0)*ru(i,j,k,nrhs);
-	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
+		///////		printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
+		///////		u(i,j,k)=u(i,j,k)+
+		///////		  DC(i,0,0)*ru(i,j,k,nrhs);
+		///////	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
     //  Time step right-hand-side terms.
     //            u(i,j,k,nnew)=u(i,j,k,nnew)+                                &
     //     &                    DC(i,0)*ru(i,j,k,nrhs)
     
-		amrex::Abort("testing");
+	      ///////		amrex::Abort("testing");
 
     //  Backward substitution.
     //            u(i,j,k,nnew)=u(i,j,k,nnew)+cff
