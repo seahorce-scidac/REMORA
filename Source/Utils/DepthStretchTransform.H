@@ -256,8 +256,17 @@ ROMSX::set_depth (int lev)
         //Note, we are not supporting ICESHELF flag
           Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
 
+	  if((i==2-1&&j==2-1&&k==2-1) ||
+		 (i==3-1&&j==3-1&&k==3-1) ||
+		 (i<=4-1&&i>=2-1&&j<=4-1&&j>=2-1&&k<=4-1&&k>=2-1) ||
+		 (i==4-1&&j==4-1&&k==4-1) 
+		 )
+		{
+				    printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Hz_arr(i,j,k),z_w_arr(i,j,k),z_w_arr(i,j,k-1));
+		}
         }
       });
+      //	  	amrex::Abort("STOP2");
 
     } // mf
     /*
