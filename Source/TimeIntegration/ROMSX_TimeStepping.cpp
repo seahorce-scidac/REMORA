@@ -254,8 +254,9 @@ void ROMSX::romsx_advance(int level,
 	      //-----------------------------------------------------------------------
 	      //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
 	      //-----------------------------------------------------------------------
-              Huon(i,j,k)=0.5*(Hz(i,j,k-1)+Hz(i-1,j,k-1))*u(i,j,k,nrhs)*   
-		on_u(i,j,0);
+	      if(k+1<N)
+		  Huon(i,j,k)=0.5*(Hz(i+1,j+1,k+1)+Hz(i,j+1,k+1))*u(i,j+1,k+1,nrhs)*   
+		on_u(i,j+1,0);
 	      if(k+1<N)
 	      Hvom(i,j,k)=0.5*(Hz(i+1,j+1,k+1)+Hz(i+1,j,k+1))*v(i+1,j,k+1,nrhs)*   
 		om_v(i+1,j,0);
@@ -268,7 +269,7 @@ void ROMSX::romsx_advance(int level,
 		    		    printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Huon(i,j,k),u(i,j,k,nrhs),on_u(i,j,0));
 		}
 	  	    });
-	//		amrex::Abort("STOP1123");
+	//			amrex::Abort("STOP1123");
 		      amrex::Print()<<"lalal243la"<<std::endl;
 	amrex::ParallelFor(bx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -283,18 +284,19 @@ void ROMSX::romsx_advance(int level,
 		{
 		  printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i-1,j,k,nrhs),-2.0*u(i,j,k,nrhs),u(i+1,j,k,nrhs));
 		  printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Huon(i-1,j,k),-2.0*Huon(i,j,k),Huon(i+1,j,k));
+		  printf("Huon prints above\n");
 		  //		  amrex::Abort("SSDFD");
 		}
 	//should not include grow cells	      
-	      uxx(i,j,0)=u(i-1,j,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i+1,j,k,nrhs);
+	      uxx(i,j,k)=u(i-1,j,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i+1,j,k,nrhs);
 	      //neglecting terms about periodicity since testing only periodic for now
-	      Huxx(i,j,0)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
+	      Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
 
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Huon(i+1,j,k),uxx(i,j,0),Huxx(i,j,0));
+	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Huon(i+1,j,k),uxx(i,j,k),Huxx(i,j,k));
 	      amrex::Print()<<"lala354lla"<<std::endl;
-	      amrex::Print()<<"WHY IS THIS DIFFERENT!!!"<<i<<" "<<j<<" "<<k<<" "<<Huxx(i,j,0)<<std::endl;
+	      amrex::Print()<<"WHY IS THIS DIFFERENT!!!"<<i<<" "<<j<<" "<<k<<" "<<Huxx(i,j,k)<<std::endl;
 	      //	      amrex::Abort("STOP");
 		}
 	    });
@@ -305,17 +307,18 @@ void ROMSX::romsx_advance(int level,
       	      Real cff;
 	      Real cff1=u(i  ,j,k,nrhs)+u(i+1,j,k,nrhs);
 	      if (cff1 > 0.0)
-		cff=uxx(i,j,0);
+		cff=uxx(i,j,k);
 	      else
-		cff=uxx(i+1,j,0);
-	      UFx(i,j,0)=0.25*(cff1+Gadv*cff)*
+		cff=uxx(i+1,j,k);
+	      UFx(i,j,k)=0.25*(cff1+Gadv*cff)*
 		(Huon(i  ,j,k)+
 		 Huon(i+1,j,k)+
-		 Gadv*0.5*(Huxx(i  ,j,0)+
-			   Huxx(i+1,j,0)));
+		 Gadv*0.5*(Huxx(i  ,j,k)+
+			   Huxx(i+1,j,k)));
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,0),Huxx(i,j,0),Huxx(i+1,j,0));
+		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,k),uxx(i,j,k),uxx(i+1,j,k));
+		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,k),Huxx(i,j,k),Huxx(i+1,j,k));
 	      amrex::Abort("STOP");
 		}
 		//should not include grow cells
