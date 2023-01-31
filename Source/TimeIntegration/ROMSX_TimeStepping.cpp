@@ -522,11 +522,14 @@ void ROMSX::romsx_advance(int level,
 	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-	        AK(i,j,k)=0.5*(Akv(i-1,j,k)+
+	        AK(i-1,j-1,k-1)=0.5*(Akv(i-1,j,k)+
 			       Akv(i  ,j,k));
-		if(k!=0)
-		  Hzk(i,j,k)=0.5*(Hz(i-1,j,k)+
-				  Hz(i  ,j,k));
+		Hzk(i-1,j-1,k-1)=0.5*(Hz(i-1,j,k)+
+				Hz(i  ,j,k));
+	    });
+	amrex::ParallelFor(gbx1, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
 		oHz(i,j,k) = 1.0/Hzk(i,j,k);
 	    });
 	amrex::ParallelFor(gbx1, ncomp,
@@ -540,14 +543,14 @@ void ROMSX::romsx_advance(int level,
 		else
 		  cff=0.25*dt*23.0/12.0;
 
-		DC(i,0,0)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+		DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
 		
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
 		u(i,j,k)=u(i,j,k)+
-				  DC(i,0,0)*ru(i,j,k,nrhs);
+				  DC(i,j,k)*ru(i,j,k,nrhs);
 		if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,0,0),ru(i,j,k,nrhs),u(i,j,k));
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),ru(i,j,k,nrhs),u(i,j,k));
 		      //	      amrex::Abort("STOP");
 		}
 		//oHz and Hz are slightly different the next step due to set_depth updating for new zeta:
@@ -556,10 +559,10 @@ void ROMSX::romsx_advance(int level,
 		//0.0695099922695571      ROMSX
 		//2 2 2 0 0.0695099922695571 14.3864208202187 2.7840495774036e-05
 		//ifdef SPLINES_VVISC is true
-		u(i,j,k)=u(i,j,k)*oHz(i+1,j+1,k+1);
+		u(i,j,k)=u(i,j,k)*oHz(i,j,k);
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,oHz(i+1,j+1,k+1),Hz(i+1,j+1,k+1),u(i,j,k));
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,oHz(i,j,k),Hz(i+1,j+1,k+1),u(i,j,k));
 		      //	      amrex::Abort("STOP");
 		}	   
 	    });
@@ -586,8 +589,9 @@ void ROMSX::romsx_advance(int level,
 		}
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,j,k),CF(i,j,k),DC(i,j,k));
-	      amrex::Abort("STOP");
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1*Hzk(i,j,k),dt*AK(i,j,k-1)*oHz(i,j,k  ),FC(i,j,k));
+		      amrex::Print()<<"wlrejwrlejwlrwejl"<<std::endl;
+		      //	      amrex::Abort("STOP");
 		}
 
 	        //
