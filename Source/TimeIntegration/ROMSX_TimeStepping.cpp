@@ -550,7 +550,7 @@ void ROMSX::romsx_advance(int level,
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,0,0),ru(i,j,k,nrhs),u(i,j,k));
 		      //	      amrex::Abort("STOP");
 		}
-		//oHz and Hz are slightly different:
+		//oHz and Hz are slightly different the next step due to set_depth updating for new zeta:
 		//6.9510121353260748E-002 ROMS
 		//6.9510121353260748E-002   14.386388931137844        2.7840547475297760E-005
 		//0.0695099922695571      ROMSX
@@ -562,12 +562,18 @@ void ROMSX::romsx_advance(int level,
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,oHz(i+1,j+1,k+1),Hz(i+1,j+1,k+1),u(i,j,k));
 		      //	      amrex::Abort("STOP");
 		}	   
+	    });
+	// End previous
+	// Begin vertical viscosity term
+	amrex::ParallelFor(gbx1, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
                 //
 	        //  Use conservative, parabolic spline reconstruction of vertical
                 //  viscosity derivatives.  Then, time step vertical viscosity term
                 //  implicitly by solving a tridiagonal system.
                 //
-
+		Real cff;
 		Real cff1=1.0/6.0;
 		if(k<=N-1&&k>=1)
 		 {
@@ -578,8 +584,13 @@ void ROMSX::romsx_advance(int level,
 			CF(i,j,0)=0.0;
 			DC(i,j,0)=0.0;
 		}
+	      if(i==3-1&&j==3-1&&k==3-1)
+		  {
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,j,k),CF(i,j,k),DC(i,j,k));
+	      amrex::Abort("STOP");
+		}
 
-		//
+	        //
 		//  LU decomposition and forward substitution.
 		//
 		cff1=1.0/3.0;
@@ -592,7 +603,6 @@ void ROMSX::romsx_advance(int level,
 		    DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
 				   FC(i,j,k)*DC(i,j,k-1));
 		}
-
 		//
 		//  Backward substitution.
 		//
@@ -607,7 +617,7 @@ void ROMSX::romsx_advance(int level,
 
 		DC(i,j,k)=DC(i,j,k)*AK(i,j,k);
 		cff=dt*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
-		u(i,j,k)=u(i,j,k)+cff;
+         		u(i,j,k)=u(i,j,k)+cff;
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),cff,u(i,j,k));
