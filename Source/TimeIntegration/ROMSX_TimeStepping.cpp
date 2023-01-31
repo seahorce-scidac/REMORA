@@ -159,6 +159,9 @@ void ROMSX::romsx_advance(int level,
     MultiFab::Copy(mf_v,yvel_new,0,0,yvel_new.nComp(),mf_v.nGrowVect());
     MultiFab::Copy(mf_w,zvel_new,0,0,zvel_new.nComp(),mf_w.nGrowVect());
     MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
+    mf_ru.setVal(0.0);
+    mf_rv.setVal(0.0);
+    mf_rw.setVal(0.0);
 
     int ncomp = 1;
     int iic = istep[level] - 1;
@@ -319,17 +322,17 @@ void ROMSX::romsx_advance(int level,
 		  {
 		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,k),uxx(i,j,k),uxx(i+1,j,k));
 		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,k),Huxx(i,j,k),Huxx(i+1,j,k));
-	      amrex::Abort("STOP");
+		      //	      amrex::Abort("STOP");
 		}
 		//should not include grow cells
-	      uee(i,j,0)=u(i,j-1,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i,j+1,k,nrhs);
+	      uee(i,j,k)=u(i,j-1,k,nrhs)-2.0*u(i,j,k,nrhs)+u(i,j+1,k,nrhs);
 	    });
 	amrex::ParallelFor(bx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
 	      /////////////MIGHT NEED NEW LOOP HERE
 	      //neglecting terms about periodicity since testing only periodic for now
-	      Hvxx(i,j,0)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
+	      Hvxx(i,j,k)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
 		      amrex::Print()<<"lalalla"<<std::endl;
@@ -344,39 +347,44 @@ void ROMSX::romsx_advance(int level,
 	      Real cff1=u(i,j  ,k,nrhs)+u(i,j-1,k,nrhs);
 	      Real cff2=Hvom(i,j,k)+Hvom(i-1,j,k);
 	      if (cff2>0.0)
-		cff=uee(i,j-1,0);
+		cff=uee(i,j-1,k);
 	      else
-		cff=uee(i,j,0);
-	      UFe(i,j,0)=0.25*(cff1+Gadv*cff)*
-		(cff2+Gadv*0.5*(Hvxx(i  ,j,0)+
-				Hvxx(i-1,j,0)));
-	      vxx(i,j,0)=v(i-1,j,k,nrhs)-2.0*v(i,j,k,nrhs)+
+		cff=uee(i,j,k);
+	      UFe(i,j,k)=0.25*(cff1+Gadv*cff)*
+		(cff2+Gadv*0.5*(Hvxx(i  ,j,k)+
+				Hvxx(i-1,j,k)));
+	      vxx(i,j,k)=v(i-1,j,k,nrhs)-2.0*v(i,j,k,nrhs)+
 		v(i+1,j,k,nrhs);
 	      //neglecting terms about periodicity since testing only periodic for now
-	      Huee(i,j,0)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
+	      Huee(i,j,k)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
 	      cff1=v(i  ,j,k,nrhs)+v(i-1,j,k,nrhs);
 	      cff2=Huon(i,j,k)+Huon(i,j-1,k);
 	      if (cff2>0.0)
-		cff=vxx(i-1,j,0);
+		cff=vxx(i-1,j,k);
 	      else
-		cff=vxx(i,j,0);
-	      VFx(i,j,0)=0.25*(cff1+Gadv*cff)*
-		(cff2+Gadv*0.5*(Huee(i,j  ,0)+
-				Huee(i,j-1,0)));
-	      vee(i,j,0)=v(i,j-1,k,nrhs)-2.0*v(i,j,k,nrhs)+
+		cff=vxx(i,j,k);
+	      VFx(i,j,k)=0.25*(cff1+Gadv*cff)*
+		(cff2+Gadv*0.5*(Huee(i,j  ,k)+
+				Huee(i,j-1,k)));
+	      vee(i,j,k)=v(i,j-1,k,nrhs)-2.0*v(i,j,k,nrhs)+
 		v(i,j+1,k,nrhs);
-	      Hvee(i,j,0)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
+	      Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
+	    });
+	amrex::ParallelFor(bx, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+	    {
 	      //neglecting terms about periodicity since testing only periodic for now
-	      cff1=v(i,j  ,k,nrhs)+v(i,j+1,k,nrhs);
+	      Real cff;
+	      Real cff1=v(i,j  ,k,nrhs)+v(i,j+1,k,nrhs);
 	      if (cff1>0.0)
-		cff=vee(i,j,0);
+		cff=vee(i,j,k);
 	      else
-		cff=vee(i,j+1,0);
-	      VFe(i,j,0)=0.25*(cff1+Gadv*cff)*
+		cff=vee(i,j+1,k);
+	      VFe(i,j,k)=0.25*(cff1+Gadv*cff)*
                     (Hvom(i,j  ,k)+
                      Hvom(i,j+1,k)+
-                     Gadv*0.5*(Hvee(i,j  ,0)+
-                               Hvee(i,j+1,0)));
+                     Gadv*0.5*(Hvee(i,j  ,k)+
+                               Hvee(i,j+1,k)));
 	    });
 	amrex::ParallelFor(bx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -385,24 +393,34 @@ void ROMSX::romsx_advance(int level,
 	      //  Add in horizontal advection.
 	      //
 
-	      Real cff1=UFx(i,j,0)-UFx(i-1,j,0);
-	      Real cff2=UFe(i,j+1,0)-UFe(i,j,0);
+	      Real cff1=UFx(i,j,k)-UFx(i-1,j,k);
+	      Real cff2=UFe(i,j+1,k)-UFe(i,j,k);
 	      Real cff=cff1+cff2;
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,0),UFx(i-1,j,0),ru(i,j,k,nrhs));
+		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,k),UFx(i-1,j,k),ru(i,j,k,nrhs));
 		      //	      amrex::Abort("STOP");
 		}
 	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,0),UFx(i-1,j,0),ru(i,j,k,nrhs));
-	      amrex::Abort("STOP");
+		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,k),UFx(i-1,j,k),ru(i,j,k,nrhs));
+		      //	      amrex::Abort("STOP");
 		}
-	      cff1=VFx(i+1,j,0)-VFx(i,j,0);
-	      cff2=VFe(i,j,0)-VFe(i,j-1,0);
+	      cff1=VFx(i+1,j,k)-VFx(i,j,k);
+	      cff2=VFe(i,j,k)-VFe(i,j-1,k);
 	      cff=cff1+cff2;
+	            if(i==3-1&&j==3-1&&k==3-1)
+		  {
+		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,VFx(i+1,j,k),VFx(i,j,k),rv(i,j,k,nrhs));
+		      //	      amrex::Abort("STOP");
+		}
 	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
+	      if(i==3-1&&j==3-1&&k==3-1)
+		  {
+		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,VFx(i+1,j,k),VFx(i,j,k),rv(i,j,k,nrhs));
+		      //	      amrex::Abort("STOP");
+		}
 
 	      //-----------------------------------------------------------------------
 	      //  Add in vertical advection.
@@ -443,6 +461,11 @@ void ROMSX::romsx_advance(int level,
 		}
 	      cff=FC(i,0,k)-FC(i,0,k-1);
 	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
+	      if(i==3-1&&j==3-1&&k==3-1)
+		  {
+		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,FC(i,0,k),FC(i,0,k-1),ru(i,j,k,nrhs));
+		      //amrex::Abort("STOP");
+		}
 	      if(j>=2)
 	      {
 	      if(k>=2&&k<=N-2)
@@ -479,8 +502,15 @@ void ROMSX::romsx_advance(int level,
 		}
 	      cff=FC(i,0,k)-FC(i,0,k-1);
 	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
+	      if(i==3-1&&j==3-1&&k==3-1)
+		  {
+		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,FC(i,0,k),FC(i,0,k-1),rv(i,j,k,nrhs));
+		      //	      amrex::Abort("STOP");
+		}
 	      }
 	    });
+	// End rhs3d.F
+	// Begin step3d_uv.F
 	amrex::ParallelFor(gbx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -501,10 +531,14 @@ void ROMSX::romsx_advance(int level,
 		DC(i,0,0)=cff*(2*dxi[0])*(2*dxi[1]);
 		
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
-		///////		printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
-		///////		u(i,j,k)=u(i,j,k)+
-		///////		  DC(i,0,0)*ru(i,j,k,nrhs);
-		///////	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
+			      if(i==3-1&&j==3-1&&k==3-1)
+		  {
+				printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
+				u(i,j,k)=u(i,j,k)+
+				  DC(i,0,0)*ru(i,j,k,nrhs);
+			      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
+			      amrex::Abort("step3d");
+		  }
     //  Time step right-hand-side terms.
     //            u(i,j,k,nnew)=u(i,j,k,nnew)+                                &
     //     &                    DC(i,0)*ru(i,j,k,nrhs)
