@@ -607,6 +607,11 @@ void ROMSX::romsx_advance(int level,
 		    DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
 				   FC(i,j,k)*DC(i,j,k-1));
 		}
+		if(i==3-1&&j==3-1&&k==3-1)
+		  {
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),cff,u(i,j,k));
+		      //	      amrex::Abort("STOP");
+		}
 		//
 		//  Backward substitution.
 		//

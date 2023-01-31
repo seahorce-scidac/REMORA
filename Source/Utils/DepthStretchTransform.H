@@ -262,11 +262,11 @@ ROMSX::set_depth (int lev)
 		 (i==4-1&&j==4-1&&k==4-1) 
 		 )
 		{
-				    printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Hz_arr(i,j,k),z_w_arr(i,j,k),z_w_arr(i,j,k-1));
+				    printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hz_arr(i,j,k),z_w_arr(i,j,k),z_w_arr(i,j,k-1));
 		}
         }
       });
-      //	  	amrex::Abort("STOP2");
+      //      	  	amrex::Abort("STOP2");
 
     } // mf
     /*
