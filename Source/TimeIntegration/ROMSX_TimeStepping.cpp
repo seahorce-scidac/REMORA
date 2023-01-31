@@ -164,8 +164,8 @@ void ROMSX::romsx_advance(int level,
     mf_rw.setVal(0.0);
 
     int ncomp = 1;
-    int iic = istep[level] - 1;
-    int ntfirst = 1;
+    int iic = istep[level];
+    int ntfirst = 0;
     //check this////////////
     const int nrhs = ncomp-1;
     const int nnew = ncomp-1;
@@ -249,11 +249,11 @@ void ROMSX::romsx_advance(int level,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
 	      om_v(i,j,0)=2.0/(pm(i,j-1,0)+pm(i,j,0));
-	      //	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,om_v(i,j,0),pm(i,j-1,0),pm(i,j,0));
+	      //	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,om_v(i,j,0),pm(i,j-1,0),pm(i,j,0));
 	      on_u(i,j,0)=2.0/(pn(i-1,j,0)+pn(i,j,0));
-	      //	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,on_u(i,j,0),pn(i-1,j,0),pn(i,j,0));
-	      //	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Hz(i,j,k),Hz(i-1,j,k),u(i,j,k,nrhs));
-	      //	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Hz(i,j,k),Hz(i,j-1,k),v(i,j,k,nrhs));
+	      //	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,on_u(i,j,0),pn(i-1,j,0),pn(i,j,0));
+	      //	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hz(i,j,k),Hz(i-1,j,k),u(i,j,k,nrhs));
+	      //	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hz(i,j,k),Hz(i,j-1,k),v(i,j,k,nrhs));
 	      //-----------------------------------------------------------------------
 	      //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
 	      //-----------------------------------------------------------------------
@@ -269,24 +269,25 @@ void ROMSX::romsx_advance(int level,
 		 (i==4-1&&j==4-1&&k==4-1) 
 		 )
 		{
-		    		    printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Huon(i,j,k),u(i,j,k,nrhs),on_u(i,j,0));
+		    		    printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Huon(i,j,k),u(i,j,k,nrhs),on_u(i,j,0));
 		}
 	  	    });
 	//			amrex::Abort("STOP1123");
 		      amrex::Print()<<"lalal243la"<<std::endl;
+		      //Need to include pre_step3d.F terms
 	amrex::ParallelFor(bx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
 		if(i==2-1&&j==2-1&&k==2-1)
 		{
-		    //		  printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i-1,j,k,nrhs),-2.0*u(i,j,k,nrhs),u(i+1,j,k,nrhs));
-		  //		  printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Hz(i-1,j,k),Hz(i,j,k),Hz(i+1,j,k));
-		  //		  printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Huon(i-1,j,k),-2.0*Huon(i,j,k),Huon(i+1,j,k));
+		    //		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,u(i-1,j,k,nrhs),-2.0*u(i,j,k,nrhs),u(i+1,j,k,nrhs));
+		  //		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hz(i-1,j,k),Hz(i,j,k),Hz(i+1,j,k));
+		  //		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Huon(i-1,j,k),-2.0*Huon(i,j,k),Huon(i+1,j,k));
 		}
 	      if(i==3-1&&j==3-1&&k==3-1)
 		{
-		  printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i-1,j,k,nrhs),-2.0*u(i,j,k,nrhs),u(i+1,j,k,nrhs));
-		  printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Huon(i-1,j,k),-2.0*Huon(i,j,k),Huon(i+1,j,k));
+		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,u(i-1,j,k,nrhs),-2.0*u(i,j,k,nrhs),u(i+1,j,k,nrhs));
+		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Huon(i-1,j,k),-2.0*Huon(i,j,k),Huon(i+1,j,k));
 		  printf("Huon prints above\n");
 		  //		  amrex::Abort("SSDFD");
 		}
@@ -297,7 +298,7 @@ void ROMSX::romsx_advance(int level,
 
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Huon(i+1,j,k),uxx(i,j,k),Huxx(i,j,k));
+	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Huon(i+1,j,k),uxx(i,j,k),Huxx(i,j,k));
 	      amrex::Print()<<"lala354lla"<<std::endl;
 	      amrex::Print()<<"WHY IS THIS DIFFERENT!!!"<<i<<" "<<j<<" "<<k<<" "<<Huxx(i,j,k)<<std::endl;
 	      //	      amrex::Abort("STOP");
@@ -320,8 +321,8 @@ void ROMSX::romsx_advance(int level,
 			   Huxx(i+1,j,k)));
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,k),uxx(i,j,k),uxx(i+1,j,k));
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,k),Huxx(i,j,k),Huxx(i+1,j,k));
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),uxx(i,j,k),uxx(i+1,j,k));
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),Huxx(i,j,k),Huxx(i+1,j,k));
 		      //	      amrex::Abort("STOP");
 		}
 		//should not include grow cells
@@ -336,7 +337,7 @@ void ROMSX::romsx_advance(int level,
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
 		      amrex::Print()<<"lalalla"<<std::endl;
-	      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,Hvom(i,j,k),uee(i,j,0),Hvxx(i,j,0));
+	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hvom(i,j,k),uee(i,j,0),Hvxx(i,j,0));
 	      //	      amrex::Abort("STOP");
 		}
 	    });
@@ -398,13 +399,13 @@ void ROMSX::romsx_advance(int level,
 	      Real cff=cff1+cff2;
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,k),UFx(i-1,j,k),ru(i,j,k,nrhs));
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),UFx(i-1,j,k),ru(i,j,k,nrhs));
 		      //	      amrex::Abort("STOP");
 		}
 	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,UFx(i,j,k),UFx(i-1,j,k),ru(i,j,k,nrhs));
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),UFx(i-1,j,k),ru(i,j,k,nrhs));
 		      //	      amrex::Abort("STOP");
 		}
 	      cff1=VFx(i+1,j,k)-VFx(i,j,k);
@@ -412,13 +413,13 @@ void ROMSX::romsx_advance(int level,
 	      cff=cff1+cff2;
 	            if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,VFx(i+1,j,k),VFx(i,j,k),rv(i,j,k,nrhs));
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,VFx(i+1,j,k),VFx(i,j,k),rv(i,j,k,nrhs));
 		      //	      amrex::Abort("STOP");
 		}
 	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,VFx(i+1,j,k),VFx(i,j,k),rv(i,j,k,nrhs));
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,VFx(i+1,j,k),VFx(i,j,k),rv(i,j,k,nrhs));
 		      //	      amrex::Abort("STOP");
 		}
 
@@ -463,7 +464,7 @@ void ROMSX::romsx_advance(int level,
 	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,FC(i,0,k),FC(i,0,k-1),ru(i,j,k,nrhs));
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,0,k),FC(i,0,k-1),ru(i,j,k,nrhs));
 		      //amrex::Abort("STOP");
 		}
 	      if(j>=2)
@@ -504,12 +505,13 @@ void ROMSX::romsx_advance(int level,
 	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-		      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,FC(i,0,k),FC(i,0,k-1),rv(i,j,k,nrhs));
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,0,k),FC(i,0,k-1),rv(i,j,k,nrhs));
 		      //	      amrex::Abort("STOP");
 		}
 	      }
 	    });
-	// End rhs3d.F
+	// End rhs3d_tile
+	// Need to include uv3dmix
 	// Begin step3d_uv.F
 	amrex::ParallelFor(gbx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -520,6 +522,7 @@ void ROMSX::romsx_advance(int level,
 		if(k!=0)
 		  Hzk(i,0,k)=0.5*(Hz(i-1,j,k)+
 				  Hz(i  ,j,k));
+		Real oHz = 1.0/Hzk(i,0,k);
 
 		if(iic==ntfirst)
 		  cff=0.25*dt;
@@ -528,20 +531,19 @@ void ROMSX::romsx_advance(int level,
 		else
 		  cff=0.25*dt*23.0/12.0;
 
-		DC(i,0,0)=cff*(2*dxi[0])*(2*dxi[1]);
+		DC(i,0,0)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
 		
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
+		u(i,j,k)=u(i,j,k)+
+				  DC(i,0,0)*ru(i,j,k,nrhs);
+
 			      if(i==3-1&&j==3-1&&k==3-1)
 		  {
-				printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
-				u(i,j,k)=u(i,j,k)+
-				  DC(i,0,0)*ru(i,j,k,nrhs);
-			      printf("%d %d %d %d %15.5g %15.5g %15.5g\n",i,j,k,n,u(i,j,k),DC(i,0,0),ru(i,j,k,nrhs));
+                             printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,dt,u(i,j,k));
+		             printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,0,0),ru(i,j,k,nrhs),u(i,j,k));
+				printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,0,0),ru(i,j,k,nrhs),u(i,j,k));
 			      amrex::Abort("step3d");
 		  }
-    //  Time step right-hand-side terms.
-    //            u(i,j,k,nnew)=u(i,j,k,nnew)+                                &
-    //     &                    DC(i,0)*ru(i,j,k,nrhs)
     
 	      ///////		amrex::Abort("testing");
 
