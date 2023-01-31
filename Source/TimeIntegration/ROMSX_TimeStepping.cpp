@@ -198,13 +198,16 @@ void ROMSX::romsx_advance(int level,
 	Box gbx=gbx2;
 	amrex::Print()<<"bx for most fabs set to:  \t"<<bx<<std::endl;
 	amrex::Print()<<"gbx for grown fabs set to:\t"<<gbx<<std::endl;
-	FArrayBox fab_FC(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_FC(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_BC(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_CF(gbx1,1,amrex::The_Async_Arena);
 	FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_on_u(gbx1,1,amrex::The_Async_Arena);
 	FArrayBox fab_om_v(gbx1,1,amrex::The_Async_Arena);
 	FArrayBox fab_Huon(gbx1,1,amrex::The_Async_Arena);
 	FArrayBox fab_Hvom(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_oHz(gbx1,1,amrex::The_Async_Arena);
 	//rhs3d work arrays
 	FArrayBox fab_Huxx(bx,1,amrex::The_Async_Arena);
 	FArrayBox fab_Huee(bx,1,amrex::The_Async_Arena);
@@ -220,12 +223,15 @@ void ROMSX::romsx_advance(int level,
 	FArrayBox fab_VFe(bx,1,amrex::The_Async_Arena);
 
 	auto FC=fab_FC.array();
+	auto BC=fab_BC.array();
+	auto CF=fab_CF.array();
 	auto pn=fab_pn.array();
 	auto pm=fab_pm.array();
 	auto on_u=fab_on_u.array();
 	auto om_v=fab_om_v.array();
 	auto Huon=fab_Huon.array();
 	auto Hvom=fab_Hvom.array();
+	auto oHz=fab_oHz.array();
 	auto Huxx=fab_Huxx.array();
 	auto Huee=fab_Huee.array();
 	auto Hvxx=fab_Hvxx.array();
@@ -506,24 +512,27 @@ void ROMSX::romsx_advance(int level,
 	      if(i==3-1&&j==3-1&&k==3-1)
 		  {
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,0,k),FC(i,0,k-1),rv(i,j,k,nrhs));
-		      //	      amrex::Abort("STOP");
+		      //		 	      amrex::Abort("STOP");
 		}
 	      }
 	    });
 	// End rhs3d_tile
 	// Need to include uv3dmix
 	// Begin step3d_uv.F
-	amrex::ParallelFor(gbx, ncomp,
+	amrex::ParallelFor(gbx1, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+	        AK(i,j,k)=0.5*(Akv(i-1,j,k)+
+			       Akv(i  ,j,k));
+		if(k!=0)
+		  Hzk(i,j,k)=0.5*(Hz(i-1,j,k)+
+				  Hz(i  ,j,k));
+		oHz(i,j,k) = 1.0/Hzk(i,j,k);
+	    });
+	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
 	        Real cff;
-	        AK(i,0,k)=0.5*(Akv(i-1,j,k)+
-			       Akv(i  ,j,k));
-		if(k!=0)
-		  Hzk(i,0,k)=0.5*(Hz(i-1,j,k)+
-				  Hz(i  ,j,k));
-		Real oHz = 1.0/Hzk(i,0,k);
-
 		if(iic==ntfirst)
 		  cff=0.25*dt;
 		else if(iic==ntfirst+1)
@@ -536,35 +545,79 @@ void ROMSX::romsx_advance(int level,
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
 		u(i,j,k)=u(i,j,k)+
 				  DC(i,0,0)*ru(i,j,k,nrhs);
-
-			      if(i==3-1&&j==3-1&&k==3-1)
+		if(i==3-1&&j==3-1&&k==3-1)
 		  {
-                             printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,dt,u(i,j,k));
-		             printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,0,0),ru(i,j,k,nrhs),u(i,j,k));
-				printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,0,0),ru(i,j,k,nrhs),u(i,j,k));
-			      amrex::Abort("step3d");
-		  }
-    
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,0,0),ru(i,j,k,nrhs),u(i,j,k));
+		      //	      amrex::Abort("STOP");
+		}
+		//oHz and Hz are slightly different:
+		//6.9510121353260748E-002 ROMS
+		//6.9510121353260748E-002   14.386388931137844        2.7840547475297760E-005
+		//0.0695099922695571      ROMSX
+		//2 2 2 0 0.0695099922695571 14.3864208202187 2.7840495774036e-05
+		//ifdef SPLINES_VVISC is true
+		u(i,j,k)=u(i,j,k)*oHz(i+1,j+1,k+1);
+	      if(i==3-1&&j==3-1&&k==3-1)
+		  {
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,oHz(i+1,j+1,k+1),Hz(i+1,j+1,k+1),u(i,j,k));
+		      //	      amrex::Abort("STOP");
+		}	   
+                //
+	        //  Use conservative, parabolic spline reconstruction of vertical
+                //  viscosity derivatives.  Then, time step vertical viscosity term
+                //  implicitly by solving a tridiagonal system.
+                //
+
+		Real cff1=1.0/6.0;
+		if(k<=N-1&&k>=1)
+		 {
+		     FC(i,j,k)=cff1*Hzk(i,j,k  )-dt*AK(i,j,k-1)*oHz(i,j,k  );
+		     CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt*AK(i,j,k+1)*oHz(i,j,k+1);
+		 }
+		{
+			CF(i,j,0)=0.0;
+			DC(i,j,0)=0.0;
+		}
+
+		//
+		//  LU decomposition and forward substitution.
+		//
+		cff1=1.0/3.0;
+		if(k<=N-1&&k>=1)
+		{
+		    BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
+			dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
+		    cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
+		    CF(i,j,k)=cff*CF(i,j,k);
+		    DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
+				   FC(i,j,k)*DC(i,j,k-1));
+		}
+
+		//
+		//  Backward substitution.
+		//
+		DC(i,j,N)=0.0;
+
+		if(k<=N-1&&k>=1) //-N,1,-1 => kidx =N-k+1
+		{
+
+		    DC(i,j,N-k+1)=DC(i,j,N-k+1)-CF(i,j,N-k+1)*DC(i,j,N-k+2);
+		    //		    DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1);
+		}
+
+		DC(i,j,k)=DC(i,j,k)*AK(i,j,k);
+		cff=dt*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
+		u(i,j,k)=u(i,j,k)+cff;
+	      if(i==3-1&&j==3-1&&k==3-1)
+		  {
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),cff,u(i,j,k));
+	      amrex::Abort("STOP");
+		}
+
 	      ///////		amrex::Abort("testing");
-
-    //  Backward substitution.
-    //            u(i,j,k,nnew)=u(i,j,k,nnew)+cff
-
-    //  Compute new solution by back substitution.
-    //            u(i,j,k,nnew)=DC(i,k)
-
-    //  Compute new solution by back substitution.
-    //            u(i,j,k,nnew)=DC(i,k)
 
     //  Couple and update new solution.
     //            u(i,j,k,nnew)=u(i,j,k,nnew)-DC(i,0)
-    //# ifdef MASKING
-    //            u(i,j,k,nnew)=u(i,j,k,nnew)*umask(i,j)
-    //# endif
-    //# ifdef WET_DRY
-    //            u(i,j,k,nnew)=u(i,j,k,nnew)*umask_wet(i,j)
-    //            ru(i,j,k,nrhs)=ru(i,j,k,nrhs)*umask_wet(i,j)
-    //# endif
 
     //-----------------------------------------------------------------------
     //  Time step momentum equation in the ETA-direction.
