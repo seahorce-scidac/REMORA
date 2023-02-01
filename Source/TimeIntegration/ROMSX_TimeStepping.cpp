@@ -152,13 +152,14 @@ void ROMSX::romsx_advance(int level,
     MultiFab mf_W(ba,dm,1,IntVect(2,2,0));
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
-    mf_u.setVal(1.e34,mf_u.nGrowVect());
-    mf_v.setVal(1.e34,mf_v.nGrowVect());
-    mf_w.setVal(1.e34,mf_w.nGrowVect());
-    MultiFab::Copy(mf_u,xvel_new,0,0,xvel_new.nComp(),mf_u.nGrowVect());
-    MultiFab::Copy(mf_v,yvel_new,0,0,yvel_new.nComp(),mf_v.nGrowVect());
-    MultiFab::Copy(mf_w,zvel_new,0,0,zvel_new.nComp(),mf_w.nGrowVect());
-    MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
+    mf_u.setVal(1.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_v.setVal(1.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_w.setVal(0);
+    mf_w.setVal(1.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    MultiFab::Copy(mf_u,xvel_new,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    MultiFab::Copy(mf_v,yvel_new,0,0,yvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    MultiFab::Copy(mf_w,zvel_new,0,0,zvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     mf_ru.setVal(0.0);
     mf_rv.setVal(0.0);
     mf_rw.setVal(0.0);
@@ -198,6 +199,7 @@ void ROMSX::romsx_advance(int level,
 	Box gbx=gbx2;
 	amrex::Print()<<"bx for most fabs set to:  \t"<<bx<<std::endl;
 	amrex::Print()<<"gbx for grown fabs set to:\t"<<gbx<<std::endl;
+	amrex::Print()<<"N is "<<N<<"N-1 is "<<N-1<<std::endl;
 	FArrayBox fab_FC(gbx1,1,amrex::The_Async_Arena);
 	FArrayBox fab_BC(gbx1,1,amrex::The_Async_Arena);
 	FArrayBox fab_CF(gbx1,1,amrex::The_Async_Arena);
@@ -269,10 +271,10 @@ void ROMSX::romsx_advance(int level,
 	      //-----------------------------------------------------------------------
 	      //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
 	      //-----------------------------------------------------------------------
-	      if(k+1<N)
+	      if(k+1<=N)
 		  Huon(i,j,k)=0.5*(Hz(i+1,j+1,k+1)+Hz(i,j+1,k+1))*u(i,j+1,k+1,nrhs)*   
 		on_u(i,j+1,0);
-	      if(k+1<N)
+	      if(k+1<=N)
 	      Hvom(i,j,k)=0.5*(Hz(i+1,j+1,k+1)+Hz(i+1,j,k+1))*v(i+1,j,k+1,nrhs)*   
 		om_v(i+1,j,0);
 	      if((i==2-1&&j==2-1&&k==2-1) ||
@@ -443,7 +445,7 @@ void ROMSX::romsx_advance(int level,
 	      cff2=1.0/16.0;
 	      if(k>=2&&k<=N-2)
 	      {
-		FC(i,0,k)=(cff1*(u(i,j,k  ,nrhs)+
+		      FC(i,0,k)=(cff1*(u(i,j,k  ,nrhs)+
 			     u(i,j,k+1,nrhs))-
 		       cff2*(u(i,j,k-1,nrhs)+
 			     u(i,j,k+2,nrhs)))*
@@ -487,7 +489,7 @@ void ROMSX::romsx_advance(int level,
 	      {
 	      if(k>=2&&k<=N-2)
 	      {
-		FC(i,0,k)=(cff1*(v(i,j,k  ,nrhs)+
+		  FC(i,0,k)=(cff1*(v(i,j,k  ,nrhs)+
 			     v(i,j,k+1,nrhs))-
 		       cff2*(v(i,j,k-1,nrhs)+
 			     v(i,j,k+2,nrhs)))*
@@ -563,9 +565,7 @@ void ROMSX::romsx_advance(int level,
 		  cff=0.25*dt*3.0/2.0;
 		else
 		  cff=0.25*dt*23.0/12.0;
-
 		DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
-		
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
 		u(i,j,k)=u(i,j,k)+
 				  DC(i,j,k)*ru(i,j,k,nrhs);
@@ -581,88 +581,14 @@ void ROMSX::romsx_advance(int level,
 		//2 2 2 0 0.0695099922695571 14.3864208202187 2.7840495774036e-05
 		//ifdef SPLINES_VVISC is true
 		u(i,j,k)=u(i,j,k)*oHz(i,j,k);
-	      if(i==3-1&&j==3-1&&k==3-1)
+		if(i==3-1&&j==3-1&&k==3-1)
 		  {
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,oHz(i,j,k),Hz(i+1,j+1,k+1),u(i,j,k));
 		      //	      amrex::Abort("STOP");
 		}	   
 	    });
 	// End previous
-	// Begin vertical viscosity term
-	//should be gbx1, but need to fix some bounds inside this loop:
-	amrex::ParallelFor(bx, ncomp,
-	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                //
-	        //  Use conservative, parabolic spline reconstruction of vertical
-                //  viscosity derivatives.  Then, time step vertical viscosity term
-                //  implicitly by solving a tridiagonal system.
-                //
-		Real cff;
-		Real cff1=1.0/6.0;
-		if(k<=N-1&&k>=1)
-		 {
-		     FC(i,j,k)=cff1*Hzk(i,j,k  )-dt*AK(i,j,k-1)*oHz(i,j,k  );
-		     CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt*AK(i,j,k+1)*oHz(i,j,k+1);
-		 }
-		{
-			CF(i,j,-1)=0.0;
-			DC(i,j,-1)=0.0;
-			CF(i,j,0)=0.0;
-			DC(i,j,0)=0.0;
-		}
-	      if(i==3-1&&j==3-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1*Hzk(i,j,k),dt*AK(i,j,k-1)*oHz(i,j,k  ),FC(i,j,k));
-		      amrex::Print()<<"splines"<<std::endl;
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,dt,AK(i,j,k-1),oHz(i,j,k  ),FC(i,j,k));
-		      //	      amrex::Abort("STOP");
-		}
-
-	        //
-		//  LU decomposition and forward substitution.
-		//
-		cff1=1.0/3.0;
-		if(k<=N-1&&k>=1)
-		{
-		    BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
-			dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
-		    cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
-		    CF(i,j,k)=cff*CF(i,j,k);
-		    DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
-				   FC(i,j,k)*DC(i,j,k-1));
-		}
-               if(i==3-1&&j==3-1&&k==3-1)
-                  {
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,u(i,j,k+1),u(i,j,k),DC(i,j,k));
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,FC(i,j,k),DC(i,j,k-1));
-		      //	      amrex::Abort("STOP");
-		}
-		//
-		//  Backward substitution.
-		//
-		DC(i,j,N)=0.0;
-
-		if(k<=N-1&&k>=1) //-N,1,-1 => kidx =N-k+1
-		{
-		    if(N-k+1<0||N-k+2<0)
-			amrex::Abort("-1 here");
-		    DC(i,j,N-k+1)=DC(i,j,N-k+1)-CF(i,j,N-k+1)*DC(i,j,N-k+2);
-		    //		    DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1);
-		}
-
-		DC(i,j,k)=DC(i,j,k)*AK(i,j,k);
-		if(k-1>=0)
-		    cff=dt*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
-		else
-		    cff=0.0;
-		/////         		u(i,j,k)=u(i,j,k)+cff;
-	      if(i==3-1&&j==3-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),cff,u(i,j,k));
-		      //	      amrex::Abort("STOP");
-		}
-
+	
 	      ///////		amrex::Abort("testing");
 
     //  Couple and update new solution.
@@ -725,11 +651,14 @@ void ROMSX::romsx_advance(int level,
     //-----------------------------------------------------------------------
     //  Exchange boundary data.
     //-----------------------------------------------------------------------
-	    });
+	//    });
     }
-
-    MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),xvel_new.nGrowVect());
-    MultiFab::Copy(yvel_new,mf_v,0,0,yvel_new.nComp(),yvel_new.nGrowVect());
-    MultiFab::Copy(zvel_new,mf_w,0,0,zvel_new.nComp(),zvel_new.nGrowVect());
+		amrex::Print()<<"before xvel copy"<<std::endl;
+    MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    		amrex::Print()<<"before yvel copy"<<std::endl;
+    MultiFab::Copy(yvel_new,mf_v,0,0,yvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    amrex::Print()<<"before zvel copy"<<std::endl;
+    //MultiFab::Copy(zvel_new,mf_w,0,0,zvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    amrex::Print()<<"after  zvel copy"<<std::endl;
     //    MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
 }
