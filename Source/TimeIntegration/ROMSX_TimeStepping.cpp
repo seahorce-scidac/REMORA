@@ -655,8 +655,11 @@ void ROMSX::romsx_advance(int level,
     }
 		amrex::Print()<<"before xvel copy"<<std::endl;
     MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
-    		amrex::Print()<<"before yvel copy"<<std::endl;
+    				amrex::Print()<<"before yvel copy"<<std::endl;
+				xvel_new.FillBoundary();
+				amrex::Print()<<"before yvel copy"<<std::endl;
     MultiFab::Copy(yvel_new,mf_v,0,0,yvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    yvel_new.FillBoundary();
     amrex::Print()<<"before zvel copy"<<std::endl;
     //MultiFab::Copy(zvel_new,mf_w,0,0,zvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     amrex::Print()<<"after  zvel copy"<<std::endl;
