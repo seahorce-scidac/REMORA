@@ -203,24 +203,24 @@ void ROMSX::romsx_advance(int level,
 	FArrayBox fab_CF(gbx1,1,amrex::The_Async_Arena);
 	FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena);
-	FArrayBox fab_on_u(gbx1,1,amrex::The_Async_Arena);
-	FArrayBox fab_om_v(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena);
+	FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_Huon(gbx1,1,amrex::The_Async_Arena);
 	FArrayBox fab_Hvom(gbx1,1,amrex::The_Async_Arena);
 	FArrayBox fab_oHz(gbx1,1,amrex::The_Async_Arena);
 	//rhs3d work arrays
-	FArrayBox fab_Huxx(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_Huee(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_Hvxx(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_Hvee(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_uxx(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_uee(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_vxx(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_vee(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_UFx(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_UFe(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_VFx(bx,1,amrex::The_Async_Arena);
-	FArrayBox fab_VFe(bx,1,amrex::The_Async_Arena);
+	FArrayBox fab_Huxx(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_Huee(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_Hvxx(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_Hvee(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_uxx(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_uee(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_vxx(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_vee(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_UFx(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_UFe(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_VFx(gbx1,1,amrex::The_Async_Arena);
+	FArrayBox fab_VFe(gbx1,1,amrex::The_Async_Arena);
 
 	auto FC=fab_FC.array();
 	auto BC=fab_BC.array();
@@ -251,12 +251,14 @@ void ROMSX::romsx_advance(int level,
 	      pm(i,j,0)=dxi[0];
 	      pn(i,j,0)=dxi[1];
 	    });
-	amrex::ParallelFor(gbx1, ncomp,
+	amrex::ParallelFor(gbx2, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
-	      om_v(i,j,0)=2.0/(pm(i,j-1,0)+pm(i,j,0));
+		//	      om_v(i,j,0)=2.0/(pm(i,j-1,0)+pm(i,j,0));
+	      om_v(i,j,0)=1.0/dxi[0];
+	      on_u(i,j,0)=1.0/dxi[1];
 	      //	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,om_v(i,j,0),pm(i,j-1,0),pm(i,j,0));
-	      on_u(i,j,0)=2.0/(pn(i-1,j,0)+pn(i,j,0));
+	      //	      on_u(i,j,0)=2.0/(pn(i-1,j,0)+pn(i,j,0));
 	    });
 	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -412,6 +414,7 @@ void ROMSX::romsx_advance(int level,
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),UFx(i-1,j,k),ru(i,j,k,nrhs));
 		      //	      amrex::Abort("STOP");
 		}
+
 	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
 	      if(i==3-1&&j==3-1&&k==1-1)
 		  {
@@ -470,7 +473,10 @@ void ROMSX::romsx_advance(int level,
 				 W(i-2,j,1)));
 		  FC(i,0,0)=0.0;
 		}
-	      cff=FC(i,0,k)-FC(i,0,k-1);
+	      if(k-1>=0)
+		  cff=FC(i,0,k)-FC(i,0,k-1);
+	      else
+		  cff=0.0;
 	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
 	      if(i==3-1&&j==3-1&&k==1-1)
 		  {
@@ -516,22 +522,29 @@ void ROMSX::romsx_advance(int level,
 	      if(i==3-1&&j==3-1&&k==1-1)
 		  {
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,0,k),FC(i,0,k-1),rv(i,j,k,nrhs));
-		      //		 	      amrex::Abort("STOP");
+		      		 	      amrex::Abort("STOP");
 		}
 	      }
+
 	    });
+
 	// End rhs3d_tile
 	// Need to include uv3dmix
 	// Begin step3d_uv.F
 	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-	        AK(i-1,j-1,k-1)=0.5*(Akv(i-1,j,k)+
-			       Akv(i  ,j,k));
-		Hzk(i-1,j-1,k-1)=0.5*(Hz(i-1,j,k)+
-				Hz(i  ,j,k));
-		if(k-1<=-1)
+		printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,AK(i-1,j-1,k-1),Hzk(i-1,j-1,k-1),Hz(i,j,k));
+		if(k-1>0)
+		{
+		    AK(i-1,j-1,k-1)=0.5*(Akv(i-1,j,k)+
+					 Akv(i  ,j,k));
+		    Hzk(i-1,j-1,k-1)=0.5*(Hz(i-1,j,k)+
+					  Hz(i  ,j,k));
+		}
+		else
 		    AK(i-1,j-1,k-1)=0.0;
+		printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,AK(i-1,j-1,k-1),Hzk(i-1,j-1,k-1),Hz(i,j,k));
 	    });
 	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -636,11 +649,11 @@ void ROMSX::romsx_advance(int level,
 
 		DC(i,j,k)=DC(i,j,k)*AK(i,j,k);
 		cff=dt*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
-         		u(i,j,k)=u(i,j,k)+cff;
+		/////         		u(i,j,k)=u(i,j,k)+cff;
 	      if(i==3-1&&j==3-1&&k==1-1)
 		  {
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),cff,u(i,j,k));
-	      amrex::Abort("STOP");
+		      //	      amrex::Abort("STOP");
 		}
 
 	      ///////		amrex::Abort("testing");
@@ -707,4 +720,9 @@ void ROMSX::romsx_advance(int level,
     //-----------------------------------------------------------------------
 	    });
     }
+
+    MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),xvel_new.nGrowVect());
+    MultiFab::Copy(yvel_new,mf_v,0,0,yvel_new.nComp(),yvel_new.nGrowVect());
+    MultiFab::Copy(zvel_new,mf_w,0,0,zvel_new.nComp(),zvel_new.nGrowVect());
+    //    MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
 }
