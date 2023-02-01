@@ -170,7 +170,7 @@ void ROMSX::romsx_advance(int level,
     const int nrhs = ncomp-1;
     const int nnew = ncomp-1;
     const Real Gadv = -0.25;
-    auto N = Geom(level).ProbLength(2); // Number of vertical "levels" aka, NZ
+    auto N = Geom(level).Domain().size()[2]-1; // Number of vertical "levels" aka, NZ
 
     const auto dxi              = Geom(level).InvCellSizeArray();
     for ( MFIter mfi(*(mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
