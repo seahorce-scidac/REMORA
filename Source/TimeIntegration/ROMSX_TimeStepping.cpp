@@ -576,6 +576,14 @@ void ROMSX::romsx_advance(int level,
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),ru(i,j,k,nrhs),u(i,j,k));
 		      //	      amrex::Abort("STOP");
 		}
+		v(i,j,k)=v(i,j,k)+
+				  DC(i,j,k)*rv(i,j,k,nrhs);
+		if(i==3-1&&j==3-1&&k==3-1)
+		  {
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),rv(i,j,k,nrhs),v(i,j,k));
+		      amrex::Print()<<"v update"<<std::endl;
+		      //	      amrex::Abort("STOP");
+		}
 		//oHz and Hz are slightly different the next step due to set_depth updating for new zeta:
 		//6.9510121353260748E-002 ROMS
 		//6.9510121353260748E-002   14.386388931137844        2.7840547475297760E-005
@@ -587,6 +595,13 @@ void ROMSX::romsx_advance(int level,
 		  {
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,oHz(i,j,k),Hz(i+1,j+1,k+1),u(i,j,k));
 		      //	      amrex::Abort("STOP");
+		}
+		v(i,j,k)=v(i,j,k)*oHz(i,j,k);
+		if(i==3-1&&j==3-1&&k==3-1)
+		  {
+		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,oHz(i,j,k),Hz(i+1,j+1,k+1),v(i,j,k));
+		      amrex::Print()<<"v update"<<std::endl;
+		      //		      amrex::Abort("STOP");
 		}	   
 	    });
 	// End previous
