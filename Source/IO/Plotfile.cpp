@@ -132,9 +132,9 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         if (containerHasElement(plot_var_names, "x_velocity") ||
             containerHasElement(plot_var_names, "y_velocity") ||
             containerHasElement(plot_var_names, "z_velocity")) {
-
-            average_face_to_cellcenter(mf[lev],mf_comp,
-                Array<const MultiFab*,3>{&vars_new[lev][Vars::xvel],&vars_new[lev][Vars::yvel],&vars_new[lev][Vars::zvel]});
+	    amrex::Print()<<"For now, print faces as if they are at cell centers"<<std::endl;
+	    //            average_face_to_cellcenter(mf[lev],mf_comp,
+	    //                Array<const MultiFab*,3>{&vars_new[lev][Vars::xvel],&vars_new[lev][Vars::yvel],&vars_new[lev][Vars::zvel]});
             //
             // Convert the map-factor-scaled-velocities back to velocities
             //
@@ -143,14 +143,19 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             {
                 const Box& bx = mfi.validbox();
                 const Array4<Real> vel_arr = dmf.array(mfi);
+		const Array4<const Real> velx_arr = vars_new[lev][Vars::xvel].array(mfi);
+		const Array4<const Real> vely_arr = vars_new[lev][Vars::yvel].array(mfi);
+		const Array4<const Real> velz_arr = vars_new[lev][Vars::zvel].array(mfi);
                 const Array4<Real> msf_arr = mapfac_m[lev]->array(mfi);
+		amrex::Print()<<velx_arr(2,2,2,0)<<std::endl;
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    vel_arr(i,j,k,0) *= msf_arr(i,j,0);
-                    vel_arr(i,j,k,1) *= msf_arr(i,j,0);
-                    vel_arr(i,j,k,2) *= msf_arr(i,j,0);
+                    vel_arr(i,j,k,0) = velx_arr(i,j,k);
+                    vel_arr(i,j,k,1) = vely_arr(i,j,k);
+                    vel_arr(i,j,k,2) = velz_arr(i,j,k);
                 });
             }
+	    print_state(dmf,IntVect(AMREX_D_DECL(2,2,2)));
             mf_comp += AMREX_SPACEDIM;
         }
 

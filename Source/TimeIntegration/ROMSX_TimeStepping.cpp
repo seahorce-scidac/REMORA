@@ -116,6 +116,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                   source,
                   Geom(lev), dt_lev, time
     );
+    print_state(U_new,IntVect(AMREX_D_DECL(2,2,2)));
+    print_state(vars_new[lev][Vars::xvel],IntVect(AMREX_D_DECL(2,2,2)));
 }
 
     // Interface for advancing the data at one level by one "slow" timestep
@@ -653,7 +655,7 @@ void ROMSX::romsx_advance(int level,
     //-----------------------------------------------------------------------
 	//    });
     }
-		amrex::Print()<<"before xvel copy"<<std::endl;
+    amrex::Print()<<"before xvel copy"<<std::endl;
     MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     				amrex::Print()<<"before yvel copy"<<std::endl;
 				xvel_new.FillBoundary();
@@ -663,5 +665,6 @@ void ROMSX::romsx_advance(int level,
     amrex::Print()<<"before zvel copy"<<std::endl;
     //MultiFab::Copy(zvel_new,mf_w,0,0,zvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     amrex::Print()<<"after  zvel copy"<<std::endl;
+    print_state(xvel_new,IntVect(AMREX_D_DECL(2,2,2)));
     //    MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
 }
