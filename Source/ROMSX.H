@@ -225,6 +225,8 @@ public:
     amrex::Vector<amrex::Vector<amrex::MultiFab> > vars_old;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> hOfTheConfusingName;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Hz;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> ru;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> rv;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Akv;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> x_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> y_r;
