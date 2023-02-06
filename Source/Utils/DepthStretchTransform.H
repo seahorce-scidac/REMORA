@@ -93,7 +93,8 @@ ROMSX::set_depth (int lev)
       Array4<Real> const& s_r_arr = (mf_s_r)->array(mfi);
       Array4<Real> const& Hz_arr  = (mf_Hz)->array(mfi);
       Box bx = mfi.tilebox();
-      bx.grow(IntVect(1,1,0));
+      Box gbx2 = bx;
+      gbx2.grow(IntVect(2,2,0));
       Array4<Real> const& h_arr  = (mf_h)->array(mfi);
       Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
       const auto & geomdata = Geom(lev).data();
@@ -115,7 +116,7 @@ ROMSX::set_depth (int lev)
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
 
       // ROMS Transform 2
-      amrex::LoopConcurrentOnCpu(bx, ncomp,
+      amrex::LoopConcurrentOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
         //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
