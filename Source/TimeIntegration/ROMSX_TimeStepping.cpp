@@ -189,6 +189,7 @@ void ROMSX::romsx_advance(int level,
 	Array4<Real> const& Hz = (mf_Hz)->array(mfi);
 	Array4<Real> const& z_r = (mf_z_r)->array(mfi);
 	Array4<Real> const& uold = (xvel_old).array(mfi);
+	Array4<Real> const& vold = (yvel_old).array(mfi);
 	Array4<Real> const& u = (mf_u).array(mfi);
 	Array4<Real> const& v = (mf_v).array(mfi);
 	Array4<Real> const& w = (mf_w).array(mfi);
@@ -389,10 +390,13 @@ void ROMSX::romsx_advance(int level,
 		    //		    cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k));
 		    //		    cff2=FC(i,k)-FC(i,k-1);
 		    cff3=0.5*DC(i,j,k);
-		    indx=nrhs;
-		    //		    u(i,j,k,nnew)=cff1-
-		    //			cff3*ru(i,j,k,indx)+
-		    //			cff2;
+		    Real r_swap= ru(i,j,k,indx);
+		    indx=nrhs ? 0 : 1;
+		    ru(i,j,k,indx) = ru(i,j,k,nrhs);
+		    ru(i,j,k,nrhs) = r_swap;
+		    u(i,j,k,nnew)=cff1-
+			cff3*ru(i,j,k,indx)+
+			cff2;
 		    if(i==3-1&&j==3-1&&k==3-1)
 		      {
 			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
@@ -401,16 +405,129 @@ void ROMSX::romsx_advance(int level,
 			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,u(i,j,k,nnew));
 			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,0.0,0.0,uold(i,j,k,0));
 			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,j,k),FC(i,j,k-1),u(i,j,k));
-			  amrex::Abort("prestep u");
+		      }
+		    //		    amrex::Abort("prestep u2");
+
+
+		}
+		else
+		{
+		    //		    amrex::Abort("prestep u3");
+		  cff=0.25*dt*23.0/12.0;
+		}
+	    });
+
+        lambda = 1.0;
+	amrex::ParallelFor(bx, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+	    {
+		Real cff3=dt*(1.0-lambda);
+		Real cff, cff1, cff2;
+
+		if(k+1<=N&&k>=1)
+		{
+		    cff=1.0/(z_r(i,j,k+1)+z_r(i-1,j,k+1)-
+			     z_r(i,j,k  )-z_r(i-1,j,k  ));
+		    FC(i-1,j-1,k-1)=cff3*cff*(v(i,j,k+1,nstp)-v(i,j,k,nstp))*
+			(Akv(i,j,k)+Akv(i-1,j,k));
+		}
+		else if(k==0)
+		{
+		    cff=1.0/(z_r(i,j,k+1)+z_r(i-1,j,k+1)-
+			     z_r(i,j,k  )-z_r(i-1,j,k  ));
+		    FC(i,j,k)=cff3*cff*(v(i,j,k+1,nstp)-v(i,j,k,nstp))*
+			(Akv(i,j,k)+Akv(i-1,j,k));
+		}
+		else
+		{
+		    //		    FC(i,j,-1)=0.0;//dt*bustr(i,j,0);
+		    //		    FC(i,j,N)=0.0;//dt*sustr(i,j,0);
+		}
+		cff=dt*.25;
+		DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+	    });	
+	amrex::ParallelFor(bx, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+	    {
+		Real cff3=dt*(1.0-lambda);
+		Real cff, cff1, cff2;
+
+		int indx=0; //nrhs-3
+		if(iic==ntfirst)
+		{
+		    //Hz still might need adjusting
+		    if(k+1<=N&&k>=1)
+		    {
+			cff1=v(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));
+			cff2=FC(i,j,k)-FC(i,j,k-1);
+			v(i,j,k,nnew)=cff1+cff2;
+		    }
+		    else if(k==0)
+		    {
+			cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+			cff2=FC(i,j,k);//-bustr(i,j,0);
+			v(i,j,k,nnew)=cff1+cff2;
+		    }
+		    else if(k==N)
+		    {
+			cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+			cff2=-FC(i,j,k);//+sustr(i,j,0);
+			v(i,j,k,nnew)=cff1+cff2;
+		    }
+		    		    if(i==3-1&&j==3-1&&k==3-1)
+		      {
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,ru(i,j,k,nrhs));
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,indx*1.0,indx*1.0,ru(i,j,k,indx));
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,u(i,j,k,nnew));
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,0.0,0.0,uold(i,j,k,0));
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,j,k),FC(i,j,k-1),u(i,j,k));
+			  //	  amrex::Abort("prestep u1");
+		      }
+		}
+		else if(iic==ntfirst+1)
+		{
+		    if(k+1<=N&&k>=1) {
+			cff1=v(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));			
+			cff2=FC(i,j,k)-FC(i,j,k-1);
+		    }
+		    else if(k==0) {
+			cff1=v(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));
+			cff2=FC(i,j,k);//-bustr(i,j,0);
+		    }
+		    else if(k==N) {
+			cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+			cff2=-FC(i,j,k);//+sustr(i,j,0);
+		    }
+		    //		    cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k));
+		    //		    cff2=FC(i,k)-FC(i,k-1);
+		    cff3=0.5*DC(i,j,k);
+		    Real r_swap= rv(i,j,k,indx);
+		    indx=nrhs ? 0 : 1;
+		    rv(i,j,k,indx) = rv(i,j,k,nrhs);
+		    rv(i,j,k,nrhs) = r_swap;
+		    v(i,j,k,nnew)=cff1-
+			cff3*rv(i,j,k,indx)+
+			cff2;
+		    if(i==3-1&&j==3-1&&k==3-1)
+		      {
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,ru(i,j,k,nrhs));
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,indx*1.0,indx*1.0,ru(i,j,k,indx));
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,u(i,j,k,nnew));
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,0.0,0.0,uold(i,j,k,0));
+			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,j,k),FC(i,j,k-1),u(i,j,k));
+			  //			  amrex::Abort("prestep u");
 		      }
 
 		}
 		else
 		{
+		    amrex::Abort("prestep v3");
 		  cff=0.25*dt*23.0/12.0;
 		}
 	    });
-
+	
 		      
 	amrex::ParallelFor(bx, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -491,11 +608,11 @@ void ROMSX::romsx_advance(int level,
 	      UFe(i,j,k)=0.25*(cff1+Gadv*cff)*
 		(cff2+Gadv*0.5*(Hvxx(i  ,j,k)+
 				Hvxx(i-1,j,k)));
-	      vxx(i,j,k)=v(i-1,j,k,nrhs)-2.0*v(i,j,k,nrhs)+
-		v(i+1,j,k,nrhs);
+	      vxx(i,j,k)=vold(i-1,j,k,nrhs)-2.0*vold(i,j,k,nrhs)+
+		vold(i+1,j,k,nrhs);
 	      //neglecting terms about periodicity since testing only periodic for now
 	      Huee(i,j,k)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
-	      cff1=v(i  ,j,k,nrhs)+v(i-1,j,k,nrhs);
+	      cff1=vold(i  ,j,k,nrhs)+vold(i-1,j,k,nrhs);
 	      cff2=Huon(i,j,k)+Huon(i,j-1,k);
 	      if (cff2>0.0)
 		cff=vxx(i-1,j,k);
@@ -504,8 +621,8 @@ void ROMSX::romsx_advance(int level,
 	      VFx(i,j,k)=0.25*(cff1+Gadv*cff)*
 		(cff2+Gadv*0.5*(Huee(i,j  ,k)+
 				Huee(i,j-1,k)));
-	      vee(i,j,k)=v(i,j-1,k,nrhs)-2.0*v(i,j,k,nrhs)+
-		v(i,j+1,k,nrhs);
+	      vee(i,j,k)=vold(i,j-1,k,nrhs)-2.0*vold(i,j,k,nrhs)+
+		vold(i,j+1,k,nrhs);
 	      Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
 	    });
 	amrex::ParallelFor(bx, ncomp,
@@ -513,7 +630,7 @@ void ROMSX::romsx_advance(int level,
 	    {
 	      //neglecting terms about periodicity since testing only periodic for now
 	      Real cff;
-	      Real cff1=v(i,j  ,k,nrhs)+v(i,j+1,k,nrhs);
+	      Real cff1=vold(i,j  ,k,nrhs)+vold(i,j+1,k,nrhs);
 	      if (cff1>0.0)
 		cff=vee(i,j,k);
 	      else
@@ -612,10 +729,10 @@ void ROMSX::romsx_advance(int level,
 	      {
 	      if(k>=1&&k<=N-2)
 	      {
-		  FC(i,0,k)=(cff1*(v(i,j,k  ,nrhs)+
-			     v(i,j,k+1,nrhs))-
-		       cff2*(v(i,j,k-1,nrhs)+
-			     v(i,j,k+2,nrhs)))*
+		  FC(i,0,k)=(cff1*(vold(i,j,k  ,nrhs)+
+			     vold(i,j,k+1,nrhs))-
+		       cff2*(vold(i,j,k-1,nrhs)+
+			     vold(i,j,k+2,nrhs)))*
 		      (cff1*(W(i,j  ,k)+
 			     W(i,j-1,k))-
 		       cff2*(W(i,j+1,k)+
@@ -624,18 +741,18 @@ void ROMSX::romsx_advance(int level,
 	      else if(k==0) // this needs to be split up so that the following can be concurent
 		{
 		  FC(i,0,N)=0.0;
-		  FC(i,0,N-1)=(cff1*(v(i,j,N-1,nrhs)+
-				   v(i,j,N  ,nrhs))-
-			     cff2*(v(i,j,N-2,nrhs)+
-				   v(i,j,N  ,nrhs)))*
+		  FC(i,0,N-1)=(cff1*(vold(i,j,N-1,nrhs)+
+				   vold(i,j,N  ,nrhs))-
+			     cff2*(vold(i,j,N-2,nrhs)+
+				   vold(i,j,N  ,nrhs)))*
 		            (cff1*(W(i,j  ,N-1)+
 				   W(i,j-1,N-1))-
 			     cff2*(W(i,j+1,N-1)+
 				   W(i,j-2,N-1)));
-		  FC(i,0,0)=(cff1*(v(i,j,1,nrhs)+
-				 v(i,j,2,nrhs))-
-			   cff2*(v(i,j,1,nrhs)+
-				 v(i,j,3,nrhs)))*
+		  FC(i,0,0)=(cff1*(vold(i,j,1,nrhs)+
+				 vold(i,j,2,nrhs))-
+			   cff2*(vold(i,j,1,nrhs)+
+				 vold(i,j,3,nrhs)))*
 		          (cff1*(W(i,j  ,1)+
 				 W(i,j-1,1))-
 			   cff2*(W(i,j+1,1)+
