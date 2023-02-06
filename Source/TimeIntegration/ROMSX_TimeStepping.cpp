@@ -403,13 +403,13 @@ void ROMSX::romsx_advance(int level,
 		    //		    cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k));
 		    //		    cff2=FC(i,k)-FC(i,k-1);
 		    cff3=0.5*DC(i,j,k);
-		    Real r_swap= ru(i,j,k,indx);
+		    /*		    Real r_swap= ru(i,j,k,indx);
 		    indx=nrhs ? 0 : 1;
 		    ru(i,j,k,indx) = ru(i,j,k,nrhs);
 		    ru(i,j,k,nrhs) = r_swap;
 		    u(i,j,k,nnew)=cff1-
 		                  cff3*ru(i,j,k,indx)+
-		    		  cff2;
+		    		  cff2;*/
 		    if(i==3-1&&j==3-1&&k==3-1)
 		      {
 			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
@@ -515,13 +515,13 @@ void ROMSX::romsx_advance(int level,
 		    //		    cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k));
 		    //		    cff2=FC(i,k)-FC(i,k-1);
 		    cff3=0.5*DC(i,j,k);
-		    Real r_swap= rv(i,j,k,indx);
+		    /*		    Real r_swap= rv(i,j,k,indx);
 		    indx=nrhs ? 0 : 1;
 		    rv(i,j,k,indx) = rv(i,j,k,nrhs);
 		    rv(i,j,k,nrhs) = r_swap;
 		    v(i,j,k,nnew)=cff1-
 			          cff3*rv(i,j,k,indx)+
-			          cff2;
+			          cff2;*/
 		    if(i==3-1&&j==3-1&&k==3-1)
 		      {
 			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
@@ -845,16 +845,16 @@ void ROMSX::romsx_advance(int level,
 		  cff=0.25*dt*23.0/12.0;
 		DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
-		u(i,j,k)=u(i,j,k)+
-		         DC(i,j,k)*ru(i,j,k,nrhs);
+		//		u(i,j,k)=u(i,j,k)+
+		//		         DC(i,j,k)*ru(i,j,k,nrhs);
 		if(i==3-1&&j==3-1&&k==3-1)
 		  {
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),ru(i,j,k,nrhs),u(i,j,k));
 		      //		      if(iic!=ntfirst&&iic!=ntfirst+1)
 		      //			  amrex::Abort("STOP");
 		}
-		v(i,j,k)=v(i,j,k)+
-		         DC(i,j,k)*rv(i,j,k,nrhs);
+		//		v(i,j,k)=v(i,j,k)+
+		//		         DC(i,j,k)*rv(i,j,k,nrhs);
 		if(i==3-1&&j==3-1&&k==3-1)
 		  {
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),rv(i,j,k,nrhs),v(i,j,k));
