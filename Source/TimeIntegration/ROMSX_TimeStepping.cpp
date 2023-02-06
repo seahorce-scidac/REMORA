@@ -61,18 +61,22 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab& V_new = vars_new[lev][Vars::yvel];
     MultiFab& W_new = vars_new[lev][Vars::zvel];
 
+    U_old.setVal(0.e34,U_new.nGrowVect());
+    V_old.setVal(0.e34,V_new.nGrowVect());
+    W_old.setVal(0.e34,W_new.nGrowVect());
+
     MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
     MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
     MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
     MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
     //////////    //pre_step3d corrections to boundaries
-    /*
+    
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
-    U_new.setVal(1.e34,U_new.nGrowVect());
-    V_new.setVal(1.e34,V_new.nGrowVect());
-    W_new.setVal(1.e34,W_new.nGrowVect());
-    */
+    U_new.setVal(0.e34,U_new.nGrowVect());
+    V_new.setVal(0.e34,V_new.nGrowVect());
+    W_new.setVal(0.e34,W_new.nGrowVect());
+    
     auto& lev_old = vars_old[lev];
     // Moving terrain
     Real time_mt = t_new[lev] - 0.5*dt[lev];
@@ -156,10 +160,10 @@ void ROMSX::romsx_advance(int level,
     MultiFab mf_W(ba,dm,1,IntVect(2,2,0));
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
-    mf_u.setVal(1.e34,IntVect(AMREX_D_DECL(1,1,0)));
-    mf_v.setVal(1.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_v.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
     mf_w.setVal(0);
-    mf_w.setVal(1.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_w.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
     MultiFab::Copy(mf_u,xvel_new,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_v,yvel_new,0,0,yvel_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_w,zvel_new,0,0,zvel_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
@@ -172,6 +176,8 @@ void ROMSX::romsx_advance(int level,
     //    mf_rv.setVal(0.0);
     mf_rw.setVal(0.0);
     mf_W.setVal(0.0);
+    xvel_old.FillBoundary();
+    yvel_old.FillBoundary();
 
     int ncomp = 1;
     int iic = istep[level];
@@ -283,6 +289,12 @@ void ROMSX::romsx_advance(int level,
 	fab_Hvee.setVal(0.0);
 	fab_uxx.setVal(0.0);
 	fab_uee.setVal(0.0);
+	fab_UFx.setVal(0.0);
+	fab_UFe.setVal(0.0);
+	fab_vxx.setVal(0.0);
+	fab_vee.setVal(0.0);
+	fab_VFx.setVal(0.0);
+	fab_VFe.setVal(0.0);
 	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
@@ -319,7 +331,7 @@ void ROMSX::romsx_advance(int level,
 	//
 	//  Except the commented out part means its always 1.0
 	Real lambda = 1.0;
-	amrex::ParallelFor(bx, ncomp,
+	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
 		Real cff3=dt*(1.0-lambda);
@@ -403,13 +415,13 @@ void ROMSX::romsx_advance(int level,
 		    //		    cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k));
 		    //		    cff2=FC(i,k)-FC(i,k-1);
 		    cff3=0.5*DC(i,j,k);
-		    /*		    Real r_swap= ru(i,j,k,indx);
+		    Real r_swap= ru(i,j,k,indx);
 		    indx=nrhs ? 0 : 1;
 		    ru(i,j,k,indx) = ru(i,j,k,nrhs);
 		    ru(i,j,k,nrhs) = r_swap;
 		    u(i,j,k,nnew)=cff1-
 		                  cff3*ru(i,j,k,indx)+
-		    		  cff2;*/
+		    		  cff2;
 		    if(i==3-1&&j==3-1&&k==3-1)
 		      {
 			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
@@ -515,13 +527,13 @@ void ROMSX::romsx_advance(int level,
 		    //		    cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k));
 		    //		    cff2=FC(i,k)-FC(i,k-1);
 		    cff3=0.5*DC(i,j,k);
-		    /*		    Real r_swap= rv(i,j,k,indx);
+		    Real r_swap= rv(i,j,k,indx);
 		    indx=nrhs ? 0 : 1;
 		    rv(i,j,k,indx) = rv(i,j,k,nrhs);
 		    rv(i,j,k,nrhs) = r_swap;
 		    v(i,j,k,nnew)=cff1-
 			          cff3*rv(i,j,k,indx)+
-			          cff2;*/
+			          cff2;
 		    if(i==3-1&&j==3-1&&k==3-1)
 		      {
 			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
@@ -845,16 +857,16 @@ void ROMSX::romsx_advance(int level,
 		  cff=0.25*dt*23.0/12.0;
 		DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
-		//		u(i,j,k)=u(i,j,k)+
-		//		         DC(i,j,k)*ru(i,j,k,nrhs);
+		u(i,j,k)=u(i,j,k)+
+		         DC(i,j,k)*ru(i,j,k,nrhs);
 		if(i==3-1&&j==3-1&&k==3-1)
 		  {
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),ru(i,j,k,nrhs),u(i,j,k));
 		      //		      if(iic!=ntfirst&&iic!=ntfirst+1)
 		      //			  amrex::Abort("STOP");
 		}
-		//		v(i,j,k)=v(i,j,k)+
-		//		         DC(i,j,k)*rv(i,j,k,nrhs);
+		v(i,j,k)=v(i,j,k)+
+		         DC(i,j,k)*rv(i,j,k,nrhs);
 		if(i==3-1&&j==3-1&&k==3-1)
 		  {
 		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),rv(i,j,k,nrhs),v(i,j,k));
