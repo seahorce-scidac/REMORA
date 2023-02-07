@@ -21,13 +21,23 @@ amrex_probinit(
   pp.query("R0", parms.R0);
   pp.query("S0", parms.S0);
   pp.query("T0", parms.T0);
-  /*
-  pp.query("x_c", parms.x_c);
-  pp.query("z_c", parms.z_c);
-  pp.query("x_r", parms.x_r);
-  pp.query("z_r", parms.z_r);
-  pp.query("T_pert", parms.T_pert);
-  */
+
+  pp.query("rho_0", parms.rho_0);
+  pp.query("T_0", parms.Theta_0);
+  pp.query("A_0", parms.A_0);
+  pp.query("B_0", parms.B_0);
+  pp.query("u_0", parms.u_0);
+  pp.query("v_0", parms.v_0);
+  pp.query("rad_0", parms.rad_0);
+  pp.query("z0", parms.z0);
+  pp.query("zRef", parms.zRef);
+  pp.query("uRef", parms.uRef);
+
+  pp.query("xc_frac", parms.xc_frac);
+  pp.query("yc_frac", parms.yc_frac);
+  pp.query("zc_frac", parms.zc_frac);
+
+  pp.query("prob_type", parms.prob_type);
 }
 
 void
@@ -90,7 +100,12 @@ init_custom_prob(
 
         const Real x = prob_lo[0] + (i + 0.5) * dx[0];
         const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-	x_vel(i, j, k) = 1.0 / x;
+        const Real z = -z_r(i,j,k);
+
+	// Set the x-velocity
+	x_vel(i, j, k) = parms.u_0 + parms.uRef *
+	                 std::log((z + parms.z0)/parms.z0)/
+                         std::log((parms.zRef +parms.z0)/parms.z0);
   });
 
   // Construct a box that is on y-faces
@@ -104,7 +119,7 @@ init_custom_prob(
 
         const Real x = prob_lo[0] + (i + 0.5) * dx[0];
         const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-        y_vel(i, j, k) = 1.0 / y;
+        y_vel(i, j, k) = parms.v_0;
   });
 
   // Construct a box that is on z-faces
