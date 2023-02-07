@@ -82,11 +82,6 @@ ROMSX::set_depth (int lev)
 
     for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-      /*
-      FArrayBox& z_w_fab = (*mf_z_w)[mfi];
-      FArrayBox& z_r_fab = (*mf_z_r)[mfi];
-      FArrayBox& Hz_fab  = (*mf_Hz)[mfi];
-      */
 
       Array4<Real> const& z_w_arr = (mf_z_w)->array(mfi);
       Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
@@ -126,41 +121,6 @@ ROMSX::set_depth (int lev)
         //   if we weren't stretching and transforming
         const Real z = prob_lo[2] + (k) * dx[2];
         h_arr(i,j,0) = -prob_lo[2]; // conceptually
-	//Using depth as a flat quantity instead of val2
-	/*
-      IF (NSperiodic(ng)) THEN
-        DO i=IstrT,IendT
-          IF (i.le.Lm(ng)/2) THEN
-            val1=REAL(i,r8)
-          ELSE
-            val1=REAL(Lm(ng)+1-i,r8)
-          END IF
-          val2=MIN(depth,84.5_r8+66.526_r8*TANH((val1-10.0_r8)/7.0_r8))
-          DO j=JstrT,JendT
-            h(i,j)=depth
-          END DO
-        END DO
-      ELSE IF (EWperiodic(ng)) THEN
-        DO j=JstrT,JendT
-          IF (j.le.Mm(ng)/2) THEN
-            val1=REAL(j,r8)
-          ELSE
-            val1=REAL(Mm(ng)+1-j,r8)
-          END IF
-          val2=MIN(depth,84.5_r8+66.526_r8*TANH((val1-10.0_r8)/7.0_r8))
-          DO i=IstrT,IendT
-            h(i,j)=depth
-          END DO
-        END DO
-	END IF*/        
-
-        //      h_arr(i,j,0) = -prob_lo[2];
-        /*
-        Real cff_r=hc*sc_r(k);
-        Real cff_w=hc*sc_w(k);
-        Real cff1_r=Cs_r(k);
-        Real cff1_w=Cs_w(k);
-        */
 
         ////////////////////////////////////////////////////////////////////
         //ROMS Stretching 4
@@ -169,11 +129,6 @@ ROMSX::set_depth (int lev)
         // This file would need a k dependent function to return the 
         // stretching scalars, or access to 4 vectors of length prob_length(2)
         /////////////////////////////////////////////////////////////////////
-        /*
-        const auto prob_lo         = geomdata.ProbLo();
-        const auto dx              = geomdata.CellSize();
-        const Real z = prob_lo[2] + (k) * dx[2];
-        */
         Real ds = 1.0_rt / Real(N);
         
         Real cff_r, cff_w, cff1_r, cff1_w, cff2_r, cff2_w, Csur, Cbot;
@@ -259,7 +214,6 @@ ROMSX::set_depth (int lev)
 
         }
       });
-      //      	  	amrex::Abort("STOP2");
 
     } // mf
     /*

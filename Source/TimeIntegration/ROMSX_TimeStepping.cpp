@@ -215,9 +215,7 @@ void ROMSX::romsx_advance(int level,
 	gbx2.grow(IntVect(2,2,0));
 	gbx1.grow(IntVect(1,1,0));
 	Box gbx=gbx2;
-	//	amrex::Print()<<"bx for most fabs set to:  \t"<<bx<<std::endl;
-	//	amrex::Print()<<"gbx for grown fabs set to:\t"<<gbx<<std::endl;
-	//	amrex::Print()<<"N is "<<N<<"N-1 is "<<N-1<<std::endl;
+
 	FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena);
@@ -274,11 +272,8 @@ void ROMSX::romsx_advance(int level,
 	amrex::ParallelFor(gbx2, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
-		//	      om_v(i,j,0)=2.0/(pm(i,j-1,0)+pm(i,j,0));
 	      om_v(i,j,0)=1.0/dxi[0];
 	      on_u(i,j,0)=1.0/dxi[1];
-	      //	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,om_v(i,j,0),pm(i,j-1,0),pm(i,j,0));
-	      //	      on_u(i,j,0)=2.0/(pn(i-1,j,0)+pn(i,j,0));
 	    });
 	fab_Huon.setVal(0.0);
 	fab_Hvom.setVal(0.0);
@@ -297,9 +292,6 @@ void ROMSX::romsx_advance(int level,
 	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
-	      //	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,on_u(i,j,0),pn(i-1,j,0),pn(i,j,0));
-	      //	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hz(i,j,k),Hz(i-1,j,k),u(i,j,k,nrhs));
-	      //	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hz(i,j,k),Hz(i,j-1,k),v(i,j,k,nrhs));
 	      //-----------------------------------------------------------------------
 	      //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
 	      //-----------------------------------------------------------------------
@@ -310,8 +302,6 @@ void ROMSX::romsx_advance(int level,
 	      Hvom(i,j,k)=0.5*(Hz(i+1,j+1,k+1)+Hz(i+1,j,k+1))*v(i+1,j,k+1,nrhs)*   
 		om_v(i+1,j,0);
 	  	    });
-	//			amrex::Abort("STOP1123");
-	///////////<<<<<<< HEAD
 	//Need to include pre_step3d.F terms
 
 	//
@@ -394,8 +384,6 @@ void ROMSX::romsx_advance(int level,
 			cff1=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
 			cff2=-FC(i,j,k);//+sustr(i,j,0);
 		    }
-		    //		    cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k));
-		    //		    cff2=FC(i,k)-FC(i,k-1);
 		    cff3=0.5*DC(i,j,k);
 		    Real r_swap= ru(i,j,k,indx);
 		    indx=nrhs ? 0 : 1;
@@ -407,7 +395,6 @@ void ROMSX::romsx_advance(int level,
 		}
 		else
 		{
-		    //		    amrex::Abort("prestep u3");
 		  cff=0.25*dt*23.0/12.0;
 		}
 	    });
@@ -484,8 +471,6 @@ void ROMSX::romsx_advance(int level,
 			cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
 			cff2=-FC(i,j,k);//+sustr(i,j,0);
 		    }
-		    //		    cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k));
-		    //		    cff2=FC(i,k)-FC(i,k-1);
 		    cff3=0.5*DC(i,j,k);
 		    Real r_swap= rv(i,j,k,indx);
 		    indx=nrhs ? 0 : 1;
@@ -497,7 +482,6 @@ void ROMSX::romsx_advance(int level,
 		}
 		else
 		{
-		    //		    amrex::Abort("prestep v3");
 		  cff=0.25*dt*23.0/12.0;
 		}
 	    });
@@ -724,18 +708,13 @@ void ROMSX::romsx_advance(int level,
 		else
 		  cff=0.25*dt*23.0/12.0;
 		DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
-		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
+
 		u(i,j,k)=u(i,j,k)+
 		         DC(i,j,k)*ru(i,j,k,nrhs);
 
 		v(i,j,k)=v(i,j,k)+
 		         DC(i,j,k)*rv(i,j,k,nrhs);
 
-		//oHz and Hz are slightly different the next step due to set_depth updating for new zeta:
-		//6.9510121353260748E-002 ROMS
-		//6.9510121353260748E-002   14.386388931137844        2.7840547475297760E-005
-		//0.0695099922695571      ROMSX
-		//2 2 2 0 0.0695099922695571 14.3864208202187 2.7840495774036e-05
 		//ifdef SPLINES_VVISC is true
 		u(i,j,k)=u(i,j,k)*oHz(i,j,k);
 
@@ -743,153 +722,12 @@ void ROMSX::romsx_advance(int level,
 
 	    });
 	// End previous
-       // Begin vertical viscosity term
-       //should be gbx1, but need to fix some bounds inside this loop:
-       amrex::ParallelFor(bx, ncomp,
-       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                //
-               //  Use conservative, parabolic spline reconstruction of vertical
-                //  viscosity derivatives.  Then, time step vertical viscosity term
-                //  implicitly by solving a tridiagonal system.
-                //
-                //  implicitly by solving a tridiagonal system.
-                //
-               Real cff;
-               Real cff1=1.0/6.0;
-	       /*
-               if(k<=N-1&&k>=1)
-                {
-                    FC(i,j,k)=cff1*Hzk(i,j,k  )-dt*AK(i,j,k-1)*oHz(i,j,k  );
-                    CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt*AK(i,j,k+1)*oHz(i,j,k+1);
-                }
-               {
-                       CF(i,j,-1)=0.0;
-                       DC(i,j,-1)=0.0;
-                       CF(i,j,0)=0.0;
-                       DC(i,j,0)=0.0;
-               }
-             if(i==3-1&&j==3-1&&k==3-1)
-                 {
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1*Hzk(i,j,k),dt*AK(i,j,k-1)*oHz(i,j,k  ),FC(i,j,k));
-                     amrex::Print()<<"splines"<<std::endl;
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,dt,AK(i,j,k-1),oHz(i,j,k  ),FC(i,j,k));
-                     //              amrex::Abort("STOP");
-               }
-
-               //
-               //  LU decomposition and forward substitution.
-               //
-               cff1=1.0/3.0;
-               if(k<=N-1&&k>=1)
-               {
-                   BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
-                       dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
-                   cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
-                   CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
-                                  FC(i,j,k)*DC(i,j,k-1));
-               }
-               if(i==3-1&&j==3-1&&k==3-1)
-                  {
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,u(i,j,k+1),u(i,j,k),DC(i,j,k));
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,FC(i,j,k),DC(i,j,k-1));
-                     //              amrex::Abort("STOP");
-               }
-               //
-               //  Backward substitution.
-               //
-               DC(i,j,N)=0.0;
-
-               if(k<=N-1&&k>=1) //-N,1,-1 => kidx =N-k+1
-               {
-                   if(N-k+1<0||N-k+2<0)
-                       amrex::Abort("-1 here");
-                   DC(i,j,N-k+1)=DC(i,j,N-k+1)-CF(i,j,N-k+1)*DC(i,j,N-k+2);
-                   //              DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1);
-               }
-
-               DC(i,j,k)=DC(i,j,k)*AK(i,j,k);
-               if(k-1>=0)
-                   cff=dt*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
-               else
-                   cff=0.0;
-               /////                   u(i,j,k)=u(i,j,k)+cff;
-             if(i==3-1&&j==3-1&&k==3-1)
-                 {
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),cff,u(i,j,k));
-                     //              amrex::Abort("STOP");
-		     }*/
-	    });
-	      ///////		amrex::Abort("testing");
-
-    //  Couple and update new solution.
-    //            u(i,j,k,nnew)=u(i,j,k,nnew)-DC(i,0)
-
-    //-----------------------------------------------------------------------
-    //  Time step momentum equation in the ETA-direction.
-    //-----------------------------------------------------------------------
-    //  Time step right-hand-side terms.
-    //                v(i,j,k,nnew)=v(i,j,k,nnew)+DC(i,0)*rv(i,j,k,nrhs)
-
-    //  Backward substitution.
-    //            v(i,j,k,nnew)=v(i,j,k,nnew)+cff
-
-    //  Compute new solution by back substitution.
-    //            v(i,j,N(ng),nnew)=DC(i,N(ng))
-
-    //  Compute new solution by back substitution.
-    //              v(i,j,k,nnew)=DC(i,k)
-    //back-substition happens differently if OMEGA_IMPLICIT
-
-    //  Couple and update new solution.
-    //              v(i,j,k,nnew)=v(i,j,k,nnew)-DC(i,0)
-    //# ifdef MASKING
-    //              v(i,j,k,nnew)=v(i,j,k,nnew)*vmask(i,j)
-    //# endif
-    //# ifdef WET_DRY
-    //              v(i,j,k,nnew)=v(i,j,k,nnew)*vmask_wet(i,j)
-    //              rv(i,j,k,nrhs)=rv(i,j,k,nrhs)*vmask_wet(i,j)
-    //# endif
-
-    //    # ifdef UV_WAVEDRAG
-    //                  u(i,j,k,nnew)=u(i,j,k,nstp)-dt(ng)*cff*               &
-    // &                (u(i,j,k,nnew)-TIDES(ng)%filt_ubot(i,j))
-
-    //-----------------------------------------------------------------------
-    //  Set lateral boundary conditions.
-    //-----------------------------------------------------------------------
-    //      CALL u3dbc_tile (ng, tile,                                        &
-    //      CALL v3dbc_tile (ng, tile,                                        &
-
-    //-----------------------------------------------------------------------
-    //  Apply momentum transport point sources (like river runoff), if any.
-    //-----------------------------------------------------------------------
-    //u(i,j,k,nnew)=SOURCES(ng)%Qsrc(is,k)*cff1
-    //v(i,j,k,nnew)=SOURCES(ng)%Qsrc(is,k)*cff1
-
-    //-----------------------------------------------------------------------
-    //  Couple 2D and 3D momentum equations.
-    //-----------------------------------------------------------------------
-
-    //  Replace only BOUNDARY POINTS incorrect vertical mean with more
-    //  accurate barotropic component, ubar=DU_avg1/(D*on_u). Recall that,
-    //  D=CF(:,0).
-
-    //  Replace only BOUNDARY POINTS incorrect vertical mean with more
-    //  accurate barotropic component, vbar=DV_avg1/(D*om_v).  Recall that,
-    //  D=CF(:,0).
-
-    //-----------------------------------------------------------------------
-    //  Exchange boundary data.
-    //-----------------------------------------------------------------------
-	//    });
     }
     MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     xvel_new.FillBoundary();
     MultiFab::Copy(yvel_new,mf_v,0,0,yvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     yvel_new.FillBoundary();
-    //MultiFab::Copy(zvel_new,mf_w,0,0,zvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
-    print_state(xvel_new,IntVect(AMREX_D_DECL(2,2,2)));
+    //    MultiFab::Copy(zvel_new,mf_w,0,0,zvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    //    zvel_new.FillBoundary();
     //    MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
 }
