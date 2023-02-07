@@ -61,22 +61,26 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab& V_new = vars_new[lev][Vars::yvel];
     MultiFab& W_new = vars_new[lev][Vars::zvel];
 
+    /*
     U_old.setVal(0.e34,U_new.nGrowVect());
     V_old.setVal(0.e34,V_new.nGrowVect());
     W_old.setVal(0.e34,W_new.nGrowVect());
-
+    */
+    U_old.FillBoundary();
+    V_old.FillBoundary();
+    W_old.FillBoundary();
     MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
     MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
     MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
     MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
     //////////    //pre_step3d corrections to boundaries
-    
+    /*
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
     U_new.setVal(0.e34,U_new.nGrowVect());
     V_new.setVal(0.e34,V_new.nGrowVect());
     W_new.setVal(0.e34,W_new.nGrowVect());
-    
+    */
     auto& lev_old = vars_old[lev];
     // Moving terrain
     Real time_mt = t_new[lev] - 0.5*dt[lev];
@@ -195,10 +199,10 @@ void ROMSX::romsx_advance(int level,
 	Array4<Real> const& Akv = (mf_Akv)->array(mfi);
 	Array4<Real> const& Hz = (mf_Hz)->array(mfi);
 	Array4<Real> const& z_r = (mf_z_r)->array(mfi);
-	//	Array4<Real> const& uold = (xvel_old).array(mfi);
-	//	Array4<Real> const& vold = (yvel_old).array(mfi);
-	Array4<Real> const& uold = (mf_u).array(mfi);
-	Array4<Real> const& vold = (mf_v).array(mfi);
+	Array4<Real> const& uold = (xvel_old).array(mfi);
+	Array4<Real> const& vold = (yvel_old).array(mfi);
+	//	Array4<Real> const& uold = (mf_u).array(mfi);
+	//	Array4<Real> const& vold = (mf_v).array(mfi);
 	Array4<Real> const& u = (mf_u).array(mfi);
 	Array4<Real> const& v = (mf_v).array(mfi);
 	Array4<Real> const& w = (mf_w).array(mfi);
@@ -309,7 +313,7 @@ void ROMSX::romsx_advance(int level,
 	//  using either a Crack-Nicolson implicit scheme (lambda=0.5) or a
 	//  backward implicit scheme (lambda=1.0).
 	//
-#if 1
+#if 0
 	//  Except the commented out part means its always 1.0
 	Real lambda = 1.0;
 	amrex::ParallelFor(gbx1, ncomp,
