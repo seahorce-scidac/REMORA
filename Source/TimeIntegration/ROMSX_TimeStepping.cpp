@@ -119,8 +119,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                   source,
                   Geom(lev), dt_lev, time
     );
-    print_state(U_new,IntVect(AMREX_D_DECL(2,2,2)));
-    print_state(vars_new[lev][Vars::xvel],IntVect(AMREX_D_DECL(2,2,2)));
 }
 
     // Interface for advancing the data at one level by one "slow" timestep
@@ -134,7 +132,6 @@ void ROMSX::romsx_advance(int level,
                           )
 {
 
-  print_state(xvel_old,amrex::IntVect(AMREX_D_DECL(3,3,3)));
     //-----------------------------------------------------------------------
     //  Time step momentum equation in the XI-direction.
     //-----------------------------------------------------------------------
@@ -198,8 +195,10 @@ void ROMSX::romsx_advance(int level,
 	Array4<Real> const& Akv = (mf_Akv)->array(mfi);
 	Array4<Real> const& Hz = (mf_Hz)->array(mfi);
 	Array4<Real> const& z_r = (mf_z_r)->array(mfi);
-	Array4<Real> const& uold = (xvel_old).array(mfi);
-	Array4<Real> const& vold = (yvel_old).array(mfi);
+	//	Array4<Real> const& uold = (xvel_old).array(mfi);
+	//	Array4<Real> const& vold = (yvel_old).array(mfi);
+	Array4<Real> const& uold = (mf_u).array(mfi);
+	Array4<Real> const& vold = (mf_v).array(mfi);
 	Array4<Real> const& u = (mf_u).array(mfi);
 	Array4<Real> const& v = (mf_v).array(mfi);
 	Array4<Real> const& w = (mf_w).array(mfi);
@@ -216,9 +215,9 @@ void ROMSX::romsx_advance(int level,
 	gbx2.grow(IntVect(2,2,0));
 	gbx1.grow(IntVect(1,1,0));
 	Box gbx=gbx2;
-	amrex::Print()<<"bx for most fabs set to:  \t"<<bx<<std::endl;
-	amrex::Print()<<"gbx for grown fabs set to:\t"<<gbx<<std::endl;
-	amrex::Print()<<"N is "<<N<<"N-1 is "<<N-1<<std::endl;
+	//	amrex::Print()<<"bx for most fabs set to:  \t"<<bx<<std::endl;
+	//	amrex::Print()<<"gbx for grown fabs set to:\t"<<gbx<<std::endl;
+	//	amrex::Print()<<"N is "<<N<<"N-1 is "<<N-1<<std::endl;
 	FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena);
@@ -310,18 +309,9 @@ void ROMSX::romsx_advance(int level,
 	      if(k+1<=N)
 	      Hvom(i,j,k)=0.5*(Hz(i+1,j+1,k+1)+Hz(i+1,j,k+1))*v(i+1,j,k+1,nrhs)*   
 		om_v(i+1,j,0);
-	      if((i==2-1&&j==2-1&&k==2-1) ||
-		 (i==42-1&&j==8-1&&k==3-1) ||
-		 (i<=4-1&&i>=2-1&&j<=4-1&&j>=2-1&&k<=4-1&&k>=2-1) ||
-		 (i==4-1&&j==4-1&&k==4-1) 
-		 )
-		{
-		    		    printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Huon(i,j,k),u(i,j,k,nrhs),on_u(i,j,0));
-		}
 	  	    });
 	//			amrex::Abort("STOP1123");
 	///////////<<<<<<< HEAD
-	amrex::Print()<<"lalal243la"<<std::endl;
 	//Need to include pre_step3d.F terms
 
 	//
@@ -329,6 +319,7 @@ void ROMSX::romsx_advance(int level,
 	//  using either a Crack-Nicolson implicit scheme (lambda=0.5) or a
 	//  backward implicit scheme (lambda=1.0).
 	//
+#if 1
 	//  Except the commented out part means its always 1.0
 	Real lambda = 1.0;
 	amrex::ParallelFor(gbx1, ncomp,
@@ -366,6 +357,7 @@ void ROMSX::romsx_advance(int level,
 		Real cff, cff1, cff2;
 
 		int indx=0; //nrhs-3
+
 		if(iic==ntfirst)
 		{
 		    //Hz still might need adjusting
@@ -387,16 +379,6 @@ void ROMSX::romsx_advance(int level,
 			cff2=-FC(i,j,k);//+sustr(i,j,0);
 			u(i,j,k,nnew)=cff1+cff2;
 		    }
-		    		    if(i==3-1&&j==3-1&&k==3-1)
-		      {
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,ru(i,j,k,nrhs));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,indx*1.0,indx*1.0,ru(i,j,k,indx));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,u(i,j,k,nnew));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,0.0,0.0,uold(i,j,k,0));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,j,k),FC(i,j,k-1),u(i,j,k));
-			  //	  amrex::Abort("prestep u1");
-		      }
 		}
 		else if(iic==ntfirst+1)
 		{
@@ -422,18 +404,6 @@ void ROMSX::romsx_advance(int level,
 		    u(i,j,k,nnew)=cff1-
 		                  cff3*ru(i,j,k,indx)+
 		    		  cff2;
-		    if(i==3-1&&j==3-1&&k==3-1)
-		      {
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,ru(i,j,k,nrhs));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,indx*1.0,indx*1.0,ru(i,j,k,indx));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,u(i,j,k,nnew));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,0.0,0.0,uold(i,j,k,0));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,j,k),FC(i,j,k-1),u(i,j,k));
-			  //			  amrex::Abort("prestep u2");
-		      }
-
-
 		}
 		else
 		{
@@ -499,16 +469,6 @@ void ROMSX::romsx_advance(int level,
 			cff2=-FC(i,j,k);//+sustr(i,j,0);
 			v(i,j,k,nnew)=cff1+cff2;
 		    }
-		    		    if(i==3-1&&j==3-1&&k==3-1)
-		      {
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,ru(i,j,k,nrhs));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,indx*1.0,indx*1.0,ru(i,j,k,indx));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,u(i,j,k,nnew));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,0.0,0.0,uold(i,j,k,0));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,j,k),FC(i,j,k-1),u(i,j,k));
-			  //	  amrex::Abort("prestep u1");
-		      }
 		}
 		else if(iic==ntfirst+1)
 		{
@@ -534,17 +494,6 @@ void ROMSX::romsx_advance(int level,
 		    v(i,j,k,nnew)=cff1-
 			          cff3*rv(i,j,k,indx)+
 			          cff2;
-		    if(i==3-1&&j==3-1&&k==3-1)
-		      {
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,cff3);
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,ru(i,j,k,nrhs));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,indx*1.0,indx*1.0,ru(i,j,k,indx));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,nrhs*1.0,nrhs*1.0,u(i,j,k,nnew));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,0.0,0.0,uold(i,j,k,0));
-			  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,j,k),FC(i,j,k-1),u(i,j,k));
-			  //			  amrex::Abort("prestep u");
-		      }
-
 		}
 		else
 		{
@@ -552,39 +501,17 @@ void ROMSX::romsx_advance(int level,
 		  cff=0.25*dt*23.0/12.0;
 		}
 	    });
-	
+#endif	
 		      
 	//Need to include pre_step3d.F terms
 	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	    {
-		if(i==2-1&&j==2-1&&k==2-1)
-		{
-		    //		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,u(i-1,j,k,nrhs),-2.0*u(i,j,k,nrhs),u(i+1,j,k,nrhs));
-		  //		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hz(i-1,j,k),Hz(i,j,k),Hz(i+1,j,k));
-		  //		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Huon(i-1,j,k),-2.0*Huon(i,j,k),Huon(i+1,j,k));
-		}
-	      if(i==42-1&&j==8-1&&k==3-1)
-		{
-		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,u(i-1,j,k,nrhs),-2.0*u(i,j,k,nrhs),u(i+1,j,k,nrhs));
-		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Huon(i-1,j,k),-2.0*Huon(i,j,k),Huon(i+1,j,k));
-		  printf("Huon prints above\n");
-		  //		  amrex::Abort("SSDFD");
-		}
 	//should not include grow cells	      
 	      uxx(i,j,k)=uold(i-1,j,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i+1,j,k,nrhs);
 	      //neglecting terms about periodicity since testing only periodic for now
 	      Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
-
-	      if(i==42-1&&j==8-1&&k==3-1)
-		  {
-	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Huon(i+1,j,k),uxx(i,j,k),Huxx(i,j,k));
-	      amrex::Print()<<"lala354lla"<<std::endl;
-	      amrex::Print()<<"WHY IS THIS DIFFERENT!!!"<<i<<" "<<j<<" "<<k<<" "<<Huxx(i,j,k)<<std::endl;
-	      //	      amrex::Abort("STOP");
-		}
 	    });
-	amrex::Print()<<"lala345534lla"<<std::endl;
 	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
 	{
@@ -599,20 +526,6 @@ void ROMSX::romsx_advance(int level,
 		 Huon(i+1,j,k)+
 		 Gadv*0.5*(Huxx(i  ,j,k)+
 			   Huxx(i+1,j,k)));
-	      if(i==43-1&&j==8-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),uxx(i,j,k),uxx(i+1,j,k));
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),cff,u(i-1,j,k));
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),Huxx(i,j,k),Huxx(i+1,j,k));
-		      //		      	      amrex::Abort("STOP");
-		}
-	      if(i==42-1&&j==8-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),uxx(i,j,k),uxx(i+1,j,k));
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),cff,u(i-1,j,k));
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),Huxx(i,j,k),Huxx(i+1,j,k));
-		      //    	      amrex::Abort("STOP");
-		}
 		//should not include grow cells
 	      uee(i,j,k)=uold(i,j-1,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i,j+1,k,nrhs);
 	    });
@@ -622,12 +535,6 @@ void ROMSX::romsx_advance(int level,
 	      /////////////MIGHT NEED NEW LOOP HERE
 	      //neglecting terms about periodicity since testing only periodic for now
 	      Hvxx(i,j,k)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
-	      if(i==42-1&&j==8-1&&k==3-1)
-		  {
-		      amrex::Print()<<"lalalla"<<std::endl;
-	      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hvom(i,j,k),uee(i,j,0),Hvxx(i,j,0));
-	      //	      amrex::Abort("STOP");
-		}
 	    });
 	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -685,37 +592,14 @@ void ROMSX::romsx_advance(int level,
 	      Real cff1=UFx(i,j,k)-UFx(i-1,j,k);
 	      Real cff2=UFe(i,j+1,k)-UFe(i,j,k);
 	      Real cff=cff1+cff2;
-	      if(i==42-1&&j==8-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15gUFxUFxru\n",i,j,k,n,UFx(i,j,k),UFx(i-1,j,k),ru(i,j,k,nrhs));
-		      //	      amrex::Abort("STOP");
-		}
-	      if(i==3-1&&j==3-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15gUFxUFxru\n",i,j,k,n,UFx(i,j,k),UFx(i-1,j,k),ru(i,j,k,nrhs));
-		      //	      amrex::Abort("STOP");
-		}
 
 	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
-	      if(i==42-1&&j==8-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,UFx(i,j,k),UFx(i-1,j,k),ru(i,j,k,nrhs));
-		      //	      amrex::Abort("STOP");
-		}
+
 	      cff1=VFx(i+1,j,k)-VFx(i,j,k);
 	      cff2=VFe(i,j,k)-VFe(i,j-1,k);
 	      cff=cff1+cff2;
-	            if(i==42-1&&j==8-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,VFx(i+1,j,k),VFx(i,j,k),rv(i,j,k,nrhs));
-		      //	      amrex::Abort("STOP");
-		}
+
 	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
-	      if(i==42-1&&j==8-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,VFx(i+1,j,k),VFx(i,j,k),rv(i,j,k,nrhs));
-		      //	      amrex::Abort("STOP");
-		}
 
 	      //-----------------------------------------------------------------------
 	      //  Add in vertical advection.
@@ -761,20 +645,9 @@ void ROMSX::romsx_advance(int level,
 		  cff=FC(i,j,k)-FC(i,j,k-1);
 	      else
 		  cff=FC(i,j,k);
-	      	      if(i==3-1&&j==3-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,W(i,j,k),uold(i,j,k),ru(i,j,k,nrhs));
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,ru(i,j,k,nrhs));
-		  }
+
 	      ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
-	      if(i==42-1&&j==8-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,W(i,j,k),uold(i,j,k),ru(i,j,k,nrhs));
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,cff2,ru(i,j,k,nrhs));
-		      //		      if(iic!=ntfirst)//&&iic!=ntfirst+1)
-		      //			  amrex::Abort("STOP");
-		      //amrex::Abort("STOP");
-		}
+
 	      if(j>=0)
 	      {
 	      if(k>=1&&k<=N-2)
@@ -814,11 +687,6 @@ void ROMSX::romsx_advance(int level,
 	      else
 		  cff=FC(i,j,k);
 	      rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
-	      if(i==42-1&&j==8-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,FC(i,j,k),FC(i,j,k-1),rv(i,j,k,nrhs));
-		      //		      		 	      amrex::Abort("STOP");
-		}
 	      }
 
 	    });
@@ -859,20 +727,10 @@ void ROMSX::romsx_advance(int level,
 		//rhs contributions are in rhs3d.F and are from coriolis, horizontal advection, and vertical advection
 		u(i,j,k)=u(i,j,k)+
 		         DC(i,j,k)*ru(i,j,k,nrhs);
-		if(i==3-1&&j==3-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),ru(i,j,k,nrhs),u(i,j,k));
-		      //		      if(iic!=ntfirst&&iic!=ntfirst+1)
-		      //			  amrex::Abort("STOP");
-		}
+
 		v(i,j,k)=v(i,j,k)+
 		         DC(i,j,k)*rv(i,j,k,nrhs);
-		if(i==3-1&&j==3-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),rv(i,j,k,nrhs),v(i,j,k));
-		      amrex::Print()<<"v update"<<std::endl;
-		      //	      amrex::Abort("STOP");
-		}
+
 		//oHz and Hz are slightly different the next step due to set_depth updating for new zeta:
 		//6.9510121353260748E-002 ROMS
 		//6.9510121353260748E-002   14.386388931137844        2.7840547475297760E-005
@@ -880,18 +738,9 @@ void ROMSX::romsx_advance(int level,
 		//2 2 2 0 0.0695099922695571 14.3864208202187 2.7840495774036e-05
 		//ifdef SPLINES_VVISC is true
 		u(i,j,k)=u(i,j,k)*oHz(i,j,k);
-		if(i==42-1&&j==8-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,oHz(i,j,k),Hz(i+1,j+1,k+1),u(i,j,k));
-		      //		     	      amrex::Abort("STOP");
-		}
+
 		v(i,j,k)=v(i,j,k)*oHz(i,j,k);
-		if(i==3-1&&j==3-1&&k==3-1)
-		  {
-		      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,oHz(i,j,k),Hz(i+1,j+1,k+1),v(i,j,k));
-		      amrex::Print()<<"v update"<<std::endl;
-		      //		      amrex::Abort("STOP");
-		}	   
+
 	    });
 	// End previous
        // Begin vertical viscosity term
@@ -1036,16 +885,11 @@ void ROMSX::romsx_advance(int level,
     //-----------------------------------------------------------------------
 	//    });
     }
-    amrex::Print()<<"before xvel copy"<<std::endl;
     MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
-    amrex::Print()<<"before yvel copy"<<std::endl;
     xvel_new.FillBoundary();
-    amrex::Print()<<"before yvel copy"<<std::endl;
     MultiFab::Copy(yvel_new,mf_v,0,0,yvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     yvel_new.FillBoundary();
-    amrex::Print()<<"before zvel copy"<<std::endl;
     //MultiFab::Copy(zvel_new,mf_w,0,0,zvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
-    amrex::Print()<<"after  zvel copy"<<std::endl;
     print_state(xvel_new,IntVect(AMREX_D_DECL(2,2,2)));
     //    MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
 }

@@ -147,7 +147,6 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
 		const Array4<const Real> vely_arr = vars_new[lev][Vars::yvel].array(mfi);
 		const Array4<const Real> velz_arr = vars_new[lev][Vars::zvel].array(mfi);
                 const Array4<Real> msf_arr = mapfac_m[lev]->array(mfi);
-		amrex::Print()<<velx_arr(2,2,2,0)<<std::endl;
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     vel_arr(i,j,k,0) = velx_arr(i,j,k);
@@ -155,7 +154,6 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
                     vel_arr(i,j,k,2) = velz_arr(i,j,k);
                 });
             }
-	    print_state(dmf,IntVect(AMREX_D_DECL(2,2,2)));
             mf_comp += AMREX_SPACEDIM;
         }
 
