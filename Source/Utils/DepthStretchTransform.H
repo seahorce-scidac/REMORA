@@ -90,6 +90,10 @@ ROMSX::set_depth (int lev)
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
       gbx2.grow(IntVect(2,2,0));
+      Box gbx21 = bx;
+      gbx21.grow(IntVect(2,2,1));
+      Box gbx22 = bx;
+      gbx22.grow(IntVect(2,2,2));
       Array4<Real> const& h_arr  = (mf_h)->array(mfi);
       Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
       const auto & geomdata = Geom(lev).data();
@@ -109,7 +113,11 @@ ROMSX::set_depth (int lev)
       auto N = nz; // Number of vertical "levels" aka, NZ
       //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
-
+      amrex::LoopConcurrentOnCpu(gbx22, ncomp,
+      [=] (int i, int j, int k, int n)
+      {
+          z_w_arr(i,j,k) = -h_arr(i,j,0);
+      });
       // ROMS Transform 2
       amrex::LoopConcurrentOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
@@ -184,22 +192,25 @@ ROMSX::set_depth (int lev)
           else
             Cs_r=Csur;
         }
-	if(i==0&&j==0)
+	if(i==0&&j==0&&k!=-1)
 	s_r_arr(0,0,k) = sc_r;
         cff_r=hc*sc_r;
         cff1_r=Cs_r;
 
         ////////////////////////////////////////////////////////////////////
         Real hwater=h_arr(i,j,0);
-        if(k==0)
+        if(k==-1)
           {
           z_w_arr(i,j,k) = -h_arr(i,j,0);
-          //extra guess added (maybe not actually defined in ROMS)
-	  Real hinv=1.0_rt/(hc+hwater);
-	  cff2_r=(cff_r+cff1_r*hwater)*hinv;
-	  z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
-	  Hz_arr(i,j,k)=1.e34;//z_w_arr(i,j,k+1)-z_w_arr(i,j,k);
           }
+	else if(k==0)
+	 {
+          //extra guess added (maybe not actually defined in ROMS)
+        Real hinv=1.0_rt/(hc+hwater);
+         cff2_r=(cff_r+cff1_r*hwater)*hinv;
+         z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
+         Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+	 }
         else
         {
         //Note, we are not supporting ICESHELF flag
@@ -207,14 +218,30 @@ ROMSX::set_depth (int lev)
           cff2_r=(cff_r+cff1_r*hwater)*hinv;
           cff2_w=(cff_w+cff1_w*hwater)*hinv;
 
-          z_w_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_w;
+          z_w_arr(i,j,k-1)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_w;
           z_r_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
         //Note, we are not supporting ICESHELF flag
-          Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
-
         }
       });
+      amrex::LoopConcurrentOnCpu(gbx21, ncomp,
+      [=] (int i, int j, int k, int n)
+      {
+	  Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+	  if(i==3-1&&j==3-1&&k==1-1) {
+	      printf("%15.15g %15.15g\n",Hz_arr(i,j,k),Hz_arr(i,j,k));
+	      printf("%15.15g %15.15g\n",z_w_arr(i,j,k),z_w_arr(i,j,k));
+	  }
+	  if(i==3-1&&j==3-1&&k==2-1) {
+	      printf("%15.15g %15.15g\n",Hz_arr(i,j,k),Hz_arr(i,j,k));
+	      printf("%15.15g %15.15g\n",z_w_arr(i,j,k),z_w_arr(i,j,k-1));
+	  }
+	  if(i==3-1&&j==3-1&&k==3-1) {
+	      printf("%15.15g %15.15g\n",Hz_arr(i,j,k),Hz_arr(i,j,k));
+	      printf("%15.15g %15.15g\n",z_w_arr(i,j,k),z_w_arr(i,j,k-1));
+	      //	      exit(1);
+	  }
 
+      });
     } // mf
     /*
     z_w[lev]->FillBoundary(geom[lev].periodicity());

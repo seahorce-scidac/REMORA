@@ -145,7 +145,7 @@ void ROMSX::romsx_advance(int level,
     //Only used locally, probably should be rearranged into FArrayBox declaration
     MultiFab mf_AK(ba,dm,1,IntVect(2,2,0)); //2d missing j coordinate
     MultiFab mf_DC(ba,dm,1,IntVect(2,2,0)); //2d missing j coordinate
-    MultiFab mf_Hzk(ba,dm,1,IntVect(2,2,0)); //2d missing j coordinate
+    MultiFab mf_Hzk(ba,dm,1,IntVect(2,2,1)); //2d missing j coordinate
     std::unique_ptr<MultiFab>& mf_Akv = Akv[level];
     std::unique_ptr<MultiFab>& mf_Hz = Hz[level];
     std::unique_ptr<MultiFab>& mf_z_r = z_r[level];
@@ -199,10 +199,10 @@ void ROMSX::romsx_advance(int level,
 	Array4<Real> const& Akv = (mf_Akv)->array(mfi);
 	Array4<Real> const& Hz = (mf_Hz)->array(mfi);
 	Array4<Real> const& z_r = (mf_z_r)->array(mfi);
-	Array4<Real> const& uold = (xvel_old).array(mfi);
-	Array4<Real> const& vold = (yvel_old).array(mfi);
-	//	Array4<Real> const& uold = (mf_u).array(mfi);
-	//	Array4<Real> const& vold = (mf_v).array(mfi);
+	//	Array4<Real> const& uold = (xvel_old).array(mfi);
+	//	Array4<Real> const& vold = (yvel_old).array(mfi);
+		Array4<Real> const& uold = (mf_u).array(mfi);
+		Array4<Real> const& vold = (mf_v).array(mfi);
 	Array4<Real> const& u = (mf_u).array(mfi);
 	Array4<Real> const& v = (mf_v).array(mfi);
 	Array4<Real> const& w = (mf_w).array(mfi);
@@ -214,10 +214,12 @@ void ROMSX::romsx_advance(int level,
 	Box bx = mfi.tilebox();
 	//copy the tilebox
 	Box gbx1 = bx;
+	Box gbx11 = bx;
 	Box gbx2 = bx;
 	//make only gbx be grown to match multifabs
 	gbx2.grow(IntVect(2,2,0));
 	gbx1.grow(IntVect(1,1,0));
+	gbx11.grow(IntVect(1,1,1));
 	Box gbx=gbx2;
 
 	FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena);
@@ -229,7 +231,7 @@ void ROMSX::romsx_advance(int level,
 	FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena);
-	FArrayBox fab_oHz(gbx2,1,amrex::The_Async_Arena);
+	FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena);
 	//rhs3d work arrays
 	FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena);
 	FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena);
@@ -300,11 +302,11 @@ void ROMSX::romsx_advance(int level,
 	      //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
 	      //-----------------------------------------------------------------------
 	      if(k+1<=N)
-		  Huon(i,j,k)=0.5*(Hz(i+1,j+1,k+1)+Hz(i,j+1,k+1))*u(i,j+1,k+1,nrhs)*   
-		on_u(i,j+1,0);
+		  Huon(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k))*u(i,j,k,nrhs)*
+		on_u(i,j,0);
 	      if(k+1<=N)
-	      Hvom(i,j,k)=0.5*(Hz(i+1,j+1,k+1)+Hz(i+1,j,k+1))*v(i+1,j,k+1,nrhs)*   
-		om_v(i+1,j,0);
+	      Hvom(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k,nrhs)*
+		om_v(i,j,0);
 	  	    });
 	//Need to include pre_step3d.F terms
 
@@ -685,18 +687,16 @@ void ROMSX::romsx_advance(int level,
 	amrex::ParallelFor(gbx1, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-		if(k-1>=0)
-		{
-		    AK(i-1,j-1,k-1)=0.5*(Akv(i-1,j,k)+
-					 Akv(i  ,j,k));
-		    Hzk(i-1,j-1,k-1)=0.5*(Hz(i-1,j,k)+
-					  Hz(i  ,j,k));
-		}
-		else
-		    AK(i,j,N-1)=0.5*(Akv(i-1,j,N)+
-				     Akv(i  ,j,N));;
+		    AK(i,j,k)=0.5*(Akv(i-1,j,k)+
+				   Akv(i  ,j,k));
 	    });
-	amrex::ParallelFor(gbx1, ncomp,
+	amrex::ParallelFor(gbx11, ncomp,
+	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+		    Hzk(i,j,k)=0.5*(Hz(i-1,j,k)+
+				    Hz(i  ,j,k));
+	    });
+	amrex::ParallelFor(gbx11, ncomp,
 	[=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
 		oHz(i,j,k) = 1.0/Hzk(i,j,k);
