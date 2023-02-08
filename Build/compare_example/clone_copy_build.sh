@@ -8,27 +8,39 @@ git clone --recursive git@github.com:seahorce-scidac/ROMSX
 git clone --recursive git@github.com:seahorce-scidac/COAWST
 
 cd ROMSX/Build/compare_example
-diff upwelling.h ../../../COAWST/ROMS/Include/upwelling.h
+
 cp upwelling.h ../../../COAWST/ROMS/Include/upwelling.h
-diff roms_upwelling.in ../../../COAWST/ROMS/External/roms_upwelling.in
+
 cp roms_upwelling.in ../../../COAWST/ROMS/External/roms_upwelling.in
-diff ana_grid.h ../../../COAWST/ROMS/Functionals/ana_grid.h
+
 cp ana_grid.h ../../../COAWST/ROMS/Functionals/ana_grid.h
+cp ana_initial.h ../../../COAWST/ROMS/Functionals/ana_initial.h
 cp *.F ../../../COAWST/ROMS/Nonlinear/
 cp *.mk ../../../COAWST/Compilers
+cp coawst.bash ../../../COAWST
 
 cd ../
+if [ "$NERSC_HOST" == "cori" ]
+then
+source cori-env.sh
+elif [ "$NERSC_HOST" == "perlmutter" ]
+then
 source saul-env.sh
+else
+export NETCDF_INCDIR=${NETCDF_DIR}/include
+export NETCDF_LIBDIR=${NETCDF_DIR}/lib
+fi
+
+echo "We will use these paths for netcdf:"
+echo "${NETCDF_DIR}"
+echo "${NETCDF_LIBDIR}"
+echo "${NETCDF_INCDIR}"
+
 cd ../Exec/Upwelling
-nice make -j16 USE_NETCDF=TRUE USE_CUDA=TRUE
+nice make -j16 USE_NETCDF=TRUE DEBUG=TRUE
 cd ../../../
 
 cd COAWST
-sed -i s/'\/global\/homes\/h\/hetland\/COAWST'/'$(pwd)'/g coawst.bash
-#git checkout ROMS/Include/upwelling.h
-
-module swap cray-hdf5-parallel cray-hdf5
-module swap cray-netcdf-hdf5parallel cray-netcdf
 
 #activeList = {
 #  ["Nsight-Compute"] = "2022.1.1",
@@ -53,4 +65,4 @@ module swap cray-netcdf-hdf5parallel cray-netcdf
 #  ["xpmem"] = "2.5.2-2.4_3.20__gd0f7936.shasta",
 #}
 
-./coawst.bash -j 20
+./coawst.bash -j 4
