@@ -182,7 +182,6 @@
               z_r(i,j,k)=z_r(i,j,k)-ABS(zice(i,j))
 # endif
               Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1)
-print*,i,j,k
             END DO
           END DO
         END DO
@@ -272,12 +271,6 @@ print*,i,j,k
               z_r(i,j,k)=z_r(i,j,k)-ABS(zice(i,j))
 # endif
               Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1)
-              if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-               print*,Hz(i,j,k),Hz(i,j,k)
-               print*,z_w(i,j,k),z_w(i,j,k-1)
-print*,"Hz updated ----------"
-!               STOP
-              endif
             END DO
           END DO
         END DO

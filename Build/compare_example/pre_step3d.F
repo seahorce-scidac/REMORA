@@ -974,14 +974,6 @@
         cff3=dt(ng)*(1.0_r8-lambda)
         DO k=1,N(ng)-1
            DO i=IstrU,Iend
-                                if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-                                   print*,u(i,j,k,nnew)," ",nnew
-                                   print*,u(i,j,k,nrhs)," ",nrhs
-                     print*,"set FC prestep u update"
-!               if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-!                     STOP
-                  endif
-
             cff=1.0_r8/(z_r(i,j,k+1)+z_r(i-1,j,k+1)-                    &
      &                  z_r(i,j,k  )-z_r(i-1,j,k  ))
             FC(i,k)=cff3*cff*(u(i,j,k+1,nstp)-u(i,j,k,nstp))*           &
@@ -1017,14 +1009,6 @@
               cff1=u(i,j,k,nstp)*0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k))
               cff2=FC(i,k)-FC(i,k-1)
 !              u(i,j,k,nnew)=cff1+cff2
-              if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-                 print*,Hz(i-1,j,k),Hz(i,j,k)
-                                   print*,u(i,j,k,nnew)," ",nnew
-                                   print*,u(i,j,k,nrhs)," ",nrhs
-                     print*,"prestep u update1"
-!               if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-!                     STOP
-                  endif
 # ifdef DIAGNOSTICS_UV
               DO idiag=1,M3pgrd
                 DiaU3wrk(i,j,k,idiag)=0.0_r8
@@ -1043,17 +1027,6 @@
 !              u(i,j,k,nnew)=cff1-                                       &
 !     &                      cff3*ru(i,j,k,indx)+                        &
 !     &                      cff2
-              if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-                 print*,cff1,cff2,cff3
-                 print*,nrhs,ru(i,j,k,nrhs)
-                 print*,indx,ru(i,j,k,indx)
-                                   print*,u(i,j,k,nnew)," ",nnew
-                                   print*,u(i,j,k,nrhs)," ",nrhs
-!                     print*,u(i,j,k,nnew)
-                     print*,"prestep u update2"
-!               if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-!                     STOP
-                  endif
 # ifdef DIAGNOSTICS_UV
               DO idiag=1,M3pgrd
                 DiaU3wrk(i,j,k,idiag)=-cff3*DiaRU(i,j,k,indx,idiag)
@@ -1078,14 +1051,6 @@
 !     &                      DC(i,0)*(cff1*ru(i,j,k,nrhs)-               &
 !     &                               cff2*ru(i,j,k,indx))+              &
 !     &                      cff4
-                                if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-                                   print*,u(i,j,k,nnew)," ",nnew
-                                   print*,u(i,j,k,nrhs)," ",nrhs
-!                     print*,u(i,j,k,nnew)
-                     print*,"prestep u update3"
-!               if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-!                     STOP
-                  endif
 # ifdef DIAGNOSTICS_UV
               DO idiag=1,M3pgrd
                 DiaU3wrk(i,j,k,idiag)=DC(i,0)*                          &

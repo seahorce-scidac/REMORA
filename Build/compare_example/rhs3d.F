@@ -815,9 +815,6 @@
           END DO
         END DO
 #  else
-!        print*,IminS, ImaxS, JminS, JmaxS
-!        print*,IstrUm1,Iendp1
-!        print*,Istr,Iend+1
         DO j=Jstr,Jend
            DO i=IstrUm1,Iendp1
             uxx(i,j)=u(i-1,j,k,nrhs)-2.0_r8*u(i,j,k,nrhs)+              &
@@ -827,20 +824,6 @@
 #   endif
      &               u(i+1,j,k,nrhs)
             Huxx(i,j)=Huon(i-1,j,k)-2.0_r8*Huon(i,j,k)+Huon(i+1,j,k)
-            if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-               print*,u(i,j,k,2)," ",2
-               print*,u(i,j,k,nrhs)," ",nrhs
-
-               print*,Huon(i,j,k),u(i,j,k,nrhs),on_u(i,j)
-              print*,u(i-1,j,k,nrhs),-2.0_r8*u(i,j,k,nrhs),              &
-              &               u(i+1,j,k,nrhs)
-              print*,Huon(i-1,j,k),-2.0_r8*Huon(i,j,k),Huon(i+1,j,k)
-              print*,"Huon above"
-              print*,Huon(i+1,j,k),uxx(i,j),Huxx(i,j)
-              print*,"lala354lla STOP1123"
-!              STOP
-           endif
-
           END DO
         END DO
         IF (.not.(CompositeGrid(iwest,ng).or.EWperiodic(ng))) THEN
@@ -903,12 +886,6 @@
      &                Huon(i+1,j,k)+                                    &
      &                Gadv*0.5_r8*(Huxx(i  ,j)+                         &
      &           Huxx(i+1,j)))
-            if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-               print*,UFx(i,j),uxx(i,j),uxx(i+1,j)
-               print*,UFx(i,j),Huxx(i,j),Huxx(i+1,j)
-               print*,"WROTE2"
-!             STOP
-           endif
           END DO
         END DO
 #   endif
@@ -939,12 +916,6 @@
         DO j=Jstr,Jend+1
           DO i=IstrU-1,Iend
              Hvxx(i,j)=Hvom(i-1,j,k)-2.0_r8*Hvom(i,j,k)+Hvom(i+1,j,k)
-            if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-               print*,Hvom(i,j,k),                                      &
-     &              v(i,j,k,nrhs),om_v(i,j)
-               print*,Hvom(i,j,k),uee(i,j),Hvxx(i,j)
-!             STOP
-           endif
           END DO
         END DO
 #   ifdef UV_C4ADVECTION
@@ -1136,18 +1107,8 @@
           DO i=IstrU,Iend
             cff1=UFx(i,j)-UFx(i-1,j)
             cff2=UFe(i,j+1)-UFe(i,j)
-            if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-               print*,UFx(i,j),uxx(i,j),uxx(i+1,j)
-               print*,"WHY"
-               print*,UFx(i,j),UFx(i-1,j),ru(i,j,k,nrhs)
-            ! STOP
-           endif
             cff=cff1+cff2
             ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff
-            if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-               print*,UFx(i,j),UFx(i-1,j),ru(i,j,k,nrhs)
-!             STOP
-           endif
 #  ifdef DIAGNOSTICS_UV
 #   if defined CURVGRID || defined WEC_VF
             DiaRU(i,j,k,nrhs,M3xadv)=DiaRU(i,j,k,nrhs,M3xadv)-cff1
@@ -1166,18 +1127,8 @@
             cff1=VFx(i+1,j)-VFx(i,j)
             cff2=VFe(i,j)-VFe(i,j-1)
             cff=cff1+cff2
-                        if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-               print*,UFx(i,j),uxx(i,j),uxx(i+1,j)
-               print*,"WHY"
-               print*,VFx(i+1,j),VFx(i,j),rv(i,j,k,nrhs)
-            ! STOP
-           endif
             cff=cff1+cff2
             rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff
-            if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-               print*,VFx(i+1,j),VFx(i,j),rv(i,j,k,nrhs)
-!             STOP
-           endif
 #  ifdef DIAGNOSTICS_UV
 #   if defined CURVGRID || defined WEC_VF
             DiaRV(i,j,k,nrhs,M3xadv)=DiaRV(i,j,k,nrhs,M3xadv)-cff1
@@ -1634,15 +1585,6 @@
             DO i=Istr,Iend
               cff=FC(i,k)-FC(i,k-1)
               rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff
-              if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-                 print*,FC(i,k),FC(i,k-1),rv(i,j,k,nrhs)
-                 print*,u(i,j,k,nrhs)
-
-               print*,u(i,j,k,2)," ",2
-               print*,u(i,j,k,nrhs)," ",nrhs
-                 print*,"end of rhs3d"
-!                 STOP
-              endif
 
 #  ifdef DIAGNOSTICS_UV
               DiaRV(i,j,k,nrhs,M3vadv)=-cff
@@ -2252,11 +2194,6 @@
 !!   &                               DiaRV(i,j,k,nrhs,M3vvis)
 #  endif
 # endif
-              if(i.eq.3.and.j.eq.3.and.k.eq.3) then
-                             print*,u(i,j,k,2)," ",2
-               print*,u(i,j,k,nrhs)," ",nrhs
-               print*,"end of rhs3d"
-               END IF
             END DO
           END DO
 # ifndef BODYFORCE
