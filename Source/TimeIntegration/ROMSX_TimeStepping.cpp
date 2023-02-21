@@ -190,9 +190,6 @@ void ROMSX::romsx_advance(int level,
     const Real Gadv = -0.25;
     auto N = Geom(level).Domain().size()[2]-1; // Number of vertical "levels" aka, NZ
 
-    const auto test_point=IntVect(AMREX_D_DECL(1-1,1-1,4-1));
-    print_state(mf_u,test_point);
-
     const auto dxi              = Geom(level).InvCellSizeArray();
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -304,24 +301,24 @@ void ROMSX::romsx_advance(int level,
               //-----------------------------------------------------------------------
               //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
               //-----------------------------------------------------------------------
-		if(k+1<=N)
-		if(i-1>=-2)
-		    {
+                if(k+1<=N)
+                if(i-1>=-2)
+                    {
                   Huon(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k))*u(i,j,k,nrhs)*
                 on_u(i,j,0);
-		    }
-		else
-		    Huon(i,j,k)=(Hz(i,j,k))*u(i,j,k,nrhs)*
+                    }
+                else
+                    Huon(i,j,k)=(Hz(i,j,k))*u(i,j,k,nrhs)*
                 on_u(i,j,0);
               if(k+1<=N)
-		  if(j-1>=-2)
-		      {
-		      Hvom(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k,nrhs)*
-			  om_v(i,j,0);
-		      }
-		  else
-		      Hvom(i,j,k)=(Hz(i,j,k))*v(i,j,k,nrhs)*
-			  om_v(i,j,0);
+                  if(j-1>=-2)
+                      {
+                      Hvom(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k,nrhs)*
+                          om_v(i,j,0);
+                      }
+                  else
+                      Hvom(i,j,k)=(Hz(i,j,k))*v(i,j,k,nrhs)*
+                          om_v(i,j,0);
                     });
         //Need to include pre_step3d.F terms
 
@@ -531,8 +528,6 @@ void ROMSX::romsx_advance(int level,
                  Huon(i+1,j,k)+
                  Gadv*0.5*(Huxx(i  ,j,k)+
                            Huxx(i+1,j,k)));
-	      if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-    amrex::Print()<<i<<","<<j<<","<<k<<": "<<UFx(i,j,k)<<"\t"<<UFx(i-1,j,k)<<"\t"<<cff<<std::endl;
                 //should not include grow cells
               uee(i,j,k)=uold(i,j-1,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i,j+1,k,nrhs);
             });
@@ -599,19 +594,9 @@ void ROMSX::romsx_advance(int level,
               Real cff1=UFx(i,j,k)-UFx(i-1,j,k);
               Real cff2=UFe(i,j+1,k)-UFe(i,j,k);
               Real cff=cff1+cff2;
-if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-    amrex::Print()<<i<<","<<j<<","<<k<<": "<<UFx(i,j,k)<<"\t"<<UFx(i-1,j,k)<<"\t"<<cff1<<std::endl;
- if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-		    amrex::Print()<<i<<","<<j<<","<<k<<": "<<cff2<<std::endl;
- if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-		    amrex::Print()<<i<<","<<j<<","<<k<<": "<<cff<<std::endl;
- if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-     amrex::Print()<<i<<","<<j<<","<<k<<": "<<ru(i,j,k,nrhs)<<std::endl;
+
               ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
-if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-		    amrex::Print()<<i<<","<<j<<","<<k<<": "<<cff<<std::endl;
- if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-     amrex::Print()<<i<<","<<j<<","<<k<<": "<<ru(i,j,k,nrhs)<<std::endl;
+
               cff1=VFx(i+1,j,k)-VFx(i,j,k);
               cff2=VFe(i,j,k)-VFe(i,j-1,k);
               cff=cff1+cff2;
@@ -658,10 +643,7 @@ if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
                   //              FC(i,0,-1)=0.0;
                 }
               }
-	      if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-		    amrex::Print()<<i<<","<<j<<","<<k<<": "<<FC(i,j,k)<<std::endl;
-	      if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-		    amrex::Print()<<i<<","<<j<<","<<k<<": "<<FC(i,j,k-1)<<std::endl;
+
               if(k-1>=0)
                   cff=FC(i,j,k)-FC(i,j,k-1);
               else
@@ -743,25 +725,22 @@ if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
                 else
                   cff=0.25*dt*23.0/12.0;
                 DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
-		if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-		    amrex::Print()<<i<<","<<j<<","<<k<<": "<<u(i,j,k)<<std::endl;
+
                 u(i,j,k)=u(i,j,k)+
                          DC(i,j,k)*ru(i,j,k,nrhs);
-if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-    amrex::Print()<<i<<","<<j<<","<<k<<": "<<DC(i,j,k)<<"\t"<<ru(i,j,k,nrhs)<<"\t"<<u(i,j,k)<<std::endl;
+
                 v(i,j,k)=v(i,j,k)+
                          DC(i,j,k)*rv(i,j,k,nrhs);
 
                 //ifdef SPLINES_VVISC is true
                 u(i,j,k)=u(i,j,k)*oHz(i,j,k);
-if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
-		    amrex::Print()<<i<<","<<j<<","<<k<<": "<<u(i,j,k)<<std::endl;
+
                 v(i,j,k)=v(i,j,k)*oHz(i,j,k);
 
             });
         // End previous
     }
-    print_state(mf_u,test_point);
+
     MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     xvel_new.FillBoundary();
     MultiFab::Copy(yvel_new,mf_v,0,0,yvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
@@ -769,5 +748,5 @@ if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
     //    MultiFab::Copy(zvel_new,mf_w,0,0,zvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     //    zvel_new.FillBoundary();
     //    MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
-print_state(mf_u,test_point);
+
 }
