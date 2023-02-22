@@ -739,6 +739,106 @@ void ROMSX::romsx_advance(int level,
 
             });
         // End previous
+       // Begin vertical viscosity term
+       //should be gbx1, but need to fix some bounds inside this loop:
+       amrex::ParallelFor(gbx1, ncomp,
+       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+                //
+               //  Use conservative, parabolic spline reconstruction of vertical
+                //  viscosity derivatives.  Then, time step vertical viscosity term
+                //  implicitly by solving a tridiagonal system.
+                //
+                //  implicitly by solving a tridiagonal system.
+                //
+               Real cff;
+               Real cff1=1.0/6.0;
+
+	       if(k>=1)
+               	   FC(i,j,k)=cff1*Hzk(i,j,k  )-dt*AK(i,j,k-1)*oHz(i,j,k  );
+	       else
+		   FC(i,j,k)=0.0;
+               if(k<=N-1)
+                {
+                    CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt*AK(i,j,k+1)*oHz(i,j,k+1);
+                }
+             if(i==3-1&&j==3-1&&k==3-1)
+                 {
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1*Hzk(i,j,k),dt*AK(i,j,k-1)*oHz(i,j,k  ),FC(i,j,k));
+                     amrex::Print()<<"splines"<<std::endl;
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g %15.5g\n",i,j,k,n,dt,AK(i,j,k-1),oHz(i,j,k  ),FC(i,j,k));
+                     //              amrex::Abort("STOP");
+               }
+
+               //
+               //  LU decomposition and forward substitution.
+               //
+               cff1=1.0/3.0;
+               if(k==0)
+               {
+                   BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
+                       dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
+                   cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
+                   CF(i,j,k)=cff*CF(i,j,k);
+                   DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
+                                  FC(i,j,k)*0.0);
+               }
+	       if(k+1<=N&&k>=1)
+               {
+                   BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
+                       dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
+                   cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
+                   CF(i,j,k)=cff*CF(i,j,k);
+                   DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
+                                  FC(i,j,k)*DC(i,j,k-1));
+               }
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,u(i,j,k+1),u(i,j,k),DC(i,j,k));
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,FC(i,j,k),DC(i,j,k));
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,BC(i,j,k),CF(i,j,k),DC(i,j,k));
+               if(i==3-1&&j==3-1&&k==3-1)
+                  {
+              amrex::Abort("STOP");
+               }
+	    });
+       amrex::ParallelFor(gbx1, ncomp,
+       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+               //
+               //  Backward substitution.
+               //
+               DC(i,j,N)=0.0;
+	       
+               if(N-k+1<=N&&N-k>=0) //-N,1,-1 => kidx =N-k+1
+               {
+		   //		   amrex::Print()<<"index k: "<<k<<"corresponds to : "<<N-k<<"prev: "<<DC(i,j,N-k+1)<<std::endl;
+                   if(N-k+1<0||N-k+2<0)
+                       amrex::Abort("-1 here");
+                   DC(i,j,N-k)=DC(i,j,N-k)-CF(i,j,N-k)*DC(i,j,N-k+1);
+		   //amrex::Print()<<"index k: "<<k<<"corresponds to : "<<N-k<<"cur:  "<<DC(i,j,N-k)<<std::endl;
+                   //              DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1);
+               }
+	    });
+
+       amrex::ParallelFor(gbx1, ncomp,
+       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+               DC(i,j,k)=DC(i,j,k)*AK(i,j,k);
+	    });
+       amrex::ParallelFor(gbx1, ncomp,
+       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+		Real cff;
+               if(k-1>=0)
+                   cff=dt*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
+               else
+                   cff=0.0;
+	       u(i,j,k)=u(i,j,k)+cff;
+             if(i==3-1&&j==3-1&&k==3-1)
+                 {
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),cff,u(i,j,k));
+                                   amrex::Abort("STOP");
+                     }
+            });
     }
 
     MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
