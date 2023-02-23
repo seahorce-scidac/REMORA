@@ -741,7 +741,7 @@ void ROMSX::romsx_advance(int level,
         // End previous
        // Begin vertical viscosity term
        //should be gbx1, but need to fix some bounds inside this loop:
-       amrex::ParallelFor(gbx1, ncomp,
+       amrex::ParallelFor(bx, ncomp,
        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 //
@@ -757,7 +757,7 @@ void ROMSX::romsx_advance(int level,
 	       if(k>=1)
                	   FC(i,j,k)=cff1*Hzk(i,j,k  )-dt*AK(i,j,k-1)*oHz(i,j,k  );
 	       else
-		   FC(i,j,k)=0.0;
+               	   FC(i,j,k)=cff1*Hzk(i,j,k  );
                if(k<=N-1)
                 {
                     CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt*AK(i,j,k+1)*oHz(i,j,k+1);
@@ -780,7 +780,7 @@ void ROMSX::romsx_advance(int level,
                        dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
                    cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
                    CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
+                   DC(i,j,k)=cff*(uold(i,j,k+1,nnew)-uold(i,j,k,nnew)-
                                   FC(i,j,k)*0.0);
                }
 	       if(k+1<=N&&k>=1)
@@ -789,15 +789,19 @@ void ROMSX::romsx_advance(int level,
                        dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
                    cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
                    CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
+                   DC(i,j,k)=cff*(uold(i,j,k+1,nnew)-uold(i,j,k,nnew)-
                                   FC(i,j,k)*DC(i,j,k-1));
                }
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,u(i,j,k+1),u(i,j,k),DC(i,j,k));
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,FC(i,j,k),DC(i,j,k));
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,BC(i,j,k),CF(i,j,k),DC(i,j,k));
+
                if(i==3-1&&j==3-1&&k==3-1)
                   {
-              amrex::Abort("STOP");
+	       printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,Hzk(i,j,k),Hzk(i,j,k+1));
+	       printf("%d %d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,n,dt,AK(i,j,k),oHz(i,j,k),oHz(i,j,k+1));
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,uold(i,j,k+1),uold(i,j,k),DC(i,j,k));
+		     
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,FC(i,j,k),DC(i,j,k));
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,BC(i,j,k),CF(i,j,k),DC(i,j,k));
+		     //              amrex::Abort("STOP");
                }
 	    });
        amrex::ParallelFor(gbx1, ncomp,
@@ -831,12 +835,12 @@ void ROMSX::romsx_advance(int level,
                if(k-1>=0)
                    cff=dt*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
                else
-                   cff=0.0;
+                   cff=dt*oHz(i,j,k)*(DC(i,j,k));
 	       u(i,j,k)=u(i,j,k)+cff;
-             if(i==3-1&&j==3-1&&k==3-1)
+             if(i==3-1&&j==3-1&&k==1-1)
                  {
                      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),cff,u(i,j,k));
-                                   amrex::Abort("STOP");
+		     //amrex::Abort("STOP");
                      }
             });
     }
