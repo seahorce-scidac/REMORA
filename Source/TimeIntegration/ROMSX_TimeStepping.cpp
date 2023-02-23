@@ -164,6 +164,7 @@ void ROMSX::romsx_advance(int level,
     mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
     mf_v.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
     mf_w.setVal(0);
+    mf_DC.setVal(0);
     mf_w.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
     MultiFab::Copy(mf_u,xvel_new,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_v,yvel_new,0,0,yvel_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
@@ -307,20 +308,20 @@ void ROMSX::romsx_advance(int level,
                 if(k+1<=N)
                 if(i-1>=-2)
                     {
-                  Huon(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k))*u(i,j,k,nrhs)*
+                  Huon(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k,nrhs)*
                 on_u(i,j,0);
                     }
                 else
-                    Huon(i,j,k)=(Hz(i,j,k))*u(i,j,k,nrhs)*
+                    Huon(i,j,k)=(Hz(i,j,k))*uold(i,j,k,nrhs)*
                 on_u(i,j,0);
               if(k+1<=N)
                   if(j-1>=-2)
                       {
-                      Hvom(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k,nrhs)*
+                      Hvom(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k,nrhs)*
                           om_v(i,j,0);
                       }
                   else
-                      Hvom(i,j,k)=(Hz(i,j,k))*v(i,j,k,nrhs)*
+                      Hvom(i,j,k)=(Hz(i,j,k))*vold(i,j,k,nrhs)*
                           om_v(i,j,0);
                     });
         //Need to include pre_step3d.F terms
@@ -339,18 +340,11 @@ void ROMSX::romsx_advance(int level,
                 Real cff3=dt*(1.0-lambda);
                 Real cff, cff1, cff2, cff4;
 
-                if(k+1<=N&&k>=1)
-                {
-                    cff=1.0/(z_r(i,j,k  )+z_r(i-1,j,k  )-
-                             z_r(i,j,k-1)-z_r(i-1,j,k-1));
-                    FC(i,j,k)=cff3*cff*(u(i,j,k,nstp)-u(i,j,k-1,nstp))*
-                        (Akv(i,j,k-1)+Akv(i-1,j,k));
-                }
-                else if(k==0)
+                if(k<=N&&k>=0)
                 {
                     cff=1.0/(z_r(i,j,k+1)+z_r(i-1,j,k+1)-
                              z_r(i,j,k  )-z_r(i-1,j,k  ));
-                    FC(i,j,k)=cff3*cff*(u(i,j,k+1,nstp)-u(i,j,k,nstp))*
+                    FC(i,j,k)=cff3*cff*(uold(i,j,k,nstp)-uold(i,j,k-1,nstp))*
                         (Akv(i,j,k)+Akv(i-1,j,k));
                 }
                 else
@@ -374,178 +368,24 @@ void ROMSX::romsx_advance(int level,
                     //Hz still might need adjusting
                     if(k+1<=N&&k>=1)
                     {
-                        cff1=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                        cff1=uold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
                         cff2=FC(i,j,k)-FC(i,j,k-1);
                         u(i,j,k,nnew)=cff1+cff2;
                     }
                     else if(k==0)
                     {
-                        cff1=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                        cff1=uold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
                         cff2=FC(i,j,k);//-bustr(i,j,0);
                         u(i,j,k,nnew)=cff1+cff2;
                     }
                     else if(k==N)
                     {
-                        cff1=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                        cff1=uold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
                         cff2=-FC(i,j,k);//+sustr(i,j,0);
                         u(i,j,k,nnew)=cff1+cff2;
                     }
-                }
-                else if(iic==ntfirst+1)
-                {
-                    if(k+1<=N&&k>=1) {
-                        cff1=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));                     
-                        cff2=FC(i,j,k)-FC(i,j,k-1);
-                    }
-                    else if(k==0) {
-                        cff1=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                        cff2=FC(i,j,k);//-bustr(i,j,0);
-                    }
-                    else if(k==N) {
-                        cff1=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                        cff2=-FC(i,j,k);//+sustr(i,j,0);
-                    }
-                    cff3=0.5*DC(i,j,k);
-                    Real r_swap= ru(i,j,k,indx);
-                    indx=nrhs ? 0 : 1;
-                    ru(i,j,k,indx) = ru(i,j,k,nrhs);
-                    ru(i,j,k,nrhs) = r_swap;
-                    u(i,j,k,nnew)=cff1-
-                                  cff3*ru(i,j,k,indx)+
-                                  cff2;
-                }
-                else
-                {
-                    cff1= 5.0/12.0;
-                    cff2=16.0/12.0;
-                    if(k+1<=N&&k>=1) {
-                        cff3=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                        cff4=FC(i,j,k)-FC(i,j,k-1);
-                    }
-                    else if(k==0) {
-                        cff3=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                        cff4=FC(i,j,k);//-bustr(i,j,0);
-                    }
-                    else if(k==N) {
-                        cff3=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                        cff4=-FC(i,j,k);//+sustr(i,j,0);
-                    }
-                    Real r_swap= ru(i,j,k,indx);
-                    indx=nrhs ? 0 : 1;
-                    ru(i,j,k,indx) = ru(i,j,k,nrhs);
-                    ru(i,j,k,nrhs) = r_swap;
-                    u(i,j,k,nnew)=cff3+
-                        DC(i,j,k)*(cff1*ru(i,j,k,indx)+
-                                   cff2*ru(i,j,k,nrhs))+
-                        cff4;
-		  }
-            });
-
-        lambda = 1.0;
-        amrex::ParallelFor(bx, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                Real cff3=dt*(1.0-lambda);
-                Real cff, cff1, cff2;
-
-                if(k+1<=N&&k>=1)
-                {
-                    cff=1.0/(z_r(i,j,k  )+z_r(i,j-1,k  )-
-                             z_r(i,j,k-1)-z_r(i,j-1,k-1));
-                    FC(i,j,k)=cff3*cff*(v(i,j,k,nstp)-v(i,j,k-1,nstp))*
-                        (Akv(i,j,k-1)+Akv(i,j-1,k-1));
-                }
-                else if(k==0)
-                {
-                    cff=1.0/(z_r(i,j,k+1)+z_r(i,j-1,k+1)-
-                             z_r(i,j,k  )-z_r(i,j-1,k  ));
-                    FC(i,j,k)=cff3*cff*(v(i,j,k+1,nstp)-v(i,j,k,nstp))*
-                        (Akv(i,j,k)+Akv(i,j-1,k));
-                }
-                else
-                {
-                    //              FC(i,j,-1)=0.0;//dt*bustr(i,j,0);
-                    //              FC(i,j,N)=0.0;//dt*sustr(i,j,0);
-                }
-                cff=dt*.25;
-                DC(i,j,k)=cff*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
-            }); 
-        amrex::ParallelFor(bx, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                Real cff3=dt*(1.0-lambda);
-                Real cff, cff1, cff2, cff4;
-
-                int indx=0; //nrhs-3
-                if(iic==ntfirst)
-                {
-                    //Hz still might need adjusting
-                    if(k+1<=N&&k>=1)
-                    {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                        cff2=FC(i,j,k)-FC(i,j,k-1);
-                        v(i,j,k,nnew)=cff1+cff2;
-                    }
-                    else if(k==0)
-                    {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                        cff2=FC(i,j,k);//-bustr(i,j,0);
-                        v(i,j,k,nnew)=cff1+cff2;
-                    }
-                    else if(k==N)
-                    {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                        cff2=-FC(i,j,k);//+sustr(i,j,0);
-                        v(i,j,k,nnew)=cff1+cff2;
-                    }
-                }
-                else if(iic==ntfirst+1)
-                {
-                    if(k+1<=N&&k>=1) {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));                     
-                        cff2=FC(i,j,k)-FC(i,j,k-1);
-                    }
-                    else if(k==0) {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                        cff2=FC(i,j,k);//-bustr(i,j,0);
-                    }
-                    else if(k==N) {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                        cff2=-FC(i,j,k);//+sustr(i,j,0);
-                    }
-                    cff3=0.5*DC(i,j,k);
-                    Real r_swap= rv(i,j,k,indx);
-                    indx=nrhs ? 0 : 1;
-                    rv(i,j,k,indx) = rv(i,j,k,nrhs);
-                    rv(i,j,k,nrhs) = r_swap;
-                    v(i,j,k,nnew)=cff1-
-                                  cff3*rv(i,j,k,indx)+
-                                  cff2;
-                }
-                else
-                {
-                    cff1= 5.0/12.0;
-                    cff2=16.0/12.0;
-                    if(k+1<=N&&k>=1) {
-                        cff3=v(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));
-                        cff4=FC(i,j,k)-FC(i,j,k-1);
-                    }
-                    else if(k==0) {
-                        cff3=v(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));
-                        cff4=FC(i,j,k);//-bustr(i,j,0);
-                    }
-                    else if(k==N) {
-                        cff3=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                        cff4=-FC(i,j,k);//+sustr(i,j,0);
-                    }
-                    Real r_swap= ru(i,j,k,indx);
-                    indx=nrhs ? 0 : 1;
-                    rv(i,j,k,indx) = rv(i,j,k,nrhs);
-                    rv(i,j,k,nrhs) = r_swap;
-                    v(i,j,k,nnew)=cff3+
-                        DC(i,j,k)*(cff1*rv(i,j,k,indx)+
-                                   cff2*rv(i,j,k,nrhs))+
-                        cff4;
+		    if(u(i,j,k,nnew)!=u(i,j,k,nnew))
+			amrex::Print()<<i<<j<<k<<"\t"<<cff1<<"\t"<<cff2<<"\t"<<u(i,j,k,nnew)<<std::endl;
                 }
             });
 #endif  
@@ -786,7 +626,7 @@ void ROMSX::romsx_advance(int level,
         // End previous
        // Begin vertical viscosity term
        //should be gbx1, but need to fix some bounds inside this loop:
-       amrex::ParallelFor(bx, ncomp,
+       amrex::ParallelFor(gbx1, ncomp,
        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 //
@@ -846,7 +686,6 @@ void ROMSX::romsx_advance(int level,
 		     
                      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,FC(i,j,k),DC(i,j,k));
                      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,BC(i,j,k),CF(i,j,k),DC(i,j,k));
-		     //              amrex::Abort("STOP");
                }
 	    });
        amrex::ParallelFor(gbx1, ncomp,

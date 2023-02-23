@@ -590,9 +590,9 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 
     hOfTheConfusingName[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     Zt_avg1[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
-    s_r[lev].reset(new MultiFab(ba1d,dm,1,IntVect(0,0,0)));
+    s_r[lev].reset(new MultiFab(ba1d,dm,1,IntVect(2,2,2)));
     z_w[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,2)));
-    z_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    z_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,2)));
     y_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
     x_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
     Hz[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,2)));

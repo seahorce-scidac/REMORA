@@ -52,7 +52,7 @@ void ROMSX::set_vmix (int lev)
       Array4<Real> const& Akv_arr = (mf_Akv)->array(mfi);
       Array4<Real> const& z_w_arr = (mf_z_w)->array(mfi);
       Box bx = mfi.tilebox();
-      bx.grow(IntVect(1,1,0));
+      bx.grow(IntVect(2,2,0));
       const auto & geomdata = Geom(lev).data();
       int ncomp = 1;
 
@@ -119,7 +119,7 @@ ROMSX::set_depth (int lev)
           z_w_arr(i,j,k) = -h_arr(i,j,0);
       });
       // ROMS Transform 2
-      amrex::LoopConcurrentOnCpu(gbx2, ncomp,
+      amrex::LoopConcurrentOnCpu(gbx21, ncomp,
       [=] (int i, int j, int k, int n)
       {
         //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
@@ -226,7 +226,7 @@ ROMSX::set_depth (int lev)
       [=] (int i, int j, int k, int n)
       {
 	  Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
-	  if(i==3-1&&j==3-1&&k==1-1) {
+	  if(i==-1&&j==3-1&&k==1-1) {
 	      printf("%15.15g %15.15g\n",Hz_arr(i,j,k),Hz_arr(i,j,k));
 	      printf("%15.15g %15.15g\n",z_w_arr(i,j,k),z_w_arr(i,j,k));
 	  }
