@@ -199,10 +199,10 @@ void ROMSX::romsx_advance(int level,
         Array4<Real> const& Akv = (mf_Akv)->array(mfi);
         Array4<Real> const& Hz = (mf_Hz)->array(mfi);
         Array4<Real> const& z_r = (mf_z_r)->array(mfi);
-        //      Array4<Real> const& uold = (xvel_old).array(mfi);
-        //      Array4<Real> const& vold = (yvel_old).array(mfi);
-        Array4<Real> const& uold = (mf_u).array(mfi);
-        Array4<Real> const& vold = (mf_v).array(mfi);
+        Array4<Real> const& uold = (xvel_old).array(mfi);
+        Array4<Real> const& vold = (yvel_old).array(mfi);
+        //Array4<Real> const& uold = (mf_u).array(mfi);
+        //Array4<Real> const& vold = (mf_v).array(mfi);
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
         Array4<Real> const& w = (mf_w).array(mfi);
@@ -327,7 +327,7 @@ void ROMSX::romsx_advance(int level,
         //  using either a Crack-Nicolson implicit scheme (lambda=0.5) or a
         //  backward implicit scheme (lambda=1.0).
         //
-#if 0
+#if 1
         //  Except the commented out part means its always 1.0
         Real lambda = 1.0;
         amrex::ParallelFor(gbx1, ncomp,
@@ -371,7 +371,7 @@ void ROMSX::romsx_advance(int level,
                     //Hz still might need adjusting
                     if(k+1<=N&&k>=1)
                     {
-                        cff1=u(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));
+                        cff1=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
                         cff2=FC(i,j,k)-FC(i,j,k-1);
                         u(i,j,k,nnew)=cff1+cff2;
                     }
@@ -391,11 +391,11 @@ void ROMSX::romsx_advance(int level,
                 else if(iic==ntfirst+1)
                 {
                     if(k+1<=N&&k>=1) {
-                        cff1=u(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));                     
+                        cff1=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));                     
                         cff2=FC(i,j,k)-FC(i,j,k-1);
                     }
                     else if(k==0) {
-                        cff1=u(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));
+                        cff1=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
                         cff2=FC(i,j,k);//-bustr(i,j,0);
                     }
                     else if(k==N) {
@@ -426,17 +426,17 @@ void ROMSX::romsx_advance(int level,
 
                 if(k+1<=N&&k>=1)
                 {
-                    cff=1.0/(z_r(i,j,k+1)+z_r(i-1,j,k+1)-
-                             z_r(i,j,k  )-z_r(i-1,j,k  ));
+                    cff=1.0/(z_r(i,j,k+1)+z_r(i,j-1,k+1)-
+                             z_r(i,j,k  )-z_r(i,j-1,k  ));
                     FC(i-1,j-1,k-1)=cff3*cff*(v(i,j,k+1,nstp)-v(i,j,k,nstp))*
-                        (Akv(i,j,k)+Akv(i-1,j,k));
+                        (Akv(i,j,k)+Akv(i,j-1,k));
                 }
                 else if(k==0)
                 {
-                    cff=1.0/(z_r(i,j,k+1)+z_r(i-1,j,k+1)-
-                             z_r(i,j,k  )-z_r(i-1,j,k  ));
+                    cff=1.0/(z_r(i,j,k+1)+z_r(i,j-1,k+1)-
+                             z_r(i,j,k  )-z_r(i,j-1,k  ));
                     FC(i,j,k)=cff3*cff*(v(i,j,k+1,nstp)-v(i,j,k,nstp))*
-                        (Akv(i,j,k)+Akv(i-1,j,k));
+                        (Akv(i,j,k)+Akv(i,j-1,k));
                 }
                 else
                 {
@@ -444,7 +444,7 @@ void ROMSX::romsx_advance(int level,
                     //              FC(i,j,N)=0.0;//dt*sustr(i,j,0);
                 }
                 cff=dt*.25;
-                DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+                DC(i,j,k)=cff*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
             }); 
         amrex::ParallelFor(bx, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -458,19 +458,19 @@ void ROMSX::romsx_advance(int level,
                     //Hz still might need adjusting
                     if(k+1<=N&&k>=1)
                     {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));
+                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                         cff2=FC(i,j,k)-FC(i,j,k-1);
                         v(i,j,k,nnew)=cff1+cff2;
                     }
                     else if(k==0)
                     {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                         cff2=FC(i,j,k);//-bustr(i,j,0);
                         v(i,j,k,nnew)=cff1+cff2;
                     }
                     else if(k==N)
                     {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                         cff2=-FC(i,j,k);//+sustr(i,j,0);
                         v(i,j,k,nnew)=cff1+cff2;
                     }
@@ -478,15 +478,15 @@ void ROMSX::romsx_advance(int level,
                 else if(iic==ntfirst+1)
                 {
                     if(k+1<=N&&k>=1) {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));                     
+                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));                     
                         cff2=FC(i,j,k)-FC(i,j,k-1);
                     }
                     else if(k==0) {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));
+                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                         cff2=FC(i,j,k);//-bustr(i,j,0);
                     }
                     else if(k==N) {
-                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                        cff1=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                         cff2=-FC(i,j,k);//+sustr(i,j,0);
                     }
                     cff3=0.5*DC(i,j,k);
