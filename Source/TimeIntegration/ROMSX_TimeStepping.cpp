@@ -190,6 +190,9 @@ void ROMSX::romsx_advance(int level,
     const Real Gadv = -0.25;
     auto N = Geom(level).Domain().size()[2]-1; // Number of vertical "levels" aka, NZ
 
+    const auto test_point=IntVect(AMREX_D_DECL(42-1,1-1,4-1));
+    print_state(xvel_new,test_point);
+
     const auto dxi              = Geom(level).InvCellSizeArray();
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -334,14 +337,14 @@ void ROMSX::romsx_advance(int level,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 Real cff3=dt*(1.0-lambda);
-                Real cff, cff1, cff2;
+                Real cff, cff1, cff2, cff4;
 
                 if(k+1<=N&&k>=1)
                 {
-                    cff=1.0/(z_r(i,j,k+1)+z_r(i-1,j,k+1)-
-                             z_r(i,j,k  )-z_r(i-1,j,k  ));
-                    FC(i-1,j-1,k-1)=cff3*cff*(u(i,j,k+1,nstp)-u(i,j,k,nstp))*
-                        (Akv(i,j,k)+Akv(i-1,j,k));
+                    cff=1.0/(z_r(i,j,k  )+z_r(i-1,j,k  )-
+                             z_r(i,j,k-1)-z_r(i-1,j,k-1));
+                    FC(i,j,k)=cff3*cff*(u(i,j,k,nstp)-u(i,j,k-1,nstp))*
+                        (Akv(i,j,k-1)+Akv(i-1,j,k));
                 }
                 else if(k==0)
                 {
@@ -358,11 +361,11 @@ void ROMSX::romsx_advance(int level,
                 cff=dt*.25;
                 DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
             });
-        amrex::ParallelFor(bx, ncomp,
+        amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 Real cff3=dt*(1.0-lambda);
-                Real cff, cff1, cff2;
+                Real cff, cff1, cff2, cff4;
 
                 int indx=0; //nrhs-3
 
@@ -413,8 +416,29 @@ void ROMSX::romsx_advance(int level,
                 }
                 else
                 {
-                  cff=0.25*dt*23.0/12.0;
-                }
+                    cff1= 5.0/12.0;
+                    cff2=16.0/12.0;
+                    if(k+1<=N&&k>=1) {
+                        cff3=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                        cff4=FC(i,j,k)-FC(i,j,k-1);
+                    }
+                    else if(k==0) {
+                        cff3=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                        cff4=FC(i,j,k);//-bustr(i,j,0);
+                    }
+                    else if(k==N) {
+                        cff3=u(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                        cff4=-FC(i,j,k);//+sustr(i,j,0);
+                    }
+                    Real r_swap= ru(i,j,k,indx);
+                    indx=nrhs ? 0 : 1;
+                    ru(i,j,k,indx) = ru(i,j,k,nrhs);
+                    ru(i,j,k,nrhs) = r_swap;
+                    u(i,j,k,nnew)=cff3+
+                        DC(i,j,k)*(cff1*ru(i,j,k,indx)+
+                                   cff2*ru(i,j,k,nrhs))+
+                        cff4;
+		  }
             });
 
         lambda = 1.0;
@@ -426,10 +450,10 @@ void ROMSX::romsx_advance(int level,
 
                 if(k+1<=N&&k>=1)
                 {
-                    cff=1.0/(z_r(i,j,k+1)+z_r(i,j-1,k+1)-
-                             z_r(i,j,k  )-z_r(i,j-1,k  ));
-                    FC(i-1,j-1,k-1)=cff3*cff*(v(i,j,k+1,nstp)-v(i,j,k,nstp))*
-                        (Akv(i,j,k)+Akv(i,j-1,k));
+                    cff=1.0/(z_r(i,j,k  )+z_r(i,j-1,k  )-
+                             z_r(i,j,k-1)-z_r(i,j-1,k-1));
+                    FC(i,j,k)=cff3*cff*(v(i,j,k,nstp)-v(i,j,k-1,nstp))*
+                        (Akv(i,j,k-1)+Akv(i,j-1,k-1));
                 }
                 else if(k==0)
                 {
@@ -450,7 +474,7 @@ void ROMSX::romsx_advance(int level,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 Real cff3=dt*(1.0-lambda);
-                Real cff, cff1, cff2;
+                Real cff, cff1, cff2, cff4;
 
                 int indx=0; //nrhs-3
                 if(iic==ntfirst)
@@ -500,7 +524,28 @@ void ROMSX::romsx_advance(int level,
                 }
                 else
                 {
-                  cff=0.25*dt*23.0/12.0;
+                    cff1= 5.0/12.0;
+                    cff2=16.0/12.0;
+                    if(k+1<=N&&k>=1) {
+                        cff3=v(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));
+                        cff4=FC(i,j,k)-FC(i,j,k-1);
+                    }
+                    else if(k==0) {
+                        cff3=v(i,j,k,nstp)*0.5*(Hz(i+1,j+1,k+1)+Hz(i-1+1,j+1,k+1));
+                        cff4=FC(i,j,k);//-bustr(i,j,0);
+                    }
+                    else if(k==N) {
+                        cff3=v(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                        cff4=-FC(i,j,k);//+sustr(i,j,0);
+                    }
+                    Real r_swap= ru(i,j,k,indx);
+                    indx=nrhs ? 0 : 1;
+                    rv(i,j,k,indx) = rv(i,j,k,nrhs);
+                    rv(i,j,k,nrhs) = r_swap;
+                    v(i,j,k,nnew)=cff3+
+                        DC(i,j,k)*(cff1*rv(i,j,k,indx)+
+                                   cff2*rv(i,j,k,nrhs))+
+                        cff4;
                 }
             });
 #endif  
@@ -844,11 +889,13 @@ void ROMSX::romsx_advance(int level,
                      }
             });
     }
-
+    print_state(xvel_new,test_point);
     MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     xvel_new.FillBoundary();
+    print_state(xvel_new,test_point);
     MultiFab::Copy(yvel_new,mf_v,0,0,yvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     yvel_new.FillBoundary();
+    print_state(xvel_new,test_point);
     //    MultiFab::Copy(zvel_new,mf_w,0,0,zvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     //    zvel_new.FillBoundary();
     //    MultiFab::Copy(mf_W,cons_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
