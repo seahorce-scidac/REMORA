@@ -141,7 +141,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             MultiFab dmf(mf[lev], make_alias, mf_comp, AMREX_SPACEDIM);
             for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
             {
-                const Box& bx = mfi.validbox();
+                const Box& bx = mfi.growntilebox();
                 const Array4<Real> vel_arr = dmf.array(mfi);
 		const Array4<const Real> velx_arr = vars_new[lev][Vars::xvel].array(mfi);
 		const Array4<const Real> vely_arr = vars_new[lev][Vars::yvel].array(mfi);
