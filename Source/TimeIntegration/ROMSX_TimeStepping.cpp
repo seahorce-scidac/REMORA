@@ -384,6 +384,11 @@ void ROMSX::romsx_advance(int level,
                         cff2=-FC(i,j,k);//+sustr(i,j,0);
                         u(i,j,k,nnew)=cff1+cff2;
                     }
+		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<u(i,j,k,nnew)<<std::endl;
+			    //amrex::Abort("word");
+			}
                 }
                 else if(iic==ntfirst+1)
                 {
@@ -407,6 +412,11 @@ void ROMSX::romsx_advance(int level,
                     u(i,j,k,nnew)=cff1-
                                   cff3*ru(i,j,k,indx)+
                                   cff2;
+		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<u(i,j,k,nnew)<<std::endl;
+			    //	amrex::Abort("word");
+			}
                 }
                 else
                 {
@@ -432,6 +442,11 @@ void ROMSX::romsx_advance(int level,
                         DC(i,j,k)*(cff1*ru(i,j,k,indx)+
                                    cff2*ru(i,j,k,nrhs))+
                         cff4;
+		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<u(i,j,k,nnew)<<std::endl;
+			    //	amrex::Abort("word");
+			}
 		  }
             });
 	lambda = 1.0;
@@ -760,17 +775,26 @@ void ROMSX::romsx_advance(int level,
 
                 u(i,j,k)=u(i,j,k)+
                          DC(i,j,k)*ru(i,j,k,nrhs);
-
+		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<u(i,j,k,nnew)<<std::endl;
+			    //amrex::Abort("word");
+			}
                 v(i,j,k)=v(i,j,k)+
                          DC(i,j,k)*rv(i,j,k,nrhs);
 
                 //ifdef SPLINES_VVISC is true
                 u(i,j,k)=u(i,j,k)*oHz(i,j,k);
-
+		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<u(i,j,k,nnew)<<std::endl;
+			    //amrex::Abort("word");
+			}
                 v(i,j,k)=v(i,j,k)*oHz(i,j,k);
 
             });
         // End previous
+	#if 1
        // Begin vertical viscosity term
        //should be gbx1, but need to fix some bounds inside this loop:
        amrex::ParallelFor(gbx1, ncomp,
@@ -794,7 +818,7 @@ void ROMSX::romsx_advance(int level,
                 {
                     CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt*AK(i,j,k+1)*oHz(i,j,k+1);
                 }
-             if(i==3-1&&j==3-1&&k==3-1)
+             if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
                  {
                      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1*Hzk(i,j,k),dt*AK(i,j,k-1)*oHz(i,j,k  ),FC(i,j,k));
                      amrex::Print()<<"splines"<<std::endl;
@@ -825,7 +849,7 @@ void ROMSX::romsx_advance(int level,
                                   FC(i,j,k)*DC(i,j,k-1));
                }
 
-               if(i==3-1&&j==3-1&&k==3-1)
+               if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
                   {
 	       printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,Hzk(i,j,k),Hzk(i,j,k+1));
 	       printf("%d %d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,n,dt,AK(i,j,k),oHz(i,j,k),oHz(i,j,k+1));
@@ -868,12 +892,18 @@ void ROMSX::romsx_advance(int level,
                else
                    cff=dt*oHz(i,j,k)*(DC(i,j,k));
 	       u(i,j,k)=u(i,j,k)+cff;
+	       		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<u(i,j,k,nnew)<<std::endl;
+			    //		amrex::Abort("backword");
+			}
              if(i==3-1&&j==3-1&&k==1-1)
                  {
                      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,DC(i,j,k),cff,u(i,j,k));
 		     //amrex::Abort("STOP");
                      }
             });
+#endif
     }
     print_state(xvel_new,test_point);
     MultiFab::Copy(xvel_new,mf_u,0,0,xvel_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));

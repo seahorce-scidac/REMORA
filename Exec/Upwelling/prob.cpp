@@ -106,7 +106,7 @@ init_custom_prob(
 	x_vel(i, j, k) = parms.u_0 + parms.uRef *
 	                 std::log((z + parms.z0)/parms.z0)/
                          std::log((parms.zRef +parms.z0)/parms.z0);
-	x_vel(i, j, k) = 1.0 / x;
+	//x_vel(i, j, k) = 1.0 / x;
   });
 
   // Construct a box that is on y-faces
@@ -121,7 +121,7 @@ init_custom_prob(
         const Real x = prob_lo[0] + (i + 0.5) * dx[0];
         const Real y = prob_lo[1] + (j + 0.5) * dx[1];
         y_vel(i, j, k) = parms.v_0;
-        y_vel(i, j, k) = 1.0 / y;
+        //y_vel(i, j, k) = 1.0 / y;
   });
 
   // Construct a box that is on z-faces
