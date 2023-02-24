@@ -192,7 +192,7 @@ ROMSX::set_depth (int lev)
           else
             Cs_r=Csur;
         }
-	if(i==0&&j==0&&k!=-1)
+	if(i==0&&j==0&&k<N&&k>=0)
 	s_r_arr(0,0,k) = sc_r;
         cff_r=hc*sc_r;
         cff1_r=Cs_r;
