@@ -576,7 +576,7 @@ void ROMSX::romsx_advance(int level,
 			{
 			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"vold "<<std::endl;
 			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v "<<std::endl;
-			    //	amrex::Abort("word");
+			      amrex::Abort("word");
 			}
                 }
                 else
@@ -605,8 +605,9 @@ void ROMSX::romsx_advance(int level,
                         cff4;
 		    		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
 			{
-			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v"<<std::endl;
-			    //	amrex::Abort("word");
+			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"vold "<<std::endl;
+			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v "<<std::endl;
+			    	amrex::Abort("word");
 			}
 		}
             });
@@ -1083,7 +1084,7 @@ void ROMSX::romsx_advance(int level,
                        dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
                    cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
                    CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(vold(i,j,k+1,nnew)-vold(i,j,k,nnew)-
+                   DC(i,j,k)=cff*(v(i,j,k+1,nnew)-v(i,j,k,nnew)-
                                   FC(i,j,k)*0.0);
                }
 	       if(k+1<=N&&k>=1)
@@ -1092,18 +1093,19 @@ void ROMSX::romsx_advance(int level,
                        dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
                    cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
                    CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(vold(i,j,k+1,nnew)-vold(i,j,k,nnew)-
+                   DC(i,j,k)=cff*(v(i,j,k+1,nnew)-v(i,j,k,nnew)-
                                   FC(i,j,k)*DC(i,j,k-1));
                }
 
                if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
                   {
-	       printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,Hzk(i,j,k),Hzk(i,j,k+1));
+		      
+		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,Hzk(i,j,k),Hzk(i,j,k+1));
 	       printf("%d %d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,n,dt,AK(i,j,k),oHz(i,j,k),oHz(i,j,k+1));
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,uold(i,j,k+1),uold(i,j,k),DC(i,j,k));
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,vold(i,j,k+1),vold(i,j,k),DC(i,j,k));
 		     
                      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,FC(i,j,k),DC(i,j,k));
-                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,BC(i,j,k),CF(i,j,k),DC(i,j,k));
+                     printf("%d %d %d %d %15.15g %15.15g DC: %15.15g\n",i,j,k,n,BC(i,j,k),CF(i,j,k),DC(i,j,k));
                }
 	    });
        amrex::ParallelFor(gbx1, ncomp,
@@ -1120,7 +1122,17 @@ void ROMSX::romsx_advance(int level,
                    if(N-k+1<0||N-k+2<0)
                        amrex::Abort("-1 here");
                    DC(i,j,N-k)=DC(i,j,N-k)-CF(i,j,N-k)*DC(i,j,N-k+1);
-		   //amrex::Print()<<"index k: "<<k<<"corresponds to : "<<N-k<<"cur:  "<<DC(i,j,N-k)<<std::endl;
+               if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+                  {
+		      /*
+		  printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,Hzk(i,j,k),Hzk(i,j,k+1));
+	       printf("%d %d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,n,dt,AK(i,j,k),oHz(i,j,k),oHz(i,j,k+1));
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,uold(i,j,k+1),uold(i,j,k),DC(i,j,k));
+		     
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,FC(i,j,k),DC(i,j,k));*/
+                     printf("%d %d %d %d %15.15g %15.15g DC: %15.15g\n",i,j,k,n,BC(i,j,k),CF(i,j,k),DC(i,j,k));
+               }
+//amrex::Print()<<"index k: "<<k<<"corresponds to : "<<N-k<<"cur:  "<<DC(i,j,N-k)<<std::endl;
                    //              DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1);
                }
 	    });
@@ -1141,8 +1153,11 @@ void ROMSX::romsx_advance(int level,
 	       v(i,j,k)=v(i,j,k)+cff;
 	       		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
 			{
-			    amrex::Print()<<test_point<<u(i,j,k,nnew)<<std::endl;
-			    //		amrex::Abort("backword");
+			    printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,v(i,j,k),cff,dt);
+			    printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,oHz(i,j,k),DC(i,j,k),DC(i,j,k-1));
+	       printf("%d %d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,n,dt,AK(i,j,k),oHz(i,j,k),oHz(i,j,k+1));
+			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<std::endl;
+			    //			    amrex::Abort("backword");
 			}
              if(i==3-1&&j==3-1&&k==1-1)
                  {
