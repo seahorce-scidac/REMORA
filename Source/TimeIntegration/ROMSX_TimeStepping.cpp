@@ -217,7 +217,7 @@ void ROMSX::romsx_advance(int level,
     const Real Gadv = -0.25;
     auto N = Geom(level).Domain().size()[2]-1; // Number of vertical "levels" aka, NZ
 
-    const auto test_point=IntVect(AMREX_D_DECL(1-1,1-1,4-1));
+    const auto test_point=IntVect(AMREX_D_DECL(1-1,2-1,4-1));
     print_state(xvel_new,test_point);
 
     const auto dxi              = Geom(level).InvCellSizeArray();
@@ -544,6 +544,11 @@ void ROMSX::romsx_advance(int level,
                         cff2=-FC(i,j,k);//+sustr(i,j,0);
                         v(i,j,k,nnew)=cff1+cff2;
                     }
+		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v"<<std::endl;
+			    //	amrex::Abort("word");
+			}
                 }
                 else if(iic==ntfirst+1)
                 {
@@ -567,6 +572,12 @@ void ROMSX::romsx_advance(int level,
                     v(i,j,k,nnew)=cff1-
                                   cff3*rv(i,j,k,indx)+
                                   cff2;
+		    		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"vold "<<std::endl;
+			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v "<<std::endl;
+			    //	amrex::Abort("word");
+			}
                 }
                 else
                 {
@@ -584,7 +595,7 @@ void ROMSX::romsx_advance(int level,
                         cff3=vold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                         cff4=-FC(i,j,k);//+sustr(i,j,0);
                     }
-                    Real r_swap= ru(i,j,k,indx);
+                    Real r_swap= rv(i,j,k,indx);
                     indx=nrhs ? 0 : 1;
                     rv(i,j,k,indx) = rv(i,j,k,nrhs);
                     rv(i,j,k,nrhs) = r_swap;
@@ -592,7 +603,12 @@ void ROMSX::romsx_advance(int level,
                         DC(i,j,k)*(cff1*rv(i,j,k,indx)+
                                    cff2*rv(i,j,k,nrhs))+
                         cff4;
-		  }
+		    		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v"<<std::endl;
+			    //	amrex::Abort("word");
+			}
+		}
             });
 #endif  
 #ifdef UV_COR
@@ -609,17 +625,37 @@ void ROMSX::romsx_advance(int level,
 				vold(i,j+1,k,nrhs));
 		VFe(i,j,k)=cff*(uold(i  ,j,k,nrhs)+
 				uold(i+1,j,k,nrhs));
+		
 	    });
 	amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
 		Real cff1=0.5*(UFx(i,j,k)-UFx(i-1,j,k));
-              
+              		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    ///None of the vs are correct in the second step, which seems to make the u grow incorrectly
+			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"cor "<<vold(i,j+1,k,nnew)<<" "<<v(i,j,k,nrhs)<<std::endl;
+			    amrex::Print()<<test_point<<fomn(i,j,0)<<"cor "<<Hz(i,j,k)<<std::endl;
+			    amrex::Print()<<test_point<<ru(i,j,k,nnew)<<"cor "<<std::endl;
+			    //	amrex::Abort("word");
+			}
+
 		ru(i,j,k,nrhs)=ru(i,j,k,nrhs)+cff1;
 
-		cff1=0.5*(VFe(i,j,k)-VFx(i,j-1,k));
+		cff1=0.5*(VFe(i,j,k)+VFe(i,j-1,k));
 
 		rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff1;
+	      if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+		  {
+
+			    amrex::Print()<<test_point<<VFx(i+1,j,k)<<"vVFx1 "<<std::endl;
+			    amrex::Print()<<test_point<<VFx(i,j,k)<<"vVFx "<<std::endl;
+			    amrex::Print()<<test_point<<VFe(i,j,k)<<"vVFe "<<std::endl;
+			    amrex::Print()<<test_point<<VFe(i,j-1,k)<<"vVFe1  "<<std::endl;
+			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
+			    //   amrex::Abort("rv");
+			}		
+
             });
 #endif
         //Need to include pre_step3d.F terms
@@ -717,9 +753,27 @@ void ROMSX::romsx_advance(int level,
               cff1=VFx(i+1,j,k)-VFx(i,j,k);
               cff2=VFe(i,j,k)-VFe(i,j-1,k);
               cff=cff1+cff2;
+	      if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+		  {
 
+			    amrex::Print()<<test_point<<VFx(i+1,j,k)<<"vVFx1 "<<std::endl;
+			    amrex::Print()<<test_point<<VFx(i,j,k)<<"vVFx "<<std::endl;
+			    amrex::Print()<<test_point<<VFe(i,j,k)<<"vVFe "<<std::endl;
+			    amrex::Print()<<test_point<<VFe(i,j-1,k)<<"vVFe1  "<<std::endl;
+			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
+			    //amrex::Abort("rv");
+			}
               rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
+	      if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+		  {
 
+			    amrex::Print()<<test_point<<VFx(i+1,j,k)<<"vVFx1 "<<std::endl;
+			    amrex::Print()<<test_point<<VFx(i,j,k)<<"vVFx "<<std::endl;
+			    amrex::Print()<<test_point<<VFe(i,j,k)<<"vVFe "<<std::endl;
+			    amrex::Print()<<test_point<<VFe(i,j-1,k)<<"vVFe1  "<<std::endl;
+			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
+			    //amrex::Abort("rv");
+			}
               //-----------------------------------------------------------------------
               //  Add in vertical advection.
               //-----------------------------------------------------------------------
@@ -852,7 +906,14 @@ void ROMSX::romsx_advance(int level,
 			}
                 v(i,j,k)=v(i,j,k)+
                          DC(i,j,k)*rv(i,j,k,nrhs);
-
+		    		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<DC(i,j,k)<<"vDC "<<std::endl;
+			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
+			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"vold "<<std::endl;
+			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v "<<std::endl;
+			    //	amrex::Abort("word");
+			}
                 //ifdef SPLINES_VVISC is true
                 u(i,j,k)=u(i,j,k)*oHz(i,j,k);
 		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
@@ -861,7 +922,13 @@ void ROMSX::romsx_advance(int level,
 			    //amrex::Abort("word");
 			}
                 v(i,j,k)=v(i,j,k)*oHz(i,j,k);
-
+		    		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    amrex::Print()<<test_point<<oHz(i,j,k)<<"oHz "<<std::endl;
+			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"vold "<<std::endl;
+			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v "<<std::endl;
+			    //	amrex::Abort("word");
+			}
             });
         // End previous
 	#if 1
