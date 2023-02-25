@@ -449,8 +449,8 @@ void ROMSX::romsx_advance(int level,
                         cff2=-FC(i,j,k);//+sustr(i,j,0);
                     }
                     cff3=0.5*DC(i,j,k);
-                    Real r_swap= ru(i,j,k,indx);
                     indx=nrhs ? 0 : 1;
+                    Real r_swap= ru(i,j,k,indx);
                     ru(i,j,k,indx) = ru(i,j,k,nrhs);
                     ru(i,j,k,nrhs) = r_swap;
                     u(i,j,k,nnew)=cff1-
@@ -478,8 +478,8 @@ void ROMSX::romsx_advance(int level,
                         cff3=uold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
                         cff4=-FC(i,j,k);//+sustr(i,j,0);
                     }
-                    Real r_swap= ru(i,j,k,indx);
                     indx=nrhs ? 0 : 1;
+                    Real r_swap= ru(i,j,k,indx);
                     ru(i,j,k,indx) = ru(i,j,k,nrhs);
                     ru(i,j,k,nrhs) = r_swap;
                     u(i,j,k,nnew)=cff3+
@@ -565,8 +565,8 @@ void ROMSX::romsx_advance(int level,
                         cff2=-FC(i,j,k);//+sustr(i,j,0);
                     }
                     cff3=0.5*DC(i,j,k);
-                    Real r_swap= rv(i,j,k,indx);
                     indx=nrhs ? 0 : 1;
+                    Real r_swap= rv(i,j,k,indx);
                     rv(i,j,k,indx) = rv(i,j,k,nrhs);
                     rv(i,j,k,nrhs) = r_swap;
                     v(i,j,k,nnew)=cff1-
@@ -576,7 +576,9 @@ void ROMSX::romsx_advance(int level,
 			{
 			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"vold "<<std::endl;
 			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v "<<std::endl;
-			      amrex::Abort("word");
+			    amrex::Print()<<test_point<<rv(i,j,k,indx)<<"rvindx "<<std::endl;
+			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
+			    //  amrex::Abort("word");
 			}
                 }
                 else
@@ -595,8 +597,8 @@ void ROMSX::romsx_advance(int level,
                         cff3=vold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                         cff4=-FC(i,j,k);//+sustr(i,j,0);
                     }
-                    Real r_swap= rv(i,j,k,indx);
                     indx=nrhs ? 0 : 1;
+                    Real r_swap= rv(i,j,k,indx);
                     rv(i,j,k,indx) = rv(i,j,k,nrhs);
                     rv(i,j,k,nrhs) = r_swap;
                     v(i,j,k,nnew)=cff3+
@@ -607,6 +609,8 @@ void ROMSX::romsx_advance(int level,
 			{
 			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"vold "<<std::endl;
 			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v "<<std::endl;
+			    amrex::Print()<<test_point<<rv(i,j,k,indx)<<"rvindx "<<std::endl;
+			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
 			    	amrex::Abort("word");
 			}
 		}
