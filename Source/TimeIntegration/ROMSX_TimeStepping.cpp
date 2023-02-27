@@ -625,7 +625,7 @@ void ROMSX::romsx_advance(int level,
 			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v "<<std::endl;
 			    amrex::Print()<<test_point<<rv(i,j,k,indx)<<"rvindx "<<std::endl;
 			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
-			    	amrex::Abort("word");
+			    // 	amrex::Abort("word");
 			}
 		}
             });
