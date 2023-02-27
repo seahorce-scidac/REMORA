@@ -217,13 +217,13 @@ void ROMSX::romsx_advance(int level,
     const Real Gadv = -0.25;
     auto N = Geom(level).Domain().size()[2]-1; // Number of vertical "levels" aka, NZ
 
-    const auto test_point=IntVect(AMREX_D_DECL(1-1,2-1,4-1));
+    const auto test_point=IntVect(AMREX_D_DECL(1-1,1-1,4-1));
     print_state(xvel_new,test_point);
 
     const auto dxi              = Geom(level).InvCellSizeArray();
     //    const auto dx               = Geom(level).CellSizeArray();
-    const int Lm = Geom(level).Domain().size()[0]-1;
-    const int Mm = Geom(level).Domain().size()[1]-1;
+    const int Lm = Geom(level).Domain().size()[0];
+    const int Mm = Geom(level).Domain().size()[1];
     auto geomdata = Geom(level).data();
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -318,7 +318,7 @@ void ROMSX::romsx_advance(int level,
 	      //defined UPWELLING
 	      Real f0=-8.26e-5;
 	      Real beta=0.0;
-	      Real Esize=1000*(Mm+1);
+	      Real Esize=1000*(Mm);
 	      Real y = prob_lo[1] + (j + 0.5) * dx[1];
 	      Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
 	      fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
@@ -535,6 +535,8 @@ void ROMSX::romsx_advance(int level,
 
                 if(iic==ntfirst)
                 {
+		    //if(j>0&&j<Mm-1)
+		    {
                     //Hz still might need adjusting
                     if(k+1<=N&&k>=1)
                     {
@@ -553,11 +555,11 @@ void ROMSX::romsx_advance(int level,
                         cff1=vold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                         cff2=-FC(i,j,k);//+sustr(i,j,0);
                         v(i,j,k,nnew)=cff1+cff2;
-                    }
+                    } }
 		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
 			{
 			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v"<<std::endl;
-			    //	amrex::Abort("word");
+			    //			    	amrex::Abort("word");
 			}
                 }
                 else if(iic==ntfirst+1)
@@ -579,7 +581,8 @@ void ROMSX::romsx_advance(int level,
                     Real r_swap= rv(i,j,k,indx);
                     rv(i,j,k,indx) = rv(i,j,k,nrhs);
                     rv(i,j,k,nrhs) = r_swap;
-                    v(i,j,k,nnew)=cff1-
+		    //if(j>0&&j<Mm-1)
+                        v(i,j,k,nnew)=cff1-
                                   cff3*rv(i,j,k,indx)+
                                   cff2;
 		    		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
@@ -611,6 +614,7 @@ void ROMSX::romsx_advance(int level,
                     Real r_swap= rv(i,j,k,indx);
                     rv(i,j,k,indx) = rv(i,j,k,nrhs);
                     rv(i,j,k,nrhs) = r_swap;
+		    //if(j>0&&j<Mm-1)
                     v(i,j,k,nnew)=cff3+
                         DC(i,j,k)*(cff1*rv(i,j,k,indx)+
                                    cff2*rv(i,j,k,nrhs))+
@@ -771,6 +775,8 @@ void ROMSX::romsx_advance(int level,
              if(IntVect(AMREX_D_DECL(i,j-1,k))==test_point)
                  {
 		     amrex::Print()<<"VFe set"<<std::endl;
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,vold(i,j,k),vold(i,j+1,k));
+		     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,vee(i,j,k),vee(i,j+1,k));		     
                      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,Hvom(i,j,k),Hvom(i,j+1,k));
 		     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hvee(i,j,k),Hvee(i,j+1,k),VFe(i,j,k));
 		     
@@ -779,6 +785,8 @@ void ROMSX::romsx_advance(int level,
              if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
                  {
 		     amrex::Print()<<"VFe set"<<std::endl;
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff1,vold(i,j,k),vold(i,j+1,k));
+		     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,vee(i,j,k),vee(i,j+1,k));
                      printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,Hvom(i,j,k),Hvom(i,j+1,k));
 		     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hvee(i,j,k),Hvee(i,j+1,k),VFe(i,j,k));
 		     
@@ -820,8 +828,8 @@ void ROMSX::romsx_advance(int level,
 			    amrex::Print()<<test_point<<VFe(i,j-1,k)<<"vVFe1  "<<std::endl;
 			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
 			    //amrex::Abort("rv");
-			    	if(iic>=1)
-				amrex::Abort("word");
+			    //if(iic>=1)
+				    //				amrex::Abort("word");
 
 			}
               //-----------------------------------------------------------------------
@@ -951,9 +959,10 @@ void ROMSX::romsx_advance(int level,
                          DC(i,j,k)*ru(i,j,k,nrhs);
 		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
 			{
-			    amrex::Print()<<test_point<<u(i,j,k,nnew)<<std::endl;
+			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<std::endl;
 			    //amrex::Abort("word");
 			}
+		    //if(j>0&&j<Mm-1)
                 v(i,j,k)=v(i,j,k)+
                          DC(i,j,k)*rv(i,j,k,nrhs);
 		    		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
@@ -962,6 +971,7 @@ void ROMSX::romsx_advance(int level,
 			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
 			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"vold "<<std::endl;
 			    amrex::Print()<<test_point<<v(i,j,k,nnew)<<"v "<<std::endl;
+			    amrex::Print()<<"========"<<std::endl;
 			    //	amrex::Abort("word");
 			}
                 //ifdef SPLINES_VVISC is true
@@ -971,7 +981,8 @@ void ROMSX::romsx_advance(int level,
 			    amrex::Print()<<test_point<<u(i,j,k,nnew)<<std::endl;
 			    //amrex::Abort("word");
 			}
-                v(i,j,k)=v(i,j,k)*oHz(i,j,k);
+		    //if(j>0&&j<Mm-1)
+			v(i,j,k)=v(i,j,k)*oHz(i,j,k);
 		    		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
 			{
 			    amrex::Print()<<test_point<<oHz(i,j,k)<<"oHz "<<std::endl;
@@ -1199,7 +1210,8 @@ void ROMSX::romsx_advance(int level,
                    cff=dt*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
                else
                    cff=dt*oHz(i,j,k)*(DC(i,j,k));
-	       v(i,j,k)=v(i,j,k)+cff;
+	       //if(j>0&&j<Mm-1)
+		   v(i,j,k)=v(i,j,k)+cff;
 	       		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
 			{
 			    printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,v(i,j,k),cff,dt);
