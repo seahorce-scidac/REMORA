@@ -363,7 +363,17 @@ void ROMSX::romsx_advance(int level,
                       {
                       Hvom(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k,nrhs)*
                           om_v(i,j,0);
+             if(IntVect(AMREX_D_DECL(i,j-1,k))==test_point)
+                 {
+		     amrex::Print()<<"Hvom set"<<std::endl;
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hz(i,j,k),Hz(i,j-1,k),vold(i,j,k,nrhs));
                       }
+	        if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+                 {
+		     amrex::Print()<<"Hvom set"<<std::endl;
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hz(i,j,k),Hz(i,j-1,k),vold(i,j,k,nrhs));
+                      }
+		      }
                   else
                       Hvom(i,j,k)=(Hz(i,j,k))*vold(i,j,k,nrhs)*
                           om_v(i,j,0);
@@ -636,13 +646,29 @@ void ROMSX::romsx_advance(int level,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
 		Real cff1=0.5*(UFx(i,j,k)-UFx(i-1,j,k));
-              		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+              		    if(IntVect(AMREX_D_DECL(i,j-1,k))==test_point)
 			{
 			    ///None of the vs are correct in the second step, which seems to make the u grow incorrectly
+			    amrex::Print()<<i<<"\t"<<j<<"\t"<<k<<std::endl;
 			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"cor "<<vold(i,j+1,k,nnew)<<" "<<v(i,j,k,nrhs)<<std::endl;
 			    amrex::Print()<<test_point<<fomn(i,j,0)<<"cor "<<Hz(i,j,k)<<std::endl;
 			    amrex::Print()<<test_point<<ru(i,j,k,nnew)<<"cor "<<std::endl;
+			    amrex::Print()<<test_point<<uold(i,j,k,nnew)<<"uoldcor "<<uold(i+1,j,k,nnew)<<" "<<u(i,j,k,nrhs)<<std::endl;
+			    amrex::Print()<<test_point<<fomn(i,j,0)<<"cor "<<Hz(i,j,k)<<std::endl;
+			    amrex::Print()<<test_point<<rv(i,j,k,nnew)<<"cor "<<std::endl;
 			    //	amrex::Abort("word");
+			}
+			                  		    if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+			{
+			    ///None of the vs are correct in the second step, which seems to make the u grow incorrectly
+			    amrex::Print()<<i<<"\t"<<j<<"\t"<<k<<std::endl;
+			    amrex::Print()<<test_point<<vold(i,j,k,nnew)<<"cor "<<vold(i,j+1,k,nnew)<<" "<<v(i,j,k,nrhs)<<std::endl;
+			    amrex::Print()<<test_point<<fomn(i,j,0)<<"cor "<<Hz(i,j,k)<<std::endl;
+			    amrex::Print()<<test_point<<ru(i,j,k,nnew)<<"cor "<<std::endl;
+			    amrex::Print()<<test_point<<uold(i,j,k,nnew)<<"uoldcor "<<uold(i+1,j,k,nnew)<<" "<<u(i,j,k,nrhs)<<std::endl;
+			    amrex::Print()<<test_point<<fomn(i,j,0)<<"cor "<<Hz(i,j,k)<<std::endl;
+			    amrex::Print()<<test_point<<rv(i,j,k,nnew)<<"cor "<<std::endl;
+			    
 			}
 
 		ru(i,j,k,nrhs)=ru(i,j,k,nrhs)+cff1;
@@ -652,9 +678,9 @@ void ROMSX::romsx_advance(int level,
 		rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff1;
 	      if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
 		  {
-
-			    amrex::Print()<<test_point<<VFx(i+1,j,k)<<"vVFx1 "<<std::endl;
-			    amrex::Print()<<test_point<<VFx(i,j,k)<<"vVFx "<<std::endl;
+			    amrex::Print()<<i<<"\t"<<j<<"\t"<<k<<std::endl;
+			    amrex::Print()<<test_point<<UFx(i,j,k)<<"vUFx1 "<<std::endl;
+			    amrex::Print()<<test_point<<UFx(i-1,j,k)<<"vUFx "<<std::endl;
 			    amrex::Print()<<test_point<<VFe(i,j,k)<<"vVFe "<<std::endl;
 			    amrex::Print()<<test_point<<VFe(i,j-1,k)<<"vVFe1  "<<std::endl;
 			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
@@ -741,7 +767,23 @@ void ROMSX::romsx_advance(int level,
                      Hvom(i,j+1,k)+
                      Gadv*0.5*(Hvee(i,j  ,k)+
                                Hvee(i,j+1,k)));
-            });
+	      
+             if(IntVect(AMREX_D_DECL(i,j-1,k))==test_point)
+                 {
+		     amrex::Print()<<"VFe set"<<std::endl;
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,Hvom(i,j,k),Hvom(i,j+1,k));
+		     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hvee(i,j,k),Hvee(i,j+1,k),VFe(i,j,k));
+		     
+		 }
+	          
+             if(IntVect(AMREX_D_DECL(i,j,k))==test_point)
+                 {
+		     amrex::Print()<<"VFe set"<<std::endl;
+                     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,cff,Hvom(i,j,k),Hvom(i,j+1,k));
+		     printf("%d %d %d %d %15.15g %15.15g %15.15g\n",i,j,k,n,Hvee(i,j,k),Hvee(i,j+1,k),VFe(i,j,k));
+		     
+		 }
+	    });
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -778,6 +820,9 @@ void ROMSX::romsx_advance(int level,
 			    amrex::Print()<<test_point<<VFe(i,j-1,k)<<"vVFe1  "<<std::endl;
 			    amrex::Print()<<test_point<<rv(i,j,k,nrhs)<<"rv "<<std::endl;
 			    //amrex::Abort("rv");
+			    	if(iic>=1)
+				amrex::Abort("word");
+
 			}
               //-----------------------------------------------------------------------
               //  Add in vertical advection.
@@ -978,7 +1023,7 @@ void ROMSX::romsx_advance(int level,
                        dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
                    cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
                    CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(uold(i,j,k+1,nnew)-uold(i,j,k,nnew)-
+                   DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
                                   FC(i,j,k)*0.0);
                }
 	       if(k+1<=N&&k>=1)
@@ -987,7 +1032,7 @@ void ROMSX::romsx_advance(int level,
                        dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
                    cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
                    CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(uold(i,j,k+1,nnew)-uold(i,j,k,nnew)-
+                   DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
                                   FC(i,j,k)*DC(i,j,k-1));
                }
 
