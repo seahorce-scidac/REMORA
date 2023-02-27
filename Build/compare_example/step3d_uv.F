@@ -362,11 +362,28 @@
         END DO
         DO k=1,N(ng)
            DO i=IstrU,Iend
+              if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+                 print*,cff,dt(ng),u(i,j,k,nrhs),nrhs
+                 print*,cff,dt(ng),u(i,j,k,nnew),nnew
+               print*,DC(i,0),ru(i,j,k,nrhs),u(i,j,k,nnew)
+           endif
             u(i,j,k,nnew)=u(i,j,k,nnew)+                                &
      &            DC(i,0)*ru(i,j,k,nrhs)
+            if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+               print*,DC(i,0),ru(i,j,k,nrhs),u(i,j,k,nnew)
+               print*,"u update"
+!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+!                  STOP
+           endif
 # ifdef SPLINES_VVISC
             u(i,j,k,nnew)=u(i,j,k,nnew)*oHz(i,k)
 # endif
+            if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+               print*,oHz(i,k),Hz(i,j,k),u(i,j,k,nnew)
+               print*,"u update oHz"
+!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+!                  STOP
+           endif
 # ifdef DIAGNOSTICS_UV
             DO idiag=1,M3pgrd
               DiaU3wrk(i,j,k,idiag)=(DiaU3wrk(i,j,k,idiag)+             &
@@ -400,6 +417,14 @@
           DO i=IstrU,Iend
             FC(i,k)=cff1*Hzk(i,k  )-dt(ng)*AK(i,k-1)*oHz(i,k  )
             CF(i,k)=cff1*Hzk(i,k+1)-dt(ng)*AK(i,k+1)*oHz(i,k+1)
+       if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+          print*,cff1*Hzk(i,k  ),dt(ng)*AK(i,k-1)*oHz(i,k  ),FC(i,k)
+          print*,"splines"
+          print*,dt,AK(i,k-1),oHz(i,k),FC(i,k)
+               print*,"splines"
+!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+!                  STOP
+           endif
           END DO
         END DO
         DO i=IstrU,Iend
@@ -418,6 +443,19 @@
             CF(i,k)=cff*CF(i,k)
             DC(i,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-                 &
      &           FC(i,k)*DC(i,k-1))
+            if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+               print*,DC(i,k),cff,u(i,j,k,nnew)
+               print*,"LU decomp setup"
+               print*,cff1,Hzk(i,k),Hzk(i,k+1)
+               print*,dt(ng),AK(i,k),oHz(i,k),oHz(i,k+1)
+               print*,u(i,j,k+1,nnew),u(i,j,k,nnew),DC(i,k)
+               print*,cff,FC(i,k),DC(i,k)
+               print*,BC(i,k),CF(i,k),DC(i,k)
+               print*,i,j,k
+!                                 STOP
+!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+!                  STOP
+           endif
           END DO
         END DO
 !
@@ -428,7 +466,7 @@
         END DO
         DO k=N(ng)-1,1,-1
           DO i=IstrU,Iend
-             DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1)
+            DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1)
           END DO
         END DO
 !
@@ -436,7 +474,13 @@
           DO i=IstrU,Iend
             DC(i,k)=DC(i,k)*AK(i,k)
             cff=dt(ng)*oHz(i,k)*(DC(i,k)-DC(i,k-1))
-!!!!!            u(i,j,k,nnew)=u(i,j,k,nnew)+cff
+            u(i,j,k,nnew)=u(i,j,k,nnew)+cff
+            if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+               print*,DC(i,k),cff,u(i,j,k,nnew)
+               print*,"u update back sub"
+!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+!                  STOP
+           endif
 #  ifdef DIAGNOSTICS_UV
             DiaU3wrk(i,j,k,M3vvis)=DiaU3wrk(i,j,k,M3vvis)+cff
 #  endif
@@ -490,7 +534,7 @@
 #  endif
           DC(i,N(ng))=(DC(i,N(ng))-FC(i,N(ng)-1)*DC(i,N(ng)-1))/        &
      &                (BC(i,N(ng))-FC(i,N(ng)-1)*CF(i,N(ng)-1))
-          u(i,j,N(ng),nnew)=DC(i,N(ng))
+!!!          u(i,j,N(ng),nnew)=DC(i,N(ng))
 #  ifdef DIAGNOSTICS_UV
           DiaU3wrk(i,j,N(ng),M3vvis)=DiaU3wrk(i,j,N(ng),M3vvis)+        &
      &                               u(i,j,N(ng),nnew)-wrk(i,N(ng))
@@ -502,7 +546,7 @@
             wrk(i,k)=u(i,j,k,nnew)*oHz(i,k)
 #  endif
             DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1)
-!            u(i,j,k,nnew)=DC(i,k)
+!!!            u(i,j,k,nnew)=DC(i,k)
 #  ifdef DIAGNOSTICS_UV
             DiaU3wrk(i,j,k,M3vvis)=DiaU3wrk(i,j,k,M3vvis)+              &
      &                             u(i,j,k,nnew)-wrk(i,k)
@@ -572,7 +616,7 @@
 #  endif
           DC(i,N(ng))=(DC(i,N(ng))+FCmax(i,N(ng)-1)*DC(i,N(ng)-1))/     &
      &                (BC(i,N(ng))+FCmax(i,N(ng)-1)*CF(i,N(ng)-1))
-          u(i,j,N(ng),nnew)=DC(i,N(ng))
+!!!          u(i,j,N(ng),nnew)=DC(i,N(ng))
 #  ifdef DIAGNOSTICS_UV
           DiaRU(i,j,N(ng),nrhs,M3vadv)=DiaRU(i,j,N(ng),nrhs,M3vadv)+    &
      &                                 u(i,j,N(ng),nnew)-Dwrk(i,N(ng))
@@ -584,7 +628,7 @@
             Dwrk(i,k)=u(i,j,k,nnew)
 #  endif
             DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1)
-!            u(i,j,k,nnew)=DC(i,k)
+!!!            u(i,j,k,nnew)=DC(i,k)
 #  ifdef DIAGNOSTICS_UV
             DiaRU(i,j,k,nrhs,M3vadv)=DiaRU(i,j,k,nrhs,M3vadv)+          &
      &                               u(i,j,k,nnew)-Dwrk(i,k)
@@ -721,7 +765,7 @@
 !
         DO k=1,N(ng)
           DO i=IstrU,Iend
-!            u(i,j,k,nnew)=u(i,j,k,nnew)-DC(i,0)
+!!!            u(i,j,k,nnew)=u(i,j,k,nnew)-DC(i,0)
 # ifdef MASKING
             u(i,j,k,nnew)=u(i,j,k,nnew)*umask(i,j)
 # endif
@@ -836,9 +880,28 @@
           END DO
           DO k=1,N(ng)
              DO i=Istr,Iend
+                if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+               print*,DC(i,0),rv(i,j,k,nrhs),v(i,j,k,nnew)
+               print*,"v update in"
+!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+                !  STOP
+           endif
                v(i,j,k,nnew)=v(i,j,k,nnew)+DC(i,0)*rv(i,j,k,nrhs)
+               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+               print*,DC(i,0),rv(i,j,k,nrhs),v(i,j,k,nnew)
+               print*,"v update"
+!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+!                  STOP
+           endif
+
 # ifdef SPLINES_VVISC
            v(i,j,k,nnew)=v(i,j,k,nnew)*oHz(i,k)
+           if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+               print*,v(i,j,k,nnew),oHz(i,k)
+               print*,"v update oHz"
+!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+!                  STOP
+           endif
 # endif
 # ifdef DIAGNOSTICS_UV
               DO idiag=1,M3pgrd
@@ -891,7 +954,12 @@
               cff=1.0_r8/(BC(i,k)-FC(i,k)*CF(i,k-1))
               CF(i,k)=cff*CF(i,k)
               DC(i,k)=cff*(v(i,j,k+1,nnew)-v(i,j,k,nnew)-               &
-     &                     FC(i,k)*DC(i,k-1))
+     &             FC(i,k)*DC(i,k-1))
+              if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+                 print*,v(i,j,k+1,nnew),v(i,j,k,nnew),DC(i,k)
+                 print*,cff,FC(i,k),DC(i,k)
+                 print*,BC(i,k),CF(i,k),DC(i,k)
+                 endif
             END DO
           END DO
 !
@@ -902,7 +970,10 @@
           END DO
           DO k=N(ng)-1,1,-1
             DO i=Istr,Iend
-              DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1)
+               DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1)
+               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
+                  print*,DC(i,k)
+                  endif
             END DO
           END DO
 !
@@ -910,7 +981,7 @@
             DO i=Istr,Iend
               DC(i,k)=DC(i,k)*AK(i,k)
               cff=dt(ng)*oHz(i,k)*(DC(i,k)-DC(i,k-1))
-!              v(i,j,k,nnew)=v(i,j,k,nnew)+cff
+              v(i,j,k,nnew)=v(i,j,k,nnew)+cff
 #  ifdef DIAGNOSTICS_UV
               DiaV3wrk(i,j,k,M3vvis)=DiaV3wrk(i,j,k,M3vvis)+cff
 #  endif
@@ -1344,7 +1415,7 @@
                 cff1=1.0_r8/(on_u(i,j)*                                 &
      &                       0.5_r8*(z_w(i-1,j,k)-z_w(i-1,j,k-1)+       &
      &                               z_w(i  ,j,k)-z_w(i  ,j,k-1)))
-!                u(i,j,k,nnew)=SOURCES(ng)%Qsrc(is,k)*cff1
+                u(i,j,k,nnew)=SOURCES(ng)%Qsrc(is,k)*cff1
               END DO
             ELSE
               DO k=1,N(ng)
@@ -1393,7 +1464,7 @@
           END DO
         END DO
         DO i=IstrP,IendT
-          cff1=DC(i,0)                                  ! intermediate
+           cff1=DC(i,0)                                  ! intermediate
 # ifdef WEC
 !          cff2=on_u(i,j)*DC(i,0)*ubar_stokes(i,j)
           cff2=DC(i,0)*ubar_stokes(i,j)
@@ -1659,7 +1730,7 @@
           IF (.not.(CompositeGrid(iwest,ng).or.EWperiodic(ng))) THEN
             IF (DOMAIN(ng)%Western_Edge(tile)) THEN
               DO k=1,N(ng)
-                v(Istr-1,j,k,nnew)=v(Istr-1,j,k,nnew)-CF(Istr-1,0)
+!                v(Istr-1,j,k,nnew)=v(Istr-1,j,k,nnew)-CF(Istr-1,0)
 # ifdef MASKING
                 v(Istr-1,j,k,nnew)=v(Istr-1,j,k,nnew)*                  &
      &                             vmask(Istr-1,j)
@@ -1687,7 +1758,7 @@
           IF (.not.(CompositeGrid(ieast,ng).or.EWperiodic(ng))) THEN
             IF (DOMAIN(ng)%Eastern_Edge(tile)) THEN
               DO k=1,N(ng)
-                v(Iend+1,j,k,nnew)=v(Iend+1,j,k,nnew)-CF(Iend+1,0)
+!                v(Iend+1,j,k,nnew)=v(Iend+1,j,k,nnew)-CF(Iend+1,0)
 # ifdef MASKING
                 v(Iend+1,j,k,nnew)=v(Iend+1,j,k,nnew)*                  &
      &                             vmask(Iend+1,j)
@@ -1713,7 +1784,7 @@
           END IF
 !
           IF (.not.(CompositeGrid(isouth,ng).or.NSperiodic(ng))) THEN
-            IF (j.eq.1) THEN                         ! southern boundary
+            IF (j.eq.2) THEN                         ! southern boundary
               DO k=1,N(ng)                           ! J-loop pipelined
                 DO i=Istr,Iend
 !                  v(i,j,k,nnew)=v(i,j,k,nnew)-CF(i,0)
