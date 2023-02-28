@@ -260,7 +260,7 @@ void ROMSX::romsx_advance(int level,
         FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena);
-	FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena);
@@ -302,23 +302,23 @@ void ROMSX::romsx_advance(int level,
         auto VFx=fab_VFx.array();
         auto VFe=fab_VFe.array();
 
-	//From ana_grid.h and metrics.F
+        //From ana_grid.h and metrics.F
         amrex::ParallelFor(gbx2, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
 
-	      const auto prob_lo         = geomdata.ProbLo();
+              const auto prob_lo         = geomdata.ProbLo();
               const auto dx              = geomdata.CellSize();
 
               pm(i,j,0)=dxi[0];
               pn(i,j,0)=dxi[1];
-	      //defined UPWELLING
-	      Real f0=-8.26e-5;
-	      Real beta=0.0;
-	      Real Esize=1000*(Mm);
-	      Real y = prob_lo[1] + (j + 0.5) * dx[1];
-	      Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
-	      fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
+              //defined UPWELLING
+              Real f0=-8.26e-5;
+              Real beta=0.0;
+              Real Esize=1000*(Mm);
+              Real y = prob_lo[1] + (j + 0.5) * dx[1];
+              Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+              fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             });
         amrex::ParallelFor(gbx2, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -360,7 +360,7 @@ void ROMSX::romsx_advance(int level,
                       {
                       Hvom(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k,nrhs)*
                           om_v(i,j,0);
-		      }
+                      }
                   else
                       Hvom(i,j,k)=(Hz(i,j,k))*vold(i,j,k,nrhs)*
                           om_v(i,j,0);
@@ -473,9 +473,9 @@ void ROMSX::romsx_advance(int level,
                         DC(i,j,k)*(cff1*ru(i,j,k,indx)+
                                    cff2*ru(i,j,k,nrhs))+
                         cff4;
-		  }
+                  }
             });
-	lambda = 1.0;
+        lambda = 1.0;
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -507,8 +507,8 @@ void ROMSX::romsx_advance(int level,
 
                 if(iic==ntfirst)
                 {
-		    //if(j>0&&j<Mm-1)
-		    {
+                    //if(j>0&&j<Mm-1)
+                    {
                     //Hz still might need adjusting
                     if(k+1<=N&&k>=1)
                     {
@@ -548,7 +548,7 @@ void ROMSX::romsx_advance(int level,
                     Real r_swap= rv(i,j,k,indx);
                     rv(i,j,k,indx) = rv(i,j,k,nrhs);
                     rv(i,j,k,nrhs) = r_swap;
-		    //if(j>0&&j<Mm-1)
+                    //if(j>0&&j<Mm-1)
                         v(i,j,k,nnew)=cff1-
                                   cff3*rv(i,j,k,indx)+
                                   cff2;
@@ -573,39 +573,39 @@ void ROMSX::romsx_advance(int level,
                     Real r_swap= rv(i,j,k,indx);
                     rv(i,j,k,indx) = rv(i,j,k,nrhs);
                     rv(i,j,k,nrhs) = r_swap;
-		    //if(j>0&&j<Mm-1)
+                    //if(j>0&&j<Mm-1)
                     v(i,j,k,nnew)=cff3+
                         DC(i,j,k)*(cff1*rv(i,j,k,indx)+
                                    cff2*rv(i,j,k,nrhs))+
                         cff4;
-		}
+                }
             });
 #endif  
 #ifdef UV_COR
-	//
-	//-----------------------------------------------------------------------
-	//  Add in Coriolis terms.
-	//-----------------------------------------------------------------------
+        //
+        //-----------------------------------------------------------------------
+        //  Add in Coriolis terms.
+        //-----------------------------------------------------------------------
         //
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-		Real cff=0.5*Hz(i,j,k)*fomn(i,j,0);
-		UFx(i,j,k)=cff*(vold(i,j  ,k,nrhs)+
-				vold(i,j+1,k,nrhs));
-		VFe(i,j,k)=cff*(uold(i  ,j,k,nrhs)+
-				uold(i+1,j,k,nrhs));
-		
-	    });
-	amrex::ParallelFor(gbx1, ncomp,
+                Real cff=0.5*Hz(i,j,k)*fomn(i,j,0);
+                UFx(i,j,k)=cff*(vold(i,j  ,k,nrhs)+
+                                vold(i,j+1,k,nrhs));
+                VFe(i,j,k)=cff*(uold(i  ,j,k,nrhs)+
+                                uold(i+1,j,k,nrhs));
+                
+            });
+        amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-		Real cff1=0.5*(UFx(i,j,k)-UFx(i-1,j,k));
-		ru(i,j,k,nrhs)=ru(i,j,k,nrhs)+cff1;
+                Real cff1=0.5*(UFx(i,j,k)-UFx(i-1,j,k));
+                ru(i,j,k,nrhs)=ru(i,j,k,nrhs)+cff1;
 
-		cff1=0.5*(VFe(i,j,k)+VFe(i,j-1,k));
+                cff1=0.5*(VFe(i,j,k)+VFe(i,j-1,k));
 
-		rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff1;
+                rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff1;
             });
 #endif
         //Need to include pre_step3d.F terms
@@ -686,7 +686,7 @@ void ROMSX::romsx_advance(int level,
                      Hvom(i,j+1,k)+
                      Gadv*0.5*(Hvee(i,j  ,k)+
                                Hvee(i,j+1,k)));
-	    });
+            });
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -832,7 +832,7 @@ void ROMSX::romsx_advance(int level,
                 u(i,j,k)=u(i,j,k)+
                          DC(i,j,k)*ru(i,j,k,nrhs);
 
-		    //if(j>0&&j<Mm-1)
+                    //if(j>0&&j<Mm-1)
                 v(i,j,k)=v(i,j,k)+
                          DC(i,j,k)*rv(i,j,k,nrhs);
 
@@ -840,10 +840,10 @@ void ROMSX::romsx_advance(int level,
                 u(i,j,k)=u(i,j,k)*oHz(i,j,k);
 
                 //if(j>0&&j<Mm-1)
-       		v(i,j,k)=v(i,j,k)*oHz(i,j,k);
+                v(i,j,k)=v(i,j,k)*oHz(i,j,k);
             });
         // End previous
-	#if 1
+        #if 1
        // Begin vertical viscosity term
        //should be gbx1, but need to fix some bounds inside this loop:
        amrex::ParallelFor(gbx1, ncomp,
@@ -859,10 +859,10 @@ void ROMSX::romsx_advance(int level,
                Real cff;
                Real cff1=1.0/6.0;
 
-	       if(k>=1)
-               	   FC(i,j,k)=cff1*Hzk(i,j,k  )-dt*AK(i,j,k-1)*oHz(i,j,k  );
-	       else
-               	   FC(i,j,k)=cff1*Hzk(i,j,k  );
+               if(k>=1)
+                   FC(i,j,k)=cff1*Hzk(i,j,k  )-dt*AK(i,j,k-1)*oHz(i,j,k  );
+               else
+                   FC(i,j,k)=cff1*Hzk(i,j,k  );
                if(k<=N-1)
                 {
                     CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt*AK(i,j,k+1)*oHz(i,j,k+1);
@@ -881,7 +881,7 @@ void ROMSX::romsx_advance(int level,
                    DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
                                   FC(i,j,k)*0.0);
                }
-	       if(k+1<=N&&k>=1)
+               if(k+1<=N&&k>=1)
                {
                    BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
                        dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
@@ -891,7 +891,7 @@ void ROMSX::romsx_advance(int level,
                                   FC(i,j,k)*DC(i,j,k-1));
                }
 
-	    });
+            });
        amrex::ParallelFor(gbx1, ncomp,
        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -899,36 +899,36 @@ void ROMSX::romsx_advance(int level,
                //  Backward substitution.
                //
                DC(i,j,N)=0.0;
-	       
+               
                if(N-k+1<=N&&N-k>=0) //-N,1,-1 => kidx =N-k+1
                {
-		   //		   amrex::Print()<<"index k: "<<k<<"corresponds to : "<<N-k<<"prev: "<<DC(i,j,N-k+1)<<std::endl;
+                   //              amrex::Print()<<"index k: "<<k<<"corresponds to : "<<N-k<<"prev: "<<DC(i,j,N-k+1)<<std::endl;
                    if(N-k+1<0||N-k+2<0)
                        amrex::Abort("-1 here");
                    DC(i,j,N-k)=DC(i,j,N-k)-CF(i,j,N-k)*DC(i,j,N-k+1);
-		   //amrex::Print()<<"index k: "<<k<<"corresponds to : "<<N-k<<"cur:  "<<DC(i,j,N-k)<<std::endl;
+                   //amrex::Print()<<"index k: "<<k<<"corresponds to : "<<N-k<<"cur:  "<<DC(i,j,N-k)<<std::endl;
                    //              DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1);
                }
-	    });
+            });
 
        amrex::ParallelFor(gbx1, ncomp,
        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                DC(i,j,k)=DC(i,j,k)*AK(i,j,k);
-	    });
+            });
        amrex::ParallelFor(gbx1, ncomp,
        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-		Real cff;
+                Real cff;
                if(k-1>=0)
                    cff=dt*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
                else
                    cff=dt*oHz(i,j,k)*(DC(i,j,k));
-	       u(i,j,k)=u(i,j,k)+cff;
+               u(i,j,k)=u(i,j,k)+cff;
 
             });
 #endif
-	#if 1
+        #if 1
        // Begin vertical viscosity term
        //should be gbx1, but need to fix some bounds inside this loop:
        amrex::ParallelFor(gbx1, ncomp,
@@ -944,10 +944,10 @@ void ROMSX::romsx_advance(int level,
                Real cff;
                Real cff1=1.0/6.0;
 
-	       if(k>=1)
-               	   FC(i,j,k)=cff1*Hzk(i,j,k  )-dt*AK(i,j,k-1)*oHz(i,j,k  );
-	       else
-               	   FC(i,j,k)=cff1*Hzk(i,j,k  );
+               if(k>=1)
+                   FC(i,j,k)=cff1*Hzk(i,j,k  )-dt*AK(i,j,k-1)*oHz(i,j,k  );
+               else
+                   FC(i,j,k)=cff1*Hzk(i,j,k  );
                if(k<=N-1)
                 {
                     CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt*AK(i,j,k+1)*oHz(i,j,k+1);
@@ -966,7 +966,7 @@ void ROMSX::romsx_advance(int level,
                    DC(i,j,k)=cff*(v(i,j,k+1,nnew)-v(i,j,k,nnew)-
                                   FC(i,j,k)*0.0);
                }
-	       if(k+1<=N&&k>=1)
+               if(k+1<=N&&k>=1)
                {
                    BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
                        dt*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
@@ -976,7 +976,7 @@ void ROMSX::romsx_advance(int level,
                                   FC(i,j,k)*DC(i,j,k-1));
                }
 
-	    });
+            });
        amrex::ParallelFor(gbx1, ncomp,
        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -984,7 +984,7 @@ void ROMSX::romsx_advance(int level,
                //  Backward substitution.
                //
                DC(i,j,N)=0.0;
-	       
+               
                if(N-k+1<=N&&N-k>=0) //-N,1,-1 => kidx =N-k+1
                {
                    if(N-k+1<0||N-k+2<0)
@@ -992,22 +992,22 @@ void ROMSX::romsx_advance(int level,
                    DC(i,j,N-k)=DC(i,j,N-k)-CF(i,j,N-k)*DC(i,j,N-k+1);
                }
                    //              DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1);
-	    });
+            });
 
        amrex::ParallelFor(gbx1, ncomp,
        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                DC(i,j,k)=DC(i,j,k)*AK(i,j,k);
-	    });
+            });
        amrex::ParallelFor(gbx1, ncomp,
        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-		Real cff;
+                Real cff;
                if(k-1>=0)
                    cff=dt*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
                else
                    cff=dt*oHz(i,j,k)*(DC(i,j,k));
-	       //if(j>0&&j<Mm-1)
+               //if(j>0&&j<Mm-1)
                v(i,j,k)=v(i,j,k)+cff;
 
             });
