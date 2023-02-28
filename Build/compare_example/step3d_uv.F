@@ -362,28 +362,11 @@
         END DO
         DO k=1,N(ng)
            DO i=IstrU,Iend
-              if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-                 print*,cff,dt(ng),u(i,j,k,nrhs),nrhs
-                 print*,cff,dt(ng),u(i,j,k,nnew),nnew
-               print*,DC(i,0),ru(i,j,k,nrhs),u(i,j,k,nnew)
-           endif
             u(i,j,k,nnew)=u(i,j,k,nnew)+                                &
      &            DC(i,0)*ru(i,j,k,nrhs)
-            if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-               print*,DC(i,0),ru(i,j,k,nrhs),u(i,j,k,nnew)
-               print*,"u update"
-!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-!                  STOP
-           endif
 # ifdef SPLINES_VVISC
             u(i,j,k,nnew)=u(i,j,k,nnew)*oHz(i,k)
 # endif
-            if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-               print*,oHz(i,k),Hz(i,j,k),u(i,j,k,nnew)
-               print*,"u update oHz"
-!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-!                  STOP
-           endif
 # ifdef DIAGNOSTICS_UV
             DO idiag=1,M3pgrd
               DiaU3wrk(i,j,k,idiag)=(DiaU3wrk(i,j,k,idiag)+             &
@@ -417,14 +400,6 @@
           DO i=IstrU,Iend
             FC(i,k)=cff1*Hzk(i,k  )-dt(ng)*AK(i,k-1)*oHz(i,k  )
             CF(i,k)=cff1*Hzk(i,k+1)-dt(ng)*AK(i,k+1)*oHz(i,k+1)
-       if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-          print*,cff1*Hzk(i,k  ),dt(ng)*AK(i,k-1)*oHz(i,k  ),FC(i,k)
-          print*,"splines"
-          print*,dt,AK(i,k-1),oHz(i,k),FC(i,k)
-               print*,"splines"
-!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-!                  STOP
-           endif
           END DO
         END DO
         DO i=IstrU,Iend
@@ -443,19 +418,6 @@
             CF(i,k)=cff*CF(i,k)
             DC(i,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-                 &
      &           FC(i,k)*DC(i,k-1))
-            if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-               print*,DC(i,k),cff,u(i,j,k,nnew)
-               print*,"LU decomp setup"
-               print*,cff1,Hzk(i,k),Hzk(i,k+1)
-               print*,dt(ng),AK(i,k),oHz(i,k),oHz(i,k+1)
-               print*,u(i,j,k+1,nnew),u(i,j,k,nnew),DC(i,k)
-               print*,cff,FC(i,k),DC(i,k)
-               print*,BC(i,k),CF(i,k),DC(i,k)
-               print*,i,j,k
-!                                 STOP
-!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-!                  STOP
-           endif
           END DO
         END DO
 !
@@ -475,12 +437,6 @@
             DC(i,k)=DC(i,k)*AK(i,k)
             cff=dt(ng)*oHz(i,k)*(DC(i,k)-DC(i,k-1))
             u(i,j,k,nnew)=u(i,j,k,nnew)+cff
-            if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-               print*,DC(i,k),cff,u(i,j,k,nnew)
-               print*,"u update back sub"
-!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-!                  STOP
-           endif
 #  ifdef DIAGNOSTICS_UV
             DiaU3wrk(i,j,k,M3vvis)=DiaU3wrk(i,j,k,M3vvis)+cff
 #  endif
@@ -880,28 +836,10 @@
           END DO
           DO k=1,N(ng)
              DO i=Istr,Iend
-                if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-               print*,DC(i,0),rv(i,j,k,nrhs),v(i,j,k,nnew)
-               print*,"v update in"
-!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-                !  STOP
-           endif
                v(i,j,k,nnew)=v(i,j,k,nnew)+DC(i,0)*rv(i,j,k,nrhs)
-               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-               print*,DC(i,0),rv(i,j,k,nrhs),v(i,j,k,nnew)
-               print*,"v update"
-!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-!                  STOP
-           endif
 
 # ifdef SPLINES_VVISC
            v(i,j,k,nnew)=v(i,j,k,nnew)*oHz(i,k)
-           if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-               print*,v(i,j,k,nnew),oHz(i,k)
-               print*,"v update oHz"
-!               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-!                  STOP
-           endif
 # endif
 # ifdef DIAGNOSTICS_UV
               DO idiag=1,M3pgrd
@@ -955,11 +893,6 @@
               CF(i,k)=cff*CF(i,k)
               DC(i,k)=cff*(v(i,j,k+1,nnew)-v(i,j,k,nnew)-               &
      &             FC(i,k)*DC(i,k-1))
-              if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-                 print*,v(i,j,k+1,nnew),v(i,j,k,nnew),DC(i,k)
-                 print*,cff,FC(i,k),DC(i,k)
-                 print*,BC(i,k),CF(i,k),DC(i,k)
-                 endif
             END DO
           END DO
 !
@@ -971,9 +904,6 @@
           DO k=N(ng)-1,1,-1
             DO i=Istr,Iend
                DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1)
-               if(i.eq.1.and.j.eq.2.and.k.eq.4) then
-                  print*,DC(i,k)
-                  endif
             END DO
           END DO
 !
