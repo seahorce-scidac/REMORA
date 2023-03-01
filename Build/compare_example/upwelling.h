@@ -14,7 +14,7 @@
 
 #define ROMS_MODEL
 #define UV_ADV
-
+#define UV_COR
 #define UV_LDRAG
 #define UV_VIS2
 #undef  MIX_GEO_UV
