@@ -473,8 +473,8 @@ void ROMSX::romsx_advance(int level,
                         DC(i,j,k)*(cff1*ru(i,j,k,nrhs)-
                                    cff2*ru(i,j,k,indx))+
                         cff4;
-		    ru(i,j,k,nrhs) = 0.0;
-		}
+                    ru(i,j,k,nrhs) = 0.0;
+                }
             });
         lambda = 1.0;
         amrex::ParallelFor(gbx1, ncomp,
@@ -529,11 +529,6 @@ void ROMSX::romsx_advance(int level,
                         cff2=-FC(i,j,k);//+sustr(i,j,0);
                         v(i,j,k,nnew)=cff1+cff2;
                     } }
-		    if(i==3&&j==3&&k==3) {
-			amrex::Print()<<indx<<"\t"<<rv(i,j,k,indx)<<"\n";
-			amrex::Print()<<nrhs<<"\t"<<v(i,j,k,nrhs)<<"\n";
-			amrex::Print()<<cff1<<"\t"<<cff2<<"\t"<<cff3<<"\t"<<cff4<<std::endl;
-			}
                 }
                 else if(iic==ntfirst+1)
                 {
@@ -558,11 +553,6 @@ void ROMSX::romsx_advance(int level,
                         v(i,j,k,nnew)=cff1-
                                   cff3*rv(i,j,k,indx)+
                                   cff2;
-			if(i==3&&j==3&&k==3) {
-			amrex::Print()<<indx<<"\t"<<rv(i,j,k,indx)<<"\n";
-			amrex::Print()<<nrhs<<"\t"<<v(i,j,k,nrhs)<<"\n";
-			amrex::Print()<<cff1<<"\t"<<cff2<<"\t"<<cff3<<"\t"<<cff4<<std::endl;
-			}
                 }
                 else
                 {
@@ -589,15 +579,8 @@ void ROMSX::romsx_advance(int level,
                         DC(i,j,k)*(cff1*rv(i,j,k,nrhs)-
                                    cff2*rv(i,j,k,indx))+
                         cff4;
-		    if(i==3&&j==3&&k==3) {
-			amrex::Print()<<indx<<"\t"<<rv(i,j,k,indx)<<"\n";
-			amrex::Print()<<nnew<<"\t"<<v(i,j,k,nnew)<<std::endl;
-			amrex::Print()<<cff1<<"\t"<<cff2<<"\t"<<cff3<<"\t"<<cff4<<std::endl;
-			amrex::Print()<<DC(i,j,k)<<"\t"<<rv(i,j,k,nrhs)<<"\t"<<rv(i,j,k,indx)<<std::endl;
-			//		    if(iic>ntfirst+2)
-			//exit(1);
-		    }
-		    rv(i,j,k,nrhs) = 0.0;
+
+                    rv(i,j,k,nrhs) = 0.0;
 
                 }
             });
@@ -622,25 +605,12 @@ void ROMSX::romsx_advance(int level,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 Real cff1=0.5*(UFx(i,j,k)+UFx(i-1,j,k));
-  if(i==3&&j==3&&k==3) {
-      amrex::Print()<<nrhs<<"\t"<<ru(i,j,k,nrhs)<<"\tcoru"<<std::endl;
-      Print()<<0.5*Hz(i,j,k)*fomn(i,j,0)<<"\t"<<vold(i,j,k,nrhs)<<"\t"<<vold(i,j+1,k,nrhs)<<"\t"<<UFx(i,j,k)<<"\t"<<UFx(i-1,j,k)<<std::endl;
- }
                 ru(i,j,k,nrhs)=ru(i,j,k,nrhs)+cff1;
- if(i==3&&j==3&&k==3) {
-     amrex::Print()<<nrhs<<"\t"<<ru(i,j,k,nrhs)<<"\tcoru"<<std::endl;
- }
 
                 cff1=0.5*(VFe(i,j,k)+VFe(i,j-1,k));
-  if(i==3&&j==3&&k==3) {
-      amrex::Print()<<nrhs<<"\t"<<rv(i,j,k,nrhs)<<"\tcor"<<std::endl;
-      Print()<<0.5*Hz(i,j,k)*fomn(i,j,0)<<"\t"<<uold(i,j,k,nrhs)<<"\t"<<uold(i+1,j,k,nrhs)<<"\t"<<VFe(i,j,k)<<"\t"<<VFe(i,j-1,k)<<std::endl;
- }
+
                 rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff1;
- if(i==3&&j==3&&k==3) {
-     amrex::Print()<<nrhs<<"\t"<<rv(i,j,k,nrhs)<<"\tcor"<<std::endl;
- }
-	    });
+            });
 #endif
         //Need to include pre_step3d.F terms
         amrex::ParallelFor(gbx1, ncomp,
@@ -737,13 +707,8 @@ void ROMSX::romsx_advance(int level,
               cff1=VFx(i+1,j,k)-VFx(i,j,k);
               cff2=VFe(i,j,k)-VFe(i,j-1,k);
               cff=cff1+cff2;
- if(i==3&&j==3&&k==3) {
-			amrex::Print()<<nrhs<<"\t"<<rv(i,j,k,nrhs)<<std::endl;
- }
               rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff;
- if(i==3&&j==3&&k==3) {
-			amrex::Print()<<nrhs<<"\t"<<rv(i,j,k,nrhs)<<std::endl;
- }
+
               //-----------------------------------------------------------------------
               //  Add in vertical advection.
               //-----------------------------------------------------------------------
@@ -869,15 +834,11 @@ void ROMSX::romsx_advance(int level,
 
                 u(i,j,k)=u(i,j,k)+
                          DC(i,j,k)*ru(i,j,k,nrhs);
- if(i==3&&j==3&&k==3) {
-     amrex::Print()<<v(i,j,k)<<"\t"<<DC(i,j,k)<<"\t"<<rv(i,j,k,nrhs)<<std::endl;
- }
+
                     //if(j>0&&j<Mm-1)
                 v(i,j,k)=v(i,j,k)+
                          DC(i,j,k)*rv(i,j,k,nrhs);
- if(i==3&&j==3&&k==3) {
-     amrex::Print()<<v(i,j,k)<<"\t"<<DC(i,j,k)<<"\t"<<rv(i,j,k,nrhs)<<std::endl;
- }
+
                 //ifdef SPLINES_VVISC is true
                 u(i,j,k)=u(i,j,k)*oHz(i,j,k);
 

@@ -586,13 +586,13 @@
             UFx(i,j)=cff*(v(i,j  ,k,nrhs)+                              &
      &                    v(i,j+1,k,nrhs))
             VFe(i,j)=cff*(u(i  ,j,k,nrhs)+                              &
-     &           u(i+1,j,k,nrhs))
+     &                    u(i+1,j,k,nrhs))
           END DO
         END DO
         DO j=Jstr,Jend
           DO i=IstrU,Iend
-             cff1=0.5_r8*(UFx(i,j)+UFx(i-1,j))
-             ru(i,j,k,nrhs)=ru(i,j,k,nrhs)+cff1
+            cff1=0.5_r8*(UFx(i,j)+UFx(i-1,j))
+            ru(i,j,k,nrhs)=ru(i,j,k,nrhs)+cff1
 #  ifdef DIAGNOSTICS_UV
             DiaRU(i,j,k,nrhs,M3fcor)=cff1
 #  endif
@@ -816,7 +816,7 @@
         END DO
 #  else
         DO j=Jstr,Jend
-           DO i=IstrUm1,Iendp1
+          DO i=IstrUm1,Iendp1
             uxx(i,j)=u(i-1,j,k,nrhs)-2.0_r8*u(i,j,k,nrhs)+              &
 #   ifdef WEC_MELLOR
      &               u_stokes(i-1,j,k)-2.0_r8*u_stokes(i,j,k)+          &
@@ -885,7 +885,7 @@
      &               (Huon(i  ,j,k)+                                    &
      &                Huon(i+1,j,k)+                                    &
      &                Gadv*0.5_r8*(Huxx(i  ,j)+                         &
-     &           Huxx(i+1,j)))
+     &                             Huxx(i+1,j)))
           END DO
         END DO
 #   endif
@@ -915,7 +915,7 @@
         END IF
         DO j=Jstr,Jend+1
           DO i=IstrU-1,Iend
-             Hvxx(i,j)=Hvom(i-1,j,k)-2.0_r8*Hvom(i,j,k)+Hvom(i+1,j,k)
+           Hvxx(i,j)=Hvom(i-1,j,k)-2.0_r8*Hvom(i,j,k)+Hvom(i+1,j,k)
           END DO
         END DO
 #   ifdef UV_C4ADVECTION
@@ -1044,7 +1044,7 @@
           END DO
         END DO
         IF (.not.(CompositeGrid(isouth,ng).or.NSperiodic(ng))) THEN
-           IF (DOMAIN(ng)%Southern_Edge(tile)) THEN
+          IF (DOMAIN(ng)%Southern_Edge(tile)) THEN
             DO i=Istr,Iend
               vee (i,Jstr)=vee (i,Jstr+1)
               Hvee(i,Jstr)=Hvee(i,Jstr+1)
@@ -1095,7 +1095,7 @@
      &               (Hvom(i,j  ,k)+                                    &
      &                Hvom(i,j+1,k)+                                    &
      &                Gadv*0.5_r8*(Hvee(i,j  )+                         &
-     &           Hvee(i,j+1)))
+     &                             Hvee(i,j+1)))
           END DO
         END DO
 #   endif
@@ -1107,7 +1107,6 @@
           DO i=IstrU,Iend
             cff1=UFx(i,j)-UFx(i-1,j)
             cff2=UFe(i,j+1)-UFe(i,j)
-
             cff=cff1+cff2
             ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff
 #  ifdef DIAGNOSTICS_UV
@@ -1127,8 +1126,6 @@
           DO i=Istr,Iend
             cff1=VFx(i+1,j)-VFx(i,j)
             cff2=VFe(i,j)-VFe(i,j-1)
-            cff=cff1+cff2
-
             cff=cff1+cff2
             rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff
 #  ifdef DIAGNOSTICS_UV
@@ -1587,7 +1584,6 @@
             DO i=Istr,Iend
               cff=FC(i,k)-FC(i,k-1)
               rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff
-
 #  ifdef DIAGNOSTICS_UV
               DiaRV(i,j,k,nrhs,M3vadv)=-cff
 #  endif
@@ -1955,7 +1951,6 @@
               cff=FC(i,k)-FC(i,k-1)
               cff1=v(i,j,k,nrhs)*(FCs(i,k)-FCs(i,k-1))
               rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff
-
 #   ifdef DIAGNOSTICS_UV
               DiaRV(i,j,k,nrhs,M3vadv)=DiaRV(i,j,k,nrhs,M3vadv)-cff1
               DiaRV(i,j,k,nrhs,M3vjvf)=-(cff-cff1)
