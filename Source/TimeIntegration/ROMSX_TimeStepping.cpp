@@ -621,16 +621,24 @@ void ROMSX::romsx_advance(int level,
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-                Real cff1=0.5*(UFx(i,j,k)-UFx(i-1,j,k));
+                Real cff1=0.5*(UFx(i,j,k)+UFx(i-1,j,k));
+  if(i==3&&j==3&&k==3) {
+      amrex::Print()<<nrhs<<"\t"<<ru(i,j,k,nrhs)<<"\tcoru"<<std::endl;
+      Print()<<0.5*Hz(i,j,k)*fomn(i,j,0)<<"\t"<<vold(i,j,k,nrhs)<<"\t"<<vold(i,j+1,k,nrhs)<<"\t"<<UFx(i,j,k)<<"\t"<<UFx(i-1,j,k)<<std::endl;
+ }
                 ru(i,j,k,nrhs)=ru(i,j,k,nrhs)+cff1;
+ if(i==3&&j==3&&k==3) {
+     amrex::Print()<<nrhs<<"\t"<<ru(i,j,k,nrhs)<<"\tcoru"<<std::endl;
+ }
 
                 cff1=0.5*(VFe(i,j,k)+VFe(i,j-1,k));
   if(i==3&&j==3&&k==3) {
-			amrex::Print()<<nrhs<<"\t"<<rv(i,j,k,nrhs)<<std::endl;
+      amrex::Print()<<nrhs<<"\t"<<rv(i,j,k,nrhs)<<"\tcor"<<std::endl;
+      Print()<<0.5*Hz(i,j,k)*fomn(i,j,0)<<"\t"<<uold(i,j,k,nrhs)<<"\t"<<uold(i+1,j,k,nrhs)<<"\t"<<VFe(i,j,k)<<"\t"<<VFe(i,j-1,k)<<std::endl;
  }
                 rv(i,j,k,nrhs)=rv(i,j,k,nrhs)-cff1;
  if(i==3&&j==3&&k==3) {
-			amrex::Print()<<nrhs<<"\t"<<rv(i,j,k,nrhs)<<std::endl;
+     amrex::Print()<<nrhs<<"\t"<<rv(i,j,k,nrhs)<<"\tcor"<<std::endl;
  }
 	    });
 #endif
