@@ -484,13 +484,12 @@
       DO k=1,N(ng)
        DO j=JstrT,JendT
          DO i=IstrP,IendT
-	   u(i,j,k,1)= 8.0_r8 * LOG((-z_r(i,j,k)+.1_r8)/.1_r8) /        &
-		      & LOG((80.0_r8 + 0.1_r8)/0.1_r8)
-	  END DO
+            u(i,j,k,1)=0.0_r8
+          END DO
         END DO
         DO j=JstrP,JendT
           DO i=IstrT,IendT
-	    v(i,j,k,1)= 0.0_r8
+            v(i,j,k,1)=0.0_r8
           END DO
         END DO
       END DO
