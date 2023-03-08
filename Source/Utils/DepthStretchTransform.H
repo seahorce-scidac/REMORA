@@ -77,6 +77,9 @@ ROMSX::set_depth (int lev)
     std::unique_ptr<MultiFab>& mf_Hz  = Hz[lev];
     std::unique_ptr<MultiFab>& mf_h  = hOfTheConfusingName[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
+    Real depth = geom[lev].ProbHi(2);
+    const int Lm = Geom(lev).Domain().size()[0];
+    const int Mm = Geom(lev).Domain().size()[1];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = Zt_avg1[lev];
     mf_Zt_avg1->setVal(0.0);
 
@@ -113,9 +116,30 @@ ROMSX::set_depth (int lev)
       auto N = nz; // Number of vertical "levels" aka, NZ
       //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
+      bool NSPeriodic = geomdata.isPeriodic(1);
+      bool EWPeriodic = geomdata.isPeriodic(0);
       amrex::LoopConcurrentOnCpu(gbx22, ncomp,
       [=] (int i, int j, int k, int n)
       {
+	  Real val1, val2;
+	  int iFort = i+1;
+	  int jFort = j+1;
+          if(NSPeriodic) {
+              if (iFort<=Lm/2.0)
+                  val1=iFort;
+              else
+                  val1=Lm+1-iFort;
+              val2=-min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+              h_arr(i,j,0) = val2;
+          }
+          else if(EWPeriodic) {
+              if (jFort<=Mm/2.0)
+                  val1=jFort;
+              else
+                  val1=Mm+1-jFort;
+              val2=-min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+              h_arr(i,j,0) = val2;
+	  }
           z_w_arr(i,j,k) = -h_arr(i,j,0);
       });
       // ROMS Transform 2
@@ -128,7 +152,7 @@ ROMSX::set_depth (int lev)
         //This is the z for the bottom of the cell this k corresponds to
         //   if we weren't stretching and transforming
         const Real z = prob_lo[2] + (k) * dx[2];
-        h_arr(i,j,0) = -prob_lo[2]; // conceptually
+	//        h_arr(i,j,0) = -prob_lo[2]; // conceptually
 
         ////////////////////////////////////////////////////////////////////
         //ROMS Stretching 4
@@ -198,7 +222,7 @@ ROMSX::set_depth (int lev)
         cff1_r=Cs_r;
 
         ////////////////////////////////////////////////////////////////////
-        Real hwater=h_arr(i,j,0);
+        Real hwater=-h_arr(i,j,0);
         if(k==0)
 	 {
           //extra guess added (maybe not actually defined in ROMS)
