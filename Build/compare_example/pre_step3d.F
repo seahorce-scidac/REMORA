@@ -1096,8 +1096,8 @@
             FC(i,0)=0.0_r8
             FC(i,N(ng))=0.0_r8
 # else
-            FC(i,0)=dt(ng)*bvstr(i,j)
-            FC(i,N(ng))=dt(ng)*svstr(i,j)
+            FC(i,0)=0.0_r8!dt(ng)*bvstr(i,j)
+            FC(i,N(ng))=0.0_r8!dt(ng)*svstr(i,j)
 #  ifdef WET_DRY
             FC(i,N(ng))=FC(i,N(ng))*vmask_wet(i,j)
 #  endif
