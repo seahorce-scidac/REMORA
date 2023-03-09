@@ -368,7 +368,7 @@ void ROMSX::romsx_advance(int level,
         //  using either a Crack-Nicolson implicit scheme (lambda=0.5) or a
         //  backward implicit scheme (lambda=1.0).
         //
-#if 1
+#if 0
         //  Except the commented out part means its always 1.0
         Real lambda = 1.0;
         amrex::ParallelFor(gbx1, ncomp,

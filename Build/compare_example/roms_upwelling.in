@@ -106,8 +106,8 @@ GridsInLayer =  1
 ! shared-memory configurations used to determine tile horizontal range
 ! indices (Istr,Iend) and (Jstr,Jend), [1:Ngrids].
 
-      NtileI == 4                               ! I-direction partition
-      NtileJ == 16                              ! J-direction partition
+      NtileI == 1                               ! I-direction partition
+      NtileJ == 1                               ! J-direction partition
 
 ! Set horizontal and vertical advection schemes for active and inert
 ! tracers. A different advection scheme is allowed for each tracer.
@@ -221,15 +221,15 @@ ad_VolCons(north) ==  F                            ! northern boundary
 
 ! Time-Stepping parameters.
 
-      NTIMES == 1440
+      NTIMES == 100
           DT == 300.0d0
      NDTFAST == 30
 
 ! Number of timesteps for computing observation impacts during the
 ! analysis-forecast cycle.
 
-  NTIMES_ANA == 1440                               ! analysis interval
-  NTIMES_FCT == 1440                               ! forecast interval
+  NTIMES_ANA == 100                               ! analysis interval
+  NTIMES_FCT == 100                               ! forecast interval
 
 ! Model iteration loops parameters.
 
@@ -259,7 +259,7 @@ ad_VolCons(north) ==  F                            ! northern boundary
 ! Output history, quicksave, average, and diagnostic files parameters.
 
      LDEFOUT == T
-        NHIS == 72
+        NHIS == 1
      NDEFHIS == 0
         NQCK == 0
      NDEFQCK == 0
@@ -403,7 +403,7 @@ LtracerSponge == F F                            ! temperature, salinity, inert
 
      THETA_S == 3.0d0                      ! surface stretching parameter
      THETA_B == 0.0d0                      ! bottom  stretching parameter
-      TCLINE == 25.0d0                     ! critical depth (m)
+      TCLINE == 150.0d0                    ! critical depth (m)
 
 ! Mean Density and Brunt-Vaisala frequency.
 
