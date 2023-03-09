@@ -234,7 +234,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_w;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> s_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Zt_avg1;
-
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> sustr;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> svstr;
 private:
 
     ///////////////////////////
@@ -260,6 +261,8 @@ private:
     void set_depth (int lev);
 
     void set_vmix (int lev);
+
+    void set_smflux (int lev, amrex::Real time);
 
 #ifdef ROMSX_USE_NETCDF
     void init_from_wrfinput(int lev);

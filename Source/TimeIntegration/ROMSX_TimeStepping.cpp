@@ -1,5 +1,6 @@
 #include <ROMSX.H>
 #include <Utils.H>
+#include <prob.H>
 
 using namespace amrex;
 
@@ -155,6 +156,8 @@ void ROMSX::romsx_advance(int level,
     MultiFab mf_w(ba,dm,1,IntVect(2,2,0));
     std::unique_ptr<MultiFab>& mf_ru = ru[level];
     std::unique_ptr<MultiFab>& mf_rv = rv[level];
+    std::unique_ptr<MultiFab>& mf_sustr = sustr[level];
+    std::unique_ptr<MultiFab>& mf_svstr = svstr[level];
     //    MultiFab mf_ru(ba,dm,1,IntVect(2,2,0));
     //    MultiFab mf_rv(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_rw(ba,dm,1,IntVect(2,2,0));
@@ -184,16 +187,7 @@ void ROMSX::romsx_advance(int level,
     int ncomp = 1;
     int iic = istep[level];
     int ntfirst = 0;
-    //If we had wind stress and bottom stress we would need to set these:
-    Real tdays;
-    Real dstart;
-    Real rho0;
-    /*
-       IF ((tdays(ng)-dstart).le.2.0_r8) THEN
-          windamp=-0.1_r8*SIN(pi*(tdays(ng)-dstart)/4.0_r8)/rho0
-       ELSE
-          windamp=-0.1_r8/rho0
-       END IF     */
+    set_smflux(level,time);
     /*
 !
 !  Set linear bottom stress.
@@ -241,6 +235,8 @@ void ROMSX::romsx_advance(int level,
         Array4<Real> const& rv = (mf_rv)->array(mfi);
         Array4<Real> const& rw = (mf_rw).array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
+        Array4<Real> const& sustr = (mf_sustr)->array(mfi);
+        Array4<Real> const& svstr = (mf_svstr)->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -422,7 +418,7 @@ void ROMSX::romsx_advance(int level,
                     else if(k==N)
                     {
                         cff1=uold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                        cff2=-FC(i,j,k);//+sustr(i,j,0);
+                        cff2=-FC(i,j,k-1)+dt*sustr(i,j,0);
                         u(i,j,k,nnew)=cff1+cff2;
                     }
                 }
@@ -438,7 +434,7 @@ void ROMSX::romsx_advance(int level,
                     }
                     else if(k==N) {
                         cff1=uold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                        cff2=-FC(i,j,k);//+sustr(i,j,0);
+                        cff2=-FC(i,j,k-1)+dt*sustr(i,j,0);
                     }
                     cff3=0.5*DC(i,j,k);
                     indx=nrhs ? 0 : 1;
@@ -463,7 +459,7 @@ void ROMSX::romsx_advance(int level,
                     }
                     else if(k==N) {
                         cff3=uold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                        cff4=-FC(i,j,k);//+sustr(i,j,0);
+                        cff4=-FC(i,j,k-1)+dt*sustr(i,j,0);
                     }
                     indx=nrhs ? 0 : 1;
                     Real r_swap= ru(i,j,k,indx);
@@ -526,7 +522,7 @@ void ROMSX::romsx_advance(int level,
                     else if(k==N)
                     {
                         cff1=vold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                        cff2=-FC(i,j,k);//+sustr(i,j,0);
+                        cff2=-FC(i,j,k-1)+dt*svstr(i,j,0);
                         v(i,j,k,nnew)=cff1+cff2;
                     } }
                 }
@@ -542,7 +538,7 @@ void ROMSX::romsx_advance(int level,
                     }
                     else if(k==N) {
                         cff1=vold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                        cff2=-FC(i,j,k);//+sustr(i,j,0);
+                        cff2=-FC(i,j,k-1)+dt*svstr(i,j,0);
                     }
                     cff3=0.5*DC(i,j,k);
                     indx=nrhs ? 0 : 1;
@@ -568,7 +564,7 @@ void ROMSX::romsx_advance(int level,
                     }
                     else if(k==N) {
                         cff3=vold(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                        cff4=-FC(i,j,k);//+sustr(i,j,0);
+                        cff4=-FC(i,j,k-1)+dt*svstr(i,j,0);
                     }
                     indx=nrhs ? 0 : 1;
                     Real r_swap= rv(i,j,k,indx);
@@ -714,7 +710,7 @@ void ROMSX::romsx_advance(int level,
               //-----------------------------------------------------------------------
               cff1=9.0/16.0;
               cff2=1.0/16.0;
-              if(i>=0)
+	      //              if(i>=0)
               {
               if(k>=1&&k<=N-2)
               {
@@ -757,7 +753,7 @@ void ROMSX::romsx_advance(int level,
 
               ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
 
-              if(j>=0)
+	      //              if(j>=0)
               {
               if(k>=1&&k<=N-2)
               {

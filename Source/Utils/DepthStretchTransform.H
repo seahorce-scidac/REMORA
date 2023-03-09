@@ -67,6 +67,44 @@ void ROMSX::set_vmix (int lev)
 }
 
 void
+ROMSX::set_smflux(int lev, Real time)
+{
+    std::unique_ptr<MultiFab>& mf_sustr = sustr[lev];
+    std::unique_ptr<MultiFab>& mf_svstr = svstr[lev];
+    auto geomdata = Geom(lev).data();
+    bool NSPeriodic = geomdata.isPeriodic(1);
+    bool EWPeriodic = geomdata.isPeriodic(0);
+    //If we had wind stress and bottom stress we would need to set these:
+    Real pi = 3.14159265359;
+    Real tdays=time/(24.0*60.0*60.0);
+    amrex::Print()<<"Hacking in time offset for fixed dt=300"<<std::endl;
+    //this is a hack because time is off by dt. this needs to be fixed for non-fixed dt
+    Real dstart=-300.0/(24.0*60.0*60.0);
+    Real rho0=parms.rho0;
+    Real windamp;
+    if(NSPeriodic) {
+	mf_sustr->setVal(0.0);
+    }
+    else if(EWPeriodic) {
+        if ((tdays-dstart)<=2.0)
+	    windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
+        else
+            windamp=-0.1/rho0;
+        mf_sustr->setVal(windamp);
+    }
+    if(NSPeriodic) {
+        if ((tdays-dstart)<=2.0)
+	    windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
+        else
+            windamp=-0.1/rho0;
+        mf_svstr->setVal(windamp);
+    }
+    else if(EWPeriodic) {
+	mf_svstr->setVal(0.0);
+    }
+
+}
+void
 ROMSX::set_depth (int lev)
 {
     auto& lev_new = vars_new[lev];
@@ -121,6 +159,7 @@ ROMSX::set_depth (int lev)
       amrex::LoopConcurrentOnCpu(gbx22, ncomp,
       [=] (int i, int j, int k, int n)
       {
+#if 0
 	  Real val1, val2;
 	  int iFort = i+1;
 	  int jFort = j+1;
@@ -139,7 +178,10 @@ ROMSX::set_depth (int lev)
                   val1=Mm+1-jFort;
               val2=-min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
               h_arr(i,j,0) = val2;
-	  }
+          }
+#else
+          h_arr(i,j,0) = geomdata.ProbLo(2);
+#endif
           z_w_arr(i,j,k) = -h_arr(i,j,0);
       });
       // ROMS Transform 2
@@ -250,20 +292,6 @@ ROMSX::set_depth (int lev)
       [=] (int i, int j, int k, int n)
       {
 	  Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
-	  if(i==-1&&j==3-1&&k==1-1) {
-	      printf("%15.15g %15.15g\n",Hz_arr(i,j,k),Hz_arr(i,j,k));
-	      printf("%15.15g %15.15g\n",z_w_arr(i,j,k),z_w_arr(i,j,k));
-	  }
-	  if(i==3-1&&j==3-1&&k==2-1) {
-	      printf("%15.15g %15.15g\n",Hz_arr(i,j,k),Hz_arr(i,j,k));
-	      printf("%15.15g %15.15g\n",z_w_arr(i,j,k),z_w_arr(i,j,k-1));
-	  }
-	  if(i==3-1&&j==3-1&&k==3-1) {
-	      printf("%15.15g %15.15g\n",Hz_arr(i,j,k),Hz_arr(i,j,k));
-	      printf("%15.15g %15.15g\n",z_w_arr(i,j,k),z_w_arr(i,j,k-1));
-	      //	      exit(1);
-	  }
-
       });
     } // mf
     /*

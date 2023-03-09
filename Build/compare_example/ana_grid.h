@@ -1053,7 +1053,7 @@
           END IF
           val2=MIN(depth,84.5_r8+66.526_r8*TANH((val1-10.0_r8)/7.0_r8))
           DO j=JstrT,JendT
-            h(i,j)=val2
+            h(i,j)=depth
           END DO
         END DO
       ELSE IF (EWperiodic(ng)) THEN
@@ -1065,7 +1065,7 @@
           END IF
           val2=MIN(depth,84.5_r8+66.526_r8*TANH((val1-10.0_r8)/7.0_r8))
           DO i=IstrT,IendT
-            h(i,j)=val2
+            h(i,j)=depth
           END DO
         END DO
       END IF
