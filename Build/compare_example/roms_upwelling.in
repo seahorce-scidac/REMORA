@@ -181,28 +181,28 @@ ad_Vadvection == C4       \                     ! temperature
 !
 !                   1       2       3       4
 
-   LBC(isFsur) ==   Per     Clo     Per     Clo         ! free-surface
-   LBC(isUbar) ==   Per     Clo     Per     Clo         ! 2D U-momentum
-   LBC(isVbar) ==   Per     Clo     Per     Clo         ! 2D V-momentum
-   LBC(isUvel) ==   Per     Clo     Per     Clo         ! 3D U-momentum
-   LBC(isVvel) ==   Per     Clo     Per     Clo         ! 3D V-momentum
-   LBC(isMtke) ==   Per     Clo     Per     Clo         ! mixing TKE
+   LBC(isFsur) ==   Per     Per     Per     Per         ! free-surface
+   LBC(isUbar) ==   Per     Per     Per     Per         ! 2D U-momentum
+   LBC(isVbar) ==   Per     Per     Per     Per         ! 2D V-momentum
+   LBC(isUvel) ==   Per     Per     Per     Per         ! 3D U-momentum
+   LBC(isVvel) ==   Per     Per     Per     Per         ! 3D V-momentum
+   LBC(isMtke) ==   Per     Per     Per     Per         ! mixing TKE
 
-   LBC(isTvar) ==   Per     Clo     Per     Clo \       ! temperature
-                    Per     Clo     Per     Clo         ! salinity
+   LBC(isTvar) ==   Per     Per     Per     Per \       ! temperature
+                    Per     Per     Per     Per         ! salinity
 
 ! Adjoint-based algorithms can have different lateral boundary
 ! conditions keywords.
 
-ad_LBC(isFsur) ==   Per     Clo     Per     Clo         ! free-surface
-ad_LBC(isUbar) ==   Per     Clo     Per     Clo         ! 2D U-momentum
-ad_LBC(isVbar) ==   Per     Clo     Per     Clo         ! 2D V-momentum
-ad_LBC(isUvel) ==   Per     Clo     Per     Clo         ! 3D U-momentum
-ad_LBC(isVvel) ==   Per     Clo     Per     Clo         ! 3D V-momentum
-ad_LBC(isMtke) ==   Per     Clo     Per     Clo         ! mixing TKE
+ad_LBC(isFsur) ==   Per     Per     Per     Per         ! free-surface
+ad_LBC(isUbar) ==   Per     Per     Per     Per         ! 2D U-momentum
+ad_LBC(isVbar) ==   Per     Per     Per     Per         ! 2D V-momentum
+ad_LBC(isUvel) ==   Per     Per     Per     Per         ! 3D U-momentum
+ad_LBC(isVvel) ==   Per     Per     Per     Per         ! 3D V-momentum
+ad_LBC(isMtke) ==   Per     Per     Per     Per         ! mixing TKE
 
-ad_LBC(isTvar) ==   Per     Clo     Per     Clo \       ! temperature
-                    Per     Clo     Per     Clo         ! salinity
+ad_LBC(isTvar) ==   Per     Per     Per     Per \       ! temperature
+                    Per     Per     Per     Per         ! salinity
 
 ! Set lateral open boundary edge volume conservation switch for
 ! nonlinear model and adjoint-based algorithms. Usually activated
