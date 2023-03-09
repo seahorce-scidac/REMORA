@@ -106,7 +106,7 @@ init_custom_prob(
 	x_vel(i, j, k) = parms.u_0 + parms.uRef *
 	                 std::log((z + parms.z0)/parms.z0)/
                          std::log((parms.zRef +parms.z0)/parms.z0);
-        x_vel(i, j, k) = 0.0;
+        //x_vel(i, j, k) = 0.0;
   });
 
   // Construct a box that is on y-faces
