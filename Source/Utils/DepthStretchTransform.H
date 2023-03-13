@@ -32,7 +32,7 @@ ROMSX::set_2darrays (int lev)
 
         x_r_arr(i,j,0) = prob_lo[0] + (i + 0.5) * dx[0];
         y_r_arr(i,j,0) = prob_lo[1] + (j + 0.5) * dx[1];
-	//        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
+        //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
 
       });
     }
@@ -83,24 +83,24 @@ ROMSX::set_smflux(int lev, Real time)
     Real rho0=parms.rho0;
     Real windamp;
     if(NSPeriodic) {
-	mf_sustr->setVal(0.0);
+        mf_sustr->setVal(0.0);
     }
     else if(EWPeriodic) {
         if ((tdays-dstart)<=2.0)
-	    windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
+            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
         else
             windamp=-0.1/rho0;
         mf_sustr->setVal(windamp);
     }
     if(NSPeriodic) {
         if ((tdays-dstart)<=2.0)
-	    windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
+            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
         else
             windamp=-0.1/rho0;
         mf_svstr->setVal(windamp);
     }
     else if(EWPeriodic) {
-	mf_svstr->setVal(0.0);
+        mf_svstr->setVal(0.0);
     }
 
 }
@@ -160,9 +160,9 @@ ROMSX::set_depth (int lev)
       [=] (int i, int j, int k, int n)
       {
 #if 0
-	  Real val1, val2;
-	  int iFort = i+1;
-	  int jFort = j+1;
+          Real val1, val2;
+          int iFort = i+1;
+          int jFort = j+1;
           if(NSPeriodic) {
               if (iFort<=Lm/2.0)
                   val1=iFort;
@@ -194,7 +194,7 @@ ROMSX::set_depth (int lev)
         //This is the z for the bottom of the cell this k corresponds to
         //   if we weren't stretching and transforming
         const Real z = prob_lo[2] + (k) * dx[2];
-	//        h_arr(i,j,0) = -prob_lo[2]; // conceptually
+        //        h_arr(i,j,0) = -prob_lo[2]; // conceptually
 
         ////////////////////////////////////////////////////////////////////
         //ROMS Stretching 4
@@ -258,24 +258,24 @@ ROMSX::set_depth (int lev)
           else
             Cs_r=Csur;
         }
-	if(i==0&&j==0&&k<N&&k>=0)
-	s_r_arr(0,0,k) = sc_r;
+        if(i==0&&j==0&&k<N&&k>=0)
+        s_r_arr(0,0,k) = sc_r;
         cff_r=hc*sc_r;
         cff1_r=Cs_r;
 
         ////////////////////////////////////////////////////////////////////
         Real hwater=-h_arr(i,j,0);
         if(k==0)
-	 {
+         {
           //extra guess added (maybe not actually defined in ROMS)
         Real hinv=1.0_rt/(hc+hwater);
          cff2_r=(cff_r+cff1_r*hwater)*hinv;
-	 z_w_arr(i,j,k-2) = hwater;
-	 z_w_arr(i,j,k-1)= -hwater;
+         z_w_arr(i,j,k-2) = hwater;
+         z_w_arr(i,j,k-1)= -hwater;
 
-	 z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
+         z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
          Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
-	 }
+         }
         else
         {
         //Note, we are not supporting ICESHELF flag
@@ -291,7 +291,7 @@ ROMSX::set_depth (int lev)
       amrex::LoopConcurrentOnCpu(gbx21, ncomp,
       [=] (int i, int j, int k, int n)
       {
-	  Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+          Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
       });
     } // mf
     /*

@@ -710,7 +710,7 @@ void ROMSX::romsx_advance(int level,
               //-----------------------------------------------------------------------
               cff1=9.0/16.0;
               cff2=1.0/16.0;
-	      //              if(i>=0)
+              //              if(i>=0)
               {
               if(k>=1&&k<=N-2)
               {
@@ -753,7 +753,7 @@ void ROMSX::romsx_advance(int level,
 
               ru(i,j,k,nrhs)=ru(i,j,k,nrhs)-cff;
 
-	      //              if(j>=0)
+              //              if(j>=0)
               {
               if(k>=1&&k<=N-2)
               {
