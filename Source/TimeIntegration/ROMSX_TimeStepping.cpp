@@ -361,6 +361,28 @@ void ROMSX::romsx_advance(int level,
                       Hvom(i,j,k)=(Hz(i,j,k))*vold(i,j,k,nrhs)*
                           om_v(i,j,0);
                     });
+
+        amrex::ParallelFor(gbx1, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+                //
+                //------------------------------------------------------------------------
+                //  Vertically integrate horizontal mass flux divergence.
+                //------------------------------------------------------------------------
+                //
+                //  Starting with zero vertical velocity at the bottom, integrate
+                //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
+                //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
+                //  Notice that barotropic mass flux divergence is not used directly.
+                //
+                if(k==0)
+                    W(i,j,k)=0.0;
+                else
+                    W(i,j,k)=W(i,j,k-1)-
+                             (Huon(i+1,j,k)-Huon(i,j,k)+
+                              Hvom(i,j+1,k)-Hvom(i,j,k));
+            });
+
         //Need to include pre_step3d.F terms
 
         //
