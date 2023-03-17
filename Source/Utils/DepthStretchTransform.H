@@ -274,7 +274,9 @@ ROMSX::set_depth (int lev)
          z_w_arr(i,j,k-1)= -hwater;
 
          z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
-         Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+         Hz_arr(i,j,k)=0.0;//z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+	 if((i==0||i==-1)&&j==0&&k==0)
+	      printf("%d %d %d %15.15g %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz_arr(i,j,k),Hz_arr(i-1,j,k),z_w_arr(i,j,k),z_w_arr(i,j,k-1));
          }
         else
         {
@@ -288,12 +290,16 @@ ROMSX::set_depth (int lev)
         //Note, we are not supporting ICESHELF flag
         }
       });
-      amrex::LoopConcurrentOnCpu(gbx21, ncomp,
+
+      amrex::LoopConcurrentOnCpu(bx, ncomp,
       [=] (int i, int j, int k, int n)
       {
           Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+	 if((i==0||i==-1)&&j==0&&k==0)
+	      printf("%d %d %d %15.15g %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz_arr(i,j,k),Hz_arr(i-1,j,k),z_w_arr(i,j,k),z_w_arr(i,j,k-1));
       });
     } // mf
+    mf_Hz->FillBoundary(geom[lev].periodicity());
     /*
     z_w[lev]->FillBoundary(geom[lev].periodicity());
     z_r[lev]->FillBoundary(geom[lev].periodicity());
