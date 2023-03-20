@@ -38,6 +38,7 @@ echo "${NETCDF_INCDIR}"
 
 cd ../Exec/Upwelling
 nice make -j16 USE_NETCDF=TRUE DEBUG=TRUE
+#./ROMSX3d.gnu.DEBUG.TPROF.MPI.ex inputs amrex.fpe_trap_invalid=0 romsx.plotfile_type=netcdf romsx.plot_int_1=1 max_step=10
 cd ../../../
 
 cd COAWST
@@ -66,3 +67,5 @@ cd COAWST
 #}
 
 ./coawst.bash -j 4
+#./coawst.bash -noclean -j 4
+#./coawstM ROMS/External/roms_upwelling.in
