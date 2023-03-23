@@ -168,7 +168,7 @@ ROMSX::set_depth (int lev)
                   val1=iFort;
               else
                   val1=Lm+1-iFort;
-              val2=-min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+              val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
               h_arr(i,j,0) = val2;
           }
           else if(EWPeriodic) {
@@ -176,13 +176,13 @@ ROMSX::set_depth (int lev)
                   val1=jFort;
               else
                   val1=Mm+1-jFort;
-              val2=-min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+              val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
               h_arr(i,j,0) = val2;
           }
 #else
-          h_arr(i,j,0) = geomdata.ProbLo(2);
+          h_arr(i,j,0) = -geomdata.ProbLo(2);
 #endif
-          z_w_arr(i,j,k) = -h_arr(i,j,0);
+          z_w_arr(i,j,k) = h_arr(i,j,0);
       });
       // ROMS Transform 2
       amrex::LoopConcurrentOnCpu(gbx21, ncomp,
@@ -264,7 +264,7 @@ ROMSX::set_depth (int lev)
         cff1_r=Cs_r;
 
         ////////////////////////////////////////////////////////////////////
-        Real hwater=-h_arr(i,j,0);
+        Real hwater=h_arr(i,j,0);
         if(k==0)
          {
           //extra guess added (maybe not actually defined in ROMS)
