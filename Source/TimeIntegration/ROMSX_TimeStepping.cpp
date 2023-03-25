@@ -158,6 +158,8 @@ void ROMSX::romsx_advance(int level,
     std::unique_ptr<MultiFab>& mf_rv = rv[level];
     std::unique_ptr<MultiFab>& mf_sustr = sustr[level];
     std::unique_ptr<MultiFab>& mf_svstr = svstr[level];
+    std::unique_ptr<MultiFab>& mf_ubar = ubar[level];
+    std::unique_ptr<MultiFab>& mf_vbar = vbar[level];
     //    MultiFab mf_ru(ba,dm,1,IntVect(2,2,0));
     //    MultiFab mf_rv(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_rw(ba,dm,1,IntVect(2,2,0));
@@ -843,6 +845,8 @@ void ROMSX::romsx_advance(int level,
         Array4<Real> const& W = (mf_W).array(mfi);
         Array4<Real> const& sustr = (mf_sustr)->array(mfi);
         Array4<Real> const& svstr = (mf_svstr)->array(mfi);
+        Array4<Real> const& ubar = (mf_ubar)->array(mfi);
+        Array4<Real> const& vbar = (mf_vbar)->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -942,6 +946,17 @@ void ROMSX::romsx_advance(int level,
         fab_vee.setVal(0.0);
         fab_VFx.setVal(0.0);
         fab_VFe.setVal(0.0);
+
+	//This is off by about 4 decimal places
+	for(int i=bx.smallEnd(0);i<bx.bigEnd(0);i++)
+	    for(int j=bx.smallEnd(1);j<=bx.bigEnd(1);j++)
+		{
+		    Box bx1(IntVect(AMREX_D_DECL(i,j,bx.smallEnd(2))),IntVect(AMREX_D_DECL(i,j,bx.bigEnd(2))));
+		    ubar(i,j,0) = xvel_old[mfi].sum(bx1,0,1)/(bx.length(2));
+		    vbar(i,j,0) = yvel_old[mfi].sum(bx1,0,1)/(bx.length(2));
+		    
+		}
+
     }
 
     // Need to include uv3dmix
