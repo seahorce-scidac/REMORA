@@ -819,7 +819,238 @@ void ROMSX::romsx_advance(int level,
             });
 
         // End rhs3d_tile
-        // Need to include uv3dmix
+    }
+
+    // start 2d step
+    for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& AK = (mf_AK).array(mfi);
+        Array4<Real> const& DC = (mf_DC).array(mfi);
+        Array4<Real> const& Hzk = (mf_Hzk).array(mfi);
+        Array4<Real> const& Akv = (mf_Akv)->array(mfi);
+        Array4<Real> const& Hz = (mf_Hz)->array(mfi);
+        Array4<Real> const& z_r = (mf_z_r)->array(mfi);
+        Array4<Real> const& uold = (xvel_old).array(mfi);
+        Array4<Real> const& vold = (yvel_old).array(mfi);
+        //Array4<Real> const& uold = (mf_u).array(mfi);
+        //Array4<Real> const& vold = (mf_v).array(mfi);
+        Array4<Real> const& u = (mf_u).array(mfi);
+        Array4<Real> const& v = (mf_v).array(mfi);
+        Array4<Real> const& w = (mf_w).array(mfi);
+        Array4<Real> const& ru = (mf_ru)->array(mfi);
+        Array4<Real> const& rv = (mf_rv)->array(mfi);
+        Array4<Real> const& rw = (mf_rw).array(mfi);
+        Array4<Real> const& W = (mf_W).array(mfi);
+        Array4<Real> const& sustr = (mf_sustr)->array(mfi);
+        Array4<Real> const& svstr = (mf_svstr)->array(mfi);
+
+        Box bx = mfi.tilebox();
+        //copy the tilebox
+        Box gbx1 = bx;
+        Box gbx11 = bx;
+        Box gbx2 = bx;
+        //make only gbx be grown to match multifabs
+        gbx2.grow(IntVect(2,2,0));
+        gbx1.grow(IntVect(1,1,0));
+        gbx11.grow(IntVect(1,1,1));
+        Box gbx=gbx2;
+
+        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena);
+        //rhs3d work arrays
+        FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena);
+
+        auto FC=fab_FC.array();
+        auto BC=fab_BC.array();
+        auto CF=fab_CF.array();
+        auto pn=fab_pn.array();
+        auto pm=fab_pm.array();
+        auto on_u=fab_on_u.array();
+        auto om_v=fab_om_v.array();
+        auto fomn=fab_fomn.array();
+        auto Huon=fab_Huon.array();
+        auto Hvom=fab_Hvom.array();
+        auto oHz=fab_oHz.array();
+        auto Huxx=fab_Huxx.array();
+        auto Huee=fab_Huee.array();
+        auto Hvxx=fab_Hvxx.array();
+        auto Hvee=fab_Hvee.array();
+        auto uxx=fab_uxx.array();
+        auto uee=fab_uee.array();
+        auto vxx=fab_vxx.array();
+        auto vee=fab_vee.array();
+        auto UFx=fab_UFx.array();
+        auto UFe=fab_UFe.array();
+        auto VFx=fab_VFx.array();
+        auto VFe=fab_VFe.array();
+
+        //From ana_grid.h and metrics.F
+        amrex::ParallelFor(gbx2, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+
+              const auto prob_lo         = geomdata.ProbLo();
+              const auto dx              = geomdata.CellSize();
+
+              pm(i,j,0)=dxi[0];
+              pn(i,j,0)=dxi[1];
+              //defined UPWELLING
+              Real f0=-8.26e-5;
+              Real beta=0.0;
+              Real Esize=1000*(Mm);
+              Real y = prob_lo[1] + (j + 0.5) * dx[1];
+              Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+              fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
+            });
+        amrex::ParallelFor(gbx2, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+              om_v(i,j,0)=1.0/dxi[0];
+              on_u(i,j,0)=1.0/dxi[1];
+            });
+        fab_Huon.setVal(0.0);
+        fab_Hvom.setVal(0.0);
+        fab_Huxx.setVal(0.0);
+        fab_Huee.setVal(0.0);
+        fab_Hvxx.setVal(0.0);
+        fab_Hvee.setVal(0.0);
+        fab_uxx.setVal(0.0);
+        fab_uee.setVal(0.0);
+        fab_UFx.setVal(0.0);
+        fab_UFe.setVal(0.0);
+        fab_vxx.setVal(0.0);
+        fab_vee.setVal(0.0);
+        fab_VFx.setVal(0.0);
+        fab_VFe.setVal(0.0);
+    }
+
+    // Need to include uv3dmix
+    // start 3d step
+    for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& AK = (mf_AK).array(mfi);
+        Array4<Real> const& DC = (mf_DC).array(mfi);
+        Array4<Real> const& Hzk = (mf_Hzk).array(mfi);
+        Array4<Real> const& Akv = (mf_Akv)->array(mfi);
+        Array4<Real> const& Hz = (mf_Hz)->array(mfi);
+        Array4<Real> const& z_r = (mf_z_r)->array(mfi);
+        Array4<Real> const& uold = (xvel_old).array(mfi);
+        Array4<Real> const& vold = (yvel_old).array(mfi);
+        //Array4<Real> const& uold = (mf_u).array(mfi);
+        //Array4<Real> const& vold = (mf_v).array(mfi);
+        Array4<Real> const& u = (mf_u).array(mfi);
+        Array4<Real> const& v = (mf_v).array(mfi);
+        Array4<Real> const& w = (mf_w).array(mfi);
+        Array4<Real> const& ru = (mf_ru)->array(mfi);
+        Array4<Real> const& rv = (mf_rv)->array(mfi);
+        Array4<Real> const& rw = (mf_rw).array(mfi);
+        Array4<Real> const& W = (mf_W).array(mfi);
+        Array4<Real> const& sustr = (mf_sustr)->array(mfi);
+        Array4<Real> const& svstr = (mf_svstr)->array(mfi);
+
+        Box bx = mfi.tilebox();
+        //copy the tilebox
+        Box gbx1 = bx;
+        Box gbx11 = bx;
+        Box gbx2 = bx;
+        //make only gbx be grown to match multifabs
+        gbx2.grow(IntVect(2,2,0));
+        gbx1.grow(IntVect(1,1,0));
+        gbx11.grow(IntVect(1,1,1));
+        Box gbx=gbx2;
+
+        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena);
+        //rhs3d work arrays
+        FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena);
+
+        auto FC=fab_FC.array();
+        auto BC=fab_BC.array();
+        auto CF=fab_CF.array();
+        auto pn=fab_pn.array();
+        auto pm=fab_pm.array();
+        auto on_u=fab_on_u.array();
+        auto om_v=fab_om_v.array();
+        auto fomn=fab_fomn.array();
+        auto Huon=fab_Huon.array();
+        auto Hvom=fab_Hvom.array();
+        auto oHz=fab_oHz.array();
+        auto Huxx=fab_Huxx.array();
+        auto Huee=fab_Huee.array();
+        auto Hvxx=fab_Hvxx.array();
+        auto Hvee=fab_Hvee.array();
+        auto uxx=fab_uxx.array();
+        auto uee=fab_uee.array();
+        auto vxx=fab_vxx.array();
+        auto vee=fab_vee.array();
+        auto UFx=fab_UFx.array();
+        auto UFe=fab_UFe.array();
+        auto VFx=fab_VFx.array();
+        auto VFe=fab_VFe.array();
+        //From ana_grid.h and metrics.F
+        amrex::ParallelFor(gbx2, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+
+              const auto prob_lo         = geomdata.ProbLo();
+              const auto dx              = geomdata.CellSize();
+
+              pm(i,j,0)=dxi[0];
+              pn(i,j,0)=dxi[1];
+              //defined UPWELLING
+              Real f0=-8.26e-5;
+              Real beta=0.0;
+              Real Esize=1000*(Mm);
+              Real y = prob_lo[1] + (j + 0.5) * dx[1];
+              Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+              fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
+            });
+        amrex::ParallelFor(gbx2, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+              om_v(i,j,0)=1.0/dxi[0];
+              on_u(i,j,0)=1.0/dxi[1];
+            });
         // Begin step3d_uv.F
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
