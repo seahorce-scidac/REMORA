@@ -236,6 +236,18 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Zt_avg1;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> sustr;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> svstr;
+
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> DU_avg1;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> DU_avg2;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> DV_avg1;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> DV_avg2;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> rubar;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> rvbar;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> rzeta;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> ubar;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vbar;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> zeta;
+
 private:
 
     ///////////////////////////

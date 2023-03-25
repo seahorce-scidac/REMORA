@@ -590,6 +590,17 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     sustr.resize(lev+1);
     svstr.resize(lev+1);
 
+    DU_avg1.resize(lev+1);
+    DU_avg2.resize(lev+1);
+    DV_avg1.resize(lev+1);
+    DV_avg2.resize(lev+1);
+    rubar.resize(lev+1);
+    rvbar.resize(lev+1);
+    rzeta.resize(lev+1);
+    ubar.resize(lev+1);
+    vbar.resize(lev+1);
+    zeta.resize(lev+1);
+
     hOfTheConfusingName[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     Zt_avg1[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     s_r[lev].reset(new MultiFab(ba1d,dm,1,IntVect(0,0,0)));
@@ -604,6 +615,17 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     sustr[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     svstr[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
 
+    DU_avg1[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    DU_avg2[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    DV_avg1[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    DV_avg2[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    rubar[lev].reset(new MultiFab(ba,dm,4,IntVect(2,2,0)));
+    rvbar[lev].reset(new MultiFab(ba,dm,4,IntVect(2,2,0)));
+    rzeta[lev].reset(new MultiFab(ba,dm,4,IntVect(2,2,0)));
+    ubar[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    vbar[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    zeta[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+
     initialize_integrator(lev, lev_new[Vars::cons],lev_new[Vars::xvel]);
 
     set_2darrays(lev);
@@ -613,6 +635,18 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     //consider tracking ru and rv indexes more specifically or more similarly to indx
     ru[lev]->setVal(0.0);
     rv[lev]->setVal(0.0);
+
+    DU_avg1[lev]->setVal(0.0);
+    DU_avg2[lev]->setVal(0.0);
+    DV_avg1[lev]->setVal(0.0);
+    DV_avg2[lev]->setVal(0.0);
+    rubar[lev]->setVal(0.0);
+    rvbar[lev]->setVal(0.0);
+    rzeta[lev]->setVal(0.0);
+
+    ubar[lev]->setVal(0.0);
+    vbar[lev]->setVal(0.0);
+    zeta[lev]->setVal(0.0);
 }
 
 void
