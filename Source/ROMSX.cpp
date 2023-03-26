@@ -622,9 +622,9 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     rubar[lev].reset(new MultiFab(ba,dm,4,IntVect(2,2,0)));
     rvbar[lev].reset(new MultiFab(ba,dm,4,IntVect(2,2,0)));
     rzeta[lev].reset(new MultiFab(ba,dm,4,IntVect(2,2,0)));
-    ubar[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
-    vbar[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
-    zeta[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    ubar[lev].reset(new MultiFab(ba2d,dm,2,IntVect(2,2,0)));
+    vbar[lev].reset(new MultiFab(ba2d,dm,2,IntVect(2,2,0)));
+    zeta[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
 
     initialize_integrator(lev, lev_new[Vars::cons],lev_new[Vars::xvel]);
 
@@ -647,7 +647,6 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vbar[lev]->setVal(0.0);
     zeta[lev]->setVal(0.0);
 
-    set_2darrays(lev);
 }
 
 void

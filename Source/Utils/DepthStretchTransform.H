@@ -39,16 +39,23 @@ ROMSX::set_2darrays (int lev)
     //    x_r[lev]->FillBoundary(geom[lev].periodicity());
     //    y_r[lev]->FillBoundary(geom[lev].periodicity());
 
-    MultiFab& U_old = vars_old[lev][Vars::xvel];
-    MultiFab& V_old = vars_old[lev][Vars::yvel];
-    MultiFab& W_old = vars_old[lev][Vars::zvel];
+    MultiFab& U_old = vars_new[lev][Vars::xvel];
+    MultiFab& V_old = vars_new[lev][Vars::yvel];
+    MultiFab& W_old = vars_new[lev][Vars::zvel];
     std::unique_ptr<MultiFab>& mf_ubar = ubar[lev];
     std::unique_ptr<MultiFab>& mf_vbar = vbar[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = Hz[lev];
+    int nstp = 0;
+    int kstp = 1;
+    int knew = 0;
+    int ncomp = 1;
     for ( MFIter mfi(U_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
+        Array4<Real> const& Hz   = (mf_Hz)->array(mfi);
+	Array4<Real> const& u    = (U_old).array(mfi);
+	Array4<Real> const& v    = (V_old).array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -60,59 +67,48 @@ ROMSX::set_2darrays (int lev)
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
 
-        //This is off by about 4 decimal places, needs to be weighted
-        //Also should move to initial setup
-        for(int i=gbx2.smallEnd(0);i<gbx2.bigEnd(0);i++)
-            for(int j=gbx2.smallEnd(1);j<=gbx2.bigEnd(1);j++)
-                {
-                    //This needs to be a weighted sum, like
-                    /*
-        DO j=JstrB,JendB
-          DO i=IstrM,IendB
-            DC(i,0)=0.0_r8
-            CF(i,0)=0.0_r8
-          END DO
-          DO k=1,N(ng)
-            DO i=IstrM,IendB
-              DC(i,k)=0.5_r8*(Hz(i,j,k)+Hz(i-1,j,k))
-              DC(i,0)=DC(i,0)+DC(i,k)
-              CF(i,0)=CF(i,0)+DC(i,k)*u(i,j,k,nstp)
-            END DO
-          END DO
-          DO i=IstrM,IendB
-            cff1=1.0_r8/DC(i,0)
-            cff2=CF(i,0)*cff1
-            ubar(i,j,kstp)=cff2
-            ubar(i,j,knew)=cff2
-          END DO
-!
-          IF (j.ge.JstrM) THEN
-            DO i=IstrB,IendB
-              DC(i,0)=0.0_r8
-              CF(i,0)=0.0_r8
-            END DO
-            DO k=1,N(ng)
-              DO i=IstrB,IendB
-                DC(i,k)=0.5_r8*(Hz(i,j,k)+Hz(i,j-1,k))
-                DC(i,0)=DC(i,0)+DC(i,k)
-                CF(i,0)=CF(i,0)+DC(i,k)*v(i,j,k,nstp)
-              END DO
-            END DO
-            DO i=IstrB,IendB
-              cff1=1.0_r8/DC(i,0)
-              cff2=CF(i,0)*cff1
-              vbar(i,j,kstp)=cff2
-              vbar(i,j,knew)=cff2
-            END DO
-          END IF
-          END DO*/
-                    Box bx1(IntVect(AMREX_D_DECL(i,j,gbx2.smallEnd(2))),IntVect(AMREX_D_DECL(i,j,gbx2.bigEnd(2))));
-                    ubar(i,j,0) = U_old[mfi].sum(bx1,0,1)/(gbx2.length(2));
-                    vbar(i,j,0) = V_old[mfi].sum(bx1,0,1)/(gbx2.length(2));
+        FArrayBox fab_DC(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena);
+        auto DC=fab_DC.array();
+        auto CF=fab_CF.array();
 
-                }
-	//        Print()<<(*mf_ubar)[mfi]<<"\n------------"<<std::endl;
-	//        Print()<<(*mf_vbar)[mfi]<<"\n------------"<<std::endl;
+        fab_DC.setVal(0.0);
+        fab_CF.setVal(0.0);
+
+        amrex::ParallelFor(gbx1, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+                DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                DC(i,j,0)=DC(i,j,0)+DC(i,j,k);
+                CF(i,j,0)=CF(i,j,0)+DC(i,j,k)*u(i,j,k,nstp);
+            });
+        amrex::ParallelFor(gbx1, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+                Real cff1=1.0/DC(i,j,0);
+                Real cff2=CF(i,j,0)*cff1;
+                ubar(i,j,0,kstp)=cff2;
+                ubar(i,j,0,knew)=cff2;
+            });
+        fab_DC.setVal(0.0);
+        fab_CF.setVal(0.0);
+        amrex::ParallelFor(gbx1, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+                DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
+                DC(i,j,0)=DC(i,j,0)+DC(i,j,k);
+                CF(i,j,0)=CF(i,j,0)+DC(i,j,k)*v(i,j,k,nstp);
+            });
+        amrex::ParallelFor(gbx1, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+                Real cff1=1.0/DC(i,j,0);
+                Real cff2=CF(i,j,0)*cff1;
+                vbar(i,j,0,kstp)=cff2;
+                vbar(i,j,0,knew)=cff2;
+            });
+        //        Print()<<(*mf_ubar)[mfi]<<"\n------------"<<std::endl;
+        //        Print()<<(*mf_vbar)[mfi]<<"\n------------"<<std::endl;
 
     }
 }

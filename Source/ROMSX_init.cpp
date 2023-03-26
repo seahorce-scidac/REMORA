@@ -365,4 +365,7 @@ ROMSX::init_custom(int lev)
                          z_w_arr, z_r_arr, Hz_arr, h_arr, Zt_avg1_arr, geom[lev].data());
 
     } //mfi
+
+    set_2darrays(lev);
+
 }
