@@ -628,7 +628,6 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 
     initialize_integrator(lev, lev_new[Vars::cons],lev_new[Vars::xvel]);
 
-    set_2darrays(lev);
     set_depth(lev);
     set_vmix(lev);
 
@@ -647,6 +646,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     ubar[lev]->setVal(0.0);
     vbar[lev]->setVal(0.0);
     zeta[lev]->setVal(0.0);
+
+    set_2darrays(lev);
 }
 
 void
