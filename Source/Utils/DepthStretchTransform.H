@@ -67,8 +67,8 @@ ROMSX::set_2darrays (int lev)
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
 
-        FArrayBox fab_DC(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_DC(gbx11,1,amrex::The_Async_Arena);
+        FArrayBox fab_CF(gbx11,1,amrex::The_Async_Arena);
         auto DC=fab_DC.array();
         auto CF=fab_CF.array();
 
@@ -79,14 +79,14 @@ ROMSX::set_2darrays (int lev)
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                DC(i,j,0)=DC(i,j,0)+DC(i,j,k);
-                CF(i,j,0)=CF(i,j,0)+DC(i,j,k)*u(i,j,k,nstp);
+                DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
+                CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*u(i,j,k,nstp);
             });
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-                Real cff1=1.0/DC(i,j,0);
-                Real cff2=CF(i,j,0)*cff1;
+                Real cff1=1.0/DC(i,j,-1);
+                Real cff2=CF(i,j,-1)*cff1;
                 ubar(i,j,0,kstp)=cff2;
                 ubar(i,j,0,knew)=cff2;
             });
@@ -96,14 +96,14 @@ ROMSX::set_2darrays (int lev)
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                DC(i,j,0)=DC(i,j,0)+DC(i,j,k);
-                CF(i,j,0)=CF(i,j,0)+DC(i,j,k)*v(i,j,k,nstp);
+                DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
+                CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*v(i,j,k,nstp);
             });
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-                Real cff1=1.0/DC(i,j,0);
-                Real cff2=CF(i,j,0)*cff1;
+                Real cff1=1.0/DC(i,j,-1);
+                Real cff2=CF(i,j,-1)*cff1;
                 vbar(i,j,0,kstp)=cff2;
                 vbar(i,j,0,knew)=cff2;
             });
