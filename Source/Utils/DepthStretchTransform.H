@@ -189,6 +189,25 @@ ROMSX::set_depth (int lev)
     std::unique_ptr<MultiFab>& mf_h  = hOfTheConfusingName[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
     Real depth = geom[lev].ProbHi(2);
+    int ncomp = 1;
+    const auto & geomdata = Geom(lev).data();
+
+      Box subdomain;
+      if (lev == 0) {
+          subdomain = geom[lev].Domain();
+      } else {
+          amrex::Abort("Geometry information needs to be updated for multilevel");
+      }
+
+      int nx = subdomain.length(0);
+      int ny = subdomain.length(1);
+      int nz = subdomain.length(2);
+
+    auto N = nz; // Number of vertical "levels" aka, NZ
+      //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
+
+    Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
+
     const int Lm = Geom(lev).Domain().size()[0];
     const int Mm = Geom(lev).Domain().size()[1];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = Zt_avg1[lev];
@@ -203,30 +222,14 @@ ROMSX::set_depth (int lev)
       Array4<Real> const& Hz_arr  = (mf_Hz)->array(mfi);
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
-      gbx2.grow(IntVect(2,2,0));
+      //      gbx2.grow(IntVect(2,2,0));
       Box gbx21 = bx;
-      gbx21.grow(IntVect(2,2,1));
+      //      gbx21.grow(IntVect(2,2,1));
       Box gbx22 = bx;
-      gbx22.grow(IntVect(2,2,2));
+      //      gbx22.grow(IntVect(2,2,2));
       Array4<Real> const& h_arr  = (mf_h)->array(mfi);
       Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
-      const auto & geomdata = Geom(lev).data();
 
-      int ncomp = 1;
-      Box subdomain;
-      if (lev == 0) {
-          subdomain = geom[lev].Domain();
-      } else {
-          amrex::Abort("Geometry information needs to be updated for multilevel");
-      }
-
-      int nx = subdomain.length(0);
-      int ny = subdomain.length(1);
-      int nz = subdomain.length(2);
-
-      auto N = nz; // Number of vertical "levels" aka, NZ
-      //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
-      Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
       bool NSPeriodic = geomdata.isPeriodic(1);
       bool EWPeriodic = geomdata.isPeriodic(0);
       amrex::LoopConcurrentOnCpu(gbx22, ncomp,
@@ -257,6 +260,31 @@ ROMSX::set_depth (int lev)
 #endif
           z_w_arr(i,j,k) = h_arr(i,j,0);
       });
+    }
+    mf_Hz->FillBoundary(geom[lev].periodicity());
+    z_w[lev]->FillBoundary(geom[lev].periodicity());
+    z_r[lev]->FillBoundary(geom[lev].periodicity());
+    s_r[lev]->FillBoundary(geom[lev].periodicity());
+    Hz[lev]->FillBoundary(geom[lev].periodicity());
+    hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+    Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
+
+    for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+
+      Array4<Real> const& z_w_arr = (mf_z_w)->array(mfi);
+      Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
+      Array4<Real> const& s_r_arr = (mf_s_r)->array(mfi);
+      Array4<Real> const& Hz_arr  = (mf_Hz)->array(mfi);
+      Box bx = mfi.tilebox();
+      Box gbx2 = bx;
+      //      gbx2.grow(IntVect(2,2,0));
+      Box gbx21 = bx;
+      //      gbx21.grow(IntVect(2,2,1));
+      Box gbx22 = bx;
+             gbx22.grow(IntVect(2,2,2));
+      Array4<Real> const& h_arr  = (mf_h)->array(mfi);
+      Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
       // ROMS Transform 2
       amrex::LoopConcurrentOnCpu(gbx21, ncomp,
       [=] (int i, int j, int k, int n)
@@ -348,8 +376,6 @@ ROMSX::set_depth (int lev)
 
          z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
          Hz_arr(i,j,k)=0.0;//z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
-	 if((i==0||i==-1)&&j==0&&k==0)
-	      printf("%d %d %d %15.15g %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz_arr(i,j,k),Hz_arr(i-1,j,k),z_w_arr(i,j,k),z_w_arr(i,j,k-1));
          }
         else
         {
@@ -363,7 +389,31 @@ ROMSX::set_depth (int lev)
         //Note, we are not supporting ICESHELF flag
         }
       });
+    }
+    mf_Hz->FillBoundary(geom[lev].periodicity());
+    z_w[lev]->FillBoundary(geom[lev].periodicity());
+    z_r[lev]->FillBoundary(geom[lev].periodicity());
+    s_r[lev]->FillBoundary(geom[lev].periodicity());
+    Hz[lev]->FillBoundary(geom[lev].periodicity());
+    hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+    Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
 
+    for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+
+      Array4<Real> const& z_w_arr = (mf_z_w)->array(mfi);
+      Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
+      Array4<Real> const& s_r_arr = (mf_s_r)->array(mfi);
+      Array4<Real> const& Hz_arr  = (mf_Hz)->array(mfi);
+      Box bx = mfi.tilebox();
+      Box gbx2 = bx;
+      //      gbx2.grow(IntVect(2,2,0));
+      Box gbx21 = bx;
+      //      gbx21.grow(IntVect(2,2,1));
+      Box gbx22 = bx;
+             gbx22.grow(IntVect(2,2,2));
+      Array4<Real> const& h_arr  = (mf_h)->array(mfi);
+      Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
       amrex::LoopConcurrentOnCpu(bx, ncomp,
       [=] (int i, int j, int k, int n)
       {
@@ -372,15 +422,38 @@ ROMSX::set_depth (int lev)
 	      printf("%d %d %d %15.15g %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz_arr(i,j,k),Hz_arr(i-1,j,k),z_w_arr(i,j,k),z_w_arr(i,j,k-1));
       });
     } // mf
-    mf_Hz->FillBoundary(geom[lev].periodicity());
-    /*
+    /*mf_Hz->FillBoundary(geom[lev].periodicity());
     z_w[lev]->FillBoundary(geom[lev].periodicity());
     z_r[lev]->FillBoundary(geom[lev].periodicity());
     s_r[lev]->FillBoundary(geom[lev].periodicity());
     Hz[lev]->FillBoundary(geom[lev].periodicity());
     hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
-    */      
+    */
+    for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+
+      Array4<Real> const& z_w_arr = (mf_z_w)->array(mfi);
+      Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
+      Array4<Real> const& s_r_arr = (mf_s_r)->array(mfi);
+      Array4<Real> const& Hz_arr  = (mf_Hz)->array(mfi);
+      Box bx = mfi.tilebox();
+      Box gbx2 = bx;
+      //      gbx2.grow(IntVect(2,2,0));
+      Box gbx21 = bx;
+      //      gbx21.grow(IntVect(2,2,1));
+      Box gbx22 = bx;
+             gbx22.grow(IntVect(2,2,2));
+      Array4<Real> const& h_arr  = (mf_h)->array(mfi);
+      Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
+      amrex::LoopConcurrentOnCpu(gbx22, 1,
+      [=] (int i, int j, int k, int n)
+      {
+    	 if((i==42)&&j==80&&(k==0||k==1))
+	     printf("%d %d %d %15.15g %15.15g %15.15g %15.15g %15.15g\n",i,j,k,z_w_arr(i,j,k),z_r_arr(i,j,k),Hz_arr(i,j,k),h_arr(i,j,0),Zt_avg1_arr(i,j,0));
+      });
+    }
+
 }
 
 #endif

@@ -249,7 +249,9 @@ void ROMSX::romsx_advance(int level,
         gbx2.grow(IntVect(2,2,0));
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
+        gbx2 = gbx1;
         Box gbx=gbx2;
+        gbx1 = bx;
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena);
@@ -344,7 +346,7 @@ void ROMSX::romsx_advance(int level,
               //-----------------------------------------------------------------------
               //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
               //-----------------------------------------------------------------------
-                if(k+1<=N)
+              if(k+1<=N)
                   Huon(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k,nrhs)*
                 on_u(i,j,0);
               if(k+1<=N)
