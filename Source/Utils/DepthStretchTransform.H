@@ -54,8 +54,8 @@ ROMSX::set_2darrays (int lev)
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
         Array4<Real> const& Hz   = (mf_Hz)->array(mfi);
-	Array4<Real> const& u    = (U_old).array(mfi);
-	Array4<Real> const& v    = (V_old).array(mfi);
+        Array4<Real> const& u    = (U_old).array(mfi);
+        Array4<Real> const& v    = (V_old).array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
