@@ -75,7 +75,7 @@ ROMSX::set_2darrays (int lev)
         fab_DC.setVal(0.0);
         fab_CF.setVal(0.0);
 
-        amrex::ParallelFor(gbx1, ncomp,
+        amrex::LoopOnCpu(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k));
@@ -92,7 +92,7 @@ ROMSX::set_2darrays (int lev)
             });
         fab_DC.setVal(0.0);
         fab_CF.setVal(0.0);
-        amrex::ParallelFor(gbx1, ncomp,
+        amrex::LoopOnCpu(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
@@ -229,7 +229,7 @@ ROMSX::set_depth (int lev)
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
       bool NSPeriodic = geomdata.isPeriodic(1);
       bool EWPeriodic = geomdata.isPeriodic(0);
-      amrex::LoopConcurrentOnCpu(gbx22, ncomp,
+      amrex::LoopConcurrentOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
 #if 0
@@ -258,7 +258,7 @@ ROMSX::set_depth (int lev)
           z_w_arr(i,j,k) = h_arr(i,j,0);
       });
       // ROMS Transform 2
-      amrex::LoopConcurrentOnCpu(gbx21, ncomp,
+      amrex::LoopOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
         //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
@@ -343,11 +343,11 @@ ROMSX::set_depth (int lev)
           //extra guess added (maybe not actually defined in ROMS)
         Real hinv=1.0_rt/(hc+hwater);
          cff2_r=(cff_r+cff1_r*hwater)*hinv;
-         z_w_arr(i,j,k-2) = hwater;
-         z_w_arr(i,j,k-1)= -hwater;
+	 //         z_w_arr(i,j,k-2) = hwater;
+	 //         z_w_arr(i,j,k-1)= -hwater;
 
          z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
-         Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+         Hz_arr(i,j,k)=z_w_arr(i,j,k)+hwater;//-z_w_arr(i,j,k-1);
          }
         else
         {
@@ -356,25 +356,21 @@ ROMSX::set_depth (int lev)
           cff2_r=(cff_r+cff1_r*hwater)*hinv;
           cff2_w=(cff_w+cff1_w*hwater)*hinv;
 
-          z_w_arr(i,j,k-1)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_w;
+          z_w_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_w;
           z_r_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
-        //Note, we are not supporting ICESHELF flag
+          Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+	  //Note, we are not supporting ICESHELF flag
         }
       });
-      amrex::LoopConcurrentOnCpu(gbx21, ncomp,
-      [=] (int i, int j, int k, int n)
-      {
-          Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
-      });
     } // mf
-    /*
+
     z_w[lev]->FillBoundary(geom[lev].periodicity());
     z_r[lev]->FillBoundary(geom[lev].periodicity());
     s_r[lev]->FillBoundary(geom[lev].periodicity());
     Hz[lev]->FillBoundary(geom[lev].periodicity());
     hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
-    */      
+
 }
 
 #endif

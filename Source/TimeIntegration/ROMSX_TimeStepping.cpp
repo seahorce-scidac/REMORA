@@ -163,7 +163,7 @@ void ROMSX::romsx_advance(int level,
     //    MultiFab mf_ru(ba,dm,1,IntVect(2,2,0));
     //    MultiFab mf_rv(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_rw(ba,dm,1,IntVect(2,2,0));
-    MultiFab mf_W(ba,dm,1,IntVect(2,2,0));
+    MultiFab mf_W(ba,dm,1,IntVect(3,3,0));
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
     mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
@@ -245,6 +245,10 @@ void ROMSX::romsx_advance(int level,
         Box gbx1 = bx;
         Box gbx11 = bx;
         Box gbx2 = bx;
+        Box gbx3uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-3,bx.smallEnd(1)-3,bx.smallEnd(2))),
+                       IntVect(AMREX_D_DECL(bx.bigEnd(0)+2,bx.bigEnd(1)+2,bx.bigEnd(2))));
+        Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
+                       IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
         //make only gbx be grown to match multifabs
         gbx2.grow(IntVect(2,2,0));
         gbx1.grow(IntVect(1,1,0));
@@ -363,8 +367,8 @@ void ROMSX::romsx_advance(int level,
                       Hvom(i,j,k)=(Hz(i,j,k))*vold(i,j,k,nrhs)*
                           om_v(i,j,0);
                     });
-
-        amrex::ParallelFor(gbx1, ncomp,
+        //Should really use gbx3uneven
+        amrex::ParallelFor(gbx2uneven, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 //
@@ -401,7 +405,7 @@ void ROMSX::romsx_advance(int level,
                 Real cff3=dt*(1.0-lambda);
                 Real cff, cff1, cff2, cff4;
 
-                if(k<=N&&k>=0)
+                if(k+1<=N&&k>=0)
                 {
                     cff=1.0/(z_r(i,j,k+1)+z_r(i-1,j,k+1)-
                              z_r(i,j,k  )-z_r(i-1,j,k  ));
@@ -503,7 +507,7 @@ void ROMSX::romsx_advance(int level,
                 Real cff3=dt*(1.0-lambda);
                 Real cff, cff1, cff2, cff4;
 
-                if(k<=N&&k>=0)
+                if(k+1<=N&&k>=0)
                 {
                     cff=1.0/(z_r(i,j,k+1)+z_r(i,j-1,k+1)-
                              z_r(i,j,k  )-z_r(i,j-1,k  ));
@@ -1064,13 +1068,13 @@ void ROMSX::romsx_advance(int level,
                     AK(i,j,k)=0.5*(Akv(i-1,j,k)+
                                    Akv(i  ,j,k));
             });
-        amrex::ParallelFor(gbx11, ncomp,
+        amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                     Hzk(i,j,k)=0.5*(Hz(i-1,j,k)+
                                     Hz(i  ,j,k));
             });
-        amrex::ParallelFor(gbx11, ncomp,
+        amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 oHz(i,j,k) = 1.0/Hzk(i,j,k);
