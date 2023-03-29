@@ -45,8 +45,6 @@ ROMSX::estTimeStep(int level) const
 
   auto const dxinv = geom[level].InvCellSizeArray();
 
-  MultiFab const& S_new = vars_new[level][Vars::cons];
-
   MultiFab ccvel(grids[level],dmap[level],3,0);
 
   average_face_to_cellcenter(ccvel,0,
