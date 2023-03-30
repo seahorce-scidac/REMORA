@@ -1,4 +1,6 @@
 CEXE_sources += ROMSX_Advance.cpp
+CEXE_sources += ROMSX_advance_2d.cpp
+CEXE_sources += ROMSX_advance_3d.cpp
 CEXE_sources += ROMSX_ComputeTimestep.cpp
 CEXE_sources += ROMSX_TimeStep.cpp
 
