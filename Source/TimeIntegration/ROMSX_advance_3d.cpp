@@ -8,7 +8,7 @@ using namespace amrex;
 // Start 3d step
 //
 void
-ROMSX::advance_3d (int lev, 
+ROMSX::advance_3d (int lev,
                    MultiFab& mf_u , MultiFab& mf_v ,
                    std::unique_ptr<MultiFab>& mf_ru,
                    std::unique_ptr<MultiFab>& mf_rv,

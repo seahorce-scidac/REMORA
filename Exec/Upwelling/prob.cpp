@@ -102,9 +102,9 @@ init_custom_prob(
         const Real y = prob_lo[1] + (j + 0.5) * dx[1];
         const Real z = -z_r(i,j,k);
 
-	// Set the x-velocity
-	x_vel(i, j, k) = parms.u_0 + parms.uRef *
-	                 std::log((z + parms.z0)/parms.z0)/
+        // Set the x-velocity
+        x_vel(i, j, k) = parms.u_0 + parms.uRef *
+                         std::log((z + parms.z0)/parms.z0)/
                          std::log((parms.zRef +parms.z0)/parms.z0);
         //x_vel(i, j, k) = 0.0;
   });

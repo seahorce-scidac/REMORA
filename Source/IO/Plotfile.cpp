@@ -122,7 +122,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         AMREX_ALWAYS_ASSERT(cons_names.size() == Cons::NumVars);
         for (int i = 0; i < Cons::NumVars; ++i) {
             if (containerHasElement(plot_var_names, cons_names[i])) {
-	      MultiFab::Copy(mf[lev],vars_new[lev][Vars::cons],i,mf_comp,1,ngrow_vars);
+              MultiFab::Copy(mf[lev],vars_new[lev][Vars::cons],i,mf_comp,1,ngrow_vars);
                 mf_comp++;
             }
         }
@@ -131,9 +131,9 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         if (containerHasElement(plot_var_names, "x_velocity") ||
             containerHasElement(plot_var_names, "y_velocity") ||
             containerHasElement(plot_var_names, "z_velocity")) {
-	    amrex::Print()<<"For now, print faces as if they are at cell centers"<<std::endl;
-	    //            average_face_to_cellcenter(mf[lev],mf_comp,
-	    //                Array<const MultiFab*,3>{&vars_new[lev][Vars::xvel],&vars_new[lev][Vars::yvel],&vars_new[lev][Vars::zvel]});
+            amrex::Print()<<"For now, print faces as if they are at cell centers"<<std::endl;
+            //            average_face_to_cellcenter(mf[lev],mf_comp,
+            //                Array<const MultiFab*,3>{&vars_new[lev][Vars::xvel],&vars_new[lev][Vars::yvel],&vars_new[lev][Vars::zvel]});
             //
             // Convert the map-factor-scaled-velocities back to velocities
             //
@@ -142,9 +142,9 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             {
                 const Box& bx = mfi.growntilebox();
                 const Array4<Real> vel_arr = dmf.array(mfi);
-		const Array4<const Real> velx_arr = vars_new[lev][Vars::xvel].array(mfi);
-		const Array4<const Real> vely_arr = vars_new[lev][Vars::yvel].array(mfi);
-		const Array4<const Real> velz_arr = vars_new[lev][Vars::zvel].array(mfi);
+                const Array4<const Real> velx_arr = vars_new[lev][Vars::xvel].array(mfi);
+                const Array4<const Real> vely_arr = vars_new[lev][Vars::yvel].array(mfi);
+                const Array4<const Real> velz_arr = vars_new[lev][Vars::zvel].array(mfi);
                 const Array4<Real> msf_arr = mapfac_m[lev]->array(mfi);
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {

@@ -133,7 +133,7 @@ public:
                        amrex::MultiFab& cons_old,  amrex::MultiFab& cons_new,
                        amrex::MultiFab& xvel_old,  amrex::MultiFab& yvel_old,  amrex::MultiFab& zvel_old,
                        amrex::MultiFab& xvel_new,  amrex::MultiFab& yvel_new,  amrex::MultiFab& zvel_new,
-		       amrex::MultiFab& source,
+                       amrex::MultiFab& source,
                        const amrex::Geometry fine_geom,
                        const amrex::Real dt, const amrex::Real time
                       );
@@ -331,7 +331,7 @@ private:
     void advance_2d (int lev,
                      amrex::MultiFab& mf_u , amrex::MultiFab& mf_v ,
                      amrex::Real dt_lev);
-    void advance_3d (int lev, 
+    void advance_3d (int lev,
                      amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
                      std::unique_ptr<amrex::MultiFab>& mf_rv,

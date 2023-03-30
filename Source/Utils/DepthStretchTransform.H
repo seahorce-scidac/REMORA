@@ -343,8 +343,8 @@ ROMSX::set_depth (int lev)
           //extra guess added (maybe not actually defined in ROMS)
         Real hinv=1.0_rt/(hc+hwater);
          cff2_r=(cff_r+cff1_r*hwater)*hinv;
-	 //         z_w_arr(i,j,k-2) = hwater;
-	 //         z_w_arr(i,j,k-1)= -hwater;
+         //         z_w_arr(i,j,k-2) = hwater;
+         //         z_w_arr(i,j,k-1)= -hwater;
 
          z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
          Hz_arr(i,j,k)=z_w_arr(i,j,k)+hwater;//-z_w_arr(i,j,k-1);
@@ -359,7 +359,7 @@ ROMSX::set_depth (int lev)
           z_w_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_w;
           z_r_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
           Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
-	  //Note, we are not supporting ICESHELF flag
+          //Note, we are not supporting ICESHELF flag
         }
       });
     } // mf
