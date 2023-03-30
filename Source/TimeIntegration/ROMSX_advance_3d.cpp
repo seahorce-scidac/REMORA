@@ -283,6 +283,24 @@ ROMSX::advance_3d (int lev,
            u(i,j,k) += cff;
         });
 
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            AK(i,j,k)=0.5*(Akv_arr(i,j-1,k)+Akv_arr(i,j,k));
+        });
+
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Hzk_arr(i,j,k)=0.5*(Hz_arr(i,j-1,k)+Hz_arr(i,j,k));
+        });
+
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            oHz_arr(i,j,k) = 1.0/Hzk_arr(i,j,k);
+        });
+
        //
        // Begin vertical velocity term
        //
