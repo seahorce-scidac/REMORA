@@ -68,6 +68,7 @@ void romsx_deromega(
   const int* bcrec,
   const int level);
 
+#ifdef ROMSX_USE_SALINITY
 void romsx_dersalt(
   const amrex::Box& bx,
   amrex::FArrayBox& dromsxab,
@@ -78,4 +79,5 @@ void romsx_dersalt(
   amrex::Real time,
   const int* bcrec,
   const int level);
+#endif
 #endif

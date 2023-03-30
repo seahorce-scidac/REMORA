@@ -95,7 +95,7 @@ romsx_deromega(
 {
   romsx_derrhodivide(bx, dromsxab, datfab, Omega_comp);
 }
-
+#ifdef ROMSX_USE_SALINITY
 void
 romsx_dersalt(
   const amrex::Box& bx,
@@ -110,4 +110,6 @@ romsx_dersalt(
 {
   romsx_derrhodivide(bx, dromsxab, datfab, Salt_comp);
 }
+#endif
 }
+
