@@ -328,6 +328,19 @@ private:
     // advance a single level for a single time step
     void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
 
+    void advance_2d (int lev,
+                     amrex::MultiFab& mf_u , amrex::MultiFab& mf_v ,
+                     amrex::Real dt_lev);
+    void advance_3d (int lev, 
+                     amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,
+                     std::unique_ptr<amrex::MultiFab>& mf_ru,
+                     std::unique_ptr<amrex::MultiFab>& mf_rv,
+                     amrex::MultiFab& mf_AK , amrex::MultiFab& mf_DC,
+                     amrex::MultiFab& mf_Hzk,
+                     std::unique_ptr<amrex::MultiFab>& mf_Akv,
+                     std::unique_ptr<amrex::MultiFab>& mf_Hz,
+                     amrex::Real dt_lev);
+
     //! Initialize HSE
     void initHSE();
 
