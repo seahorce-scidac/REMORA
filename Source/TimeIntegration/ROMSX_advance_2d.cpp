@@ -6,7 +6,21 @@ using namespace amrex;
 // Start 2d step
 //
 void
-ROMSX::advance_2d (int lev, MultiFab& mf_u, MultiFab& mf_v, Real dt_lev)
+ROMSX::advance_2d (int lev,
+                   MultiFab& mf_u, MultiFab& mf_v,
+                   std::unique_ptr<MultiFab>& mf_ru,
+                   std::unique_ptr<MultiFab>& mf_rv,
+                   std::unique_ptr<MultiFab>& mf_DU_avg1,
+                   std::unique_ptr<MultiFab>& mf_DU_avg2,
+                   std::unique_ptr<MultiFab>& mf_DV_avg1,
+                   std::unique_ptr<MultiFab>& mf_DV_avg2,
+                   std::unique_ptr<MultiFab>& mf_rubar,
+                   std::unique_ptr<MultiFab>& mf_rvbar,
+                   std::unique_ptr<MultiFab>& mf_rzeta,
+                   std::unique_ptr<MultiFab>& mf_ubar,
+                   std::unique_ptr<MultiFab>& mf_vbar,
+                   std::unique_ptr<MultiFab>& mf_zeta,
+                   Real dt_lev)
 {
     auto geomdata  = Geom(lev).data();
     const auto dxi = Geom(lev).InvCellSizeArray();
