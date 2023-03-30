@@ -122,7 +122,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      ncf.def_var("x_rho",   NC_FLOAT, {eta_name, xi_name});
      ncf.def_var("y_rho",  NC_FLOAT,  {eta_name, xi_name});
      ncf.def_var("z_rho",  NC_FLOAT,  {s_r_name, eta_name, xi_name});
-     
+
      ncf.def_var("probLo"  ,   NC_FLOAT,  {ndim_name});
      ncf.def_var("probHi"  ,   NC_FLOAT,  {ndim_name});
      ncf.def_var("refRatio",   NC_INT,    {flev_name});
@@ -141,7 +141,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
      for (int i = 0; i < plot_var_names.size(); i++) {
        ncf.def_var(plot_var_names[i], NC_FLOAT, {nt_name, s_r_name, eta_name, xi_name});
      }
-     
+
 #else
      for (int i = 0; i < plot_var_names.size(); i++) {
        ncf.def_var(plot_var_names[i], NC_FLOAT, {s_r_name, eta_name, xi_name});

@@ -137,7 +137,7 @@ public:
                        const amrex::Geometry fine_geom,
                        const amrex::Real dt, const amrex::Real time
                       );
- 
+
     amrex::MultiFab& build_fine_mask(int lev);
 
     void MakeHorizontalAverages();

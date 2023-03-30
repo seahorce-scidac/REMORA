@@ -21,7 +21,7 @@ struct ProbParm {
 
     // Mean density (Kg/m3) used when the Boussinesq approximation is inferred.
     amrex::Real rho0 = 1025.0;
-  
+
     // physical constant for gravity
 #ifdef SOLITON
     amrex::Real g = 1.0;                // non-dimensional
@@ -32,7 +32,7 @@ struct ProbParm {
 #else
     amrex::Real g = 9.81;               // m/s2
 #endif
-  
+
 
   amrex::Real rho_0   = 0.0;
   amrex::Real Theta_0 = 1.0;

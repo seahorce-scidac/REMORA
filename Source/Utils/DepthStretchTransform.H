@@ -273,11 +273,11 @@ ROMSX::set_depth (int lev)
         //ROMS Stretching 4
         // Move this block to it's own function for maintainability if needed
         // Information about the problem dimension would need to be added
-        // This file would need a k dependent function to return the 
+        // This file would need a k dependent function to return the
         // stretching scalars, or access to 4 vectors of length prob_length(2)
         /////////////////////////////////////////////////////////////////////
         Real ds = 1.0_rt / Real(N);
-        
+
         Real cff_r, cff_w, cff1_r, cff1_w, cff2_r, cff2_w, Csur, Cbot;
         Real sc_r,sc_w,Cs_r,Cs_w;
 

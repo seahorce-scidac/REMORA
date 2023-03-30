@@ -40,14 +40,14 @@ public:
                     const int& var_idx, const int& terrain_type, TimeInterpolatedData& data,
                     amrex::Array<amrex::Array<amrex::Real,AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NVAR> bc_extdir_vals,
                     std::unique_ptr<amrex::MultiFab>& z_phys_nd,
-                    std::unique_ptr<amrex::MultiFab>& detJ_cc 
+                    std::unique_ptr<amrex::MultiFab>& detJ_cc
 #ifdef ROMSX_USE_NETCDF
                    ,const std::string& init_type,
                     const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_xlo,
                     const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_xhi,
                     const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_ylo,
                     const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_yhi,
-                    const amrex::Real bdy_time_interval 
+                    const amrex::Real bdy_time_interval
 #endif
                     )
         : m_lev(lev), m_time_mt(time_mt), m_delta_t(delta_t),

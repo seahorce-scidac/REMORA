@@ -196,10 +196,10 @@ ROMSX::FillPatch (int lev, Real time, Real time_mt, Real delta_t, Vector<MultiFa
             ROMSXPhysBCFunct physbc(lev,time_mt,delta_t,geom[lev],
                                   domain_bcs_type,domain_bcs_type_d,
                                   var_idx,solverChoice.terrain_type,
-                                  fdata,m_bc_extdir_vals,z_phys_nd[lev], detJ_cc[lev] 
+                                  fdata,m_bc_extdir_vals,z_phys_nd[lev], detJ_cc[lev]
 #ifdef ROMSX_USE_NETCDF
                                  ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                  bdy_data_ylo,bdy_data_yhi,bdy_time_interval 
+                                  bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                                   );
             amrex::FillPatchSingleLevel(mf, time, smf, ftime, 0, icomp, ncomp,
@@ -215,19 +215,19 @@ ROMSX::FillPatch (int lev, Real time, Real time_mt, Real delta_t, Vector<MultiFa
             ROMSXPhysBCFunct cphysbc(lev-1,time_mt,delta_t,geom[lev-1],
                                    domain_bcs_type,domain_bcs_type_d,
                                    var_idx,solverChoice.terrain_type,cdata,
-                                   m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1] 
+                                   m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1]
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval 
+                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                                    );
             ROMSXPhysBCFunct fphysbc(lev,time_mt,delta_t,geom[lev],
                                    domain_bcs_type,domain_bcs_type_d,
                                    var_idx,solverChoice.terrain_type,fdata,
-                                   m_bc_extdir_vals,z_phys_nd[lev], detJ_cc[lev] 
+                                   m_bc_extdir_vals,z_phys_nd[lev], detJ_cc[lev]
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval 
+                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                                    );
 
@@ -313,10 +313,10 @@ ROMSX::FillIntermediatePatch (int lev, Real time, Real time_mt, Real delta_t,
             ROMSXPhysBCFunct physbc(lev,time_mt,delta_t,geom[lev],
                                   domain_bcs_type,domain_bcs_type_d,
                                   var_idx,solverChoice.terrain_type,level_data,
-                                  m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev] 
+                                  m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev]
 #ifdef ROMSX_USE_NETCDF
                                  ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                  bdy_data_ylo,bdy_data_yhi,bdy_time_interval 
+                                  bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                                   );
 
@@ -336,19 +336,19 @@ ROMSX::FillIntermediatePatch (int lev, Real time, Real time_mt, Real delta_t,
             ROMSXPhysBCFunct cphysbc(lev-1,time_mt,delta_t,geom[lev-1],
                                    domain_bcs_type,domain_bcs_type_d,
                                    var_idx,solverChoice.terrain_type,cdata,
-                                   m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1] 
+                                   m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1]
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval 
+                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                                    );
             ROMSXPhysBCFunct fphysbc(lev,time_mt,delta_t,geom[lev],
                                    domain_bcs_type,domain_bcs_type_d,
                                    var_idx,solverChoice.terrain_type,level_data,
-                                   m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev] 
+                                   m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev]
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval 
+                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                                    );
 
@@ -410,7 +410,7 @@ ROMSX::FillCoarsePatch (int lev, Real time, Real time_mt, Real delta_t,
     ROMSXPhysBCFunct cphysbc(lev-1,time_mt,delta_t,geom[lev-1],
                            domain_bcs_type,domain_bcs_type_d,
                            var_idx,solverChoice.terrain_type,cdata,
-                           m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1] 
+                           m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1]
 #ifdef ROMSX_USE_NETCDF
                           ,init_type,bdy_data_xlo,bdy_data_xhi,
                            bdy_data_ylo,bdy_data_yhi,bdy_time_interval
@@ -419,10 +419,10 @@ ROMSX::FillCoarsePatch (int lev, Real time, Real time_mt, Real delta_t,
     ROMSXPhysBCFunct fphysbc(lev,time_mt,delta_t,geom[lev],
                            domain_bcs_type,domain_bcs_type_d,
                            var_idx,solverChoice.terrain_type,fdata,
-                           m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev] 
+                           m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev]
 #ifdef ROMSX_USE_NETCDF
                           ,init_type,bdy_data_xlo,bdy_data_xhi,
-                           bdy_data_ylo,bdy_data_yhi,bdy_time_interval 
+                           bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                            );
 

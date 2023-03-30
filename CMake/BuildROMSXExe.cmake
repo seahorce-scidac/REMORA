@@ -70,8 +70,9 @@ function(build_romsx_lib romsx_lib_name)
        ${SRC_DIR}/Utils/TerrainMetrics.H
        ${SRC_DIR}/Utils/TerrainMetrics.cpp
        ${SRC_DIR}/Utils/VelocityToMomentum.cpp
+       ${SRC_DIR}/TimeIntegration/ROMSX_Advance.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_ComputeTimestep.cpp
-       ${SRC_DIR}/TimeIntegration/ROMSX_TimeStepping.cpp
+       ${SRC_DIR}/TimeIntegration/ROMSX_TimeStep.cpp
   )
 
   if(NOT "${romsx_exe_name}" STREQUAL "romsx_unit_tests")
