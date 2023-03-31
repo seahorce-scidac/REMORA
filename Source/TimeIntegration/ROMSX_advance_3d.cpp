@@ -197,6 +197,7 @@ ROMSX::advance_3d (int lev,
             });
         // End previous
 
+	// vertical viscosity term for tracers is identical except AK=Akt
        // Begin vertical viscosity term
        //should be gbx1, but need to fix some bounds inside this loop:
        amrex::ParallelFor(gbx1,

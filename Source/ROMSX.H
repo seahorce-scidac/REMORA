@@ -342,6 +342,7 @@ private:
                      std::unique_ptr<amrex::MultiFab>& mf_ubar,
                      std::unique_ptr<amrex::MultiFab>& mf_vbar,
                      std::unique_ptr<amrex::MultiFab>& mf_zeta,
+                     std::unique_ptr<amrex::MultiFab>& mf_h,
                      amrex::Real dt_lev);
     void advance_3d (int lev,
                      amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,

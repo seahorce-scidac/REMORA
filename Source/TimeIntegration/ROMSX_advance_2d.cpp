@@ -20,6 +20,7 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_ubar,
                    std::unique_ptr<MultiFab>& mf_vbar,
                    std::unique_ptr<MultiFab>& mf_zeta,
+                   std::unique_ptr<MultiFab>& mf_h,
                    Real dt_lev)
 {
     auto geomdata  = Geom(lev).data();
@@ -42,6 +43,8 @@ ROMSX::advance_2d (int lev,
     {
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
+	Array4<Real> const& zeta = (mf_zeta)->array(mfi);
+        Array4<Real> const& h = (mf_h)->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -78,6 +81,10 @@ ROMSX::advance_2d (int lev,
         FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena);
+	//step2d work arrays
+        FArrayBox fab_Drhs(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_DUon(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_DVom(gbx2,1,amrex::The_Async_Arena);
 
         auto FC=fab_FC.array();
         auto BC=fab_BC.array();
@@ -103,6 +110,10 @@ ROMSX::advance_2d (int lev,
         auto VFx=fab_VFx.array();
         auto VFe=fab_VFe.array();
 
+        auto Drhs=fab_Drhs.array();
+        auto DUon=fab_DUon.array();
+	auto DVom=fab_DVom.array();
+
         //From ana_grid.h and metrics.F
         amrex::ParallelFor(gbx2, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -112,13 +123,6 @@ ROMSX::advance_2d (int lev,
 
               pm(i,j,0)=dxi[0];
               pn(i,j,0)=dxi[1];
-              //defined UPWELLING
-              Real f0=-8.26e-5;
-              Real beta=0.0;
-              Real Esize=1000*(Mm);
-              Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
-              fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
         amrex::ParallelFor(gbx2, ncomp,
@@ -142,5 +146,11 @@ ROMSX::advance_2d (int lev,
         fab_vee.setVal(0.0);
         fab_VFx.setVal(0.0);
         fab_VFe.setVal(0.0);
+        /*
+        amrex::ParallelFor(gbx2, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+	    Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
+        });*/
     }
 }
