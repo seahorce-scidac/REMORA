@@ -38,7 +38,17 @@ ROMSX::advance_2d (int lev,
 
     int iic = istep[lev];
     int ntfirst = 0;
-
+    for(int my_iif = 0; my_iif <=1; my_iif++) {
+	//    int my_iif = 1; //substep index
+    int knew = 3;
+    int krhs = (my_iif + iic) % 2 + 1;
+    int kstp = my_iif <=1 ? iic % 2 + 1 : (iic % 2 + my_iif % 2 + 1) % 2 + 1;
+    int indx1 = krhs;
+    //    Print()<<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<indx1<<std::endl;
+    knew-=1;
+    krhs-=1;
+    kstp-=1;
+    indx1-=1;
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& u = (mf_u).array(mfi);
@@ -152,5 +162,6 @@ ROMSX::advance_2d (int lev,
         {
 	    Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });*/
+    }
     }
 }
