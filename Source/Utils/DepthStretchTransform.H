@@ -338,6 +338,7 @@ ROMSX::set_depth (int lev)
 
         ////////////////////////////////////////////////////////////////////
         Real hwater=h_arr(i,j,0);
+        /*
         if(k==0)
          {
           //extra guess added (maybe not actually defined in ROMS)
@@ -350,17 +351,30 @@ ROMSX::set_depth (int lev)
          Hz_arr(i,j,k)=z_w_arr(i,j,k)+hwater;//-z_w_arr(i,j,k-1);
          }
         else
+        */
         {
         //Note, we are not supporting ICESHELF flag
           Real hinv=1.0_rt/(hc+hwater);
           cff2_r=(cff_r+cff1_r*hwater)*hinv;
           cff2_w=(cff_w+cff1_w*hwater)*hinv;
 
-          z_w_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_w;
+          if(k==0) {
+              z_w_arr(i,j,N-1)=0.0;
+          }
+          else
+              z_w_arr(i,j,k-1)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_w;
           z_r_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
-          Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
-          //Note, we are not supporting ICESHELF flag
         }
+      });
+      amrex::LoopOnCpu(gbx2, ncomp,
+      [=] (int i, int j, int k, int n)
+      {
+          if(k==0) {
+              Hz_arr(i,j,k)=z_w_arr(i,j,k)+h_arr(i,j,0);
+          }
+          else
+              Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+          //Note, we are not supporting ICESHELF flag
       });
     } // mf
 

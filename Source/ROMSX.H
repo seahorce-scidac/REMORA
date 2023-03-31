@@ -332,6 +332,7 @@ private:
                      amrex::MultiFab& mf_u , amrex::MultiFab& mf_v ,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
                      std::unique_ptr<amrex::MultiFab>& mf_rv,
+                     std::unique_ptr<amrex::MultiFab>& mf_Zt_avg1,
                      std::unique_ptr<amrex::MultiFab>& mf_DU_avg1,
                      std::unique_ptr<amrex::MultiFab>& mf_DU_avg2,
                      std::unique_ptr<amrex::MultiFab>& mf_DV_avg1,

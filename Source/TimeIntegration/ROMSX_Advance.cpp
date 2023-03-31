@@ -482,6 +482,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     } // MFIter
 
     advance_2d(lev, mf_u, mf_v, ru[lev], rv[lev],
+               Zt_avg1[lev],
                DU_avg1[lev], DU_avg2[lev],
                DV_avg1[lev], DV_avg2[lev],
                rubar[lev], rvbar[lev], rzeta[lev],
