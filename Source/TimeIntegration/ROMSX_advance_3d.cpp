@@ -119,6 +119,9 @@ ROMSX::advance_3d (int lev,
 #endif
         //From ana_grid.h and metrics.F
 
+        //
+        // Update to u
+        //
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
         {
@@ -167,12 +170,13 @@ ROMSX::advance_3d (int lev,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 Real cff;
-                if(iic==ntfirst)
+                if(iic==ntfirst) {
                   cff=0.25*dt_lev;
-                else if(iic==ntfirst+1)
+                } else if(iic==ntfirst+1) {
                   cff=0.25*dt_lev*3.0/2.0;
-                else
+                } else {
                   cff=0.25*dt_lev*23.0/12.0;
+                }
 
                 DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
 
@@ -355,7 +359,6 @@ ROMSX::advance_3d (int lev,
            }
            //if(j>0&&j<Mm-1)
            v(i,j,k) += cff;
-
        });
     } // MFiter
 }

@@ -341,6 +341,41 @@ private:
                      std::unique_ptr<amrex::MultiFab>& mf_Hz,
                      amrex::Real dt_lev);
 
+    void prestep_uv_3d (const amrex::Box& bx,
+                        amrex::Array4<amrex::Real> uold,
+                        amrex::Array4<amrex::Real> vold,
+                        amrex::Array4<amrex::Real> u_arr,
+                        amrex::Array4<amrex::Real> v_arr,
+                        amrex::Array4<amrex::Real> ru_arr,
+                        amrex::Array4<amrex::Real> rv_arr,
+                        amrex::Array4<amrex::Real> Hz_arr,
+                        amrex::Array4<amrex::Real> Akv_arr,
+                        amrex::Array4<amrex::Real> on_u,
+                        amrex::Array4<amrex::Real> om_v,
+                        amrex::Array4<amrex::Real> Huon,
+                        amrex::Array4<amrex::Real> Hvom,
+                        amrex::Array4<amrex::Real> pm,
+                        amrex::Array4<amrex::Real> pn,
+                        amrex::Array4<amrex::Real> W,
+                        amrex::Array4<amrex::Real> DC,
+                        amrex::Array4<amrex::Real> FC,
+                        amrex::Array4<amrex::Real> z_r_arr,
+                        amrex::Array4<amrex::Real> sustr,
+                        amrex::Array4<amrex::Real> svstr,
+                        int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
+                        amrex::Real lambda, amrex::Real dt_lev);
+
+#ifdef UV_COR
+    void coriolis (const amrex::Box& bx,
+                   amrex::Array4<amrex::Real> uold,
+                   amrex::Array4<amrex::Real> vold,
+                   amrex::Array4<amrex::Real> ru_arr,
+                   amrex::Array4<amrex::Real> rv_arr,
+                   amrex::Array4<amrex::Real> Hz_arr,
+                   amrex::Array4<amrex::Real> fomn_arr,
+                   int nrhs);
+#endif
+
     //! Initialize HSE
     void initHSE();
 

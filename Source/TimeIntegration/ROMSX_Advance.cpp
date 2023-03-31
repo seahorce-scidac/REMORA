@@ -141,6 +141,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     const int Mm = Geom(lev).Domain().size()[1];
     auto geomdata = Geom(lev).data();
 
+    //
+    //-----------------------------------------------------------------------
+    // prestep_uv_3d
+    //-----------------------------------------------------------------------
+    //
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& AK = mf_AK.array(mfi);
@@ -187,6 +192,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena);
+
         //rhs3d work arrays
         FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena);
@@ -226,8 +232,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto VFe=fab_VFe.array();
 
         //From ana_grid.h and metrics.F
-        amrex::ParallelFor(gbx2, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int  )
             {
 
               const auto prob_lo         = geomdata.ProbLo();
@@ -243,12 +249,14 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
               Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             });
-        amrex::ParallelFor(gbx2, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-              om_v(i,j,0)=1.0/dxi[0];
-              on_u(i,j,0)=1.0/dxi[1];
-            });
+
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+          om_v(i,j,0)=1.0/dxi[0];
+          on_u(i,j,0)=1.0/dxi[1];
+        });
+
         fab_Huon.setVal(0.0);
         fab_Hvom.setVal(0.0);
         fab_Huxx.setVal(0.0);
@@ -263,295 +271,23 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         fab_vee.setVal(0.0);
         fab_VFx.setVal(0.0);
         fab_VFe.setVal(0.0);
-        amrex::ParallelFor(gbx2, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-              //-----------------------------------------------------------------------
-              //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
-              //-----------------------------------------------------------------------
-                if(k+1<=N)
-                if(i-1>=-2)
-                    {
-                  Huon(i,j,k)=0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k))*uold(i,j,k,nrhs)*
-                on_u(i,j,0);
-                    }
-                else
-                    Huon(i,j,k)=(Hz_arr(i,j,k))*uold(i,j,k,nrhs)*
-                on_u(i,j,0);
-              if(k+1<=N)
-                  if(j-1>=-2)
-                      {
-                      Hvom(i,j,k)=0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k))*vold(i,j,k,nrhs)*
-                          om_v(i,j,0);
-                      }
-                  else
-                      Hvom(i,j,k)=(Hz_arr(i,j,k))*vold(i,j,k,nrhs)*
-                          om_v(i,j,0);
-                    });
-        //Should really use gbx3uneven
-        amrex::ParallelFor(gbx2uneven, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                //
-                //------------------------------------------------------------------------
-                //  Vertically integrate horizontal mass flux divergence.
-                //------------------------------------------------------------------------
-                //
-                //  Starting with zero vertical velocity at the bottom, integrate
-                //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-                //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-                //  Notice that barotropic mass flux divergence is not used directly.
-                //
-                if(k==0)
-                    W(i,j,k)=0.0;
-                else
-                    W(i,j,k)=W(i,j,k-1)-
-                             (Huon(i+1,j,k)-Huon(i,j,k)+
-                              Hvom(i,j+1,k)-Hvom(i,j,k));
-            });
 
-        //Need to include pre_step3d.F terms
-
-        //
-        //  Weighting coefficient for the newest (implicit) time step derivatives
-        //  using either a Crack-Nicolson implicit scheme (lambda=0.5) or a
-        //  backward implicit scheme (lambda=1.0).
-        //
-#if 1
-        //  Except the commented out part means its always 1.0
         Real lambda = 1.0;
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                Real cff3=dt_lev*(1.0-lambda);
-                Real cff, cff1, cff2, cff4;
 
-                if(k+1<=N&&k>=0)
-                {
-                    cff=1.0/(z_r(i,j,k+1)+z_r(i-1,j,k+1)-
-                             z_r(i,j,k  )-z_r(i-1,j,k  ));
-                    FC(i,j,k)=cff3*cff*(uold(i,j,k,nstp)-uold(i,j,k-1,nstp))*
-                        (Akv_arr(i,j,k)+Akv_arr(i-1,j,k));
-                }
-                else
-                {
-                    //              FC(i,j,-1)=0.0;//dt_lev*bustr(i,j,0);
-                    //              FC(i,j,N)=0.0;//dt_lev*sustr(i,j,0);
-                }
-                cff=dt_lev*.25;
-                DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
-            });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                Real cff3=dt_lev*(1.0-lambda);
-                Real cff, cff1, cff2, cff4;
+        prestep_uv_3d(bx, uold, vold, u, v, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon, Hvom,
+                          pm, pn, W, DC, FC, z_r, sustr, svstr, iic, ntfirst, nnew, nstp, nrhs, N,
+                          lambda, dt_lev);
 
-                int indx=0; //nrhs-3
-
-                if(iic==ntfirst)
-                {
-                    //Hz still might need adjusting
-                    if(k+1<=N&&k>=1)
-                    {
-                        cff1=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                        cff2=FC(i,j,k)-FC(i,j,k-1);
-                        u(i,j,k,nnew)=cff1+cff2;
-                    }
-                    else if(k==0)
-                    {
-                        cff1=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                        cff2=FC(i,j,k);//-bustr(i,j,0);
-                        u(i,j,k,nnew)=cff1+cff2;
-                    }
-                    else if(k==N)
-                    {
-                        cff1=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                        cff2=-FC(i,j,k-1)+dt_lev*sustr(i,j,0);
-                        u(i,j,k,nnew)=cff1+cff2;
-                    }
-                }
-                else if(iic==ntfirst+1)
-                {
-                    if(k<N&&k>0) {
-                        cff1=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                        cff2=FC(i,j,k)-FC(i,j,k-1);
-                    }
-                    else if(k==0) {
-                        cff1=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                        cff2=FC(i,j,k);//-bustr(i,j,0);
-                    }
-                    else if(k==N) {
-                        cff1=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                        cff2=-FC(i,j,k-1)+dt_lev*sustr(i,j,0);
-                    }
-                    cff3=0.5*DC(i,j,k);
-                    indx=nrhs ? 0 : 1;
-                    Real r_swap= ru_arr(i,j,k,indx);
-                    ru_arr(i,j,k,indx) = ru_arr(i,j,k,nrhs);
-                    ru_arr(i,j,k,nrhs) = r_swap;
-                    u(i,j,k,nnew)=cff1-
-                                  cff3*ru_arr(i,j,k,indx)+
-                                  cff2;
-                }
-                else
-                {
-                    cff1= 5.0/12.0;
-                    cff2=16.0/12.0;
-                    if(k<N&&k>0) {
-                        cff3=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                        cff4=FC(i,j,k)-FC(i,j,k-1);
-                    }
-                    else if(k==0) {
-                        cff3=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                        cff4=FC(i,j,k);//-bustr(i,j,0);
-                    }
-                    else if(k==N) {
-                        cff3=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                        cff4=-FC(i,j,k-1)+dt_lev*sustr(i,j,0);
-                    }
-                    indx=nrhs ? 0 : 1;
-                    Real r_swap= ru_arr(i,j,k,indx);
-                    ru_arr(i,j,k,indx) = ru_arr(i,j,k,nrhs);
-                    ru_arr(i,j,k,nrhs) = r_swap;
-                    u(i,j,k,nnew)=cff3+
-                        DC(i,j,k)*(cff1*ru_arr(i,j,k,nrhs)-
-                                   cff2*ru_arr(i,j,k,indx))+
-                        cff4;
-                    ru_arr(i,j,k,nrhs) = 0.0;
-                }
-            });
-        lambda = 1.0;
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                Real cff3=dt_lev*(1.0-lambda);
-                Real cff, cff1, cff2, cff4;
-
-                if(k+1<=N&&k>=0)
-                {
-                    cff=1.0/(z_r(i,j,k+1)+z_r(i,j-1,k+1)-
-                             z_r(i,j,k  )-z_r(i,j-1,k  ));
-                    FC(i,j,k)=cff3*cff*(vold(i,j,k,nstp)-vold(i,j,k-1,nstp))*
-                        (Akv_arr(i,j,k)+Akv_arr(i,j-1,k));
-                }
-                else
-                {
-                    //              FC(i,j,-1)=0.0;//dt_lev*bustr(i,j,0);
-                    //              FC(i,j,N)=0.0;//dt_lev*sustr(i,j,0);
-                }
-                cff=dt_lev*.25;
-                DC(i,j,k)=cff*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
-            });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                Real cff3=dt_lev*(1.0-lambda);
-                Real cff, cff1, cff2, cff4;
-
-                int indx=0; //nrhs-3
-
-                if(iic==ntfirst)
-                {
-                    //if(j>0&&j<Mm-1)
-                    {
-                    //Hz still might need adjusting
-                    if(k+1<=N&&k>=1)
-                    {
-                        cff1=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                        cff2=FC(i,j,k)-FC(i,j,k-1);
-                        v(i,j,k,nnew)=cff1+cff2;
-                    }
-                    else if(k==0)
-                    {
-                        cff1=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                        cff2=FC(i,j,k);//-bustr(i,j,0);
-                        v(i,j,k,nnew)=cff1+cff2;
-                    }
-                    else if(k==N)
-                    {
-                        cff1=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                        cff2=-FC(i,j,k-1)+dt_lev*svstr(i,j,0);
-                        v(i,j,k,nnew)=cff1+cff2;
-                    } }
-                }
-                else if(iic==ntfirst+1)
-                {
-                    if(k<N&&k>0) {
-                        cff1=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                        cff2=FC(i,j,k)-FC(i,j,k-1);
-                    }
-                    else if(k==0) {
-                        cff1=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                        cff2=FC(i,j,k);//-bustr(i,j,0);
-                    }
-                    else if(k==N) {
-                        cff1=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                        cff2=-FC(i,j,k-1)+dt_lev*svstr(i,j,0);
-                    }
-                    cff3=0.5*DC(i,j,k);
-                    indx=nrhs ? 0 : 1;
-                    Real r_swap= rv_arr(i,j,k,indx);
-                    rv_arr(i,j,k,indx) = rv_arr(i,j,k,nrhs);
-                    rv_arr(i,j,k,nrhs) = r_swap;
-                    //if(j>0&&j<Mm-1)
-                        v(i,j,k,nnew) = cff1 - cff3*rv_arr(i,j,k,indx) + cff2;
-                }
-                else
-                {
-                    cff1= 5.0/12.0;
-                    cff2=16.0/12.0;
-                    if(k<N&&k>0) {
-                        cff3=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                        cff4=FC(i,j,k)-FC(i,j,k-1);
-                    }
-                    else if(k==0) {
-                        cff3=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                        cff4=FC(i,j,k);//-bustr(i,j,0);
-                    }
-                    else if(k==N) {
-                        cff3=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                        cff4=-FC(i,j,k-1)+dt_lev*svstr(i,j,0);
-                    }
-                    indx=nrhs ? 0 : 1;
-                    Real r_swap= rv_arr(i,j,k,indx);
-                    rv_arr(i,j,k,indx) = rv_arr(i,j,k,nrhs);
-                    rv_arr(i,j,k,nrhs) = r_swap;
-                    //if(j>0&&j<Mm-1)
-                    v(i,j,k,nnew)=cff3+
-                        DC(i,j,k)*(cff1*rv_arr(i,j,k,nrhs)-
-                                   cff2*rv_arr(i,j,k,indx))+
-                        cff4;
-
-                    rv_arr(i,j,k,nrhs) = 0.0;
-
-                }
-            });
-#endif
 #ifdef UV_COR
-        //
-        //-----------------------------------------------------------------------
-        //  Add in Coriolis terms.
-        //-----------------------------------------------------------------------
-        //
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                Real cff=0.5*Hz_arr(i,j,k)*fomn(i,j,0);
-                UFx(i,j,k)=cff*(vold(i,j  ,k,nrhs)+
-                                vold(i,j+1,k,nrhs));
-                VFe(i,j,k)=cff*(uold(i  ,j,k,nrhs)+
-                                uold(i+1,j,k,nrhs));
-
-            });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                ru_arr(i,j,k,nrhs) += 0.5*(UFx(i,j,k)+UFx(i-1,j,k));
-                rv_arr(i,j,k,nrhs) -= 0.5*(VFe(i,j,k)+VFe(i,j-1,k));
-            });
+        coriolis(bx, uold, vold, ru_arr, rv_arr, Hz_arr, fomn, nrhs);
 #endif
-        //Need to include pre_step3d.F terms
+
+    //
+    //-----------------------------------------------------------------------
+    // rhs_3d
+    //-----------------------------------------------------------------------
+    //
+
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
