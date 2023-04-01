@@ -344,7 +344,7 @@ private:
                      std::unique_ptr<amrex::MultiFab>& mf_vbar,
                      std::unique_ptr<amrex::MultiFab>& mf_zeta,
                      std::unique_ptr<amrex::MultiFab>& mf_h,
-                     const int ncomp, amrex::Real dt_lev);
+                     const int ncomp, const amrex::Real dt_lev);
     void advance_3d (int lev,
                      amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
@@ -359,8 +359,8 @@ private:
                      amrex::MultiFab& mf_Hzk,
                      std::unique_ptr<amrex::MultiFab>& mf_Akv,
                      std::unique_ptr<amrex::MultiFab>& mf_Hz,
-                     const int ncomp, const int N, 
-                     amrex::Real dt_lev);
+                     const int ncomp, const int N,
+                     const amrex::Real dt_lev);
 
     void prestep_uv_3d (const amrex::Box& bx,
                         amrex::Array4<amrex::Real> uold,
@@ -384,7 +384,19 @@ private:
                         amrex::Array4<amrex::Real> sustr,
                         amrex::Array4<amrex::Real> svstr,
                         int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
-                        amrex::Real lambda, amrex::Real dt_lev);
+                        const amrex::Real lambda, const amrex::Real dt_lev);
+
+    void update_vel_3d (const amrex::Box& bx,
+                        const int ioff, const int joff,
+                        amrex::Array4<amrex::Real> vel_arr,
+                        amrex::Array4<amrex::Real> vel_old,
+                        amrex::Array4<amrex::Real> rvel_arr,
+                        amrex::Array4<amrex::Real> Hz_arr,
+                        amrex::Array4<amrex::Real> DC_arr,
+                        amrex::Array4<amrex::Real> FC_arr,
+                        amrex::Array4<amrex::Real> sstr_arr,
+                        const int iic, const int ntfirst, const int nnew, int nstp, int nrhs, int N,
+                        const amrex::Real lambda, const amrex::Real dt_lev);
 
     void vert_visc_3d (const amrex::Box& bx,
                        const int ioff, const int joff,
@@ -398,7 +410,7 @@ private:
                        amrex::Array4<amrex::Real> DC_arr,
                        amrex::Array4<amrex::Real> FC_arr,
                        amrex::Array4<amrex::Real> CF_arr,
-                       const int nnew, const int N, 
+                       const int nnew, const int N,
                        const amrex::Real dt_lev);
 
 #ifdef UV_COR

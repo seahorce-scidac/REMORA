@@ -75,6 +75,7 @@ function(build_romsx_lib romsx_lib_name)
        ${SRC_DIR}/TimeIntegration/ROMSX_advance_3d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_coriolis.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_prestep_uv_3d.cpp
+       ${SRC_DIR}/TimeIntegration/ROMSX_update_vel_3d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_vert_visc_3d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_ComputeTimestep.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_TimeStep.cpp
