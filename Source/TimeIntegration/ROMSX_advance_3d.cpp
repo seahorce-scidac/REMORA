@@ -67,13 +67,13 @@ ROMSX::advance_3d (int lev,
         amrex::Print() << "UBX " << ubx << std::endl;
         amrex::Print() << "VBX " << vbx << std::endl;
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena);
-        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
+        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
 
         auto FC_arr = fab_FC.array();
         auto BC_arr = fab_BC.array();

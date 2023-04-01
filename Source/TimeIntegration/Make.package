@@ -3,6 +3,7 @@ CEXE_sources += ROMSX_advance_2d.cpp
 CEXE_sources += ROMSX_advance_3d.cpp
 CEXE_sources += ROMSX_coriolis.cpp
 CEXE_sources += ROMSX_prestep_uv_3d.cpp
+CEXE_sources += ROMSX_rhs_3d.cpp
 CEXE_sources += ROMSX_update_vel_3d.cpp
 CEXE_sources += ROMSX_vert_visc_3d.cpp
 CEXE_sources += ROMSX_ComputeTimestep.cpp

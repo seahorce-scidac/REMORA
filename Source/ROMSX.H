@@ -386,6 +386,18 @@ private:
                         int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
+    void rhs_3d (const amrex::Box& bx,
+                 amrex::Array4<amrex::Real> uold,
+                 amrex::Array4<amrex::Real> vold,
+                 amrex::Array4<amrex::Real> ru_arr,
+                 amrex::Array4<amrex::Real> rv_arr,
+                 amrex::Array4<amrex::Real> Huon,
+                 amrex::Array4<amrex::Real> Hvom,
+                 amrex::Array4<amrex::Real> W,
+                 amrex::Array4<amrex::Real> DC,
+                 amrex::Array4<amrex::Real> FC,
+                 int nrhs, int N);
+
     void update_vel_3d (const amrex::Box& bx,
                         const int ioff, const int joff,
                         amrex::Array4<amrex::Real> vel_arr,

@@ -108,8 +108,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
      &               vbar(i,j,krhs)
         END DO
       END DO*/
-    //check this////////////
-    const Real Gadv = -0.25;
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
@@ -117,17 +115,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     const int Mm = Geom(lev).Domain().size()[1];
     auto geomdata = Geom(lev).data();
 
-    //
-    //-----------------------------------------------------------------------
-    // prestep_uv_3d
-    //-----------------------------------------------------------------------
-    //
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
         Array4<Real> const& Akv_arr = (Akv[lev])->array(mfi);
         Array4<Real> const& Hz_arr  = (Hz[lev])->array(mfi);
-        Array4<Real> const& z_r = (mf_z_r)->array(mfi);
+        Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
         Array4<Real> const& uold = (U_old).array(mfi);
         Array4<Real> const& vold = (V_old).array(mfi);
         Array4<Real> const& u = (mf_u).array(mfi);
@@ -135,8 +128,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& ru_arr = (mf_ru)->array(mfi);
         Array4<Real> const& rv_arr = (mf_rv)->array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
-        Array4<Real> const& sustr = (mf_sustr)->array(mfi);
-        Array4<Real> const& svstr = (mf_svstr)->array(mfi);
+        Array4<Real> const& sustr_arr = (mf_sustr)->array(mfi);
+        Array4<Real> const& svstr_arr = (mf_svstr)->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -152,31 +145,17 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena);
-
-        //rhs3d work arrays
-        FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena()); fab_Huon.setVal(0.);
+        FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena()); fab_Hvom.setVal(0.);
+        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
         auto pn=fab_pn.array();
@@ -186,18 +165,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto fomn=fab_fomn.array();
         auto Huon=fab_Huon.array();
         auto Hvom=fab_Hvom.array();
-        auto Huxx=fab_Huxx.array();
-        auto Huee=fab_Huee.array();
-        auto Hvxx=fab_Hvxx.array();
-        auto Hvee=fab_Hvee.array();
-        auto uxx=fab_uxx.array();
-        auto uee=fab_uee.array();
-        auto vxx=fab_vxx.array();
-        auto vee=fab_vee.array();
-        auto UFx=fab_UFx.array();
-        auto UFe=fab_UFe.array();
-        auto VFx=fab_VFx.array();
-        auto VFe=fab_VFe.array();
 
         //From ana_grid.h and metrics.F
         amrex::ParallelFor(gbx2,
@@ -225,238 +192,33 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           on_u(i,j,0)=1.0/dxi[1];
         });
 
-        fab_Huon.setVal(0.0);
-        fab_Hvom.setVal(0.0);
-        fab_Huxx.setVal(0.0);
-        fab_Huee.setVal(0.0);
-        fab_Hvxx.setVal(0.0);
-        fab_Hvee.setVal(0.0);
-        fab_uxx.setVal(0.0);
-        fab_uee.setVal(0.0);
-        fab_UFx.setVal(0.0);
-        fab_UFe.setVal(0.0);
-        fab_vxx.setVal(0.0);
-        fab_vee.setVal(0.0);
-        fab_VFx.setVal(0.0);
-        fab_VFe.setVal(0.0);
-
         Real lambda = 1.0;
 
+        //
+        //-----------------------------------------------------------------------
+        // prestep_uv_3d
+        //-----------------------------------------------------------------------
+        //
         prestep_uv_3d(bx, uold, vold, u, v, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon, Hvom,
-                          pm, pn, W, DC, FC, z_r, sustr, svstr, iic, ntfirst, nnew, nstp, nrhs, N,
+                          pm, pn, W, DC, FC, z_r_arr, sustr_arr, svstr_arr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 
 #ifdef UV_COR
+        //
+        //-----------------------------------------------------------------------
+        // coriolis
+        //-----------------------------------------------------------------------
+        //
         coriolis(bx, uold, vold, ru_arr, rv_arr, Hz_arr, fomn, nrhs);
 #endif
 
-    //
-    //-----------------------------------------------------------------------
-    // rhs_3d
-    //-----------------------------------------------------------------------
-    //
+        //
+        //-----------------------------------------------------------------------
+        // rhs_3d
+        //-----------------------------------------------------------------------
+        //
+        rhs_3d(bx, uold, vold, ru_arr, rv_arr, Huon, Hvom, W, DC, FC, nrhs, N);
 
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            //should not include grow cells
-            uxx(i,j,k)=uold(i-1,j,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i+1,j,k,nrhs);
-
-            //neglecting terms about periodicity since testing only periodic for now
-            Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
-        });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real cff;
-            Real cff1=uold(i  ,j,k,nrhs)+uold(i+1,j,k,nrhs);
-
-            if (cff1 > 0.0) {
-              cff=uxx(i,j,k);
-            } else {
-              cff=uxx(i+1,j,k);
-            }
-
-            UFx(i,j,k)=0.25*(cff1+Gadv*cff) * (Huon(i,j,k)+ Huon(i+1,j,k)+
-                             Gadv*0.5*(Huxx(i,j,k)+ Huxx(i+1,j,k)));
-
-            //should not include grow cells
-            uee(i,j,k)=uold(i,j-1,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i,j+1,k,nrhs);
-        });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            /////////////MIGHT NEED NEW LOOP HERE
-            //neglecting terms about periodicity since testing only periodic for now
-            Hvxx(i,j,k)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
-        });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real cff;
-            Real cff1=uold(i,j  ,k,nrhs)+uold(i,j-1,k,nrhs);
-            Real cff2=Hvom(i,j,k)+Hvom(i-1,j,k);
-            if (cff2>0.0) {
-              cff=uee(i,j-1,k);
-            } else {
-              cff=uee(i,j,k);
-            }
-
-            UFe(i,j,k)=0.25*(cff1+Gadv*cff)*
-              (cff2+Gadv*0.5*(Hvxx(i  ,j,k)+Hvxx(i-1,j,k)));
-
-            vxx(i,j,k)=vold(i-1,j,k,nrhs)-2.0*vold(i,j,k,nrhs)+
-              vold(i+1,j,k,nrhs);
-            //neglecting terms about periodicity since testing only periodic for now
-            Huee(i,j,k)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
-            cff1=vold(i  ,j,k,nrhs)+vold(i-1,j,k,nrhs);
-            cff2=Huon(i,j,k)+Huon(i,j-1,k);
-            if (cff2>0.0) {
-              cff=vxx(i-1,j,k);
-            } else {
-              cff=vxx(i,j,k);
-            }
-            VFx(i,j,k)=0.25*(cff1+Gadv*cff)* (cff2+Gadv*0.5*(Huee(i,j,k)+ Huee(i,j-1,k)));
-            vee(i,j,k)=vold(i,j-1,k,nrhs)-2.0*vold(i,j,k,nrhs)+
-              vold(i,j+1,k,nrhs);
-            Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
-        });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-              //neglecting terms about periodicity since testing only periodic for now
-              Real cff;
-              Real cff1=vold(i,j  ,k,nrhs)+vold(i,j+1,k,nrhs);
-              if (cff1>0.0) {
-                cff=vee(i,j,k);
-              } else {
-                cff=vee(i,j+1,k);
-              }
-
-              VFe(i,j,k)=0.25*(cff1+Gadv*cff)*
-                    (Hvom(i,j  ,k)+
-                     Hvom(i,j+1,k)+
-                     Gadv*0.5*(Hvee(i,j  ,k)+
-                               Hvee(i,j+1,k)));
-            });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-              //
-              //  Add in horizontal advection.
-              //
-
-              Real cff1=UFx(i,j  ,k)-UFx(i-1,j,k);
-              Real cff2=UFe(i,j+1,k)-UFe(i  ,j,k);
-              Real cff=cff1+cff2;
-
-              ru_arr(i,j,k,nrhs) -= cff;
-
-              cff1=VFx(i+1,j,k)-VFx(i  ,j,k);
-              cff2=VFe(i  ,j,k)-VFe(i,j-1,k);
-              cff=cff1+cff2;
-              rv_arr(i,j,k,nrhs) -= cff;
-
-              //-----------------------------------------------------------------------
-              //  Add in vertical advection.
-              //-----------------------------------------------------------------------
-              cff1=9.0/16.0;
-              cff2=1.0/16.0;
-              //              if(i>=0)
-              {
-              if(k>=1&&k<=N-2)
-              {
-                      FC(i,j,k)=(cff1*(uold(i,j,k  ,nrhs)+
-                             uold(i,j,k+1,nrhs))-
-                       cff2*(uold(i,j,k-1,nrhs)+
-                             uold(i,j,k+2,nrhs)))*
-                      (cff1*(W(i  ,j,k)+
-                             W(i-1,j,k))-
-                       cff2*(W(i+1,j,k)+
-                             W(i-2,j,k)));
-              }
-              else // this needs to be split up so that the following can be concurent
-                {
-                  FC(i,j,N)=0.0;
-                  FC(i,j,N-1)=(cff1*(uold(i,j,N-1,nrhs)+
-                                   uold(i,j,N  ,nrhs))-
-                             cff2*(uold(i,j,N-2,nrhs)+
-                                   uold(i,j,N  ,nrhs)))*
-                            (cff1*(W(i  ,j,N-1)+
-                                   W(i-1,j,N-1))-
-                             cff2*(W(i+1,j,N-1)+
-                                   W(i-2,j,N-1)));
-                  FC(i,j,0)=(cff1*(uold(i,j,1,nrhs)+
-                                 uold(i,j,2,nrhs))-
-                           cff2*(uold(i,j,1,nrhs)+
-                                 uold(i,j,3,nrhs)))*
-                          (cff1*(W(i  ,j,1)+
-                                 W(i-1,j,1))-
-                           cff2*(W(i+1,j,1)+
-                                 W(i-2,j,1)));
-                  //              FC(i,0,-1)=0.0;
-                }
-              }
-
-              if(k-1>=0) {
-                  cff=FC(i,j,k)-FC(i,j,k-1);
-              } else {
-                  cff=FC(i,j,k);
-              }
-
-              ru_arr(i,j,k,nrhs) -= cff;
-
-              //              if(j>=0)
-              {
-              if (k>=1 && k<=N-2)
-              {
-                  FC(i,j,k)=(cff1*(vold(i,j,k  ,nrhs)+
-                             vold(i,j,k+1,nrhs))-
-                       cff2*(vold(i,j,k-1,nrhs)+
-                             vold(i,j,k+2,nrhs)))*
-                      (cff1*(W(i,j  ,k)+
-                             W(i,j-1,k))-
-                       cff2*(W(i,j+1,k)+
-                             W(i,j-2,k)));
-              }
-              else // this needs to be split up so that the following can be concurent
-              {
-                  FC(i,j,N)=0.0;
-                  FC(i,j,N-1)=(cff1*(vold(i,j,N-1,nrhs)+
-                                   vold(i,j,N  ,nrhs))-
-                             cff2*(vold(i,j,N-2,nrhs)+
-                                   vold(i,j,N  ,nrhs)))*
-                            (cff1*(W(i,j  ,N-1)+
-                                   W(i,j-1,N-1))-
-                             cff2*(W(i,j+1,N-1)+
-                                   W(i,j-2,N-1)));
-                  FC(i,j,0)=(cff1*(vold(i,j,1,nrhs)+
-                                 vold(i,j,2,nrhs))-
-                           cff2*(vold(i,j,1,nrhs)+
-                                 vold(i,j,3,nrhs)))*
-                          (cff1*(W(i,j  ,1)+
-                                 W(i,j-1,1))-
-                           cff2*(W(i,j+1,1)+
-                                 W(i,j-2,1)));
-                  //              FC(i,0,-1)=0.0;
-              }
-
-              if(k-1>=0) {
-                  cff=FC(i,j,k)-FC(i,j,k-1);
-              } else {
-                  cff=FC(i,j,k);
-              }
-              rv_arr(i,j,k,nrhs) -= cff;
-              }
-
-            });
-
-        // End rhs3d_tile
     } // MFIter
 
     advance_2d(lev, mf_u, mf_v, ru[lev], rv[lev],
