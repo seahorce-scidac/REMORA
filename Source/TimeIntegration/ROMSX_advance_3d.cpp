@@ -60,7 +60,6 @@ ROMSX::advance_3d (int lev,
         gbx2.grow(IntVect(2,2,0));
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
-        Box gbx=gbx2;
 
         Box ubx = surroundingNodes(bx,0);
         Box vbx = surroundingNodes(bx,1);
