@@ -48,36 +48,14 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab source(ba,dm,nvars,1);
     source.setVal(0.0);
 
-    //This is primarily to make a constant "old" state
-    // We don't need to call FillPatch on cons_mf because we have fillpatch'ed S_old above
-    // MultiFab cons_mf(ba,dm,nvars,S_old.nGrowVect());
-    // MultiFab::Copy(cons_mf,S_old,0,0,S_old.nComp(),S_old.nGrowVect());
-
-    // *****************************************************************
-    // Update the cell-centered state and face-based velocity using
-    // a time integrator.
-    // Inputs:
-    //          S_old    (state on cell centers)
-    //          U_old    (x-velocity on x-faces)
-    //          V_old    (y-velocity on y-faces)
-    //          W_old    (z-velocity on z-faces)
-    //          source   (source term on cell centers)
-    // Outputs:
-    //          S_new    (state on cell centers)
-    //          U_new    (x-velocity on x-faces)
-    //          V_new    (y-velocity on y-faces)
-    //          W_new    (z-velocity on z-faces)
-    // *****************************************************************
-
     //-----------------------------------------------------------------------
-    //  Time step momentum equation in the XI-direction.
+    //  Time step momentum equation
     //-----------------------------------------------------------------------
 
     //Only used locally, probably should be rearranged into FArrayBox declaration
     MultiFab mf_AK(ba,dm,1,IntVect(2,2,0)); //2d missing j coordinate
     MultiFab mf_DC(ba,dm,1,IntVect(2,2,0)); //2d missing j coordinate
     MultiFab mf_Hzk(ba,dm,1,IntVect(2,2,1)); //2d missing j coordinate
-    std::unique_ptr<MultiFab>& mf_Hz = Hz[lev];
     std::unique_ptr<MultiFab>& mf_z_r = z_r[lev];
     //Consider passing these into the advance function or renaming relevant things
     MultiFab mf_u(ba,dm,1,IntVect(2,2,0));
@@ -87,8 +65,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     std::unique_ptr<MultiFab>& mf_rv = rv[lev];
     std::unique_ptr<MultiFab>& mf_sustr = sustr[lev];
     std::unique_ptr<MultiFab>& mf_svstr = svstr[lev];
-    std::unique_ptr<MultiFab>& mf_ubar = ubar[lev];
-    std::unique_ptr<MultiFab>& mf_vbar = vbar[lev];
 
     MultiFab mf_rw(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_W(ba,dm,1,IntVect(3,3,0));
@@ -138,8 +114,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     const auto dxi              = Geom(lev).InvCellSizeArray();
-    //    const auto dx               = Geom(lev).CellSizeArray();
-    const int Lm = Geom(lev).Domain().size()[0];
     const int Mm = Geom(lev).Domain().size()[1];
     auto geomdata = Geom(lev).data();
 
@@ -150,9 +124,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& AK = mf_AK.array(mfi);
         Array4<Real> const& DC = mf_DC.array(mfi);
-        Array4<Real> const& Hzk_arr = mf_Hzk.array(mfi);
         Array4<Real> const& Akv_arr = (Akv[lev])->array(mfi);
         Array4<Real> const& Hz_arr  = (Hz[lev])->array(mfi);
         Array4<Real> const& z_r = (mf_z_r)->array(mfi);
@@ -160,10 +132,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& vold = (V_old).array(mfi);
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
-        Array4<Real> const& w = (mf_w).array(mfi);
         Array4<Real> const& ru_arr = (mf_ru)->array(mfi);
         Array4<Real> const& rv_arr = (mf_rv)->array(mfi);
-        Array4<Real> const& rw = (mf_rw).array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
         Array4<Real> const& sustr = (mf_sustr)->array(mfi);
         Array4<Real> const& svstr = (mf_svstr)->array(mfi);
@@ -181,7 +151,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         gbx2.grow(IntVect(2,2,0));
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
-        Box gbx=gbx2;
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena);
@@ -210,8 +179,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena);
 
         auto FC=fab_FC.array();
-        auto BC=fab_BC.array();
-        auto CF=fab_CF.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto on_u=fab_on_u.array();
@@ -219,7 +186,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto fomn=fab_fomn.array();
         auto Huon=fab_Huon.array();
         auto Hvom=fab_Hvom.array();
-        auto oHz_arr=fab_oHz.array();
         auto Huxx=fab_Huxx.array();
         auto Huee=fab_Huee.array();
         auto Hvxx=fab_Hvxx.array();
@@ -253,7 +219,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
             });
 
         amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
           om_v(i,j,0)=1.0/dxi[0];
           on_u(i,j,0)=1.0/dxi[1];
@@ -290,79 +256,87 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //-----------------------------------------------------------------------
     //
 
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-        //should not include grow cells
-              uxx(i,j,k)=uold(i-1,j,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i+1,j,k,nrhs);
-              //neglecting terms about periodicity since testing only periodic for now
-              Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
-            });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-              Real cff;
-              Real cff1=uold(i  ,j,k,nrhs)+uold(i+1,j,k,nrhs);
-              if (cff1 > 0.0)
-                cff=uxx(i,j,k);
-              else
-                cff=uxx(i+1,j,k);
-              UFx(i,j,k)=0.25*(cff1+Gadv*cff)*
-                (Huon(i  ,j,k)+
-                 Huon(i+1,j,k)+
-                 Gadv*0.5*(Huxx(i  ,j,k)+
-                           Huxx(i+1,j,k)));
-                //should not include grow cells
-              uee(i,j,k)=uold(i,j-1,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i,j+1,k,nrhs);
-            });
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-              /////////////MIGHT NEED NEW LOOP HERE
-              //neglecting terms about periodicity since testing only periodic for now
-              Hvxx(i,j,k)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
-            });
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-              Real cff;
-              Real cff1=uold(i,j  ,k,nrhs)+uold(i,j-1,k,nrhs);
-              Real cff2=Hvom(i,j,k)+Hvom(i-1,j,k);
-              if (cff2>0.0)
-                cff=uee(i,j-1,k);
-              else
-                cff=uee(i,j,k);
-              UFe(i,j,k)=0.25*(cff1+Gadv*cff)*
-                (cff2+Gadv*0.5*(Hvxx(i  ,j,k)+
-                                Hvxx(i-1,j,k)));
-              vxx(i,j,k)=vold(i-1,j,k,nrhs)-2.0*vold(i,j,k,nrhs)+
-                vold(i+1,j,k,nrhs);
-              //neglecting terms about periodicity since testing only periodic for now
-              Huee(i,j,k)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
-              cff1=vold(i  ,j,k,nrhs)+vold(i-1,j,k,nrhs);
-              cff2=Huon(i,j,k)+Huon(i,j-1,k);
-              if (cff2>0.0)
-                cff=vxx(i-1,j,k);
-              else
-                cff=vxx(i,j,k);
-              VFx(i,j,k)=0.25*(cff1+Gadv*cff)*
-                (cff2+Gadv*0.5*(Huee(i,j  ,k)+
-                                Huee(i,j-1,k)));
-              vee(i,j,k)=vold(i,j-1,k,nrhs)-2.0*vold(i,j,k,nrhs)+
-                vold(i,j+1,k,nrhs);
-              Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
-            });
+            //should not include grow cells
+            uxx(i,j,k)=uold(i-1,j,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i+1,j,k,nrhs);
 
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            //neglecting terms about periodicity since testing only periodic for now
+            Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
+        });
+
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real cff;
+            Real cff1=uold(i  ,j,k,nrhs)+uold(i+1,j,k,nrhs);
+
+            if (cff1 > 0.0) {
+              cff=uxx(i,j,k);
+            } else {
+              cff=uxx(i+1,j,k);
+            }
+
+            UFx(i,j,k)=0.25*(cff1+Gadv*cff) * (Huon(i,j,k)+ Huon(i+1,j,k)+
+                             Gadv*0.5*(Huxx(i,j,k)+ Huxx(i+1,j,k)));
+
+            //should not include grow cells
+            uee(i,j,k)=uold(i,j-1,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i,j+1,k,nrhs);
+        });
+
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            /////////////MIGHT NEED NEW LOOP HERE
+            //neglecting terms about periodicity since testing only periodic for now
+            Hvxx(i,j,k)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
+        });
+
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real cff;
+            Real cff1=uold(i,j  ,k,nrhs)+uold(i,j-1,k,nrhs);
+            Real cff2=Hvom(i,j,k)+Hvom(i-1,j,k);
+            if (cff2>0.0) {
+              cff=uee(i,j-1,k);
+            } else {
+              cff=uee(i,j,k);
+            }
+
+            UFe(i,j,k)=0.25*(cff1+Gadv*cff)*
+              (cff2+Gadv*0.5*(Hvxx(i  ,j,k)+Hvxx(i-1,j,k)));
+
+            vxx(i,j,k)=vold(i-1,j,k,nrhs)-2.0*vold(i,j,k,nrhs)+
+              vold(i+1,j,k,nrhs);
+            //neglecting terms about periodicity since testing only periodic for now
+            Huee(i,j,k)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
+            cff1=vold(i  ,j,k,nrhs)+vold(i-1,j,k,nrhs);
+            cff2=Huon(i,j,k)+Huon(i,j-1,k);
+            if (cff2>0.0) {
+              cff=vxx(i-1,j,k);
+            } else {
+              cff=vxx(i,j,k);
+            }
+            VFx(i,j,k)=0.25*(cff1+Gadv*cff)* (cff2+Gadv*0.5*(Huee(i,j,k)+ Huee(i,j-1,k)));
+            vee(i,j,k)=vold(i,j-1,k,nrhs)-2.0*vold(i,j,k,nrhs)+
+              vold(i,j+1,k,nrhs);
+            Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
+        });
+
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
               //neglecting terms about periodicity since testing only periodic for now
               Real cff;
               Real cff1=vold(i,j  ,k,nrhs)+vold(i,j+1,k,nrhs);
-              if (cff1>0.0)
+              if (cff1>0.0) {
                 cff=vee(i,j,k);
-              else
+              } else {
                 cff=vee(i,j+1,k);
+              }
+
               VFe(i,j,k)=0.25*(cff1+Gadv*cff)*
                     (Hvom(i,j  ,k)+
                      Hvom(i,j+1,k)+
@@ -370,8 +344,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                                Hvee(i,j+1,k)));
             });
 
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
               //
               //  Add in horizontal advection.

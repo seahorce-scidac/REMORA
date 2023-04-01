@@ -392,9 +392,13 @@ private:
                         amrex::Array4<amrex::Real> vel_old,
                         amrex::Array4<amrex::Real> rvel_arr,
                         amrex::Array4<amrex::Real> Hz_arr,
+                        amrex::Array4<amrex::Real> Akv_arr,
+                        amrex::Array4<amrex::Real> pm_arr,
+                        amrex::Array4<amrex::Real> pn_arr,
                         amrex::Array4<amrex::Real> DC_arr,
                         amrex::Array4<amrex::Real> FC_arr,
                         amrex::Array4<amrex::Real> sstr_arr,
+                        amrex::Array4<amrex::Real> z_r_arr,
                         const int iic, const int ntfirst, const int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 

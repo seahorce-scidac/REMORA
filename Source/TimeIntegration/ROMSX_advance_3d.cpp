@@ -75,23 +75,6 @@ ROMSX::advance_3d (int lev,
         FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena);
-#if 0
-        FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena);
-        //rhs3d work arrays
-        FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena);
-#endif
 
         auto FC_arr = fab_FC.array();
         auto BC_arr = fab_BC.array();
@@ -100,36 +83,21 @@ ROMSX::advance_3d (int lev,
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto fomn=fab_fomn.array();
-#if 0
-        auto Huon=fab_Huon.array();
-        auto Hvom=fab_Hvom.array();
-        auto Huxx=fab_Huxx.array();
-        auto Huee=fab_Huee.array();
-        auto Hvxx=fab_Hvxx.array();
-        auto Hvee=fab_Hvee.array();
-        auto uxx=fab_uxx.array();
-        auto uee=fab_uee.array();
-        auto vxx=fab_vxx.array();
-        auto vee=fab_vee.array();
-        auto UFx=fab_UFx.array();
-        auto UFe=fab_UFe.array();
-        auto VFx=fab_VFx.array();
-        auto VFe=fab_VFe.array();
-#endif
+
         //From ana_grid.h and metrics.F
 
         //
-        // Update to u
+        // Update to u and v
         //
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
         {
-
             const auto prob_lo         = geomdata.ProbLo();
             const auto dx              = geomdata.CellSize();
 
             pm(i,j,0)=dxi[0];
             pn(i,j,0)=dxi[1];
+
             //defined UPWELLING
             Real f0=-8.26e-5;
             Real beta=0.0;
@@ -139,22 +107,20 @@ ROMSX::advance_3d (int lev,
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
+        Real cff;
+        if (iic==ntfirst) {
+          cff=0.25*dt_lev;
+        } else if (iic==ntfirst+1) {
+          cff=0.25*dt_lev*3.0/2.0;
+        } else {
+          cff=0.25*dt_lev*23.0/12.0;
+        }
+
         amrex::ParallelFor(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real cff;
-                if(iic==ntfirst) {
-                  cff=0.25*dt_lev;
-                } else if(iic==ntfirst+1) {
-                  cff=0.25*dt_lev*3.0/2.0;
-                } else {
-                  cff=0.25*dt_lev*23.0/12.0;
-                }
-
-                DC_arr(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
-
-                u(i,j,k) += DC_arr(i,j,k)*ru_arr(i,j,k,nrhs);
-                v(i,j,k) += DC_arr(i,j,k)*rv_arr(i,j,k,nrhs);
+                u(i,j,k) += cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru_arr(i,j,k,nrhs);
+                v(i,j,k) += cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv_arr(i,j,k,nrhs);
 
                 //ifdef SPLINES_VVISC is true
                 u(i,j,k) *= 2.0 / (Hz_arr(i-1,j,k) + Hz_arr(i,j,k));
@@ -164,8 +130,9 @@ ROMSX::advance_3d (int lev,
             });
         // End previous
 
-       vert_visc_3d(bx,1,0,u,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
-       vert_visc_3d(bx,0,1,v,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
+       // NOTE: DC_arr is only used as scratch in vert_visc_3d -- no need to pass or return a value
+       vert_visc_3d(ubx,1,0,u,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
+       vert_visc_3d(vbx,0,1,v,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
 
     } // MFiter
 }
