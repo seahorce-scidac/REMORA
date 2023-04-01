@@ -31,8 +31,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     auto& lev_old = vars_old[lev];
     // Moving terrain
-    Real time_mt = t_new[lev] - 0.5*dt[lev];
-    FillPatch(lev, time, time_mt, dt[lev], lev_old);
+    FillPatch(lev, time, lev_old);
 
     const BoxArray&            ba = S_old.boxArray();
     const DistributionMapping& dm = S_old.DistributionMap();
@@ -217,7 +216,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // rhs_3d
         //-----------------------------------------------------------------------
         //
-        rhs_3d(bx, uold, vold, ru_arr, rv_arr, Huon, Hvom, W, DC, FC, nrhs, N);
+        rhs_3d(bx, uold, vold, ru_arr, rv_arr, Huon, Hvom, W, FC, nrhs, N);
 
     } // MFIter
 

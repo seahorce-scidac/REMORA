@@ -76,7 +76,6 @@ ROMSX::FillPatch (int lev, Real time, const Vector<MultiFab*>& mfs)
     int ncomp_cons = mfs[Vars::cons]->nComp();
 
     IntVect ngvect_cons = mfs[Vars::cons]->nGrowVect();
-    IntVect ngvect_vels = mfs[Vars::xvel]->nGrowVect();
     //tweaked physbcs
     for(auto& mf : mfs)
     {
@@ -153,7 +152,7 @@ ROMSX::GetDataAtTime (int lev, Real time)
 // values in mf when it is passed in are *not* used.
 //
 void
-ROMSX::FillPatch (int lev, Real time, Real time_mt, Real delta_t, Vector<MultiFab>& mfs)
+ROMSX::FillPatch (int lev, Real time, Vector<MultiFab>& mfs)
 {
     BL_PROFILE_VAR("ROMSX::FillPatch()",ROMSX_FillPatch);
     int bccomp;
@@ -193,13 +192,12 @@ ROMSX::FillPatch (int lev, Real time, Real time_mt, Real delta_t, Vector<MultiFa
         if (lev == 0)
         {
             Vector<MultiFab*> smf = {&fdata.get_var(var_idx)};
-            ROMSXPhysBCFunct physbc(lev,time_mt,delta_t,geom[lev],
-                                  domain_bcs_type,domain_bcs_type_d,
-                                  var_idx,solverChoice.terrain_type,
-                                  fdata,m_bc_extdir_vals,z_phys_nd[lev], detJ_cc[lev]
+            ROMSXPhysBCFunct physbc(lev,geom[lev],
+                                   domain_bcs_type,domain_bcs_type_d,
+                                   var_idx,fdata,m_bc_extdir_vals,z_phys_nd[lev], detJ_cc[lev]
 #ifdef ROMSX_USE_NETCDF
-                                 ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                  bdy_data_ylo,bdy_data_yhi,bdy_time_interval
+                                  ,init_type,bdy_data_xlo,bdy_data_xhi,
+                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                                   );
             amrex::FillPatchSingleLevel(mf, time, smf, ftime, 0, icomp, ncomp,
@@ -212,18 +210,18 @@ ROMSX::FillPatch (int lev, Real time, Real time_mt, Real delta_t, Vector<MultiFa
             Vector<MultiFab*> cmf = {&cdata.get_var(var_idx)};
             Vector<MultiFab*> fmf = {&fdata.get_var(var_idx)};
 
-            ROMSXPhysBCFunct cphysbc(lev-1,time_mt,delta_t,geom[lev-1],
+            ROMSXPhysBCFunct cphysbc(lev-1,geom[lev-1],
                                    domain_bcs_type,domain_bcs_type_d,
-                                   var_idx,solverChoice.terrain_type,cdata,
+                                   var_idx,cdata,
                                    m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1]
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
                                    bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                                    );
-            ROMSXPhysBCFunct fphysbc(lev,time_mt,delta_t,geom[lev],
+            ROMSXPhysBCFunct fphysbc(lev,geom[lev],
                                    domain_bcs_type,domain_bcs_type_d,
-                                   var_idx,solverChoice.terrain_type,fdata,
+                                   var_idx,fdata,
                                    m_bc_extdir_vals,z_phys_nd[lev], detJ_cc[lev]
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
@@ -246,9 +244,9 @@ ROMSX::FillPatch (int lev, Real time, Real time_mt, Real delta_t, Vector<MultiFa
 // it is used only to compute ghost values for intermediate stages of a time integrator.
 //
 void
-ROMSX::FillIntermediatePatch (int lev, Real time, Real time_mt, Real delta_t,
-                            Vector<std::reference_wrapper<MultiFab> > mfs,
-                            int ng_cons, int ng_vel, bool cons_only, int scomp_cons, int ncomp_cons)
+ROMSX::FillIntermediatePatch (int lev, Real time,
+                              Vector<std::reference_wrapper<MultiFab> > mfs,
+                              int ng_cons, int ng_vel, bool cons_only, int scomp_cons, int ncomp_cons)
 {
     BL_PROFILE_VAR("FillIntermediatePatch()",FillIntermediatePatch);
     int bccomp;
@@ -310,13 +308,13 @@ ROMSX::FillIntermediatePatch (int lev, Real time, Real time_mt, Real delta_t,
             Vector<MultiFab*> smf { &mf };
             Vector<Real> stime { time };
 
-            ROMSXPhysBCFunct physbc(lev,time_mt,delta_t,geom[lev],
-                                  domain_bcs_type,domain_bcs_type_d,
-                                  var_idx,solverChoice.terrain_type,level_data,
-                                  m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev]
+            ROMSXPhysBCFunct physbc(lev,geom[lev],
+                                    domain_bcs_type,domain_bcs_type_d,
+                                    var_idx,level_data,
+                                    m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev]
 #ifdef ROMSX_USE_NETCDF
-                                 ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                  bdy_data_ylo,bdy_data_yhi,bdy_time_interval
+                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
+                                    bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                                   );
 
@@ -333,18 +331,18 @@ ROMSX::FillIntermediatePatch (int lev, Real time, Real time_mt, Real delta_t,
             Vector<Real> ctime = {cdata.get_time()};
             Vector<Real> ftime = {level_data.get_time()};
 
-            ROMSXPhysBCFunct cphysbc(lev-1,time_mt,delta_t,geom[lev-1],
+            ROMSXPhysBCFunct cphysbc(lev-1,geom[lev-1],
                                    domain_bcs_type,domain_bcs_type_d,
-                                   var_idx,solverChoice.terrain_type,cdata,
+                                   var_idx,cdata,
                                    m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1]
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
                                    bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                                    );
-            ROMSXPhysBCFunct fphysbc(lev,time_mt,delta_t,geom[lev],
+            ROMSXPhysBCFunct fphysbc(lev,geom[lev],
                                    domain_bcs_type,domain_bcs_type_d,
-                                   var_idx,solverChoice.terrain_type,level_data,
+                                   var_idx,level_data,
                                    m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev]
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
@@ -370,7 +368,7 @@ ROMSX::FillIntermediatePatch (int lev, Real time, Real time_mt, Real delta_t,
 //     only when a new level of refinement is being created during a run (i.e not at initialization)
 //     This will never be used with static refinement.
 void
-ROMSX::FillCoarsePatch (int lev, Real time, Real time_mt, Real delta_t,
+ROMSX::FillCoarsePatch (int lev, Real time,
                       MultiFab& mf, int icomp, int ncomp, int var_idx)
 {
     BL_PROFILE_VAR("FillCoarsePatch()",FillCoarsePatch);
@@ -407,18 +405,18 @@ ROMSX::FillCoarsePatch (int lev, Real time, Real time_mt, Real delta_t,
     Vector<Real> ctime = {cdata.get_time()};
     Vector<Real> ftime = {fdata.get_time()};
 
-    ROMSXPhysBCFunct cphysbc(lev-1,time_mt,delta_t,geom[lev-1],
+    ROMSXPhysBCFunct cphysbc(lev-1,geom[lev-1],
                            domain_bcs_type,domain_bcs_type_d,
-                           var_idx,solverChoice.terrain_type,cdata,
+                           var_idx,cdata,
                            m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1]
 #ifdef ROMSX_USE_NETCDF
                           ,init_type,bdy_data_xlo,bdy_data_xhi,
                            bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                            );
-    ROMSXPhysBCFunct fphysbc(lev,time_mt,delta_t,geom[lev],
+    ROMSXPhysBCFunct fphysbc(lev,geom[lev],
                            domain_bcs_type,domain_bcs_type_d,
-                           var_idx,solverChoice.terrain_type,fdata,
+                           var_idx,fdata,
                            m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev]
 #ifdef ROMSX_USE_NETCDF
                           ,init_type,bdy_data_xlo,bdy_data_xhi,
@@ -432,9 +430,9 @@ ROMSX::FillCoarsePatch (int lev, Real time, Real time_mt, Real delta_t,
 }
 
 void
-ROMSX::FillCoarsePatchAllVars (int lev, Real time, Real time_mt, Real delta_t, Vector<MultiFab>& vmf)
+ROMSX::FillCoarsePatchAllVars (int lev, Real time, Vector<MultiFab>& vmf)
 {
     for (int var_idx = 0; var_idx < vmf.size(); ++var_idx) {
-        FillCoarsePatch(lev, time, time_mt, delta_t, vmf[var_idx], 0, vmf[var_idx].nComp(), var_idx);
+        FillCoarsePatch(lev, time, vmf[var_idx], 0, vmf[var_idx].nComp(), var_idx);
     }
 }

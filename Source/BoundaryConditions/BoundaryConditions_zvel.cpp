@@ -16,8 +16,7 @@ void ROMSXPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box&
                                       const Array4<Real const>& z_nd_arr,
                                       const GpuArray<Real,AMREX_SPACEDIM> dx,
                                       const GpuArray<Real,AMREX_SPACEDIM> dxInv,
-                                      Real /*time*/, Real time_mt, Real delta_t,
-                                      int bccomp, int terrain_type)
+                                      Real /*time*/, int bccomp)
 {
     const auto& dom_lo = amrex::lbound(domain);
     const auto& dom_hi = amrex::ubound(domain);
@@ -162,9 +161,6 @@ void ROMSXPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box&
         });
 
         ParallelFor(bx_zlo_face, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-              //************************************************************
-              // time_mt = time - delta_t/2   delta_t = dt[lev] or dt_stage
-              //************************************************************
               if (bc_ptr[n].lo(2) == ROMSXBCType::ext_dir) {
                   if (l_use_terrain)
                       dest_arr(i,j,k) = WFromOmega(i,j,k,l_bc_extdir_vals_d[n][2],

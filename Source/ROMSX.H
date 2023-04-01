@@ -266,8 +266,6 @@ private:
 
     void init_custom(int lev);
 
-    void initialize_integrator(int lev, amrex::MultiFab& cons_mf, amrex::MultiFab& vel_mf);
-
     void set_2darrays (int lev);
 
     void set_depth (int lev);
@@ -290,7 +288,6 @@ private:
     // compute a new multifab by copying in phi from valid region and filling ghost cells
     // works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
     void FillPatch (int lev, amrex::Real time,
-                    amrex::Real time_mt, amrex::Real delta_t,
                     amrex::Vector<amrex::MultiFab>& mf);
 
     // compute new multifabs by copying in data from valid region and filling ghost cells
@@ -302,20 +299,17 @@ private:
     // NOTE: mfs should always contain {cons, xvel, yvel, zvel} multifab data.
     // if which_var is supplied, then only fill the specified variable in the vector of mfs
     void FillIntermediatePatch (int lev, amrex::Real time,
-                                amrex::Real time_mt, amrex::Real delta_t,
                                 amrex::Vector<std::reference_wrapper<amrex::MultiFab> > mfs,
                                 int ng_cons, int ng_vel, bool cons_only, int scomp_cons, int ncomp_cons);
 
     // fill an entire multifab by interpolating from the coarser level
     // this comes into play when a new level of refinement appears
     void FillCoarsePatch (int lev, amrex::Real time,
-                          amrex::Real time_mt, amrex::Real delta_t,
                           amrex::MultiFab& mf, int icomp, int ncomp, int var_idx);
 
     // fill all multifabs (and all components) in a vector of multifabs corresponding to the
     // grid variables defined in vars_old and vars_new just as FillCoarsePatch.
     void FillCoarsePatchAllVars (int lev, amrex::Real time,
-                                 amrex::Real time_mt, amrex::Real delta_t,
                                  amrex::Vector<amrex::MultiFab>& vmf);
 
     // utility to copy in data from old and/or new state into another multifab
@@ -394,7 +388,6 @@ private:
                  amrex::Array4<amrex::Real> Huon,
                  amrex::Array4<amrex::Real> Hvom,
                  amrex::Array4<amrex::Real> W,
-                 amrex::Array4<amrex::Real> DC,
                  amrex::Array4<amrex::Real> FC,
                  int nrhs, int N);
 
@@ -559,12 +552,6 @@ private:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_phys_nd;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_phys_cc;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>>   detJ_cc;
-
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_phys_nd_new;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_phys_cc_new;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>>   detJ_cc_new;
-
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_t_rk;
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_m;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_u;

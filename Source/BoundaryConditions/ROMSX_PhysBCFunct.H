@@ -34,26 +34,25 @@ struct NullFill
 class ROMSXPhysBCFunct
 {
 public:
-    ROMSXPhysBCFunct (const int lev, const amrex::Real time_mt, const amrex::Real delta_t,
-                    const amrex::Geometry& geom, const amrex::Vector<amrex::BCRec>& domain_bcs_type,
-                    const amrex::Gpu::DeviceVector<amrex::BCRec>& domain_bcs_type_d,
-                    const int& var_idx, const int& terrain_type, TimeInterpolatedData& data,
-                    amrex::Array<amrex::Array<amrex::Real,AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NVAR> bc_extdir_vals,
-                    std::unique_ptr<amrex::MultiFab>& z_phys_nd,
-                    std::unique_ptr<amrex::MultiFab>& detJ_cc
+    ROMSXPhysBCFunct (const int lev,
+                      const amrex::Geometry& geom, const amrex::Vector<amrex::BCRec>& domain_bcs_type,
+                      const amrex::Gpu::DeviceVector<amrex::BCRec>& domain_bcs_type_d,
+                      const int& var_idx, TimeInterpolatedData& data,
+                      amrex::Array<amrex::Array<amrex::Real,AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NVAR> bc_extdir_vals,
+                      std::unique_ptr<amrex::MultiFab>& z_phys_nd,
+                      std::unique_ptr<amrex::MultiFab>& detJ_cc
 #ifdef ROMSX_USE_NETCDF
-                   ,const std::string& init_type,
-                    const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_xlo,
-                    const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_xhi,
-                    const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_ylo,
-                    const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_yhi,
-                    const amrex::Real bdy_time_interval
+                     ,const std::string& init_type,
+                      const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_xlo,
+                      const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_xhi,
+                      const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_ylo,
+                      const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_yhi,
+                      const amrex::Real bdy_time_interval
 #endif
                     )
-        : m_lev(lev), m_time_mt(time_mt), m_delta_t(delta_t),
-          m_geom(geom), m_domain_bcs_type(domain_bcs_type),
+        : m_lev(lev), m_geom(geom), m_domain_bcs_type(domain_bcs_type),
           m_domain_bcs_type_d(domain_bcs_type_d),
-          m_var_idx(var_idx), m_terrain_type(terrain_type), m_data(data),
+          m_var_idx(var_idx), m_data(data),
           m_bc_extdir_vals(bc_extdir_vals),
           m_z_phys_nd(z_phys_nd),
           m_detJ_cc(detJ_cc)
@@ -102,8 +101,7 @@ public:
                           const amrex::Array4<amrex::Real const>& z_nd,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dx,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv,
-                          amrex::Real time, amrex::Real time_mt, amrex::Real delta_t,
-                          int bccomp, int terrain_type);
+                          amrex::Real time, int bccomp);
 
     void impose_cons_bcs (const amrex::Array4<amrex::Real>& mf, const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::Array4<amrex::Real const>& z_nd,
@@ -130,13 +128,10 @@ public:
 
 private:
     int                  m_lev;
-    amrex::Real          m_time_mt;
-    amrex::Real          m_delta_t;
     amrex::Geometry      m_geom;
     amrex::Vector<amrex::BCRec>            m_domain_bcs_type;
     amrex::Gpu::DeviceVector<amrex::BCRec> m_domain_bcs_type_d;
     int           m_var_idx;
-    int           m_terrain_type;
     TimeInterpolatedData& m_data;
     amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NVAR> m_bc_extdir_vals;
     std::unique_ptr<amrex::MultiFab>& m_z_phys_nd;

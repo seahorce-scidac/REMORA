@@ -67,8 +67,8 @@ ROMSX::set_2darrays (int lev)
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
 
-        FArrayBox fab_DC(gbx11,1,amrex::The_Async_Arena);
-        FArrayBox fab_CF(gbx11,1,amrex::The_Async_Arena);
+        FArrayBox fab_DC(gbx11,1,amrex::The_Async_Arena());
+        FArrayBox fab_CF(gbx11,1,amrex::The_Async_Arena());
         auto DC=fab_DC.array();
         auto CF=fab_CF.array();
 
@@ -82,8 +82,8 @@ ROMSX::set_2darrays (int lev)
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*u(i,j,k,nstp);
             });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 Real cff1=1.0/DC(i,j,-1);
                 Real cff2=CF(i,j,-1)*cff1;
@@ -92,15 +92,15 @@ ROMSX::set_2darrays (int lev)
             });
         fab_DC.setVal(0.0);
         fab_CF.setVal(0.0);
-        amrex::LoopOnCpu(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::LoopOnCpu(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*v(i,j,k,nstp);
             });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 Real cff1=1.0/DC(i,j,-1);
                 Real cff2=CF(i,j,-1)*cff1;
@@ -187,8 +187,8 @@ ROMSX::set_depth (int lev)
     std::unique_ptr<MultiFab>& mf_h  = hOfTheConfusingName[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
     Real depth = geom[lev].ProbHi(2);
-    const int Lm = Geom(lev).Domain().size()[0];
-    const int Mm = Geom(lev).Domain().size()[1];
+    // const int Lm = Geom(lev).Domain().size()[0];
+    // const int Mm = Geom(lev).Domain().size()[1];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = Zt_avg1[lev];
     mf_Zt_avg1->setVal(0.0);
 

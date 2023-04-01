@@ -67,9 +67,6 @@ struct SolverChoice {
         // Do we have terrain (or grid stretching)?
         pp.query("use_terrain", use_terrain);
 
-        // Is the terrain static or moving?
-        pp.query("terrain_type", terrain_type);
-
         // These default to true but are used for unit testing
         pp.query("use_gravity", use_gravity);
 
@@ -322,7 +319,6 @@ struct SolverChoice {
     std::string pp_prefix {"romsx"};
 
     bool        use_terrain            = false;
-    int         terrain_type           = 0;
 
     // Specify what additional physics/forcing modules we use
     bool        use_gravity            = false;

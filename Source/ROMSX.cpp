@@ -267,10 +267,6 @@ ROMSX::InitData ()
         for (int lev = finest_level-1; lev >= 0; --lev)
             vars_new[lev][Vars::cons].setVal(0.0,RhoKE_comp,1,0);
 
-        if (!solverChoice.use_terrain && solverChoice.terrain_type != 0) {
-            amrex::Abort("We do not allow terrain_type != 0 with use_terrain = false");
-        }
-
         if (solverChoice.use_terrain) {
             if (init_type != "real") {
                 for (int lev = 0; lev <= finest_level; lev++)
@@ -357,10 +353,7 @@ ROMSX::InitData ()
         auto& lev_new = vars_new[lev];
         auto& lev_old = vars_old[lev];
 
-        // Moving terrain
-        Real time_mt = t_new[lev] - 0.5*dt[lev];
-
-        FillPatch(lev, t_new[lev], time_mt, dt[lev], lev_new);
+        FillPatch(lev, t_new[lev], lev_new);
 
         // Copy from new into old just in case
         int ngs   = lev_new[Vars::cons].nGrow();
@@ -414,12 +407,7 @@ ROMSX::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     t_new[lev] = time;
     t_old[lev] = time - 1.e200;
 
-    // Moving terrain
-    Real time_mt = time - 0.5*dt[lev];
-
-    FillCoarsePatchAllVars(lev, time, time_mt, dt[lev], vars_new[lev]);
-
-    initialize_integrator(lev, lev_new[Vars::cons],lev_new[Vars::xvel]);
+    FillCoarsePatchAllVars(lev, time, vars_new[lev]);
 }
 
 // Remake an existing level using provided BoxArray and DistributionMapping and
@@ -446,12 +434,9 @@ ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMa
     tmp_lev_new[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
     tmp_lev_old[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
-    // Moving terrain
-    Real time_mt = time - 0.5*dt[lev];
-
     // This will fill the temporary MultiFabs with data from vars_new
-    FillPatch(lev, time, time_mt, dt[lev], tmp_lev_new);
-    FillPatch(lev, time, time_mt, dt[lev], tmp_lev_old);
+    FillPatch(lev, time, tmp_lev_new);
+    FillPatch(lev, time, tmp_lev_old);
 
     for (int var_idx = 0; var_idx < Vars::NumTypes; ++var_idx) {
         std::swap(tmp_lev_new[var_idx], vars_new[lev][var_idx]);
@@ -460,8 +445,6 @@ ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMa
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200;
-
-    initialize_integrator(lev, tmp_lev_new[Vars::cons],tmp_lev_new[Vars::xvel]);
 }
 
 // Delete level data
@@ -511,12 +494,6 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     z_phys_cc.resize(lev+1);
     detJ_cc.resize(lev+1);
 
-    z_phys_nd_new.resize(lev+1);
-    z_phys_cc_new.resize(lev+1);
-    detJ_cc_new.resize(lev+1);
-
-    z_t_rk.resize(lev+1);
-
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
         b.setRange(2,0);
@@ -549,31 +526,17 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
         z_phys_cc[lev].reset(new MultiFab(ba,dm,1,1));
           detJ_cc[lev].reset(new MultiFab(ba,dm,1,1));
 
-        if (solverChoice.terrain_type > 0) {
-            z_phys_cc_new[lev].reset(new MultiFab(ba,dm,1,1));
-              detJ_cc_new[lev].reset(new MultiFab(ba,dm,1,1));
-              z_t_rk[lev].reset(new MultiFab( convert(ba, IntVect(0,0,1)), dm, 1, 1 ));
-        }
-
         BoxArray ba_nd(ba);
         ba_nd.surroundingNodes();
 
         // We need this to be one greater than the ghost cells to handle levels > 0
         int ngrow = ComputeGhostCells(solverChoice.spatial_order)+2;
         z_phys_nd[lev].reset(new MultiFab(ba_nd,dm,1,IntVect(ngrow,ngrow,1)));
-        if (solverChoice.terrain_type > 0) {
-            z_phys_nd_new[lev].reset(new MultiFab(ba_nd,dm,1,IntVect(ngrow,ngrow,1)));
-        }
+
     } else {
-            z_phys_nd[lev] = nullptr;
-            z_phys_cc[lev] = nullptr;
-              detJ_cc[lev] = nullptr;
-
-        z_phys_nd_new[lev] = nullptr;
-        z_phys_cc_new[lev] = nullptr;
-          detJ_cc_new[lev] = nullptr;
-
-               z_t_rk[lev] = nullptr;
+        z_phys_nd[lev] = nullptr;
+        z_phys_cc[lev] = nullptr;
+          detJ_cc[lev] = nullptr;
     }
 
     hOfTheConfusingName.resize(lev+1);
@@ -626,8 +589,6 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vbar[lev].reset(new MultiFab(ba2d,dm,2,IntVect(2,2,0)));
     zeta[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
 
-    initialize_integrator(lev, lev_new[Vars::cons],lev_new[Vars::xvel]);
-
     set_depth(lev);
     set_vmix(lev);
 
@@ -647,26 +608,6 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vbar[lev]->setVal(0.0);
     zeta[lev]->setVal(0.0);
 
-}
-
-void
-ROMSX::initialize_integrator(int lev, MultiFab& cons_mf, MultiFab& vel_mf)
-{
-    const BoxArray& ba(cons_mf.boxArray());
-    const DistributionMapping& dm(cons_mf.DistributionMap());
-
-    // Initialize the integrator memory
-    int use_fluxes = (finest_level > 0);
-    amrex::Vector<amrex::MultiFab> int_state; // integration state data structure example
-    int_state.push_back(MultiFab(cons_mf, amrex::make_alias, 0, Cons::NumVars)); // cons
-    int_state.push_back(MultiFab(convert(ba,IntVect(1,0,0)), dm, 1, vel_mf.nGrow())); // xmom
-    int_state.push_back(MultiFab(convert(ba,IntVect(0,1,0)), dm, 1, vel_mf.nGrow())); // ymom
-    int_state.push_back(MultiFab(convert(ba,IntVect(0,0,1)), dm, 1, vel_mf.nGrow())); // zmom
-    if (use_fluxes) {
-        int_state.push_back(MultiFab(convert(ba,IntVect(1,0,0)), dm, Cons::NumVars, 1)); // x-fluxes
-        int_state.push_back(MultiFab(convert(ba,IntVect(0,1,0)), dm, Cons::NumVars, 1)); // y-fluxes
-        int_state.push_back(MultiFab(convert(ba,IntVect(0,0,1)), dm, Cons::NumVars, 1)); // z-fluxes
-    }
 }
 
 void

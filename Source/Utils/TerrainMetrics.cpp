@@ -29,9 +29,6 @@ init_terrain_grid (const Geometry& geom, MultiFab& z_phys_nd)
   int terrain_smoothing = 0;
   pp.query("terrain_smoothing", terrain_smoothing);
 
-  // "custom" refers to terrain analytically specified, such as WitchOfAgnesi
-  std::string terrain_type = "custom";
-
   int nz = domain.length(2)+1;
   amrex::Vector<Real> z_levels_h;
   z_levels_h.resize(nz);
