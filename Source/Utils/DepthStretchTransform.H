@@ -51,11 +51,11 @@ ROMSX::set_2darrays (int lev)
     int ncomp = 1;
     for ( MFIter mfi(U_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& ubar = (mf_ubar)->array(mfi);
-        Array4<Real> const& vbar = (mf_vbar)->array(mfi);
-        Array4<Real> const& Hz   = (mf_Hz)->array(mfi);
-        Array4<Real> const& u    = (U_old).array(mfi);
-        Array4<Real> const& v    = (V_old).array(mfi);
+        Array4<Real> const& ubar_arr = (mf_ubar)->array(mfi);
+        Array4<Real> const& vbar_arr = (mf_vbar)->array(mfi);
+        Array4<Real> const& Hz       = (mf_Hz)->array(mfi);
+        Array4<Real> const& u        = (U_old).array(mfi);
+        Array4<Real> const& v        = (V_old).array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -87,8 +87,8 @@ ROMSX::set_2darrays (int lev)
             {
                 Real cff1=1.0/DC(i,j,-1);
                 Real cff2=CF(i,j,-1)*cff1;
-                ubar(i,j,0,kstp)=cff2;
-                ubar(i,j,0,knew)=cff2;
+                ubar_arr(i,j,0,kstp)=cff2;
+                ubar_arr(i,j,0,knew)=cff2;
             });
         fab_DC.setVal(0.0);
         fab_CF.setVal(0.0);
@@ -104,11 +104,9 @@ ROMSX::set_2darrays (int lev)
             {
                 Real cff1=1.0/DC(i,j,-1);
                 Real cff2=CF(i,j,-1)*cff1;
-                vbar(i,j,0,kstp)=cff2;
-                vbar(i,j,0,knew)=cff2;
+                vbar_arr(i,j,0,kstp)=cff2;
+                vbar_arr(i,j,0,knew)=cff2;
             });
-        //        Print()<<(*mf_ubar)[mfi]<<"\n------------"<<std::endl;
-        //        Print()<<(*mf_vbar)[mfi]<<"\n------------"<<std::endl;
 
     }
 }

@@ -39,6 +39,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     int nvars = S_old.nComp();
 
+    const int ncomp = 1;
+    const int nrhs  = ncomp-1;
+    const int nnew  = ncomp-1;
+    const int nstp  = ncomp-1;
+
     // Place-holder for source array -- for now just set to 0
     MultiFab source(ba,dm,nvars,1);
     source.setVal(0.0);
@@ -108,7 +113,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     U_old.FillBoundary();
     V_old.FillBoundary();
 
-    int ncomp = 1;
     int iic = istep[lev];
     int ntfirst = 0;
     set_smflux(lev,time);
@@ -129,10 +133,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         END DO
       END DO*/
     //check this////////////
-    const int nrhs = ncomp-1;
-    const int nnew = ncomp-1;
-    const int nstp = ncomp-1;
     const Real Gadv = -0.25;
+
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     const auto dxi              = Geom(lev).InvCellSizeArray();
@@ -350,6 +352,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                 vold(i,j+1,k,nrhs);
               Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
             });
+
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -366,6 +369,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                      Gadv*0.5*(Hvee(i,j  ,k)+
                                Hvee(i,j+1,k)));
             });
+
         amrex::ParallelFor(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -487,14 +491,14 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                DV_avg1[lev], DV_avg2[lev],
                rubar[lev], rvbar[lev], rzeta[lev],
                 ubar[lev],  vbar[lev],  zeta[lev],
-               hOfTheConfusingName[lev], dt_lev);
+               hOfTheConfusingName[lev], ncomp, dt_lev);
 
     advance_3d(lev, mf_u, mf_v, ru[lev], rv[lev],
                DU_avg1[lev], DU_avg2[lev],
                DV_avg1[lev], DV_avg2[lev],
                ubar[lev],  vbar[lev],
                mf_AK, mf_DC,
-               mf_Hzk, Akv[lev], Hz[lev], dt_lev);
+               mf_Hzk, Akv[lev], Hz[lev], ncomp, N, dt_lev);
 
     MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     U_new.FillBoundary();

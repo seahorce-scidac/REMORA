@@ -17,7 +17,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
                       Array4<Real> pm  , Array4<Real> pn,
                       Array4<Real> W   , Array4<Real> DC,
                       Array4<Real> FC  , Array4<Real> z_r_arr,
-                      Array4<Real> sustr, Array4<Real> svstr,
+                      Array4<Real> sustr_arr, Array4<Real> svstr_arr,
                       int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                       Real lambda, Real dt_lev)
 {
@@ -34,7 +34,6 @@ ROMSX::prestep_uv_3d (const Box& bx,
     gbx2.grow(IntVect(2,2,0));
     gbx1.grow(IntVect(1,1,0));
     gbx11.grow(IntVect(1,1,1));
-    Box gbx=gbx2;
 
     amrex::ParallelFor(gbx2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -93,7 +92,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff3=dt_lev*(1.0-lambda);
-        Real cff, cff1, cff2, cff4;
+        Real cff;
 
         if(k+1<=N&&k>=0)
         {
@@ -104,7 +103,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
         else
         {
             //  FC(i,j,-1)=0.0;//dt_lev*bustr(i,j,0);
-            //  FC(i,j,N)=0.0;//dt_lev*sustr(i,j,0);
+            //  FC(i,j,N)=0.0;//dt_lev*sustr_arr(i,j,0);
         }
         cff=dt_lev*.25;
         DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
@@ -114,7 +113,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff3=dt_lev*(1.0-lambda);
-        Real cff, cff1, cff2, cff4;
+        Real cff1, cff2, cff4;
 
         int indx=0; //nrhs-3
 
@@ -136,7 +135,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
             else if(k==N)
             {
                 cff1=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                cff2=-FC(i,j,k-1)+dt_lev*sustr(i,j,0);
+                cff2=-FC(i,j,k-1)+dt_lev*sustr_arr(i,j,0);
                 u_arr(i,j,k,nnew)=cff1+cff2;
             }
 
@@ -152,7 +151,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
             }
             else if(k==N) {
                 cff1=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                cff2=-FC(i,j,k-1)+dt_lev*sustr(i,j,0);
+                cff2=-FC(i,j,k-1)+dt_lev*sustr_arr(i,j,0);
             }
             cff3=0.5*DC(i,j,k);
             indx=nrhs ? 0 : 1;
@@ -175,7 +174,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
             }
             else if(k==N) {
                 cff3=uold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k));
-                cff4=-FC(i,j,k-1)+dt_lev*sustr(i,j,0);
+                cff4=-FC(i,j,k-1)+dt_lev*sustr_arr(i,j,0);
             }
             indx=nrhs ? 0 : 1;
             Real r_swap= ru_arr(i,j,k,indx);
@@ -193,7 +192,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff3=dt_lev*(1.0-lambda);
-        Real cff, cff1, cff2, cff4;
+        Real cff;
 
         if(k+1<=N&&k>=0)
         {
@@ -205,7 +204,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
         else
         {
             //              FC(i,j,-1)=0.0;//dt_lev*bustr(i,j,0);
-            //              FC(i,j,N)=0.0;//dt_lev*sustr(i,j,0);
+            //              FC(i,j,N)=0.0;//dt_lev*sustr_arr(i,j,0);
         }
         cff=dt_lev*.25;
         DC(i,j,k)=cff*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
@@ -215,7 +214,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff3=dt_lev*(1.0-lambda);
-        Real cff, cff1, cff2, cff4;
+        Real cff1, cff2, cff4;
 
         int indx=0; //nrhs-3
 
@@ -239,7 +238,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
             else if(k==N)
             {
                 cff1=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                cff2=-FC(i,j,k-1)+dt_lev*svstr(i,j,0);
+                cff2=-FC(i,j,k-1)+dt_lev*svstr_arr(i,j,0);
                 v_arr(i,j,k,nnew)=cff1+cff2;
             } }
 
@@ -255,7 +254,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
             }
             else if(k==N) {
                 cff1=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                cff2=-FC(i,j,k-1)+dt_lev*svstr(i,j,0);
+                cff2=-FC(i,j,k-1)+dt_lev*svstr_arr(i,j,0);
             }
             cff3=0.5*DC(i,j,k);
             indx=nrhs ? 0 : 1;
@@ -278,7 +277,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
             }
             else if(k==N) {
                 cff3=vold(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k));
-                cff4=-FC(i,j,k-1)+dt_lev*svstr(i,j,0);
+                cff4=-FC(i,j,k-1)+dt_lev*svstr_arr(i,j,0);
             }
             indx=nrhs ? 0 : 1;
             Real r_swap= rv_arr(i,j,k,indx);

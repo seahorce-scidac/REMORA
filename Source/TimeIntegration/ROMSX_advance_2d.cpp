@@ -22,7 +22,7 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_vbar,
                    std::unique_ptr<MultiFab>& mf_zeta,
                    std::unique_ptr<MultiFab>& mf_h,
-                   Real dt_lev)
+                   const int ncomp, Real dt_lev)
 {
     auto geomdata  = Geom(lev).data();
     const auto dxi = Geom(lev).InvCellSizeArray();
@@ -30,7 +30,6 @@ ROMSX::advance_2d (int lev,
     const int Lm = Geom(lev).Domain().size()[0];
     const int Mm = Geom(lev).Domain().size()[1];
 
-    const int ncomp = 1;
     const int nrhs = ncomp-1;
     const int nnew = ncomp-1;
     const int nstp = ncomp-1;

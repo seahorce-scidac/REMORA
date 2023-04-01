@@ -21,7 +21,7 @@ ROMSX::advance_3d (int lev,
                    MultiFab& mf_Hzk,
                    std::unique_ptr<MultiFab>& mf_Akv,
                    std::unique_ptr<MultiFab>& mf_Hz,
-                   Real dt_lev)
+                   const int ncomp, const int N, Real dt_lev)
 {
     // Need to include uv3dmix
 
@@ -30,14 +30,11 @@ ROMSX::advance_3d (int lev,
 
     const int Mm = Geom(lev).Domain().size()[1];
 
-    const int ncomp = 1;
     const int nrhs  = ncomp-1;
     const int nnew  = ncomp-1;
 
     int iic = istep[lev];
     int ntfirst = 0;
-
-    auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -47,8 +44,8 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& ru_arr = mf_ru->array(mfi);
         Array4<Real> const& rv_arr = mf_rv->array(mfi);
 
-        Array4<Real> const& AK = mf_AK.array(mfi);
-        Array4<Real> const& DC = mf_DC.array(mfi);
+        Array4<Real> const& AK_arr = mf_AK.array(mfi);
+        Array4<Real> const& DC_arr = mf_DC.array(mfi);
 
         Array4<Real> const& Hzk_arr = mf_Hzk.array(mfi);
         Array4<Real> const& Akv_arr = mf_Akv->array(mfi);
@@ -77,8 +74,6 @@ ROMSX::advance_3d (int lev,
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena);
         FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena);
         FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena);
 #if 0
         FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena);
@@ -98,14 +93,12 @@ ROMSX::advance_3d (int lev,
         FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena);
 #endif
 
-        auto FC=fab_FC.array();
-        auto BC=fab_BC.array();
-        auto CF=fab_CF.array();
-        auto oHz_arr=fab_oHz.array();
+        auto FC_arr = fab_FC.array();
+        auto BC_arr = fab_BC.array();
+        auto CF_arr = fab_CF.array();
+        auto oHz_arr= fab_oHz.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
-        auto on_u=fab_on_u.array();
-        auto om_v=fab_om_v.array();
         auto fomn=fab_fomn.array();
 #if 0
         auto Huon=fab_Huon.array();
@@ -146,32 +139,6 @@ ROMSX::advance_3d (int lev,
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
-        amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-            om_v(i,j,0)=1.0/dxi[0];
-            on_u(i,j,0)=1.0/dxi[1];
-        });
-
-        // Begin step3d_uv.F
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            AK(i,j,k)=0.5*(Akv_arr(i-1,j,k)+Akv_arr(i  ,j,k));
-        });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Hzk_arr(i,j,k)=0.5*(Hz_arr(i-1,j,k)+Hz_arr(i  ,j,k));
-        });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            oHz_arr(i,j,k) = 1.0/Hzk_arr(i,j,k);
-        });
-
         amrex::ParallelFor(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -184,206 +151,21 @@ ROMSX::advance_3d (int lev,
                   cff=0.25*dt_lev*23.0/12.0;
                 }
 
-                DC(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+                DC_arr(i,j,k)=cff*(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
 
-                u(i,j,k) += DC(i,j,k)*ru_arr(i,j,k,nrhs);
-                v(i,j,k) += DC(i,j,k)*rv_arr(i,j,k,nrhs);
+                u(i,j,k) += DC_arr(i,j,k)*ru_arr(i,j,k,nrhs);
+                v(i,j,k) += DC_arr(i,j,k)*rv_arr(i,j,k,nrhs);
 
                 //ifdef SPLINES_VVISC is true
-                u(i,j,k) *= oHz_arr(i,j,k);
+                u(i,j,k) *= 2.0 / (Hz_arr(i-1,j,k) + Hz_arr(i,j,k));
 
                 //if(j>0&&j<Mm-1)
-                v(i,j,k) *= oHz_arr(i,j,k);
+                v(i,j,k) *= 2.0 / (Hz_arr(i,j-1,k) + Hz_arr(i,j,k));
             });
         // End previous
 
-       // vertical viscosity term for tracers is identical except AK=Akt
-       // Begin vertical viscosity term
-       //should be gbx1, but need to fix some bounds inside this loop:
-       amrex::ParallelFor(gbx1,
-       [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                //
-               //  Use conservative, parabolic spline reconstruction of vertical
-                //  viscosity derivatives.  Then, time step vertical viscosity term
-                //  implicitly by solving a tridiagonal system.
-                //
-                //  implicitly by solving a tridiagonal system.
-                //
-               Real cff;
-               Real cff1=1.0/6.0;
+       vert_visc_3d(bx,1,0,u,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
+       vert_visc_3d(bx,0,1,v,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
 
-               if(k>=1)
-                   FC(i,j,k)=cff1*Hzk_arr(i,j,k  )-dt_lev*AK(i,j,k-1)*oHz_arr(i,j,k  );
-               else
-                   FC(i,j,k)=cff1*Hzk_arr(i,j,k  );
-               if(k<=N-1)
-                {
-                    CF(i,j,k)=cff1*Hzk_arr(i,j,k+1)-dt_lev*AK(i,j,k+1)*oHz_arr(i,j,k+1);
-                }
-
-               //
-               //  LU decomposition and forward substitution.
-               //
-               cff1=1.0/3.0;
-               if(k==0)
-               {
-                   BC(i,j,k)=cff1*(Hzk_arr(i,j,k)+Hzk_arr(i,j,k+1))+
-                       dt_lev*AK(i,j,k)*(oHz_arr(i,j,k)+oHz_arr(i,j,k+1));
-                   cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
-                   CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
-                                  FC(i,j,k)*0.0);
-               }
-               if(k+1<=N&&k>=1)
-               {
-                   BC(i,j,k)=cff1*(Hzk_arr(i,j,k)+Hzk_arr(i,j,k+1))+
-                       dt_lev*AK(i,j,k)*(oHz_arr(i,j,k)+oHz_arr(i,j,k+1));
-                   cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
-                   CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(u(i,j,k+1,nnew)-u(i,j,k,nnew)-
-                                  FC(i,j,k)*DC(i,j,k-1));
-               }
-
-            });
-       amrex::ParallelFor(gbx1,
-       [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-               //
-               //  Backward substitution.
-               //
-               DC(i,j,N)=0.0;
-
-               if(N-k+1<=N&&N-k>=0) //-N,1,-1 => kidx =N-k+1
-               {
-                   //              amrex::Print()<<"index k: "<<k<<"corresponds to : "<<N-k<<"prev: "<<DC(i,j,N-k+1)<<std::endl;
-                   if(N-k+1<0||N-k+2<0)
-                       amrex::Abort("-1 here");
-                   DC(i,j,N-k)=DC(i,j,N-k)-CF(i,j,N-k)*DC(i,j,N-k+1);
-                   //amrex::Print()<<"index k: "<<k<<"corresponds to : "<<N-k<<"cur:  "<<DC(i,j,N-k)<<std::endl;
-                   //              DC(i,k)=DC(i,k)-CF(i,k)*DC(i,k+1);
-               }
-            });
-
-       amrex::ParallelFor(gbx1,
-       [=] AMREX_GPU_DEVICE (int i, int j, int k)
-       {
-           DC(i,j,k) *= AK(i,j,k);
-       });
-
-       amrex::ParallelFor(gbx1,
-       [=] AMREX_GPU_DEVICE (int i, int j, int k)
-       {
-           Real cff;
-           if(k-1>=0) {
-               cff = dt_lev*oHz_arr(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
-           } else {
-               cff = dt_lev*oHz_arr(i,j,k)*(DC(i,j,k));
-           }
-
-           u(i,j,k) += cff;
-        });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            AK(i,j,k)=0.5*(Akv_arr(i,j-1,k)+Akv_arr(i,j,k));
-        });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Hzk_arr(i,j,k)=0.5*(Hz_arr(i,j-1,k)+Hz_arr(i,j,k));
-        });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            oHz_arr(i,j,k) = 1.0/Hzk_arr(i,j,k);
-        });
-
-       //
-       // Begin vertical velocity term
-       //
-       amrex::ParallelFor(gbx1, ncomp,
-       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-       {
-                //
-               //  Use conservative, parabolic spline reconstruction of vertical
-                //  viscosity derivatives.  Then, time step vertical viscosity term
-                //  implicitly by solving a tridiagonal system.
-                //
-                //  implicitly by solving a tridiagonal system.
-                //
-               Real cff;
-               Real cff1=1.0/6.0;
-
-               if(k>=1)
-                   FC(i,j,k)=cff1*Hzk_arr(i,j,k  )-dt_lev*AK(i,j,k-1)*oHz_arr(i,j,k  );
-               else
-                   FC(i,j,k)=cff1*Hzk_arr(i,j,k  );
-               if(k<=N-1)
-                {
-                    CF(i,j,k)=cff1*Hzk_arr(i,j,k+1)-dt_lev*AK(i,j,k+1)*oHz_arr(i,j,k+1);
-                }
-
-               //
-               //  LU decomposition and forward substitution.
-               //
-               cff1=1.0/3.0;
-               if(k==0)
-               {
-                   BC(i,j,k)=cff1*(Hzk_arr(i,j,k)+Hzk_arr(i,j,k+1))+
-                       dt_lev*AK(i,j,k)*(oHz_arr(i,j,k)+oHz_arr(i,j,k+1));
-                   cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
-                   CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(v(i,j,k+1,nnew)-v(i,j,k,nnew)-
-                                  FC(i,j,k)*0.0);
-               }
-               if(k+1<=N&&k>=1)
-               {
-                   BC(i,j,k)=cff1*(Hzk_arr(i,j,k)+Hzk_arr(i,j,k+1))+
-                       dt_lev*AK(i,j,k)*(oHz_arr(i,j,k)+oHz_arr(i,j,k+1));
-                   cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
-                   CF(i,j,k)=cff*CF(i,j,k);
-                   DC(i,j,k)=cff*(v(i,j,k+1,nnew)-v(i,j,k,nnew)-
-                                  FC(i,j,k)*DC(i,j,k-1));
-               }
-
-       });
-       amrex::ParallelFor(vbx,
-       [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-               //
-               //  Backward substitution.
-               //
-               DC(i,j,N)=0.0;
-
-               if(N-k+1<=N&&N-k>=0) //-N,1,-1 => kidx =N-k+1
-               {
-                   if(N-k+1<0||N-k+2<0) amrex::Abort("-1 here");
-                   DC(i,j,N-k) -= CF(i,j,N-k)*DC(i,j,N-k+1);
-               }
-              //   DC(i,k) -= CF(i,k)*DC(i,k+1);
-            });
-
-       amrex::ParallelFor(vbx,
-       [=] AMREX_GPU_DEVICE (int i, int j, int k)
-       {
-           DC(i,j,k) *= AK(i,j,k);
-       });
-
-       amrex::ParallelFor(vbx,
-       [=] AMREX_GPU_DEVICE (int i, int j, int k)
-       {
-           Real cff;
-           if (k-1>=0) {
-               cff=dt_lev*oHz_arr(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
-           } else {
-               cff=dt_lev*oHz_arr(i,j,k)*(DC(i,j,k));
-           }
-           //if(j>0&&j<Mm-1)
-           v(i,j,k) += cff;
-       });
     } // MFiter
 }
