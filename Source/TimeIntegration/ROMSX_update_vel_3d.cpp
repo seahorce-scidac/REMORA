@@ -54,7 +54,7 @@ ROMSX::update_vel_3d (const Box& vel_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff3=dt_lev*(1.0-lambda);
-        Real cff1, cff2, cff4;
+        Real cff1 = 0.0, cff2 = 0.0, cff4;
 
         int indx=0; //nrhs-3
 
@@ -107,18 +107,19 @@ ROMSX::update_vel_3d (const Box& vel_bx,
 
             cff1= 5.0/12.0;
             cff2=16.0/12.0;
-            if (k<N && k>0) {
+            if (k==0) {
+                cff3=vel_old(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-ioff,j-joff,k));
+                cff4=FC_arr(i,j,k);//-bustr(i,j,0);
+
+            } else if (k == N) {
+                cff3=vel_old(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-ioff,j-joff,k));
+                cff4=-FC_arr(i,j,k-1)+dt_lev*sstr_arr(i,j,0);
+
+            } else {
                 cff3=vel_old(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-ioff,j-joff,k));
                 cff4=FC_arr(i,j,k)-FC_arr(i,j,k-1);
             }
-            else if(k==0) {
-                cff3=vel_old(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-ioff,j-joff,k));
-                cff4=FC_arr(i,j,k);//-bustr(i,j,0);
-            }
-            else if(k==N) {
-                cff3=vel_old(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-ioff,j-joff,k));
-                cff4=-FC_arr(i,j,k-1)+dt_lev*sstr_arr(i,j,0);
-            }
+
             indx=nrhs ? 0 : 1;
             Real r_swap= rvel_arr(i,j,k,indx);
             rvel_arr(i,j,k,indx) = rvel_arr(i,j,k,nrhs);

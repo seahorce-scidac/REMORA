@@ -152,9 +152,9 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
                     std::memcpy
                         (bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
 #endif
-                    const amrex::BCRec* bc_ptr = bcrs_d.data();
 
 #ifdef ROMSX_USE_NETCDF
+                    const amrex::BCRec* bc_ptr = bcrs_d.data();
                     if (m_init_type == "real") {
                         int icomp_for_wrfbdy, ncomp_for_wrfbdy, bccomp_for_wrfbdy;
                         if (m_var_idx == Vars::cons) {

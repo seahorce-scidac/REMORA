@@ -374,8 +374,8 @@ ROMSX::FillCoarsePatch (int lev, Real time,
     BL_PROFILE_VAR("FillCoarsePatch()",FillCoarsePatch);
     AMREX_ASSERT(lev > 0);
 
-    int bccomp;
-    amrex::Interpolater* mapper;
+    int bccomp = 0;
+    amrex::Interpolater* mapper = nullptr;
 
     if (var_idx == Vars::cons)
     {

@@ -8,16 +8,16 @@ using namespace amrex;
 void
 ROMSX::advance_2d (int lev,
                    MultiFab& mf_u, MultiFab& mf_v,
-                   std::unique_ptr<MultiFab>& mf_ru,
-                   std::unique_ptr<MultiFab>& mf_rv,
+                   std::unique_ptr<MultiFab>& /*mf_ru*/,
+                   std::unique_ptr<MultiFab>& /*mf_rv*/,
                    std::unique_ptr<MultiFab>& mf_Zt_avg1,
                    std::unique_ptr<MultiFab>& mf_DU_avg1,
                    std::unique_ptr<MultiFab>& mf_DU_avg2,
                    std::unique_ptr<MultiFab>& mf_DV_avg1,
                    std::unique_ptr<MultiFab>& mf_DV_avg2,
-                   std::unique_ptr<MultiFab>& mf_rubar,
-                   std::unique_ptr<MultiFab>& mf_rvbar,
-                   std::unique_ptr<MultiFab>& mf_rzeta,
+                   std::unique_ptr<MultiFab>& /*mf_rubar*/,
+                   std::unique_ptr<MultiFab>& /*mf_rvbar*/,
+                   std::unique_ptr<MultiFab>& /*mf_rzeta*/,
                    std::unique_ptr<MultiFab>& mf_ubar,
                    std::unique_ptr<MultiFab>& mf_vbar,
                    std::unique_ptr<MultiFab>& mf_zeta,
@@ -30,14 +30,9 @@ ROMSX::advance_2d (int lev,
     const int Lm = Geom(lev).Domain().size()[0];
     const int Mm = Geom(lev).Domain().size()[1];
 
-    const int nrhs = ncomp-1;
-    const int nnew = ncomp-1;
-    const int nstp = ncomp-1;
-
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     int iic = istep[lev];
-    int ntfirst = 0;
     for(int my_iif = 0; my_iif <=1; my_iif++) {
         //    int my_iif = 1; //substep index
     int knew = 3;
@@ -80,112 +75,59 @@ ROMSX::advance_2d (int lev,
         gbx2.grow(IntVect(2,2,0));
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
-        Box gbx=gbx2;
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena);
-        //rhs3d work arrays
-        FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_pn(gbx2,1,The_Async_Arena());
+        FArrayBox fab_pm(gbx2,1,The_Async_Arena());
+        FArrayBox fab_on_u(gbx2,1,The_Async_Arena());
+        FArrayBox fab_om_v(gbx2,1,The_Async_Arena());
+        FArrayBox fab_fomn(gbx2,1,The_Async_Arena());
+        FArrayBox fab_Huon(gbx2,1,The_Async_Arena()); fab_Huon.setVal(0.0);
+        FArrayBox fab_Hvom(gbx2,1,The_Async_Arena()); fab_Hvom.setVal(0.0);
+        FArrayBox fab_oHz(gbx11,1,The_Async_Arena()); fab_oHz.setVal(0.0);
+
         //step2d work arrays
-        FArrayBox fab_Drhs(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_DUon(gbx2,1,amrex::The_Async_Arena);
-        FArrayBox fab_DVom(gbx2,1,amrex::The_Async_Arena);
+        FArrayBox fab_Drhs(gbx2,1,The_Async_Arena());
+        FArrayBox fab_DUon(gbx2,1,The_Async_Arena());
+        FArrayBox fab_DVom(gbx2,1,The_Async_Arena());
 
-        auto FC=fab_FC.array();
-        auto BC=fab_BC.array();
-        auto CF=fab_CF.array();
-        auto pn=fab_pn.array();
-        auto pm=fab_pm.array();
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
-        auto fomn=fab_fomn.array();
-        auto Huon=fab_Huon.array();
-        auto Hvom=fab_Hvom.array();
-        auto oHz_arr=fab_oHz.array();
-        auto Huxx=fab_Huxx.array();
-        auto Huee=fab_Huee.array();
-        auto Hvxx=fab_Hvxx.array();
-        auto Hvee=fab_Hvee.array();
-        auto uxx=fab_uxx.array();
-        auto uee=fab_uee.array();
-        auto vxx=fab_vxx.array();
-        auto vee=fab_vee.array();
-        auto UFx=fab_UFx.array();
-        auto UFe=fab_UFe.array();
-        auto VFx=fab_VFx.array();
-        auto VFe=fab_VFe.array();
+        auto pn=fab_pn.array();
+        auto pm=fab_pm.array();
 
         auto Drhs=fab_Drhs.array();
         auto DUon=fab_DUon.array();
         auto DVom=fab_DVom.array();
 
         //From ana_grid.h and metrics.F
-        amrex::ParallelFor(gbx2, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-              const auto prob_lo         = geomdata.ProbLo();
-              const auto dx              = geomdata.CellSize();
-
               pm(i,j,0)=dxi[0];
               pn(i,j,0)=dxi[1];
         });
 
-        amrex::ParallelFor(gbx2, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
               om_v(i,j,0)=1.0/dxi[0];
               on_u(i,j,0)=1.0/dxi[1];
         });
 
-        fab_Huon.setVal(0.0);
-        fab_Hvom.setVal(0.0);
-        fab_Huxx.setVal(0.0);
-        fab_Huee.setVal(0.0);
-        fab_Hvxx.setVal(0.0);
-        fab_Hvee.setVal(0.0);
-        fab_uxx.setVal(0.0);
-        fab_uee.setVal(0.0);
-        fab_UFx.setVal(0.0);
-        fab_UFe.setVal(0.0);
-        fab_vxx.setVal(0.0);
-        fab_vee.setVal(0.0);
-        fab_VFx.setVal(0.0);
-        fab_VFe.setVal(0.0);
-
-        amrex::ParallelFor(gbx2, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*on_u(i,j,0);
             Real cff1=cff*(Drhs(i,j,0)+Drhs(i-1,j,0));
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*om_v(i,j,0);
             Real cff1=cff*(Drhs(i,j,0)+Drhs(i,j-1,0));
@@ -195,19 +137,19 @@ ROMSX::advance_2d (int lev,
         {
         if(my_iif==0) {
         Real cff2=(Real(-1.0)/Real(12.0))*weighta;
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Zt_avg1(i,j,0)=0.0;
         });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DU_avg1(i,j,0)=0.0;
             DU_avg2(i,j,0)=cff2*DUon(i,j,0);
         });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DV_avg1(i,j,0)=0.0;
             DV_avg2(i,j,0)=cff2*DVom(i,j,0);
@@ -217,19 +159,19 @@ ROMSX::advance_2d (int lev,
         Real cff1=weightb;
         Real cff2=(Real(8.0)/Real(12.0))*weightc-
                   (Real(1.0)/Real(12.0))*weightd;
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Zt_avg1(i,j,0)=Zt_avg1(i,j,0)+cff1*zeta(i,j,0,krhs);
         });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DU_avg1(i,j,0)=DU_avg1(i,j,0)+cff1*DUon(i,j,0);
             DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2*DUon(i,j,0);
         });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DV_avg1(i,j,0)=DV_avg1(i,j,0)+cff1*DVom(i,j,0);
             DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2*DVom(i,j,0);
@@ -241,13 +183,13 @@ ROMSX::advance_2d (int lev,
             cff2=weightc;
         else
             cff2=Real(5.0)/Real(12.0)*weightc;
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2*DUon(i,j,0);
         });
-        amrex::ParallelFor(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2*DVom(i,j,0);
         });
