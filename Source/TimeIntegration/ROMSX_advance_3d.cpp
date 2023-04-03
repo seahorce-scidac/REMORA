@@ -59,7 +59,9 @@ ROMSX::advance_3d (int lev,
         Box gbx1 = bx;
         Box gbx11 = bx;
         Box gbx2 = bx;
+        Box gbx21 = bx;
         //make only gbx be grown to match multifabs
+        gbx21.grow(IntVect(2,2,1));
         gbx2.grow(IntVect(2,2,0));
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
@@ -72,7 +74,7 @@ ROMSX::advance_3d (int lev,
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
         FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena());
@@ -136,7 +138,12 @@ ROMSX::advance_3d (int lev,
        vert_visc_3d(ubx,1,0,u,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
        vert_visc_3d(vbx,0,1,v,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
 
-       vert_mean_3d(ubx,1,0,u,Hz_arr,Hzk_arr,oHz_arr,DU_avg1_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,pm,nnew,N,dt_lev);
-       vert_mean_3d(vbx,0,1,v,Hz_arr,Hzk_arr,oHz_arr,DV_avg1_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,pn,nnew,N,dt_lev);
+       mf_DC[mfi].setVal(0.0,gbx21);
+       fab_CF.setVal(0.0,gbx21);
+       vert_mean_3d(ubx,1,0,u,Hz_arr,Hzk_arr,DU_avg1_arr,oHz_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,pm,nnew,N,dt_lev);
+
+       mf_DC[mfi].setVal(0.0,gbx21);
+       fab_CF.setVal(0.0,gbx21);
+       vert_mean_3d(vbx,0,1,v,Hz_arr,Hzk_arr,DV_avg1_arr,oHz_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,pn,nnew,N,dt_lev);
     } // MFiter
 }

@@ -53,7 +53,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     //Only used locally, probably should be rearranged into FArrayBox declaration
     MultiFab mf_AK(ba,dm,1,IntVect(2,2,0)); //2d missing j coordinate
-    MultiFab mf_DC(ba,dm,1,IntVect(2,2,0)); //2d missing j coordinate
+    MultiFab mf_DC(ba,dm,1,IntVect(2,2,1)); //2d missing j coordinate
     MultiFab mf_Hzk(ba,dm,1,IntVect(2,2,1)); //2d missing j coordinate
     std::unique_ptr<MultiFab>& mf_z_r = z_r[lev];
     //Consider passing these into the advance function or renaming relevant things

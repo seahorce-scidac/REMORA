@@ -33,6 +33,7 @@ ROMSX::advance_2d (int lev,
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     int iic = istep[lev];
+    bool predictor_2d_step = true;
     for(int my_iif = 0; my_iif <=1; my_iif++) {
         //    int my_iif = 1; //substep index
     int knew = 3;
@@ -75,8 +76,13 @@ ROMSX::advance_2d (int lev,
         gbx2.grow(IntVect(2,2,0));
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
-        Box ubx = surroundingNodes(bx,0);
-        Box vbx = surroundingNodes(bx,1);
+        Box ubxD = surroundingNodes(bx,0);
+        Box vbxD = surroundingNodes(bx,1);
+	ubxD.makeSlab(2,0);
+	vbxD.makeSlab(2,0);
+	//AKA
+	//ubxD.setRange(2,0);
+        //vbxD.setRange(2,0);
 
         FArrayBox fab_pn(gbx2,1,The_Async_Arena());
         FArrayBox fab_pm(gbx2,1,The_Async_Arena());
@@ -121,21 +127,21 @@ ROMSX::advance_2d (int lev,
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });
-        amrex::ParallelFor(ubx,
+        amrex::ParallelFor(ubxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*on_u(i,j,0);
             Real cff1=cff*(Drhs(i,j,0)+Drhs(i-1,j,0));
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
-        amrex::ParallelFor(vbx,
+        amrex::ParallelFor(vbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*om_v(i,j,0);
             Real cff1=cff*(Drhs(i,j,0)+Drhs(i,j-1,0));
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
         });
-        if(iic!=0||my_iif>0)
+        if(predictor_2d_step)
         {
         if(my_iif==0) {
         Real cff2=(Real(-1.0)/Real(12.0))*weighta;
@@ -144,13 +150,13 @@ ROMSX::advance_2d (int lev,
         {
             Zt_avg1(i,j,0)=0.0;
         });
-        amrex::ParallelFor(ubx,
+        amrex::ParallelFor(ubxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DU_avg1(i,j,0)=0.0;
             DU_avg2(i,j,0)=cff2*DUon(i,j,0);
         });
-        amrex::ParallelFor(vbx,
+        amrex::ParallelFor(vbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DV_avg1(i,j,0)=0.0;
@@ -162,17 +168,18 @@ ROMSX::advance_2d (int lev,
         Real cff2=(Real(8.0)/Real(12.0))*weightc-
                   (Real(1.0)/Real(12.0))*weightd;
         amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
+	    if(k==0)
             Zt_avg1(i,j,0)=Zt_avg1(i,j,0)+cff1*zeta(i,j,0,krhs);
         });
-        amrex::ParallelFor(ubx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        amrex::ParallelFor(ubxD,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             DU_avg1(i,j,0)=DU_avg1(i,j,0)+cff1*DUon(i,j,0);
             DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2*DUon(i,j,0);
         });
-        amrex::ParallelFor(vbx,
+        amrex::ParallelFor(vbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DV_avg1(i,j,0)=DV_avg1(i,j,0)+cff1*DVom(i,j,0);
@@ -185,12 +192,12 @@ ROMSX::advance_2d (int lev,
             cff2=weightc;
         else
             cff2=Real(5.0)/Real(12.0)*weightc;
-        amrex::ParallelFor(ubx,
+        amrex::ParallelFor(ubxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2*DUon(i,j,0);
         });
-        amrex::ParallelFor(vbx,
+        amrex::ParallelFor(vbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2*DVom(i,j,0);
