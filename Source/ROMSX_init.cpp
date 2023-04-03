@@ -250,10 +250,10 @@ ROMSX::init_base_state_from_wrfinput(int lev, const Box& bx, FArrayBox& p_hse, F
         const Array4<Real const>& nc_pb_arr = NC_PB_fab[idx].const_array();
         const Array4<Real const>&   z_nd_arr = z_phys_nd_fab.array();
         const Array4<Real const>&   z_cc_arr = z_phys_cc_fab.array();
-
+	amrex::Abort("This function is not defined: getExnergivenP");
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
             p_hse_arr(i,j,k)  = nc_pb_arr(i,j,k);
-            pi_hse_arr(i,j,k) = getExnergivenP(p_hse_arr(i,j,k));
+//            pi_hse_arr(i,j,k) = getExnergivenP(p_hse_arr(i,j,k));
             r_hse_arr(i,j,k)  = 1.0 / alpha_arr(i,j,k);
 
         });
