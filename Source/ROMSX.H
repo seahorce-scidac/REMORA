@@ -422,6 +422,21 @@ private:
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
 
+    void vert_mean_3d (const amrex::Box& bx,
+                       const int ioff, const int joff,
+                       amrex::Array4<amrex::Real> phi_arr,
+                       amrex::Array4<amrex::Real> Hz_arr,
+                       amrex::Array4<amrex::Real> Hzk_arr,
+                       amrex::Array4<amrex::Real> oHz_arr,
+                       amrex::Array4<amrex::Real> Dphi_avg1_arr,
+                       amrex::Array4<amrex::Real> Akv_arr,
+                       amrex::Array4<amrex::Real> BC_arr,
+                       amrex::Array4<amrex::Real> DC_arr,
+                       amrex::Array4<amrex::Real> FC_arr,
+                       amrex::Array4<amrex::Real> CF_arr,
+                       amrex::Array4<amrex::Real> dxlen_arr,
+                       const int nnew, const int N,
+                       const amrex::Real dt_lev);
 #ifdef UV_COR
     void coriolis (const amrex::Box& bx,
                    amrex::Array4<amrex::Real> uold,

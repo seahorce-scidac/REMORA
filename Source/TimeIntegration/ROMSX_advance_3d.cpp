@@ -11,9 +11,9 @@ ROMSX::advance_3d (int lev,
                    MultiFab& mf_u , MultiFab& mf_v ,
                    std::unique_ptr<MultiFab>& mf_ru,
                    std::unique_ptr<MultiFab>& mf_rv,
-                   std::unique_ptr<MultiFab>& /*mf_DU_avg1*/,
+                   std::unique_ptr<MultiFab>& mf_DU_avg1,
                    std::unique_ptr<MultiFab>& /*mf_DU_avg2*/,
-                   std::unique_ptr<MultiFab>& /*mf_DV_avg1*/,
+                   std::unique_ptr<MultiFab>& mf_DV_avg1,
                    std::unique_ptr<MultiFab>& /*mf_DV_avg2*/,
                    std::unique_ptr<MultiFab>& /*mf_ubar*/,
                    std::unique_ptr<MultiFab>& /*mf_vbar*/,
@@ -50,6 +50,9 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& Hzk_arr = mf_Hzk.array(mfi);
         Array4<Real> const& Akv_arr = mf_Akv->array(mfi);
         Array4<Real> const& Hz_arr  = mf_Hz->array(mfi);
+
+        Array4<Real> const& DU_avg1_arr  = mf_DU_avg1->array(mfi);
+        Array4<Real> const& DV_avg1_arr  = mf_DV_avg1->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -133,5 +136,7 @@ ROMSX::advance_3d (int lev,
        vert_visc_3d(ubx,1,0,u,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
        vert_visc_3d(vbx,0,1,v,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
 
+       vert_mean_3d(ubx,1,0,u,Hz_arr,Hzk_arr,oHz_arr,DU_avg1_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,pm,nnew,N,dt_lev);
+       vert_mean_3d(vbx,0,1,v,Hz_arr,Hzk_arr,oHz_arr,DV_avg1_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,pn,nnew,N,dt_lev);
     } // MFiter
 }
