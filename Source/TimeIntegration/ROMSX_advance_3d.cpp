@@ -138,6 +138,7 @@ ROMSX::advance_3d (int lev,
        vert_visc_3d(ubx,1,0,u,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
        vert_visc_3d(vbx,0,1,v,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
 
+#if 0
        mf_DC[mfi].setVal(0.0,gbx21);
        fab_CF.setVal(0.0,gbx21);
        vert_mean_3d(ubx,1,0,u,Hz_arr,Hzk_arr,DU_avg1_arr,oHz_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,pm,nnew,N,dt_lev);
@@ -145,5 +146,6 @@ ROMSX::advance_3d (int lev,
        mf_DC[mfi].setVal(0.0,gbx21);
        fab_CF.setVal(0.0,gbx21);
        vert_mean_3d(vbx,0,1,v,Hz_arr,Hzk_arr,DV_avg1_arr,oHz_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,pn,nnew,N,dt_lev);
+#endif
     } // MFiter
 }
