@@ -116,7 +116,7 @@
       USE sediment_mod,         ONLY : sediment
 # endif
 # if defined VEGETATION && defined MARSH_DYNAMICS
-      USE mod_vegetation
+      USE mod_vegetation 
       USE mod_vegarr
       USE marsh_dynamics_mod, ONLY : marsh_dynamics
 # endif
@@ -650,7 +650,7 @@
                   END IF
                   knew(ng)=3
                   krhs(ng)=indx1(ng)
-                END IF
+               END IF
 !
 !  Predictor step - Advance barotropic equations using 2D time-step
 !  ==============   predictor scheme.  No actual time-stepping is
@@ -660,7 +660,7 @@
 !
                 IF (my_iif.le.(nfast(ng)+1)) THEN
                   DO tile=last_tile(ng),first_tile(ng),-1
-                    CALL step2d (ng, tile)
+                     CALL step2d (ng, tile)
                   END DO
 !$OMP BARRIER
                 END IF
@@ -709,7 +709,7 @@
 !
                 IF (iif(ng).lt.(nfast(ng)+1)) THEN
                   DO tile=first_tile(ng),last_tile(ng),+1
-                    CALL step2d (ng, tile)
+!                    CALL step2d (ng, tile)
                   END DO
 !$OMP BARRIER
                 END IF
@@ -850,7 +850,7 @@
 # if defined VEGETATION && defined MARSH_DYNAMICS
 !
 !-----------------------------------------------------------------------
-!  Calculate marsh erosion due to wave thrust.
+!  Calculate marsh erosion due to wave thrust. 
 !-----------------------------------------------------------------------
 !
             DO ig=1,GridsInLayer(nl)
@@ -859,7 +859,7 @@
                 CALL marsh_dynamics (ng, tile)
               END DO
             END DO
-# endif
+# endif 
 # ifndef TS_FIXED
 !
 !-----------------------------------------------------------------------

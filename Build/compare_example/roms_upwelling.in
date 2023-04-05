@@ -223,7 +223,7 @@ ad_VolCons(north) ==  F                            ! northern boundary
 
       NTIMES == 100
           DT == 300.0d0
-     NDTFAST == 30
+     NDTFAST == 1
 
 ! Number of timesteps for computing observation impacts during the
 ! analysis-forecast cycle.
