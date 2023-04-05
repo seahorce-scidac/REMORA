@@ -9,6 +9,7 @@ using namespace amrex;
 void
 ROMSX::advance_3d (int lev,
                    MultiFab& mf_u , MultiFab& mf_v ,
+                   MultiFab& mf_temp , MultiFab& mf_salt ,
                    std::unique_ptr<MultiFab>& mf_ru,
                    std::unique_ptr<MultiFab>& mf_rv,
                    std::unique_ptr<MultiFab>& mf_DU_avg1,
@@ -41,6 +42,9 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& u = mf_u.array(mfi);
         Array4<Real> const& v = mf_v.array(mfi);
 
+        Array4<Real> const& temp = (mf_temp).array(mfi);
+        Array4<Real> const& salt = (mf_salt).array(mfi);
+
         Array4<Real> const& ru_arr = mf_ru->array(mfi);
         Array4<Real> const& rv_arr = mf_rv->array(mfi);
 
@@ -55,6 +59,7 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& DV_avg1_arr  = mf_DV_avg1->array(mfi);
 
         Box bx = mfi.tilebox();
+        Box gbx = mfi.growntilebox();
         //copy the tilebox
         Box gbx1 = bx;
         Box gbx11 = bx;
@@ -79,6 +84,7 @@ ROMSX::advance_3d (int lev,
         FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_Akt(gbx2,1,amrex::The_Async_Arena());
 
         auto FC_arr = fab_FC.array();
         auto BC_arr = fab_BC.array();
@@ -87,7 +93,10 @@ ROMSX::advance_3d (int lev,
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto fomn=fab_fomn.array();
+        auto Akt_arr= fab_Akt.array();
 
+	//From ini_fields and .in file
+	fab_Akt.setVal(1e-6);
         //From ana_grid.h and metrics.F
 
         //
@@ -137,6 +146,9 @@ ROMSX::advance_3d (int lev,
        // NOTE: DC_arr is only used as scratch in vert_visc_3d -- no need to pass or return a value
        vert_visc_3d(ubx,1,0,u,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
        vert_visc_3d(vbx,0,1,v,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
+
+       vert_visc_3d(gbx1,0,0,temp,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akt_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
+       vert_visc_3d(gbx1,0,0,salt,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akt_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
 
 #if 0
        mf_DC[mfi].setVal(0.0,gbx21);

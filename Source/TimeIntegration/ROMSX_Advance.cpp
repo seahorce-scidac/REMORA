@@ -64,7 +64,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     std::unique_ptr<MultiFab>& mf_rv = rv[lev];
     std::unique_ptr<MultiFab>& mf_sustr = sustr[lev];
     std::unique_ptr<MultiFab>& mf_svstr = svstr[lev];
-
+    MultiFab mf_temp(S_new, amrex::make_alias, Temp_comp, 1);
+#ifdef ROMSX_USE_SALINITY
+    MultiFab mf_salt(S_new, amrex::make_alias, Salt_comp, 1);
+#else
+    MultiFab mf_salt(S_new, amrex::make_alias, Temp_comp, 1);
+#endif
     MultiFab mf_rw(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_W(ba,dm,1,IntVect(3,3,0));
     // We need to set these because otherwise in the first call to romsx_advance we may
@@ -78,6 +83,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab::Copy(mf_v,V_new,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
+    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(2,2,2)));
     mf_u.FillBoundary();
     mf_v.FillBoundary();
     mf_w.FillBoundary();
@@ -228,7 +234,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                 ubar[lev],  vbar[lev],  zeta[lev],
                hOfTheConfusingName[lev], ncomp, dt_lev);
 
-    advance_3d(lev, mf_u, mf_v, ru[lev], rv[lev],
+    advance_3d(lev, mf_u, mf_v, mf_temp, mf_salt, ru[lev], rv[lev],
                DU_avg1[lev], DU_avg2[lev],
                DV_avg1[lev], DV_avg2[lev],
                ubar[lev],  vbar[lev],

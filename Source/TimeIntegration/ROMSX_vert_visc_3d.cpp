@@ -119,7 +119,6 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
         } else {
             cff = dt_lev*oHz_arr(i,j,k)*(DC_arr(i,j,k));
         }
-
         phi_arr(i,j,k) += cff;
      });
 }

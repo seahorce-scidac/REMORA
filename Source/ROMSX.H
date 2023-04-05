@@ -341,6 +341,7 @@ private:
                      const int ncomp, const amrex::Real dt_lev);
     void advance_3d (int lev,
                      amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,
+                     amrex::MultiFab& mf_temp  , amrex::MultiFab& mf_salt ,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
                      std::unique_ptr<amrex::MultiFab>& mf_rv,
                      std::unique_ptr<amrex::MultiFab>& mf_DU_avg1,
