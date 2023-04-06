@@ -70,6 +70,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 #else
     MultiFab mf_salt(S_new, amrex::make_alias, Temp_comp, 1);
 #endif
+    MultiFab mf_tempold(S_old, amrex::make_alias, Temp_comp, 1);
+#ifdef ROMSX_USE_SALINITY
+    MultiFab mf_saltold(S_old, amrex::make_alias, Salt_comp, 1);
+#else
+    MultiFab mf_saltold(S_old, amrex::make_alias, Temp_comp, 1);
+#endif
     MultiFab mf_rw(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_W(ba,dm,1,IntVect(3,3,0));
     // We need to set these because otherwise in the first call to romsx_advance we may
@@ -83,7 +89,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab::Copy(mf_v,V_new,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
-    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(2,2,2)));
+    //    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(2,2,2)));
     mf_u.FillBoundary();
     mf_v.FillBoundary();
     mf_w.FillBoundary();
@@ -130,7 +136,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& vold = (V_old).array(mfi);
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
-        Array4<Real> const& ru_arr = (mf_ru)->array(mfi);
+        Array4<Real> const& tempold = (mf_tempold).array(mfi);
+        Array4<Real> const& saltold = (mf_saltold).array(mfi);
+        Array4<Real> const& temp = (mf_temp).array(mfi);
+        Array4<Real> const& salt = (mf_salt).array(mfi);
+	Array4<Real> const& ru_arr = (mf_ru)->array(mfi);
         Array4<Real> const& rv_arr = (mf_rv)->array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
         Array4<Real> const& sustr_arr = (mf_sustr)->array(mfi);
@@ -198,6 +208,14 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         });
 
         Real lambda = 1.0;
+        //
+        //-----------------------------------------------------------------------
+        // prestep_uv_3d
+        //-----------------------------------------------------------------------
+        //
+        prestep_t_3d(bx, uold, vold, u, v, tempold, saltold, temp, salt, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon, Hvom,
+                          pm, pn, W, DC, FC, z_r_arr, sustr_arr, svstr_arr, iic, ntfirst, nnew, nstp, nrhs, N,
+                          lambda, dt_lev);
 
         //
         //-----------------------------------------------------------------------
