@@ -140,7 +140,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& saltold = (mf_saltold).array(mfi);
         Array4<Real> const& temp = (mf_temp).array(mfi);
         Array4<Real> const& salt = (mf_salt).array(mfi);
-	Array4<Real> const& ru_arr = (mf_ru)->array(mfi);
+        Array4<Real> const& ru_arr = (mf_ru)->array(mfi);
         Array4<Real> const& rv_arr = (mf_rv)->array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
         Array4<Real> const& sustr_arr = (mf_sustr)->array(mfi);

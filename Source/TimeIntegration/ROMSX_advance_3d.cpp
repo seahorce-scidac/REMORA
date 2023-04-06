@@ -95,8 +95,8 @@ ROMSX::advance_3d (int lev,
         auto fomn=fab_fomn.array();
         auto Akt_arr= fab_Akt.array();
 
-	//From ini_fields and .in file
-	fab_Akt.setVal(1e-6);
+        //From ini_fields and .in file
+        fab_Akt.setVal(1e-6);
         //From ana_grid.h and metrics.F
 
         //

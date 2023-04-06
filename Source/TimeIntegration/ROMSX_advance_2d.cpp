@@ -78,10 +78,10 @@ ROMSX::advance_2d (int lev,
         gbx11.grow(IntVect(1,1,1));
         Box ubxD = surroundingNodes(bx,0);
         Box vbxD = surroundingNodes(bx,1);
-	ubxD.makeSlab(2,0);
-	vbxD.makeSlab(2,0);
-	//AKA
-	//ubxD.setRange(2,0);
+        ubxD.makeSlab(2,0);
+        vbxD.makeSlab(2,0);
+        //AKA
+        //ubxD.setRange(2,0);
         //vbxD.setRange(2,0);
 
         FArrayBox fab_pn(gbx2,1,The_Async_Arena());
@@ -170,7 +170,7 @@ ROMSX::advance_2d (int lev,
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-	    if(k==0)
+            if(k==0)
             Zt_avg1(i,j,0)=Zt_avg1(i,j,0)+cff1*zeta(i,j,0,krhs);
         });
         amrex::ParallelFor(ubxD,

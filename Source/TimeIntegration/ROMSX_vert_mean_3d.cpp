@@ -33,13 +33,13 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
     amrex::LoopOnCpu(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-	if(k==0) {
+      if(k==0) {
         CF_arr(i,j,-1)=Hzk_arr(i,j,k);
         DC_arr(i,j,-1)=phi_arr(i,j,k,nnew)*Hzk_arr(i,j,k);
-	} else {
+      } else {
         CF_arr(i,j,-1)+=Hzk_arr(i,j,k);
         DC_arr(i,j,-1)+=phi_arr(i,j,k,nnew)*Hzk_arr(i,j,k);
-    }
+      }
     });
 
     amrex::LoopOnCpu(phi_bx,

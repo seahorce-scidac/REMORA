@@ -1276,8 +1276,8 @@
             END IF
           END IF
 # ifdef SED_MORPH
-!  If MPDATA augment the intermediate tracer, Ta, with the 
-!  tracer divergence. For other advection schemes the bed change is 
+!  If MPDATA augment the intermediate tracer, Ta, with the
+!  tracer divergence. For other advection schemes the bed change is
 !  applied after the vertical advection is completed - similar to Lwsrc.
 !  Use 1/N to distribute the bed change in each water column layer.
           cff1=1.0_r8/N(ng)
@@ -1587,7 +1587,7 @@
         DO itrc=1,NT(ng)
           IF (.not.((Hadvection(itrc,ng)%MPDATA).and.                   &
      &              (Vadvection(itrc,ng)%MPDATA))) THEN
-            DO j=Jstr,Jend 
+            DO j=Jstr,Jend
               DO k=1,N(ng)
                 DO i=Istr,Iend
                   cff3=t(i,j,k,3,itrc)

@@ -135,7 +135,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
          Real tempstore=Hz_arr(i,j,k)*(cff1*tempold(i,j,k)+
-				       cff2*temp_arr(i,j,k))-
+                                       cff2*temp_arr(i,j,k))-
                         cff*pm_arr(i,j,0)*pn_arr(i,j,0)*
                         (FC_arr(i+1,j,k)-FC_arr(i,j,k)+
                          DC_arr(i,j+1,k)-DC_arr(i,j,k));
