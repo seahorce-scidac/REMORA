@@ -37,7 +37,7 @@ ROMSX::update_vel_3d (const Box& vel_bx,
         {
             Real cff = 1.0 / ( z_r_arr(i,j,k+1)+z_r_arr(i-ioff,j-joff,k+1)
                               -z_r_arr(i,j,k  )-z_r_arr(i-ioff,j-joff,k  ));
-            FC_arr(i,j,k) = oml_dt * cff * (vel_old(i,j,k,nstp)-vel_old(i,j,k-1,nstp)) *
+            FC_arr(i,j,k) = oml_dt * cff * (vel_old(i,j,k+1,nstp)-vel_old(i,j,k,nstp)) *
                                            (Akv_arr(i,j,k)     +Akv_arr(i-ioff,j-joff,k));
         }
         else

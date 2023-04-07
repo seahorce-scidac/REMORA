@@ -130,8 +130,8 @@ GridsInLayer =  1
 ! two letters, regardless if using uppercase or lowercase. If nested
 ! grids, specify values for each grid (see glossary below).
 
-   Hadvection == U3       \                     ! temperature
-                 U3                             ! salinity
+   Hadvection == C2       \                     ! temperature
+                 C2                             ! salinity
 
    Vadvection == C4       \                     ! temperature
                  C4                             ! salinity

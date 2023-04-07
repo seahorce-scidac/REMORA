@@ -379,9 +379,10 @@ private:
                         amrex::Array4<amrex::Real> W,
                         amrex::Array4<amrex::Real> DC,
                         amrex::Array4<amrex::Real> FC,
+                        amrex::Array4<amrex::Real> tempstore,
+                        amrex::Array4<amrex::Real> FE,
+                        amrex::Array4<amrex::Real> FX,
                         amrex::Array4<amrex::Real> z_r_arr,
-                        amrex::Array4<amrex::Real> sustr,
-                        amrex::Array4<amrex::Real> svstr,
                         int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 

@@ -20,6 +20,7 @@ ROMSX::prestep_t_3d (const Box& bx,
                       Array4<Real> W   , Array4<Real> DC_arr,
                       Array4<Real> FC_arr  , Array4<Real> tempstore,
                       Array4<Real> FX_arr, Array4<Real> FE_arr,
+                      Array4<Real> z_r_arr,
                       int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                       Real lambda, Real dt_lev)
 {
@@ -39,7 +40,16 @@ ROMSX::prestep_t_3d (const Box& bx,
     gbx2.grow(IntVect(2,2,0));
     gbx1.grow(IntVect(1,1,0));
     gbx11.grow(IntVect(1,1,1));
+    FArrayBox fab_Akt(gbx2,1,amrex::The_Async_Arena());
+    auto Akt_arr= fab_Akt.array();
 
+    //From ini_fields and .in file
+    fab_Akt.setVal(1e-6);
+    FArrayBox fab_stflux(gbx2,1,amrex::The_Async_Arena());
+    auto stflux_arr= fab_stflux.array();
+
+    //From ini_fields and .in file
+    fab_stflux.setVal(0.0);
     amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
     amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
 
@@ -237,6 +247,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     //-----------------------------------------------------------------------
     //
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
-
+    update_vel_3d(gbx1, 0, 0, temp_arr, tempstore, ru_arr, Hz_arr, Akt_arr, DC_arr, FC_arr,
+                  stflux_arr, z_r_arr, pm_arr, pn_arr, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
 
 }
