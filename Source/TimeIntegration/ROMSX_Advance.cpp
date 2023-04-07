@@ -161,7 +161,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         gbx11.grow(IntVect(1,1,1));
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_tempstore(gbx2,1,amrex::The_Async_Arena());
+	FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena());
@@ -173,6 +176,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
+        auto FX=fab_FX.array();
+        auto FE=fab_FE.array();
+        auto tempstore=fab_tempstore.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto on_u=fab_on_u.array();
@@ -214,7 +220,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //-----------------------------------------------------------------------
         //
         prestep_t_3d(bx, uold, vold, u, v, tempold, saltold, temp, salt, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon, Hvom,
-                          pm, pn, W, DC, FC, z_r_arr, sustr_arr, svstr_arr, iic, ntfirst, nnew, nstp, nrhs, N,
+                     pm, pn, W, DC, FC, tempstore, FX, FE, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 
         //

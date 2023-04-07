@@ -18,8 +18,8 @@ ROMSX::prestep_t_3d (const Box& bx,
                       Array4<Real> Huon, Array4<Real> Hvom,
                       Array4<Real> pm_arr, Array4<Real> pn_arr,
                       Array4<Real> W   , Array4<Real> DC_arr,
-                      Array4<Real> FC_arr  , Array4<Real> z_r_arr,
-                      Array4<Real> sustr_arr, Array4<Real> svstr_arr,
+                      Array4<Real> FC_arr  , Array4<Real> tempstore,
+                      Array4<Real> FX_arr, Array4<Real> FE_arr,
                       int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                       Real lambda, Real dt_lev)
 {
@@ -99,14 +99,14 @@ ROMSX::prestep_t_3d (const Box& bx,
     amrex::ParallelFor(ubx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        FC_arr(i,j,k)=Huon(i,j,k)*
+        FX_arr(i,j,k)=Huon(i,j,k)*
                     0.5*(tempold(i-1,j,k)+
                          tempold(i  ,j,k));
     });
     amrex::ParallelFor(vbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        DC_arr(i,j,k)=Hvom(i,j,k)*
+        FE_arr(i,j,k)=Hvom(i,j,k)*
                     0.5*(tempold(i,j-1,k)+
                          tempold(i,j,k));
     });
@@ -134,11 +134,11 @@ ROMSX::prestep_t_3d (const Box& bx,
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-         Real tempstore=Hz_arr(i,j,k)*(cff1*tempold(i,j,k)+
+        tempstore(i,j,k)=Hz_arr(i,j,k)*(cff1*tempold(i,j,k)+
                                        cff2*temp_arr(i,j,k))-
                         cff*pm_arr(i,j,0)*pn_arr(i,j,0)*
-                        (FC_arr(i+1,j,k)-FC_arr(i,j,k)+
-                         DC_arr(i,j+1,k)-DC_arr(i,j,k));
+                        (FX_arr(i+1,j,k)-FX_arr(i,j,k)+
+                         FE_arr(i,j+1,k)-FE_arr(i,j,k));
          /*
          tempstore(i,j,k,3)=Hz(i,j,k)*(cff1*tempold(i,j,k,nstp)+
                                        cff2*temp(i,j,k,nnew))-
@@ -150,9 +150,88 @@ ROMSX::prestep_t_3d (const Box& bx,
     // Time-step vertical advection of tracers (Tunits). Impose artificial
     // continuity equation.
     //
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+              //-----------------------------------------------------------------------
+              //  Add in vertical advection.
+              //-----------------------------------------------------------------------
 
+              Real cff1=0.5;
+              Real cff2=7.0/12.0;
+              Real cff3=1.0/12.0;
 
-    //
+              if (k>=1 && k<=N-2)
+              {
+                      FC_arr(i,j,k)=( cff2*(tempold(i  ,j,k  ,nrhs)+ tempold(i,j,k+1,nrhs))
+                                     -cff3*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k+2,nrhs)) )*
+                                    ( W(i,j,k));
+              }
+              else // this needs to be split up so that the following can be concurrent
+              {
+                  FC_arr(i,j,N)=0.0;
+
+                  FC_arr(i,j,N-1)=( cff2*tempold(i  ,j,N-1,nrhs)+ cff1*tempold(i,j,N  ,nrhs)
+                                    -cff3*tempold(i  ,j,N-2,nrhs) )*
+                                  ( W(i  ,j,N-1));
+
+                  FC_arr(i,j,0)=( cff2*tempold(i  ,j,1,nrhs)+ cff1*tempold(i,j,0,nrhs)
+                                 -cff3*tempold(i  ,j,2,nrhs) )*
+                                ( W(i  ,j,0));
+
+                  //              FC_arr(i,0,-1)=0.0;
+              }
+
+    });
+/*
+    Real cff;
+
+    int indx=0; //nrhs-3
+    Real GammaT = 1.0/6.0;
+
+    if (iic==ntfirst)
+    {
+        cff=0.5*dt_lev;
+    } else {
+        cff=(1-GammaT)*dt_lev;
+        }*/
+    amrex::ParallelFor(gbx1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        if(k-1>=0) {
+        DC_arr(i,j,k)=1.0/(Hz_arr(i,j,k)-
+                        cff*pm_arr(i,j,0)*pn_arr(i,j,0)*
+                        (Huon(i+1,j,k)-Huon(i,j,k)+
+                         Hvom(i,j+1,k)-Hvom(i,j,k)+
+                         (W(i,j,k)-W(i,j,k-1))));
+        } else {
+        DC_arr(i,j,k)=1.0/(Hz_arr(i,j,k)-
+                        cff*pm_arr(i,j,0)*pn_arr(i,j,0)*
+                        (Huon(i+1,j,k)-Huon(i,j,k)+
+                         Hvom(i,j+1,k)-Hvom(i,j,k)+
+                         (W(i,j,k))));
+        }
+
+         /*
+         tempstore(i,j,k,3)=Hz(i,j,k)*(cff1*tempold(i,j,k,nstp)+
+                                       cff2*temp(i,j,k,nnew))-
+                            cff*pm_arr(i,j,0)*pn_arr(i,j,0)*
+                            (FC(i+1,j)-FC(i,j)+
+                             DC(i,j+1)-DC(i,j));*/
+    });
+    amrex::ParallelFor(gbx1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        Real cff1=cff*pm_arr(i,j,0)*pn_arr(i,j,0);
+        Real cff4;
+        if(k-1>=0) {
+            cff4=FC_arr(i,j,k)-FC_arr(i,j,k-1);
+        } else {
+            cff4=FC_arr(i,j,k);
+        }
+        tempstore(i,j,k)=DC_arr(i,j,k)*(tempstore(i,j,k)-cff1*cff4);
+    });
+//
     //-----------------------------------------------------------------------
     //  Start computation of tracers at n+1 time-step, t(i,j,k,nnew,itrc).
     //-----------------------------------------------------------------------
