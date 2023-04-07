@@ -220,10 +220,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //-----------------------------------------------------------------------
         //
 	//Test this after advection included in 3d time, consider refactoring to call once per tracer
+#if 0
         prestep_t_3d(bx, uold, vold, u, v, tempold, saltold, temp, salt, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon, Hvom,
                      pm, pn, W, DC, FC, tempstore, FX, FE, z_r_arr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-
+#endif
         //
         //-----------------------------------------------------------------------
         // prestep_uv_3d
