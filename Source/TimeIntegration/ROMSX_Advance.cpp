@@ -4,7 +4,7 @@
 using namespace amrex;
 
 // advance a single level for a single time step
-AMREX_FORCE_INLINE void
+ void
 ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle*/)
 {
     BL_PROFILE("ROMSX::Advance()");

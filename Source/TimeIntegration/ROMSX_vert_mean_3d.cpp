@@ -6,7 +6,7 @@ using namespace amrex;
 //
 // vert_mean_3d
 //
-AMREX_FORCE_INLINE
+
 void
 ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
                      Array4<Real> phi_arr,

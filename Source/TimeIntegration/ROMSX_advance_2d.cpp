@@ -5,7 +5,7 @@ using namespace amrex;
 //
 // Start 2d step
 //
-AMREX_FORCE_INLINE
+
 void
 ROMSX::advance_2d (int lev,
                    MultiFab& mf_u, MultiFab& mf_v,

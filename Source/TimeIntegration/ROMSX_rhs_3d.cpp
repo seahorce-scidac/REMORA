@@ -6,7 +6,7 @@ using namespace amrex;
 //
 // rhs_3d
 //
-AMREX_FORCE_INLINE
+
 void
 ROMSX::rhs_3d (const Box& bx,
                Array4<Real> uold  , Array4<Real> vold,
@@ -35,22 +35,22 @@ ROMSX::rhs_3d (const Box& bx,
     //
     // Scratch space
     //
-    FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena()); fab_Huee.setVal(0.0);
-    FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena()); fab_uee.setVal(0.0);
+    FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena()); //fab_Huee.setVal(0.0);
+    FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena()); //fab_uee.setVal(0.0);
 
-    FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena()); fab_Hvee.setVal(0.0);
-    FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena()); fab_vee.setVal(0.0);
+    FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena()); //fab_Hvee.setVal(0.0);
+    FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena()); //fab_vee.setVal(0.0);
 
-    FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena()); fab_Hvxx.setVal(0.0);
-    FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena()); fab_uxx.setVal(0.0);
+    FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena()); //fab_Hvxx.setVal(0.0);
+    FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena()); //fab_uxx.setVal(0.0);
 
-    FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena()); fab_Huxx.setVal(0.0);
-    FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena()); fab_vxx.setVal(0.0);
+    FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena()); //fab_Huxx.setVal(0.0);
+    FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena()); //fab_vxx.setVal(0.0);
 
-    FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena()); fab_UFx.setVal(0.0);
-    FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena()); fab_UFe.setVal(0.0);
-    FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena()); fab_VFx.setVal(0.0);
-    FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena()); fab_VFe.setVal(0.0);
+    FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena()); //fab_UFx.setVal(0.0);
+    FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena()); //fab_UFe.setVal(0.0);
+    FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena()); //fab_VFx.setVal(0.0);
+    FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena()); //fab_VFe.setVal(0.0);
 
     auto Huxx=fab_Huxx.array();
     auto Hvxx=fab_Hvxx.array();
@@ -67,6 +67,25 @@ ROMSX::rhs_3d (const Box& bx,
 
     //check this////////////
     const Real Gadv = -0.25;
+
+    amrex::ParallelFor(gbx2,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        Huee(i,j,k)=0.0;
+        uee(i,j,k)=0.0;
+        Hvee(i,j,k)=0.0;
+        vee(i,j,k)=0.0;
+
+        Huxx(i,j,k)=0.0;
+        uxx(i,j,k)=0.0;
+        Hvxx(i,j,k)=0.0;
+        vxx(i,j,k)=0.0;
+
+        UFx(i,j,k)=0.0;
+        UFe(i,j,k)=0.0;
+        VFx(i,j,k)=0.0;
+        VFe(i,j,k)=0.0;
+    });
 
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)

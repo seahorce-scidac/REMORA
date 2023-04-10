@@ -6,7 +6,7 @@ using namespace amrex;
 //
 // prestep_uv_3d
 //
-AMREX_FORCE_INLINE
+
 void
 ROMSX::prestep_t_3d (const Box& bx,
                       Array4<Real> uold  , Array4<Real> vold,
@@ -45,12 +45,19 @@ ROMSX::prestep_t_3d (const Box& bx,
     auto Akt_arr= fab_Akt.array();
 
     //From ini_fields and .in file
-    fab_Akt.setVal(1e-6);
+    //fab_Akt.setVal(1e-6);
     FArrayBox fab_stflux(gbx2,1,amrex::The_Async_Arena());
     auto stflux_arr= fab_stflux.array();
 
     //From ini_fields and .in file
-    fab_stflux.setVal(0.0);
+    //fab_stflux.setVal(0.0);
+
+    amrex::ParallelFor(gbx2,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        Akt_arr(i,j,k)=1e-6;
+        stflux_arr(i,j,k)=0.0;
+    });
     amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
     amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
 

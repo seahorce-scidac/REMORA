@@ -249,9 +249,9 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> zeta;
 
     // advance a single level for a single time step
-    AMREX_FORCE_INLINE void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
+    void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
 
-    AMREX_FORCE_INLINE void advance_2d (int lev,
+    void advance_2d (int lev,
                      amrex::MultiFab& mf_u , amrex::MultiFab& mf_v ,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
                      std::unique_ptr<amrex::MultiFab>& mf_rv,
@@ -268,7 +268,7 @@ public:
                      std::unique_ptr<amrex::MultiFab>& mf_zeta,
                      std::unique_ptr<amrex::MultiFab>& mf_h,
                      const int ncomp, const amrex::Real dt_lev);
-    AMREX_FORCE_INLINE void advance_3d (int lev,
+    void advance_3d (int lev,
                      amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,
                      amrex::MultiFab& mf_temp  , amrex::MultiFab& mf_salt ,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
@@ -286,7 +286,7 @@ public:
                      const int ncomp, const int N,
                      const amrex::Real dt_lev);
 
-    AMREX_FORCE_INLINE void prestep_t_3d (const amrex::Box& bx,
+    void prestep_t_3d (const amrex::Box& bx,
                         amrex::Array4<amrex::Real> uold,
                         amrex::Array4<amrex::Real> vold,
                         amrex::Array4<amrex::Real> u_arr,
@@ -315,7 +315,7 @@ public:
                         int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
-    AMREX_FORCE_INLINE void prestep_uv_3d (const amrex::Box& bx,
+    void prestep_uv_3d (const amrex::Box& bx,
                         amrex::Array4<amrex::Real> uold,
                         amrex::Array4<amrex::Real> vold,
                         amrex::Array4<amrex::Real> u_arr,
@@ -339,7 +339,7 @@ public:
                         int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
-    AMREX_FORCE_INLINE void rhs_3d (const amrex::Box& bx,
+    void rhs_3d (const amrex::Box& bx,
                  amrex::Array4<amrex::Real> uold,
                  amrex::Array4<amrex::Real> vold,
                  amrex::Array4<amrex::Real> ru_arr,
@@ -350,7 +350,7 @@ public:
                  amrex::Array4<amrex::Real> FC,
                  int nrhs, int N);
 
-    AMREX_FORCE_INLINE void update_vel_3d (const amrex::Box& bx,
+    void update_vel_3d (const amrex::Box& bx,
                         const int ioff, const int joff,
                         amrex::Array4<amrex::Real> vel_arr,
                         amrex::Array4<amrex::Real> vel_old,
@@ -366,7 +366,7 @@ public:
                         const int iic, const int ntfirst, const int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
-    AMREX_FORCE_INLINE void vert_visc_3d (const amrex::Box& bx,
+    void vert_visc_3d (const amrex::Box& bx,
                        const int ioff, const int joff,
                        amrex::Array4<amrex::Real> phi_arr,
                        amrex::Array4<amrex::Real> Hz_arr,
@@ -381,7 +381,7 @@ public:
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
 
-    AMREX_FORCE_INLINE void vert_mean_3d (const amrex::Box& bx,
+    void vert_mean_3d (const amrex::Box& bx,
                        const int ioff, const int joff,
                        amrex::Array4<amrex::Real> phi_arr,
                        amrex::Array4<amrex::Real> Hz_arr,
@@ -397,7 +397,7 @@ public:
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
 #ifdef UV_COR
-    AMREX_FORCE_INLINE void coriolis (const amrex::Box& bx,
+    void coriolis (const amrex::Box& bx,
                    amrex::Array4<amrex::Real> uold,
                    amrex::Array4<amrex::Real> vold,
                    amrex::Array4<amrex::Real> ru_arr,
@@ -406,6 +406,14 @@ public:
                    amrex::Array4<amrex::Real> fomn_arr,
                    int nrhs);
 #endif
+
+    void set_2darrays (int lev);
+
+    void set_depth (int lev);
+
+    void set_vmix (int lev);
+
+    void set_smflux (int lev, amrex::Real time);
 
 private:
 
@@ -424,14 +432,6 @@ private:
     void init_bcs();
 
     void init_custom(int lev);
-
-    void set_2darrays (int lev);
-
-    void set_depth (int lev);
-
-    void set_vmix (int lev);
-
-    void set_smflux (int lev, amrex::Real time);
 
 #ifdef ROMSX_USE_NETCDF
     void init_from_wrfinput(int lev);

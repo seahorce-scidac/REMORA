@@ -72,9 +72,14 @@ ROMSX::set_2darrays (int lev)
         auto DC=fab_DC.array();
         auto CF=fab_CF.array();
 
-        fab_DC.setVal(0.0);
-        fab_CF.setVal(0.0);
-
+        //fab_DC.setVal(0.0);
+        //fab_CF.setVal(0.0);
+        amrex::ParallelFor(gbx11, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+                DC(i,j,k)=0.0;
+                CF(i,j,k)=0.0;
+            });
         amrex::LoopOnCpu(gbx1, ncomp,
         [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -90,8 +95,14 @@ ROMSX::set_2darrays (int lev)
                 ubar_arr(i,j,0,kstp)=cff2;
                 ubar_arr(i,j,0,knew)=cff2;
             });
-        fab_DC.setVal(0.0);
-        fab_CF.setVal(0.0);
+        //fab_DC.setVal(0.0);
+        //fab_CF.setVal(0.0);
+        amrex::ParallelFor(gbx11, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
+                DC(i,j,k)=0.0;
+                CF(i,j,k)=0.0;
+            });
         amrex::LoopOnCpu(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
