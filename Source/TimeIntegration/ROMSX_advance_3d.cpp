@@ -6,6 +6,7 @@ using namespace amrex;
 //
 // Start 3d step
 //
+AMREX_FORCE_INLINE
 void
 ROMSX::advance_3d (int lev,
                    MultiFab& mf_u , MultiFab& mf_v ,
@@ -96,14 +97,14 @@ ROMSX::advance_3d (int lev,
         auto Akt_arr= fab_Akt.array();
 
         //From ini_fields and .in file
-        fab_Akt.setVal(1e-6);
+        //fab_Akt.setVal(1e-6);
         //From ana_grid.h and metrics.F
 
         //
         // Update to u and v
         //
         amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int  )
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             const auto prob_lo         = geomdata.ProbLo();
             const auto dx              = geomdata.CellSize();
@@ -118,6 +119,7 @@ ROMSX::advance_3d (int lev,
             Real y = prob_lo[1] + (j + 0.5) * dx[1];
             Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
+	    Akt_arr(i,j,k)=1e-6;
         });
 
         Real cff;

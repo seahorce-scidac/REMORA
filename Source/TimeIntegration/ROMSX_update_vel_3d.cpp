@@ -7,6 +7,7 @@ using namespace amrex;
 // update_vel_3d -- called from prestep_uv_3d
 // NOTE: "vel" here represents either u or v
 //
+AMREX_FORCE_INLINE
 void
 ROMSX::update_vel_3d (const Box& vel_bx,
                       const int ioff, const int joff,

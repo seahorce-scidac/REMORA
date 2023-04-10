@@ -6,6 +6,7 @@ using namespace amrex;
 //
 // rhs_3d
 //
+AMREX_FORCE_INLINE
 void
 ROMSX::rhs_3d (const Box& bx,
                Array4<Real> uold  , Array4<Real> vold,

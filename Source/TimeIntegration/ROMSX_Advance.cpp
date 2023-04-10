@@ -4,7 +4,7 @@
 using namespace amrex;
 
 // advance a single level for a single time step
-void
+AMREX_FORCE_INLINE void
 ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle*/)
 {
     BL_PROFILE("ROMSX::Advance()");
@@ -122,7 +122,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
+    const auto prob_lo          = Geom(lev).ProbLoArray();
     const auto dxi              = Geom(lev).InvCellSizeArray();
+    const auto dx               = Geom(lev).CellSizeArray();
     const int Mm = Geom(lev).Domain().size()[1];
     auto geomdata = Geom(lev).data();
 
@@ -171,8 +173,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena()); fab_Huon.setVal(0.);
-        FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena()); fab_Hvom.setVal(0.);
+        FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena()); //fab_Huon.setVal(0.);
+        FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena()); //fab_Hvom.setVal(0.);
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
@@ -188,13 +190,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto Hvom=fab_Hvom.array();
 
         //From ana_grid.h and metrics.F
-        amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int  )
+        amrex::LoopConcurrentOnCpu(gbx2,
+        [=] (int i, int j, int  )
             {
-
-              const auto prob_lo         = geomdata.ProbLo();
-              const auto dx              = geomdata.CellSize();
-
               pm(i,j,0)=dxi[0];
               pn(i,j,0)=dxi[1];
               //defined UPWELLING
@@ -206,11 +204,13 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             });
 
-        amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        amrex::LoopConcurrentOnCpu(gbx2,
+        [=] (int i, int j, int k)
         {
           om_v(i,j,0)=1.0/dxi[0];
           on_u(i,j,0)=1.0/dxi[1];
+          Huon(i,j,k)=0.0;
+          Hvom(i,j,k)=0.0;
         });
 
         Real lambda = 1.0;

@@ -5,6 +5,7 @@ using namespace amrex;
 //
 // Start 2d step
 //
+AMREX_FORCE_INLINE
 void
 ROMSX::advance_2d (int lev,
                    MultiFab& mf_u, MultiFab& mf_v,
@@ -93,9 +94,9 @@ ROMSX::advance_2d (int lev,
         FArrayBox fab_on_u(gbx2,1,The_Async_Arena());
         FArrayBox fab_om_v(gbx2,1,The_Async_Arena());
         FArrayBox fab_fomn(gbx2,1,The_Async_Arena());
-        FArrayBox fab_Huon(gbx2,1,The_Async_Arena()); fab_Huon.setVal(0.0);
-        FArrayBox fab_Hvom(gbx2,1,The_Async_Arena()); fab_Hvom.setVal(0.0);
-        FArrayBox fab_oHz(gbx11,1,The_Async_Arena()); fab_oHz.setVal(0.0);
+        FArrayBox fab_Huon(gbx2,1,The_Async_Arena()); //fab_Huon.setVal(0.0);
+        FArrayBox fab_Hvom(gbx2,1,The_Async_Arena()); //fab_Hvom.setVal(0.0);
+        FArrayBox fab_oHz(gbx11,1,The_Async_Arena()); //fab_oHz.setVal(0.0);
 
         //step2d work arrays
         FArrayBox fab_Drhs(gbx2,1,The_Async_Arena());

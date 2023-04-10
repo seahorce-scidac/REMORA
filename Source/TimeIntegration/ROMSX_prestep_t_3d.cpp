@@ -6,6 +6,7 @@ using namespace amrex;
 //
 // prestep_uv_3d
 //
+AMREX_FORCE_INLINE
 void
 ROMSX::prestep_t_3d (const Box& bx,
                       Array4<Real> uold  , Array4<Real> vold,

@@ -7,6 +7,7 @@ using namespace amrex;
 //
 // Start 3d step
 //
+AMREX_FORCE_INLINE
 void
 ROMSX::coriolis (const Box& bx,
                  Array4<Real> uold  , Array4<Real> vold,
