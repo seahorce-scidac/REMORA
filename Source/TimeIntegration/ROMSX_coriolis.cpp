@@ -20,6 +20,7 @@ ROMSX::coriolis (const Box& bx,
     //  Add in Coriolis terms.
     //-----------------------------------------------------------------------
     //
+
     Box ubx = surroundingNodes(bx,0);
     Box vbx = surroundingNodes(bx,1);
 

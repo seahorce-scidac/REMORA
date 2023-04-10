@@ -15,8 +15,8 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_DU_avg2,
                    std::unique_ptr<MultiFab>& mf_DV_avg1,
                    std::unique_ptr<MultiFab>& mf_DV_avg2,
-                   std::unique_ptr<MultiFab>& /*mf_rubar*/,
-                   std::unique_ptr<MultiFab>& /*mf_rvbar*/,
+                   std::unique_ptr<MultiFab>& mf_rubar,
+                   std::unique_ptr<MultiFab>& mf_rvbar,
                    std::unique_ptr<MultiFab>& /*mf_rzeta*/,
                    std::unique_ptr<MultiFab>& mf_ubar,
                    std::unique_ptr<MultiFab>& mf_vbar,
@@ -66,6 +66,8 @@ ROMSX::advance_2d (int lev,
         Array4<Real> const& DU_avg2 = (mf_DU_avg2)->array(mfi);
         Array4<Real> const& DV_avg1 = (mf_DV_avg1)->array(mfi);
         Array4<Real> const& DV_avg2 = (mf_DV_avg2)->array(mfi);
+        Array4<Real> const& rubar = (mf_rubar)->array(mfi);
+        Array4<Real> const& rvbar = (mf_rvbar)->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -76,8 +78,10 @@ ROMSX::advance_2d (int lev,
         gbx2.grow(IntVect(2,2,0));
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
+        Box bxD = bx;
         Box ubxD = surroundingNodes(bx,0);
         Box vbxD = surroundingNodes(bx,1);
+        bxD.makeSlab(2,0);
         ubxD.makeSlab(2,0);
         vbxD.makeSlab(2,0);
         //AKA
@@ -102,6 +106,7 @@ ROMSX::advance_2d (int lev,
         auto om_v=fab_om_v.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
+        auto fomn=fab_fomn.array();
 
         auto Drhs=fab_Drhs.array();
         auto DUon=fab_DUon.array();
@@ -121,6 +126,23 @@ ROMSX::advance_2d (int lev,
               om_v(i,j,0)=1.0/dxi[0];
               on_u(i,j,0)=1.0/dxi[1];
         });
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int  )
+            {
+
+              const auto prob_lo         = geomdata.ProbLo();
+              const auto dx              = geomdata.CellSize();
+
+              pm(i,j,0)=dxi[0];
+              pn(i,j,0)=dxi[1];
+              //defined UPWELLING
+              Real f0=-8.26e-5;
+              Real beta=0.0;
+              Real Esize=1000*(Mm);
+              Real y = prob_lo[1] + (j + 0.5) * dx[1];
+              Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+              fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
+            });
 
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -203,6 +225,14 @@ ROMSX::advance_2d (int lev,
             DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2*DVom(i,j,0);
         });
         }
+#ifdef UV_COR
+        //
+        //-----------------------------------------------------------------------
+        // coriolis
+        //-----------------------------------------------------------------------
+        //
+        coriolis(bxD, ubar, vbar, rubar, rvbar, Drhs, fomn, krhs);
+#endif
     }
     }
 }
