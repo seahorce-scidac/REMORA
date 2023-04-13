@@ -7,7 +7,9 @@ void
 ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
                      Array4<Real> phi_arr,
                      Array4<Real> Hphi,
-                     Array4<Real> DC_arr, const int nnew)
+                     Array4<Real> Hz,
+                     Array4<Real> Dphi_avg2,
+                     Array4<Real> DC_arr, Array4<Real> FC_arr, const int nnew)
 {
 
     amrex::ParallelFor(phi_bx,
