@@ -350,6 +350,17 @@ public:
                  amrex::Array4<amrex::Real> FC,
                  int nrhs, int N);
 
+    void rhs_t_3d (const amrex::Box& bx,
+                   amrex::Array4<amrex::Real> told,
+                   amrex::Array4<amrex::Real> t,
+                   amrex::Array4<amrex::Real> Huon,
+                   amrex::Array4<amrex::Real> Hvom,
+                   amrex::Array4<amrex::Real> pn,
+                   amrex::Array4<amrex::Real> pm,
+                   amrex::Array4<amrex::Real> W,
+                   amrex::Array4<amrex::Real> FC,
+                   int nrhs, int nnew, int N, const amrex::Real dt_lev);
+
     void update_vel_3d (const amrex::Box& bx,
                         const int ioff, const int joff,
                         amrex::Array4<amrex::Real> vel_arr,
