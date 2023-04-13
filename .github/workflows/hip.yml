@@ -1,4 +1,4 @@
-name: ERF CI (hip)
+name: ROMSX CI (hip)
 
 on:
   push:
@@ -32,7 +32,7 @@ jobs:
     #                                                                          ^
     #    /opt/rocm-4.1.1/hip/include/hip/hcc_detail/hip_runtime.h:176:9: note: macro 'select_impl_' defined here
     #    #define select_impl_(_1, _2, impl_, ...) impl_
-    # NOTE: -Werror was removed because ERF specifically had a lot of warnings. It will be a separate task to go through and fix them all...
+    # NOTE: -Werror was removed because ROMSX specifically had a lot of warnings. It will be a separate task to go through and fix them all...
     env: {CXXFLAGS: "-Wall -Wextra -Wpedantic -Wnull-dereference -Wfloat-conversion -Wshadow -Woverloaded-virtual -Wextra-semi -Wunreachable-code -Wno-deprecated-declarations -Wno-gnu-zero-variadic-macro-arguments -Wno-pass-failed"}
     steps:
     - uses: actions/checkout@v3
@@ -55,18 +55,18 @@ jobs:
         export LDFLAGS="-lopen-pal"
 
         cmake \
-          -B${{runner.workspace}}/ERF/build-${{matrix.os}} \
+          -B${{runner.workspace}}/ROMSX/build-${{matrix.os}} \
           -DCMAKE_VERBOSE_MAKEFILE=ON                   \
-          -DCMAKE_INSTALL_PREFIX:PATH=${{runner.workspace}}/ERF/install \
+          -DCMAKE_INSTALL_PREFIX:PATH=${{runner.workspace}}/ROMSX/install \
           -DCMAKE_BUILD_TYPE:STRING=Debug \
-          -DERF_DIM:STRING=3 \
-          -DERF_ENABLE_MPI:BOOL=ON \
-          -DERF_ENABLE_HIP:BOOL=ON \
+          -DROMSX_DIM:STRING=3 \
+          -DROMSX_ENABLE_MPI:BOOL=ON \
+          -DROMSX_ENABLE_HIP:BOOL=ON \
           -DAMReX_AMD_ARCH=gfx908 \
-          -DERF_ENABLE_TESTS:BOOL=ON \
-          -DERF_ENABLE_MASA:BOOL=OFF \
-          -DERF_ENABLE_ALL_WARNINGS:BOOL=ON \
-          -DERF_ENABLE_FCOMPARE:BOOL=ON \
+          -DROMSX_ENABLE_TESTS:BOOL=ON \
+          -DROMSX_ENABLE_MASA:BOOL=OFF \
+          -DROMSX_ENABLE_ALL_WARNINGS:BOOL=ON \
+          -DROMSX_ENABLE_FCOMPARE:BOOL=ON \
           -DCODECOV:BOOL=ON \
           -DCMAKE_C_COMPILER=$(which clang)             \
           -DCMAKE_CXX_COMPILER=$(which clang++)         \
@@ -76,19 +76,19 @@ jobs:
 
         # for some reason this cmake command fails to build the code,
         # and we need to use the make command that follows instead ...
-        # cmake --build ${{runner.workspace}}/ERF/build-${{matrix.os}} --parallel ${{env.NPROCS}};
+        # cmake --build ${{runner.workspace}}/ROMSX/build-${{matrix.os}} --parallel ${{env.NPROCS}};
 
-        pushd ${{runner.workspace}}/ERF/build-${{matrix.os}};
+        pushd ${{runner.workspace}}/ROMSX/build-${{matrix.os}};
         # make -j ${{env.NPROCS}};
         make -j 2;
 
     # - name: Regression Tests
     #   run: |
     #     ctest -L regression -VV
-    #   working-directory: ${{runner.workspace}}/ERF/build-${{matrix.os}}
+    #   working-directory: ${{runner.workspace}}/ROMSX/build-${{matrix.os}}
 
     # - name: Generate coverage report
-    #   working-directory: ${{runner.workspace}}/ERF/build-${{matrix.os}}
+    #   working-directory: ${{runner.workspace}}/ROMSX/build-${{matrix.os}}
     #   run: |
     #     find . -type f -name '*.gcno' -path "**Source**" -exec gcov -pb {} +
     #     cd ..
@@ -104,7 +104,7 @@ jobs:
     #     # name: codecov-umbrella # optional
     #     fail_ci_if_error: true # optional (default = false)
     #     verbose: true # optional (default = false)
-    #     directory: ${{runner.workspace}}/ERF
+    #     directory: ${{runner.workspace}}/ROMSX
 
     - name: Success artifacts
       uses: actions/upload-artifact@v3
@@ -112,14 +112,14 @@ jobs:
       with:
         name: build-and-test
         path: |
-          ${{runner.workspace}}/ERF/regressioncov.xml
+          ${{runner.workspace}}/ROMSX/regressioncov.xml
     - name: Failing test artifacts
       uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: build-and-test
         path: |
-          ${{runner.workspace}}/ERF/regressioncov.xml
+          ${{runner.workspace}}/ROMSX/regressioncov.xml
 
   Build-And-Test-HIP-Moisture:
     name: (MOISTURE ON) HIP ROCm GFortran@9.3 C++17 [tests]
@@ -134,7 +134,7 @@ jobs:
     #                                                                          ^
     #    /opt/rocm-4.1.1/hip/include/hip/hcc_detail/hip_runtime.h:176:9: note: macro 'select_impl_' defined here
     #    #define select_impl_(_1, _2, impl_, ...) impl_
-    # NOTE: -Werror was removed because ERF specifically had a lot of warnings. It will be a separate task to go through and fix them all...
+    # NOTE: -Werror was removed because ROMSX specifically had a lot of warnings. It will be a separate task to go through and fix them all...
     env: {CXXFLAGS: "-Wall -Wextra -Wpedantic -Wnull-dereference -Wfloat-conversion -Wshadow -Woverloaded-virtual -Wextra-semi -Wunreachable-code -Wno-deprecated-declarations -Wno-gnu-zero-variadic-macro-arguments -Wno-pass-failed"}
     steps:
     - uses: actions/checkout@v3
@@ -157,19 +157,19 @@ jobs:
         export LDFLAGS="-lopen-pal"
 
         cmake \
-          -B${{runner.workspace}}/ERF/build-${{matrix.os}} \
+          -B${{runner.workspace}}/ROMSX/build-${{matrix.os}} \
           -DCMAKE_VERBOSE_MAKEFILE=ON                   \
-          -DCMAKE_INSTALL_PREFIX:PATH=${{runner.workspace}}/ERF/install \
+          -DCMAKE_INSTALL_PREFIX:PATH=${{runner.workspace}}/ROMSX/install \
           -DCMAKE_BUILD_TYPE:STRING=Debug \
-          -DERF_DIM:STRING=3 \
-          -DERF_ENABLE_MPI:BOOL=ON \
-          -DERF_ENABLE_HIP:BOOL=ON \
+          -DROMSX_DIM:STRING=3 \
+          -DROMSX_ENABLE_MPI:BOOL=ON \
+          -DROMSX_ENABLE_HIP:BOOL=ON \
           -DAMReX_AMD_ARCH=gfx908 \
-          -DERF_ENABLE_TESTS:BOOL=ON \
-          -DERF_ENABLE_MASA:BOOL=OFF \
-          -DERF_ENABLE_ALL_WARNINGS:BOOL=ON \
-          -DERF_ENABLE_FCOMPARE:BOOL=ON \
-          -DERF_ENABLE_MOISTURE:BOOL=ON \
+          -DROMSX_ENABLE_TESTS:BOOL=ON \
+          -DROMSX_ENABLE_MASA:BOOL=OFF \
+          -DROMSX_ENABLE_ALL_WARNINGS:BOOL=ON \
+          -DROMSX_ENABLE_FCOMPARE:BOOL=ON \
+          -DROMSX_ENABLE_MOISTURE:BOOL=ON \
           -DCODECOV:BOOL=ON \
           -DCMAKE_C_COMPILER=$(which clang)             \
           -DCMAKE_CXX_COMPILER=$(which clang++)         \
@@ -179,19 +179,19 @@ jobs:
 
         # for some reason this cmake command fails to build the code,
         # and we need to use the make command that follows instead ...
-        # cmake --build ${{runner.workspace}}/ERF/build-${{matrix.os}} --parallel ${{env.NPROCS}};
+        # cmake --build ${{runner.workspace}}/ROMSX/build-${{matrix.os}} --parallel ${{env.NPROCS}};
 
-        pushd ${{runner.workspace}}/ERF/build-${{matrix.os}};
+        pushd ${{runner.workspace}}/ROMSX/build-${{matrix.os}};
         # make -j ${{env.NPROCS}};
         make -j 2;
 
     # - name: Regression Tests
     #   run: |
     #     ctest -L regression -VV
-    #   working-directory: ${{runner.workspace}}/ERF/build-${{matrix.os}}
+    #   working-directory: ${{runner.workspace}}/ROMSX/build-${{matrix.os}}
 
     # - name: Generate coverage report
-    #   working-directory: ${{runner.workspace}}/ERF/build-${{matrix.os}}
+    #   working-directory: ${{runner.workspace}}/ROMSX/build-${{matrix.os}}
     #   run: |
     #     find . -type f -name '*.gcno' -path "**Source**" -exec gcov -pb {} +
     #     cd ..
@@ -207,7 +207,7 @@ jobs:
     #     # name: codecov-umbrella # optional
     #     fail_ci_if_error: true # optional (default = false)
     #     verbose: true # optional (default = false)
-    #     directory: ${{runner.workspace}}/ERF
+    #     directory: ${{runner.workspace}}/ROMSX
 
     - name: Success artifacts
       uses: actions/upload-artifact@v3
@@ -215,11 +215,11 @@ jobs:
       with:
         name: build-and-test
         path: |
-          ${{runner.workspace}}/ERF/regressioncov.xml
+          ${{runner.workspace}}/ROMSX/regressioncov.xml
     - name: Failing test artifacts
       uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: build-and-test
         path: |
-          ${{runner.workspace}}/ERF/regressioncov.xml
+          ${{runner.workspace}}/ROMSX/regressioncov.xml

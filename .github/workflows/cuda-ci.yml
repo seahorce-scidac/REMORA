@@ -1,4 +1,4 @@
-name: ERF CUDA CI
+name: ROMSX CUDA CI
 
 on:
   push:
@@ -50,9 +50,9 @@ jobs:
           export LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/local/cuda-${{matrix.cuda_ver}}/lib:${LD_LIBRARY_PATH}
           cmake -Bbuild-${{matrix.cuda_pkg}} \
             -DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo \
-            -DERF_DIM:STRING=3 \
-            -DERF_ENABLE_MPI:BOOL=OFF \
-            -DERF_ENABLE_CUDA:BOOL=ON .
+            -DROMSX_DIM:STRING=3 \
+            -DROMSX_ENABLE_MPI:BOOL=OFF \
+            -DROMSX_ENABLE_CUDA:BOOL=ON .
           cmake --build build-${{matrix.cuda_pkg}} -- -j $(nproc)
 
   cuda-moisture-build:
@@ -89,9 +89,9 @@ jobs:
           export LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/local/cuda-${{matrix.cuda_ver}}/lib:${LD_LIBRARY_PATH}
           cmake -Bbuild-${{matrix.cuda_pkg}} \
             -DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo \
-            -DERF_DIM:STRING=3 \
-            -DERF_ENABLE_MPI:BOOL=OFF \
-            -DERF_ENABLE_MOISTURE:BOOL=ON \
-            -DERF_ENABLE_CUDA:BOOL=ON .
+            -DROMSX_DIM:STRING=3 \
+            -DROMSX_ENABLE_MPI:BOOL=OFF \
+            -DROMSX_ENABLE_MOISTURE:BOOL=ON \
+            -DROMSX_ENABLE_CUDA:BOOL=ON .
           cmake --build build-${{matrix.cuda_pkg}} -- -j $(nproc)
 

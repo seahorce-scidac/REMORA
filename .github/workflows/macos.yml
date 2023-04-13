@@ -22,22 +22,22 @@ jobs:
     - name: Configure Project and Generate Build System
       run: |
         cmake \
-          -B${{runner.workspace}}/ERF/build \
+          -B${{runner.workspace}}/ROMSX/build \
           -DBUILD_SHARED_LIBS:BOOL=TRUE \
           -DCMAKE_CXX_COMPILER_LAUNCHER=$(which ccache) \
           -DCMAKE_BUILD_TYPE:STRING=Debug \
-          -DERF_DIM:STRING=3 \
-          -DERF_ENABLE_MPI:BOOL=TRUE \
-          -DERF_ENABLE_TESTS:BOOL=TRUE \
-          -DERF_ENABLE_ALL_WARNINGS:BOOL=TRUE \
-          -DERF_ENABLE_FCOMPARE:BOOL=TRUE \
+          -DROMSX_DIM:STRING=3 \
+          -DROMSX_ENABLE_MPI:BOOL=TRUE \
+          -DROMSX_ENABLE_TESTS:BOOL=TRUE \
+          -DROMSX_ENABLE_ALL_WARNINGS:BOOL=TRUE \
+          -DROMSX_ENABLE_FCOMPARE:BOOL=TRUE \
           ${{github.workspace}};
 
     - name: Compile and Link
       run: |
-        cmake --build ${{runner.workspace}}/ERF/build --parallel 2 --verbose
+        cmake --build ${{runner.workspace}}/ROMSX/build --parallel 2 --verbose
 
- #  - name: CMake Tests # see file ERF/Tests/CTestList.cmake
+ #  - name: CMake Tests # see file ROMSX/Tests/CTestList.cmake
  #    run: |
  #      ctest
- #    working-directory: ${{runner.workspace}}/ERF/build
+ #    working-directory: ${{runner.workspace}}/ROMSX/build
