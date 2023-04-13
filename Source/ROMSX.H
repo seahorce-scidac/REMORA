@@ -401,9 +401,12 @@ public:
                        amrex::Array4<amrex::Real> phi_arr,
                        amrex::Array4<amrex::Real> Hphi_arr,
                        amrex::Array4<amrex::Real> Hz_arr,
-                       amrex::Array4<amrex::Real> Dphi_arr,
+                       amrex::Array4<amrex::Real> on_u_or_om_v_arr,
+                       amrex::Array4<amrex::Real> Dphi1_arr,
+                       amrex::Array4<amrex::Real> Dphi2_arr,
                        amrex::Array4<amrex::Real> DC_arr,
                        amrex::Array4<amrex::Real> FC_arr,
+                       amrex::Array4<amrex::Real> CF_arr,
                        const int nnew);
 
     void vert_mean_3d (const amrex::Box& bx,

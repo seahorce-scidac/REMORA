@@ -18,6 +18,7 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
                      Array4<Real> dxlen_arr,
                      const int nnew, const int N, const Real dt_lev)
 {
+    // Interior points vertical mean correction
     //
     // Put Hzk on the x- or y-face as appropriate, or leave on cell center for tracers
     //
