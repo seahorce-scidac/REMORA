@@ -547,8 +547,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     y_r.resize(lev+1);
     x_r.resize(lev+1);
     Hz.resize(lev+1);
-    Hz.resize(lev+1);
-    Hz.resize(lev+1);
+    Huon.resize(lev+1);
+    Hvom.resize(lev+1);
     Akv.resize(lev+1);
     ru.resize(lev+1);
     rv.resize(lev+1);

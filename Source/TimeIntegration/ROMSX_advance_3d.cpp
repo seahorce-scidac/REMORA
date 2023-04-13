@@ -130,7 +130,7 @@ ROMSX::advance_3d (int lev,
             Real y = prob_lo[1] + (j + 0.5) * dx[1];
             Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
-	    Akt_arr(i,j,k)=1e-6;
+            Akt_arr(i,j,k)=1e-6;
         });
 
         Real cff;

@@ -77,7 +77,7 @@ ROMSX::rhs_t_3d (const Box& bx,
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-	//Upstream3
+        //Upstream3
         curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
         //Centered4
         grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
@@ -106,7 +106,7 @@ ROMSX::rhs_t_3d (const Box& bx,
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-	//Upstream3
+        //Upstream3
         curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
         //Centered4
         grad(i,j,k)=0.5*(FX(i,j,k)+FX(i,j+1,k));
