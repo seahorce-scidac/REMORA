@@ -225,6 +225,8 @@ public:
     amrex::Vector<amrex::Vector<amrex::MultiFab> > vars_old;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> hOfTheConfusingName;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Hz;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> Huon;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> Hvom;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> ru;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> rv;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Akv;
@@ -283,6 +285,8 @@ public:
                      amrex::MultiFab& mf_Hzk,
                      std::unique_ptr<amrex::MultiFab>& mf_Akv,
                      std::unique_ptr<amrex::MultiFab>& mf_Hz,
+                     std::unique_ptr<amrex::MultiFab>& mf_Huon,
+                     std::unique_ptr<amrex::MultiFab>& mf_Hvom,
                      const int ncomp, const int N,
                      const amrex::Real dt_lev);
 
@@ -391,6 +395,13 @@ public:
                        amrex::Array4<amrex::Real> CF_arr,
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
+
+    void update_massflux_3d (const amrex::Box& bx,
+                       const int ioff, const int joff,
+                       amrex::Array4<amrex::Real> phi_arr,
+                       amrex::Array4<amrex::Real> Hphi_arr,
+                       amrex::Array4<amrex::Real> DC_arr,
+                       const int nnew);
 
     void vert_mean_3d (const amrex::Box& bx,
                        const int ioff, const int joff,

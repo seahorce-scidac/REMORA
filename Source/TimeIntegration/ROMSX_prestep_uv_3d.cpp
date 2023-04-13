@@ -50,27 +50,23 @@ ROMSX::prestep_uv_3d (const Box& bx,
     amrex::ParallelFor(Box(Huon),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        if (k+1<=N) {
             if (i-1>=-2)
             {
                 Huon(i,j,k)=0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k)) * uold(i,j,k,nrhs) * on_u(i,j,0);
             } else {
                 Huon(i,j,k)=(Hz_arr(i,j,k))*uold(i,j,k,nrhs) * on_u(i,j,0);
             }
-        }
     });
 
     amrex::ParallelFor(Box(Hvom),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        if (k+1<=N) {
             if (j-1>=-2)
             {
                 Hvom(i,j,k)=0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k))*vold(i,j,k,nrhs)* om_v(i,j,0);
             } else {
                 Hvom(i,j,k)=(Hz_arr(i,j,k))*vold(i,j,k,nrhs)* om_v(i,j,0);
             }
-        }
     });
 
     //

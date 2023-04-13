@@ -133,6 +133,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& DC = mf_DC.array(mfi);
         Array4<Real> const& Akv_arr = (Akv[lev])->array(mfi);
         Array4<Real> const& Hz_arr  = (Hz[lev])->array(mfi);
+        Array4<Real> const& Huon_arr  = (Huon[lev])->array(mfi);
+        Array4<Real> const& Hvom_arr  = (Hvom[lev])->array(mfi);
         Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
         Array4<Real> const& uold = (U_old).array(mfi);
         Array4<Real> const& vold = (V_old).array(mfi);
@@ -173,8 +175,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena()); //fab_Huon.setVal(0.);
-        FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena()); //fab_Hvom.setVal(0.);
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
@@ -186,8 +186,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
         auto fomn=fab_fomn.array();
-        auto Huon=fab_Huon.array();
-        auto Hvom=fab_Hvom.array();
 
         //From ana_grid.h and metrics.F
         amrex::LoopConcurrentOnCpu(gbx2,
@@ -209,8 +207,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         {
           om_v(i,j,0)=1.0/dxi[0];
           on_u(i,j,0)=1.0/dxi[1];
-          Huon(i,j,k)=0.0;
-          Hvom(i,j,k)=0.0;
+          Huon_arr(i,j,k)=0.0;
+          Hvom_arr(i,j,k)=0.0;
         });
 
         Real lambda = 1.0;
@@ -221,7 +219,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //
         //Test this after advection included in 3d time, consider refactoring to call once per tracer
 #if 0
-        prestep_t_3d(bx, uold, vold, u, v, tempold, saltold, temp, salt, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon, Hvom,
+        prestep_t_3d(bx, uold, vold, u, v, tempold, saltold, temp, salt, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon_arr, Hvom_arr,
                      pm, pn, W, DC, FC, tempstore, FX, FE, z_r_arr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 #endif
@@ -230,7 +228,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // prestep_uv_3d
         //-----------------------------------------------------------------------
         //
-        prestep_uv_3d(bx, uold, vold, u, v, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon, Hvom,
+        prestep_uv_3d(bx, uold, vold, u, v, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon_arr, Hvom_arr,
                           pm, pn, W, DC, FC, z_r_arr, sustr_arr, svstr_arr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 
@@ -248,7 +246,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // rhs_3d
         //-----------------------------------------------------------------------
         //
-        rhs_3d(bx, uold, vold, ru_arr, rv_arr, Huon, Hvom, W, FC, nrhs, N);
+        rhs_3d(bx, uold, vold, ru_arr, rv_arr, Huon_arr, Hvom_arr, W, FC, nrhs, N);
 
     } // MFIter
 
@@ -265,7 +263,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                DV_avg1[lev], DV_avg2[lev],
                ubar[lev],  vbar[lev],
                mf_AK, mf_DC,
-               mf_Hzk, Akv[lev], Hz[lev], ncomp, N, dt_lev);
+               mf_Hzk, Akv[lev], Hz[lev], Huon[lev], Hvom[lev], ncomp, N, dt_lev);
 
     MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     U_new.FillBoundary();

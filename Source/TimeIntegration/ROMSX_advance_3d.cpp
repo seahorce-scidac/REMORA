@@ -23,6 +23,8 @@ ROMSX::advance_3d (int lev,
                    MultiFab& mf_Hzk,
                    std::unique_ptr<MultiFab>& mf_Akv,
                    std::unique_ptr<MultiFab>& mf_Hz,
+                   std::unique_ptr<MultiFab>& mf_Huon,
+                   std::unique_ptr<MultiFab>& mf_Hvom,
                    const int ncomp, const int N, Real dt_lev)
 {
     // Need to include uv3dmix
@@ -59,6 +61,9 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& DU_avg1_arr  = mf_DU_avg1->array(mfi);
         Array4<Real> const& DV_avg1_arr  = mf_DV_avg1->array(mfi);
 
+        Array4<Real> const& Huon = mf_Huon->array(mfi);
+        Array4<Real> const& Hvom = mf_Hvom->array(mfi);
+
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
         //copy the tilebox
@@ -90,12 +95,8 @@ ROMSX::advance_3d (int lev,
 
         FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_Huon(gbx2,1,amrex::The_Async_Arena()); //fab_Huon.setVal(0.);
-        FArrayBox fab_Hvom(gbx2,1,amrex::The_Async_Arena()); //fab_Hvom.setVal(0.);
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
-        auto Huon=fab_Huon.array();
-        auto Hvom=fab_Hvom.array();
 
         auto FC_arr = fab_FC.array();
         auto BC_arr = fab_BC.array();
@@ -157,47 +158,16 @@ ROMSX::advance_3d (int lev,
 
        // NOTE: DC_arr is only used as scratch in vert_visc_3d -- no need to pass or return a value
        vert_visc_3d(ubx,1,0,u,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
+       update_massflux_3d(ubx,1,0,u,Huon,DC_arr,nnew);
        vert_visc_3d(vbx,0,1,v,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akv_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
-
+       update_massflux_3d(vbx,0,1,v,Hvom,DC_arr,nnew);
 #if 0
        amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
           om_v(i,j,0)=1.0/dxi[0];
           on_u(i,j,0)=1.0/dxi[1];
-          Huon(i,j,k)=0.0;
-          Hvom(i,j,k)=0.0;
         });
-    //
-    //-----------------------------------------------------------------------
-    //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
-    //-----------------------------------------------------------------------
-    //
-    amrex::ParallelFor(Box(Huon),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        if (k+1<=N) {
-            if (i-1>=-2)
-            {
-                Huon(i,j,k)=0.5*(Hz_arr(i,j,k)+Hz_arr(i-1,j,k)) * u(i,j,k,nrhs) * on_u(i,j,0);
-            } else {
-                Huon(i,j,k)=(Hz_arr(i,j,k))*u(i,j,k,nrhs) * on_u(i,j,0);
-            }
-        }
-    });
-
-    amrex::ParallelFor(Box(Hvom),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        if (k+1<=N) {
-            if (j-1>=-2)
-            {
-                Hvom(i,j,k)=0.5*(Hz_arr(i,j,k)+Hz_arr(i,j-1,k))*v(i,j,k,nrhs)* om_v(i,j,0);
-            } else {
-                Hvom(i,j,k)=(Hz_arr(i,j,k))*v(i,j,k,nrhs)* om_v(i,j,0);
-            }
-        }
-    });
     //
     //------------------------------------------------------------------------
     //  Vertically integrate horizontal mass flux divergence.
