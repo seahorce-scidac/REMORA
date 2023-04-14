@@ -183,7 +183,7 @@ ROMSX::advance_3d (int lev,
        update_massflux_3d(ubx,1,0,u,Huon,Hz_arr,on_u,DU_avg1_arr,DU_avg2_arr,DC_arr,FC_arr,CF_arr,nnew);
        update_massflux_3d(vbx,0,1,v,Hvom,Hz_arr,om_v,DV_avg1_arr,DV_avg2_arr,DC_arr,FC_arr,CF_arr,nnew);
 
-#if 0
+#if 1
     //
     //------------------------------------------------------------------------
     //  Vertically integrate horizontal mass flux divergence.
@@ -213,11 +213,18 @@ ROMSX::advance_3d (int lev,
        //-----------------------------------------------------------------------
        //
        rhs_t_3d(bx, temp, temp, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
+       Print()<<FArrayBox(temp)<<std::endl;
        rhs_t_3d(bx, salt, salt, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
+       Print()<<FArrayBox(salt)<<std::endl;
 #endif
-
+       Print()<<FArrayBox(temp)<<std::endl;
+       Print()<<FArrayBox(salt)<<std::endl;
        vert_visc_3d(gbx1,0,0,temp,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akt_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
        vert_visc_3d(gbx1,0,0,salt,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akt_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
+       Print()<<FArrayBox(temp)<<std::endl;
+       Print()<<FArrayBox(salt)<<std::endl;
+       if(iic==ntfirst+2&&false)
+	   exit(1);
 
     } // MFiter
 }
