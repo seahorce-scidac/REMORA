@@ -41,7 +41,7 @@ ROMSX::advance_2d (int lev,
     int krhs = (my_iif + iic) % 2 + 1;
     int kstp = my_iif <=1 ? iic % 2 + 1 : (iic % 2 + my_iif % 2 + 1) % 2 + 1;
     int indx1 = krhs;
-    //    Print()<<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<indx1<<std::endl;
+    //    //Print()<<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<indx1<<std::endl;
     knew-=1;
     krhs-=1;
     kstp-=1;

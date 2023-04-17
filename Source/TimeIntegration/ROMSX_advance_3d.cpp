@@ -221,19 +221,19 @@ ROMSX::advance_3d (int lev,
        // rhs_3d
        //-----------------------------------------------------------------------
        //
-       Print()<<FArrayBox(temp)<<std::endl;
+       //Print()<<FArrayBox(temp)<<std::endl;
        rhs_t_3d(bx, tempold, temp, tempstore, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
-       Print()<<FArrayBox(temp)<<std::endl;
-       Print()<<FArrayBox(salt)<<std::endl;
+       //Print()<<FArrayBox(temp)<<std::endl;
+       //Print()<<FArrayBox(salt)<<std::endl;
        rhs_t_3d(bx, saltold, salt, saltstore, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
-       Print()<<FArrayBox(salt)<<std::endl;
+       //Print()<<FArrayBox(salt)<<std::endl;
 #endif
-       Print()<<FArrayBox(temp)<<std::endl;
+       //Print()<<FArrayBox(temp)<<std::endl;
        vert_visc_3d(gbx1,0,0,temp,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akt_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
-       Print()<<FArrayBox(temp)<<std::endl;
-       Print()<<FArrayBox(salt)<<std::endl;
+       //Print()<<FArrayBox(temp)<<std::endl;
+       //Print()<<FArrayBox(salt)<<std::endl;
        vert_visc_3d(gbx1,0,0,salt,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akt_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
-       Print()<<FArrayBox(salt)<<std::endl;
+       //Print()<<FArrayBox(salt)<<std::endl;
        if(iic==ntfirst+2)
 	   exit(1);
 

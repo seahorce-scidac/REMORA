@@ -186,20 +186,20 @@ ROMSX::prestep_t_3d (const Box& bx,
                             (FC(i+1,j)-FC(i,j)+
                              DC(i,j+1)-DC(i,j));*/
     });
-    //    Print()<<cff<<std::endl;
+    //    //Print()<<cff<<std::endl;
     //    exit(1);
-    Print()<<FArrayBox(Hz_arr)<<std::endl;
-    Print()<<FArrayBox(pm_arr)<<std::endl;
-    Print()<<FArrayBox(pn_arr)<<std::endl;
-    Print()<<FArrayBox(Huon)<<std::endl;
-    Print()<<FArrayBox(Hvom)<<std::endl;
-    Print()<<FArrayBox(W)<<std::endl;
-    Print()<<FArrayBox(DC_arr)<<std::endl;
-    Print()<<FArrayBox(uold)<<std::endl;
-    Print()<<FArrayBox(u_arr)<<std::endl;
-    Print()<<FArrayBox(tempold)<<std::endl;
-    Print()<<FArrayBox(tempstore)<<std::endl;
-    Print()<<FArrayBox(temp_arr)<<std::endl;
+    //Print()<<FArrayBox(Hz_arr)<<std::endl;
+    //Print()<<FArrayBox(pm_arr)<<std::endl;
+    //Print()<<FArrayBox(pn_arr)<<std::endl;
+    //Print()<<FArrayBox(Huon)<<std::endl;
+    //Print()<<FArrayBox(Hvom)<<std::endl;
+    //Print()<<FArrayBox(W)<<std::endl;
+    //Print()<<FArrayBox(DC_arr)<<std::endl;
+    //Print()<<FArrayBox(uold)<<std::endl;
+    //Print()<<FArrayBox(u_arr)<<std::endl;
+    //Print()<<FArrayBox(tempold)<<std::endl;
+    //Print()<<FArrayBox(tempstore)<<std::endl;
+    //Print()<<FArrayBox(temp_arr)<<std::endl;
     //    exit(1);
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -214,9 +214,9 @@ ROMSX::prestep_t_3d (const Box& bx,
         tempstore(i,j,k)=DC_arr(i,j,k)*(tempstore(i,j,k)-cff1*cff4);
 	temp_arr(i,j,k)=tempold(i,j,k);
     });
-    Print()<<FArrayBox(tempold)<<std::endl;
-    Print()<<FArrayBox(tempstore)<<std::endl;
-    Print()<<FArrayBox(temp_arr)<<std::endl;
+    //Print()<<FArrayBox(tempold)<<std::endl;
+    //Print()<<FArrayBox(tempstore)<<std::endl;
+    //Print()<<FArrayBox(temp_arr)<<std::endl;
 
     //-----------------------------------------------------------------------
     //  Start computation of tracers at n+1 time-step, t(i,j,k,nnew,itrc).
@@ -225,7 +225,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
     update_vel_3d(gbx1, 0, 0, tempstore, temp_arr, ru_arr, Hz_arr, Akt_arr, DC_arr, FC_arr,
                   stflux_arr, z_r_arr, pm_arr, pn_arr, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
-    Print()<<FArrayBox(tempold)<<std::endl;
-    Print()<<FArrayBox(tempstore)<<std::endl;
-    Print()<<FArrayBox(temp_arr)<<std::endl;
+    //Print()<<FArrayBox(tempold)<<std::endl;
+    //Print()<<FArrayBox(tempstore)<<std::endl;
+    //Print()<<FArrayBox(temp_arr)<<std::endl;
 }
