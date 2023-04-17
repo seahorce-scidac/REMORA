@@ -27,5 +27,8 @@ ROMSX::set_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
                 Hphi(i,j,k)=(Hz(i,j,k))*phi(i,j,k,nrhs)* om_v_or_on_u(i,j,0);
             }
     });
-
+    Print()<<FArrayBox(Hz)<<std::endl;
+    Print()<<FArrayBox(om_v_or_on_u)<<std::endl;
+    Print()<<FArrayBox(phi)<<std::endl;
+    Print()<<FArrayBox(Hphi)<<std::endl;
 }
