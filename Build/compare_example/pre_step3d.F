@@ -611,18 +611,17 @@
             cff1=0.5_r8+Gamma
             cff2=0.5_r8-Gamma
           END IF
-!          DO j=Jstr,Jend
-!            DO i=Istr,Iend
-!              t(i,j,k,3,itrc)=Hz(i,j,k)*(cff1*t(i,j,k,nstp,itrc)+       &
-!     &                                   cff2*t(i,j,k,nnew,itrc))-      &
-!     &                        cff*pm(i,j)*pn(i,j)*                      &
-!     &                        (FX(i+1,j)-FX(i,j)+                       &
-!     &                         FE(i,j+1)-FE(i,j))
-!            END DO
-!          END DO
+          DO j=Jstr,Jend
+            DO i=Istr,Iend
+              t(i,j,k,3,itrc)=Hz(i,j,k)*(cff1*t(i,j,k,nstp,itrc)+       &
+     &                                   cff2*t(i,j,k,nnew,itrc))-      &
+     &                        cff*pm(i,j)*pn(i,j)*                      &
+     &                        (FX(i+1,j)-FX(i,j)+                       &
+     &                         FE(i,j+1)-FE(i,j))
+           END DO
+          END DO
         END DO K_LOOP
       END DO T_LOOP1
-
 #  if defined AGE_MEAN && defined T_PASSIVE
 !
 !  If inert passive tracer and Mean Age, compute age concentration (even
@@ -871,12 +870,27 @@
 ! continuity equation.
 !
           DO k=1,N(ng)
-            DO i=Istr,Iend
+             DO i=Istr,Iend
+                print*,"(",i,",",j,",",k,")",Hz(i,j,k)
+                print*,"(",i,",",j,",",k,")",pm(i,j)
+                print*,"(",i,",",j,",",k,")",pn(i,j)
+                print*,"(",i,",",j,",",k,")",Huon(i,j,k)
+                print*,"(",i,",",j,",",k,")",Hvom(i,j,k)
+                print*,"(",i,",",j,",",k,")",W(i,j,k)
+                print*,"(",i,",",j,",",k,")",DC(i,k)
+                print*,"(",i,",",j,",",k,")",u(i,j,k,nrhs),nrhs
+                print*,"(",i,",",j,",",k,")",u(i,j,k,nnew),nnew
+                print*,"(",i,",",j,",",k,")",t(i,j,k,nstp,itrc),nstp
+                print*,"(",i,",",j,",",k,")",t(i,j,k,3,itrc),3
+                print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc),nnew
               cff1=cff*pm(i,j)*pn(i,j)
-!              t(i,j,k,3,itrc)=DC(i,k)*                                  &
-!     &                        (t(i,j,k,3,itrc)-                         &
-!     &                         cff1*(FC(i,k)-FC(i,k-1)))
-            END DO
+              t(i,j,k,3,itrc)=DC(i,k)*                                  &
+     &                        (t(i,j,k,3,itrc)-                         &
+     &                         cff1*(FC(i,k)-FC(i,k-1)))
+                print*,"(",i,",",j,",",k,")",t(i,j,k,nstp,itrc),nstp
+                print*,"(",i,",",j,",",k,")",t(i,j,k,3,itrc),3
+                print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc),nnew
+             END DO
           END DO
         END DO T_LOOP2
       END DO J_LOOP1

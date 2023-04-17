@@ -960,7 +960,9 @@
                 cff1=cff*(FX(i+1,j)-FX(i,j))
                 cff2=cff*(FE(i,j+1)-FE(i,j))
                 cff3=cff1+cff2
-!                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)-cff3
+                print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc)
+                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)-cff3
+                print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc)
 # ifdef DIAGNOSTICS_TS
                 DiaTwrk(i,j,k,itrc,iTxadv)=-cff1
                 DiaTwrk(i,j,k,itrc,iTyadv)=-cff2
@@ -1276,8 +1278,8 @@
             END IF
           END IF
 # ifdef SED_MORPH
-!  If MPDATA augment the intermediate tracer, Ta, with the
-!  tracer divergence. For other advection schemes the bed change is
+!  If MPDATA augment the intermediate tracer, Ta, with the 
+!  tracer divergence. For other advection schemes the bed change is 
 !  applied after the vertical advection is completed - similar to Lwsrc.
 !  Use 1/N to distribute the bed change in each water column layer.
           cff1=1.0_r8/N(ng)
@@ -1402,9 +1404,9 @@
             DO k=1,N(ng)
               DO i=Istr,Iend
                 cff1=CF(i,0)*(FC(i,k)-FC(i,k-1))
-                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)-cff1
+!                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)-cff1
 # ifdef SPLINES_VDIFF
-                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)*oHz(i,j,k)
+!                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)*oHz(i,j,k)
 # endif
 # ifdef DIAGNOSTICS_TS
                 DiaTwrk(i,j,k,itrc,iTvadv)=-cff1
@@ -1587,7 +1589,7 @@
         DO itrc=1,NT(ng)
           IF (.not.((Hadvection(itrc,ng)%MPDATA).and.                   &
      &              (Vadvection(itrc,ng)%MPDATA))) THEN
-            DO j=Jstr,Jend
+            DO j=Jstr,Jend 
               DO k=1,N(ng)
                 DO i=Istr,Iend
                   cff3=t(i,j,k,3,itrc)
@@ -1763,7 +1765,9 @@
               DO i=Istr,Iend
                 DC(i,k)=DC(i,k)*Akt(i,j,k,ltrc)
                 cff1=dt(ng)*oHz(i,j,k)*(DC(i,k)-DC(i,k-1))
-!                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)+cff1
+                print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc)
+                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)+cff1
+                print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc)
 #  ifdef DIAGNOSTICS_TS
                 DiaTwrk(i,j,k,itrc,iTvdif)=DiaTwrk(i,j,k,itrc,iTvdif)+  &
      &                                     cff1
