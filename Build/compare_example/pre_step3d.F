@@ -613,7 +613,7 @@
           END IF
           DO j=Jstr,Jend
             DO i=Istr,Iend
-              t(i,j,k,3,itrc)=Hz(i,j,k)*(cff1*t(i,j,k,nstp,itrc)+       &
+               t(i,j,k,3,itrc)=Hz(i,j,k)*(cff1*t(i,j,k,nstp,itrc)+       &
      &                                   cff2*t(i,j,k,nnew,itrc))-      &
      &                        cff*pm(i,j)*pn(i,j)*                      &
      &                        (FX(i+1,j)-FX(i,j)+                       &
