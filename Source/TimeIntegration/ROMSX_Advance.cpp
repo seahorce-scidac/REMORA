@@ -24,9 +24,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     V_old.FillBoundary();
     W_old.FillBoundary();
     //    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
-    MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
-    MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
-    MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
+    //    MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
+    //    MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
+    //    MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
     //////////    //pre_step3d corrections to boundaries
 
     auto& lev_old = vars_old[lev];

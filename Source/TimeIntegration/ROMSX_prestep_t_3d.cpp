@@ -189,10 +189,10 @@ ROMSX::prestep_t_3d (const Box& bx,
     //    Print()<<cff<<std::endl;
     //    exit(1);
     Print()<<FArrayBox(Hz_arr)<<std::endl;
-    Print()<<FArrayBox(Huon)<<std::endl;
-    Print()<<FArrayBox(Hvom)<<std::endl;
     Print()<<FArrayBox(pm_arr)<<std::endl;
     Print()<<FArrayBox(pn_arr)<<std::endl;
+    Print()<<FArrayBox(Huon)<<std::endl;
+    Print()<<FArrayBox(Hvom)<<std::endl;
     Print()<<FArrayBox(W)<<std::endl;
     Print()<<FArrayBox(DC_arr)<<std::endl;
     Print()<<FArrayBox(uold)<<std::endl;
