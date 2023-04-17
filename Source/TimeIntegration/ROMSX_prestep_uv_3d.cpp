@@ -42,27 +42,6 @@ ROMSX::prestep_uv_3d (const Box& bx,
     amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
     amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
 
-    //
-    //------------------------------------------------------------------------
-    //  Vertically integrate horizontal mass flux divergence.
-    //------------------------------------------------------------------------
-    //
-    //Should really use gbx3uneven
-    amrex::ParallelFor(gbx2uneven,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
-        if(k==0) {
-            W(i,j,k)=0.0;
-        } else {
-            W(i,j,k) = W(i,j,k-1)- (Huon(i+1,j,k)-Huon(i,j,k)+ Hvom(i,j+1,k)-Hvom(i,j,k));
-        }
-    });
-
     //Need to include pre_step3d.F terms
 
     update_vel_3d(ubx, 1, 0, u_arr, uold, ru_arr, Hz_arr, Akv_arr, DC_arr, FC_arr,

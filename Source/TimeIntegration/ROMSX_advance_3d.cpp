@@ -234,8 +234,8 @@ ROMSX::advance_3d (int lev,
        //Print()<<FArrayBox(salt)<<std::endl;
        vert_visc_3d(gbx1,0,0,salt,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akt_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
        //Print()<<FArrayBox(salt)<<std::endl;
-       if(iic==ntfirst+2)
-	   exit(1);
+       //if(iic==ntfirst+2)
+       //exit(1);
 
     } // MFiter
 }

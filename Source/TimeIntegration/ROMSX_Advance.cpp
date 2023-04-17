@@ -94,6 +94,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     mf_v.FillBoundary();
     mf_w.FillBoundary();
     mf_W.FillBoundary();
+    mf_tempold.FillBoundary();
+    mf_temp.FillBoundary();
+    mf_saltold.FillBoundary();
+    mf_salt.FillBoundary();
 
     mf_rw.setVal(0.0);
     mf_W.setVal(0.0);
@@ -161,6 +165,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                        IntVect(AMREX_D_DECL(bx.bigEnd(0)+2,bx.bigEnd(1)+2,bx.bigEnd(2))));
         Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
                        IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
+        Box ubx = surroundingNodes(bx,0);
+        Box vbx = surroundingNodes(bx,1);
         //make only gbx be grown to match multifabs
         gbx2.grow(IntVect(2,2,0));
         gbx1.grow(IntVect(1,1,0));
@@ -210,8 +216,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           Huon_arr(i,j,k)=0.0;
           Hvom_arr(i,j,k)=0.0;
         });
-        set_massflux_3d(Box(Huon_arr),1,0,uold,Huon_arr,Hz_arr,on_u,nnew);
-        set_massflux_3d(Box(Hvom_arr),0,1,vold,Hvom_arr,Hz_arr,om_v,nnew);
+        set_massflux_3d(ubx,1,0,uold,Huon_arr,Hz_arr,on_u,nnew);
+        set_massflux_3d(vbx,0,1,vold,Hvom_arr,Hz_arr,om_v,nnew);
         Real lambda = 1.0;
         //
         //-----------------------------------------------------------------------
