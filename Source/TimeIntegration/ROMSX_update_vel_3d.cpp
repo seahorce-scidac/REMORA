@@ -97,12 +97,14 @@ ROMSX::update_vel_3d (const Box& vel_bx,
             }
 
             cff3=0.5*DC_arr(i,j,k);
-
+	    if(ioff==0&&joff==0)
+            vel_arr(i,j,k,nnew)=cff1 + cff2;
+	    else {
             indx=nrhs ? 0 : 1;
             Real r_swap= rvel_arr(i,j,k,indx);
             rvel_arr(i,j,k,indx) = rvel_arr(i,j,k,nrhs);
             rvel_arr(i,j,k,nrhs) = r_swap;
-            vel_arr(i,j,k,nnew)=cff1- cff3*rvel_arr(i,j,k,indx)+ cff2;
+            vel_arr(i,j,k,nnew)=cff1- cff3*rvel_arr(i,j,k,indx)+ cff2; }
 
         } else {
 
@@ -120,16 +122,19 @@ ROMSX::update_vel_3d (const Box& vel_bx,
                 cff3=vel_old(i,j,k,nstp)*0.5*(Hz_arr(i,j,k)+Hz_arr(i-ioff,j-joff,k));
                 cff4=FC_arr(i,j,k)-FC_arr(i,j,k-1);
             }
-
+	    if(ioff==0&&joff==0)
+            vel_arr(i,j,k,nnew)=cff3 + cff4;
+	    else {
             indx=nrhs ? 0 : 1;
             Real r_swap= rvel_arr(i,j,k,indx);
             rvel_arr(i,j,k,indx) = rvel_arr(i,j,k,nrhs);
             rvel_arr(i,j,k,nrhs) = r_swap;
+
             vel_arr(i,j,k,nnew)=cff3+
                 DC_arr(i,j,k)*(cff1*rvel_arr(i,j,k,nrhs)-
                            cff2*rvel_arr(i,j,k,indx))+
                 cff4;
-            rvel_arr(i,j,k,nrhs) = 0.0;
+            rvel_arr(i,j,k,nrhs) = 0.0; }
         }
     });
 }

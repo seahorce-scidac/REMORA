@@ -23,7 +23,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     U_old.FillBoundary();
     V_old.FillBoundary();
     W_old.FillBoundary();
-    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
+    //    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
     MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
     MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
     MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
@@ -89,7 +89,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab::Copy(mf_v,V_new,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
-    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(2,2,2)));
+    //    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(2,2,2)));
     mf_u.FillBoundary();
     mf_v.FillBoundary();
     mf_w.FillBoundary();
@@ -144,6 +144,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& saltold = (mf_saltold).array(mfi);
         Array4<Real> const& temp = (mf_temp).array(mfi);
         Array4<Real> const& salt = (mf_salt).array(mfi);
+        Array4<Real> const& tempstore = (t3[lev])->array(mfi);
+        Array4<Real> const& saltstore = (s3[lev])->array(mfi);
         Array4<Real> const& ru_arr = (mf_ru)->array(mfi);
         Array4<Real> const& rv_arr = (mf_rv)->array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
@@ -167,7 +169,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_tempstore(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena());
@@ -180,7 +181,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto FC=fab_FC.array();
         auto FX=fab_FX.array();
         auto FE=fab_FE.array();
-        auto tempstore=fab_tempstore.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto on_u=fab_on_u.array();
@@ -210,7 +210,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           Huon_arr(i,j,k)=0.0;
           Hvom_arr(i,j,k)=0.0;
         });
-
+        set_massflux_3d(Box(Huon_arr),1,0,uold,Huon_arr,Hz_arr,on_u,nnew);
+        set_massflux_3d(Box(Hvom_arr),0,1,vold,Hvom_arr,Hz_arr,om_v,nnew);
         Real lambda = 1.0;
         //
         //-----------------------------------------------------------------------
@@ -218,11 +219,15 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //-----------------------------------------------------------------------
         //
         //Test this after advection included in 3d time, consider refactoring to call once per tracer
-#if 0
+#if 1
         prestep_t_3d(bx, uold, vold, u, v, tempold, saltold, temp, salt, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon_arr, Hvom_arr,
-                     pm, pn, W, DC, FC, tempstore, FX, FE, z_r_arr, iic, ntfirst, nnew, nstp, nrhs, N,
+                     pm, pn, W, DC, FC, tempstore, saltstore, FX, FE, z_r_arr, iic, ntfirst, nnew, nstp, nrhs, N,
+                          lambda, dt_lev);
+        prestep_t_3d(bx, uold, vold, u, v, saltold, saltold, salt, salt, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon_arr, Hvom_arr,
+                     pm, pn, W, DC, FC, saltstore, saltstore, FX, FE, z_r_arr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 #endif
+
         //
         //-----------------------------------------------------------------------
         // prestep_uv_3d
@@ -249,7 +254,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         rhs_3d(bx, uold, vold, ru_arr, rv_arr, Huon_arr, Hvom_arr, W, FC, nrhs, N);
 
     } // MFIter
-
+    /*
+    mf_temp.FillBoundary();
+    mf_salt.FillBoundary();
+    t3[lev]->FillBoundary();
+    s3[lev]->FillBoundary();
+    */
     advance_2d(lev, mf_u, mf_v, ru[lev], rv[lev],
                Zt_avg1[lev],
                DU_avg1[lev], DU_avg2[lev],
@@ -258,7 +268,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                 ubar[lev],  vbar[lev],  zeta[lev],
                hOfTheConfusingName[lev], ncomp, dt_lev);
 
-    advance_3d(lev, mf_u, mf_v, mf_temp, mf_salt, ru[lev], rv[lev],
+    advance_3d(lev, mf_u, mf_v, mf_tempold, mf_saltold, mf_temp, mf_salt, t3[lev], s3[lev], ru[lev], rv[lev],
                DU_avg1[lev], DU_avg2[lev],
                DV_avg1[lev], DV_avg2[lev],
                ubar[lev],  vbar[lev],

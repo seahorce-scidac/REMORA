@@ -249,6 +249,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> ubar;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vbar;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> zeta;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> t3;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> s3;
 
     // advance a single level for a single time step
     void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
@@ -272,7 +274,10 @@ public:
                      const int ncomp, const amrex::Real dt_lev);
     void advance_3d (int lev,
                      amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,
+                     amrex::MultiFab& mf_tempold  , amrex::MultiFab& mf_saltold ,
                      amrex::MultiFab& mf_temp  , amrex::MultiFab& mf_salt ,
+                     std::unique_ptr<amrex::MultiFab>& mf_tempstore,
+                     std::unique_ptr<amrex::MultiFab>& mf_saltstore,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
                      std::unique_ptr<amrex::MultiFab>& mf_rv,
                      std::unique_ptr<amrex::MultiFab>& mf_DU_avg1,
@@ -313,6 +318,7 @@ public:
                         amrex::Array4<amrex::Real> DC,
                         amrex::Array4<amrex::Real> FC,
                         amrex::Array4<amrex::Real> tempstore,
+                        amrex::Array4<amrex::Real> saltstore,
                         amrex::Array4<amrex::Real> FE,
                         amrex::Array4<amrex::Real> FX,
                         amrex::Array4<amrex::Real> z_r_arr,
@@ -357,6 +363,7 @@ public:
     void rhs_t_3d (const amrex::Box& bx,
                    amrex::Array4<amrex::Real> told,
                    amrex::Array4<amrex::Real> t,
+                   amrex::Array4<amrex::Real> tempstore,
                    amrex::Array4<amrex::Real> Huon,
                    amrex::Array4<amrex::Real> Hvom,
                    amrex::Array4<amrex::Real> pn,
@@ -395,6 +402,14 @@ public:
                        amrex::Array4<amrex::Real> CF_arr,
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
+
+    void set_massflux_3d (const amrex::Box& bx,
+                       const int ioff, const int joff,
+                       amrex::Array4<amrex::Real> phi_arr,
+                       amrex::Array4<amrex::Real> Hphi_arr,
+                       amrex::Array4<amrex::Real> Hz_arr,
+                       amrex::Array4<amrex::Real> on_u_or_om_v_arr,
+                       const int nnew);
 
     void update_massflux_3d (const amrex::Box& bx,
                        const int ioff, const int joff,

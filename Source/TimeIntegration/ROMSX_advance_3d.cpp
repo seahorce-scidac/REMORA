@@ -10,7 +10,10 @@ using namespace amrex;
 void
 ROMSX::advance_3d (int lev,
                    MultiFab& mf_u , MultiFab& mf_v ,
+                   MultiFab& mf_tempold , MultiFab& mf_saltold ,
                    MultiFab& mf_temp , MultiFab& mf_salt ,
+                   std::unique_ptr<MultiFab>& mf_tempstore,
+                   std::unique_ptr<MultiFab>& mf_saltstore,
                    std::unique_ptr<MultiFab>& mf_ru,
                    std::unique_ptr<MultiFab>& mf_rv,
                    std::unique_ptr<MultiFab>& mf_DU_avg1,
@@ -45,8 +48,14 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& u = mf_u.array(mfi);
         Array4<Real> const& v = mf_v.array(mfi);
 
+        Array4<Real> const& tempold = (mf_tempold).array(mfi);
+        Array4<Real> const& saltold = (mf_saltold).array(mfi);
+
         Array4<Real> const& temp = (mf_temp).array(mfi);
         Array4<Real> const& salt = (mf_salt).array(mfi);
+
+        Array4<Real> const& tempstore = mf_tempstore->array(mfi);
+        Array4<Real> const& saltstore = mf_saltstore->array(mfi);
 
         Array4<Real> const& ru_arr = mf_ru->array(mfi);
         Array4<Real> const& rv_arr = mf_rv->array(mfi);
@@ -212,9 +221,9 @@ ROMSX::advance_3d (int lev,
        // rhs_3d
        //-----------------------------------------------------------------------
        //
-       rhs_t_3d(bx, temp, temp, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
+       rhs_t_3d(bx, tempold, temp, tempstore, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
        Print()<<FArrayBox(temp)<<std::endl;
-       rhs_t_3d(bx, salt, salt, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
+       rhs_t_3d(bx, saltold, salt, saltstore, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
        Print()<<FArrayBox(salt)<<std::endl;
 #endif
        Print()<<FArrayBox(temp)<<std::endl;
@@ -223,7 +232,7 @@ ROMSX::advance_3d (int lev,
        vert_visc_3d(gbx1,0,0,salt,Hz_arr,Hzk_arr,oHz_arr,AK_arr,Akt_arr,BC_arr,DC_arr,FC_arr,CF_arr,nnew,N,dt_lev);
        Print()<<FArrayBox(temp)<<std::endl;
        Print()<<FArrayBox(salt)<<std::endl;
-       if(iic==ntfirst+2&&false)
+       if(iic==ntfirst+2)
 	   exit(1);
 
     } // MFiter

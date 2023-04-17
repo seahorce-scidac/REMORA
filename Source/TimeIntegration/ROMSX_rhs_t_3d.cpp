@@ -9,7 +9,7 @@ using namespace amrex;
 
 void
 ROMSX::rhs_t_3d (const Box& bx,
-                 Array4<Real> told  , Array4<Real> t,
+                 Array4<Real> told  , Array4<Real> t, Array4<Real> tempstore,
                  Array4<Real> Huon, Array4<Real> Hvom,
                  Array4<Real> pn, Array4<Real> pm,
                  Array4<Real> W   , Array4<Real> FC_arr,
@@ -72,7 +72,7 @@ ROMSX::rhs_t_3d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
-        FX(i,j,k)=told(i,j,k,nrhs)-told(i-1,j,k,nrhs);
+        FX(i,j,k)=tempstore(i,j,k,nrhs)-tempstore(i-1,j,k,nrhs);
     });
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -92,10 +92,10 @@ ROMSX::rhs_t_3d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
 #if 1
-        FX(i,j,k)=Huon(i,j,k)*0.5*(told(i,j,k)+told(i-1,j,k))+
+        FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
                   cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
 #else
-        FX(i,j,k)=Huon(i,j,k)*0.5*(told(i,j,k)+told(i-1,j,k))+
+        FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
                   cffb*(grad(i,j,k)+ grad(i-1,j,k));
 #endif
     });
@@ -104,7 +104,7 @@ ROMSX::rhs_t_3d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
-        FE(i,j,k)=told(i,j,k,nrhs)-told(i,j-1,k,nrhs);
+        FE(i,j,k)=tempstore(i,j,k,nrhs)-tempstore(i,j-1,k,nrhs);
     });
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -124,10 +124,10 @@ ROMSX::rhs_t_3d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
 #if 1
-        FE(i,j,k)=Hvom(i,j,k)*0.5*(told(i,j,k)+told(i,j-1,k))+
+        FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
                   cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
 #else
-        FE(i,j,k)=Hvom(i,j,k)*0.5*(told(i,j,k)+told(i,j-1,k))+
+        FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
                   cffb*(grad(i,j,k)+ grad(i,j-1,k));
 #endif
     });
@@ -144,44 +144,5 @@ ROMSX::rhs_t_3d (const Box& bx,
               Real cff3=cff1+cff2;
 
               t(i,j,k,nnew) -= cff3;
-#if 0
-              //-----------------------------------------------------------------------
-              //  Add in vertical advection.
-              //-----------------------------------------------------------------------
-              cff1=9.0/16.0;
-              cff2=1.0/16.0;
-              //              if(i>=0)
-              if (k>=1 && k<=N-2)
-              {
-                      FC_arr(i,j,k)=( cff1*(told(i  ,j,k  ,nrhs)+ told(i,j,k+1,nrhs))
-                                     -cff2*(told(i  ,j,k-1,nrhs)+ told(i,j,k+2,nrhs)) )*
-                                    ( cff1*(   W(i  ,j,k)+ W(i-1,j,k))
-                                     -cff2*(   W(i+1,j,k)+ W(i-2,j,k)) );
-              }
-              else // this needs to be split up so that the following can be concurrent
-              {
-                  FC_arr(i,j,N)=0.0;
-
-                  FC_arr(i,j,N-1)=( cff1*(told(i  ,j,N-1,nrhs)+ told(i,j,N  ,nrhs))
-                                   -cff2*(told(i  ,j,N-2,nrhs)+ told(i,j,N  ,nrhs)) )*
-                                  ( cff1*(   W(i  ,j,N-1)+ W(i-1,j,N-1))
-                                   -cff2*(   W(i+1,j,N-1)+ W(i-2,j,N-1)) );
-
-                  FC_arr(i,j,0)=( cff1*(told(i  ,j,1,nrhs)+ told(i,j,2,nrhs))
-                                 -cff2*(told(i  ,j,1,nrhs)+ told(i,j,3,nrhs)) )*
-                                ( cff1*(   W(i  ,j,1)+ W(i-1,j,1))
-                                 -cff2*(   W(i+1,j,1)+ W(i-2,j,1)) );
-
-                  //              FC_arr(i,0,-1)=0.0;
-              }
-
-              if(k-1>=0) {
-                  cff=FC_arr(i,j,k)-FC_arr(i,j,k-1);
-              } else {
-                  cff=FC_arr(i,j,k);
-              }
-
-              ru_arr(i,j,k,nrhs) -= cff;
-#endif
     });
 }
