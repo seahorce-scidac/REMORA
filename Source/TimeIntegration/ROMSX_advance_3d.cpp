@@ -221,10 +221,18 @@ ROMSX::advance_3d (int lev,
        // rhs_3d
        //-----------------------------------------------------------------------
        //
-       //Print()<<FArrayBox(temp)<<std::endl;
+    /*
+       Print()<<FArrayBox(tempold)<<std::endl;
+       Print()<<FArrayBox(temp)<<std::endl;
+       Print()<<FArrayBox(tempstore)<<std::endl;
+    */
        rhs_t_3d(bx, tempold, temp, tempstore, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
-       //Print()<<FArrayBox(temp)<<std::endl;
-       //Print()<<FArrayBox(salt)<<std::endl;
+       /*
+Print()<<FArrayBox(tempold)<<std::endl;
+       Print()<<FArrayBox(temp)<<std::endl;
+       Print()<<FArrayBox(tempstore)<<std::endl;
+       Print()<<FArrayBox(salt)<<std::endl;
+       */
        rhs_t_3d(bx, saltold, salt, saltstore, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
        //Print()<<FArrayBox(salt)<<std::endl;
 #endif

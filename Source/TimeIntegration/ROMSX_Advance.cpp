@@ -261,12 +261,13 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         rhs_3d(bx, uold, vold, ru_arr, rv_arr, Huon_arr, Hvom_arr, W, FC, nrhs, N);
 
     } // MFIter
-    /*
     mf_temp.FillBoundary();
     mf_salt.FillBoundary();
+    mf_tempold.FillBoundary();
+    mf_saltold.FillBoundary();
     t3[lev]->FillBoundary();
     s3[lev]->FillBoundary();
-    */
+
     advance_2d(lev, mf_u, mf_v, ru[lev], rv[lev],
                Zt_avg1[lev],
                DU_avg1[lev], DU_avg2[lev],
@@ -288,6 +289,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab::Copy(V_new,mf_v,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     V_new.FillBoundary();
 
+    mf_temp.FillBoundary();
+    mf_salt.FillBoundary();
+    mf_tempold.FillBoundary();
+    mf_saltold.FillBoundary();
+    t3[lev]->FillBoundary();
+    s3[lev]->FillBoundary();
     //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     //    W_new.FillBoundary();
     //    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());

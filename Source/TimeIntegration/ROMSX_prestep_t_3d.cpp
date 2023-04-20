@@ -226,6 +226,17 @@ ROMSX::prestep_t_3d (const Box& bx,
     } else {
         cff=(1-GammaT)*dt_lev;
         }*/
+/*
+    Print()<<"boxes gbx1 dc hz pm pn huon hvom w"<<std::endl;
+    Print()<<gbx1<<std::endl;
+    Print()<<Box(DC_arr)<<std::endl;
+    Print()<<Box(Hz_arr)<<std::endl;
+    Print()<<Box(pm_arr)<<std::endl;
+    Print()<<Box(pn_arr)<<std::endl;
+    Print()<<Box(Huon)<<std::endl;
+    Print()<<Box(Hvom)<<std::endl;
+    Print()<<Box(W)<<std::endl;
+*/
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -276,7 +287,7 @@ ROMSX::prestep_t_3d (const Box& bx,
             cff4=FC_arr(i,j,k);
         }
         tempstore(i,j,k)=DC_arr(i,j,k)*(tempstore(i,j,k)-cff1*cff4);
-	temp_arr(i,j,k)=tempold(i,j,k);
+	//	temp_arr(i,j,k)=tempold(i,j,k);
     });
 
     //-----------------------------------------------------------------------
