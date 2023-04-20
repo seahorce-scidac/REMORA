@@ -121,14 +121,19 @@ ROMSX::prestep_t_3d (const Box& bx,
 
     //Use FC and DC as intermediate arrays for FX and FE
     //First pass do centered 2d terms
-    amrex::ParallelFor(ubx,
+    Print()<<(Box(Huon))<<std::endl;
+    Print()<<Box(ubx)<<std::endl;
+    Print()<<Box(FX_arr)<<std::endl;
+    Print()<<(Box(tempold))<<std::endl;
+
+    amrex::ParallelFor(Box(FX_arr),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FX_arr(i,j,k)=Huon(i,j,k)*
                     0.5*(tempold(i-1,j,k)+
                          tempold(i  ,j,k));
     });
-    amrex::ParallelFor(vbx,
+    amrex::ParallelFor(Box(FE_arr),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FE_arr(i,j,k)=Hvom(i,j,k)*
@@ -171,6 +176,7 @@ ROMSX::prestep_t_3d (const Box& bx,
                             (FC(i+1,j)-FC(i,j)+
                              DC(i,j+1)-DC(i,j));*/
     });
+
     //
     // Time-step vertical advection of tracers (Tunits). Impose artificial
     // continuity equation.
@@ -272,9 +278,6 @@ ROMSX::prestep_t_3d (const Box& bx,
         tempstore(i,j,k)=DC_arr(i,j,k)*(tempstore(i,j,k)-cff1*cff4);
 	temp_arr(i,j,k)=tempold(i,j,k);
     });
-    //Print()<<FArrayBox(tempold)<<std::endl;
-    //Print()<<FArrayBox(tempstore)<<std::endl;
-    //Print()<<FArrayBox(temp_arr)<<std::endl;
 
     //-----------------------------------------------------------------------
     //  Start computation of tracers at n+1 time-step, t(i,j,k,nnew,itrc).
