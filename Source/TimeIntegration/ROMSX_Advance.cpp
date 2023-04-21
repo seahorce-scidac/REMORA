@@ -105,7 +105,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     int iic = istep[lev];
     int ntfirst = 0;
-    if(iic==ntfirst)
+    if(iic==ntfirst&&false)
         MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(2,2,2)));
     set_smflux(lev,time);
     /*
@@ -267,6 +267,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     mf_saltold.FillBoundary();
     t3[lev]->FillBoundary();
     s3[lev]->FillBoundary();
+    Huon[lev]->FillBoundary();
+    Hvom[lev]->FillBoundary();
 
     advance_2d(lev, mf_u, mf_v, ru[lev], rv[lev],
                Zt_avg1[lev],

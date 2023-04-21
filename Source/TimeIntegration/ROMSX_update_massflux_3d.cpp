@@ -46,8 +46,8 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
         }
         //Vertical mean correction on boundary points
 #if 0
-        if(i<0||j<0||i=>Mn+1||j=>Mm+1)
-            phi_arr(i,j,k) -= CF(i,j,-1);
+        if((i<0)||(j<0)||(i>=Mn+1)||(j>=Mm+1))
+            phi(i,j,k) -= CF(i,j,-1);
 #endif
         Hphi(i,j,k) = 0.5 * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
         FC(i,j,0) = FC(i,j,0)+Hphi(i,j,k); //recursive

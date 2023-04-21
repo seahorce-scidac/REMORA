@@ -449,7 +449,7 @@
 !
       T_LOOP1 : DO itrc=1,NT(ng)
 !
-!  The MPDATA and HSIMT algorithms requires a three-point footprint, so
+!  The MPDATA and HSIMT algorithms requires a three-point foot!!print*, so
 !  exchange boundary data on t(:,:,:,nnew,:) so other processes computed
 !  earlier (horizontal diffusion, biology, or sediment) are accounted.
 !
@@ -960,9 +960,9 @@
                 cff1=cff*(FX(i+1,j)-FX(i,j))
                 cff2=cff*(FE(i,j+1)-FE(i,j))
                 cff3=cff1+cff2
-                print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc)
-                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)-cff3
-                print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc)
+      !print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc),nnew,"adv"
+!                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)-cff3
+      !print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc),nnew,"adv"
 # ifdef DIAGNOSTICS_TS
                 DiaTwrk(i,j,k,itrc,iTxadv)=-cff1
                 DiaTwrk(i,j,k,itrc,iTyadv)=-cff2
@@ -1765,9 +1765,9 @@
               DO i=Istr,Iend
                 DC(i,k)=DC(i,k)*Akt(i,j,k,ltrc)
                 cff1=dt(ng)*oHz(i,j,k)*(DC(i,k)-DC(i,k-1))
-                print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc)
+                !print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc),nnew,"vert"
                 t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)+cff1
-                print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc)
+                !print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc),nnew,"vert"
 #  ifdef DIAGNOSTICS_TS
                 DiaTwrk(i,j,k,itrc,iTvdif)=DiaTwrk(i,j,k,itrc,iTvdif)+  &
      &                                     cff1

@@ -91,6 +91,8 @@ ROMSX::advance_3d (int lev,
 
         Box ubx = surroundingNodes(bx,0);
         Box vbx = surroundingNodes(bx,1);
+	Box ubx2 = surroundingNodes(ubx,0);
+        Box vbx2 = surroundingNodes(vbx,1);
         amrex::Print() << " BX " <<  bx << std::endl;
         amrex::Print() << "UBX " << ubx << std::endl;
         amrex::Print() << "VBX " << vbx << std::endl;
@@ -118,7 +120,7 @@ ROMSX::advance_3d (int lev,
         auto pm=fab_pm.array();
         auto fomn=fab_fomn.array();
         auto Akt_arr= fab_Akt.array();
-        auto W_arr= fab_W.array();
+        auto W= fab_W.array();
         //From ini_fields and .in file
         //fab_Akt.setVal(1e-6);
         //From ana_grid.h and metrics.F
@@ -192,16 +194,27 @@ ROMSX::advance_3d (int lev,
        update_massflux_3d(ubx,1,0,u,Huon,Hz_arr,on_u,DU_avg1_arr,DU_avg2_arr,DC_arr,FC_arr,CF_arr,nnew);
        update_massflux_3d(vbx,0,1,v,Hvom,Hz_arr,om_v,DV_avg1_arr,DV_avg2_arr,DC_arr,FC_arr,CF_arr,nnew);
 
-#if 1
+#if 0
     //
     //------------------------------------------------------------------------
     //  Vertically integrate horizontal mass flux divergence.
     //------------------------------------------------------------------------
     //
     //Should really use gbx3uneven
-    Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
-                   IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
-    amrex::ParallelFor(gbx2uneven,
+    amrex::ParallelFor(Box(W),
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //  Starting with zero vertical velocity at the bottom, integrate
+        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
+        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
+        //  Notice that barotropic mass flux divergence is not used directly.
+        //
+        W(i,j,k)=0.0;
+    });
+    /*    Print()<<FArrayBox(W)<<std::endl;
+    Print()<<FArrayBox(Hvom)<<std::endl;
+    Print()<<FArrayBox(Huon)<<std::endl;*/
+    amrex::ParallelFor(ubx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //  Starting with zero vertical velocity at the bottom, integrate
@@ -210,12 +223,49 @@ ROMSX::advance_3d (int lev,
         //  Notice that barotropic mass flux divergence is not used directly.
         //
         if(k==0) {
-            W_arr(i,j,k)=0.0;
+            W(i,j,k)=0.0;
         } else {
-            W_arr(i,j,k) = W_arr(i,j,k-1)- (Huon(i+1,j,k)-Huon(i,j,k)+ Hvom(i,j+1,k)-Hvom(i,j,k));
+            W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k));
         }
     });
-
+    /*    Print()<<FArrayBox(W)<<std::endl;
+    Print()<<FArrayBox(Hvom)<<std::endl;
+    Print()<<FArrayBox(Huon)<<std::endl;*/
+    amrex::ParallelFor(vbx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //  Starting with zero vertical velocity at the bottom, integrate
+        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
+        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
+        //  Notice that barotropic mass flux divergence is not used directly.
+        //
+        if(k==0) {
+            W(i,j,k)=0.0;
+        } else {
+            W(i,j,k) = W(i,j,k)- (Hvom(i,j+1,k)-Hvom(i,j,k));
+        }
+    });
+    /*    Print()<<FArrayBox(W)<<std::endl;
+    Print()<<FArrayBox(Hvom)<<std::endl;
+    Print()<<FArrayBox(Huon)<<std::endl;*/
+    amrex::ParallelFor(Box(W),
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //  Starting with zero vertical velocity at the bottom, integrate
+        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
+        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
+        //  Notice that barotropic mass flux divergence is not used directly.
+        //
+        if(k==0) {
+            W(i,j,k)=W(i,j,k);
+        } else {
+            W(i,j,k) = W(i,j,k) + W(i,j,k-1);
+        }
+    });
+    /*    Print()<<FArrayBox(W)<<std::endl;
+    Print()<<FArrayBox(Hvom)<<std::endl;
+    Print()<<FArrayBox(Huon)<<std::endl;
+    exit(1);*/
        //
        //-----------------------------------------------------------------------
        // rhs_3d
@@ -226,14 +276,14 @@ ROMSX::advance_3d (int lev,
        Print()<<FArrayBox(temp)<<std::endl;
        Print()<<FArrayBox(tempstore)<<std::endl;
     */
-       rhs_t_3d(bx, tempold, temp, tempstore, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
+       rhs_t_3d(bx, tempold, temp, tempstore, Huon, Hvom, pn, pm, W, FC_arr, nrhs, nnew, N,dt_lev);
        /*
 Print()<<FArrayBox(tempold)<<std::endl;
        Print()<<FArrayBox(temp)<<std::endl;
        Print()<<FArrayBox(tempstore)<<std::endl;
        Print()<<FArrayBox(salt)<<std::endl;
        */
-       rhs_t_3d(bx, saltold, salt, saltstore, Huon, Hvom, pn, pm, W_arr, FC_arr, nrhs, nnew, N,dt_lev);
+       rhs_t_3d(bx, saltold, salt, saltstore, Huon, Hvom, pn, pm, W, FC_arr, nrhs, nnew, N,dt_lev);
        //Print()<<FArrayBox(salt)<<std::endl;
 #endif
        //Print()<<FArrayBox(temp)<<std::endl;
