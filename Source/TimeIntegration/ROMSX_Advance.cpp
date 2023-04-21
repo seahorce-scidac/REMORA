@@ -217,8 +217,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           Huon_arr(i,j,k)=0.0;
           Hvom_arr(i,j,k)=0.0;
         });
-        set_massflux_3d(ubx,1,0,uold,Huon_arr,Hz_arr,on_u,nnew);
-        set_massflux_3d(vbx,0,1,vold,Hvom_arr,Hz_arr,om_v,nnew);
+        set_massflux_3d(Box(Huon_arr),1,0,uold,Huon_arr,Hz_arr,on_u,nnew);
+        set_massflux_3d(Box(Hvom_arr),0,1,vold,Hvom_arr,Hz_arr,om_v,nnew);
         Real lambda = 1.0;
         //
         //-----------------------------------------------------------------------
