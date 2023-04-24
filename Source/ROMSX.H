@@ -230,6 +230,7 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> ru;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> rv;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> Akv;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> visc3d_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> x_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> y_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_r;
@@ -439,6 +440,18 @@ public:
                        amrex::Array4<amrex::Real> dxlen_arr,
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
+    void uv3dmix  (const amrex::Box& bx,
+                 amrex::Array4<amrex::Real> u,
+                 amrex::Array4<amrex::Real> v,
+                 amrex::Array4<amrex::Real> rufrc,
+                 amrex::Array4<amrex::Real> rvfrc,
+                 amrex::Array4<amrex::Real> visc3d_r,
+                 amrex::Array4<amrex::Real> Hz,
+                 amrex::Array4<amrex::Real> on_r,
+                 amrex::Array4<amrex::Real> om_r,
+                 amrex::Array4<amrex::Real> pn,
+                 amrex::Array4<amrex::Real> pm,
+                 int nrhs, int nnew);
 #ifdef UV_COR
     void coriolis (const amrex::Box& bx,
                    amrex::Array4<amrex::Real> uold,
