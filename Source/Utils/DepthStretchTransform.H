@@ -12,8 +12,8 @@ ROMSX::set_2darrays (int lev)
 {
     auto& lev_new = vars_new[lev];
     auto& lev_old = vars_old[lev];
-    std::unique_ptr<MultiFab>& mf_x_r = x_r[lev];
-    std::unique_ptr<MultiFab>& mf_y_r = y_r[lev];
+    std::unique_ptr<MultiFab>& mf_x_r = vec_x_r[lev];
+    std::unique_ptr<MultiFab>& mf_y_r = vec_y_r[lev];
 
     for ( MFIter mfi(*(mf_x_r), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -42,9 +42,9 @@ ROMSX::set_2darrays (int lev)
     MultiFab& U_old = vars_new[lev][Vars::xvel];
     MultiFab& V_old = vars_new[lev][Vars::yvel];
     MultiFab& W_old = vars_new[lev][Vars::zvel];
-    std::unique_ptr<MultiFab>& mf_ubar = ubar[lev];
-    std::unique_ptr<MultiFab>& mf_vbar = vbar[lev];
-    std::unique_ptr<MultiFab>& mf_Hz  = Hz[lev];
+    std::unique_ptr<MultiFab>& mf_ubar = vec_ubar[lev];
+    std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
+    std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     int nstp = 0;
     int kstp = 1;
     int knew = 0;
@@ -126,8 +126,8 @@ void ROMSX::set_vmix (int lev)
 {
     auto& lev_new = vars_new[lev];
     auto& lev_old = vars_old[lev];
-    std::unique_ptr<MultiFab>& mf_Akv = Akv[lev];
-    std::unique_ptr<MultiFab>& mf_z_w = z_w[lev];
+    std::unique_ptr<MultiFab>& mf_Akv = vec_Akv[lev];
+    std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
 
     for ( MFIter mfi(*(mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -151,8 +151,8 @@ void ROMSX::set_vmix (int lev)
 void
 ROMSX::set_smflux(int lev, Real time)
 {
-    std::unique_ptr<MultiFab>& mf_sustr = sustr[lev];
-    std::unique_ptr<MultiFab>& mf_svstr = svstr[lev];
+    std::unique_ptr<MultiFab>& mf_sustr = vec_sustr[lev];
+    std::unique_ptr<MultiFab>& mf_svstr = vec_svstr[lev];
     auto geomdata = Geom(lev).data();
     bool NSPeriodic = geomdata.isPeriodic(1);
     bool EWPeriodic = geomdata.isPeriodic(0);
@@ -191,16 +191,16 @@ ROMSX::set_depth (int lev)
 {
     auto& lev_new = vars_new[lev];
     auto& lev_old = vars_old[lev];
-    std::unique_ptr<MultiFab>& mf_z_w = z_w[lev];
-    std::unique_ptr<MultiFab>& mf_z_r = z_r[lev];
-    std::unique_ptr<MultiFab>& mf_s_r = s_r[lev];
-    std::unique_ptr<MultiFab>& mf_Hz  = Hz[lev];
-    std::unique_ptr<MultiFab>& mf_h  = hOfTheConfusingName[lev];
+    std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
+    std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
+    std::unique_ptr<MultiFab>& mf_s_r = vec_s_r[lev];
+    std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
+    std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
     Real depth = geom[lev].ProbHi(2);
     // const int Lm = Geom(lev).Domain().size()[0];
     // const int Mm = Geom(lev).Domain().size()[1];
-    std::unique_ptr<MultiFab>& mf_Zt_avg1  = Zt_avg1[lev];
+    std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     mf_Zt_avg1->setVal(0.0);
 
     for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -387,12 +387,12 @@ ROMSX::set_depth (int lev)
       });
     } // mf
 
-    z_w[lev]->FillBoundary(geom[lev].periodicity());
-    z_r[lev]->FillBoundary(geom[lev].periodicity());
-    s_r[lev]->FillBoundary(geom[lev].periodicity());
-    Hz[lev]->FillBoundary(geom[lev].periodicity());
-    hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
-    Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
+    vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
+    vec_z_r[lev]->FillBoundary(geom[lev].periodicity());
+    vec_s_r[lev]->FillBoundary(geom[lev].periodicity());
+    vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
+    vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+    vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
 
 }
 

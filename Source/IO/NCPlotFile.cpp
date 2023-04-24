@@ -288,7 +288,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
        if (subdomain.contains(box)||true) {
            long unsigned numpts = box.numPts();
            auto array_version = plotMF[lev]->array(fai);
-           auto x_r_arr = x_r[lev]->array(fai);
+           auto x_r_arr = vec_x_r[lev]->array(fai);
 
            #ifdef ROMSX_USE_HISTORYFILE
            int num_var_dims=AMREX_SPACEDIM+1;
@@ -317,37 +317,37 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
               nc_plot_var.put(data, startp, countp);
           }
           {
-          auto data = x_r[lev]->get(fai).dataPtr();
+          auto data = vec_x_r[lev]->get(fai).dataPtr();
           auto nc_plot_var = ncf.var(x_r_name);
           nc_plot_var.par_access(NC_COLLECTIVE);
           nc_plot_var.put(data, {(unsigned long) box.smallEnd(1)+indexOffset,(unsigned long) box.smallEnd(0)+indexOffset}, {(unsigned long) box.length(1), (unsigned long) box.length(0)});
           }
           {
-          auto data = y_r[lev]->get(fai).dataPtr();
+          auto data = vec_y_r[lev]->get(fai).dataPtr();
           auto nc_plot_var = ncf.var(y_r_name);
           nc_plot_var.par_access(NC_COLLECTIVE);
           nc_plot_var.put(data, {(unsigned long) box.smallEnd(1)+indexOffset,(unsigned long) box.smallEnd(0)+indexOffset}, {(unsigned long) box.length(1), (unsigned long) box.length(0)});
           }
           {
-          auto data = z_r[lev]->get(fai).dataPtr();
+          auto data = vec_z_r[lev]->get(fai).dataPtr();
           auto nc_plot_var = ncf.var(z_r_name);
           nc_plot_var.par_access(NC_COLLECTIVE);
           nc_plot_var.put(data, {(unsigned long) box.smallEnd(2), (unsigned long) box.smallEnd(1)+indexOffset,(unsigned long) box.smallEnd(0)+indexOffset}, {(unsigned long) box.length(2), (unsigned long) box.length(1), (unsigned long) box.length(0)});
           }
           {
-          auto data = z_w[lev]->get(fai).dataPtr();
+          auto data = vec_z_w[lev]->get(fai).dataPtr();
           auto nc_plot_var = ncf.var(z_w_name);
           nc_plot_var.par_access(NC_COLLECTIVE);
           nc_plot_var.put(data, {(unsigned long) box.smallEnd(2), (unsigned long) box.smallEnd(1)+indexOffset,(unsigned long) box.smallEnd(0)+indexOffset}, {(unsigned long) box.length(2), (unsigned long) box.length(1), (unsigned long) box.length(0)});
           }
           {
-          auto data = s_r[lev]->get(fai).dataPtr();
+          auto data = vec_s_r[lev]->get(fai).dataPtr();
           auto nc_plot_var = ncf.var(s_r_name);
           nc_plot_var.par_access(NC_COLLECTIVE);
           nc_plot_var.put(data, {(unsigned long) box.smallEnd(2)}, {(unsigned long) box.length(2)});
           }
-          auto z_r_arr = z_r[lev]->array(fai);
-          auto z_w_arr = z_w[lev]->array(fai);
+          auto z_r_arr = vec_z_r[lev]->array(fai);
+          auto z_w_arr = vec_z_w[lev]->array(fai);
           const auto & geomdata = geom[lev].data();
           x_grid.clear(); y_grid.clear(); z_r_grid.clear(); z_w_grid.clear();
           x_grid.resize((unsigned long) box.length(0));

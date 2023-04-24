@@ -55,15 +55,15 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab mf_AK(ba,dm,1,IntVect(2,2,0)); //2d missing j coordinate
     MultiFab mf_DC(ba,dm,1,IntVect(2,2,1)); //2d missing j coordinate
     MultiFab mf_Hzk(ba,dm,1,IntVect(2,2,1)); //2d missing j coordinate
-    std::unique_ptr<MultiFab>& mf_z_r = z_r[lev];
+    std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     //Consider passing these into the advance function or renaming relevant things
     MultiFab mf_u(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_v(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_w(ba,dm,1,IntVect(2,2,0));
-    std::unique_ptr<MultiFab>& mf_ru = ru[lev];
-    std::unique_ptr<MultiFab>& mf_rv = rv[lev];
-    std::unique_ptr<MultiFab>& mf_sustr = sustr[lev];
-    std::unique_ptr<MultiFab>& mf_svstr = svstr[lev];
+    std::unique_ptr<MultiFab>& mf_ru = vec_ru[lev];
+    std::unique_ptr<MultiFab>& mf_rv = vec_rv[lev];
+    std::unique_ptr<MultiFab>& mf_sustr = vec_sustr[lev];
+    std::unique_ptr<MultiFab>& mf_svstr = vec_svstr[lev];
     MultiFab mf_temp(S_new, amrex::make_alias, Temp_comp, 1);
 #ifdef ROMSX_USE_SALINITY
     MultiFab mf_salt(S_new, amrex::make_alias, Salt_comp, 1);
@@ -136,10 +136,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
-        Array4<Real> const& Akv_arr = (Akv[lev])->array(mfi);
-        Array4<Real> const& Hz_arr  = (Hz[lev])->array(mfi);
-        Array4<Real> const& Huon_arr  = (Huon[lev])->array(mfi);
-        Array4<Real> const& Hvom_arr  = (Hvom[lev])->array(mfi);
+        Array4<Real> const& Akv_arr = (vec_Akv[lev])->array(mfi);
+        Array4<Real> const& Hz_arr  = (vec_Hz[lev])->array(mfi);
+        Array4<Real> const& Huon_arr  = (vec_Huon[lev])->array(mfi);
+        Array4<Real> const& Hvom_arr  = (vec_Hvom[lev])->array(mfi);
         Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
         Array4<Real> const& uold = (U_old).array(mfi);
         Array4<Real> const& vold = (V_old).array(mfi);
@@ -149,8 +149,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& saltold = (mf_saltold).array(mfi);
         Array4<Real> const& temp = (mf_temp).array(mfi);
         Array4<Real> const& salt = (mf_salt).array(mfi);
-        Array4<Real> const& tempstore = (t3[lev])->array(mfi);
-        Array4<Real> const& saltstore = (s3[lev])->array(mfi);
+        Array4<Real> const& tempstore = (vec_t3[lev])->array(mfi);
+        Array4<Real> const& saltstore = (vec_s3[lev])->array(mfi);
         Array4<Real> const& ru_arr = (mf_ru)->array(mfi);
         Array4<Real> const& rv_arr = (mf_rv)->array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
@@ -265,25 +265,25 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     mf_salt.FillBoundary();
     mf_tempold.FillBoundary();
     mf_saltold.FillBoundary();
-    t3[lev]->FillBoundary();
-    s3[lev]->FillBoundary();
-    Huon[lev]->FillBoundary();
-    Hvom[lev]->FillBoundary();
+    vec_t3[lev]->FillBoundary();
+    vec_s3[lev]->FillBoundary();
+    vec_Huon[lev]->FillBoundary();
+    vec_Hvom[lev]->FillBoundary();
 
-    advance_2d(lev, mf_u, mf_v, ru[lev], rv[lev],
-               Zt_avg1[lev],
-               DU_avg1[lev], DU_avg2[lev],
-               DV_avg1[lev], DV_avg2[lev],
-               rubar[lev], rvbar[lev], rzeta[lev],
-                ubar[lev],  vbar[lev],  zeta[lev],
-               hOfTheConfusingName[lev], ncomp, dt_lev);
+    advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
+               vec_Zt_avg1[lev],
+               vec_DU_avg1[lev], vec_DU_avg2[lev],
+               vec_DV_avg1[lev], vec_DV_avg2[lev],
+               vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
+                vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
+               vec_hOfTheConfusingName[lev], ncomp, dt_lev);
 
-    advance_3d(lev, mf_u, mf_v, mf_tempold, mf_saltold, mf_temp, mf_salt, t3[lev], s3[lev], ru[lev], rv[lev],
-               DU_avg1[lev], DU_avg2[lev],
-               DV_avg1[lev], DV_avg2[lev],
-               ubar[lev],  vbar[lev],
+    advance_3d(lev, mf_u, mf_v, mf_tempold, mf_saltold, mf_temp, mf_salt, vec_t3[lev], vec_s3[lev], vec_ru[lev], vec_rv[lev],
+               vec_DU_avg1[lev], vec_DU_avg2[lev],
+               vec_DV_avg1[lev], vec_DV_avg2[lev],
+               vec_ubar[lev],  vec_vbar[lev],
                mf_AK, mf_DC,
-               mf_Hzk, Akv[lev], Hz[lev], Huon[lev], Hvom[lev], ncomp, N, dt_lev);
+               mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], ncomp, N, dt_lev);
 
     MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     U_new.FillBoundary();
@@ -295,8 +295,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     mf_salt.FillBoundary();
     mf_tempold.FillBoundary();
     mf_saltold.FillBoundary();
-    t3[lev]->FillBoundary();
-    s3[lev]->FillBoundary();
+    vec_t3[lev]->FillBoundary();
+    vec_s3[lev]->FillBoundary();
     //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     //    W_new.FillBoundary();
     //    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());

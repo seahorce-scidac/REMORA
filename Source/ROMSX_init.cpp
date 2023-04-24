@@ -331,11 +331,11 @@ ROMSX::init_custom(int lev)
     auto& lev_new = vars_new[lev];
     MultiFab r_hse(base_state[lev], make_alias, 0, 1); // r_0 is first  component
     MultiFab p_hse(base_state[lev], make_alias, 1, 1); // p_0 is second component
-    std::unique_ptr<MultiFab>& mf_z_w = z_w[lev];
-    std::unique_ptr<MultiFab>& mf_z_r = z_r[lev];
-    std::unique_ptr<MultiFab>& mf_Hz  = Hz[lev];
-    std::unique_ptr<MultiFab>& mf_h  = hOfTheConfusingName[lev];
-    std::unique_ptr<MultiFab>& mf_Zt_avg1  = Zt_avg1[lev];
+    std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
+    std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
+    std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
+    std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
+    std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
