@@ -136,11 +136,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
-        Array4<Real> const& Akv_arr = (vec_Akv[lev])->array(mfi);
-        Array4<Real> const& Hz_arr  = (vec_Hz[lev])->array(mfi);
-        Array4<Real> const& Huon_arr  = (vec_Huon[lev])->array(mfi);
-        Array4<Real> const& Hvom_arr  = (vec_Hvom[lev])->array(mfi);
-        Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
+        Array4<Real> const& Akv = (vec_Akv[lev])->array(mfi);
+        Array4<Real> const& Hz  = (vec_Hz[lev])->array(mfi);
+        Array4<Real> const& Huon  = (vec_Huon[lev])->array(mfi);
+        Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
+        Array4<Real> const& z_r = (mf_z_r)->array(mfi);
         Array4<Real> const& uold = (U_old).array(mfi);
         Array4<Real> const& vold = (V_old).array(mfi);
         Array4<Real> const& u = (mf_u).array(mfi);
@@ -151,11 +151,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& salt = (mf_salt).array(mfi);
         Array4<Real> const& tempstore = (vec_t3[lev])->array(mfi);
         Array4<Real> const& saltstore = (vec_s3[lev])->array(mfi);
-        Array4<Real> const& ru_arr = (mf_ru)->array(mfi);
-        Array4<Real> const& rv_arr = (mf_rv)->array(mfi);
+        Array4<Real> const& ru = (mf_ru)->array(mfi);
+        Array4<Real> const& rv = (mf_rv)->array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
-        Array4<Real> const& sustr_arr = (mf_sustr)->array(mfi);
-        Array4<Real> const& svstr_arr = (mf_svstr)->array(mfi);
+        Array4<Real> const& sustr = (mf_sustr)->array(mfi);
+        Array4<Real> const& svstr = (mf_svstr)->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -214,11 +214,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         {
           om_v(i,j,0)=1.0/dxi[0];
           on_u(i,j,0)=1.0/dxi[1];
-          Huon_arr(i,j,k)=0.0;
-          Hvom_arr(i,j,k)=0.0;
+          Huon(i,j,k)=0.0;
+          Hvom(i,j,k)=0.0;
         });
-        set_massflux_3d(Box(Huon_arr),1,0,uold,Huon_arr,Hz_arr,on_u,nnew);
-        set_massflux_3d(Box(Hvom_arr),0,1,vold,Hvom_arr,Hz_arr,om_v,nnew);
+        set_massflux_3d(Box(Huon),1,0,uold,Huon,Hz,on_u,nnew);
+        set_massflux_3d(Box(Hvom),0,1,vold,Hvom,Hz,om_v,nnew);
         Real lambda = 1.0;
         //
         //-----------------------------------------------------------------------
@@ -227,11 +227,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //
         //Test this after advection included in 3d time, consider refactoring to call once per tracer
 #if 1
-        prestep_t_3d(bx, uold, vold, u, v, tempold, saltold, temp, salt, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon_arr, Hvom_arr,
-                     pm, pn, W, DC, FC, tempstore, saltstore, FX, FE, z_r_arr, iic, ntfirst, nnew, nstp, nrhs, N,
+        prestep_t_3d(bx, uold, vold, u, v, tempold, saltold, temp, salt, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
+                     pm, pn, W, DC, FC, tempstore, saltstore, FX, FE, z_r, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-        prestep_t_3d(bx, uold, vold, u, v, saltold, saltold, salt, salt, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon_arr, Hvom_arr,
-                     pm, pn, W, DC, FC, saltstore, saltstore, FX, FE, z_r_arr, iic, ntfirst, nnew, nstp, nrhs, N,
+        prestep_t_3d(bx, uold, vold, u, v, saltold, saltold, salt, salt, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
+                     pm, pn, W, DC, FC, saltstore, saltstore, FX, FE, z_r, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 #endif
 
@@ -240,8 +240,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // prestep_uv_3d
         //-----------------------------------------------------------------------
         //
-        prestep_uv_3d(bx, uold, vold, u, v, ru_arr, rv_arr, Hz_arr, Akv_arr, on_u, om_v, Huon_arr, Hvom_arr,
-                          pm, pn, W, DC, FC, z_r_arr, sustr_arr, svstr_arr, iic, ntfirst, nnew, nstp, nrhs, N,
+        prestep_uv_3d(bx, uold, vold, u, v, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
+                          pm, pn, W, DC, FC, z_r, sustr, svstr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 
 #ifdef UV_COR
@@ -250,7 +250,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // coriolis
         //-----------------------------------------------------------------------
         //
-        coriolis(bx, uold, vold, ru_arr, rv_arr, Hz_arr, fomn, nrhs);
+        coriolis(bx, uold, vold, ru, rv, Hz, fomn, nrhs);
 #endif
 
         //
@@ -258,7 +258,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // rhs_3d
         //-----------------------------------------------------------------------
         //
-        rhs_3d(bx, uold, vold, ru_arr, rv_arr, Huon_arr, Hvom_arr, W, FC, nrhs, N);
+        rhs_3d(bx, uold, vold, ru, rv, Huon, Hvom, W, FC, nrhs, N);
 
     } // MFIter
     mf_temp.FillBoundary();

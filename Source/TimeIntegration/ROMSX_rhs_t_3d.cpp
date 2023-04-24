@@ -12,7 +12,7 @@ ROMSX::rhs_t_3d (const Box& bx,
                  Array4<Real> told  , Array4<Real> t, Array4<Real> tempstore,
                  Array4<Real> Huon, Array4<Real> Hvom,
                  Array4<Real> pn, Array4<Real> pm,
-                 Array4<Real> W   , Array4<Real> FC_arr,
+                 Array4<Real> W   , Array4<Real> FC,
                  int nrhs, int nnew, int N, Real dt_lev)
 {
     //copy the tilebox

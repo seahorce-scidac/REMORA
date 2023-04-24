@@ -18,8 +18,8 @@ ROMSX::set_2darrays (int lev)
     for ( MFIter mfi(*(mf_x_r), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
 
-      Array4<Real> const& x_r_arr = (mf_x_r)->array(mfi);
-      Array4<Real> const& y_r_arr = (mf_y_r)->array(mfi);
+      Array4<Real> const& x_r = (mf_x_r)->array(mfi);
+      Array4<Real> const& y_r = (mf_y_r)->array(mfi);
       const Box& bx = mfi.growntilebox();
       const auto & geomdata = Geom(lev).data();
       int ncomp = 1;
@@ -30,8 +30,8 @@ ROMSX::set_2darrays (int lev)
         const auto prob_lo         = geomdata.ProbLo();
         const auto dx              = geomdata.CellSize();
 
-        x_r_arr(i,j,0) = prob_lo[0] + (i + 0.5) * dx[0];
-        y_r_arr(i,j,0) = prob_lo[1] + (j + 0.5) * dx[1];
+        x_r(i,j,0) = prob_lo[0] + (i + 0.5) * dx[0];
+        y_r(i,j,0) = prob_lo[1] + (j + 0.5) * dx[1];
         //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
 
       });
@@ -51,8 +51,8 @@ ROMSX::set_2darrays (int lev)
     int ncomp = 1;
     for ( MFIter mfi(U_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& ubar_arr = (mf_ubar)->array(mfi);
-        Array4<Real> const& vbar_arr = (mf_vbar)->array(mfi);
+        Array4<Real> const& ubar = (mf_ubar)->array(mfi);
+        Array4<Real> const& vbar = (mf_vbar)->array(mfi);
         Array4<Real> const& Hz       = (mf_Hz)->array(mfi);
         Array4<Real> const& u        = (U_old).array(mfi);
         Array4<Real> const& v        = (V_old).array(mfi);
@@ -92,8 +92,8 @@ ROMSX::set_2darrays (int lev)
             {
                 Real cff1=1.0/DC(i,j,-1);
                 Real cff2=CF(i,j,-1)*cff1;
-                ubar_arr(i,j,0,kstp)=cff2;
-                ubar_arr(i,j,0,knew)=cff2;
+                ubar(i,j,0,kstp)=cff2;
+                ubar(i,j,0,knew)=cff2;
             });
         //fab_DC.setVal(0.0);
         //fab_CF.setVal(0.0);
@@ -115,8 +115,8 @@ ROMSX::set_2darrays (int lev)
             {
                 Real cff1=1.0/DC(i,j,-1);
                 Real cff2=CF(i,j,-1)*cff1;
-                vbar_arr(i,j,0,kstp)=cff2;
-                vbar_arr(i,j,0,knew)=cff2;
+                vbar(i,j,0,kstp)=cff2;
+                vbar(i,j,0,knew)=cff2;
             });
 
     }
@@ -131,8 +131,8 @@ void ROMSX::set_vmix (int lev)
 
     for ( MFIter mfi(*(mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-      Array4<Real> const& Akv_arr = (mf_Akv)->array(mfi);
-      Array4<Real> const& z_w_arr = (mf_z_w)->array(mfi);
+      Array4<Real> const& Akv = (mf_Akv)->array(mfi);
+      Array4<Real> const& z_w = (mf_z_w)->array(mfi);
       Box bx = mfi.tilebox();
       bx.grow(IntVect(2,2,0));
       const auto & geomdata = Geom(lev).data();
@@ -142,7 +142,7 @@ void ROMSX::set_vmix (int lev)
       [=] (int i, int j, int k, int n)
       {
 
-        Akv_arr(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w_arr(i,j,k)/150.0);
+        Akv(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w(i,j,k)/150.0);
 
       });
     }
@@ -206,10 +206,10 @@ ROMSX::set_depth (int lev)
     for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
 
-      Array4<Real> const& z_w_arr = (mf_z_w)->array(mfi);
-      Array4<Real> const& z_r_arr = (mf_z_r)->array(mfi);
-      Array4<Real> const& s_r_arr = (mf_s_r)->array(mfi);
-      Array4<Real> const& Hz_arr  = (mf_Hz)->array(mfi);
+      Array4<Real> const& z_w = (mf_z_w)->array(mfi);
+      Array4<Real> const& z_r = (mf_z_r)->array(mfi);
+      Array4<Real> const& s_r = (mf_s_r)->array(mfi);
+      Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
       gbx2.grow(IntVect(2,2,0));
@@ -217,8 +217,8 @@ ROMSX::set_depth (int lev)
       gbx21.grow(IntVect(2,2,1));
       Box gbx22 = bx;
       gbx22.grow(IntVect(2,2,2));
-      Array4<Real> const& h_arr  = (mf_h)->array(mfi);
-      Array4<Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
+      Array4<Real> const& h  = (mf_h)->array(mfi);
+      Array4<Real> const& Zt_avg1  = (mf_Zt_avg1)->array(mfi);
       const auto & geomdata = Geom(lev).data();
 
       int ncomp = 1;
@@ -251,7 +251,7 @@ ROMSX::set_depth (int lev)
               else
                   val1=Lm+1-iFort;
               val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
-              h_arr(i,j,0) = val2;
+              h(i,j,0) = val2;
           }
           else if(EWPeriodic) {
               if (jFort<=Mm/2.0)
@@ -259,12 +259,12 @@ ROMSX::set_depth (int lev)
               else
                   val1=Mm+1-jFort;
               val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
-              h_arr(i,j,0) = val2;
+              h(i,j,0) = val2;
           }
 #else
-          h_arr(i,j,0) = -geomdata.ProbLo(2);
+          h(i,j,0) = -geomdata.ProbLo(2);
 #endif
-          z_w_arr(i,j,k) = h_arr(i,j,0);
+          z_w(i,j,k) = h(i,j,0);
       });
       // ROMS Transform 2
       amrex::LoopOnCpu(gbx2, ncomp,
@@ -276,7 +276,7 @@ ROMSX::set_depth (int lev)
         //This is the z for the bottom of the cell this k corresponds to
         //   if we weren't stretching and transforming
         const Real z = prob_lo[2] + (k) * dx[2];
-        //        h_arr(i,j,0) = -prob_lo[2]; // conceptually
+        //        h(i,j,0) = -prob_lo[2]; // conceptually
 
         ////////////////////////////////////////////////////////////////////
         //ROMS Stretching 4
@@ -341,23 +341,23 @@ ROMSX::set_depth (int lev)
             Cs_r=Csur;
         }
         if(i==0&&j==0&&k<N&&k>=0)
-        s_r_arr(0,0,k) = sc_r;
+        s_r(0,0,k) = sc_r;
         cff_r=hc*sc_r;
         cff1_r=Cs_r;
 
         ////////////////////////////////////////////////////////////////////
-        Real hwater=h_arr(i,j,0);
+        Real hwater=h(i,j,0);
         /*
         if(k==0)
          {
           //extra guess added (maybe not actually defined in ROMS)
         Real hinv=1.0_rt/(hc+hwater);
          cff2_r=(cff_r+cff1_r*hwater)*hinv;
-         //         z_w_arr(i,j,k-2) = hwater;
-         //         z_w_arr(i,j,k-1)= -hwater;
+         //         z_w(i,j,k-2) = hwater;
+         //         z_w(i,j,k-1)= -hwater;
 
-         z_r_arr(i,j,k) = Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
-         Hz_arr(i,j,k)=z_w_arr(i,j,k)+hwater;//-z_w_arr(i,j,k-1);
+         z_r(i,j,k) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
+         Hz(i,j,k)=z_w(i,j,k)+hwater;//-z_w(i,j,k-1);
          }
         else
         */
@@ -368,21 +368,21 @@ ROMSX::set_depth (int lev)
           cff2_w=(cff_w+cff1_w*hwater)*hinv;
 
           if(k==0) {
-              z_w_arr(i,j,N-1)=0.0;
+              z_w(i,j,N-1)=0.0;
           }
           else
-              z_w_arr(i,j,k-1)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_w;
-          z_r_arr(i,j,k)=Zt_avg1_arr(i,j,0)+(Zt_avg1_arr(i,j,0)+hwater)*cff2_r;
+              z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+          z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
         }
       });
       amrex::LoopOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
           if(k==0) {
-              Hz_arr(i,j,k)=z_w_arr(i,j,k)+h_arr(i,j,0);
+              Hz(i,j,k)=z_w(i,j,k)+h(i,j,0);
           }
           else
-              Hz_arr(i,j,k)=z_w_arr(i,j,k)-z_w_arr(i,j,k-1);
+              Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1);
           //Note, we are not supporting ICESHELF flag
       });
     } // mf

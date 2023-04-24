@@ -288,7 +288,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
        if (subdomain.contains(box)||true) {
            long unsigned numpts = box.numPts();
            auto array_version = plotMF[lev]->array(fai);
-           auto x_r_arr = vec_x_r[lev]->array(fai);
+           auto x_r = vec_x_r[lev]->array(fai);
 
            #ifdef ROMSX_USE_HISTORYFILE
            int num_var_dims=AMREX_SPACEDIM+1;
@@ -346,8 +346,8 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
           nc_plot_var.par_access(NC_COLLECTIVE);
           nc_plot_var.put(data, {(unsigned long) box.smallEnd(2)}, {(unsigned long) box.length(2)});
           }
-          auto z_r_arr = vec_z_r[lev]->array(fai);
-          auto z_w_arr = vec_z_w[lev]->array(fai);
+          auto z_r = vec_z_r[lev]->array(fai);
+          auto z_w = vec_z_w[lev]->array(fai);
           const auto & geomdata = geom[lev].data();
           x_grid.clear(); y_grid.clear(); z_r_grid.clear(); z_w_grid.clear();
           x_grid.resize((unsigned long) box.length(0));
@@ -370,8 +370,8 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
             Real x = prob_lo[0] + (i + 0.5) * dx[0];
             Real y = prob_lo[1] + (j + 0.5) * dx[1];
             //      const Real z = prob_lo[2] + (k + 0.5) * dx[2];
-            Real z_r_con = z_r_arr(i,j,k);
-            Real z_w_con = z_w_arr(i,j,k);
+            Real z_r_con = z_r(i,j,k);
+            Real z_w_con = z_w(i,j,k);
 
             //      if(j==0&&k==0)
             //              x_grid.push_back(x);

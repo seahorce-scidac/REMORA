@@ -10,9 +10,9 @@ using namespace amrex;
 void
 ROMSX::rhs_3d (const Box& bx,
                Array4<Real> uold  , Array4<Real> vold,
-               Array4<Real> ru_arr, Array4<Real> rv_arr,
+               Array4<Real> ru, Array4<Real> rv,
                Array4<Real> Huon, Array4<Real> Hvom,
-               Array4<Real> W   , Array4<Real> FC_arr,
+               Array4<Real> W   , Array4<Real> FC,
                int nrhs, int N)
 {
     //copy the tilebox
@@ -183,12 +183,12 @@ ROMSX::rhs_3d (const Box& bx,
               Real cff2=UFe(i,j+1,k)-UFe(i  ,j,k);
               Real cff=cff1+cff2;
 
-              ru_arr(i,j,k,nrhs) -= cff;
+              ru(i,j,k,nrhs) -= cff;
 
               cff1=VFx(i+1,j,k)-VFx(i  ,j,k);
               cff2=VFe(i  ,j,k)-VFe(i,j-1,k);
               cff=cff1+cff2;
-              rv_arr(i,j,k,nrhs) -= cff;
+              rv(i,j,k,nrhs) -= cff;
 
               //-----------------------------------------------------------------------
               //  Add in vertical advection.
@@ -198,65 +198,65 @@ ROMSX::rhs_3d (const Box& bx,
               //              if(i>=0)
               if (k>=1 && k<=N-2)
               {
-                      FC_arr(i,j,k)=( cff1*(uold(i  ,j,k  ,nrhs)+ uold(i,j,k+1,nrhs))
+                      FC(i,j,k)=( cff1*(uold(i  ,j,k  ,nrhs)+ uold(i,j,k+1,nrhs))
                                      -cff2*(uold(i  ,j,k-1,nrhs)+ uold(i,j,k+2,nrhs)) )*
                                     ( cff1*(   W(i  ,j,k)+ W(i-1,j,k))
                                      -cff2*(   W(i+1,j,k)+ W(i-2,j,k)) );
               }
               else // this needs to be split up so that the following can be concurrent
               {
-                  FC_arr(i,j,N)=0.0;
+                  FC(i,j,N)=0.0;
 
-                  FC_arr(i,j,N-1)=( cff1*(uold(i  ,j,N-1,nrhs)+ uold(i,j,N  ,nrhs))
+                  FC(i,j,N-1)=( cff1*(uold(i  ,j,N-1,nrhs)+ uold(i,j,N  ,nrhs))
                                    -cff2*(uold(i  ,j,N-2,nrhs)+ uold(i,j,N  ,nrhs)) )*
                                   ( cff1*(   W(i  ,j,N-1)+ W(i-1,j,N-1))
                                    -cff2*(   W(i+1,j,N-1)+ W(i-2,j,N-1)) );
 
-                  FC_arr(i,j,0)=( cff1*(uold(i  ,j,1,nrhs)+ uold(i,j,2,nrhs))
+                  FC(i,j,0)=( cff1*(uold(i  ,j,1,nrhs)+ uold(i,j,2,nrhs))
                                  -cff2*(uold(i  ,j,1,nrhs)+ uold(i,j,3,nrhs)) )*
                                 ( cff1*(   W(i  ,j,1)+ W(i-1,j,1))
                                  -cff2*(   W(i+1,j,1)+ W(i-2,j,1)) );
 
-                  //              FC_arr(i,0,-1)=0.0;
+                  //              FC(i,0,-1)=0.0;
               }
 
               if(k-1>=0) {
-                  cff=FC_arr(i,j,k)-FC_arr(i,j,k-1);
+                  cff=FC(i,j,k)-FC(i,j,k-1);
               } else {
-                  cff=FC_arr(i,j,k);
+                  cff=FC(i,j,k);
               }
 
-              ru_arr(i,j,k,nrhs) -= cff;
+              ru(i,j,k,nrhs) -= cff;
 
               if (k>=1 && k<=N-2)
               {
-                  FC_arr(i,j,k)=( cff1*(vold(i,j,k  ,nrhs)+ vold(i,j,k+1,nrhs))
+                  FC(i,j,k)=( cff1*(vold(i,j,k  ,nrhs)+ vold(i,j,k+1,nrhs))
                                  -cff2*(vold(i,j,k-1,nrhs)+ vold(i,j,k+2,nrhs)) )*
                                 ( cff1*(W(i,j  ,k)+ W(i,j-1,k))
                                  -cff2*(W(i,j+1,k)+ W(i,j-2,k)) );
               }
               else // this needs to be split up so that the following can be concurent
               {
-                  FC_arr(i,j,N)=0.0;
-                  FC_arr(i,j,N-1)=( cff1*(vold(i,j,N-1,nrhs)+ vold(i,j,N  ,nrhs))
+                  FC(i,j,N)=0.0;
+                  FC(i,j,N-1)=( cff1*(vold(i,j,N-1,nrhs)+ vold(i,j,N  ,nrhs))
                                    -cff2*(vold(i,j,N-2,nrhs)+ vold(i,j,N  ,nrhs)) )*
                                   ( cff1*(W(i,j  ,N-1)+ W(i,j-1,N-1))
                                    -cff2*(W(i,j+1,N-1)+ W(i,j-2,N-1)) );
 
-                  FC_arr(i,j,0)=( cff1*(vold(i,j,1,nrhs)+ vold(i,j,2,nrhs))
+                  FC(i,j,0)=( cff1*(vold(i,j,1,nrhs)+ vold(i,j,2,nrhs))
                                  -cff2*(vold(i,j,1,nrhs)+ vold(i,j,3,nrhs)) )*
                                 ( cff1*(W(i,j  ,1)+ W(i,j-1,1))
                                  -cff2*(W(i,j+1,1)+ W(i,j-2,1)) );
 
-                  //              FC_arr(i,0,-1)=0.0;
+                  //              FC(i,0,-1)=0.0;
               }
 
               if(k-1>=0) {
-                  cff=FC_arr(i,j,k)-FC_arr(i,j,k-1);
+                  cff=FC(i,j,k)-FC(i,j,k-1);
               } else {
-                  cff=FC_arr(i,j,k);
+                  cff=FC(i,j,k);
               }
-              rv_arr(i,j,k,nrhs) -= cff;
+              rv(i,j,k,nrhs) -= cff;
 
     });
 }
