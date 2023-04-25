@@ -449,9 +449,16 @@ public:
                  amrex::Array4<amrex::Real> Hz,
                  amrex::Array4<amrex::Real> on_r,
                  amrex::Array4<amrex::Real> om_r,
+                 amrex::Array4<amrex::Real> on_p,
+                 amrex::Array4<amrex::Real> om_p,
                  amrex::Array4<amrex::Real> pn,
                  amrex::Array4<amrex::Real> pm,
-                 int nrhs, int nnew);
+                 amrex::Array4<amrex::Real> UFe,
+                 amrex::Array4<amrex::Real> UFx,
+                 amrex::Array4<amrex::Real> VFe,
+                 amrex::Array4<amrex::Real> VFx,
+                 int nrhs, int nnew,
+                 const amrex::Real dt_lev);
 #ifdef UV_COR
     void coriolis (const amrex::Box& bx,
                    amrex::Array4<amrex::Real> uold,
