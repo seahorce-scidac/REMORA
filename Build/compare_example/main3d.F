@@ -873,9 +873,9 @@
               END DO
 !$OMP BARRIER
             END DO
-      if(iic(ng).eq.(ntfirst(ng)+2)) then
-         STOP
-      endif
+!      if(iic(ng).eq.(ntfirst(ng)+2)) then
+!         STOP
+!      endif
 
 #  ifdef NESTING
 !

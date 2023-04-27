@@ -198,7 +198,7 @@ ROMSX::advance_3d (int lev,
        /////////////////////////// doesn't match boxes well, want the whole of Huon updated
        update_massflux_3d(ubx,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
        update_massflux_3d(vbx,0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
-#if 1
+#if 0
     //
     //------------------------------------------------------------------------
     //  Vertically integrate horizontal mass flux divergence.

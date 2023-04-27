@@ -961,7 +961,7 @@
                 cff2=cff*(FE(i,j+1)-FE(i,j))
                 cff3=cff1+cff2
       !print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc),nnew,"adv"
-!                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)-cff3
+                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)-cff3
       !print*,"(",i,",",j,",",k,")",t(i,j,k,nnew,itrc),nnew,"adv"
 # ifdef DIAGNOSTICS_TS
                 DiaTwrk(i,j,k,itrc,iTxadv)=-cff1
@@ -1404,9 +1404,9 @@
             DO k=1,N(ng)
               DO i=Istr,Iend
                 cff1=CF(i,0)*(FC(i,k)-FC(i,k-1))
-!                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)-cff1
+                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)-cff1
 # ifdef SPLINES_VDIFF
-!                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)*oHz(i,j,k)
+                t(i,j,k,nnew,itrc)=t(i,j,k,nnew,itrc)*oHz(i,j,k)
 # endif
 # ifdef DIAGNOSTICS_TS
                 DiaTwrk(i,j,k,itrc,iTvadv)=-cff1
