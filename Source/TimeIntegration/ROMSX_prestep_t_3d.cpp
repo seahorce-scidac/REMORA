@@ -195,7 +195,7 @@ ROMSX::prestep_t_3d (const Box& bx,
               if (k>=1 && k<=N-2)
               {
                       FC(i,j,k)=( cff2*(tempold(i  ,j,k  ,nrhs)+ tempold(i,j,k+1,nrhs))
-                                     -cff3*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k+2,nrhs)) )*
+                                 -cff3*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k+2,nrhs)) )*
                                     ( W(i,j,k));
               }
               else // this needs to be split up so that the following can be concurrent
@@ -203,11 +203,11 @@ ROMSX::prestep_t_3d (const Box& bx,
                   FC(i,j,N)=0.0;
 
                   FC(i,j,N-1)=( cff2*tempold(i  ,j,N-1,nrhs)+ cff1*tempold(i,j,N  ,nrhs)
-                                    -cff3*tempold(i  ,j,N-2,nrhs) )*
+                               -cff3*tempold(i  ,j,N-2,nrhs) )*
                                   ( W(i  ,j,N-1));
 
                   FC(i,j,0)=( cff2*tempold(i  ,j,1,nrhs)+ cff1*tempold(i,j,0,nrhs)
-                                 -cff3*tempold(i  ,j,2,nrhs) )*
+                             -cff3*tempold(i  ,j,2,nrhs) )*
                                 ( W(i  ,j,0));
 
                   //              FC(i,0,-1)=0.0;

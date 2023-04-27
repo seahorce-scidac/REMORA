@@ -367,6 +367,7 @@ public:
                    amrex::Array4<amrex::Real> tempstore,
                    amrex::Array4<amrex::Real> Huon,
                    amrex::Array4<amrex::Real> Hvom,
+                   amrex::Array4<amrex::Real> oHz,
                    amrex::Array4<amrex::Real> pn,
                    amrex::Array4<amrex::Real> pm,
                    amrex::Array4<amrex::Real> W,

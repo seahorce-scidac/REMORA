@@ -11,6 +11,7 @@ void
 ROMSX::rhs_t_3d (const Box& bx,
                  Array4<Real> told  , Array4<Real> t, Array4<Real> tempstore,
                  Array4<Real> Huon, Array4<Real> Hvom,
+                 Array4<Real> oHz,
                  Array4<Real> pn, Array4<Real> pm,
                  Array4<Real> W   , Array4<Real> FC,
                  int nrhs, int nnew, int N, Real dt_lev)
@@ -144,5 +145,63 @@ ROMSX::rhs_t_3d (const Box& bx,
               Real cff3=cff1+cff2;
 
               t(i,j,k,nnew) -= cff3;
+    });
+
+	//-----------------------------------------------------------------------
+	//  Time-step vertical advection term.
+	//-----------------------------------------------------------------------
+	//Check which type of differences:
+	//
+	//  Fourth-order, central differences vertical advective flux
+	//  (Tunits m3/s).
+	//
+    amrex::ParallelFor(Box(FC),
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+              //-----------------------------------------------------------------------
+              //  Add in vertical advection.
+              //-----------------------------------------------------------------------
+
+              Real cff1=0.5;
+              Real cff2=7.0/12.0;
+              Real cff3=1.0/12.0;
+
+              if (k>=1 && k<=N-2)
+              {
+                      FC(i,j,k)=( cff2*(tempstore(i  ,j,k  )+ tempstore(i,j,k+1))
+                                 -cff3*(tempstore(i  ,j,k-1)+ tempstore(i,j,k+2)) )*
+                                    ( W(i,j,k));
+              }
+              else // this needs to be split up so that the following can be concurrent
+              {
+                  FC(i,j,N)=0.0;
+
+                  FC(i,j,N-1)=( cff2*tempstore(i  ,j,N-1)+ cff1*tempstore(i,j,N  )
+                               -cff3*tempstore(i  ,j,N-2) )*
+                                  ( W(i  ,j,N-1));
+
+                  FC(i,j,0)=( cff2*tempstore(i  ,j,1)+ cff1*tempstore(i,j,0)
+                             -cff3*tempstore(i  ,j,2) )*
+                                ( W(i  ,j,0));
+
+                  //              FC(i,0,-1)=0.0;
+              }
+
+    });
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        Real cff1=dt_lev*pm(i,j,0)*pn(i,j,0);
+        Real cff4;
+        if(k-1>=0) {
+            cff4=FC(i,j,k)-FC(i,j,k-1);
+        } else {
+            cff4=FC(i,j,k);
+        }
+        t(i,j,k)=oHz(i,j,k)*(t(i,j,k)-cff1*cff4);
+	//	if(i==2&&j==2&&k==2) {
+	//	    Print()<<i<<j<<k<<t(i,j,k)<<"\t"<<oHz(i,j,k)<<"\t"<<cff1<<"\t"<<cff4<<std::endl;
+        //	    Abort("any nans?");
+        //}
     });
 }

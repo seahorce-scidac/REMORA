@@ -199,7 +199,7 @@ ROMSX::rhs_3d (const Box& bx,
               if (k>=1 && k<=N-2)
               {
                       FC(i,j,k)=( cff1*(uold(i  ,j,k  ,nrhs)+ uold(i,j,k+1,nrhs))
-                                     -cff2*(uold(i  ,j,k-1,nrhs)+ uold(i,j,k+2,nrhs)) )*
+                                 -cff2*(uold(i  ,j,k-1,nrhs)+ uold(i,j,k+2,nrhs)) )*
                                     ( cff1*(   W(i  ,j,k)+ W(i-1,j,k))
                                      -cff2*(   W(i+1,j,k)+ W(i-2,j,k)) );
               }
@@ -208,12 +208,12 @@ ROMSX::rhs_3d (const Box& bx,
                   FC(i,j,N)=0.0;
 
                   FC(i,j,N-1)=( cff1*(uold(i  ,j,N-1,nrhs)+ uold(i,j,N  ,nrhs))
-                                   -cff2*(uold(i  ,j,N-2,nrhs)+ uold(i,j,N  ,nrhs)) )*
+                               -cff2*(uold(i  ,j,N-2,nrhs)+ uold(i,j,N  ,nrhs)) )*
                                   ( cff1*(   W(i  ,j,N-1)+ W(i-1,j,N-1))
                                    -cff2*(   W(i+1,j,N-1)+ W(i-2,j,N-1)) );
 
                   FC(i,j,0)=( cff1*(uold(i  ,j,1,nrhs)+ uold(i,j,2,nrhs))
-                                 -cff2*(uold(i  ,j,1,nrhs)+ uold(i,j,3,nrhs)) )*
+                             -cff2*(uold(i  ,j,1,nrhs)+ uold(i,j,3,nrhs)) )*
                                 ( cff1*(   W(i  ,j,1)+ W(i-1,j,1))
                                  -cff2*(   W(i+1,j,1)+ W(i-2,j,1)) );
 
@@ -231,7 +231,7 @@ ROMSX::rhs_3d (const Box& bx,
               if (k>=1 && k<=N-2)
               {
                   FC(i,j,k)=( cff1*(vold(i,j,k  ,nrhs)+ vold(i,j,k+1,nrhs))
-                                 -cff2*(vold(i,j,k-1,nrhs)+ vold(i,j,k+2,nrhs)) )*
+                             -cff2*(vold(i,j,k-1,nrhs)+ vold(i,j,k+2,nrhs)) )*
                                 ( cff1*(W(i,j  ,k)+ W(i,j-1,k))
                                  -cff2*(W(i,j+1,k)+ W(i,j-2,k)) );
               }
@@ -239,7 +239,7 @@ ROMSX::rhs_3d (const Box& bx,
               {
                   FC(i,j,N)=0.0;
                   FC(i,j,N-1)=( cff1*(vold(i,j,N-1,nrhs)+ vold(i,j,N  ,nrhs))
-                                   -cff2*(vold(i,j,N-2,nrhs)+ vold(i,j,N  ,nrhs)) )*
+                               -cff2*(vold(i,j,N-2,nrhs)+ vold(i,j,N  ,nrhs)) )*
                                   ( cff1*(W(i,j  ,N-1)+ W(i,j-1,N-1))
                                    -cff2*(W(i,j+1,N-1)+ W(i,j-2,N-1)) );
 
