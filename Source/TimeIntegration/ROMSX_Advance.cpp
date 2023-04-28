@@ -270,13 +270,15 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     vec_Huon[lev]->FillBoundary();
     vec_Hvom[lev]->FillBoundary();
 
+    bool predictor_2d_step=true;
+    int nfast=2;
     advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
                vec_Zt_avg1[lev],
                vec_DU_avg1[lev], vec_DU_avg2[lev],
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
                 vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
-               vec_hOfTheConfusingName[lev], ncomp, dt_lev);
+               vec_hOfTheConfusingName[lev], ncomp, dt_lev, predictor_2d_step, nfast);
 
     advance_3d(lev, mf_u, mf_v, mf_tempold, mf_saltold, mf_temp, mf_salt, vec_t3[lev], vec_s3[lev], vec_ru[lev], vec_rv[lev],
                vec_DU_avg1[lev], vec_DU_avg2[lev],
@@ -284,7 +286,26 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                vec_ubar[lev],  vec_vbar[lev],
                mf_AK, mf_DC,
                mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], ncomp, N, dt_lev);
+#if 0
+    mf_temp.FillBoundary();
+    mf_salt.FillBoundary();
+    mf_tempold.FillBoundary();
+    mf_saltold.FillBoundary();
+    vec_t3[lev]->FillBoundary();
+    vec_s3[lev]->FillBoundary();
+    vec_Huon[lev]->FillBoundary();
+    vec_Hvom[lev]->FillBoundary();
 
+    //corrector step
+    predictor_2d_step=false;
+    advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
+               vec_Zt_avg1[lev],
+               vec_DU_avg1[lev], vec_DU_avg2[lev],
+               vec_DV_avg1[lev], vec_DV_avg2[lev],
+               vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
+                vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
+               vec_hOfTheConfusingName[lev], ncomp, dt_lev, predictor_2d_step, nfast);
+#endif
     MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     U_new.FillBoundary();
 

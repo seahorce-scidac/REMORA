@@ -272,7 +272,9 @@ public:
                      std::unique_ptr<amrex::MultiFab>& mf_vbar,
                      std::unique_ptr<amrex::MultiFab>& mf_zeta,
                      std::unique_ptr<amrex::MultiFab>& mf_h,
-                     const int ncomp, const amrex::Real dt_lev);
+                     const int ncomp, const amrex::Real dt_lev,
+                     const bool predictor_2d_step, int nfast);
+
     void advance_3d (int lev,
                      amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,
                      amrex::MultiFab& mf_tempold  , amrex::MultiFab& mf_saltold ,

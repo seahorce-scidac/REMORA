@@ -23,7 +23,8 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_vbar,
                    std::unique_ptr<MultiFab>& mf_zeta,
                    std::unique_ptr<MultiFab>& mf_h,
-                   const int ncomp, Real dt_lev)
+                   const int ncomp, Real dt_lev,
+                   bool predictor_2d_step, int nfast)
 {
     auto geomdata  = Geom(lev).data();
     const auto dxi = Geom(lev).InvCellSizeArray();
@@ -34,14 +35,15 @@ ROMSX::advance_2d (int lev,
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     int iic = istep[lev];
-    bool predictor_2d_step = true;
-    for(int my_iif = 0; my_iif <=1; my_iif++) {
+    //bool predictor_2d_step = true;
+    int nfast_counter=predictor_2d_step ? nfast : nfast-1;
+    for(int my_iif = 0; my_iif < nfast_counter; my_iif++) {
         //    int my_iif = 1; //substep index
     int knew = 3;
     int krhs = (my_iif + iic) % 2 + 1;
     int kstp = my_iif <=1 ? iic % 2 + 1 : (iic % 2 + my_iif % 2 + 1) % 2 + 1;
     int indx1 = krhs;
-    //    //Print()<<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<indx1<<std::endl;
+    Print()<<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<predictor_2d_step<<"\t"<<(my_iif<=1)<<std::endl;
     knew-=1;
     krhs-=1;
     kstp-=1;
