@@ -107,7 +107,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     int ntfirst = 0;
     if(iic==ntfirst&&false)
         MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(2,2,2)));
-    set_smflux(lev,time);
+    set_smflux(lev,t_old[lev]);
     /*
 !
 !  Set linear bottom stress.

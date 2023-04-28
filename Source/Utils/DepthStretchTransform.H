@@ -161,9 +161,10 @@ ROMSX::set_smflux(int lev, Real time)
     Real tdays=time/(24.0*60.0*60.0);
     amrex::Print()<<"Hacking in time offset for fixed dt=300"<<std::endl;
     //this is a hack because time is off by dt. this needs to be fixed for non-fixed dt
-    Real dstart=-300.0/(24.0*60.0*60.0);
+    Real dstart=0.0;//-300.0/(24.0*60.0*60.0);
     Real rho0=parms.rho0;
     Real windamp;
+    amrex::Print()<<tdays<<" "<<dstart<<" "<<rho0<<std::endl;
     if(NSPeriodic) {
         mf_sustr->setVal(0.0);
     }
@@ -184,6 +185,7 @@ ROMSX::set_smflux(int lev, Real time)
     else if(EWPeriodic) {
         mf_svstr->setVal(0.0);
     }
+    print_state(*mf_svstr,IntVect(AMREX_D_DECL(1,1,0)));
 
 }
 void
