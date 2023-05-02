@@ -24,7 +24,8 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_zeta,
                    std::unique_ptr<MultiFab>& mf_h,
                    const int ncomp, Real dt_lev,
-                   bool predictor_2d_step, int nfast)
+                   bool predictor_2d_step,
+                   bool first_2d_step, int my_iif)
 {
     auto geomdata  = Geom(lev).data();
     const auto dxi = Geom(lev).InvCellSizeArray();
@@ -36,8 +37,6 @@ ROMSX::advance_2d (int lev,
 
     int iic = istep[lev];
     //bool predictor_2d_step = true;
-    int nfast_counter=predictor_2d_step ? nfast : nfast-1;
-    for(int my_iif = 0; my_iif < nfast_counter; my_iif++) {
         //    int my_iif = 1; //substep index
     int knew = 3;
     int krhs = (my_iif + iic) % 2 + 1;
@@ -168,7 +167,7 @@ ROMSX::advance_2d (int lev,
         });
         if(predictor_2d_step)
         {
-        if(my_iif==0) {
+        if(first_2d_step) {
         Real cff2=(Real(-1.0)/Real(12.0))*weighta;
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -213,7 +212,7 @@ ROMSX::advance_2d (int lev,
         }
         } else {
         Real cff2;
-        if(my_iif==0)
+        if(first_2d_step)
             cff2=weightc;
         else
             cff2=Real(5.0)/Real(12.0)*weightc;
@@ -236,6 +235,5 @@ ROMSX::advance_2d (int lev,
         //
         coriolis(bxD, ubar, vbar, rubar, rvbar, Drhs, fomn, krhs);
 #endif
-    }
     }
 }
