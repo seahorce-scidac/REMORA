@@ -576,7 +576,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_z_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_y_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
     vec_x_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
-    vec_Hz[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,2)));
+    vec_Hz[lev].reset(new MultiFab(ba,dm,1,IntVect(3,3,3)));
     vec_Huon[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_Hvom[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_Akv[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));

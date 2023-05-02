@@ -190,14 +190,8 @@ ROMSX::advance_3d (int lev,
        fab_CF.setVal(0.0,gbx21);
        vert_mean_3d(bx,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
 #endif
-       /*
-       /////////////////////////// doesn't match boxes well, want the whole of Huon updated
        update_massflux_3d(Box(Huon),1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
        update_massflux_3d(Box(Hvom),0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
-       */
-       /////////////////////////// doesn't match boxes well, want the whole of Huon updated
-       update_massflux_3d(ubx,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
-       update_massflux_3d(vbx,0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
 #if 0
     //
     //------------------------------------------------------------------------

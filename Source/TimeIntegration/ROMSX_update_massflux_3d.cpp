@@ -16,7 +16,11 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
     const int Mm = Geom(0).Domain().size()[1];
     auto phi_bxD=phi_bx;
     phi_bxD.makeSlab(2,0);
+    Box validbx(IntVect(AMREX_D_DECL(phi_bx.smallEnd(0)+2,phi_bx.smallEnd(1)+2,phi_bx.smallEnd(2))),
+                       IntVect(AMREX_D_DECL(phi_bx.bigEnd(0)-2,phi_bx.bigEnd(1)-2,phi_bx.bigEnd(2))));
     //Copied depth of water column calculation from DepthStretchTransform
+    //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column DC(i,j,-1), and
+    // incorrect vertical mean CF(i,j,-1)
     amrex::ParallelFor(Box(DC),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -32,28 +36,36 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 DC(i,j,k)=0.5*om_v_or_on_u(i,j,0)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+            });
+    amrex::LoopOnCpu(validbx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*phi(i,j,k,nnew);
             });
 
-    amrex::ParallelFor(phi_bx,
+    // Note this loop is in the opposite direction in k in ROMS but does not
+    // appear to affect results
+    amrex::ParallelFor(validbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1=DC(i,j,-1);
         if(k==0) {
-        DC(i,j,-1)=1.0/DC(i,j,-1);
-        CF(i,j,-1)=DC(i,j,-1)*(CF(i,j,-1)-Dphi_avg1(i,j,0));
+            DC(i,j,-1)=1.0/DC(i,j,-1);
+            CF(i,j,-1)=DC(i,j,-1)*(CF(i,j,-1)-Dphi_avg1(i,j,0));
         }
         //Vertical mean correction on boundary points
+        // Maybe wrong? Will it just get obliterated on the FillBoundary
 #if 0
         if((i<0)||(j<0)||(i>=Mn+1)||(j>=Mm+1))
             phi(i,j,k) -= CF(i,j,-1);
 #endif
+        //Compute correct mass flux, Hz*v/m
         Hphi(i,j,k) = 0.5 * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
         FC(i,j,0) = FC(i,j,0)+Hphi(i,j,k); //recursive
     });
 
-    amrex::ParallelFor(phi_bxD,
+    amrex::LoopOnCpu(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FC(i,j,0) = DC(i,j,-1)*(FC(i,j,0)-Dphi_avg2(i,j,0)); //recursive
