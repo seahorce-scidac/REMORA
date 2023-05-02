@@ -275,6 +275,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     int nfast=2;
     int nfast_counter=predictor_2d_step ? nfast : nfast-1;
     for(int my_iif = 0; my_iif < nfast_counter; my_iif++) {
+        first_2d_step=(my_iif==0);
         predictor_2d_step=true;
         advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
                    vec_Zt_avg1[lev],
