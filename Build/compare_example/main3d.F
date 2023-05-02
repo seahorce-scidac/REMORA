@@ -651,6 +651,8 @@
                   knew(ng)=3
                   krhs(ng)=indx1(ng)
                END IF
+               print*,knew(ng),krhs(ng),kstp(ng),PREDICTOR_2D_STEP(ng), &
+               & (my_iif.le.1), FIRST_2D_STEP
 !
 !  Predictor step - Advance barotropic equations using 2D time-step
 !  ==============   predictor scheme.  No actual time-stepping is
@@ -707,9 +709,11 @@
 !  ==============   there is not need for a corrector step during the
 !  auxiliary (nfast+1) time-step.
 !
-                IF (iif(ng).lt.(nfast(ng)+1)) THEN
+               print*,knew(ng),krhs(ng),kstp(ng),PREDICTOR_2D_STEP(ng), &
+               & (my_iif.le.1), FIRST_2D_STEP
+               IF (iif(ng).lt.(nfast(ng)+1)) THEN
                   DO tile=first_tile(ng),last_tile(ng),+1
-!                    CALL step2d (ng, tile)
+                    CALL step2d (ng, tile)
                   END DO
 !$OMP BARRIER
                 END IF

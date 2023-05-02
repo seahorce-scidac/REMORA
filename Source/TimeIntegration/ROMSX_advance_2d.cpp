@@ -25,7 +25,7 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_h,
                    const int ncomp, Real dt_lev,
                    bool predictor_2d_step,
-                   bool first_2d_step, int my_iif)
+                   bool first_2d_step, int my_iif, int nfast, int & next_indx1)
 {
     auto geomdata  = Geom(lev).data();
     const auto dxi = Geom(lev).InvCellSizeArray();
@@ -42,6 +42,15 @@ ROMSX::advance_2d (int lev,
     int krhs = (my_iif + iic) % 2 + 1;
     int kstp = my_iif <=1 ? iic % 2 + 1 : (iic % 2 + my_iif % 2 + 1) % 2 + 1;
     int indx1 = krhs;
+    if(predictor_2d_step)
+        next_indx1 = 3 - indx1;
+    else {
+        knew = next_indx1;
+        kstp = 3 - knew;
+        krhs = 3;
+        if (my_iif<nfast+1)
+            indx1=next_indx1;
+    }
     Print()<<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<predictor_2d_step<<"\t"<<(my_iif<=1)<<std::endl;
     knew-=1;
     krhs-=1;
