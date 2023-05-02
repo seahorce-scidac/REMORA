@@ -363,6 +363,8 @@ public:
                  amrex::Array4<amrex::Real> rv,
                  amrex::Array4<amrex::Real> rufrc,
                  amrex::Array4<amrex::Real> rvfrc,
+                 amrex::Array4<amrex::Real> sustr,
+                 amrex::Array4<amrex::Real> svstr,
                  amrex::Array4<amrex::Real> Huon,
                  amrex::Array4<amrex::Real> Hvom,
                  amrex::Array4<amrex::Real> on_u,

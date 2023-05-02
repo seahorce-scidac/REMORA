@@ -87,6 +87,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     mf_w.setVal(0);
     mf_DC.setVal(0);
     mf_w.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
+
     MultiFab::Copy(mf_u,U_new,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_v,V_new,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
     MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
@@ -104,6 +105,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     mf_W.setVal(0.0);
     U_old.FillBoundary();
     V_old.FillBoundary();
+    mf_rufrc->setVal(0);
+    mf_rvfrc->setVal(0);
 
     int iic = istep[lev];
     int ntfirst = 0;
@@ -268,19 +271,18 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //
         coriolis(bx, uold, vold, ru, rv, Hz, fomn, nrhs);
 #endif
-
         //
         //-----------------------------------------------------------------------
         // rhs_3d
         //-----------------------------------------------------------------------
         //
-        rhs_3d(bx, uold, vold, ru, rv, rufrc, rvfrc, Huon, Hvom, on_u, om_v, om_u, on_v, W, FC, nrhs, N);
+        rhs_3d(bx, uold, vold, ru, rv, rufrc, rvfrc, sustr, svstr, Huon, Hvom, on_u, om_v, om_u, on_v, W, FC, nrhs, N);
     ////rufrc from 3d is set to ru, then the wind stress (and bottom stress) is added, then the mixing is added
     //rufrc=ru+sustr*om_u*on_u
     //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
     //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
-
     } // MFIter
+
     mf_temp.FillBoundary();
     mf_salt.FillBoundary();
     mf_tempold.FillBoundary();
