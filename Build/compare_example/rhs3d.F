@@ -2077,7 +2077,7 @@
         DO i=IstrU,Iend
           cff=om_u(i,j)*on_u(i,j)
           cff1= sustr(i,j)*cff
-          cff2=-bustr(i,j)*cff
+          cff2=0.0_r8!-bustr(i,j)*cff
           rufrc(i,j)=rufrc(i,j)+cff1+cff2
 #  ifdef WET_DRY
           rufrc(i,j)=rufrc(i,j)*umask_wet(i,j)
@@ -2197,7 +2197,7 @@
           DO i=Istr,Iend
             cff=om_v(i,j)*on_v(i,j)
             cff1= svstr(i,j)*cff
-            cff2=-bvstr(i,j)*cff
+            cff2=0.0_r8!-bvstr(i,j)*cff
             rvfrc(i,j)=rvfrc(i,j)+cff1+cff2
 #  ifdef WET_DRY
             rvfrc(i,j)=rvfrc(i,j)*vmask_wet(i,j)

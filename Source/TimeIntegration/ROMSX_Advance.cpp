@@ -62,6 +62,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab mf_w(ba,dm,1,IntVect(2,2,0));
     std::unique_ptr<MultiFab>& mf_ru = vec_ru[lev];
     std::unique_ptr<MultiFab>& mf_rv = vec_rv[lev];
+    std::unique_ptr<MultiFab>& mf_rufrc = vec_rufrc[lev];
+    std::unique_ptr<MultiFab>& mf_rvfrc = vec_rvfrc[lev];
     std::unique_ptr<MultiFab>& mf_sustr = vec_sustr[lev];
     std::unique_ptr<MultiFab>& mf_svstr = vec_svstr[lev];
     MultiFab mf_temp(S_new, amrex::make_alias, Temp_comp, 1);
@@ -153,6 +155,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& saltstore = (vec_s3[lev])->array(mfi);
         Array4<Real> const& ru = (mf_ru)->array(mfi);
         Array4<Real> const& rv = (mf_rv)->array(mfi);
+        Array4<Real> const& rufrc = (mf_rufrc)->array(mfi);
+        Array4<Real> const& rvfrc = (mf_rvfrc)->array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
         Array4<Real> const& sustr = (mf_sustr)->array(mfi);
         Array4<Real> const& svstr = (mf_svstr)->array(mfi);
@@ -182,6 +186,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_u(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_v(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_r(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_r(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
@@ -192,6 +200,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto pm=fab_pm.array();
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
+        auto om_u=fab_om_u.array();
+        auto on_v=fab_on_v.array();
+        auto om_r=fab_om_r.array();
+        auto on_r=fab_on_r.array();
         auto fomn=fab_fomn.array();
 
         //From ana_grid.h and metrics.F
@@ -212,8 +224,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         amrex::LoopConcurrentOnCpu(gbx2,
         [=] (int i, int j, int k)
         {
-          om_v(i,j,0)=1.0/dxi[0];
-          on_u(i,j,0)=1.0/dxi[1];
+          om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
+          on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
+          om_r(i,j,0)=1.0/dxi[0]; // 1/pm(i,j)
+          on_r(i,j,0)=1.0/dxi[1]; // 1/pn(i,j)
+          on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
+          om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
           Huon(i,j,k)=0.0;
           Hvom(i,j,k)=0.0;
         });
@@ -258,7 +274,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // rhs_3d
         //-----------------------------------------------------------------------
         //
-        rhs_3d(bx, uold, vold, ru, rv, Huon, Hvom, W, FC, nrhs, N);
+        rhs_3d(bx, uold, vold, ru, rv, rufrc, rvfrc, Huon, Hvom, on_u, om_v, om_u, on_v, W, FC, nrhs, N);
+    ////rufrc from 3d is set to ru, then the wind stress (and bottom stress) is added, then the mixing is added
+    //rufrc=ru+sustr*om_u*on_u
+    //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
+    //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
 
     } // MFIter
     mf_temp.FillBoundary();

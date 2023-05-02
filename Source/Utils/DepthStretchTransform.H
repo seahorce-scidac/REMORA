@@ -165,6 +165,7 @@ ROMSX::set_smflux(int lev, Real time)
     Real rho0=parms.rho0;
     Real windamp;
     amrex::Print()<<tdays<<" "<<dstart<<" "<<rho0<<std::endl;
+    //It's possible these should be set to be nonzero only at the boundaries they affect
     if(NSPeriodic) {
         mf_sustr->setVal(0.0);
     }

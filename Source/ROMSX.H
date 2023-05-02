@@ -229,6 +229,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hvom;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ru;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rv;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rufrc;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rvfrc;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akv;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc3d_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_x_r;
@@ -359,8 +361,14 @@ public:
                  amrex::Array4<amrex::Real> vold,
                  amrex::Array4<amrex::Real> ru,
                  amrex::Array4<amrex::Real> rv,
+                 amrex::Array4<amrex::Real> rufrc,
+                 amrex::Array4<amrex::Real> rvfrc,
                  amrex::Array4<amrex::Real> Huon,
                  amrex::Array4<amrex::Real> Hvom,
+                 amrex::Array4<amrex::Real> on_u,
+                 amrex::Array4<amrex::Real> om_v,
+                 amrex::Array4<amrex::Real> om_u,
+                 amrex::Array4<amrex::Real> on_v,
                  amrex::Array4<amrex::Real> W,
                  amrex::Array4<amrex::Real> FC,
                  int nrhs, int N);
