@@ -91,7 +91,7 @@ ROMSX::advance_3d (int lev,
 
         Box ubx = surroundingNodes(bx,0);
         Box vbx = surroundingNodes(bx,1);
-	Box ubx2 = surroundingNodes(ubx,0);
+        Box ubx2 = surroundingNodes(ubx,0);
         Box vbx2 = surroundingNodes(vbx,1);
         amrex::Print() << " BX " <<  bx << std::endl;
         amrex::Print() << "UBX " << ubx << std::endl;
@@ -336,7 +336,7 @@ Print()<<FArrayBox(tempold)<<std::endl;
 
         Box ubx = surroundingNodes(bx,0);
         Box vbx = surroundingNodes(bx,1);
-	Box ubx2 = surroundingNodes(ubx,0);
+        Box ubx2 = surroundingNodes(ubx,0);
         Box vbx2 = surroundingNodes(vbx,1);
         amrex::Print() << " BX " <<  bx << std::endl;
         amrex::Print() << "UBX " << ubx << std::endl;

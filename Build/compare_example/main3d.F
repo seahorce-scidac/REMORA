@@ -116,7 +116,7 @@
       USE sediment_mod,         ONLY : sediment
 # endif
 # if defined VEGETATION && defined MARSH_DYNAMICS
-      USE mod_vegetation 
+      USE mod_vegetation
       USE mod_vegarr
       USE marsh_dynamics_mod, ONLY : marsh_dynamics
 # endif
@@ -854,7 +854,7 @@
 # if defined VEGETATION && defined MARSH_DYNAMICS
 !
 !-----------------------------------------------------------------------
-!  Calculate marsh erosion due to wave thrust. 
+!  Calculate marsh erosion due to wave thrust.
 !-----------------------------------------------------------------------
 !
             DO ig=1,GridsInLayer(nl)
@@ -863,7 +863,7 @@
                 CALL marsh_dynamics (ng, tile)
               END DO
             END DO
-# endif 
+# endif
 # ifndef TS_FIXED
 !
 !-----------------------------------------------------------------------

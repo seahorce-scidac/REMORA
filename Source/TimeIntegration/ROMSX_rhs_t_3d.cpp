@@ -147,14 +147,14 @@ ROMSX::rhs_t_3d (const Box& bx,
               t(i,j,k,nnew) -= cff3;
     });
 
-	//-----------------------------------------------------------------------
-	//  Time-step vertical advection term.
-	//-----------------------------------------------------------------------
-	//Check which type of differences:
-	//
-	//  Fourth-order, central differences vertical advective flux
-	//  (Tunits m3/s).
-	//
+        //-----------------------------------------------------------------------
+        //  Time-step vertical advection term.
+        //-----------------------------------------------------------------------
+        //Check which type of differences:
+        //
+        //  Fourth-order, central differences vertical advective flux
+        //  (Tunits m3/s).
+        //
     amrex::ParallelFor(Box(FC),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -199,9 +199,9 @@ ROMSX::rhs_t_3d (const Box& bx,
             cff4=FC(i,j,k);
         }
         t(i,j,k)=oHz(i,j,k)*(t(i,j,k)-cff1*cff4);
-	//	if(i==2&&j==2&&k==2) {
-	//	    Print()<<i<<j<<k<<t(i,j,k)<<"\t"<<oHz(i,j,k)<<"\t"<<cff1<<"\t"<<cff4<<std::endl;
-        //	    Abort("any nans?");
+        //    if(i==2&&j==2&&k==2) {
+        //    Print()<<i<<j<<k<<t(i,j,k)<<"\t"<<oHz(i,j,k)<<"\t"<<cff1<<"\t"<<cff4<<std::endl;
+        //    Abort("any nans?");
         //}
     });
 }

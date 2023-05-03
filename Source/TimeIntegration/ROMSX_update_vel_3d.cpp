@@ -97,17 +97,16 @@ ROMSX::update_vel_3d (const Box& vel_bx,
             }
 
             cff3=0.5*DC(i,j,k);
-	    if(ioff==0&&joff==0)
-            vel(i,j,k,nnew)=cff1 + cff2;
-	    else {
-            indx=nrhs ? 0 : 1;
-            Real r_swap= rvel(i,j,k,indx);
-            rvel(i,j,k,indx) = rvel(i,j,k,nrhs);
-            rvel(i,j,k,nrhs) = r_swap;
-            vel(i,j,k,nnew)=cff1- cff3*rvel(i,j,k,indx)+ cff2; }
-
+            if(ioff==0&&joff==0)
+                vel(i,j,k,nnew)=cff1 + cff2;
+            else {
+                indx=nrhs ? 0 : 1;
+                Real r_swap= rvel(i,j,k,indx);
+                rvel(i,j,k,indx) = rvel(i,j,k,nrhs);
+                rvel(i,j,k,nrhs) = r_swap;
+                vel(i,j,k,nnew)=cff1- cff3*rvel(i,j,k,indx)+ cff2;
+            }
         } else {
-
             cff1= 5.0/12.0;
             cff2=16.0/12.0;
             if (k==0) {
@@ -122,19 +121,20 @@ ROMSX::update_vel_3d (const Box& vel_bx,
                 cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff4=FC(i,j,k)-FC(i,j,k-1);
             }
-	    if(ioff==0&&joff==0)
-            vel(i,j,k,nnew)=cff3 + cff4;
-	    else {
-            indx=nrhs ? 0 : 1;
-            Real r_swap= rvel(i,j,k,indx);
-            rvel(i,j,k,indx) = rvel(i,j,k,nrhs);
-            rvel(i,j,k,nrhs) = r_swap;
+            if(ioff==0&&joff==0)
+                vel(i,j,k,nnew)=cff3 + cff4;
+            else {
+                indx=nrhs ? 0 : 1;
+                Real r_swap= rvel(i,j,k,indx);
+                rvel(i,j,k,indx) = rvel(i,j,k,nrhs);
+                rvel(i,j,k,nrhs) = r_swap;
 
-            vel(i,j,k,nnew)=cff3+
-                DC(i,j,k)*(cff1*rvel(i,j,k,nrhs)-
-                           cff2*rvel(i,j,k,indx))+
-                cff4;
-            rvel(i,j,k,nrhs) = 0.0; }
+                vel(i,j,k,nnew)=cff3+
+                    DC(i,j,k)*(cff1*rvel(i,j,k,nrhs)-
+                               cff2*rvel(i,j,k,indx))+
+                    cff4;
+                rvel(i,j,k,nrhs) = 0.0;
+            }
         }
     });
 }
