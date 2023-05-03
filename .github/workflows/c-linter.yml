@@ -1,6 +1,6 @@
 name: cpp-linter
 
-on: [pull_request]
+on: [pull_request,push]
 jobs:
   cpp-linter:
     runs-on: ubuntu-latest
