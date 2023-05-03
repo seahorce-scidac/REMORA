@@ -165,10 +165,10 @@ ROMSX::prestep_t_3d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         tempstore(i,j,k)=Hz(i,j,k)*(cff1*tempold(i,j,k)+
-					cff2*temp(i,j,k))-
-                        cff*pm(i,j,0)*pn(i,j,0)*
-                        (FX(i+1,j,k)-FX(i,j,k)+
-                         FE(i,j+1,k)-FE(i,j,k));
+                                    cff2*temp(i,j,k))-
+                                    cff*pm(i,j,0)*pn(i,j,0)*
+                                    (FX(i+1,j,k)-FX(i,j,k)+
+                                     FE(i,j+1,k)-FE(i,j,k));
          /*
          tempstore(i,j,k,3)=Hz(i,j,k)*(cff1*tempold(i,j,k,nstp)+
                                        cff2*temp(i,j,k,nnew))-
@@ -287,7 +287,7 @@ ROMSX::prestep_t_3d (const Box& bx,
             cff4=FC(i,j,k);
         }
         tempstore(i,j,k)=DC(i,j,k)*(tempstore(i,j,k)-cff1*cff4);
-	//	temp(i,j,k)=tempold(i,j,k);
+//      temp(i,j,k)=tempold(i,j,k);
     });
 
     //-----------------------------------------------------------------------
