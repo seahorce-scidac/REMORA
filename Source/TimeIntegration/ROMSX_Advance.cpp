@@ -113,7 +113,16 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     if(iic==ntfirst&&false)
         MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(2,2,2)));
     set_smflux(lev,t_old[lev]);
+    //Bottom stress to 3d u and v and to 2d ubar and vbar
+    //todo2: uncomment and pass through bustr and bvstr to rhs_uv_3d and update_vel_3d.cpp
+    //todo1: Set bustr bvstr as in set_vbc.F
+    //todo0: set rdrag as in ana_drag.h
     /*
+      DO j=JstrT,JendT
+        DO i=IstrT,IendT
+          rdrag(i,j)=0.002_r8*(1.0_r8-TANH(GRID(ng)%h(i,j)/150.0_r8))
+        END DO
+      END DO
 !
 !  Set linear bottom stress.
 !
@@ -231,6 +240,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
           om_r(i,j,0)=1.0/dxi[0]; // 1/pm(i,j)
           on_r(i,j,0)=1.0/dxi[1]; // 1/pn(i,j)
+          //todo: om_p on_p
           on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
           om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
           Huon(i,j,k)=0.0;
@@ -281,6 +291,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //rufrc=ru+sustr*om_u*on_u
     //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
     //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
+        //uv3dmix here
+        //rufrc, rvfrc should be updated by uv3dmix
     } // MFIter
 
     mf_temp.FillBoundary();

@@ -236,6 +236,18 @@ ROMSX::advance_2d (int lev,
             DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2*DVom(i,j,0);
         });
         }
+
+        //Load new free-surface values into shared array at both predictor
+        //and corrector steps
+        // Free surface update
+        // todo: zeta=zeta_new
+        // todo: rzeta
+        // todo: gzeta
+        // rhs_ubar rhs_vbar
+
+        // Advection for 2d ubar, vbar
+        // todo: Dgrad, grad
+
 #ifdef UV_COR
         //
         //-----------------------------------------------------------------------
@@ -245,4 +257,196 @@ ROMSX::advance_2d (int lev,
         coriolis(bxD, ubar, vbar, rubar, rvbar, Drhs, fomn, krhs);
 #endif
     }
-}
+
+    //Add in horizontal harmonic viscosity.
+    //todo: visc2_p visc2_r
+    // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
+
+    //Coupling from 3d to 2d
+    /////////Coupling of 3d updates to 2d predictor-corrector
+    //todo: iif(ng)=>my_iif iic(ng) => icc
+    /*
+    IF (iif(ng).eq.1.and.PREDICTOR_2D_STEP(ng)) THEN
+        IF (iic(ng).eq.ntfirst(ng)) THEN
+          DO j=Jstr,Jend
+            DO i=IstrU,Iend
+!              rufrc(i,j)=rufrc(i,j)-rhs_ubar(i,j)
+!              rhs_ubar(i,j)=rhs_ubar(i,j)+rufrc(i,j)
+!              ru(i,j,0,nstp)=rufrc(i,j)
+            END DO
+          END DO
+          DO j=JstrV,Jend
+            DO i=Istr,Iend
+!              rvfrc(i,j)=rvfrc(i,j)-rhs_vbar(i,j)
+!              rhs_vbar(i,j)=rhs_vbar(i,j)+rvfrc(i,j)
+!              rv(i,j,0,nstp)=rvfrc(i,j)
+            END DO
+          END DO
+        ELSE IF (iic(ng).eq.(ntfirst(ng)+1)) THEN
+          DO j=Jstr,Jend
+            DO i=IstrU,Iend
+!              rufrc(i,j)=rufrc(i,j)-rhs_ubar(i,j)
+!              rhs_ubar(i,j)=rhs_ubar(i,j)+                              &
+!     &                      1.5_r8*rufrc(i,j)-0.5_r8*ru(i,j,0,nnew)
+!              ru(i,j,0,nstp)=rufrc(i,j)
+            END DO
+          END DO
+          DO j=JstrV,Jend
+            DO i=Istr,Iend
+!              rvfrc(i,j)=rvfrc(i,j)-rhs_vbar(i,j)
+!              rhs_vbar(i,j)=rhs_vbar(i,j)+                              &
+!     &                      1.5_r8*rvfrc(i,j)-0.5_r8*rv(i,j,0,nnew)
+!              rv(i,j,0,nstp)=rvfrc(i,j)
+            END DO
+          END DO
+        ELSE
+          cff1=23.0_r8/12.0_r8
+          cff2=16.0_r8/12.0_r8
+          cff3= 5.0_r8/12.0_r8
+          DO j=Jstr,Jend
+            DO i=IstrU,Iend
+!              rufrc(i,j)=rufrc(i,j)-rhs_ubar(i,j)
+!              rhs_ubar(i,j)=rhs_ubar(i,j)+                              &
+!     &                      cff1*rufrc(i,j)-                            &
+!     &                      cff2*ru(i,j,0,nnew)+                        &
+!     &                      cff3*ru(i,j,0,nstp)
+!              ru(i,j,0,nstp)=rufrc(i,j)
+            END DO
+          END DO
+          DO j=JstrV,Jend
+            DO i=Istr,Iend
+!              rvfrc(i,j)=rvfrc(i,j)-rhs_vbar(i,j)
+!              rhs_vbar(i,j)=rhs_vbar(i,j)+                              &
+!     &                      cff1*rvfrc(i,j)-                            &
+!     &                      cff2*rv(i,j,0,nnew)+                        &
+!     &                      cff3*rv(i,j,0,nstp)
+!              rv(i,j,0,nstp)=rvfrc(i,j)
+            END DO
+          END DO
+        END IF
+      ELSE
+        DO j=Jstr,Jend
+          DO i=IstrU,Iend
+            rhs_ubar(i,j)=rhs_ubar(i,j)+rufrc(i,j)
+          END DO
+        END DO
+        DO j=JstrV,Jend
+          DO i=Istr,Iend
+            rhs_vbar(i,j)=rhs_vbar(i,j)+rvfrc(i,j)
+          END DO
+        END DO
+      END IF
+    */
+
+    //
+    //=======================================================================
+    //  Time step 2D momentum equations.
+    //=======================================================================
+    //
+    //  Compute total water column depth.
+    //
+    /*
+      DO j=JstrV-1,Jend
+        DO i=IstrU-1,Iend
+          Dstp(i,j)=zeta(i,j,kstp)+h(i,j)
+        END DO
+      END DO
+!
+!  During the first time-step, the predictor step is Forward-Euler
+!  and the corrector step is Backward-Euler. Otherwise, the predictor
+!  step is Leap-frog and the corrector step is Adams-Moulton.
+!
+      IF (iif(ng).eq.1) THEN
+        cff1=0.5_r8*dtfast(ng)
+        DO j=Jstr,Jend
+          DO i=IstrU,Iend
+            cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
+            fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
+            ubar(i,j,knew)=ubar(i,j,kstp)
+!            ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
+!     &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
+!     &                      cff*cff1*rhs_ubar(i,j))*fac
+          END DO
+        END DO
+        DO j=JstrV,Jend
+          DO i=Istr,Iend
+            cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
+            fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
+            vbar(i,j,knew)=vbar(i,j,kstp)
+!            vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
+!     &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
+!     &                      cff*cff1*rhs_vbar(i,j))*fac
+          END DO
+        END DO
+      ELSE IF (PREDICTOR_2D_STEP(ng)) THEN
+        cff1=dtfast(ng)
+        DO j=Jstr,Jend
+          DO i=IstrU,Iend
+            cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
+            fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
+            ubar(i,j,knew)=ubar(i,j,kstp)
+!            ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
+!     &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
+!     &                      cff*cff1*rhs_ubar(i,j))*fac
+          END DO
+        END DO
+        DO j=JstrV,Jend
+          DO i=Istr,Iend
+            cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
+            fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
+            vbar(i,j,knew)=vbar(i,j,kstp)
+!            vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
+!     &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
+!     &                      cff*cff1*rhs_vbar(i,j))*fac
+          END DO
+        END DO
+      ELSE IF (CORRECTOR_2D_STEP) THEN
+        cff1=0.5_r8*dtfast(ng)*5.0_r8/12.0_r8
+        cff2=0.5_r8*dtfast(ng)*8.0_r8/12.0_r8
+        cff3=0.5_r8*dtfast(ng)*1.0_r8/12.0_r8
+        DO j=Jstr,Jend
+          DO i=IstrU,Iend
+            cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
+            fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
+            ubar(i,j,knew)=ubar(i,j,kstp)
+!            ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
+!     &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
+!     &                      cff*(cff1*rhs_ubar(i,j)+                    &
+!     &                           cff2*rubar(i,j,kstp)-                  &
+!     &                           cff3*rubar(i,j,ptsk)))*fac
+          END DO
+        END DO
+        DO j=JstrV,Jend
+          DO i=Istr,Iend
+            cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
+            fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
+            vbar(i,j,knew)=vbar(i,j,kstp)
+!            vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
+!     &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
+!     &                      cff*(cff1*rhs_vbar(i,j)+                    &
+!     &                           cff2*rvbar(i,j,kstp)-                  &
+!     &                           cff3*rvbar(i,j,ptsk)))*fac
+          END DO
+        END DO
+      END IF
+*/
+    //store rhs_ubar and rhs_vbar to save later
+    //
+    //  If predictor step, load right-side-term into shared arrays for
+    //  future use during the subsequent corrector step.
+    //
+    /*
+      IF (PREDICTOR_2D_STEP(ng)) THEN
+        DO j=Jstr,Jend
+          DO i=IstrU,Iend
+            rubar(i,j,krhs)=rhs_ubar(i,j)
+          END DO
+        END DO
+        DO j=JstrV,Jend
+          DO i=Istr,Iend
+            rvbar(i,j,krhs)=rhs_vbar(i,j)
+          END DO
+        END DO
+END IF
+    */
+    }
