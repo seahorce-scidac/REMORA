@@ -57,6 +57,11 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
             DC(i,j,-1)=1.0/DC(i,j,-1);
             CF(i,j,-1)=DC(i,j,-1)*(CF(i,j,-1)-Dphi_avg1(i,j,0));
         }
+        //Consider putting this in a later function:
+        //          ubar(i,j,1)=DC(i,0)*DU_avg1(i,j)
+        //          ubar(i,j,2)=ubar(i,j,1)
+        //          vbar(i,j,1)=DC(i,0)*DV_avg1(i,j)
+        //          vbar(i,j,2)=vbar(i,j,1)
         //Vertical mean correction on boundary points
         // Maybe wrong? Will it just get obliterated on the FillBoundary
         if(!(NSPeriodic&&EWPeriodic)) {
