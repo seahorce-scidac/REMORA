@@ -201,8 +201,8 @@ ROMSX::set_depth (int lev)
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
     Real depth = geom[lev].ProbHi(2);
-    // const int Lm = Geom(lev).Domain().size()[0];
-    // const int Mm = Geom(lev).Domain().size()[1];
+    const int Lm = Geom(lev).Domain().size()[0];
+    const int Mm = Geom(lev).Domain().size()[1];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     mf_Zt_avg1->setVal(0.0);
 
@@ -241,10 +241,10 @@ ROMSX::set_depth (int lev)
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
       bool NSPeriodic = geomdata.isPeriodic(1);
       bool EWPeriodic = geomdata.isPeriodic(0);
+      if(solverChoice.flat_bathymetry) {
       amrex::LoopConcurrentOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
-#if 0
           Real val1, val2;
           int iFort = i+1;
           int jFort = j+1;
@@ -264,11 +264,17 @@ ROMSX::set_depth (int lev)
               val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
               h(i,j,0) = val2;
           }
-#else
-          h(i,j,0) = -geomdata.ProbLo(2);
-#endif
           z_w(i,j,k) = h(i,j,0);
       });
+      } else {
+      amrex::LoopConcurrentOnCpu(gbx2, ncomp,
+      [=] (int i, int j, int k, int n)
+      {
+          h(i,j,0) = -geomdata.ProbLo(2);
+          z_w(i,j,k) = h(i,j,0);
+      });
+      }
+
       // ROMS Transform 2
       amrex::LoopOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)

@@ -319,6 +319,7 @@ struct SolverChoice {
     std::string pp_prefix {"romsx"};
 
     bool        use_terrain            = false;
+    bool        flat_bathymetry        = true;
 
     // Specify what additional physics/forcing modules we use
     bool        use_gravity            = false;

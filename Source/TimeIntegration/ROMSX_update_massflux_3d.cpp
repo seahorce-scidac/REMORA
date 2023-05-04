@@ -44,6 +44,9 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*phi(i,j,k,nnew);
             });
 
+    auto geomdata = Geom(0).data();
+    bool NSPeriodic = geomdata.isPeriodic(1);
+    bool EWPeriodic = geomdata.isPeriodic(0);
     // Note this loop is in the opposite direction in k in ROMS but does not
     // appear to affect results
     amrex::ParallelFor(validbx,
@@ -56,10 +59,13 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
         }
         //Vertical mean correction on boundary points
         // Maybe wrong? Will it just get obliterated on the FillBoundary
-#if 0
-        if((i<0)||(j<0)||(i>=Mn+1)||(j>=Mm+1))
-            phi(i,j,k) -= CF(i,j,-1);
-#endif
+        if(!(NSPeriodic&&EWPeriodic)) {
+            if((((i<0)||(i>=Mn+1))&&!EWPeriodic)||(((j<0)||(j>=Mm+1))&&!NSPeriodic)) {
+                phi(i,j,k) -= CF(i,j,-1);
+                Abort("Untested vertical mean");
+            }
+        }
+
         //Compute correct mass flux, Hz*v/m
         Hphi(i,j,k) = 0.5 * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
         FC(i,j,0) = FC(i,j,0)+Hphi(i,j,k); //recursive
