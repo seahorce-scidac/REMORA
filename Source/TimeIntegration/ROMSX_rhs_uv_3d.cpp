@@ -262,33 +262,33 @@ ROMSX::rhs_3d (const Box& bx,
               }
               rv(i,j,k,nrhs) -= cff;
 
-	      //Recursive summation:
+              //Recursive summation:
               rufrc(i,j,0)+=ru(i,j,k,nrhs);
               rvfrc(i,j,0)+=rv(i,j,k,nrhs);
 
               //These forcing terms should possibly be updated on a slabbed box
               cff=om_u(i,j,0)*on_u(i,j,0);
               if(k==N) // this is consistent with update_vel_3d
-		  cff1=sustr(i,j,0)*cff;
+                  cff1=sustr(i,j,0)*cff;
               else
                   cff1=0.0;
-	      if(k==0) //should this be k==-1?
-		  cff2=0.0;//bustr(i,j,0)*cff;
-	      else
-		  cff2=0.0;
-	      rufrc(i,j,0)+=cff1+cff2;
+              if(k==0) //should this be k==-1?
+                  cff2=0.0;//bustr(i,j,0)*cff;
+              else
+                  cff2=0.0;
+              rufrc(i,j,0)+=cff1+cff2;
 
               //These forcing terms should possibly be updated on a slabbed box
               cff=om_v(i,j,0)*on_v(i,j,0);
               if(k==N) // this is consistent with update_vel_3d
-		  cff1=svstr(i,j,0)*cff;
+                  cff1=svstr(i,j,0)*cff;
               else
                   cff1=0.0;
-	      if(k==0) //should this be k==-1?
-		  cff2=0.0;//bustr(i,j,0)*cff;
-	      else
-		  cff2=0.0;
-	      rvfrc(i,j,0)+=cff1+cff2;
+              if(k==0) //should this be k==-1?
+                  cff2=0.0;//bustr(i,j,0)*cff;
+              else
+                  cff2=0.0;
+              rvfrc(i,j,0)+=cff1+cff2;
 
     });
 }
