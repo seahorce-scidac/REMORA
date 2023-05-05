@@ -12,13 +12,13 @@ ROMSX::rhs_2d (const Box& bx,
                Array4<Real> uold  , Array4<Real> vold,
                Array4<Real> ru, Array4<Real> rv,
                /*Array4<Real> rufrc, Array4<Real> rvfrc,
-		 Array4<Real> sustr, Array4<Real> svstr,*/
+                 Array4<Real> sustr, Array4<Real> svstr,*/
                Array4<Real> Huon, Array4<Real> Hvom,
-	       /*
+               /*
                Array4<Real> on_u, Array4<Real> om_v,
                Array4<Real> om_u, Array4<Real> on_v,
                Array4<Real> W   , Array4<Real> FC,
-	       */
+               */
                int nrhs, int N)
 {
     //copy the tilebox
@@ -168,7 +168,7 @@ ROMSX::rhs_2d (const Box& bx,
               Real cff1=UFx(i,j  ,k)-UFx(i-1,j,k);
               Real cff2=UFe(i,j+1,k)-UFe(i  ,j,k);
               Real cff=cff1+cff2;
-	      //passing in rhs_ubar so need 0 index here
+              //passing in rhs_ubar so need 0 index here
               ru(i,j,k) -= cff;
 
               cff1=VFx(i+1,j,k)-VFx(i  ,j,k);
