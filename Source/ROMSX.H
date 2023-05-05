@@ -356,6 +356,19 @@ public:
                         int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
+    void rhs_t_3d (const amrex::Box& bx,
+                   amrex::Array4<amrex::Real> told,
+                   amrex::Array4<amrex::Real> t,
+                   amrex::Array4<amrex::Real> tempstore,
+                   amrex::Array4<amrex::Real> Huon,
+                   amrex::Array4<amrex::Real> Hvom,
+                   amrex::Array4<amrex::Real> oHz,
+                   amrex::Array4<amrex::Real> pn,
+                   amrex::Array4<amrex::Real> pm,
+                   amrex::Array4<amrex::Real> W,
+                   amrex::Array4<amrex::Real> FC,
+                   int nrhs, int nnew, int N, const amrex::Real dt_lev);
+
     void rhs_3d (const amrex::Box& bx,
                  amrex::Array4<amrex::Real> uold,
                  amrex::Array4<amrex::Real> vold,
@@ -375,18 +388,24 @@ public:
                  amrex::Array4<amrex::Real> FC,
                  int nrhs, int N);
 
-    void rhs_t_3d (const amrex::Box& bx,
-                   amrex::Array4<amrex::Real> told,
-                   amrex::Array4<amrex::Real> t,
-                   amrex::Array4<amrex::Real> tempstore,
-                   amrex::Array4<amrex::Real> Huon,
-                   amrex::Array4<amrex::Real> Hvom,
-                   amrex::Array4<amrex::Real> oHz,
-                   amrex::Array4<amrex::Real> pn,
-                   amrex::Array4<amrex::Real> pm,
-                   amrex::Array4<amrex::Real> W,
-                   amrex::Array4<amrex::Real> FC,
-                   int nrhs, int nnew, int N, const amrex::Real dt_lev);
+    void rhs_2d (const amrex::Box& bx,
+                 amrex::Array4<amrex::Real> uold,
+                 amrex::Array4<amrex::Real> vold,
+                 amrex::Array4<amrex::Real> ru,
+                 amrex::Array4<amrex::Real> rv,
+		 //                 amrex::Array4<amrex::Real> rufrc,
+		 //                 amrex::Array4<amrex::Real> rvfrc,
+		 //                 amrex::Array4<amrex::Real> sustr,
+		 //                 amrex::Array4<amrex::Real> svstr,
+                 amrex::Array4<amrex::Real> Huon,
+                 amrex::Array4<amrex::Real> Hvom,
+		 //                 amrex::Array4<amrex::Real> on_u,
+		 //                 amrex::Array4<amrex::Real> om_v,
+		 //                 amrex::Array4<amrex::Real> om_u,
+		 //                 amrex::Array4<amrex::Real> on_v,
+		 //                 amrex::Array4<amrex::Real> W,
+		 //                 amrex::Array4<amrex::Real> FC,
+                 int nrhs, int N);
 
     void update_vel_3d (const amrex::Box& bx,
                         const int ioff, const int joff,

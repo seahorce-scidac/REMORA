@@ -7,6 +7,7 @@ CEXE_sources += ROMSX_prestep_t_3d.cpp
 CEXE_sources += ROMSX_prestep_uv_3d.cpp
 CEXE_sources += ROMSX_rhs_t_3d.cpp
 CEXE_sources += ROMSX_rhs_uv_3d.cpp
+CEXE_sources += ROMSX_rhs_uv_2d.cpp
 CEXE_sources += ROMSX_update_vel_3d.cpp
 CEXE_sources += ROMSX_vert_visc_3d.cpp
 CEXE_sources += ROMSX_set_massflux_3d.cpp
