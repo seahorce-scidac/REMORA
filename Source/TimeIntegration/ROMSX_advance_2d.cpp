@@ -256,7 +256,7 @@ ROMSX::advance_2d (int lev,
         // rhs_2d
         //-----------------------------------------------------------------------
         //
-        rhs_2d(bx, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs, N);
+        rhs_2d(bxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs, N);
 
 #ifdef UV_COR
         //
@@ -265,7 +265,7 @@ ROMSX::advance_2d (int lev,
         //-----------------------------------------------------------------------
         //
         // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
-        coriolis(bxD, ubar, vbar, rubar, rvbar, Drhs, fomn, krhs);
+        coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
 #endif
     }
 

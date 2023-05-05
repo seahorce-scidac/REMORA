@@ -501,7 +501,7 @@ public:
                    amrex::Array4<amrex::Real> rv,
                    amrex::Array4<amrex::Real> Hz,
                    amrex::Array4<amrex::Real> fomn,
-                   int nrhs);
+                   int nrhs, int nr);
 #endif
 
     void set_2darrays (int lev);

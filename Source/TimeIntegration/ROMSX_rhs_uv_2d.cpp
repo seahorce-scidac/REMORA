@@ -31,10 +31,6 @@ ROMSX::rhs_2d (const Box& bx,
     //make only gbx be grown to match multifabs
     gbx2.grow(IntVect(2,2,0));
     gbx1.grow(IntVect(1,1,0));
-    Box gbx1D = gbx1;
-    Box gbx2D = gbx2;
-    gbx2D.makeSlab(2,0);
-    gbx1D.makeSlab(2,0);
 
     //
     // Scratch space
@@ -93,7 +89,7 @@ ROMSX::rhs_2d (const Box& bx,
         VFe(i,j,k)=0.0;
     });
 
-    amrex::ParallelFor(gbx1D,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should not include grow cells
@@ -103,7 +99,7 @@ ROMSX::rhs_2d (const Box& bx,
         Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
     });
 
-    amrex::ParallelFor(gbx1D,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff=1.0/6.0;
@@ -117,7 +113,7 @@ ROMSX::rhs_2d (const Box& bx,
         uee(i,j,k)=uold(i,j-1,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i,j+1,k,nrhs);
     });
 
-    amrex::ParallelFor(gbx1D,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         /////////////MIGHT NEED NEW LOOP HERE
@@ -125,7 +121,7 @@ ROMSX::rhs_2d (const Box& bx,
         Hvxx(i,j,k)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
     });
 
-    amrex::ParallelFor(gbx1D,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
             Real cff=1.0/6.0;
@@ -150,7 +146,7 @@ ROMSX::rhs_2d (const Box& bx,
             Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
         });
 
-        amrex::ParallelFor(gbx1D,
+        amrex::ParallelFor(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             //neglecting terms about periodicity since testing only periodic for now
@@ -162,7 +158,7 @@ ROMSX::rhs_2d (const Box& bx,
                                            cff  * (Hvee(i,j  ,k)+ Hvee(i,j+1,k)));
         });
 
-        amrex::ParallelFor(gbx1D,
+        amrex::ParallelFor(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //
