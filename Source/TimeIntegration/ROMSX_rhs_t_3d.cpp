@@ -155,7 +155,7 @@ ROMSX::rhs_t_3d (const Box& bx,
         //  Fourth-order, central differences vertical advective flux
         //  (Tunits m3/s).
         //
-    amrex::ParallelFor(Box(FC),
+    amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //-----------------------------------------------------------------------

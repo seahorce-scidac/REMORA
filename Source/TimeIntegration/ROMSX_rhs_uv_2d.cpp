@@ -96,7 +96,7 @@ ROMSX::rhs_2d (const Box& bx,
         uxx(i,j,k)=uold(i-1,j,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i+1,j,k,nrhs);
 
         //neglecting terms about periodicity since testing only periodic for now
-        Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
+	Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
     });
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -157,13 +157,12 @@ ROMSX::rhs_2d (const Box& bx,
                                            cff  * (Hvee(i,j  ,k)+ Hvee(i,j+1,k)));
         });
 
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //
               //  Add in horizontal advection.
               //
-
               Real cff1=UFx(i,j  ,k)-UFx(i-1,j,k);
               Real cff2=UFe(i,j+1,k)-UFe(i  ,j,k);
               Real cff=cff1+cff2;
@@ -175,5 +174,6 @@ ROMSX::rhs_2d (const Box& bx,
               cff=cff1+cff2;
               //passing in rhs_vbar so need 0 index here
               rv(i,j,k) -= cff;
-    });
+        });
+
 }
