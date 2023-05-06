@@ -18,7 +18,7 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_DV_avg2,
                    std::unique_ptr<MultiFab>& mf_rubar,
                    std::unique_ptr<MultiFab>& mf_rvbar,
-                   std::unique_ptr<MultiFab>& /*mf_rzeta*/,
+                   std::unique_ptr<MultiFab>& mf_rzeta,
                    std::unique_ptr<MultiFab>& mf_ubar,
                    std::unique_ptr<MultiFab>& mf_vbar,
                    std::unique_ptr<MultiFab>& mf_zeta,
@@ -37,7 +37,7 @@ ROMSX::advance_2d (int lev,
 
     int iic = istep[lev];
     //bool predictor_2d_step = true;
-        //    int my_iif = 1; //substep index
+    //    int my_iif = 1; //substep index
     int knew = 3;
     int krhs = (my_iif + iic) % 2 + 1;
     int kstp = my_iif <=1 ? iic % 2 + 1 : (iic % 2 + my_iif % 2 + 1) % 2 + 1;
@@ -48,14 +48,17 @@ ROMSX::advance_2d (int lev,
         knew = next_indx1;
         kstp = 3 - knew;
         krhs = 3;
+        //If it's not the auxiliary time step, set indx1 to next_indx1
         if (my_iif<nfast+1)
             indx1=next_indx1;
     }
+    int ptsk = 3-kstp;
     Print()<<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<predictor_2d_step<<"\t"<<(my_iif<=1)<<std::endl;
     knew-=1;
     krhs-=1;
     kstp-=1;
     indx1-=1;
+    ptsk-=1;
     //Hardcode for 1 fast timestep (predictor+corrector only)
     Real weighta = 0.0;
     Real weightb = 1.0;
@@ -79,6 +82,7 @@ ROMSX::advance_2d (int lev,
         Array4<Real> const& DV_avg2 = (mf_DV_avg2)->array(mfi);
         Array4<Real> const& rubar = (mf_rubar)->array(mfi);
         Array4<Real> const& rvbar = (mf_rvbar)->array(mfi);
+        Array4<Real> const& rzeta = (mf_rzeta)->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -95,6 +99,8 @@ ROMSX::advance_2d (int lev,
         bxD.makeSlab(2,0);
         ubxD.makeSlab(2,0);
         vbxD.makeSlab(2,0);
+        Box gbx1D = bxD;
+        gbx1D.grow(IntVect(1,1,0));
         //AKA
         //ubxD.setRange(2,0);
         //vbxD.setRange(2,0);
@@ -110,10 +116,14 @@ ROMSX::advance_2d (int lev,
 
         //step2d work arrays
         FArrayBox fab_Drhs(gbx2,1,The_Async_Arena());
+        FArrayBox fab_Dnew(gbx2,1,The_Async_Arena());
+        FArrayBox fab_Dstp(gbx2,1,The_Async_Arena());
         FArrayBox fab_DUon(gbx2,1,The_Async_Arena());
         FArrayBox fab_DVom(gbx2,1,The_Async_Arena());
         FArrayBox fab_rhs_ubar(gbx2,1,The_Async_Arena());
         FArrayBox fab_rhs_vbar(gbx2,1,The_Async_Arena());
+        FArrayBox fab_rhs_zeta(gbx2,1,The_Async_Arena());
+        FArrayBox fab_zeta_new(gbx2,1,The_Async_Arena());
 
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
@@ -122,10 +132,14 @@ ROMSX::advance_2d (int lev,
         auto fomn=fab_fomn.array();
 
         auto Drhs=fab_Drhs.array();
+        auto Dnew=fab_Dnew.array();
+        auto Dstp=fab_Dstp.array();
         auto DUon=fab_DUon.array();
         auto DVom=fab_DVom.array();
         auto rhs_ubar=fab_rhs_ubar.array();
         auto rhs_vbar=fab_rhs_vbar.array();
+        auto rhs_zeta=fab_rhs_zeta.array();
+        auto zeta_new=fab_zeta_new.array();
 
         //From ana_grid.h and metrics.F
         amrex::ParallelFor(gbx2,
@@ -243,16 +257,115 @@ ROMSX::advance_2d (int lev,
         });
         }
 
+    //
+    //  Do not perform the actual time stepping during the auxiliary
+    //  (nfast(ng)+1) time step.
+    //
+
+        if (my_iif>=nfast) return;
         //Load new free-surface values into shared array at both predictor
         //and corrector steps
-        // Free surface update
-        // todo: zeta=zeta_new
-        // todo: rzeta
-        // todo: gzeta
-        // rhs_ubar rhs_vbar
 
-        // Advection for 2d ubar, vbar
-        // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
+        //
+        //=======================================================================
+        //  Time step free-surface equation.
+        //=======================================================================
+        //
+        //  During the first time-step, the predictor step is Forward-Euler
+        //  and the corrector step is Backward-Euler. Otherwise, the predictor
+        //  step is Leap-frog and the corrector step is Adams-Moulton.
+        //
+
+        // todo: gzeta
+
+        // todo: HACKHACKHACK Should use rho0 from prob.H
+        Real fac=1000.0/1025.0;
+
+        if(my_iif==0) {
+            Real cff1=dtfast_lev;
+            amrex::ParallelFor(gbx1D,
+            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
+                                (DVom(i,j,0)-DVom(i,j+1,0));
+                zeta_new(i,j,0)=zeta(i,j,0,kstp)+
+                                pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
+                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
+
+                //Pressure gradient terms:
+                /*
+                  zwrk(i,j)=0.5_rt*(zeta(i,j,kstp)+zeta_new(i,j))
+                  gzeta(i,j)=(fac+rhoS(i,j))*zwrk(i,j)
+                  gzeta2(i,j)=gzeta(i,j)*zwrk(i,j)
+                  gzetaSA(i,j)=zwrk(i,j)*(rhoS(i,j)-rhoA(i,j))*/
+            });
+        } else if (predictor_2d_step) {
+            Real cff1=2.0_rt*dtfast_lev;
+            Real cff4=4.0/25.0;
+            Real cff5=1.0-2.0*cff4;
+            amrex::ParallelFor(gbx1D,
+            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
+                                (DVom(i,j,0)-DVom(i,j+1,0));
+                zeta_new(i,j,0)=zeta(i,j,0,kstp)+
+                                pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
+                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
+                //Pressure gradient terms
+                /*
+                  zwrk(i,j)=cff5*zeta(i,j,krhs)+                              &
+                  &                cff4*(zeta(i,j,kstp)+zeta_new(i,j))
+                  gzeta(i,j)=(fac+rhoS(i,j))*zwrk(i,j)
+                  gzeta2(i,j)=gzeta(i,j)*zwrk(i,j)
+                  gzetaSA(i,j)=zwrk(i,j)*(rhoS(i,j)-rhoA(i,j))*/
+            });
+        } else if (!predictor_2d_step) { //AKA if(corrector_2d_step)
+            Real cff1=dtfast_lev*5.0_rt/12.0_rt;
+            Real cff2=dtfast_lev*8.0_rt/12.0_rt;
+            Real cff3=dtfast_lev*1.0_rt/12.0_rt;
+            Real cff4=2.0_rt/5.0_rt;
+            Real cff5=1.0_rt-cff4;
+            amrex::ParallelFor(gbx1D,
+            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                Real cff=cff1*((DUon(i,j,0)-DUon(i+1,j,0))+
+                               (DVom(i,j,0)-DVom(i,j+1,0)));
+                zeta_new(i,j,0)=zeta(i,j,0,kstp)+
+                    pm(i,j,0)*pn(i,j,0)*(cff+
+                                         cff2*rzeta(i,j,0,kstp)-
+                                         cff3*rzeta(i,j,0,ptsk));
+                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
+                //Pressure gradient terms
+                /*
+                  zwrk(i,j)=cff5*zeta_new(i,j)+cff4*zeta(i,j,krhs)
+                  gzeta(i,j)=(fac+rhoS(i,j))*zwrk(i,j)
+                  gzeta2(i,j)=gzeta(i,j)*zwrk(i,j)
+                  gzetaSA(i,j)=zwrk(i,j)*(rhoS(i,j)-rhoA(i,j))*/
+                });
+        }
+
+        //
+        //  Load new free-surface values into shared array at both predictor
+        //  and corrector steps.
+        //
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            zeta(i,j,0,knew)=zeta_new(i,j,0);
+        });
+
+        //
+        //  If predictor step, load right-side-term into shared array.
+        //
+        if (predictor_2d_step) {
+            amrex::ParallelFor(gbx1D,
+            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
+            });
+        }
+
+        // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
         //
         //-----------------------------------------------------------------------
         // rhs_2d
@@ -261,6 +374,7 @@ ROMSX::advance_2d (int lev,
         rhs_2d(bxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs, N);
 
 #ifdef UV_COR
+        // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
         //
         //-----------------------------------------------------------------------
         // coriolis
@@ -277,10 +391,10 @@ ROMSX::advance_2d (int lev,
 
     //Coupling from 3d to 2d
     /////////Coupling of 3d updates to 2d predictor-corrector
-    //todo: iif(ng)=>my_iif iic(ng) => icc
+    //todo: iif=>my_iif iic => icc
     /*
-    IF (iif(ng).eq.1.and.PREDICTOR_2D_STEP(ng)) THEN
-        IF (iic(ng).eq.ntfirst(ng)) THEN
+    IF (iif.eq.1.and.PREDICTOR_2D_STEP) THEN
+        IF (iic.eq.ntfirst) THEN
           DO j=Jstr,Jend
             DO i=IstrU,Iend
 !              rufrc(i,j)=rufrc(i,j)-rhs_ubar(i,j)
@@ -295,12 +409,12 @@ ROMSX::advance_2d (int lev,
 !              rv(i,j,0,nstp)=rvfrc(i,j)
             END DO
           END DO
-        ELSE IF (iic(ng).eq.(ntfirst(ng)+1)) THEN
+        ELSE IF (iic.eq.(ntfirst+1)) THEN
           DO j=Jstr,Jend
             DO i=IstrU,Iend
 !              rufrc(i,j)=rufrc(i,j)-rhs_ubar(i,j)
 !              rhs_ubar(i,j)=rhs_ubar(i,j)+                              &
-!     &                      1.5_r8*rufrc(i,j)-0.5_r8*ru(i,j,0,nnew)
+!     &                      1.5_rt*rufrc(i,j)-0.5_rt*ru(i,j,0,nnew)
 !              ru(i,j,0,nstp)=rufrc(i,j)
             END DO
           END DO
@@ -308,14 +422,14 @@ ROMSX::advance_2d (int lev,
             DO i=Istr,Iend
 !              rvfrc(i,j)=rvfrc(i,j)-rhs_vbar(i,j)
 !              rhs_vbar(i,j)=rhs_vbar(i,j)+                              &
-!     &                      1.5_r8*rvfrc(i,j)-0.5_r8*rv(i,j,0,nnew)
+!     &                      1.5_rt*rvfrc(i,j)-0.5_rt*rv(i,j,0,nnew)
 !              rv(i,j,0,nstp)=rvfrc(i,j)
             END DO
           END DO
         ELSE
-          cff1=23.0_r8/12.0_r8
-          cff2=16.0_r8/12.0_r8
-          cff3= 5.0_r8/12.0_r8
+          cff1=23.0_rt/12.0_rt
+          cff2=16.0_rt/12.0_rt
+          cff3= 5.0_rt/12.0_rt
           DO j=Jstr,Jend
             DO i=IstrU,Iend
 !              rufrc(i,j)=rufrc(i,j)-rhs_ubar(i,j)
@@ -369,12 +483,12 @@ ROMSX::advance_2d (int lev,
 !  and the corrector step is Backward-Euler. Otherwise, the predictor
 !  step is Leap-frog and the corrector step is Adams-Moulton.
 !
-      IF (iif(ng).eq.1) THEN
-        cff1=0.5_r8*dtfast(ng)
+      IF (iif.eq.1) THEN
+        cff1=0.5_rt*dtfast
         DO j=Jstr,Jend
           DO i=IstrU,Iend
             cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
-            fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
+            fac=1.0_rt/(Dnew(i,j)+Dnew(i-1,j))
             ubar(i,j,knew)=ubar(i,j,kstp)
 !            ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
 !     &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
@@ -384,19 +498,19 @@ ROMSX::advance_2d (int lev,
         DO j=JstrV,Jend
           DO i=Istr,Iend
             cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
-            fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
+            fac=1.0_rt/(Dnew(i,j)+Dnew(i,j-1))
             vbar(i,j,knew)=vbar(i,j,kstp)
 !            vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
 !     &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
 !     &                      cff*cff1*rhs_vbar(i,j))*fac
           END DO
         END DO
-      ELSE IF (PREDICTOR_2D_STEP(ng)) THEN
-        cff1=dtfast(ng)
+      ELSE IF (PREDICTOR_2D_STEP) THEN
+        cff1=dtfast
         DO j=Jstr,Jend
           DO i=IstrU,Iend
             cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
-            fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
+            fac=1.0_rt/(Dnew(i,j)+Dnew(i-1,j))
             ubar(i,j,knew)=ubar(i,j,kstp)
 !            ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
 !     &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
@@ -406,7 +520,7 @@ ROMSX::advance_2d (int lev,
         DO j=JstrV,Jend
           DO i=Istr,Iend
             cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
-            fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
+            fac=1.0_rt/(Dnew(i,j)+Dnew(i,j-1))
             vbar(i,j,knew)=vbar(i,j,kstp)
 !            vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
 !     &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
@@ -414,13 +528,13 @@ ROMSX::advance_2d (int lev,
           END DO
         END DO
       ELSE IF (CORRECTOR_2D_STEP) THEN
-        cff1=0.5_r8*dtfast(ng)*5.0_r8/12.0_r8
-        cff2=0.5_r8*dtfast(ng)*8.0_r8/12.0_r8
-        cff3=0.5_r8*dtfast(ng)*1.0_r8/12.0_r8
+        cff1=0.5_rt*dtfast_lev*5.0_rt/12.0_rt
+        cff2=0.5_rt*dtfast_lev*8.0_rt/12.0_rt
+        cff3=0.5_rt*dtfast_lev*1.0_rt/12.0_rt
         DO j=Jstr,Jend
           DO i=IstrU,Iend
             cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
-            fac=1.0_r8/(Dnew(i,j)+Dnew(i-1,j))
+            fac=1.0_rt/(Dnew(i,j)+Dnew(i-1,j))
             ubar(i,j,knew)=ubar(i,j,kstp)
 !            ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
 !     &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
@@ -432,7 +546,7 @@ ROMSX::advance_2d (int lev,
         DO j=JstrV,Jend
           DO i=Istr,Iend
             cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
-            fac=1.0_r8/(Dnew(i,j)+Dnew(i,j-1))
+            fac=1.0_rt/(Dnew(i,j)+Dnew(i,j-1))
             vbar(i,j,knew)=vbar(i,j,kstp)
 !            vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
 !     &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
@@ -449,7 +563,7 @@ ROMSX::advance_2d (int lev,
     //  future use during the subsequent corrector step.
     //
     /*
-      IF (PREDICTOR_2D_STEP(ng)) THEN
+      IF (PREDICTOR_2D_STEP) THEN
         DO j=Jstr,Jend
           DO i=IstrU,Iend
             rubar(i,j,krhs)=rhs_ubar(i,j)
