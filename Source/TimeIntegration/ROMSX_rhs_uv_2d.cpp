@@ -98,7 +98,6 @@ ROMSX::rhs_2d (const Box& bx,
         //neglecting terms about periodicity since testing only periodic for now
         Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
     });
-
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {

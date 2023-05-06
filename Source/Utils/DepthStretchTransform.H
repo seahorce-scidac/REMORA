@@ -95,6 +95,7 @@ ROMSX::set_2darrays (int lev)
                 ubar(i,j,0,kstp)=cff2;
                 ubar(i,j,0,knew)=cff2;
             });
+
         //fab_DC.setVal(0.0);
         //fab_CF.setVal(0.0);
         amrex::ParallelFor(gbx11, ncomp,
@@ -118,7 +119,6 @@ ROMSX::set_2darrays (int lev)
                 vbar(i,j,0,kstp)=cff2;
                 vbar(i,j,0,knew)=cff2;
             });
-
     }
 }
 
@@ -241,7 +241,7 @@ ROMSX::set_depth (int lev)
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
       bool NSPeriodic = geomdata.isPeriodic(1);
       bool EWPeriodic = geomdata.isPeriodic(0);
-      if(solverChoice.flat_bathymetry) {
+      if(!solverChoice.flat_bathymetry) {
       amrex::LoopConcurrentOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
@@ -265,6 +265,7 @@ ROMSX::set_depth (int lev)
               h(i,j,0) = val2;
           }
           z_w(i,j,k) = h(i,j,0);
+          Abort("Flat bathymetry needs further testing");
       });
       } else {
       amrex::LoopConcurrentOnCpu(gbx2, ncomp,

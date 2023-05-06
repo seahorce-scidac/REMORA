@@ -133,6 +133,8 @@ ROMSX::advance_2d (int lev,
         {
               pm(i,j,0)=dxi[0];
               pn(i,j,0)=dxi[1];
+              rhs_ubar(i,j,0)=0.0;
+              rhs_vbar(i,j,0)=0.0;
         });
 
         amrex::ParallelFor(gbx2,
