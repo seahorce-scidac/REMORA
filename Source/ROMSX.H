@@ -233,6 +233,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rvfrc;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akv;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc3d_r;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_p;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_x_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_y_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_r;
@@ -460,7 +462,8 @@ public:
                  amrex::Array4<amrex::Real> v,
                  amrex::Array4<amrex::Real> rufrc,
                  amrex::Array4<amrex::Real> rvfrc,
-                 amrex::Array4<amrex::Real> visc3d_r,
+                 amrex::Array4<amrex::Real> visc2_p,
+                 amrex::Array4<amrex::Real> visc2_r,
                  amrex::Array4<amrex::Real> Hz,
                  amrex::Array4<amrex::Real> on_r,
                  amrex::Array4<amrex::Real> om_r,
@@ -468,10 +471,6 @@ public:
                  amrex::Array4<amrex::Real> om_p,
                  amrex::Array4<amrex::Real> pn,
                  amrex::Array4<amrex::Real> pm,
-                 amrex::Array4<amrex::Real> UFe,
-                 amrex::Array4<amrex::Real> UFx,
-                 amrex::Array4<amrex::Real> VFe,
-                 amrex::Array4<amrex::Real> VFx,
                  int nrhs, int nnew,
                  const amrex::Real dt_lev);
 #ifdef UV_COR
@@ -492,6 +491,8 @@ public:
     void set_vmix (int lev);
 
     void set_smflux (int lev, amrex::Real time);
+
+    void set_hmixcoef (int lev);
 
 private:
 

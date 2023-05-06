@@ -80,6 +80,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 #endif
     MultiFab mf_rw(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_W(ba,dm,1,IntVect(3,3,0));
+
+    std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
+    std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
     mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
@@ -172,6 +175,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& W = (mf_W).array(mfi);
         Array4<Real> const& sustr = (mf_sustr)->array(mfi);
         Array4<Real> const& svstr = (mf_svstr)->array(mfi);
+        Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
+        Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -202,6 +207,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         FArrayBox fab_on_v(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_om_r(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_on_r(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_p(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_p(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
@@ -216,6 +223,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto on_v=fab_on_v.array();
         auto om_r=fab_om_r.array();
         auto on_r=fab_on_r.array();
+        auto om_p=fab_om_p.array();
+        auto on_p=fab_on_p.array();
         auto fomn=fab_fomn.array();
 
         //From ana_grid.h and metrics.F
@@ -236,11 +245,14 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         amrex::LoopConcurrentOnCpu(gbx2,
         [=] (int i, int j, int k)
         {
+          //Note: are the comment definitons right? Don't seem to match metrics.f90
           om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
           on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
           om_r(i,j,0)=1.0/dxi[0]; // 1/pm(i,j)
           on_r(i,j,0)=1.0/dxi[1]; // 1/pn(i,j)
           //todo: om_p on_p
+          om_p(i,j,0)=1.0/dxi[0]; // 4/(pm(i-1,j-1)+pm(i-1,j)+pm(i,j-1)+pm(i,j))
+          on_p(i,j,0)=1.0/dxi[1]; // 4/(pn(i-1,j-1)+pn(i-1,j)+pn(i,j-1)+pn(i,j))
           on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
           om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
           Huon(i,j,k)=0.0;
@@ -291,8 +303,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //rufrc=ru+sustr*om_u*on_u
     //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
     //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
-        //uv3dmix here
-        //rufrc, rvfrc should be updated by uv3dmix
+        // u, v, rufrc, rvfrc updated
+        uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, on_r, om_r, on_p, om_p, pn, pm, nrhs, nnew, dt_lev);
     } // MFIter
 
     mf_temp.FillBoundary();

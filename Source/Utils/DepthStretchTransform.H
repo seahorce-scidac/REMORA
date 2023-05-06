@@ -405,4 +405,29 @@ ROMSX::set_depth (int lev)
 
 }
 
+/**
+ * Set horizontal mixing coefficients
+ */
+void ROMSX::set_hmixcoef (int lev) {
+    std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
+    std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
+
+    for ( MFIter mfi(*(mf_visc2_p), TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
+        Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
+        Box bx = mfi.tilebox();
+        bx.grow(IntVect(2,2,0));
+        int ncomp = 1;
+
+        // NOTE: Hard-coded value from ana_hmixcoef.h
+        amrex::LoopConcurrentOnCpu(bx, ncomp,
+        [=] (int i, int j, int k, int n)
+        {
+            visc2_p(i,j,k) = 5.0;
+            visc2_r(i,j,k) = 5.0;
+        });
+    }
+}
+
 #endif

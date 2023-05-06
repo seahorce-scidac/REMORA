@@ -551,6 +551,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_Hvom.resize(lev+1);
     vec_Akv.resize(lev+1);
     vec_visc3d_r.resize(lev+1);
+    vec_visc2_p.resize(lev+1);
+    vec_visc2_r.resize(lev+1);
     vec_ru.resize(lev+1);
     vec_rv.resize(lev+1);
     vec_rufrc.resize(lev+1);
@@ -583,6 +585,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_Hvom[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_Akv[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_visc3d_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    vec_visc2_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_ru[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
     vec_rv[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
     vec_rufrc[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
@@ -605,6 +609,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 
     set_depth(lev);
     set_vmix(lev);
+    set_hmixcoef(lev);
 
     //consider tracking ru and rv indexes more specifically or more similarly to indx
     vec_ru[lev]->setVal(0.0);
