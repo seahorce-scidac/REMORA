@@ -20,8 +20,8 @@ ROMSX::advance_3d (int lev,
                    std::unique_ptr<MultiFab>& mf_DU_avg2,
                    std::unique_ptr<MultiFab>& mf_DV_avg1,
                    std::unique_ptr<MultiFab>& mf_DV_avg2,
-                   std::unique_ptr<MultiFab>& /*mf_ubar*/,
-                   std::unique_ptr<MultiFab>& /*mf_vbar*/,
+                   std::unique_ptr<MultiFab>& mf_ubar,
+                   std::unique_ptr<MultiFab>& mf_vbar,
                    MultiFab& mf_AK, MultiFab& mf_DC,
                    MultiFab& mf_Hzk,
                    std::unique_ptr<MultiFab>& mf_Akv,
@@ -72,6 +72,9 @@ ROMSX::advance_3d (int lev,
 
         Array4<Real> const& DU_avg2  = mf_DU_avg2->array(mfi);
         Array4<Real> const& DV_avg2  = mf_DV_avg2->array(mfi);
+
+        Array4<Real> const& ubar = mf_ubar->array(mfi);
+        Array4<Real> const& vbar = mf_vbar->array(mfi);
 
         Array4<Real> const& Huon = mf_Huon->array(mfi);
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
@@ -190,7 +193,20 @@ ROMSX::advance_3d (int lev,
        vert_mean_3d(bx,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
 
        update_massflux_3d(Box(Huon),1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
+        amrex::ParallelFor(Box(ubar),
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                ubar(i,j,k,0) = DC(i,j,-1)*DU_avg1(i,j,0);
+                ubar(i,j,k,1) = ubar(i,j,k,0);
+            });
        update_massflux_3d(Box(Hvom),0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
+        amrex::ParallelFor(Box(vbar),
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                vbar(i,j,k,0) = DC(i,j,-1)*DV_avg1(i,j,0);
+                vbar(i,j,k,1) = vbar(i,j,k,0);
+            });
+
     //
     //------------------------------------------------------------------------
     //  Vertically integrate horizontal mass flux divergence.

@@ -46,8 +46,8 @@ ROMSX::set_2darrays (int lev)
     std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     int nstp = 0;
-    int kstp = 1;
-    int knew = 0;
+    int kstp = 2;
+    int knew = 1;
     int ncomp = 1;
     for ( MFIter mfi(U_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
