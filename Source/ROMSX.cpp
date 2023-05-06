@@ -27,8 +27,11 @@ SolverChoice ROMSX::solverChoice;
 // Time step control
 amrex::Real ROMSX::cfl           =  0.8;
 amrex::Real ROMSX::fixed_dt      = -1.0;
+amrex::Real ROMSX::fixed_fast_dt = -1.0;
 amrex::Real ROMSX::init_shrink   =  1.0;
 amrex::Real ROMSX::change_max    =  1.1;
+int   ROMSX::fixed_ndtfast_ratio = 0;
+
 
 // Type of mesh refinement algorithm
 int         ROMSX::do_reflux     = 0;
@@ -703,6 +706,17 @@ ROMSX::ReadParameters ()
         pp.query("change_max", change_max);
 
         pp.query("fixed_dt", fixed_dt);
+        pp.query("fixed_fast_dt", fixed_fast_dt);
+        pp.query("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
+
+        // If all three are specified, they must be consistent
+        if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio > 0)
+        {
+            if (fixed_dt / fixed_fast_dt != fixed_ndtfast_ratio)
+            {
+                amrex::Abort("Dt is over-specfied");
+            }
+        }
 
         AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
 

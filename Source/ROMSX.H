@@ -747,6 +747,8 @@ private:
 
     // Fixed dt for level 0 timesteps (only used if positive)
     static amrex::Real fixed_dt;
+    static amrex::Real fixed_fast_dt;
+    static int fixed_ndtfast_ratio;
 
     // how often each level regrids the higher levels of refinement
     // (after a level advances that many time steps)

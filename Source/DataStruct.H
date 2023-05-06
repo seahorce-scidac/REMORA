@@ -64,7 +64,9 @@ struct SolverChoice {
     {
         amrex::ParmParse pp(pp_prefix);
 
-        // Do we have terrain (or grid stretching)?
+        pp.query("flat_bathymetry", flat_bathymetry);
+
+	// Do we have terrain (or grid stretching)?
         pp.query("use_terrain", use_terrain);
 
         // These default to true but are used for unit testing
