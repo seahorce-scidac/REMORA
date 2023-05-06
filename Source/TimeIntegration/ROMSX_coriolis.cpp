@@ -13,9 +13,8 @@ ROMSX::coriolis (const Box& bx,
                  Array4<Real> uold  , Array4<Real> vold,
                  Array4<Real> ru, Array4<Real> rv,
                  Array4<Real> Hz, Array4<Real> fomn,
-                 int nrhs)
+                 int nrhs, int nr)
 {
-    // Need to include uv3dmix
     //
     //-----------------------------------------------------------------------
     //  Add in Coriolis terms.
@@ -30,7 +29,7 @@ ROMSX::coriolis (const Box& bx,
     {
         Real UFx_i   = 0.5 * Hz(i  ,j,k) * fomn(i  ,j,0) * (vold(i  ,j,k,nrhs)+vold(i  ,j+1,k,nrhs));
         Real UFx_im1 = 0.5 * Hz(i-1,j,k) * fomn(i-1,j,0) * (vold(i-1,j,k,nrhs)+vold(i-1,j+1,k,nrhs));
-        ru(i,j,k,nrhs) += 0.5*(UFx_i + UFx_im1);
+        ru(i,j,k,nr) += 0.5*(UFx_i + UFx_im1);
     });
 
     amrex::ParallelFor(vbx,
@@ -38,7 +37,7 @@ ROMSX::coriolis (const Box& bx,
     {
         Real VFe_j   = 0.5 * Hz(i,j  ,k) * fomn(i,j  ,0) * (uold(i,j  ,k,nrhs)+uold(i+1,j  ,k,nrhs));
         Real VFe_jm1 = 0.5 * Hz(i,j-1,k) * fomn(i,j-1,0) * (uold(i,j-1,k,nrhs)+uold(i+1,j-1,k,nrhs));
-        rv(i,j,k,nrhs) -= 0.5*(VFe_j + VFe_jm1);
+        rv(i,j,k,nr) -= 0.5*(VFe_j + VFe_jm1);
     });
 }
 #endif

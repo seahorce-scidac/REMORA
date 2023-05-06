@@ -471,7 +471,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     SetDistributionMap(lev, dm);
 
     // The number of ghost cells for density must be 1 greater than that for velocity
-    //     so that we can go back in forth betwen velocity and momentum on all faces
+    //     so that we can go back in forth between velocity and momentum on all faces
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order);
 

@@ -291,7 +291,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // coriolis
         //-----------------------------------------------------------------------
         //
-        coriolis(bx, uold, vold, ru, rv, Hz, fomn, nrhs);
+        coriolis(bx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
 #endif
         //
         //-----------------------------------------------------------------------

@@ -13,7 +13,7 @@ amrex::Real interpolate_1d(const amrex::Real* alpha, const amrex::Real* beta,
 
     amrex::Real beta_interp;
 
-    //in case the interpolation point alraedy exists in the array
+    //in case the interpolation point already exists in the array
     //just return it
     for (int i = 0; i < alpha_size; ++i) {
         if (alpha[i] == alpha_interp) {

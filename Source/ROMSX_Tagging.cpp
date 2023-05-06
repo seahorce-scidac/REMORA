@@ -65,7 +65,7 @@ ROMSX::refinement_criteria_setup()
                 } // lev
                 if (init_type == "real") {
                     if (num_boxes_at_level[lev_for_box] != num_files_at_level[lev_for_box]) {
-                        amrex::Error("Numbef of boxes doesnt match number of wrfinput files");
+                        amrex::Error("Number of boxes does not match number of wrfinput files");
 
                     }
                 }

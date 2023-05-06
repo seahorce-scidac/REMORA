@@ -239,7 +239,7 @@ ROMSX::rhs_3d (const Box& bx,
                                 ( cff1*(W(i,j  ,k)+ W(i,j-1,k))
                                  -cff2*(W(i,j+1,k)+ W(i,j-2,k)) );
               }
-              else // this needs to be split up so that the following can be concurent
+              else // this needs to be split up so that the following can be concurrent
               {
                   FC(i,j,N)=0.0;
                   FC(i,j,N-1)=( cff1*(vold(i,j,N-1,nrhs)+ vold(i,j,N  ,nrhs))

@@ -112,6 +112,8 @@ ROMSX::advance_2d (int lev,
         FArrayBox fab_Drhs(gbx2,1,The_Async_Arena());
         FArrayBox fab_DUon(gbx2,1,The_Async_Arena());
         FArrayBox fab_DVom(gbx2,1,The_Async_Arena());
+        FArrayBox fab_rhs_ubar(gbx2,1,The_Async_Arena());
+        FArrayBox fab_rhs_vbar(gbx2,1,The_Async_Arena());
 
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
@@ -122,6 +124,8 @@ ROMSX::advance_2d (int lev,
         auto Drhs=fab_Drhs.array();
         auto DUon=fab_DUon.array();
         auto DVom=fab_DVom.array();
+        auto rhs_ubar=fab_rhs_ubar.array();
+        auto rhs_vbar=fab_rhs_vbar.array();
 
         //From ana_grid.h and metrics.F
         amrex::ParallelFor(gbx2,
@@ -246,7 +250,13 @@ ROMSX::advance_2d (int lev,
         // rhs_ubar rhs_vbar
 
         // Advection for 2d ubar, vbar
-        // todo: Dgrad, grad
+        // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
+        //
+        //-----------------------------------------------------------------------
+        // rhs_2d
+        //-----------------------------------------------------------------------
+        //
+        rhs_2d(bxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs, N);
 
 #ifdef UV_COR
         //
@@ -254,7 +264,8 @@ ROMSX::advance_2d (int lev,
         // coriolis
         //-----------------------------------------------------------------------
         //
-        coriolis(bxD, ubar, vbar, rubar, rvbar, Drhs, fomn, krhs);
+        // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
+        coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
 #endif
     }
 
