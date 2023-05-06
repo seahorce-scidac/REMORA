@@ -265,7 +265,7 @@ ROMSX::advance_2d (int lev,
         if (my_iif>=nfast) return;
         //Load new free-surface values into shared array at both predictor
         //and corrector steps
-
+        if(solverChoice.evolve_free_surface) {
         //
         //=======================================================================
         //  Time step free-surface equation.
@@ -364,7 +364,78 @@ ROMSX::advance_2d (int lev,
                 rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
             });
         }
+        } else {
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            zeta(i,j,0,knew)=zeta(i,j,0,kstp);
+            Dnew(i,j,0)=zeta(i,j,0,knew)+h(i,j,0);
+        });
 
+        //
+        //  If predictor step, load right-side-term into shared array.
+        //
+        if (predictor_2d_step) {
+            amrex::ParallelFor(gbx1D,
+            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                rzeta(i,j,0,krhs)=0.0;
+            });
+        }
+        }
+
+        //
+        //=======================================================================
+        //  Compute right-hand-side for the 2D momentum equations.
+        //=======================================================================
+        //
+        /*
+!
+!-----------------------------------------------------------------------
+!  Compute pressure gradient terms.
+!-----------------------------------------------------------------------
+!
+      cff1=0.5_r8*g
+      cff2=1.0_r8/3.0_r8
+      DO j=Jstr,Jend
+        DO i=IstrU,Iend
+          rhs_ubar(i,j)=cff1*on_u(i,j)*                                 &
+     &                  ((h(i-1,j)+                                     &
+     &                    h(i ,j))*                                     &
+     &                   (gzeta(i-1,j)-                                 &
+     &                    gzeta(i  ,j))+                                &
+     &                   (h(i-1,j)-                                     &
+     &                    h(i  ,j))*                                    &
+     &                   (gzetaSA(i-1,j)+                               &
+     &                    gzetaSA(i  ,j)+                               &
+     &                    cff2*(rhoA(i-1,j)-                            &
+     &                          rhoA(i  ,j))*                           &
+     &                         (zwrk(i-1,j)-                            &
+     &                          zwrk(i  ,j)))+                          &
+     &                   (gzeta2(i-1,j)-                                &
+     &                    gzeta2(i  ,j)))
+        END DO
+        IF (j.ge.JstrV) THEN
+          DO i=Istr,Iend
+            rhs_vbar(i,j)=cff1*om_v(i,j)*                               &
+     &                    ((h(i,j-1)+                                   &
+     &                      h(i,j  ))*                                  &
+     &                     (gzeta(i,j-1)-                               &
+     &                      gzeta(i,j  ))+                              &
+     &                     (h(i,j-1)-                                   &
+     &                      h(i,j  ))*                                  &
+     &                     (gzetaSA(i,j-1)+                             &
+     &                      gzetaSA(i,j  )+                             &
+     &                      cff2*(rhoA(i,j-1)-                          &
+     &                            rhoA(i,j  ))*                         &
+     &                           (zwrk(i,j-1)-                          &
+     &                            zwrk(i,j  )))+                        &
+     &                     (gzeta2(i,j-1)-                              &
+     &                      gzeta2(i,j  )))
+          END DO
+        END IF
+      END DO
+*/
         // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
         //
         //-----------------------------------------------------------------------
