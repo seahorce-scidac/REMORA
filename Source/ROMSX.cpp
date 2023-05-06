@@ -707,6 +707,7 @@ ROMSX::ReadParameters ()
 
         pp.query("fixed_dt", fixed_dt);
         pp.query("fixed_fast_dt", fixed_fast_dt);
+
         pp.query("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
 
         // If all three are specified, they must be consistent
@@ -717,6 +718,12 @@ ROMSX::ReadParameters ()
                 amrex::Abort("Dt is over-specfied");
             }
         }
+        // If two are specified, initialize fixed_ndtfast_ratio
+        else if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio <= 0)
+        {
+            fixed_ndtfast_ratio = fixed_dt / fixed_fast_dt;
+        }
+
 
         AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
 

@@ -22,7 +22,9 @@ zhi.type = "SlipWall"
 # TIME STEP CONTROL
 romsx.fixed_dt       = 300.0 # Timestep size (seconds)
 # NDTFAST  = 30.0 # Number of baratropic steps => 300.0/30.0 = 10.0
-romsx.fixed_fast_dt  = 10.0 # Baratropic timestep size (seconds)
+# romsx.fixed_fast_dt  = 10.0 # Baratropic timestep size (seconds)
+romsx.fixed_fast_dt  = 300.0 # Baratropic timestep size (seconds) testing value
+romsx.fixed_ndtfast_ratio  = 1 # Baratropic timestep size (seconds)
 
 # DIAGNOSTICS & VERBOSITY
 romsx.sum_interval   = 1       # timesteps between computing mass

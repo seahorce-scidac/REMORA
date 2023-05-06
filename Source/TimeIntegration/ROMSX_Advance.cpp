@@ -318,7 +318,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     bool predictor_2d_step=true;
     bool first_2d_step=true;
-    int nfast=2;
+    int nfast=fixed_ndtfast_ratio+1;
     int nfast_counter=predictor_2d_step ? nfast : nfast-1;
     int next_indx1 = 0;
     for(int my_iif = 0; my_iif < nfast_counter; my_iif++) {
