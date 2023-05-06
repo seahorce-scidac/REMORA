@@ -320,6 +320,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     bool first_2d_step=true;
     int nfast=fixed_ndtfast_ratio+1;
     int nfast_counter=predictor_2d_step ? nfast : nfast-1;
+    Real dtfast_lev=dt_lev/Real(fixed_ndtfast_ratio);
     int next_indx1 = 0;
     for(int my_iif = 0; my_iif < nfast_counter; my_iif++) {
         first_2d_step=(my_iif==0);
@@ -330,7 +331,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                    vec_DV_avg1[lev], vec_DV_avg2[lev],
                    vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
                     vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
-                   vec_hOfTheConfusingName[lev], ncomp, dt_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
+                   vec_hOfTheConfusingName[lev], ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
 #if 1
         predictor_2d_step=false;
         advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
@@ -339,7 +340,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                    vec_DV_avg1[lev], vec_DV_avg2[lev],
                    vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
                     vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
-                   vec_hOfTheConfusingName[lev], ncomp, dt_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
+                   vec_hOfTheConfusingName[lev], ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
 #endif
     }
 

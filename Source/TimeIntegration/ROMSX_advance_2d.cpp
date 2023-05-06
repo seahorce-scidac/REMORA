@@ -23,7 +23,7 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_vbar,
                    std::unique_ptr<MultiFab>& mf_zeta,
                    std::unique_ptr<MultiFab>& mf_h,
-                   const int ncomp, Real dt_lev,
+                   const int ncomp, Real dt_lev, Real dtfast_lev,
                    bool predictor_2d_step,
                    bool first_2d_step, int my_iif, int nfast, int & next_indx1)
 {
