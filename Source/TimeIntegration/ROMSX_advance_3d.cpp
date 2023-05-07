@@ -206,7 +206,7 @@ ROMSX::advance_3d (int lev,
                 vbar(i,j,k,0) = DC(i,j,-1)*DV_avg1(i,j,0);
                 vbar(i,j,k,1) = vbar(i,j,k,0);
             });
-
+#if 0
     //
     //------------------------------------------------------------------------
     //  Vertically integrate horizontal mass flux divergence.
@@ -297,6 +297,7 @@ Print()<<FArrayBox(tempold)<<std::endl;
        */
        rhs_t_3d(bx, saltold, salt, saltstore, Huon, Hvom, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
        //Print()<<FArrayBox(salt)<<std::endl;
+#endif
     }
     mf_temp.FillBoundary();
     mf_salt.FillBoundary();
