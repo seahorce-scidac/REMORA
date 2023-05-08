@@ -495,6 +495,9 @@ ROMSX::advance_2d (int lev,
         coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
 #endif
 
+    bool test_functionality=false;
+    if(test_functionality) {
+
     //Add in horizontal harmonic viscosity.
     // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
     amrex::ParallelFor(gbx1,
@@ -509,8 +512,6 @@ ROMSX::advance_2d (int lev,
     //Coupling from 3d to 2d
     /////////Coupling of 3d updates to 2d predictor-corrector
     //todo: my_iif=>my_my_iif iic => icc
-    bool test_functionality=false;
-    if(test_functionality) {
     if (my_iif==1&&predictor_2d_step) {
         if (iic==ntfirst) {
         amrex::ParallelFor(gbx1D,
