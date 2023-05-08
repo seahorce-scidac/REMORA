@@ -476,7 +476,8 @@ ROMSX::advance_2d (int lev,
     //Coupling from 3d to 2d
     /////////Coupling of 3d updates to 2d predictor-corrector
     //todo: my_iif=>my_my_iif iic => icc
-
+    bool test_functionality=false;
+    if(test_functionality) {
     if (my_iif==1&&predictor_2d_step) {
         if (iic==ntfirst) {
         amrex::ParallelFor(gbx1D,
@@ -691,5 +692,6 @@ ROMSX::advance_2d (int lev,
         END DO
 }
     */
+    }
     }
 }
