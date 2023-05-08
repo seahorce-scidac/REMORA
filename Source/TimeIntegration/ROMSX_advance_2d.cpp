@@ -9,8 +9,10 @@ using namespace amrex;
 void
 ROMSX::advance_2d (int lev,
                    MultiFab& mf_u, MultiFab& mf_v,
-                   std::unique_ptr<MultiFab>& /*mf_ru*/,
-                   std::unique_ptr<MultiFab>& /*mf_rv*/,
+                   std::unique_ptr<MultiFab>& mf_ru,
+                   std::unique_ptr<MultiFab>& mf_rv,
+                   std::unique_ptr<MultiFab>& mf_rufrc,
+                   std::unique_ptr<MultiFab>& mf_rvfrc,
                    std::unique_ptr<MultiFab>& mf_Zt_avg1,
                    std::unique_ptr<MultiFab>& mf_DU_avg1,
                    std::unique_ptr<MultiFab>& mf_DU_avg2,
@@ -36,6 +38,10 @@ ROMSX::advance_2d (int lev,
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     int iic = istep[lev];
+    const int nrhs  = ncomp-1;
+    const int nnew  = ncomp-1;
+    const int nstp  = ncomp-1;
+    int ntfirst = 0;
     //bool predictor_2d_step = true;
     //    int my_iif = 1; //substep index
     int knew = 3;
@@ -80,6 +86,10 @@ ROMSX::advance_2d (int lev,
         Array4<Real> const& DU_avg2 = (mf_DU_avg2)->array(mfi);
         Array4<Real> const& DV_avg1 = (mf_DV_avg1)->array(mfi);
         Array4<Real> const& DV_avg2 = (mf_DV_avg2)->array(mfi);
+        Array4<Real> const& ru = (mf_ru)->array(mfi);
+        Array4<Real> const& rv = (mf_rv)->array(mfi);
+        Array4<Real> const& rufrc = (mf_rufrc)->array(mfi);
+        Array4<Real> const& rvfrc = (mf_rvfrc)->array(mfi);
         Array4<Real> const& rubar = (mf_rubar)->array(mfi);
         Array4<Real> const& rvbar = (mf_rvbar)->array(mfi);
         Array4<Real> const& rzeta = (mf_rzeta)->array(mfi);
@@ -458,7 +468,6 @@ ROMSX::advance_2d (int lev,
         // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
         coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
 #endif
-    }
 
     //Add in horizontal harmonic viscosity.
     //todo: visc2_p visc2_r
@@ -466,79 +475,110 @@ ROMSX::advance_2d (int lev,
 
     //Coupling from 3d to 2d
     /////////Coupling of 3d updates to 2d predictor-corrector
-    //todo: iif=>my_iif iic => icc
-    /*
-    IF (iif.eq.1.and.PREDICTOR_2D_STEP) THEN
-        IF (iic.eq.ntfirst) THEN
-          DO j=Jstr,Jend
-            DO i=IstrU,Iend
-!              rufrc(i,j)=rufrc(i,j)-rhs_ubar(i,j)
-!              rhs_ubar(i,j)=rhs_ubar(i,j)+rufrc(i,j)
-!              ru(i,j,0,nstp)=rufrc(i,j)
-            END DO
-          END DO
-          DO j=JstrV,Jend
-            DO i=Istr,Iend
-!              rvfrc(i,j)=rvfrc(i,j)-rhs_vbar(i,j)
-!              rhs_vbar(i,j)=rhs_vbar(i,j)+rvfrc(i,j)
-!              rv(i,j,0,nstp)=rvfrc(i,j)
-            END DO
-          END DO
-        ELSE IF (iic.eq.(ntfirst+1)) THEN
-          DO j=Jstr,Jend
-            DO i=IstrU,Iend
-!              rufrc(i,j)=rufrc(i,j)-rhs_ubar(i,j)
-!              rhs_ubar(i,j)=rhs_ubar(i,j)+                              &
-!     &                      1.5_rt*rufrc(i,j)-0.5_rt*ru(i,j,0,nnew)
-!              ru(i,j,0,nstp)=rufrc(i,j)
-            END DO
-          END DO
-          DO j=JstrV,Jend
-            DO i=Istr,Iend
-!              rvfrc(i,j)=rvfrc(i,j)-rhs_vbar(i,j)
-!              rhs_vbar(i,j)=rhs_vbar(i,j)+                              &
-!     &                      1.5_rt*rvfrc(i,j)-0.5_rt*rv(i,j,0,nnew)
-!              rv(i,j,0,nstp)=rvfrc(i,j)
-            END DO
-          END DO
-        ELSE
-          cff1=23.0_rt/12.0_rt
-          cff2=16.0_rt/12.0_rt
-          cff3= 5.0_rt/12.0_rt
-          DO j=Jstr,Jend
-            DO i=IstrU,Iend
-!              rufrc(i,j)=rufrc(i,j)-rhs_ubar(i,j)
-!              rhs_ubar(i,j)=rhs_ubar(i,j)+                              &
-!     &                      cff1*rufrc(i,j)-                            &
-!     &                      cff2*ru(i,j,0,nnew)+                        &
-!     &                      cff3*ru(i,j,0,nstp)
-!              ru(i,j,0,nstp)=rufrc(i,j)
-            END DO
-          END DO
-          DO j=JstrV,Jend
-            DO i=Istr,Iend
-!              rvfrc(i,j)=rvfrc(i,j)-rhs_vbar(i,j)
-!              rhs_vbar(i,j)=rhs_vbar(i,j)+                              &
-!     &                      cff1*rvfrc(i,j)-                            &
-!     &                      cff2*rv(i,j,0,nnew)+                        &
-!     &                      cff3*rv(i,j,0,nstp)
-!              rv(i,j,0,nstp)=rvfrc(i,j)
-            END DO
-          END DO
-        END IF
-      ELSE
-        DO j=Jstr,Jend
-          DO i=IstrU,Iend
-            rhs_ubar(i,j)=rhs_ubar(i,j)+rufrc(i,j)
-          END DO
-        END DO
-        DO j=JstrV,Jend
-          DO i=Istr,Iend
-            rhs_vbar(i,j)=rhs_vbar(i,j)+rvfrc(i,j)
-          END DO
-        END DO
-      END IF
-    */
+    //todo: my_iif=>my_my_iif iic => icc
+
+    if (my_iif==1&&predictor_2d_step) {
+        if (iic==ntfirst) {
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            //DO j=Jstr,Jend
+            //DO i=IstrU,Iend
+            rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
+            rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+rufrc(i,j,0);
+            ru(i,j,0,nstp)=rufrc(i,j,0);
+        });
+        //END DO
+        //END DO
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            //DO j=JstrV,Jend
+            //DO i=Istr,Iend
+            rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
+            rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+rvfrc(i,j,0);
+            rv(i,j,0,nstp)=rvfrc(i,j,0);
+        });
+        //  END DO
+        //  END DO
+        } else if (iic==(ntfirst+1)) {
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            //DO j=Jstr,Jend
+            //DO i=IstrU,Iend
+              rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
+              rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
+                  1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,0,nnew);
+              ru(i,j,0,nstp)=rufrc(i,j,0);
+        });
+                           //END DO
+                           //          END DO
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            //DO j=JstrV,Jend
+            //DO i=Istr,Iend
+            rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
+            rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
+                1.5_rt*rvfrc(i,j,0)-0.5_rt*rv(i,j,0,nnew);
+            rv(i,j,0,nstp)=rvfrc(i,j,0);
+        });
+                           //END DO
+                           //          END DO
+        } else {
+            Real cff1=23.0_rt/12.0_rt;
+            Real cff2=16.0_rt/12.0_rt;
+            Real cff3= 5.0_rt/12.0_rt;
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            //DO j=Jstr,Jend
+            //DO i=IstrU,Iend
+            rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
+            rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
+                cff1*rufrc(i,j,0)-
+                cff2*ru(i,j,0,nnew)+
+                cff3*ru(i,j,0,nstp);
+            ru(i,j,0,nstp)=rufrc(i,j,0);
+        });
+          //END DO
+          //END DO
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            //DO j=JstrV,Jend
+            //DO i=Istr,Iend
+            rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
+              rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
+                  cff1*rvfrc(i,j,0)-
+                  cff2*rv(i,j,0,nnew)+
+                  cff3*rv(i,j,0,nstp);
+              rv(i,j,0,nstp)=rvfrc(i,j,0);
+        });
+        //END DO
+        //END DO
+        }
+        } else {
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            //DO j=Jstr,Jend
+            //DO i=IstrU,Iend
+            rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+rufrc(i,j,0);
+        });
+        //END DO
+        //END DO
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            //DO j=JstrV,Jend
+            //DO i=Istr,Iend
+            rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+rvfrc(i,j,0);
+        });
+        //END DO
+        //END DO
+      }
 
     //
     //=======================================================================
@@ -550,7 +590,7 @@ ROMSX::advance_2d (int lev,
     /*
       DO j=JstrV-1,Jend
         DO i=IstrU-1,Iend
-          Dstp(i,j)=zeta(i,j,kstp)+h(i,j)
+          Dstp(i,j,0)=zeta(i,j,0,kstp)+h(i,j,0);
         END DO
       END DO
 !
@@ -558,79 +598,79 @@ ROMSX::advance_2d (int lev,
 !  and the corrector step is Backward-Euler. Otherwise, the predictor
 !  step is Leap-frog and the corrector step is Adams-Moulton.
 !
-      IF (iif.eq.1) THEN
-        cff1=0.5_rt*dtfast
+      if (my_iif==1) {
+        Real cff1=0.5_rt*dtfast
         DO j=Jstr,Jend
           DO i=IstrU,Iend
-            cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
-            fac=1.0_rt/(Dnew(i,j)+Dnew(i-1,j))
-            ubar(i,j,knew)=ubar(i,j,kstp)
-!            ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
-!     &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
-!     &                      cff*cff1*rhs_ubar(i,j))*fac
+            Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+            Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i-1,j,0));
+            ubar(i,j,0,knew)=ubar(i,j,0,kstp)
+!            ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*                             &
+!     &                      (Dstp(i,j,0)+Dstp(i-1,j,0))+                    &
+!     &                      cff*cff1*rhs_ubar(i,j,0))*fac
           END DO
         END DO
         DO j=JstrV,Jend
           DO i=Istr,Iend
-            cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
-            fac=1.0_rt/(Dnew(i,j)+Dnew(i,j-1))
-            vbar(i,j,knew)=vbar(i,j,kstp)
-!            vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
-!     &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
-!     &                      cff*cff1*rhs_vbar(i,j))*fac
+            Real cff=(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+            Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i,j-1,0));
+            vbar(i,j,0,knew)=vbar(i,j,0,kstp)
+!            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*                             &
+!     &                      (Dstp(i,j,0)+Dstp(i,j-1,0))+                    &
+!     &                      cff*cff1*rhs_vbar(i,j,0))*fac
           END DO
         END DO
-      ELSE IF (PREDICTOR_2D_STEP) THEN
-        cff1=dtfast
+      } else if (predictor_2d_step) {
+        Real cff1=dtfast
         DO j=Jstr,Jend
           DO i=IstrU,Iend
-            cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
-            fac=1.0_rt/(Dnew(i,j)+Dnew(i-1,j))
-            ubar(i,j,knew)=ubar(i,j,kstp)
-!            ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
-!     &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
-!     &                      cff*cff1*rhs_ubar(i,j))*fac
+            Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+            Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i-1,j,0));
+            ubar(i,j,0,knew)=ubar(i,j,0,kstp)
+!            ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*                             &
+!     &                      (Dstp(i,j,0)+Dstp(i-1,j,0))+                    &
+!     &                      cff*cff1*rhs_ubar(i,j,0))*fac
           END DO
         END DO
         DO j=JstrV,Jend
           DO i=Istr,Iend
-            cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
-            fac=1.0_rt/(Dnew(i,j)+Dnew(i,j-1))
-            vbar(i,j,knew)=vbar(i,j,kstp)
-!            vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
-!     &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
-!     &                      cff*cff1*rhs_vbar(i,j))*fac
+            Real cff=(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+            Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i,j-1,0));
+            vbar(i,j,0,knew)=vbar(i,j,0,kstp)
+!            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*                             &
+!     &                      (Dstp(i,j,0)+Dstp(i,j-1,0))+                    &
+!     &                      cff*cff1*rhs_vbar(i,j,0))*fac
           END DO
         END DO
-      ELSE IF (CORRECTOR_2D_STEP) THEN
-        cff1=0.5_rt*dtfast_lev*5.0_rt/12.0_rt
-        cff2=0.5_rt*dtfast_lev*8.0_rt/12.0_rt
-        cff3=0.5_rt*dtfast_lev*1.0_rt/12.0_rt
+      } else if ((!predictor_2d_step)) {
+        Real cff1=0.5_rt*dtfast_lev*5.0_rt/12.0_rt
+        Real cff2=0.5_rt*dtfast_lev*8.0_rt/12.0_rt
+        Real cff3=0.5_rt*dtfast_lev*1.0_rt/12.0_rt
         DO j=Jstr,Jend
           DO i=IstrU,Iend
-            cff=(pm(i,j)+pm(i-1,j))*(pn(i,j)+pn(i-1,j))
-            fac=1.0_rt/(Dnew(i,j)+Dnew(i-1,j))
-            ubar(i,j,knew)=ubar(i,j,kstp)
-!            ubar(i,j,knew)=(ubar(i,j,kstp)*                             &
-!     &                      (Dstp(i,j)+Dstp(i-1,j))+                    &
-!     &                      cff*(cff1*rhs_ubar(i,j)+                    &
-!     &                           cff2*rubar(i,j,kstp)-                  &
+            Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+            Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i-1,j,0));
+            ubar(i,j,0,knew)=ubar(i,j,0,kstp)
+!            ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*                             &
+!     &                      (Dstp(i,j,0)+Dstp(i-1,j,0))+                    &
+!     &                      cff*(cff1*rhs_ubar(i,j,0)+                    &
+!     &                           cff2*rubar(i,j,0,kstp)-                  &
 !     &                           cff3*rubar(i,j,ptsk)))*fac
           END DO
         END DO
         DO j=JstrV,Jend
           DO i=Istr,Iend
-            cff=(pm(i,j)+pm(i,j-1))*(pn(i,j)+pn(i,j-1))
-            fac=1.0_rt/(Dnew(i,j)+Dnew(i,j-1))
-            vbar(i,j,knew)=vbar(i,j,kstp)
-!            vbar(i,j,knew)=(vbar(i,j,kstp)*                             &
-!     &                      (Dstp(i,j)+Dstp(i,j-1))+                    &
-!     &                      cff*(cff1*rhs_vbar(i,j)+                    &
-!     &                           cff2*rvbar(i,j,kstp)-                  &
+            Real cff=(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+            Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i,j-1,0));
+            vbar(i,j,0,knew)=vbar(i,j,0,kstp)
+!            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*                             &
+!     &                      (Dstp(i,j,0)+Dstp(i,j-1,0))+                    &
+!     &                      cff*(cff1*rhs_vbar(i,j,0)+                    &
+!     &                           cff2*rvbar(i,j,0,kstp)-                  &
 !     &                           cff3*rvbar(i,j,ptsk)))*fac
           END DO
         END DO
-      END IF
+      }
 */
     //store rhs_ubar and rhs_vbar to save later
     //
@@ -638,17 +678,18 @@ ROMSX::advance_2d (int lev,
     //  future use during the subsequent corrector step.
     //
     /*
-      IF (PREDICTOR_2D_STEP) THEN
+      if (predictor_2d_step) {
         DO j=Jstr,Jend
           DO i=IstrU,Iend
-            rubar(i,j,krhs)=rhs_ubar(i,j)
+            rubar(i,j,0,krhs)=rhs_ubar(i,j,0);
           END DO
         END DO
         DO j=JstrV,Jend
           DO i=Istr,Iend
-            rvbar(i,j,krhs)=rhs_vbar(i,j)
+            rvbar(i,j,0,krhs)=rhs_vbar(i,j,0);
           END DO
         END DO
-END IF
+}
     */
     }
+}

@@ -326,6 +326,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         first_2d_step=(my_iif==0);
         predictor_2d_step=true;
         advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
+                   vec_rufrc[lev], vec_rvfrc[lev],
                    vec_Zt_avg1[lev],
                    vec_DU_avg1[lev], vec_DU_avg2[lev],
                    vec_DV_avg1[lev], vec_DV_avg2[lev],
@@ -335,6 +336,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 #if 1
         predictor_2d_step=false;
         advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
+                   vec_rufrc[lev], vec_rvfrc[lev],
                    vec_Zt_avg1[lev],
                    vec_DU_avg1[lev], vec_DU_avg2[lev],
                    vec_DV_avg1[lev], vec_DV_avg2[lev],
