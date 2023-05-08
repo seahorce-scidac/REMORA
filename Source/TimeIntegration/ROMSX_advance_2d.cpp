@@ -613,7 +613,7 @@ ROMSX::advance_2d (int lev,
         });
         //END DO
         //END DO
-      }
+    }
 
     //
     //=======================================================================
@@ -622,91 +622,113 @@ ROMSX::advance_2d (int lev,
     //
     //  Compute total water column depth.
     //
-    /*
-      DO j=JstrV-1,Jend
-        DO i=IstrU-1,Iend
+    amrex::ParallelFor(gbx1D,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
+    {
+    //DO j=JstrV-1,Jend
+        //DO i=IstrU-1,Iend
           Dstp(i,j,0)=zeta(i,j,0,kstp)+h(i,j,0);
-        END DO
-      END DO
-!
-!  During the first time-step, the predictor step is Forward-Euler
-!  and the corrector step is Backward-Euler. Otherwise, the predictor
-!  step is Leap-frog and the corrector step is Adams-Moulton.
-!
+    });
+    //END DO
+    //END DO
+
+    //
+    //  During the first time-step, the predictor step is Forward-Euler
+    //  and the corrector step is Backward-Euler. Otherwise, the predictor
+    //  step is Leap-frog and the corrector step is Adams-Moulton.
+    //
       if (my_iif==1) {
-        Real cff1=0.5_rt*dtfast
-        DO j=Jstr,Jend
-          DO i=IstrU,Iend
+	  Real cff1=0.5_rt*dtfast_lev;
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+	    //DO j=Jstr,Jend
+	    //DO i=IstrU,Iend
             Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
             Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i-1,j,0));
-            ubar(i,j,0,knew)=ubar(i,j,0,kstp)
-!            ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*                             &
-!     &                      (Dstp(i,j,0)+Dstp(i-1,j,0))+                    &
-!     &                      cff*cff1*rhs_ubar(i,j,0))*fac
-          END DO
-        END DO
-        DO j=JstrV,Jend
-          DO i=Istr,Iend
+	    ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*                             
+                             (Dstp(i,j,0)+Dstp(i-1,j,0))+                    
+			      cff*cff1*rhs_ubar(i,j,0))*fac;
+	});
+	//END DO
+        //END DO
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+	    //DO j=JstrV,Jend
+	    //DO i=Istr,Iend
             Real cff=(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
             Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i,j-1,0));
-            vbar(i,j,0,knew)=vbar(i,j,0,kstp)
-!            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*                             &
-!     &                      (Dstp(i,j,0)+Dstp(i,j-1,0))+                    &
-!     &                      cff*cff1*rhs_vbar(i,j,0))*fac
-          END DO
-        END DO
+            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*                             
+                             (Dstp(i,j,0)+Dstp(i,j-1,0))+                    
+                              cff*cff1*rhs_vbar(i,j,0))*fac;
+	});
+	//END DO
+        //END DO
       } else if (predictor_2d_step) {
-        Real cff1=dtfast
-        DO j=Jstr,Jend
-          DO i=IstrU,Iend
+	  Real cff1=dtfast_lev;
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+	    //DO j=Jstr,Jend
+	    //DO i=IstrU,Iend
             Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
             Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i-1,j,0));
-            ubar(i,j,0,knew)=ubar(i,j,0,kstp)
-!            ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*                             &
-!     &                      (Dstp(i,j,0)+Dstp(i-1,j,0))+                    &
-!     &                      cff*cff1*rhs_ubar(i,j,0))*fac
-          END DO
-        END DO
-        DO j=JstrV,Jend
-          DO i=Istr,Iend
+            ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*                             
+                             (Dstp(i,j,0)+Dstp(i-1,j,0))+                   
+			      cff*cff1*rhs_ubar(i,j,0))*fac;
+	});
+	//END DO
+        //END DO
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+	    //DO j=JstrV,Jend
+	    //DO i=Istr,Iend
             Real cff=(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
             Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i,j-1,0));
-            vbar(i,j,0,knew)=vbar(i,j,0,kstp)
-!            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*                             &
-!     &                      (Dstp(i,j,0)+Dstp(i,j-1,0))+                    &
-!     &                      cff*cff1*rhs_vbar(i,j,0))*fac
-          END DO
-        END DO
+            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*                             
+                             (Dstp(i,j,0)+Dstp(i,j-1,0))+                    
+			      cff*cff1*rhs_vbar(i,j,0))*fac;
+	});
+	//END DO
+        //END DO
       } else if ((!predictor_2d_step)) {
-        Real cff1=0.5_rt*dtfast_lev*5.0_rt/12.0_rt
-        Real cff2=0.5_rt*dtfast_lev*8.0_rt/12.0_rt
-        Real cff3=0.5_rt*dtfast_lev*1.0_rt/12.0_rt
-        DO j=Jstr,Jend
-          DO i=IstrU,Iend
+	  Real cff1=0.5_rt*dtfast_lev*5.0_rt/12.0_rt;
+	  Real cff2=0.5_rt*dtfast_lev*8.0_rt/12.0_rt;
+	  Real cff3=0.5_rt*dtfast_lev*1.0_rt/12.0_rt;
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+	    //DO j=Jstr,Jend
+	    //DO i=IstrU,Iend
             Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
             Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i-1,j,0));
-            ubar(i,j,0,knew)=ubar(i,j,0,kstp)
-!            ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*                             &
-!     &                      (Dstp(i,j,0)+Dstp(i-1,j,0))+                    &
-!     &                      cff*(cff1*rhs_ubar(i,j,0)+                    &
-!     &                           cff2*rubar(i,j,0,kstp)-                  &
-!     &                           cff3*rubar(i,j,ptsk)))*fac
-          END DO
-        END DO
-        DO j=JstrV,Jend
-          DO i=Istr,Iend
+            ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*                             
+                             (Dstp(i,j,0)+Dstp(i-1,j,0))+                    
+                             cff*(cff1*rhs_ubar(i,j,0)+                    
+                                  cff2*rubar(i,j,0,kstp)-                  
+                                  cff3*rubar(i,j,ptsk)))*fac;
+	});
+	//END DO
+        //END DO
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+	    //DO j=JstrV,Jend
+	    //DO i=Istr,Iend
             Real cff=(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
             Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i,j-1,0));
-            vbar(i,j,0,knew)=vbar(i,j,0,kstp)
-!            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*                             &
-!     &                      (Dstp(i,j,0)+Dstp(i,j-1,0))+                    &
-!     &                      cff*(cff1*rhs_vbar(i,j,0)+                    &
-!     &                           cff2*rvbar(i,j,0,kstp)-                  &
-!     &                           cff3*rvbar(i,j,ptsk)))*fac
-          END DO
-        END DO
+            vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*                             
+                             (Dstp(i,j,0)+Dstp(i,j-1,0))+                    
+                             cff*(cff1*rhs_vbar(i,j,0)+                    
+                                  cff2*rvbar(i,j,0,kstp)-                  
+                                  cff3*rvbar(i,j,ptsk)))*fac;
+	});
+	//END DO
+        //END DO
       }
-*/
+
     //store rhs_ubar and rhs_vbar to save later
     //
     //  If predictor step, load right-side-term into shared arrays for
