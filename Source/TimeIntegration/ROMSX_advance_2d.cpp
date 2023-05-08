@@ -25,6 +25,8 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_vbar,
                    std::unique_ptr<MultiFab>& mf_zeta,
                    std::unique_ptr<MultiFab>& mf_h,
+                   std::unique_ptr<MultiFab>& mf_visc2_p,
+                   std::unique_ptr<MultiFab>& mf_visc2_r,
                    const int ncomp, Real dt_lev, Real dtfast_lev,
                    bool predictor_2d_step,
                    bool first_2d_step, int my_iif, int nfast, int & next_indx1)
@@ -93,6 +95,8 @@ ROMSX::advance_2d (int lev,
         Array4<Real> const& rubar = (mf_rubar)->array(mfi);
         Array4<Real> const& rvbar = (mf_rvbar)->array(mfi);
         Array4<Real> const& rzeta = (mf_rzeta)->array(mfi);
+        Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
+        Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -123,9 +127,16 @@ ROMSX::advance_2d (int lev,
         FArrayBox fab_Huon(gbx2,1,The_Async_Arena()); //fab_Huon.setVal(0.0);
         FArrayBox fab_Hvom(gbx2,1,The_Async_Arena()); //fab_Hvom.setVal(0.0);
         FArrayBox fab_oHz(gbx11,1,The_Async_Arena()); //fab_oHz.setVal(0.0);
+        FArrayBox fab_om_u(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_v(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_r(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_r(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_p(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_p(gbx2,1,amrex::The_Async_Arena());
 
         //step2d work arrays
         FArrayBox fab_Drhs(gbx2,1,The_Async_Arena());
+        FArrayBox fab_Drhs_p(gbx2,1,The_Async_Arena());
         FArrayBox fab_Dnew(gbx2,1,The_Async_Arena());
         FArrayBox fab_Dstp(gbx2,1,The_Async_Arena());
         FArrayBox fab_DUon(gbx2,1,The_Async_Arena());
@@ -140,8 +151,15 @@ ROMSX::advance_2d (int lev,
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto fomn=fab_fomn.array();
+        auto om_u=fab_om_u.array();
+        auto on_v=fab_on_v.array();
+        auto om_r=fab_om_r.array();
+        auto on_r=fab_on_r.array();
+        auto om_p=fab_om_p.array();
+        auto on_p=fab_on_p.array();
 
         auto Drhs=fab_Drhs.array();
+        auto Drhs_p=fab_Drhs_p.array();
         auto Dnew=fab_Dnew.array();
         auto Dstp=fab_Dstp.array();
         auto DUon=fab_DUon.array();
@@ -163,11 +181,19 @@ ROMSX::advance_2d (int lev,
               rhs_vbar(i,j,0)=0.0;
         });
 
-        amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        amrex::LoopConcurrentOnCpu(gbx2,
+        [=] (int i, int j, int k)
         {
-              om_v(i,j,0)=1.0/dxi[0];
-              on_u(i,j,0)=1.0/dxi[1];
+          //Note: are the comment definitons right? Don't seem to match metrics.f90
+          om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
+          on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
+          om_r(i,j,0)=1.0/dxi[0]; // 1/pm(i,j)
+          on_r(i,j,0)=1.0/dxi[1]; // 1/pn(i,j)
+          //todo: om_p on_p
+          om_p(i,j,0)=1.0/dxi[0]; // 4/(pm(i-1,j-1)+pm(i-1,j)+pm(i,j-1)+pm(i,j))
+          on_p(i,j,0)=1.0/dxi[1]; // 4/(pn(i-1,j-1)+pn(i-1,j)+pn(i,j-1)+pn(i,j))
+          on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
+          om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
         });
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
@@ -470,8 +496,15 @@ ROMSX::advance_2d (int lev,
 #endif
 
     //Add in horizontal harmonic viscosity.
-    //todo: visc2_p visc2_r
     // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
+    amrex::ParallelFor(gbx1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int)
+    {
+        Drhs_p(i,j,0)=0.25*(Drhs(i,j,0)+Drhs(i-1,j,0)+
+                            Drhs(i,j-1,0)+Drhs(i-1,j-1,0));
+    });
+
+    uv3dmix(bxD, ubar, vbar, rhs_ubar, rhs_vbar, visc2_p, visc2_r, Drhs_p, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
 
     //Coupling from 3d to 2d
     /////////Coupling of 3d updates to 2d predictor-corrector

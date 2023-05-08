@@ -278,6 +278,8 @@ public:
                      std::unique_ptr<amrex::MultiFab>& mf_vbar,
                      std::unique_ptr<amrex::MultiFab>& mf_zeta,
                      std::unique_ptr<amrex::MultiFab>& mf_h,
+                     std::unique_ptr<amrex::MultiFab>& mf_visc2_p,
+                     std::unique_ptr<amrex::MultiFab>& mf_visc2_r,
                      const int ncomp, const amrex::Real dt_lev, const amrex::Real dtfast_lev,
                      const bool predictor_2d_step,
                      const bool first_2d_step, int my_iif, int nfast,

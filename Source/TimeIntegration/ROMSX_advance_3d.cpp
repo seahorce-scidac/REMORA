@@ -30,7 +30,6 @@ ROMSX::advance_3d (int lev,
                    std::unique_ptr<MultiFab>& mf_Hvom,
                    const int ncomp, const int N, Real dt_lev)
 {
-    // Need to include uv3dmix
 
     auto geomdata  = Geom(lev).data();
     const auto dxi = Geom(lev).InvCellSizeArray();
