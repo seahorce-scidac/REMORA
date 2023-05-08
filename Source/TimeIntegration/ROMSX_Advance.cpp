@@ -267,14 +267,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //-----------------------------------------------------------------------
         //
         //Test this after advection included in 3d time, consider refactoring to call once per tracer
-#if 1
         prestep_t_3d(bx, uold, vold, u, v, tempold, saltold, temp, salt, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                      pm, pn, W, DC, FC, tempstore, saltstore, FX, FE, z_r, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
         prestep_t_3d(bx, uold, vold, u, v, saltold, saltold, salt, salt, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                      pm, pn, W, DC, FC, saltstore, saltstore, FX, FE, z_r, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-#endif
 
         //
         //-----------------------------------------------------------------------
@@ -291,6 +289,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // coriolis
         //-----------------------------------------------------------------------
         //
+        // ru, rv updated
         coriolis(bx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
 #endif
         //
@@ -298,11 +297,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // rhs_3d
         //-----------------------------------------------------------------------
         //
+        // rufrc, rvfrc updated
         rhs_3d(bx, uold, vold, ru, rv, rufrc, rvfrc, sustr, svstr, Huon, Hvom, on_u, om_v, om_u, on_v, W, FC, nrhs, N);
-    ////rufrc from 3d is set to ru, then the wind stress (and bottom stress) is added, then the mixing is added
-    //rufrc=ru+sustr*om_u*on_u
-    //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
-    //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
+
         // u, v, rufrc, rvfrc updated
         uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, on_r, om_r, on_p, om_p, pn, pm, nrhs, nnew, dt_lev);
     } // MFIter
@@ -320,10 +317,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     bool first_2d_step=true;
     int nfast=fixed_ndtfast_ratio+1;
     int nfast_counter=predictor_2d_step ? nfast : nfast-1;
+    //Compute fast timestep from dt_lev and ratio
     Real dtfast_lev=dt_lev/Real(fixed_ndtfast_ratio);
     int next_indx1 = 0;
     for(int my_iif = 0; my_iif < nfast_counter; my_iif++) {
         first_2d_step=(my_iif==0);
+        //Predictor
         predictor_2d_step=true;
         advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
                    vec_rufrc[lev], vec_rvfrc[lev],
@@ -334,7 +333,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                     vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
                    vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
                    ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
-#if 1
+        //Corrector
         predictor_2d_step=false;
         advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
                    vec_rufrc[lev], vec_rvfrc[lev],
@@ -345,7 +344,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                     vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
                    vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
                    ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
-#endif
     }
 
     advance_3d(lev, mf_u, mf_v, mf_tempold, mf_saltold, mf_temp, mf_salt, vec_t3[lev], vec_s3[lev], vec_ru[lev], vec_rv[lev],
@@ -367,6 +365,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     mf_saltold.FillBoundary();
     vec_t3[lev]->FillBoundary();
     vec_s3[lev]->FillBoundary();
+    //We are not storing computed W aka Omega
     //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     //    W_new.FillBoundary();
     //    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
