@@ -46,8 +46,8 @@ ROMSX::set_2darrays (int lev)
     std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     int nstp = 0;
-    int kstp = 1;
-    int knew = 0;
+    int kstp = 2;
+    int knew = 1;
     int ncomp = 1;
     for ( MFIter mfi(U_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -95,6 +95,7 @@ ROMSX::set_2darrays (int lev)
                 ubar(i,j,0,kstp)=cff2;
                 ubar(i,j,0,knew)=cff2;
             });
+
         //fab_DC.setVal(0.0);
         //fab_CF.setVal(0.0);
         amrex::ParallelFor(gbx11, ncomp,
@@ -118,7 +119,6 @@ ROMSX::set_2darrays (int lev)
                 vbar(i,j,0,kstp)=cff2;
                 vbar(i,j,0,knew)=cff2;
             });
-
     }
 }
 
@@ -165,6 +165,7 @@ ROMSX::set_smflux(int lev, Real time)
     Real rho0=parms.rho0;
     Real windamp;
     amrex::Print()<<tdays<<" "<<dstart<<" "<<rho0<<std::endl;
+    //It's possible these should be set to be nonzero only at the boundaries they affect
     if(NSPeriodic) {
         mf_sustr->setVal(0.0);
     }
@@ -200,8 +201,8 @@ ROMSX::set_depth (int lev)
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
     Real depth = geom[lev].ProbHi(2);
-    // const int Lm = Geom(lev).Domain().size()[0];
-    // const int Mm = Geom(lev).Domain().size()[1];
+    const int Lm = Geom(lev).Domain().size()[0];
+    const int Mm = Geom(lev).Domain().size()[1];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     mf_Zt_avg1->setVal(0.0);
 
@@ -240,10 +241,10 @@ ROMSX::set_depth (int lev)
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
       bool NSPeriodic = geomdata.isPeriodic(1);
       bool EWPeriodic = geomdata.isPeriodic(0);
+      if(!solverChoice.flat_bathymetry) {
       amrex::LoopConcurrentOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
-#if 0
           Real val1, val2;
           int iFort = i+1;
           int jFort = j+1;
@@ -263,11 +264,18 @@ ROMSX::set_depth (int lev)
               val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
               h(i,j,0) = val2;
           }
-#else
+          z_w(i,j,k) = h(i,j,0);
+          Abort("Flat bathymetry needs further testing");
+      });
+      } else {
+      amrex::LoopConcurrentOnCpu(gbx2, ncomp,
+      [=] (int i, int j, int k, int n)
+      {
           h(i,j,0) = -geomdata.ProbLo(2);
-#endif
           z_w(i,j,k) = h(i,j,0);
       });
+      }
+
       // ROMS Transform 2
       amrex::LoopOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
@@ -396,6 +404,31 @@ ROMSX::set_depth (int lev)
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
 
+}
+
+/**
+ * Set horizontal mixing coefficients
+ */
+void ROMSX::set_hmixcoef (int lev) {
+    std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
+    std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
+
+    for ( MFIter mfi(*(mf_visc2_p), TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
+        Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
+        Box bx = mfi.tilebox();
+        bx.grow(IntVect(2,2,0));
+        int ncomp = 1;
+
+        // NOTE: Hard-coded value from ana_hmixcoef.h
+        amrex::LoopConcurrentOnCpu(bx, ncomp,
+        [=] (int i, int j, int k, int n)
+        {
+            visc2_p(i,j,k) = 5.0;
+            visc2_r(i,j,k) = 5.0;
+        });
+    }
 }
 
 #endif

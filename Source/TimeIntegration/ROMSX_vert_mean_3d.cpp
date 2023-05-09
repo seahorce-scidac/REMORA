@@ -23,6 +23,8 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
     // Put Hzk on the x- or y-face as appropriate, or leave on cell center for tracers
     //
     amrex::Print() << "updating on box in vert_mean_3d: " << phi_bx << std::endl;
+    auto phi_bxD=phi_bx;
+    phi_bxD.makeSlab(2,0);
 
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -44,7 +46,7 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
       }
     });
 
-    amrex::LoopOnCpu(phi_bx,
+    amrex::LoopOnCpu(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1=1.0/(CF(i,j,-1)*(1.0/dxlen(i,j,0)));

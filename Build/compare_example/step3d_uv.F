@@ -721,7 +721,7 @@
 !
         DO k=1,N(ng)
           DO i=IstrU,Iend
-!            u(i,j,k,nnew)=u(i,j,k,nnew)-DC(i,0)
+            u(i,j,k,nnew)=u(i,j,k,nnew)-DC(i,0)
 # ifdef MASKING
             u(i,j,k,nnew)=u(i,j,k,nnew)*umask(i,j)
 # endif

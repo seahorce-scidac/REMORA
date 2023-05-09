@@ -64,6 +64,10 @@ struct SolverChoice {
     {
         amrex::ParmParse pp(pp_prefix);
 
+        pp.query("flat_bathymetry", flat_bathymetry);
+
+        pp.query("evolve_free_surface", evolve_free_surface);
+
         // Do we have terrain (or grid stretching)?
         pp.query("use_terrain", use_terrain);
 
@@ -319,6 +323,8 @@ struct SolverChoice {
     std::string pp_prefix {"romsx"};
 
     bool        use_terrain            = false;
+    bool        flat_bathymetry        = true;
+    bool        evolve_free_surface    = false;
 
     // Specify what additional physics/forcing modules we use
     bool        use_gravity            = false;

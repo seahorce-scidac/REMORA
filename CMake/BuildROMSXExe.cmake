@@ -79,6 +79,7 @@ function(build_romsx_lib romsx_lib_name)
        ${SRC_DIR}/TimeIntegration/ROMSX_prestep_uv_3d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_rhs_t_3d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_rhs_uv_3d.cpp
+       ${SRC_DIR}/TimeIntegration/ROMSX_rhs_uv_2d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_update_vel_3d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_vert_visc_3d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_set_massflux_3d.cpp

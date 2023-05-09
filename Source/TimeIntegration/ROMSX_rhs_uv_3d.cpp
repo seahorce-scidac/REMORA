@@ -11,7 +11,11 @@ void
 ROMSX::rhs_3d (const Box& bx,
                Array4<Real> uold  , Array4<Real> vold,
                Array4<Real> ru, Array4<Real> rv,
+               Array4<Real> rufrc, Array4<Real> rvfrc,
+               Array4<Real> sustr, Array4<Real> svstr,
                Array4<Real> Huon, Array4<Real> Hvom,
+               Array4<Real> on_u, Array4<Real> om_v,
+               Array4<Real> om_u, Array4<Real> on_v,
                Array4<Real> W   , Array4<Real> FC,
                int nrhs, int N)
 {
@@ -235,7 +239,7 @@ ROMSX::rhs_3d (const Box& bx,
                                 ( cff1*(W(i,j  ,k)+ W(i,j-1,k))
                                  -cff2*(W(i,j+1,k)+ W(i,j-2,k)) );
               }
-              else // this needs to be split up so that the following can be concurent
+              else // this needs to be split up so that the following can be concurrent
               {
                   FC(i,j,N)=0.0;
                   FC(i,j,N-1)=( cff1*(vold(i,j,N-1,nrhs)+ vold(i,j,N  ,nrhs))
@@ -257,6 +261,34 @@ ROMSX::rhs_3d (const Box& bx,
                   cff=FC(i,j,k);
               }
               rv(i,j,k,nrhs) -= cff;
+
+              //Recursive summation:
+              rufrc(i,j,0)+=ru(i,j,k,nrhs);
+              rvfrc(i,j,0)+=rv(i,j,k,nrhs);
+
+              //These forcing terms should possibly be updated on a slabbed box
+              cff=om_u(i,j,0)*on_u(i,j,0);
+              if(k==N) // this is consistent with update_vel_3d
+                  cff1=sustr(i,j,0)*cff;
+              else
+                  cff1=0.0;
+              if(k==0) //should this be k==-1?
+                  cff2=0.0;//bustr(i,j,0)*cff;
+              else
+                  cff2=0.0;
+              rufrc(i,j,0)+=cff1+cff2;
+
+              //These forcing terms should possibly be updated on a slabbed box
+              cff=om_v(i,j,0)*on_v(i,j,0);
+              if(k==N) // this is consistent with update_vel_3d
+                  cff1=svstr(i,j,0)*cff;
+              else
+                  cff1=0.0;
+              if(k==0) //should this be k==-1?
+                  cff2=0.0;//bustr(i,j,0)*cff;
+              else
+                  cff2=0.0;
+              rvfrc(i,j,0)+=cff1+cff2;
 
     });
 }

@@ -229,8 +229,12 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hvom;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ru;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rv;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rufrc;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rvfrc;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akv;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc3d_r;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_p;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_x_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_y_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_r;
@@ -260,6 +264,8 @@ public:
                      amrex::MultiFab& mf_u , amrex::MultiFab& mf_v ,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
                      std::unique_ptr<amrex::MultiFab>& mf_rv,
+                     std::unique_ptr<amrex::MultiFab>& mf_rufrc,
+                     std::unique_ptr<amrex::MultiFab>& mf_rvfrc,
                      std::unique_ptr<amrex::MultiFab>& mf_Zt_avg1,
                      std::unique_ptr<amrex::MultiFab>& mf_DU_avg1,
                      std::unique_ptr<amrex::MultiFab>& mf_DU_avg2,
@@ -272,7 +278,9 @@ public:
                      std::unique_ptr<amrex::MultiFab>& mf_vbar,
                      std::unique_ptr<amrex::MultiFab>& mf_zeta,
                      std::unique_ptr<amrex::MultiFab>& mf_h,
-                     const int ncomp, const amrex::Real dt_lev,
+                     std::unique_ptr<amrex::MultiFab>& mf_visc2_p,
+                     std::unique_ptr<amrex::MultiFab>& mf_visc2_r,
+                     const int ncomp, const amrex::Real dt_lev, const amrex::Real dtfast_lev,
                      const bool predictor_2d_step,
                      const bool first_2d_step, int my_iif, int nfast,
                      int & next_indx1);
@@ -354,17 +362,6 @@ public:
                         int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
-    void rhs_3d (const amrex::Box& bx,
-                 amrex::Array4<amrex::Real> uold,
-                 amrex::Array4<amrex::Real> vold,
-                 amrex::Array4<amrex::Real> ru,
-                 amrex::Array4<amrex::Real> rv,
-                 amrex::Array4<amrex::Real> Huon,
-                 amrex::Array4<amrex::Real> Hvom,
-                 amrex::Array4<amrex::Real> W,
-                 amrex::Array4<amrex::Real> FC,
-                 int nrhs, int N);
-
     void rhs_t_3d (const amrex::Box& bx,
                    amrex::Array4<amrex::Real> told,
                    amrex::Array4<amrex::Real> t,
@@ -377,6 +374,44 @@ public:
                    amrex::Array4<amrex::Real> W,
                    amrex::Array4<amrex::Real> FC,
                    int nrhs, int nnew, int N, const amrex::Real dt_lev);
+
+    void rhs_3d (const amrex::Box& bx,
+                 amrex::Array4<amrex::Real> uold,
+                 amrex::Array4<amrex::Real> vold,
+                 amrex::Array4<amrex::Real> ru,
+                 amrex::Array4<amrex::Real> rv,
+                 amrex::Array4<amrex::Real> rufrc,
+                 amrex::Array4<amrex::Real> rvfrc,
+                 amrex::Array4<amrex::Real> sustr,
+                 amrex::Array4<amrex::Real> svstr,
+                 amrex::Array4<amrex::Real> Huon,
+                 amrex::Array4<amrex::Real> Hvom,
+                 amrex::Array4<amrex::Real> on_u,
+                 amrex::Array4<amrex::Real> om_v,
+                 amrex::Array4<amrex::Real> om_u,
+                 amrex::Array4<amrex::Real> on_v,
+                 amrex::Array4<amrex::Real> W,
+                 amrex::Array4<amrex::Real> FC,
+                 int nrhs, int N);
+
+    void rhs_2d (const amrex::Box& bx,
+                 amrex::Array4<amrex::Real> uold,
+                 amrex::Array4<amrex::Real> vold,
+                 amrex::Array4<amrex::Real> ru,
+                 amrex::Array4<amrex::Real> rv,
+                 //                 amrex::Array4<amrex::Real> rufrc,
+                 //                 amrex::Array4<amrex::Real> rvfrc,
+                 //                 amrex::Array4<amrex::Real> sustr,
+                 //                 amrex::Array4<amrex::Real> svstr,
+                 amrex::Array4<amrex::Real> Huon,
+                 amrex::Array4<amrex::Real> Hvom,
+                 //                 amrex::Array4<amrex::Real> on_u,
+                 //                 amrex::Array4<amrex::Real> om_v,
+                 //                 amrex::Array4<amrex::Real> om_u,
+                 //                 amrex::Array4<amrex::Real> on_v,
+                 //                 amrex::Array4<amrex::Real> W,
+                 //                 amrex::Array4<amrex::Real> FC,
+                 int nrhs, int N);
 
     void update_vel_3d (const amrex::Box& bx,
                         const int ioff, const int joff,
@@ -450,7 +485,8 @@ public:
                  amrex::Array4<amrex::Real> v,
                  amrex::Array4<amrex::Real> rufrc,
                  amrex::Array4<amrex::Real> rvfrc,
-                 amrex::Array4<amrex::Real> visc3d_r,
+                 amrex::Array4<amrex::Real> visc2_p,
+                 amrex::Array4<amrex::Real> visc2_r,
                  amrex::Array4<amrex::Real> Hz,
                  amrex::Array4<amrex::Real> on_r,
                  amrex::Array4<amrex::Real> om_r,
@@ -458,10 +494,6 @@ public:
                  amrex::Array4<amrex::Real> om_p,
                  amrex::Array4<amrex::Real> pn,
                  amrex::Array4<amrex::Real> pm,
-                 amrex::Array4<amrex::Real> UFe,
-                 amrex::Array4<amrex::Real> UFx,
-                 amrex::Array4<amrex::Real> VFe,
-                 amrex::Array4<amrex::Real> VFx,
                  int nrhs, int nnew,
                  const amrex::Real dt_lev);
 #ifdef UV_COR
@@ -472,7 +504,7 @@ public:
                    amrex::Array4<amrex::Real> rv,
                    amrex::Array4<amrex::Real> Hz,
                    amrex::Array4<amrex::Real> fomn,
-                   int nrhs);
+                   int nrhs, int nr);
 #endif
 
     void set_2darrays (int lev);
@@ -482,6 +514,8 @@ public:
     void set_vmix (int lev);
 
     void set_smflux (int lev, amrex::Real time);
+
+    void set_hmixcoef (int lev);
 
 private:
 
@@ -717,6 +751,8 @@ private:
 
     // Fixed dt for level 0 timesteps (only used if positive)
     static amrex::Real fixed_dt;
+    static amrex::Real fixed_fast_dt;
+    static int fixed_ndtfast_ratio;
 
     // how often each level regrids the higher levels of refinement
     // (after a level advances that many time steps)

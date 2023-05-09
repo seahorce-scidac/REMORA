@@ -27,8 +27,11 @@ SolverChoice ROMSX::solverChoice;
 // Time step control
 amrex::Real ROMSX::cfl           =  0.8;
 amrex::Real ROMSX::fixed_dt      = -1.0;
+amrex::Real ROMSX::fixed_fast_dt = -1.0;
 amrex::Real ROMSX::init_shrink   =  1.0;
 amrex::Real ROMSX::change_max    =  1.1;
+int   ROMSX::fixed_ndtfast_ratio = 0;
+
 
 // Type of mesh refinement algorithm
 int         ROMSX::do_reflux     = 0;
@@ -471,7 +474,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     SetDistributionMap(lev, dm);
 
     // The number of ghost cells for density must be 1 greater than that for velocity
-    //     so that we can go back in forth betwen velocity and momentum on all faces
+    //     so that we can go back in forth between velocity and momentum on all faces
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order);
 
@@ -551,8 +554,12 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_Hvom.resize(lev+1);
     vec_Akv.resize(lev+1);
     vec_visc3d_r.resize(lev+1);
+    vec_visc2_p.resize(lev+1);
+    vec_visc2_r.resize(lev+1);
     vec_ru.resize(lev+1);
     vec_rv.resize(lev+1);
+    vec_rufrc.resize(lev+1);
+    vec_rvfrc.resize(lev+1);
     vec_sustr.resize(lev+1);
     vec_svstr.resize(lev+1);
 
@@ -581,8 +588,12 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_Hvom[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_Akv[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_visc3d_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    vec_visc2_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_ru[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
     vec_rv[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
+    vec_rufrc[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
+    vec_rvfrc[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
     vec_sustr[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_svstr[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
 
@@ -601,6 +612,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 
     set_depth(lev);
     set_vmix(lev);
+    set_hmixcoef(lev);
 
     //consider tracking ru and rv indexes more specifically or more similarly to indx
     vec_ru[lev]->setVal(0.0);
@@ -694,6 +706,24 @@ ROMSX::ReadParameters ()
         pp.query("change_max", change_max);
 
         pp.query("fixed_dt", fixed_dt);
+        pp.query("fixed_fast_dt", fixed_fast_dt);
+
+        pp.query("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
+
+        // If all three are specified, they must be consistent
+        if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio > 0)
+        {
+            if (fixed_dt / fixed_fast_dt != fixed_ndtfast_ratio)
+            {
+                amrex::Abort("Dt is over-specfied");
+            }
+        }
+        // If two are specified, initialize fixed_ndtfast_ratio
+        else if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio <= 0)
+        {
+            fixed_ndtfast_ratio = fixed_dt / fixed_fast_dt;
+        }
+
 
         AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
 
