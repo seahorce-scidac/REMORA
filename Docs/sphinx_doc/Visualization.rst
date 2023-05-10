@@ -2,15 +2,13 @@
  .. role:: cpp(code)
     :language: c++
 
- .. role:: f(code)
-    :language: fortran
-
 .. _Visualization:
 
 Visualization
 =============
 
-ROMSX currently generates plotfile in the native AMReX format.
+By default, ROMSX currently generates plotfile in the native AMReX format, but
+they can also be written in HDF5 or NetCDF.
 
 There are several visualization tools that can be used for AMReX plotfiles, specifically
 ParaView, VisIt and yt.

@@ -25,12 +25,6 @@ The following problems are currently tested in the CI:
 | CouetteFlow                   | 32 4  16 | Periodic | Periodic | SlipWall   | None  | inhomogeneous         |
 |                               |          |          |          | SlipWall   |       | bc at zhi             |
 +-------------------------------+----------+----------+----------+------------+-------+-----------------------+
-| DensityCurrent                | 256 4 64 | Outflow  | Periodic | SlipWall   | None  | +gravity              |
-|                               |          |          |          | SlipWall   |       |                       |
-+-------------------------------+----------+----------+----------+------------+-------+-----------------------+
-| EkmanSpiral                   | 4 4 400  | Periodic | Periodic | NoSlipWall | Geo   | +Coriolis             |
-|                               |          |          |          | SlipWall   |       | +gravity              |
-+-------------------------------+----------+----------+----------+------------+-------+-----------------------+
 | IsentropicVortexAdvecting     | 48 48  4 | Periodic | Periodic | SlipWall   | None  |                       |
 |                               |          |          |          | SlipWall   |       |                       |
 +-------------------------------+----------+----------+----------+------------+-------+-----------------------+
@@ -39,9 +33,6 @@ The following problems are currently tested in the CI:
 +-------------------------------+----------+----------+----------+------------+-------+-----------------------+
 | PoiseuilleFlow                | 32 4  16 | Periodic | Periodic | NoSlipWall | GradP |                       |
 |                               |          |          |          | NoSlipWall | in x  |                       |
-+-------------------------------+----------+----------+----------+------------+-------+-----------------------+
-| RayleighDamping               | 64  4 64 | Periodic | Periodic | SlipWall   | None  | Rayleigh damping      |
-|                               |          |          |          | SlipWall   |       |                       |
 +-------------------------------+----------+----------+----------+------------+-------+-----------------------+
 | ScalarAdvectionUniformU       | 64 64  4 | Periodic | Periodic | SlipWall   | None  |                       |
 |                               |          |          |          | SlipWall   |       |                       |
@@ -82,26 +73,11 @@ while the following tests are run nightly:
 +-------------------------------+----------+----------+----------+------------+-------+------------------+
 | Test                          | nx ny nz | xbc      | ybc      | zbc        | Ext   | Other            |
 +===============================+==========+==========+==========+============+=======+==================+
-| ABL-Deardorff                 | 64 64 64 | Periodic | Periodic | NoSlipWall | None  | LES              |
-|                               |          |          |          | SlipWall   |       |                  |
-+-------------------------------+----------+----------+----------+------------+-------+------------------+
-| ABL-Smag                      | 64 64 64 | Periodic | Periodic | NoSlipWall | None  | LES              |
-|                               |          |          |          | SlipWall   |       |                  |
-+-------------------------------+----------+----------+----------+------------+-------+------------------+
 | CouetteFlow-x                 | 32 4  16 | Periodic | Periodic | NoSlipWall | None  | inhomogeneous    |
 |                               |          |          |          | NoSlipWall |       | bc at zhi        |
 +-------------------------------+----------+----------+----------+------------+-------+------------------+
 | CouetteFlow-y                 | 4  32 16 | Periodic | Periodic | NoSlipWall | None  | inhomogeneous    |
 |                               |          |          |          | NoSlipWall |       | bc at zhi        |
-+-------------------------------+----------+----------+----------+------------+-------+------------------+
-| DensityCurrent                | 256 4 64 | Symmetry | Periodic | SlipWall   | None  | +gravity         |
-|                               |          | Outflow  |          | SlipWall   |       |                  |
-+-------------------------------+----------+----------+----------+------------+-------+------------------+
-| EkmanSpiral                   | 4 4 400  | Periodic | Periodic | NoSlipWall | Geo   | +Coriolis        |
-|                               |          |          |          | SlipWall   |       | +gravity         |
-+-------------------------------+----------+----------+----------+------------+-------+------------------+
-| EkmanSpiral_restart           | 4 4 400  | Periodic | Periodic | NoSlipWall | Geo   | restart test     |
-|                               |          |          |          | SlipWall   |       |                  |
 +-------------------------------+----------+----------+----------+------------+-------+------------------+
 | IsentropicVortexAdvecting     | 48 48  4 | Periodic | Periodic | SlipWall   | None  |                  |
 |                               |          |          |          | SlipWall   |       |                  |
@@ -290,21 +266,6 @@ Problem Location: `Exec/ScalarAdvDiff`_
    |   Scalar concentration at t=0.                      |   Scalar concentration at 20 steps (t = 0.01).       |
    +-----------------------------------------------------+------------------------------------------------------+
 
-Rayleigh Damping
-----------------
-
-This tests Rayleigh damping.  The problem is initialized as in the shear flow case, then
-Rayleigh damping is applied with a target mean profile of (2,1,0).
-
-Test Location: `Tests/test_files/RayleighDamping`_
-
-.. _`Tests/test_files/RayleighDamping`: https://github.com/romsx.model/ROMSX/tree/development/Tests/test_files/RayleighDamping
-
-Problem Location: `Exec/ScalarAdvDiff`_
-
-.. _`Exec/ScalarAdvDiff`: https://github.com/romsx.model/ROMSX/tree/development/Exec/ScalarAdvDiff
-
-
 Isentropic Vortex: Stationary
 ---------------------------------
 This tests advection of an isentropic vortex with triply periodic boundaries.
@@ -400,70 +361,3 @@ Test Location: `Tests/test_files/PoiseuilleFlow`_
 Problem Location: `Exec/PoiseuilleFlow`_
 
 .. _`Exec/PoiseuilleFlow`: https://github.com/romsx.model/ROMSX/tree/development/Exec/PoiseuilleFlow
-
-Nonlinear Density Current
----------------------------
-The density current problem tests the effects of gravity and the behavior at a slip wall.
-
-A detailed description of the problem and a comparison of solutions using a number
-of different codes can be found in the `Straka 1993 paper`_
-
-.. _`Straka 1993 paper`: https://onlinelibrary.wiley.com/doi/10.1002/fld.1650170103
-
-Test Location: `Tests/test_files/DensityCurrent`_
-
-.. _`Tests/test_files/DensityCurrent`: https://github.com/romsx.model/ROMSX/tree/development/Tests/test_files/DensityCurrent
-
-Problem Location: `Exec/DensityCurrent`_
-
-.. _`Exec/DensityCurrent`: https://github.com/romsx.model/ROMSX/tree/development/Exec/DensityCurrent
-
-.. |adc| image:: figures/density_current_600.png
-         :width: 300
-
-.. |bdc| image:: figures/density_current_900.png
-         :width: 300
-
-.. _fig:density_currennt
-
-.. table:: Potential temperature perturbation at 600s and 900s
-
-   +-----------------------------------------------------+------------------------------------------------------+
-   |                        |adc|                        |                        |bdc|                         |
-   +-----------------------------------------------------+------------------------------------------------------+
-   |   Perturbational potential temperature at t = 600s  |   Perturbational potential temperature at t = 900s   |
-   +-----------------------------------------------------+------------------------------------------------------+
-
-Ekman Spiral
----------------------------
-The Ekman spiral problem tests the computation of the stress term internally and at no-slip walls, as well as Coriolis and geostrophic forcing.
-
-A description of the problem, including the exact solution, can be found at `Ekman Spiral Description`_
-
-.. _`Ekman Spiral Description`: https://exawind.github.io/amr-wind/developer/verification.html#ekman-spiral
-
-The steady solution is shown below, as well as a log-log plot showing the error scaling as :math:`O(\Delta z^2)`.
-
-Test Location: `Tests/test_files/EkmanSpiral`_
-
-.. _`Tests/test_files/EkmanSpiral`: https://github.com/romsx.model/ROMSX/tree/development/Tests/test_files/EkmanSpiral
-
-Problem Location: `Exec/EkmanSpiral`_
-
-.. _`Exec/EkmanSpiral`: https://github.com/romsx.model/ROMSX/tree/development/Exec/EkmanSpiral
-
-.. |aek| image:: figures/ekman_spiral_profiles.png
-         :width: 300
-
-.. |bek| image:: figures/ekman_spiral_errors.png
-         :width: 300
-
-.. _fig:ekman_spiral
-
-.. table:: Flow profile and Error
-
-   +-----------------------------------------------------+------------------------------------------------------+
-   |                        |aek|                        |                        |bek|                         |
-   +-----------------------------------------------------+------------------------------------------------------+
-   |   Flow profiles                                     |   Convergence study                                  |
-   +-----------------------------------------------------+------------------------------------------------------+

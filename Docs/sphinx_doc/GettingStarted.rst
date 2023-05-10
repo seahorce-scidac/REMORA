@@ -11,26 +11,21 @@ Downloading the code
 
 First, make sure that git is installed on your machine.
 
-Then download the COAWST repository which contains ROMSX by typing:
+Then download the ROMS-X repository by typing:
 
    .. code:: shell
 
-             git clone https://github.com/seahorce-scidac/COAWST.git
+             git clone https://github.com/seahorce-scidac/ROMSX.git
 
-Or, to automatically include the necessary submodules when downloading ROMSX,
+Or, to automatically include the AMReX submodule when downloading ROMSX,
 type:
 
    .. code:: shell
 
-             git clone --recursive https://github.com/seahorce-scidac/COAWST.git
+             git clone --recursive https://github.com/seahorce-scidac/ROMSX.git
 
 .. include:: building.rst
 
-
 .. include:: InputFiles.rst
-
-# To be added later
-#.. include:: tutorials.rst
-
 
 .. include:: testing.rst
