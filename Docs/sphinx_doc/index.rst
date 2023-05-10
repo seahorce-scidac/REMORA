@@ -47,9 +47,7 @@ This documentation is currently under development, there are detailed resources 
    :caption: THEORY
    :maxdepth: 1
    :hidden:
-   theory/NavierStokesEquations.rst
-   theory/DNSvsLES.rst
-   theory/PBLschemes.rst
+   theory/Equations.rst
    theory/Forcings.rst
    theory/UnitsAndConstants.rst
 
@@ -70,32 +68,8 @@ This documentation is currently under development, there are detailed resources 
 
 ..
   toctree::
-   :caption: COUPLING TO AMR-WIND
-   :maxdepth: 1
-   :hidden:
-
-   CouplingToAMRWind.rst
-
-..
-  toctree::
-   :caption: ERF vs WRF
-   :maxdepth: 1
-   :hidden:
-
-   ERFvsWRF.rst
-
-..
-  toctree::
    :caption: TESTING
    :maxdepth: 1
    :hidden:
 
    RegressionTests.rst
-
-..
-  toctree::
-   :caption: GOALS
-   :maxdepth: 1
-   :hidden:
-
-   Applications_Requirements.rst
