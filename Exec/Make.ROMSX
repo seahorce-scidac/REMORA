@@ -56,8 +56,8 @@ ifeq ($(USE_NETCDF), TRUE)
   DEFINES += -DROMSX_USE_NETCDF
   includes += $(shell pkg-config --cflags netcdf)
   LIBRARIES += $(shell pkg-config --libs netcdf)
-  includes += $(shell pkg-config --cflags netcdf-cxx4_parallel)
-  LIBRARIES += $(shell pkg-config --libs netcdf-cxx4_parallel)
+#  includes += $(shell pkg-config --cflags netcdf-cxx4_parallel)
+#  LIBRARIES += $(shell pkg-config --libs netcdf-cxx4_parallel)
 endif
 
 ifeq ($(USE_HDF5), TRUE)

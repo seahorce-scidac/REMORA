@@ -48,9 +48,7 @@ In addition to this documentation, there is API documentation for ERF generated 
    :caption: THEORY
    :maxdepth: 1
    :hidden:
-   theory/NavierStokesEquations.rst
-   theory/DNSvsLES.rst
-   theory/PBLschemes.rst
+   theory/Equations.rst
    theory/Forcings.rst
    theory/UnitsAndConstants.rst
 
@@ -71,32 +69,8 @@ In addition to this documentation, there is API documentation for ERF generated 
 
 ..
   toctree::
-   :caption: COUPLING TO AMR-WIND
-   :maxdepth: 1
-   :hidden:
-
-   CouplingToAMRWind.rst
-
-..
-  toctree::
-   :caption: ERF vs WRF
-   :maxdepth: 1
-   :hidden:
-
-   ERFvsWRF.rst
-
-..
-  toctree::
    :caption: TESTING
    :maxdepth: 1
    :hidden:
 
    RegressionTests.rst
-
-..
-  toctree::
-   :caption: GOALS
-   :maxdepth: 1
-   :hidden:
-
-   Applications_Requirements.rst

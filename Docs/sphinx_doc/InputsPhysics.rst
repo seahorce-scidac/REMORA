@@ -13,37 +13,37 @@ List of Parameters
 | Parameter                        | Definition         | Acceptable          | Default     |
 |                                  |                    | Values              |             |
 +==================================+====================+=====================+=============+
-| **romsx.alpha_T**                  | Diffusion coeff.   | Real                | 0.0         |
+| **romsx.alpha_T**                | Diffusion coeff.   | Real                | 0.0         |
 |                                  | for temperature    |                     |             |
 +----------------------------------+--------------------+---------------------+-------------+
-| **romsx.alpha_C**                  | Diffusion coeff.   | Real                | 0.0         |
+| **romsx.alpha_C**                | Diffusion coeff.   | Real                | 0.0         |
 |                                  | for scalar         |                     |             |
 +----------------------------------+--------------------+---------------------+-------------+
-| **romsx.rho0_trans**               | Reference density  | Real                | 1.0         |
+| **romsx.rho0_trans**             | Reference density  | Real                | 1.0         |
 |                                  | to compute const.  |                     |             |
 |                                  | rho*Alpha          |                     |             |
 +----------------------------------+--------------------+---------------------+-------------+
-| **romsx.les_type**                 | Using an LES       | "None",             | "None"      |
+| **romsx.les_type**               | Using an LES       | "None",             | "None"      |
 |                                  | model, and if so,  | "Smagorinsky",      |             |
 |                                  | which type?        | "Deardorff"         |             |
 +----------------------------------+--------------------+---------------------+-------------+
-| **romsx.molec_diff_type**          | Using molecular    | "None",             | "None"      |
+| **romsx.molec_diff_type**        | Using molecular    | "None",             | "None"      |
 |                                  | viscosity and      | "Constant", or      |             |
 |                                  | diffusivity?       | "ConstantAlpha"     |             |
 +----------------------------------+--------------------+---------------------+-------------+
-| **romsx.dynamicViscosity**         | Viscous coeff. if  | Real                | 0.0         |
+| **romsx.dynamicViscosity**       | Viscous coeff. if  | Real                | 0.0         |
 |                                  | DNS                |                     |             |
 +----------------------------------+--------------------+---------------------+-------------+
-| **romsx.Cs**                       | Constant           | Real                | 0.0         |
+| **romsx.Cs**                     | Constant           | Real                | 0.0         |
 |                                  | Smagorinsky coeff. |                     |             |
 +----------------------------------+--------------------+---------------------+-------------+
-| **romsx.Pr_t**                     | Turbulent Prandtl  | Real                | 1.0         |
+| **romsx.Pr_t**                   | Turbulent Prandtl  | Real                | 1.0         |
 |                                  | Number             |                     |             |
 +----------------------------------+--------------------+---------------------+-------------+
-| **romsx.Sc_t**                     | Turbulent Schmidt  | Real                | 1.0         |
+| **romsx.Sc_t**                   | Turbulent Schmidt  | Real                | 1.0         |
 |                                  | Number             |                     |             |
 +----------------------------------+--------------------+---------------------+-------------+
-| **romsx.spatial_order**            |                    |  2 / 3 / 4 / 5 / 6  | 2           |
+| **romsx.spatial_order**          |                    |  2 / 3 / 4 / 5 / 6  | 2           |
 +----------------------------------+--------------------+---------------------+-------------+
 
 Note: in the equations for the evolution of momentum, potential temperature and advected scalars, the
@@ -68,60 +68,6 @@ If we set ``romsx.molec_diff_type`` to ``ConstantAlpha``, then
 
 - ``romsx.alpha_C`` is multiplied by the current density :math:`\rho` to form the coefficient for an advected scalar.
 
-
-PBL Scheme
-==========
-
-.. _list-of-parameters-13:
-
-List of Parameters
-------------------
-
-+----------------------------------+--------------------+---------------------+-------------+
-| Parameter                        | Definition         | Acceptable          | Default     |
-|                                  |                    | Values              |             |
-+==================================+====================+=====================+=============+
-| **romsx.pbl_type**                 | Name of PBL Scheme | "None", "MYNN2.5"   | "None"      |
-|                                  | to be used         |                     |             |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.pbl_A1**                   | MYNN Constant A1   | Real                | 1.18        |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.pbl_A2**                   | MYNN Constant A2   | Real                | 0.665       |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.pbl_B1**                   | MYNN Constant B1   | Real                | 24.0        |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.pbl_B2**                   | MYNN Constant B2   | Real                | 15.0        |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.pbl_C1**                   | MYNN Constant C1   | Real                | 0.137       |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.pbl_C2**                   | MYNN Constant C1   | Real                | 0.75        |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.pbl_C3**                   | MYNN Constant C3   | Real                | 0.352       |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.pbl_C4**                   | MYNN Constant C4   | Real                | 0.0         |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.pbl_C5**                   | MYNN Constant C5   | Real                | 0.2         |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.advect_QKE**               | Include advection  | bool                | 1           |
-|                                  | terms in QKE eqn   |                     |             |
-+----------------------------------+--------------------+---------------------+-------------+
-| **romsx.diffuse_QKE_3D**           | Include horizontal | bool                | 0           |
-|                                  | turb. diffusion    |                     |             |
-|                                  | terms in QKE eqn.  |                     |             |
-+----------------------------------+--------------------+---------------------+-------------+
-
-Note that the MYNN2.5 scheme must be used in conjunction with a MOST boundary condition
-at the surface (Zlo) boundary.
-
-If the PBL scheme is activated, it determines the turbulent diffusivity in the vertical
-direction. If an LES model is also specified, it determines only the horizontal turbulent
-diffusivity.
-
-Right now, the QKE equation is solved if and only if the MYNN2.5 PBL model is selected. In that
-transport equation, it is optional to advect QKE, and to apply LES diffusive transport for QKE
-in the horizontal directions (the veritcal component is always computed as part of the PBL
-scheme).
-
 Forcing Terms
 =============
 
@@ -134,32 +80,29 @@ List of Parameters
 | Parameter                        | Definition        | Acceptable        | Default     |
 |                                  |                   | Values            |             |
 +==================================+===================+===================+=============+
-| **romsx.abl_driver_type**          | Type of external  | None,             | None        |
+| **romsx.abl_driver_type**        | Type of external  | None,             | None        |
 |                                  | forcing term      | PressureGradient  |             |
 |                                  |                   | GeostrophicWind   |             |
 +----------------------------------+-------------------+-------------------+-------------+
-| **romsx.abl_pressure_grad**        | Pressure gradient | 3 Reals           | (0.,0.,0.)  |
+| **romsx.abl_pressure_grad**      | Pressure gradient | 3 Reals           | (0.,0.,0.)  |
 |                                  | forcing term      |                   |             |
 |                                  | (only if          |                   |             |
 |                                  | abl.driver_type = |                   |             |
 |                                  | PressureGradient) |                   |             |
 +----------------------------------+-------------------+-------------------+-------------+
-| **romsx.abl_geo_wind**             | Geostrophic       | 3 Reals           | (0.,0.,0.)  |
+| **romsx.abl_geo_wind**           | Geostrophic       | 3 Reals           | (0.,0.,0.)  |
 |                                  | forcing term      |                   |             |
 |                                  | (only if          |                   |             |
 |                                  | abl.driver_type = |                   |             |
 |                                  | GeostrophicWind)  |                   |             |
 +----------------------------------+-------------------+-------------------+-------------+
-| **romsx.use_gravity**              | Include gravity   | true / false      | false       |
+| **romsx.use_gravity**            | Include gravity   | true / false      | false       |
 |                                  | in momentum       |                   |             |
 |                                  | update?  If true, |                   |             |
 |                                  | there is buoyancy |                   |             |
 +----------------------------------+-------------------+-------------------+-------------+
-| **romsx.use_coriolis**             | Include Coriolis  | true / false      | false       |
+| **romsx.use_coriolis**           | Include Coriolis  | true / false      | false       |
 |                                  | forcing           |                   |             |
-+----------------------------------+-------------------+-------------------+-------------+
-| **romsx.use_rayleigh_damping**     | Include explicit  | true / false      | false       |
-|                                  | Rayleigh damping  |                   |             |
 +----------------------------------+-------------------+-------------------+-------------+
 
 
