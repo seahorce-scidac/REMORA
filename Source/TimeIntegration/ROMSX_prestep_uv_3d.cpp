@@ -19,6 +19,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
                       Array4<Real> W   , Array4<Real> DC,
                       Array4<Real> FC  , Array4<Real> z_r,
                       Array4<Real> sustr, Array4<Real> svstr,
+                      Array4<Real> bustr, Array4<Real> bvstr,
                       int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                       Real lambda, Real dt_lev)
 {
@@ -45,10 +46,10 @@ ROMSX::prestep_uv_3d (const Box& bx,
     //Need to include pre_step3d.F terms
 
     update_vel_3d(ubx, 1, 0, u, uold, ru, Hz, Akv, DC, FC,
-                  sustr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
+                  sustr, bvstr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
 
     update_vel_3d(vbx, 0, 1, v, vold, rv, Hz, Akv, DC, FC,
-                  svstr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
+                  svstr, bvstr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
     //    //Print()<<FArrayBox(uold)<<std::endl;
     //    //Print()<<FArrayBox(u)<<std::endl;
 }

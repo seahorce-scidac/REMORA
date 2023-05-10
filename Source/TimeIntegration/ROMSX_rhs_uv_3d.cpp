@@ -13,6 +13,7 @@ ROMSX::rhs_3d (const Box& bx,
                Array4<Real> ru, Array4<Real> rv,
                Array4<Real> rufrc, Array4<Real> rvfrc,
                Array4<Real> sustr, Array4<Real> svstr,
+               Array4<Real> bustr, Array4<Real> bvstr,
                Array4<Real> Huon, Array4<Real> Hvom,
                Array4<Real> on_u, Array4<Real> om_v,
                Array4<Real> om_u, Array4<Real> on_v,
@@ -273,7 +274,7 @@ ROMSX::rhs_3d (const Box& bx,
               else
                   cff1=0.0;
               if(k==0) //should this be k==-1?
-                  cff2=0.0;//bustr(i,j,0)*cff;
+                  cff2=-bustr(i,j,0)*cff;
               else
                   cff2=0.0;
               rufrc(i,j,0)+=cff1+cff2;
@@ -285,7 +286,7 @@ ROMSX::rhs_3d (const Box& bx,
               else
                   cff1=0.0;
               if(k==0) //should this be k==-1?
-                  cff2=0.0;//bustr(i,j,0)*cff;
+                  cff2=-bvstr(i,j,0)*cff;
               else
                   cff2=0.0;
               rvfrc(i,j,0)+=cff1+cff2;

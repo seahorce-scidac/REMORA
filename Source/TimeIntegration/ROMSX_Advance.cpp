@@ -66,6 +66,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     std::unique_ptr<MultiFab>& mf_rvfrc = vec_rvfrc[lev];
     std::unique_ptr<MultiFab>& mf_sustr = vec_sustr[lev];
     std::unique_ptr<MultiFab>& mf_svstr = vec_svstr[lev];
+    std::unique_ptr<MultiFab>& mf_rdrag = vec_rdrag[lev];
+    std::unique_ptr<MultiFab>& mf_bustr = vec_bustr[lev];
+    std::unique_ptr<MultiFab>& mf_bvstr = vec_bvstr[lev];
+    std::unique_ptr<MultiFab>& mf_ubar = vec_ubar[lev];
+    std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
     MultiFab mf_temp(S_new, amrex::make_alias, Temp_comp, 1);
 #ifdef ROMSX_USE_SALINITY
     MultiFab mf_salt(S_new, amrex::make_alias, Salt_comp, 1);
@@ -116,31 +121,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     if(iic==ntfirst&&false)
         MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(2,2,2)));
     set_smflux(lev,t_old[lev]);
-    //Bottom stress to 3d u and v and to 2d ubar and vbar
-    //todo2: uncomment and pass through bustr and bvstr to rhs_uv_3d and update_vel_3d.cpp
-    //todo1: Set bustr bvstr as in set_vbc.F
-    //todo0: set rdrag as in ana_drag.h
-    /*
-      DO j=JstrT,JendT
-        DO i=IstrT,IendT
-          rdrag(i,j)=0.002_r8*(1.0_r8-TANH(GRID(ng)%h(i,j)/150.0_r8))
-        END DO
-      END DO
-!
-!  Set linear bottom stress.
-!
-      DO j=Jstr,Jend
-        DO i=IstrU,Iend
-          bustr(i,j)=0.5_r8*(rdrag(i-1,j)+rdrag(i,j))*                  &
-     &               ubar(i,j,krhs)
-        END DO
-      END DO
-      DO j=JstrV,Jend
-        DO i=Istr,Iend
-          bvstr(i,j)=0.5_r8*(rdrag(i,j-1)+rdrag(i,j))*                  &
-     &               vbar(i,j,krhs)
-        END DO
-      END DO*/
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
@@ -175,6 +155,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& W = (mf_W).array(mfi);
         Array4<Real> const& sustr = (mf_sustr)->array(mfi);
         Array4<Real> const& svstr = (mf_svstr)->array(mfi);
+        Array4<Real> const& rdrag = (mf_rdrag)->array(mfi);
+        Array4<Real> const& bustr = (mf_bustr)->array(mfi);
+        Array4<Real> const& bvstr = (mf_bvstr)->array(mfi);
+        Array4<Real> const& ubar = (mf_ubar)->array(mfi);
+        Array4<Real> const& vbar = (mf_vbar)->array(mfi);
         Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
         Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
 
@@ -258,6 +243,19 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           Huon(i,j,k)=0.0;
           Hvom(i,j,k)=0.0;
         });
+
+        // Set bottom stress as defined in set_vbx.F
+        amrex::ParallelFor(gbx1,
+        [=] (int i, int j, int k)
+        {
+            //DO j=Jstr,Jend
+            //  DO i=IstrU,Iend
+            bustr(i,j,k) = 0.5 * (rdrag(i-1,j,k)+rdrag(i,j,k))*(ubar(i,j,0,nrhs));
+            //DO j=JstrV,Jend
+            //  DO i=Istr,Iend
+            bvstr(i,j,k) = 0.5 * (rdrag(i,j-1,k)+rdrag(i,j,k))*(vbar(i,j,0,nrhs));
+        });
+
         set_massflux_3d(Box(Huon),1,0,uold,Huon,Hz,on_u,nnew);
         set_massflux_3d(Box(Hvom),0,1,vold,Hvom,Hz,om_v,nnew);
         Real lambda = 1.0;
@@ -280,7 +278,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //-----------------------------------------------------------------------
         //
         prestep_uv_3d(bx, uold, vold, u, v, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
-                          pm, pn, W, DC, FC, z_r, sustr, svstr, iic, ntfirst, nnew, nstp, nrhs, N,
+                          pm, pn, W, DC, FC, z_r, sustr, svstr, bustr, bvstr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 
 #ifdef UV_COR
@@ -297,10 +295,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // rhs_3d
         //-----------------------------------------------------------------------
         //
-        // rufrc, rvfrc updated
-        rhs_3d(bx, uold, vold, ru, rv, rufrc, rvfrc, sustr, svstr, Huon, Hvom, on_u, om_v, om_u, on_v, W, FC, nrhs, N);
 
-        // u, v, rufrc, rvfrc updated
+        ////rufrc from 3d is set to ru, then the wind stress (and bottom stress) is added, then the mixing is added
+        //rufrc=ru+sustr*om_u*on_u
+        rhs_3d(bx, uold, vold, ru, rv, rufrc, rvfrc, sustr, svstr, bustr, bvstr, Huon, Hvom, on_u, om_v, om_u, on_v, W, FC, nrhs, N);
+        //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
+        //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
         uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, on_r, om_r, on_p, om_p, pn, pm, nrhs, nnew, dt_lev);
     } // MFIter
 

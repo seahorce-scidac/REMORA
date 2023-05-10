@@ -243,6 +243,9 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Zt_avg1;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sustr;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bustr;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvstr;
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DU_avg1;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DU_avg2;
@@ -359,6 +362,8 @@ public:
                         amrex::Array4<amrex::Real> z_r,
                         amrex::Array4<amrex::Real> sustr,
                         amrex::Array4<amrex::Real> svstr,
+                        amrex::Array4<amrex::Real> bustr,
+                        amrex::Array4<amrex::Real> bvstr,
                         int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
@@ -384,6 +389,8 @@ public:
                  amrex::Array4<amrex::Real> rvfrc,
                  amrex::Array4<amrex::Real> sustr,
                  amrex::Array4<amrex::Real> svstr,
+                 amrex::Array4<amrex::Real> bustr,
+                 amrex::Array4<amrex::Real> bvstr,
                  amrex::Array4<amrex::Real> Huon,
                  amrex::Array4<amrex::Real> Hvom,
                  amrex::Array4<amrex::Real> on_u,
@@ -425,6 +432,7 @@ public:
                         amrex::Array4<amrex::Real> DC,
                         amrex::Array4<amrex::Real> FC,
                         amrex::Array4<amrex::Real> sstr,
+                        amrex::Array4<amrex::Real> bstr,
                         amrex::Array4<amrex::Real> z_r,
                         const int iic, const int ntfirst, const int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
@@ -516,6 +524,8 @@ public:
     void set_smflux (int lev, amrex::Real time);
 
     void set_hmixcoef (int lev);
+
+    void set_drag (int lev);
 
 private:
 

@@ -1,6 +1,7 @@
 #ifndef STRETCH_H_
 #define STRETCH_H_
 
+#include <cmath>
 #include <DataStruct.H>
 #include <ROMSX.H>
 #include <prob_common.H>
@@ -427,6 +428,30 @@ void ROMSX::set_hmixcoef (int lev) {
         {
             visc2_p(i,j,k) = 5.0;
             visc2_r(i,j,k) = 5.0;
+        });
+    }
+}
+
+/**
+ * Set drag coefficients
+ */
+void ROMSX::set_drag (int lev) {
+    std::unique_ptr<MultiFab>& mf_rdrag = vec_rdrag[lev];
+    std::unique_ptr<MultiFab>& mf_hOfTheConfusingName = vec_hOfTheConfusingName[lev];
+
+    for ( MFIter mfi(*(mf_rdrag), TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& rdrag = (mf_rdrag)->array(mfi);
+        Array4<Real> const& hOfTheConfusingName = (mf_hOfTheConfusingName)->array(mfi);
+        Box bx = mfi.tilebox();
+        bx.grow(IntVect(2,2,0));
+        int ncomp = 1;
+
+        // Functional form given in ana_drag.h, ifdef UPWELLING and UV_LDRAG
+        amrex::LoopConcurrentOnCpu(bx, ncomp,
+        [=] (int i, int j, int k, int n)
+        {
+            rdrag(i,j,k)=0.002*(1.0-std::tanh(hOfTheConfusingName(i,j,k)/150.));
         });
     }
 }

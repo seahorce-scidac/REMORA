@@ -4,8 +4,14 @@
 using namespace amrex;
 
 //
-// update_vel_3d -- called from prestep_uv_3d
-// NOTE: "vel" here represents either u or v
+// update_vel_3d -- called from prestep_uv_3d or prestep_t_3d
+// NOTE: "vel" here represents either u, v, or a tracer
+// When updating u, ioff=1, joff=0
+// When updating v, ioff=0, joff=1
+// When updating tracer, ioff=0, joff=0
+// The tracer update is a bit different from the u,v updates so we test
+// for it, but checking if ioff=0 and joff=0. In some cases, though, we
+// can recover the tracer update from the generic one by setting those indices.
 //
 
 void
@@ -15,7 +21,8 @@ ROMSX::update_vel_3d (const Box& vel_bx,
                       Array4<Real> rvel, Array4<Real> Hz,
                       Array4<Real>  Akv,
                       Array4<Real>   DC, Array4<Real> FC,
-                      Array4<Real> sstr, Array4<Real> z_r,
+                      Array4<Real> sstr, Array4<Real> bstr,
+                      Array4<Real> z_r,
                       Array4<Real>   pm, Array4<Real>  pn,
                       const int iic, const int ntfirst, const int nnew, int nstp, int nrhs, int N,
                       const Real lambda, const Real dt_lev)
@@ -41,10 +48,13 @@ ROMSX::update_vel_3d (const Box& vel_bx,
             FC(i,j,k) = oml_dt * cff * (vel_old(i,j,k+1,nstp)-vel_old(i,j,k,nstp)) *
                                            (Akv(i,j,k)     +Akv(i-ioff,j-joff,k));
         }
-        else
+        else if (k==-1)
         {
-            //  FC(i,j,-1) = 0.0;//dt_lev*bustr(i,j,0);
-            //  FC(i,j, N) = 0.0;//dt_lev*sstr(i,j,0);
+            FC(i,j,-1) = dt_lev*bstr(i,j,0);
+        }
+        else if (k==N)
+        {
+            FC(i,j, N) = dt_lev*sstr(i,j,0);
         }
 
         DC(i,j,k) = 0.25 * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
@@ -61,7 +71,6 @@ ROMSX::update_vel_3d (const Box& vel_bx,
 
         if (iic==ntfirst)
         {
-            //Hz still might need adjusting
             if (k+1<=N && k>=1)
             {
                 cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
@@ -71,13 +80,13 @@ ROMSX::update_vel_3d (const Box& vel_bx,
             else if(k==0)
             {
                 cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-                cff2=FC(i,j,k);//-bustr(i,j,0);
+                cff2=FC(i,j,k)-dt_lev*bstr(i,j,0);
                 vel(i,j,k,nnew)=cff1+cff2;
             }
             else if(k==N)
             {
                 cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-                cff2=-FC(i,j,k-1)+dt_lev*sstr(i,j,0);
+                cff2=dt_lev*sstr(i,j,0)-FC(i,j,k-1); //or: -FC(i,j,k-1)+dt_lev*sstr(i,j,0);
                 vel(i,j,k,nnew)=cff1+cff2;
             }
 
@@ -89,11 +98,11 @@ ROMSX::update_vel_3d (const Box& vel_bx,
             }
             else if(k==0) {
                 cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-                cff2=FC(i,j,k);//-bustr(i,j,0);
+                cff2=FC(i,j,k)-dt_lev*bstr(i,j,0);
             }
             else if(k==N) {
                 cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-                cff2=-FC(i,j,k-1)+dt_lev*sstr(i,j,0);
+                cff2=dt_lev*sstr(i,j,0)-FC(i,j,k-1); //or: -FC(i,j,k-1)+dt_lev*sstr(i,j,0);
             }
 
             cff3=0.5*DC(i,j,k);
@@ -111,11 +120,12 @@ ROMSX::update_vel_3d (const Box& vel_bx,
             cff2=16.0/12.0;
             if (k==0) {
                 cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-                cff4=FC(i,j,k);//-bustr(i,j,0);
+                cff4=FC(i,j,k)-dt_lev*bstr(i,j,0);
+                //cff4=FC(i,j,k)-FC(i,j,k-1);//-bustr(i,j,0);
 
             } else if (k == N) {
                 cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-                cff4=-FC(i,j,k-1)+dt_lev*sstr(i,j,0);
+                cff4=dt_lev*bstr(i,j,0)-FC(i,j,k-1);
 
             } else {
                 cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));

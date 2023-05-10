@@ -106,15 +106,19 @@ ROMSX::prestep_t_3d (const Box& bx,
     //fab_Akt.setVal(1e-6);
     FArrayBox fab_stflux(gbx2,1,amrex::The_Async_Arena());
     auto stflux= fab_stflux.array();
+    FArrayBox fab_btflux(gbx2,1,amrex::The_Async_Arena());
+    auto btflux= fab_btflux.array();
 
     //From ini_fields and .in file
     //fab_stflux.setVal(0.0);
+    //also set btflux=0 (as in ana_btflux.H)
 
     amrex::ParallelFor(gbx2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Akt(i,j,k)=1e-6;
         stflux(i,j,k)=0.0;
+        btflux(i,j,k)=0.0;
     });
     amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
     amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
@@ -296,7 +300,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     //
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
     update_vel_3d(gbx1, 0, 0, tempstore, temp, ru, Hz, Akt, DC, FC,
-                  stflux, z_r, pm, pn, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
+                  stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
     //Print()<<FArrayBox(tempold)<<std::endl;
     //Print()<<FArrayBox(tempstore)<<std::endl;
     //Print()<<FArrayBox(temp)<<std::endl;
