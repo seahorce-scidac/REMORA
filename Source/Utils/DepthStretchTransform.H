@@ -489,8 +489,8 @@ void ROMSX::set_weights (int lev) {
 //
     nfast=0;
     for(int i=1;i<=2*ndtfast;i++) {
-        weight1[i]=0.0_rt;
-        weight2[i]=0.0_rt;
+        weight1[i-1]=0.0_rt;
+        weight2[i-1]=0.0_rt;
     }
 //
 //-----------------------------------------------------------------------
@@ -519,17 +519,17 @@ void ROMSX::set_weights (int lev) {
           nfast=0;
       for(int i=1;i<=2*ndtfast;i++) {
           cff=scale*Real(i);
-          weight1[i]=pow(cff,Falpha)-pow(cff,(Falpha+Fbeta))-gamma*cff;
-          if (weight1[i]>0.0_rt) nfast=i;
-          if ((nfast>0)&&(weight1[i]<0.0_rt)) {
-            weight1[i]=0.0_rt;
+          weight1[i-1]=pow(cff,Falpha)-pow(cff,(Falpha+Fbeta))-gamma*cff;
+          if (weight1[i-1]>0.0_rt) nfast=i;
+          if ((nfast>0)&&(weight1[i-1]<0.0_rt)) {
+            weight1[i-1]=0.0_rt;
           }
     }
         wsum=0.0_rt;
         shift=0.0_rt;
         for(i=1;i<=nfast;i++) {
-          wsum=wsum+weight1[i];
-          shift=shift+weight1[i]*Real(i);
+          wsum=wsum+weight1[i-1];
+          shift=shift+weight1[i-1]*Real(i);
         }
         scale=scale*shift/(wsum*Real(ndtfast));
       }
@@ -554,8 +554,8 @@ void ROMSX::set_weights (int lev) {
         wsum=0.0_rt;
         shift=0.0_rt;
         for(i=1;i<=nfast;i++) {
-          wsum=wsum+weight1[i];
-          shift=shift+Real(i)*weight1[i];
+          wsum=wsum+weight1[i-1];
+          shift=shift+Real(i)*weight1[i-1];
         }
         shift=shift/wsum;
         cff=Real(ndtfast)-shift;
@@ -566,27 +566,27 @@ void ROMSX::set_weights (int lev) {
         if (cff>1.0_rt) {
           nfast=nfast+1;
           for(i=nfast;i>=2;i--) {
-            weight1[i]=weight1[i-1];
+            weight1[i-1]=weight1[i-1-1];
           }
-          weight1[1]=0.0_rt;
+          weight1[1-1]=0.0_rt;
         } else if (cff>0.0_rt) {
           wsum=1.0_rt-cff;
           for(i=nfast;i>=2;i--) {
-          weight1[i]=wsum*weight1[i]+cff*weight1[i-1];
+          weight1[i-1]=wsum*weight1[i-1]+cff*weight1[i-1-1];
           }
-          weight1[1]=wsum*weight1[1];
+          weight1[1-1]=wsum*weight1[1-1];
         } else if (cff<-1.0_rt) {
           nfast=nfast-1;
           for(i=1;i<=nfast;i++) {
-          weight1[i]=weight1[i+1];
+          weight1[i-1]=weight1[i+1-1];
           }
-          weight1[nfast+1]=0.0_rt;
+          weight1[nfast+1-1]=0.0_rt;
         } else if (cff<0.0_rt) {
           wsum=1.0_rt+cff;
           for(i=1;i<=nfast-1;i++) {
-          weight1[i]=wsum*weight1[i]-cff*weight1[i+1];
+          weight1[i-1]=wsum*weight1[i-1]-cff*weight1[i+1-1];
           }
-          weight1[nfast]=wsum*weight1[nfast];
+          weight1[nfast-1]=wsum*weight1[nfast-1];
         }
       }
 //
@@ -595,9 +595,9 @@ void ROMSX::set_weights (int lev) {
 //  have all-zero status at entry in this segment of code.
 //
         for(j=1;j<=nfast;j++) {
-        cff=weight1[j];
+        cff=weight1[j-1];
         for(i=1;i<=j;i++) {
-            weight2[i]=weight2[i]+cff;
+            weight2[i-1]=weight2[i-1]+cff;
         }
       }
 //
@@ -606,14 +606,14 @@ void ROMSX::set_weights (int lev) {
       wsum=0.0_rt;
       cff=0.0_rt;
       for(i=1;i<=nfast;i++) {
-        wsum=wsum+weight1[i];
-        cff=cff+weight2[i];
+        wsum=wsum+weight1[i-1];
+        cff=cff+weight2[i-1];
       }
       wsum=1.0_rt/wsum;
       cff=1.0_rt/cff;
       for(i=1;i<=nfast;i++) {
-        weight1[i]=wsum*weight1[i];
-        weight2[i]=cff*weight2[i];
+        weight1[i-1]=wsum*weight1[i-1];
+        weight2[i-1]=cff*weight2[i-1];
       }
 //
 //  Report weights.
@@ -626,12 +626,12 @@ void ROMSX::set_weights (int lev) {
         wsum=0.0_rt;
         shift=0.0_rt;
         for(i=1;i<=nfast;i++) {
-          cff=cff+weight1[i];
-          cff1=cff1+weight1[i]*Real(i);
-          cff2=cff2+weight1[i]*Real(i*i);
-          wsum=wsum+weight2[i];
-          shift=shift+weight2[i]*(Real(i)-0.5_rt);
-          Print().SetPrecision(18)<<"i="<<i<<"  "<<weight1[i]<<"  "<<weight2[i]<<"  "<<cff<<"  "<<wsum<<std::endl;
+          cff=cff+weight1[i-1];
+          cff1=cff1+weight1[i-1]*Real(i);
+          cff2=cff2+weight1[i-1]*Real(i*i);
+          wsum=wsum+weight2[i-1];
+          shift=shift+weight2[i-1]*(Real(i)-0.5_rt);
+          Print().SetPrecision(18)<<"i="<<i<<"  "<<weight1[i-1]<<"  "<<weight2[i-1]<<"  "<<cff<<"  "<<wsum<<std::endl;
         }
         cff1=cff1/Real(ndtfast);
         cff2=cff2/(Real(ndtfast)*Real(ndtfast));
