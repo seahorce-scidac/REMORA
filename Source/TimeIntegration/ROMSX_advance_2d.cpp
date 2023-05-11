@@ -169,6 +169,8 @@ ROMSX::advance_2d (int lev,
         auto rhs_zeta=fab_rhs_zeta.array();
         auto zeta_new=fab_zeta_new.array();
 
+        auto weight1 = vec_weight1.dataPtr();
+        auto weight2 = vec_weight2.dataPtr();
         //From ana_grid.h and metrics.F
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -238,6 +240,7 @@ ROMSX::advance_2d (int lev,
         {
         if(first_2d_step) {
         Real cff2=(Real(-1.0)/Real(12.0))*weighta;
+	amrex::Print()<<"i="<<my_iif+1+1<<weighta<<"  "<<weight2[my_iif+1+1]<<std::endl;
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -260,6 +263,9 @@ ROMSX::advance_2d (int lev,
         Real cff1=weightb;
         Real cff2=(Real(8.0)/Real(12.0))*weightc-
                   (Real(1.0)/Real(12.0))*weightd;
+        amrex::Print()<<"i="<<my_iif-1+1<<weightb<<"  "<<weight1[my_iif-1+1]<<std::endl;
+        amrex::Print()<<"i="<<my_iif+1<<weightc<<"  "<<weight2[my_iif  +1]<<std::endl;
+        amrex::Print()<<"i="<<my_iif+1+1<<weightd<<"  "<<weight2[my_iif+1+1]<<std::endl;
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -285,6 +291,7 @@ ROMSX::advance_2d (int lev,
             cff2=weightc;
         else
             cff2=Real(5.0)/Real(12.0)*weightc;
+        amrex::Print()<<"i="<<my_iif+1+1<<weightc<<"  "<<weight2[my_iif  +1+1]<<std::endl;
         amrex::ParallelFor(ubxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {

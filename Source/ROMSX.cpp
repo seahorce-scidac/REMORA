@@ -620,6 +620,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     set_vmix(lev);
     set_hmixcoef(lev);
     set_drag(lev);
+    set_weights(lev);
 
     //consider tracking ru and rv indexes more specifically or more similarly to indx
     vec_ru[lev]->setVal(0.0);

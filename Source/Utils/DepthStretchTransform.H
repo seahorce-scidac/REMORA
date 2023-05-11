@@ -631,7 +631,7 @@ void ROMSX::set_weights (int lev) {
           cff2=cff2+weight1[i]*Real(i*i);
           wsum=wsum+weight2[i];
           shift=shift+weight2[i]*(Real(i)-0.5_rt);
-          Print().SetPrecision(18)<<i<<"  "<<weight1[i]<<"  "<<weight2[i]<<"  "<<cff<<"  "<<wsum<<std::endl;
+          Print().SetPrecision(18)<<"i="<<i<<"  "<<weight1[i]<<"  "<<weight2[i]<<"  "<<cff<<"  "<<wsum<<std::endl;
         }
         cff1=cff1/Real(ndtfast);
         cff2=cff2/(Real(ndtfast)*Real(ndtfast));
