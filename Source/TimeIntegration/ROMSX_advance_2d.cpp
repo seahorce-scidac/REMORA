@@ -67,13 +67,6 @@ ROMSX::advance_2d (int lev,
     kstp-=1;
     indx1-=1;
     ptsk-=1;
-    //Hardcode for 1 fast timestep (predictor+corrector only)
-    Real weighta = 0.0;
-    Real weightb = 1.0;
-    Real weightc = 0.0;
-    Real weightd = 0.0;
-    Real Fgamma = 0.28400;
-    Real  gamma = 0.00000;
 
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -169,6 +162,8 @@ ROMSX::advance_2d (int lev,
         auto rhs_zeta=fab_rhs_zeta.array();
         auto zeta_new=fab_zeta_new.array();
 
+        auto weight1 = vec_weight1.dataPtr();
+        auto weight2 = vec_weight2.dataPtr();
         //From ana_grid.h and metrics.F
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -237,7 +232,7 @@ ROMSX::advance_2d (int lev,
         if(predictor_2d_step)
         {
         if(first_2d_step) {
-        Real cff2=(Real(-1.0)/Real(12.0))*weighta;
+        Real cff2=(Real(-1.0)/Real(12.0))*weight2[my_iif+1];
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -257,9 +252,9 @@ ROMSX::advance_2d (int lev,
         });
         }
         else {
-        Real cff1=weightb;
-        Real cff2=(Real(8.0)/Real(12.0))*weightc-
-                  (Real(1.0)/Real(12.0))*weightd;
+        Real cff1=weight1[my_iif-1];
+        Real cff2=(Real(8.0)/Real(12.0))*weight2[my_iif]-
+                  (Real(1.0)/Real(12.0))*weight2[my_iif+1];
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -282,9 +277,9 @@ ROMSX::advance_2d (int lev,
         } else {
         Real cff2;
         if(first_2d_step)
-            cff2=weightc;
+            cff2=weight2[my_iif];
         else
-            cff2=Real(5.0)/Real(12.0)*weightc;
+            cff2=Real(5.0)/Real(12.0)*weight2[my_iif];
         amrex::ParallelFor(ubxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {

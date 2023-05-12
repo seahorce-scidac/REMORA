@@ -262,6 +262,9 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_t3;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s3;
 
+    amrex::Vector<amrex::Real> vec_weight1;
+    amrex::Vector<amrex::Real> vec_weight2;
+
     // advance a single level for a single time step
     void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
 
@@ -539,6 +542,8 @@ public:
     void set_hmixcoef (int lev);
 
     void set_drag (int lev);
+
+    void set_weights (int lev);
 
 private:
 
