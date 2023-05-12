@@ -46,7 +46,9 @@ In addition to this documentation, there is API documentation for ERF generated 
    :maxdepth: 1
    :hidden:
 
+   theory/Variables.rst
    theory/Equations.rst
+   theory/VerticalMixing.rst
    /* theory/Forcings.rst */
    /* theory/UnitsAndConstants.rst */
 
