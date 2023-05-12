@@ -41,8 +41,7 @@ In addition to this documentation, there is API documentation for ERF generated 
    GettingStarted.rst
    Inputs.rst
 
-..
-  toctree::
+.. toctree::
    :caption: THEORY
    :maxdepth: 1
    :hidden:
