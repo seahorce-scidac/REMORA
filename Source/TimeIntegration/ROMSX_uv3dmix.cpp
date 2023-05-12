@@ -10,9 +10,9 @@ ROMSX::uv3dmix  (const Box& bx,
                  Array4<Real> visc2_p,
                  Array4<Real> visc2_r,
                  Array4<Real> Hz,
-                 Array4<Real> on_r, Array4<Real> om_r,
-                 Array4<Real> on_p, Array4<Real> om_p,
-                 Array4<Real> pn, Array4<Real> pm,
+                 Array4<Real> om_r, Array4<Real> on_r,
+                 Array4<Real> om_p, Array4<Real> on_p,
+                 Array4<Real> pm, Array4<Real> pn,
                  int nrhs, int nnew,
                  const amrex::Real dt_lev)
 {

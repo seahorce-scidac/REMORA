@@ -301,7 +301,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         rhs_3d(bx, uold, vold, ru, rv, rufrc, rvfrc, sustr, svstr, bustr, bvstr, Huon, Hvom, on_u, om_v, om_u, on_v, W, FC, nrhs, N);
         //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
         //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
-        uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, on_r, om_r, on_p, om_p, pn, pm, nrhs, nnew, dt_lev);
+        uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
     } // MFIter
 
     mf_temp.FillBoundary();
