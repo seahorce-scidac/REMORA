@@ -47,7 +47,6 @@ In addition to this documentation, there is API documentation for ERF generated 
   toctree::
    :caption: THEORY
    :maxdepth: 1
-   :hidden:
    theory/Equations.rst
    theory/Forcings.rst
    theory/UnitsAndConstants.rst
