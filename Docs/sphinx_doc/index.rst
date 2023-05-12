@@ -72,4 +72,4 @@ In addition to this documentation, there is API documentation for ERF generated 
    :maxdepth: 1
    :hidden:
 
-   RegressionTests.rst
+   /*RegressionTests.rst*/
