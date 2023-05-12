@@ -44,14 +44,14 @@ The final equation expresses the continuity equation for an incompressible fluid
    {\frac  {\partial u}{\partial x}}+{\frac  {\partial v}{\partial y}}+{\frac  {\partial w}{\partial z}} = 0
 
 In the ocean, vertical mixing due to molecular viscosity is extremely weak compared to the turbulent mixing,
-so the terms involving :math:`\nu$` and :math:`\nu_\theta$ can be neglected.
+so the terms involving :math:`\nu` and :math:`\nu_\theta` can be neglected.
 
 To close these qeustions, parametrizations of the Reynolds stresses and turbulent tracer fluxes are introduced as functions of the other variables and vertical turbulent eddy viscosity and eddy diffusivity coefficients :math:`K_m` and
 :math:`K_C`, respectively.
 
 .. math::
 
-\overbar{u^\prime w^\prime} = -K_M \frac{\partial u}{\partial z}; \hspace{0.5in} \overbar{v^\prime w^\prime} = -K_M \frac{\partial v}{\partial z}; \hspace{0.5in} \overbar{C^\prime w^\prime} = -K_C \frac{\partial C}{\partial z};
+    \overbar{u^\prime w^\prime} = -K_M \frac{\partial u}{\partial z}; \hspace{0.5in} \overbar{v^\prime w^\prime} = -K_M \frac{\partial v}{\partial z}; \hspace{0.5in} \overbar{C^\prime w^\prime} = -K_C \frac{\partial C}{\partial z};
 
 An overbar represents a time average and a prime represents a fluctuation about the mean.
 
