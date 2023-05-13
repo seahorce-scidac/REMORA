@@ -49,8 +49,6 @@ In addition to this documentation, there is API documentation for ERF generated 
    theory/Variables.rst
    theory/Equations.rst
    theory/VerticalMixing.rst
-   /* theory/Forcings.rst */
-   /* theory/UnitsAndConstants.rst */
 
 .. toctree::
    :caption: IMPLEMENTATION
@@ -62,7 +60,6 @@ In addition to this documentation, there is API documentation for ERF generated 
    Discretizations.rst
    MeshRefinement.rst
    BoundaryConditions.rst
-   Derived.rst
    Checkpoint.rst
    Plotfiles.rst
    Visualization.rst
