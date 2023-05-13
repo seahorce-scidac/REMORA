@@ -12,18 +12,18 @@ Prognostic Equations
 
 These equations are as given in the `ROMS documentation`_
 
-The momentum balance in the $x$- and $y$-directions are:
+The momentum balance in the :math:`x`- and :math:`y`-directions are:
 
 .. math::
-  {\frac {\partial u}{\partial t}}+{\vec {v}}\cdot \nabla u-fv=-{\frac {\partial \phi }{\partial x}}-{\partial \over \partial z}\left({\overline {u'w'}}-\nu {\partial u \over \partial z}\right)+{\cal {F}}_{u}+{\cal {D}}_{u}
+  {\frac {\partial u}{\partial t}}+{\vec {v}}\cdot \nabla u-fv=-{\frac {\partial \phi }{\partial x}}-{\partial \over \partial z}\left({\overline{u'w'}}-\nu {\partial u \over \partial z}\right)+{\cal {F}}_{u}+{\cal {D}}_{u}
 
-  {\frac {\partial v}{\partial t}}+{\vec {v}}\cdot \nabla v+fu=-{\frac {\partial \phi }{\partial y}}-{\partial \over \partial z}\left({\overline {v'w'}}-\nu {\partial v \over \partial z}\right)+{\cal {F}}_{v}+{\cal {D}}_{v}
+  {\frac {\partial v}{\partial t}}+{\vec {v}}\cdot \nabla v+fu=-{\frac {\partial \phi }{\partial y}}-{\partial \over \partial z}\left({\overline{v'w'}}-\nu {\partial v \over \partial z}\right)+{\cal {F}}_{v}+{\cal {D}}_{v}
 
 The time evolution of a scalar concentration field, :math:`C(x,y,z,t)`, e.g., salinity, temperature, or nutrient species,
 is governed by the advective-diffusive equation:
 
 .. math::
-  {\frac {\partial C}{\partial t}}+{\vec {v}}\cdot \nabla C=-{\partial \over \partial z}\left({\overline {C'w'}}-\nu _{\theta }{\partial C \over \partial z}\right)+{\cal {F}}_{C}+{\cal {D}}_{C}
+  {\frac {\partial C}{\partial t}}+{\vec {v}}\cdot \nabla C=-{\partial \over \partial z}\left({\overline{C'w'}}-\nu _{\theta }{\partial C \over \partial z}\right)+{\cal {F}}_{C}+{\cal {D}}_{C}
 
 The equation of state is given by:
 
@@ -51,7 +51,7 @@ To close these qeustions, parametrizations of the Reynolds stresses and turbulen
 
 .. math::
 
-    \overbar{u^\prime w^\prime} = -K_M \frac{\partial u}{\partial z}; \hspace{0.5in} \overbar{v^\prime w^\prime} = -K_M \frac{\partial v}{\partial z}; \hspace{0.5in} \overbar{C^\prime w^\prime} = -K_C \frac{\partial C}{\partial z};
+    \overline{u^\prime w^\prime} = -K_M \frac{\partial u}{\partial z}; \hspace{0.5in} \overline{v^\prime w^\prime} = -K_M \frac{\partial v}{\partial z}; \hspace{0.5in} \overline{C^\prime w^\prime} = -K_C \frac{\partial C}{\partial z};
 
 An overbar represents a time average and a prime represents a fluctuation about the mean.
 

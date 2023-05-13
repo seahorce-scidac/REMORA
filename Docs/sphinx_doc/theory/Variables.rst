@@ -13,7 +13,7 @@ Variable Definitions
 These variable definitions are as given in the `ROMS documentation`_
 
 +-------------------------------+--------------------------------------------+
-| Space and Time Variables      |                                            |
+| Space and Time Variables                                                   |
 +===============================+============================================+
 | :math:`t`                     | time                                       |
 +-------------------------------+--------------------------------------------+
