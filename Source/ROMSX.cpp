@@ -556,6 +556,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_visc3d_r.resize(lev+1);
     vec_visc2_p.resize(lev+1);
     vec_visc2_r.resize(lev+1);
+    vec_diff2_salt.resize(lev+1);
+    vec_diff2_temp.resize(lev+1);
     vec_ru.resize(lev+1);
     vec_rv.resize(lev+1);
     vec_rufrc.resize(lev+1);
@@ -593,6 +595,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_visc3d_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_visc2_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    vec_diff2_salt[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    vec_diff2_temp[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
     vec_ru[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
     vec_rv[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));
     vec_rufrc[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0)));

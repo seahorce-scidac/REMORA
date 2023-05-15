@@ -88,6 +88,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
+    std::unique_ptr<MultiFab>& mf_diff2_temp = vec_diff2_temp[lev];
+    std::unique_ptr<MultiFab>& mf_diff2_salt = vec_diff2_salt[lev];
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
     mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
@@ -162,6 +164,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
         Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
         Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
+        Array4<Real> const& diff2_salt = (mf_diff2_salt)->array(mfi);
+        Array4<Real> const& diff2_temp = (mf_diff2_temp)->array(mfi);
 
         Box bx = mfi.tilebox();
         //copy the tilebox
@@ -194,6 +198,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         FArrayBox fab_on_r(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_om_p(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_on_p(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pmon_u(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pnom_u(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pmon_v(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pnom_v(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
@@ -210,6 +218,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto on_r=fab_on_r.array();
         auto om_p=fab_om_p.array();
         auto on_p=fab_on_p.array();
+        auto pmon_u=fab_pmon_u.array();
+        auto pnom_u=fab_pnom_u.array();
+        auto pmon_v=fab_pmon_v.array();
+        auto pnom_v=fab_pnom_v.array();
         auto fomn=fab_fomn.array();
 
         //From ana_grid.h and metrics.F
@@ -240,8 +252,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           on_p(i,j,0)=1.0/dxi[1]; // 4/(pn(i-1,j-1)+pn(i-1,j)+pn(i,j-1)+pn(i,j))
           on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
           om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
-          Huon(i,j,k)=0.0;
-          Hvom(i,j,k)=0.0;
+          pmon_u(i,j,0)=1.0;        // (pm(i-1,j)+pm(i,j))/(pn(i-1,j)+pn(i,j))
+          pnom_u(i,j,0)=1.0;        // (pn(i-1,j)+pn(i,j))/(pm(i-1,j)+pm(i,j))
+          pmon_v(i,j,0)=1.0;        // (pm(i,j-1)+pm(i,j))/(pn(i,j-1)+pn(i,j))
+          pnom_v(i,j,0)=1.0;        // (pn(i,j-1)+pn(i,j))/(pm(i,j-1)+pm(i,j))
+          Huon(i,j,k,0)=0.0;
+          Hvom(i,j,k,0)=0.0;
         });
 
         // Set bottom stress as defined in set_vbx.F
@@ -281,6 +297,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                           pm, pn, W, DC, FC, z_r, sustr, svstr, bustr, bvstr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 
+        t3dmix(bx, temp, diff2_temp, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
+        t3dmix(bx, salt, diff2_salt, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
+
 #ifdef UV_COR
         //
         //-----------------------------------------------------------------------
@@ -288,6 +307,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //-----------------------------------------------------------------------
         //
         // ru, rv updated
+        // In ROMS, coriolis is the first (un-ifdefed) thing to happen in rhs3d_tile, which gets called after t3dmix
         coriolis(bx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
 #endif
         //

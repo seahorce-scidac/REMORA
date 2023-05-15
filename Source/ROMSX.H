@@ -235,8 +235,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc3d_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_p;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_r;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_salinity;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_temperature;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_diff2_salt;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_diff2_temp;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_x_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_y_r;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_r;
@@ -513,10 +513,12 @@ public:
 
     void t3dmix  (const amrex::Box& bx,
                  amrex::Array4<amrex::Real> t,
-                 amrex::Array4<amrex::Real> visc2,
+                 amrex::Array4<amrex::Real> diff2,
                  amrex::Array4<amrex::Real> Hz,
                  amrex::Array4<amrex::Real> pm,
                  amrex::Array4<amrex::Real> pn,
+                 amrex::Array4<amrex::Real> pmon_u,
+                 amrex::Array4<amrex::Real> pnom_v,
                  int nrhs, int nnew,
                  const amrex::Real dt_lev);
 

@@ -413,21 +413,28 @@ ROMSX::set_depth (int lev)
 void ROMSX::set_hmixcoef (int lev) {
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
+    std::unique_ptr<MultiFab>& mf_diff2_salt = vec_diff2_salt[lev];
+    std::unique_ptr<MultiFab>& mf_diff2_temp = vec_diff2_temp[lev];
 
     for ( MFIter mfi(*(mf_visc2_p), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
         Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
+        Array4<Real> const& diff2_salt = (mf_diff2_salt)->array(mfi);
+        Array4<Real> const& diff2_temp = (mf_diff2_temp)->array(mfi);
         Box bx = mfi.tilebox();
         bx.grow(IntVect(2,2,0));
         int ncomp = 1;
 
-        // NOTE: Hard-coded value from ana_hmixcoef.h
         amrex::LoopConcurrentOnCpu(bx, ncomp,
         [=] (int i, int j, int k, int n)
         {
+            // NOTE: Hard-coded value from ana_hmixcoef.h
             visc2_p(i,j,k) = 5.0;
             visc2_r(i,j,k) = 5.0;
+            // Also defined in ana_hmixcoef.h but values for diffusion2 are set in mod_scalars.F (tl_tnu2)
+            diff2_salt(i,j,k) = 0.0;
+            diff2_temp(i,j,k) = 0.0;
         });
     }
 }
