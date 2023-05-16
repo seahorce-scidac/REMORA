@@ -1,0 +1,203 @@
+commit 95f6b28d24416c78a0e40c20eb219f6f772d291e
+Author: Jean M. Sexton <jmsexton@lbl.gov>
+Date:   Tue May 16 10:49:06 2023 -0700
+
+    Comparison setup
+
+diff --git a/Compilers/Linux-ftn-gnu.mk b/Compilers/Linux-ftn-gnu.mk
+index 56d6d421..ee8a7cfd 100755
+--- a/Compilers/Linux-ftn-gnu.mk
++++ b/Compilers/Linux-ftn-gnu.mk
+@@ -175,7 +175,7 @@ endif
+                LD := $(FC)
+ 
+ ifndef USE_SCRIP
+-             LIBS += $(MCT_PARAMS_DIR)/mct_coupler_params.o
++#             LIBS += $(MCT_PARAMS_DIR)/mct_coupler_params.o
+ endif
+ 
+ ifdef USE_WW3
+diff --git a/Compilers/Linux-ftn.mk b/Compilers/Linux-ftn.mk
+index 68f336e0..f18f3342 100755
+--- a/Compilers/Linux-ftn.mk
++++ b/Compilers/Linux-ftn.mk
+@@ -138,7 +138,7 @@ ifdef USE_CXX
+ endif
+ 
+ ifndef USE_SCRIP
+-             LIBS += $(MCT_PARAMS_DIR)/mct_coupler_params.o
++#             LIBS += $(MCT_PARAMS_DIR)/mct_coupler_params.o
+ endif
+ 
+ ifdef USE_WW3
+diff --git a/Compilers/Linux-gfortran.mk b/Compilers/Linux-gfortran.mk
+index ba711ff6..823a7606 100755
+--- a/Compilers/Linux-gfortran.mk
++++ b/Compilers/Linux-gfortran.mk
+@@ -127,8 +127,10 @@ endif
+ 
+ ifdef USE_NETCDF4
+         NF_CONFIG ?= nf-config
+-    NETCDF_INCDIR ?= /opt/cray/pe/netcdf/4.8.1.1/GNU/8.2/include
+-             LIBS += -L/opt/cray/pe/netcdf/4.8.1.1/GNU/8.2/lib -lnetcdf -lnetcdff
++    NETCDF_INCDIR ?= $(NETCDF_DIR)/include
++    NETCDF_LIBDIR ?= $(NETCDF_DIR)/lib
++      NETCDF_LIBS ?= -lnetcdf -lnetcdff
++             LIBS += -L$(NETCDF_LIBDIR) $(NETCDF_LIBS)
+            INCDIR += $(NETCDF_INCDIR) $(INCDIR)
+ else
+     NETCDF_INCDIR ?= /opt/gfortransoft/serial/netcdf3/include
+diff --git a/ROMS/External/roms_upwelling.in b/ROMS/External/roms_upwelling.in
+index 3a865a0f..3f99c3fb 100755
+--- a/ROMS/External/roms_upwelling.in
++++ b/ROMS/External/roms_upwelling.in
+@@ -106,8 +106,8 @@ GridsInLayer =  1
+ ! shared-memory configurations used to determine tile horizontal range
+ ! indices (Istr,Iend) and (Jstr,Jend), [1:Ngrids].
+ 
+-      NtileI == 4                               ! I-direction partition
+-      NtileJ == 16                              ! J-direction partition
++      NtileI == 1                               ! I-direction partition
++      NtileJ == 1                               ! J-direction partition
+ 
+ ! Set horizontal and vertical advection schemes for active and inert
+ ! tracers. A different advection scheme is allowed for each tracer.
+@@ -181,28 +181,28 @@ ad_Vadvection == C4       \                     ! temperature
+ !
+ !                   1       2       3       4
+ 
+-   LBC(isFsur) ==   Per     Clo     Per     Clo         ! free-surface
+-   LBC(isUbar) ==   Per     Clo     Per     Clo         ! 2D U-momentum
+-   LBC(isVbar) ==   Per     Clo     Per     Clo         ! 2D V-momentum
+-   LBC(isUvel) ==   Per     Clo     Per     Clo         ! 3D U-momentum
+-   LBC(isVvel) ==   Per     Clo     Per     Clo         ! 3D V-momentum
+-   LBC(isMtke) ==   Per     Clo     Per     Clo         ! mixing TKE
++   LBC(isFsur) ==   Per     Per     Per     Per         ! free-surface
++   LBC(isUbar) ==   Per     Per     Per     Per         ! 2D U-momentum
++   LBC(isVbar) ==   Per     Per     Per     Per         ! 2D V-momentum
++   LBC(isUvel) ==   Per     Per     Per     Per         ! 3D U-momentum
++   LBC(isVvel) ==   Per     Per     Per     Per         ! 3D V-momentum
++   LBC(isMtke) ==   Per     Per     Per     Per         ! mixing TKE
+ 
+-   LBC(isTvar) ==   Per     Clo     Per     Clo \       ! temperature
+-                    Per     Clo     Per     Clo         ! salinity
++   LBC(isTvar) ==   Per     Per     Per     Per \       ! temperature
++                    Per     Per     Per     Per         ! salinity
+ 
+ ! Adjoint-based algorithms can have different lateral boundary
+ ! conditions keywords.
+ 
+-ad_LBC(isFsur) ==   Per     Clo     Per     Clo         ! free-surface
+-ad_LBC(isUbar) ==   Per     Clo     Per     Clo         ! 2D U-momentum
+-ad_LBC(isVbar) ==   Per     Clo     Per     Clo         ! 2D V-momentum
+-ad_LBC(isUvel) ==   Per     Clo     Per     Clo         ! 3D U-momentum
+-ad_LBC(isVvel) ==   Per     Clo     Per     Clo         ! 3D V-momentum
+-ad_LBC(isMtke) ==   Per     Clo     Per     Clo         ! mixing TKE
++ad_LBC(isFsur) ==   Per     Per     Per     Per         ! free-surface
++ad_LBC(isUbar) ==   Per     Per     Per     Per         ! 2D U-momentum
++ad_LBC(isVbar) ==   Per     Per     Per     Per         ! 2D V-momentum
++ad_LBC(isUvel) ==   Per     Per     Per     Per         ! 3D U-momentum
++ad_LBC(isVvel) ==   Per     Per     Per     Per         ! 3D V-momentum
++ad_LBC(isMtke) ==   Per     Per     Per     Per         ! mixing TKE
+ 
+-ad_LBC(isTvar) ==   Per     Clo     Per     Clo \       ! temperature
+-                    Per     Clo     Per     Clo         ! salinity
++ad_LBC(isTvar) ==   Per     Per     Per     Per \       ! temperature
++                    Per     Per     Per     Per         ! salinity
+ 
+ ! Set lateral open boundary edge volume conservation switch for
+ ! nonlinear model and adjoint-based algorithms. Usually activated
+@@ -221,15 +221,15 @@ ad_VolCons(north) ==  F                            ! northern boundary
+ 
+ ! Time-Stepping parameters.
+ 
+-      NTIMES == 1440
++      NTIMES == 100
+           DT == 300.0d0
+-     NDTFAST == 30
++     NDTFAST == 1
+ 
+ ! Number of timesteps for computing observation impacts during the
+ ! analysis-forecast cycle.
+ 
+-  NTIMES_ANA == 1440                               ! analysis interval
+-  NTIMES_FCT == 1440                               ! forecast interval
++  NTIMES_ANA == 100                               ! analysis interval
++  NTIMES_FCT == 100                               ! forecast interval
+ 
+ ! Model iteration loops parameters.
+ 
+@@ -259,7 +259,7 @@ ad_VolCons(north) ==  F                            ! northern boundary
+ ! Output history, quicksave, average, and diagnostic files parameters.
+ 
+      LDEFOUT == T
+-        NHIS == 72
++        NHIS == 1
+      NDEFHIS == 0
+         NQCK == 0
+      NDEFQCK == 0
+@@ -403,7 +403,7 @@ LtracerSponge == F F                            ! temperature, salinity, inert
+ 
+      THETA_S == 3.0d0                      ! surface stretching parameter
+      THETA_B == 0.0d0                      ! bottom  stretching parameter
+-      TCLINE == 25.0d0                     ! critical depth (m)
++      TCLINE == 150.0d0                    ! critical depth (m)
+ 
+ ! Mean Density and Brunt-Vaisala frequency.
+ 
+diff --git a/ROMS/Functionals/ana_grid.h b/ROMS/Functionals/ana_grid.h
+index 3cd13d54..b13fd53c 100755
+--- a/ROMS/Functionals/ana_grid.h
++++ b/ROMS/Functionals/ana_grid.h
+@@ -1053,7 +1053,7 @@
+           END IF
+           val2=MIN(depth,84.5_r8+66.526_r8*TANH((val1-10.0_r8)/7.0_r8))
+           DO j=JstrT,JendT
+-            h(i,j)=val2
++            h(i,j)=depth
+           END DO
+         END DO
+       ELSE IF (EWperiodic(ng)) THEN
+@@ -1065,7 +1065,7 @@
+           END IF
+           val2=MIN(depth,84.5_r8+66.526_r8*TANH((val1-10.0_r8)/7.0_r8))
+           DO i=IstrT,IendT
+-            h(i,j)=val2
++            h(i,j)=depth
+           END DO
+         END DO
+       END IF
+diff --git a/ROMS/Functionals/ana_initial.h b/ROMS/Functionals/ana_initial.h
+index 264a236f..5c090ad5 100755
+--- a/ROMS/Functionals/ana_initial.h
++++ b/ROMS/Functionals/ana_initial.h
+@@ -484,12 +484,13 @@
+       DO k=1,N(ng)
+        DO j=JstrT,JendT
+          DO i=IstrP,IendT
+-            u(i,j,k,1)=0.0_r8
+-          END DO
++	   u(i,j,k,1)=8.0E-3_r8 * LOG((-z_r(i,j,k)+.1_r8)/.1_r8) /        &
++		      & LOG((80.0E-3_r8 + 0.1_r8)/0.1_r8)
++	  END DO
+         END DO
+         DO j=JstrP,JendT
+           DO i=IstrT,IendT
+-            v(i,j,k,1)=0.0_r8
++            v(i,j,k,1)= 0.0_r8! 1.0_r8 / yr(i,j)
+           END DO
+         END DO
+       END DO
+diff --git a/coawst.bash b/coawst.bash
+index a951d2f3..e0ad2a4f 100755
+--- a/coawst.bash
++++ b/coawst.bash
+@@ -129,7 +129,7 @@ export   ROMS_APPLICATION=${COAWST_APPLICATION}
+ 
+ # Set a local environmental variable to define the path to the directories
+ # where all this project's files are kept.
+-export   MY_ROOT_DIR=/global/homes/h/hetland/COAWST
++export   MY_ROOT_DIR=$(pwd)
+ export   MY_PROJECT_DIR=${MY_ROOT_DIR}
+ 
+ # The path to the user's local current ROMS source code.

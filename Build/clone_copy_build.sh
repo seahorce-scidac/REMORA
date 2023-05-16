@@ -7,19 +7,11 @@ umask 002
 git clone --recursive git@github.com:seahorce-scidac/ROMSX
 git clone --recursive git@github.com:seahorce-scidac/COAWST
 
-cd ROMSX/Build/compare_example
+cd COAWST
 
-cp upwelling.h ../../../COAWST/ROMS/Include/upwelling.h
+git apply ../ROMSX/Build/compare_flat_tweak_inputs.patch
 
-cp roms_upwelling.in ../../../COAWST/ROMS/External/roms_upwelling.in
-
-cp ana_grid.h ../../../COAWST/ROMS/Functionals/ana_grid.h
-cp ana_initial.h ../../../COAWST/ROMS/Functionals/ana_initial.h
-cp *.F ../../../COAWST/ROMS/Nonlinear/
-cp *.mk ../../../COAWST/Compilers
-cp coawst.bash ../../../COAWST
-
-cd ../
+cd ../ROMSX/Build
 if [ "$NERSC_HOST" == "cori" ]
 then
 source cori-env.sh
