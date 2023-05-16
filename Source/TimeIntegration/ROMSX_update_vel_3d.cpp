@@ -36,6 +36,7 @@ ROMSX::update_vel_3d (const Box& vel_bx,
     amrex::Print() << "in update_vel_3d with box " << vel_bx << std::endl;
 
     Real oml_dt = dt_lev*(1.0-lambda);
+    //N is one less than ROMS
 
     //  Except the commented out part means lambda is always 1.0
     amrex::ParallelFor(vel_bx,
@@ -60,6 +61,8 @@ ROMSX::update_vel_3d (const Box& vel_bx,
         DC(i,j,k) = 0.25 * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
                                       * (pn(i,j,0)+pn(i-ioff,j-joff,0));
     });
+
+    //Print() << FArrayBox(bstr) << std::endl;
 
     amrex::ParallelFor(vel_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)

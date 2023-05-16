@@ -1,5 +1,5 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-max_step = 999999
+max_step = 1 #999919
 stop_time = 30000.0
 
 amrex.fpe_trap_invalid = 1
@@ -51,6 +51,7 @@ romsx.use_rayleigh_damping = false
 romsx.spatial_order = 2
 
 romsx.les_type         = "None"
+romsx.evolve_free_surface = true
 #
 # diffusion coefficient from Straka, K = 75 m^2/s
 #

@@ -266,12 +266,13 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         {
             //DO j=Jstr,Jend
             //  DO i=IstrU,Iend
-            bustr(i,j,k) = 0.5 * (rdrag(i-1,j,k)+rdrag(i,j,k))*(ubar(i,j,0,nrhs));
+            bustr(i,j,k) = 0.5 * (rdrag(i-1,j,k)+rdrag(i,j,k))*(u(i,j,0,nrhs));
             //DO j=JstrV,Jend
             //  DO i=Istr,Iend
-            bvstr(i,j,k) = 0.5 * (rdrag(i,j-1,k)+rdrag(i,j,k))*(vbar(i,j,0,nrhs));
+            bvstr(i,j,k) = 0.5 * (rdrag(i,j-1,k)+rdrag(i,j,k))*(v(i,j,0,nrhs));
         });
 
+        // updates Huon/Hvom
         set_massflux_3d(Box(Huon),1,0,uold,Huon,Hz,on_u,nnew);
         set_massflux_3d(Box(Hvom),0,1,vold,Hvom,Hz,om_v,nnew);
         Real lambda = 1.0;
@@ -281,6 +282,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //-----------------------------------------------------------------------
         //
         //Test this after advection included in 3d time, consider refactoring to call once per tracer
+        // updates temp, tempstore
         prestep_t_3d(bx, uold, vold, u, v, tempold, saltold, temp, salt, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                      pm, pn, W, DC, FC, tempstore, saltstore, FX, FE, z_r, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
@@ -293,6 +295,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // prestep_uv_3d
         //-----------------------------------------------------------------------
         //
+        //updates u,v,ru,rv (ru and rv have multiple components)
         prestep_uv_3d(bx, uold, vold, u, v, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                           pm, pn, W, DC, FC, z_r, sustr, svstr, bustr, bvstr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
@@ -389,5 +392,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
     //    W_new.FillBoundary();
     //    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
+
+    set_depth(lev);
+    set_drag(lev);
 
 }
