@@ -12,12 +12,12 @@ The staggered grids indicating where different variables are located.
 XY Plane
 --------
 .. image:: figures/grid_discretization/stagger_XY.PNG
-  :width: 400
+  :width: 100%
 
 YZ Plane
 --------
 .. image:: figures/grid_discretization/stagger_YZ.PNG
-  :width: 400
+  :width: 100%
 
 Mass Conservation
 =================
@@ -34,11 +34,11 @@ Mass Conservation
 Contributions from different directions
 ---------------------------------------
 .. image:: figures/grid_discretization/continuity_x.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/continuity_y.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/continuity_z.PNG
-  :width: 400
+  :width: 100%
 
 Advection Contribution to DNS/LES
 =================================
@@ -59,11 +59,11 @@ U Momentum
 Contributions from different directions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. image:: figures/grid_discretization/x_mom_advec_x.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/x_mom_advec_y.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/x_mom_advec_z.PNG
-  :width: 400
+  :width: 100%
 
 V Momentum
 ----------------------------------
@@ -81,11 +81,11 @@ V Momentum
 Contributions from different directions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. image:: figures/grid_discretization/y_mom_advec_x.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/y_mom_advec_y.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/y_mom_advec_z.PNG
-  :width: 400
+  :width: 100%
 
 W Momentum
 ----------
@@ -103,11 +103,11 @@ W Momentum
 Contributions from different directions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. image:: figures/grid_discretization/z_mom_advec_x.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/z_mom_advec_y.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/z_mom_advec_z.PNG
-  :width: 400
+  :width: 100%
 
 
 Potential Temperature Advection
@@ -125,11 +125,11 @@ Potential Temperature Advection
 Contributions from different directions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. image:: figures/grid_discretization/temp_advec_x.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/temp_advec_y.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/temp_advec_z.PNG
-  :width: 400
+  :width: 100%
 
 
 Scalar Advection
@@ -148,11 +148,11 @@ Scalar Advection
 Contributions from different directions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. image:: figures/grid_discretization/scalar_advec_x.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/scalar_advec_y.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/scalar_advec_z.PNG
-  :width: 400
+  :width: 100%
 
 Diagnostic Variables
 --------------------
@@ -201,15 +201,15 @@ Strain Rate Tensor
 The schematic below (isomeric view) shows the definition of strain-rate components.
 
 .. image:: figures/grid_discretization/StrainRate.PNG
-  :width: 400
+  :width: 100%
 
 Strain-Rate Components for X-Momentum Equation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. image:: figures/grid_discretization/x_mom_diff_a.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/x_mom_diff_b.PNG
-  :width: 400
+  :width: 100%
 
 .. math::
 
@@ -226,9 +226,9 @@ Strain-Rate Components for Y-Momentum Equation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. image:: figures/grid_discretization/y_mom_diff_a.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/y_mom_diff_b.PNG
-  :width: 400
+  :width: 100%
 
 .. math::
 
@@ -245,9 +245,9 @@ Strain-Rate Components for Z-Momentum Equation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. image:: figures/grid_discretization/z_mom_diff_a.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/z_mom_diff_b.PNG
-  :width: 400
+  :width: 100%
 
 .. math::
 
@@ -400,7 +400,7 @@ Strain Rate and Eddy Viscosity
 The goal is to compute eddy viscosity at the *cell centers* and interpolated them to the edges. Refer again to the strain rate tensor schematic.
 
 .. image:: figures/grid_discretization/StrainRate.PNG
-  :width: 400
+  :width: 100%
 
 .. math::
 
@@ -452,7 +452,7 @@ Otherwise (``romsx.molec_diff_type = "None"``), :math:`\mu_{eff} = K = 2\mu_{t}`
 
 
 .. image:: figures/grid_discretization/EddyViscosity.PNG
-  :width: 400
+  :width: 100%
 
 The interpolated values of eddy-viscosity at the edges are the average
 of the values at the centers of the 4 cells the edge is part of.
@@ -629,8 +629,8 @@ Finally,
 Contributions from different directions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. image:: figures/grid_discretization/TKE_x.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/TKE_y.PNG
-  :width: 400
+  :width: 100%
 .. image:: figures/grid_discretization/TKE_z.PNG
-  :width: 400
+  :width: 100%
