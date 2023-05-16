@@ -299,7 +299,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     //-----------------------------------------------------------------------
     //
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
-    update_vel_3d(gbx1, 0, 0, tempstore, temp, ru, Hz, Akt, DC, FC,
+    update_vel_3d(gbx1, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
                   stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
     //Print()<<FArrayBox(tempold)<<std::endl;
     //Print()<<FArrayBox(tempstore)<<std::endl;
