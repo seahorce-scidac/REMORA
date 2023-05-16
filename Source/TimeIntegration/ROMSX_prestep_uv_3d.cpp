@@ -46,7 +46,7 @@ ROMSX::prestep_uv_3d (const Box& bx,
     //Need to include pre_step3d.F terms
 
     update_vel_3d(ubx, 1, 0, u, uold, ru, Hz, Akv, DC, FC,
-                  sustr, bvstr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
+                  sustr, bustr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
 
     update_vel_3d(vbx, 0, 1, v, vold, rv, Hz, Akv, DC, FC,
                   svstr, bvstr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
