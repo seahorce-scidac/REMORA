@@ -284,7 +284,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         set_massflux_3d(Box(Huon),1,0,uold,Huon,Hz,on_u,nnew);
         set_massflux_3d(Box(Hvom),0,1,vold,Hvom,Hz,om_v,nnew);
 
-        //rho_eos(gbx2,rho,rhoA,rhoS,pden,Hz,N);
+        rho_eos(gbx2,rho,rhoA,rhoS,pden,Hz,N);
         Real lambda = 1.0;
         //
         //-----------------------------------------------------------------------
