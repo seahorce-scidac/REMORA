@@ -270,6 +270,7 @@ public:
 
     void advance_2d (int lev,
                      amrex::MultiFab& mf_u , amrex::MultiFab& mf_v ,
+                     amrex::MultiFab& mf_rhoS , amrex::MultiFab& mf_rhoA ,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
                      std::unique_ptr<amrex::MultiFab>& mf_rv,
                      std::unique_ptr<amrex::MultiFab>& mf_rufrc,

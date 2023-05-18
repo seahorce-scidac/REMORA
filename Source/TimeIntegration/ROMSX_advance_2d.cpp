@@ -9,6 +9,7 @@ using namespace amrex;
 void
 ROMSX::advance_2d (int lev,
                    MultiFab& mf_u, MultiFab& mf_v,
+                   MultiFab& mf_rhoS, MultiFab& mf_rhoA,
                    std::unique_ptr<MultiFab>& mf_ru,
                    std::unique_ptr<MultiFab>& mf_rv,
                    std::unique_ptr<MultiFab>& mf_rufrc,
@@ -72,6 +73,8 @@ ROMSX::advance_2d (int lev,
     {
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
+        Array4<Real> const& rhoS = (mf_rhoS).array(mfi);
+        Array4<Real> const& rhoA = (mf_rhoA).array(mfi);
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
         Array4<Real> const& zeta = (mf_zeta)->array(mfi);
@@ -131,6 +134,10 @@ ROMSX::advance_2d (int lev,
         FArrayBox fab_Drhs(gbx2,1,The_Async_Arena());
         FArrayBox fab_Drhs_p(gbx2,1,The_Async_Arena());
         FArrayBox fab_Dnew(gbx2,1,The_Async_Arena());
+        FArrayBox fab_zwrk(gbx2,1,The_Async_Arena());
+        FArrayBox fab_gzeta(gbx2,1,The_Async_Arena());
+        FArrayBox fab_gzeta2(gbx2,1,The_Async_Arena());
+        FArrayBox fab_gzetaSA(gbx2,1,The_Async_Arena());
         FArrayBox fab_Dstp(gbx2,1,The_Async_Arena());
         FArrayBox fab_DUon(gbx2,1,The_Async_Arena());
         FArrayBox fab_DVom(gbx2,1,The_Async_Arena());
@@ -154,6 +161,10 @@ ROMSX::advance_2d (int lev,
         auto Drhs=fab_Drhs.array();
         auto Drhs_p=fab_Drhs_p.array();
         auto Dnew=fab_Dnew.array();
+        auto zwrk=fab_zwrk.array();
+        auto gzeta=fab_gzeta.array();
+        auto gzeta2=fab_gzeta2.array();
+        auto gzetaSA=fab_gzetaSA.array();
         auto Dstp=fab_Dstp.array();
         auto DUon=fab_DUon.array();
         auto DVom=fab_DVom.array();
@@ -328,11 +339,11 @@ ROMSX::advance_2d (int lev,
                 Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
 
                 //Pressure gradient terms:
-                /*
-                  zwrk(i,j)=0.5_rt*(zeta(i,j,kstp)+zeta_new(i,j))
-                  gzeta(i,j)=(fac+rhoS(i,j))*zwrk(i,j)
-                  gzeta2(i,j)=gzeta(i,j)*zwrk(i,j)
-                  gzetaSA(i,j)=zwrk(i,j)*(rhoS(i,j)-rhoA(i,j))*/
+                
+		zwrk(i,j,0)=0.5_rt*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
+		gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
+		gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
+		gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
             });
         } else if (predictor_2d_step) {
             Real cff1=2.0_rt*dtfast_lev;
@@ -347,12 +358,11 @@ ROMSX::advance_2d (int lev,
                                 pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
                 Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
                 //Pressure gradient terms
-                /*
-                  zwrk(i,j)=cff5*zeta(i,j,krhs)+                              &
-                  &                cff4*(zeta(i,j,kstp)+zeta_new(i,j))
-                  gzeta(i,j)=(fac+rhoS(i,j))*zwrk(i,j)
-                  gzeta2(i,j)=gzeta(i,j)*zwrk(i,j)
-                  gzetaSA(i,j)=zwrk(i,j)*(rhoS(i,j)-rhoA(i,j))*/
+		zwrk(i,j,0)=cff5*zeta(i,j,0,krhs)+
+		    cff4*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
+		gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
+		gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
+		gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
             });
         } else if (!predictor_2d_step) { //AKA if(corrector_2d_step)
             Real cff1=dtfast_lev*5.0_rt/12.0_rt;
@@ -371,11 +381,10 @@ ROMSX::advance_2d (int lev,
                                          cff3*rzeta(i,j,0,ptsk));
                 Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
                 //Pressure gradient terms
-                /*
-                  zwrk(i,j)=cff5*zeta_new(i,j)+cff4*zeta(i,j,krhs)
-                  gzeta(i,j)=(fac+rhoS(i,j))*zwrk(i,j)
-                  gzeta2(i,j)=gzeta(i,j)*zwrk(i,j)
-                  gzetaSA(i,j)=zwrk(i,j)*(rhoS(i,j)-rhoA(i,j))*/
+		zwrk(i,j,0)=cff5*zeta_new(i,j,0)+cff4*zeta(i,j,0,krhs);
+		gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
+		gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
+		gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
                 });
         }
 

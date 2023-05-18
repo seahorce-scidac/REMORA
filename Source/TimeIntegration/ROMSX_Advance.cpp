@@ -60,6 +60,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab mf_u(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_v(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_w(ba,dm,1,IntVect(2,2,0));
+    MultiFab mf_pden(ba,dm,1,IntVect(2,2,0));
+    MultiFab mf_rho(ba,dm,1,IntVect(2,2,0));
+    MultiFab mf_rhoS(ba,dm,1,IntVect(2,2,0));
+    MultiFab mf_rhoA(ba,dm,1,IntVect(2,2,0));
     std::unique_ptr<MultiFab>& mf_ru = vec_ru[lev];
     std::unique_ptr<MultiFab>& mf_rv = vec_rv[lev];
     std::unique_ptr<MultiFab>& mf_rufrc = vec_rufrc[lev];
@@ -94,6 +98,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //    read uninitialized data on ghost values in setting the bc's on the velocities
     mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
     mf_v.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_pden.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_rho.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_rhoS.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_rhoA.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
     mf_w.setVal(0);
     mf_DC.setVal(0);
     mf_w.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
@@ -275,6 +283,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // updates Huon/Hvom
         set_massflux_3d(Box(Huon),1,0,uold,Huon,Hz,on_u,nnew);
         set_massflux_3d(Box(Hvom),0,1,vold,Hvom,Hz,om_v,nnew);
+
+        //rho_eos(gbx2,rho,rhoA,rhoS,pden,Hz,N);
         Real lambda = 1.0;
         //
         //-----------------------------------------------------------------------
@@ -347,7 +357,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         first_2d_step=(my_iif==0);
         //Predictor
         predictor_2d_step=true;
-        advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
+        advance_2d(lev, mf_u, mf_v, mf_rhoS, mf_rhoA, vec_ru[lev], vec_rv[lev],
                    vec_rufrc[lev], vec_rvfrc[lev],
                    vec_Zt_avg1[lev],
                    vec_DU_avg1[lev], vec_DU_avg2[lev],
@@ -358,7 +368,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                    ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
         //Corrector
         predictor_2d_step=false;
-        advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
+        advance_2d(lev, mf_u, mf_v, mf_rhoS, mf_rhoA, vec_ru[lev], vec_rv[lev],
                    vec_rufrc[lev], vec_rvfrc[lev],
                    vec_Zt_avg1[lev],
                    vec_DU_avg1[lev], vec_DU_avg2[lev],
