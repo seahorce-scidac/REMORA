@@ -68,67 +68,75 @@ public:
     ////////////////
     // public member functions
 
-    // constructor - reads in parameters from inputs file
-    //             - sizes multilevel arrays and data structures
+    /**
+     * constructor - reads in parameters from inputs file
+     *             - sizes multilevel arrays and data structures
+     */
     ROMSX ();
     virtual ~ROMSX();
 
-    // Advance solution to final time
+    /** Advance solution to final time */
     void Evolve ();
 
-    // Tag cells for refinement
+    /** Tag cells for refinement */
     virtual void ErrorEst (int lev, amrex::TagBoxArray& tags, amrex::Real time, int ngrow) override;
 
-    // Initialize multilevel data
+    /** Initialize multilevel data */
     void InitData ();
 
-    // Init (NOT restart or regrid)
+    /** Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);
 
-    // Restart
+    /** Restart */
     void restart ();
 
-    // Called after every level 0 timestep
+    /** Called after every level 0 timestep */
     void post_timestep (int nstep, amrex::Real time, amrex::Real dt_lev);
 
     // Diagnostics
+
+    /** Integrate conserved quantities for diagnostics */
     void sum_integrated_quantities(amrex::Real time);
 
-    // Perform the volume-weighted sum
+    /* Perform the volume-weighted sum */
     amrex::Real
     volWgtSumMF(int lev,
       const amrex::MultiFab& mf, int comp, bool local, bool finemask);
 
-    // Decide if it is time to take an action
+    /* Decide if it is time to take an action */
     bool is_it_time_for_action(int nstep, amrex::Real time, amrex::Real dt,
                                int action_interval, amrex::Real action_per);
 
-    // Make a new level using provided BoxArray and DistributionMapping and
-    // fill with interpolated coarse level data.
-    // overrides the pure virtual function in AmrCore
+    /** Make a new level using provided BoxArray and DistributionMapping and
+     * fill with interpolated coarse level data.
+     * Overrides the pure virtual function in AmrCore
+     */
     virtual void MakeNewLevelFromCoarse (int lev, amrex::Real time, const amrex::BoxArray& ba,
                      const amrex::DistributionMapping& dm) override;
 
-    // Remake an existing level using provided BoxArray and DistributionMapping and
-    // fill with existing fine and coarse data.
-    // overrides the pure virtual function in AmrCore
+    /** Remake an existing level using provided BoxArray and DistributionMapping and
+     * fill with existing fine and coarse data.
+     * Overrides the pure virtual function in AmrCore
+     */
     virtual void RemakeLevel (int lev, amrex::Real time, const amrex::BoxArray& ba,
                   const amrex::DistributionMapping& dm) override;
 
-    // Delete level data
-    // overrides the pure virtual function in AmrCore
+    /** Delete level data
+     * Overrides the pure virtual function in AmrCore
+     */
     virtual void ClearLevel (int lev) override;
 
-    // Make a new level from scratch using provided BoxArray and DistributionMapping.
-    // Only used during initialization.
-    // overrides the pure virtual function in AmrCore
+    /** Make a new level from scratch using provided BoxArray and DistributionMapping.
+     * Only used during initialization.
+     * Overrides the pure virtual function in AmrCore
+     */
     virtual void MakeNewLevelFromScratch (int lev, amrex::Real time, const amrex::BoxArray& ba,
                       const amrex::DistributionMapping& dm) override;
 
-    // compute dt from CFL considerations
+    /** compute dt from CFL considerations */
     amrex::Real estTimeStep (int lev) const;
 
-    // Interface for advancing the data at one level by one "slow" timestep
+    /** Interface for advancing the data at one level by one "slow" timestep */
     void romsx_advance(int level,
                        amrex::MultiFab& cons_old,  amrex::MultiFab& cons_new,
                        amrex::MultiFab& xvel_old,  amrex::MultiFab& yvel_old,  amrex::MultiFab& zvel_old,
@@ -138,11 +146,12 @@ public:
                        const amrex::Real dt, const amrex::Real time
                       );
 
+    /** Make mask to zero out covered cells*/
     amrex::MultiFab& build_fine_mask(int lev);
 
     void MakeHorizontalAverages();
 
-    // write plotfile to disk
+    /** write plotfile to disk */
     void WritePlotFile  (int which, amrex::Vector<std::string> plot_var_names);
 
     void WriteMultiLevelPlotfileWithTerrain (const std::string &plotfilename,
@@ -169,12 +178,12 @@ public:
                                                 const std::string &mfPrefix) const;
 
 #ifdef ROMSX_USE_NETCDF
-    //! Write a timestep to 1D vertical column output for coupling
+    /** Write a timestep to 1D vertical column output for coupling */
     void writeToNCColumnFile(const int lev,
                              const std::string& colfile_name, const amrex::Real xloc, const amrex::Real yloc,
                              const amrex::Real time);
 
-    // Read the netcdf wrfinput file once
+    /** Read the netcdf wrfinput file once */
     void read_from_wrfinput(int lev, int idx,
                             amrex::Vector<amrex::FArrayBox>& NC_xvel_fab, amrex::Vector<amrex::FArrayBox>& NC_yvel_fab,
                             amrex::Vector<amrex::FArrayBox>& NC_zvel_fab, amrex::Vector<amrex::FArrayBox>& NC_rho_fab,
@@ -188,7 +197,7 @@ public:
                             amrex::Vector<amrex::FArrayBox>& NC_PH_fab, amrex::Vector<amrex::FArrayBox>& NC_PHB_fab,
                             amrex::Vector<amrex::FArrayBox>& NC_ALB_fab, amrex::Vector<amrex::FArrayBox>& NC_PB_fab);
 
-    // Copy from the NC*fabs into the MultiFabs holding the initial data
+    /** Copy from the NC*fabs into the MultiFabs holding the initial data */
     void init_state_from_wrfinput(int lev,
                             amrex::FArrayBox& state_vel_fab, amrex::FArrayBox& x_vel_fab,
                             amrex::FArrayBox&     y_vel_fab, amrex::FArrayBox& z_vel_fab,
@@ -221,53 +230,97 @@ public:
 
     std::string pp_prefix {"romsx"};
 
+    /** TODO Vector of containers for current step(?) variables */
     amrex::Vector<amrex::Vector<amrex::MultiFab> > vars_new;
+    /** TODO Vector of containers for last step(?) variables */
     amrex::Vector<amrex::Vector<amrex::MultiFab> > vars_old;
+
+    // Program state data is represented by vectors of pointers to AMReX Multifabs.
+    // There is one pointer per level
+
+    /** Bathymetry data (2D, positive valued, h in ROMS) **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_hOfTheConfusingName;
+    /** Width of cells in the vertical (z-) direction (3D, Hz in ROMS) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hz;
+    /** u-volume flux (3D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Huon;
+    /** v-volume flux (3D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hvom;
+    /** u velocity RHS (3D, includes hoirzontal and vertical advection) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ru;
+    /** v velocity RHS (3D, includes hoirzontal and vertical advection) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rv;
+    /** u velocity RHS, integrated, including advection and bottom/surface stresses (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rufrc;
+    /** v velocity RHS, integrated, including advection and bottom/surface stresses (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rvfrc;
+    /** Vertical viscosity coefficient (3D), set in .in file */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akv;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc3d_r;
+    /** Harmonic viscosity devined on the psi points (corners of horizontal grid cells) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_p;
+    /** Harmonic viscosity devined on the rho points (centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_r;
+    /** Harmonic diffusivity for salinity */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_diff2_salt;
+    /** Harmonic diffusivity for temperature */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_diff2_temp;
+
+    /** x coordinates at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_x_r;
+    /** y coordinates at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_y_r;
+    /** z coordinates at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_r;
+    /** z coordinates at w points (faces between z-cells) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_w;
+    /** Scaled vertical coordinate (range [0,1]) that transforms to z, defined at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_r;
+    /** Average of the free surface, zeta (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Zt_avg1;
+    /** Surface stress in the u direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sustr;
+    /** Surface stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr;
+    /** Linear drag coeifficient [m/s], defined at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;
+    /** Bottom stress in the u direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bustr;
+    /** Bottom stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvstr;
 
+    /** time average of barotropic x velocity flux (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DU_avg1;
+    /** correct time average of barotropic x velocity flux for coupling (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DU_avg2;
+    /** time average of barotropic y velocity flux */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DV_avg1;
+    /** correct time average of barotropic y velocity flux for coupling (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DV_avg2;
+    /** barotropic x velocity for the RHS (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rubar;
+    /** barotropic y velocity for the RHS (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rvbar;
+    /** free surface height for the RHS (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rzeta;
+    /** barotropic x velocity (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ubar;
+    /** barotropic y velocity (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_vbar;
+    /** free surface height (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_zeta;
+
+    /** saltstore */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_t3;
+    /** tempstore */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s3;
 
     amrex::Vector<amrex::Real> vec_weight1;
     amrex::Vector<amrex::Real> vec_weight2;
 
-    // advance a single level for a single time step
+    /** advance a single level for a single time step */
     void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
 
+    /** Perform a 2D predictor (predictor_2d_step=True) or corrector (predictor_2d_step=False) step */
     void advance_2d (int lev,
                      amrex::MultiFab& mf_u , amrex::MultiFab& mf_v ,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
@@ -293,6 +346,7 @@ public:
                      const bool first_2d_step, int my_iif, int nfast,
                      int & next_indx1);
 
+    /** Advance the 3D variables */
     void advance_3d (int lev,
                      amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,
                      amrex::MultiFab& mf_tempold  , amrex::MultiFab& mf_saltold ,
@@ -316,6 +370,7 @@ public:
                      const int ncomp, const int N,
                      const amrex::Real dt_lev);
 
+    /** Prestep calculations for the tracers */
     void prestep_t_3d (const amrex::Box& bx,
                         amrex::Array4<amrex::Real> uold,
                         amrex::Array4<amrex::Real> vold,
@@ -346,6 +401,7 @@ public:
                         int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
+    /** Prestep calculations for momentum */
     void prestep_uv_3d (const amrex::Box& bx,
                         amrex::Array4<amrex::Real> uold,
                         amrex::Array4<amrex::Real> vold,
@@ -385,6 +441,7 @@ public:
                    amrex::Array4<amrex::Real> FC,
                    int nrhs, int nnew, int N, const amrex::Real dt_lev);
 
+    /** Calculation of the RHS */
     void rhs_3d (const amrex::Box& bx,
                  amrex::Array4<amrex::Real> uold,
                  amrex::Array4<amrex::Real> vold,
@@ -434,6 +491,7 @@ public:
                   amrex::Array4<amrex::Real> Hz,
                   const int N);
 
+    /** Update velocities or tracers as the last part of the prestep */
     void update_vel_3d (const amrex::Box& bx,
                         const int ioff, const int joff,
                         amrex::Array4<amrex::Real> vel,
@@ -503,6 +561,7 @@ public:
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
 
+    /** Harmonic viscosity */
     void uv3dmix  (const amrex::Box& bx,
                  amrex::Array4<amrex::Real> u,
                  amrex::Array4<amrex::Real> v,
@@ -520,6 +579,7 @@ public:
                  int nrhs, int nnew,
                  const amrex::Real dt_lev);
 
+    /** Harmonic diffusivity for tracers */
     void t3dmix  (const amrex::Box& bx,
                  amrex::Array4<amrex::Real> t,
                  amrex::Array4<amrex::Real> diff2,
@@ -562,10 +622,10 @@ private:
     // private member functions
     ///////////////////////////
 
-    // read in some parameters from inputs file
+    /** read in some parameters from inputs file */
     void ReadParameters();
 
-    // set covered coarse cells to be the average of overlying fine cells
+    /** set covered coarse cells to be the average of overlying fine cells */
     void AverageDown ();
 
     void init1DArrays();
@@ -578,45 +638,49 @@ private:
     void init_from_wrfinput(int lev);
 #endif // ROMSX_USE_NETCDF
 
-    // more flexible version of AverageDown() that lets you average down across multiple levels
+    /** more flexible version of AverageDown() that lets you average down across multiple levels */
     void AverageDownTo (int crse_lev);
 
-    // compute a new multifab by copying in phi from valid region and filling ghost cells
-    // works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
+    /** compute a new multifab by copying in phi from valid region and filling ghost cells
+     * works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
+     */
     void FillPatch (int lev, amrex::Real time, const amrex::Vector<amrex::MultiFab*>& mf);
 
-    // compute a new multifab by copying in phi from valid region and filling ghost cells
-    // works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
+    /** compute a new multifab by copying in phi from valid region and filling ghost cells
+     * works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
+     */
     void FillPatch (int lev, amrex::Real time,
                     amrex::Vector<amrex::MultiFab>& mf);
 
-    // compute new multifabs by copying in data from valid region and filling ghost cells
-    // works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
-    // unlike FillPatch, FillIntermediatePatch will use the supplied multifabs instead of fine level data.
-    // This is to support filling boundary cells at an intermediate time between old/new times
-    // on the fine level when valid data at a specific time is already available (such as
-    // at each RK stage when integrating between initial and final times at a given level).
-    // NOTE: mfs should always contain {cons, xvel, yvel, zvel} multifab data.
-    // if which_var is supplied, then only fill the specified variable in the vector of mfs
+    /** compute new multifabs by copying in data from valid region and filling ghost cells
+     *  works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
+     *  unlike FillPatch, FillIntermediatePatch will use the supplied multifabs instead of fine level data.
+     *  This is to support filling boundary cells at an intermediate time between old/new times
+     *  on the fine level when valid data at a specific time is already available (such as
+     *  at each RK stage when integrating between initial and final times at a given level).
+     *  NOTE: mfs should always contain {cons, xvel, yvel, zvel} multifab data.
+     *  if which_var is supplied, then only fill the specified variable in the vector of mfs
+     */
     void FillIntermediatePatch (int lev, amrex::Real time,
                                 amrex::Vector<std::reference_wrapper<amrex::MultiFab> > mfs,
                                 int ng_cons, int ng_vel, bool cons_only, int scomp_cons, int ncomp_cons);
 
-    // fill an entire multifab by interpolating from the coarser level
-    // this comes into play when a new level of refinement appears
+    /** fill an entire multifab by interpolating from the coarser level
+     * this comes into play when a new level of refinement appears
+     */
     void FillCoarsePatch (int lev, amrex::Real time,
                           amrex::MultiFab& mf, int icomp, int ncomp, int var_idx);
 
-    // fill all multifabs (and all components) in a vector of multifabs corresponding to the
-    // grid variables defined in vars_old and vars_new just as FillCoarsePatch.
+    /** fill all multifabs (and all components) in a vector of multifabs corresponding to the
+     * grid variables defined in vars_old and vars_new just as FillCoarsePatch.
+     */
     void FillCoarsePatchAllVars (int lev, amrex::Real time,
                                  amrex::Vector<amrex::MultiFab>& vmf);
 
-    // utility to copy in data from old and/or new state into another multifab
+    /** utility to copy in data from old and/or new state into another multifab */
     TimeInterpolatedData GetDataAtTime (int lev, amrex::Real time);
 
-    // advance a level by dt
-    // includes a recursive call for finer levels
+    /** advance a level by dt,  includes a recursive call for finer levels */
     void timeStep (int lev, amrex::Real time, int iteration);
 
     //! Initialize HSE
@@ -625,16 +689,16 @@ private:
     //! Initialize Rayleigh damping profiles
     void initRayleigh();
 
-    // a wrapper for estTimeStep()
+    /** a wrapper for estTimeStep() */
     void ComputeDt ();
 
-    // get plotfile name
+    /** get plotfile name */
     std::string PlotFileName (int lev) const;
 
-    // set plotfile variables names
+    /** set plotfile variables names */
     amrex::Vector<std::string> PlotFileVarNames (amrex::Vector<std::string> plot_var_names) const;
 
-    // set which variables and derived quantities go into plotfiles
+    /** set which variables and derived quantities go into plotfiles */
     void setPlotVariables (const std::string& pp_plot_var_names, amrex::Vector<std::string>& plot_var_names);
 
 #ifdef ROMSX_USE_NETCDF
