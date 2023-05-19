@@ -121,6 +121,8 @@ ROMSX::set_2darrays (int lev)
                 vbar(i,j,0,knew)=cff2;
             });
     }
+    vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
+    vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 void ROMSX::set_vmix (int lev)
