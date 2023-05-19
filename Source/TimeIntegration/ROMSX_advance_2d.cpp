@@ -480,8 +480,6 @@ ROMSX::advance_2d (int lev,
         //-----------------------------------------------------------------------
         //
         rhs_2d(bxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs, N);
-        //Print().SetPrecision(18) << FArrayBox(rhs_ubar) << std::endl;
-        //Print().SetPrecision(18) << FArrayBox(rhs_vbar) << std::endl;
 
 #ifdef UV_COR
         // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
@@ -494,9 +492,6 @@ ROMSX::advance_2d (int lev,
         coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
 #endif
 
-    bool test_functionality=false;
-    if(test_functionality) {
-
     //Add in horizontal harmonic viscosity.
     // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
     amrex::ParallelFor(gbx1,
@@ -507,12 +502,24 @@ ROMSX::advance_2d (int lev,
     });
 
     uv3dmix(bxD, ubar, vbar, rhs_ubar, rhs_vbar, visc2_p, visc2_r, Drhs_p, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
+        //Print() << "(0,0,0 after uv3dmix" << std::endl;
+        //Print() << FArrayBox(rhs_ubar) << std::endl;
+        //Print() << FArrayBox(rhs_vbar) << std::endl;
+        //Print() << FArrayBox(rufrc) << std::endl;
+        //Print() << FArrayBox(rvfrc) << std::endl;
 
     //Coupling from 3d to 2d
     /////////Coupling of 3d updates to 2d predictor-corrector
     //todo: my_iif=>my_my_iif iic => icc
-    if (my_iif==1&&predictor_2d_step) {
+    Print() << "(0,0,0 my_iif: " << my_iif <<std::endl;
+    Print() << "(0,0,0 iic: " << iic << std::endl;
+    if (my_iif==0&&predictor_2d_step) {
         if (iic==ntfirst) {
+        //Print() << "(0,0,0 before update" << std::endl;
+        //Print() << FArrayBox(rhs_ubar) << std::endl;
+        //Print() << FArrayBox(rhs_vbar) << std::endl;
+        //Print() << FArrayBox(rufrc) << std::endl;
+        //Print() << FArrayBox(rvfrc) << std::endl;
         amrex::ParallelFor(gbx1D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -533,6 +540,11 @@ ROMSX::advance_2d (int lev,
             rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+rvfrc(i,j,0);
             rv(i,j,0,nstp)=rvfrc(i,j,0);
         });
+        //Print() << "(0,0,0 after update" << std::endl;
+        //Print() << FArrayBox(rhs_ubar) << std::endl;
+        //Print() << FArrayBox(rhs_vbar) << std::endl;
+        //Print() << FArrayBox(rufrc) << std::endl;
+        //Print() << FArrayBox(rvfrc) << std::endl;
         //  END DO
         //  END DO
         } else if (iic==(ntfirst+1)) {
@@ -594,6 +606,9 @@ ROMSX::advance_2d (int lev,
         //END DO
         }
         } else {
+        //    Print() << "(0,0,0 before update 1 u" << std::endl;
+        //    Print() << FArrayBox(rhs_ubar) << std::endl;
+        //    Print() << FArrayBox(rufrc) << std::endl;
         amrex::ParallelFor(gbx1D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -601,8 +616,14 @@ ROMSX::advance_2d (int lev,
             //DO i=IstrU,Iend
             rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+rufrc(i,j,0);
         });
+        //    Print() << "(0,0,0 after update 1 u" << std::endl;
+        //    Print() << FArrayBox(rhs_ubar) << std::endl;
+        //    Print() << FArrayBox(rufrc) << std::endl;
         //END DO
         //END DO
+        //    Print() << "(0,0,0 before update 1 v" << std::endl;
+        //    Print() << FArrayBox(rhs_vbar) << std::endl;
+        //    Print() << FArrayBox(rvfrc) << std::endl;
         amrex::ParallelFor(gbx1D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -610,9 +631,14 @@ ROMSX::advance_2d (int lev,
             //DO i=Istr,Iend
             rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+rvfrc(i,j,0);
         });
+        //    Print() << "(0,0,0 after update 1 v" << std::endl;
+        //    Print() << FArrayBox(rhs_vbar) << std::endl;
+        //    Print() << FArrayBox(rvfrc) << std::endl;
         //END DO
         //END DO
     }
+
+    //Print().SetPrecision(18) << FArrayBox(rhs_vbar) << std::endl;
 
     //
     //=======================================================================
@@ -636,7 +662,7 @@ ROMSX::advance_2d (int lev,
     //  and the corrector step is Backward-Euler. Otherwise, the predictor
     //  step is Leap-frog and the corrector step is Adams-Moulton.
     //
-      if (my_iif==1) {
+      if (my_iif==0) {
           Real cff1=0.5_rt*dtfast_lev;
         amrex::ParallelFor(gbx1D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -755,12 +781,12 @@ ROMSX::advance_2d (int lev,
         //END DO
 }
 
-    }
-//        Print().SetPrecision(18) << FArrayBox(ubar) << std::endl;
-//        Print().SetPrecision(18) << FArrayBox(vbar) << std::endl;
-//        Print().SetPrecision(18) << FArrayBox(zeta) << std::endl;
-//        Print().SetPrecision(18) << FArrayBox(rubar) << std::endl;
-//        Print().SetPrecision(18) << FArrayBox(rvbar) << std::endl;
-//        Print().SetPrecision(18) << FArrayBox(rzeta) << std::endl;
+        //Print() << "(0,0,0 end of advance2d" <<std::endl;
+        //Print().SetPrecision(18) << FArrayBox(ubar) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(vbar) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(zeta) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(rubar) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(rvbar) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(rzeta) << std::endl;
     }
 }
