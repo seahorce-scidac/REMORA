@@ -314,6 +314,8 @@ public:
     /** tempstore */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s3;
 
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc3d_r;
+
     amrex::Vector<amrex::Real> vec_weight1;
     amrex::Vector<amrex::Real> vec_weight2;
 
