@@ -37,6 +37,11 @@ ROMSX::rhs_3d (const Box& bx,
     gbx1.grow(IntVect(1,1,0));
     gbx11.grow(IntVect(1,1,1));
 
+    Box bxD = bx;
+    bxD.makeSlab(2,0);
+    Box gbx1D = bxD;
+    gbx1D.grow(IntVect(1,1,0));
+
     //
     // Scratch space
     //
@@ -266,7 +271,8 @@ ROMSX::rhs_3d (const Box& bx,
               //Recursive summation:
               rufrc(i,j,0)+=ru(i,j,k,nrhs);
               rvfrc(i,j,0)+=rv(i,j,k,nrhs);
-
+// This toggles whether to upate forcing terms on slabbed box or not. Slabbing it changes plotfile to machine precision
+#if 1
               //These forcing terms should possibly be updated on a slabbed box
               cff=om_u(i,j,0)*on_u(i,j,0);
               if(k==N) // this is consistent with update_vel_3d
@@ -290,6 +296,22 @@ ROMSX::rhs_3d (const Box& bx,
               else
                   cff2=0.0;
               rvfrc(i,j,0)+=cff1+cff2;
+#else
+        });
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+              Real cff=om_u(i,j,0)*on_u(i,j,0);
+              Real cff1=sustr(i,j,0)*cff;
+              Real cff2=-bustr(i,j,0)*cff;
 
-    });
+              rufrc(i,j,0) += cff1+cff2;
+
+              cff=om_v(i,j,0)*on_v(i,j,0);
+              cff1=svstr(i,j,0)*cff;
+              cff2=-bvstr(i,j,0)*cff;
+
+              rvfrc(i,j,0)+=cff1+cff2;
+#endif
+        });
 }

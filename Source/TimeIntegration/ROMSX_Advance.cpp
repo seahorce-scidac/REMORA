@@ -186,29 +186,31 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Box bxD = bx;
         bxD.makeSlab(2,0);
         Box gbx1D = bxD;
+        Box gbx2D = bxD;
         gbx1D.grow(IntVect(1,1,0));
+        gbx2D.grow(IntVect(2,2,0));
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_u(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_v(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_r(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_r(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_p(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_p(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pmon_u(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pnom_u(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pmon_v(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pnom_v(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
+        FArrayBox fab_pn(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pm(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_u(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_v(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_u(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_v(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_r(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_r(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_p(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_p(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pmon_u(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pnom_u(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pmon_v(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pnom_v(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_fomn(gbx2D,1,amrex::The_Async_Arena());
+        //FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
         auto FX=fab_FX.array();
@@ -230,7 +232,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto fomn=fab_fomn.array();
 
         //From ana_grid.h and metrics.F
-        amrex::LoopConcurrentOnCpu(gbx2,
+        amrex::LoopConcurrentOnCpu(gbx2D,
         [=] (int i, int j, int  )
             {
               pm(i,j,0)=dxi[0];
@@ -244,8 +246,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             });
 
-        amrex::LoopConcurrentOnCpu(gbx2,
-        [=] (int i, int j, int k)
+        amrex::LoopConcurrentOnCpu(gbx2D,
+        [=] (int i, int j, int )
         {
           //Note: are the comment definitons right? Don't seem to match metrics.f90
           om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
@@ -261,6 +263,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           pnom_u(i,j,0)=1.0;        // (pn(i-1,j)+pn(i,j))/(pm(i-1,j)+pm(i,j))
           pmon_v(i,j,0)=1.0;        // (pm(i,j-1)+pm(i,j))/(pn(i,j-1)+pn(i,j))
           pnom_v(i,j,0)=1.0;        // (pn(i,j-1)+pn(i,j))/(pm(i,j-1)+pm(i,j))
+        });
+
+        amrex::LoopConcurrentOnCpu(gbx2,
+        [=] (int i, int j, int k)
+        {
           Huon(i,j,k,0)=0.0;
           Hvom(i,j,k,0)=0.0;
         });
