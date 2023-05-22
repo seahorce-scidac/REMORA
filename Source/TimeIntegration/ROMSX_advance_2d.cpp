@@ -734,7 +734,7 @@ ROMSX::advance_2d (int lev,
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
                                  cff*(cff1*rhs_ubar(i,j,0)+
                                       cff2*rubar(i,j,0,kstp)-
-                                      cff3*rubar(i,j,ptsk)))*fac;
+                                      cff3*rubar(i,j,0,ptsk)))*fac;
             });
             //END DO
             //END DO
@@ -749,7 +749,7 @@ ROMSX::advance_2d (int lev,
                                  (Dstp(i,j,0)+Dstp(i,j-1,0))+
                                  cff*(cff1*rhs_vbar(i,j,0)+
                                       cff2*rvbar(i,j,0,kstp)-
-                                      cff3*rvbar(i,j,ptsk)))*fac;
+                                      cff3*rvbar(i,j,0,ptsk)))*fac;
             });
             //END DO
             //END DO
