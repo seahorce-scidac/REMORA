@@ -581,8 +581,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_t3.resize(lev+1);
     vec_s3.resize(lev+1);
 
-    vec_hOfTheConfusingName[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); //2d, depth (double check if negative)
-    vec_Zt_avg1[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); //2d, average of the free surface (zeta)
+    vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d, depth (double check if negative)
+    vec_Zt_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d, average of the free surface (zeta)
     vec_s_r[lev].reset(new MultiFab(ba1d,dm,1,IntVect(0,0,0))); // scaled vertical coordinate [0,1] , transforms to z
     vec_z_w[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // z at w points
     vec_z_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // z at r points
@@ -601,25 +601,25 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     // maybe TODO: clean up component indexing in prestep?
     vec_ru[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0))); // RHS u (incl horizontal and vertical advection)
     vec_rv[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0))); // RHS v
-    vec_rufrc[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0))); //2d, (incl advection terms and surface/bottom stresses, integral over the whole columnn, k=0)
-    vec_rvfrc[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0))); //2d, same as above but v
-    vec_sustr[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); //2d, surface stress
-    vec_svstr[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); //2d
-    vec_rdrag[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); //2d, linear drag coefficient [m/s], defined at rho, somehow related to rdrg
-    vec_bustr[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); //2d, bottom stress
-    vec_bvstr[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0)));
+    vec_rufrc[lev].reset(new MultiFab(ba2d,dm,2,IntVect(2,2,0))); //2d, (incl advection terms and surface/bottom stresses, integral over the whole columnn, k=0)
+    vec_rvfrc[lev].reset(new MultiFab(ba2d,dm,2,IntVect(2,2,0))); //2d, same as above but v
+    vec_sustr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d, surface stress
+    vec_svstr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d
+    vec_rdrag[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d, linear drag coefficient [m/s], defined at rho, somehow related to rdrg
+    vec_bustr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d, bottom stress
+    vec_bvstr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
 
     //all 2d -- all associated with the 2D advance
     vec_DU_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d DU: sum(height[incl free surface?] * u)
     vec_DU_avg2[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d like above, but correct(or)?
     vec_DV_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
     vec_DV_avg2[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
-    vec_rubar[lev].reset(new MultiFab(ba,dm,4,IntVect(2,2,0))); // 2d RHS ubar
-    vec_rvbar[lev].reset(new MultiFab(ba,dm,4,IntVect(2,2,0)));
-    vec_rzeta[lev].reset(new MultiFab(ba,dm,4,IntVect(2,2,0))); // 2d RHS zeta
+    vec_rubar[lev].reset(new MultiFab(ba2d,dm,4,IntVect(2,2,0))); // 2d RHS ubar
+    vec_rvbar[lev].reset(new MultiFab(ba2d,dm,4,IntVect(2,2,0)));
+    vec_rzeta[lev].reset(new MultiFab(ba2d,dm,4,IntVect(2,2,0))); // 2d RHS zeta
     vec_ubar[lev].reset(new MultiFab(ba2d,dm,3,IntVect(2,2,0))); // starts off kind of like a depth-averaged u, but exists at more points and more timesteps (b/c fast 2D update) than full u
     vec_vbar[lev].reset(new MultiFab(ba2d,dm,3,IntVect(2,2,0)));
-    vec_zeta[lev].reset(new MultiFab(ba,dm,3,IntVect(2,2,0)));  // 2d free surface
+    vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(2,2,0)));  // 2d free surface
 
     vec_t3[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); //tempstore
     vec_s3[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); //saltstore

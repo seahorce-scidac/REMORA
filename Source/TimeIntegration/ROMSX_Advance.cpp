@@ -183,6 +183,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         gbx1.grow(IntVect(1,1,0));
         gbx11.grow(IntVect(1,1,1));
 
+        Box bxD = bx;
+        bxD.makeSlab(2,0);
+        Box gbx1D = bxD;
+        gbx1D.grow(IntVect(1,1,0));
+
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena());
@@ -261,15 +266,15 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         });
 
         // Set bottom stress as defined in set_vbx.F
-        amrex::ParallelFor(gbx1,
-        [=] (int i, int j, int k)
+        amrex::ParallelFor(gbx1D,
+        [=] (int i, int j, int )
         {
             //DO j=Jstr,Jend
             //  DO i=IstrU,Iend
-            bustr(i,j,k) = 0.5 * (rdrag(i-1,j,k)+rdrag(i,j,k))*(u(i,j,0,nrhs));
+            bustr(i,j,0) = 0.5 * (rdrag(i-1,j,0)+rdrag(i,j,0))*(u(i,j,0,nrhs));
             //DO j=JstrV,Jend
             //  DO i=Istr,Iend
-            bvstr(i,j,k) = 0.5 * (rdrag(i,j-1,k)+rdrag(i,j,k))*(v(i,j,0,nrhs));
+            bvstr(i,j,0) = 0.5 * (rdrag(i,j-1,0)+rdrag(i,j,0))*(v(i,j,0,nrhs));
         });
 
         // updates Huon/Hvom
@@ -347,6 +352,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         first_2d_step=(my_iif==0);
         //Predictor
         predictor_2d_step=true;
+        // updates ubar, vbar, zeta, rhs versions
         advance_2d(lev, mf_u, mf_v, vec_ru[lev], vec_rv[lev],
                    vec_rufrc[lev], vec_rvfrc[lev],
                    vec_Zt_avg1[lev],
