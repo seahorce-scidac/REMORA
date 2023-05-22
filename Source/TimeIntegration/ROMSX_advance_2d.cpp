@@ -402,7 +402,7 @@ ROMSX::advance_2d (int lev,
             });
         }
         } else {
-        amrex::ParallelFor(gbx1D,
+        amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             zeta(i,j,0,knew)=zeta(i,j,0,kstp);
@@ -413,7 +413,7 @@ ROMSX::advance_2d (int lev,
         //  If predictor step, load right-side-term into shared array.
         //
         if (predictor_2d_step) {
-            amrex::ParallelFor(gbx1D,
+            amrex::ParallelFor(gbx2D,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rzeta(i,j,0,krhs)=0.0;
@@ -647,7 +647,7 @@ ROMSX::advance_2d (int lev,
     //
     //  Compute total water column depth.
     //
-    amrex::ParallelFor(gbx1D,
+    amrex::ParallelFor(gbx2D,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
     //DO j=JstrV-1,Jend
