@@ -428,12 +428,15 @@ public:
 
 
     void rho_eos (const amrex::Box& bx,
+                  amrex::Array4<amrex::Real> temp,
+                  amrex::Array4<amrex::Real> salt,
                   amrex::Array4<amrex::Real> rho,
                   amrex::Array4<amrex::Real> rhoA,
                   amrex::Array4<amrex::Real> rhoS,
                   amrex::Array4<amrex::Real> pden,
                   amrex::Array4<amrex::Real> Hz,
-                  const int N);
+                  amrex::Array4<amrex::Real> z_w,
+                  const int nrhs, const int N);
 
     void update_vel_3d (const amrex::Box& bx,
                         const int ioff, const int joff,

@@ -56,6 +56,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab mf_DC(ba,dm,1,IntVect(2,2,1)); //2d missing j coordinate
     MultiFab mf_Hzk(ba,dm,1,IntVect(2,2,1)); //2d missing j coordinate
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
+    std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     //Consider passing these into the advance function or renaming relevant things
     MultiFab mf_u(ba,dm,1,IntVect(2,2,0));
     MultiFab mf_v(ba,dm,1,IntVect(2,2,0));
@@ -148,10 +149,15 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& Huon  = (vec_Huon[lev])->array(mfi);
         Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
         Array4<Real> const& z_r = (mf_z_r)->array(mfi);
+        Array4<Real> const& z_w = (mf_z_w)->array(mfi);
         Array4<Real> const& uold = (U_old).array(mfi);
         Array4<Real> const& vold = (V_old).array(mfi);
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
+        Array4<Real> const& pden = (mf_pden).array(mfi);
+        Array4<Real> const& rho = (mf_rho).array(mfi);
+        Array4<Real> const& rhoA = (mf_rhoA).array(mfi);
+        Array4<Real> const& rhoS = (mf_rhoS).array(mfi);
         Array4<Real> const& tempold = (mf_tempold).array(mfi);
         Array4<Real> const& saltold = (mf_saltold).array(mfi);
         Array4<Real> const& temp = (mf_temp).array(mfi);
@@ -284,7 +290,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         set_massflux_3d(Box(Huon),1,0,uold,Huon,Hz,on_u,nnew);
         set_massflux_3d(Box(Hvom),0,1,vold,Hvom,Hz,om_v,nnew);
 
-        rho_eos(gbx2,rho,rhoA,rhoS,pden,Hz,N);
+        rho_eos(gbx2,temp,salt,rho,rhoA,rhoS,pden,Hz,z_w,nrhs,N);
         Real lambda = 1.0;
         //
         //-----------------------------------------------------------------------
