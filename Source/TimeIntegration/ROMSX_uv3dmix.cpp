@@ -46,9 +46,11 @@ ROMSX::uv3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=JstrV-1,Jend
     //DO i=IstrU-1,Iend
+    // Should these be on ubox/vbox?
     amrex::ParallelFor(bx, ncomp,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
+                // cff depends on k, but UFx and VFe will only be affected by the last cell?
                 const amrex::Real cff = 0.5*Hz(i,j,k) * (pm(i,j,0) / pn(i,j,0) *
                         ((pn(i,  j,0) + pn(i+1,j,0)) * u(i+1,j,k,nrhs)-
                          (pn(i-1,j,0) + pn(i,  j,0)) * u(i  ,j,k,nrhs))-
@@ -56,8 +58,8 @@ ROMSX::uv3dmix  (const Box& bx,
                         ((pm(i,j  ,0)+pm(i,j+1,0))*v(i,j+1,k,nrhs)-
                          (pm(i,j-1,0)+pm(i,j  ,0))*v(i,j  ,k,nrhs)));
                 // ifndef VISC_3DCOEF branch
-                UFx(i,j,0) = on_r(i,j,0)*on_r(i,j,0)*visc2_r(i,j,0)*cff;
-                VFe(i,j,0) = om_r(i,j,0)*om_r(i,j,0)*visc2_r(i,j,0)*cff;
+                UFx(i,j,k) = on_r(i,j,0)*on_r(i,j,0)*visc2_r(i,j,0)*cff;
+                VFe(i,j,k) = om_r(i,j,0)*om_r(i,j,0)*visc2_r(i,j,0)*cff;
             });
 
     //K_LOOP : DO k=1,N(ng)
@@ -72,8 +74,8 @@ ROMSX::uv3dmix  (const Box& bx,
                              ((pn(i  ,j-1,0)+pn(i  ,j,0))*v(i  ,j,k,nrhs)-
                               (pn(i-1,j-1,0)+pn(i-1,j,0))*v(i-1,j,k,nrhs)));
                 // ifndef VISC_3DCOEF branch
-                UFe(i,j,0) = om_p(i,j,0)*om_p(i,j,0)*visc2_p(i,j,0)*cff;
-                VFx(i,j,0) = on_p(i,j,0)*on_p(i,j,0)*visc2_p(i,j,0)*cff;
+                UFe(i,j,k) = om_p(i,j,0)*om_p(i,j,0)*visc2_p(i,j,0)*cff;
+                VFx(i,j,k) = on_p(i,j,0)*on_p(i,j,0)*visc2_p(i,j,0)*cff;
             });
 /*
  Time-step harmonic, S-surfaces viscosity term. Notice that momentum
@@ -87,8 +89,8 @@ ROMSX::uv3dmix  (const Box& bx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 const amrex::Real cff=dt_lev*0.25*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
-                const amrex::Real cff1=0.5*(pn(i-1,j,0)+pn(i,j,0))*(UFx(i,j  ,0)-UFx(i-1,j,0));
-                const amrex::Real cff2=0.5*(pm(i-1,j,0)+pm(i,j,0))*(UFe(i,j+1,0)-UFe(i  ,j,0));
+                const amrex::Real cff1=0.5*(pn(i-1,j,0)+pn(i,j,0))*(UFx(i,j  ,k)-UFx(i-1,j,k));
+                const amrex::Real cff2=0.5*(pm(i-1,j,0)+pm(i,j,0))*(UFe(i,j+1,k)-UFe(i  ,j,k));
                 const amrex::Real cff3=cff*(cff1+cff2);
                 rufrc(i,j,0)=rufrc(i,j,0)+cff1+cff2;
                 u(i,j,k,nnew)=u(i,j,k,nnew)+cff3;
@@ -109,8 +111,8 @@ ROMSX::uv3dmix  (const Box& bx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 const amrex::Real cff=dt_lev*0.25*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
-                const amrex::Real cff1=0.5*(pn(i,j-1,0)+pn(i,j,0))*(VFx(i+1,j,0)-VFx(i,j  ,0));
-                const amrex::Real cff2=0.5*(pm(i,j-1,0)+pm(i,j,0))*(VFe(i  ,j,0)-VFe(i,j-1,0));
+                const amrex::Real cff1=0.5*(pn(i,j-1,0)+pn(i,j,0))*(VFx(i+1,j,k)-VFx(i,j  ,k));
+                const amrex::Real cff2=0.5*(pm(i,j-1,0)+pm(i,j,0))*(VFe(i  ,j,k)-VFe(i,j-1,k));
                 const amrex::Real cff3=cff*(cff1-cff2);
                 rvfrc(i,j,0)=rvfrc(i,j,0)+cff1-cff2;
                 v(i,j,k,nnew)=v(i,j,k,nnew)+cff3;
