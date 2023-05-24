@@ -4,7 +4,7 @@
 using namespace amrex;
 
 void
-ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
+ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, const int joff,
                      Array4<Real> phi,
                      Array4<Real> Hphi,
                      Array4<Real> Hz, Array4<Real> om_v_or_on_u,
@@ -16,8 +16,7 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
     const int Mm = Geom(0).Domain().size()[1];
     auto phi_bxD=phi_bx;
     phi_bxD.makeSlab(2,0);
-    Box validbx(IntVect(AMREX_D_DECL(phi_bx.smallEnd(0)+2,phi_bx.smallEnd(1)+2,phi_bx.smallEnd(2))),
-                       IntVect(AMREX_D_DECL(phi_bx.bigEnd(0)-2,phi_bx.bigEnd(1)-2,phi_bx.bigEnd(2))));
+
     //Copied depth of water column calculation from DepthStretchTransform
     //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column DC(i,j,-1), and
     // incorrect vertical mean CF(i,j,-1)
@@ -32,12 +31,13 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
             {
                 FC(i,j,k)=0.0;
             });
+    //This takes advantage of Hz being an extra grow cell size
     amrex::LoopOnCpu(phi_bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 DC(i,j,k)=0.5*om_v_or_on_u(i,j,0)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
             });
-    amrex::LoopOnCpu(validbx,
+    amrex::LoopOnCpu(valid_bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
@@ -49,7 +49,7 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
     bool EWPeriodic = geomdata.isPeriodic(0);
     // Note this loop is in the opposite direction in k in ROMS but does not
     // appear to affect results
-    amrex::ParallelFor(validbx,
+    amrex::ParallelFor(valid_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1=DC(i,j,-1);

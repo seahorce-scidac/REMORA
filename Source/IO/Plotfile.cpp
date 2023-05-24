@@ -87,7 +87,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
 
     const Vector<std::string> varnames = PlotFileVarNames(plot_var_names);
     const int ncomp_mf = varnames.size();
-    const auto ngrow_vars = IntVect(1,1,0);
+    const auto ngrow_vars = IntVect(NGROW-1,NGROW-1,0);
 
     // We fillpatch here because some of the derived quantities require derivatives
     //     which require ghost cells to be filled

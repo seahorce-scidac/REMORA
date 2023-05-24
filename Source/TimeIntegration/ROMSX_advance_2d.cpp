@@ -100,9 +100,9 @@ ROMSX::advance_2d (int lev,
         Box gbx11 = bx;
         Box gbx2 = bx;
         //make only gbx be grown to match multifabs
-        gbx2.grow(IntVect(2,2,0));
-        gbx1.grow(IntVect(1,1,0));
-        gbx11.grow(IntVect(1,1,1));
+        gbx2.grow(IntVect(NGROW,NGROW,0));
+        gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+        gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
         Box bxD = bx;
         Box ubxD = surroundingNodes(bx,0);
         Box vbxD = surroundingNodes(bx,1);
@@ -111,8 +111,8 @@ ROMSX::advance_2d (int lev,
         vbxD.makeSlab(2,0);
         Box gbx1D = bxD;
         Box gbx2D = bxD;
-        gbx1D.grow(IntVect(1,1,0));
-        gbx2D.grow(IntVect(2,2,0));
+        gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
+        gbx2D.grow(IntVect(NGROW,NGROW,0));
         //AKA
         //ubxD.setRange(2,0);
         //vbxD.setRange(2,0);
@@ -231,7 +231,7 @@ ROMSX::advance_2d (int lev,
         {
             Real cff=.5*on_u(i,j,0);
             //todo: HACKHACKHACK may not work for evolve_free_surface=1 or flat_bathymetry=0
-            Real cff1=i-1>=0 ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
+            Real cff1=i-1>=NGROW ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
         amrex::ParallelFor(gbx2D,
@@ -239,7 +239,7 @@ ROMSX::advance_2d (int lev,
         {
             Real cff=.5*om_v(i,j,0);
             //todo: HACKHACKHACK may not work for evolve_free_surface=1 or flat_bathymetry=0
-            Real cff1=j-1>=0 ? cff*(Drhs(i,j,0)+Drhs(i,j-1,0)) : om_v(i,j,0)*Drhs(i,j,0);
+            Real cff1=j-1>=NGROW ? cff*(Drhs(i,j,0)+Drhs(i,j-1,0)) : om_v(i,j,0)*Drhs(i,j,0);
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
         });
         if(predictor_2d_step)

@@ -17,7 +17,7 @@ ROMSX::t3dmix  (const Box& bx,
     //-----------------------------------------------------------------------
 
     Box gbx2 = bx;
-    gbx2.grow(IntVect(2,2,0));
+    gbx2.grow(IntVect(NGROW,NGROW,0));
     int ncomp = 1;
 
     FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena());

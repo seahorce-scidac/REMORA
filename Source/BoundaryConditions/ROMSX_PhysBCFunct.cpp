@@ -43,7 +43,7 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
             // We must make copies of these MultiFabs onto mf's boxArray for when this operator is
             // called for a MultiFab mf that doesn't have the same boxArray
             BoxArray mf_nodal_grids = mf.boxArray();
-            mf_nodal_grids.convert(IntVect(1,1,1));
+            mf_nodal_grids.convert(IntVect(NGROW-1,NGROW-1,NGROW-1));
             bool OnSameGrids = ( (mf_nodal_grids       == m_z_phys_nd->boxArray()        ) &&
                                  (mf.DistributionMap() == m_z_phys_nd->DistributionMap() ) );
             if (!OnSameGrids) {
@@ -84,7 +84,7 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
                 if (m_z_phys_nd)
                 {
                     BoxArray mf_nodal_grids = mf.boxArray();
-                    mf_nodal_grids.convert(IntVect(1,1,1));
+                    mf_nodal_grids.convert(IntVect(NGROW-1,NGROW-1,NGROW-1));
                     bool OnSameGrids = ( (mf_nodal_grids       == m_z_phys_nd->boxArray()        ) &&
                                          (mf.DistributionMap() == m_z_phys_nd->DistributionMap() ) );
                     if (OnSameGrids) {

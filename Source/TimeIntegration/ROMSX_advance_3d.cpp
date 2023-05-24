@@ -86,10 +86,10 @@ ROMSX::advance_3d (int lev,
         Box gbx2 = bx;
         Box gbx21 = bx;
         //make only gbx be grown to match multifabs
-        gbx21.grow(IntVect(2,2,1));
-        gbx2.grow(IntVect(2,2,0));
-        gbx1.grow(IntVect(1,1,0));
-        gbx11.grow(IntVect(1,1,1));
+        gbx21.grow(IntVect(NGROW,NGROW,NGROW-1));
+        gbx2.grow(IntVect(NGROW,NGROW,0));
+        gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+        gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         Box ubx = surroundingNodes(bx,0);
         Box vbx = surroundingNodes(bx,1);
@@ -191,14 +191,14 @@ ROMSX::advance_3d (int lev,
        fab_CF.setVal(0.0,gbx21);
        vert_mean_3d(bx,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
 
-       update_massflux_3d(Box(Huon),1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
+       update_massflux_3d(Box(Huon),bx,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
         amrex::ParallelFor(Box(ubar),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 ubar(i,j,k,0) = DC(i,j,-1)*DU_avg1(i,j,0);
                 ubar(i,j,k,1) = ubar(i,j,k,0);
             });
-       update_massflux_3d(Box(Hvom),0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
+	update_massflux_3d(Box(Hvom),bx,0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
         amrex::ParallelFor(Box(vbar),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -343,10 +343,10 @@ Print()<<FArrayBox(tempold)<<std::endl;
         Box gbx2 = bx;
         Box gbx21 = bx;
         //make only gbx be grown to match multifabs
-        gbx21.grow(IntVect(2,2,1));
-        gbx2.grow(IntVect(2,2,0));
-        gbx1.grow(IntVect(1,1,0));
-        gbx11.grow(IntVect(1,1,1));
+        gbx21.grow(IntVect(NGROW,NGROW,NGROW-1));
+        gbx2.grow(IntVect(NGROW,NGROW,0));
+        gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+        gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         Box ubx = surroundingNodes(bx,0);
         Box vbx = surroundingNodes(bx,1);

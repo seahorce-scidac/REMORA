@@ -21,6 +21,7 @@ ROMSX::rhs_3d (const Box& bx,
                int nrhs, int N)
 {
     //copy the tilebox
+    Box gbx0 = bx;
     Box gbx1 = bx;
     Box gbx11 = bx;
     Box gbx2 = bx;
@@ -33,14 +34,15 @@ ROMSX::rhs_3d (const Box& bx,
     Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
                    IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
     //make only gbx be grown to match multifabs
-    gbx2.grow(IntVect(2,2,0));
-    gbx1.grow(IntVect(1,1,0));
-    gbx11.grow(IntVect(1,1,1));
+    gbx2.grow(IntVect(NGROW,NGROW,0));
+    gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+    gbx0.grow(IntVect(NGROW-2,NGROW-2,0));
+    gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
     Box bxD = bx;
     bxD.makeSlab(2,0);
     Box gbx1D = bxD;
-    gbx1D.grow(IntVect(1,1,0));
+    gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
 
     //
     // Scratch space
@@ -181,7 +183,7 @@ ROMSX::rhs_3d (const Box& bx,
             VFe(i,j,k) = 0.25 * (cff1+Gadv*cff) * (Hvom(i,j  ,k)+ Hvom(i,j+1,k) +
                          0.5  *            Gadv * (Hvee(i,j  ,k)+ Hvee(i,j+1,k)));
         });
-
+        //This uses W being an extra grow cell sized
         amrex::ParallelFor(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {

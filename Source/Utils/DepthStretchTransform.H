@@ -64,9 +64,9 @@ ROMSX::set_2darrays (int lev)
         Box gbx11 = bx;
         Box gbx2 = bx;
         //make only gbx be grown to match multifabs
-        gbx2.grow(IntVect(2,2,0));
-        gbx1.grow(IntVect(1,1,0));
-        gbx11.grow(IntVect(1,1,1));
+        gbx2.grow(IntVect(NGROW,NGROW,0));
+        gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+        gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         FArrayBox fab_DC(gbx11,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx11,1,amrex::The_Async_Arena());
@@ -105,6 +105,7 @@ ROMSX::set_2darrays (int lev)
                 DC(i,j,k)=0.0;
                 CF(i,j,k)=0.0;
             });
+
         amrex::LoopOnCpu(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -137,7 +138,7 @@ void ROMSX::set_vmix (int lev)
       Array4<Real> const& Akv = (mf_Akv)->array(mfi);
       Array4<Real> const& z_w = (mf_z_w)->array(mfi);
       Box bx = mfi.tilebox();
-      bx.grow(IntVect(2,2,0));
+      bx.grow(IntVect(NGROW,NGROW,0));
       const auto & geomdata = Geom(lev).data();
       int ncomp = 1;
 
@@ -189,7 +190,7 @@ ROMSX::set_smflux(int lev, Real time)
     else if(EWPeriodic) {
         mf_svstr->setVal(0.0);
     }
-    print_state(*mf_svstr,IntVect(AMREX_D_DECL(1,1,0)));
+    print_state(*mf_svstr,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
 
 }
 void
@@ -218,11 +219,11 @@ ROMSX::set_depth (int lev)
       Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
-      gbx2.grow(IntVect(2,2,0));
+      gbx2.grow(IntVect(NGROW,NGROW,0));
       Box gbx21 = bx;
-      gbx21.grow(IntVect(2,2,1));
+      gbx21.grow(IntVect(NGROW,NGROW,NGROW-1));
       Box gbx22 = bx;
-      gbx22.grow(IntVect(2,2,2));
+      gbx22.grow(IntVect(NGROW,NGROW,NGROW));
       Array4<Real> const& h  = (mf_h)->array(mfi);
       Array4<Real> const& Zt_avg1  = (mf_Zt_avg1)->array(mfi);
       const auto & geomdata = Geom(lev).data();
@@ -425,7 +426,7 @@ void ROMSX::set_hmixcoef (int lev) {
         Array4<Real> const& diff2_salt = (mf_diff2_salt)->array(mfi);
         Array4<Real> const& diff2_temp = (mf_diff2_temp)->array(mfi);
         Box bx = mfi.tilebox();
-        bx.grow(IntVect(2,2,0));
+        bx.grow(IntVect(NGROW,NGROW,0));
         int ncomp = 1;
 
         amrex::LoopConcurrentOnCpu(bx, ncomp,
@@ -453,7 +454,7 @@ void ROMSX::set_drag (int lev) {
         Array4<Real> const& rdrag = (mf_rdrag)->array(mfi);
         Array4<Real> const& hOfTheConfusingName = (mf_hOfTheConfusingName)->array(mfi);
         Box bx = mfi.tilebox();
-        bx.grow(IntVect(2,2,0));
+        bx.grow(IntVect(NGROW,NGROW,0));
         int ncomp = 1;
 
         // Functional form given in ana_drag.h, ifdef UPWELLING and UV_LDRAG

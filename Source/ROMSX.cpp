@@ -157,7 +157,7 @@ ROMSX::Evolve ()
 
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
                        << " DT = " << dt[0]  << std::endl;
-        print_state(vars_new[lev][Vars::xvel],IntVect(AMREX_D_DECL(2,2,2)));
+        print_state(vars_new[lev][Vars::xvel],IntVect(AMREX_D_DECL(NGROW,NGROW,NGROW)));
         if (plot_int_1 > 0 && (step+1) % plot_int_1 == 0) {
             last_plot_file_step_1 = step+1;
             WritePlotFile(1,plot_var_names_1);
@@ -421,9 +421,13 @@ ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMa
 {
     Vector<MultiFab> tmp_lev_new(Vars::NumTypes);
     Vector<MultiFab> tmp_lev_old(Vars::NumTypes);
-
+#if NGROW==2
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order);
+#else
+    int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+2;
+    int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
+#endif
 
     tmp_lev_new[Vars::cons].define(ba, dm, Cons::NumVars, ngrow_state);
     tmp_lev_old[Vars::cons].define(ba, dm, Cons::NumVars, ngrow_state);
@@ -475,8 +479,13 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 
     // The number of ghost cells for density must be 1 greater than that for velocity
     //     so that we can go back in forth between velocity and momentum on all faces
+#if NGROW==2
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order);
+#else
+    int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+2;
+    int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
+#endif
 
     auto& lev_new = vars_new[lev];
     auto& lev_old = vars_old[lev];
@@ -581,48 +590,48 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_t3.resize(lev+1);
     vec_s3.resize(lev+1);
 
-    vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d, depth (double check if negative)
-    vec_Zt_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d, average of the free surface (zeta)
+    vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, depth (double check if negative)
+    vec_Zt_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, average of the free surface (zeta)
     vec_s_r[lev].reset(new MultiFab(ba1d,dm,1,IntVect(0,0,0))); // scaled vertical coordinate [0,1] , transforms to z
-    vec_z_w[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // z at w points
-    vec_z_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // z at r points
-    vec_y_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); // y at r points
-    vec_x_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); // x at r points
-    vec_Hz[lev].reset(new MultiFab(ba,dm,1,IntVect(3,3,3))); // like in ROMS, thickness of cell in z
-    vec_Huon[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // mass flux for u component
-    vec_Hvom[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // mass flux for v component
-    vec_Akv[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // vertical mixing coefficient (.in)
-    vec_visc3d_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // not used
+    vec_z_w[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at w points
+    vec_z_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at r points
+    vec_y_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // y at r points
+    vec_x_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // x at r points
+    vec_Hz[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
+    vec_Huon[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // mass flux for u component
+    vec_Hvom[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
+    vec_Akv[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
+    vec_visc3d_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // not used
     // check dimensionality
-    vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // harmonic viscosity at psi points -- difference to 3d?
-    vec_visc2_r[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // harmonic viscosity at rho points
-    vec_diff2_salt[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // harmonic diffusivity salt
-    vec_diff2_temp[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); // harmonic diffusivity temperature
+    vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?
+    vec_visc2_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at rho points
+    vec_diff2_salt[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic diffusivity salt
+    vec_diff2_temp[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature
     // maybe TODO: clean up component indexing in prestep?
-    vec_ru[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0))); // RHS u (incl horizontal and vertical advection)
-    vec_rv[lev].reset(new MultiFab(ba,dm,2,IntVect(2,2,0))); // RHS v
-    vec_rufrc[lev].reset(new MultiFab(ba2d,dm,2,IntVect(2,2,0))); //2d, (incl advection terms and surface/bottom stresses, integral over the whole columnn, k=0)
-    vec_rvfrc[lev].reset(new MultiFab(ba2d,dm,2,IntVect(2,2,0))); //2d, same as above but v
-    vec_sustr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d, surface stress
-    vec_svstr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d
-    vec_rdrag[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d, linear drag coefficient [m/s], defined at rho, somehow related to rdrg
-    vec_bustr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d, bottom stress
-    vec_bvstr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
+    vec_ru[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,0))); // RHS u (incl horizontal and vertical advection)
+    vec_rv[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,0))); // RHS v
+    vec_rufrc[lev].reset(new MultiFab(ba2d,dm,2,IntVect(NGROW,NGROW,0))); //2d, (incl advection terms and surface/bottom stresses, integral over the whole columnn, k=0)
+    vec_rvfrc[lev].reset(new MultiFab(ba2d,dm,2,IntVect(NGROW,NGROW,0))); //2d, same as above but v
+    vec_sustr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, surface stress
+    vec_svstr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d
+    vec_rdrag[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, linear drag coefficient [m/s], defined at rho, somehow related to rdrg
+    vec_bustr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, bottom stress
+    vec_bvstr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
 
     //all 2d -- all associated with the 2D advance
-    vec_DU_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d DU: sum(height[incl free surface?] * u)
-    vec_DU_avg2[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0))); //2d like above, but correct(or)?
-    vec_DV_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
-    vec_DV_avg2[lev].reset(new MultiFab(ba2d,dm,1,IntVect(2,2,0)));
-    vec_rubar[lev].reset(new MultiFab(ba2d,dm,4,IntVect(2,2,0))); // 2d RHS ubar
-    vec_rvbar[lev].reset(new MultiFab(ba2d,dm,4,IntVect(2,2,0)));
-    vec_rzeta[lev].reset(new MultiFab(ba2d,dm,4,IntVect(2,2,0))); // 2d RHS zeta
-    vec_ubar[lev].reset(new MultiFab(ba2d,dm,3,IntVect(2,2,0))); // starts off kind of like a depth-averaged u, but exists at more points and more timesteps (b/c fast 2D update) than full u
-    vec_vbar[lev].reset(new MultiFab(ba2d,dm,3,IntVect(2,2,0)));
-    vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(2,2,0)));  // 2d free surface
+    vec_DU_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d DU: sum(height[incl free surface?] * u)
+    vec_DU_avg2[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d like above, but correct(or)?
+    vec_DV_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_DV_avg2[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_rubar[lev].reset(new MultiFab(ba2d,dm,4,IntVect(NGROW,NGROW,0))); // 2d RHS ubar
+    vec_rvbar[lev].reset(new MultiFab(ba2d,dm,4,IntVect(NGROW,NGROW,0)));
+    vec_rzeta[lev].reset(new MultiFab(ba2d,dm,4,IntVect(NGROW,NGROW,0))); // 2d RHS zeta
+    vec_ubar[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW,NGROW,0))); // starts off kind of like a depth-averaged u, but exists at more points and more timesteps (b/c fast 2D update) than full u
+    vec_vbar[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW,NGROW,0)));
+    vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW,NGROW,0)));  // 2d free surface
 
-    vec_t3[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); //tempstore
-    vec_s3[lev].reset(new MultiFab(ba,dm,1,IntVect(2,2,0))); //saltstore
+    vec_t3[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); //tempstore
+    vec_s3[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); //saltstore
 
     set_depth(lev);
     set_vmix(lev);

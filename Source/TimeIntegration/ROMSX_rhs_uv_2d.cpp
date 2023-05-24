@@ -29,8 +29,8 @@ ROMSX::rhs_2d (const Box& bx,
     Box vbx = surroundingNodes(bx,1);
 
     //make only gbx be grown to match multifabs
-    gbx2.grow(IntVect(2,2,0));
-    gbx1.grow(IntVect(1,1,0));
+    gbx2.grow(IntVect(NGROW,NGROW,0));
+    gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
 
     //
     // Scratch space

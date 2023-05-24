@@ -45,6 +45,7 @@
 #endif
 
 #define NUM_PRIM         NVAR-1
+#define NGROW          2
 
 namespace BCVars {
     enum {

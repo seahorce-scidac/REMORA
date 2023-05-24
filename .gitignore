@@ -49,3 +49,4 @@ AMReX_buildInfo.cpp
 
 Backtrace.*
 *.bak
+*.orig

@@ -10,14 +10,14 @@ std::string inputs_name = "";
 
 using namespace amrex;
 
-// Set the refine_grid_layout flags to (1,1,0) by default
-// since the ROMSX default is different from the amrex default (1,1,1)
+// Set the refine_grid_layout flags to (NGROW-1,NGROW-1,0) by default
+// since the ROMSX default is different from the amrex default (NGROW-1,NGROW-1,NGROW-1)
 // Also set max_grid_size to very large since the only reason for
 // chopping grids is if Nprocs > Ngrids
 void add_par () {
    ParmParse pp("amr");
 
-   // Set the refine_grid_layout flags to (1,1,0) by default
+   // Set the refine_grid_layout flags to (NGROW-1,NGROW-1,0) by default
    pp.add("refine_grid_layout_x",1);
    pp.add("refine_grid_layout_y",1);
    pp.add("refine_grid_layout_z",0);

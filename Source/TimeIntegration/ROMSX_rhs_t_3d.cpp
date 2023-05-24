@@ -29,9 +29,9 @@ ROMSX::rhs_t_3d (const Box& bx,
     Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
                    IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
     //make only gbx be grown to match multifabs
-    gbx2.grow(IntVect(2,2,0));
-    gbx1.grow(IntVect(1,1,0));
-    gbx11.grow(IntVect(1,1,1));
+    gbx2.grow(IntVect(NGROW,NGROW,0));
+    gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+    gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
     //
     // Scratch space

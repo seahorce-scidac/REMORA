@@ -284,7 +284,7 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
    for (amrex::MFIter fai(*plotMF[lev]); fai.isValid(); ++fai) {
        Box box = fai.tilebox();
-       box.grow(IntVect(1,1,0));
+       box.grow(IntVect(NGROW-1,NGROW-1,0));
        if (subdomain.contains(box)||true) {
            long unsigned numpts = box.numPts();
            auto array_version = plotMF[lev]->array(fai);

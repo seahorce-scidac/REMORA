@@ -52,19 +52,19 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //-----------------------------------------------------------------------
 
     //Only used locally, probably should be rearranged into FArrayBox declaration
-    MultiFab mf_AK(ba,dm,1,IntVect(2,2,0)); //2d missing j coordinate
-    MultiFab mf_DC(ba,dm,1,IntVect(2,2,1)); //2d missing j coordinate
-    MultiFab mf_Hzk(ba,dm,1,IntVect(2,2,1)); //2d missing j coordinate
+    MultiFab mf_AK(ba,dm,1,IntVect(NGROW,NGROW,0)); //2d missing j coordinate
+    MultiFab mf_DC(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
+    MultiFab mf_Hzk(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     //Consider passing these into the advance function or renaming relevant things
-    MultiFab mf_u(ba,dm,1,IntVect(2,2,0));
-    MultiFab mf_v(ba,dm,1,IntVect(2,2,0));
-    MultiFab mf_w(ba,dm,1,IntVect(2,2,0));
-    MultiFab mf_pden(ba,dm,1,IntVect(2,2,0));
-    MultiFab mf_rho(ba,dm,1,IntVect(2,2,0));
-    MultiFab mf_rhoS(ba,dm,1,IntVect(2,2,0));
-    MultiFab mf_rhoA(ba,dm,1,IntVect(2,2,0));
+    MultiFab mf_u(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_v(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_w(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_pden(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_rhoS(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_rhoA(ba,dm,1,IntVect(NGROW,NGROW,0));
     std::unique_ptr<MultiFab>& mf_ru = vec_ru[lev];
     std::unique_ptr<MultiFab>& mf_rv = vec_rv[lev];
     std::unique_ptr<MultiFab>& mf_rufrc = vec_rufrc[lev];
@@ -88,8 +88,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 #else
     MultiFab mf_saltold(S_old, amrex::make_alias, Temp_comp, 1);
 #endif
-    MultiFab mf_rw(ba,dm,1,IntVect(2,2,0));
-    MultiFab mf_W(ba,dm,1,IntVect(3,3,0));
+    MultiFab mf_rw(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_W(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
 
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
@@ -97,20 +97,20 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     std::unique_ptr<MultiFab>& mf_diff2_salt = vec_diff2_salt[lev];
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
-    mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
-    mf_v.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
-    mf_pden.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
-    mf_rho.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
-    mf_rhoS.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
-    mf_rhoA.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_v.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_pden.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_rho.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_rhoS.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_rhoA.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_w.setVal(0);
     mf_DC.setVal(0);
-    mf_w.setVal(0.e34,IntVect(AMREX_D_DECL(1,1,0)));
+    mf_w.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
 
-    MultiFab::Copy(mf_u,U_new,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
-    MultiFab::Copy(mf_v,V_new,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
-    MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
-    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),IntVect(AMREX_D_DECL(2,2,0)));
+    MultiFab::Copy(mf_u,U_new,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
+    MultiFab::Copy(mf_v,V_new,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
+    MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
+    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     mf_u.FillBoundary();
     mf_v.FillBoundary();
     mf_w.FillBoundary();
@@ -130,7 +130,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     int iic = istep[lev];
     int ntfirst = 0;
     if(iic==ntfirst&&false)
-        MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(2,2,2)));
+        MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,NGROW)));
     set_smflux(lev,t_old[lev]);
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
@@ -193,16 +193,16 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Box ubx = surroundingNodes(bx,0);
         Box vbx = surroundingNodes(bx,1);
         //make only gbx be grown to match multifabs
-        gbx2.grow(IntVect(2,2,0));
-        gbx1.grow(IntVect(1,1,0));
-        gbx11.grow(IntVect(1,1,1));
+        gbx2.grow(IntVect(NGROW,NGROW,0));
+        gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+        gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         Box bxD = bx;
         bxD.makeSlab(2,0);
         Box gbx1D = bxD;
         Box gbx2D = bxD;
-        gbx1D.grow(IntVect(1,1,0));
-        gbx2D.grow(IntVect(2,2,0));
+        gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
+        gbx2D.grow(IntVect(NGROW,NGROW,0));
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
@@ -404,10 +404,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                mf_AK, mf_DC,
                mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], ncomp, N, dt_lev);
 
-    MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     U_new.FillBoundary();
 
-    MultiFab::Copy(V_new,mf_v,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    MultiFab::Copy(V_new,mf_v,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     V_new.FillBoundary();
 
     mf_temp.FillBoundary();
@@ -417,7 +417,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     vec_t3[lev]->FillBoundary();
     vec_s3[lev]->FillBoundary();
     //We are not storing computed W aka Omega
-    //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(1,1,0)));
+    //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     //    W_new.FillBoundary();
     //    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
 
