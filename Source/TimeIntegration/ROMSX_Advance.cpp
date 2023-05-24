@@ -20,9 +20,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab& V_new = vars_new[lev][Vars::yvel];
     MultiFab& W_new = vars_new[lev][Vars::zvel];
 
-    U_old.FillBoundary();
-    V_old.FillBoundary();
-    W_old.FillBoundary();
+    U_old.FillBoundary(geom[lev].periodicity());
+    V_old.FillBoundary(geom[lev].periodicity());
+    W_old.FillBoundary(geom[lev].periodicity());
     //    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
     //    MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
     //    MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
@@ -111,19 +111,19 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab::Copy(mf_v,V_new,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
-    mf_u.FillBoundary();
-    mf_v.FillBoundary();
-    mf_w.FillBoundary();
-    mf_W.FillBoundary();
-    mf_tempold.FillBoundary();
-    mf_temp.FillBoundary();
-    mf_saltold.FillBoundary();
-    mf_salt.FillBoundary();
+    mf_u.FillBoundary(geom[lev].periodicity());
+    mf_v.FillBoundary(geom[lev].periodicity());
+    mf_w.FillBoundary(geom[lev].periodicity());
+    mf_W.FillBoundary(geom[lev].periodicity());
+    mf_tempold.FillBoundary(geom[lev].periodicity());
+    mf_temp.FillBoundary(geom[lev].periodicity());
+    mf_saltold.FillBoundary(geom[lev].periodicity());
+    mf_salt.FillBoundary(geom[lev].periodicity());
 
     mf_rw.setVal(0.0);
     mf_W.setVal(0.0);
-    U_old.FillBoundary();
-    V_old.FillBoundary();
+    U_old.FillBoundary(geom[lev].periodicity());
+    V_old.FillBoundary(geom[lev].periodicity());
     mf_rufrc->setVal(0);
     mf_rvfrc->setVal(0);
 
@@ -355,14 +355,14 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
     } // MFIter
 
-    mf_temp.FillBoundary();
-    mf_salt.FillBoundary();
-    mf_tempold.FillBoundary();
-    mf_saltold.FillBoundary();
-    vec_t3[lev]->FillBoundary();
-    vec_s3[lev]->FillBoundary();
-    vec_Huon[lev]->FillBoundary();
-    vec_Hvom[lev]->FillBoundary();
+    mf_temp.FillBoundary(geom[lev].periodicity());
+    mf_salt.FillBoundary(geom[lev].periodicity());
+    mf_tempold.FillBoundary(geom[lev].periodicity());
+    mf_saltold.FillBoundary(geom[lev].periodicity());
+    vec_t3[lev]->FillBoundary(geom[lev].periodicity());
+    vec_s3[lev]->FillBoundary(geom[lev].periodicity());
+    vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
+    vec_Hvom[lev]->FillBoundary(geom[lev].periodicity());
 
     bool predictor_2d_step=true;
     bool first_2d_step=true;
@@ -405,17 +405,17 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], ncomp, N, dt_lev);
 
     MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    U_new.FillBoundary();
+    U_new.FillBoundary(geom[lev].periodicity());
 
     MultiFab::Copy(V_new,mf_v,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    V_new.FillBoundary();
+    V_new.FillBoundary(geom[lev].periodicity());
 
-    mf_temp.FillBoundary();
-    mf_salt.FillBoundary();
-    mf_tempold.FillBoundary();
-    mf_saltold.FillBoundary();
-    vec_t3[lev]->FillBoundary();
-    vec_s3[lev]->FillBoundary();
+    mf_temp.FillBoundary(geom[lev].periodicity());
+    mf_salt.FillBoundary(geom[lev].periodicity());
+    mf_tempold.FillBoundary(geom[lev].periodicity());
+    mf_saltold.FillBoundary(geom[lev].periodicity());
+    vec_t3[lev]->FillBoundary(geom[lev].periodicity());
+    vec_s3[lev]->FillBoundary(geom[lev].periodicity());
     //We are not storing computed W aka Omega
     //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     //    W_new.FillBoundary();

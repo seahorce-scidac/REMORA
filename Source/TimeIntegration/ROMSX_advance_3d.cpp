@@ -299,8 +299,8 @@ Print()<<FArrayBox(tempold)<<std::endl;
        //Print()<<FArrayBox(salt)<<std::endl;
     }
     }
-    mf_temp.FillBoundary();
-    mf_salt.FillBoundary();
+    mf_temp.FillBoundary(geom[lev].periodicity());
+    mf_salt.FillBoundary(geom[lev].periodicity());
 
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {

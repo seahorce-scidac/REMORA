@@ -177,6 +177,14 @@ ROMSX::advance_2d (int lev,
 
         auto weight1 = vec_weight1.dataPtr();
         auto weight2 = vec_weight2.dataPtr();
+        //Print() << "(0,0,0 start of advance2d" <<std::endl;
+        //Print() << "(0,0,0 my_iif: " << my_iif <<std::endl;
+        //Print() << "(0,0,0 iic: " << iic << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(ubar) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(vbar) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(rubar) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(rvbar) << std::endl;
+
         //From ana_grid.h and metrics.F
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -500,7 +508,11 @@ ROMSX::advance_2d (int lev,
         // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
         coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
 #endif
-
+//        Print() << "(0,0,0 end of advance2d" <<std::endl;
+//        Print().SetPrecision(18) << FArrayBox(ubar) << std::endl;
+//        Print().SetPrecision(18) << FArrayBox(vbar) << std::endl;
+//        Print().SetPrecision(18) << FArrayBox(rhs_ubar) << std::endl;
+//        Print().SetPrecision(18) << FArrayBox(rhs_vbar) << std::endl;
         //Add in horizontal harmonic viscosity.
         // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
         amrex::ParallelFor(gbx1,
@@ -520,8 +532,6 @@ ROMSX::advance_2d (int lev,
         //Coupling from 3d to 2d
         /////////Coupling of 3d updates to 2d predictor-corrector
         //todo: my_iif=>my_my_iif iic => icc
-        Print() << "(0,0,0 my_iif: " << my_iif <<std::endl;
-        Print() << "(0,0,0 iic: " << iic << std::endl;
         if (my_iif==0&&predictor_2d_step) {
             if (iic==ntfirst) {
                 //Print() << "(0,0,0 before update" << std::endl;
@@ -798,4 +808,15 @@ ROMSX::advance_2d (int lev,
         //Print().SetPrecision(18) << FArrayBox(rvbar) << std::endl;
         //Print().SetPrecision(18) << FArrayBox(rzeta) << std::endl;
     }
+    mf_DU_avg1->FillBoundary(geom[lev].periodicity());
+    mf_DU_avg2->FillBoundary(geom[lev].periodicity());
+    mf_DV_avg1->FillBoundary(geom[lev].periodicity());
+    mf_DV_avg2->FillBoundary(geom[lev].periodicity());
+    mf_rubar->FillBoundary(geom[lev].periodicity());
+    mf_rvbar->FillBoundary(geom[lev].periodicity());
+    mf_rzeta->FillBoundary(geom[lev].periodicity());
+    mf_ubar->FillBoundary(geom[lev].periodicity());
+    mf_vbar->FillBoundary(geom[lev].periodicity());
+    mf_zeta->FillBoundary(geom[lev].periodicity());
+
 }
