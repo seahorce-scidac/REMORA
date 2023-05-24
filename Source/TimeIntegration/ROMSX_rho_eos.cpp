@@ -7,7 +7,7 @@ void
 ROMSX::rho_eos (const Box& phi_bx,
                 Array4<Real> temp , Array4<Real> salt,
                 Array4<Real> rho,
-                Array4<Real> rhoA, 
+                Array4<Real> rhoA,
                 Array4<Real> rhoS,
                 Array4<Real> pden,
                 Array4<Real> Hz,
@@ -40,9 +40,9 @@ ROMSX::rho_eos (const Box& phi_bx,
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        rho(i,j,k)=R0-                                          
+        rho(i,j,k)=R0-
             R0*Tcoef*(temp(i,j,k,nrhs)-T0);
-        rho(i,j,k)=rho(i,j,k)+                                      
+        rho(i,j,k)=rho(i,j,k)+
             R0*Scoef*(salt(i,j,k,nrhs)-S0);
         rho(i,j,k)=rho(i,j,k)-1000.0_rt;
         pden(i,j,k)=rho(i,j,k);
