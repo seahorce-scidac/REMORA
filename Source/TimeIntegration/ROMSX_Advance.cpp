@@ -384,9 +384,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                     vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
                    vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
                    ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
-        //Corrector
+        //Corrector. Skip it on last fast step
         predictor_2d_step=false;
-        advance_2d(lev, mf_u, mf_v, mf_rhoS, mf_rhoA, vec_ru[lev], vec_rv[lev],
+        if (my_iif < nfast_counter - 1) {
+            advance_2d(lev, mf_u, mf_v, mf_rhoS, mf_rhoA, vec_ru[lev], vec_rv[lev],
                    vec_rufrc[lev], vec_rvfrc[lev],
                    vec_Zt_avg1[lev],
                    vec_DU_avg1[lev], vec_DU_avg2[lev],
@@ -395,7 +396,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                     vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
                    vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
                    ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
+        }
     }
+
+    set_depth(lev);
 
     advance_3d(lev, mf_u, mf_v, mf_tempold, mf_saltold, mf_temp, mf_salt, vec_t3[lev], vec_s3[lev], vec_ru[lev], vec_rv[lev],
                vec_DU_avg1[lev], vec_DU_avg2[lev],
@@ -421,7 +425,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //    W_new.FillBoundary();
     //    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
 
-    set_depth(lev);
     set_drag(lev);
 
 }
