@@ -62,12 +62,13 @@ ROMSX::advance_2d (int lev,
             indx1=next_indx1;
     }
     int ptsk = 3-kstp;
-    Print()<<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<predictor_2d_step<<"\t"<<(my_iif<=1)<<std::endl;
     knew-=1;
     krhs-=1;
     kstp-=1;
     indx1-=1;
     ptsk-=1;
+    Print() << "indices " <<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<predictor_2d_step<<"\t"<<(my_iif<=1)<<std::endl;
+
 
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -316,10 +317,10 @@ ROMSX::advance_2d (int lev,
 
         //
         //  Do not perform the actual time stepping during the auxiliary
-        //  (nfast(ng)+1) time step.
+        //  (nfast(ng)+1) time step. Jump to next box
         //
 
-        if (my_iif>=nfast) return;
+        if (my_iif>=nfast-1) continue;
         //Load new free-surface values into shared array at both predictor
         //and corrector steps
         if(solverChoice.evolve_free_surface) {
@@ -508,11 +509,11 @@ ROMSX::advance_2d (int lev,
         // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
         coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
 #endif
-//        Print() << "(0,0,0 end of advance2d" <<std::endl;
-//        Print().SetPrecision(18) << FArrayBox(ubar) << std::endl;
-//        Print().SetPrecision(18) << FArrayBox(vbar) << std::endl;
-//        Print().SetPrecision(18) << FArrayBox(rhs_ubar) << std::endl;
-//        Print().SetPrecision(18) << FArrayBox(rhs_vbar) << std::endl;
+        //Print() << "(10,10,0 mid of advance2d" <<std::endl;
+        //Print().SetPrecision(18) << FArrayBox(ubar) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(vbar) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(rhs_ubar) << std::endl;
+        //Print().SetPrecision(18) << FArrayBox(rhs_vbar) << std::endl;
         //Add in horizontal harmonic viscosity.
         // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
         amrex::ParallelFor(gbx1,
