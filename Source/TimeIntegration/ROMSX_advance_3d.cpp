@@ -183,8 +183,13 @@ ROMSX::advance_3d (int lev,
         // End previous
 
        // NOTE: DC is only used as scratch in vert_visc_3d -- no need to pass or return a value
+       // NOTE: may not actually need to set these to zero
+       mf_DC[mfi].setVal(0.0,gbx21);
+       fab_CF.setVal(0.0,gbx21);
        vert_visc_3d(gbx1,bx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
+       mf_DC[mfi].setVal(0.0,gbx21);
+       fab_CF.setVal(0.0,gbx21);
        vert_visc_3d(gbx1,bx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
        mf_DC[mfi].setVal(0.0,gbx21);
@@ -209,7 +214,7 @@ ROMSX::advance_3d (int lev,
                 vbar(i,j,k,0) = DC(i,j,-1)*DV_avg1(i,j,0);
                 vbar(i,j,k,1) = vbar(i,j,k,0);
             });
-    bool test_functionality=false;
+    bool test_functionality=true;
     if(test_functionality) {
     //
     //------------------------------------------------------------------------
