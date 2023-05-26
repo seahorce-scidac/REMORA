@@ -608,8 +608,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_diff2_salt[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic diffusivity salt
     vec_diff2_temp[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature
     // maybe TODO: clean up component indexing in prestep?
-    vec_ru[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,0))); // RHS u (incl horizontal and vertical advection)
-    vec_rv[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,0))); // RHS v
+    vec_ru[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS u (incl horizontal and vertical advection)
+    vec_rv[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS v
     vec_rufrc[lev].reset(new MultiFab(ba2d,dm,2,IntVect(NGROW,NGROW,0))); //2d, (incl advection terms and surface/bottom stresses, integral over the whole columnn, k=0)
     vec_rvfrc[lev].reset(new MultiFab(ba2d,dm,2,IntVect(NGROW,NGROW,0))); //2d, same as above but v
     vec_sustr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, surface stress

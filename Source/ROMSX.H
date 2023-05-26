@@ -516,6 +516,7 @@ public:
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
     void vert_visc_3d (const amrex::Box& bx,
+                       const amrex::Box& valid_bx,
                        const int ioff, const int joff,
                        amrex::Array4<amrex::Real> phi,
                        amrex::Array4<amrex::Real> Hz,

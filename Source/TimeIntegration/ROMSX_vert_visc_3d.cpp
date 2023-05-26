@@ -8,7 +8,7 @@ using namespace amrex;
 //
 
 void
-ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
+ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, const int joff,
                      Array4<Real> phi,
                      Array4<Real> Hz, Array4<Real> Hzk,
                      Array4<Real> oHz,
@@ -47,7 +47,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
 
     // Begin vertical viscosity term
     // NOTE: vertical viscosity term for tracers is identical except AK=Akt
-    amrex::ParallelFor(phi_bx,
+    amrex::ParallelFor(valid_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //
@@ -58,15 +58,17 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
         Real cff;
         Real cff1=1.0/6.0;
 
-        if(k>=1)
+        if(k-1>=0)
             FC(i,j,k)=cff1*Hzk(i,j,k  )-dt_lev*AK(i,j,k-1)*oHz(i,j,k  );
         else
             FC(i,j,k)=cff1*Hzk(i,j,k  );
+	//printf("%d %d %d %d %25.25g FC\n",i,j,k,0,FC(i,j,k));
+	//	amrex::Abort("first index");
         if(k<=N-1)
          {
              CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt_lev*AK(i,j,k+1)*oHz(i,j,k+1);
          }
-
+         //printf("%d %d %d %d %25.25g CF\n",i,j,k,0,CF(i,j,k));
          //
          //  LU decomposition and forward substitution.
          //
@@ -87,7 +89,9 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
              CF(i,j,k) *= cff;
              DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*DC(i,j,k-1));
          }
-
+	 //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g %25.25g BC cff CF DC\n",i,j,k,0,BC(i,j,k),cff,CF(i,j,k),FC(i,j,k),DC(i,j,k));
+	 //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g %25.25g cff u(k+1) u(k)FC DC(k-1)\n",i,j,k,0,cff,phi(i,j,k+1,nnew),phi(i,j,k,nnew),FC(i,j,k),DC(i,j,k-1));
+	 //exit(1);
     });
 
     amrex::ParallelFor(phi_bx,

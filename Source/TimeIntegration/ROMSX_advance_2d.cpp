@@ -533,7 +533,7 @@ ROMSX::advance_2d (int lev,
         //Coupling from 3d to 2d
         /////////Coupling of 3d updates to 2d predictor-corrector
         //todo: my_iif=>my_my_iif iic => icc
-        if (my_iif==0&&predictor_2d_step) {
+        if (first_2d_step&&predictor_2d_step) {
             if (iic==ntfirst) {
                 //Print() << "(0,0,0 before update" << std::endl;
                 //Print() << FArrayBox(rhs_ubar) << std::endl;
@@ -547,7 +547,7 @@ ROMSX::advance_2d (int lev,
                     //DO i=IstrU,Iend
                     rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
                     rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+rufrc(i,j,0);
-                    ru(i,j,0,nstp)=rufrc(i,j,0);
+                    ru(i,j,-1,nstp)=rufrc(i,j,0);
                 });
                 //END DO
                 //END DO
@@ -558,7 +558,7 @@ ROMSX::advance_2d (int lev,
                     //DO i=Istr,Iend
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+rvfrc(i,j,0);
-                    rv(i,j,0,nstp)=rvfrc(i,j,0);
+                    rv(i,j,-1,nstp)=rvfrc(i,j,0);
                 });
                 //Print() << "(0,0,0 after update" << std::endl;
                 //Print() << FArrayBox(rhs_ubar) << std::endl;
@@ -575,8 +575,8 @@ ROMSX::advance_2d (int lev,
                     //DO i=IstrU,Iend
                       rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
                       rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
-                          1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,0,nnew);
-                      ru(i,j,0,nstp)=rufrc(i,j,0);
+                          1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,nnew);
+                      ru(i,j,-1,nstp)=rufrc(i,j,0);
                 });
                                    //END DO
                                    //          END DO
@@ -587,8 +587,8 @@ ROMSX::advance_2d (int lev,
                     //DO i=Istr,Iend
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
-                        1.5_rt*rvfrc(i,j,0)-0.5_rt*rv(i,j,0,nnew);
-                    rv(i,j,0,nstp)=rvfrc(i,j,0);
+                        1.5_rt*rvfrc(i,j,0)-0.5_rt*rv(i,j,-1,nnew);
+                    rv(i,j,-1,nstp)=rvfrc(i,j,0);
                 });
                                    //END DO
                                    //          END DO
@@ -604,9 +604,9 @@ ROMSX::advance_2d (int lev,
                     rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
                     rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
                         cff1*rufrc(i,j,0)-
-                        cff2*ru(i,j,0,nnew)+
-                        cff3*ru(i,j,0,nstp);
-                    ru(i,j,0,nstp)=rufrc(i,j,0);
+                        cff2*ru(i,j,-1,nnew)+
+                        cff3*ru(i,j,-1,nstp);
+                    ru(i,j,-1,nstp)=rufrc(i,j,0);
                 });
                   //END DO
                   //END DO
@@ -618,9 +618,9 @@ ROMSX::advance_2d (int lev,
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
                           cff1*rvfrc(i,j,0)-
-                          cff2*rv(i,j,0,nnew)+
-                          cff3*rv(i,j,0,nstp);
-                    rv(i,j,0,nstp)=rvfrc(i,j,0);
+                          cff2*rv(i,j,-1,nnew)+
+                          cff3*rv(i,j,-1,nstp);
+                    rv(i,j,-1,nstp)=rvfrc(i,j,0);
                 });
                 //END DO
                 //END DO

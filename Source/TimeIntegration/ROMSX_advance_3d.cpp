@@ -164,24 +164,28 @@ ROMSX::advance_3d (int lev,
           cff=0.25*dt_lev*23.0/12.0;
         }
 
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                u(i,j,k) += cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs);
-                v(i,j,k) += cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs);
+	    //printf("%d %d %d %d %25.25g %25.25g %25.25g u(k+1) u(k) ru(k)\n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew),ru(i,j,k,nrhs));
+                u(i,j,k) += i-1>=NGROW ? cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * ru(i,j,k,nrhs) ;
+         //if (k+1 <= N)
+	    //printf("%d %d %d %d %25.25g %25.25g u(k+1) u(k)\n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew));
+	 v(i,j,k) += j-1>=NGROW ? cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * rv(i,j,k,nrhs);
 
                 //ifdef SPLINES_VVISC is true
-                u(i,j,k) *= 2.0 / (Hz(i-1,j,k) + Hz(i,j,k));
-
+                u(i,j,k) *= i-1>=0 ? 2.0 / (Hz(i-1,j,k) + Hz(i,j,k)) :  1.0 / (Hz(i,j,k));
+         //if (k+1 <= N)
+	    //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g u(k+1) u(k) Hz(i-1) Hz(i) \n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew), Hz(i-1,j,k), Hz(i,j,k));
                 //if(j>0&&j<Mm-1)
-                v(i,j,k) *= 2.0 / (Hz(i,j-1,k) + Hz(i,j,k));
+                v(i,j,k) *= j-1>=0 ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
             });
         // End previous
 
        // NOTE: DC is only used as scratch in vert_visc_3d -- no need to pass or return a value
-       vert_visc_3d(ubx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+       vert_visc_3d(gbx1,bx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
-       vert_visc_3d(vbx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+       vert_visc_3d(gbx1,bx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
        mf_DC[mfi].setVal(0.0,gbx21);
        fab_CF.setVal(0.0,gbx21);
@@ -412,10 +416,10 @@ Print()<<FArrayBox(tempold)<<std::endl;
           on_u(i,j,0)=1.0/dxi[1];
         });
        //Print()<<FArrayBox(temp)<<std::endl;
-       vert_visc_3d(gbx1,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+       vert_visc_3d(gbx1,bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
        //Print()<<FArrayBox(temp)<<std::endl;
        //Print()<<FArrayBox(salt)<<std::endl;
-       vert_visc_3d(gbx1,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+       vert_visc_3d(gbx1,bx,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
        //Print()<<FArrayBox(salt)<<std::endl;
        //if(iic==ntfirst+2)
        //exit(1);
