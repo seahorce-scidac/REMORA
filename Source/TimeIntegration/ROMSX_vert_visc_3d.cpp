@@ -47,7 +47,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
 
     // Begin vertical viscosity term
     // NOTE: vertical viscosity term for tracers is identical except AK=Akt
-    amrex::ParallelFor(valid_bx,
+    amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //
