@@ -167,16 +167,16 @@ ROMSX::advance_3d (int lev,
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-	    //printf("%d %d %d %d %25.25g %25.25g %25.25g u(k+1) u(k) ru(k)\n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew),ru(i,j,k,nrhs));
+            //printf("%d %d %d %d %25.25g %25.25g %25.25g u(k+1) u(k) ru(k)\n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew),ru(i,j,k,nrhs));
                 u(i,j,k) += i-1>=NGROW ? cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * ru(i,j,k,nrhs) ;
          //if (k+1 <= N)
-	    //printf("%d %d %d %d %25.25g %25.25g u(k+1) u(k)\n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew));
-	 v(i,j,k) += j-1>=NGROW ? cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * rv(i,j,k,nrhs);
+            //printf("%d %d %d %d %25.25g %25.25g u(k+1) u(k)\n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew));
+         v(i,j,k) += j-1>=NGROW ? cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * rv(i,j,k,nrhs);
 
                 //ifdef SPLINES_VVISC is true
                 u(i,j,k) *= i-1>=0 ? 2.0 / (Hz(i-1,j,k) + Hz(i,j,k)) :  1.0 / (Hz(i,j,k));
          //if (k+1 <= N)
-	    //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g u(k+1) u(k) Hz(i-1) Hz(i) \n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew), Hz(i-1,j,k), Hz(i,j,k));
+            //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g u(k+1) u(k) Hz(i-1) Hz(i) \n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew), Hz(i-1,j,k), Hz(i,j,k));
                 //if(j>0&&j<Mm-1)
                 v(i,j,k) *= j-1>=0 ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
             });
