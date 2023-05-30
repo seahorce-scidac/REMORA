@@ -231,6 +231,8 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
     else if (which == 2)
        plotfilename = Concatenate(plot_file_2, istep[0], 5);
 
+    mf[0].FillBoundary(geom[0].periodicity());
+
     if (finest_level == 0)
     {
         if (plotfile_type == "amrex") {
