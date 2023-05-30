@@ -53,7 +53,7 @@ ROMSX::prestep_t_3d (const Box& bx,
         //
         W(i,j,k)=0.0;
     });
-    amrex::ParallelFor(ubx,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //  Starting with zero vertical velocity at the bottom, integrate
@@ -67,7 +67,7 @@ ROMSX::prestep_t_3d (const Box& bx,
             W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k));
         }
     });
-    amrex::ParallelFor(vbx,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //  Starting with zero vertical velocity at the bottom, integrate

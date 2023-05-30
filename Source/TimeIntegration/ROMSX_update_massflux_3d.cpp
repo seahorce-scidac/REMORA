@@ -37,7 +37,7 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
             {
                 DC(i,j,k)=0.5*om_v_or_on_u(i,j,0)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
             });
-    amrex::LoopOnCpu(valid_bx,
+    amrex::LoopOnCpu(phi_bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
@@ -49,7 +49,7 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
     bool EWPeriodic = geomdata.isPeriodic(0);
     // Note this loop is in the opposite direction in k in ROMS but does not
     // appear to affect results
-    amrex::ParallelFor(valid_bx,
+    amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1=DC(i,j,-1);
