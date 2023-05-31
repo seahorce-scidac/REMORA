@@ -163,7 +163,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     } else {
         cff=(1-GammaT)*dt_lev;
         cff1=0.5+GammaT;
-        cff2=0.5+GammaT;
+        cff2=0.5-GammaT;
     }
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
