@@ -69,13 +69,13 @@ ROMSX::rhs_t_3d (const Box& bx,
         FE(i,j,k)=0.0;
     });
 
-    amrex::ParallelFor(ubx,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
         FX(i,j,k)=tempstore(i,j,k,nrhs)-tempstore(i-1,j,k,nrhs);
     });
-    amrex::ParallelFor(ubx,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //Upstream3
@@ -89,7 +89,7 @@ ROMSX::rhs_t_3d (const Box& bx,
     //HACK to avoid using the wrong index of t (using upstream3)
     Real max_Huon=FArrayBox(Huon).max();
     Real min_Huon=FArrayBox(Huon).min();
-    amrex::ParallelFor(ubx,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
 #if 1
@@ -101,13 +101,13 @@ ROMSX::rhs_t_3d (const Box& bx,
 #endif
     });
 
-    amrex::ParallelFor(vbx,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
         FE(i,j,k)=tempstore(i,j,k,nrhs)-tempstore(i,j-1,k,nrhs);
     });
-    amrex::ParallelFor(vbx,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //Upstream3
@@ -121,7 +121,7 @@ ROMSX::rhs_t_3d (const Box& bx,
     //HACK to avoid using the wrong index of t (using upstream3)
     Real max_Hvom=FArrayBox(Hvom).max();
     Real min_Hvom=FArrayBox(Hvom).min();
-    amrex::ParallelFor(vbx,
+    amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
 #if 1

@@ -23,15 +23,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     U_old.FillBoundary(geom[lev].periodicity());
     V_old.FillBoundary(geom[lev].periodicity());
     W_old.FillBoundary(geom[lev].periodicity());
-    //    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
-    //    MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
-    //    MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
-    //    MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
+    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
+    MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
+    MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
+    MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
     //////////    //pre_step3d corrections to boundaries
-
-    auto& lev_old = vars_old[lev];
-    // Moving terrain
-    FillPatch(lev, time, lev_old);
 
     const BoxArray&            ba = S_old.boxArray();
     const DistributionMapping& dm = S_old.DistributionMap();
@@ -60,6 +56,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //Consider passing these into the advance function or renaming relevant things
     MultiFab mf_u(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_v(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_uold(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_vold(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_w(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_pden(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
@@ -99,6 +97,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //    read uninitialized data on ghost values in setting the bc's on the velocities
     mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_v.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_uold.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_vold.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_pden.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rho.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rhoS.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
@@ -109,10 +109,14 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     MultiFab::Copy(mf_u,U_new,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     MultiFab::Copy(mf_v,V_new,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
+    MultiFab::Copy(mf_uold,U_old,0,0,U_old.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
+    MultiFab::Copy(mf_vold,V_old,0,0,V_old.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     mf_u.FillBoundary(geom[lev].periodicity());
     mf_v.FillBoundary(geom[lev].periodicity());
+    mf_uold.FillBoundary(geom[lev].periodicity());
+    mf_vold.FillBoundary(geom[lev].periodicity());
     mf_w.FillBoundary(geom[lev].periodicity());
     mf_W.FillBoundary(geom[lev].periodicity());
     mf_tempold.FillBoundary(geom[lev].periodicity());
@@ -150,8 +154,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
         Array4<Real> const& z_r = (mf_z_r)->array(mfi);
         Array4<Real> const& z_w = (mf_z_w)->array(mfi);
-        Array4<Real> const& uold = (U_old).array(mfi);
-        Array4<Real> const& vold = (V_old).array(mfi);
+        Array4<Real> const& uold = (mf_uold).array(mfi);
+        Array4<Real> const& vold = (mf_vold).array(mfi);
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
         Array4<Real> const& pden = (mf_pden).array(mfi);
@@ -317,7 +321,14 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         prestep_t_3d(bx, uold, vold, u, v, saltold, saltold, salt, salt, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                      pm, pn, W, DC, FC, saltstore, saltstore, FX, FE, z_r, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-
+       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+       amrex::PrintToFile("uold").SetPrecision(18)<<FArrayBox(uold)<<std::endl;
+       amrex::PrintToFile("vold").SetPrecision(18)<<FArrayBox(vold)<<std::endl;
+       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
         //
         //-----------------------------------------------------------------------
         // prestep_uv_3d
@@ -327,10 +338,20 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         prestep_uv_3d(bx, uold, vold, u, v, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                           pm, pn, W, DC, FC, z_r, sustr, svstr, bustr, bvstr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-
+       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
         t3dmix(bx, temp, diff2_temp, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
         t3dmix(bx, salt, diff2_salt, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
-
+       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
 #ifdef UV_COR
         //
         //-----------------------------------------------------------------------
@@ -353,6 +374,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
         //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
         uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
+       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
     } // MFIter
 
     mf_temp.FillBoundary(geom[lev].periodicity());
@@ -384,7 +411,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                     vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
                    vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
                    ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
-        //Corrector. Skip it on last fast step
+
+       //Corrector. Skip it on last fast step
         predictor_2d_step=false;
         if (my_iif < nfast_counter - 1) {
             advance_2d(lev, mf_u, mf_v, mf_rhoS, mf_rhoA, vec_ru[lev], vec_rv[lev],
@@ -413,6 +441,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     MultiFab::Copy(V_new,mf_v,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     V_new.FillBoundary(geom[lev].periodicity());
+
+    MultiFab::Copy(U_old,mf_uold,0,0,U_old.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    U_old.FillBoundary(geom[lev].periodicity());
+
+    MultiFab::Copy(V_old,mf_vold,0,0,V_old.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    V_old.FillBoundary(geom[lev].periodicity());
 
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
