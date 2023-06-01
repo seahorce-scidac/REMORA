@@ -292,10 +292,10 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         {
             //DO j=Jstr,Jend
             //  DO i=IstrU,Iend
-            bustr(i,j,0) = 0.5 * (rdrag(i-1,j,0)+rdrag(i,j,0))*(u(i,j,0,nrhs));
+            bustr(i,j,0) = 0.5 * (rdrag(i-1,j,0)+rdrag(i,j,0))*(uold(i,j,0,nrhs));
             //DO j=JstrV,Jend
             //  DO i=Istr,Iend
-            bvstr(i,j,0) = 0.5 * (rdrag(i,j-1,0)+rdrag(i,j,0))*(v(i,j,0,nrhs));
+            bvstr(i,j,0) = 0.5 * (rdrag(i,j-1,0)+rdrag(i,j,0))*(vold(i,j,0,nrhs));
         });
 
         // updates Huon/Hvom
@@ -425,6 +425,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     //    W_new.FillBoundary();
     //    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
 
-    set_drag(lev);
+//    set_drag(lev);
 
 }
