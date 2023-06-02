@@ -22,8 +22,6 @@ ROMSX::uv3dmix  (const Box& bx,
 
     Box gbx2 = bx;
     gbx2.grow(IntVect(NGROW,NGROW,0));
-    Box gbx1 = bx;
-    gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
     int ncomp = 1;
 
     FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena());
@@ -49,7 +47,7 @@ ROMSX::uv3dmix  (const Box& bx,
     //DO j=JstrV-1,Jend
     //DO i=IstrU-1,Iend
     // Should these be on ubox/vbox?
-    amrex::ParallelFor(gbx1, ncomp,
+    amrex::ParallelFor(bx, ncomp,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 // cff depends on k, but UFx and VFe will only be affected by the last cell?
@@ -67,7 +65,7 @@ ROMSX::uv3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=Jstr,Jend+1
     //DO i=Istr,Iend+1
-    amrex::ParallelFor(gbx1, ncomp,
+    amrex::ParallelFor(bx, ncomp,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 const amrex::Real cff = 0.125 * (Hz(i-1,j  ,k)+Hz(i,j  ,k)+
@@ -87,7 +85,9 @@ ROMSX::uv3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=Jstr,Jend
     //DO i=IstrU,Iend
-    amrex::ParallelFor(gbx1, ncomp,
+           amrex::PrintToFile("rufrc").SetPrecision(18)<<FArrayBox(rufrc)<<std::endl;
+       amrex::PrintToFile("rvfrc").SetPrecision(18)<<FArrayBox(rvfrc)<<std::endl;
+    amrex::ParallelFor(bx, ncomp,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 const amrex::Real cff=dt_lev*0.25*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
@@ -109,7 +109,7 @@ ROMSX::uv3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=JstrV,Jend
     //DO i=Istr,Iend
-    amrex::ParallelFor(gbx1, ncomp,
+    amrex::ParallelFor(bx, ncomp,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 const amrex::Real cff=dt_lev*0.25*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
