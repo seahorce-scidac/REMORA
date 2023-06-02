@@ -534,8 +534,8 @@ ROMSX::advance_2d (int lev,
         //Coupling from 3d to 2d
         /////////Coupling of 3d updates to 2d predictor-corrector
         //todo: my_iif=>my_my_iif iic => icc
-        if (my_iif==0&&predictor_2d_step) {
-            if (first_2d_step) {
+        if (first_2d_step&&predictor_2d_step) {
+            if (iic==ntfirst) {
                 //Print() << "(0,0,0 before update" << std::endl;
                 //Print() << FArrayBox(rhs_ubar) << std::endl;
                 //Print() << FArrayBox(rhs_vbar) << std::endl;
