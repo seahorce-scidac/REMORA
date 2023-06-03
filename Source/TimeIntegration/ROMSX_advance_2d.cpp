@@ -72,6 +72,7 @@ ROMSX::advance_2d (int lev,
 
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
+
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
         Array4<Real> const& rhoS = (mf_rhoS).array(mfi);
@@ -243,6 +244,10 @@ ROMSX::advance_2d (int lev,
             Real cff1=i-1>=NGROW ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
+	amrex::PrintToFile("DUon").SetPrecision(18)<<FArrayBox(DUon)<<std::endl;
+	amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
+	amrex::PrintToFile("Drhs").SetPrecision(18)<<FArrayBox(Drhs)<<std::endl;
+	amrex::PrintToFile("on_u").SetPrecision(18)<<FArrayBox(on_u)<<std::endl;
         amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -266,7 +271,8 @@ ROMSX::advance_2d (int lev,
                     DU_avg1(i,j,0)=0.0;
                     DU_avg2(i,j,0)=cff2*DUon(i,j,0);
                 });
-                amrex::ParallelFor(gbx2D,
+		amrex::PrintToFile("DU_avg1").SetPrecision(18)<<FArrayBox(DU_avg1)<<std::endl;
+		amrex::ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     DV_avg1(i,j,0)=0.0;
@@ -289,6 +295,8 @@ ROMSX::advance_2d (int lev,
                     DU_avg1(i,j,0)=DU_avg1(i,j,0)+cff1*DUon(i,j,0);
                     DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2*DUon(i,j,0);
                 });
+		amrex::PrintToFile("DUon").SetPrecision(18)<<FArrayBox(DUon)<<std::endl;
+		amrex::PrintToFile("DU_avg1").SetPrecision(18)<<FArrayBox(DU_avg1)<<std::endl;
                 amrex::ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
@@ -492,14 +500,21 @@ ROMSX::advance_2d (int lev,
         END IF
       END DO
 */
-        // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
+       amrex::PrintToFile("rhs_ubar").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
+       amrex::PrintToFile("rhs_vbar").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
+       // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
         //
         //-----------------------------------------------------------------------
         // rhs_2d
         //-----------------------------------------------------------------------
         //
         rhs_2d(bxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs, N);
-
+       amrex::PrintToFile("rhs_ubar").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
+       amrex::PrintToFile("rhs_vbar").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
+       amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
+       amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
+       amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(Drhs)<<std::endl;
+       amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(fomn)<<std::endl;
 #ifdef UV_COR
         // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
         //
@@ -510,7 +525,9 @@ ROMSX::advance_2d (int lev,
         // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
         coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
 #endif
-        //Print() << "(10,10,0 mid of advance2d" <<std::endl;
+       amrex::PrintToFile("rhs_ubar").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
+       amrex::PrintToFile("rhs_vbar").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
+       //Print() << "(10,10,0 mid of advance2d" <<std::endl;
         //Print().SetPrecision(18) << FArrayBox(ubar) << std::endl;
         //Print().SetPrecision(18) << FArrayBox(vbar) << std::endl;
         //Print().SetPrecision(18) << FArrayBox(rhs_ubar) << std::endl;
@@ -525,7 +542,11 @@ ROMSX::advance_2d (int lev,
         });
 
         uv3dmix(bxD, ubar, vbar, rhs_ubar, rhs_vbar, visc2_p, visc2_r, Drhs_p, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
-        //Print() << "(0,0,0 after uv3dmix" << std::endl;
+       amrex::PrintToFile("rhs_ubar").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
+       amrex::PrintToFile("rhs_vbar").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
+       amrex::PrintToFile("rufrc").SetPrecision(18)<<FArrayBox(rufrc)<<std::endl;
+       amrex::PrintToFile("rvfrc").SetPrecision(18)<<FArrayBox(rvfrc)<<std::endl;
+       //Print() << "(0,0,0 after uv3dmix" << std::endl;
         //Print() << FArrayBox(rhs_ubar) << std::endl;
         //Print() << FArrayBox(rhs_vbar) << std::endl;
         //Print() << FArrayBox(rufrc) << std::endl;
@@ -577,7 +598,7 @@ ROMSX::advance_2d (int lev,
                       rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
                       rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
                           1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,nnew);
-                      ru(i,j,-1,nstp)=rufrc(i,j,0);
+                      ru(i,j,-1,1)=rufrc(i,j,0);
                 });
                                    //END DO
                                    //          END DO
@@ -589,7 +610,7 @@ ROMSX::advance_2d (int lev,
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
                         1.5_rt*rvfrc(i,j,0)-0.5_rt*rv(i,j,-1,nnew);
-                    rv(i,j,-1,nstp)=rvfrc(i,j,0);
+                    rv(i,j,-1,1)=rvfrc(i,j,0);
                 });
                                    //END DO
                                    //          END DO
@@ -597,7 +618,9 @@ ROMSX::advance_2d (int lev,
                 Real cff1=23.0_rt/12.0_rt;
                 Real cff2=16.0_rt/12.0_rt;
                 Real cff3= 5.0_rt/12.0_rt;
-                amrex::ParallelFor(gbx1D,
+       amrex::PrintToFile("ru").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+       amrex::PrintToFile("rv").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+       amrex::ParallelFor(gbx1D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     //DO j=Jstr,Jend
@@ -605,10 +628,11 @@ ROMSX::advance_2d (int lev,
                     rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
                     rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
                         cff1*rufrc(i,j,0)-
-                        cff2*ru(i,j,-1,nnew)+
-                        cff3*ru(i,j,-1,nstp);
-                    ru(i,j,-1,nstp)=rufrc(i,j,0);
+                        cff2*ru(i,j,-1,1)+
+                        cff3*ru(i,j,-1,0);
+                    ru(i,j,-1,1)=rufrc(i,j,0);
                 });
+		
                   //END DO
                   //END DO
                 amrex::ParallelFor(gbx1D,
@@ -619,11 +643,13 @@ ROMSX::advance_2d (int lev,
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
                           cff1*rvfrc(i,j,0)-
-                          cff2*rv(i,j,-1,nnew)+
-                          cff3*rv(i,j,-1,nstp);
-                    rv(i,j,-1,nstp)=rvfrc(i,j,0);
+                          cff2*rv(i,j,-1,1)+
+                          cff3*rv(i,j,-1,0);
+                    rv(i,j,-1,1)=rvfrc(i,j,0);
                 });
-                //END DO
+       amrex::PrintToFile("ru").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+       amrex::PrintToFile("rv").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+       //END DO
                 //END DO
             }
         } else {
@@ -658,7 +684,8 @@ ROMSX::advance_2d (int lev,
             //END DO
             //END DO
         }
-
+       amrex::PrintToFile("rhs_ubar").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
+       amrex::PrintToFile("rhs_vbar").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
         //Print().SetPrecision(18) << FArrayBox(rhs_vbar) << std::endl;
 
         //
