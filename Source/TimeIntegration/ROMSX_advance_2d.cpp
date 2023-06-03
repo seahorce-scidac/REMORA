@@ -244,10 +244,10 @@ ROMSX::advance_2d (int lev,
             Real cff1=i-1>=NGROW ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
-	amrex::PrintToFile("DUon").SetPrecision(18)<<FArrayBox(DUon)<<std::endl;
-	amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-	amrex::PrintToFile("Drhs").SetPrecision(18)<<FArrayBox(Drhs)<<std::endl;
-	amrex::PrintToFile("on_u").SetPrecision(18)<<FArrayBox(on_u)<<std::endl;
+        amrex::PrintToFile("DUon").SetPrecision(18)<<FArrayBox(DUon)<<std::endl;
+        amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
+        amrex::PrintToFile("Drhs").SetPrecision(18)<<FArrayBox(Drhs)<<std::endl;
+        amrex::PrintToFile("on_u").SetPrecision(18)<<FArrayBox(on_u)<<std::endl;
         amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -271,8 +271,8 @@ ROMSX::advance_2d (int lev,
                     DU_avg1(i,j,0)=0.0;
                     DU_avg2(i,j,0)=cff2*DUon(i,j,0);
                 });
-		amrex::PrintToFile("DU_avg1").SetPrecision(18)<<FArrayBox(DU_avg1)<<std::endl;
-		amrex::ParallelFor(gbx2D,
+                amrex::PrintToFile("DU_avg1").SetPrecision(18)<<FArrayBox(DU_avg1)<<std::endl;
+                amrex::ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     DV_avg1(i,j,0)=0.0;
@@ -295,8 +295,8 @@ ROMSX::advance_2d (int lev,
                     DU_avg1(i,j,0)=DU_avg1(i,j,0)+cff1*DUon(i,j,0);
                     DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2*DUon(i,j,0);
                 });
-		amrex::PrintToFile("DUon").SetPrecision(18)<<FArrayBox(DUon)<<std::endl;
-		amrex::PrintToFile("DU_avg1").SetPrecision(18)<<FArrayBox(DU_avg1)<<std::endl;
+                amrex::PrintToFile("DUon").SetPrecision(18)<<FArrayBox(DUon)<<std::endl;
+                amrex::PrintToFile("DU_avg1").SetPrecision(18)<<FArrayBox(DU_avg1)<<std::endl;
                 amrex::ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
@@ -597,8 +597,11 @@ ROMSX::advance_2d (int lev,
                     //DO i=IstrU,Iend
                       rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
                       rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
-                          1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,nnew);
+                          1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,0);
                       ru(i,j,-1,1)=rufrc(i,j,0);
+                      /*                    Real r_swap= ru(i,j,-1,1);
+                    ru(i,j,-1,1) = ru(i,j,-1,0);
+                    ru(i,j,-1,0) = r_swap;*/
                 });
                                    //END DO
                                    //          END DO
@@ -609,8 +612,11 @@ ROMSX::advance_2d (int lev,
                     //DO i=Istr,Iend
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
-                        1.5_rt*rvfrc(i,j,0)-0.5_rt*rv(i,j,-1,nnew);
+                        1.5_rt*rvfrc(i,j,0)-0.5_rt*rv(i,j,-1,0);
                     rv(i,j,-1,1)=rvfrc(i,j,0);
+                    /*              Real r_swap= rv(i,j,-1,1);
+                    rv(i,j,-1,1) = rv(i,j,-1,0);
+                    rv(i,j,-1,0) = r_swap;*/
                 });
                                    //END DO
                                    //          END DO
@@ -631,8 +637,10 @@ ROMSX::advance_2d (int lev,
                         cff2*ru(i,j,-1,1)+
                         cff3*ru(i,j,-1,0);
                     ru(i,j,-1,1)=rufrc(i,j,0);
+                    Real r_swap= ru(i,j,-1,1);
+                    ru(i,j,-1,1) = ru(i,j,-1,0);
+                    ru(i,j,-1,0) = r_swap;
                 });
-		
                   //END DO
                   //END DO
                 amrex::ParallelFor(gbx1D,
@@ -646,6 +654,9 @@ ROMSX::advance_2d (int lev,
                           cff2*rv(i,j,-1,1)+
                           cff3*rv(i,j,-1,0);
                     rv(i,j,-1,1)=rvfrc(i,j,0);
+                    Real r_swap= rv(i,j,-1,1);
+                    rv(i,j,-1,1) = rv(i,j,-1,0);
+                    rv(i,j,-1,0) = r_swap;
                 });
        amrex::PrintToFile("ru").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
        amrex::PrintToFile("rv").SetPrecision(18)<<FArrayBox(rv)<<std::endl;

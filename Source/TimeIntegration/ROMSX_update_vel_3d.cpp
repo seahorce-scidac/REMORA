@@ -128,7 +128,7 @@ ROMSX::update_vel_3d (const Box& vel_bx,
 
             } else if (k == N) {
                 cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-                cff4=dt_lev*bstr(i,j,0)-FC(i,j,k-1);
+                cff4=dt_lev*sstr(i,j,0)-FC(i,j,k-1);
 
             } else {
                 cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
