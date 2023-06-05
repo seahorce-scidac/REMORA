@@ -1,9 +1,3 @@
-commit 95f6b28d24416c78a0e40c20eb219f6f772d291e
-Author: Jean M. Sexton <jmsexton@lbl.gov>
-Date:   Tue May 16 10:49:06 2023 -0700
-
-    Comparison setup
-
 diff --git a/Compilers/Linux-ftn-gnu.mk b/Compilers/Linux-ftn-gnu.mk
 index 56d6d421..ee8a7cfd 100755
 --- a/Compilers/Linux-ftn-gnu.mk
@@ -188,6 +182,127 @@ index 264a236f..5c090ad5 100755
            END DO
          END DO
        END DO
+diff --git a/ROMS/Nonlinear/step2d_LF_AM3.h b/ROMS/Nonlinear/step2d_LF_AM3.h
+index fc6ce6d1..95e391c9 100755
+--- a/ROMS/Nonlinear/step2d_LF_AM3.h
++++ b/ROMS/Nonlinear/step2d_LF_AM3.h
+@@ -928,8 +928,8 @@
+           DO i=IstrU-1,Iend
+             rhs_zeta(i,j)=(DUon(i,j)-DUon(i+1,j))+                      &
+      &                    (DVom(i,j)-DVom(i,j+1))
+-            zeta_new(i,j)=zeta(i,j,kstp)+                               &
+-     &                    pm(i,j)*pn(i,j)*cff1*rhs_zeta(i,j)
++            zeta_new(i,j)=zeta(i,j,kstp)!+                               &
++!     &                    pm(i,j)*pn(i,j)*cff1*rhs_zeta(i,j)
+ # ifdef MASKING
+             zeta_new(i,j)=zeta_new(i,j)*rmask(i,j)
+ # endif
+@@ -954,8 +954,8 @@
+           DO i=IstrU-1,Iend
+             rhs_zeta(i,j)=(DUon(i,j)-DUon(i+1,j))+                      &
+      &                    (DVom(i,j)-DVom(i,j+1))
+-            zeta_new(i,j)=zeta(i,j,kstp)+                               &
+-     &                    pm(i,j)*pn(i,j)*cff1*rhs_zeta(i,j)
++            zeta_new(i,j)=zeta(i,j,kstp)!+                               &
++!     &                    pm(i,j)*pn(i,j)*cff1*rhs_zeta(i,j)
+ # ifdef MASKING
+             zeta_new(i,j)=zeta_new(i,j)*rmask(i,j)
+ # endif
+@@ -983,10 +983,10 @@
+           DO i=IstrU-1,Iend
+             cff=cff1*((DUon(i,j)-DUon(i+1,j))+                          &
+      &                (DVom(i,j)-DVom(i,j+1)))
+-            zeta_new(i,j)=zeta(i,j,kstp)+                               &
+-     &                    pm(i,j)*pn(i,j)*(cff+                         &
+-     &                                     cff2*rzeta(i,j,kstp)-        &
+-     &                                     cff3*rzeta(i,j,ptsk))
++            zeta_new(i,j)=zeta(i,j,kstp)!+                               &
++!     &                    pm(i,j)*pn(i,j)*(cff+                         &
++!     &                                     cff2*rzeta(i,j,kstp)-        &
++!     &                                     cff3*rzeta(i,j,ptsk))
+ # ifdef MASKING
+             zeta_new(i,j)=zeta_new(i,j)*rmask(i,j)
+ # endif
+@@ -1111,23 +1111,23 @@
+ # endif
+       DO j=Jstr,Jend
+         DO i=IstrU,Iend
+-          rhs_ubar(i,j)=cff1*on_u(i,j)*                                 &
+-     &                  ((h(i-1,j)+                                     &
+-     &                    h(i ,j))*                                     &
+-     &                   (gzeta(i-1,j)-                                 &
+-     &                    gzeta(i  ,j))+                                &
++          rhs_ubar(i,j)=0.0_r8!cff1*on_u(i,j)*                                 &
++!     &                  ((h(i-1,j)+                                     &
++!     &                    h(i ,j))*                                     &
++!     &                   (gzeta(i-1,j)-                                 &
++!     &                    gzeta(i  ,j))+                                &
+ # if defined VAR_RHO_2D && defined SOLVE3D
+-     &                   (h(i-1,j)-                                     &
+-     &                    h(i  ,j))*                                    &
+-     &                   (gzetaSA(i-1,j)+                               &
+-     &                    gzetaSA(i  ,j)+                               &
+-     &                    cff2*(rhoA(i-1,j)-                            &
+-     &                          rhoA(i  ,j))*                           &
+-     &                         (zwrk(i-1,j)-                            &
+-     &                          zwrk(i  ,j)))+                          &
+-# endif
+-     &                   (gzeta2(i-1,j)-                                &
+-     &                    gzeta2(i  ,j)))
++!     &                   (h(i-1,j)-                                     &
++!     &                    h(i  ,j))*                                    &
++!     &                   (gzetaSA(i-1,j)+                               &
++!     &                    gzetaSA(i  ,j)+                               &
++!     &                    cff2*(rhoA(i-1,j)-                            &
++!     &                          rhoA(i  ,j))*                           &
++!     &                         (zwrk(i-1,j)-                            &
++!     &                          zwrk(i  ,j)))+                          &
++# endif
++!     &                   (gzeta2(i-1,j)-                                &
++!     &                    gzeta2(i  ,j)))
+ # if defined ATM_PRESS && !defined SOLVE3D
+           rhs_ubar(i,j)=rhs_ubar(i,j)+                                  &
+      &                  fac3*on_u(i,j)*                                 &
+@@ -1162,23 +1162,23 @@
+         END DO
+         IF (j.ge.JstrV) THEN
+           DO i=Istr,Iend
+-            rhs_vbar(i,j)=cff1*om_v(i,j)*                               &
+-     &                    ((h(i,j-1)+                                   &
+-     &                      h(i,j  ))*                                  &
+-     &                     (gzeta(i,j-1)-                               &
+-     &                      gzeta(i,j  ))+                              &
++            rhs_vbar(i,j)=0.0_r8!cff1*om_v(i,j)*                               &
++!     &                    ((h(i,j-1)+                                   &
++!     &                      h(i,j  ))*                                  &
++!     &                     (gzeta(i,j-1)-                               &
++!     &                      gzeta(i,j  ))+                              &
+ # if defined VAR_RHO_2D && defined SOLVE3D
+-     &                     (h(i,j-1)-                                   &
+-     &                      h(i,j  ))*                                  &
+-     &                     (gzetaSA(i,j-1)+                             &
+-     &                      gzetaSA(i,j  )+                             &
+-     &                      cff2*(rhoA(i,j-1)-                          &
+-     &                            rhoA(i,j  ))*                         &
+-     &                           (zwrk(i,j-1)-                          &
+-     &                            zwrk(i,j  )))+                        &
+-# endif
+-     &                     (gzeta2(i,j-1)-                              &
+-     &                      gzeta2(i,j  )))
++!     &                     (h(i,j-1)-                                   &
++!     &                      h(i,j  ))*                                  &
++!     &                     (gzetaSA(i,j-1)+                             &
++!     &                      gzetaSA(i,j  )+                             &
++!     &                      cff2*(rhoA(i,j-1)-                          &
++!     &                            rhoA(i,j  ))*                         &
++!     &                           (zwrk(i,j-1)-                          &
++!     &                            zwrk(i,j  )))+                        &
++# endif
++!     &                     (gzeta2(i,j-1)-                              &
++!     &                      gzeta2(i,j  )))
+ # if defined ATM_PRESS && !defined SOLVE3D
+             rhs_vbar(i,j)=rhs_vbar(i,j)+                                &
+      &                    fac3*om_v(i,j)*                               &
 diff --git a/coawst.bash b/coawst.bash
 index a951d2f3..e0ad2a4f 100755
 --- a/coawst.bash
