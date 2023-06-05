@@ -599,9 +599,9 @@ ROMSX::advance_2d (int lev,
                       rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
                           1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,0);
                       ru(i,j,-1,1)=rufrc(i,j,0);
-                      /*                    Real r_swap= ru(i,j,-1,1);
-                    ru(i,j,-1,1) = ru(i,j,-1,0);
-                    ru(i,j,-1,0) = r_swap;*/
+                      Real r_swap= ru(i,j,-1,1);
+                      ru(i,j,-1,1) = ru(i,j,-1,0);
+                      ru(i,j,-1,0) = r_swap;
                 });
                                    //END DO
                                    //          END DO
@@ -614,9 +614,9 @@ ROMSX::advance_2d (int lev,
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
                         1.5_rt*rvfrc(i,j,0)-0.5_rt*rv(i,j,-1,0);
                     rv(i,j,-1,1)=rvfrc(i,j,0);
-                    /*              Real r_swap= rv(i,j,-1,1);
+                    Real r_swap= rv(i,j,-1,1);
                     rv(i,j,-1,1) = rv(i,j,-1,0);
-                    rv(i,j,-1,0) = r_swap;*/
+                    rv(i,j,-1,0) = r_swap;
                 });
                                    //END DO
                                    //          END DO
@@ -634,8 +634,8 @@ ROMSX::advance_2d (int lev,
                     rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
                     rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
                         cff1*rufrc(i,j,0)-
-                        cff2*ru(i,j,-1,1)+
-                        cff3*ru(i,j,-1,0);
+                        cff2*ru(i,j,-1,0)+
+                        cff3*ru(i,j,-1,1);
                     ru(i,j,-1,1)=rufrc(i,j,0);
                     Real r_swap= ru(i,j,-1,1);
                     ru(i,j,-1,1) = ru(i,j,-1,0);
@@ -651,9 +651,10 @@ ROMSX::advance_2d (int lev,
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
                           cff1*rvfrc(i,j,0)-
-                          cff2*rv(i,j,-1,1)+
-                          cff3*rv(i,j,-1,0);
+                          cff2*rv(i,j,-1,0)+
+                          cff3*rv(i,j,-1,1);
                     rv(i,j,-1,1)=rvfrc(i,j,0);
+		    
                     Real r_swap= rv(i,j,-1,1);
                     rv(i,j,-1,1) = rv(i,j,-1,0);
                     rv(i,j,-1,0) = r_swap;
