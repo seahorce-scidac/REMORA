@@ -127,13 +127,13 @@ ROMSX::advance_3d (int lev,
         //fab_Akt.setVal(1e-6);
         //From ana_grid.h and metrics.F
         //
-       amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            printf("%d %d %d %25.25g uvel begin advance3d\n", i,j,k,u(i,j,k));
-            printf("%d %d %d %25.25g temp begin advance3d\n", i,j,k,temp(i,j,k));
-            printf("%d %d %d %25.25g tempstore begin advance3d\n", i,j,k,tempstore(i,j,k));
-        });
+       //amrex::ParallelFor(gbx2,
+       // [=] AMREX_GPU_DEVICE (int i, int j, int k)
+       // {
+       //     printf("%d %d %d %25.25g uvel begin advance3d\n", i,j,k,u(i,j,k));
+       //     printf("%d %d %d %25.25g temp begin advance3d\n", i,j,k,temp(i,j,k));
+       //     printf("%d %d %d %25.25g tempstore begin advance3d\n", i,j,k,tempstore(i,j,k));
+       // });
 
         //
         // Update to u and v
@@ -190,11 +190,11 @@ ROMSX::advance_3d (int lev,
             });
         // End previous
 
-       amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            printf("%d %d %d %25.25g uvel after uv in advance3d\n", i,j,k,u(i,j,k));
-        });
+       //amrex::ParallelFor(gbx2,
+       // [=] AMREX_GPU_DEVICE (int i, int j, int k)
+       // {
+       //     printf("%d %d %d %25.25g uvel after uv in advance3d\n", i,j,k,u(i,j,k));
+       // });
        // NOTE: DC is only used as scratch in vert_visc_3d -- no need to pass or return a value
        // NOTE: may not actually need to set these to zero
        mf_DC[mfi].setVal(0.0,gbx21);
@@ -213,11 +213,11 @@ ROMSX::advance_3d (int lev,
        fab_CF.setVal(0.0,gbx21);
        vert_mean_3d(bx,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
 
-    amrex::ParallelFor(ubx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        printf("%d %d %d %25.25g Huon before massflux\n", i, j, k, Huon(i,j,k));
-        });
+    //amrex::ParallelFor(ubx,
+    //[=] AMREX_GPU_DEVICE (int i, int j, int k)
+    //{
+        //printf("%d %d %d %25.25g Huon before massflux\n", i, j, k, Huon(i,j,k));
+    //    });
 
        update_massflux_3d(Box(Huon),bx,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
         amrex::ParallelFor(Box(ubar),
@@ -233,11 +233,11 @@ ROMSX::advance_3d (int lev,
                 vbar(i,j,k,0) = DC(i,j,-1)*DV_avg1(i,j,0);
                 vbar(i,j,k,1) = vbar(i,j,k,0);
             });
-    amrex::ParallelFor(ubx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        printf("%d %d %d %25.25g Huon after massflux\n", i, j, k, Huon(i,j,k));
-        });
+    //amrex::ParallelFor(ubx,
+    //[=] AMREX_GPU_DEVICE (int i, int j, int k)
+    //{
+    //    printf("%d %d %d %25.25g Huon after massflux\n", i, j, k, Huon(i,j,k));
+    //    });
     bool test_functionality=true;
     if(test_functionality) {
     //
@@ -321,13 +321,13 @@ ROMSX::advance_3d (int lev,
        Print()<<FArrayBox(temp)<<std::endl;
        Print()<<FArrayBox(tempstore)<<std::endl;
     */
-       amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            printf("%d %d %d %25.25g uvel before rhst3d advance3d\n", i,j,k,u(i,j,k));
-            printf("%d %d %d %25.25g temp before rhst3d advance3d\n", i,j,k,temp(i,j,k));
-            printf("%d %d %d %25.25g tempstore before rhst3d advance3d\n", i,j,k,tempstore(i,j,k));
-        });
+       //amrex::ParallelFor(gbx2,
+       // [=] AMREX_GPU_DEVICE (int i, int j, int k)
+       // {
+       //     printf("%d %d %d %25.25g uvel before rhst3d advance3d\n", i,j,k,u(i,j,k));
+       //     printf("%d %d %d %25.25g temp before rhst3d advance3d\n", i,j,k,temp(i,j,k));
+       //     printf("%d %d %d %25.25g tempstore before rhst3d advance3d\n", i,j,k,tempstore(i,j,k));
+       // });
        rhs_t_3d(bx, tempold, temp, tempstore, Huon, Hvom, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
        /*
 Print()<<FArrayBox(tempold)<<std::endl;
@@ -451,14 +451,14 @@ Print()<<FArrayBox(tempold)<<std::endl;
           om_v(i,j,0)=1.0/dxi[0];
           on_u(i,j,0)=1.0/dxi[1];
         });
-       amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            printf("%d %d %d %25.25g uvel before visc advance3d\n", i,j,k,u(i,j,k));
-            printf("%d %d %d %25.25g temp before visc advance3d\n", i,j,k,temp(i,j,k));
-            printf("%d %d %d %25.25g tempstore before visc advance3d\n", i,j,k,tempstore(i,j,k));
-        });
-       //Print()<<FArrayBox(temp)<<std::endl;
+       //amrex::ParallelFor(gbx2,
+       // [=] AMREX_GPU_DEVICE (int i, int j, int k)
+       // {
+       //     printf("%d %d %d %25.25g uvel before visc advance3d\n", i,j,k,u(i,j,k));
+       //     printf("%d %d %d %25.25g temp before visc advance3d\n", i,j,k,temp(i,j,k));
+       //     printf("%d %d %d %25.25g tempstore before visc advance3d\n", i,j,k,tempstore(i,j,k));
+       // });
+       ////Print()<<FArrayBox(temp)<<std::endl;
        vert_visc_3d(gbx1,bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
        //Print()<<FArrayBox(temp)<<std::endl;
        //Print()<<FArrayBox(salt)<<std::endl;
@@ -466,13 +466,13 @@ Print()<<FArrayBox(tempold)<<std::endl;
        //Print()<<FArrayBox(salt)<<std::endl;
        //if(iic==ntfirst+2)
        //exit(1);
-       amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            printf("%d %d %d %25.25g uvel end advance3d\n", i,j,k,u(i,j,k));
-            printf("%d %d %d %25.25g temp end advance3d\n", i,j,k,temp(i,j,k));
-            printf("%d %d %d %25.25g tempstore end advance3d\n", i,j,k,tempstore(i,j,k));
-        });
+       //amrex::ParallelFor(gbx2,
+       // [=] AMREX_GPU_DEVICE (int i, int j, int k)
+       // {
+       //     printf("%d %d %d %25.25g uvel end advance3d\n", i,j,k,u(i,j,k));
+       //     printf("%d %d %d %25.25g temp end advance3d\n", i,j,k,temp(i,j,k));
+       //     printf("%d %d %d %25.25g tempstore end advance3d\n", i,j,k,tempstore(i,j,k));
+       // });
 
 
     } // MFiter
