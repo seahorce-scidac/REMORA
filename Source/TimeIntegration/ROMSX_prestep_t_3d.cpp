@@ -133,16 +133,16 @@ ROMSX::prestep_t_3d (const Box& bx,
     amrex::ParallelFor(Box(FX),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        FX(i,j,k)=Huon(i,j,k)*
+        FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
                     0.5*(tempold(i-1,j,k)+
-                         tempold(i  ,j,k));
+                         tempold(i  ,j,k)) : 1e34;
     });
     amrex::ParallelFor(Box(FE),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        FE(i,j,k)=Hvom(i,j,k)*
+        FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
                     0.5*(tempold(i,j-1,k)+
-                         tempold(i,j,k));
+                         tempold(i,j,k)) : 1e34;
     });
 
     //Intermediate tracer at 3
