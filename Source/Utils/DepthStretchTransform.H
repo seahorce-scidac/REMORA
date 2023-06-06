@@ -269,7 +269,6 @@ ROMSX::set_depth (int lev)
               h(i,j,0) = val2;
           }
           z_w(i,j,k) = h(i,j,0);
-          Abort("Flat bathymetry needs further testing");
       });
       } else {
       amrex::LoopConcurrentOnCpu(gbx2, ncomp,

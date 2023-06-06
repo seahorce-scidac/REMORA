@@ -37,6 +37,21 @@ ROMSX::prestep_t_3d (const Box& bx,
                    IntVect(AMREX_D_DECL(bx.bigEnd(0)+2,bx.bigEnd(1)+2,bx.bigEnd(2))));
     Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
                    IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
+
+    //
+    // Scratch space
+    //
+    FArrayBox fab_grad(gbx2,1,amrex::The_Async_Arena()); //fab_grad.setVal(0.0);
+    FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena()); //fab_uee.setVal(0.0);
+
+    FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena()); //fab_uxx.setVal(0.0);
+
+    FArrayBox fab_curv(gbx2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0);
+
+    auto curv=fab_curv.array();
+    auto grad=fab_grad.array();
+    auto uxx=fab_uxx.array();
+    auto uee=fab_uee.array();
     //
     //------------------------------------------------------------------------
     //  Vertically integrate horizontal mass flux divergence.
@@ -95,6 +110,87 @@ ROMSX::prestep_t_3d (const Box& bx,
             W(i,j,k) = W(i,j,k) + W(i,j,k-1);
         }
     });
+
+    //check this////////////
+    const Real Gadv = -0.25;
+
+    amrex::ParallelFor(gbx2,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        grad(i,j,k)=0.0;
+        uee(i,j,k)=0.0;
+
+        curv(i,j,k)=0.0;
+        uxx(i,j,k)=0.0;
+
+        FX(i,j,k)=0.0;
+        FE(i,j,k)=0.0;
+    });
+
+    amrex::ParallelFor(gbx1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //should be t index 3
+        FX(i,j,k)=tempold(i,j,k,nrhs)-tempold(i-1,j,k,nrhs);
+    });
+    amrex::ParallelFor(gbx1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //Upstream3
+        curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
+        //Centered4
+        grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
+    });
+
+    Real cffa=1.0/6.0;
+    Real cffb=1.0/3.0;
+    //HACK to avoid using the wrong index of t (using upstream3)
+    amrex::ParallelFor(gbx1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        Real max_Huon=max(Huon(i,j,k),0.0);
+        Real min_Huon=min(Huon(i,j,k),0.0);
+#if 1
+        FX(i,j,k)=Huon(i,j,k)*0.5*(tempold(i,j,k)+tempold(i-1,j,k))-
+                  cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
+#else
+        FX(i,j,k)=Huon(i,j,k)*0.5*(tempold(i,j,k)+tempold(i-1,j,k)-
+                                   cffb*(grad(i,j,k)- grad(i-1,j,k)));
+#endif
+    });
+
+    amrex::ParallelFor(gbx1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //should be t index 3
+        FE(i,j,k)=tempold(i,j,k,nrhs)-tempold(i,j-1,k,nrhs);
+    });
+    amrex::ParallelFor(gbx1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //Upstream3
+        curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
+        //Centered4
+        grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
+    });
+
+    cffa=1.0/6.0;
+    cffb=1.0/3.0;
+    //HACK to avoid using the wrong index of t (using upstream3)
+    amrex::ParallelFor(gbx1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        Real max_Hvom=max(Hvom(i,j,k),0.0);
+        Real min_Hvom=min(Hvom(i,j,k),0.0);
+#if 1
+        FE(i,j,k)=Hvom(i,j,k)*0.5*(tempold(i,j,k)+tempold(i,j-1,k))-
+                  cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
+#else
+        FE(i,j,k)=Hvom(i,j,k)*0.5*(tempold(i,j,k)+tempold(i,j-1,k)-
+                                   cffb*(grad(i,j,k)- grad(i,j-1,k)));
+#endif
+    });
+
     //make only gbx be grown to match multifabs
     gbx2.grow(IntVect(NGROW,NGROW,0));
     gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
@@ -129,21 +225,6 @@ ROMSX::prestep_t_3d (const Box& bx,
     Print()<<Box(ubx)<<std::endl;
     Print()<<Box(FX)<<std::endl;
     Print()<<(Box(tempold))<<std::endl;
-
-    amrex::ParallelFor(Box(FX),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
-                    0.5*(tempold(i-1,j,k)+
-                         tempold(i  ,j,k)) : 1e34;
-    });
-    amrex::ParallelFor(Box(FE),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
-                    0.5*(tempold(i,j-1,k)+
-                         tempold(i,j,k)) : 1e34;
-    });
 
     //Intermediate tracer at 3
     //

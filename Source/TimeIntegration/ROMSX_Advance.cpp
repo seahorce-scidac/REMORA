@@ -144,7 +144,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     const auto dx               = Geom(lev).CellSizeArray();
     const int Mm = Geom(lev).Domain().size()[1];
     auto geomdata = Geom(lev).data();
-
+    //MFIter::allowMultipleMFIters(true);
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
@@ -432,6 +432,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     mf_saltold.FillBoundary(geom[lev].periodicity());
     vec_t3[lev]->FillBoundary(geom[lev].periodicity());
     vec_s3[lev]->FillBoundary(geom[lev].periodicity());
+
     //We are not storing computed W aka Omega
     //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     //    W_new.FillBoundary();
