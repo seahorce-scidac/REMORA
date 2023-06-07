@@ -115,6 +115,11 @@ ROMSX::advance_2d (int lev,
         Box gbx2D = bxD;
         gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
         gbx2D.grow(IntVect(NGROW,NGROW,0));
+
+        Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-NGROW,bx.smallEnd(1)-NGROW,bx.smallEnd(2))),
+                       IntVect(AMREX_D_DECL(bx.bigEnd(0)+NGROW-1,bx.bigEnd(1)+NGROW-1,bx.bigEnd(2))));
+        Box gbx2unevenD = gbx2uneven;
+        gbx2unevenD = gbx2uneven.makeSlab(2,0);
         //AKA
         //ubxD.setRange(2,0);
         //vbxD.setRange(2,0);
@@ -350,7 +355,7 @@ ROMSX::advance_2d (int lev,
 
             if(my_iif==0) {
                 Real cff1=dtfast_lev;
-                amrex::ParallelFor(gbx1D,
+                amrex::ParallelFor(gbx2unevenD,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
@@ -362,6 +367,7 @@ ROMSX::advance_2d (int lev,
                     //Pressure gradient terms:
                     zwrk(i,j,0)=0.5_rt*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
                     gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
+                    //printf("%d %d %d %25.25g gzeta1\n",i,j,0,gzeta(i,j,0));
                     gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                     gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
                 });
@@ -369,7 +375,7 @@ ROMSX::advance_2d (int lev,
                 Real cff1=2.0_rt*dtfast_lev;
                 Real cff4=4.0/25.0;
                 Real cff5=1.0-2.0*cff4;
-                amrex::ParallelFor(gbx1D,
+                amrex::ParallelFor(gbx2unevenD,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
@@ -390,7 +396,7 @@ ROMSX::advance_2d (int lev,
                 Real cff3=dtfast_lev*1.0_rt/12.0_rt;
                 Real cff4=2.0_rt/5.0_rt;
                 Real cff5=1.0_rt-cff4;
-                amrex::ParallelFor(gbx1D,
+                amrex::ParallelFor(gbx2unevenD,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     Real cff=cff1*((DUon(i,j,0)-DUon(i+1,j,0))+
@@ -412,7 +418,7 @@ ROMSX::advance_2d (int lev,
             //  Load new free-surface values into shared array at both predictor
             //  and corrector steps.
             //
-            amrex::ParallelFor(gbx1D,
+            amrex::ParallelFor(gbx2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 zeta(i,j,0,knew)=zeta_new(i,j,0);
@@ -422,7 +428,7 @@ ROMSX::advance_2d (int lev,
             //  If predictor step, load right-side-term into shared array.
             //
             if (predictor_2d_step) {
-                amrex::ParallelFor(gbx1D,
+                amrex::ParallelFor(gbx2unevenD,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
@@ -453,35 +459,79 @@ ROMSX::advance_2d (int lev,
         //  Compute right-hand-side for the 2D momentum equations.
         //=======================================================================
         //
-        /*
+/*
 !
 !-----------------------------------------------------------------------
 !  Compute pressure gradient terms.
 !-----------------------------------------------------------------------
 !
+*/
+
+        Real cff1 = 0.5 * 9.81; // Should be the variable gravitational field strength
+        Real cff2 = 1.0 / 3.0;
+        amrex::ParallelFor(bxD,
+            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                //printf("%d %d %d %24.24g %24.24g gzeta\n", i,j,0,gzeta(i-1,j,0),gzeta(i,j,0));
+                //printf("%d %d %d %24.24g %24.24g h\n", i,j,0,h(i-1,j,0),h(i,j,0));
+                //printf("%d %d %d %24.24g %24.24g gzetaSA\n", i,j,0,gzetaSA(i-1,j,0),gzetaSA(i,j,0));
+                //printf("%d %d %d %24.24g %24.24g gzeta2\n", i,j,0,gzeta2(i-1,j,0),gzetaSA(i,j,0));
+              rhs_ubar(i,j,0)=cff1*on_u(i,j,0)*
+                            ((h(i-1,j,0)+
+                              h(i ,j,0))*
+                             (gzeta(i-1,j,0)-
+                              gzeta(i  ,j,0))+
+                             (h(i-1,j,0)-
+                              h(i  ,j,0))*
+                             (gzetaSA(i-1,j,0)+
+                              gzetaSA(i  ,j,0)+
+                              cff2*(rhoA(i-1,j,0)-
+                                    rhoA(i  ,j,0))*
+                                   (zwrk(i-1,j,0)-
+                                    zwrk(i  ,j,0)))+
+                             (gzeta2(i-1,j,0)-
+                              gzeta2(i  ,j,0)));
+                //if (j > JstrV)
+                rhs_vbar(i,j,0)=cff1*om_v(i,j,0)*
+                              ((h(i,j-1,0)+
+                                h(i,j  ,0))*
+                               (gzeta(i,j-1,0)-
+                                gzeta(i,j  ,0))+
+                               (h(i,j-1,0)-
+                                h(i,j  ,0))*
+                               (gzetaSA(i,j-1,0)+
+                                gzetaSA(i,j  ,0)+
+                                cff2*(rhoA(i,j-1,0)-
+                                      rhoA(i,j  ,0))*
+                                     (zwrk(i,j-1,0)-
+                                      zwrk(i,j  ,0)))+
+                               (gzeta2(i,j-1,0)-
+                                gzeta2(i,j  ,0)));
+            });
+/*
       cff1=0.5_r8*g
       cff2=1.0_r8/3.0_r8
       DO j=Jstr,Jend
         DO i=IstrU,Iend
-          rhs_ubar(i,j)=cff1*on_u(i,j)*                                 &
-     &                  ((h(i-1,j)+                                     &
-     &                    h(i ,j))*                                     &
-     &                   (gzeta(i-1,j)-                                 &
-     &                    gzeta(i  ,j))+                                &
-     &                   (h(i-1,j)-                                     &
-     &                    h(i  ,j))*                                    &
-     &                   (gzetaSA(i-1,j)+                               &
-     &                    gzetaSA(i  ,j)+                               &
-     &                    cff2*(rhoA(i-1,j)-                            &
-     &                          rhoA(i  ,j))*                           &
-     &                         (zwrk(i-1,j)-                            &
-     &                          zwrk(i  ,j)))+                          &
-     &                   (gzeta2(i-1,j)-                                &
-     &                    gzeta2(i  ,j)))
+          rhs_ubar(i,j,0)=cff1*on_u(i,j,0)*                                 &
+     &                  ((h(i-1,j,0)+                                     &
+     &                    h(i ,j,0))*                                     &
+     &                   (gzeta(i-1,j,0)-                                 &
+     &                    gzeta(i  ,j,0))+                                &
+     &                   (h(i-1,j,0)-                                     &
+     &                    h(i  ,j,0))*                                    &
+     &                   (gzetaSA(i-1,j,0)+                               &
+     &                    gzetaSA(i  ,j,0)+                               &
+     &                    cff2*(rhoA(i-1,j,0)-                            &
+     &                          rhoA(i  ,j,0))*                           &
+     &                         (zwrk(i-1,j,0)-                            &
+     &                          zwrk(i  ,j,0)))+                          &
+     &                   (gzeta2(i-1,j,0)-                                &
+     &                    gzeta2(i  ,j,0)))
         END DO
         IF (j.ge.JstrV) THEN
           DO i=Istr,Iend
-            rhs_vbar(i,j)=cff1*om_v(i,j)*                               &
+            rhs_vbar(i,j,0)=cff1*om_v(i,j,0)*                               &
      &                    ((h(i,j-1)+                                   &
      &                      h(i,j  ))*                                  &
      &                     (gzeta(i,j-1)-                               &
@@ -730,6 +780,7 @@ ROMSX::advance_2d (int lev,
                 //DO j=Jstr,Jend
                 //DO i=IstrU,Iend
                 Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+                //printf("%d %d %d %24.24g %24.24g Dnew\n", Dnew(i,j,0), Dnew(i-1,j,0));
                 Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i-1,j,0));
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
