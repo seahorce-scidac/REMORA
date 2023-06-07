@@ -66,6 +66,8 @@ struct SolverChoice {
 
         pp.query("flat_bathymetry", flat_bathymetry);
 
+        if(!flat_bathymetry)  amrex::Warning("Flat bathymetry needs further testing");
+
         pp.query("evolve_free_surface", evolve_free_surface);
 
         // Do we have terrain (or grid stretching)?

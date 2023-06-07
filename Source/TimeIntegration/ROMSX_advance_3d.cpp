@@ -182,11 +182,11 @@ ROMSX::advance_3d (int lev,
          v(i,j,k) += gbx2.contains(i,j-1,0) ? cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * rv(i,j,k,nrhs);
 
                 //ifdef SPLINES_VVISC is true
-                u(i,j,k) *= bx.contains(i-1,j,0) ? 2.0 / (Hz(i-1,j,k) + Hz(i,j,k)) :  1.0 / (Hz(i,j,k));
+                u(i,j,k) *= gbx2.contains(i-1,j,0) ? 2.0 / (Hz(i-1,j,k) + Hz(i,j,k)) :  1.0 / (Hz(i,j,k));
          //if (k+1 <= N)
             //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g u(k+1) u(k) Hz(i-1) Hz(i) \n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew), Hz(i-1,j,k), Hz(i,j,k));
                 //if(j>0&&j<Mm-1)
-                v(i,j,k) *= bx.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
+                v(i,j,k) *= gbx2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
             });
         // End previous
 
