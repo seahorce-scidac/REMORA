@@ -130,7 +130,6 @@ ROMSX::prestep_t_3d (const Box& bx,
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        //should be t index 3
         FX(i,j,k)=tempold(i,j,k,nrhs)-tempold(i-1,j,k,nrhs);
     });
     amrex::ParallelFor(gbx1,
@@ -144,7 +143,6 @@ ROMSX::prestep_t_3d (const Box& bx,
 
     Real cffa=1.0/6.0;
     Real cffb=1.0/3.0;
-    //HACK to avoid using the wrong index of t (using upstream3)
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -162,7 +160,6 @@ ROMSX::prestep_t_3d (const Box& bx,
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        //should be t index 3
         FE(i,j,k)=tempold(i,j,k,nrhs)-tempold(i,j-1,k,nrhs);
     });
     amrex::ParallelFor(gbx1,
@@ -191,6 +188,22 @@ ROMSX::prestep_t_3d (const Box& bx,
 #endif
     });
 
+    if(solverChoice.flat_bathymetry) {
+	amrex::ParallelFor(Box(FX),
+           [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
+                        0.5*(tempold(i-1,j,k)+
+                             tempold(i  ,j,k)) : 1e34;
+        });
+        amrex::ParallelFor(Box(FE),
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
+                        0.5*(tempold(i,j-1,k)+
+                             tempold(i,j,k)) : 1e34;
+        });
+    }
     //make only gbx be grown to match multifabs
     gbx2.grow(IntVect(NGROW,NGROW,0));
     gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
