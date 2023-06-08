@@ -250,8 +250,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         auto fomn=fab_fomn.array();
 
         //From ana_grid.h and metrics.F
-        amrex::LoopConcurrentOnCpu(gbx2D,
-        [=] (int i, int j, int  )
+        amrex::ParallelFor(gbx2D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int  )
             {
               pm(i,j,0)=dxi[0];
               pn(i,j,0)=dxi[1];
@@ -264,8 +264,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             });
 
-        amrex::LoopConcurrentOnCpu(gbx2D,
-        [=] (int i, int j, int )
+        amrex::ParallelFor(gbx2D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
           //Note: are the comment definitons right? Don't seem to match metrics.f90
           om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
@@ -283,8 +283,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           pnom_v(i,j,0)=1.0;        // (pn(i,j-1)+pn(i,j))/(pm(i,j-1)+pm(i,j))
         });
 
-        amrex::LoopConcurrentOnCpu(gbx2,
-        [=] (int i, int j, int k)
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
           Huon(i,j,k,0)=0.0;
           Hvom(i,j,k,0)=0.0;
@@ -292,7 +292,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
         // Set bottom stress as defined in set_vbx.F
         amrex::ParallelFor(gbx1D,
-        [=] (int i, int j, int )
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             //DO j=Jstr,Jend
             //  DO i=IstrU,Iend

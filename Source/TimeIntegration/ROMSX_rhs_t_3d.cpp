@@ -88,8 +88,8 @@ ROMSX::rhs_t_3d (const Box& bx,
     Real cffb=1.0/3.0;
     //HACK to avoid using the wrong index of t (using upstream3)
     if(solverChoice.flat_bathymetry) {
-    Real max_Huon=FArrayBox(Huon).max();
-    Real min_Huon=FArrayBox(Huon).min();
+    Real max_Huon=FArrayBox(Huon).max<RunOn::Gpu>();
+    Real min_Huon=FArrayBox(Huon).min<RunOn::Gpu>();
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -136,8 +136,8 @@ ROMSX::rhs_t_3d (const Box& bx,
     //HACK to avoid using the wrong index of t (using upstream3)
     //HACK to avoid using the wrong index of t (using upstream3)
     if(solverChoice.flat_bathymetry) {
-    Real max_Hvom=FArrayBox(Hvom).max();
-    Real min_Hvom=FArrayBox(Hvom).min();
+    Real max_Hvom=FArrayBox(Hvom).max<RunOn::Gpu>();
+    Real min_Hvom=FArrayBox(Hvom).min<RunOn::Gpu>();
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {

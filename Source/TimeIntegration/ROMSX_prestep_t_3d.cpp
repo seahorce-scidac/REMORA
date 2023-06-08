@@ -189,7 +189,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     });
 
     if(solverChoice.flat_bathymetry) {
-	amrex::ParallelFor(Box(FX),
+        amrex::ParallelFor(Box(FX),
            [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*

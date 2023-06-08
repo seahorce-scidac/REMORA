@@ -197,20 +197,36 @@ ROMSX::advance_3d (int lev,
        // });
        // NOTE: DC is only used as scratch in vert_visc_3d -- no need to pass or return a value
        // NOTE: may not actually need to set these to zero
-       mf_DC[mfi].setVal(0.0,gbx21);
-       fab_CF.setVal(0.0,gbx21);
+        amrex::ParallelFor(gbx21,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                DC(i,j,k) = 0.0;
+                CF(i,j,k) = 0.0;
+            });
        vert_visc_3d(gbx1,bx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
-       mf_DC[mfi].setVal(0.0,gbx21);
-       fab_CF.setVal(0.0,gbx21);
+        amrex::ParallelFor(gbx21,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                DC(i,j,k) = 0.0;
+                CF(i,j,k) = 0.0;
+            });
        vert_visc_3d(gbx1,bx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
-       mf_DC[mfi].setVal(0.0,gbx21);
-       fab_CF.setVal(0.0,gbx21);
+        amrex::ParallelFor(gbx21,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                DC(i,j,k) = 0.0;
+                CF(i,j,k) = 0.0;
+            });
        vert_mean_3d(bx,1,0,u,Hz,Hzk,DU_avg1,oHz,Akv,BC,DC,FC,CF,pm,nnew,N,dt_lev);
 
-       mf_DC[mfi].setVal(0.0,gbx21);
-       fab_CF.setVal(0.0,gbx21);
+        amrex::ParallelFor(gbx21,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                DC(i,j,k) = 0.0;
+                CF(i,j,k) = 0.0;
+            });
        vert_mean_3d(bx,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
 
     //amrex::ParallelFor(ubx,
