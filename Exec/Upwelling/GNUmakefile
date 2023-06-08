@@ -33,7 +33,7 @@ Bpack := ./Make.package
 Blocs := .
 ROMSX_HOME := ../..
 ROMSX_PROBLEM_DIR = $(ROMSX_HOME)/Exec/Upwelling
-USE_NETCDF = TRUE
+USE_NETCDF = FALSE
 DEFINES += -DROMSX_USE_HISTORYFILE
 DEFINES += -DUV_COR
 include $(ROMSX_HOME)/Exec/Make.ROMSX
