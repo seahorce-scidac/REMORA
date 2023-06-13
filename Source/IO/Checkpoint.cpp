@@ -112,7 +112,7 @@ ROMSX::WriteCheckpointFile () const
    {
        BoxList bl2d = grids[lev].boxList();
        for (auto& b : bl2d) {
-	   b.setRange(2,0);
+           b.setRange(2,0);
        }
        BoxArray ba2d(std::move(bl2d));
 
@@ -154,20 +154,17 @@ ROMSX::WriteCheckpointFile () const
        MultiFab mf_vbar(ba2d,dmap[lev],3,0);
        MultiFab::Copy(mf_vbar,*(vec_vbar[lev]),0,0,3,0);
        VisMF::Write(mf_vbar, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "YBar"));
-       //       VisMF::Write(*(vec_rufrc[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rufrc"));
-VisMF::Write(*(vec_rufrc[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rufrc"));
 
-VisMF::Write(*(vec_rvfrc[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rvfrc"));
+       VisMF::Write(*(vec_rufrc[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rufrc"));
+       VisMF::Write(*(vec_rvfrc[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rvfrc"));
 
-VisMF::Write(*(vec_sustr[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "sustr"));
+       VisMF::Write(*(vec_sustr[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "sustr"));
+       VisMF::Write(*(vec_svstr[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "svstr"));
 
-VisMF::Write(*(vec_svstr[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "svstr"));
+       VisMF::Write(*(vec_rdrag[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rdrag"));
 
-VisMF::Write(*(vec_rdrag[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rdrag"));
-
-VisMF::Write(*(vec_bustr[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "bustr"));
-
-VisMF::Write(*(vec_bvstr[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "bvstr"));
+       VisMF::Write(*(vec_bustr[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "bustr"));
+       VisMF::Write(*(vec_bvstr[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "bvstr"));
 
    }
 }
@@ -285,7 +282,7 @@ ROMSX::ReadCheckpointFile ()
     {
        BoxList bl2d = grids[lev].boxList();
        for (auto& b : bl2d) {
-	   b.setRange(2,0);
+           b.setRange(2,0);
        }
        BoxArray ba2d(std::move(bl2d));
 
@@ -330,24 +327,25 @@ ROMSX::ReadCheckpointFile ()
        MultiFab mf_vbar(ba2d,dmap[lev],3,0);
        VisMF::Read(mf_vbar, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YBar"));
        MultiFab::Copy(*(vec_vbar[lev]),mf_vbar,0,0,3,0);
-    vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
-    vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
-VisMF::Read(*(vec_rufrc[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rufrc"));
 
-VisMF::Read(*(vec_rvfrc[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rvfrc"));
+       vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
+       vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
+
+       VisMF::Read(*(vec_rufrc[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rufrc"));
+       VisMF::Read(*(vec_rvfrc[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rvfrc"));
        vec_rufrc[lev]->FillBoundary(geom[lev].periodicity());
        vec_rvfrc[lev]->FillBoundary(geom[lev].periodicity());
-VisMF::Read(*(vec_sustr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "sustr"));
 
-VisMF::Read(*(vec_svstr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "svstr"));
+       VisMF::Read(*(vec_sustr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "sustr"));
+       VisMF::Read(*(vec_svstr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "svstr"));
        vec_sustr[lev]->FillBoundary(geom[lev].periodicity());
        vec_svstr[lev]->FillBoundary(geom[lev].periodicity());
-VisMF::Read(*(vec_rdrag[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rdrag"));
+
+       VisMF::Read(*(vec_rdrag[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rdrag"));
        vec_rdrag[lev]->FillBoundary(geom[lev].periodicity());
 
-VisMF::Read(*(vec_bustr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "bustr"));
-
-VisMF::Read(*(vec_bvstr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "bvstr"));
+       VisMF::Read(*(vec_bustr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "bustr"));
+       VisMF::Read(*(vec_bvstr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "bvstr"));
        vec_bustr[lev]->FillBoundary(geom[lev].periodicity());
        vec_bvstr[lev]->FillBoundary(geom[lev].periodicity());
     }

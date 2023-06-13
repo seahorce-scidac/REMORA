@@ -93,73 +93,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
     std::unique_ptr<MultiFab>& mf_diff2_temp = vec_diff2_temp[lev];
     std::unique_ptr<MultiFab>& mf_diff2_salt = vec_diff2_salt[lev];
-    /*
-print_state(	mf_u	,IntVect(0,0,0));
 
-print_state(	mf_v	,IntVect(0,0,0));
-
-print_state(	mf_uold	,IntVect(0,0,0));
-
-print_state(	mf_vold	,IntVect(0,0,0));
-
-print_state(	mf_w	,IntVect(0,0,0));
-
-print_state(	mf_pden	,IntVect(0,0,0));
-
-print_state(	mf_rho	,IntVect(0,0,0));
-
-print_state(	mf_rhoS	,IntVect(0,0,0));
-
-print_state(	mf_rhoA	,IntVect(0,0,0));
-
-print_state(	mf_temp	,IntVect(0,0,0));
-
-print_state(	mf_salt	,IntVect(0,0,0));
-
-print_state(	mf_salt	,IntVect(0,0,0));
-
-print_state(	mf_tempold	,IntVect(0,0,0));
-
-print_state(	mf_saltold	,IntVect(0,0,0));
-
-print_state(	mf_saltold	,IntVect(0,0,0));
-
-print_state(	mf_rw	,IntVect(0,0,0));
-
-print_state(	mf_W	,IntVect(0,0,0));
-
-print_state(*	mf_visc2_p	,IntVect(0,0,0));
-
-print_state(*	mf_visc2_r	,IntVect(0,0,0));
-
-print_state(*	mf_diff2_temp	,IntVect(0,0,0));
-
-print_state(*	mf_diff2_salt	,IntVect(0,0,0));
-
-print_state(*	mf_ru	,IntVect(0,0,0));
-
-print_state(*	mf_rv	,IntVect(0,0,0));
-
-print_state(*	mf_rufrc	,IntVect(0,0,0));
-
-print_state(*	mf_rvfrc	,IntVect(0,0,0));
-
-print_state(*	mf_sustr	,IntVect(0,0,0));
-
-print_state(*	mf_svstr	,IntVect(0,0,0));
-
-print_state(*	mf_rdrag	,IntVect(0,0,0));
-
-print_state(*	mf_bustr	,IntVect(0,0,0));
-
-print_state(*	mf_bvstr	,IntVect(0,0,0));
-
-print_state(*	mf_ubar	,IntVect(0,0,0));
-
-print_state(*	mf_vbar	,IntVect(0,0,0));
-
-    */
-   
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
     mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
