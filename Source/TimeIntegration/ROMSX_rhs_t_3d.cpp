@@ -87,35 +87,20 @@ ROMSX::rhs_t_3d (const Box& bx,
     Real cffa=1.0/6.0;
     Real cffb=1.0/3.0;
     //HACK to avoid using the wrong index of t (using upstream3)
-    if(solverChoice.flat_bathymetry) {
-    Real max_Huon=FArrayBox(Huon).max<RunOn::Gpu>();
-    Real min_Huon=FArrayBox(Huon).min<RunOn::Gpu>();
+    Real max_Huon=FArrayBox(Huon).max();
+    Real min_Huon=FArrayBox(Huon).min();
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
 #if 1
         FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
-            cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
+                  cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
 #else
         FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
-                                   cffb*(grad(i,j,k)+ grad(i-1,j,k));
+                  cffb*(grad(i,j,k)+ grad(i-1,j,k));
 #endif
     });
-    } else {
-    amrex::ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        Real max_Huon=max(Huon(i,j,k),0.0);
-        Real min_Huon=min(Huon(i,j,k),0.0);
-#if 1
-        FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))-
-            cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
-#else
-        FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
-                                   cffb*(grad(i,j,k)+ grad(i-1,j,k));
-#endif
-    });
-    }
+
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -134,36 +119,20 @@ ROMSX::rhs_t_3d (const Box& bx,
     cffa=1.0/6.0;
     cffb=1.0/3.0;
     //HACK to avoid using the wrong index of t (using upstream3)
-    //HACK to avoid using the wrong index of t (using upstream3)
-    if(solverChoice.flat_bathymetry) {
-    Real max_Hvom=FArrayBox(Hvom).max<RunOn::Gpu>();
-    Real min_Hvom=FArrayBox(Hvom).min<RunOn::Gpu>();
+    Real max_Hvom=FArrayBox(Hvom).max();
+    Real min_Hvom=FArrayBox(Hvom).min();
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
 #if 1
         FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
-            cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
+                  cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
 #else
         FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
-                                   cffb*(grad(i,j,k)+ grad(i,j-1,k));
+                  cffb*(grad(i,j,k)+ grad(i,j-1,k));
 #endif
     });
-    } else {
-    amrex::ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        Real max_Hvom=max(Hvom(i,j,k),0.0);
-        Real min_Hvom=min(Hvom(i,j,k),0.0);
-#if 1
-        FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))-
-            cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
-#else
-        FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k)-
-                                   cffb*(grad(i,j,k)+ grad(i,j-1,k)));
-#endif
-    });
-    }
+
         amrex::ParallelFor(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
