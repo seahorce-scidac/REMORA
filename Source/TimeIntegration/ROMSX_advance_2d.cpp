@@ -336,7 +336,9 @@ ROMSX::advance_2d (int lev,
         //
 
         if (my_iif>=nfast) {
-            continue; }
+            amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
+            amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
+       continue; }
         //Load new free-surface values into shared array at both predictor
         //and corrector steps
         //
@@ -872,7 +874,17 @@ ROMSX::advance_2d (int lev,
             });
             //END DO
             //END DO
-        }
+        }/*
+       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;*/
+       amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
+       amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
+       /*
+       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+       */
         //Print() << "(0,0,0 end of advance2d" <<std::endl;
         //Print().SetPrecision(18) << FArrayBox(ubar) << std::endl;
         //Print().SetPrecision(18) << FArrayBox(vbar) << std::endl;
