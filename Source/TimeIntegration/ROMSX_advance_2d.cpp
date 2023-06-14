@@ -30,7 +30,8 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_visc2_r,
                    const int ncomp, Real dt_lev, Real dtfast_lev,
                    bool predictor_2d_step,
-                   bool first_2d_step, int my_iif, int nfast, int & next_indx1)
+                   bool first_2d_step, int my_iif, int nfast /*this doesn't need to be passed*/,
+                   int & next_indx1)
 {
     auto geomdata  = Geom(lev).data();
     const auto dxi = Geom(lev).InvCellSizeArray();
@@ -58,6 +59,7 @@ ROMSX::advance_2d (int lev,
         kstp = 3 - knew;
         krhs = 3;
         //If it's not the auxiliary time step, set indx1 to next_indx1
+        // NOTE: should this ever not execute?
         if (my_iif<nfast+1)
             indx1=next_indx1;
     }
@@ -67,7 +69,7 @@ ROMSX::advance_2d (int lev,
     kstp-=1;
     indx1-=1;
     ptsk-=1;
-    Print() << "indices " <<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<predictor_2d_step<<"\t"<<(my_iif<=1)<<std::endl;
+    //Print() << "indices " <<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<predictor_2d_step<<"\t"<<(my_iif<=1)<<std::endl;
 
 
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -333,7 +335,7 @@ ROMSX::advance_2d (int lev,
         //  (nfast(ng)+1) time step. Jump to next box
         //
 
-        if (my_iif>=nfast-1) {
+        if (my_iif>=nfast) {
             continue; }
         //Load new free-surface values into shared array at both predictor
         //and corrector steps

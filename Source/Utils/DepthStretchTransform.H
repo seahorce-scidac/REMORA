@@ -473,7 +473,6 @@ void ROMSX::set_weights (int lev) {
     Real gamma, scale;
     Real cff1, cff2;
     Real wsum, shift, cff;
-    int nfast;
 
     //HACK should possibly store fixed_ndtfast elsewhere
     int ndtfast=fixed_ndtfast_ratio>0 ? fixed_ndtfast_ratio : fixed_fast_dt / fixed_dt;

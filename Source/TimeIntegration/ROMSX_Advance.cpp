@@ -372,8 +372,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     bool predictor_2d_step=true;
     bool first_2d_step=(iic==ntfirst);
-    int nfast=fixed_ndtfast_ratio+1;
     int nfast_counter=predictor_2d_step ? nfast : nfast-1;
+    nfast_counter += 1;
     //Compute fast timestep from dt_lev and ratio
     Real dtfast_lev=dt_lev/Real(fixed_ndtfast_ratio);
     int next_indx1 = 0;
