@@ -68,8 +68,6 @@ struct SolverChoice {
 
         if(!flat_bathymetry)  amrex::Warning("Flat bathymetry needs further testing");
 
-        pp.query("evolve_free_surface", evolve_free_surface);
-
         // Do we have terrain (or grid stretching)?
         pp.query("use_terrain", use_terrain);
 
@@ -326,7 +324,6 @@ struct SolverChoice {
 
     bool        use_terrain            = false;
     bool        flat_bathymetry        = true;
-    bool        evolve_free_surface    = false;
 
     // Specify what additional physics/forcing modules we use
     bool        use_gravity            = false;

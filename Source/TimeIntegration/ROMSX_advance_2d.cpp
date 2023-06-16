@@ -339,121 +339,101 @@ ROMSX::advance_2d (int lev,
             continue; }
         //Load new free-surface values into shared array at both predictor
         //and corrector steps
-        if(solverChoice.evolve_free_surface) {
-            //
-            //=======================================================================
-            //  Time step free-surface equation.
-            //=======================================================================
-            //
-            //  During the first time-step, the predictor step is Forward-Euler
-            //  and the corrector step is Backward-Euler. Otherwise, the predictor
-            //  step is Leap-frog and the corrector step is Adams-Moulton.
-            //
+        //
+        //=======================================================================
+        //  Time step free-surface equation.
+        //=======================================================================
+        //
+        //  During the first time-step, the predictor step is Forward-Euler
+        //  and the corrector step is Backward-Euler. Otherwise, the predictor
+        //  step is Leap-frog and the corrector step is Adams-Moulton.
+        //
 
-            // todo: gzeta
+        // todo: gzeta
 
-            // todo: HACKHACKHACK Should use rho0 from prob.H
-            Real fac=1000.0/1025.0;
+        // todo: HACKHACKHACK Should use rho0 from prob.H
+        Real fac=1000.0/1025.0;
 
-            if(my_iif==0) {
-                Real cff1=dtfast_lev;
-                amrex::ParallelFor(gbx2unevenD,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
-                {
-                    rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
-                                    (DVom(i,j,0)-DVom(i,j+1,0));
-                    zeta_new(i,j,0)=zeta(i,j,0,kstp)+
-                                    pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
-                    Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
-
-                    //Pressure gradient terms:
-                    zwrk(i,j,0)=0.5_rt*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
-                    gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
-                    //printf("%d %d %d %25.25g gzeta1\n",i,j,0,gzeta(i,j,0));
-                    gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
-                    gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
-                });
-            } else if (predictor_2d_step) {
-                Real cff1=2.0_rt*dtfast_lev;
-                Real cff4=4.0/25.0;
-                Real cff5=1.0-2.0*cff4;
-                amrex::ParallelFor(gbx2unevenD,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
-                {
-                    rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
-                                    (DVom(i,j,0)-DVom(i,j+1,0));
-                    zeta_new(i,j,0)=zeta(i,j,0,kstp)+
-                                    pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
-                    Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
-                    //Pressure gradient terms
-                    zwrk(i,j,0)=cff5*zeta(i,j,0,krhs)+
-                        cff4*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
-                    gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
-                    gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
-                    gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
-                });
-            } else if (!predictor_2d_step) { //AKA if(corrector_2d_step)
-                Real cff1=dtfast_lev*5.0_rt/12.0_rt;
-                Real cff2=dtfast_lev*8.0_rt/12.0_rt;
-                Real cff3=dtfast_lev*1.0_rt/12.0_rt;
-                Real cff4=2.0_rt/5.0_rt;
-                Real cff5=1.0_rt-cff4;
-                amrex::ParallelFor(gbx2unevenD,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
-                {
-                    Real cff=cff1*((DUon(i,j,0)-DUon(i+1,j,0))+
-                                   (DVom(i,j,0)-DVom(i,j+1,0)));
-                    zeta_new(i,j,0)=zeta(i,j,0,kstp)+
-                        pm(i,j,0)*pn(i,j,0)*(cff+
-                                             cff2*rzeta(i,j,0,kstp)-
-                                             cff3*rzeta(i,j,0,ptsk));
-                    Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
-                    //Pressure gradient terms
-                    zwrk(i,j,0)=cff5*zeta_new(i,j,0)+cff4*zeta(i,j,0,krhs);
-                    gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
-                    gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
-                    gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
-                    });
-            }
-
-            //
-            //  Load new free-surface values into shared array at both predictor
-            //  and corrector steps.
-            //
+        if(my_iif==0) {
+            Real cff1=dtfast_lev;
             amrex::ParallelFor(gbx2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                zeta(i,j,0,knew)=zeta_new(i,j,0);
-            });
+                rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
+                                (DVom(i,j,0)-DVom(i,j+1,0));
+                zeta_new(i,j,0)=zeta(i,j,0,kstp)+
+                                pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
+                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
 
-            //
-            //  If predictor step, load right-side-term into shared array.
-            //
-            if (predictor_2d_step) {
-                amrex::ParallelFor(gbx2unevenD,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
-                {
-                    rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
-                });
-            }
-        } else {
-            amrex::ParallelFor(gbx2D,
+                //Pressure gradient terms:
+                zwrk(i,j,0)=0.5_rt*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
+                gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
+                //printf("%d %d %d %25.25g gzeta1\n",i,j,0,gzeta(i,j,0));
+                gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
+                gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
+            });
+        } else if (predictor_2d_step) {
+            Real cff1=2.0_rt*dtfast_lev;
+            Real cff4=4.0/25.0;
+            Real cff5=1.0-2.0*cff4;
+            amrex::ParallelFor(gbx2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                zeta(i,j,0,knew)=zeta(i,j,0,kstp);
-                Dnew(i,j,0)=zeta(i,j,0,knew)+h(i,j,0);
+                rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
+                                (DVom(i,j,0)-DVom(i,j+1,0));
+                zeta_new(i,j,0)=zeta(i,j,0,kstp)+
+                                pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
+                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
+                //Pressure gradient terms
+                zwrk(i,j,0)=cff5*zeta(i,j,0,krhs)+
+                    cff4*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
+                gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
+                gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
+                gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
             });
-
-            //
-            //  If predictor step, load right-side-term into shared array.
-            //
-            if (predictor_2d_step) {
-                amrex::ParallelFor(gbx2D,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
-                {
-                    rzeta(i,j,0,krhs)=0.0;
+        } else if (!predictor_2d_step) { //AKA if(corrector_2d_step)
+            Real cff1=dtfast_lev*5.0_rt/12.0_rt;
+            Real cff2=dtfast_lev*8.0_rt/12.0_rt;
+            Real cff3=dtfast_lev*1.0_rt/12.0_rt;
+            Real cff4=2.0_rt/5.0_rt;
+            Real cff5=1.0_rt-cff4;
+            amrex::ParallelFor(gbx2unevenD,
+            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                Real cff=cff1*((DUon(i,j,0)-DUon(i+1,j,0))+
+                               (DVom(i,j,0)-DVom(i,j+1,0)));
+                zeta_new(i,j,0)=zeta(i,j,0,kstp)+
+                    pm(i,j,0)*pn(i,j,0)*(cff+
+                                         cff2*rzeta(i,j,0,kstp)-
+                                         cff3*rzeta(i,j,0,ptsk));
+                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
+                //Pressure gradient terms
+                zwrk(i,j,0)=cff5*zeta_new(i,j,0)+cff4*zeta(i,j,0,krhs);
+                gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
+                gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
+                gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
                 });
-            }
+        }
+
+        //
+        //  Load new free-surface values into shared array at both predictor
+        //  and corrector steps.
+        //
+        amrex::ParallelFor(gbx2unevenD,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            zeta(i,j,0,knew)=zeta_new(i,j,0);
+        });
+
+        //
+        //  If predictor step, load right-side-term into shared array.
+        //
+        if (predictor_2d_step) {
+            amrex::ParallelFor(gbx2unevenD,
+            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
+            });
         }
 
         //

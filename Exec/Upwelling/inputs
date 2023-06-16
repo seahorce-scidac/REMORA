@@ -51,7 +51,6 @@ romsx.use_rayleigh_damping = false
 romsx.spatial_order = 2
 
 romsx.les_type         = "None"
-romsx.evolve_free_surface = false
 #
 # diffusion coefficient from Straka, K = 75 m^2/s
 #
