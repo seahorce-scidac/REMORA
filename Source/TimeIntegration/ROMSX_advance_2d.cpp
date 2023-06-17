@@ -547,16 +547,16 @@ ROMSX::advance_2d (int lev,
        //amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
        //amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(Drhs)<<std::endl;
        //amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(fomn)<<std::endl;
-#ifdef UV_COR
-        // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
-        //
-        //-----------------------------------------------------------------------
-        // coriolis
-        //-----------------------------------------------------------------------
-        //
-        // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
-        coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
-#endif
+       if (solverChoice.use_coriolis) {
+            // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
+            //
+            //-----------------------------------------------------------------------
+            // coriolis
+            //-----------------------------------------------------------------------
+            //
+            // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
+            coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
+       }
        //amrex::PrintToFile("rhs_ubar").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
        //amrex::PrintToFile("rhs_vbar").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
        //Print() << "(10,10,0 mid of advance2d" <<std::endl;

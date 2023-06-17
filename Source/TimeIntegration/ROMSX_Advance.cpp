@@ -336,16 +336,15 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         t3dmix(bx, temp, diff2_temp, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
         t3dmix(bx, salt, diff2_salt, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
 
-#ifdef UV_COR
-        //
-        //-----------------------------------------------------------------------
-        // coriolis
-        //-----------------------------------------------------------------------
-        //
-        // ru, rv updated
-        // In ROMS, coriolis is the first (un-ifdefed) thing to happen in rhs3d_tile, which gets called after t3dmix
-        coriolis(bx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
-#endif
+        if (solverChoice.use_coriolis) {
+            //-----------------------------------------------------------------------
+            // coriolis
+            //-----------------------------------------------------------------------
+            //
+            // ru, rv updated
+            // In ROMS, coriolis is the first (un-ifdefed) thing to happen in rhs3d_tile, which gets called after t3dmix
+            coriolis(bx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
+        }
         //
         //-----------------------------------------------------------------------
         // rhs_3d

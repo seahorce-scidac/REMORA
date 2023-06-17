@@ -3,7 +3,6 @@
 
 using namespace amrex;
 
-#ifdef UV_COR
 //
 // Start 3d step
 //
@@ -44,4 +43,3 @@ ROMSX::coriolis (const Box& bx,
         rv(i,j,k,nr) -= 0.5*(VFe_j + VFe_jm1);
     });
 }
-#endif

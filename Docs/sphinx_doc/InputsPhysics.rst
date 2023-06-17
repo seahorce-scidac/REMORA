@@ -76,34 +76,37 @@ Forcing Terms
 List of Parameters
 ------------------
 
-+----------------------------------+-------------------+-------------------+-------------+
-| Parameter                        | Definition        | Acceptable        | Default     |
-|                                  |                   | Values            |             |
-+==================================+===================+===================+=============+
-| **romsx.abl_driver_type**        | Type of external  | None,             | None        |
-|                                  | forcing term      | PressureGradient  |             |
-|                                  |                   | GeostrophicWind   |             |
-+----------------------------------+-------------------+-------------------+-------------+
-| **romsx.abl_pressure_grad**      | Pressure gradient | 3 Reals           | (0.,0.,0.)  |
-|                                  | forcing term      |                   |             |
-|                                  | (only if          |                   |             |
-|                                  | abl.driver_type = |                   |             |
-|                                  | PressureGradient) |                   |             |
-+----------------------------------+-------------------+-------------------+-------------+
-| **romsx.abl_geo_wind**           | Geostrophic       | 3 Reals           | (0.,0.,0.)  |
-|                                  | forcing term      |                   |             |
-|                                  | (only if          |                   |             |
-|                                  | abl.driver_type = |                   |             |
-|                                  | GeostrophicWind)  |                   |             |
-+----------------------------------+-------------------+-------------------+-------------+
-| **romsx.use_gravity**            | Include gravity   | true / false      | false       |
-|                                  | in momentum       |                   |             |
-|                                  | update?  If true, |                   |             |
-|                                  | there is buoyancy |                   |             |
-+----------------------------------+-------------------+-------------------+-------------+
-| **romsx.use_coriolis**           | Include Coriolis  | true / false      | false       |
-|                                  | forcing           |                   |             |
-+----------------------------------+-------------------+-------------------+-------------+
++----------------------------------+-----------------------------+-------------------+-------------+
+| Parameter                        | Definition                  | Acceptable        | Default     |
+|                                  |                             | Values            |             |
++==================================+=============================+===================+=============+
+| **romsx.abl_driver_type**        | Type of external            | None,             | None        |
+|                                  | forcing term                | PressureGradient  |             |
+|                                  |                             | GeostrophicWind   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
+| **romsx.abl_pressure_grad**      | Pressure gradient           | 3 Reals           | (0.,0.,0.)  |
+|                                  | forcing term                |                   |             |
+|                                  | (only if                    |                   |             |
+|                                  | abl.driver_type =           |                   |             |
+|                                  | PressureGradient)           |                   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
+| **romsx.abl_geo_wind**           | Geostrophic                 | 3 Reals           | (0.,0.,0.)  |
+|                                  | forcing term                |                   |             |
+|                                  | (only if                    |                   |             |
+|                                  | abl.driver_type =           |                   |             |
+|                                  | GeostrophicWind)            |                   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
+| **romsx.use_gravity**            | Include gravity             | true / false      | false       |
+|                                  | in momentum                 |                   |             |
+|                                  | update?  If true,           |                   |             |
+|                                  | there is buoyancy           |                   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
+| **romsx.use_coriolis**           | Include Coriolis terms.     | true / false      | false       |
+|                                  | Coriolis parameter :math`f` |                   |             |
+|                                  | is hard-coded for Upwelling |                   |             |
+|                                  | problem in                  |                   |             |
+|                                  | ``ROMSX::Advance()``        |                   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
 
 
 Initialization

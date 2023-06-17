@@ -599,7 +599,6 @@ public:
                  int nrhs, int nnew,
                  const amrex::Real dt_lev);
 
-#ifdef UV_COR
     void coriolis (const amrex::Box& bx,
                    amrex::Array4<amrex::Real> uold,
                    amrex::Array4<amrex::Real> vold,
@@ -608,7 +607,6 @@ public:
                    amrex::Array4<amrex::Real> Hz,
                    amrex::Array4<amrex::Real> fomn,
                    int nrhs, int nr);
-#endif
 
     void set_2darrays (int lev);
 

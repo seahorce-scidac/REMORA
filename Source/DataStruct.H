@@ -209,11 +209,6 @@ struct SolverChoice {
         pp.queryarr("abl_geo_forcing",abl_geo_forcing_in);
         for(int i = 0; i < AMREX_SPACEDIM; ++i) abl_geo_forcing[i] = abl_geo_forcing_in[i];
 
-        if (use_coriolis)
-        {
-            build_coriolis_forcings();
-        }
-
         static std::string ic_bc_type_string = "Ideal";
         pp.query("ic_bc_type", ic_bc_type_string);
 
@@ -281,41 +276,6 @@ struct SolverChoice {
         }
         else if (icBcType == IC_BC_Type::Real) {
             amrex::Print() << "Using REAL initial and boundary conditions (Mesoscale forcing!)" << std::endl;
-        }
-    }
-
-    void build_coriolis_forcings()
-    {
-        amrex::ParmParse pp(pp_prefix);
-
-        // Read the rotational time period (in seconds)
-        amrex::Real rot_time_period = 86400.0;
-        pp.query("rotational_time_period", rot_time_period);
-
-        coriolis_factor = 2.0 * 2.0 * PI / rot_time_period;
-        amrex::Print() << "Coriolis factor = " << coriolis_factor << std::endl;
-
-        amrex::Real latitude = 90.0;
-        pp.query("latitude", latitude);
-        AMREX_ALWAYS_ASSERT(amrex::Math::abs(latitude - 90.0) < 1.e-12);
-
-        // Convert to radians
-        latitude *= (PI/180.);
-        sinphi = std::sin(latitude);
-        cosphi = std::cos(latitude);
-
-        if (abl_driver_type == ABLDriverType::GeostrophicWind)
-        {
-            // Read in the geostrophic wind -- we only use this to construct
-            //     the forcing term so no need to keep it
-            amrex::Vector<amrex::Real> abl_geo_wind(3);
-            pp.queryarr("abl_geo_wind",abl_geo_wind);
-
-            abl_geo_forcing = {
-                -coriolis_factor * (abl_geo_wind[1]*sinphi - abl_geo_wind[2]*cosphi),
-                 coriolis_factor *  abl_geo_wind[0]*sinphi,
-                -coriolis_factor *  abl_geo_wind[0]*cosphi
-            };
         }
     }
 
