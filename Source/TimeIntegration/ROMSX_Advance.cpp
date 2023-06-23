@@ -322,14 +322,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         prestep_t_3d(bx, uold, vold, u, v, saltold, saltold, salt, salt, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                      pm, pn, W, DC, FC, saltstore, saltstore, FX, FE, z_r, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-       amrex::PrintToFile("uold").SetPrecision(18)<<FArrayBox(uold)<<std::endl;
-       amrex::PrintToFile("vold").SetPrecision(18)<<FArrayBox(vold)<<std::endl;
-       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+
         //
         //-----------------------------------------------------------------------
         // prestep_uv_3d
@@ -339,12 +332,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         prestep_uv_3d(bx, uold, vold, u, v, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                           pm, pn, W, DC, FC, z_r, sustr, svstr, bustr, bvstr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+
         t3dmix(bx, temp, diff2_temp, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
         t3dmix(bx, salt, diff2_salt, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
 
@@ -357,13 +345,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
             // In ROMS, coriolis is the first (un-ifdefed) thing to happen in rhs3d_tile, which gets called after t3dmix
             coriolis(bx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
         }
-       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
-
         //
         //-----------------------------------------------------------------------
         // rhs_3d
@@ -376,12 +357,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
         //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
         uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
-       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+
     } // MFIter
 
     mf_temp.FillBoundary(geom[lev].periodicity());
