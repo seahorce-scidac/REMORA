@@ -206,8 +206,8 @@ ROMSX::advance_2d (int lev,
               rhs_vbar(i,j,0)=0.0;
         });
 
-        amrex::LoopConcurrentOnCpu(gbx2,
-        [=] (int i, int j, int k)
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //Note: are the comment definitons right? Don't seem to match metrics.f90
               om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
