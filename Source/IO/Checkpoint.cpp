@@ -166,6 +166,13 @@ ROMSX::WriteCheckpointFile () const
        VisMF::Write(*(vec_bustr[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "bustr"));
        VisMF::Write(*(vec_bvstr[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "bvstr"));
 
+       VisMF::Write(*(vec_DU_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "DU_avg1"));
+       VisMF::Write(*(vec_DU_avg2[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "DU_avg2"));
+       VisMF::Write(*(vec_DV_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "DV_avg1"));
+       VisMF::Write(*(vec_DV_avg2[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "DV_avg2"));
+
+       VisMF::Write(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "zeta"));
+       VisMF::Write(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Zt_avg1"));
    }
 }
 
@@ -348,5 +355,19 @@ ROMSX::ReadCheckpointFile ()
        VisMF::Read(*(vec_bvstr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "bvstr"));
        vec_bustr[lev]->FillBoundary(geom[lev].periodicity());
        vec_bvstr[lev]->FillBoundary(geom[lev].periodicity());
+
+       VisMF::Read(*(vec_DU_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "DU_avg1"));
+       VisMF::Read(*(vec_DU_avg2[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "DU_avg2"));
+       VisMF::Read(*(vec_DV_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "DV_avg1"));
+       VisMF::Read(*(vec_DV_avg2[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "DV_avg2"));
+       vec_DU_avg1[lev]->FillBoundary(geom[lev].periodicity());
+       vec_DU_avg2[lev]->FillBoundary(geom[lev].periodicity());
+       vec_DV_avg1[lev]->FillBoundary(geom[lev].periodicity());
+       vec_DV_avg2[lev]->FillBoundary(geom[lev].periodicity());
+
+       VisMF::Read(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "zeta"));
+       VisMF::Read(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Zt_avg1"));
+       vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
+       vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
     }
 }

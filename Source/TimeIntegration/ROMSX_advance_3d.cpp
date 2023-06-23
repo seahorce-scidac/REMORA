@@ -127,15 +127,13 @@ ROMSX::advance_3d (int lev,
         //fab_Akt.setVal(1e-6);
         //From ana_grid.h and metrics.F
         //
-       //amrex::ParallelFor(gbx2,
-       // [=] AMREX_GPU_DEVICE (int i, int j, int k)
-       // {
-       //     printf("%d %d %d %25.25g uvel begin advance3d\n", i,j,k,u(i,j,k));
-       //     printf("%d %d %d %25.25g temp begin advance3d\n", i,j,k,temp(i,j,k));
-       //     printf("%d %d %d %25.25g tempstore begin advance3d\n", i,j,k,tempstore(i,j,k));
-       // });
-
-        //
+       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+	//
         // Update to u and v
         //
         amrex::ParallelFor(gbx2,
@@ -490,6 +488,11 @@ Print()<<FArrayBox(tempold)<<std::endl;
        //     printf("%d %d %d %25.25g tempstore end advance3d\n", i,j,k,tempstore(i,j,k));
        // });
 
-
+       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
     } // MFiter
 }
