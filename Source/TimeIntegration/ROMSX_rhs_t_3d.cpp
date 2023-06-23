@@ -36,15 +36,16 @@ ROMSX::rhs_t_3d (const Box& bx,
     //
     // Scratch space
     //
-    FArrayBox fab_grad(gbx2,1,amrex::The_Async_Arena()); //fab_grad.setVal(0.0);
-    FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena()); //fab_uee.setVal(0.0);
+    auto the_arena = Gpu::inLaunchRegion() ? amrex::The_Async_Arena() : amrex::The_Arena();
+    FArrayBox fab_grad(gbx2,1,the_arena); //fab_grad.setVal(0.0);
+    FArrayBox fab_uee(gbx2,1,the_arena); //fab_uee.setVal(0.0);
 
-    FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena()); //fab_uxx.setVal(0.0);
+    FArrayBox fab_uxx(gbx2,1,the_arena); //fab_uxx.setVal(0.0);
 
-    FArrayBox fab_curv(gbx2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0);
+    FArrayBox fab_curv(gbx2,1,the_arena); //fab_curv.setVal(0.0);
 
-    FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //fab_FX.setVal(0.0);
-    FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //fab_FE.setVal(0.0);
+    FArrayBox fab_FX(gbx2,1,the_arena); //fab_FX.setVal(0.0);
+    FArrayBox fab_FE(gbx2,1,the_arena); //fab_FE.setVal(0.0);
 
     auto curv=fab_curv.array();
     auto grad=fab_grad.array();

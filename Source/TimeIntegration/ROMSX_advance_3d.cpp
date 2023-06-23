@@ -189,7 +189,9 @@ ROMSX::advance_3d (int lev,
                 v(i,j,k) *= gbx2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
             });
         // End previous
-   /*
+	{
+        amrex::Gpu::synchronize();
+        amrex::Gpu::LaunchSafeGuard lsg(false);
        //amrex::ParallelFor(gbx2,
        // [=] AMREX_GPU_DEVICE (int i, int j, int k)
        // {
@@ -203,6 +205,12 @@ ROMSX::advance_3d (int lev,
                 DC(i,j,k) = 0.0;
                 CF(i,j,k) = 0.0;
             });
+#ifdef AMREX_USE_GPU
+    Gpu::synchronize();
+    amrex::PrintToFile("DC3_cuda")<<FArrayBox(DC)<<std::endl;
+#else
+    amrex::PrintToFile("DC3_nocuda")<<FArrayBox(DC)<<std::endl;
+#endif
        vert_visc_3d(gbx1,bx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
         amrex::ParallelFor(gbx21,
@@ -212,7 +220,7 @@ ROMSX::advance_3d (int lev,
                 CF(i,j,k) = 0.0;
             });
        vert_visc_3d(gbx1,bx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
-
+	}/*
         amrex::ParallelFor(gbx21,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -333,7 +341,9 @@ ROMSX::advance_3d (int lev,
 
        rhs_t_3d(bx, saltold, salt, saltstore, Huon, Hvom, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
        //Print()<<FArrayBox(salt)<<std::endl;
-    }*/
+    }
+    }
+	 */	
     }
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
