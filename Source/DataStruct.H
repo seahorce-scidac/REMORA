@@ -34,6 +34,10 @@ enum class AdvectionDir {
     x, y, z
 };
 
+enum class AdvectionScheme {
+    centered4, upstream3
+};
+
 enum class DiffusionDir {
     x, y, z
 };
@@ -153,6 +157,16 @@ struct SolverChoice {
             pp.query("diffuse_QKE_3D", diffuse_QKE_3D);
             pp.query("advect_QKE", advect_QKE);
         }
+
+        // Which horizontal advection scheme
+        static std::string hadv_string = "upstream3";
+        pp.query("horizontal_advection_scheme",hadv_string);
+        if (hadv_string == "centered4")
+            Hadv_scheme = AdvectionScheme::centered4;
+        else if (hadv_string == "upstream3")
+            Hadv_scheme = AdvectionScheme::upstream3;
+        else
+            amrex::Error("Advection scheme unknown.");
 
         // Diffusive/viscous/LES constants...
         pp.query("alpha_T", alpha_T);
@@ -277,6 +291,16 @@ struct SolverChoice {
         else if (icBcType == IC_BC_Type::Real) {
             amrex::Print() << "Using REAL initial and boundary conditions (Mesoscale forcing!)" << std::endl;
         }
+
+        if (Hadv_scheme == AdvectionScheme::centered4) {
+            amrex::Print() << "Horizontal advection scheme: " << "Centered 4" << std::endl;
+        }
+        else if (Hadv_scheme == AdvectionScheme::upstream3) {
+            amrex::Print() << "Horizontal advection scheme: " << "Upstream 3" << std::endl;
+        }
+        else {
+            amrex::Error("Invalid horizontal advection scheme.");
+        }
     }
 
     // Default prefix
@@ -288,6 +312,8 @@ struct SolverChoice {
     // Specify what additional physics/forcing modules we use
     bool        use_gravity            = false;
     bool        use_coriolis           = false;
+
+    AdvectionScheme Hadv_scheme;
 
     amrex::Real gravity;
 

@@ -47,6 +47,7 @@ romsx.plotfile_type   = amrex
 # SOLVER CHOICE
 romsx.use_gravity = true
 romsx.use_coriolis = true
+romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 romsx.use_rayleigh_damping = false
 romsx.spatial_order = 2
 

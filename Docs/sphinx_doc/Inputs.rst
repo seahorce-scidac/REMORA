@@ -445,5 +445,45 @@ Examples of Usage
    | for example. If this line is commented out then it will not compute
      and print these quanitities.
 
+Forcing Terms
+=============
+
+.. _list-of-parameters-14:
+
+List of Parameters
+------------------
+
++----------------------------------+-----------------------------+-------------------+-------------+
+| Parameter                        | Definition                  | Acceptable        | Default     |
+|                                  |                             | Values            |             |
++==================================+=============================+===================+=============+
+| **romsx.use_gravity**            | Include gravity             | true / false      | false       |
+|                                  | in momentum                 |                   |             |
+|                                  | update?  If true,           |                   |             |
+|                                  | there is buoyancy           |                   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
+| **romsx.use_coriolis**           | Include Coriolis terms.     | true / false      | false       |
+|                                  | Coriolis parameter :math`f` |                   |             |
+|                                  | is hard-coded for Upwelling |                   |             |
+|                                  | problem in                  |                   |             |
+|                                  | ``ROMSX::Advance()``        |                   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
+
+Numerical Algorithms
+====================
+
+.. _list-of-parameters-15:
+
+List of Parameters
+------------------
+
++---------------------------------------+-----------------------------+-------------------+-------------+
+| Parameter                             | Definition                  | Acceptable        | Default     |
+|                                       |                             | Values            |             |
++=======================================+=============================+===================+=============+
+| **romsx.horizontal_advection_scheme** | Scheme for horizontal       | upstream3,        | upstream3   |
+|                                       | advection                   | centered4         |             |
++---------------------------------------+-----------------------------+-------------------+-------------+
+
 ..
   include:: InputsPhysics.rst
