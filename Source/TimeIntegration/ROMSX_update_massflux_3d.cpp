@@ -31,6 +31,7 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
             {
                 FC(i,j,k)=0.0;
             });
+    Gpu::streamSynchronize();
     //This takes advantage of Hz being an extra grow cell size
     amrex::LoopOnCpu(phi_bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -47,9 +48,10 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
     auto geomdata = Geom(0).data();
     bool NSPeriodic = geomdata.isPeriodic(1);
     bool EWPeriodic = geomdata.isPeriodic(0);
+
     // Note this loop is in the opposite direction in k in ROMS but does not
     // appear to affect results
-    amrex::ParallelFor(phi_bx,
+    amrex::LoopOnCpu(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1=DC(i,j,-1);

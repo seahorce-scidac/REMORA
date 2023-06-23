@@ -31,7 +31,7 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
     {
         Hzk(i,j,k)=0.5*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
     });
-
+    Gpu::streamSynchronize();
     Real CF_tmp=0.0;
     Real DC_tmp=0.0;
     amrex::LoopOnCpu(phi_bx,

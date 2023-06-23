@@ -93,8 +93,8 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
          //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g %25.25g cff u(k+1) u(k)FC DC(k-1)\n",i,j,k,0,cff,phi(i,j,k+1,nnew),phi(i,j,k,nnew),FC(i,j,k),DC(i,j,k-1));
          //exit(1);
     });
-
-    amrex::ParallelFor(phi_bx,
+    Gpu::streamSynchronize();
+    amrex::LoopOnCpu(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
        //

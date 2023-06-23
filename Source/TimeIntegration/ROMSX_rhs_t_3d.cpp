@@ -87,8 +87,16 @@ ROMSX::rhs_t_3d (const Box& bx,
     Real cffa=1.0/6.0;
     Real cffb=1.0/3.0;
     //HACK to avoid using the wrong index of t (using upstream3
-    Real max_Huon=FArrayBox(Huon).max<RunOn::Device>();
-    Real min_Huon=FArrayBox(Huon).min<RunOn::Device>();
+    Real max_Huon=-1e34;
+    Real min_Huon=1e34;
+    if(Gpu::inLaunchRegion()) {
+       max_Huon=FArrayBox(Huon).max<RunOn::Device>();
+       min_Huon=FArrayBox(Huon).min<RunOn::Device>();
+    }
+    else {
+       max_Huon=FArrayBox(Huon).max<RunOn::Host>();
+       min_Huon=FArrayBox(Huon).min<RunOn::Host>();
+    }
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -119,8 +127,16 @@ ROMSX::rhs_t_3d (const Box& bx,
     cffa=1.0/6.0;
     cffb=1.0/3.0;
     //HACK to avoid using the wrong index of t (using upstream3)
-    Real max_Hvom=FArrayBox(Hvom).max<RunOn::Device>();
-    Real min_Hvom=FArrayBox(Hvom).min<RunOn::Device>();
+    Real max_Hvom=-1e34;
+    Real min_Hvom=1e34;
+    if(Gpu::inLaunchRegion()) {
+       max_Hvom=FArrayBox(Hvom).max<RunOn::Device>();
+       min_Hvom=FArrayBox(Hvom).min<RunOn::Device>();
+    }
+    else {
+       max_Hvom=FArrayBox(Hvom).max<RunOn::Host>();
+       min_Hvom=FArrayBox(Hvom).min<RunOn::Host>();
+    }
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
