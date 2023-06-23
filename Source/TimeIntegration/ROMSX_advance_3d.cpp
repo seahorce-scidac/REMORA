@@ -189,7 +189,7 @@ ROMSX::advance_3d (int lev,
                 v(i,j,k) *= gbx2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
             });
         // End previous
-
+   /*
        //amrex::ParallelFor(gbx2,
        // [=] AMREX_GPU_DEVICE (int i, int j, int k)
        // {
@@ -272,9 +272,6 @@ ROMSX::advance_3d (int lev,
         //
         W(i,j,k)=0.0;
     });
-    /*    Print()<<FArrayBox(W)<<std::endl;
-    Print()<<FArrayBox(Hvom)<<std::endl;
-    Print()<<FArrayBox(Huon)<<std::endl;*/
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -289,9 +286,7 @@ ROMSX::advance_3d (int lev,
             W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k));
         }
     });
-    /*    Print()<<FArrayBox(W)<<std::endl;
-    Print()<<FArrayBox(Hvom)<<std::endl;
-    Print()<<FArrayBox(Huon)<<std::endl;*/
+
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -306,9 +301,7 @@ ROMSX::advance_3d (int lev,
             W(i,j,k) = W(i,j,k)- (Hvom(i,j+1,k)-Hvom(i,j,k));
         }
     });
-    /*    Print()<<FArrayBox(W)<<std::endl;
-    Print()<<FArrayBox(Hvom)<<std::endl;
-    Print()<<FArrayBox(Huon)<<std::endl;*/
+
     amrex::ParallelFor(Box(W),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -323,20 +316,12 @@ ROMSX::advance_3d (int lev,
             W(i,j,k) = W(i,j,k) + W(i,j,k-1);
         }
     });
-    /*    Print()<<FArrayBox(W)<<std::endl;
-    Print()<<FArrayBox(Hvom)<<std::endl;
-    Print()<<FArrayBox(Huon)<<std::endl;
-    exit(1);*/
        //
        //-----------------------------------------------------------------------
        // rhs_3d
        //-----------------------------------------------------------------------
        //
-    /*
-       Print()<<FArrayBox(tempold)<<std::endl;
-       Print()<<FArrayBox(temp)<<std::endl;
-       Print()<<FArrayBox(tempstore)<<std::endl;
-    */
+
        //amrex::ParallelFor(gbx2,
        // [=] AMREX_GPU_DEVICE (int i, int j, int k)
        // {
@@ -345,15 +330,10 @@ ROMSX::advance_3d (int lev,
        //     printf("%d %d %d %25.25g tempstore before rhst3d advance3d\n", i,j,k,tempstore(i,j,k));
        // });
        rhs_t_3d(bx, tempold, temp, tempstore, Huon, Hvom, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
-       /*
-Print()<<FArrayBox(tempold)<<std::endl;
-       Print()<<FArrayBox(temp)<<std::endl;
-       Print()<<FArrayBox(tempstore)<<std::endl;
-       Print()<<FArrayBox(salt)<<std::endl;
-       */
+
        rhs_t_3d(bx, saltold, salt, saltstore, Huon, Hvom, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
        //Print()<<FArrayBox(salt)<<std::endl;
-    }
+    }*/
     }
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
@@ -436,6 +416,7 @@ Print()<<FArrayBox(tempold)<<std::endl;
         auto fomn=fab_fomn.array();
         auto Akt= fab_Akt.array();
         auto W= fab_W.array();
+	/*
         //From ini_fields and .in file
         //fab_Akt.setVal(1e-6);
         //From ana_grid.h and metrics.F
@@ -489,7 +470,7 @@ Print()<<FArrayBox(tempold)<<std::endl;
        //     printf("%d %d %d %25.25g temp end advance3d\n", i,j,k,temp(i,j,k));
        //     printf("%d %d %d %25.25g tempstore end advance3d\n", i,j,k,tempstore(i,j,k));
        // });
-
+*/
 
     } // MFiter
 }
