@@ -17,6 +17,10 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
     auto phi_bxD=phi_bx;
     phi_bxD.makeSlab(2,0);
 
+    auto geomdata = Geom(0).data();
+    bool NSPeriodic = geomdata.isPeriodic(1);
+    bool EWPeriodic = geomdata.isPeriodic(0);
+
     //Copied depth of water column calculation from DepthStretchTransform
     //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column DC(i,j,-1), and
     // incorrect vertical mean CF(i,j,-1)
@@ -34,25 +38,21 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
     Gpu::streamSynchronize();
     //This takes advantage of Hz being an extra grow cell size
     amrex::LoopOnCpu(phi_bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        [=] (int i, int j, int k)
             {
                 DC(i,j,k)=0.5*om_v_or_on_u(i,j,0)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
             });
     amrex::LoopOnCpu(phi_bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        [=] (int i, int j, int k)
             {
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*phi(i,j,k,nnew);
             });
 
-    auto geomdata = Geom(0).data();
-    bool NSPeriodic = geomdata.isPeriodic(1);
-    bool EWPeriodic = geomdata.isPeriodic(0);
-
     // Note this loop is in the opposite direction in k in ROMS but does not
     // appear to affect results
     amrex::LoopOnCpu(phi_bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    [=] (int i, int j, int k)
     {
         Real cff1=DC(i,j,-1);
         if(k==0) {
@@ -79,7 +79,7 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
     });
 
     amrex::LoopOnCpu(phi_bxD,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    [=] (int i, int j, int k)
     {
         FC(i,j,0) = DC(i,j,-1)*(FC(i,j,0)-Dphi_avg2(i,j,0)); //recursive
     });

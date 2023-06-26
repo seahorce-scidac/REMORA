@@ -99,18 +99,18 @@ ROMSX::advance_3d (int lev,
         amrex::Print() << "UBX " << ubx << std::endl;
         amrex::Print() << "VBX " << vbx << std::endl;
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
-        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
-        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_Akt(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_W(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_FC(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_BC(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_CF(gbx21,1,amrex::The_Arena());
+        FArrayBox fab_oHz(gbx11,1,amrex::The_Arena());
+        FArrayBox fab_pn(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_pm(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_fomn(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_Akt(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_W(gbx2,1,amrex::The_Arena());
 
-        FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_u(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_om_v(gbx2,1,amrex::The_Arena());
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
 
@@ -402,18 +402,18 @@ ROMSX::advance_3d (int lev,
         amrex::Print() << "UBX " << ubx << std::endl;
         amrex::Print() << "VBX " << vbx << std::endl;
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
-        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
-        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_Akt(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_W(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_FC(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_BC(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_CF(gbx21,1,amrex::The_Arena());
+        FArrayBox fab_oHz(gbx11,1,amrex::The_Arena());
+        FArrayBox fab_pn(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_pm(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_fomn(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_Akt(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_W(gbx2,1,amrex::The_Arena());
 
-        FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_u(gbx2,1,amrex::The_Arena());
+        FArrayBox fab_om_v(gbx2,1,amrex::The_Arena());
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
 

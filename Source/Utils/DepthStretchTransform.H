@@ -24,7 +24,7 @@ ROMSX::set_2darrays (int lev)
       const Box& bx = mfi.growntilebox();
       const auto & geomdata = Geom(lev).data();
       int ncomp = 1;
-
+      Gpu::synchronize();
       amrex::LoopConcurrentOnCpu(bx, ncomp,
       [=] (int i, int j, int k, int n)
       {
@@ -68,8 +68,8 @@ ROMSX::set_2darrays (int lev)
         gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
         gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
-        FArrayBox fab_DC(gbx11,1,amrex::The_Async_Arena());
-        FArrayBox fab_CF(gbx11,1,amrex::The_Async_Arena());
+        FArrayBox fab_DC(gbx11,1,amrex::The_Arena());
+        FArrayBox fab_CF(gbx11,1,amrex::The_Arena());
         auto DC=fab_DC.array();
         auto CF=fab_CF.array();
 
@@ -81,8 +81,9 @@ ROMSX::set_2darrays (int lev)
                 DC(i,j,k)=0.0;
                 CF(i,j,k)=0.0;
             });
-        amrex::LoopOnCpu(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      Gpu::streamSynchronize();
+      amrex::LoopOnCpu(gbx1, ncomp,
+        [=] (int i, int j, int k, int n)
             {
                 DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k));
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
@@ -105,9 +106,9 @@ ROMSX::set_2darrays (int lev)
                 DC(i,j,k)=0.0;
                 CF(i,j,k)=0.0;
             });
-
+      Gpu::streamSynchronize();
         amrex::LoopOnCpu(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        [=] (int i, int j, int k)
             {
                 DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
@@ -141,7 +142,7 @@ void ROMSX::set_vmix (int lev)
       bx.grow(IntVect(NGROW,NGROW,0));
       const auto & geomdata = Geom(lev).data();
       int ncomp = 1;
-
+      Gpu::streamSynchronize();
       amrex::LoopConcurrentOnCpu(bx, ncomp,
       [=] (int i, int j, int k, int n)
       {
@@ -246,6 +247,7 @@ ROMSX::set_depth (int lev)
       bool NSPeriodic = geomdata.isPeriodic(1);
       bool EWPeriodic = geomdata.isPeriodic(0);
       if(!solverChoice.flat_bathymetry) {
+      Gpu::streamSynchronize();
       amrex::LoopConcurrentOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
@@ -271,6 +273,7 @@ ROMSX::set_depth (int lev)
           z_w(i,j,k) = h(i,j,0);
       });
       } else {
+      Gpu::streamSynchronize();
       amrex::LoopConcurrentOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
@@ -280,6 +283,7 @@ ROMSX::set_depth (int lev)
       }
 
       // ROMS Transform 2
+      Gpu::streamSynchronize();
       amrex::LoopOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
@@ -388,6 +392,7 @@ ROMSX::set_depth (int lev)
           z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
         }
       });
+      Gpu::streamSynchronize();
       amrex::LoopOnCpu(gbx2, ncomp,
       [=] (int i, int j, int k, int n)
       {
@@ -428,6 +433,7 @@ void ROMSX::set_hmixcoef (int lev) {
         bx.grow(IntVect(NGROW,NGROW,0));
         int ncomp = 1;
 
+        Gpu::synchronize();
         amrex::LoopConcurrentOnCpu(bx, ncomp,
         [=] (int i, int j, int k, int n)
         {
@@ -456,6 +462,7 @@ void ROMSX::set_drag (int lev) {
         bx.grow(IntVect(NGROW,NGROW,0));
         int ncomp = 1;
 
+        Gpu::synchronize();
         // Functional form given in ana_drag.h, ifdef UPWELLING and UV_LDRAG
         amrex::LoopConcurrentOnCpu(bx, ncomp,
         [=] (int i, int j, int k, int n)
