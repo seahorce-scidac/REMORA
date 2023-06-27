@@ -43,7 +43,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     //------------------------------------------------------------------------
     //
     //Should really use gbx3uneven
-    amrex::ParallelFor(Box(W),
+    amrex::ParallelFor(gbx3uneven,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //  Starting with zero vertical velocity at the bottom, integrate
@@ -81,7 +81,7 @@ ROMSX::prestep_t_3d (const Box& bx,
             W(i,j,k) = W(i,j,k)- (Hvom(i,j+1,k)-Hvom(i,j,k));
         }
     });
-    amrex::ParallelFor(Box(W),
+    amrex::ParallelFor(gbx3uneven,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //  Starting with zero vertical velocity at the bottom, integrate
@@ -130,14 +130,14 @@ ROMSX::prestep_t_3d (const Box& bx,
     Print()<<Box(FX)<<std::endl;
     Print()<<(Box(tempold))<<std::endl;
 
-    amrex::ParallelFor(Box(FX),
+    amrex::ParallelFor(gbx2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
                     0.5*(tempold(i-1,j,k)+
                          tempold(i  ,j,k)) : 1e34;
     });
-    amrex::ParallelFor(Box(FE),
+    amrex::ParallelFor(gbx2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
@@ -185,7 +185,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     // Time-step vertical advection of tracers (Tunits). Impose artificial
     // continuity equation.
     //
-    amrex::ParallelFor(Box(FC),
+    amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //-----------------------------------------------------------------------
