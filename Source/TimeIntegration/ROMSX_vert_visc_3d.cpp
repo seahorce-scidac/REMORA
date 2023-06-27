@@ -60,7 +60,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     amrex::ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-	for(int k=0; k<=N; k++) {
+        for(int k=0; k<=N; k++) {
         //
         //  Use conservative, parabolic spline reconstruction of vertical
         //  viscosity derivatives.  Then, time step vertical viscosity term
@@ -100,8 +100,8 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
              CF(i,j,k) *= cff;
              DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*DC(i,j,k-1));
          }
-	}
-	//printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g %25.25g BC cff CF DC\n",i,j,k,0,BC(i,j,k),cff,CF(i,j,k),FC(i,j,k),DC(i,j,k));
+        }
+        //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g %25.25g BC cff CF DC\n",i,j,k,0,BC(i,j,k),cff,CF(i,j,k),FC(i,j,k),DC(i,j,k));
          //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g %25.25g cff u(k+1) u(k)FC DC(k-1)\n",i,j,k,0,cff,phi(i,j,k+1,nnew),phi(i,j,k,nnew),FC(i,j,k),DC(i,j,k-1));
          //exit(1);
     });
@@ -133,7 +133,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
            DC(i,j,N-k) -= CF(i,j,N-k)*DC(i,j,N-k+1);
        }
        }
-    });    
+    });
 #ifdef AMREX_USE_GPU
     Gpu::synchronize();
     amrex::PrintToFile("DC_cuda")<<FArrayBox(DC)<<std::endl;

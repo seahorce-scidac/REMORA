@@ -189,7 +189,7 @@ ROMSX::advance_3d (int lev,
                 v(i,j,k) *= gbx2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
             });
         // End previous
-	{
+        {
         amrex::Gpu::synchronize();
         amrex::Gpu::LaunchSafeGuard lsg(false);
        //amrex::ParallelFor(gbx2,
@@ -220,7 +220,7 @@ ROMSX::advance_3d (int lev,
                 CF(i,j,k) = 0.0;
             });
        vert_visc_3d(gbx1,bx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
-	}
+        }
         amrex::ParallelFor(gbx21,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
