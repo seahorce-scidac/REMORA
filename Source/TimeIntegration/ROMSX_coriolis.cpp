@@ -8,7 +8,7 @@ using namespace amrex;
 //
 
 void
-ROMSX::coriolis (const Box& bx,
+ROMSX::coriolis (const Box& bx, const Box& gbx,
                  Array4<Real> uold  , Array4<Real> vold,
                  Array4<Real> ru, Array4<Real> rv,
                  Array4<Real> Hz, Array4<Real> fomn,
@@ -22,14 +22,24 @@ ROMSX::coriolis (const Box& bx,
 
     //Box ubx = surroundingNodes(bx,0);
     //Box vbx = surroundingNodes(bx,1);
+    Print() << bx << std::endl;
     Box ubxShift = bx;
     ((((ubxShift.growLo(0,NGROW-1)).growLo(1,NGROW)).growHi(0,NGROW)).growHi(1,NGROW-1));
     Box vbxShift = bx;
     ((((vbxShift.growLo(0,NGROW)).growLo(1,NGROW-1)).growHi(0,NGROW-1)).growHi(1,NGROW));
 
+    BoxArray ba_ubxShift = intersect(BoxArray(ubxShift), gbx);
+    AMREX_ASSERT((ba_ubxShift.size() == 1));
+    ubxShift = ba_ubxShift[0];
+
+    BoxArray ba_vbxShift = intersect(BoxArray(vbxShift), gbx);
+    AMREX_ASSERT((ba_vbxShift.size() == 1));
+    vbxShift = ba_vbxShift[0];
+
     amrex::ParallelFor(ubxShift,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
+//        printf("%d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz(i-1,j,k),fomn(i-1,j,0), vold(i-1,j,k,nrhs), vold(i-1,j+1,k,nrhs));
         Real UFx_i   = 0.5 * Hz(i  ,j,k) * fomn(i  ,j,0) * (vold(i  ,j,k,nrhs)+vold(i  ,j+1,k,nrhs));
         Real UFx_im1 = 0.5 * Hz(i-1,j,k) * fomn(i-1,j,0) * (vold(i-1,j,k,nrhs)+vold(i-1,j+1,k,nrhs));
         ru(i,j,k,nr) += 0.5*(UFx_i + UFx_im1);

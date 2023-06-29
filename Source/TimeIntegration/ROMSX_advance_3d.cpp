@@ -79,17 +79,26 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
 
         Box bx = mfi.tilebox();
-        Box gbx = mfi.growntilebox();
+        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+        Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
+        Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
         //copy the tilebox
-        Box gbx1 = bx;
-        Box gbx11 = bx;
-        Box gbx2 = bx;
-        Box gbx21 = bx;
+        //Box gbx1 = bx;
+        //Box gbx11 = bx;
+        //Box gbx2 = bx;
+        //Box gbx21 = bx;
         //make only gbx be grown to match multifabs
-        gbx21.grow(IntVect(NGROW,NGROW,NGROW-1));
-        gbx2.grow(IntVect(NGROW,NGROW,0));
-        gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-        gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
+        //gbx21.grow(IntVect(NGROW,NGROW,NGROW-1));
+        //gbx2.grow(IntVect(NGROW,NGROW,0));
+        //gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+        //gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
+        Box tbxp1 = bx;
+        Box tbxp11 = bx;
+        Box tbxp2 = bx;
+        tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
+        tbxp2.grow(IntVect(NGROW,NGROW,0));
+        tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         Box ubx = surroundingNodes(bx,0);
         Box vbx = surroundingNodes(bx,1);
@@ -103,14 +112,14 @@ ROMSX::advance_3d (int lev,
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
-        FArrayBox fab_pn(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pm(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_fomn(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_Akt(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_W(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pn(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pm(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_fomn(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_Akt(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
 
-        FArrayBox fab_on_u(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_v(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_v(tbxp2,1,amrex::The_Async_Arena());
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
 
@@ -127,16 +136,16 @@ ROMSX::advance_3d (int lev,
         //fab_Akt.setVal(1e-6);
         //From ana_grid.h and metrics.F
         //
-       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+       //amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+       //amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+       //amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       //amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       //amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       //amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
     //
         // Update to u and v
         //
-        amrex::ParallelFor(gbx2,
+        amrex::ParallelFor(tbxp2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             const auto prob_lo         = geomdata.ProbLo();
@@ -154,7 +163,7 @@ ROMSX::advance_3d (int lev,
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             Akt(i,j,k)=1e-6;
         });
-       amrex::ParallelFor(gbx2,
+       amrex::ParallelFor(tbxp2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
           om_v(i,j,0)=1.0/dxi[0];
@@ -233,14 +242,14 @@ ROMSX::advance_3d (int lev,
         //printf("%d %d %d %25.25g Huon before massflux\n", i, j, k, Huon(i,j,k));
     //    });
 
-       update_massflux_3d(Box(Huon),bx,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
+       update_massflux_3d(gbx2,bx,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
         amrex::ParallelFor(Box(ubar),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 ubar(i,j,k,0) = DC(i,j,-1)*DU_avg1(i,j,0);
                 ubar(i,j,k,1) = ubar(i,j,k,0);
             });
-        update_massflux_3d(Box(Hvom),bx,0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
+        update_massflux_3d(gbx2,bx,0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
         amrex::ParallelFor(Box(vbar),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -488,11 +497,11 @@ Print()<<FArrayBox(tempold)<<std::endl;
        //     printf("%d %d %d %25.25g tempstore end advance3d\n", i,j,k,tempstore(i,j,k));
        // });
 
-       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+       //amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+       //amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+       //amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       //amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       //amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       //amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
     } // MFiter
 }

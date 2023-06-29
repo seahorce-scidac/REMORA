@@ -42,6 +42,7 @@ ROMSX::update_vel_3d (const Box& vel_bx,
     amrex::ParallelFor(vel_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
+        //printf("%d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k, vel_old(i,j,k+1,nstp), vel_old(i,j,k,nstp), Akv(i,j,k), Akv(i-ioff,j-joff,k));
         if(k+1<=N&&k>=0)
         {
             Real cff = 1.0 / ( z_r(i,j,k+1)+z_r(i-ioff,j-joff,k+1)

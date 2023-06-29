@@ -5,6 +5,7 @@ CEXE_sources += ROMSX_rho_eos.cpp
 CEXE_sources += ROMSX_uv3dmix.cpp
 CEXE_sources += ROMSX_t3dmix.cpp
 CEXE_sources += ROMSX_coriolis.cpp
+CEXE_sources += ROMSX_prestep.cpp
 CEXE_sources += ROMSX_prestep_t_3d.cpp
 CEXE_sources += ROMSX_prestep_uv_3d.cpp
 CEXE_sources += ROMSX_rhs_t_3d.cpp

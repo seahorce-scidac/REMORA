@@ -65,9 +65,11 @@ ROMSX::uv3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=Jstr,Jend+1
     //DO i=Istr,Iend+1
+    Print() << bx << std::endl;
     amrex::ParallelFor(bx, ncomp,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
+                printf("%d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz(i-1,j,k),Hz(i,j,k),Hz(i-1,j-1,k),Hz(i,j-1,k));
                 const amrex::Real cff = 0.125 * (Hz(i-1,j  ,k)+Hz(i,j  ,k)+
                                       Hz(i-1,j-1,k)+Hz(i,j-1,k))*
                             (pm(i,j,0)/pn(i,j,0)*

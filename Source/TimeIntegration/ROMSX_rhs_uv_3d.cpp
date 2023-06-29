@@ -8,7 +8,7 @@ using namespace amrex;
 //
 
 void
-ROMSX::rhs_3d (const Box& bx,
+ROMSX::rhs_3d (const Box& bx, const Box& gbx,
                Array4<Real> uold  , Array4<Real> vold,
                Array4<Real> ru, Array4<Real> rv,
                Array4<Real> rufrc, Array4<Real> rvfrc,
@@ -21,23 +21,23 @@ ROMSX::rhs_3d (const Box& bx,
                int nrhs, int N)
 {
     //copy the tilebox
-    Box gbx0 = bx;
-    Box gbx1 = bx;
-    Box gbx11 = bx;
-    Box gbx2 = bx;
+    Box tbxp1 = bx;
+    Box tbxp2 = bx;
+    //make only gbx be grown to match multifabs
+    tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
+    tbxp2.grow(IntVect(NGROW,NGROW,0));
+
+    BoxArray ba_gbx1 = intersect(BoxArray(tbxp1), gbx);
+    AMREX_ASSERT((ba_gbx1.size() == 1));
+    Box gbx1 = ba_gbx1[0];
+
+    BoxArray ba_gbx2 = intersect(BoxArray(tbxp2), gbx);
+    AMREX_ASSERT((ba_gbx2.size() == 1));
+    Box gbx2 = ba_gbx2[0];
 
     Box ubx = surroundingNodes(bx,0);
     Box vbx = surroundingNodes(bx,1);
 
-    Box gbx3uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-3,bx.smallEnd(1)-3,bx.smallEnd(2))),
-                   IntVect(AMREX_D_DECL(bx.bigEnd(0)+2,bx.bigEnd(1)+2,bx.bigEnd(2))));
-    Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
-                   IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
-    //make only gbx be grown to match multifabs
-    gbx2.grow(IntVect(NGROW,NGROW,0));
-    gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-    gbx0.grow(IntVect(NGROW-2,NGROW-2,0));
-    gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
     Box bxD = bx;
     bxD.makeSlab(2,0);
@@ -47,22 +47,22 @@ ROMSX::rhs_3d (const Box& bx,
     //
     // Scratch space
     //
-    FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena()); //fab_Huee.setVal(0.0);
-    FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena()); //fab_uee.setVal(0.0);
+    FArrayBox fab_Huee(tbxp2,1,amrex::The_Async_Arena()); //fab_Huee.setVal(0.0);
+    FArrayBox fab_uee(tbxp2,1,amrex::The_Async_Arena()); //fab_uee.setVal(0.0);
 
-    FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena()); //fab_Hvee.setVal(0.0);
-    FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena()); //fab_vee.setVal(0.0);
+    FArrayBox fab_Hvee(tbxp2,1,amrex::The_Async_Arena()); //fab_Hvee.setVal(0.0);
+    FArrayBox fab_vee(tbxp2,1,amrex::The_Async_Arena()); //fab_vee.setVal(0.0);
 
-    FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena()); //fab_Hvxx.setVal(0.0);
-    FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena()); //fab_uxx.setVal(0.0);
+    FArrayBox fab_Hvxx(tbxp2,1,amrex::The_Async_Arena()); //fab_Hvxx.setVal(0.0);
+    FArrayBox fab_uxx(tbxp2,1,amrex::The_Async_Arena()); //fab_uxx.setVal(0.0);
 
-    FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena()); //fab_Huxx.setVal(0.0);
-    FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena()); //fab_vxx.setVal(0.0);
+    FArrayBox fab_Huxx(tbxp2,1,amrex::The_Async_Arena()); //fab_Huxx.setVal(0.0);
+    FArrayBox fab_vxx(tbxp2,1,amrex::The_Async_Arena()); //fab_vxx.setVal(0.0);
 
-    FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena()); //fab_UFx.setVal(0.0);
-    FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena()); //fab_UFe.setVal(0.0);
-    FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena()); //fab_VFx.setVal(0.0);
-    FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena()); //fab_VFe.setVal(0.0);
+    FArrayBox fab_UFx(tbxp2,1,amrex::The_Async_Arena()); //fab_UFx.setVal(0.0);
+    FArrayBox fab_UFe(tbxp2,1,amrex::The_Async_Arena()); //fab_UFe.setVal(0.0);
+    FArrayBox fab_VFx(tbxp2,1,amrex::The_Async_Arena()); //fab_VFx.setVal(0.0);
+    FArrayBox fab_VFe(tbxp2,1,amrex::The_Async_Arena()); //fab_VFe.setVal(0.0);
 
     auto Huxx=fab_Huxx.array();
     auto Hvxx=fab_Hvxx.array();
@@ -80,7 +80,7 @@ ROMSX::rhs_3d (const Box& bx,
     //check this////////////
     const Real Gadv = -0.25;
 
-    amrex::ParallelFor(gbx2,
+    amrex::ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Huee(i,j,k)=0.0;

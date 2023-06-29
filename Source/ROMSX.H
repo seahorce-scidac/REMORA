@@ -373,8 +373,34 @@ public:
                      const int ncomp, const int N,
                      const amrex::Real dt_lev);
 
+    /** Wrapper function for prestep */
+    void prestep (int lev,
+                  amrex::MultiFab& mf_uold, amrex::MultiFab& mf_vold,
+                  amrex::MultiFab& mf_u, amrex::MultiFab& mf_v,
+                  std::unique_ptr<amrex::MultiFab>& mf_ru,
+                  std::unique_ptr<amrex::MultiFab>& mf_rv,
+                  amrex::MultiFab& mf_tempold, amrex::MultiFab& mf_saltold,
+                  amrex::MultiFab& mf_temp, amrex::MultiFab& mf_salt,
+                  std::unique_ptr<amrex::MultiFab>& mf_Hz,
+                  std::unique_ptr<amrex::MultiFab>& mf_Akv,
+                  std::unique_ptr<amrex::MultiFab>& mf_Huon,
+                  std::unique_ptr<amrex::MultiFab>& mf_Hvom,
+                  amrex::MultiFab& mf_W, amrex::MultiFab& mf_DC,
+                  /* MF mf_FC? */
+                  std::unique_ptr<amrex::MultiFab>& mf_t3,
+                  std::unique_ptr<amrex::MultiFab>& mf_s3,
+                  std::unique_ptr<amrex::MultiFab>& mf_z_r,
+                  std::unique_ptr<amrex::MultiFab>& mf_sustr,
+                  std::unique_ptr<amrex::MultiFab>& mf_svstr,
+                  std::unique_ptr<amrex::MultiFab>& mf_bustr,
+                  std::unique_ptr<amrex::MultiFab>& mf_bvstr,
+                  const int iic, const int nfirst,
+                  const int nnew, int nstp, int nrhs,
+                  int N, const amrex::Real dt_lev);
+
     /** Prestep calculations for the tracers */
-    void prestep_t_3d (const amrex::Box& bx,
+    void prestep_t_3d (const amrex::Box& tbx,
+                        const amrex::Box& gbx,
                         amrex::Array4<amrex::Real> uold,
                         amrex::Array4<amrex::Real> vold,
                         amrex::Array4<amrex::Real> u,
@@ -446,6 +472,7 @@ public:
 
     /** Calculation of the RHS */
     void rhs_3d (const amrex::Box& bx,
+                 const amrex::Box& gbx,
                  amrex::Array4<amrex::Real> uold,
                  amrex::Array4<amrex::Real> vold,
                  amrex::Array4<amrex::Real> ru,
@@ -600,6 +627,7 @@ public:
                  const amrex::Real dt_lev);
 
     void coriolis (const amrex::Box& bx,
+                   const amrex::Box& gbx,
                    amrex::Array4<amrex::Real> uold,
                    amrex::Array4<amrex::Real> vold,
                    amrex::Array4<amrex::Real> ru,

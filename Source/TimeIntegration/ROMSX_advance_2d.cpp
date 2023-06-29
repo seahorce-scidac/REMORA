@@ -99,63 +99,89 @@ ROMSX::advance_2d (int lev,
         Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
 
         Box bx = mfi.tilebox();
+        Print() << bx << std::endl;
         //copy the tilebox
-        Box gbx1 = bx;
-        Box gbx11 = bx;
-        Box gbx2 = bx;
+        //Box gbx1 = bx;
+        //Box gbx11 = bx;
+        //Box gbx2 = bx;
+        Box gbx = mfi.growntilebox();
+        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+        Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
+
+        Box tbxp1 = bx;
+        Box tbxp11 = bx;
+        Box tbxp2 = bx;
+        tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
+        tbxp2.grow(IntVect(NGROW,NGROW,0));
+        tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
         //make only gbx be grown to match multifabs
-        gbx2.grow(IntVect(NGROW,NGROW,0));
-        gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-        gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-        Box bxD = bx;
+        //gbx2.grow(IntVect(NGROW,NGROW,0));
+        //gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+        //gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
         Box ubxD = surroundingNodes(bx,0);
         Box vbxD = surroundingNodes(bx,1);
-        bxD.makeSlab(2,0);
-        ubxD.makeSlab(2,0);
-        vbxD.makeSlab(2,0);
-        Box gbx1D = bxD;
-        Box gbx2D = bxD;
-        gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
-        gbx2D.grow(IntVect(NGROW,NGROW,0));
 
-        Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-NGROW,bx.smallEnd(1)-NGROW,bx.smallEnd(2))),
+        Box bxD = bx;
+        bxD.makeSlab(2,0);
+        Box gbxD = gbx;
+        gbxD.makeSlab(2,0);
+        Box gbx1D = gbx1;
+        gbx1D.makeSlab(2,0);
+        Box gbx2D = gbx2;
+        gbx2D.makeSlab(2,0);
+
+        Box tbxp2D = tbxp2;
+        tbxp2D.makeSlab(2,0);
+
+
+        //bxD.makeSlab(2,0);
+        //ubxD.makeSlab(2,0);
+        //vbxD.makeSlab(2,0);
+        //Box gbx1D = bxD;
+        //Box gbx2D = bxD;
+        //gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
+        //gbx2D.grow(IntVect(NGROW,NGROW,0));
+
+        Box tbxp2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-NGROW,bx.smallEnd(1)-NGROW,bx.smallEnd(2))),
                        IntVect(AMREX_D_DECL(bx.bigEnd(0)+NGROW-1,bx.bigEnd(1)+NGROW-1,bx.bigEnd(2))));
-        Box gbx2unevenD = gbx2uneven;
-        gbx2unevenD = gbx2uneven.makeSlab(2,0);
+
+        Box tbxp2unevenD = tbxp2uneven;
+        tbxp2unevenD = tbxp2uneven.makeSlab(2,0);
         //AKA
         //ubxD.setRange(2,0);
         //vbxD.setRange(2,0);
 
-        FArrayBox fab_pn(gbx2,1,The_Async_Arena());
-        FArrayBox fab_pm(gbx2,1,The_Async_Arena());
-        FArrayBox fab_on_u(gbx2,1,The_Async_Arena());
-        FArrayBox fab_om_v(gbx2,1,The_Async_Arena());
-        FArrayBox fab_fomn(gbx2,1,The_Async_Arena());
-        FArrayBox fab_Huon(gbx2,1,The_Async_Arena()); //fab_Huon.setVal(0.0);
-        FArrayBox fab_Hvom(gbx2,1,The_Async_Arena()); //fab_Hvom.setVal(0.0);
-        FArrayBox fab_oHz(gbx11,1,The_Async_Arena()); //fab_oHz.setVal(0.0);
-        FArrayBox fab_om_u(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_v(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_r(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_r(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_p(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_p(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pn(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_pm(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_on_u(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_om_v(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_fomn(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_Huon(tbxp2,1,The_Async_Arena()); //fab_Huon.setVal(0.0);
+        FArrayBox fab_Hvom(tbxp2,1,The_Async_Arena()); //fab_Hvom.setVal(0.0);
+        FArrayBox fab_oHz(tbxp11,1,The_Async_Arena()); //fab_oHz.setVal(0.0);
+        FArrayBox fab_om_u(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_v(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_r(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_r(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_p(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_p(tbxp2,1,amrex::The_Async_Arena());
 
         //step2d work arrays
-        FArrayBox fab_Drhs(gbx2,1,The_Async_Arena());
-        FArrayBox fab_Drhs_p(gbx2,1,The_Async_Arena());
-        FArrayBox fab_Dnew(gbx2,1,The_Async_Arena());
-        FArrayBox fab_zwrk(gbx2,1,The_Async_Arena());
-        FArrayBox fab_gzeta(gbx2,1,The_Async_Arena());
-        FArrayBox fab_gzeta2(gbx2,1,The_Async_Arena());
-        FArrayBox fab_gzetaSA(gbx2,1,The_Async_Arena());
-        FArrayBox fab_Dstp(gbx2,1,The_Async_Arena());
-        FArrayBox fab_DUon(gbx2,1,The_Async_Arena());
-        FArrayBox fab_DVom(gbx2,1,The_Async_Arena());
-        FArrayBox fab_rhs_ubar(gbx2,1,The_Async_Arena());
-        FArrayBox fab_rhs_vbar(gbx2,1,The_Async_Arena());
-        FArrayBox fab_rhs_zeta(gbx2,1,The_Async_Arena());
-        FArrayBox fab_zeta_new(gbx2,1,The_Async_Arena());
+        FArrayBox fab_Drhs(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_Drhs_p(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_Dnew(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_zwrk(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_gzeta(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_gzeta2(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_gzetaSA(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_Dstp(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_DUon(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_DVom(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_rhs_ubar(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_rhs_vbar(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_rhs_zeta(tbxp2,1,The_Async_Arena());
+        FArrayBox fab_zeta_new(tbxp2,1,The_Async_Arena());
 
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
@@ -195,7 +221,7 @@ ROMSX::advance_2d (int lev,
         //Print().SetPrecision(18) << FArrayBox(rvbar) << std::endl;
 
         //From ana_grid.h and metrics.F
-        amrex::ParallelFor(gbx2,
+        amrex::ParallelFor(tbxp2,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
               pm(i,j,0)=dxi[0];
@@ -206,7 +232,7 @@ ROMSX::advance_2d (int lev,
               rhs_vbar(i,j,0)=0.0;
         });
 
-        amrex::LoopConcurrentOnCpu(gbx2,
+        amrex::LoopConcurrentOnCpu(tbxp2,
         [=] (int i, int j, int k)
         {
               //Note: are the comment definitons right? Don't seem to match metrics.f90
@@ -220,7 +246,7 @@ ROMSX::advance_2d (int lev,
               on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
               om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
         });
-        amrex::ParallelFor(gbx2,
+        amrex::ParallelFor(tbxp2,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
         {
 
@@ -238,12 +264,12 @@ ROMSX::advance_2d (int lev,
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
-        amrex::ParallelFor(gbx2,
+        amrex::ParallelFor(tbxp2,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });
-        amrex::ParallelFor(gbx2D,
+        amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*on_u(i,j,0);
@@ -336,8 +362,8 @@ ROMSX::advance_2d (int lev,
         //
 
         if (my_iif>=nfast) {
-            amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-            amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
+        //    amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
+        //    amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
        continue; }
         //Load new free-surface values into shared array at both predictor
         //and corrector steps
@@ -358,7 +384,7 @@ ROMSX::advance_2d (int lev,
 
         if(my_iif==0) {
             Real cff1=dtfast_lev;
-            amrex::ParallelFor(gbx2unevenD,
+            amrex::ParallelFor(tbxp2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
@@ -378,7 +404,7 @@ ROMSX::advance_2d (int lev,
             Real cff1=2.0_rt*dtfast_lev;
             Real cff4=4.0/25.0;
             Real cff5=1.0-2.0*cff4;
-            amrex::ParallelFor(gbx2unevenD,
+            amrex::ParallelFor(tbxp2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
@@ -399,7 +425,7 @@ ROMSX::advance_2d (int lev,
             Real cff3=dtfast_lev*1.0_rt/12.0_rt;
             Real cff4=2.0_rt/5.0_rt;
             Real cff5=1.0_rt-cff4;
-            amrex::ParallelFor(gbx2unevenD,
+            amrex::ParallelFor(tbxp2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 Real cff=cff1*((DUon(i,j,0)-DUon(i+1,j,0))+
@@ -421,7 +447,7 @@ ROMSX::advance_2d (int lev,
         //  Load new free-surface values into shared array at both predictor
         //  and corrector steps.
         //
-        amrex::ParallelFor(gbx2unevenD,
+        amrex::ParallelFor(tbxp2unevenD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             zeta(i,j,0,knew)=zeta_new(i,j,0);
@@ -431,7 +457,7 @@ ROMSX::advance_2d (int lev,
         //  If predictor step, load right-side-term into shared array.
         //
         if (predictor_2d_step) {
-            amrex::ParallelFor(gbx2unevenD,
+            amrex::ParallelFor(tbxp2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
@@ -476,6 +502,12 @@ ROMSX::advance_2d (int lev,
                              (gzeta2(i-1,j,0)-
                               gzeta2(i  ,j,0)));
                 //if (j > JstrV)
+                //printf("1      %d %d   %16.16g %16.16g\n",i,j,h(i,j-1,0),h(i,j,0));
+                //printf("2      %d %d   %16.16g %16.16g\n",i,j,gzeta(i,j-1,0),gzeta(i,j,0));
+                //printf("3      %d %d   %16.16g %16.16g\n",i,j,gzetaSA(i,j-1,0),gzetaSA(i,j,0));
+                //printf("4      %d %d   %16.16g %16.16g\n",i,j,rhoA(i,j-1,0),rhoA(i,j,0));
+                //printf("5      %d %d   %16.16g %16.16g\n",i,j,zwrk(i,j-1,0),zwrk(i,j,0));
+                //printf("6      %d %d   %16.16g %16.16g\n",i,j,gzeta2(i,j-1,0),gzeta2(i,j,0));
                 rhs_vbar(i,j,0)=cff1*om_v(i,j,0)*
                               ((h(i,j-1,0)+
                                 h(i,j  ,0))*
@@ -492,6 +524,7 @@ ROMSX::advance_2d (int lev,
                                (gzeta2(i,j-1,0)-
                                 gzeta2(i,j  ,0)));
             });
+        //Abort();
 /*
       cff1=0.5_r8*g
       cff2=1.0_r8/3.0_r8
@@ -557,7 +590,7 @@ ROMSX::advance_2d (int lev,
             //-----------------------------------------------------------------------
             //
             // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
-            coriolis(bxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
+            coriolis(bxD, gbxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
        }
        //amrex::PrintToFile("rhs_ubar").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
        //amrex::PrintToFile("rhs_vbar").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
@@ -568,7 +601,7 @@ ROMSX::advance_2d (int lev,
         //Print().SetPrecision(18) << FArrayBox(rhs_vbar) << std::endl;
         //Add in horizontal harmonic viscosity.
         // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs_p(i,j,0)=0.25*(Drhs(i,j,0)+Drhs(i-1,j,0)+
@@ -741,7 +774,7 @@ ROMSX::advance_2d (int lev,
         //
         //  Compute total water column depth.
         //
-        amrex::ParallelFor(gbx2D,
+        amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
         //DO j=JstrV-1,Jend
@@ -877,8 +910,8 @@ ROMSX::advance_2d (int lev,
         }/*
        amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
        amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;*/
-       amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-       amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
+       //amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
+       //amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
        /*
        amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
        amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;

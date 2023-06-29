@@ -15,18 +15,26 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
     const int Mn = Geom(0).Domain().size()[0];
     const int Mm = Geom(0).Domain().size()[1];
     auto phi_bxD=phi_bx;
+    auto phi_bx_g1z=phi_bx;
     phi_bxD.makeSlab(2,0);
+    phi_bx_g1z.grow(IntVect(0,0,1));
 
     //Copied depth of water column calculation from DepthStretchTransform
     //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column DC(i,j,-1), and
     // incorrect vertical mean CF(i,j,-1)
-    amrex::ParallelFor(Box(DC),
+    Print() << "phi: " << phi_bx << std::endl;
+    Print() << "DC: " << Box(DC) << std::endl;
+    Print() << "CF: " << Box(CF) << std::endl;
+    Print() << "FC: " << Box(FC) << std::endl;
+    //amrex::ParallelFor(phi_bx,
+    amrex::ParallelFor(phi_bx_g1z,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 DC(i,j,k)=0.0;
                 CF(i,j,k)=0.0;
             });
-    amrex::ParallelFor(Box(FC),
+    //amrex::ParallelFor(phi_bx,
+    amrex::ParallelFor(phi_bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FC(i,j,k)=0.0;

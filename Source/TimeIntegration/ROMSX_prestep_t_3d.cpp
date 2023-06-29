@@ -8,7 +8,7 @@ using namespace amrex;
 //
 
 void
-ROMSX::prestep_t_3d (const Box& bx,
+ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                       Array4<Real> uold  , Array4<Real> vold,
                       Array4<Real> u , Array4<Real> v,
                       Array4<Real> tempold  , Array4<Real> salstold,
@@ -20,23 +20,47 @@ ROMSX::prestep_t_3d (const Box& bx,
                       Array4<Real> pm, Array4<Real> pn,
                       Array4<Real> W   , Array4<Real> DC,
                       Array4<Real> FC  , Array4<Real> tempstore, Array4<Real> saltstore,
-                      Array4<Real> FX, Array4<Real> FE,
+                      Array4<Real> FX_old, Array4<Real> FE_old,
                       Array4<Real> z_r,
                       int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                       Real lambda, Real dt_lev)
 {
     //copy the tilebox
-    Box gbx1 = bx;
-    Box gbx11 = bx;
-    Box gbx2 = bx;
+    Box gbx1 = tbx;
+    Box gbx2 = tbx;
+    Box tbxp1 = tbx;
+    Box tbxp2 = tbx;
 
-    Box ubx = surroundingNodes(bx,0);
-    Box vbx = surroundingNodes(bx,1);
+    tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
+    tbxp2.grow(IntVect(NGROW,NGROW,0));
+    FArrayBox fab_FX(tbxp2,1,amrex::The_Async_Arena()); //3D
+    FArrayBox fab_FE(tbxp2,1,amrex::The_Async_Arena()); //3D
 
-    Box gbx3uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-3,bx.smallEnd(1)-3,bx.smallEnd(2))),
-                   IntVect(AMREX_D_DECL(bx.bigEnd(0)+2,bx.bigEnd(1)+2,bx.bigEnd(2))));
-    Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
-                   IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
+    auto FX=fab_FX.array();
+    auto FE=fab_FE.array();
+
+
+    Box ubx = surroundingNodes(tbx,0);
+    Box vbx = surroundingNodes(tbx,1);
+
+    Box gbx3uneven_init(IntVect(AMREX_D_DECL(tbx.smallEnd(0)-3,tbx.smallEnd(1)-3,tbx.smallEnd(2))),
+                   IntVect(AMREX_D_DECL(tbx.bigEnd(0)+2,tbx.bigEnd(1)+2,tbx.bigEnd(2))));
+    BoxArray ba_gbx3uneven = intersect(BoxArray(gbx3uneven_init), gbx);
+    AMREX_ASSERT((ba_gbx3uneven.size() == 1));
+    Box gbx3uneven = ba_gbx3uneven[0];
+
+    gbx2.grow(IntVect(NGROW,NGROW,0));
+    BoxArray ba_gbx2 = intersect(BoxArray(gbx2), gbx);
+    AMREX_ASSERT((ba_gbx2.size() == 1));
+    gbx2 = ba_gbx2[0];
+
+    gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+    BoxArray ba_gbx1 = intersect(BoxArray(gbx1), gbx);
+    AMREX_ASSERT((ba_gbx1.size() == 1));
+    gbx1 = ba_gbx1[0];
+
+    //Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
+    //               IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
     //
     //------------------------------------------------------------------------
     //  Vertically integrate horizontal mass flux divergence.
@@ -95,10 +119,6 @@ ROMSX::prestep_t_3d (const Box& bx,
             W(i,j,k) = W(i,j,k) + W(i,j,k-1);
         }
     });
-    //make only gbx be grown to match multifabs
-    gbx2.grow(IntVect(NGROW,NGROW,0));
-    gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-    gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
     FArrayBox fab_Akt(gbx2,1,amrex::The_Async_Arena());
     auto Akt= fab_Akt.array();
 
@@ -129,15 +149,15 @@ ROMSX::prestep_t_3d (const Box& bx,
     Print()<<Box(ubx)<<std::endl;
     Print()<<Box(FX)<<std::endl;
     Print()<<(Box(tempold))<<std::endl;
-
-    amrex::ParallelFor(gbx2,
+    // Previously was gbx2, changing to gbx1 so tiling will work
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
                     0.5*(tempold(i-1,j,k)+
                          tempold(i  ,j,k)) : 1e34;
     });
-    amrex::ParallelFor(gbx2,
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
@@ -165,9 +185,16 @@ ROMSX::prestep_t_3d (const Box& bx,
         cff1=0.5+GammaT;
         cff2=0.5-GammaT;
     }
-    amrex::ParallelFor(gbx1,
+    Print() << std::endl;
+    Print()<<(Box(tempstore))<<std::endl;
+    Print()<<Box(Hz)<<std::endl;
+    Print()<<Box(tempold)<<std::endl;
+    Print()<<(Box(FX))<<std::endl;
+    Print()<<(Box(FE))<<std::endl;
+    amrex::ParallelFor(tbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
+       // printf("%d %d %d\n",i,j,k);
         tempstore(i,j,k)=Hz(i,j,k)*(cff1*tempold(i,j,k)+
                                     cff2*temp(i,j,k))-
                                     cff*pm(i,j,0)*pn(i,j,0)*
@@ -280,7 +307,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     //Print()<<FArrayBox(tempstore)<<std::endl;
     //Print()<<FArrayBox(temp)<<std::endl;
     //    exit(1);
-    amrex::ParallelFor(gbx1,
+    amrex::ParallelFor(tbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1=cff*pm(i,j,0)*pn(i,j,0);
@@ -299,7 +326,7 @@ ROMSX::prestep_t_3d (const Box& bx,
     //-----------------------------------------------------------------------
     //
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
-    update_vel_3d(gbx1, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
+    update_vel_3d(tbx, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
                   stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
     //Print()<<FArrayBox(tempold)<<std::endl;
     //Print()<<FArrayBox(tempstore)<<std::endl;
