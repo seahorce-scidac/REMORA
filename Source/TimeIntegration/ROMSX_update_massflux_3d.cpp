@@ -46,7 +46,7 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
     amrex::ParallelFor(phi_bxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-		for(int k=0; k<=N; k++) {
+                for(int k=0; k<=N; k++) {
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*phi(i,j,k,nnew);
                 }
@@ -57,8 +57,8 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
     amrex::ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-	for(int k=0; k<=N; k++) {
-	Real cff1=DC(i,j,-1);
+        for(int k=0; k<=N; k++) {
+        Real cff1=DC(i,j,-1);
         if(k==0) {
             DC(i,j,-1)=1.0/DC(i,j,-1);
             CF(i,j,-1)=DC(i,j,-1)*(CF(i,j,-1)-Dphi_avg1(i,j,0));
@@ -80,7 +80,7 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
         //Compute correct mass flux, Hz*v/m
         Hphi(i,j,k) = 0.5 * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
         FC(i,j,0) = FC(i,j,0)+Hphi(i,j,k); //recursive
-	}
+        }
     });
 
     amrex::ParallelFor(phi_bxD,

@@ -69,7 +69,7 @@ ROMSX::set_2darrays (int lev)
         gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
         gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
         Box gbx1D = gbx1;
-	gbx1D.makeSlab(2,0);
+        gbx1D.makeSlab(2,0);
 
         FArrayBox fab_DC(gbx11,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx11,1,amrex::The_Async_Arena());
@@ -89,7 +89,7 @@ ROMSX::set_2darrays (int lev)
         [=] AMREX_GPU_DEVICE (int i, int j, int , int )
             {
                 for(int k=0; k<=N; k++) {
-	        DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k));
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*u(i,j,k,nstp);
                 }
@@ -116,7 +116,7 @@ ROMSX::set_2darrays (int lev)
         [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 for(int k=0; k<=N; k++) {
-	        DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
+                DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*v(i,j,k,nstp);
                 }
@@ -405,14 +405,14 @@ ROMSX::set_depth (int lev)
               z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
           z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
         }
-	}
+        }
       });
       Gpu::streamSynchronize();
       amrex::ParallelFor(gbx2D, ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int , int )
       {
           for(int k=0; k<=N_loop; k++) {
-	  if(k==0) {
+          if(k==0) {
               Hz(i,j,k)=z_w(i,j,k)+h(i,j,0);
           }
           else
