@@ -198,7 +198,6 @@ ROMSX::set_smflux(int lev, Real time)
     else if(EWPeriodic) {
         mf_svstr->setVal(0.0);
     }
-    print_state(*mf_svstr,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
 
 }
 void

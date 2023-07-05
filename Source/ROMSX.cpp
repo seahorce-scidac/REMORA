@@ -157,7 +157,7 @@ ROMSX::Evolve ()
 
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
                        << " DT = " << dt[0]  << std::endl;
-        print_state(vars_new[lev][Vars::xvel],IntVect(AMREX_D_DECL(NGROW,NGROW,NGROW)));
+
         if (plot_int_1 > 0 && (step+1) % plot_int_1 == 0) {
             last_plot_file_step_1 = step+1;
             WritePlotFile(1,plot_var_names_1);
