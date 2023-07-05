@@ -209,27 +209,27 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
         gbx2D.grow(IntVect(NGROW,NGROW,0));
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Arena()); //3D
-        FArrayBox fab_FX(gbx2,1,amrex::The_Arena()); //3D
-        FArrayBox fab_FE(gbx2,1,amrex::The_Arena()); //3D
-        FArrayBox fab_BC(gbx2,1,amrex::The_Arena());
-        FArrayBox fab_CF(gbx2,1,amrex::The_Arena());
-        FArrayBox fab_pn(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_pm(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_on_u(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_om_v(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_om_u(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_on_v(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_om_r(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_on_r(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_om_p(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_on_p(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_pmon_u(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_pnom_u(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_pmon_v(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_pnom_v(gbx2D,1,amrex::The_Arena());
-        FArrayBox fab_fomn(gbx2D,1,amrex::The_Arena());
-        //FArrayBox fab_oHz(gbx11,1,amrex::The_Arena());
+        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_pn(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pm(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_u(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_v(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_u(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_v(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_r(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_r(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_om_p(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_p(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pmon_u(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pnom_u(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pmon_v(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pnom_v(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_fomn(gbx2D,1,amrex::The_Async_Arena());
+        //FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
         auto FX=fab_FX.array();

@@ -71,8 +71,8 @@ ROMSX::set_2darrays (int lev)
         Box gbx1D = gbx1;
 	gbx1D.makeSlab(2,0);
 
-        FArrayBox fab_DC(gbx11,1,amrex::The_Arena());
-        FArrayBox fab_CF(gbx11,1,amrex::The_Arena());
+        FArrayBox fab_DC(gbx11,1,amrex::The_Async_Arena());
+        FArrayBox fab_CF(gbx11,1,amrex::The_Async_Arena());
         auto DC=fab_DC.array();
         auto CF=fab_CF.array();
 
@@ -411,7 +411,7 @@ ROMSX::set_depth (int lev)
       Gpu::streamSynchronize();
       amrex::ParallelFor(gbx2D, ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int , int )
-      { 
+      {
           for(int k=0; k<=N_loop; k++) {
 	  if(k==0) {
               Hz(i,j,k)=z_w(i,j,k)+h(i,j,0);
