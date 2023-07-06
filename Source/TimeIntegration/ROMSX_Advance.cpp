@@ -528,6 +528,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
             // In ROMS, coriolis is the first (un-ifdefed) thing to happen in rhs3d_tile, which gets called after t3dmix
             coriolis(bx, gbx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
         }
+           amrex::PrintToFile("ru_aftercor").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+           amrex::PrintToFile("rv_aftercor").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
        //amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
        //amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
        //amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
@@ -544,9 +546,14 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         ////rufrc from 3d is set to ru, then the wind stress (and bottom stress) is added, then the mixing is added
         //rufrc=ru+sustr*om_u*on_u
         rhs_3d(bx, gbx, uold, vold, ru, rv, rufrc, rvfrc, sustr, svstr, bustr, bvstr, Huon, Hvom, on_u, om_v, om_u, on_v, W, FC, nrhs, N);
+           amrex::PrintToFile("ru_afterrhs").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+           amrex::PrintToFile("rv_afterrhs").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+
         //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
         //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
         uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
+           amrex::PrintToFile("ru_afteruvmix").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+           amrex::PrintToFile("rv_afteruvmix").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
        //amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
        //amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
        //amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;

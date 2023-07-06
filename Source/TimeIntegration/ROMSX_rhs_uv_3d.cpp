@@ -41,8 +41,8 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
 
     Box bxD = bx;
     bxD.makeSlab(2,0);
-    Box gbx1D = bxD;
-    gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
+    Box gbx1D = gbx1;
+    gbx1D.makeSlab(2,0);
 
     //
     // Scratch space

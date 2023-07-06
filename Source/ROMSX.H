@@ -432,6 +432,7 @@ public:
 
     /** Prestep calculations for momentum */
     void prestep_uv_3d (const amrex::Box& bx,
+                        const amrex::Box& gbx,
                         amrex::Array4<amrex::Real> uold,
                         amrex::Array4<amrex::Real> vold,
                         amrex::Array4<amrex::Real> u,
@@ -526,6 +527,7 @@ public:
 
     /** Update velocities or tracers as the last part of the prestep */
     void update_vel_3d (const amrex::Box& bx,
+                        const amrex::Box& gbx,
                         const int ioff, const int joff,
                         amrex::Array4<amrex::Real> vel,
                         amrex::Array4<amrex::Real> vel_old,

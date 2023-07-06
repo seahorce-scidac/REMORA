@@ -15,7 +15,7 @@ using namespace amrex;
 //
 
 void
-ROMSX::update_vel_3d (const Box& vel_bx,
+ROMSX::update_vel_3d (const Box& vel_bx, const Box& gbx,
                       const int ioff, const int joff,
                       Array4<Real>  vel, Array4<Real> vel_old,
                       Array4<Real> rvel, Array4<Real> Hz,
@@ -27,6 +27,11 @@ ROMSX::update_vel_3d (const Box& vel_bx,
                       const int iic, const int ntfirst, const int nnew, int nstp, int nrhs, int N,
                       const Real lambda, const Real dt_lev)
 {
+
+    BoxArray ba_gbxvel = intersect(BoxArray(vel_bx), gbx);
+    AMREX_ASSERT((ba_gbxvel.size() == 1));
+    Box gbxvel = ba_gbxvel[0];
+
     //
     //  Weighting coefficient for the newest (implicit) time step derivatives
     //  using either a Crack-Nicolson implicit scheme (lambda=0.5) or a
@@ -39,6 +44,8 @@ ROMSX::update_vel_3d (const Box& vel_bx,
     //N is one less than ROMS
 
     //  Except the commented out part means lambda is always 1.0
+    Print() << "vel old " << Box(vel_old) << std::endl;
+    Print() << "Akv " << Box(Akv) << std::endl;
     amrex::ParallelFor(vel_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -65,7 +72,7 @@ ROMSX::update_vel_3d (const Box& vel_bx,
 
     //Print() << FArrayBox(bstr) << std::endl;
 
-    amrex::ParallelFor(vel_bx,
+    amrex::ParallelFor(gbxvel,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff3=dt_lev*(1.0-lambda);

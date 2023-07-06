@@ -179,11 +179,13 @@ ROMSX::advance_3d (int lev,
           cff=0.25*dt_lev*23.0/12.0;
         }
 
+        Print() << "ru box " << Box(ru) << std::endl;
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-            //printf("%d %d %d %d %25.25g %25.25g %25.25g u(k+1) u(k) ru(k)\n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew),ru(i,j,k,nrhs));
+        //    printf("%d %d %d %d %25.25g %25.25g\n", i,j,k,nrhs,u(i,j,k), ru(i,j,k,nrhs));
                 u(i,j,k) += gbx2.contains(i-1,j,0) ? cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * ru(i,j,k,nrhs) ;
+            printf("%d %d %d %d %25.25g\n", i,j,k,nrhs,gbx2.contains(i-1,j,0) ? cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * ru(i,j,k,nrhs)) ;
          //if (k+1 <= N)
             //printf("%d %d %d %d %25.25g %25.25g u(k+1) u(k)\n",i,j,k,0,u(i,j,k+1,nnew),u(i,j,k,nnew));
          v(i,j,k) += gbx2.contains(i,j-1,0) ? cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * rv(i,j,k,nrhs);
@@ -353,7 +355,7 @@ ROMSX::advance_3d (int lev,
        // });
        rhs_t_3d(bx, tempold, temp, tempstore, Huon, Hvom, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
        /*
-Print()<<FArrayBox(tempold)<<std::endl;
+        Print()<<FArrayBox(tempold)<<std::endl;
        Print()<<FArrayBox(temp)<<std::endl;
        Print()<<FArrayBox(tempstore)<<std::endl;
        Print()<<FArrayBox(salt)<<std::endl;
@@ -364,7 +366,6 @@ Print()<<FArrayBox(tempold)<<std::endl;
     }
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
-
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& u = mf_u.array(mfi);

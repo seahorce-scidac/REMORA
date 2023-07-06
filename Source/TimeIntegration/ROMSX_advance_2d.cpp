@@ -147,7 +147,13 @@ ROMSX::advance_2d (int lev,
                        IntVect(AMREX_D_DECL(bx.bigEnd(0)+NGROW-1,bx.bigEnd(1)+NGROW-1,bx.bigEnd(2))));
 
         Box tbxp2unevenD = tbxp2uneven;
-        tbxp2unevenD = tbxp2uneven.makeSlab(2,0);
+        tbxp2unevenD.makeSlab(2,0);
+
+        BoxArray ba_gbx2uneven = intersect(BoxArray(tbxp2uneven), gbx);
+        AMREX_ASSERT((ba_gbx2uneven.size() == 1));
+        Box gbx2uneven = ba_gbx2uneven[0];
+        Box gbx2unevenD = gbx2uneven;
+        gbx2unevenD.makeSlab(2,0);
         //AKA
         //ubxD.setRange(2,0);
         //vbxD.setRange(2,0);
@@ -219,6 +225,10 @@ ROMSX::advance_2d (int lev,
         //Print().SetPrecision(18) << FArrayBox(vbar) << std::endl;
         //Print().SetPrecision(18) << FArrayBox(rubar) << std::endl;
         //Print().SetPrecision(18) << FArrayBox(rvbar) << std::endl;
+       if (predictor_2d_step && my_iif == 0) {
+           amrex::PrintToFile("ru_start").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+           amrex::PrintToFile("rv_start").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+       }
 
         //From ana_grid.h and metrics.F
         amrex::ParallelFor(tbxp2,
@@ -277,10 +287,10 @@ ROMSX::advance_2d (int lev,
             Real cff1=gbx2D.contains(i-1,j,0) ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
-        //amrex::PrintToFile("DUon").SetPrecision(18)<<FArrayBox(DUon)<<std::endl;
+        amrex::PrintToFile("DUon").SetPrecision(18)<<FArrayBox(DUon)<<std::endl;
         //amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-        //amrex::PrintToFile("Drhs").SetPrecision(18)<<FArrayBox(Drhs)<<std::endl;
-        //amrex::PrintToFile("on_u").SetPrecision(18)<<FArrayBox(on_u)<<std::endl;
+        amrex::PrintToFile("Drhs").SetPrecision(18)<<FArrayBox(Drhs)<<std::endl;
+        amrex::PrintToFile("on_u").SetPrecision(18)<<FArrayBox(on_u)<<std::endl;
         amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -362,8 +372,8 @@ ROMSX::advance_2d (int lev,
         //
 
         if (my_iif>=nfast) {
-        //    amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-        //    amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
+            //amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
+            //amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
        continue; }
         //Load new free-surface values into shared array at both predictor
         //and corrector steps
@@ -447,7 +457,7 @@ ROMSX::advance_2d (int lev,
         //  Load new free-surface values into shared array at both predictor
         //  and corrector steps.
         //
-        amrex::ParallelFor(tbxp2unevenD,
+        amrex::ParallelFor(gbx2unevenD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             zeta(i,j,0,knew)=zeta_new(i,j,0);
@@ -457,7 +467,7 @@ ROMSX::advance_2d (int lev,
         //  If predictor step, load right-side-term into shared array.
         //
         if (predictor_2d_step) {
-            amrex::ParallelFor(tbxp2unevenD,
+            amrex::ParallelFor(gbx2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
@@ -582,6 +592,7 @@ ROMSX::advance_2d (int lev,
        //amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
        //amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(Drhs)<<std::endl;
        //amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(fomn)<<std::endl;
+       printf("coriolis 2d pred iif: %d %d\n",predictor_2d_step, my_iif);
        if (solverChoice.use_coriolis) {
             // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
             //
@@ -907,17 +918,20 @@ ROMSX::advance_2d (int lev,
             });
             //END DO
             //END DO
-        }/*
-       amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-       amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;*/
+        }
+       //amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+       //amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
        //amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
        //amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-       /*
-       amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-       amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
-       */
+       //amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       //amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       //amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       //amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+       if (predictor_2d_step && my_iif == 0) {
+           amrex::PrintToFile("ru").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+           amrex::PrintToFile("rv").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+       }
+           amrex::PrintToFile("zeta").SetPrecision(18)<<FArrayBox(zeta)<<std::endl;
         //Print() << "(0,0,0 end of advance2d" <<std::endl;
         //Print().SetPrecision(18) << FArrayBox(ubar) << std::endl;
         //Print().SetPrecision(18) << FArrayBox(vbar) << std::endl;

@@ -119,21 +119,21 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
             W(i,j,k) = W(i,j,k) + W(i,j,k-1);
         }
     });
-    FArrayBox fab_Akt(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_Akt(tbxp2,1,amrex::The_Async_Arena());
     auto Akt= fab_Akt.array();
 
     //From ini_fields and .in file
     //fab_Akt.setVal(1e-6);
-    FArrayBox fab_stflux(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_stflux(tbxp2,1,amrex::The_Async_Arena());
     auto stflux= fab_stflux.array();
-    FArrayBox fab_btflux(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_btflux(tbxp2,1,amrex::The_Async_Arena());
     auto btflux= fab_btflux.array();
 
     //From ini_fields and .in file
     //fab_stflux.setVal(0.0);
     //also set btflux=0 (as in ana_btflux.H)
 
-    amrex::ParallelFor(gbx2,
+    amrex::ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Akt(i,j,k)=1e-6;
@@ -150,14 +150,14 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     Print()<<Box(FX)<<std::endl;
     Print()<<(Box(tempold))<<std::endl;
     // Previously was gbx2, changing to gbx1 so tiling will work
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
                     0.5*(tempold(i-1,j,k)+
                          tempold(i  ,j,k)) : 1e34;
     });
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
@@ -191,7 +191,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     Print()<<Box(tempold)<<std::endl;
     Print()<<(Box(FX))<<std::endl;
     Print()<<(Box(FE))<<std::endl;
-    amrex::ParallelFor(tbx,
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
        // printf("%d %d %d\n",i,j,k);
@@ -207,12 +207,16 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                             (FC(i+1,j)-FC(i,j)+
                              DC(i,j+1)-DC(i,j));*/
     });
+       //amrex::PrintToFile("ps_temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       //amrex::PrintToFile("ps_tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+       //amrex::PrintToFile("ps_salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+       //amrex::PrintToFile("ps_saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
 
     //
     // Time-step vertical advection of tracers (Tunits). Impose artificial
     // continuity equation.
     //
-    amrex::ParallelFor(gbx2,
+    amrex::ParallelFor(tbxp2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //-----------------------------------------------------------------------
@@ -268,7 +272,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     Print()<<Box(Hvom)<<std::endl;
     Print()<<Box(W)<<std::endl;
 */
-    amrex::ParallelFor(gbx1,
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         if(k-1>=0) {
@@ -307,9 +311,10 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //Print()<<FArrayBox(tempstore)<<std::endl;
     //Print()<<FArrayBox(temp)<<std::endl;
     //    exit(1);
-    amrex::ParallelFor(tbx,
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
+        //printf("%d %d %d\n", i,j,k);
         Real cff1=cff*pm(i,j,0)*pn(i,j,0);
         Real cff4;
         if(k-1>=0) {
@@ -317,6 +322,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         } else {
             cff4=FC(i,j,k);
         }
+        //printf("%25.25g %25.25g %25.25g %25.25g\n", DC(i,j,k), tempstore(i,j,k), cff1, cff4);
         tempstore(i,j,k)=DC(i,j,k)*(tempstore(i,j,k)-cff1*cff4);
 //      temp(i,j,k)=tempold(i,j,k);
     });
@@ -326,7 +332,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //-----------------------------------------------------------------------
     //
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
-    update_vel_3d(tbx, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
+    update_vel_3d(tbxp1, gbx, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
                   stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
     //Print()<<FArrayBox(tempold)<<std::endl;
     //Print()<<FArrayBox(tempstore)<<std::endl;
