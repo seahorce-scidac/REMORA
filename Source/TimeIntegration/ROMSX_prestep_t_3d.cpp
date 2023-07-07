@@ -120,15 +120,9 @@ ROMSX::prestep_t_3d (const Box& bx,
         stflux(i,j,k)=0.0;
         btflux(i,j,k)=0.0;
     });
-    amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
-    amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
 
     //Use FC and DC as intermediate arrays for FX and FE
     //First pass do centered 2d terms
-    Print()<<(Box(Huon))<<std::endl;
-    Print()<<Box(ubx)<<std::endl;
-    Print()<<Box(FX)<<std::endl;
-    Print()<<(Box(tempold))<<std::endl;
 
     amrex::ParallelFor(Box(FX),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -231,15 +225,6 @@ ROMSX::prestep_t_3d (const Box& bx,
         cff=(1-GammaT)*dt_lev;
         }*/
 /*
-    Print()<<"boxes gbx1 dc hz pm pn huon hvom w"<<std::endl;
-    Print()<<gbx1<<std::endl;
-    Print()<<Box(DC)<<std::endl;
-    Print()<<Box(Hz)<<std::endl;
-    Print()<<Box(pm)<<std::endl;
-    Print()<<Box(pn)<<std::endl;
-    Print()<<Box(Huon)<<std::endl;
-    Print()<<Box(Hvom)<<std::endl;
-    Print()<<Box(W)<<std::endl;
 */
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -265,20 +250,7 @@ ROMSX::prestep_t_3d (const Box& bx,
                             (FC(i+1,j)-FC(i,j)+
                              DC(i,j+1)-DC(i,j));*/
     });
-    //    //Print()<<cff<<std::endl;
     //    exit(1);
-    //Print()<<FArrayBox(Hz)<<std::endl;
-    //Print()<<FArrayBox(pm)<<std::endl;
-    //Print()<<FArrayBox(pn)<<std::endl;
-    //Print()<<FArrayBox(Huon)<<std::endl;
-    //Print()<<FArrayBox(Hvom)<<std::endl;
-    //Print()<<FArrayBox(W)<<std::endl;
-    //Print()<<FArrayBox(DC)<<std::endl;
-    //Print()<<FArrayBox(uold)<<std::endl;
-    //Print()<<FArrayBox(u)<<std::endl;
-    //Print()<<FArrayBox(tempold)<<std::endl;
-    //Print()<<FArrayBox(tempstore)<<std::endl;
-    //Print()<<FArrayBox(temp)<<std::endl;
     //    exit(1);
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -301,7 +273,4 @@ ROMSX::prestep_t_3d (const Box& bx,
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
     update_vel_3d(gbx1, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
                   stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
-    //Print()<<FArrayBox(tempold)<<std::endl;
-    //Print()<<FArrayBox(tempstore)<<std::endl;
-    //Print()<<FArrayBox(temp)<<std::endl;
 }

@@ -217,7 +217,6 @@ ROMSX::rhs_t_3d (const Box& bx,
         }
         t(i,j,k)=oHz(i,j,k)*(t(i,j,k)-cff1*cff4);
         //    if(i==2&&j==2&&k==2) {
-        //    Print()<<i<<j<<k<<t(i,j,k)<<"\t"<<oHz(i,j,k)<<"\t"<<cff1<<"\t"<<cff4<<std::endl;
         //    Abort("any nans?");
         //}
     });

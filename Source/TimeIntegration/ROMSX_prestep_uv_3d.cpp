@@ -40,8 +40,6 @@ ROMSX::prestep_uv_3d (const Box& bx,
     gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
     gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
-    amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
-    amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
 
     //Need to include pre_step3d.F terms
 
@@ -50,6 +48,4 @@ ROMSX::prestep_uv_3d (const Box& bx,
 
     update_vel_3d(gbx1, 0, 1, v, vold, rv, Hz, Akv, DC, FC,
                   svstr, bvstr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
-    //    //Print()<<FArrayBox(uold)<<std::endl;
-    //    //Print()<<FArrayBox(u)<<std::endl;
 }

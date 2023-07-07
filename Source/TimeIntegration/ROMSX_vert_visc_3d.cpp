@@ -20,7 +20,6 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     //
     // Put Hzk on the x- or y-face as appropriate, or leave on cell center for tracers
     //
-    amrex::Print() << "updating on box in vert_visc_3d: " << phi_bx << std::endl;
     auto phi_bxD = phi_bx;
     phi_bxD.makeSlab(2,0);
 
@@ -50,9 +49,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     Gpu::streamSynchronize();
 #ifdef AMREX_USE_GPU
     Gpu::synchronize();
-    amrex::PrintToFile("DC2_cuda")<<FArrayBox(DC)<<std::endl;
 #else
-    amrex::PrintToFile("DC2_nocuda")<<FArrayBox(DC)<<std::endl;
 #endif
     /////////////////// This and the following loop is the first non-matching thing that affects plotfile comparison for cuda
     // Begin vertical viscosity term
@@ -107,15 +104,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     });
 #ifdef AMREX_USE_GPU
     Gpu::synchronize();
-    amrex::PrintToFile("DC1_cuda")<<FArrayBox(DC)<<std::endl;
-    amrex::PrintToFile("phi1_cuda")<<FArrayBox(phi)<<std::endl;
-    amrex::PrintToFile("FC1_cuda")<<FArrayBox(FC)<<std::endl;
-    amrex::PrintToFile("BC1_cuda")<<FArrayBox(BC)<<std::endl;
 #else
-    amrex::PrintToFile("DC1_nocuda")<<FArrayBox(DC)<<std::endl;
-    amrex::PrintToFile("phi1_nocuda")<<FArrayBox(phi)<<std::endl;
-    amrex::PrintToFile("FC1_nocuda")<<FArrayBox(FC)<<std::endl;
-    amrex::PrintToFile("BC1_nocuda")<<FArrayBox(BC)<<std::endl;
 #endif
     Gpu::streamSynchronize();
     amrex::ParallelFor(phi_bxD,
@@ -136,9 +125,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     });
 #ifdef AMREX_USE_GPU
     Gpu::synchronize();
-    amrex::PrintToFile("DC_cuda")<<FArrayBox(DC)<<std::endl;
 #else
-    amrex::PrintToFile("DC_nocuda")<<FArrayBox(DC)<<std::endl;
 #endif
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)

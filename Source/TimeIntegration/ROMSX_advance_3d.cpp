@@ -95,9 +95,6 @@ ROMSX::advance_3d (int lev,
         Box vbx = surroundingNodes(bx,1);
         Box ubx2 = surroundingNodes(ubx,0);
         Box vbx2 = surroundingNodes(vbx,1);
-        amrex::Print() << " BX " <<  bx << std::endl;
-        amrex::Print() << "UBX " << ubx << std::endl;
-        amrex::Print() << "VBX " << vbx << std::endl;
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
@@ -207,9 +204,7 @@ ROMSX::advance_3d (int lev,
             });
 #ifdef AMREX_USE_GPU
     Gpu::synchronize();
-    amrex::PrintToFile("DC3_cuda")<<FArrayBox(DC)<<std::endl;
 #else
-    amrex::PrintToFile("DC3_nocuda")<<FArrayBox(DC)<<std::endl;
 #endif
        vert_visc_3d(gbx1,bx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
@@ -340,7 +335,6 @@ ROMSX::advance_3d (int lev,
        rhs_t_3d(bx, tempold, temp, tempstore, Huon, Hvom, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
 
        rhs_t_3d(bx, saltold, salt, saltstore, Huon, Hvom, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
-       //Print()<<FArrayBox(salt)<<std::endl;
     }
 
     }
@@ -397,9 +391,6 @@ ROMSX::advance_3d (int lev,
         Box vbx = surroundingNodes(bx,1);
         Box ubx2 = surroundingNodes(ubx,0);
         Box vbx2 = surroundingNodes(vbx,1);
-        amrex::Print() << " BX " <<  bx << std::endl;
-        amrex::Print() << "UBX " << ubx << std::endl;
-        amrex::Print() << "VBX " << vbx << std::endl;
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
@@ -464,12 +455,8 @@ ROMSX::advance_3d (int lev,
        //     printf("%d %d %d %25.25g temp before visc advance3d\n", i,j,k,temp(i,j,k));
        //     printf("%d %d %d %25.25g tempstore before visc advance3d\n", i,j,k,tempstore(i,j,k));
        // });
-       ////Print()<<FArrayBox(temp)<<std::endl;
        vert_visc_3d(gbx1,bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
-       //Print()<<FArrayBox(temp)<<std::endl;
-       //Print()<<FArrayBox(salt)<<std::endl;
        vert_visc_3d(gbx1,bx,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
-       //Print()<<FArrayBox(salt)<<std::endl;
        //if(iic==ntfirst+2)
        //exit(1);
        //amrex::ParallelFor(gbx2,
