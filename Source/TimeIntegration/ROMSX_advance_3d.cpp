@@ -186,6 +186,7 @@ ROMSX::advance_3d (int lev,
                 v(i,j,k) *= gbx2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
             });
         // End previous
+        if(solverChoice.test_vertical) {
         {
         amrex::Gpu::synchronize();
         amrex::Gpu::LaunchSafeGuard lsg(false);
@@ -231,7 +232,7 @@ ROMSX::advance_3d (int lev,
                 CF(i,j,k) = 0.0;
             });
        vert_mean_3d(bx,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
-
+       }
     //amrex::ParallelFor(ubx,
     //[=] AMREX_GPU_DEVICE (int i, int j, int k)
     //{
@@ -455,8 +456,10 @@ ROMSX::advance_3d (int lev,
        //     printf("%d %d %d %25.25g temp before visc advance3d\n", i,j,k,temp(i,j,k));
        //     printf("%d %d %d %25.25g tempstore before visc advance3d\n", i,j,k,tempstore(i,j,k));
        // });
+       if(solverChoice.test_vertical) {
        vert_visc_3d(gbx1,bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
        vert_visc_3d(gbx1,bx,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+       }
        //if(iic==ntfirst+2)
        //exit(1);
        //amrex::ParallelFor(gbx2,
