@@ -34,6 +34,16 @@ ROMSX::prestep (int lev,
     const int Mm = Geom(lev).Domain().size()[1];
     auto geomdata = Geom(lev).data();
 
+    const BoxArray&            ba = mf_uold.boxArray();
+    const DistributionMapping& dm = mf_uold.DistributionMap();
+
+    // Maybe not the best way to do this, but need to cache salt and temp since
+    // they get rewritten by prestep_t
+    MultiFab mf_saltcache(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_tempcache(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab::Copy(mf_saltcache,mf_salt,0,0,mf_salt.nComp(),IntVect(NGROW,NGROW,0)); //mf_salt.nGrowVect());
+    MultiFab::Copy(mf_tempcache,mf_temp,0,0,mf_temp.nComp(),IntVect(NGROW,NGROW,0));
+
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
@@ -59,6 +69,8 @@ ROMSX::prestep (int lev,
         Array4<Real> const& svstr = (mf_svstr)->array(mfi);
         Array4<Real> const& bustr = (mf_bustr)->array(mfi);
         Array4<Real> const& bvstr = (mf_bvstr)->array(mfi);
+        Array4<Real> const& tempcache = (mf_tempcache).array(mfi);
+        Array4<Real> const& saltcache = (mf_saltcache).array(mfi);
 
         Real lambda = 1.0;
 
@@ -133,8 +145,6 @@ ROMSX::prestep (int lev,
         auto pmon_v=fab_pmon_v.array();
         auto pnom_v=fab_pnom_v.array();
         auto fomn=fab_fomn.array();
-       amrex::PrintToFile("ru_prestep_start").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-       amrex::PrintToFile("rv_prestep_start").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
 
         amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
@@ -168,22 +178,36 @@ ROMSX::prestep (int lev,
           pmon_v(i,j,0)=1.0;        // (pm(i,j-1)+pm(i,j))/(pn(i,j-1)+pn(i,j))
           pnom_v(i,j,0)=1.0;        // (pn(i,j-1)+pn(i,j))/(pm(i,j-1)+pm(i,j))
         });
+        if (verbose >= 2) {
+           amrex::PrintToFile("temp_preprestep").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+           amrex::PrintToFile("tempstore_preprestep").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+           amrex::PrintToFile("salt_preprestep").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+           amrex::PrintToFile("saltstore_preprestep").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+           amrex::PrintToFile("saltold_preprestep").SetPrecision(18)<<FArrayBox(saltold)<<std::endl;
+           amrex::PrintToFile("tempold_preprestep").SetPrecision(18)<<FArrayBox(tempold)<<std::endl;
+        }
 
-        Print() << "Akv box " << Box(Akv) << std::endl;
-        prestep_t_3d(bx, gbx, uold, vold, u, v, tempold, saltold, temp, salt, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
+        if (verbose > 0) {
+            Print() << "Akv box " << Box(Akv) << std::endl;
+        }
+        prestep_t_3d(bx, gbx, uold, vold, u, v, tempold, saltold, temp, salt, tempcache,ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                      pm, pn, W, DC, FC, tempstore, saltstore, FX, FE, z_r, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-        prestep_t_3d(bx, gbx, uold, vold, u, v, saltold, saltold, salt, salt, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
+        prestep_t_3d(bx, gbx, uold, vold, u, v, saltold, saltold, salt, salt, saltcache, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                      pm, pn, W, DC, FC, saltstore, saltstore, FX, FE, z_r, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-       //amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-       //amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-       //amrex::PrintToFile("uold").SetPrecision(18)<<FArrayBox(uold)<<std::endl;
-       //amrex::PrintToFile("vold").SetPrecision(18)<<FArrayBox(vold)<<std::endl;
-       //amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       //amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-       //amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       //amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+
+       if (verbose >= 2) {
+           amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+           amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+           amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+           amrex::PrintToFile("uold").SetPrecision(18)<<FArrayBox(uold)<<std::endl;
+           amrex::PrintToFile("vold").SetPrecision(18)<<FArrayBox(vold)<<std::endl;
+           amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+           amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+           amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+           amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+       }
         //
         //-----------------------------------------------------------------------
         // prestep_uv_3d
@@ -193,13 +217,17 @@ ROMSX::prestep (int lev,
         prestep_uv_3d(bx, gbx, uold, vold, u, v, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                           pm, pn, W, DC, FC, z_r, sustr, svstr, bustr, bvstr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-       //amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-       //amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-       amrex::PrintToFile("ru_prestep").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-       amrex::PrintToFile("rv_prestep").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
-       //amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       //amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-       //amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       //amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+       if (verbose >= 2) {
+           amrex::PrintToFile("u_after_prestep").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+           amrex::PrintToFile("v_after_prestep").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+           amrex::PrintToFile("ru_after_prestep").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+           amrex::PrintToFile("rv_after_prestep").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+           amrex::PrintToFile("temp_afterprestep").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+           amrex::PrintToFile("tempstore_afterprestep").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+           amrex::PrintToFile("salt_afterprestep").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
+           amrex::PrintToFile("saltstore_afterprestep").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+           amrex::PrintToFile("saltold_afterprestep").SetPrecision(18)<<FArrayBox(saltold)<<std::endl;
+           amrex::PrintToFile("tempold_afterprestep").SetPrecision(18)<<FArrayBox(tempold)<<std::endl;
+       }
     }
 }

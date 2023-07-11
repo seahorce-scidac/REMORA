@@ -20,6 +20,12 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
                Array4<Real> W   , Array4<Real> FC,
                int nrhs, int N)
 {
+    if (verbose >= 2) {
+        amrex::PrintToFile("ru_begin_rhs3d").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+        amrex::PrintToFile("rv_begin_rhs3d").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+        amrex::PrintToFile("rufrc_begin_rhs3d").SetPrecision(18)<<FArrayBox(rufrc)<<std::endl;
+        amrex::PrintToFile("rvfrc_begin_rhs3d").SetPrecision(18)<<FArrayBox(rvfrc)<<std::endl;
+    }
     //copy the tilebox
     Box tbxp1 = bx;
     Box tbxp2 = bx;
@@ -99,7 +105,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
         VFe(i,j,k)=0.0;
     });
 
-    amrex::ParallelFor(gbx1,
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should not include grow cells
@@ -109,7 +115,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
         Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
     });
 
-    amrex::ParallelFor(gbx1,
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff;
@@ -128,7 +134,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
         uee(i,j,k)=uold(i,j-1,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i,j+1,k,nrhs);
     });
 
-    amrex::ParallelFor(gbx1,
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         /////////////MIGHT NEED NEW LOOP HERE
@@ -136,7 +142,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
         Hvxx(i,j,k)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
     });
 
-    amrex::ParallelFor(gbx1,
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
             Real cff;
@@ -168,7 +174,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
             Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
         });
 
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             //neglecting terms about periodicity since testing only periodic for now
@@ -316,4 +322,14 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
               rvfrc(i,j,0)+=cff1+cff2;
 #endif
         });
+        if (verbose >= 2) {
+        amrex::PrintToFile("rufrc_rhs3d").SetPrecision(18)<<FArrayBox(rufrc)<<std::endl;
+        amrex::PrintToFile("rvfrc_rhs3d").SetPrecision(18)<<FArrayBox(rvfrc)<<std::endl;
+        amrex::PrintToFile("sustr_rhs3d").SetPrecision(18)<<FArrayBox(sustr)<<std::endl;
+        amrex::PrintToFile("svstr_rhs3d").SetPrecision(18)<<FArrayBox(svstr)<<std::endl;
+        amrex::PrintToFile("bustr_rhs3d").SetPrecision(18)<<FArrayBox(bustr)<<std::endl;
+        amrex::PrintToFile("bvstr_rhs3d").SetPrecision(18)<<FArrayBox(bvstr)<<std::endl;
+        amrex::PrintToFile("ru_rhs3d").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+        amrex::PrintToFile("rv_rhs3d").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+        }
 }

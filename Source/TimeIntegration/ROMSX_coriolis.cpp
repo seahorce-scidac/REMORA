@@ -22,7 +22,6 @@ ROMSX::coriolis (const Box& bx, const Box& gbx,
 
     //Box ubx = surroundingNodes(bx,0);
     //Box vbx = surroundingNodes(bx,1);
-    Print() << bx << std::endl;
     Box ubxShift = bx;
     ((((ubxShift.growLo(0,NGROW-1)).growLo(1,NGROW)).growHi(0,NGROW)).growHi(1,NGROW-1));
     Box vbxShift = bx;
@@ -39,10 +38,10 @@ ROMSX::coriolis (const Box& bx, const Box& gbx,
     amrex::ParallelFor(ubxShift,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-//        printf("%d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz(i-1,j,k),fomn(i-1,j,0), vold(i-1,j,k,nrhs), vold(i-1,j+1,k,nrhs));
         Real UFx_i   = 0.5 * Hz(i  ,j,k) * fomn(i  ,j,0) * (vold(i  ,j,k,nrhs)+vold(i  ,j+1,k,nrhs));
         Real UFx_im1 = 0.5 * Hz(i-1,j,k) * fomn(i-1,j,0) * (vold(i-1,j,k,nrhs)+vold(i-1,j+1,k,nrhs));
-        printf("cor %d %d %d %25.25g %25.25g %25.25g\n", i,j,k,UFx_i, UFx_im1, ru(i,j,k,nr));
+        if ((verbose>=2) && (printinloop > 0))
+            printf("cor %d %d %d %25.25g %25.25g %25.25g\n", i,j,k,UFx_i, UFx_im1, ru(i,j,k,nr));
         ru(i,j,k,nr) += 0.5*(UFx_i + UFx_im1);
     });
 

@@ -8,43 +8,45 @@ using namespace amrex;
 //
 
 void
-ROMSX::rhs_t_3d (const Box& bx,
+ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
                  Array4<Real> told  , Array4<Real> t, Array4<Real> tempstore,
                  Array4<Real> Huon, Array4<Real> Hvom,
-                 Array4<Real> oHz,
+                 Array4<Real> Hz, Array4<Real> oHz,
                  Array4<Real> pn, Array4<Real> pm,
                  Array4<Real> W   , Array4<Real> FC,
                  int nrhs, int nnew, int N, Real dt_lev)
 {
     //copy the tilebox
-    Box gbx1 = bx;
-    Box gbx11 = bx;
-    Box gbx2 = bx;
+    Box tbxp1 = bx;
+    Box tbxp2 = bx;
 
     Box ubx = surroundingNodes(bx,0);
     Box vbx = surroundingNodes(bx,1);
 
-    Box gbx3uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-3,bx.smallEnd(1)-3,bx.smallEnd(2))),
-                   IntVect(AMREX_D_DECL(bx.bigEnd(0)+2,bx.bigEnd(1)+2,bx.bigEnd(2))));
-    Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
-                   IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
     //make only gbx be grown to match multifabs
-    gbx2.grow(IntVect(NGROW,NGROW,0));
-    gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-    gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
+    tbxp2.grow(IntVect(NGROW,NGROW,0));
+    tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
+
+    BoxArray ba_gbx1 = intersect(BoxArray(tbxp1),gbx);
+    AMREX_ASSERT((ba_gbx1.size() == 1));
+    Box gbx1 = ba_gbx1[0];
+
+    BoxArray ba_gbx2 = intersect(BoxArray(tbxp2),gbx);
+    AMREX_ASSERT((ba_gbx2.size() == 1));
+    Box gbx2 = ba_gbx2[0];
 
     //
     // Scratch space
     //
-    FArrayBox fab_grad(gbx2,1,amrex::The_Async_Arena()); //fab_grad.setVal(0.0);
-    FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena()); //fab_uee.setVal(0.0);
+    FArrayBox fab_grad(tbxp2,1,amrex::The_Async_Arena()); //fab_grad.setVal(0.0);
+    FArrayBox fab_uee(tbxp2,1,amrex::The_Async_Arena()); //fab_uee.setVal(0.0);
 
-    FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena()); //fab_uxx.setVal(0.0);
+    FArrayBox fab_uxx(tbxp2,1,amrex::The_Async_Arena()); //fab_uxx.setVal(0.0);
 
-    FArrayBox fab_curv(gbx2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0);
+    FArrayBox fab_curv(tbxp2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0);
 
-    FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //fab_FX.setVal(0.0);
-    FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //fab_FE.setVal(0.0);
+    FArrayBox fab_FX(tbxp2,1,amrex::The_Async_Arena()); //fab_FX.setVal(0.0);
+    FArrayBox fab_FE(tbxp2,1,amrex::The_Async_Arena()); //fab_FE.setVal(0.0);
 
     auto curv=fab_curv.array();
     auto grad=fab_grad.array();
@@ -56,7 +58,7 @@ ROMSX::rhs_t_3d (const Box& bx,
     //check this////////////
     const Real Gadv = -0.25;
 
-    amrex::ParallelFor(gbx2,
+    amrex::ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         grad(i,j,k)=0.0;
@@ -68,17 +70,29 @@ ROMSX::rhs_t_3d (const Box& bx,
         FX(i,j,k)=0.0;
         FE(i,j,k)=0.0;
     });
+    amrex::ParallelFor(bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        oHz(i,j,k) = 1.0/ Hz(i,j,k);
+    });
 
-    amrex::ParallelFor(gbx1,
+    if (verbose > 0) {
+        Print() << "tempstore bx " << Box(tempstore) << std::endl;
+    }
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
         FX(i,j,k)=tempstore(i,j,k,nrhs)-tempstore(i-1,j,k,nrhs);
+        if ((verbose >= 2) && printinloop) {
+            printf("FX ts2 %d %d %d %15.15g %15.15g\n",i,j,k,tempstore(i,j,k,nrhs),tempstore(i-1,j,k,nrhs));
+        }
     });
+    //PrintToFile("FX_init").SetPrecision(18) << FArrayBox(FX) << std::endl;
     Real cffa=1.0/6.0;
     Real cffb=1.0/3.0;
     if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             //Upstream3
@@ -87,7 +101,7 @@ ROMSX::rhs_t_3d (const Box& bx,
         //HACK to avoid using the wrong index of t (using upstream3)
         Real max_Huon=FArrayBox(Huon).max();
         Real min_Huon=FArrayBox(Huon).min();
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
@@ -95,24 +109,32 @@ ROMSX::rhs_t_3d (const Box& bx,
         });
     }
     else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             //Centered4
             grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
+            if ((verbose >= 2) && printinloop) {
+                printf("grad FX %d %d %d %25.25g %25.25g %25.25g\n",i,j,k,grad(i,j,k),FX(i,j,k),FX(i+1,j,k));
+            }
         });
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
                       cffb*(grad(i,j,k)+ grad(i-1,j,k));
+            if ((verbose >= 2) && printinloop) {
+                printf("FX Huon ts2 grad2 %d %d %d %25.25g %25.25g %25.25g %25.25g %25.25g %25.25g\n",i,j,k,FX(i,j,k),Huon(i,j,k),tempstore(i,j,k),tempstore(i-1,j,k),grad(i,j,k),grad(i-1,j,k));
+            }
         });
     }
     else {
         Error("Not a valid horizontal advection scheme");
     }
+    if (verbose >= 2)
+        PrintToFile("FX_set1").SetPrecision(18) << FArrayBox(FX) << std::endl;
 
-    amrex::ParallelFor(gbx1,
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
@@ -122,7 +144,7 @@ ROMSX::rhs_t_3d (const Box& bx,
     cffa=1.0/6.0;
     cffb=1.0/3.0;
     if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
@@ -130,7 +152,7 @@ ROMSX::rhs_t_3d (const Box& bx,
         //HACK to avoid using the wrong index of t (using upstream3)
         Real max_Hvom=FArrayBox(Hvom).max();
         Real min_Hvom=FArrayBox(Hvom).min();
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
@@ -138,12 +160,12 @@ ROMSX::rhs_t_3d (const Box& bx,
         });
     }
     else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
         });
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
@@ -164,9 +186,16 @@ ROMSX::rhs_t_3d (const Box& bx,
               Real cff1=cff*(FX(i+1,j,k)-FX(i,j,k));
               Real cff2=cff*(FE(i,j+1,k)-FE(i,j,k));
               Real cff3=cff1+cff2;
+              if ((verbose >= 2) && printinloop)
+                printf("update %d %d %d %15.15g %15.15g %15.15g %15.15g %15.15g\n",i,j,k,t(i,j,k,nnew),cff,cff1,cff2,cff3);
 
               t(i,j,k,nnew) -= cff3;
-    });
+        });
+        if (verbose >= 2) {
+            PrintToFile("FX").SetPrecision(18) << FArrayBox(FX) << std::endl;
+            PrintToFile("FE").SetPrecision(18) << FArrayBox(FE) << std::endl;
+            PrintToFile("t_int").SetPrecision(18) << FArrayBox(t) << std::endl;
+        }
 
         //-----------------------------------------------------------------------
         //  Time-step vertical advection term.
@@ -219,6 +248,8 @@ ROMSX::rhs_t_3d (const Box& bx,
         } else {
             cff4=FC(i,j,k);
         }
+        if ((verbose >= 2) && printinloop)
+            printf("update2 %d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,oHz(i,j,k), t(i,j,k), cff1, cff4);
         t(i,j,k)=oHz(i,j,k)*(t(i,j,k)-cff1*cff4);
         //    if(i==2&&j==2&&k==2) {
         //    Print()<<i<<j<<k<<t(i,j,k)<<"\t"<<oHz(i,j,k)<<"\t"<<cff1<<"\t"<<cff4<<std::endl;

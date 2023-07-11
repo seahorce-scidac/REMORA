@@ -20,7 +20,8 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     //
     // Put Hzk on the x- or y-face as appropriate, or leave on cell center for tracers
     //
-    amrex::Print() << "updating on box in vert_visc_3d: " << phi_bx << std::endl;
+    if (verbose > 0)
+        amrex::Print() << "updating on box in vert_visc_3d: " << phi_bx << std::endl;
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -30,6 +31,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     //
     // Define oHz = (1/Hz)
     //
+    // NOTE: this will probably break when we do a spatially varying depth
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {

@@ -22,7 +22,8 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
     //
     // Put Hzk on the x- or y-face as appropriate, or leave on cell center for tracers
     //
-    amrex::Print() << "updating on box in vert_mean_3d: " << phi_bx << std::endl;
+    if (verbose > 0)
+        amrex::Print() << "updating on box in vert_mean_3d: " << phi_bx << std::endl;
     auto phi_bxD=phi_bx;
     phi_bxD.makeSlab(2,0);
 

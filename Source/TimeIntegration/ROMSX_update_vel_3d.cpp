@@ -38,18 +38,19 @@ ROMSX::update_vel_3d (const Box& vel_bx, const Box& gbx,
     //  backward implicit scheme (lambda=1.0).
     //
 
-    amrex::Print() << "in update_vel_3d with box " << vel_bx << std::endl;
 
     Real oml_dt = dt_lev*(1.0-lambda);
     //N is one less than ROMS
 
     //  Except the commented out part means lambda is always 1.0
-    Print() << "vel old " << Box(vel_old) << std::endl;
-    Print() << "Akv " << Box(Akv) << std::endl;
+    if (verbose > 0) {
+        amrex::Print() << "in update_vel_3d with box " << vel_bx << std::endl;
+        Print() << "vel old " << Box(vel_old) << std::endl;
+        Print() << "Akv " << Box(Akv) << std::endl;
+    }
     amrex::ParallelFor(vel_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        //printf("%d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k, vel_old(i,j,k+1,nstp), vel_old(i,j,k,nstp), Akv(i,j,k), Akv(i-ioff,j-joff,k));
         if(k+1<=N&&k>=0)
         {
             Real cff = 1.0 / ( z_r(i,j,k+1)+z_r(i-ioff,j-joff,k+1)
@@ -69,8 +70,6 @@ ROMSX::update_vel_3d (const Box& vel_bx, const Box& gbx,
         DC(i,j,k) = 0.25 * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
                                       * (pn(i,j,0)+pn(i-ioff,j-joff,0));
     });
-
-    //Print() << FArrayBox(bstr) << std::endl;
 
     amrex::ParallelFor(gbxvel,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)

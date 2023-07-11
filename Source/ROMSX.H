@@ -409,6 +409,7 @@ public:
                         amrex::Array4<amrex::Real> saltold,
                         amrex::Array4<amrex::Real> temp,
                         amrex::Array4<amrex::Real> salt,
+                        amrex::Array4<amrex::Real> tempcache,
                         amrex::Array4<amrex::Real> ru,
                         amrex::Array4<amrex::Real> rv,
                         amrex::Array4<amrex::Real> Hz,
@@ -459,11 +460,13 @@ public:
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
     void rhs_t_3d (const amrex::Box& bx,
+                   const amrex::Box& gbx,
                    amrex::Array4<amrex::Real> told,
                    amrex::Array4<amrex::Real> t,
                    amrex::Array4<amrex::Real> tempstore,
                    amrex::Array4<amrex::Real> Huon,
                    amrex::Array4<amrex::Real> Hvom,
+                   amrex::Array4<amrex::Real> Hz,
                    amrex::Array4<amrex::Real> oHz,
                    amrex::Array4<amrex::Real> pn,
                    amrex::Array4<amrex::Real> pm,
@@ -925,6 +928,7 @@ private:
     static SolverChoice solverChoice;
 
     static int verbose;
+    static int printinloop;
     static int use_native_mri;
     static int no_substepping;
 

@@ -13,6 +13,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                       Array4<Real> u , Array4<Real> v,
                       Array4<Real> tempold  , Array4<Real> salstold,
                       Array4<Real> temp , Array4<Real> salt,
+                      Array4<Real> tempcache,
                       Array4<Real> ru, Array4<Real> rv,
                       Array4<Real> Hz, Array4<Real> Akv,
                       Array4<Real> on_u, Array4<Real> om_v,
@@ -59,9 +60,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     AMREX_ASSERT((ba_gbx1.size() == 1));
     gbx1 = ba_gbx1[0];
 
-    //Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
-    //               IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
-    //
     //------------------------------------------------------------------------
     //  Vertically integrate horizontal mass flux divergence.
     //------------------------------------------------------------------------
@@ -140,15 +138,19 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         stflux(i,j,k)=0.0;
         btflux(i,j,k)=0.0;
     });
-    amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
-    amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
+    if (verbose > 0) {
+        amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
+        amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
+    }
 
     //Use FC and DC as intermediate arrays for FX and FE
     //First pass do centered 2d terms
-    Print()<<(Box(Huon))<<std::endl;
-    Print()<<Box(ubx)<<std::endl;
-    Print()<<Box(FX)<<std::endl;
-    Print()<<(Box(tempold))<<std::endl;
+    if (verbose > 0) {
+        Print()<<(Box(Huon))<<std::endl;
+        Print()<<Box(ubx)<<std::endl;
+        Print()<<Box(FX)<<std::endl;
+        Print()<<(Box(tempold))<<std::endl;
+    }
     // Previously was gbx2, changing to gbx1 so tiling will work
     amrex::ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -185,21 +187,24 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         cff1=0.5+GammaT;
         cff2=0.5-GammaT;
     }
-    Print() << std::endl;
-    Print()<<(Box(tempstore))<<std::endl;
-    Print()<<Box(Hz)<<std::endl;
-    Print()<<Box(tempold)<<std::endl;
-    Print()<<(Box(FX))<<std::endl;
-    Print()<<(Box(FE))<<std::endl;
+    if (verbose > 0) {
+        Print() << std::endl;
+        Print()<<(Box(tempstore))<<std::endl;
+        Print()<<Box(Hz)<<std::endl;
+        Print()<<Box(tempold)<<std::endl;
+        Print()<<(Box(FX))<<std::endl;
+        Print()<<(Box(FE))<<std::endl;
+    }
     amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-       // printf("%d %d %d\n",i,j,k);
         tempstore(i,j,k)=Hz(i,j,k)*(cff1*tempold(i,j,k)+
-                                    cff2*temp(i,j,k))-
+                                    cff2*tempcache(i,j,k))-
                                     cff*pm(i,j,0)*pn(i,j,0)*
                                     (FX(i+1,j,k)-FX(i,j,k)+
                                      FE(i,j+1,k)-FE(i,j,k));
+        if ((verbose >= 2) && printinloop)
+            printf("ts Hz told temp FX2 FE2 %d %d %d %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz(i,j,k),tempold(i,j,k),tempcache(i,j,k),FX(i+1,j,k),FX(i,j,k),FE(i,j+1,k),FE(i,j,k));
          /*
          tempstore(i,j,k,3)=Hz(i,j,k)*(cff1*tempold(i,j,k,nstp)+
                                        cff2*temp(i,j,k,nnew))-
@@ -207,10 +212,10 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                             (FC(i+1,j)-FC(i,j)+
                              DC(i,j+1)-DC(i,j));*/
     });
-       //amrex::PrintToFile("ps_temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       //amrex::PrintToFile("ps_tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-       //amrex::PrintToFile("ps_salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       //amrex::PrintToFile("ps_saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
+    if (verbose >= 2) {
+       amrex::PrintToFile("ps_temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
+       amrex::PrintToFile("ps_tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
+    }
 
     //
     // Time-step vertical advection of tracers (Tunits). Impose artificial
@@ -261,17 +266,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     } else {
         cff=(1-GammaT)*dt_lev;
         }*/
-/*
-    Print()<<"boxes gbx1 dc hz pm pn huon hvom w"<<std::endl;
-    Print()<<gbx1<<std::endl;
-    Print()<<Box(DC)<<std::endl;
-    Print()<<Box(Hz)<<std::endl;
-    Print()<<Box(pm)<<std::endl;
-    Print()<<Box(pn)<<std::endl;
-    Print()<<Box(Huon)<<std::endl;
-    Print()<<Box(Hvom)<<std::endl;
-    Print()<<Box(W)<<std::endl;
-*/
+
     amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -296,25 +291,10 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                             (FC(i+1,j)-FC(i,j)+
                              DC(i,j+1)-DC(i,j));*/
     });
-    //    //Print()<<cff<<std::endl;
-    //    exit(1);
-    //Print()<<FArrayBox(Hz)<<std::endl;
-    //Print()<<FArrayBox(pm)<<std::endl;
-    //Print()<<FArrayBox(pn)<<std::endl;
-    //Print()<<FArrayBox(Huon)<<std::endl;
-    //Print()<<FArrayBox(Hvom)<<std::endl;
-    //Print()<<FArrayBox(W)<<std::endl;
-    //Print()<<FArrayBox(DC)<<std::endl;
-    //Print()<<FArrayBox(uold)<<std::endl;
-    //Print()<<FArrayBox(u)<<std::endl;
-    //Print()<<FArrayBox(tempold)<<std::endl;
-    //Print()<<FArrayBox(tempstore)<<std::endl;
-    //Print()<<FArrayBox(temp)<<std::endl;
-    //    exit(1);
+
     amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        //printf("%d %d %d\n", i,j,k);
         Real cff1=cff*pm(i,j,0)*pn(i,j,0);
         Real cff4;
         if(k-1>=0) {
@@ -322,7 +302,8 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         } else {
             cff4=FC(i,j,k);
         }
-        //printf("%25.25g %25.25g %25.25g %25.25g\n", DC(i,j,k), tempstore(i,j,k), cff1, cff4);
+        if ((verbose >=2) && printinloop)
+            printf("tempstoreps %d %d %d %25.25g %25.25g %25.25g %25.25g\n", i,j,k,DC(i,j,k), tempstore(i,j,k), cff1, cff4);
         tempstore(i,j,k)=DC(i,j,k)*(tempstore(i,j,k)-cff1*cff4);
 //      temp(i,j,k)=tempold(i,j,k);
     });
@@ -334,7 +315,4 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
     update_vel_3d(tbxp1, gbx, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
                   stflux, btflux, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
-    //Print()<<FArrayBox(tempold)<<std::endl;
-    //Print()<<FArrayBox(tempstore)<<std::endl;
-    //Print()<<FArrayBox(temp)<<std::endl;
 }

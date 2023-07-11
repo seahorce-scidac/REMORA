@@ -22,10 +22,12 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
     //Copied depth of water column calculation from DepthStretchTransform
     //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column DC(i,j,-1), and
     // incorrect vertical mean CF(i,j,-1)
-    Print() << "phi: " << phi_bx << std::endl;
-    Print() << "DC: " << Box(DC) << std::endl;
-    Print() << "CF: " << Box(CF) << std::endl;
-    Print() << "FC: " << Box(FC) << std::endl;
+    if (verbose > 0) {
+        Print() << "phi: " << phi_bx << std::endl;
+        Print() << "DC: " << Box(DC) << std::endl;
+        Print() << "CF: " << Box(CF) << std::endl;
+        Print() << "FC: " << Box(FC) << std::endl;
+    }
     //amrex::ParallelFor(phi_bx,
     amrex::ParallelFor(phi_bx_g1z,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)

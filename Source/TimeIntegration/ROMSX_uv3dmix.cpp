@@ -65,7 +65,6 @@ ROMSX::uv3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=Jstr,Jend+1
     //DO i=Istr,Iend+1
-    Print() << bx << std::endl;
     amrex::ParallelFor(bx, ncomp,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {

@@ -28,7 +28,8 @@ romsx.fixed_ndtfast_ratio  = 1 # Baratropic timestep size (seconds)
 
 # DIAGNOSTICS & VERBOSITY
 romsx.sum_interval   = 1       # timesteps between computing mass
-romsx.v              = 1       # verbosity in ROMSX.cpp
+romsx.v              = 1       # verbosity in ROMSX.cpp (0: none, 1: print boxes, etc, 2: print values)
+romsx.printinloop    = 0       # whether to execute print statements in amrex loop regions. Will not print unless romsx.v=2
 amr.v              = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
