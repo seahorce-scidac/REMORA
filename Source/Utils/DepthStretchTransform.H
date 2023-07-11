@@ -15,6 +15,7 @@ ROMSX::set_2darrays (int lev)
     auto& lev_old = vars_old[lev];
     std::unique_ptr<MultiFab>& mf_x_r = vec_x_r[lev];
     std::unique_ptr<MultiFab>& mf_y_r = vec_y_r[lev];
+    auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     for ( MFIter mfi(*(mf_x_r), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -24,9 +25,9 @@ ROMSX::set_2darrays (int lev)
       const Box& bx = mfi.growntilebox();
       const auto & geomdata = Geom(lev).data();
       int ncomp = 1;
-
-      amrex::LoopConcurrentOnCpu(bx, ncomp,
-      [=] (int i, int j, int k, int n)
+      Gpu::synchronize();
+      amrex::ParallelFor(bx, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
         const auto prob_lo         = geomdata.ProbLo();
         const auto dx              = geomdata.CellSize();
@@ -67,6 +68,8 @@ ROMSX::set_2darrays (int lev)
         gbx2.grow(IntVect(NGROW,NGROW,0));
         gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
         gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
+        Box gbx1D = gbx1;
+        gbx1D.makeSlab(2,0);
 
         FArrayBox fab_DC(gbx11,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx11,1,amrex::The_Async_Arena());
@@ -81,12 +84,15 @@ ROMSX::set_2darrays (int lev)
                 DC(i,j,k)=0.0;
                 CF(i,j,k)=0.0;
             });
-        amrex::LoopOnCpu(gbx1, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(gbx1D, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int , int )
             {
+                for(int k=0; k<=N; k++) {
                 DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k));
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*u(i,j,k,nstp);
+                }
             });
         amrex::ParallelFor(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -105,13 +111,15 @@ ROMSX::set_2darrays (int lev)
                 DC(i,j,k)=0.0;
                 CF(i,j,k)=0.0;
             });
-
-        amrex::LoopOnCpu(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+      Gpu::streamSynchronize();
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
+                for(int k=0; k<=N; k++) {
                 DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*v(i,j,k,nstp);
+                }
             });
         amrex::ParallelFor(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -141,9 +149,9 @@ void ROMSX::set_vmix (int lev)
       bx.grow(IntVect(NGROW,NGROW,0));
       const auto & geomdata = Geom(lev).data();
       int ncomp = 1;
-
-      amrex::LoopConcurrentOnCpu(bx, ncomp,
-      [=] (int i, int j, int k, int n)
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(bx, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
 
         Akv(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w(i,j,k)/150.0);
@@ -190,7 +198,6 @@ ROMSX::set_smflux(int lev, Real time)
     else if(EWPeriodic) {
         mf_svstr->setVal(0.0);
     }
-    print_state(*mf_svstr,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
 
 }
 void
@@ -209,6 +216,7 @@ ROMSX::set_depth (int lev)
     const int Mm = Geom(lev).Domain().size()[1];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     mf_Zt_avg1->setVal(0.0);
+    auto N_loop = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -224,6 +232,9 @@ ROMSX::set_depth (int lev)
       gbx21.grow(IntVect(NGROW,NGROW,NGROW-1));
       Box gbx22 = bx;
       gbx22.grow(IntVect(NGROW,NGROW,NGROW));
+      Box gbx2D = gbx2;
+      gbx2D.makeSlab(2,0);
+
       Array4<Real> const& h  = (mf_h)->array(mfi);
       Array4<Real> const& Zt_avg1  = (mf_Zt_avg1)->array(mfi);
       const auto & geomdata = Geom(lev).data();
@@ -245,9 +256,13 @@ ROMSX::set_depth (int lev)
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
       bool NSPeriodic = geomdata.isPeriodic(1);
       bool EWPeriodic = geomdata.isPeriodic(0);
+      const auto local_theta_s = solverChoice.theta_s;
+      const auto local_theta_b = solverChoice.theta_b;
+
       if(!solverChoice.flat_bathymetry) {
-      amrex::LoopConcurrentOnCpu(gbx2, ncomp,
-      [=] (int i, int j, int k, int n)
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(gbx2, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
           Real val1, val2;
           int iFort = i+1;
@@ -271,8 +286,9 @@ ROMSX::set_depth (int lev)
           z_w(i,j,k) = h(i,j,0);
       });
       } else {
-      amrex::LoopConcurrentOnCpu(gbx2, ncomp,
-      [=] (int i, int j, int k, int n)
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(gbx2, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
           h(i,j,0) = -geomdata.ProbLo(2);
           z_w(i,j,k) = h(i,j,0);
@@ -280,9 +296,11 @@ ROMSX::set_depth (int lev)
       }
 
       // ROMS Transform 2
-      amrex::LoopOnCpu(gbx2, ncomp,
-      [=] (int i, int j, int k, int n)
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(gbx2D, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int , int )
       {
+        for(int k=0; k<=N_loop; k++) {
         //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
         const auto prob_lo         = geomdata.ProbLo();
         const auto dx              = geomdata.CellSize();
@@ -316,15 +334,15 @@ ROMSX::set_depth (int lev)
         else
         {
           sc_w=ds*(k-N);
-          if (solverChoice.theta_s > 0.0_rt)
-            Csur=(1.0_rt-std::cosh(solverChoice.theta_s*sc_w))/
-              (std::cosh(solverChoice.theta_s)-1.0_rt);
+          if (local_theta_s > 0.0_rt)
+            Csur=(1.0_rt-std::cosh(local_theta_s*sc_w))/
+              (std::cosh(local_theta_s)-1.0_rt);
           else
             Csur=-sc_w*sc_w;
-          if (solverChoice.theta_b > 0.0_rt)
+          if (local_theta_b > 0.0_rt)
           {
-            Cbot=(std::exp(solverChoice.theta_b*Csur)-1.0_rt)/
-              (1.0_rt-std::exp(-solverChoice.theta_b));
+            Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
+              (1.0_rt-std::exp(-local_theta_b));
             Cs_w=Cbot;
           }
           else
@@ -339,15 +357,15 @@ ROMSX::set_depth (int lev)
         //Don't do anything special for first/last index
         {
           sc_r=ds*(k-N+0.5_rt);
-          if (solverChoice.theta_s > 0.0_rt)
-            Csur=(1.0_rt-std::cosh(solverChoice.theta_s*sc_r))/
-              (std::cosh(solverChoice.theta_s)-1.0_rt);
+          if (local_theta_s > 0.0_rt)
+            Csur=(1.0_rt-std::cosh(local_theta_s*sc_r))/
+              (std::cosh(local_theta_s)-1.0_rt);
           else
             Csur=-sc_r*sc_r;
-          if (solverChoice.theta_b > 0.0_rt)
+          if (local_theta_b > 0.0_rt)
           {
-            Cbot=(std::exp(solverChoice.theta_b*Csur)-1.0_rt)/
-              (1.0_rt-std::exp(-solverChoice.theta_b));
+            Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
+              (1.0_rt-std::exp(-local_theta_b));
             Cs_r=Cbot;
           }
           else
@@ -387,15 +405,19 @@ ROMSX::set_depth (int lev)
               z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
           z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
         }
+        }
       });
-      amrex::LoopOnCpu(gbx2, ncomp,
-      [=] (int i, int j, int k, int n)
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(gbx2D, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int , int )
       {
+          for(int k=0; k<=N_loop; k++) {
           if(k==0) {
               Hz(i,j,k)=z_w(i,j,k)+h(i,j,0);
           }
           else
               Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1);
+          }
           //Note, we are not supporting ICESHELF flag
       });
     } // mf
@@ -428,8 +450,9 @@ void ROMSX::set_hmixcoef (int lev) {
         bx.grow(IntVect(NGROW,NGROW,0));
         int ncomp = 1;
 
-        amrex::LoopConcurrentOnCpu(bx, ncomp,
-        [=] (int i, int j, int k, int n)
+        Gpu::synchronize();
+        amrex::ParallelFor(bx, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
         {
             // NOTE: Hard-coded value from ana_hmixcoef.h
             visc2_p(i,j,k) = 5.0;
@@ -456,9 +479,10 @@ void ROMSX::set_drag (int lev) {
         bx.grow(IntVect(NGROW,NGROW,0));
         int ncomp = 1;
 
+        Gpu::synchronize();
         // Functional form given in ana_drag.h, ifdef UPWELLING and UV_LDRAG
-        amrex::LoopConcurrentOnCpu(bx, ncomp,
-        [=] (int i, int j, int k, int n)
+        amrex::ParallelFor(bx, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
         {
             rdrag(i,j,k)=0.002*(1.0-std::tanh(hOfTheConfusingName(i,j,k)/150.));
         });

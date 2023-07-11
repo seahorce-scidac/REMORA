@@ -48,6 +48,4 @@ ROMSX::prestep_uv_3d (const Box& tbx, const Box& gbx,
 
     update_vel_3d(tbxp1, gbx, 0, 1, v, vold, rv, Hz, Akv, DC, FC,
                   svstr, bvstr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
-    //    //Print()<<FArrayBox(uold)<<std::endl;
-    //    //Print()<<FArrayBox(u)<<std::endl;
 }

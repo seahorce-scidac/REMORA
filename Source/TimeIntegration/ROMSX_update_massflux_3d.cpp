@@ -14,10 +14,15 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
 {
     const int Mn = Geom(0).Domain().size()[0];
     const int Mm = Geom(0).Domain().size()[1];
+    auto N = Geom(0).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
     auto phi_bxD=phi_bx;
     auto phi_bx_g1z=phi_bx;
     phi_bxD.makeSlab(2,0);
     phi_bx_g1z.grow(IntVect(0,0,1));
+
+    auto geomdata = Geom(0).data();
+    bool NSPeriodic = geomdata.isPeriodic(1);
+    bool EWPeriodic = geomdata.isPeriodic(0);
 
     //Copied depth of water column calculation from DepthStretchTransform
     //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column DC(i,j,-1), and
@@ -41,27 +46,28 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
             {
                 FC(i,j,k)=0.0;
             });
+    Gpu::streamSynchronize();
     //This takes advantage of Hz being an extra grow cell size
-    amrex::LoopOnCpu(phi_bx,
+    amrex::ParallelFor(phi_bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 DC(i,j,k)=0.5*om_v_or_on_u(i,j,0)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
             });
-    amrex::LoopOnCpu(phi_bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    amrex::ParallelFor(phi_bxD,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
+                for(int k=0; k<=N; k++) {
                 DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*phi(i,j,k,nnew);
+                }
             });
 
-    auto geomdata = Geom(0).data();
-    bool NSPeriodic = geomdata.isPeriodic(1);
-    bool EWPeriodic = geomdata.isPeriodic(0);
     // Note this loop is in the opposite direction in k in ROMS but does not
     // appear to affect results
-    amrex::ParallelFor(phi_bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    amrex::ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
+        for(int k=0; k<=N; k++) {
         Real cff1=DC(i,j,-1);
         if(k==0) {
             DC(i,j,-1)=1.0/DC(i,j,-1);
@@ -84,10 +90,11 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
         //Compute correct mass flux, Hz*v/m
         Hphi(i,j,k) = 0.5 * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
         FC(i,j,0) = FC(i,j,0)+Hphi(i,j,k); //recursive
+        }
     });
 
-    amrex::LoopOnCpu(phi_bxD,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    amrex::ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         FC(i,j,0) = DC(i,j,-1)*(FC(i,j,0)-Dphi_avg2(i,j,0)); //recursive
     });

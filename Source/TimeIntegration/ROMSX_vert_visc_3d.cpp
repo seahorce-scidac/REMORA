@@ -22,6 +22,8 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     //
     if (verbose > 0)
         amrex::Print() << "updating on box in vert_visc_3d: " << phi_bx << std::endl;
+    auto phi_bxD = phi_bx;
+    phi_bxD.makeSlab(2,0);
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -31,7 +33,6 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     //
     // Define oHz = (1/Hz)
     //
-    // NOTE: this will probably break when we do a spatially varying depth
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -46,12 +47,18 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     {
         AK(i,j,k) = 0.5 * (Akv(i-ioff,j-joff,k)+Akv(i,j,k));
     });
-
+    Gpu::streamSynchronize();
+#ifdef AMREX_USE_GPU
+    Gpu::synchronize();
+#else
+#endif
+    /////////////////// This and the following loop is the first non-matching thing that affects plotfile comparison for cuda
     // Begin vertical viscosity term
     // NOTE: vertical viscosity term for tracers is identical except AK=Akt
-    amrex::ParallelFor(phi_bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    amrex::ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
+        for(int k=0; k<=N; k++) {
         //
         //  Use conservative, parabolic spline reconstruction of vertical
         //  viscosity derivatives.  Then, time step vertical viscosity term
@@ -91,14 +98,20 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
              CF(i,j,k) *= cff;
              DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*DC(i,j,k-1));
          }
-         //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g %25.25g BC cff CF DC\n",i,j,k,0,BC(i,j,k),cff,CF(i,j,k),FC(i,j,k),DC(i,j,k));
+        }
+        //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g %25.25g BC cff CF DC\n",i,j,k,0,BC(i,j,k),cff,CF(i,j,k),FC(i,j,k),DC(i,j,k));
          //printf("%d %d %d %d %25.25g %25.25g %25.25g %25.25g %25.25g cff u(k+1) u(k)FC DC(k-1)\n",i,j,k,0,cff,phi(i,j,k+1,nnew),phi(i,j,k,nnew),FC(i,j,k),DC(i,j,k-1));
          //exit(1);
     });
-
-    amrex::ParallelFor(phi_bx,
+#ifdef AMREX_USE_GPU
+    Gpu::synchronize();
+#else
+#endif
+    Gpu::streamSynchronize();
+    amrex::ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
+       for(int k=0; k<=N; k++) {
        //
        //  Backward substitution.
        //
@@ -109,8 +122,12 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
            if(N+1<k || N+2<k) amrex::Abort("-1 here");
            DC(i,j,N-k) -= CF(i,j,N-k)*DC(i,j,N-k+1);
        }
+       }
     });
-
+#ifdef AMREX_USE_GPU
+    Gpu::synchronize();
+#else
+#endif
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {

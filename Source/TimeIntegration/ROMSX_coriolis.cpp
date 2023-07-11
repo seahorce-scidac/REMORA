@@ -40,8 +40,6 @@ ROMSX::coriolis (const Box& bx, const Box& gbx,
     {
         Real UFx_i   = 0.5 * Hz(i  ,j,k) * fomn(i  ,j,0) * (vold(i  ,j,k,nrhs)+vold(i  ,j+1,k,nrhs));
         Real UFx_im1 = 0.5 * Hz(i-1,j,k) * fomn(i-1,j,0) * (vold(i-1,j,k,nrhs)+vold(i-1,j+1,k,nrhs));
-        if ((verbose>=2) && (printinloop > 0))
-            printf("cor %d %d %d %25.25g %25.25g %25.25g\n", i,j,k,UFx_i, UFx_im1, ru(i,j,k,nr));
         ru(i,j,k,nr) += 0.5*(UFx_i + UFx_im1);
     });
 

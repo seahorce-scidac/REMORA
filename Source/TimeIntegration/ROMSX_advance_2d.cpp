@@ -69,7 +69,6 @@ ROMSX::advance_2d (int lev,
     kstp-=1;
     indx1-=1;
     ptsk-=1;
-    //Print() << "indices " <<knew<<"\t"<<krhs<<"\t"<<kstp<<"\t"<<predictor_2d_step<<"\t"<<(my_iif<=1)<<std::endl;
 
 
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -232,8 +231,8 @@ ROMSX::advance_2d (int lev,
               rhs_vbar(i,j,0)=0.0;
         });
 
-        amrex::LoopConcurrentOnCpu(tbxp2,
-        [=] (int i, int j, int k)
+        amrex::ParallelFor(tbxp2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //Note: are the comment definitons right? Don't seem to match metrics.f90
               om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
@@ -285,15 +284,6 @@ ROMSX::advance_2d (int lev,
             Real cff1=gbx2D.contains(i,j-1,0) ? cff*(Drhs(i,j,0)+Drhs(i,j-1,0)) : om_v(i,j,0)*Drhs(i,j,0);
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
         });
-        if (verbose >= 2) {
-            amrex::PrintToFile("DUon").SetPrecision(18)<<FArrayBox(DUon)<<std::endl;
-            amrex::PrintToFile("DVom").SetPrecision(18)<<FArrayBox(DVom)<<std::endl;
-            amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-            amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-            amrex::PrintToFile("Drhs").SetPrecision(18)<<FArrayBox(Drhs)<<std::endl;
-            amrex::PrintToFile("on_u").SetPrecision(18)<<FArrayBox(on_u)<<std::endl;
-        }
-
         if(predictor_2d_step)
         {
             if(first_2d_step) {
@@ -309,9 +299,6 @@ ROMSX::advance_2d (int lev,
                     DU_avg1(i,j,0)=0.0;
                     DU_avg2(i,j,0)=cff2*DUon(i,j,0);
                 });
-                if (verbose >= 2) {
-                    amrex::PrintToFile("DU_avg1").SetPrecision(18)<<FArrayBox(DU_avg1)<<std::endl;
-                }
                 amrex::ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
@@ -335,10 +322,6 @@ ROMSX::advance_2d (int lev,
                     DU_avg1(i,j,0)=DU_avg1(i,j,0)+cff1*DUon(i,j,0);
                     DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2*DUon(i,j,0);
                 });
-                if (verbose >= 2) {
-                    amrex::PrintToFile("DUon").SetPrecision(18)<<FArrayBox(DUon)<<std::endl;
-                    amrex::PrintToFile("DU_avg1").SetPrecision(18)<<FArrayBox(DU_avg1)<<std::endl;
-                }
                 amrex::ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
@@ -364,23 +347,14 @@ ROMSX::advance_2d (int lev,
                 DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2*DVom(i,j,0);
             });
         }
-        if (verbose >= 2) {
-            amrex::PrintToFile("DU_avg1").SetPrecision(18)<<FArrayBox(DU_avg1)<<std::endl;
-            amrex::PrintToFile("DU_avg2").SetPrecision(18)<<FArrayBox(DU_avg2)<<std::endl;
-            amrex::PrintToFile("DV_avg1").SetPrecision(18)<<FArrayBox(DV_avg1)<<std::endl;
-            amrex::PrintToFile("DV_avg2").SetPrecision(18)<<FArrayBox(DV_avg2)<<std::endl;
-        }
-        ////
+
+        //
         //  Do not perform the actual time stepping during the auxiliary
         //  (nfast(ng)+1) time step. Jump to next box
         //
 
         if (my_iif>=nfast) {
-            if (verbose >= 2) {
-                amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-                amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-            }
-       continue; }
+            continue; }
         //Load new free-surface values into shared array at both predictor
         //and corrector steps
         //
@@ -398,10 +372,6 @@ ROMSX::advance_2d (int lev,
         // todo: HACKHACKHACK Should use rho0 from prob.H
         Real fac=1000.0/1025.0;
 
-        if (verbose >= 2) {
-            amrex::PrintToFile("rhs_zeta_prefs").SetPrecision(18)<<FArrayBox(rhs_zeta)<<std::endl;
-            amrex::PrintToFile("zeta_new_prefs").SetPrecision(18)<<FArrayBox(zeta_new)<<std::endl;
-        }
         if(my_iif==0) {
             Real cff1=dtfast_lev;
             amrex::ParallelFor(tbxp2unevenD,
@@ -416,8 +386,6 @@ ROMSX::advance_2d (int lev,
                 //Pressure gradient terms:
                 zwrk(i,j,0)=0.5_rt*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
                 gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
-                if ((verbose >= 2) && (printinloop > 0))
-                    printf("%d %d %d %25.25g gzeta1\n",i,j,0,gzeta(i,j,0));
                 gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
             });
@@ -463,10 +431,6 @@ ROMSX::advance_2d (int lev,
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
                 });
         }
-        if (verbose >=2) {
-            amrex::PrintToFile("rhs_zeta_postfs").SetPrecision(18)<<FArrayBox(rhs_zeta)<<std::endl;
-            amrex::PrintToFile("zeta_new_postfs").SetPrecision(18)<<FArrayBox(zeta_new)<<std::endl;
-        }
 
         //
         //  Load new free-surface values into shared array at both predictor
@@ -494,13 +458,6 @@ ROMSX::advance_2d (int lev,
         //  Compute right-hand-side for the 2D momentum equations.
         //=======================================================================
         //
-        if (verbose >=2) {
-            amrex::PrintToFile("rhs_ubar_prepgrad").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
-            amrex::PrintToFile("rhs_vbar_prepgrad").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
-            amrex::PrintToFile("ubar_prepgrad").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-            amrex::PrintToFile("vbar_prepgrad").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-            amrex::PrintToFile("zeta_prepgrad").SetPrecision(18)<<FArrayBox(zeta)<<std::endl;
-        }
 /*
 !
 !-----------------------------------------------------------------------
@@ -546,7 +503,6 @@ ROMSX::advance_2d (int lev,
                                (gzeta2(i,j-1,0)-
                                 gzeta2(i,j  ,0)));
             });
-        //Abort();
 /*
       cff1=0.5_r8*g
       cff2=1.0_r8/3.0_r8
@@ -589,33 +545,13 @@ ROMSX::advance_2d (int lev,
         END IF
       END DO
 */
-        if (verbose >=2) {
-            amrex::PrintToFile("rhs_ubar").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
-            amrex::PrintToFile("rhs_vbar").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
-        }
        // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
         //
         //-----------------------------------------------------------------------
         // rhs_2d
         //-----------------------------------------------------------------------
         //
-        if (verbose >=2) {
-            amrex::PrintToFile("rhs_ubar_prerhs2d").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
-            amrex::PrintToFile("rhs_vbar_prerhs2d").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
-            amrex::PrintToFile("ubar_prerhs2d").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-            amrex::PrintToFile("vbar_prerhs2d").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-        }
         rhs_2d(bxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs, N);
-        if (verbose >=2) {
-            amrex::PrintToFile("rhs_ubar_precor").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
-            amrex::PrintToFile("rhs_vbar_precor").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
-            amrex::PrintToFile("ubar_precor").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-            amrex::PrintToFile("vbar_precor").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-            amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-            amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-            amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(Drhs)<<std::endl;
-            amrex::PrintToFile("precor").SetPrecision(18)<<FArrayBox(fomn)<<std::endl;
-        }
        if (solverChoice.use_coriolis) {
             // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
             //
@@ -626,10 +562,6 @@ ROMSX::advance_2d (int lev,
             // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
             coriolis(bxD, gbxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
        }
-        if (verbose >=2) {
-            amrex::PrintToFile("rhs_ubar").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
-            amrex::PrintToFile("rhs_vbar").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
-        }
         //Add in horizontal harmonic viscosity.
         // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
         amrex::ParallelFor(tbxp1,
@@ -640,15 +572,6 @@ ROMSX::advance_2d (int lev,
         });
 
         uv3dmix(bxD, ubar, vbar, rhs_ubar, rhs_vbar, visc2_p, visc2_r, Drhs_p, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
-
-        if (verbose >=2) {
-            amrex::PrintToFile("rhs_ubar_afteruvmix").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
-            amrex::PrintToFile("rhs_vbar_afteruvmix").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
-            amrex::PrintToFile("ubar_afteruvmix").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-            amrex::PrintToFile("vbar_afteruvmix").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-            amrex::PrintToFile("rufrc").SetPrecision(18)<<FArrayBox(rufrc)<<std::endl;
-            amrex::PrintToFile("rvfrc").SetPrecision(18)<<FArrayBox(rvfrc)<<std::endl;
-        }
 
         //Coupling from 3d to 2d
         /////////Coupling of 3d updates to 2d predictor-corrector
@@ -712,10 +635,6 @@ ROMSX::advance_2d (int lev,
                 Real cff1=23.0_rt/12.0_rt;
                 Real cff2=16.0_rt/12.0_rt;
                 Real cff3= 5.0_rt/12.0_rt;
-        if (verbose >= 2) {
-            amrex::PrintToFile("ru").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-            amrex::PrintToFile("rv").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
-        }
        amrex::ParallelFor(gbx1D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
@@ -749,10 +668,6 @@ ROMSX::advance_2d (int lev,
                     rv(i,j,-1,1) = rv(i,j,-1,0);
                     rv(i,j,-1,0) = r_swap;
                 });
-        if (verbose >= 2) {
-           amrex::PrintToFile("ru").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-           amrex::PrintToFile("rv").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
-        }
        //END DO
                 //END DO
             }
@@ -775,10 +690,6 @@ ROMSX::advance_2d (int lev,
             });
             //END DO
             //END DO
-        }
-        if (verbose >= 2) {
-            amrex::PrintToFile("rhs_ubar").SetPrecision(18)<<FArrayBox(rhs_ubar)<<std::endl;
-            amrex::PrintToFile("rhs_vbar").SetPrecision(18)<<FArrayBox(rhs_vbar)<<std::endl;
         }
 
         //
@@ -811,8 +722,6 @@ ROMSX::advance_2d (int lev,
                 //DO j=Jstr,Jend
                 //DO i=IstrU,Iend
                 Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
-                if ((verbose >= 2) && (printinloop > 0))
-                    printf("%d %d %d %24.24g %24.24g Dnew\n", Dnew(i,j,0), Dnew(i-1,j,0));
                 Real fac=1.0_rt/(Dnew(i,j,0)+Dnew(i-1,j,0));
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
@@ -922,15 +831,6 @@ ROMSX::advance_2d (int lev,
             });
             //END DO
             //END DO
-        }
-        if (verbose >= 2) {
-            amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-            amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-            amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-            amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-            amrex::PrintToFile("ru_afteradvance").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-            amrex::PrintToFile("rv_afteradvance").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
-            amrex::PrintToFile("zeta").SetPrecision(18)<<FArrayBox(zeta)<<std::endl;
         }
     }
     mf_DU_avg1->FillBoundary(geom[lev].periodicity());

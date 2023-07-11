@@ -32,12 +32,13 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
     {
         Hzk(i,j,k)=0.5*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
     });
-
+    Gpu::synchronize();
     Real CF_tmp=0.0;
     Real DC_tmp=0.0;
-    amrex::LoopOnCpu(phi_bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    amrex::ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
+      for(int k=0; k<=N; k++) {
       if(k==0) {
         CF(i,j,-1)=Hzk(i,j,k);
         DC(i,j,-1)=phi(i,j,k,nnew)*Hzk(i,j,k);
@@ -45,10 +46,11 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
         CF(i,j,-1)+=Hzk(i,j,k);
         DC(i,j,-1)+=phi(i,j,k,nnew)*Hzk(i,j,k);
       }
+      }
     });
-
-    amrex::LoopOnCpu(phi_bxD,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    Gpu::synchronize();
+    amrex::ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff1=1.0/(CF(i,j,-1)*(1.0/dxlen(i,j,0)));
         DC(i,j,-1)=(DC(i,j,-1)*(1.0/dxlen(i,j,0))-Dphi_avg1(i,j,0))*cff1; // recursive

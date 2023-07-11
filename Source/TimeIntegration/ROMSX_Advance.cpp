@@ -312,13 +312,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         });
 
         // updates Huon/Hvom
-        if (verbose > 0) {
-            Print() << "u box: " << Box(u) << std::endl;
-            Print() << "Hz box: " << Box(Hz) << std::endl;
-            Print() << "Hu box: " << Box(Huon) << std::endl;
-            Print() << "Hv box: " << Box(Hvom) << std::endl;
-            Print() << "gbx2: " << gbx2 << std::endl;
-        }
         set_massflux_3d(gbx2,1,0,uold,Huon,Hz,on_u,nnew);
         set_massflux_3d(gbx2,0,1,vold,Hvom,Hz,om_v,nnew);
 

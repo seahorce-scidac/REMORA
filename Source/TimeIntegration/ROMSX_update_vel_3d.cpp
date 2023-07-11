@@ -12,6 +12,8 @@ using namespace amrex;
 // The tracer update is a bit different from the u,v updates so we test
 // for it, but checking if ioff=0 and joff=0. In some cases, though, we
 // can recover the tracer update from the generic one by setting those indices.
+// Setting icc and ntfirst identically for the tracers should be equivalent
+// to setting ioff=0 and joff=0
 //
 
 void

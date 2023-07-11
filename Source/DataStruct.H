@@ -70,6 +70,8 @@ struct SolverChoice {
 
         pp.query("flat_bathymetry", flat_bathymetry);
 
+        pp.query("test_vertical", test_vertical);
+
         if(!flat_bathymetry)  amrex::Warning("Flat bathymetry needs further testing");
 
         // Do we have terrain (or grid stretching)?
@@ -308,6 +310,7 @@ struct SolverChoice {
 
     bool        use_terrain            = false;
     bool        flat_bathymetry        = true;
+    bool        test_vertical          = true;
 
     // Specify what additional physics/forcing modules we use
     bool        use_gravity            = false;

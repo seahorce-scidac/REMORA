@@ -65,7 +65,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //------------------------------------------------------------------------
     //
     //Should really use gbx3uneven
-    amrex::ParallelFor(gbx3uneven,
+    amrex::ParallelFor(Box(W),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //  Starting with zero vertical velocity at the bottom, integrate
@@ -145,13 +145,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
 
     //Use FC and DC as intermediate arrays for FX and FE
     //First pass do centered 2d terms
-    if (verbose > 0) {
-        Print()<<(Box(Huon))<<std::endl;
-        Print()<<Box(ubx)<<std::endl;
-        Print()<<Box(FX)<<std::endl;
-        Print()<<(Box(tempold))<<std::endl;
-    }
-    // Previously was gbx2, changing to gbx1 so tiling will work
+
     amrex::ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -203,8 +197,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                                     cff*pm(i,j,0)*pn(i,j,0)*
                                     (FX(i+1,j,k)-FX(i,j,k)+
                                      FE(i,j+1,k)-FE(i,j,k));
-        if ((verbose >= 2) && printinloop)
-            printf("ts Hz told temp FX2 FE2 %d %d %d %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz(i,j,k),tempold(i,j,k),tempcache(i,j,k),FX(i+1,j,k),FX(i,j,k),FE(i,j+1,k),FE(i,j,k));
          /*
          tempstore(i,j,k,3)=Hz(i,j,k)*(cff1*tempold(i,j,k,nstp)+
                                        cff2*temp(i,j,k,nnew))-
@@ -212,10 +204,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                             (FC(i+1,j)-FC(i,j)+
                              DC(i,j+1)-DC(i,j));*/
     });
-    if (verbose >= 2) {
-       amrex::PrintToFile("ps_temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-       amrex::PrintToFile("ps_tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-    }
 
     //
     // Time-step vertical advection of tracers (Tunits). Impose artificial
@@ -302,8 +290,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         } else {
             cff4=FC(i,j,k);
         }
-        if ((verbose >=2) && printinloop)
-            printf("tempstoreps %d %d %d %25.25g %25.25g %25.25g %25.25g\n", i,j,k,DC(i,j,k), tempstore(i,j,k), cff1, cff4);
         tempstore(i,j,k)=DC(i,j,k)*(tempstore(i,j,k)-cff1*cff4);
 //      temp(i,j,k)=tempold(i,j,k);
     });
@@ -314,5 +300,5 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
     update_vel_3d(tbxp1, gbx, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
-                  stflux, btflux, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
+                  stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
 }

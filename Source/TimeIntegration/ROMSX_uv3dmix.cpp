@@ -86,8 +86,6 @@ ROMSX::uv3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=Jstr,Jend
     //DO i=IstrU,Iend
-           //amrex::PrintToFile("rufrc").SetPrecision(18)<<FArrayBox(rufrc)<<std::endl;
-       //amrex::PrintToFile("rvfrc").SetPrecision(18)<<FArrayBox(rvfrc)<<std::endl;
     amrex::ParallelFor(bx, ncomp,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
