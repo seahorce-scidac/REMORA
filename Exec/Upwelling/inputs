@@ -28,7 +28,7 @@ romsx.fixed_ndtfast_ratio  = 30 # Baratropic timestep size (seconds)
 
 # DIAGNOSTICS & VERBOSITY
 romsx.sum_interval   = 1       # timesteps between computing mass
-romsx.v              = 1       # verbosity in ROMSX.cpp (0: none, 1: print boxes, etc, 2: print values)
+romsx.v              = 0       # verbosity in ROMSX.cpp (0: none, 1: print boxes, etc, 2: print values)
 romsx.printinloop    = 0       # whether to execute print statements in amrex loop regions. Will not print unless romsx.v=2
 amr.v              = 1       # verbosity in Amr.cpp
 
@@ -41,7 +41,7 @@ romsx.check_int       = -57600      # number of timesteps between checkpoints
 
 # PLOTFILES
 romsx.plot_file_1     = plt        # prefix of plotfile name
-romsx.plot_int_1      = 1          # number of timesteps between plotfiles
+romsx.plot_int_1      = 100          # number of timesteps between plotfiles
 romsx.plot_vars_1     = omega salt temp x_velocity y_velocity z_velocity
 romsx.plotfile_type   = amrex
 
