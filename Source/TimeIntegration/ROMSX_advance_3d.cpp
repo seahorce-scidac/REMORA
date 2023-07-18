@@ -174,7 +174,7 @@ ROMSX::advance_3d (int lev,
         } else {
           cff=0.25*dt_lev*23.0/12.0;
         }
-
+        if(solverChoice.test_vertical) {
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -184,11 +184,9 @@ ROMSX::advance_3d (int lev,
                 u(i,j,k) *= gbx2.contains(i-1,j,0) ? 2.0 / (Hz(i-1,j,k) + Hz(i,j,k)) :  1.0 / (Hz(i,j,k));
                 v(i,j,k) *= gbx2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
             });
-        // End previous
-        if(solverChoice.test_vertical) {
         {
         amrex::Gpu::synchronize();
-        amrex::Gpu::LaunchSafeGuard lsg(false);
+        amrex::Gpu::LaunchSafeGuard lsg(true);
        //amrex::ParallelFor(gbx2,
        // [=] AMREX_GPU_DEVICE (int i, int j, int k)
        // {
@@ -231,7 +229,7 @@ ROMSX::advance_3d (int lev,
                 CF(i,j,k) = 0.0;
             });
        vert_mean_3d(bx,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
-       }
+
 
        update_massflux_3d(gbx2,bx,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
         amrex::ParallelFor(Box(ubar),
@@ -252,6 +250,7 @@ ROMSX::advance_3d (int lev,
     //{
     //    printf("%d %d %d %25.25g Huon after massflux\n", i, j, k, Huon(i,j,k));
     //    });
+       }
     }
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {

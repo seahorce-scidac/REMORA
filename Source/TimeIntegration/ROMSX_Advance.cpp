@@ -27,6 +27,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
     MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
     MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
+
     //////////    //pre_step3d corrections to boundaries
 
     const BoxArray&            ba = S_old.boxArray();
@@ -146,6 +147,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     const auto dx               = Geom(lev).CellSizeArray();
     const int Mm = Geom(lev).Domain().size()[1];
     auto geomdata = Geom(lev).data();
+
     //MFIter::allowMultipleMFIters(true);
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
