@@ -36,7 +36,7 @@ ROMSX::prestep_uv_3d (const Box& tbx, const Box& gbx,
     gbx2.grow(IntVect(NGROW,NGROW,0));
     gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
 
-    if (verbose > 0) {
+    if (verbose > 1) {
         amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
         amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
     }

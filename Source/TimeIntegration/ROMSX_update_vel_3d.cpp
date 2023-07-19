@@ -45,7 +45,7 @@ ROMSX::update_vel_3d (const Box& vel_bx, const Box& gbx,
     //N is one less than ROMS
 
     //  Except the commented out part means lambda is always 1.0
-    if (verbose > 0) {
+    if (verbose > 1) {
         amrex::Print() << "in update_vel_3d with box " << vel_bx << std::endl;
         Print() << "vel old " << Box(vel_old) << std::endl;
         Print() << "Akv " << Box(Akv) << std::endl;

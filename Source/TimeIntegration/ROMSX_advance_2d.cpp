@@ -212,7 +212,7 @@ ROMSX::advance_2d (int lev,
 
         auto weight1 = vec_weight1.dataPtr();
         auto weight2 = vec_weight2.dataPtr();
-       if ((verbose >= 2) && predictor_2d_step && my_iif == 0) {
+       if ((verbose > 2) && predictor_2d_step && my_iif == 0) {
            amrex::PrintToFile("ru_startadvance").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
            amrex::PrintToFile("rv_startadvance").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
            amrex::PrintToFile("u_startadvance2").SetPrecision(18)<<FArrayBox(u)<<std::endl;

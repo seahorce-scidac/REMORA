@@ -138,7 +138,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         stflux(i,j,k)=0.0;
         btflux(i,j,k)=0.0;
     });
-    if (verbose > 0) {
+    if (verbose > 1) {
         amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
         amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
     }
@@ -181,7 +181,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         cff1=0.5+GammaT;
         cff2=0.5-GammaT;
     }
-    if (verbose > 0) {
+    if (verbose > 1) {
         Print() << std::endl;
         Print()<<(Box(tempstore))<<std::endl;
         Print()<<Box(Hz)<<std::endl;

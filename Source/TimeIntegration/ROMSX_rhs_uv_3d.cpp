@@ -20,7 +20,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
                Array4<Real> W   , Array4<Real> FC,
                int nrhs, int N)
 {
-    if (verbose >= 2) {
+    if (verbose > 2) {
         amrex::PrintToFile("ru_begin_rhs3d").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
         amrex::PrintToFile("rv_begin_rhs3d").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
         amrex::PrintToFile("rufrc_begin_rhs3d").SetPrecision(18)<<FArrayBox(rufrc)<<std::endl;
@@ -322,7 +322,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
               rvfrc(i,j,0)+=cff1+cff2;
 #endif
         });
-        if (verbose >= 2) {
+        if (verbose > 2) {
         amrex::PrintToFile("rufrc_rhs3d").SetPrecision(18)<<FArrayBox(rufrc)<<std::endl;
         amrex::PrintToFile("rvfrc_rhs3d").SetPrecision(18)<<FArrayBox(rvfrc)<<std::endl;
         amrex::PrintToFile("sustr_rhs3d").SetPrecision(18)<<FArrayBox(sustr)<<std::endl;

@@ -20,7 +20,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     //
     // Put Hzk on the x- or y-face as appropriate, or leave on cell center for tracers
     //
-    if (verbose > 0)
+    if (verbose > 1)
         amrex::Print() << "updating on box in vert_visc_3d: " << phi_bx << std::endl;
     auto phi_bxD = phi_bx;
     phi_bxD.makeSlab(2,0);

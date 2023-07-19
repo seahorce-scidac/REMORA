@@ -96,7 +96,7 @@ ROMSX::advance_3d (int lev,
         Box vbx = surroundingNodes(bx,1);
         Box ubx2 = surroundingNodes(ubx,0);
         Box vbx2 = surroundingNodes(vbx,1);
-        if (verbose > 0) {
+        if (verbose > 1) {
             amrex::Print() << " BX " <<  bx << std::endl;
             amrex::Print() << "UBX " << ubx << std::endl;
             amrex::Print() << "VBX " << vbx << std::endl;
@@ -130,7 +130,7 @@ ROMSX::advance_3d (int lev,
         //fab_Akt.setVal(1e-6);
         //From ana_grid.h and metrics.F
         //
-        if (verbose >= 2) {
+        if (verbose > 2) {
             amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
             amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
             amrex::PrintToFile("temp_startad").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
@@ -306,7 +306,7 @@ ROMSX::advance_3d (int lev,
         Box vbx = surroundingNodes(bx,1);
         Box ubx2 = surroundingNodes(ubx,0);
         Box vbx2 = surroundingNodes(vbx,1);
-        if (verbose > 0) {
+        if (verbose > 1) {
             amrex::Print() << " BX " <<  bx << std::endl;
             amrex::Print() << "UBX " << ubx << std::endl;
             amrex::Print() << "VBX " << vbx << std::endl;
@@ -340,7 +340,7 @@ ROMSX::advance_3d (int lev,
         //fab_Akt.setVal(1e-6);
         //From ana_grid.h and metrics.F
         //
-        if (verbose >= 2) {
+        if (verbose > 2) {
             amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
             amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
             amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
@@ -454,7 +454,7 @@ ROMSX::advance_3d (int lev,
        // rhs_3d
        //-----------------------------------------------------------------------
        //
-       if (verbose >= 2) {
+       if (verbose > 2) {
            PrintToFile("tempold_beforerhs").SetPrecision(18)<<FArrayBox(tempold)<<std::endl;
            PrintToFile("temp_beforerhs").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
            PrintToFile("saltstore_beforerhs").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
@@ -462,7 +462,7 @@ ROMSX::advance_3d (int lev,
        }
        rhs_t_3d(bx, gbx, tempold, temp, tempstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
        rhs_t_3d(bx, gbx, saltold, salt, saltstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
-       if (verbose >= 2) {
+       if (verbose > 2) {
             PrintToFile("u_afterrhst").SetPrecision(18) << FArrayBox(u) << std::endl;
             PrintToFile("v_afterrhst").SetPrecision(18) << FArrayBox(v) << std::endl;
             PrintToFile("temp_afterrhst").SetPrecision(18) << FArrayBox(temp) << std::endl;
@@ -531,7 +531,7 @@ ROMSX::advance_3d (int lev,
         Box vbx = surroundingNodes(bx,1);
         Box ubx2 = surroundingNodes(ubx,0);
         Box vbx2 = surroundingNodes(vbx,1);
-        if (verbose > 0) {
+        if (verbose > 1) {
             amrex::Print() << " BX " <<  bx << std::endl;
             amrex::Print() << "UBX " << ubx << std::endl;
             amrex::Print() << "VBX " << vbx << std::endl;
@@ -593,7 +593,7 @@ ROMSX::advance_3d (int lev,
           on_u(i,j,0)=1.0/dxi[1];
         });
 
-        if (verbose >= 2) {
+        if (verbose > 2) {
             PrintToFile("temp_beforevvisc").SetPrecision(18) << FArrayBox(temp) << std::endl;
             PrintToFile("salt_beforevvisc").SetPrecision(18) << FArrayBox(salt) << std::endl;
         }
@@ -601,7 +601,7 @@ ROMSX::advance_3d (int lev,
        vert_visc_3d(gbx1,bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
        vert_visc_3d(gbx1,bx,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
        }
-        if (verbose >= 2) {
+        if (verbose > 2) {
             PrintToFile("temp_aftervvisc").SetPrecision(18) << FArrayBox(temp) << std::endl;
             PrintToFile("salt_aftervvisc").SetPrecision(18) << FArrayBox(salt) << std::endl;
             PrintToFile("tempstore_aftervvisc").SetPrecision(18) << FArrayBox(tempstore) << std::endl;

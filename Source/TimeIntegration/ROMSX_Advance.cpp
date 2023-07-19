@@ -478,13 +478,13 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           pmon_v(i,j,0)=1.0;        // (pm(i,j-1)+pm(i,j))/(pn(i,j-1)+pn(i,j))
           pnom_v(i,j,0)=1.0;        // (pn(i,j-1)+pn(i,j))/(pm(i,j-1)+pm(i,j))
         });
-        if (verbose >= 2) {
+        if (verbose > 2) {
             amrex::PrintToFile("temp_pret3dmix").SetPrecision(18)<<FArrayBox(temp) << std::endl;
             amrex::PrintToFile("salt_pret3dmix").SetPrecision(18)<<FArrayBox(salt) << std::endl;
         }
         t3dmix(bx, temp, diff2_temp, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
         t3dmix(bx, salt, diff2_salt, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
-        if (verbose >= 2) {
+        if (verbose > 2) {
             amrex::PrintToFile("temp_postt3dmix").SetPrecision(18)<<FArrayBox(temp) << std::endl;
             amrex::PrintToFile("salt_postt3dmix").SetPrecision(18)<<FArrayBox(salt) << std::endl;
         }
@@ -498,7 +498,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
             // In ROMS, coriolis is the first (un-ifdefed) thing to happen in rhs3d_tile, which gets called after t3dmix
             coriolis(bx, gbx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
         }
-        if (verbose >= 2) {
+        if (verbose > 2) {
             amrex::PrintToFile("ru_aftercor").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
             amrex::PrintToFile("rv_aftercor").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
             amrex::PrintToFile("u_aftercor").SetPrecision(18)<<FArrayBox(u)<<std::endl;
@@ -518,7 +518,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         ////rufrc from 3d is set to ru, then the wind stress (and bottom stress) is added, then the mixing is added
         //rufrc=ru+sustr*om_u*on_u
         rhs_3d(bx, gbx, uold, vold, ru, rv, rufrc, rvfrc, sustr, svstr, bustr, bvstr, Huon, Hvom, on_u, om_v, om_u, on_v, W, FC, nrhs, N);
-        if (verbose >= 2) {
+        if (verbose > 2) {
            amrex::PrintToFile("ru_afterrhs").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
            amrex::PrintToFile("rv_afterrhs").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
            amrex::PrintToFile("u_afterrhs").SetPrecision(18)<<FArrayBox(u)<<std::endl;
@@ -528,7 +528,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
         //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
         uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
-        if (verbose >= 2) {
+        if (verbose > 2) {
             amrex::PrintToFile("ru_afteruvmix").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
             amrex::PrintToFile("rv_afteruvmix").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
             amrex::PrintToFile("u_afteruvmix").SetPrecision(18)<<FArrayBox(u)<<std::endl;

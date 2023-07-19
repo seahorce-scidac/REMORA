@@ -178,7 +178,7 @@ ROMSX::prestep (int lev,
           pmon_v(i,j,0)=1.0;        // (pm(i,j-1)+pm(i,j))/(pn(i,j-1)+pn(i,j))
           pnom_v(i,j,0)=1.0;        // (pn(i,j-1)+pn(i,j))/(pm(i,j-1)+pm(i,j))
         });
-        if (verbose >= 2) {
+        if (verbose > 2) {
            amrex::PrintToFile("temp_preprestep").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
            amrex::PrintToFile("tempstore_preprestep").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
            amrex::PrintToFile("salt_preprestep").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
@@ -187,7 +187,7 @@ ROMSX::prestep (int lev,
            amrex::PrintToFile("tempold_preprestep").SetPrecision(18)<<FArrayBox(tempold)<<std::endl;
         }
 
-        if (verbose > 0) {
+        if (verbose > 1) {
             Print() << "Akv box " << Box(Akv) << std::endl;
         }
         prestep_t_3d(bx, gbx, uold, vold, u, v, tempold, saltold, temp, salt, tempcache,ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
@@ -197,7 +197,7 @@ ROMSX::prestep (int lev,
                      pm, pn, W, DC, FC, saltstore, saltstore, FX, FE, z_r, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 
-       if (verbose >= 2) {
+       if (verbose > 2) {
            amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
            amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
            amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
@@ -217,7 +217,7 @@ ROMSX::prestep (int lev,
         prestep_uv_3d(bx, gbx, uold, vold, u, v, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
                           pm, pn, W, DC, FC, z_r, sustr, svstr, bustr, bvstr, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-       if (verbose >= 2) {
+       if (verbose > 2) {
            amrex::PrintToFile("u_after_prestep").SetPrecision(18)<<FArrayBox(u)<<std::endl;
            amrex::PrintToFile("v_after_prestep").SetPrecision(18)<<FArrayBox(v)<<std::endl;
            amrex::PrintToFile("ru_after_prestep").SetPrecision(18)<<FArrayBox(ru)<<std::endl;

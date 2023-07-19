@@ -118,7 +118,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     else {
         Error("Not a valid horizontal advection scheme");
     }
-    if (verbose >= 2)
+    if (verbose > 2)
         PrintToFile("FX_set1").SetPrecision(18) << FArrayBox(FX) << std::endl;
 
     amrex::ParallelFor(tbxp1,
