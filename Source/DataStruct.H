@@ -203,6 +203,18 @@ struct SolverChoice {
         // Include Coriolis forcing?
         pp.query("use_coriolis", use_coriolis);
 
+        // Include prestep / lagged predictor / corrections
+        pp.query("use_prestep", use_prestep);
+
+	//This affect forcing and some of the mixing terms for velocity
+        pp.query("use_uv3dmix", use_uv3dmix);
+
+        //This accounts for the main 2d loop but may not include coupling and copying properly
+        pp.query("use_barotropic", use_barotropic);
+
+        //This accounts for the main 3d loop but may not include coupling and copying properly
+        pp.query("use_baroclinic", use_baroclinic);
+
         // Which external forcings?
         static std::string abl_driver_type_string = "None";
         pp.query("abl_driver_type",abl_driver_type_string);
@@ -315,6 +327,12 @@ struct SolverChoice {
     // Specify what additional physics/forcing modules we use
     bool        use_gravity            = false;
     bool        use_coriolis           = false;
+
+    // Specify whether terms are used for debugging purposes
+    bool        use_prestep           = true;
+    bool        use_uv3dmix           = true;
+    bool        use_baroclinic        = true;
+    bool        use_barotropic        = true;
 
     AdvectionScheme Hadv_scheme;
 

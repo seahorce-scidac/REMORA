@@ -319,10 +319,13 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
         rho_eos(gbx2,temp,salt,rho,rhoA,rhoS,pden,Hz,z_w,nrhs,N);
     }
+
+    if(solverChoice.use_prestep) {
         prestep(lev, mf_uold, mf_vold, mf_u, mf_v, mf_ru, mf_rv, mf_tempold, mf_saltold,
                 mf_temp, mf_salt, mf_Hz, vec_Akv[lev], vec_Huon[lev], vec_Hvom[lev], mf_W, mf_DC, vec_t3[lev],
                 vec_s3[lev], mf_z_r, mf_sustr, mf_svstr, mf_bustr, mf_bvstr, iic, ntfirst, nnew,
                 nstp, nrhs, N, dt_lev);
+    }
 
     for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -525,6 +528,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
            amrex::PrintToFile("v_afterrhs").SetPrecision(18)<<FArrayBox(v)<<std::endl;
         }
 
+        if(solverChoice.use_uv3dmix) {
         //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
         //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
         uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
@@ -539,6 +543,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
             amrex::PrintToFile("salt_uv3dmix").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
             amrex::PrintToFile("saltstore_uv3dmix").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
         }
+        }
     } // MFIter
 
     mf_temp.FillBoundary(geom[lev].periodicity());
@@ -550,6 +555,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
     vec_Hvom[lev]->FillBoundary(geom[lev].periodicity());
 
+    if(solverChoice.use_barotropic) {
     bool predictor_2d_step=true;
     bool first_2d_step=(iic==ntfirst);
     int nfast_counter=predictor_2d_step ? nfast : nfast-1;
@@ -585,15 +591,18 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                    ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
         }
     }
+    }
 
     set_depth(lev);
 
+    if(solverChoice.use_baroclinic) {
     advance_3d(lev, mf_u, mf_v, mf_tempold, mf_saltold, mf_temp, mf_salt, vec_t3[lev], vec_s3[lev], vec_ru[lev], vec_rv[lev],
                vec_DU_avg1[lev], vec_DU_avg2[lev],
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
                mf_AK, mf_DC,
                mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], ncomp, N, dt_lev);
+    }
 
     MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     U_new.FillBoundary(geom[lev].periodicity());
