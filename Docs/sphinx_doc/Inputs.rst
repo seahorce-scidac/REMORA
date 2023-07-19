@@ -417,10 +417,10 @@ List of Parameters
 | **amr.v**                  | verbosity of     | 0 or 1         | 0              |
 |                            | Amr.cpp          |                |                |
 +----------------------------+------------------+----------------+----------------+
-| **romsx.v**                  | verbosity of     | 0 or 1         | 0              |
-|                            | ROMSX.cpp          |                |                |
+| **romsx.v**                | verbosity of     | 0,1,2          | 0              |
+|                            | ROMSX functions  |                |                |
 +----------------------------+------------------+----------------+----------------+
-| **romsx.sum_interval**       | if               |                |                |
+| **romsx.sum_interval**     | if               |                |                |
 |                            | :math:`> 0,`     |                |                |
 |                            | how often (in    |                |                |
 |                            | level-0 time     |                |                |

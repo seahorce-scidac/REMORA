@@ -39,7 +39,6 @@ int         ROMSX::do_avg_down   = 0;
 
 // Dictate verbosity in screen output
 int         ROMSX::verbose       = 0;
-int         ROMSX::printinloop       = 0;
 
 // Frequency of diagnostic output
 int         ROMSX::sum_interval  = -1;
@@ -724,7 +723,6 @@ ROMSX::ReadParameters ()
 
         // Verbosity
         pp.query("v", verbose);
-        pp.query("printinloop", printinloop);
 
         // Frequency of diagnostic output
         pp.query("sum_interval", sum_interval);

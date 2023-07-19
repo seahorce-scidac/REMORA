@@ -928,7 +928,6 @@ private:
     static SolverChoice solverChoice;
 
     static int verbose;
-    static int printinloop;
     static int use_native_mri;
     static int no_substepping;
 
