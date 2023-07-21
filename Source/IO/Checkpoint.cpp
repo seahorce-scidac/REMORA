@@ -139,20 +139,20 @@ ROMSX::WriteCheckpointFile () const
            VisMF::Write(z_height, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Z_Phys_nd"));
        }
 
-       MultiFab mf_ru(grids[lev],dmap[lev],2,0);
-       MultiFab::Copy(mf_ru,*vec_ru[lev],0,0,2,0);
+       MultiFab mf_ru(grids[lev],dmap[lev],2,NGROW);
+       MultiFab::Copy(mf_ru,*vec_ru[lev],0,0,2,NGROW);
        VisMF::Write(mf_ru, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "XRHS"));
 
-       MultiFab mf_rv(grids[lev],dmap[lev],2,0);
-       MultiFab::Copy(mf_rv,*vec_rv[lev],0,0,2,0);
+       MultiFab mf_rv(grids[lev],dmap[lev],2,NGROW);
+       MultiFab::Copy(mf_rv,*vec_rv[lev],0,0,2,NGROW);
        VisMF::Write(mf_rv, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "YRHS"));
 
-       MultiFab mf_ubar(ba2d,dmap[lev],3,0);
-       MultiFab::Copy(mf_ubar,*(vec_ubar[lev]),0,0,3,0);
+       MultiFab mf_ubar(ba2d,dmap[lev],3,NGROW);
+       MultiFab::Copy(mf_ubar,*(vec_ubar[lev]),0,0,3,NGROW);
        VisMF::Write(mf_ubar, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "XBar"));
 
-       MultiFab mf_vbar(ba2d,dmap[lev],3,0);
-       MultiFab::Copy(mf_vbar,*(vec_vbar[lev]),0,0,3,0);
+       MultiFab mf_vbar(ba2d,dmap[lev],3,NGROW);
+       MultiFab::Copy(mf_vbar,*(vec_vbar[lev]),0,0,3,NGROW);
        VisMF::Write(mf_vbar, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "YBar"));
 
        VisMF::Write(*(vec_rufrc[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rufrc"));
@@ -316,27 +316,29 @@ ROMSX::ReadCheckpointFile ()
            MultiFab::Copy(*z_phys_nd[lev],z_height,0,0,1,1);
        }
 
-       MultiFab mf_ru(grids[lev],dmap[lev],2,0);
+       MultiFab mf_ru(grids[lev],dmap[lev],2,NGROW);
        VisMF::Read(mf_ru, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "XRHS"));
-       MultiFab::Copy(*(vec_ru[lev]),mf_ru,0,0,2,0);
+       MultiFab::Copy(*(vec_ru[lev]),mf_ru,0,0,2,(vec_ru[lev])->nGrowVect());
 
-       MultiFab mf_rv(grids[lev],dmap[lev],2,0);
+       MultiFab mf_rv(grids[lev],dmap[lev],2,NGROW);
        VisMF::Read(mf_rv, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YRHS"));
-       MultiFab::Copy(*(vec_rv[lev]),mf_rv,0,0,2,0);
+       MultiFab::Copy(*(vec_rv[lev]),mf_rv,0,0,2,(vec_rv[lev])->nGrowVect());
 
-       vec_ru[lev]->FillBoundary(geom[lev].periodicity());
-       vec_rv[lev]->FillBoundary(geom[lev].periodicity());
+       //Do not update with FillBoundary since k=-1 contains boundary information
+       //       vec_ru[lev]->FillBoundary(geom[lev].periodicity());
+       //       vec_rv[lev]->FillBoundary(geom[lev].periodicity());
 
-       MultiFab mf_ubar(ba2d,dmap[lev],3,0);
+       MultiFab mf_ubar(ba2d,dmap[lev],3,NGROW);
        VisMF::Read(mf_ubar, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "XBar"));
-       MultiFab::Copy(*(vec_ubar[lev]),mf_ubar,0,0,3,0);
+       MultiFab::Copy(*(vec_ubar[lev]),mf_ubar,0,0,3,(vec_ubar[lev])->nGrowVect());
 
-       MultiFab mf_vbar(ba2d,dmap[lev],3,0);
+       MultiFab mf_vbar(ba2d,dmap[lev],3,NGROW);
        VisMF::Read(mf_vbar, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YBar"));
-       MultiFab::Copy(*(vec_vbar[lev]),mf_vbar,0,0,3,0);
+       MultiFab::Copy(*(vec_vbar[lev]),mf_vbar,0,0,3,(vec_vbar[lev])->nGrowVect());
 
-       vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
-       vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
+       //Do not update with FillBoundary since k=-1 contains boundary information
+       //       vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
+       //       vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
 
        VisMF::Read(*(vec_rufrc[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rufrc"));
        VisMF::Read(*(vec_rvfrc[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rvfrc"));
