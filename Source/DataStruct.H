@@ -206,7 +206,7 @@ struct SolverChoice {
         // Include prestep / lagged predictor / corrections
         pp.query("use_prestep", use_prestep);
 
-	//This affect forcing and some of the mixing terms for velocity
+        //This affect forcing and some of the mixing terms for velocity
         pp.query("use_uv3dmix", use_uv3dmix);
 
         //This accounts for the main 2d loop but may not include coupling and copying properly
