@@ -222,8 +222,6 @@ public:
                                        amrex::FArrayBox& p_hse_fab,
                                        amrex::FArrayBox& pi_hse_fab,
                                        amrex::FArrayBox& r_hse_fab,
-                                       const amrex::FArrayBox& z_phys_nd_fab,
-                                       const amrex::FArrayBox& z_phys_cc_fab,
                                        const amrex::Vector<amrex::FArrayBox>& NC_ALB_fab,
                                        const amrex::Vector<amrex::FArrayBox>& NC_PB_fab);
 #endif //ROMSX_USE_NETCDF
@@ -838,10 +836,6 @@ private:
     // array of multifabs to store the solution at each level of refinement
     // after advancing a level we use "swap".
 
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_phys_nd;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> z_phys_cc;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>>   detJ_cc;
-
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_m;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_u;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_v;
@@ -921,7 +915,7 @@ private:
     // Note that the order of variable names here must match the order in Derive.cpp
     const amrex::Vector<std::string> derived_names {"KE", "QKE", "scalar", "pres_hse",
                                                     "dens_hse", "pert_pres", "pert_dens", "dpdx", "dpdy",
-                                                    "pres_hse_x", "pres_hse_y", "z_phys", "detJ"
+                                                    "pres_hse_x", "pres_hse_y"
                                                    };
 
     // algorithm choices

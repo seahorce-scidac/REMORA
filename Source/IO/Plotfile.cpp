@@ -2,7 +2,6 @@
 #include <ROMSX.H>
 #include "AMReX_Interp_3D_C.H"
 #include "AMReX_PlotFileUtil.H"
-#include "TerrainMetrics.H"
 
 using namespace amrex;
 
@@ -52,14 +51,8 @@ ROMSX::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::strin
         tmp_plot_names.push_back("y_velocity");
         tmp_plot_names.push_back("z_velocity");
     }
-    for (int i = 0; i < derived_names.size(); ++i) {
-        if ( containerHasElement(plot_var_names, derived_names[i]) ) {
-            if (solverChoice.use_terrain || (derived_names[i] != "z_phys" && derived_names[i] != "detJ") ) {
-               tmp_plot_names.push_back(derived_names[i]);
-            }
-        }
-    }
-// Check to see if we found all the requested variables
+
+    // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names) {
       if (!containerHasElement(tmp_plot_names, plot_name)) {
            Warning("\nWARNING: Requested to plot variable '" + plot_name + "' but it is not available");
@@ -209,20 +202,6 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             }
             mf_comp ++;
         }
-
-        if (solverChoice.use_terrain) {
-            if (containerHasElement(plot_var_names, "z_phys"))
-            {
-                MultiFab::Copy(mf[lev],*z_phys_cc[lev],0,mf_comp,1,ngrow_vars);
-                mf_comp ++;
-            }
-
-            if (containerHasElement(plot_var_names, "detJ"))
-            {
-                MultiFab::Copy(mf[lev],*detJ_cc[lev],0,mf_comp,1,ngrow_vars);
-                mf_comp ++;
-            }
-        } // use_terrain
     }
 
     std::string plotfilename;
@@ -237,30 +216,10 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
     {
         if (plotfile_type == "amrex") {
             amrex::Print() << "Writing plotfile " << plotfilename << "\n";
-            if (solverChoice.use_terrain) {
-                // We started with mf_nd holding 0 in every component; here we fill only the offset in z
-                int lev = 0;
-                MultiFab::Copy(mf_nd[lev],*z_phys_nd[lev],0,2,1,0);
-                Real dz = Geom()[lev].CellSizeArray()[2];
-                for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                    Box bx = mfi.tilebox();
-                    bx.grow(ngrow_vars);
-                    Array4<      Real> mf_arr = mf_nd[lev].array(mfi);
-                    ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                        mf_arr(i,j,k,2) -= k * dz;
-                    });
-                }
-                WriteMultiLevelPlotfileWithTerrain(plotfilename, finest_level+1,
-                                                   GetVecOfConstPtrs(mf),
-                                                   GetVecOfConstPtrs(mf_nd),
-                                                   varnames,
-                                                   t_new[0], istep);
-            } else {
-                WriteMultiLevelPlotfile(plotfilename, finest_level+1,
-                                               GetVecOfConstPtrs(mf),
-                                               varnames,
-                                               Geom(), t_new[0], istep, refRatio());
-            }
+            WriteMultiLevelPlotfile(plotfilename, finest_level+1,
+                                           GetVecOfConstPtrs(mf),
+                                           varnames,
+                                           Geom(), t_new[0], istep, refRatio());
             writeJobInfo(plotfilename);
 #ifdef ROMSX_USE_HDF5
         } else if (plotfile_type == "hdf5" || plotfile_type == "HDF5") {

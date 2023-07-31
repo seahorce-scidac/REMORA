@@ -20,24 +20,24 @@ read_from_wrfbdy(std::string nc_bdy_file, const Box& domain,
                  Vector<Vector<FArrayBox>>& bdy_data_yhi);
 
 void
-convert_wrfbdy_data(int which, const Box& domain,
-                    Vector<Vector<FArrayBox>>& bdy_data,
-                    const FArrayBox& NC_MUB_fab,
-                    const FArrayBox& NC_MSFU_fab,
-                    const FArrayBox& NC_MSFV_fab,
-                    const FArrayBox& NC_MSFM_fab,
-                    const FArrayBox& NC_PH_fab,
-                    const FArrayBox& NC_PHB_fab,
-                    const FArrayBox& NC_C1H_fab,
-                    const FArrayBox& NC_C2H_fab,
-                    const FArrayBox& NC_RDNW_fab,
-                    const FArrayBox& NC_xvel_fab,
-                    const FArrayBox& NC_yvel_fab,
-                    const FArrayBox& NC_rho_fab,
-                    const FArrayBox& NC_rhoth_fab);
+convert_wrfbdy_data (int which, const Box& domain,
+                     Vector<Vector<FArrayBox>>& bdy_data,
+                     const FArrayBox& NC_MUB_fab,
+                     const FArrayBox& NC_MSFU_fab,
+                     const FArrayBox& NC_MSFV_fab,
+                     const FArrayBox& NC_MSFM_fab,
+                     const FArrayBox& NC_PH_fab,
+                     const FArrayBox& NC_PHB_fab,
+                     const FArrayBox& NC_C1H_fab,
+                     const FArrayBox& NC_C2H_fab,
+                     const FArrayBox& NC_RDNW_fab,
+                     const FArrayBox& NC_xvel_fab,
+                     const FArrayBox& NC_yvel_fab,
+                     const FArrayBox& NC_rho_fab,
+                     const FArrayBox& NC_rhoth_fab);
 
 void
-ROMSX::init_from_wrfinput(int lev)
+ROMSX::init_from_wrfinput (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_xvel_fab ; NC_xvel_fab.resize(num_boxes_at_level[lev]);
@@ -106,19 +106,6 @@ ROMSX::init_from_wrfinput(int lev)
                                 NC_MSFU_fab, NC_MSFV_fab, NC_MSFM_fab);
     } // mf
 
-    if (solverChoice.use_terrain)
-    {
-        std::unique_ptr<MultiFab>& z_phys = z_phys_nd[lev];
-        for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
-        {
-            FArrayBox& z_phys_nd_fab = (*z_phys)[mfi];
-            init_terrain_from_wrfinput(lev, z_phys_nd_fab, NC_PH_fab, NC_PHB_fab);
-        } // mf
-
-        make_metrics(geom[lev],*z_phys_nd[lev],*z_phys_cc[lev],*detJ_cc[lev]);
-
-    } // use_terrain
-
     MultiFab r_hse (base_state[lev], make_alias, 0, 1); // r_0  is first  component
     MultiFab p_hse (base_state[lev], make_alias, 1, 1); // p_0  is second component
     MultiFab pi_hse(base_state[lev], make_alias, 2, 1); // pi_0 is third  component
@@ -129,12 +116,9 @@ ROMSX::init_from_wrfinput(int lev)
             FArrayBox&  p_hse_fab = p_hse[mfi];
             FArrayBox& pi_hse_fab = pi_hse[mfi];
             FArrayBox&  r_hse_fab = r_hse[mfi];
-            FArrayBox& z_phys_nd_fab = (*z_phys_nd[lev])[mfi];
-            FArrayBox& z_phys_cc_fab = (*z_phys_cc[lev])[mfi];
 
             const Box& bx = mfi.validbox();
-            init_base_state_from_wrfinput(lev, bx, p_hse_fab, pi_hse_fab, r_hse_fab, z_phys_nd_fab, z_phys_cc_fab,
-                                         NC_ALB_fab, NC_PB_fab);
+            init_base_state_from_wrfinput(lev, bx, p_hse_fab, pi_hse_fab, r_hse_fab, NC_ALB_fab, NC_PB_fab);
         }
     }
 
@@ -169,14 +153,14 @@ ROMSX::init_from_wrfinput(int lev)
 }
 
 void
-ROMSX::init_state_from_wrfinput(int lev, FArrayBox& state_fab,
-                              FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
-                              FArrayBox& z_vel_fab,
-                              const Vector<FArrayBox>& NC_xvel_fab,
-                              const Vector<FArrayBox>& NC_yvel_fab,
-                              const Vector<FArrayBox>& NC_zvel_fab,
-                              const Vector<FArrayBox>& NC_rho_fab,
-                              const Vector<FArrayBox>& NC_temp_fab)
+ROMSX::init_state_from_wrfinput (int lev, FArrayBox& state_fab,
+                                 FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
+                                 FArrayBox& z_vel_fab,
+                                 const Vector<FArrayBox>& NC_xvel_fab,
+                                 const Vector<FArrayBox>& NC_yvel_fab,
+                                 const Vector<FArrayBox>& NC_zvel_fab,
+                                 const Vector<FArrayBox>& NC_rho_fab,
+                                 const Vector<FArrayBox>& NC_temp_fab)
 {
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -205,11 +189,11 @@ ROMSX::init_state_from_wrfinput(int lev, FArrayBox& state_fab,
 }
 
 void
-ROMSX::init_msfs_from_wrfinput(int lev, FArrayBox& msfu_fab,
-                             FArrayBox& msfv_fab, FArrayBox& msfm_fab,
-                             const Vector<FArrayBox>& NC_MSFU_fab,
-                             const Vector<FArrayBox>& NC_MSFV_fab,
-                             const Vector<FArrayBox>& NC_MSFM_fab)
+ROMSX::init_msfs_from_wrfinput (int lev, FArrayBox& msfu_fab,
+                                FArrayBox& msfv_fab, FArrayBox& msfm_fab,
+                                const Vector<FArrayBox>& NC_MSFU_fab,
+                                const Vector<FArrayBox>& NC_MSFV_fab,
+                                const Vector<FArrayBox>& NC_MSFM_fab)
 {
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -229,11 +213,10 @@ ROMSX::init_msfs_from_wrfinput(int lev, FArrayBox& msfu_fab,
 }
 
 void
-ROMSX::init_base_state_from_wrfinput(int lev, const Box& bx, FArrayBox& p_hse, FArrayBox& pi_hse,
-                                   FArrayBox& r_hse, const FArrayBox& z_phys_nd_fab,
-                                   const FArrayBox& z_phys_cc_fab,
-                                   const Vector<FArrayBox>& NC_ALB_fab,
-                                   const Vector<FArrayBox>& NC_PB_fab)
+ROMSX::init_base_state_from_wrfinput (int lev, const Box& bx, FArrayBox& p_hse, FArrayBox& pi_hse,
+                                      FArrayBox& r_hse,
+                                      const Vector<FArrayBox>& NC_ALB_fab,
+                                      const Vector<FArrayBox>& NC_PB_fab)
 {
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -241,19 +224,14 @@ ROMSX::init_base_state_from_wrfinput(int lev, const Box& bx, FArrayBox& p_hse, F
         // FArrayBox to FArrayBox copy does "copy on intersection"
         // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
         //
-
-        // This copies from NC_zphys on z-faces to z_phys_nd on nodes
         const Array4<Real      >&  p_hse_arr =  p_hse.array();
         const Array4<Real      >& pi_hse_arr = pi_hse.array();
         const Array4<Real      >&  r_hse_arr =  r_hse.array();
         const Array4<Real const>& alpha_arr = NC_ALB_fab[idx].const_array();
         const Array4<Real const>& nc_pb_arr = NC_PB_fab[idx].const_array();
-        const Array4<Real const>&   z_nd_arr = z_phys_nd_fab.array();
-        const Array4<Real const>&   z_cc_arr = z_phys_cc_fab.array();
         amrex::Abort("This function is not defined: getExnergivenP");
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
             p_hse_arr(i,j,k)  = nc_pb_arr(i,j,k);
-//            pi_hse_arr(i,j,k) = getExnergivenP(p_hse_arr(i,j,k));
             r_hse_arr(i,j,k)  = 1.0 / alpha_arr(i,j,k);
 
         });
@@ -261,9 +239,9 @@ ROMSX::init_base_state_from_wrfinput(int lev, const Box& bx, FArrayBox& p_hse, F
 }
 
 void
-ROMSX::init_terrain_from_wrfinput(int lev, FArrayBox& z_phys,
-                                const Vector<FArrayBox>& NC_PH_fab,
-                                const Vector<FArrayBox>& NC_PHB_fab)
+ROMSX::init_terrain_from_wrfinput (int lev,
+                                   const Vector<FArrayBox>& NC_PH_fab,
+                                   const Vector<FArrayBox>& NC_PHB_fab)
 {
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -271,8 +249,6 @@ ROMSX::init_terrain_from_wrfinput(int lev, FArrayBox& z_phys,
         // FArrayBox to FArrayBox copy does "copy on intersection"
         // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
         //
-
-        // This copies from NC_zphys on z-faces to z_phys_nd on nodes
         const Array4<Real      >&      z_arr = z_phys.array();
         const Array4<Real const>& nc_phb_arr = NC_PHB_fab[idx].const_array();
         const Array4<Real const>& nc_ph_arr  = NC_PH_fab[idx].const_array();
@@ -348,9 +324,6 @@ ROMSX::init_custom(int lev)
         const auto &yvel_arr = lev_new[Vars::yvel].array(mfi);
         const auto &zvel_arr = lev_new[Vars::zvel].array(mfi);
 
-        Array4<Real const> z_nd_arr = (solverChoice.use_terrain) ? z_phys_nd[lev]->const_array(mfi) : Array4<Real const>{};
-        Array4<Real const> z_cc_arr = (solverChoice.use_terrain) ? z_phys_cc[lev]->const_array(mfi) : Array4<Real const>{};
-
         Array4<const Real> const& z_w_arr = (mf_z_w)->array(mfi);
         Array4<const Real> const& z_r_arr = (mf_z_r)->array(mfi);
         Array4<const Real> const& Hz_arr  = (mf_Hz)->array(mfi);
@@ -361,7 +334,7 @@ ROMSX::init_custom(int lev)
         Array4<Real> p_hse_arr = p_hse.array(mfi);
 
         init_custom_prob(bx, cons_arr, xvel_arr, yvel_arr, zvel_arr,
-                         r_hse_arr, p_hse_arr, z_nd_arr, z_cc_arr,
+                         r_hse_arr, p_hse_arr,
                          z_w_arr, z_r_arr, Hz_arr, h_arr, Zt_avg1_arr, geom[lev].data());
 
     } //mfi
