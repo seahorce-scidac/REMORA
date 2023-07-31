@@ -9,7 +9,6 @@
 #include <AMReX_buildInfo.H>
 
 #include <Utils.H>
-#include <TerrainMetrics.H>
 
 #ifdef ROMSX_USE_MULTIBLOCK
 #include <MultiBlockContainer.H>
@@ -270,41 +269,15 @@ ROMSX::InitData ()
         for (int lev = finest_level-1; lev >= 0; --lev)
             vars_new[lev][Vars::cons].setVal(0.0,RhoKE_comp,1,0);
 
-        if (solverChoice.use_terrain) {
-            if (init_type != "real") {
-                for (int lev = 0; lev <= finest_level; lev++)
-                {
-                    init_custom_terrain(geom[lev],*z_phys_nd[lev],time);
-                    init_terrain_grid(geom[lev],*z_phys_nd[lev]);
-                    make_metrics(geom[lev],*z_phys_nd[lev],*z_phys_cc[lev],*detJ_cc[lev]);
-                }
-            }
-        }
-
         for (int lev = 0; lev <= finest_level; lev++)
             init_only(lev, time);
 
         AverageDown();
 
-        if(solverChoice.use_terrain) {
-            if (init_type == "real") {
-                for (int lev = 0; lev <= finest_level; lev++)
-                {
-                    make_metrics(geom[lev],*z_phys_nd[lev],*z_phys_cc[lev],*detJ_cc[lev]);
-                }
-            }
-        }
-
     } else { // Restart from a checkpoint
 
         restart();
 
-        if(solverChoice.use_terrain) {
-            // This must come after the call to restart because that
-            //      is where we read in the mesh data
-            for (int lev = finest_level-1; lev >= 0; --lev)
-                make_metrics(geom[lev],*z_phys_nd[lev],*z_phys_cc[lev],*detJ_cc[lev]);
-        }
     }
 
     // Initialize flux registers (whether we start from scratch or restart)
@@ -502,10 +475,6 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     lev_new[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
     lev_old[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
-    z_phys_nd.resize(lev+1);
-    z_phys_cc.resize(lev+1);
-    detJ_cc.resize(lev+1);
-
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
         b.setRange(2,0);
@@ -533,23 +502,6 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     base_state.resize(lev+1);
     base_state[lev].define(ba,dm,3,1);
     base_state[lev].setVal(0.);
-
-    if (solverChoice.use_terrain) {
-        z_phys_cc[lev].reset(new MultiFab(ba,dm,1,1));
-          detJ_cc[lev].reset(new MultiFab(ba,dm,1,1));
-
-        BoxArray ba_nd(ba);
-        ba_nd.surroundingNodes();
-
-        // We need this to be one greater than the ghost cells to handle levels > 0
-        int ngrow = ComputeGhostCells(solverChoice.spatial_order)+2;
-        z_phys_nd[lev].reset(new MultiFab(ba_nd,dm,1,IntVect(ngrow,ngrow,1)));
-
-    } else {
-        z_phys_nd[lev] = nullptr;
-        z_phys_cc[lev] = nullptr;
-          detJ_cc[lev] = nullptr;
-    }
 
     vec_hOfTheConfusingName.resize(lev+1);
     vec_Zt_avg1.resize(lev+1);

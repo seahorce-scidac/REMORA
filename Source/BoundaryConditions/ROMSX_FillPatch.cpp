@@ -194,7 +194,7 @@ ROMSX::FillPatch (int lev, Real time, Vector<MultiFab>& mfs)
             Vector<MultiFab*> smf = {&fdata.get_var(var_idx)};
             ROMSXPhysBCFunct physbc(lev,geom[lev],
                                    domain_bcs_type,domain_bcs_type_d,
-                                   var_idx,fdata,m_bc_extdir_vals,z_phys_nd[lev], detJ_cc[lev]
+                                   var_idx,fdata,m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
                                    bdy_data_ylo,bdy_data_yhi,bdy_time_interval
@@ -213,7 +213,7 @@ ROMSX::FillPatch (int lev, Real time, Vector<MultiFab>& mfs)
             ROMSXPhysBCFunct cphysbc(lev-1,geom[lev-1],
                                    domain_bcs_type,domain_bcs_type_d,
                                    var_idx,cdata,
-                                   m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1]
+                                   m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
                                    bdy_data_ylo,bdy_data_yhi,bdy_time_interval
@@ -222,7 +222,7 @@ ROMSX::FillPatch (int lev, Real time, Vector<MultiFab>& mfs)
             ROMSXPhysBCFunct fphysbc(lev,geom[lev],
                                    domain_bcs_type,domain_bcs_type_d,
                                    var_idx,fdata,
-                                   m_bc_extdir_vals,z_phys_nd[lev], detJ_cc[lev]
+                                   m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
                                    bdy_data_ylo,bdy_data_yhi,bdy_time_interval
@@ -311,7 +311,7 @@ ROMSX::FillIntermediatePatch (int lev, Real time,
             ROMSXPhysBCFunct physbc(lev,geom[lev],
                                     domain_bcs_type,domain_bcs_type_d,
                                     var_idx,level_data,
-                                    m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev]
+                                    m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
                                    ,init_type,bdy_data_xlo,bdy_data_xhi,
                                     bdy_data_ylo,bdy_data_yhi,bdy_time_interval
@@ -334,7 +334,7 @@ ROMSX::FillIntermediatePatch (int lev, Real time,
             ROMSXPhysBCFunct cphysbc(lev-1,geom[lev-1],
                                    domain_bcs_type,domain_bcs_type_d,
                                    var_idx,cdata,
-                                   m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1]
+                                   m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
                                    bdy_data_ylo,bdy_data_yhi,bdy_time_interval
@@ -343,7 +343,7 @@ ROMSX::FillIntermediatePatch (int lev, Real time,
             ROMSXPhysBCFunct fphysbc(lev,geom[lev],
                                    domain_bcs_type,domain_bcs_type_d,
                                    var_idx,level_data,
-                                   m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev]
+                                   m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
                                   ,init_type,bdy_data_xlo,bdy_data_xhi,
                                    bdy_data_ylo,bdy_data_yhi,bdy_time_interval
@@ -408,7 +408,7 @@ ROMSX::FillCoarsePatch (int lev, Real time,
     ROMSXPhysBCFunct cphysbc(lev-1,geom[lev-1],
                            domain_bcs_type,domain_bcs_type_d,
                            var_idx,cdata,
-                           m_bc_extdir_vals,z_phys_nd[lev-1],detJ_cc[lev-1]
+                           m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
                           ,init_type,bdy_data_xlo,bdy_data_xhi,
                            bdy_data_ylo,bdy_data_yhi,bdy_time_interval
@@ -417,7 +417,7 @@ ROMSX::FillCoarsePatch (int lev, Real time,
     ROMSXPhysBCFunct fphysbc(lev,geom[lev],
                            domain_bcs_type,domain_bcs_type_d,
                            var_idx,fdata,
-                           m_bc_extdir_vals,z_phys_nd[lev],detJ_cc[lev]
+                           m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
                           ,init_type,bdy_data_xlo,bdy_data_xhi,
                            bdy_data_ylo,bdy_data_yhi,bdy_time_interval
