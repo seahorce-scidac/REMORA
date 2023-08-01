@@ -58,6 +58,7 @@ In addition to this documentation, there is API documentation for ROMSX generate
    ArakawaCGrid.rst
    TimeAdvance.rst
    Discretizations.rst
+   Vertical_S-coordinate.rst
    MeshRefinement.rst
    BoundaryConditions.rst
 ..   Checkpoint.rst
