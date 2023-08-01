@@ -20,6 +20,10 @@ function(build_romsx_lib romsx_lib_name)
                  ${ROMSX_EOS_DIR}/EOS.H)
   target_include_directories(${romsx_lib_name} SYSTEM PUBLIC ${ROMSX_EOS_DIR})
 
+  if(ROMSX_ENABLE_SALINITY)
+    target_compile_definitions(${romsx_lib_name} PUBLIC ROMSX_USE_SALINITY)
+  endif()
+
   if(ROMSX_ENABLE_NETCDF)
     target_sources(${romsx_lib_name} PRIVATE
                    ${SRC_DIR}/IO/NCIntromsxace.H
