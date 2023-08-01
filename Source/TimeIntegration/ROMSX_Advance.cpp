@@ -626,7 +626,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     vec_t3[lev]->FillBoundary(geom[lev].periodicity());
     vec_s3[lev]->FillBoundary(geom[lev].periodicity());
-
+    for (int lev = 0; lev <= finest_level; ++lev) {
+        FillPatch(lev, t_new[lev], vars_new[lev]);
+    }
     //We are not storing computed W aka Omega
     //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     //    W_new.FillBoundary();
