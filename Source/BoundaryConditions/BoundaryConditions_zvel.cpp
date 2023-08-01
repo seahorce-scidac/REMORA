@@ -11,12 +11,11 @@ using namespace amrex;
 //     so this follows the BCVars enum
 //
 void ROMSXPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
-                                      const Array4<Real const>& velx_arr,
-                                      const Array4<Real const>& vely_arr,
-                                      const Array4<Real const>& z_nd_arr,
-                                      const GpuArray<Real,AMREX_SPACEDIM> dx,
-                                      const GpuArray<Real,AMREX_SPACEDIM> dxInv,
-                                      Real /*time*/, int bccomp)
+                                        const Array4<Real const>& velx_arr,
+                                        const Array4<Real const>& vely_arr,
+                                        const GpuArray<Real,AMREX_SPACEDIM> dx,
+                                        const GpuArray<Real,AMREX_SPACEDIM> dxInv,
+                                        Real /*time*/, int bccomp)
 {
     const auto& dom_lo = amrex::lbound(domain);
     const auto& dom_hi = amrex::ubound(domain);

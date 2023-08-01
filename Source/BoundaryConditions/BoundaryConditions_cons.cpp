@@ -15,9 +15,8 @@ using namespace amrex;
 //     so this follows the BCVars enum
 //
 void ROMSXPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
-                                      const Array4<Real const>& z_nd,
-                                      const GpuArray<Real,AMREX_SPACEDIM> dxInv,
-                                      int icomp, int ncomp, Real /*time*/, int bccomp)
+                                        const GpuArray<Real,AMREX_SPACEDIM> dxInv,
+                                        int icomp, int ncomp, Real /*time*/, int bccomp)
 {
     BL_PROFILE_VAR("impose_cons_bcs()",impose_cons_bcs);
     const auto& dom_lo = amrex::lbound(domain);
