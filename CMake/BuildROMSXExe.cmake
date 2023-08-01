@@ -39,13 +39,7 @@ function(build_romsx_lib romsx_lib_name)
 
   target_sources(${romsx_lib_name}
      PRIVATE
-       ${SRC_DIR}/DataStruct.H
-       ${SRC_DIR}/ROMSX_Constants.H
-       ${SRC_DIR}/Derive.H
        ${SRC_DIR}/Derive.cpp
-       ${SRC_DIR}/IndexDefines.H
-       ${SRC_DIR}/prob_common.H
-       ${SRC_DIR}/ROMSX.H
        ${SRC_DIR}/ROMSX.cpp
        ${SRC_DIR}/ROMSX_init.cpp
        ${SRC_DIR}/ROMSX_init1d.cpp
@@ -57,18 +51,10 @@ function(build_romsx_lib romsx_lib_name)
        ${SRC_DIR}/BoundaryConditions/BoundaryConditions_zvel.cpp
        ${SRC_DIR}/BoundaryConditions/ROMSX_FillPatch.cpp
        ${SRC_DIR}/BoundaryConditions/ROMSX_PhysBCFunct.cpp
-       ${SRC_DIR}/BoundaryConditions/PlaneAverage.H
-       ${SRC_DIR}/BoundaryConditions/VelPlaneAverage.H
-       ${SRC_DIR}/BoundaryConditions/DirectionSelector.H
        ${SRC_DIR}/IO/Checkpoint.cpp
        ${SRC_DIR}/IO/Plotfile.cpp
        ${SRC_DIR}/IO/writeJobInfo.cpp
-       ${SRC_DIR}/Utils/ROMSX_Math.H
-       ${SRC_DIR}/Utils/Interpolation.H
        ${SRC_DIR}/Utils/MomentumToVelocity.cpp
-       ${SRC_DIR}/Utils/Utils.H
-       ${SRC_DIR}/Utils/TerrainMetrics.H
-       ${SRC_DIR}/Utils/TerrainMetrics.cpp
        ${SRC_DIR}/Utils/VelocityToMomentum.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_Advance.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_advance_2d.cpp
