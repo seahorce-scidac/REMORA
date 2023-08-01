@@ -1,0 +1,168 @@
+===============================================================================
+ ROMSX Job Information
+===============================================================================
+inputs file: inputs
+
+number of MPI processes: 1
+
+CPU time used since start of simulation (CPU-hours): 0.000955516
+
+===============================================================================
+ Plotfile Information
+===============================================================================
+output data / time: Mon Jul 31 17:25:18 2023
+output dir:         /home/almgren/GitCode/ROMSX/Exec/Upwelling
+
+
+===============================================================================
+ Build Information
+===============================================================================
+build date:    2023-05-24 13:17:54.354513
+build machine: Linux manda 5.15.0-58-generic #64~20.04.1-Ubuntu SMP Fri Jan 6 16:42:31 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
+build dir:     /home/almgren/GitCode/ROMSX/Exec/Upwelling
+AMReX dir:     /home/almgren/GitCode/amrex
+
+COMP:          gnu
+COMP version:  9.4.0
+
+
+ROMSX       git hash: 0e23e64-dirty
+AMReX       git hash: 23.05-45-gf8e6853a3-dirty
+
+
+===============================================================================
+ Grid Information
+===============================================================================
+ level: 0
+   number of boxes = 1
+   maximum zones   = 41 80 16 
+
+ Boundary conditions
+   -x: Periodic
+   +x: Periodic
+   -y: Periodic
+   +y: Periodic
+   -z: SlipWall
+   +z: SlipWall
+
+
+===============================================================================
+ Inputs File Parameters
+===============================================================================
+max_step = 10
+stop_time = 30000.0
+amrex.fpe_trap_invalid = 1
+fabarray.mfiter_tile_size = 1024 1024 1024
+geometry.prob_lo = 0. 0. -150.
+geometry.prob_hi = 41000. 80000. 0.
+amr.n_cell = 41 80 16
+geometry.is_periodic = 1 1 0
+zlo.type = SlipWall
+zhi.type = SlipWall
+romsx.fixed_dt = 300.0
+romsx.fixed_fast_dt = 10.0
+romsx.fixed_ndtfast_ratio = 30
+romsx.sum_interval = 1
+romsx.v = 0
+amr.v = 1
+amr.max_level = 0
+romsx.check_file = chk
+romsx.check_int = -57600
+romsx.plot_file_1 = plt
+romsx.plot_int_1 = 100
+romsx.plot_vars_1 = omega salt temp x_velocity y_velocity z_velocity
+romsx.plotfile_type = amrex
+romsx.use_gravity = true
+romsx.use_coriolis = true
+romsx.horizontal_advection_scheme = upstream3
+romsx.use_rayleigh_damping(nvals = 1)  :: [false]
+romsx.spatial_order = 2
+romsx.les_type = None
+romsx.molec_diff_type = ConstantAlpha
+romsx.rho0_trans = 1.0
+romsx.dynamicViscosity = 75.0
+romsx.alpha_T = 75.0
+prob.R0 = 1027.0
+prob.S0 = 35.0
+prob.T0 = 14.0
+prob.rho_0 = 1.0
+prob.T_0 = 1.0
+prob.A_0 = 1.0
+prob.u_0 = 0.0
+prob.v_0 = 0.0
+prob.rad_0 = 0.25
+prob.z0 = 0.1
+prob.zRef = 80.0e-3
+prob.uRef = 8.0e-3
+prob.prob_type = 12
+amr.refine_grid_layout_x = 1
+amr.refine_grid_layout_y = 1
+amr.refine_grid_layout_z = 0
+amr.n_proper = 2
+amr.max_grid_size = 2048
+amr.blocking_factor = 1
+amr.n_error_buf = 0
+amrex.v = 1
+amrex.verbose = 1
+amrex.regtest_reduction = 0
+amrex.signal_handling = 1
+amrex.throw_exception = 0
+amrex.call_addr2line = 1
+amrex.abort_on_unused_inputs = 0
+amrex.handle_sigsegv = 1
+amrex.handle_sigterm = 0
+amrex.handle_sigint = 1
+amrex.handle_sigabrt = 1
+amrex.handle_sigfpe = 1
+amrex.handle_sigill = 1
+amrex.fpe_trap_zero = 0
+amrex.fpe_trap_overflow = 0
+amrex.use_gpu_aware_mpi = 0
+amrex.the_arena_init_size = 0
+amrex.the_device_arena_init_size = 8388608
+amrex.the_managed_arena_init_size = 8388608
+amrex.the_pinned_arena_init_size = 8388608
+amrex.the_comms_arena_init_size = 8388608
+amrex.the_arena_release_threshold = 9223372036854775807
+amrex.the_device_arena_release_threshold = 9223372036854775807
+amrex.the_managed_arena_release_threshold = 9223372036854775807
+amrex.the_pinned_arena_release_threshold = 9223372036854775807
+amrex.the_comms_arena_release_threshold = 9223372036854775807
+amrex.the_async_arena_release_threshold = 9223372036854775807
+amrex.the_arena_is_managed = 0
+amrex.abort_on_out_of_gpu_memory = 0
+fab.init_snan = 1
+DistributionMapping.v = 0
+DistributionMapping.verbose = 0
+DistributionMapping.efficiency = 0.90000000000000002
+DistributionMapping.sfc_threshold = 0
+DistributionMapping.node_size = 0
+DistributionMapping.verbose_mapper = 0
+fab.initval = nan
+fab.do_initval = 1
+fabarray.maxcomp = 25
+vismf.v = 0
+vismf.headerversion = 1
+vismf.groupsets = 0
+vismf.setbuf = 1
+vismf.usesingleread = 0
+vismf.usesinglewrite = 0
+vismf.checkfilepositions = 0
+vismf.usepersistentifstreams = 0
+vismf.usesynchronousreads = 0
+vismf.usedynamicsetselection = 1
+vismf.iobuffersize = 2097152
+vismf.allowsparsewrites = 1
+amrex.async_out = 0
+amrex.async_out_nfiles = 64
+amrex.vector_growth_factor = 1.5
+machine.verbose = 0
+machine.very_verbose = 0
+tiny_profiler.device_synchronize_around_region = 0
+tiny_profiler.verbose = 0
+tiny_profiler.v = 0
+amrex.use_profiler_syncs = 0
+geometry.coord_sys = 0
+amr.grid_eff = 0.69999999999999996
+amr.refine_grid_layout = 1
+amr.check_input = 1
