@@ -19,11 +19,11 @@ option(ROMSX_ENABLE_FCOMPARE "Enable building fcompare when not testing" OFF)
 set(ROMSX_PRECISION "DOUBLE" CACHE STRING "Floating point precision SINGLE or DOUBLE")
 
 #Options for performance
-option(ROMSX_ENABLE_MPI "Enable MPI" OFF)
+option(ROMSX_ENABLE_MPI    "Enable MPI"    OFF)
 option(ROMSX_ENABLE_OPENMP "Enable OpenMP" OFF)
-option(ROMSX_ENABLE_CUDA "Enable CUDA" OFF)
-option(ROMSX_ENABLE_HIP "Enable HIP" OFF)
-option(ROMSX_ENABLE_DPCPP "Enable DPCPP" OFF)
+option(ROMSX_ENABLE_CUDA   "Enable CUDA"   OFF)
+option(ROMSX_ENABLE_HIP    "Enable HIP"    OFF)
+option(ROMSX_ENABLE_SYCL   "Enable SYCL"   OFF)
 
 #Options for C++
 set(CMAKE_CXX_STANDARD 14)
