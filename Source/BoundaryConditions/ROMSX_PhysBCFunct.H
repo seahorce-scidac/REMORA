@@ -79,12 +79,10 @@ public:
                      amrex::Real time, int bccomp);
 
     void impose_xvel_bcs (const amrex::Array4<amrex::Real>& dest_arr, const amrex::Box& bx, const amrex::Box& domain,
-                          const amrex::Array4<amrex::Real const>& z_nd,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv,
                           amrex::Real time, int bccomp);
 
     void impose_yvel_bcs (const amrex::Array4<amrex::Real>& dest_arr, const amrex::Box& bx, const amrex::Box& domain,
-                          const amrex::Array4<amrex::Real const>& z_nd,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv,
                           amrex::Real time, int bccomp);
 
@@ -93,13 +91,11 @@ public:
                           const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::Array4<amrex::Real const>& velx_arr,
                           const amrex::Array4<amrex::Real const>& vely_arr,
-                          const amrex::Array4<amrex::Real const>& z_nd,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dx,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv,
                           amrex::Real time, int bccomp);
 
     void impose_cons_bcs (const amrex::Array4<amrex::Real>& mf, const amrex::Box& bx, const amrex::Box& domain,
-                          const amrex::Array4<amrex::Real const>& z_nd,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv,
                           int icomp, int ncomp, amrex::Real time, int bccomp);
 
