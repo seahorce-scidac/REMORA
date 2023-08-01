@@ -18,7 +18,7 @@ Transformation Equation
    z\left( x,y,\sigma ,t\right) &=\zeta \left( x,y,t\right) +\left[ \zeta \left( x,y,t\right) +h\left( x,y\right) \right] S\left( x,y,\sigma \right) ,\\
    S\left( x,y,\sigma \right) &=\frac{h_c \sigma +h \left( x,y\right) C\left( \sigma \right) }{h_c +h\left( x,y\right)}
 
-where :math:'S\left( x,y,\sigma \right)' is a nonlinear vertical transformation functional, :math:'\zeta \left( x,y,t\right)' is the time-varying free-surface, :math:'h\left( x,y\right) ' is the unperturbed water column thickness and :math:'z=-h\left( x,y\right) ' corresponds to the ocean bottom, :math:'\sigma ' is a fractional vertical stretching coordinate ranging from :math:'-1\leq \sigma \leq 0,C\left( \sigma \right) ' is a nondimensional, monotonic, vertical stretching function ranging from :math:'-1\leq C\left( \sigma \right) \leq 0', and :math:'h_c' is a positive thickness controlling the stretching.  In sediment applications, :math:'h=h\left( x,y,t\right) ' is changed at every time-step since it is affected by erosion and deposition processes.
+where :math:'S\left( x,y,\sigma \right)' is a nonlinear vertical transformation functional, :math:'\zeta \left( x,y,t\right)' is the time-varying free-surface, :math:'h\left( x,y\right) ' is the unperturbed water column thickness and :math:'z=-h\left( x,y\right) ' corresponds to the ocean bottom, :math:'\sigma ' is a fractional vertical stretching coordinate ranging from :math:'-1\leq \sigma \leq 0,C\left( \sigma \right) ' is a nondimensional, monotonic, vertical stretching function ranging from :math:'-1\leq C\left( \sigma \right) \leq 0', and :math:'h_c' is a positive thickness controlling the stretching.  <!-- In sediment applications, :math:'h=h\left( x,y,t\right) ' is changed at every time-step since it is affected by erosion and deposition processes. -->
 
 We find it convenient to define:
 
@@ -38,7 +38,7 @@ This transformation offers several advantages:
 
 * Near-surface refinement behaves more or less like geopotential coordinates in deep regions (level thicknesses, :math:'H_z', do not depend or weakly depend on bathymetry), while near-bottom like sigma coordinates (:math:'H_z' is roughly proportional to depth). This reduces the extreme r-factors near the bottom and reduces pressure gradient errors.
 
-* The **true** sigma-coordinate system is recovered as :math:'h_c \rightarrow \infty '. This is useful when configuring applications with **flat** bathymetry and **uniform** level thickness. Practically, you can achieve this by setting Tcline to **1.0d+16** in roms.in. This will set :math:'h_c =1.0\times 10^{16}'. Although not necessary, we also recommend that you set :math:'\theta _S = 0' and :math:'\theta _B =0'.
+* The **true** sigma-coordinate system is recovered as :math:'h_c \rightarrow \infty '. This is useful when configuring applications with **flat** bathymetry and **uniform** level thickness. Practically, you can achieve this by setting tcline to **1.0d+16** in DataStruct.h. This will set :math:'h_c =1.0\times 10^{16}'. Although not necessary, we also recommend that you set :math:'\theta _S = 0' and :math:'\theta _B =0'.
 
 In an undisturbed ocean state, :math:'\zeta \equiv 0', this transformation yields the following unperturbed depths, :math:'\hat{z}',
 
@@ -57,7 +57,7 @@ As a consequence, the uppermost grid box retains very little dependency from bat
 Vertical Stretching
 -------------------
 
-The above generic vertical transformation design facilitates numerous vertical stretching functions :math:'C\left( \sigma \right) '. This function is defined in terms of several parameters which are specified in the standard input file, roms.in.
+The above generic vertical transformation design facilitates numerous vertical stretching functions :math:'C\left( \sigma \right) '. This function is defined in terms of several parameters which are specified in the standard input file, inputs.
 
 Stretching Function Properties
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
