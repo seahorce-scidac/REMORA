@@ -23,8 +23,6 @@ USE_ASSERTION = TRUE
 # Debugging
 DEBUG = FALSE
 
-BL_NO_FORT = TRUE
-
 # Physics
 SALINITY = TRUE
 

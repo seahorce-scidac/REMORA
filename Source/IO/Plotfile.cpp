@@ -96,15 +96,6 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         mf[lev].define(grids[lev], dmap[lev], ncomp_mf, ngrow_vars);
     }
 
-    Vector<MultiFab> mf_nd(finest_level+1);
-    if (solverChoice.use_terrain) {
-        for (int lev = 0; lev <= finest_level; ++lev) {
-            BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
-            mf_nd[lev].define(nodal_grids, dmap[lev], ncomp_mf, 1);
-            mf_nd[lev].setVal(0.);
-        }
-    }
-
     for (int lev = 0; lev <= finest_level; ++lev) {
         int mf_comp = 0;
 

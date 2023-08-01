@@ -1,6 +1,8 @@
 AMREX_HOME      ?= $(ROMSX_HOME)/Submodules/AMReX
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs
 
+BL_NO_FORT = TRUE
+
 EBASE = ROMSX
 USE_RPATH = TRUE
 
