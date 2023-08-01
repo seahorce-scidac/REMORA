@@ -9,7 +9,7 @@ Vertical S-coordinate
 
 These equations are as given in the 'ROMS documentation'_
 
-ROMSX has a generalized vertical, terrain-following, coordinate system.  Currently, the vertical transformation equation :math:'z=z\left( x,y,\sigma ,t\right) ', is available which can support vertical stretching 1D-functions when several constraints are satisfied.
+ROMSX has a generalized vertical, terrain-following, coordinate system.  Currently, the vertical transformation equation :math:'z=z\left( x,y,\sigma ,t\right) ', (Vtransform=2 from ROMS) is available which can support vertical stretching 1D-functions when several constraints are satisfied.
 
 Transformation Equation
 -----------------------
@@ -75,7 +75,7 @@ Stretching Function Properties
 
 Available Stretching Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-4. A. Shchepetkin (2010) UCLA-ROMS current function, Vstretching=4. :math:'C\left( \sigma \right) ' is defined as a continuous, double stretching function:
+A. Shchepetkin (2010) (Vstretching=4 from ROMS). :math:'C\left( \sigma \right) ' is defined as a continuous, double stretching function:
 
    Surface refinement function:
    .. math::
