@@ -22,7 +22,7 @@ Transformation Equation
    z\left( x,y,\sigma ,t\right) &=\zeta \left( x,y,t\right) +\left[ \zeta \left( x,y,t\right) +h\left( x,y\right) \right] S\left( x,y,\sigma \right) ,\\
    S\left( x,y,\sigma \right) &=\frac{h_c\ \sigma +h \left( x,y\right) C\left( \sigma \right) }{h_c +h\left( x,y\right)}
 
-where :math:`S\left( x,y,\sigma \right)` is a nonlinear vertical transformation functional, :math:`\zeta \left( x,y,t\right)` is the time-varying free-surface, :math:`h\left( x,y\right)` is the unperturbed water column thickness and :math:`z=-h\left( x,y\right)` corresponds to the ocean bottom, :math:`\sigma` is a fractional vertical stretching coordinate ranging from :math:`-1\leq \sigma \leq 0,\ C\left( \sigma \right)` is a nondimensional, monotonic, vertical stretching function ranging from :math:`-1\leq C\left( \sigma \right) \leq 0`, and :math:`h_c` is a positive thickness controlling the stretching.  
+where :math:`S\left( x,y,\sigma \right)` is a nonlinear vertical transformation functional, :math:`\zeta \left( x,y,t\right)` is the time-varying free-surface, :math:`h\left( x,y\right)` is the unperturbed water column thickness and :math:`z=-h\left( x,y\right)` corresponds to the ocean bottom, :math:`\sigma` is a fractional vertical stretching coordinate ranging from :math:`-1\leq \sigma \leq 0,\ C\left( \sigma \right)` is a nondimensional, monotonic, vertical stretching function ranging from :math:`-1\leq C\left( \sigma \right) \leq 0`, and :math:`h_c` is a positive thickness controlling the stretching.
 
 We find it convenient to define:
 
@@ -83,7 +83,7 @@ Stretching Function Properties
   .. math::
      C\left( \sigma \right) = \begin{cases}
      0, & \text{if } \sigma = 0, & C\left( \sigma \right) = 0, & \text{at the free-surface};\\
-     -1, & \text{if } \sigma = -1, & C\left( \sigma \right) = -1, & \text{at the ocean bottom}. 
+     -1, & \text{if } \sigma = -1, & C\left( \sigma \right) = -1, & \text{at the ocean bottom}.
      \end{cases}
 
 Available Stretching Functions
