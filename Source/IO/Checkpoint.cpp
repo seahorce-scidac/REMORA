@@ -132,13 +132,6 @@ ROMSX::WriteCheckpointFile () const
        MultiFab::Copy(zvel,vars_new[lev][Vars::zvel],0,0,1,0);
        VisMF::Write(zvel, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "ZFace"));
 
-       if (solverChoice.use_terrain)  {
-           // Note that we write the ghost cells of z_phys_nd (unlike above)
-           MultiFab z_height(convert(grids[lev],IntVect(NGROW-1,NGROW-1,NGROW-1)),dmap[lev],1,1);
-           MultiFab::Copy(z_height,*z_phys_nd[lev],0,0,1,1);
-           VisMF::Write(z_height, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Z_Phys_nd"));
-       }
-
        MultiFab mf_ru(grids[lev],dmap[lev],2,NGROW);
        MultiFab::Copy(mf_ru,*vec_ru[lev],0,0,2,NGROW);
        VisMF::Write(mf_ru, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "XRHS"));
@@ -287,11 +280,11 @@ ROMSX::ReadCheckpointFile ()
     // read in the MultiFab data
     for (int lev = 0; lev <= finest_level; ++lev)
     {
-       BoxList bl2d = grids[lev].boxList();
-       for (auto& b : bl2d) {
-           b.setRange(2,0);
-       }
-       BoxArray ba2d(std::move(bl2d));
+        BoxList bl2d = grids[lev].boxList();
+        for (auto& b : bl2d) {
+            b.setRange(2,0);
+        }
+        BoxArray ba2d(std::move(bl2d));
 
         MultiFab cons(grids[lev],dmap[lev],Cons::NumVars,0);
         VisMF::Read(cons, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Cell"));
@@ -308,13 +301,6 @@ ROMSX::ReadCheckpointFile ()
         MultiFab zvel(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,0);
         VisMF::Read(zvel, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "ZFace"));
         MultiFab::Copy(vars_new[lev][Vars::zvel],zvel,0,0,1,0);
-
-       if (solverChoice.use_terrain)  {
-           // Note that we read the ghost cells of z_phys_nd (unlike above)
-           MultiFab z_height(convert(grids[lev],IntVect(NGROW-1,NGROW-1,NGROW-1)),dmap[lev],1,1);
-           VisMF::Read(z_height, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Z_Phys_nd"));
-           MultiFab::Copy(*z_phys_nd[lev],z_height,0,0,1,1);
-       }
 
        MultiFab mf_ru(grids[lev],dmap[lev],2,NGROW);
        VisMF::Read(mf_ru, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "XRHS"));

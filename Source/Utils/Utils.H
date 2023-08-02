@@ -8,11 +8,6 @@
 #include <DataStruct.H>
 #include <IndexDefines.H>
 
-void make_metrics (const amrex::Geometry& geom,
-                   amrex::MultiFab& z_phys_nd,
-                   amrex::MultiFab& z_phys_cc,
-                   amrex::MultiFab& detJ_cc);
-
 void MomentumToVelocity (amrex::MultiFab& xvel_out,
                          const amrex::IntVect& xvel_ngrow,
                          amrex::MultiFab& yvel_out,
