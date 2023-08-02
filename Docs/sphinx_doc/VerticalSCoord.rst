@@ -106,4 +106,3 @@ Notice that the bottom function is the second stretching of an already stretched
    0\leq \theta _S \leq 10 \quad \text{and} \quad 0\leq \theta _B \leq 4
 
 However, users need to pay attention to extreme r-factor (``rx1``) values near the bottom.
-
