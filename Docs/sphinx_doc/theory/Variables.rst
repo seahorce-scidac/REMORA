@@ -37,7 +37,7 @@ These variable definitions are as given in the `ROMS documentation`_
 +-------------------------------+--------------------------------------------+
 | Prognostic Variables                                                       |
 +===============================+============================================+
-| :math:`(u,v,w)`               | components of velocity vector              |
+| :math:`\vec{v} = (u,v,w)`     | velocity vector and x-, y-, z-components   |
 +-------------------------------+--------------------------------------------+
 | :math:`T(x,y,z,t)`            | potential temperature                      |
 +-------------------------------+--------------------------------------------+
@@ -49,7 +49,7 @@ These variable definitions are as given in the `ROMS documentation`_
 +-------------------------------+--------------------------------------------+
 | Diagnostic Variables                                                       |
 +===============================+============================================+
-| :math:`\rho_0+\rho(x,y,z,t)`  | total in situ density                |
+| :math:`\rho_0+\rho(x,y,z,t)`  | total in situ density                      |
 +-------------------------------+--------------------------------------------+
 | :math:`P`                     | total pressure :math:`\approx -\rho_0 g z` |
 +-------------------------------+--------------------------------------------+
