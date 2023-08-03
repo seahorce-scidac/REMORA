@@ -207,12 +207,16 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
               cff2=VFe(i  ,j,k)-VFe(i,j-1,k);
               cff=cff1+cff2;
               rv(i,j,k,nrhs) -= cff;
-
+        }); Gpu::synchronize();
+        //This uses W being an extra grow cell sized
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
               //-----------------------------------------------------------------------
               //  Add in vertical advection.
               //-----------------------------------------------------------------------
-              cff1=9.0/16.0;
-              cff2=1.0/16.0;
+              Real cff1=9.0/16.0;
+              Real cff2=1.0/16.0;
               //              if(i>=0)
               if (k>=1 && k<=N-2)
               {
@@ -237,7 +241,12 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
 
                   //              FC(i,0,-1)=0.0;
               }
-
+        }); Gpu::synchronize();
+        //This uses W being an extra grow cell sized
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+              Real cff;
               if(k-1>=0) {
                   cff=FC(i,j,k)-FC(i,j,k-1);
               } else {
@@ -245,7 +254,13 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
               }
 
               ru(i,j,k,nrhs) -= cff;
-
+        }); Gpu::synchronize();
+        //This uses W being an extra grow cell sized
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+              Real cff1=9.0/16.0;
+              Real cff2=1.0/16.0;
               if (k>=1 && k<=N-2)
               {
                   FC(i,j,k)=( cff1*(vold(i,j,k  ,nrhs)+ vold(i,j,k+1,nrhs))
@@ -268,14 +283,28 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
 
                   //              FC(i,0,-1)=0.0;
               }
-
+        }); Gpu::synchronize();
+        //This uses W being an extra grow cell sized
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+              Real cff1=9.0/16.0;
+              Real cff2=1.0/16.0;
+            Real cff;
               if(k-1>=0) {
                   cff=FC(i,j,k)-FC(i,j,k-1);
               } else {
                   cff=FC(i,j,k);
               }
               rv(i,j,k,nrhs) -= cff;
-
+        }); Gpu::synchronize();
+        //This uses W being an extra grow cell sized
+        amrex::ParallelFor(gbx1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+              Real cff1=9.0/16.0;
+              Real cff2=1.0/16.0;
+              Real cff;
               //Recursive summation:
               rufrc(i,j,0)+=ru(i,j,k,nrhs);
               rvfrc(i,j,0)+=rv(i,j,k,nrhs);
