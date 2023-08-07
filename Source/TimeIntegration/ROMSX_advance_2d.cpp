@@ -71,7 +71,7 @@ ROMSX::advance_2d (int lev,
     ptsk-=1;
 
 
-    for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(*mf_ru, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
 
         Array4<Real> const& u = (mf_u).array(mfi);

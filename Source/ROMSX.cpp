@@ -396,7 +396,7 @@ ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMa
     Vector<MultiFab> tmp_lev_old(Vars::NumTypes);
 #if NGROW==2
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
-    int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order);
+    int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+1;
 #else
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+2;
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
@@ -454,7 +454,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     //     so that we can go back in forth between velocity and momentum on all faces
 #if NGROW==2
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
-    int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order);
+    int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+1;
 #else
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+2;
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;

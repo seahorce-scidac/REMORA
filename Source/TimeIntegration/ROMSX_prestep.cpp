@@ -34,8 +34,8 @@ ROMSX::prestep (int lev,
     const int Mm = Geom(lev).Domain().size()[1];
     auto geomdata = Geom(lev).data();
 
-    const BoxArray&            ba = mf_uold.boxArray();
-    const DistributionMapping& dm = mf_uold.DistributionMap();
+    const BoxArray&            ba = mf_temp.boxArray();
+    const DistributionMapping& dm = mf_temp.DistributionMap();
 
     // Maybe not the best way to do this, but need to cache salt and temp since
     // they get rewritten by prestep_t
@@ -44,7 +44,7 @@ ROMSX::prestep (int lev,
     MultiFab::Copy(mf_saltcache,mf_salt,0,0,mf_salt.nComp(),IntVect(NGROW,NGROW,0)); //mf_salt.nGrowVect());
     MultiFab::Copy(mf_tempcache,mf_temp,0,0,mf_temp.nComp(),IntVect(NGROW,NGROW,0));
 
-    for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
         Array4<Real> const& Akv = (vec_Akv[lev])->array(mfi);

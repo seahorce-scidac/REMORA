@@ -56,10 +56,15 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     //Consider passing these into the advance function or renaming relevant things
+    /*
     MultiFab mf_u(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_v(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_uold(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_vold(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_vold(ba,dm,1,IntVect(NGROW,NGROW,0));*/
+    MultiFab mf_u(U_new, amrex::make_alias, 0, 1);
+    MultiFab mf_v(V_new, amrex::make_alias, 0, 1);
+    MultiFab mf_uold(U_old, amrex::make_alias, 0, 1);
+    MultiFab mf_vold(V_old, amrex::make_alias, 0, 1);
     MultiFab mf_w(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_pden(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
@@ -149,7 +154,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     auto geomdata = Geom(lev).data();
 
     //MFIter::allowMultipleMFIters(true);
-    for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
         Array4<Real> const& Akv = (vec_Akv[lev])->array(mfi);
@@ -327,7 +332,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                 nstp, nrhs, N, dt_lev);
     }
 
-    for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
         Array4<Real> const& Akv = (vec_Akv[lev])->array(mfi);
@@ -604,16 +609,16 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], ncomp, N, dt_lev);
     }
 
-    MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    //    MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     U_new.FillBoundary(geom[lev].periodicity());
 
-    MultiFab::Copy(V_new,mf_v,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    //    MultiFab::Copy(V_new,mf_v,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     V_new.FillBoundary(geom[lev].periodicity());
 
-    MultiFab::Copy(U_old,mf_uold,0,0,U_old.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    //    MultiFab::Copy(U_old,mf_uold,0,0,U_old.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     U_old.FillBoundary(geom[lev].periodicity());
 
-    MultiFab::Copy(V_old,mf_vold,0,0,V_old.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    //    MultiFab::Copy(V_old,mf_vold,0,0,V_old.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     V_old.FillBoundary(geom[lev].periodicity());
 
     mf_temp.FillBoundary(geom[lev].periodicity());
