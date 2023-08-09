@@ -103,10 +103,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
+    /*
     mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_v.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_uold.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_vold.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_vold.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));*/
     mf_pden.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rho.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rhoS.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));

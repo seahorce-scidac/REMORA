@@ -42,7 +42,7 @@ ROMSX::advance_3d (int lev,
     int iic = istep[lev];
     int ntfirst = 0;
 
-    for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& u = mf_u.array(mfi);
         Array4<Real> const& v = mf_v.array(mfi);
@@ -252,7 +252,7 @@ ROMSX::advance_3d (int lev,
     //    });
        }
     }
-    for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& u = mf_u.array(mfi);
         Array4<Real> const& v = mf_v.array(mfi);
@@ -477,7 +477,7 @@ ROMSX::advance_3d (int lev,
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
 
-    for ( MFIter mfi(mf_u, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& u = mf_u.array(mfi);
         Array4<Real> const& v = mf_v.array(mfi);
