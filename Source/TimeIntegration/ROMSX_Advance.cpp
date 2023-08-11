@@ -122,6 +122,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     MultiFab::Copy(mf_vold,V_old,0,0,V_old.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
+
     mf_u.FillBoundary(geom[lev].periodicity());
     mf_v.FillBoundary(geom[lev].periodicity());
     mf_uold.FillBoundary(geom[lev].periodicity());
@@ -610,22 +611,19 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], ncomp, N, dt_lev);
     }
 
-    //    MultiFab::Copy(U_new,mf_u,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     U_new.FillBoundary(geom[lev].periodicity());
 
-    //    MultiFab::Copy(V_new,mf_v,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     V_new.FillBoundary(geom[lev].periodicity());
 
-    //    MultiFab::Copy(U_old,mf_uold,0,0,U_old.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     U_old.FillBoundary(geom[lev].periodicity());
 
-    //    MultiFab::Copy(V_old,mf_vold,0,0,V_old.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     V_old.FillBoundary(geom[lev].periodicity());
 
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
     mf_tempold.FillBoundary(geom[lev].periodicity());
     mf_saltold.FillBoundary(geom[lev].periodicity());
+
     vec_t3[lev]->FillBoundary(geom[lev].periodicity());
     vec_s3[lev]->FillBoundary(geom[lev].periodicity());
 
