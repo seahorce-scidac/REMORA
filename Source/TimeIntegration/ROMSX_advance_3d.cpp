@@ -220,7 +220,7 @@ ROMSX::advance_3d (int lev,
                 DC(i,j,k) = 0.0;
                 CF(i,j,k) = 0.0;
             });
-       vert_mean_3d(bx,1,0,u,Hz,Hzk,DU_avg1,oHz,Akv,BC,DC,FC,CF,pm,nnew,N,dt_lev);
+       vert_mean_3d(gbx1,1,0,u,Hz,Hzk,DU_avg1,oHz,Akv,BC,DC,FC,CF,pm,nnew,N,dt_lev);
 
         amrex::ParallelFor(gbx21,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -228,7 +228,7 @@ ROMSX::advance_3d (int lev,
                 DC(i,j,k) = 0.0;
                 CF(i,j,k) = 0.0;
             });
-       vert_mean_3d(bx,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
+       vert_mean_3d(gbx1,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
 
 
        update_massflux_3d(gbx2,bx,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
