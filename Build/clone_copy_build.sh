@@ -11,6 +11,11 @@ cd COAWST
 
 git apply ../ROMSX/Build/compare_flat_tweak_inputs.patch
 
+#Functionals/ana_grid.h changes are for flat bottom
+#Functionals/ana_initial.h changes the initial condition
+#Nonlinear/step2d_LF_AM3.h changes are primarily from pressure gradient changes
+git checkout ROMS/Nonlinear/step2d_LF_AM3.h
+
 cd ../ROMSX/Build
 if [ "$NERSC_HOST" == "cori" ]
 then
@@ -29,9 +34,19 @@ echo "${NETCDF_LIBDIR}"
 echo "${NETCDF_INCDIR}"
 
 cd ../Exec/Upwelling
+
+#compile ROMSX
 nice make -j16 USE_NETCDF=TRUE DEBUG=TRUE
-#./ROMSX3d.gnu.DEBUG.TPROF.MPI.ex inputs amrex.fpe_trap_invalid=0 romsx.plotfile_type=netcdf romsx.plot_int_1=1 max_step=10
+
+#sed -i s/"ndtfast_ratio  = 30"/"ndtfast_ratio  = 30/g Exec/Upwelling/inputs
+
+#Run ROMSX
+#./ROMSX3d.gnu.DEBUG.TPROF.MPI.ex inputs amrex.fpe_trap_invalid=0 romsx.plotfile_type=netcdf romsx.plot_int_1=1 max_step=100
+
 cd ../../../
+
+#sed -i s/NDTFAST == 1/NDTFAST == 30/g COAWST/ROMS/External/roms_upwelling.in
+#sed -i s/"ndtfast_ratio  = 30"/"ndtfast_ratio  = 30/g ROMSX/Exec/Upwelling/inputs
 
 cd COAWST
 
@@ -58,6 +73,9 @@ cd COAWST
 #  ["xpmem"] = "2.5.2-2.4_3.20__gd0f7936.shasta",
 #}
 
+#Compile coawst
 ./coawst.bash -j 4
 #./coawst.bash -noclean -j 4
+
+#Run ROMS through COAWST
 #./coawstM ROMS/External/roms_upwelling.in
