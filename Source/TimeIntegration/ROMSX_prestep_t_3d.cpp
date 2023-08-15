@@ -200,11 +200,11 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
             curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
         });
         //HACK to avoid using the wrong index of t (using upstream3)
-        Real max_Huon=max(Huon(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
-        Real min_Huon=min(Huon(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
         amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
+            Real max_Huon=max(Huon(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
+            Real min_Huon=min(Huon(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempold(i,j,k)+tempold(i-1,j,k))-
                       cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
         });
@@ -233,11 +233,11 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
             curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
         });
         //HACK to avoid using the wrong index of t (using upstream3)
-        Real max_Hvom=max(Hvom(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
-        Real min_Hvom=min(Hvom(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
         amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
+            Real max_Hvom=max(Hvom(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
+            Real min_Hvom=min(Hvom(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempold(i,j,k)+tempold(i,j-1,k))-
                       cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
         });
