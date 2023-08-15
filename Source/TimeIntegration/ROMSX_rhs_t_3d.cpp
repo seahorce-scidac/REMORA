@@ -168,7 +168,6 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
     cffa=1.0/6.0;
     cffb=1.0/3.0;
-<<<<<<< HEAD
     if (solverChoice.flat_bathymetry) {
     if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
         amrex::ParallelFor(tbxp1,
