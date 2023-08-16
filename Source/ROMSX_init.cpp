@@ -238,67 +238,6 @@ ROMSX::init_base_state_from_wrfinput (int lev, const Box& bx, FArrayBox& p_hse, 
     } // idx
 }
 
-void
-ROMSX::init_terrain_from_wrfinput (int lev,
-                                   const Vector<FArrayBox>& NC_PH_fab,
-                                   const Vector<FArrayBox>& NC_PHB_fab)
-{
-    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
-    {
-        //
-        // FArrayBox to FArrayBox copy does "copy on intersection"
-        // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
-        //
-        const Array4<Real      >&      z_arr = z_phys.array();
-        const Array4<Real const>& nc_phb_arr = NC_PHB_fab[idx].const_array();
-        const Array4<Real const>& nc_ph_arr  = NC_PH_fab[idx].const_array();
-
-        const Box& z_phys_box(z_phys.box());
-
-        Box nodal_box = amrex::surroundingNodes(NC_PHB_fab[idx].box());
-
-        int ilo = nodal_box.smallEnd()[0];
-        int ihi = nodal_box.bigEnd()[0];
-        int jlo = nodal_box.smallEnd()[1];
-        int jhi = nodal_box.bigEnd()[1];
-        int klo = nodal_box.smallEnd()[2];
-        int khi = nodal_box.bigEnd()[2];
-
-        //
-        // We must be careful not to read out of bounds of the WPS data
-        //
-        amrex::ParallelFor(z_phys_box, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            int ii = std::max(std::min(i,ihi-1),ilo+1);
-            int jj = std::max(std::min(j,jhi-1),jlo+1);
-            if (k < 0) {
-                Real z_klo   =  0.25 * ( nc_ph_arr (ii,jj  ,klo  ) +  nc_ph_arr(ii-1,jj  ,klo  ) +
-                                         nc_ph_arr (ii,jj-1,klo  ) + nc_ph_arr (ii-1,jj-1,klo) +
-                                         nc_phb_arr(ii,jj  ,klo  ) + nc_phb_arr(ii-1,jj  ,klo  ) +
-                                         nc_phb_arr(ii,jj-1,klo  ) + nc_phb_arr(ii-1,jj-1,klo) ) / CONST_GRAV;
-                Real z_klop1 =  0.25 * ( nc_ph_arr (ii,jj  ,klo+1) +  nc_ph_arr(ii-1,jj  ,klo+1) +
-                                         nc_ph_arr (ii,jj-1,klo+1) + nc_ph_arr (ii-1,jj-1,klo+1) +
-                                         nc_phb_arr(ii,jj  ,klo+1) + nc_phb_arr(ii-1,jj  ,klo+1) +
-                                         nc_phb_arr(ii,jj-1,klo+1) + nc_phb_arr(ii-1,jj-1,klo+1) ) / CONST_GRAV;
-                z_arr(i, j, k) = 2.0 * z_klo - z_klop1;
-            } else if (k > khi) {
-                Real z_khi   =  0.25 * ( nc_ph_arr (ii,jj  ,khi  ) + nc_ph_arr (ii-1,jj  ,khi  ) +
-                                         nc_ph_arr (ii,jj-1,khi  ) + nc_ph_arr (ii-1,jj-1,khi) +
-                                         nc_phb_arr(ii,jj  ,khi  ) + nc_phb_arr(ii-1,jj  ,khi  ) +
-                                         nc_phb_arr(ii,jj-1,khi  ) + nc_phb_arr(ii-1,jj-1,khi) ) / CONST_GRAV;
-                Real z_khim1 =  0.25 * ( nc_ph_arr (ii,jj  ,khi-1) + nc_ph_arr (ii-1,jj  ,khi-1) +
-                                         nc_ph_arr (ii,jj-1,khi-1) + nc_ph_arr (ii-1,jj-1,khi-1) +
-                                         nc_phb_arr(ii,jj  ,khi-1) + nc_phb_arr(ii-1,jj  ,khi-1) +
-                                         nc_phb_arr(ii,jj-1,khi-1) + nc_phb_arr(ii-1,jj-1,khi-1) ) / CONST_GRAV;
-                z_arr(i, j, k) = 2.0 * z_khi - z_khim1;
-              } else {
-                z_arr(i, j, k) = 0.25 * ( nc_ph_arr (ii,jj  ,k) + nc_ph_arr (ii-1,jj  ,k) +
-                                          nc_ph_arr (ii,jj-1,k) + nc_ph_arr (ii-1,jj-1,k) +
-                                          nc_phb_arr(ii,jj  ,k) + nc_phb_arr(ii-1,jj  ,k) +
-                                          nc_phb_arr(ii,jj-1,k) + nc_phb_arr(ii-1,jj-1,k) ) / CONST_GRAV;
-            } // k
-        });
-    } // idx
-}
 #endif // ROMSX_USE_NETCDF
 
 void
