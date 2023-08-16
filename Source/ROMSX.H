@@ -212,11 +212,6 @@ public:
                             const amrex::Vector<amrex::FArrayBox>& NC_MSFV_fab,
                             const amrex::Vector<amrex::FArrayBox>& NC_MSFM_fab);
 
-    // Copy from NC_PH* fabs into the MultiFabs holding the terrain data
-    void init_terrain_from_wrfinput(int lev,  amrex::FArrayBox& z_phys,
-                                    const amrex::Vector<amrex::FArrayBox>& NC_PH_fab,
-                                    const amrex::Vector<amrex::FArrayBox>& NC_PHB_fab);
-
     // Copy from NC_PB fabs into the MultiFab holding the base state
     void init_base_state_from_wrfinput(int lev, const amrex::Box& bx,
                                        amrex::FArrayBox& p_hse_fab,
