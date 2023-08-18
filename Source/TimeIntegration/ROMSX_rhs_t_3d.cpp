@@ -99,7 +99,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
-                      cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
+                cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
         });
     }
     else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
@@ -113,7 +113,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
-                      cffb*(grad(i,j,k)+ grad(i-1,j,k));
+                cffb*(grad(i,j,k)+ grad(i-1,j,k));
         });
     }
     else {
@@ -135,7 +135,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             Real max_Huon=max(Huon(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
             Real min_Huon=min(Huon(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))-
-                      cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
+                cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
         });
     }
     else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
@@ -148,8 +148,8 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         amrex::ParallelFor(tbxp1,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
-                      cffb*(grad(i,j,k)+ grad(i-1,j,k));
+            FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k)-
+                                       cffb*(grad(i,j,k)+ grad(i-1,j,k)));
         });
     }
     else {
@@ -182,7 +182,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
-                      cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
+                cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
         });
     }
     else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
@@ -195,7 +195,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
-                      cffb*(grad(i,j,k)+ grad(i,j-1,k));
+                cffb*(grad(i,j,k)+ grad(i,j-1,k));
         });
     }
     else {
@@ -216,7 +216,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             Real max_Hvom=max(Hvom(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
             Real min_Hvom=min(Hvom(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))-
-                      cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
+                cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
         });
     }
     else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
@@ -229,7 +229,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k)-
-                      cffb*(grad(i,j,k)+ grad(i,j-1,k)));
+                                       cffb*(grad(i,j,k)+ grad(i,j-1,k)));
         });
     }
     else {
