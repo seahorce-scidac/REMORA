@@ -47,12 +47,14 @@ The ROMSX governing equations are discretized over variable topography using a s
 Vieste-Dubrovnik Transect
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 .. image:: figures/vieste-dubrovnik.png
-   :width: 100%
+   :width: 60%
 
 Staggered Vertical Grid
 ~~~~~~~~~~~~~~~~~~~~~~~
-.. image:: figures/vertical_grid.png
-   :width: 100%
+.. figure:: figures/vertical_grid.png
+   :width: 60%
+
+   In this diagram, indices are 1-indexed (as in ROMS), while the indices in ROMS-X are 0-indexed.
 
 The total thickness of the water column is :math:`\zeta \left( i,j\right) + h\left( i,j\right)`. The bathymetry (``h``) is usually time invariant whereas the free-surface (``zeta``) evolves in time. At input and output, the bathymetry is always a positive quantity. However, the depths ``z_r(i,j,k)`` and ``z_w(i,j,k)`` are negative for all locations below the mean sea level.
 
