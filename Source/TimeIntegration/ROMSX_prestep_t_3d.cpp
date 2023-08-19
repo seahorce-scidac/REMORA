@@ -58,6 +58,9 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     Box ubx = surroundingNodes(tbx,0);
     Box vbx = surroundingNodes(tbx,1);
 
+    Box utbxp1 = surroundingNodes(tbxp1,0);
+    Box vtbxp1 = surroundingNodes(tbxp1,1);
+
     Box gbx3uneven_init(IntVect(AMREX_D_DECL(tbx.smallEnd(0)-3,tbx.smallEnd(1)-3,tbx.smallEnd(2))),
                    IntVect(AMREX_D_DECL(tbx.bigEnd(0)+2,tbx.bigEnd(1)+2,tbx.bigEnd(2))));
     BoxArray ba_gbx3uneven = intersect(BoxArray(gbx3uneven_init), gbx);
@@ -161,13 +164,13 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     });
     }
     else {
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(utbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
         FX(i,j,k)=tempold(i,j,k,nrhs)-tempold(i-1,j,k,nrhs);
     });
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(vtbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
@@ -200,7 +203,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
             //Centered4
             grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
         });
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(ubx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempold(i,j,k)+tempold(i-1,j,k)-
@@ -232,7 +235,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         {
             grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
         });
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(vbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempold(i,j,k)+tempold(i,j-1,k)-
@@ -272,7 +275,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         Print()<<(Box(FX))<<std::endl;
         Print()<<(Box(FE))<<std::endl;
     }
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(tbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         tempstore(i,j,k)=Hz(i,j,k)*(cff1*tempold(i,j,k)+
@@ -292,7 +295,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     // Time-step vertical advection of tracers (Tunits). Impose artificial
     // continuity equation.
     //
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(tbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //-----------------------------------------------------------------------
@@ -364,7 +367,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                              DC(i,j+1)-DC(i,j));*/
     });
 
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(tbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1=cff*pm(i,j,0)*pn(i,j,0);
@@ -383,6 +386,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //-----------------------------------------------------------------------
     //
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
-    update_vel_3d(tbxp1, gbx, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
+    update_vel_3d(tbx, gbx, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
                   stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
 }
