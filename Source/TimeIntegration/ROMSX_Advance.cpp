@@ -330,7 +330,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     if(solverChoice.use_prestep) {
         prestep(lev, mf_uold, mf_vold, mf_u, mf_v, mf_ru, mf_rv, mf_tempold, mf_saltold,
                 mf_temp, mf_salt, mf_Hz, vec_Akv[lev], vec_Huon[lev], vec_Hvom[lev], mf_W, mf_DC, vec_t3[lev],
-                vec_s3[lev], mf_z_r, mf_sustr, mf_svstr, mf_bustr, mf_bvstr, iic, ntfirst, nnew,
+                vec_s3[lev], mf_z_r, mf_z_w, mf_sustr, mf_svstr, mf_bustr, mf_bvstr, iic, ntfirst, nnew,
                 nstp, nrhs, N, dt_lev);
     }
 
@@ -608,7 +608,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
                mf_AK, mf_DC,
-               mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], ncomp, N, dt_lev);
+               mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], vec_z_w[lev], ncomp, N, dt_lev);
     }
 
     U_new.FillBoundary(geom[lev].periodicity());
