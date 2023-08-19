@@ -22,7 +22,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                       Array4<Real> W   , Array4<Real> DC,
                       Array4<Real> FC  , Array4<Real> tempstore, Array4<Real> saltstore,
                       Array4<Real> FX_old, Array4<Real> FE_old,
-                      Array4<Real> z_r, Array4<Real> z_w,
+                      Array4<Real> z_r, Array4<Real> z_w, Array4<Real> h,
                       int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                       Real lambda, Real dt_lev)
 {
@@ -79,58 +79,28 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //------------------------------------------------------------------------
     //
     //Should really use gbx3uneven
-    amrex::ParallelFor(Box(W),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    Box gbx3unevenD = gbx3uneven;
+    gbx3unevenD.makeSlab(2,0);
+    Box gbx1D = gbx1;
+    gbx1D.makeSlab(2,0);
+
+    amrex::ParallelFor(gbx1D,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         //  Starting with zero vertical velocity at the bottom, integrate
         //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-        W(i,j,k)=0.0;
+        //W(i,j,-1)=0.0;
+	int k=0;
+        W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
+	for(k=1;k<=N;k++) {
+            W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
+	}
     });
-    amrex::ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
-        if(k==0) {
-            W(i,j,k)=0.0;
-        } else {
-            W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k));
-        }
-    });
-    amrex::ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
-        if(k==0) {
-            W(i,j,k)=W(i,j,k);
-        } else {
-            W(i,j,k) = W(i,j,k)- (Hvom(i,j+1,k)-Hvom(i,j,k));
-        }
-    });
-    amrex::ParallelFor(gbx3uneven,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
-        if(k==0) {
-            W(i,j,k)=W(i,j,k);
-        } else {
-            W(i,j,k) = W(i,j,k) + W(i,j,k-1);
-        }
-    });
+    PrintToFile("Hvom")<<FArrayBox(Hvom)<<std::endl;;
+    PrintToFile("Huon")<<FArrayBox(Huon)<<std::endl;;
     PrintToFile("omega1")<<FArrayBox(W)<<std::endl;;
     PrintToFile("W")<<FArrayBox(W)<<std::endl;;
     amrex::ParallelFor(gbx1,
@@ -141,13 +111,16 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-	Real wrk_i=W(i,j,N)/(z_w(i,j,N)-z_w(i,j,0));
+	Real wrk_i=W(i,j,N)/(z_w(i,j,N)+h(i,j,0,0));
 
         if(k!=N) {
-            W(i,j,k) = W(i,j,k)- wrk_i*(z_w(i,j,k)-z_w(i,j,0));
+            W(i,j,k) = W(i,j,k)- wrk_i*(z_w(i,j,k)+h(i,j,0,0));
         }
+	else
+            W(i,j,N) = 0.0;
     });
     PrintToFile("omega2")<<FArrayBox(W)<<std::endl;;
+    PrintToFile("h")<<FArrayBox(h)<<std::endl;;
     PrintToFile("W")<<FArrayBox(W)<<std::endl;;
     FArrayBox fab_Akt(tbxp2,1,amrex::The_Async_Arena());
     auto Akt= fab_Akt.array();

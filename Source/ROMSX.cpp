@@ -542,7 +542,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_t3.resize(lev+1);
     vec_s3.resize(lev+1);
 
-    vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, depth (double check if negative)
+    vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d,dm,2,IntVect(NGROW,NGROW,0))); //2d, depth (double check if negative)
     vec_Zt_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, average of the free surface (zeta)
     vec_s_r[lev].reset(new MultiFab(ba1d,dm,1,IntVect(0,0,0))); // scaled vertical coordinate [0,1] , transforms to z
     vec_z_w[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at w points

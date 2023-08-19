@@ -390,6 +390,7 @@ public:
                   std::unique_ptr<amrex::MultiFab>& mf_s3,
                   std::unique_ptr<amrex::MultiFab>& mf_z_r,
                   std::unique_ptr<amrex::MultiFab>& mf_z_w,
+                  std::unique_ptr<amrex::MultiFab>& mf_h,
                   std::unique_ptr<amrex::MultiFab>& mf_sustr,
                   std::unique_ptr<amrex::MultiFab>& mf_svstr,
                   std::unique_ptr<amrex::MultiFab>& mf_bustr,
@@ -429,6 +430,7 @@ public:
                         amrex::Array4<amrex::Real> FX,
                         amrex::Array4<amrex::Real> z_r,
                         amrex::Array4<amrex::Real> z_w,
+                        amrex::Array4<amrex::Real> h  ,
                         int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 

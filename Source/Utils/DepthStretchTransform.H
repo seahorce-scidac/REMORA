@@ -292,6 +292,8 @@ ROMSX::set_depth (int lev)
       {
           h(i,j,0) = -geomdata.ProbLo(2);
           z_w(i,j,k) = h(i,j,0);
+	  if(k==0)
+	      h(i,j,0,1) = h(i,j,0);
       });
       }
 
@@ -300,7 +302,7 @@ ROMSX::set_depth (int lev)
       amrex::ParallelFor(gbx2D, ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int , int )
       {
-        for(int k=0; k<=N_loop; k++) {
+        for(int k=-1; k<=N_loop; k++) {
         //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
         const auto prob_lo         = geomdata.ProbLo();
         const auto dx              = geomdata.CellSize();
@@ -401,8 +403,11 @@ ROMSX::set_depth (int lev)
           if(k==0) {
               z_w(i,j,N-1)=0.0;
           }
-          else
+          else if(k==-1)
+              h(i,j,0,1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+	  else
               z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+	  if(k!=-1)
           z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
         }
         }
