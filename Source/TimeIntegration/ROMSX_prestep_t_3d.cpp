@@ -93,11 +93,11 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         //  Notice that barotropic mass flux divergence is not used directly.
         //
         //W(i,j,-1)=0.0;
-	int k=0;
+        int k=0;
         W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
-	for(k=1;k<=N;k++) {
+        for(k=1;k<=N;k++) {
             W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
-	}
+        }
     });
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -107,12 +107,12 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-	Real wrk_i=W(i,j,N)/(z_w(i,j,N)+h(i,j,0,0));
+        Real wrk_i=W(i,j,N)/(z_w(i,j,N)+h(i,j,0,0));
 
         if(k!=N) {
             W(i,j,k) = W(i,j,k)- wrk_i*(z_w(i,j,k)+h(i,j,0,0));
         }
-	else
+        else
             W(i,j,N) = 0.0;
     });
     FArrayBox fab_Akt(tbxp2,1,amrex::The_Async_Arena());

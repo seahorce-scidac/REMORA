@@ -292,8 +292,8 @@ ROMSX::set_depth (int lev)
       {
           h(i,j,0) = -geomdata.ProbLo(2);
           z_w(i,j,k) = h(i,j,0);
-	  if(k==0)
-	      h(i,j,0,1) = h(i,j,0);
+          if(k==0)
+              h(i,j,0,1) = h(i,j,0);
       });
       }
 
@@ -405,9 +405,9 @@ ROMSX::set_depth (int lev)
           }
           else if(k==-1)
               h(i,j,0,1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
-	  else
+          else
               z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
-	  if(k!=-1)
+          if(k!=-1)
           z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
         }
         }
