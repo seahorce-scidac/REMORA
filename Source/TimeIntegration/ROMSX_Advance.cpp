@@ -609,7 +609,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
                mf_AK, mf_DC,
-               mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], vec_z_w[lev], ncomp, N, dt_lev);
+               mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], vec_z_w[lev], vec_hOfTheConfusingName[lev], ncomp, N, dt_lev);
     }
 
     U_new.FillBoundary(geom[lev].periodicity());

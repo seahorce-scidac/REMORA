@@ -369,6 +369,7 @@ public:
                      std::unique_ptr<amrex::MultiFab>& mf_Huon,
                      std::unique_ptr<amrex::MultiFab>& mf_Hvom,
                      std::unique_ptr<amrex::MultiFab>& mf_z_w,
+                     std::unique_ptr<amrex::MultiFab>& mf_h  ,
                      const int ncomp, const int N,
                      const amrex::Real dt_lev);
 
