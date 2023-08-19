@@ -418,10 +418,6 @@ ROMSX::advance_3d (int lev,
             W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
 	}
     });
-    PrintToFile("Hvom")<<FArrayBox(Hvom)<<std::endl;;
-    PrintToFile("Huon")<<FArrayBox(Huon)<<std::endl;;
-    PrintToFile("omega1")<<FArrayBox(W)<<std::endl;;
-    PrintToFile("W")<<FArrayBox(W)<<std::endl;;
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {

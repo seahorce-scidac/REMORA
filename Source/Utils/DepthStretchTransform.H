@@ -425,8 +425,6 @@ ROMSX::set_depth (int lev)
           }
           //Note, we are not supporting ICESHELF flag
       });
-      PrintToFile("z_w")<<FArrayBox(z_w)<<std::endl;
-      PrintToFile("Hz")<<FArrayBox(Hz)<<std::endl;
     } // mf
 
     vec_z_w[lev]->FillBoundary(geom[lev].periodicity());

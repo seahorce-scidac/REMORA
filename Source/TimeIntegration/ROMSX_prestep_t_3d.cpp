@@ -99,10 +99,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
             W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
 	}
     });
-    PrintToFile("Hvom")<<FArrayBox(Hvom)<<std::endl;;
-    PrintToFile("Huon")<<FArrayBox(Huon)<<std::endl;;
-    PrintToFile("omega1")<<FArrayBox(W)<<std::endl;;
-    PrintToFile("W")<<FArrayBox(W)<<std::endl;;
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -119,9 +115,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
 	else
             W(i,j,N) = 0.0;
     });
-    PrintToFile("omega2")<<FArrayBox(W)<<std::endl;;
-    PrintToFile("h")<<FArrayBox(h)<<std::endl;;
-    PrintToFile("W")<<FArrayBox(W)<<std::endl;;
     FArrayBox fab_Akt(tbxp2,1,amrex::The_Async_Arena());
     auto Akt= fab_Akt.array();
 
@@ -332,10 +325,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
               }
 
     });
-    PrintToFile("W")<<FArrayBox(W)<<std::endl;
-    PrintToFile("Huon")<<FArrayBox(Huon)<<std::endl;
-    PrintToFile("Hvom")<<FArrayBox(Hvom)<<std::endl;
-    PrintToFile("tempold")<<FArrayBox(tempold)<<std::endl;
     //    exit(0);
 /*
     Real cff;
