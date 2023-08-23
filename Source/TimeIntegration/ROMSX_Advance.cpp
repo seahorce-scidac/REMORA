@@ -615,6 +615,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     }
 
     set_depth(lev);
+    stretch_transform(lev);
 
     if(solverChoice.use_baroclinic) {
     advance_3d(lev, mf_u, mf_v, mf_tempold, mf_saltold, mf_temp, mf_salt, vec_t3[lev], vec_s3[lev], vec_ru[lev], vec_rv[lev],

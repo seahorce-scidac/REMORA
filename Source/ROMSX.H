@@ -665,6 +665,8 @@ public:
 
     void set_depth (int lev);
 
+    void stretch_transform (int lev);
+
     void set_vmix (int lev);
 
     void set_smflux (int lev, amrex::Real time);
