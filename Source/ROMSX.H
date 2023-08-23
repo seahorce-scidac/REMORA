@@ -33,6 +33,10 @@
 #include <DataStruct.H>
 #include <Derive.H>
 
+#ifdef ERF_USE_PARTICLES
+#include "TerrainFittedPC.H"
+#endif
+
 #ifdef ROMSX_USE_NETCDF
 #include "NCWpsFile.H"
 #endif
@@ -54,6 +58,10 @@ namespace InterpType {
         CellConservativeQuartic
     };
 }
+
+#ifdef ERF_USE_PARTICLES
+typedef amrex::ParticleContainer<AMREX_SPACEDIM, 0, 0, 0> TracerPC;
+#endif
 
 template<typename V, typename T>
 bool containerHasElement(const V& iterable, const T& query) {
@@ -645,6 +653,11 @@ public:
     void set_drag (int lev);
 
     void set_weights (int lev);
+
+#ifdef ERF_USE_PARTICLES
+    std::unique_ptr<TerrainFittedPC> tracer_particles;
+    static amrex::Vector<std::string> tracer_particle_varnames;
+#endif
 
 private:
 
