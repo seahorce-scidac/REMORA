@@ -617,6 +617,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_s3[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); //saltstore
 
     set_depth(lev);
+    stretch_transform(lev);
     set_vmix(lev);
     set_hmixcoef(lev);
     set_weights(lev);

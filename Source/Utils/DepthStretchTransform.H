@@ -200,15 +200,16 @@ ROMSX::set_smflux(int lev, Real time)
     }
 
 }
+
+/**
+ * \brief Initializes bathymetry h and surface height Zeta
+ */
 void
 ROMSX::set_depth (int lev)
 {
     auto& lev_new = vars_new[lev];
     auto& lev_old = vars_old[lev];
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
-    std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
-    std::unique_ptr<MultiFab>& mf_s_r = vec_s_r[lev];
-    std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
     std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
@@ -227,6 +228,7 @@ ROMSX::set_depth (int lev)
       Array4<Real> const& s_r = (mf_s_r)->array(mfi);
       Array4<Real> const& z_phys_nd  = (mf_z_phys_nd)->array(mfi);
       Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
+
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
       gbx2.grow(IntVect(NGROW,NGROW,0));
@@ -238,8 +240,6 @@ ROMSX::set_depth (int lev)
       Box gbx2D = gbx2;
       gbx2D.makeSlab(2,0);
 
-      Array4<Real> const& h  = (mf_h)->array(mfi);
-      Array4<Real> const& Zt_avg1  = (mf_Zt_avg1)->array(mfi);
       const auto & geomdata = Geom(lev).data();
 
       int ncomp = 1;
@@ -259,8 +259,6 @@ ROMSX::set_depth (int lev)
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
       bool NSPeriodic = geomdata.isPeriodic(1);
       bool EWPeriodic = geomdata.isPeriodic(0);
-      const auto local_theta_s = solverChoice.theta_s;
-      const auto local_theta_b = solverChoice.theta_b;
 
       if(!solverChoice.flat_bathymetry) {
       Gpu::streamSynchronize();
@@ -286,7 +284,6 @@ ROMSX::set_depth (int lev)
               val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
               h(i,j,0) = val2;
           }
-          z_w(i,j,k) = h(i,j,0);
       });
       } else {
       Gpu::streamSynchronize();
@@ -299,6 +296,66 @@ ROMSX::set_depth (int lev)
               h(i,j,0,1) = h(i,j,0);
       });
       }
+    }
+    vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+    vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
+}
+
+void
+ROMSX::stretch_transform (int lev)
+{
+    auto& lev_new = vars_new[lev];
+    auto& lev_old = vars_old[lev];
+    std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
+    std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
+    std::unique_ptr<MultiFab>& mf_s_r = vec_s_r[lev];
+    std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
+    std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
+    std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
+    auto N_loop = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
+
+    for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+
+      Array4<Real> const& z_w = (mf_z_w)->array(mfi);
+      Array4<Real> const& z_r = (mf_z_r)->array(mfi);
+      Array4<Real> const& s_r = (mf_s_r)->array(mfi);
+      Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
+      Array4<Real> const& h  = (mf_h)->array(mfi);
+      Array4<Real> const& Zt_avg1  = (mf_Zt_avg1)->array(mfi);
+      Box bx = mfi.tilebox();
+      Box gbx2 = bx;
+      gbx2.grow(IntVect(NGROW,NGROW,0));
+      Box gbx2D = gbx2;
+      gbx2D.makeSlab(2,0);
+
+      const auto & geomdata = Geom(lev).data();
+
+      int ncomp = 1;
+      Box subdomain;
+      if (lev == 0) {
+          subdomain = geom[lev].Domain();
+      } else {
+          amrex::Abort("Geometry information needs to be updated for multilevel");
+      }
+
+      int nx = subdomain.length(0);
+      int ny = subdomain.length(1);
+      int nz = subdomain.length(2);
+
+      auto N = nz; // Number of vertical "levels" aka, NZ
+      //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
+      Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
+      bool NSPeriodic = geomdata.isPeriodic(1);
+      bool EWPeriodic = geomdata.isPeriodic(0);
+      const auto local_theta_s = solverChoice.theta_s;
+      const auto local_theta_b = solverChoice.theta_b;
+
+      amrex::ParallelFor(gbx2, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      {
+          z_w(i,j,k) = h(i,j,0);
+      });
 
       // ROMS Transform 2
       Gpu::streamSynchronize();
@@ -440,8 +497,6 @@ ROMSX::set_depth (int lev)
     vec_z_r[lev]->FillBoundary(geom[lev].periodicity());
     vec_s_r[lev]->FillBoundary(geom[lev].periodicity());
     vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
-    vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
 
     // Define nodal z as average of z on w-faces
     for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
