@@ -99,11 +99,6 @@ public:
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv,
                           int icomp, int ncomp, amrex::Real time, int bccomp);
 
-    void fill_from_bndryregs (const int lev,   const amrex::Box& bx, const amrex::Array4<amrex::Real>& dest_arr,
-                              const int icomp, const int bccomp, const int ncomp,
-                              const amrex::Box& domain, const amrex::BCRec* bc_ptr,
-                              const amrex::Real time);
-
 #ifdef ROMSX_USE_NETCDF
     void fill_from_wrfbdy (const int lev,   const amrex::Box& bx, const amrex::Array4<amrex::Real>& dest_arr,
                            const int icomp, const int bccomp, const int ncomp,

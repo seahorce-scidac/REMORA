@@ -33,7 +33,7 @@
 #include <DataStruct.H>
 #include <Derive.H>
 
-#ifdef ERF_USE_PARTICLES
+#ifdef ROMSX_USE_PARTICLES
 #include "TerrainFittedPC.H"
 #endif
 
@@ -59,7 +59,7 @@ namespace InterpType {
     };
 }
 
-#ifdef ERF_USE_PARTICLES
+#ifdef ROMSX_USE_PARTICLES
 typedef amrex::ParticleContainer<AMREX_SPACEDIM, 0, 0, 0> TracerPC;
 #endif
 
@@ -654,7 +654,7 @@ public:
 
     void set_weights (int lev);
 
-#ifdef ERF_USE_PARTICLES
+#ifdef ROMSX_USE_PARTICLES
     std::unique_ptr<TerrainFittedPC> tracer_particles;
     static amrex::Vector<std::string> tracer_particle_varnames;
 #endif

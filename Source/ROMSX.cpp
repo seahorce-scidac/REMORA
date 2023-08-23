@@ -31,7 +31,6 @@ amrex::Real ROMSX::init_shrink   =  1.0;
 amrex::Real ROMSX::change_max    =  1.1;
 int   ROMSX::fixed_ndtfast_ratio = 0;
 
-
 // Type of mesh refinement algorithm
 int         ROMSX::do_reflux     = 0;
 int         ROMSX::do_avg_down   = 0;
@@ -49,9 +48,16 @@ std::string ROMSX::plotfile_type    = "amrex";
 // init_type:  "custom", "ideal", "real"
 std::string ROMSX::init_type        = "custom";
 
+#ifdef ROMSX_USE_PARTICLES
+bool ROMSX::use_tracer_particles = false;
+amrex::Vector<std::string> ROMSX::tracer_particle_varnames = {AMREX_D_DECL("xvel", "yvel", "zvel")};
+#endif
+
+#ifdef ROMSX_USE_NETCDF
 // NetCDF wrfinput (initialization) file(s)
 amrex::Vector<amrex::Vector<std::string>> ROMSX::nc_init_file = {{""}}; // Must provide via input
 std::string ROMSX::nc_bdy_file;
+#endif
 
 amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 
@@ -273,6 +279,17 @@ ROMSX::InitData ()
             init_only(lev, time);
 
         AverageDown();
+
+#ifdef ROMSX_USE_PARTICLES
+        // Initialize tracer particles if required
+        if (use_tracer_particles) {
+            tracer_particles = std::make_unique<TerrainFittedPC>(Geom(0), dmap[0], grids[0]);
+
+            tracer_particles->InitParticles(*z_phys_nd[0]);
+
+            Print() << "Initialized " << tracer_particles->TotalNumberOfParticles() << " tracer particles." << std::endl;
+        }
+#endif
 
     } else { // Restart from a checkpoint
 
@@ -766,6 +783,11 @@ ROMSX::ReadParameters ()
         pp.query("plot_file_2", plot_file_2);
         pp.query("plot_int_1", plot_int_1);
         pp.query("plot_int_2", plot_int_2);
+
+#ifdef ROMSX_USE_PARTICLES
+        // Tracer particle toggle
+        pp.query("use_tracer_particles", use_tracer_particles);
+#endif
     }
 
 #ifdef ROMSX_USE_MULTIBLOCK
