@@ -123,7 +123,7 @@ The depth average of a quantity :math:`A` is given by:
    \overline{A}=\frac{1}{D}\int_{-1}^0H_zA\ d\sigma
    :label: (7)
 
-where the overbar indicates a vertically averaged quantity and 
+where the overbar indicates a vertically averaged quantity and
 
 .. math::
    D\equiv\zeta\left(\xi,\eta,t\right)+h\left(\xi,\eta\right)
