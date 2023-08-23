@@ -449,8 +449,8 @@ ROMSX::set_depth (int lev)
       {
 
           //Note, this doesn't necessarily define grown values correctly
-          if(gbx2.contains(i+1,j,k))
-             z_phys_nd(i,j,k)=0.5*(z_w(i,j,k)+z_w(i+1,j,k));
+          if(gbx2.contains(i+1,j,k)&&gbx2.contains(i,j+1,k))
+              z_phys_nd(i,j,k)=0.25*(z_w(i,j,k)+z_w(i+1,j,k)+z_w(i,j+1,k)+z_w(i+1,j+1,k));
           else
              z_phys_nd(i,j,k)=z_w(i,j,k);
 
