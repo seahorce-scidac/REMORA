@@ -527,6 +527,16 @@ public:
                   amrex::Array4<amrex::Real> z_w,
                   const int nrhs, const int N);
 
+    void prsgrd (const amrex::Box& bx,
+                 amrex::Array4<amrex::Real> ru,
+                 amrex::Array4<amrex::Real> rv,
+                 amrex::Array4<amrex::Real> rho,
+                 amrex::Array4<amrex::Real> FC,
+                 amrex::Array4<amrex::Real> Hz,
+                 amrex::Array4<amrex::Real> z_r,
+                 amrex::Array4<amrex::Real> z_w,
+                 const int nrhs, const int N);
+
     /** Update velocities or tracers as the last part of the prestep */
     void update_vel_3d (const amrex::Box& bx,
                         const amrex::Box& gbx,

@@ -64,6 +64,7 @@ function(build_romsx_lib romsx_lib_name)
        ${SRC_DIR}/TimeIntegration/ROMSX_advance_2d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_advance_3d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_rho_eos.cpp
+       ${SRC_DIR}/TimeIntegration/ROMSX_prsgrd.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_uv3dmix.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_t3dmix.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_coriolis.cpp
