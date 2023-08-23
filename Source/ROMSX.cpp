@@ -285,7 +285,7 @@ ROMSX::InitData ()
         if (use_tracer_particles) {
             tracer_particles = std::make_unique<TerrainFittedPC>(Geom(0), dmap[0], grids[0]);
 
-            tracer_particles->InitParticles(*z_phys_nd[0]);
+            tracer_particles->InitParticles(*vec_z_phys_nd[0]);
 
             Print() << "Initialized " << tracer_particles->TotalNumberOfParticles() << " tracer particles." << std::endl;
         }
