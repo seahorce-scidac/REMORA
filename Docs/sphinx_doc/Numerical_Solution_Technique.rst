@@ -145,7 +145,7 @@ and
    +\frac{D}{mn}\left(\overline{\mathcal{F}}_v+\overline{\mathcal{D}}_{h_v}\right)+&\frac{1}{mn}\left(\tau_s^{\eta}-\tau_b^{\eta}\right)
    :label: (10)
 
-where :math:`\phi_2` includes the :math:`\frac{\partial z}{\partial\xi}` term, :math:`\overline{\mathcal{D}}_{h_u}` is the horizontal viscosity, and the vertical viscosity only contributes through the upper and lower boundary conditions. We also need the vertical integral of the continuity equation, shown above as eq. (6). 
+where :math:`\phi_2` includes the :math:`\frac{\partial z}{\partial\xi}` term, :math:`\overline{\mathcal{D}}_{h_u}` is the horizontal viscosity, and the vertical viscosity only contributes through the upper and lower boundary conditions. We also need the vertical integral of the continuity equation, shown above as eq. (6).
 The presence of a free surface introduces waves which propagate at a speed of :math:`\sqrt{gh}`. These waves usually impose a more severe time-step limit than any of the internal processes. We have therefore chosen to solve the full equations by means of a split time step. In other words, the depth integrated equations (9), (10), and (6) are integrated using a short time step and the values of :math:`\overline{u}` and :math:`\overline{v}` are used to replace those found by integrating the full equations on a longer time step. A diagram of the barotropic time stepping is shown here:
 
 .. image:: figures/Shortstep.png
