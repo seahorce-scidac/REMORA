@@ -936,6 +936,9 @@ private:
     static int do_reflux;
     static int do_avg_down;
 
+    // flag to turn tracer particle generation on/off
+    static bool use_tracer_particles;
+
     // Diagnostic output interval
     static int sum_interval;
     static amrex::Real sum_per;
