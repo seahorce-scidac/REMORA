@@ -30,7 +30,7 @@ jobs:
           make SPHINXOPTS=-v NO_DOXYGEN=TRUE linkcheck
 
       - name: Deploy to Webpage
-        if: github.event_name == 'push' && github.repository == 'seahorce-scidac/ROMSX' && github.ref == 'refs/heads/development' && ${{ true }}
+        if: github.event_name == 'push' && github.repository == 'seahorce-scidac/ROMSX' && github.ref == 'refs/heads/development'
         uses: JamesIves/github-pages-deploy-action@4.1.5
         with:
           ssh-key: ${{ secrets.DEPLOY_KEY }}
