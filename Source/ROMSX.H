@@ -149,8 +149,6 @@ public:
     /** Make mask to zero out covered cells*/
     amrex::MultiFab& build_fine_mask(int lev);
 
-    void MakeHorizontalAverages();
-
     /** write plotfile to disk */
     void WritePlotFile  (int which, amrex::Vector<std::string> plot_var_names);
 

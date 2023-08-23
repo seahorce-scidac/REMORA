@@ -14,23 +14,7 @@
 
 #ifdef ROMSX_USE_SALINITY
 #define Salt_comp      6
-#ifdef ROMSX_USE_MOISTURE
-#define RhoQv_comp     7
-#define RhoQc_comp     8
-#define NVAR           9
-#else
 #define NVAR           7
-#endif
-#else
-
-#ifdef ROMSX_USE_MOISTURE
-#define RhoQv_comp     6
-#define RhoQc_comp     7
-#define NVAR           8
-#else
-#define NVAR           6
-#endif
-
 #endif
 
 // Cell-centered primitive variables
@@ -38,11 +22,6 @@
 #define PrimKE_comp      RhoKE_comp    -1
 #define PrimQKE_comp     RhoQKE_comp   -1
 #define PrimScalar_comp  RhoScalar_comp-1
-
-#ifdef ROMSX_USE_MOISTURE
-#define PrimQv_comp      RhoQv_comp-1
-#define PrimQc_comp      RhoQc_comp-1
-#endif
 
 #define NUM_PRIM         NVAR-1
 #define NGROW          2
@@ -55,10 +34,6 @@ namespace BCVars {
         RhoKE_bc_comp,
         RhoQKE_bc_comp,
         RhoScalar_bc_comp,
-#ifdef ROMSX_USE_MOISTURE
-        RhoQv_bc_comp,
-        RhoQc_bc_comp,
-#endif
         xvel_bc = NVAR,
         yvel_bc,
         zvel_bc,
@@ -119,10 +94,6 @@ namespace Cons {
 #ifdef ROMSX_USE_SALINITY
         Salt,
 #endif
-#ifdef ROMSX_USE_MOISTURE
-        RhoQv,
-        RhoQc,
-#endif
         NumVars
     };
 }
@@ -133,10 +104,6 @@ namespace Prim {
         KE,
         QKE,
         Scalar,
-#ifdef ROMSX_USE_MOISTURE
-        Qv,
-        Qc,
-#endif
         NumVars
     };
 }

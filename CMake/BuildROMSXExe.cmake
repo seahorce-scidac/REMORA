@@ -24,6 +24,10 @@ function(build_romsx_lib romsx_lib_name)
     target_compile_definitions(${romsx_lib_name} PUBLIC ROMSX_USE_SALINITY)
   endif()
 
+  if(ROMSX_ENABLE_PARTICLES)
+    target_compile_definitions(${romsx_lib_name} PUBLIC ROMSX_USE_PARTICLES)
+  endif()
+
   if(ROMSX_ENABLE_NETCDF)
     target_sources(${romsx_lib_name} PRIVATE
                    ${SRC_DIR}/IO/NCIntromsxace.H
