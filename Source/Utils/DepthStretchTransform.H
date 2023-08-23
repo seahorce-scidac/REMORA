@@ -407,7 +407,7 @@ ROMSX::set_depth (int lev)
               z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
           z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
         }
-        }       
+        }
       });
       Gpu::streamSynchronize();
       amrex::ParallelFor(gbx2D, ncomp,
