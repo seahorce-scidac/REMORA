@@ -210,6 +210,7 @@ ROMSX::set_depth (int lev)
     std::unique_ptr<MultiFab>& mf_s_r = vec_s_r[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
+    std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
     Real depth = geom[lev].ProbHi(2);
     const int Lm = Geom(lev).Domain().size()[0];
@@ -224,6 +225,7 @@ ROMSX::set_depth (int lev)
       Array4<Real> const& z_w = (mf_z_w)->array(mfi);
       Array4<Real> const& z_r = (mf_z_r)->array(mfi);
       Array4<Real> const& s_r = (mf_s_r)->array(mfi);
+      Array4<Real> const& z_phys_nd  = (mf_phys_nd)->array(mfi);
       Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
@@ -417,6 +419,11 @@ ROMSX::set_depth (int lev)
           }
           else
               Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1);
+          //Note, this doesn't necessarily define grown values correctly
+          if(gbx2D.contains(i+1,j,k))
+             z_phys_nd(i,j,k)=0.5*(z_w(i,j,k)+z_w(i+1,j,k));
+          else
+             z_phys_nd(i,j,k)=z_w(i,j,k);
           }
           //Note, we are not supporting ICESHELF flag
       });
@@ -425,6 +432,7 @@ ROMSX::set_depth (int lev)
     vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
     vec_z_r[lev]->FillBoundary(geom[lev].periodicity());
     vec_s_r[lev]->FillBoundary(geom[lev].periodicity());
+    vec_z_phys_nd[lev]->FillBoundary(geom[lev].periodicity());
     vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
