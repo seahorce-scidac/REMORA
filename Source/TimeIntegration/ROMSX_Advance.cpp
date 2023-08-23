@@ -489,6 +489,19 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           pmon_v(i,j,0)=1.0;        // (pm(i,j-1)+pm(i,j))/(pn(i,j-1)+pn(i,j))
           pnom_v(i,j,0)=1.0;        // (pn(i,j-1)+pn(i,j))/(pm(i,j-1)+pm(i,j))
         });
+
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FC(i,j,k)=0.0;
+        });
+
+        prsgrd(gbx1,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,nrhs,N);
+        if (verbose > 2) {
+           amrex::PrintToFile("ru_afterprsgrd").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+           amrex::PrintToFile("rv_afterprsgrd").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+        }
+
         if (verbose > 2) {
             amrex::PrintToFile("temp_pret3dmix").SetPrecision(18)<<FArrayBox(temp) << std::endl;
             amrex::PrintToFile("salt_pret3dmix").SetPrecision(18)<<FArrayBox(salt) << std::endl;

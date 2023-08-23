@@ -6,6 +6,7 @@ using namespace amrex;
 void
 ROMSX::prsgrd (const Box& phi_bx,
                Array4<Real> ru , Array4<Real> rv,
+               Array4<Real> on_u , Array4<Real> om_v,
                Array4<Real> rho,
                Array4<Real> FC,
                Array4<Real> Hz,
@@ -53,7 +54,7 @@ ROMSX::prsgrd (const Box& phi_bx,
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        if(k>=0||k<N) {
+        if(k>=0&&k<N) {
             dR(i,j,k)=rho(i,j,k+1)-rho(i,j,k);
             dZ(i,j,k)=z_r(i,j,k+1)-z_r(i,j,k);
         } else {
@@ -97,5 +98,58 @@ ROMSX::prsgrd (const Box& phi_bx,
                                  OneTwelfth*
                                  (dR(i,j,k+1)+dR(i,j,k)))));
          }
+    });
+
+    //This should be nodal
+    amrex::ParallelFor(phi_bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        FC(i,j,k)=phi_bx.contains(i-1,j,k) ? rho(i,j,k)-rho(i-1,j,k) : 0.0;
+        aux(i,j,k)=phi_bx.contains(i-1,j,k) ? z_r(i,j,k)-z_r(i-1,j,k) : 0.0;
+    });
+
+    //This should be nodal aux and FC need wider boxes above
+    amrex::ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
+    {
+        for(int k=N;k>=0;k--) {
+            Real cff= phi_bxD.contains(i+1,j,0) ? 2.0*aux(i,j,k)*aux(i+1,j,k) : 2.0*aux(i,j,k)*aux(i,j,k);
+            if (cff>eps) {
+                Real cff1= k>0 ? cff/(dR(i,j,k)+dR(i,j,k-1)) : cff/(dR(i,j,k)+dR(i,j,k));
+                dZx(i,j,k)=cff*cff1;
+            } else {
+                dZx(i,j,k)=0.0;
+            }
+            Real cff1= phi_bxD.contains(i+1,j,0) ? 2.0*FC(i,j,k)*FC(i+1,j,k) : 2.0*FC(i,j,k)*FC(i,j,k);
+            if (cff1>eps) {
+                Real cff2= k>0 ? cff/(FC(i,j,k)+FC(i+1,j,k)) : cff/(FC(i,j,k)+FC(i,j,k));
+                dRx(i,j,k)=cff1*cff2;
+            } else {
+                dRx(i,j,k)=0.0;
+            }
+        }
+    });
+
+    //This should be nodal aux and FC need wider boxes above
+    amrex::ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
+    {
+        for(int k=N;phi_bxD.contains(i-1,j,0)&&k>=0;k--) {
+            ru(i,j,k,nrhs)=on_u(i,j,0)*0.5_rt*
+                           (Hz(i,j,k)+Hz(i-1,j,k))*
+                           (P(i-1,j,k)-P(i,j,k)-
+                            HalfGRho*
+                            ((rho(i,j,k)+rho(i-1,j,k))*
+                             (z_r(i,j,k)-z_r(i-1,j,k))-
+                              OneFifth*
+                              ((dRx(i,j,k)-dRx(i-1,j,k))*
+                               (z_r(i,j,k)-z_r(i-1,j,k)-
+                                OneTwelfth*
+                                (dZx(i,j,k)+dZx(i-1,j,k)))-
+                               (dZx(i,j,k)-dZx(i-1,j,k))*
+                               (rho(i,j,k)-rho(i-1,j,k)-
+                                OneTwelfth*
+                                (dRx(i,j,k)+dRx(i-1,j,k))))));
+        }
     });
 }
