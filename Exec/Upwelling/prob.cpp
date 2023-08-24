@@ -40,6 +40,122 @@ amrex_probinit(
   pp.query("prob_type", parms.prob_type);
 }
 
+/**
+ * \brief Initializes bathymetry h and surface height Zeta
+ *
+ * Want to model after ERF f'n
+ *
+ *void
+init_custom_terrain (const Geometry& geom,
+                           MultiFab& z_phys_nd,
+                     const Real& time)
+{
+    // Number of ghost cells
+    int ngrow = z_phys_nd.nGrow();
+
+    for ( MFIter mfi(z_phys_nd, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        // Grown box with no z range
+        amrex::Box xybx = mfi.growntilebox(ngrow);
+        xybx.setRange(2,0);
+
+        Array4<Real> z_arr = z_phys_nd.array(mfi);
+
+        ParallelFor(xybx, [=] AMREX_GPU_DEVICE (int i, int j, int) {
+
+            // Flat terrain with z = 0 at k = 0
+            z_arr(i,j,0) = 0.;
+        });
+    }
+}
+ *
+ */
+void
+init_custom_bathymetry (const Geometry& geom,
+                        MultiFab& mf_h,
+                        MultiFab& mf_Zt_avg1,
+                        const Real& /*time*/,
+                        int lev)
+{
+    //std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
+    //std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
+    auto dx = geom.CellSizeArray();
+    auto ProbLoArr = geom.ProbLoArray();
+    auto ProbHiArr = geom.ProbHiArray();
+
+    mf_h.setVal(geom[lev].ProbHi(2));
+    Real depth = geom[lev].ProbHi(2);
+    const int Lm = geom.Domain().size()[0];
+    const int Mm = geom.Domain().size()[1];
+
+    //HACK HACK manually setting zeta to 0
+    mf_Zt_avg1.setVal(0.0);
+
+    for ( MFIter mfi(mf_h, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+
+      Array4<Real> const& h  = (mf_h).array(mfi);
+
+      Box bx = mfi.tilebox();
+      Box gbx2 = bx;
+      gbx2.grow(IntVect(NGROW,NGROW,0));
+
+      const auto & geomdata = geom.data();
+
+      int ncomp = 1;
+      Box subdomain;
+      if (lev == 0) {
+          subdomain = geom[lev].Domain();
+      } else {
+          amrex::Abort("Geometry information needs to be updated for multilevel");
+      }
+
+      int nx = subdomain.length(0);
+      int ny = subdomain.length(1);
+      int nz = subdomain.length(2);
+
+      auto N = nz; // Number of vertical "levels" aka, NZ
+      //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
+      Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
+      bool NSPeriodic = geomdata.isPeriodic(1);
+      bool EWPeriodic = geomdata.isPeriodic(0);
+
+      if(!solverChoice.flat_bathymetry) {
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(gbx2, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      {
+          Real val1, val2;
+          int iFort = i+1;
+          int jFort = j+1;
+          if(NSPeriodic) {
+              if (iFort<=Lm/2.0)
+                  val1=iFort;
+              else
+                  val1=Lm+1-iFort;
+              val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+              h(i,j,0) = val2;
+          }
+          else if(EWPeriodic) {
+              if (jFort<=Mm/2.0)
+                  val1=jFort;
+              else
+                  val1=Mm+1-jFort;
+              val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+              h(i,j,0) = val2;
+          }
+      });
+      } else {
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(gbx2, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      {
+          h(i,j,0) = -geomdata.ProbLo(2);
+      });
+      }
+    }
+}
+
 void
 init_custom_prob(
         const Box& bx,
