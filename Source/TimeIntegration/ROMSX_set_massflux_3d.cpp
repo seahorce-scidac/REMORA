@@ -10,8 +10,6 @@ ROMSX::set_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
                         Array4<Real> Hz, Array4<Real> om_v_or_on_u,
                         const int nrhs)
 {
-    const int Mn = Geom(0).Domain().size()[0];
-    const int Mm = Geom(0).Domain().size()[1];
     //
     //-----------------------------------------------------------------------
     //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m.
