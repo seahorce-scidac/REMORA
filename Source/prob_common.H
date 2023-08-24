@@ -23,4 +23,8 @@ init_custom_prob (
   amrex::Array4<amrex::Real const> const& h,
   amrex::Array4<amrex::Real const> const& Zt_avg1,
   amrex::GeometryData const& geomdata);
+
+void init_custom_bathymetry (const amrex::Geometry& geom,
+                        amrex::MultiFab& mf_h,
+                        amrex::MultiFab& mf_Zt_avg1);
 #endif

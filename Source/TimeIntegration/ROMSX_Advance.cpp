@@ -614,7 +614,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     }
     }
 
-    set_depth(lev);
+    update_bathymetry(lev);
     stretch_transform(lev);
 
     if(solverChoice.use_baroclinic) {

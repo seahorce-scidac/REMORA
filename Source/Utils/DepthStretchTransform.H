@@ -211,7 +211,6 @@ ROMSX::set_depth (int lev)
     auto& lev_old = vars_old[lev];
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
-    std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
     Real depth = geom[lev].ProbHi(2);
     const int Lm = Geom(lev).Domain().size()[0];
@@ -226,7 +225,6 @@ ROMSX::set_depth (int lev)
       Array4<Real> const& z_w = (mf_z_w)->array(mfi);
       Array4<Real> const& z_r = (mf_z_r)->array(mfi);
       Array4<Real> const& s_r = (mf_s_r)->array(mfi);
-      Array4<Real> const& z_phys_nd  = (mf_z_phys_nd)->array(mfi);
       Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
 
       Box bx = mfi.tilebox();
@@ -312,6 +310,7 @@ ROMSX::stretch_transform (int lev)
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
+    std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
     auto N_loop = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
