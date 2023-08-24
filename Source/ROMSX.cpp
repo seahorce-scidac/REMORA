@@ -285,7 +285,7 @@ ROMSX::InitData ()
         if (use_tracer_particles) {
             tracer_particles = std::make_unique<TerrainFittedPC>(Geom(0), dmap[0], grids[0]);
 
-            tracer_particles->InitParticles(*z_phys_nd[0]);
+            tracer_particles->InitParticles(*vec_z_phys_nd[0]);
 
             Print() << "Initialized " << tracer_particles->TotalNumberOfParticles() << " tracer particles." << std::endl;
         }
@@ -525,6 +525,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_s_r.resize(lev+1);
     vec_z_w.resize(lev+1);
     vec_z_r.resize(lev+1);
+    vec_z_phys_nd.resize(lev+1);
     vec_y_r.resize(lev+1);
     vec_x_r.resize(lev+1);
     vec_Hz.resize(lev+1);
@@ -562,10 +563,11 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, depth (double check if negative)
     vec_Zt_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, average of the free surface (zeta)
     vec_s_r[lev].reset(new MultiFab(ba1d,dm,1,IntVect(0,0,0))); // scaled vertical coordinate [0,1] , transforms to z
-    vec_z_w[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at w points
-    vec_z_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at r points
-    vec_y_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // y at r points
-    vec_x_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // x at r points
+    vec_z_w[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at w points (cell faces)
+    vec_z_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at r points (cell center)
+    vec_z_phys_nd[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at psi points (cell nodes)
+    vec_y_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // y at r points (cell center)
+    vec_x_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // x at r points (cell center)
     vec_Hz[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
     vec_Huon[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // mass flux for u component
     Print() << "ba " << ba << std::endl;

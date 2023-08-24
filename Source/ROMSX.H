@@ -239,6 +239,7 @@ public:
 
     /** Bathymetry data (2D, positive valued, h in ROMS) **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_hOfTheConfusingName;
+
     /** Width of cells in the vertical (z-) direction (3D, Hz in ROMS) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hz;
     /** u-volume flux (3D) */
@@ -274,6 +275,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_w;
     /** Scaled vertical coordinate (range [0,1]) that transforms to z, defined at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_r;
+    /** z coordinates at psi points (cell nodes) **/
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_phys_nd;
     /** Average of the free surface, zeta (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Zt_avg1;
     /** Surface stress in the u direction */

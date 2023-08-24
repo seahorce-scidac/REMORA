@@ -210,6 +210,7 @@ ROMSX::set_depth (int lev)
     std::unique_ptr<MultiFab>& mf_s_r = vec_s_r[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
+    std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
     mf_h->setVal(geom[lev].ProbHi(2));
     Real depth = geom[lev].ProbHi(2);
     const int Lm = Geom(lev).Domain().size()[0];
@@ -224,6 +225,7 @@ ROMSX::set_depth (int lev)
       Array4<Real> const& z_w = (mf_z_w)->array(mfi);
       Array4<Real> const& z_r = (mf_z_r)->array(mfi);
       Array4<Real> const& s_r = (mf_s_r)->array(mfi);
+      Array4<Real> const& z_phys_nd  = (mf_z_phys_nd)->array(mfi);
       Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
@@ -418,13 +420,44 @@ ROMSX::set_depth (int lev)
           else
               Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1);
           }
-          //Note, we are not supporting ICESHELF flag
       });
-    } // mf
+    }
 
     vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
     vec_z_r[lev]->FillBoundary(geom[lev].periodicity());
     vec_s_r[lev]->FillBoundary(geom[lev].periodicity());
+    for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+
+      Array4<Real> const& z_w = (mf_z_w)->array(mfi);
+      Array4<Real> const& z_r = (mf_z_r)->array(mfi);
+      Array4<Real> const& s_r = (mf_s_r)->array(mfi);
+      Array4<Real> const& z_phys_nd  = (mf_z_phys_nd)->array(mfi);
+      Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
+      Box bx = mfi.tilebox();
+      Box gbx2 = bx;
+      gbx2.grow(IntVect(NGROW,NGROW,0));
+      Box gbx21 = bx;
+      gbx21.grow(IntVect(NGROW,NGROW,NGROW-1));
+      Box gbx22 = bx;
+      gbx22.grow(IntVect(NGROW,NGROW,NGROW));
+      Box gbx2D = gbx2;
+      gbx2D.makeSlab(2,0);
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(gbx2,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k)
+      {
+
+          //Note, this doesn't necessarily define grown values correctly
+          if(gbx2.contains(i+1,j,k)&&gbx2.contains(i,j+1,k))
+              z_phys_nd(i,j,k)=0.25*(z_w(i,j,k)+z_w(i+1,j,k)+z_w(i,j+1,k)+z_w(i+1,j+1,k));
+          else
+             z_phys_nd(i,j,k)=z_w(i,j,k);
+
+          //Note, we are not supporting ICESHELF flag
+      });
+    } // mf
+    vec_z_phys_nd[lev]->FillBoundary(geom[lev].periodicity());
     vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
