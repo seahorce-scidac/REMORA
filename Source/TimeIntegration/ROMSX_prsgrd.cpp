@@ -168,4 +168,64 @@ ROMSX::prsgrd (const Box& phi_bx,
                                 (dRx(i,j,k)+dRx(i-1,j,k))))));
         }
     });
+
+    //This should be nodal
+    amrex::ParallelFor(phi_bx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        FC(i,j,k)=phi_bx.contains(i,j-1,k) ? rho(i,j,k)-rho(i,j-1,k) : 0.0;
+        aux(i,j,k)=phi_bx.contains(i,j-1,k) ? z_r(i,j,k)-z_r(i,j-1,k) : 0.0;
+    });
+    if (verbose > 2) {
+    amrex::PrintToFile("FC_inprsgrd").SetPrecision(18)<<FArrayBox(FC)<<std::endl;
+    amrex::PrintToFile("aux_inprsgrd").SetPrecision(18)<<FArrayBox(aux)<<std::endl;
+    }
+    //This should be nodal aux and FC need wider boxes above
+    //dZx and dRx may have index mismatch issues at k=2 and k=N
+    amrex::ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
+    {
+        for(int k=N;k>=0;k--) {
+            Real cff= phi_bxD.contains(i,j+1,0) ? 2.0*aux(i,j,k)*aux(i,j+1,k) : 2.0*aux(i,j,k)*aux(i,j,k);
+            if (cff>eps) {
+                Real cff1= 1.0_rt/(aux(i,j+1,k)+aux(i,j,k));
+                dZx(i,j,k)=cff*cff1;
+            } else {
+                dZx(i,j,k)=0.0;
+            }
+            Real cff1= phi_bxD.contains(i,j+1,0) ? 2.0*FC(i,j,k)*FC(i,j+1,k) : 2.0*FC(i,j,k)*FC(i,j,k);
+            if (cff1>eps) {
+                Real cff2= 1.0_rt/(FC(i,j,k)+FC(i,j+1,k));
+                dRx(i,j,k)=cff1*cff2;
+            } else {
+                dRx(i,j,k)=0.0;
+            }
+        }
+    });
+    if (verbose > 2) {
+    amrex::PrintToFile("dRx_inprsgrd").SetPrecision(18)<<FArrayBox(dRx)<<std::endl;
+    amrex::PrintToFile("dZx_inprsgrd").SetPrecision(18)<<FArrayBox(dZx)<<std::endl;
+    }
+    //This should be nodal aux and FC need wider boxes above
+    amrex::ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
+    {
+        for(int k=N;phi_bxD.contains(i,j-1,0)&&k>=0;k--) {
+            rv(i,j,k,nrhs)=om_v(i,j,0)*0.5_rt*
+                           (Hz(i,j,k)+Hz(i,j-1,k))*
+                           (P(i,j-1,k)-P(i,j,k)-
+                            HalfGRho*
+                            ((rho(i,j,k)+rho(i,j-1,k))*
+                             (z_r(i,j,k)-z_r(i,j-1,k))-
+                              OneFifth*
+                              ((dRx(i,j,k)-dRx(i,j-1,k))*
+                               (z_r(i,j,k)-z_r(i,j-1,k)-
+                                OneTwelfth*
+                                (dZx(i,j,k)+dZx(i,j-1,k)))-
+                               (dZx(i,j,k)-dZx(i,j-1,k))*
+                               (rho(i,j,k)-rho(i,j-1,k)-
+                                OneTwelfth*
+                                (dRx(i,j,k)+dRx(i,j-1,k))))));
+        }
+    });
 }
