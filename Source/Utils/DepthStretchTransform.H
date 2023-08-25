@@ -452,7 +452,7 @@ ROMSX::set_depth (int lev)
       {
           // For now assume all boundaries are constant height --
           //     we will enforce periodicity below
-          if ( i >= lo.x && i <= hi.x-1 && j >= lo.y && j <= hi.y-1 ) 
+          if ( i >= lo.x && i <= hi.x-1 && j >= lo.y && j <= hi.y-1 )
           {
               z_phys_nd(i,j,k)=0.25*( z_w(i,j  ,k) + z_w(i+1,j  ,k) +
                                       z_w(i,j+1,k) + z_w(i+1,j+1,k) );

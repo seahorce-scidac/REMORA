@@ -575,7 +575,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_z_w[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // z at w points (cell faces)
     vec_z_r[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // z at r points (cell center)
     vec_Hz[lev].reset                 (new MultiFab(ba  ,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
-    
+
     vec_Huon[lev].reset               (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // mass flux for u component
     vec_Hvom[lev].reset               (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
     vec_Akv[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
