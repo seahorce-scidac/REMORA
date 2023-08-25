@@ -121,20 +121,21 @@ ROMSX::prsgrd (const Box& phi_bx,
     amrex::PrintToFile("aux_inprsgrd").SetPrecision(18)<<FArrayBox(aux)<<std::endl;
     }
     //This should be nodal aux and FC need wider boxes above
+    //dZx and dRx may have index mismatch issues at k=2 and k=N
     amrex::ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--) {
             Real cff= phi_bxD.contains(i+1,j,0) ? 2.0*aux(i,j,k)*aux(i+1,j,k) : 2.0*aux(i,j,k)*aux(i,j,k);
             if (cff>eps) {
-                Real cff1= k>0 ? cff/(aux(i+1,j,k)+aux(i,j,k)) : cff/(aux(i,j,k)+aux(i,j,k));
+                Real cff1= 1.0_rt/(aux(i+1,j,k)+aux(i,j,k));
                 dZx(i,j,k)=cff*cff1;
             } else {
                 dZx(i,j,k)=0.0;
             }
             Real cff1= phi_bxD.contains(i+1,j,0) ? 2.0*FC(i,j,k)*FC(i+1,j,k) : 2.0*FC(i,j,k)*FC(i,j,k);
             if (cff1>eps) {
-                Real cff2= k>0 ? cff/(FC(i,j,k)+FC(i+1,j,k)) : cff/(FC(i,j,k)+FC(i,j,k));
+                Real cff2= 1.0_rt/(FC(i,j,k)+FC(i+1,j,k));
                 dRx(i,j,k)=cff1*cff2;
             } else {
                 dRx(i,j,k)=0.0;
