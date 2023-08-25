@@ -74,8 +74,7 @@ void
 init_custom_bathymetry (const Geometry& geom,
                         MultiFab& mf_h,
                         MultiFab& mf_Zt_avg1,
-                        const Real& /*time*/,
-                        int lev)
+                        const SolverChoice& m_solverChoice)
 {
     //std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     //std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
@@ -83,8 +82,8 @@ init_custom_bathymetry (const Geometry& geom,
     auto ProbLoArr = geom.ProbLoArray();
     auto ProbHiArr = geom.ProbHiArray();
 
-    mf_h.setVal(geom[lev].ProbHi(2));
-    Real depth = geom[lev].ProbHi(2);
+    mf_h.setVal(geom.ProbHi(2));
+    Real depth = geom.ProbHi(2);
     const int Lm = geom.Domain().size()[0];
     const int Mm = geom.Domain().size()[1];
 
@@ -103,24 +102,18 @@ init_custom_bathymetry (const Geometry& geom,
       const auto & geomdata = geom.data();
 
       int ncomp = 1;
-      Box subdomain;
-      if (lev == 0) {
-          subdomain = geom[lev].Domain();
-      } else {
-          amrex::Abort("Geometry information needs to be updated for multilevel");
-      }
+      //NOTE: this will need to be updated for multilevel
+      Box subdomain = geom.Domain();
 
       int nx = subdomain.length(0);
       int ny = subdomain.length(1);
       int nz = subdomain.length(2);
 
       auto N = nz; // Number of vertical "levels" aka, NZ
-      //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
-      Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
       bool NSPeriodic = geomdata.isPeriodic(1);
       bool EWPeriodic = geomdata.isPeriodic(0);
 
-      if(!solverChoice.flat_bathymetry) {
+      if(!m_solverChoice.flat_bathymetry) {
       Gpu::streamSynchronize();
       amrex::ParallelFor(gbx2, ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -170,7 +163,8 @@ init_custom_prob(
         Array4<Real const> const& Hz,
         Array4<Real const> const& h,
         Array4<Real const> const& Zt_avg1,
-        GeometryData const& geomdata)
+        GeometryData const& geomdata,
+        const SolverChoice& m_solverChoice)
 {
   const int khi = geomdata.Domain().bigEnd()[2];
 

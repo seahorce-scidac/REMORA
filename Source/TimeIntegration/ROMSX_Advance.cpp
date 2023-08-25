@@ -614,7 +614,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     }
     }
 
-    update_bathymetry(lev);
+    // Currently, bathymetry doesn't change, so we do not need to re-set h here. Just re-do stretch, etc
+    // because zeta may have changed
     stretch_transform(lev);
 
     if(solverChoice.use_baroclinic) {
