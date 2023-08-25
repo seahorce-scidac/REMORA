@@ -274,7 +274,8 @@ ROMSX::init_custom(int lev)
 
         init_custom_prob(bx, cons_arr, xvel_arr, yvel_arr, zvel_arr,
                          r_hse_arr, p_hse_arr,
-                         z_w_arr, z_r_arr, Hz_arr, h_arr, Zt_avg1_arr, geom[lev].data());
+                         z_w_arr, z_r_arr, Hz_arr, h_arr, Zt_avg1_arr, geom[lev].data(),
+                         solverChoice);
 
     } //mfi
 

@@ -616,7 +616,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_t3[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); //tempstore
     vec_s3[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); //saltstore
 
-    update_bathymetry(lev);
+    set_bathymetry(lev);
     stretch_transform(lev);
     set_vmix(lev);
     set_hmixcoef(lev);
@@ -644,8 +644,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 }
 
 void
-ROMSX::update_bathymetry(int lev) {
-    init_custom_bathymetry(geom[lev], *vec_hOfTheConfusingName[lev], *vec_Zt_avg1[lev]);
+ROMSX::set_bathymetry(int lev) {
+    init_custom_bathymetry(geom[lev], *vec_hOfTheConfusingName[lev], *vec_Zt_avg1[lev], solverChoice);
 
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());

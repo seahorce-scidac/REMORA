@@ -663,7 +663,7 @@ public:
 
     void set_2darrays (int lev);
 
-    void update_bathymetry (int lev);
+    void set_bathymetry (int lev);
 
     void stretch_transform (int lev);
 
