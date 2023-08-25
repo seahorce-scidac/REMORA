@@ -336,19 +336,21 @@ ROMSX::set_depth (int lev)
         else
         {
           sc_w=ds*(k-N);
-          if (local_theta_s > 0.0_rt)
+
+          if (local_theta_s > 0.0_rt) {
             Csur=(1.0_rt-std::cosh(local_theta_s*sc_w))/
               (std::cosh(local_theta_s)-1.0_rt);
-          else
+          } else {
             Csur=-sc_w*sc_w;
-          if (local_theta_b > 0.0_rt)
-          {
+          }
+
+          if (local_theta_b > 0.0_rt) {
             Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
               (1.0_rt-std::exp(-local_theta_b));
             Cs_w=Cbot;
-          }
-          else
+          } else {
             Cs_w=Csur;
+          }
         }
 
         cff_w=hc*sc_w;
@@ -359,22 +361,27 @@ ROMSX::set_depth (int lev)
         //Don't do anything special for first/last index
         {
           sc_r=ds*(k-N+0.5_rt);
-          if (local_theta_s > 0.0_rt)
+
+          if (local_theta_s > 0.0_rt) {
             Csur=(1.0_rt-std::cosh(local_theta_s*sc_r))/
               (std::cosh(local_theta_s)-1.0_rt);
-          else
+          } else {
             Csur=-sc_r*sc_r;
-          if (local_theta_b > 0.0_rt)
-          {
+          }
+
+          if (local_theta_b > 0.0_rt) {
             Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
               (1.0_rt-std::exp(-local_theta_b));
             Cs_r=Cbot;
-          }
-          else
+          } else {
             Cs_r=Csur;
+          }
         }
-        if(i==0&&j==0&&k<N&&k>=0)
-        s_r(0,0,k) = sc_r;
+
+        if (i==0&&j==0&&k<N&&k>=0) {
+            s_r(0,0,k) = sc_r;
+        }
+
         cff_r=hc*sc_r;
         cff1_r=Cs_r;
 
@@ -426,42 +433,39 @@ ROMSX::set_depth (int lev)
     vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
     vec_z_r[lev]->FillBoundary(geom[lev].periodicity());
     vec_s_r[lev]->FillBoundary(geom[lev].periodicity());
-    for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
-    {
-
-      Array4<Real> const& z_w = (mf_z_w)->array(mfi);
-      Array4<Real> const& z_r = (mf_z_r)->array(mfi);
-      Array4<Real> const& s_r = (mf_s_r)->array(mfi);
-      Array4<Real> const& z_phys_nd  = (mf_z_phys_nd)->array(mfi);
-      Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
-      Box bx = mfi.tilebox();
-      Box gbx2 = bx;
-      gbx2.grow(IntVect(NGROW,NGROW,0));
-      Box gbx21 = bx;
-      gbx21.grow(IntVect(NGROW,NGROW,NGROW-1));
-      Box gbx22 = bx;
-      gbx22.grow(IntVect(NGROW,NGROW,NGROW));
-      Box gbx2D = gbx2;
-      gbx2D.makeSlab(2,0);
-      Gpu::streamSynchronize();
-      amrex::ParallelFor(gbx2,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k)
-      {
-
-          //Note, this doesn't necessarily define grown values correctly
-          if(gbx2.contains(i+1,j,k)&&gbx2.contains(i,j+1,k))
-              z_phys_nd(i,j,k)=0.25*(z_w(i,j,k)+z_w(i+1,j,k)+z_w(i,j+1,k)+z_w(i+1,j+1,k));
-          else
-             z_phys_nd(i,j,k)=z_w(i,j,k);
-
-          //Note, we are not supporting ICESHELF flag
-      });
-    } // mf
-    vec_z_phys_nd[lev]->FillBoundary(geom[lev].periodicity());
     vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
 
+    // Define nodal z as average of z on w-faces
+    for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+      Array4<Real> const& z_w = (mf_z_w)->array(mfi);
+      Array4<Real> const& z_phys_nd  = (mf_z_phys_nd)->array(mfi);
+
+      Box z_w_box = Box(z_w);
+      auto const lo = amrex::lbound(z_w_box);
+      auto const hi = amrex::ubound(z_w_box);
+
+      amrex::ParallelFor(Box(z_phys_nd),
+      [=] AMREX_GPU_DEVICE (int i, int j, int k)
+      {
+          // For now assume all boundaries are constant height --
+          //     we will enforce periodicity below
+          if ( i >= lo.x && i <= hi.x-1 && j >= lo.y && j <= hi.y-1 ) 
+          {
+              z_phys_nd(i,j,k)=0.25*( z_w(i,j  ,k) + z_w(i+1,j  ,k) +
+                                      z_w(i,j+1,k) + z_w(i+1,j+1,k) );
+          } else {
+             int ii = std::min(std::max(i, lo.x), hi.x);
+             int jj = std::min(std::max(j, lo.y), hi.y);
+             z_phys_nd(i,j,k) = z_w(ii,jj,k);
+          }
+      });
+    } // mf
+
+    // Enforce periodicity
+    vec_z_phys_nd[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 /**
