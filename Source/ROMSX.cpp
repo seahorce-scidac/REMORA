@@ -562,7 +562,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 
     BoxArray ba_nd(ba);
     ba_nd.surroundingNodes();
-    vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,1,IntVect(NGROW,NGROW,0))); // z at psi points (nodes)
+    vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,2,IntVect(NGROW,NGROW,0))); // z at psi points (nodes)
 
     vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d ,dm,1,IntVect(NGROW,NGROW,0))); //2d, depth (double check if negative)
     vec_Zt_avg1[lev].reset            (new MultiFab(ba2d ,dm,1,IntVect(NGROW,NGROW,0))); //2d, average of the free surface (zeta)

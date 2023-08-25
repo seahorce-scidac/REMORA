@@ -22,7 +22,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                       Array4<Real> W   , Array4<Real> DC,
                       Array4<Real> FC  , Array4<Real> tempstore, Array4<Real> saltstore,
                       Array4<Real> FX_old, Array4<Real> FE_old,
-                      Array4<Real> z_r,
+                      Array4<Real> z_r, Array4<Real> z_w, Array4<Real> h,
                       int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                       Real lambda, Real dt_lev)
 {
@@ -36,13 +36,30 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     tbxp2.grow(IntVect(NGROW,NGROW,0));
     FArrayBox fab_FX(tbxp2,1,amrex::The_Async_Arena()); //3D
     FArrayBox fab_FE(tbxp2,1,amrex::The_Async_Arena()); //3D
+    FArrayBox fab_curv(tbxp2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0);
+    FArrayBox fab_grad(tbxp2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0);
 
     auto FX=fab_FX.array();
     auto FE=fab_FE.array();
+    auto curv=fab_curv.array();
+    auto grad=fab_grad.array();
+    amrex::ParallelFor(tbxp2,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        grad(i,j,k)=0.0;
+
+        curv(i,j,k)=0.0;
+
+        FX(i,j,k)=0.0;
+        FE(i,j,k)=0.0;
+    });
 
 
     Box ubx = surroundingNodes(tbx,0);
     Box vbx = surroundingNodes(tbx,1);
+
+    Box utbxp1 = surroundingNodes(tbxp1,0);
+    Box vtbxp1 = surroundingNodes(tbxp1,1);
 
     Box gbx3uneven_init(IntVect(AMREX_D_DECL(tbx.smallEnd(0)-3,tbx.smallEnd(1)-3,tbx.smallEnd(2))),
                    IntVect(AMREX_D_DECL(tbx.bigEnd(0)+2,tbx.bigEnd(1)+2,tbx.bigEnd(2))));
@@ -65,28 +82,24 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //------------------------------------------------------------------------
     //
     //Should really use gbx3uneven
-    amrex::ParallelFor(Box(W),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    Box gbx3unevenD = gbx3uneven;
+    gbx3unevenD.makeSlab(2,0);
+    Box gbx1D = gbx1;
+    gbx1D.makeSlab(2,0);
+
+    amrex::ParallelFor(gbx1D,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         //  Starting with zero vertical velocity at the bottom, integrate
         //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-        W(i,j,k)=0.0;
-    });
-    amrex::ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
-        if(k==0) {
-            W(i,j,k)=0.0;
-        } else {
-            W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k));
+        //W(i,j,-1)=0.0;
+        int k=0;
+        W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
+        for(k=1;k<=N;k++) {
+            W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
         }
     });
     amrex::ParallelFor(gbx1,
@@ -97,25 +110,13 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-        if(k==0) {
-            W(i,j,k)=W(i,j,k);
-        } else {
-            W(i,j,k) = W(i,j,k)- (Hvom(i,j+1,k)-Hvom(i,j,k));
+        Real wrk_i=W(i,j,N)/(z_w(i,j,N)+h(i,j,0,0));
+
+        if(k!=N) {
+            W(i,j,k) = W(i,j,k)- wrk_i*(z_w(i,j,k)+h(i,j,0,0));
         }
-    });
-    amrex::ParallelFor(gbx3uneven,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
-        if(k==0) {
-            W(i,j,k)=W(i,j,k);
-        } else {
-            W(i,j,k) = W(i,j,k) + W(i,j,k-1);
-        }
+        else
+            W(i,j,N) = 0.0;
     });
     FArrayBox fab_Akt(tbxp2,1,amrex::The_Async_Arena());
     auto Akt= fab_Akt.array();
@@ -146,20 +147,105 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //Use FC and DC as intermediate arrays for FX and FE
     //First pass do centered 2d terms
 
-    amrex::ParallelFor(tbxp2,
+    if (solverChoice.flat_bathymetry) {
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
                     0.5*(tempold(i-1,j,k)+
                          tempold(i  ,j,k)) : 1e34;
     });
-    amrex::ParallelFor(tbxp2,
+    amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
                     0.5*(tempold(i,j-1,k)+
                          tempold(i,j,k)) : 1e34;
     });
+    }
+    else {
+    amrex::ParallelFor(utbxp1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //should be t index 3
+        FX(i,j,k)=tempold(i,j,k,nrhs)-tempold(i-1,j,k,nrhs);
+    });
+    amrex::ParallelFor(vtbxp1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //should be t index 3
+        FE(i,j,k)=tempold(i,j,k,nrhs)-tempold(i,j-1,k,nrhs);
+    });
+
+    Real cffa=1.0/6.0;
+    Real cffb=1.0/3.0;
+    if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
+        amrex::ParallelFor(tbxp1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            //Upstream3
+            curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
+        });
+        //HACK to avoid using the wrong index of t (using upstream3)
+        amrex::ParallelFor(tbxp1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real max_Huon=max(Huon(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
+            Real min_Huon=min(Huon(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
+            FX(i,j,k)=Huon(i,j,k)*0.5*(tempold(i,j,k)+tempold(i-1,j,k))-
+                cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
+        });
+    }
+    else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+        amrex::ParallelFor(tbxp1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            //Centered4
+            grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
+        });
+        amrex::ParallelFor(ubx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FX(i,j,k)=Huon(i,j,k)*0.5*(tempold(i,j,k)+tempold(i-1,j,k)-
+                                       cffb*(grad(i,j,k)+ grad(i-1,j,k)));
+        });
+    }
+    else {
+        Error("Not a valid horizontal advection scheme");
+    }
+    if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
+        amrex::ParallelFor(tbxp1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
+        });
+        //HACK to avoid using the wrong index of t (using upstream3)
+        amrex::ParallelFor(tbxp1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real max_Hvom=max(Hvom(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
+            Real min_Hvom=min(Hvom(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
+            FE(i,j,k)=Hvom(i,j,k)*0.5*(tempold(i,j,k)+tempold(i,j-1,k))-
+                cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
+        });
+    }
+    else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+        amrex::ParallelFor(tbxp1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
+        });
+        amrex::ParallelFor(vbx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FE(i,j,k)=Hvom(i,j,k)*0.5*(tempold(i,j,k)+tempold(i,j-1,k)-
+                                       cffb*(grad(i,j,k)+ grad(i,j-1,k)));
+        });
+    }
+    else {
+        Error("Not a valid horizontal advection scheme");
+    }
+    }
 
     //Intermediate tracer at 3
     //
@@ -189,7 +275,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         Print()<<(Box(FX))<<std::endl;
         Print()<<(Box(FE))<<std::endl;
     }
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(tbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         tempstore(i,j,k)=Hz(i,j,k)*(cff1*tempold(i,j,k)+
@@ -209,7 +295,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     // Time-step vertical advection of tracers (Tunits). Impose artificial
     // continuity equation.
     //
-    amrex::ParallelFor(tbxp2,
+    amrex::ParallelFor(tbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //-----------------------------------------------------------------------
@@ -242,6 +328,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
               }
 
     });
+    //    exit(0);
 /*
     Real cff;
 
@@ -280,7 +367,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                              DC(i,j+1)-DC(i,j));*/
     });
 
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(tbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1=cff*pm(i,j,0)*pn(i,j,0);
@@ -299,6 +386,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //-----------------------------------------------------------------------
     //
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
-    update_vel_3d(tbxp1, gbx, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
+    update_vel_3d(tbx, gbx, 0, 0, temp, tempstore, ru, Hz, Akt, DC, FC,
                   stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
 }

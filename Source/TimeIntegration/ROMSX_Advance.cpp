@@ -55,6 +55,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     std::unique_ptr<MultiFab>& mf_Hz = vec_Hz[lev];
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
+    std::unique_ptr<MultiFab>& mf_h = vec_hOfTheConfusingName[lev];
     //Consider passing these into the advance function or renaming relevant things
     /*
     MultiFab mf_u(ba,dm,1,IntVect(NGROW,NGROW,0));
@@ -330,7 +331,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     if(solverChoice.use_prestep) {
         prestep(lev, mf_uold, mf_vold, mf_u, mf_v, mf_ru, mf_rv, mf_tempold, mf_saltold,
                 mf_temp, mf_salt, mf_Hz, vec_Akv[lev], vec_Huon[lev], vec_Hvom[lev], mf_W, mf_DC, vec_t3[lev],
-                vec_s3[lev], mf_z_r, mf_sustr, mf_svstr, mf_bustr, mf_bvstr, iic, ntfirst, nnew,
+                vec_s3[lev], mf_z_r, mf_z_w, mf_h, mf_sustr, mf_svstr, mf_bustr, mf_bvstr, iic, ntfirst, nnew,
                 nstp, nrhs, N, dt_lev);
     }
 
@@ -488,6 +489,19 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
           pmon_v(i,j,0)=1.0;        // (pm(i,j-1)+pm(i,j))/(pn(i,j-1)+pn(i,j))
           pnom_v(i,j,0)=1.0;        // (pn(i,j-1)+pn(i,j))/(pm(i,j-1)+pm(i,j))
         });
+
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FC(i,j,k)=0.0;
+        });
+
+        prsgrd(gbx1,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,nrhs,N);
+        if (verbose > 2) {
+           amrex::PrintToFile("ru_afterprsgrd").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+           amrex::PrintToFile("rv_afterprsgrd").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+        }
+
         if (verbose > 2) {
             amrex::PrintToFile("temp_pret3dmix").SetPrecision(18)<<FArrayBox(temp) << std::endl;
             amrex::PrintToFile("salt_pret3dmix").SetPrecision(18)<<FArrayBox(salt) << std::endl;
@@ -608,7 +622,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
                mf_AK, mf_DC,
-               mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], ncomp, N, dt_lev);
+               mf_Hzk, vec_Akv[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], vec_z_w[lev], vec_hOfTheConfusingName[lev], ncomp, N, dt_lev);
     }
 
     U_new.FillBoundary(geom[lev].periodicity());

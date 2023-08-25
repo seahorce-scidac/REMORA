@@ -28,6 +28,8 @@ ROMSX::advance_3d (int lev,
                    std::unique_ptr<MultiFab>& mf_Hz,
                    std::unique_ptr<MultiFab>& mf_Huon,
                    std::unique_ptr<MultiFab>& mf_Hvom,
+                   std::unique_ptr<MultiFab>& mf_z_w,
+                   std::unique_ptr<MultiFab>& mf_h,
                    const int ncomp, const int N, Real dt_lev)
 {
 
@@ -77,6 +79,8 @@ ROMSX::advance_3d (int lev,
 
         Array4<Real> const& Huon = mf_Huon->array(mfi);
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
+
+        Array4<Real> const& z_w= (mf_z_w)->array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -288,6 +292,9 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& Huon = mf_Huon->array(mfi);
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
 
+        Array4<Real> const& z_w= (mf_z_w)->array(mfi);
+        Array4<Real> const& h= (mf_h)->array(mfi);
+
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
@@ -393,17 +400,24 @@ ROMSX::advance_3d (int lev,
     //------------------------------------------------------------------------
     //
     //Should really use gbx3uneven
-    amrex::ParallelFor(Box(W),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    Box gbx1D = gbx1;
+    gbx1D.makeSlab(2,0);
+
+    amrex::ParallelFor(gbx1D,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         //  Starting with zero vertical velocity at the bottom, integrate
         //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-        W(i,j,k)=0.0;
+        //W(i,j,-1)=0.0;
+        int k=0;
+        W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
+        for(k=1;k<=N;k++) {
+            W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
+        }
     });
-
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -412,41 +426,13 @@ ROMSX::advance_3d (int lev,
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-        if(k==0) {
-            W(i,j,k)=0.0;
-        } else {
-            W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k));
-        }
-    });
+        Real wrk_i=W(i,j,N)/(z_w(i,j,N)+h(i,j,0,0));
 
-    amrex::ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
-        if(k==0) {
-            W(i,j,k)=0.0;
-        } else {
-            W(i,j,k) = W(i,j,k)- (Hvom(i,j+1,k)-Hvom(i,j,k));
+        if(k!=N) {
+            W(i,j,k) = W(i,j,k)- wrk_i*(z_w(i,j,k)+h(i,j,0,0));
         }
-    });
-
-    amrex::ParallelFor(Box(W),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
-        if(k==0) {
-            W(i,j,k)=W(i,j,k);
-        } else {
-            W(i,j,k) = W(i,j,k) + W(i,j,k-1);
-        }
+        else
+            W(i,j,N) = 0.0;
     });
 
        //
