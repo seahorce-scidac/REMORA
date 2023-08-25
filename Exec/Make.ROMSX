@@ -50,9 +50,20 @@ ifeq ($(USE_HDF5),TRUE)
 AMReXdirs             += Extern/HDF5
 endif
 
+ifeq ($(USE_PARTICLES),TRUE)
+AMReXdirs             += Particle
+endif
+
 AMReXpack             += $(foreach dir, $(AMReXdirs), $(AMREX_HOME)/Src/$(dir)/Make.package)
 
 include $(AMReXpack)
+
+ifeq ($(USE_PARTICLES),TRUE)
+ROMSX_PARTICLES_DIR = $(ROMSX_SOURCE_DIR)/Particles
+include $(ROMSX_PARTICLES_DIR)/Make.package
+VPATH_LOCATIONS   += $(ROMSX_PARTICLES_DIR)
+INCLUDE_LOCATIONS += $(ROMSX_PARTICLES_DIR)
+endif
 
 #turn on NetCDF macro define
 ifeq ($(USE_NETCDF), TRUE)
@@ -66,6 +77,10 @@ endif
 ifeq ($(USE_HDF5), TRUE)
   DEFINES += -DROMSX_USE_HDF5
   DEFINES += -DAMREX_USE_HDF5
+endif
+
+ifeq ($(USE_PARTICLES), TRUE)
+  DEFINES += -DROMSX_USE_PARTICLES
 endif
 
 ifeq ($(SALINITY),TRUE)

@@ -31,7 +31,6 @@ amrex::Real ROMSX::init_shrink   =  1.0;
 amrex::Real ROMSX::change_max    =  1.1;
 int   ROMSX::fixed_ndtfast_ratio = 0;
 
-
 // Type of mesh refinement algorithm
 int         ROMSX::do_reflux     = 0;
 int         ROMSX::do_avg_down   = 0;
@@ -49,9 +48,16 @@ std::string ROMSX::plotfile_type    = "amrex";
 // init_type:  "custom", "ideal", "real"
 std::string ROMSX::init_type        = "custom";
 
+#ifdef ROMSX_USE_PARTICLES
+bool ROMSX::use_tracer_particles = false;
+amrex::Vector<std::string> ROMSX::tracer_particle_varnames = {AMREX_D_DECL("xvel", "yvel", "zvel")};
+#endif
+
+#ifdef ROMSX_USE_NETCDF
 // NetCDF wrfinput (initialization) file(s)
 amrex::Vector<amrex::Vector<std::string>> ROMSX::nc_init_file = {{""}}; // Must provide via input
 std::string ROMSX::nc_bdy_file;
+#endif
 
 amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 
@@ -273,6 +279,17 @@ ROMSX::InitData ()
             init_only(lev, time);
 
         AverageDown();
+
+#ifdef ROMSX_USE_PARTICLES
+        // Initialize tracer particles if required
+        if (use_tracer_particles) {
+            tracer_particles = std::make_unique<TerrainFittedPC>(Geom(0), dmap[0], grids[0]);
+
+            tracer_particles->InitParticles(*vec_z_phys_nd[0]);
+
+            Print() << "Initialized " << tracer_particles->TotalNumberOfParticles() << " tracer particles." << std::endl;
+        }
+#endif
 
     } else { // Restart from a checkpoint
 
@@ -508,6 +525,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_s_r.resize(lev+1);
     vec_z_w.resize(lev+1);
     vec_z_r.resize(lev+1);
+    vec_z_phys_nd.resize(lev+1);
     vec_y_r.resize(lev+1);
     vec_x_r.resize(lev+1);
     vec_Hz.resize(lev+1);
@@ -545,10 +563,11 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d,dm,2,IntVect(NGROW,NGROW,0))); //2d, depth (double check if negative)
     vec_Zt_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, average of the free surface (zeta)
     vec_s_r[lev].reset(new MultiFab(ba1d,dm,1,IntVect(0,0,0))); // scaled vertical coordinate [0,1] , transforms to z
-    vec_z_w[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at w points
-    vec_z_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at r points
-    vec_y_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // y at r points
-    vec_x_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // x at r points
+    vec_z_w[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at w points (cell faces)
+    vec_z_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at r points (cell center)
+    vec_z_phys_nd[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // z at psi points (cell nodes)
+    vec_y_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // y at r points (cell center)
+    vec_x_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // x at r points (cell center)
     vec_Hz[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
     vec_Huon[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // mass flux for u component
     Print() << "ba " << ba << std::endl;
@@ -766,6 +785,11 @@ ROMSX::ReadParameters ()
         pp.query("plot_file_2", plot_file_2);
         pp.query("plot_int_1", plot_int_1);
         pp.query("plot_int_2", plot_int_2);
+
+#ifdef ROMSX_USE_PARTICLES
+        // Tracer particle toggle
+        pp.query("use_tracer_particles", use_tracer_particles);
+#endif
     }
 
 #ifdef ROMSX_USE_MULTIBLOCK
@@ -773,108 +797,6 @@ ROMSX::ReadParameters ()
 #endif
 
     solverChoice.init_params();
-}
-
-// Create horizontal average quantities
-void
-ROMSX::MakeHorizontalAverages ()
-{
-    // We need to create horizontal averages for 5 variables:
-    // density, temperature, pressure, qc, qv (if present)
-
-    // First, average down all levels
-    AverageDown();
-
-    // get the number of cells in z at level 0
-    int dir_z = AMREX_SPACEDIM-1;
-    auto domain = geom[0].Domain();
-    int size_z = domain.length(dir_z);
-    int start_z = domain.smallEnd()[dir_z];
-    Real area_z = static_cast<Real>(domain.length(0));
-    area_z *= domain.length(1);
-
-    // resize the level 0 horizontal average vectors
-    h_havg_density.resize(size_z, 0.0_rt);
-    h_havg_temperature.resize(size_z, 0.0_rt);
-#ifdef ROMSX_USE_MOISTURE
-    h_havg_qv.resize(size_z, 0.0_rt);
-    h_havg_qc.resize(size_z, 0.0_rt);
-#endif
-
-    // get the cell centered data and construct sums
-    auto& mf_cons = vars_new[0][Vars::cons];
-#ifdef _OPENMP
-#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
-#endif
-    for (MFIter mfi(mf_cons); mfi.isValid(); ++mfi) {
-        const Box& box = mfi.validbox();
-        const IntVect& se = box.smallEnd();
-        const IntVect& be = box.bigEnd();
-        auto  arr_cons = mf_cons[mfi].array();
-
-#ifdef ROMSX_USE_MOISTURE
-        FArrayBox fab_reduce(box, 5);
-#else
-        FArrayBox fab_reduce(box, 3);
-#endif
-        Elixir elx_reduce = fab_reduce.elixir();
-        auto arr_reduce = fab_reduce.array();
-
-        ParallelFor(box, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-            Real dens = arr_cons(i, j, k, Cons::Rho);
-            arr_reduce(i, j, k, 0) = dens;
-            arr_reduce(i, j, k, 1) = arr_cons(i, j, k, Cons::Temp) / dens;
-#ifdef ROMSX_USE_MOISTURE
-            arr_reduce(i, j, k, 3) = arr_cons(i, j, k, Cons::RhoQv) / dens;
-            arr_reduce(i, j, k, 4) = arr_cons(i, j, k, Cons::RhoQc) / dens;
-#endif
-        });
-
-        for (int k=se[dir_z]; k <= be[dir_z]; ++k) {
-            Box kbox(box); kbox.setSmall(dir_z,k); kbox.setBig(dir_z,k);
-            h_havg_density     [k-start_z] += fab_reduce.sum<RunOn::Device>(kbox,0);
-            h_havg_temperature [k-start_z] += fab_reduce.sum<RunOn::Device>(kbox,1);
-#ifdef ROMSX_USE_MOISTURE
-            h_havg_qv          [k-start_z] += fab_reduce.sum<RunOn::Device>(kbox,3);
-            h_havg_qc          [k-start_z] += fab_reduce.sum<RunOn::Device>(kbox,4);
-#endif
-        }
-    }
-
-    // combine sums from different MPI ranks
-    ParallelDescriptor::ReduceRealSum(h_havg_density.dataPtr(), h_havg_density.size());
-    ParallelDescriptor::ReduceRealSum(h_havg_temperature.dataPtr(), h_havg_temperature.size());
-#ifdef ROMSX_USE_MOISTURE
-    ParallelDescriptor::ReduceRealSum(h_havg_qv.dataPtr(), h_havg_qv.size());
-    ParallelDescriptor::ReduceRealSum(h_havg_qc.dataPtr(), h_havg_qc.size());
-#endif
-
-    // divide by the total number of cells we are averaging over
-    for (int k = 0; k < size_z; ++k) {
-        h_havg_density[k]     /= area_z;
-        h_havg_temperature[k] /= area_z;
-#ifdef ROMSX_USE_MOISTURE
-        h_havg_qv[k]          /= area_z;
-        h_havg_qc[k]          /= area_z;
-#endif
-    }
-
-    // resize device vectors
-    d_havg_density.resize(size_z, 0.0_rt);
-    d_havg_temperature.resize(size_z, 0.0_rt);
-    d_havg_pressure.resize(size_z, 0.0_rt);
-#ifdef ROMSX_USE_MOISTURE
-    d_havg_qv.resize(size_z, 0.0_rt);
-    d_havg_qc.resize(size_z, 0.0_rt);
-#endif
-
-    // copy host vectors to device vectors
-    amrex::Gpu::copy(amrex::Gpu::hostToDevice, h_havg_density.begin(), h_havg_density.end(), d_havg_density.begin());
-    amrex::Gpu::copy(amrex::Gpu::hostToDevice, h_havg_temperature.begin(), h_havg_temperature.end(), d_havg_temperature.begin());
-#ifdef ROMSX_USE_MOISTURE
-    amrex::Gpu::copy(amrex::Gpu::hostToDevice, h_havg_qv.begin(), h_havg_qv.end(), d_havg_qv.begin());
-    amrex::Gpu::copy(amrex::Gpu::hostToDevice, h_havg_qc.begin(), h_havg_qc.end(), d_havg_qc.begin());
-#endif
 }
 
 // Set covered coarse cells to be the average of overlying fine cells for all levels

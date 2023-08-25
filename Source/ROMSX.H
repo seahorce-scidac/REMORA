@@ -33,6 +33,10 @@
 #include <DataStruct.H>
 #include <Derive.H>
 
+#ifdef ROMSX_USE_PARTICLES
+#include "TerrainFittedPC.H"
+#endif
+
 #ifdef ROMSX_USE_NETCDF
 #include "NCWpsFile.H"
 #endif
@@ -54,6 +58,10 @@ namespace InterpType {
         CellConservativeQuartic
     };
 }
+
+#ifdef ROMSX_USE_PARTICLES
+typedef amrex::ParticleContainer<AMREX_SPACEDIM, 0, 0, 0> TracerPC;
+#endif
 
 template<typename V, typename T>
 bool containerHasElement(const V& iterable, const T& query) {
@@ -149,8 +157,6 @@ public:
     /** Make mask to zero out covered cells*/
     amrex::MultiFab& build_fine_mask(int lev);
 
-    void MakeHorizontalAverages();
-
     /** write plotfile to disk */
     void WritePlotFile  (int which, amrex::Vector<std::string> plot_var_names);
 
@@ -233,6 +239,7 @@ public:
 
     /** Bathymetry data (2D, positive valued, h in ROMS) **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_hOfTheConfusingName;
+
     /** Width of cells in the vertical (z-) direction (3D, Hz in ROMS) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hz;
     /** u-volume flux (3D) */
@@ -268,6 +275,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_w;
     /** Scaled vertical coordinate (range [0,1]) that transforms to z, defined at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_r;
+    /** z coordinates at psi points (cell nodes) **/
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_phys_nd;
     /** Average of the free surface, zeta (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Zt_avg1;
     /** Surface stress in the u direction */
@@ -666,6 +675,11 @@ public:
 
     void set_weights (int lev);
 
+#ifdef ROMSX_USE_PARTICLES
+    std::unique_ptr<TerrainFittedPC> tracer_particles;
+    static amrex::Vector<std::string> tracer_particle_varnames;
+#endif
+
 private:
 
     ///////////////////////////
@@ -942,6 +956,9 @@ private:
     static std::string coupling_type;
     static int do_reflux;
     static int do_avg_down;
+
+    // flag to turn tracer particle generation on/off
+    static bool use_tracer_particles;
 
     // Diagnostic output interval
     static int sum_interval;

@@ -167,6 +167,12 @@ ROMSX::WriteCheckpointFile () const
        VisMF::Write(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "zeta"));
        VisMF::Write(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Zt_avg1"));
    }
+
+#ifdef ROMSX_USE_PARTICLES
+   if (use_tracer_particles) {
+       tracer_particles->Checkpoint(checkpointname, "tracers", true, tracer_particle_varnames);
+   }
+#endif
 }
 
 void
@@ -358,4 +364,12 @@ ROMSX::ReadCheckpointFile ()
        vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
        vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
     }
+
+#ifdef ROMSX_USE_PARTICLES
+   if (use_tracer_particles) {
+       tracer_particles = std::make_unique<TerrainFittedPC>(Geom(0), dmap[0], grids[0]);
+       std::string tracer_file("tracers");
+       tracer_particles->Restart(restart_chkfile, tracer_file);
+   }
+#endif
 }
