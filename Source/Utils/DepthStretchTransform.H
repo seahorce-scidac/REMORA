@@ -230,6 +230,7 @@ ROMSX::set_depth (int lev)
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
       gbx2.grow(IntVect(NGROW,NGROW,0));
+      Box wgbx2 = gbx2.surroundingNodes(2);
       Box gbx21 = bx;
       gbx21.grow(IntVect(NGROW,NGROW,NGROW-1));
       Box gbx22 = bx;
@@ -263,7 +264,7 @@ ROMSX::set_depth (int lev)
 
       if(!solverChoice.flat_bathymetry) {
       Gpu::streamSynchronize();
-      amrex::ParallelFor(gbx2, ncomp,
+      amrex::ParallelFor(wgbx2, ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
           Real val1, val2;
@@ -289,7 +290,7 @@ ROMSX::set_depth (int lev)
       });
       } else {
       Gpu::streamSynchronize();
-      amrex::ParallelFor(gbx2, ncomp,
+      amrex::ParallelFor(wgbx2, ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
           h(i,j,0) = -geomdata.ProbLo(2);
