@@ -562,6 +562,9 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 
     BoxArray ba_nd(ba);
     ba_nd.surroundingNodes();
+    BoxArray ba_w(ba);
+    ba_w.surroundingNodes(2);
+
     vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,1,IntVect(NGROW,NGROW,0))); // z at psi points (nodes)
 
     vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d ,dm,2,IntVect(NGROW,NGROW,0))); //2d, depth (double check if negative)
@@ -572,7 +575,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
 
     vec_s_r[lev].reset                (new MultiFab(ba1d,dm,1,IntVect(    0,    0,0))); // scaled vertical coordinate [0,1] , transforms to z
 
-    vec_z_w[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // z at w points (cell faces)
+    vec_z_w[lev].reset                (new MultiFab(ba_w,dm,1,IntVect(NGROW,NGROW,0))); // z at w points (cell faces)
     vec_z_r[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // z at r points (cell center)
     vec_Hz[lev].reset                 (new MultiFab(ba  ,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
 
