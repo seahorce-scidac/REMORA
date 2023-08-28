@@ -229,6 +229,7 @@ ROMSX::stretch_transform (int lev)
       gbx2.grow(IntVect(NGROW,NGROW,0));
       Box gbx2D = gbx2;
       gbx2D.makeSlab(2,0);
+      Box wgbx2 = gbx2.surroundingNodes(2);
 
       const auto & geomdata = Geom(lev).data();
 
@@ -252,7 +253,7 @@ ROMSX::stretch_transform (int lev)
       const auto local_theta_s = solverChoice.theta_s;
       const auto local_theta_b = solverChoice.theta_b;
 
-      amrex::ParallelFor(gbx2, ncomp,
+      amrex::ParallelFor(wgbx2, ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
           z_w(i,j,k) = h(i,j,0);
