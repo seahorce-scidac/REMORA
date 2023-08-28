@@ -117,6 +117,9 @@ init_custom_bathymetry (const Geometry& geom,
       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
           h(i,j,0) = -geomdata.ProbLo(2);
+          if (k==0) {
+              h(i,j,0,1) = h(i,j,0);
+          }
       });
       }
     }
