@@ -59,6 +59,7 @@ In addition to this documentation, there is API documentation for ROMSX generate
    TimeAdvance.rst
    Discretizations.rst
    Numerical_Solution_Technique.rst
+   Time_Stepping.rst
    VerticalSCoord.rst
    MeshRefinement.rst
    BoundaryConditions.rst
