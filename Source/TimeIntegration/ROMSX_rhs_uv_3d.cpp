@@ -234,10 +234,10 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
                                   ( cff1*(   W(i  ,j,N-1)+ W(i-1,j,N-1))
                                    -cff2*(   W(i+1,j,N-1)+ W(i-2,j,N-1)) );
 
-                  FC(i,j,0)=( cff1*(uold(i  ,j,1,nrhs)+ uold(i,j,2,nrhs))
-                             -cff2*(uold(i  ,j,1,nrhs)+ uold(i,j,3,nrhs)) )*
-                                ( cff1*(   W(i  ,j,1)+ W(i-1,j,1))
-                                 -cff2*(   W(i+1,j,1)+ W(i-2,j,1)) );
+                  FC(i,j,0)=( cff1*(uold(i  ,j,0,nrhs)+ uold(i,j,1,nrhs))
+                             -cff2*(uold(i  ,j,0,nrhs)+ uold(i,j,2,nrhs)) )*
+                                ( cff1*(   W(i  ,j,0)+ W(i-1,j,0))
+                                 -cff2*(   W(i+1,j,0)+ W(i-2,j,0)) );
 
                   //              FC(i,0,-1)=0.0;
               }
@@ -254,6 +254,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
               }
 
               ru(i,j,k,nrhs) -= cff;
+              //printf("%d %d %d %d   %15.15g %15.15g %15.15g ru cff\n", i,j,k,nrhs,ru(i,j,k,nrhs), cff, FC(i,j,k));
         }); Gpu::synchronize();
         //This uses W being an extra grow cell sized
         amrex::ParallelFor(gbx1,

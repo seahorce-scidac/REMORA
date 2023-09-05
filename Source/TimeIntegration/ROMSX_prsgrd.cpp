@@ -128,14 +128,14 @@ ROMSX::prsgrd (const Box& phi_bx,
         for(int k=N;k>=0;k--) {
             Real cff= phi_bxD.contains(i+1,j,0) ? 2.0*aux(i,j,k)*aux(i+1,j,k) : 2.0*aux(i,j,k)*aux(i,j,k);
             if (cff>eps) {
-                Real cff1= 1.0_rt/(aux(i+1,j,k)+aux(i,j,k));
+                Real cff1= phi_bxD.contains(i+1,j,0) ? 1.0_rt/(aux(i+1,j,k)+aux(i,j,k)) : 1.0_rt/(2.0*aux(i,j,k));
                 dZx(i,j,k)=cff*cff1;
             } else {
                 dZx(i,j,k)=0.0;
             }
             Real cff1= phi_bxD.contains(i+1,j,0) ? 2.0*FC(i,j,k)*FC(i+1,j,k) : 2.0*FC(i,j,k)*FC(i,j,k);
             if (cff1>eps) {
-                Real cff2= 1.0_rt/(FC(i,j,k)+FC(i+1,j,k));
+                Real cff2= phi_bxD.contains(i+1,j,0) ? 1.0_rt/(FC(i,j,k)+FC(i+1,j,k)) : 1.0_rt/(2.0*FC(i,j,k));
                 dRx(i,j,k)=cff1*cff2;
             } else {
                 dRx(i,j,k)=0.0;
@@ -188,14 +188,14 @@ ROMSX::prsgrd (const Box& phi_bx,
         for(int k=N;k>=0;k--) {
             Real cff= phi_bxD.contains(i,j+1,0) ? 2.0*aux(i,j,k)*aux(i,j+1,k) : 2.0*aux(i,j,k)*aux(i,j,k);
             if (cff>eps) {
-                Real cff1= 1.0_rt/(aux(i,j+1,k)+aux(i,j,k));
+                Real cff1= phi_bxD.contains(i,j+1,0) ? 1.0_rt/(aux(i,j+1,k)+aux(i,j,k)) : 1.0_rt/(2.0*aux(i,j,k));
                 dZx(i,j,k)=cff*cff1;
             } else {
                 dZx(i,j,k)=0.0;
             }
             Real cff1= phi_bxD.contains(i,j+1,0) ? 2.0*FC(i,j,k)*FC(i,j+1,k) : 2.0*FC(i,j,k)*FC(i,j,k);
             if (cff1>eps) {
-                Real cff2= 1.0_rt/(FC(i,j,k)+FC(i,j+1,k));
+                Real cff2= phi_bxD.contains(i,j+1,0) ? 1.0_rt/(FC(i,j,k)+FC(i,j+1,k)) : 1.0_rt/(2.0*FC(i,j,k));
                 dRx(i,j,k)=cff1*cff2;
             } else {
                 dRx(i,j,k)=0.0;

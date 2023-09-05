@@ -161,6 +161,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
         Array4<Real> const& Akv = (vec_Akv[lev])->array(mfi);
+        Array4<Real> const& h = (vec_hOfTheConfusingName[lev])->array(mfi);
         Array4<Real> const& Hz  = (vec_Hz[lev])->array(mfi);
         Array4<Real> const& Huon  = (vec_Huon[lev])->array(mfi);
         Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
@@ -325,7 +326,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         set_massflux_3d(gbx2,1,0,uold,Huon,Hz,on_u,nnew);
         set_massflux_3d(gbx2,0,1,vold,Hvom,Hz,om_v,nnew);
 
-        rho_eos(gbx2,temp,salt,rho,rhoA,rhoS,pden,Hz,z_w,nrhs,N);
+        rho_eos(gbx2,temp,salt,rho,rhoA,rhoS,pden,Hz,z_w,h,nrhs,N);
     }
 
     if(solverChoice.use_prestep) {
@@ -552,6 +553,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         if(solverChoice.use_uv3dmix) {
         //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
         //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
+        //For debugging version: uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev,false);
         uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
         if (verbose > 2) {
             amrex::PrintToFile("ru_afteruvmix").SetPrecision(18)<<FArrayBox(ru)<<std::endl;

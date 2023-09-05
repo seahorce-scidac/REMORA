@@ -12,6 +12,7 @@ ROMSX::rho_eos (const Box& phi_bx,
                 Array4<Real> pden,
                 Array4<Real> Hz,
                 Array4<Real> z_w,
+                Array4<Real> h,
                 const int nrhs,
                 const int N)
 {
@@ -40,12 +41,16 @@ ROMSX::rho_eos (const Box& phi_bx,
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
+        //printf("%d %d %d   %15.15g    temp\n", i,j,k, temp(i,j,k,nrhs));
+        //printf("%d %d %d   %15.15g    salt\n", i,j,k, salt(i,j,k,nrhs));
         rho(i,j,k)=R0-
             R0*Tcoef*(temp(i,j,k,nrhs)-T0);
         rho(i,j,k)=rho(i,j,k)+
             R0*Scoef*(salt(i,j,k,nrhs)-S0);
         rho(i,j,k)=rho(i,j,k)-1000.0_rt;
         pden(i,j,k)=rho(i,j,k);
+        //printf("%d %d %d  %15.15g rhorhoeos\n", i,j,k, rho(i,j,k));
+        //printf("%d %d %d  %15.15g Hzrhoeos\n", i,j,k, Hz(i,j,k));
     });
 //
 //-----------------------------------------------------------------------
@@ -56,9 +61,18 @@ ROMSX::rho_eos (const Box& phi_bx,
     amrex::ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Real cff1=rho(i,j,N-1)*Hz(i,j,N);
+        //printf("%d %d  %15.15g Hzstart\n", i,j, Hz(i,j,N));
+        Real cff1=rho(i,j,N)*Hz(i,j,N);
         rhoS(i,j,0)=0.5_rt*cff1*Hz(i,j,N);
         rhoA(i,j,0)=cff1;
+        //printf("%d %d %d   %15.15g cff1\n", i,j,N, cff1);
+        //printf("%d %d %d   %15.15g rhoN\n", i,j,N, rho(i,j,N));
+        //printf("%d %d %d   %15.15g rhoA\n", i,j,N, rhoA(i,j,0));
+        //printf("%d %d %d   %15.15g rhoS\n", i,j,N, rhoS(i,j,0));
+        //printf("%d %d %d   %15.15g Hzend  \n", i,j,N, Hz(i,j,N));
+        //printf("%d %d  %15.15g Hzend\n", i,j, Hz(i,j,N));
+        printf("%d %d  %15.15g %15.15g %15.15g %15.15g %15.15g cff1 rhoN rhoA rhoS Hz rhoeos\n",
+                i,j, cff1, rho(i,j,N), rhoA(i,j,0), rhoS(i,j,0), Hz(i,j,N));
     });
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -67,15 +81,18 @@ ROMSX::rho_eos (const Box& phi_bx,
         Real cff1=rho(i,j,N-k)*Hz(i,j,N-k);
         rhoS(i,j,0)=rhoS(i,j,0)+Hz(i,j,N-k)*(rhoA(i,j,0)+0.5_rt*cff1);
         rhoA(i,j,0)=rhoA(i,j,0)+cff1;
+        printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g   cff1 rhoA rhoS Hz rhoeos\n", i,j,k, cff1, rhoA(i,j,0), rhoS(i,j,0), Hz(i,j,N-k));
         }
     });
     amrex::ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff2=1.0_rt/rho0;
-        Real cff1=1.0_rt/(z_w(i,j,N)-z_w(i,j,0));
+        Real cff1=1.0_rt/(z_w(i,j,N)+h(i,j,0,0));
         rhoA(i,j,0)=cff2*cff1*rhoA(i,j,0);
         rhoS(i,j,0)=2.0_rt*cff1*cff1*cff2*rhoS(i,j,0);
+        printf("%d %d  %15.15g %15.15g %15.15g %15.15g z_wN z_w0\n", i,j, z_w(i,j,N), z_w(i,j,0), h(i,j,0,0),h(i,j,0,1));
+        printf("%d %d  %15.15g %15.15g %15.15g %15.15g  cff2 cff1 rhoA rhoS rhoeos\n", i,j,cff2, cff1, rhoA(i,j,0), rhoS(i,j,0));
     });
 
 }
