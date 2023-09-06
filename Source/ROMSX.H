@@ -534,6 +534,7 @@ public:
                   amrex::Array4<amrex::Real> pden,
                   amrex::Array4<amrex::Real> Hz,
                   amrex::Array4<amrex::Real> z_w,
+                  amrex::Array4<amrex::Real> h,
                   const int nrhs, const int N);
 
     void prsgrd (const amrex::Box& bx,
