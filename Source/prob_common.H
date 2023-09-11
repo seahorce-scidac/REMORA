@@ -30,4 +30,14 @@ void init_custom_bathymetry (const amrex::Geometry& geom,
                         amrex::MultiFab& mf_Zt_avg1,
                         SolverChoice const& m_solverChoice);
 
+/// Parser for u component of wind/surface stress, takes arguments (t,x,y)
+ParserExecutor<3> u_wind_parser;
+/// Parser for v component of wind/surface stress, takes arguments (t,x,y)
+ParserExecutor<3> v_wind_parser;
+
+/// Parser for eddy viscosity, takes arguments (x,y,z)
+ParserExecutor<3> Akv_parser;
+/// Parser for eddy diffusivity, takes arguments (x,y,z)
+ParserExecutor<3> Akt_parser;
+
 #endif
