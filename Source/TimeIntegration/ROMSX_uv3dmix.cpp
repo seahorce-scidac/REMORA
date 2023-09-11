@@ -6,6 +6,7 @@ using namespace amrex;
 void
 ROMSX::uv3dmix  (const Box& bx,
                  Array4<Real> u  , Array4<Real> v,
+                 Array4<Real> uold  , Array4<Real> vold,
                  Array4<Real> rufrc, Array4<Real> rvfrc,
                  Array4<Real> visc2_p,
                  Array4<Real> visc2_r,
@@ -52,11 +53,11 @@ ROMSX::uv3dmix  (const Box& bx,
             {
                 // cff depends on k, but UFx and VFe will only be affected by the last cell?
                 const amrex::Real cff = 0.5*Hz(i,j,k) * (pm(i,j,0) / pn(i,j,0) *
-                        ((pn(i,  j,0) + pn(i+1,j,0)) * u(i+1,j,k,nrhs)-
-                         (pn(i-1,j,0) + pn(i,  j,0)) * u(i  ,j,k,nrhs))-
+                        ((pn(i,  j,0) + pn(i+1,j,0)) * uold(i+1,j,k,nrhs)-
+                         (pn(i-1,j,0) + pn(i,  j,0)) * uold(i  ,j,k,nrhs))-
                         pn(i,j,0) / pm(i,j,0) *
-                        ((pm(i,j  ,0)+pm(i,j+1,0))*v(i,j+1,k,nrhs)-
-                         (pm(i,j-1,0)+pm(i,j  ,0))*v(i,j  ,k,nrhs)));
+                        ((pm(i,j  ,0)+pm(i,j+1,0))*vold(i,j+1,k,nrhs)-
+                         (pm(i,j-1,0)+pm(i,j  ,0))*vold(i,j  ,k,nrhs)));
                 // ifndef VISC_3DCOEF branch
                 UFx(i,j,k) = on_r(i,j,0)*on_r(i,j,0)*visc2_r(i,j,0)*cff;
                 VFe(i,j,k) = om_r(i,j,0)*om_r(i,j,0)*visc2_r(i,j,0)*cff;
@@ -69,11 +70,14 @@ ROMSX::uv3dmix  (const Box& bx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 //printf("%d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz(i-1,j,k),Hz(i,j,k),Hz(i-1,j-1,k),Hz(i,j-1,k));
-                const amrex::Real cff = 0.125 * (Hz(i-1,j  ,k)+Hz(i,j  ,k)+
+                const amrex::Real cff = 0.125 * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
                                       Hz(i-1,j-1,k)+Hz(i,j-1,k))*
                             (pm(i,j,0)/pn(i,j,0)*
-                             ((pn(i  ,j-1,0)+pn(i  ,j,0))*v(i  ,j,k,nrhs)-
-                              (pn(i-1,j-1,0)+pn(i-1,j,0))*v(i-1,j,k,nrhs)));
+                             ((pn(i  ,j-1,0)+pn(i  ,j,0))*vold(i  ,j,k,nrhs)-
+                              (pn(i-1,j-1,0)+pn(i-1,j,0))*vold(i-1,j,k,nrhs))+
+                             pn(i,j,0)/pm(i,j,0)*
+                             ((pm(i-1,j  ,0)+pm(i,j  ,0))*uold(i,j  ,k,nrhs)-
+                              (pm(i-1,j-1,0)+pm(i,j-1,0))*uold(i,j-1,k,nrhs)));
                 // ifndef VISC_3DCOEF branch
                 UFe(i,j,k) = om_p(i,j,0)*om_p(i,j,0)*visc2_p(i,j,0)*cff;
                 VFx(i,j,k) = on_p(i,j,0)*on_p(i,j,0)*visc2_p(i,j,0)*cff;

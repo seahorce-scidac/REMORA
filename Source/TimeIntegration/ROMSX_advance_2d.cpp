@@ -571,7 +571,7 @@ ROMSX::advance_2d (int lev,
                                 Drhs(i,j-1,0)+Drhs(i-1,j-1,0));
         });
 
-        uv3dmix(bxD, ubar, vbar, rhs_ubar, rhs_vbar, visc2_p, visc2_r, Drhs, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
+        uv3dmix(bxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar, visc2_p, visc2_r, Drhs, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
 
         //Coupling from 3d to 2d
         /////////Coupling of 3d updates to 2d predictor-corrector

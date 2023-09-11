@@ -554,7 +554,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
         //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
         //For debugging version: uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev,false);
-        uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
+        uv3dmix(bx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
         if (verbose > 2) {
             amrex::PrintToFile("ru_afteruvmix").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
             amrex::PrintToFile("rv_afteruvmix").SetPrecision(18)<<FArrayBox(rv)<<std::endl;

@@ -626,6 +626,8 @@ public:
     void uv3dmix  (const amrex::Box& bx,
                  amrex::Array4<amrex::Real> u,
                  amrex::Array4<amrex::Real> v,
+                 amrex::Array4<amrex::Real> uold,
+                 amrex::Array4<amrex::Real> vold,
                  amrex::Array4<amrex::Real> rufrc,
                  amrex::Array4<amrex::Real> rvfrc,
                  amrex::Array4<amrex::Real> visc2_p,
