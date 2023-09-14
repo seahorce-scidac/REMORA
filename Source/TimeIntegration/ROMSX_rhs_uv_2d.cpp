@@ -137,9 +137,13 @@ ROMSX::rhs_2d (const Box& bx,
             Huee(i,j,k)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
             cff1=vold(i  ,j,k,nrhs)+vold(i-1,j,k,nrhs);
             cff2=Huon(i,j,k)+Huon(i,j-1,k);
-            cff3=vxx(i-1,j,k)+vxx(i,j,k);
+            auto vxx_im1 = (i == gbx1.smallEnd(0)) ? vxx(i-1,j,k) :
+                (vold(i-2,j,k,nrhs)-2.0*vold(i-1,j,k,nrhs)+vold(i,j,k,nrhs));
+            cff3=vxx_im1+vxx(i,j,k);
 
-            VFx(i,j,k)=0.25*(cff1-cff3*cff)* (cff2-cff*(Huee(i,j,k)+ Huee(i,j-1,k)));
+            auto Huee_jm1 = (j == gbx1.smallEnd(1)) ? Huee(i,j-1,k) :
+                (Huon(i,j-2,k)-2.0*Huon(i,j-1,k)+Huon(i,j,k));
+            VFx(i,j,k)=0.25*(cff1-cff3*cff)* (cff2-cff*(Huee(i,j,k)+ Huee_jm1));
             vee(i,j,k)=vold(i,j-1,k,nrhs)-2.0*vold(i,j,k,nrhs)+
               vold(i,j+1,k,nrhs);
             Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);

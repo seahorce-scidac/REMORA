@@ -58,8 +58,8 @@ ROMSX::prsgrd (const Box& phi_bx,
             dR(i,j,k)=rho(i,j,k+1)-rho(i,j,k);
             dZ(i,j,k)=z_r(i,j,k+1)-z_r(i,j,k);
         } else {
-            dR(i,j,N)=dR(i,j,N-1);
-            dZ(i,j,N)=dZ(i,j,N-1);
+            dR(i,j,N)=rho(i,j,N)-rho(i,j,N-1);
+            dZ(i,j,N)=z_r(i,j,N)-z_r(i,j,N-1);
             //This is really k=-1
             //dR(i,j,0)=dR(i,j,1);
             //dZ(i,j,0)=dZ(i,j,1);
