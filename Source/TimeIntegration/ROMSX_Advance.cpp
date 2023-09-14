@@ -336,6 +336,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
                 nstp, nrhs, N, dt_lev);
     }
 
+
+    mf_W.FillBoundary(geom[lev].periodicity());
+
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
