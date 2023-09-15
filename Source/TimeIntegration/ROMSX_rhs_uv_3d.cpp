@@ -164,11 +164,14 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
             cff1=vold(i  ,j,k,nrhs)+vold(i-1,j,k,nrhs);
             cff2=Huon(i,j,k)+Huon(i,j-1,k);
             if (cff2>0.0) {
-              cff=vxx(i-1,j,k);
+              cff = (i == tbxp1.smallEnd(0)) ? vxx(i-1,j,k) :
+                  (vold(i-2,j,k,nrhs)-2.0*vold(i-1,j,k,nrhs)+vold(i,j,k,nrhs));
             } else {
               cff=vxx(i,j,k);
             }
-            VFx(i,j,k)=0.25*(cff1+Gadv*cff)* (cff2+Gadv*0.5*(Huee(i,j,k)+ Huee(i,j-1,k)));
+            auto Huee_jm1 = (j == tbxp1.smallEnd(1)) ? Huee(i,j-1,k) :
+                (Huon(i,j-2,k)-2.0*Huon(i,j-1,k)+Huon(i,j,k));
+            VFx(i,j,k)=0.25*(cff1+Gadv*cff)* (cff2+Gadv*0.5*(Huee(i,j,k)+ Huee_jm1));
             vee(i,j,k)=vold(i,j-1,k,nrhs)-2.0*vold(i,j,k,nrhs)+
               vold(i,j+1,k,nrhs);
             Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
@@ -307,8 +310,8 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
               Real cff2=1.0/16.0;
               Real cff;
               //Recursive summation:
-              rufrc(i,j,0)+=ru(i,j,k,nrhs);
-              rvfrc(i,j,0)+=rv(i,j,k,nrhs);
+              Gpu::Atomic::Add(&(rufrc(i,j,0)), ru(i,j,k,nrhs));
+              Gpu::Atomic::Add(&(rvfrc(i,j,0)), rv(i,j,k,nrhs));
 // This toggles whether to upate forcing terms on slabbed box or not. Slabbing it changes plotfile to machine precision
 #if 1
               //These forcing terms should possibly be updated on a slabbed box
@@ -321,7 +324,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
                   cff2=-bustr(i,j,0)*cff;
               else
                   cff2=0.0;
-              rufrc(i,j,0)+=cff1+cff2;
+              Gpu::Atomic::Add(&(rufrc(i,j,0)), cff1+cff2);
 
               //These forcing terms should possibly be updated on a slabbed box
               cff=om_v(i,j,0)*on_v(i,j,0);
@@ -333,7 +336,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
                   cff2=-bvstr(i,j,0)*cff;
               else
                   cff2=0.0;
-              rvfrc(i,j,0)+=cff1+cff2;
+              Gpu::Atomic::Add(&(rvfrc(i,j,0)), cff1+cff2);
 #else
         });
         amrex::ParallelFor(gbx1D,

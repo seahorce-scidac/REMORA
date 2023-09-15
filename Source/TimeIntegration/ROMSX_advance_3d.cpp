@@ -431,8 +431,15 @@ ROMSX::advance_3d (int lev,
         if(k!=N) {
             W(i,j,k) = W(i,j,k)- wrk_i*(z_w(i,j,k)+h(i,j,0,0));
         }
-        else
+    });
+
+    // probably not the most efficient way
+    amrex::ParallelFor(gbx1,
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        if (k == N) {
             W(i,j,N) = 0.0;
+        }
     });
 
        //
