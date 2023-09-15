@@ -59,12 +59,12 @@ In addition to this documentation, there is API documentation for ROMSX generate
    Numerical_Solution_Technique.rst
    Time_Stepping.rst
    VerticalSCoord.rst
+   Checkpoint.rst
+   Plotfiles.rst
 ..   TimeAdvance.rst
 ..   Discretizations.rst
 ..   MeshRefinement.rst
 ..   BoundaryConditions.rst
-..   Checkpoint.rst
-   Plotfiles.rst
 ..   Visualization.rst
 
 ..

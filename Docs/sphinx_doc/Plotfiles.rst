@@ -28,37 +28,36 @@ List of Parameters
 | Parameter                   | Definition       | Acceptable            | Default    |
 |                             |                  | Values                |            |
 +=============================+==================+=======================+============+
-| **romsx.plotfile_type**       | AMReX, NETCDF    | "amrex" or            | "amrex"    |
-|                             | or HDF5          | "netcdf / "NetCDF" or |            |
-|                             |                  | "hdf5" / "HDF5"       |            |
+| **romsx.plotfile_type**     | AMReX or NETCDF  | "amrex" or            | "amrex"    |
+|                             |                  | "netcdf / "NetCDF"    |            |
 +-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_file_1**         | prefix for       | String                | “*plt_1_*” |
+| **romsx.plot_file_1**       | prefix for       | String                | “*plt_1_*” |
 |                             | plotfiles        |                       |            |
 |                             | at first freq.   |                       |            |
 +-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_file_2**         | prefix for       | String                | “*plt_2_*” |
+| **romsx.plot_file_2**       | prefix for       | String                | “*plt_2_*” |
 |                             | plotfiles        |                       |            |
 |                             | at seoncd freq.  |                       |            |
 +-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_int_1**          | how often (by    | Integer               | -1         |
+| **romsx.plot_int_1**        | how often (by    | Integer               | -1         |
 |                             | level-0 time     | :math:`> 0`           |            |
 |                             | steps) to write  |                       |            |
 |                             | plot files       |                       |            |
 |                             | at first freq.   |                       |            |
 +-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_int_2**          | how often (by    | Integer               | -1         |
+| **romsx.plot_int_2**        | how often (by    | Integer               | -1         |
 |                             | level-0 time     | :math:`> 0`           |            |
 |                             | steps) to write  |                       |            |
 |                             | plot files       |                       |            |
 |                             | at seoncd freq.  |                       |            |
 +-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_vars_1**         | name of          | list of names         | None       |
+| **romsx.plot_vars_1**       | name of          | list of names         | None       |
 |                             | variables to     |                       |            |
 |                             | include in       |                       |            |
 |                             | plotfiles        |                       |            |
 |                             | at first freq.   |                       |            |
 +-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_vars_2**         | name of          | list of names         | None       |
+| **romsx.plot_vars_2**       | name of          | list of names         | None       |
 |                             | variables to     |                       |            |
 |                             | include in       |                       |            |
 |                             | plotfiles        |                       |            |
@@ -86,8 +85,7 @@ Examples of Usage
    means that native plot files (actually directories) starting with the prefix
    “*plt_run*” will be generated every 10 level-0 time steps. If using
    amrex format, that directory names will be *plt_run00000*, *plt_run00010*,
-   *plt_run00020*, etc.  If using HDF5 format, the names will have ".h5"
-   appended;  if using NetCDF format, the names will have ".nc" appended.
+   *plt_run00020*, etc. If using NetCDF format, the names will have ".nc" appended.
 
-   In addition, while the amrex plotfiles will contain data at all of the refinement
+..   In addition, while the amrex plotfiles will contain data at all of the refinement
    levels,  NetCDF files are separated by level.

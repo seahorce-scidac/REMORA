@@ -9,6 +9,9 @@ Checkpoint / Restart
 .. toctree::
    :maxdepth: 1
 
+**Note: Checkpoint and restart capability are currently untested and may produce
+unexpected behavior.**
+
 ROMSX has a standard sort of checkpointing and restarting capability and
 uses the native AMReX format for reading and writing checkpoints.
 In the inputs file, the following options control the generation of

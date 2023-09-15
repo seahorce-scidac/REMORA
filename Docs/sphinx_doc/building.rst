@@ -41,28 +41,30 @@ or if using tcsh,
 
 #. Edit the ``GNUmakefile``; options include
 
-   +-----------------+------------------------------+------------------+-------------+
-   | Option name     | Description                  | Possible values  | Default     |
-   |                 |                              |                  | value       |
-   +=================+==============================+==================+=============+
-   | COMP            | Compiler (gnu or intel)      | gnu / intel      | None        |
-   +-----------------+------------------------------+------------------+-------------+
-   | USE_MPI         | Whether to enable MPI        | TRUE / FALSE     | FALSE       |
-   +-----------------+------------------------------+------------------+-------------+
-   | USE_OMP         | Whether to enable OpenMP     | TRUE / FALSE     | FALSE       |
-   +-----------------+------------------------------+------------------+-------------+
-   | USE_CUDA        | Whether to enable CUDA       | TRUE / FALSE     | FALSE       |
-   +-----------------+------------------------------+------------------+-------------+
-   | DEBUG           | Whether to use DEBUG mode    | TRUE / FALSE     | FALSE       |
-   +-----------------+------------------------------+------------------+-------------+
-   | PROFILE         | Include profiling info       | TRUE / FALSE     | FALSE       |
-   +-----------------+------------------------------+------------------+-------------+
-   | TINY_PROFILE    | Include tiny profiling info  | TRUE / FALSE     | FALSE       |
-   +-----------------+------------------------------+------------------+-------------+
-   | COMM_PROFILE    | Include comm profiling info  | TRUE / FALSE     | FALSE       |
-   +-----------------+------------------------------+------------------+-------------+
-   | TRACE_PROFILE   | Include trace profiling info | TRUE / FALSE     | FALSE       |
-   +-----------------+------------------------------+------------------+-------------+
+   +-----------------+--------------------------------+------------------+-------------+
+   | Option name     | Description                    | Possible values  | Default     |
+   |                 |                                |                  | value       |
+   +=================+================================+==================+=============+
+   | COMP            | Compiler (gnu or intel)        | gnu / intel      | None        |
+   +-----------------+--------------------------------+------------------+-------------+
+   | USE_MPI         | Whether to enable MPI          | TRUE / FALSE     | FALSE       |
+   +-----------------+--------------------------------+------------------+-------------+
+   | USE_OMP         | Whether to enable OpenMP       | TRUE / FALSE     | FALSE       |
+   +-----------------+--------------------------------+------------------+-------------+
+   | USE_CUDA        | Whether to enable CUDA         | TRUE / FALSE     | FALSE       |
+   +-----------------+--------------------------------+------------------+-------------+
+   | DEBUG           | Whether to use DEBUG mode      | TRUE / FALSE     | FALSE       |
+   +-----------------+--------------------------------+------------------+-------------+
+   | USE_NETCDF      | Whether to compile with NETCDF | TRUE / FALSE     | FALSE       |
+   +-----------------+--------------------------------+------------------+-------------+
+   | PROFILE         | Include profiling info         | TRUE / FALSE     | FALSE       |
+   +-----------------+--------------------------------+------------------+-------------+
+   | TINY_PROFILE    | Include tiny profiling info    | TRUE / FALSE     | FALSE       |
+   +-----------------+--------------------------------+------------------+-------------+
+   | COMM_PROFILE    | Include comm profiling info    | TRUE / FALSE     | FALSE       |
+   +-----------------+--------------------------------+------------------+-------------+
+   | TRACE_PROFILE   | Include trace profiling info   | TRUE / FALSE     | FALSE       |
+   +-----------------+--------------------------------+------------------+-------------+
 
    .. note::
       **Do not set both USE_OMP and USE_CUDA to true.**

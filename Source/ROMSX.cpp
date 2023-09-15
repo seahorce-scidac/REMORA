@@ -795,12 +795,17 @@ ROMSX::ReadParameters ()
         // Output format
         pp.query("plotfile_type", plotfile_type);
         if (plotfile_type != "amrex" &&
-            plotfile_type != "netcdf" && plotfile_type != "NetCDF" &&
-            plotfile_type != "hdf5"   && plotfile_type != "HDF5" )
+            plotfile_type != "netcdf" && plotfile_type != "NetCDF")
         {
             amrex::Print() << "User selected plotfile_type = " << plotfile_type << std::endl;
             amrex::Abort("Dont know this plotfile_type");
         }
+#ifndef ROMSX_USE_NETCDF
+        if (plotfile_type == "netcdf" || plotfile_type == "NetCDF")
+        {
+            amrex::Abort("Please compile with NetCDF in order to enable NetCDF plotfiles");
+        }
+#endif
         pp.query("plot_file_1", plot_file_1);
         pp.query("plot_file_2", plot_file_2);
         pp.query("plot_int_1", plot_int_1);
