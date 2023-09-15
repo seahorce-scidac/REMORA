@@ -370,17 +370,14 @@ ROMSX::stretch_transform (int lev)
           cff2_w=(cff_w+cff1_w*hwater)*hinv;
 
           if(k==0) {
-              // HACK: should actually be the normal expression with coeffs evaluated at k=N-1
-              z_w(i,j,N-1)=Zt_avg1(i,j,0);
+              z_w(i,j,N-1)=0.0;
           }
           else if(k==-1)
               h(i,j,0,1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
-          else {
+          else
               z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
-          }
-          if(k!=-1) {
+          if(k!=-1)
           z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
-          }
         }
         }
       });
