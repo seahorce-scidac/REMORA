@@ -131,6 +131,8 @@ ROMSX::advance_2d (int lev,
 
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
+        Box tbxp1D = tbxp1;
+        tbxp1D.makeSlab(2,0);
 
 
         //bxD.makeSlab(2,0);
@@ -272,7 +274,7 @@ ROMSX::advance_2d (int lev,
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });
-        amrex::ParallelFor(tbxp2D,
+        amrex::ParallelFor(tbxp1D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*on_u(i,j,0);
@@ -280,7 +282,7 @@ ROMSX::advance_2d (int lev,
             Real cff1=cff*(Drhs(i,j,0)+Drhs(i-1,j,0));
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
-        amrex::ParallelFor(tbxp2D,
+        amrex::ParallelFor(tbxp1D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*om_v(i,j,0);
@@ -348,6 +350,8 @@ ROMSX::advance_2d (int lev,
 
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
+        Box tbxp1D = tbxp1;
+        tbxp1D.makeSlab(2,0);
 
 
         //bxD.makeSlab(2,0);
