@@ -178,7 +178,6 @@ ROMSX::advance_3d (int lev,
         } else {
           cff=0.25*dt_lev*23.0/12.0;
         }
-        if(solverChoice.test_vertical) {
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -249,12 +248,6 @@ ROMSX::advance_3d (int lev,
                 vbar(i,j,k,0) = DC(i,j,-1)*DV_avg1(i,j,0);
                 vbar(i,j,k,1) = vbar(i,j,k,0);
             });
-    //amrex::ParallelFor(ubx,
-    //[=] AMREX_GPU_DEVICE (int i, int j, int k)
-    //{
-    //    printf("%d %d %d %25.25g Huon after massflux\n", i, j, k, Huon(i,j,k));
-    //    });
-       }
     }
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -579,6 +572,7 @@ ROMSX::advance_3d (int lev,
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             Akt(i,j,k)=1e-6;
         });
+
        amrex::ParallelFor(tbxp2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -590,10 +584,10 @@ ROMSX::advance_3d (int lev,
             PrintToFile("temp_beforevvisc").SetPrecision(18) << FArrayBox(temp) << std::endl;
             PrintToFile("salt_beforevvisc").SetPrecision(18) << FArrayBox(salt) << std::endl;
         }
-       if(solverChoice.test_vertical) {
-       vert_visc_3d(gbx1,bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
-       vert_visc_3d(gbx1,bx,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
-       }
+
+        vert_visc_3d(gbx1,bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(gbx1,bx,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+
         if (verbose > 2) {
             PrintToFile("temp_aftervvisc").SetPrecision(18) << FArrayBox(temp) << std::endl;
             PrintToFile("salt_aftervvisc").SetPrecision(18) << FArrayBox(salt) << std::endl;
