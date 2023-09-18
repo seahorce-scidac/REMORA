@@ -18,7 +18,6 @@ ROMSX::t3dmix  (const Box& bx,
 
     Box gbx2 = bx;
     gbx2.grow(IntVect(NGROW,NGROW,0));
-    int ncomp = 1;
 
     FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena());
     FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena());
@@ -36,8 +35,8 @@ ROMSX::t3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=Jstr,Jend
     //DO i=Istr,Iend+1
-    amrex::ParallelFor(bx, ncomp,
-            [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+    amrex::ParallelFor(bx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 const amrex::Real cff = 0.25 * (diff2(i,j,0) + diff2(i-1,j,0)) * pmon_u(i,j,0);
                 FX(i,j,k) = cff * (Hz(i,j,k)+Hz(i+1,j,k))*(t(i,j,k,nrhs)-t(i-1,j,k,nrhs));
@@ -46,8 +45,8 @@ ROMSX::t3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=Jstr,Jend+1
     //DO i=Istr,Iend
-    amrex::ParallelFor(bx, ncomp,
-            [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+    amrex::ParallelFor(bx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 const amrex::Real cff=0.25*(diff2(i,j,0)+diff2(i,j-1,0)) * pnom_v(i,j,0);
                 FE(i,j,k) = cff * (Hz(i,j,k) + Hz(i,j-1,k)) * (t(i,j,k,nrhs) - t(i,j-1,k,nrhs));
@@ -58,8 +57,8 @@ ROMSX::t3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=Jstr,Jend
     //DO i=IstrU,Iend
-    amrex::ParallelFor(bx, ncomp,
-            [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+    amrex::ParallelFor(bx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 const amrex::Real cff=dt_lev*pm(i,j,0)*pn(i,j,0);
                 const amrex::Real cff1=cff*(FX(i+1,j  ,k)-FX(i,j,k));

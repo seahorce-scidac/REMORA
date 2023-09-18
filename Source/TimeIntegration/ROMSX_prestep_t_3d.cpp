@@ -9,19 +9,21 @@ using namespace amrex;
 
 void
 ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
-                      Array4<Real> uold  , Array4<Real> vold,
-                      Array4<Real> u , Array4<Real> v,
-                      Array4<Real> tempold  , Array4<Real> salstold,
-                      Array4<Real> temp , Array4<Real> salt,
+                      Array4<Real> /*uold*/,
+                      Array4<Real> /*vold*/,
+                      Array4<Real> /*u   */,
+                      Array4<Real> /*v   */,
+                      Array4<Real> tempold  , Array4<Real> /*salstold*/,
+                      Array4<Real> temp , Array4<Real> /*salt*/,
                       Array4<Real> tempcache,
-                      Array4<Real> ru, Array4<Real> rv,
-                      Array4<Real> Hz, Array4<Real> Akv,
-                      Array4<Real> on_u, Array4<Real> om_v,
+                      Array4<Real> ru, Array4<Real> /*rv*/,
+                      Array4<Real> Hz, Array4<Real> /*Akv*/,
+                      Array4<Real> /*on_u*/, Array4<Real> /*om_v*/,
                       Array4<Real> Huon, Array4<Real> Hvom,
                       Array4<Real> pm, Array4<Real> pn,
                       Array4<Real> W   , Array4<Real> DC,
-                      Array4<Real> FC  , Array4<Real> tempstore, Array4<Real> saltstore,
-                      Array4<Real> FX_old, Array4<Real> FE_old,
+                      Array4<Real> FC  , Array4<Real> tempstore, Array4<Real> /*saltstore*/,
+                      Array4<Real> /*FX_old*/, Array4<Real> /*FE_old*/,
                       Array4<Real> z_r, Array4<Real> z_w, Array4<Real> h,
                       int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
                       Real lambda, Real dt_lev)
@@ -261,7 +263,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
 
     Real cff1 = 0.0, cff2 = 0.0, cff;
 
-    int indx=0; //nrhs-3
     Real GammaT = 1.0/6.0;
 
     if (iic==ntfirst)
@@ -339,7 +340,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
 /*
     Real cff;
 
-    int indx=0; //nrhs-3
     Real GammaT = 1.0/6.0;
 
     if (iic==ntfirst)

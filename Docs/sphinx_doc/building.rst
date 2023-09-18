@@ -41,30 +41,33 @@ or if using tcsh,
 
 #. Edit the ``GNUmakefile``; options include
 
-   +-----------------+--------------------------------+------------------+-------------+
-   | Option name     | Description                    | Possible values  | Default     |
-   |                 |                                |                  | value       |
-   +=================+================================+==================+=============+
-   | COMP            | Compiler (gnu or intel)        | gnu / intel      | None        |
-   +-----------------+--------------------------------+------------------+-------------+
-   | USE_MPI         | Whether to enable MPI          | TRUE / FALSE     | FALSE       |
-   +-----------------+--------------------------------+------------------+-------------+
-   | USE_OMP         | Whether to enable OpenMP       | TRUE / FALSE     | FALSE       |
-   +-----------------+--------------------------------+------------------+-------------+
-   | USE_CUDA        | Whether to enable CUDA         | TRUE / FALSE     | FALSE       |
-   +-----------------+--------------------------------+------------------+-------------+
-   | DEBUG           | Whether to use DEBUG mode      | TRUE / FALSE     | FALSE       |
-   +-----------------+--------------------------------+------------------+-------------+
-   | USE_NETCDF      | Whether to compile with NETCDF | TRUE / FALSE     | FALSE       |
-   +-----------------+--------------------------------+------------------+-------------+
-   | PROFILE         | Include profiling info         | TRUE / FALSE     | FALSE       |
-   +-----------------+--------------------------------+------------------+-------------+
-   | TINY_PROFILE    | Include tiny profiling info    | TRUE / FALSE     | FALSE       |
-   +-----------------+--------------------------------+------------------+-------------+
-   | COMM_PROFILE    | Include comm profiling info    | TRUE / FALSE     | FALSE       |
-   +-----------------+--------------------------------+------------------+-------------+
-   | TRACE_PROFILE   | Include trace profiling info   | TRUE / FALSE     | FALSE       |
-   +-----------------+--------------------------------+------------------+-------------+
+   +-----------------+----------------------------------+------------------+-------------+
+   | Option name     | Description                      | Possible values  | Default     |
+   |                 |                                  |                  | value       |
+   +=================+==================================+==================+=============+
+   | COMP            | Compiler (gnu or intel)          | gnu / intel      | None        |
+   +-----------------+----------------------------------+------------------+-------------+
+   | USE_MPI         | Whether to enable MPI            | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
+   | USE_OMP         | Whether to enable OpenMP         | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
+   | USE_CUDA        | Whether to enable CUDA           | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
+   | DEBUG           | Whether to use DEBUG mode        | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
+   | USE_NETCDF      | Whether to compile with NETCDF   | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
+   | USE_PARTICLES   | Whether to compile with particle | TRUE / FALSE     | FALSE       |
+   |                 | functionality enabled            |                  |             |
+   +-----------------+----------------------------------+------------------+-------------+
+   | PROFILE         | Include profiling info           | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
+   | TINY_PROFILE    | Include tiny profiling info      | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
+   | COMM_PROFILE    | Include comm profiling info      | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
+   | TRACE_PROFILE   | Include trace profiling info     | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
 
    .. note::
       **Do not set both USE_OMP and USE_CUDA to true.**
@@ -116,8 +119,20 @@ An example CMake configure command to build ROMSX with MPI is listed below:
           -DCMAKE_Fortran_COMPILER:STRING=mpifort \
           .. && make
 
-Note that CMake is able to generate makefiles for the Ninja build system as well which will allow for faster building of the executable(s).
+An example CMake configure command to build ROMSX with MPI and particles is listed below:
 
+::
+
+    cmake -DCMAKE_BUILD_TYPE:STRING=Release \
+          -DROMSX_ENABLE_MPI:BOOL=ON \
+          -DCMAKE_CXX_COMPILER:STRING=mpicxx \
+          -DCMAKE_C_COMPILER:STRING=mpicc \
+          -DCMAKE_Fortran_COMPILER:STRING=mpifort \
+          -DROMSX_ENABLE_PARTICLES:BOOL=ON \
+          .. && make
+
+
+Note that CMake is able to generate makefiles for the Ninja build system as well which will allow for faster building of the executable(s).
 
 Perlmutter (NERSC)
 ~~~~~~~~~~~~~~~~~~

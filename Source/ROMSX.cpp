@@ -10,10 +10,6 @@
 
 #include <Utils.H>
 
-#ifdef ROMSX_USE_MULTIBLOCK
-#include <MultiBlockContainer.H>
-#endif
-
 using namespace amrex;
 
 amrex::Real ROMSX::startCPUTime        = 0.0;
@@ -263,18 +259,6 @@ ROMSX::InitData ()
         const Real time = 0.0;
         InitFromScratch(time);
 
-#ifdef ROMSX_USE_MULTIBLOCK
-        // Multiblock: hook to set BL & comms once ba/dm are known
-        if(domain_p[0].bigEnd(0) < 500 ) {
-            m_mbc->SetBoxLists();
-            m_mbc->SetBlockCommMetaData();
-        }
-#endif
-
-        // For now we initialize rho_KE to 0
-        for (int lev = finest_level-1; lev >= 0; --lev)
-            vars_new[lev][Vars::cons].setVal(0.0,RhoKE_comp,1,0);
-
         for (int lev = 0; lev <= finest_level; lev++)
             init_only(lev, time);
 
@@ -514,11 +498,6 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     mapfac_m[lev]->setVal(1.);
     mapfac_u[lev]->setVal(1.);
     mapfac_v[lev]->setVal(1.);
-
-    // Base state holds r_0, pres_0, pi_0 (in that order)
-    base_state.resize(lev+1);
-    base_state[lev].define(ba,dm,3,1);
-    base_state[lev].setVal(0.);
 
     vec_hOfTheConfusingName.resize(lev+1);
     vec_Zt_avg1.resize(lev+1);
@@ -816,10 +795,6 @@ ROMSX::ReadParameters ()
         pp.query("use_tracer_particles", use_tracer_particles);
 #endif
     }
-
-#ifdef ROMSX_USE_MULTIBLOCK
-    solverChoice.pp_prefix = pp_prefix;
-#endif
 
     solverChoice.init_params();
 }
