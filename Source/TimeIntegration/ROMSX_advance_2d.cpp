@@ -277,7 +277,7 @@ ROMSX::advance_2d (int lev,
         {
             Real cff=.5*on_u(i,j,0);
             //todo: HACKHACKHACK may not work for evolve_free_surface=1 or flat_bathymetry=0
-            Real cff1=cff*(Drhs(i,j,0)+Drhs(i-1,j,0));
+            Real cff1=gbx2D.contains(i-1,j,0) ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
         amrex::ParallelFor(tbxp2D,
@@ -285,7 +285,7 @@ ROMSX::advance_2d (int lev,
         {
             Real cff=.5*om_v(i,j,0);
             //todo: HACKHACKHACK may not work for evolve_free_surface=1 or flat_bathymetry=0
-            Real cff1=cff*(Drhs(i,j,0)+Drhs(i,j-1,0));
+            Real cff1=gbx2D.contains(i,j-1,0) ? cff*(Drhs(i,j,0)+Drhs(i,j-1,0)) : om_v(i,j,0)*Drhs(i,j,0);
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
         });
     }
