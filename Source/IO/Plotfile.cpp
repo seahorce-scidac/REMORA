@@ -52,6 +52,12 @@ ROMSX::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::strin
         tmp_plot_names.push_back("z_velocity");
     }
 
+    for (int i = 0; i < derived_names.size(); ++i) {
+        if ( containerHasElement(plot_var_names, derived_names[i]) ) {
+           tmp_plot_names.push_back(derived_names[i]);
+        }
+    }
+
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names) {
       if (!containerHasElement(tmp_plot_names, plot_name)) {
@@ -158,41 +164,18 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         };
 
         // Note: All derived variables must be computed in order of "derived_names" defined in ROMSX.H
-        calculate_derived("KE",          derived::romsx_derKE);
-        calculate_derived("QKE",         derived::romsx_derQKE);
         calculate_derived("scalar",      derived::romsx_derscalar);
 
-        MultiFab r_hse(base_state[lev], make_alias, 0, 1); // r_0 is first  component
-        MultiFab p_hse(base_state[lev], make_alias, 1, 1); // p_0 is second component
-
-        if (containerHasElement(plot_var_names, "pres_hse"))
+#ifdef ROMSX_USE_PARTICLES
+        if (containerHasElement(plot_var_names, "particle_count"))
         {
-            // p_0 is second component of base_state
-            MultiFab::Copy(mf[lev],p_hse,0,mf_comp,1,ngrow_vars);
+            MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
+            temp_dat.setVal(0);
+            tracer_particles->Increment(temp_dat, lev);
+            MultiFab::Copy(mf[lev], temp_dat, 0, mf_comp, 1, 0);
             mf_comp += 1;
         }
-        if (containerHasElement(plot_var_names, "dens_hse"))
-        {
-            // r_0 is first component of base_state
-            MultiFab::Copy(mf[lev],r_hse,0,mf_comp,1,ngrow_vars);
-            mf_comp ++;
-        }
-
-        if (containerHasElement(plot_var_names, "pert_dens"))
-        {
-            for ( MFIter mfi(mf[lev],TilingIfNotGPU()); mfi.isValid(); ++mfi)
-            {
-              Box bx = mfi.tilebox();
-              bx.grow(ngrow_vars);
-                const Array4<Real>& derdat  = mf[lev].array(mfi);
-                const Array4<Real const>& S_arr = vars_new[lev][Vars::cons].const_array(mfi);
-                const Array4<Real const>& r0_arr = r_hse.const_array(mfi);
-                ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                    derdat(i, j, k, mf_comp) = S_arr(i,j,k,Rho_comp) - r0_arr(i,j,k);
-                });
-            }
-            mf_comp ++;
-        }
+#endif
     }
 
     std::string plotfilename;

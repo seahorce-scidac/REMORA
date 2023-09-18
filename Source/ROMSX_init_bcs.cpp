@@ -14,8 +14,6 @@ void ROMSX::init_bcs ()
         m_bc_extdir_vals[BCVars::Rho_bc_comp][ori]       =  1.0;
         m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] = -1.0; // It is important to set this negative
                                                // because the sign is tested on below
-        m_bc_extdir_vals[BCVars::RhoKE_bc_comp][ori]     = 0.0;
-        m_bc_extdir_vals[BCVars::RhoQKE_bc_comp][ori]     = 0.0;
         m_bc_extdir_vals[BCVars::RhoScalar_bc_comp][ori] = 0.0;
 
         m_bc_extdir_vals[BCVars::xvel_bc][ori] = 0.0; // default
@@ -67,15 +65,6 @@ void ROMSX::init_bcs ()
             Real scalar_in = 0.;
             if (pp.query("scalar", scalar_in))
             m_bc_extdir_vals[BCVars::RhoScalar_bc_comp][ori] = rho_in*scalar_in;
-
-            Real KE_in = 0.;
-            if (pp.query("KE", KE_in))
-            m_bc_extdir_vals[BCVars::RhoKE_bc_comp][ori] = rho_in*KE_in;
-
-            Real QKE_in = 0.;
-            if (pp.query("QKE", QKE_in))
-            m_bc_extdir_vals[BCVars::RhoQKE_bc_comp][ori] = rho_in*QKE_in;
-
         }
         else if (bc_type == "noslipwall")
         {

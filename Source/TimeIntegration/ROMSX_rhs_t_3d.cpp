@@ -9,7 +9,7 @@ using namespace amrex;
 
 void
 ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
-                 Array4<Real> told  , Array4<Real> t, Array4<Real> tempstore,
+                 Array4<Real> /*told*/, Array4<Real> t, Array4<Real> tempstore,
                  Array4<Real> Huon, Array4<Real> Hvom,
                  Array4<Real> Hz, Array4<Real> oHz,
                  Array4<Real> pn, Array4<Real> pm,
@@ -20,9 +20,6 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     Box tbxp1 = bx;
     Box tbxp2 = bx;
 
-    Box ubx = surroundingNodes(bx,0);
-    Box vbx = surroundingNodes(bx,1);
-
     //make only gbx be grown to match multifabs
     tbxp2.grow(IntVect(NGROW,NGROW,0));
     tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
@@ -30,10 +27,6 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     BoxArray ba_gbx1 = intersect(BoxArray(tbxp1),gbx);
     AMREX_ASSERT((ba_gbx1.size() == 1));
     Box gbx1 = ba_gbx1[0];
-
-    BoxArray ba_gbx2 = intersect(BoxArray(tbxp2),gbx);
-    AMREX_ASSERT((ba_gbx2.size() == 1));
-    Box gbx2 = ba_gbx2[0];
 
     //
     // Scratch space
@@ -56,7 +49,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     auto FE=fab_FE.array();
 
     //check this////////////
-    const Real Gadv = -0.25;
+    // const Real Gadv = -0.25;
 
     amrex::ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)

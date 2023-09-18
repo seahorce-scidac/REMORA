@@ -49,6 +49,7 @@ In addition to this documentation, there is API documentation for ROMSX generate
    theory/Variables.rst
    theory/Equations.rst
    theory/VerticalMixing.rst
+   Particles.rst
 
 .. toctree::
    :caption: IMPLEMENTATION

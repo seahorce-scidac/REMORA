@@ -33,30 +33,6 @@ void romsx_derscalar(
   amrex::Real time,
   const int* bcrec,
   const int level);
-
-void romsx_derKE(
-  const amrex::Box& bx,
-  amrex::FArrayBox& dromsxab,
-  int dcomp,
-  int ncomp,
-  const amrex::FArrayBox& datfab,
-  const amrex::Geometry& geomdata,
-  amrex::Real time,
-  const int* bcrec,
-  const int level);
-
-void romsx_derQKE(
-  const amrex::Box& bx,
-  amrex::FArrayBox& dromsxab,
-  int dcomp,
-  int ncomp,
-  const amrex::FArrayBox& datfab,
-  const amrex::Geometry& geomdata,
-  amrex::Real time,
-  const int* bcrec,
-  const int level);
-}
-
 void romsx_deromega(
   const amrex::Box& bx,
   amrex::FArrayBox& dromsxab,
@@ -80,4 +56,6 @@ void romsx_dersalt(
   const int* bcrec,
   const int level);
 #endif
+}
 #endif
+

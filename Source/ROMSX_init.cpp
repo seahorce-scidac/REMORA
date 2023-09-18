@@ -106,22 +106,6 @@ ROMSX::init_from_wrfinput (int lev)
                                 NC_MSFU_fab, NC_MSFV_fab, NC_MSFM_fab);
     } // mf
 
-    MultiFab r_hse (base_state[lev], make_alias, 0, 1); // r_0  is first  component
-    MultiFab p_hse (base_state[lev], make_alias, 1, 1); // p_0  is second component
-    MultiFab pi_hse(base_state[lev], make_alias, 2, 1); // pi_0 is third  component
-
-    if (init_type == "real") {
-        for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
-        {
-            FArrayBox&  p_hse_fab = p_hse[mfi];
-            FArrayBox& pi_hse_fab = pi_hse[mfi];
-            FArrayBox&  r_hse_fab = r_hse[mfi];
-
-            const Box& bx = mfi.validbox();
-            init_base_state_from_wrfinput(lev, bx, p_hse_fab, pi_hse_fab, r_hse_fab, NC_ALB_fab, NC_PB_fab);
-        }
-    }
-
     if (init_type == "real" && (lev == 0)) {
         if (nc_bdy_file.empty())
             amrex::Error("NetCDF boundary file name must be provided via input");
@@ -211,41 +195,12 @@ ROMSX::init_msfs_from_wrfinput (int lev, FArrayBox& msfu_fab,
         msfm_fab.template copy<RunOn::Device>(NC_MSFM_fab[idx]);
     } // idx
 }
-
-void
-ROMSX::init_base_state_from_wrfinput (int lev, const Box& bx, FArrayBox& p_hse, FArrayBox& pi_hse,
-                                      FArrayBox& r_hse,
-                                      const Vector<FArrayBox>& NC_ALB_fab,
-                                      const Vector<FArrayBox>& NC_PB_fab)
-{
-    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
-    {
-        //
-        // FArrayBox to FArrayBox copy does "copy on intersection"
-        // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
-        //
-        const Array4<Real      >&  p_hse_arr =  p_hse.array();
-        const Array4<Real      >& pi_hse_arr = pi_hse.array();
-        const Array4<Real      >&  r_hse_arr =  r_hse.array();
-        const Array4<Real const>& alpha_arr = NC_ALB_fab[idx].const_array();
-        const Array4<Real const>& nc_pb_arr = NC_PB_fab[idx].const_array();
-        amrex::Abort("This function is not defined: getExnergivenP");
-        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            p_hse_arr(i,j,k)  = nc_pb_arr(i,j,k);
-            r_hse_arr(i,j,k)  = 1.0 / alpha_arr(i,j,k);
-
-        });
-    } // idx
-}
-
 #endif // ROMSX_USE_NETCDF
 
 void
 ROMSX::init_custom(int lev)
 {
     auto& lev_new = vars_new[lev];
-    MultiFab r_hse(base_state[lev], make_alias, 0, 1); // r_0 is first  component
-    MultiFab p_hse(base_state[lev], make_alias, 1, 1); // p_0 is second component
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
@@ -269,11 +224,7 @@ ROMSX::init_custom(int lev)
         Array4<const Real> const& h_arr  = (mf_h)->array(mfi);
         Array4<const Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
 
-        Array4<Real> r_hse_arr = r_hse.array(mfi);
-        Array4<Real> p_hse_arr = p_hse.array(mfi);
-
         init_custom_prob(bx, cons_arr, xvel_arr, yvel_arr, zvel_arr,
-                         r_hse_arr, p_hse_arr,
                          z_w_arr, z_r_arr, Hz_arr, h_arr, Zt_avg1_arr, geom[lev].data(),
                          solverChoice);
 

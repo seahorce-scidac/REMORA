@@ -10,10 +10,6 @@
 
 #include <ROMSX_Constants.H>
 
-enum class ABLDriverType {
-    None, PressureGradient, GeostrophicWind
-};
-
 enum class Coord {
     x, y, z
 };
@@ -150,13 +146,6 @@ struct SolverChoice {
             pp.query("pbl_C5", pbl_C5);
         }
 
-        // Right now, solving the QKE equation is only supported when MYNN PBL is turned on
-        if (pbl_type == PBLType::MYNN25) use_QKE = true;
-        if (use_QKE) {
-            pp.query("diffuse_QKE_3D", diffuse_QKE_3D);
-            pp.query("advect_QKE", advect_QKE);
-        }
-
         // Which horizontal advection scheme
         static std::string hadv_string = "upstream3";
         pp.query("horizontal_advection_scheme",hadv_string);
@@ -212,28 +201,6 @@ struct SolverChoice {
         //This accounts for the main 3d loop but may not include coupling and copying properly
         pp.query("use_baroclinic", use_baroclinic);
 
-        // Which external forcings?
-        static std::string abl_driver_type_string = "None";
-        pp.query("abl_driver_type",abl_driver_type_string);
-
-        if (!abl_driver_type_string.compare("PressureGradient")) {
-            abl_driver_type = ABLDriverType::PressureGradient;
-        } else if (!abl_driver_type_string.compare("GeostrophicWind")) {
-            abl_driver_type = ABLDriverType::GeostrophicWind;
-        } else if (!abl_driver_type_string.compare("None")){
-            abl_driver_type = ABLDriverType::None; // No ABL driver for simulating classical fluid dynamics problems
-        } else {
-            amrex::Error("Don't know this abl_driver_type");
-        }
-
-        amrex::Vector<amrex::Real> abl_pressure_grad_in = {0.0, 0.0, 0.0};
-        pp.queryarr("abl_pressure_grad",abl_pressure_grad_in);
-        for(int i = 0; i < AMREX_SPACEDIM; ++i) abl_pressure_grad[i] = abl_pressure_grad_in[i];
-
-        amrex::Vector<amrex::Real> abl_geo_forcing_in = {0.0, 0.0, 0.0};
-        pp.queryarr("abl_geo_forcing",abl_geo_forcing_in);
-        for(int i = 0; i < AMREX_SPACEDIM; ++i) abl_geo_forcing[i] = abl_geo_forcing_in[i];
-
         static std::string ic_bc_type_string = "Ideal";
         pp.query("ic_bc_type", ic_bc_type_string);
 
@@ -263,23 +230,6 @@ struct SolverChoice {
         amrex::Print() << "Pr_t                  : " << Pr_t << std::endl;
         amrex::Print() << "Sc_t                  : " << Sc_t << std::endl;
         amrex::Print() << "spatial_order         : " << spatial_order << std::endl;
-
-        if (abl_driver_type == ABLDriverType::None) {
-            amrex::Print() << "ABL Driver Type: " << "None" << std::endl;
-            amrex::Print() << "No ABL driver selected " << std::endl;
-        } else if (abl_driver_type == ABLDriverType::PressureGradient) {
-            amrex::Print() << "ABL Driver Type: " << "PressureGradient" << std::endl;
-            amrex::Print() << "Driving abl_pressure_grad: (";
-            for (int i = 0; i < AMREX_SPACEDIM; ++i)
-                amrex::Print() << abl_pressure_grad[i] << " ";
-            amrex::Print() << ")" << std::endl;
-        } else if (abl_driver_type == ABLDriverType::GeostrophicWind) {
-            amrex::Print() << "ABL Driver Type: " << "GeostrophicWind" << std::endl;
-            amrex::Print() << "Driving abl_geo_forcing: (";
-            for (int i = 0; i < AMREX_SPACEDIM; ++i)
-                amrex::Print() << abl_geo_forcing[i] << " ";
-            amrex::Print() << ")" << std::endl;
-        }
 
         if (les_type == LESType::None) {
             amrex::Print() << "Using DNS model " << std::endl;
@@ -383,10 +333,6 @@ struct SolverChoice {
     amrex::Real pbl_C3 = 0.352;
     amrex::Real pbl_C4 = 0.0;
     amrex::Real pbl_C5 = 0.2;
-    // QKE stuff - default is not to use it, if MYNN2.5 PBL is used default is turb transport in Z-directioon only
-    bool use_QKE = false;
-    bool diffuse_QKE_3D = false;
-    bool advect_QKE = true;
 
     // Coriolis forcing
     amrex::Real coriolis_factor = 0.0;
@@ -395,10 +341,6 @@ struct SolverChoice {
 
     // Spatial discretization
     int         spatial_order = 2;
-
-    ABLDriverType abl_driver_type;
-    amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> abl_pressure_grad;
-    amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> abl_geo_forcing;
 
     // IC and BC Type: "Ideal" or "Real"
     IC_BC_Type icBcType;

@@ -6,21 +6,19 @@
 
 // Cell-centered state variables
 #define Rho_comp       0
-#define Temp_comp  1
-#define RhoKE_comp     2 // for Deardorff LES Model
-#define RhoQKE_comp    3 // for MYNN PBL Model
-#define RhoScalar_comp 4
-#define Omega_comp     5
+#define Temp_comp      1
+#define RhoScalar_comp 2
+#define Omega_comp     3
 
 #ifdef ROMSX_USE_SALINITY
-#define Salt_comp      6
-#define NVAR           7
+#define Salt_comp      4
+#define NVAR           5
+#else
+#define NVAR           4
 #endif
 
 // Cell-centered primitive variables
 #define PrimTheta_comp   Temp_comp -1
-#define PrimKE_comp      RhoKE_comp    -1
-#define PrimQKE_comp     RhoQKE_comp   -1
 #define PrimScalar_comp  RhoScalar_comp-1
 
 #define NUM_PRIM         NVAR-1
@@ -31,8 +29,6 @@ namespace BCVars {
         cons_bc = 0,
         Rho_bc_comp = 0,
         Temp_bc_comp,
-        RhoKE_bc_comp,
-        RhoQKE_bc_comp,
         RhoScalar_bc_comp,
         xvel_bc = NVAR,
         yvel_bc,
@@ -87,8 +83,6 @@ namespace Cons {
     enum {
         Rho = 0,
         Temp,
-        RhoKE,
-        RhoQKE,
         RhoScalar,
         Omega,
 #ifdef ROMSX_USE_SALINITY
@@ -101,8 +95,6 @@ namespace Cons {
 namespace Prim {
     enum {
         Theta = 0,
-        KE,
-        QKE,
         Scalar,
         NumVars
     };
@@ -116,10 +108,6 @@ namespace EddyDiff {
         Mom_v,
         Theta_h,
         Theta_v,
-        KE_h,
-        KE_v,
-        QKE_h,
-        QKE_v,
         Scalar_h,
         Scalar_v,
         PBL_lengthscale,

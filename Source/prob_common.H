@@ -17,8 +17,6 @@ init_custom_prob (
   amrex::Array4<amrex::Real      > const& x_vel,
   amrex::Array4<amrex::Real      > const& y_vel,
   amrex::Array4<amrex::Real      > const& z_vel,
-  amrex::Array4<amrex::Real      > const& r_hse,
-  amrex::Array4<amrex::Real      > const& p_hse,
   amrex::Array4<amrex::Real const> const& z_w,
   amrex::Array4<amrex::Real const> const& z_r,
   amrex::Array4<amrex::Real const> const& Hz,

@@ -11,14 +11,14 @@ ROMSX::prestep (int lev,
                 std::unique_ptr<MultiFab>& mf_rv,
                 MultiFab& mf_tempold, MultiFab& mf_saltold,
                 MultiFab& mf_temp, MultiFab& mf_salt,
-                std::unique_ptr<MultiFab>& mf_Hz,
-                std::unique_ptr<MultiFab>& mf_Akv,
-                std::unique_ptr<MultiFab>& mf_Huon,
-                std::unique_ptr<MultiFab>& mf_Hvom,
+                std::unique_ptr<MultiFab>& /* mf_Hz */,
+                std::unique_ptr<MultiFab>& /* mf_Akv */,
+                std::unique_ptr<MultiFab>& /* mf_Huon */,
+                std::unique_ptr<MultiFab>& /* mf_Hvom */,
                 MultiFab& mf_W, MultiFab& mf_DC,
                 /* MF mf_FC? */
-                std::unique_ptr<MultiFab>& mf_t3,
-                std::unique_ptr<MultiFab>& mf_s3,
+                std::unique_ptr<MultiFab>& /* mf_t3 */,
+                std::unique_ptr<MultiFab>& /* mf_s3 */,
                 std::unique_ptr<MultiFab>& mf_z_r,
                 std::unique_ptr<MultiFab>& mf_z_w,
                 std::unique_ptr<MultiFab>& mf_h,
@@ -34,7 +34,6 @@ ROMSX::prestep (int lev,
     const auto dxi              = Geom(lev).InvCellSizeArray();
     const auto dx               = Geom(lev).CellSizeArray();
     const int Mm = Geom(lev).Domain().size()[1];
-    auto geomdata = Geom(lev).data();
 
     const BoxArray&            ba = mf_temp.boxArray();
     const DistributionMapping& dm = mf_temp.DistributionMap();
@@ -82,18 +81,18 @@ ROMSX::prestep (int lev,
         Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
+        //Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
+
         //copy the tilebox
         Box tbxp1 = bx;
         Box tbxp11 = bx;
         Box tbxp2 = bx;
+
         //TODO: adjust for tiling
         //Box gbx3uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-3,bx.smallEnd(1)-3,bx.smallEnd(2))),
         //               IntVect(AMREX_D_DECL(bx.bigEnd(0)+2,bx.bigEnd(1)+2,bx.bigEnd(2))));
         //Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
         //               IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
-        Box ubx = surroundingNodes(bx,0);
-        Box vbx = surroundingNodes(bx,1);
         //make only gbx be grown to match multifabs
         tbxp2.grow(IntVect(NGROW,NGROW,0));
         tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));

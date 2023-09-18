@@ -217,14 +217,6 @@ public:
                             const amrex::Vector<amrex::FArrayBox>& NC_MSFU_fab,
                             const amrex::Vector<amrex::FArrayBox>& NC_MSFV_fab,
                             const amrex::Vector<amrex::FArrayBox>& NC_MSFM_fab);
-
-    // Copy from NC_PB fabs into the MultiFab holding the base state
-    void init_base_state_from_wrfinput(int lev, const amrex::Box& bx,
-                                       amrex::FArrayBox& p_hse_fab,
-                                       amrex::FArrayBox& pi_hse_fab,
-                                       amrex::FArrayBox& r_hse_fab,
-                                       const amrex::Vector<amrex::FArrayBox>& NC_ALB_fab,
-                                       const amrex::Vector<amrex::FArrayBox>& NC_PB_fab);
 #endif //ROMSX_USE_NETCDF
 
     std::string pp_prefix {"romsx"};
@@ -874,8 +866,6 @@ private:
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> sst;
 
-    amrex::Vector<amrex::MultiFab> base_state;
-
     // array of flux registers
     amrex::Vector<amrex::FluxRegister*> flux_registers;
 
@@ -942,12 +932,13 @@ private:
     amrex::Vector<std::string> plot_var_names_1;
     amrex::Vector<std::string> plot_var_names_2;
     const amrex::Vector<std::string> velocity_names {"x_velocity", "y_velocity", "z_velocity"};
-    const amrex::Vector<std::string> cons_names { "density", "temp", "rhoKE", "rhoQKE", "rhoadv_0", "omega", "salt"};
+    const amrex::Vector<std::string> cons_names { "density", "temp", "rhoadv_0", "omega", "salt"};
 
     // Note that the order of variable names here must match the order in Derive.cpp
-    const amrex::Vector<std::string> derived_names {"KE", "QKE", "scalar", "pres_hse",
-                                                    "dens_hse", "pert_pres", "pert_dens", "dpdx", "dpdy",
-                                                    "pres_hse_x", "pres_hse_y"
+    const amrex::Vector<std::string> derived_names {"scalar", "dpdx", "dpdy"
+#ifdef ROMSX_USE_PARTICLES
+                                                    ,"particle_count"
+#endif
                                                    };
 
     // algorithm choices
@@ -1000,9 +991,6 @@ private:
 
     // 2D BndryRegister input
     static int          input_bndry_planes;
-
-    static int ng_dens_hse;
-    static int ng_pres_hse;
 
     amrex::Vector<amrex::Real> h_havg_density;
     amrex::Vector<amrex::Real> h_havg_temperature;
