@@ -8,7 +8,7 @@ Particles
 =========
 
 ROMSX has the option to include Lagrangian particles in addition to the mesh-based solution.  Currently the
-particle functionality is very simple -- the particles are initialized randomly, one per mesh cell
+particle functionality is very simple -- the particles are initialized one per mesh cell
 in a particular plane, and are advected by the velocity field.
 
 However, the AMReX particle data structure is very general and particles may take on a number of
@@ -44,7 +44,7 @@ when using netcdf.  Writing particles into the netcdf files is a WIP.
 
 To see an example of using the particle functionality, build the executable using gmake in Exec/ParticlesOverSeaMount.
 
-To visualize the number of paritcles per cell as a mesh-based variable, add ``particle_count`` to the line in the inputs file
+To visualize the number of particles per cell as a mesh-based variable, add ``particle_count`` to the line in the inputs file
 
 ::
 
