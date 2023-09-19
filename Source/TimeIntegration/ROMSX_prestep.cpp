@@ -1,5 +1,4 @@
 #include <ROMSX.H>
-#include <Utils.H>
 
 using namespace amrex;
 
@@ -193,11 +192,11 @@ ROMSX::prestep (int lev,
         if (verbose > 1) {
             Print() << "Akv box " << Box(Akv) << std::endl;
         }
-        prestep_t_3d(bx, gbx, uold, vold, u, v, tempold, saltold, temp, salt, tempcache,ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
-                     pm, pn, W, DC, FC, tempstore, saltstore, FX, FE, z_r, z_w, h, iic, ntfirst, nnew, nstp, nrhs, N,
+        prestep_t_3d(bx, gbx, tempold, temp, tempcache, ru, Hz, Huon, Hvom,
+                     pm, pn, W, DC, FC, tempstore, z_r, z_w, h, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-        prestep_t_3d(bx, gbx, uold, vold, u, v, saltold, saltold, salt, salt, saltcache, ru, rv, Hz, Akv, on_u, om_v, Huon, Hvom,
-                     pm, pn, W, DC, FC, saltstore, saltstore, FX, FE, z_r, z_w, h, iic, ntfirst, nnew, nstp, nrhs, N,
+        prestep_t_3d(bx, gbx, saltold, salt, saltcache, ru, Hz, Huon, Hvom,
+                     pm, pn, W, DC, FC, saltstore, z_r, z_w, h, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 
        if (verbose > 2) {
