@@ -62,8 +62,6 @@ function(build_romsx_lib romsx_lib_name)
        ${SRC_DIR}/IO/Checkpoint.cpp
        ${SRC_DIR}/IO/Plotfile.cpp
        ${SRC_DIR}/IO/writeJobInfo.cpp
-       ${SRC_DIR}/Utils/MomentumToVelocity.cpp
-       ${SRC_DIR}/Utils/VelocityToMomentum.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_Advance.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_advance_2d.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_advance_3d.cpp
