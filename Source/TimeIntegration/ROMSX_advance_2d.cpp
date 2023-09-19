@@ -441,7 +441,7 @@ ROMSX::advance_2d (int lev,
        }
 
         //From ana_grid.h and metrics.F
-        amrex::ParallelFor(tbxp2,
+        amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
               pm(i,j,0)=dxi[0];
@@ -450,7 +450,7 @@ ROMSX::advance_2d (int lev,
               rhs_vbar(i,j,0)=0.0;
         });
 
-        amrex::ParallelFor(tbxp2,
+        amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //Note: are the comment definitons right? Don't seem to match metrics.f90
@@ -464,7 +464,7 @@ ROMSX::advance_2d (int lev,
               on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
               om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
         });
-        amrex::ParallelFor(tbxp2,
+        amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
         {
 
@@ -478,11 +478,11 @@ ROMSX::advance_2d (int lev,
               Real beta=0.0;
               Real Esize=1000*(Mm);
               Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+              Real f=f0+beta*(y-.5*Esize);
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
-        amrex::ParallelFor(tbxp2,
+        amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
