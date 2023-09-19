@@ -302,15 +302,17 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
               rv(i,j,k,nrhs) -= cff;
         }); Gpu::synchronize();
         //This uses W being an extra grow cell sized
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        AMREX_ASSERT(gbx1.smallEnd(2) == 0 && gbx2.bigEnd(2) == N);
+        amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
+           for (int k = 0; k <= N; ++k) {
               Real cff1=9.0/16.0;
               Real cff2=1.0/16.0;
               Real cff;
               //Recursive summation:
-              Gpu::Atomic::Add(&(rufrc(i,j,0)), ru(i,j,k,nrhs));
-              Gpu::Atomic::Add(&(rvfrc(i,j,0)), rv(i,j,k,nrhs));
+              rufrc(i,j,0) += ru(i,j,k,nrhs);
+              rvfrc(i,j,0) += rv(i,j,k,nrhs);
 // This toggles whether to upate forcing terms on slabbed box or not. Slabbing it changes plotfile to machine precision
 #if 1
               //These forcing terms should possibly be updated on a slabbed box
@@ -323,7 +325,7 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
                   cff2=-bustr(i,j,0)*cff;
               else
                   cff2=0.0;
-              Gpu::Atomic::Add(&(rufrc(i,j,0)), cff1+cff2);
+              rufrc(i,j,0) += cff1+cff2;
 
               //These forcing terms should possibly be updated on a slabbed box
               cff=om_v(i,j,0)*on_v(i,j,0);
@@ -335,8 +337,10 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
                   cff2=-bvstr(i,j,0)*cff;
               else
                   cff2=0.0;
-              Gpu::Atomic::Add(&(rvfrc(i,j,0)), cff1+cff2);
+              rvfrc(i,j,0) += cff1+cff2;
+           }
 #else
+           }
         });
         amrex::ParallelFor(gbx1D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
