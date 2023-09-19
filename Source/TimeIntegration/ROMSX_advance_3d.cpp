@@ -145,7 +145,7 @@ ROMSX::advance_3d (int lev,
 
         // Update to u and v
         //
-        amrex::ParallelFor(tbxp2,
+        amrex::ParallelFor(amrex::makeSlab(tbxp2,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             const auto prob_lo         = geomdata.ProbLo();
@@ -159,11 +159,11 @@ ROMSX::advance_3d (int lev,
             Real beta=0.0;
             Real Esize=1000*(Mm);
             Real y = prob_lo[1] + (j + 0.5) * dx[1];
-            Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+            Real f=f0+beta*(y-.5*Esize);
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             Akt(i,j,k)=1e-6;
         });
-       amrex::ParallelFor(tbxp2,
+       amrex::ParallelFor(amrex::makeSlab(tbxp2,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
           om_v(i,j,0)=1.0/dxi[0];
@@ -361,6 +361,7 @@ ROMSX::advance_3d (int lev,
         amrex::ParallelFor(tbxp2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
+          if (k == 0) {
             const auto prob_lo         = geomdata.ProbLo();
             const auto dx              = geomdata.CellSize();
 
@@ -372,11 +373,12 @@ ROMSX::advance_3d (int lev,
             Real beta=0.0;
             Real Esize=1000*(Mm);
             Real y = prob_lo[1] + (j + 0.5) * dx[1];
-            Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+            Real f=f0+beta*(y-.5*Esize);
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
+           }
             Akt(i,j,k)=1e-6;
         });
-       amrex::ParallelFor(tbxp2,
+       amrex::ParallelFor(amrex::makeSlab(tbxp2,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
           om_v(i,j,0)=1.0/dxi[0];
@@ -564,6 +566,7 @@ ROMSX::advance_3d (int lev,
         amrex::ParallelFor(tbxp2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
+          if (k == 0) {
             const auto prob_lo         = geomdata.ProbLo();
             const auto dx              = geomdata.CellSize();
 
@@ -575,11 +578,12 @@ ROMSX::advance_3d (int lev,
             Real beta=0.0;
             Real Esize=1000*(Mm);
             Real y = prob_lo[1] + (j + 0.5) * dx[1];
-            Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+            Real f=f0+beta*(y-.5*Esize);
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
+          }
             Akt(i,j,k)=1e-6;
         });
-       amrex::ParallelFor(tbxp2,
+       amrex::ParallelFor(amrex::makeSlab(tbxp2,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
           om_v(i,j,0)=1.0/dxi[0];

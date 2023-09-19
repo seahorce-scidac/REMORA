@@ -26,7 +26,7 @@ ROMSX::set_2darrays (int lev)
       const auto & geomdata = Geom(lev).data();
       int ncomp = 1;
       Gpu::synchronize();
-      amrex::ParallelFor(bx, ncomp,
+      amrex::ParallelFor(amrex::makeSlab(bx,2,0), ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
         const auto prob_lo         = geomdata.ProbLo();
@@ -94,7 +94,7 @@ ROMSX::set_2darrays (int lev)
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*u(i,j,k,nstp);
                 }
             });
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(amrex::makeSlab(gbx1,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 Real cff1=1.0/DC(i,j,-1);
@@ -121,7 +121,7 @@ ROMSX::set_2darrays (int lev)
                 CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*v(i,j,k,nstp);
                 }
             });
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(amrex::makeSlab(gbx1,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 Real cff1=1.0/DC(i,j,-1);
