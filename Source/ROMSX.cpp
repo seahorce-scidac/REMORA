@@ -8,8 +8,6 @@
 
 #include <AMReX_buildInfo.H>
 
-#include <Utils.H>
-
 using namespace amrex;
 
 amrex::Real ROMSX::startCPUTime        = 0.0;

@@ -5,7 +5,6 @@
 #include <ROMSX.H>
 #include <EOS.H>
 #include <ROMSX_Constants.H>
-#include <Utils.H>
 #include <prob_common.H>
 
 using namespace amrex;

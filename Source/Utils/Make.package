@@ -1,5 +1,2 @@
-CEXE_sources += MomentumToVelocity.cpp
-CEXE_sources += VelocityToMomentum.cpp
-
 CEXE_headers += ROMSX_Math.H
 CEXE_headers += DepthStretchTransform.H
