@@ -1,5 +1,4 @@
 #include <ROMSX.H>
-#include <Utils.H>
 
 using namespace amrex;
 //
@@ -147,9 +146,7 @@ ROMSX::advance_2d (int lev,
         Box tbxp2unevenD = tbxp2uneven;
         tbxp2unevenD.makeSlab(2,0);
 
-        BoxArray ba_gbx2uneven = intersect(BoxArray(tbxp2uneven), gbx);
-        AMREX_ASSERT((ba_gbx2uneven.size() == 1));
-        Box gbx2uneven = ba_gbx2uneven[0];
+        Box gbx2uneven = tbxp2uneven & gbx;
         Box gbx2unevenD = gbx2uneven;
         gbx2unevenD.makeSlab(2,0);
         //AKA
@@ -224,7 +221,7 @@ ROMSX::advance_2d (int lev,
        }
 
         //From ana_grid.h and metrics.F
-        amrex::ParallelFor(tbxp2,
+        amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
               pm(i,j,0)=dxi[0];
@@ -235,7 +232,7 @@ ROMSX::advance_2d (int lev,
               rhs_vbar(i,j,0)=0.0;
         });
 
-        amrex::ParallelFor(tbxp2,
+        amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //Note: are the comment definitons right? Don't seem to match metrics.f90
@@ -249,7 +246,7 @@ ROMSX::advance_2d (int lev,
               on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
               om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
         });
-        amrex::ParallelFor(tbxp2,
+        amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
         {
 
@@ -263,11 +260,11 @@ ROMSX::advance_2d (int lev,
               Real beta=0.0;
               Real Esize=1000*(Mm);
               Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+              Real f=f0+beta*(y-.5*Esize);
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
-        amrex::ParallelFor(tbxp2,
+        amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
@@ -491,7 +488,7 @@ ROMSX::advance_2d (int lev,
         {
             if(first_2d_step) {
                 Real cff2=(Real(-1.0)/Real(12.0))*weight2[my_iif+1];
-                amrex::ParallelFor(gbx2,
+                amrex::ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     Zt_avg1(i,j,0)=0.0;
@@ -513,11 +510,10 @@ ROMSX::advance_2d (int lev,
                 Real cff1=weight1[my_iif-1];
                 Real cff2=(Real(8.0)/Real(12.0))*weight2[my_iif]-
                           (Real(1.0)/Real(12.0))*weight2[my_iif+1];
-                amrex::ParallelFor(gbx2,
-                [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                amrex::ParallelFor(gbx2D,
+                [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
-                    if(k==0)
-                        Zt_avg1(i,j,0)=Zt_avg1(i,j,0)+cff1*zeta(i,j,0,krhs);
+                    Zt_avg1(i,j,0)=Zt_avg1(i,j,0)+cff1*zeta(i,j,0,krhs);
                 });
                 amrex::ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -767,7 +763,7 @@ ROMSX::advance_2d (int lev,
        }
         //Add in horizontal harmonic viscosity.
         // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(amrex::makeSlab(tbxp1,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs_p(i,j,0)=0.25*(Drhs(i,j,0)+Drhs(i-1,j,0)+

@@ -1,5 +1,4 @@
 #include <ROMSX.H>
-#include <Utils.H>
 
 using namespace amrex;
 
@@ -74,15 +73,17 @@ ROMSX::rho_eos (const Box& phi_bx,
         //printf("%d %d  %15.15g %15.15g %15.15g %15.15g %15.15g cff1 rhoN rhoA rhoS Hz rhoeos\n",
         //        i,j, cff1, rho(i,j,N), rhoA(i,j,0), rhoS(i,j,0), Hz(i,j,N));
     });
-    amrex::ParallelFor(phi_bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    AMREX_ASSERT(phi_bx.smallEnd(2) == 0 &&
+                 phi_bx.bigEnd(2) == N);
+    amrex::ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
-        if(k!=0) {
+      for (int k = 1; k <= N; ++k) {
         Real cff1=rho(i,j,N-k)*Hz(i,j,N-k);
         rhoS(i,j,0)=rhoS(i,j,0)+Hz(i,j,N-k)*(rhoA(i,j,0)+0.5_rt*cff1);
         rhoA(i,j,0)=rhoA(i,j,0)+cff1;
         //printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g   cff1 rhoA rhoS Hz rhoeos\n", i,j,k, cff1, rhoA(i,j,0), rhoS(i,j,0), Hz(i,j,N-k));
-        }
+      }
     });
     amrex::ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)

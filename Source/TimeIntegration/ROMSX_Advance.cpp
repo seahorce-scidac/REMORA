@@ -1,5 +1,4 @@
 #include <ROMSX.H>
-#include <Utils.H>
 
 using namespace amrex;
 
@@ -280,7 +279,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
               Real beta=0.0;
               Real Esize=1000*(Mm);
               Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+              Real f=f0+beta*(y-.5*Esize);
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             });
 
@@ -471,7 +470,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
               Real beta=0.0;
               Real Esize=1000*(Mm);
               Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=fomn(i,j,0)=f0+beta*(y-.5*Esize);
+              Real f=f0+beta*(y-.5*Esize);
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             });
 

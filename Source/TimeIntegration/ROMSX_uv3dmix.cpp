@@ -1,5 +1,4 @@
 #include <ROMSX.H>
-#include <Utils.H>
 
 using namespace amrex;
 
@@ -99,7 +98,7 @@ ROMSX::uv3dmix  (const Box& bx,
                 const amrex::Real cff1=0.5*(pn(i-1,j,0)+pn(i,j,0))*(UFx(i,j  ,k)-UFx(i-1,j,k));
                 const amrex::Real cff2=0.5*(pm(i-1,j,0)+pm(i,j,0))*(UFe(i,j+1,k)-UFe(i  ,j,k));
                 const amrex::Real cff3=cff*(cff1+cff2);
-                rufrc(i,j,0)=rufrc(i,j,0)+cff1+cff2;
+                amrex::Gpu::Atomic::Add(&(rufrc(i,j,0)), cff1+cff2);
                 u(i,j,k,nnew)=u(i,j,k,nnew)+cff3;
 /*#ifdef DIAGNOSTICS_UV
                 DiaRUfrc(i,j,3,M2hvis)=DiaRUfrc(i,j,3,M2hvis)+cff1+cff2
@@ -121,7 +120,7 @@ ROMSX::uv3dmix  (const Box& bx,
                 const amrex::Real cff1=0.5*(pn(i,j-1,0)+pn(i,j,0))*(VFx(i+1,j,k)-VFx(i,j  ,k));
                 const amrex::Real cff2=0.5*(pm(i,j-1,0)+pm(i,j,0))*(VFe(i  ,j,k)-VFe(i,j-1,k));
                 const amrex::Real cff3=cff*(cff1-cff2);
-                rvfrc(i,j,0)=rvfrc(i,j,0)+cff1-cff2;
+                amrex::Gpu::Atomic::Add(&(rvfrc(i,j,0)), cff1-cff2);
                 v(i,j,k,nnew)=v(i,j,k,nnew)+cff3;
 /*#ifdef DIAGNOSTICS_UV
                 DiaRVfrc(i,j,3,M2hvis)=DiaRVfrc(i,j,3,M2hvis)+cff1-cff2
