@@ -66,8 +66,6 @@ struct SolverChoice {
 
         pp.query("flat_bathymetry", flat_bathymetry);
 
-        pp.query("test_vertical", test_vertical);
-
         if(!flat_bathymetry)  amrex::Warning("Flat bathymetry needs further testing");
 
         // These default to true but are used for unit testing
@@ -198,9 +196,6 @@ struct SolverChoice {
         //This accounts for the main 2d loop but may not include coupling and copying properly
         pp.query("use_barotropic", use_barotropic);
 
-        //This accounts for the main 3d loop but may not include coupling and copying properly
-        pp.query("use_baroclinic", use_baroclinic);
-
         static std::string ic_bc_type_string = "Ideal";
         pp.query("ic_bc_type", ic_bc_type_string);
 
@@ -268,7 +263,6 @@ struct SolverChoice {
     std::string pp_prefix {"romsx"};
 
     bool        flat_bathymetry        = true;
-    bool        test_vertical          = true;
 
     // Specify what additional physics/forcing modules we use
     bool        use_gravity            = false;
