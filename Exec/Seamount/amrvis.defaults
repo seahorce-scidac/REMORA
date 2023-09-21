@@ -1,0 +1,24 @@
+palette               Pal8.new
+palette               /home/jmsexton/Amrvis_prof/Palette
+initialderived        x_velocity
+initialscale          8
+numberformat          %8.5f
+numberformat          %8.5e
+numberformat          %10.10g
+maxpixmapsize         100000
+maxpixmapsize         200000
+maxpixmapsize         200000
+reservesystemcolors   38
+reservesystemcolors   24
+reservesystemcolors   34
+reservesystemcolors   0
+extrapalettewidth     0
+showboxes             FALSE
+showboxes             TRUE
+windowheight          550
+windowwidth           800
+windowheight          750
+windowwidth           900
+filetype              newplt
+lowblack
+cliptoppalette
