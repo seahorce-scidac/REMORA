@@ -509,6 +509,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_Huon.resize(lev+1);
     vec_Hvom.resize(lev+1);
     vec_Akv.resize(lev+1);
+    vec_Akt.resize(lev+1);
     vec_visc3d_r.resize(lev+1);
     vec_visc2_p.resize(lev+1);
     vec_visc2_r.resize(lev+1);
@@ -559,6 +560,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_Huon[lev].reset               (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // mass flux for u component
     vec_Hvom[lev].reset               (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
     vec_Akv[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
+    vec_Akt[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
     vec_visc3d_r[lev].reset           (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // not used
 
     // check dimensionality
@@ -615,8 +617,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_vbar[lev]->setVal(0.0);
     vec_zeta[lev]->setVal(0.0);
 
-    // Hard-coded initial drag value as in ROMS input file
-    vec_rdrag[lev]->setVal(3e-4);
+    // Set initial linear drag coefficient
+    vec_rdrag[lev]->setVal(solverChoice.rdrag);
 
 }
 
@@ -626,6 +628,33 @@ ROMSX::set_bathymetry(int lev) {
 
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
+}
+
+void
+ROMSX::set_vmix(int lev) {
+    init_custom_vmix(geom[lev], *vec_Akv[lev], *vec_Akt[lev], *vec_z_w[lev], solverChoice);
+
+    vec_Akv[lev]->FillBoundary(geom[lev].periodicity());
+    vec_Akt[lev]->FillBoundary(geom[lev].periodicity());
+}
+
+void
+ROMSX::set_hmixcoef(int lev) {
+    init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2_salt[lev],
+            *vec_diff2_temp[lev], solverChoice);
+
+    vec_visc2_p[lev]->FillBoundary(geom[lev].periodicity());
+    vec_visc2_r[lev]->FillBoundary(geom[lev].periodicity());
+    vec_diff2_salt[lev]->FillBoundary(geom[lev].periodicity());
+    vec_diff2_temp[lev]->FillBoundary(geom[lev].periodicity());
+}
+
+void
+ROMSX::set_smflux(int lev, Real time) {
+    init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
+
+    vec_sustr[lev]->FillBoundary(geom[lev].periodicity());
+    vec_svstr[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 void

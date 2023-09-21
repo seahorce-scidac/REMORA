@@ -248,6 +248,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rvfrc;
     /** Vertical viscosity coefficient (3D), set in .in file */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akv;
+    /** Vertical diffusion coefficient (3D), set in .in file */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akt;
     /** Harmonic viscosity devined on the psi points (corners of horizontal grid cells) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_p;
     /** Harmonic viscosity devined on the rho points (centers) */
@@ -361,6 +363,7 @@ public:
                      amrex::MultiFab& mf_AK , amrex::MultiFab& mf_DC,
                      amrex::MultiFab& mf_Hzk,
                      std::unique_ptr<amrex::MultiFab>& mf_Akv,
+                     std::unique_ptr<amrex::MultiFab>& mf_Akt,
                      std::unique_ptr<amrex::MultiFab>& mf_Hz,
                      std::unique_ptr<amrex::MultiFab>& mf_Huon,
                      std::unique_ptr<amrex::MultiFab>& mf_Hvom,
@@ -379,6 +382,7 @@ public:
                   amrex::MultiFab& mf_temp, amrex::MultiFab& mf_salt,
                   std::unique_ptr<amrex::MultiFab>& mf_Hz,
                   std::unique_ptr<amrex::MultiFab>& mf_Akv,
+                  std::unique_ptr<amrex::MultiFab>& mf_Akt,
                   std::unique_ptr<amrex::MultiFab>& mf_Huon,
                   std::unique_ptr<amrex::MultiFab>& mf_Hvom,
                   amrex::MultiFab& mf_W, amrex::MultiFab& mf_DC,
@@ -404,6 +408,7 @@ public:
                         amrex::Array4<amrex::Real> tempcache,
                         amrex::Array4<amrex::Real> ru,
                         amrex::Array4<amrex::Real> Hz,
+                        amrex::Array4<amrex::Real> Akt,
                         amrex::Array4<amrex::Real> Huon,
                         amrex::Array4<amrex::Real> Hvom,
                         amrex::Array4<amrex::Real> pm,

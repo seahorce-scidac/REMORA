@@ -12,7 +12,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                       Array4<Real> temp,
                       Array4<Real> tempcache,
                       Array4<Real> ru,
-                      Array4<Real> Hz,
+                      Array4<Real> Hz, Array4<Real> Akt,
                       Array4<Real> Huon, Array4<Real> Hvom,
                       Array4<Real> pm,   Array4<Real> pn,
                       Array4<Real> W  ,  Array4<Real> DC,
@@ -120,9 +120,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         }
     });
 
-    FArrayBox fab_Akt(tbxp2,1,amrex::The_Async_Arena());
-    auto Akt= fab_Akt.array();
-
     //From ini_fields and .in file
     //fab_Akt.setVal(1e-6);
     FArrayBox fab_stflux(tbxp2,1,amrex::The_Async_Arena());
@@ -137,7 +134,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     amrex::ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Akt(i,j,k)=1e-6;
         stflux(i,j,k)=0.0;
         btflux(i,j,k)=0.0;
     });

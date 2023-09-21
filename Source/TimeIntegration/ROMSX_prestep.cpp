@@ -12,6 +12,7 @@ ROMSX::prestep (int lev,
                 MultiFab& mf_temp, MultiFab& mf_salt,
                 std::unique_ptr<MultiFab>& /* mf_Hz */,
                 std::unique_ptr<MultiFab>& /* mf_Akv */,
+                std::unique_ptr<MultiFab>& /* mf_Akt */,
                 std::unique_ptr<MultiFab>& /* mf_Huon */,
                 std::unique_ptr<MultiFab>& /* mf_Hvom */,
                 MultiFab& mf_W, MultiFab& mf_DC,
@@ -48,6 +49,7 @@ ROMSX::prestep (int lev,
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
         Array4<Real> const& Akv = (vec_Akv[lev])->array(mfi);
+        Array4<Real> const& Akt = (vec_Akt[lev])->array(mfi);
         Array4<Real> const& Hz  = (vec_Hz[lev])->array(mfi);
         Array4<Real> const& Huon  = (vec_Huon[lev])->array(mfi);
         Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
@@ -192,10 +194,10 @@ ROMSX::prestep (int lev,
         if (verbose > 1) {
             Print() << "Akv box " << Box(Akv) << std::endl;
         }
-        prestep_t_3d(bx, gbx, tempold, temp, tempcache, ru, Hz, Huon, Hvom,
+        prestep_t_3d(bx, gbx, tempold, temp, tempcache, ru, Hz, Akt, Huon, Hvom,
                      pm, pn, W, DC, FC, tempstore, z_r, z_w, h, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
-        prestep_t_3d(bx, gbx, saltold, salt, saltcache, ru, Hz, Huon, Hvom,
+        prestep_t_3d(bx, gbx, saltold, salt, saltcache, ru, Hz, Akt, Huon, Hvom,
                      pm, pn, W, DC, FC, saltstore, z_r, z_w, h, iic, ntfirst, nnew, nstp, nrhs, N,
                           lambda, dt_lev);
 
