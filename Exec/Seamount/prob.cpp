@@ -131,8 +131,6 @@ init_custom_prob(
         Array4<Real      > const& x_vel,
         Array4<Real      > const& y_vel,
         Array4<Real      > const& z_vel,
-        Array4<Real      > const& /*r_hse*/,
-        Array4<Real      > const& /*p_hse*/,
         Array4<Real const> const& /*z_w*/,
         Array4<Real const> const& z_r,
         Array4<Real const> const& Hz,
