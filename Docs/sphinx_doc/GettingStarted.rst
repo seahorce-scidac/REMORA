@@ -24,6 +24,8 @@ type:
 
              git clone --recursive https://github.com/seahorce-scidac/ROMSX.git
 
+.. include:: submodule.rst
+
 .. include:: building.rst
 
 .. include:: InputFiles.rst
