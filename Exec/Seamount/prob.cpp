@@ -176,18 +176,8 @@ init_custom_prob(
   // Set the x-velocity
   ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
-        const auto prob_lo         = geomdata.ProbLo();
-        const auto dx              = geomdata.CellSize();
-
-        const Real x = prob_lo[0] + (i + 0.5) * dx[0];
-        const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-        const Real z = -z_r(i,j,k);
-
         // Set the x-velocity
-        x_vel(i, j, k) = parms.u_0 + parms.uRef *
-                         std::log((z + parms.z0)/parms.z0)/
-                         std::log((parms.zRef +parms.z0)/parms.z0);
-        //x_vel(i, j, k) = 0.0;
+        x_vel(i, j, k) = 0.0;
   });
 
   // Construct a box that is on y-faces
@@ -196,12 +186,6 @@ init_custom_prob(
   // Set the y-velocity
   ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
-        const auto prob_lo         = geomdata.ProbLo();
-        const auto dx              = geomdata.CellSize();
-
-        const Real x = prob_lo[0] + (i + 0.5) * dx[0];
-        const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-        y_vel(i, j, k) = parms.v_0;
         y_vel(i, j, k) = 0.0;
   });
 
@@ -228,12 +212,11 @@ init_custom_vmix(const Geometry& geom, MultiFab& mf_Akv, MultiFab& mf_Akt, Multi
       Box bx = mfi.tilebox();
       bx.grow(IntVect(NGROW,NGROW,0));
       const auto & geomdata = geom.data();
-      int ncomp = 1;
-      Gpu::streamSynchronize();
+      int ncomp = 1; Gpu::streamSynchronize();
       amrex::ParallelFor(bx, ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
-        Akv(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w(i,j,k)/150.0);
+        Akv(i,j,k) = 1.0e-5_rt;
         Akt(i,j,k) = 1.0e-6_rt;
       });
     }
@@ -257,8 +240,8 @@ init_custom_hmix(const Geometry& geom, MultiFab& mf_visc2_p, MultiFab& mf_visc2_
       amrex::ParallelFor(bx, ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
-        visc2_p(i,j,k) = 5.0;
-        visc2_r(i,j,k) = 5.0;
+        visc2_p(i,j,k) = 0.0;
+        visc2_r(i,j,k) = 0.0;
 
         diff2_salt(i,j,k) = 0.0;
         diff2_temp(i,j,k) = 0.0;
@@ -270,38 +253,6 @@ void
 init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, MultiFab& mf_svstr,
     const SolverChoice& m_solverChoice)
 {
-    auto geomdata = geom.data();
-    bool NSPeriodic = geomdata.isPeriodic(1);
-    bool EWPeriodic = geomdata.isPeriodic(0);
-    //If we had wind stress and bottom stress we would need to set these:
-    Real pi = 3.14159265359;
-    Real tdays=time/(24.0*60.0*60.0);
-    amrex::Print()<<"Hacking in time offset for fixed dt=300"<<std::endl;
-    //this is a hack because time is off by dt. this needs to be fixed for non-fixed dt
-    Real dstart=0.0;//-300.0/(24.0*60.0*60.0);
-    Real rho0=parms.rho0;
-    Real windamp;
-    amrex::Print()<<tdays<<" "<<dstart<<" "<<rho0<<std::endl;
-    //It's possible these should be set to be nonzero only at the boundaries they affect
-    if(NSPeriodic) {
-        mf_sustr.setVal(0.0);
-    }
-    else if(EWPeriodic) {
-        if ((tdays-dstart)<=2.0)
-            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
-        else
-            windamp=-0.1/rho0;
-        mf_sustr.setVal(windamp);
-    }
-    if(NSPeriodic) {
-        if ((tdays-dstart)<=2.0)
-            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
-        else
-            windamp=-0.1/rho0;
-        mf_svstr.setVal(windamp);
-    }
-    else if(EWPeriodic) {
-        mf_svstr.setVal(0.0);
-    }
-
+    mf_sustr.setVal(0.0);
+    mf_svstr.setVal(0.0);
 }
