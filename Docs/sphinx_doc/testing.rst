@@ -47,7 +47,7 @@ where a regex string can be used to run specific sets of tests. ``-j`` where CTe
 parallel based on how many processes each test is specified to use and fit them into the amount of cores available
 on the machine. ``-L`` where the subset of tests containing a particular label will be run.
 (We note that using ``-L 'regression'`` will run all the tests that do not use SUNDIALS.)
-Output for the last set of tests run is available in the ``Build`` directory in ``Tests/Temporary/LastTest.log``.
+Output for the last set of tests run is available in the ``Build`` directory in ``Testing/Temporary/LastTest.log``.
 
 Adding Tests
 ~~~~~~~~~~~~
