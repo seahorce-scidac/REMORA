@@ -30,4 +30,23 @@ void init_custom_bathymetry (const amrex::Geometry& geom,
                         amrex::MultiFab& mf_Zt_avg1,
                         SolverChoice const& m_solverChoice);
 
+void init_custom_vmix (const amrex::Geometry& geom,
+                        amrex::MultiFab& mf_Akv,
+                        amrex::MultiFab& mf_Akt,
+                        amrex::MultiFab& mf_z_w,
+                        SolverChoice const& m_solverChoice);
+
+void init_custom_hmix (const amrex::Geometry& geom,
+                        amrex::MultiFab& mf_visc2_p,
+                        amrex::MultiFab& mf_visc2_r,
+                        amrex::MultiFab& mf_diff2_salt,
+                        amrex::MultiFab& mf_diff2_temp,
+                        SolverChoice const& m_solverChoice);
+
+void init_custom_smflux (const amrex::Geometry& geom,
+                        amrex::Real time,
+                        amrex::MultiFab& mf_sustr,
+                        amrex::MultiFab& mf_svstr,
+                        SolverChoice const& m_solverChoice);
+
 #endif

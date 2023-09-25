@@ -164,6 +164,8 @@ struct SolverChoice {
         pp.query("Sc_t", Sc_t);
         pp.query("rho0_trans", rho0_trans);
 
+        pp.query("rdrag", rdrag);
+
         if (molec_diff_type == MolecDiffType::ConstantAlpha) {
             amrex::Print() << "Using constant kinematic diffusion coefficients" << std::endl;
             amrex::Print() << "  momentum : " << dynamicViscosity/rho0_trans << " m^2/s" << std::endl;
@@ -294,6 +296,9 @@ struct SolverChoice {
     amrex::Real rhoAlpha_T = 0.0;
     amrex::Real rhoAlpha_C = 0.0;
     amrex::Real dynamicViscosity = 0.0;
+
+    // Linear drag coefficient
+    amrex::Real rdrag = 3e-4;
 
     // LES model
     LESType les_type;
