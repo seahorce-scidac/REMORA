@@ -120,6 +120,9 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         }
     });
 
+    FArrayBox fab_Akt(tbxp2,1,amrex::The_Async_Arena());
+    auto Akt_arr= fab_Akt.array();
+
     //From ini_fields and .in file
     //fab_Akt.setVal(1e-6);
     FArrayBox fab_stflux(tbxp2,1,amrex::The_Async_Arena());
@@ -134,6 +137,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     amrex::ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
+        Akt_arr(i,j,k)=1e-6;
         stflux(i,j,k)=0.0;
         btflux(i,j,k)=0.0;
     });
@@ -382,6 +386,6 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     //-----------------------------------------------------------------------
     //
     //  Compute vertical diffusive fluxes "FC" of the tracer fields at
-    update_vel_3d(tbx, gbx, 0, 0, temp, tempold, ru, Hz, Akt, DC, FC,
+    update_vel_3d(tbx, gbx, 0, 0, temp, tempold, ru, Hz, Akt_arr, DC, FC,
                   stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp, nrhs, N, lambda, dt_lev);
 }
