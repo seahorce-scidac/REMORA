@@ -1,5 +1,5 @@
-#ifndef _CONSTANTS_H_
-#define _CONSTANTS_H_
+#ifndef ROMSX_CONSTANTS_H_
+#define ROMSX_CONSTANTS_H_
 
 #include <AMReX_REAL.H>
 
@@ -15,9 +15,9 @@ constexpr amrex::Real PI = 3.14159265358979323846264338327950288;
 #define CONST_GRAV 9.81
 
 // Derived Constants
-#define ip_0    1./p_0
-#define iR_d    1./R_d
-#define iGamma  1./Gamma
-#define rdOcp   R_d/c_p
+#define ip_0    (1./p_0)
+#define iR_d    (1./R_d)
+#define iGamma  (1./Gamma)
+#define rdOcp   (R_d/c_p)
 
 #endif
