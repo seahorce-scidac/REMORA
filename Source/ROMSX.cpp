@@ -617,8 +617,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     vec_vbar[lev]->setVal(0.0);
     vec_zeta[lev]->setVal(0.0);
 
-    // Hard-coded initial drag value as in ROMS input file
-    vec_rdrag[lev]->setVal(3e-4);
+    // Set initial linear drag coefficient
+    vec_rdrag[lev]->setVal(solverChoice.rdrag);
 
 }
 
