@@ -527,6 +527,7 @@ ROMSX::advance_3d (int lev,
         FArrayBox fab_pn(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_fomn(tbxp2,1,amrex::The_Async_Arena());
+        FArrayBox fab_Akt(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
 
         FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
@@ -541,6 +542,7 @@ ROMSX::advance_3d (int lev,
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto fomn=fab_fomn.array();
+        auto Akt_arr= fab_Akt.array();
         auto W= fab_W.array();
         //From ini_fields and .in file
         //fab_Akt.setVal(1e-6);
@@ -566,7 +568,8 @@ ROMSX::advance_3d (int lev,
             Real y = prob_lo[1] + (j + 0.5) * dx[1];
             Real f=f0+beta*(y-.5*Esize);
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
-            }
+          }
+            Akt_arr(i,j,k)=1e-6;
         });
 
        amrex::ParallelFor(amrex::makeSlab(tbxp2,2,0),
@@ -581,8 +584,8 @@ ROMSX::advance_3d (int lev,
             PrintToFile("salt_beforevvisc").SetPrecision(18) << FArrayBox(salt) << std::endl;
         }
 
-        vert_visc_3d(gbx1,bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
-        vert_visc_3d(gbx1,bx,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(gbx1,bx,0,0,temp,Hz,Hzk,oHz,AK,Akt_arr,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(gbx1,bx,0,0,salt,Hz,Hzk,oHz,AK,Akt_arr,BC,DC,FC,CF,nnew,N,dt_lev);
 
         if (verbose > 2) {
             PrintToFile("temp_aftervvisc").SetPrecision(18) << FArrayBox(temp) << std::endl;
