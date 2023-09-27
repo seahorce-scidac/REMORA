@@ -481,7 +481,7 @@ ROMSX::advance_3d (int lev,
 
         Array4<Real> const& Hzk = mf_Hzk.array(mfi);
         Array4<Real> const& Akv = mf_Akv->array(mfi);
-        Array4<Real> const& Akt = mf_Akv->array(mfi);
+        Array4<Real> const& Akt = mf_Akt->array(mfi);
         Array4<Real> const& Hz  = mf_Hz->array(mfi);
 
         Array4<Real> const& DU_avg1  = mf_DU_avg1->array(mfi);
