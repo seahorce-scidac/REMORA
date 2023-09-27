@@ -217,3 +217,91 @@ init_custom_prob(
 
   Gpu::streamSynchronize();
 }
+
+void
+init_custom_vmix(const Geometry& geom, MultiFab& mf_Akv, MultiFab& mf_Akt, MultiFab& mf_z_w, const SolverChoice& m_solverChoice)
+{
+    for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+      Array4<Real> const& Akv = (mf_Akv).array(mfi);
+      Array4<Real> const& Akt = (mf_Akt).array(mfi);
+      Array4<Real> const& z_w = (mf_z_w).array(mfi);
+      Box bx = mfi.tilebox();
+      bx.grow(IntVect(NGROW,NGROW,0));
+      const auto & geomdata = geom.data();
+      int ncomp = 1;
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(bx, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      {
+        Akv(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w(i,j,k)/150.0);
+        Akt(i,j,k) = 1.0e-6_rt;
+      });
+    }
+}
+
+void
+init_custom_hmix(const Geometry& geom, MultiFab& mf_visc2_p, MultiFab& mf_visc2_r,
+    MultiFab& mf_diff2_salt, MultiFab& mf_diff2_temp, const SolverChoice& m_solverChoice)
+{
+    for ( MFIter mfi((mf_visc2_p), TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+      Array4<Real> const& visc2_p = (mf_visc2_p).array(mfi);
+      Array4<Real> const& visc2_r = (mf_visc2_r).array(mfi);
+      Array4<Real> const& diff2_salt = (mf_diff2_salt).array(mfi);
+      Array4<Real> const& diff2_temp = (mf_diff2_temp).array(mfi);
+      Box bx = mfi.tilebox();
+      bx.grow(IntVect(NGROW,NGROW,0));
+      const auto & geomdata = geom.data();
+      int ncomp = 1;
+      Gpu::streamSynchronize();
+      amrex::ParallelFor(bx, ncomp,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      {
+        visc2_p(i,j,k) = 5.0;
+        visc2_r(i,j,k) = 5.0;
+
+        diff2_salt(i,j,k) = 0.0;
+        diff2_temp(i,j,k) = 0.0;
+      });
+    }
+}
+
+void
+init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, MultiFab& mf_svstr,
+    const SolverChoice& m_solverChoice)
+{
+    auto geomdata = geom.data();
+    bool NSPeriodic = geomdata.isPeriodic(1);
+    bool EWPeriodic = geomdata.isPeriodic(0);
+    //If we had wind stress and bottom stress we would need to set these:
+    Real pi = 3.14159265359;
+    Real tdays=time/(24.0*60.0*60.0);
+    amrex::Print()<<"Hacking in time offset for fixed dt=300"<<std::endl;
+    //this is a hack because time is off by dt. this needs to be fixed for non-fixed dt
+    Real dstart=0.0;//-300.0/(24.0*60.0*60.0);
+    Real rho0=parms.rho0;
+    Real windamp;
+    amrex::Print()<<tdays<<" "<<dstart<<" "<<rho0<<std::endl;
+    //It's possible these should be set to be nonzero only at the boundaries they affect
+    if(NSPeriodic) {
+        mf_sustr.setVal(0.0);
+    }
+    else if(EWPeriodic) {
+        if ((tdays-dstart)<=2.0)
+            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
+        else
+            windamp=-0.1/rho0;
+        mf_sustr.setVal(windamp);
+    }
+    if(NSPeriodic) {
+        if ((tdays-dstart)<=2.0)
+            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
+        else
+            windamp=-0.1/rho0;
+        mf_svstr.setVal(windamp);
+    }
+    else if(EWPeriodic) {
+        mf_svstr.setVal(0.0);
+    }
+}
