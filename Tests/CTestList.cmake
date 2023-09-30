@@ -93,7 +93,7 @@ endfunction(add_test_u)
 # Regression tests
 #=============================================================================
 if(WIN32)
-  add_test_r(Upwelling                    "Upwelling/upwelling.exe" "plt00010")
+  add_test_r(Upwelling                    "Upwelling/*/upwelling.exe" "plt00010")
 else()
   add_test_r(Upwelling                    "Upwelling/upwelling" "plt00010")
 endif()
