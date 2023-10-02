@@ -1,5 +1,5 @@
-#ifndef _INDEX_DEFINES_H_
-#define _INDEX_DEFINES_H_
+#ifndef ROMSX_INDEX_DEFINES_H_
+#define ROMSX_INDEX_DEFINES_H_
 
 #include <AMReX_REAL.H>
 #include <AMReX_Arena.H>
@@ -18,10 +18,10 @@
 #endif
 
 // Cell-centered primitive variables
-#define PrimTheta_comp   Temp_comp -1
-#define PrimScalar_comp  RhoScalar_comp-1
+#define PrimTheta_comp   (Temp_comp -1)
+#define PrimScalar_comp  (RhoScalar_comp-1)
 
-#define NUM_PRIM         NVAR-1
+#define NUM_PRIM         (NVAR-1)
 #define NGROW          2
 
 namespace BCVars {
