@@ -378,6 +378,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& diff2_salt = (mf_diff2_salt)->array(mfi);
         Array4<Real> const& diff2_temp = (mf_diff2_temp)->array(mfi);
 
+        Array4<Real> const& zeta = (vec_zeta[lev])->array(mfi);
+        Array4<Real> const& Zt_avg1 = (vec_Zt_avg1[lev])->array(mfi);
+
         Box bx = mfi.tilebox();
         Box tbxp1 = bx;
         Box tbxp2 = bx;
@@ -569,6 +572,14 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
             amrex::PrintToFile("saltstore_uv3dmix").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
         }
         }
+
+        // Set zeta components to time-averaged value in preparation for barotropic update
+        amrex::ParallelFor(gbx2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            zeta(i,j,0,0) = Zt_avg1(i,j,0);
+            zeta(i,j,0,1) = Zt_avg1(i,j,0);
+        });
     } // MFIter
 
     mf_temp.FillBoundary(geom[lev].periodicity());
