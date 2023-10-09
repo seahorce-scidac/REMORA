@@ -582,6 +582,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         });
     } // MFIter
 
+    // Update Akv with new depth. NOTE: this happens before set_zeta in ROMS
+    set_vmix(lev);
+
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
     mf_tempold.FillBoundary(geom[lev].periodicity());
