@@ -574,8 +574,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         }
 
         // Set zeta components to time-averaged value in preparation for barotropic update
-        amrex::ParallelFor(gbx2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        amrex::ParallelFor(gbx2D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             zeta(i,j,0,0) = Zt_avg1(i,j,0);
             zeta(i,j,0,1) = Zt_avg1(i,j,0);
