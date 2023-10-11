@@ -22,10 +22,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     U_old.FillBoundary(geom[lev].periodicity());
     V_old.FillBoundary(geom[lev].periodicity());
     W_old.FillBoundary(geom[lev].periodicity());
-    MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
-    MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
-    MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
-    MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
 
     //////////    //pre_step3d corrections to boundaries
 
@@ -143,8 +139,11 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     int iic = istep[lev];
     int ntfirst = 0;
-    if(iic==ntfirst&&false)
-        MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,NGROW)));
+    if(iic==ntfirst)
+        MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
+        MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
+        MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
+        MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
     set_smflux(lev,t_old[lev]);
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
