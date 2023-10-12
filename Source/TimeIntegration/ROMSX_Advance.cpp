@@ -139,11 +139,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     int iic = istep[lev];
     int ntfirst = 0;
-    if(iic==ntfirst)
+    if(iic==ntfirst) {
         MultiFab::Copy(S_new,S_old,0,0,S_new.nComp(),S_new.nGrowVect());
         MultiFab::Copy(U_new,U_old,0,0,U_new.nComp(),U_new.nGrowVect());
         MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
         MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
+    }
     set_smflux(lev,t_old[lev]);
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
@@ -324,7 +325,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         set_massflux_3d(gbx2,1,0,uold,Huon,Hz,on_u,nnew);
         set_massflux_3d(gbx2,0,1,vold,Hvom,Hz,om_v,nnew);
 
-        rho_eos(gbx2,temp,salt,rho,rhoA,rhoS,pden,Hz,z_w,h,nrhs,N);
+        rho_eos(gbx2,tempold,saltold,rho,rhoA,rhoS,pden,Hz,z_w,h,nrhs,N);
     }
 
     if(solverChoice.use_prestep) {
