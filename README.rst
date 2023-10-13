@@ -1,7 +1,7 @@
 ROMS-X
 ------
 
-ROMS-X is a new GPU-enabled code designed to replicate the functionality of the ROMS code but with the ability to exploit GPU architectures.  
+ROMS-X is a new GPU-enabled code designed to replicate the functionality of the ROMS code but with the ability to exploit GPU architectures.
 
 `ROMS-X` is built upon the `AMReX <https://amrex-codes.github.io/amrex/>`_ software framework
 for massively parallel block-structured applications. The AMReX software framework provides performance portability across multiple architectures.
@@ -42,7 +42,7 @@ NOTICE.  This Software was developed under funding from the U.S. Department
 of Energy and the U.S. Government consequently retains certain rights.  As
 such, the U.S. Government has been granted for itself and others acting on
 its behalf a paid-up, nonexclusive, irrevocable, worldwide license in the
-Software to reproduce, distribute copies to the public, prepare derivative 
+Software to reproduce, distribute copies to the public, prepare derivative
 works, and perform publicly and display publicly, and to permit others to do so.
 
 The license for ROMSX can be found in the LICENSE.md file.
