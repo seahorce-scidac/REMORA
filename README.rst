@@ -3,7 +3,8 @@ ROMS-X
 
 ROMS-X is a new GPU-enabled code designed to replicate the functionality of the ROMS code but with the ability to exploit GPU architectures.  
 
-ROMS-X is built on the AMReX software framework which provides performance portability across multiple architectures.
+`ROMS-X` is built upon the `AMReX <https://amrex-codes.github.io/amrex/>`_ software framework
+for massively parallel block-structured applications. The AMReX software framework provides performance portability across multiple architectures.
 
 Getting Started
 ~~~~~~~~~~~~~~~
