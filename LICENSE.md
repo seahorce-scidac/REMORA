@@ -1,10 +1,9 @@
-ROMS-X Copyright (c) 2023, The Regents of the University of California, 
-through Lawrence Berkeley National Laboratory, 
-Argonne National Laboratory,
-Pacific Northwest National Laboratory,
-Los Alamos National Laboratory and TechTrans International Inc
-(subject to receipt of any required approvals from the
-U.S. Dept. of Energy). All rights reserved.
+ROMS-X Copyright (c) 2023, The Regents of the University of California,
+through Lawrence Berkeley National Laboratory, Triad National Security, LLC
+through Los Alamos National Laboratory, UChicago Argonne LLC through
+Argonne National Laboratory, Battelle Memorial Institute through Pacific
+Northwest National Laboratory (subject to receipt of any required approvals
+from the U.S. Dept. of Energy) and TechTrans International, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -17,11 +16,12 @@ notice, this list of conditions and the following disclaimer in the
 documentation and/or other materials provided with the distribution.
 
 (3) Neither the name of the University of California, Lawrence Berkeley
-National Laboratory, Argonne National Laboratory, Pacific Northwest National Laboratory,
-Los Alamos National Laboratory, TechTrans International Inc, Argonne National Laboratory,
-U.S. Dept.  of Energy nor the names of its contributors may be used to endorse or
-promote products derived from this software without specific prior written
-permission.
+National Laboratory, U.S. Dept. of Energy, Triad National Security, LLC,
+Los Alamos National Laboratory, UChicago Argonne LLC, Argonne National
+Laboratory, Battelle Memorial Institute, Pacific Northwest National Laboratory, 
+TechTrans International, Inc. nor the names of its contributors may be used
+to endorse or promote products derived from this software without specific
+prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
