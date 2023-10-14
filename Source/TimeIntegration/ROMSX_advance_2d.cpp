@@ -1036,6 +1036,8 @@ ROMSX::advance_2d (int lev,
     mf_DU_avg2->FillBoundary(geom[lev].periodicity());
     mf_DV_avg1->FillBoundary(geom[lev].periodicity());
     mf_DV_avg2->FillBoundary(geom[lev].periodicity());
+    mf_ru->FillBoundary(geom[lev].periodicity());
+    mf_rv->FillBoundary(geom[lev].periodicity());
     mf_rubar->FillBoundary(geom[lev].periodicity());
     mf_rvbar->FillBoundary(geom[lev].periodicity());
     mf_rzeta->FillBoundary(geom[lev].periodicity());
