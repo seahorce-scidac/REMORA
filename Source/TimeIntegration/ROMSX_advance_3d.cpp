@@ -246,6 +246,10 @@ ROMSX::advance_3d (int lev,
                 vbar(i,j,k,1) = vbar(i,j,k,0);
             });
     }
+
+    mf_Huon->FillBoundary(geom[lev].periodicity());
+    mf_Hvom->FillBoundary(geom[lev].periodicity());
+
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& u = mf_u.array(mfi);
