@@ -23,6 +23,11 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     tbxp2.grow(IntVect(NGROW,NGROW,0));
     tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
 
+    Box utbxp1 = surroundingNodes(tbxp1, 0);
+    Box vtbxp1 = surroundingNodes(tbxp1, 1);
+    Box ubx = surroundingNodes(bx, 0);
+    Box vbx = surroundingNodes(bx, 1);
+
     BoxArray ba_gbx1 = intersect(BoxArray(tbxp1),gbx);
     AMREX_ASSERT((ba_gbx1.size() == 1));
     Box gbx1 = ba_gbx1[0];
@@ -68,11 +73,12 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         oHz(i,j,k) = 1.0/ Hz(i,j,k);
     });
 
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(utbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
         FX(i,j,k)=tempstore(i,j,k,nrhs)-tempstore(i-1,j,k,nrhs);
+        //printf("%d %d %d  %15.15g   %15.15g %15.15g  FX tempstore2\n", i,j,k, FX(i,j,k), tempstore(i,j,k,nrhs), tempstore(i-1,j,k,nrhs));
     });
     Real cffa=1.0/6.0;
     Real cffb=1.0/3.0;
@@ -87,7 +93,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         //HACK to avoid using the wrong index of t (using upstream3)
         Real max_Huon=FArrayBox(Huon).max<RunOn::Device>();
         Real min_Huon=FArrayBox(Huon).min<RunOn::Device>();
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(ubx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
@@ -101,7 +107,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             //Centered4
             grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
         });
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(ubx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
@@ -121,13 +127,14 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
         });
         //HACK to avoid using the wrong index of t (using upstream3)
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(ubx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real max_Huon=max(Huon(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
             Real min_Huon=min(Huon(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))-
                 cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
+            //printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g  Huon ts tsim1 cffa curv minH curvim1 maxH\n", i,j,k,Huon(i,j,k), tempstore(i,j,k), tempstore(i-1,j,k), cffa, curv(i,j,k), min_Huon, curv(i-1,j,k), max_Huon);
         });
     }
     else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
@@ -136,12 +143,15 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         {
             //Centered4
             grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
+            //printf("%d %d %d  %15.15g  %15.15g %15.15g  grad FX2\n", i,j,k, grad(i,j,k), FX(i,j,k), FX(i+1,j,k));
         });
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(ubx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k)-
-                                       cffb*(grad(i,j,k)+ grad(i-1,j,k)));
+                                       cffb*(grad(i,j,k)- grad(i-1,j,k)));
+            //printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g FXC4 Hu told2 cffb grad2 rhst\n",
+            //        i,j,k, FX(i,j,k), Huon(i,j,k), tempstore(i,j,k), tempstore(i-1,j,k), cffb, grad(i,j,k), grad(i-1,j,k));
         });
     }
     else {
@@ -151,7 +161,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     if (verbose > 2)
         PrintToFile("FX_set1").SetPrecision(18) << FArrayBox(FX) << std::endl;
 
-    amrex::ParallelFor(tbxp1,
+    amrex::ParallelFor(vtbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
@@ -170,7 +180,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         //HACK to avoid using the wrong index of t (using upstream3)
         Real max_Hvom=FArrayBox(Hvom).max<RunOn::Device>();
         Real min_Hvom=FArrayBox(Hvom).min<RunOn::Device>();
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(vbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
@@ -183,7 +193,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         {
             grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
         });
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(vbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
@@ -202,7 +212,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
         });
         //HACK to avoid using the wrong index of t (using upstream3)
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(vbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real max_Hvom=max(Hvom(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
@@ -217,11 +227,11 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         {
             grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
         });
-        amrex::ParallelFor(tbxp1,
+        amrex::ParallelFor(vbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k)-
-                                       cffb*(grad(i,j,k)+ grad(i,j-1,k)));
+                                       cffb*(grad(i,j,k)- grad(i,j-1,k)));
         });
     }
     else {
@@ -229,7 +239,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     }
     }
 
-        amrex::ParallelFor(gbx1,
+        amrex::ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //
@@ -240,7 +250,10 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
               Real cff2=cff*(FE(i,j+1,k)-FE(i,j,k));
               Real cff3=cff1+cff2;
 
+              //printf("%d %d %d  %15.15g  before hadv\n", i,j,k, t(i,j,k,nnew));
+
               t(i,j,k,nnew) -= cff3;
+              //printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g after hadv\n", i,j,k, t(i,j,k,nnew),FX(i+1,j,k), FX(i,j,k),cff, cff1, cff2, cff3);
     });
 
         //-----------------------------------------------------------------------
@@ -294,7 +307,9 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         } else {
             cff4=FC(i,j,k);
         }
+        //printf("%d %d %d   %15.15g  before vadv update\n", i,j,k, t(i,j,k));
         t(i,j,k)=oHz(i,j,k)*(t(i,j,k)-cff1*cff4);
+        //printf("%d %d %d   %15.15g %15.15g after vadv update\n", i,j,k, t(i,j,k), cff1*cff4);
         //    if(i==2&&j==2&&k==2) {
         //    Print()<<i<<j<<k<<t(i,j,k)<<"\t"<<oHz(i,j,k)<<"\t"<<cff1<<"\t"<<cff4<<std::endl;
         //    Abort("any nans?");
