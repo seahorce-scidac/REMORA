@@ -3,7 +3,7 @@
 using namespace amrex;
 
 void
-ROMSX::uv3dmix  (const Box& bx,
+ROMSX::uv3dmix  (const Box& bx, const Box& gbx,
                  Array4<Real> u  , Array4<Real> v,
                  Array4<Real> uold  , Array4<Real> vold,
                  Array4<Real> rufrc, Array4<Real> rvfrc,
@@ -25,6 +25,9 @@ ROMSX::uv3dmix  (const Box& bx,
     // This might need to be done with a grown tilebox instead
     Box gbx1 = bx;
     gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
+
+    // Create a box that includes one halo zone, but only into guard cells
+    Box tbxp1 = gbx1 & gbx;
 
     FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena());
     FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena());
@@ -91,7 +94,7 @@ ROMSX::uv3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=Jstr,Jend
     //DO i=IstrU,Iend
-    amrex::ParallelFor(gbx1,
+    amrex::ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 const amrex::Real cff=dt_lev*0.25*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
@@ -113,7 +116,7 @@ ROMSX::uv3dmix  (const Box& bx,
     //K_LOOP : DO k=1,N(ng)
     //DO j=JstrV,Jend
     //DO i=Istr,Iend
-    amrex::ParallelFor(gbx1,
+    amrex::ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 const amrex::Real cff=dt_lev*0.25*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));

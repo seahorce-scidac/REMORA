@@ -608,6 +608,7 @@ public:
 
     /** Harmonic viscosity */
     void uv3dmix  (const amrex::Box& bx,
+                 const amrex::Box& gbx,
                  amrex::Array4<amrex::Real> u,
                  amrex::Array4<amrex::Real> v,
                  amrex::Array4<amrex::Real> uold,
