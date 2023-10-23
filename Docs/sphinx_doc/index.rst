@@ -40,6 +40,7 @@ In addition to this documentation, there is API documentation for ROMSX generate
 
    GettingStarted.rst
    Inputs.rst
+   ProblemSetup.rst
 
 .. toctree::
    :caption: THEORY
