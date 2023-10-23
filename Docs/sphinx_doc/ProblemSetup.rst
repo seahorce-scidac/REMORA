@@ -1,10 +1,3 @@
-
- .. role:: cpp(code)
-    :language: c++
-
-.. _ProblemSetup:
-
-
 Problem Setup
 =============
 
