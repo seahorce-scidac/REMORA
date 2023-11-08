@@ -28,8 +28,8 @@ romsx.fixed_ndtfast_ratio  = 30 # Baratropic timestep size (seconds)
 
 # DIAGNOSTICS & VERBOSITY
 romsx.sum_interval   = 1       # timesteps between computing mass
-romsx.v              = 0       # verbosity in ROMSX.cpp (0: none, 1: print boxes, etc, 2: print values)
-amr.v              = 1       # verbosity in Amr.cpp
+romsx.v              = 1       # verbosity in ROMSX.cpp (0: none, 1: print boxes, etc, 2: print values)
+amr.v                = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
 amr.max_level       = 0       # maximum level number allowed
