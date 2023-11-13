@@ -34,6 +34,11 @@ ROMSX::coriolis (const Box& bx, const Box& gbx,
     AMREX_ASSERT((ba_vbxShift.size() == 1));
     vbxShift = ba_vbxShift[0];
 
+    if (verbose > 1) {
+        Print() << "ubxshift in cor" <<  Box(ubxShift) << std::endl;
+        Print() << "vbxshift in cor" <<  Box(vbxShift) << std::endl;
+    }
+
     amrex::ParallelFor(ubxShift,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {

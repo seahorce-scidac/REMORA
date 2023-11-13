@@ -89,6 +89,9 @@ ROMSX::advance_3d (int lev,
         Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
         Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
 
+        Box gbx2D = gbx2;
+        gbx2D.makeSlab(2,0);
+
         Box tbxp1 = bx;
         Box tbxp11 = bx;
         Box tbxp2 = bx;
@@ -175,14 +178,30 @@ ROMSX::advance_3d (int lev,
         } else {
           cff=0.25*dt_lev*23.0/12.0;
         }
+        if (verbose > 2) {
+            PrintToFile("Hz_before_u_start_adv3").SetPrecision(18) << FArrayBox(Hz) << std::endl;
+        }
+
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                u(i,j,k) += gbx2.contains(i-1,j,0) ? cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * ru(i,j,k,nrhs) ;
-                v(i,j,k) += gbx2.contains(i,j-1,0) ? cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * rv(i,j,k,nrhs);
+                if (verbose > 2) {
+                    printf("%d %d %d  %15.15g %15.15g %15.15g  u start adv3\n", i,j,k, u(i,j,k), ru(i,j,k,nrhs));
+                    printf("%d %d %d  %15.15g %15.15g %15.15g  v start adv3\n", i,j,k, v(i,j,k), rv(i,j,k,nrhs));
+                }
+                u(i,j,k) += tbxp2.contains(i-1,j,0) ? cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * ru(i,j,k,nrhs) ;
+                v(i,j,k) += tbxp2.contains(i,j-1,0) ? cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * rv(i,j,k,nrhs);
+                if (verbose > 2) {
+                    printf("%d %d %d  %15.15g %15.15g %15.15g  u start adv3 mid\n", i,j,k, u(i,j,k), ru(i,j,k,nrhs));
+                    printf("%d %d %d  %15.15g %15.15g %15.15g  v start adv3 mid\n", i,j,k, v(i,j,k), rv(i,j,k,nrhs));
+                }
 
-                u(i,j,k) *= gbx2.contains(i-1,j,0) ? 2.0 / (Hz(i-1,j,k) + Hz(i,j,k)) :  1.0 / (Hz(i,j,k));
-                v(i,j,k) *= gbx2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
+                u(i,j,k) *= tbxp2.contains(i-1,j,0) ? 2.0 / (Hz(i-1,j,k) + Hz(i,j,k)) :  1.0 / (Hz(i,j,k));
+                v(i,j,k) *= tbxp2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
+                if (verbose > 2) {
+                    printf("%d %d %d  %15.15g %15.15g %15.15g  u start adv3 after\n", i,j,k, u(i,j,k), ru(i,j,k,nrhs));
+                    printf("%d %d %d  %15.15g %15.15g %15.15g  v start adv3 after\n", i,j,k, v(i,j,k), rv(i,j,k,nrhs));
+                }
             });
         {
         amrex::Gpu::synchronize();
@@ -213,6 +232,11 @@ ROMSX::advance_3d (int lev,
                 CF(i,j,k) = 0.0;
             });
        vert_visc_3d(gbx1,bx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+
+        if (verbose > 2) {
+            PrintToFile("u_aftervvisc_adv3").SetPrecision(18) << FArrayBox(u) << std::endl;
+            PrintToFile("v_aftervvisc_adv3").SetPrecision(18) << FArrayBox(v) << std::endl;
+        }
         }
         amrex::ParallelFor(gbx21,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -231,20 +255,33 @@ ROMSX::advance_3d (int lev,
        vert_mean_3d(gbx1,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
 
 
+        if (verbose > 2) {
+            PrintToFile("u_aftervmean_adv3").SetPrecision(18) << FArrayBox(u) << std::endl;
+            PrintToFile("v_aftervmean_adv3").SetPrecision(18) << FArrayBox(v) << std::endl;
+            PrintToFile("Huon_beforeupdate").SetPrecision(18) << FArrayBox(Huon) << std::endl;
+            PrintToFile("Hvom_beforeupdate").SetPrecision(18) << FArrayBox(Hvom) << std::endl;
+            PrintToFile("ubar_beforeupdate").SetPrecision(18) << FArrayBox(ubar) << std::endl;
+            PrintToFile("vbar_beforeupdate").SetPrecision(18) << FArrayBox(vbar) << std::endl;
+        }
+
        update_massflux_3d(gbx2,bx,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
-        amrex::ParallelFor(Box(ubar),
+        amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 ubar(i,j,k,0) = DC(i,j,-1)*DU_avg1(i,j,0);
                 ubar(i,j,k,1) = ubar(i,j,k,0);
             });
         update_massflux_3d(gbx2,bx,0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
-        amrex::ParallelFor(Box(vbar),
+        amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 vbar(i,j,k,0) = DC(i,j,-1)*DV_avg1(i,j,0);
                 vbar(i,j,k,1) = vbar(i,j,k,0);
             });
+        if (verbose > 2) {
+            PrintToFile("ubar_afterupdate").SetPrecision(18) << FArrayBox(ubar) << std::endl;
+            PrintToFile("vbar_afterupdate").SetPrecision(18) << FArrayBox(vbar) << std::endl;
+        }
     }
 
     mf_Huon->FillBoundary(geom[lev].periodicity());
@@ -342,6 +379,8 @@ ROMSX::advance_3d (int lev,
         if (verbose > 2) {
             amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
             amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+            amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
+            amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
             amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
             amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
             amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;

@@ -73,7 +73,10 @@ ROMSX::uv3dmix  (const Box& bx, const Box& gbx,
     amrex::ParallelFor(gbx1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                //printf("%d %d %d %15.15g %15.15g %15.15g %15.15g\n",i,j,k,Hz(i-1,j,k),Hz(i,j,k),Hz(i-1,j-1,k),Hz(i,j-1,k));
+                if (verbose > 2) {
+                    printf("%d %d %d %15.15g %15.15g %15.15g %15.15g uv3dmix Hzs\n",i,j,k,Hz(i-1,j,k),Hz(i,j,k),Hz(i-1,j-1,k),Hz(i,j-1,k));
+                    printf("%d %d %d %15.15g %15.15g %15.15g %15.15g uv3dmix uold vold\n",i,j,k,vold(i,j,k,nrhs), vold(i-1,j,k,nrhs), uold(i,j,k,nrhs),uold(i,j-1,k,nrhs));
+                }
                 const amrex::Real cff = 0.125 * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
                                       Hz(i-1,j-1,k)+Hz(i,j-1,k))*
                             (pm(i,j,0)/pn(i,j,0)*
@@ -102,6 +105,9 @@ ROMSX::uv3dmix  (const Box& bx, const Box& gbx,
                 const amrex::Real cff2=0.5*(pm(i-1,j,0)+pm(i,j,0))*(UFe(i,j+1,k)-UFe(i  ,j,k));
                 const amrex::Real cff3=cff*(cff1+cff2);
                 amrex::Gpu::Atomic::Add(&(rufrc(i,j,0)), cff1+cff2);
+                if (verbose > 2) {
+                    printf("%d %d %d %15.15g %15.15g %15.15g %15.15g uv3dmix u cff{1,2,3}\n", i,j,k, u(i,j,k,nnew), cff1, cff2, cff3);
+                }
                 u(i,j,k,nnew)=u(i,j,k,nnew)+cff3;
 /*#ifdef DIAGNOSTICS_UV
                 DiaRUfrc(i,j,3,M2hvis)=DiaRUfrc(i,j,3,M2hvis)+cff1+cff2

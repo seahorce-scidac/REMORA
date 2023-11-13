@@ -213,23 +213,28 @@ ROMSX::advance_2d (int lev,
 
         auto weight1 = vec_weight1.dataPtr();
         auto weight2 = vec_weight2.dataPtr();
-       if ((verbose > 2) && predictor_2d_step && my_iif == 0) {
-           amrex::PrintToFile("ru_startadvance").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-           amrex::PrintToFile("rv_startadvance").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
-           amrex::PrintToFile("u_startadvance2").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-           amrex::PrintToFile("v_startadvance2").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-       }
+        if ((verbose > 2) && predictor_2d_step && my_iif == 0) {
+            amrex::PrintToFile("ru_startadvance2").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+            amrex::PrintToFile("rv_startadvance2").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+            amrex::PrintToFile("u_startadvance2").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+            amrex::PrintToFile("v_startadvance2").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+            amrex::PrintToFile("ubar_startadvance2").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
+            amrex::PrintToFile("vbar_startadvance2").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
+        }
+        if (verbose > 2) {
+            amrex::ParallelFor(gbx2D,
+            [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                printf("%d %d  %15.15g %15.15g %15.15g all zeta start adv2 %d\n", i,j,zeta(i,j,0,0),zeta(i,j,0,1), zeta(i,j,0,2));
+            });
+        }
 
         //From ana_grid.h and metrics.F
-        amrex::ParallelFor(tbxp2D,
+        amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-              pm(i,j,0)=dxi[0];
-              pn(i,j,0)=dxi[1];
               DUon(i,j,0)=0.0;
               DVom(i,j,0)=0.0;
-              rhs_ubar(i,j,0)=0.0;
-              rhs_vbar(i,j,0)=0.0;
         });
 
         amrex::ParallelFor(tbxp2D,
@@ -264,30 +269,43 @@ ROMSX::advance_2d (int lev,
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
+        if (verbose > 1) {
+            Print() << "gbx2D advance_2d " << gbx2D << std::endl;
+            Print() << "tbxp2D advance_2d " << tbxp2D << std::endl;
+        }
+
         amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
+            if (verbose > 2) {
+                printf("%d %d  %15.15g zeta start adv2  %d %d \n", i,j, zeta(i,j,0,krhs), my_iif, predictor_2d_step);
+            }
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });
-        amrex::ParallelFor(tbxp2D,
+        amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*on_u(i,j,0);
             //todo: HACKHACKHACK may not work for evolve_free_surface=1 or flat_bathymetry=0
-            Real cff1=gbx2D.contains(i-1,j,0) ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
+            Real cff1=tbxp2D.contains(i-1,j,0) ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
+            if (verbose > 2) {
+                printf("%d %d  %15.15g %15.15g %15.15g ubar cff1 DUon\n", i,j,ubar(i,j,0,krhs),cff1,
+                    DUon(i,j,0));
+            }
         });
-        amrex::ParallelFor(tbxp2D,
+        amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*om_v(i,j,0);
             //todo: HACKHACKHACK may not work for evolve_free_surface=1 or flat_bathymetry=0
-            Real cff1=gbx2D.contains(i,j-1,0) ? cff*(Drhs(i,j,0)+Drhs(i,j-1,0)) : om_v(i,j,0)*Drhs(i,j,0);
+            Real cff1=tbxp2D.contains(i,j-1,0) ? cff*(Drhs(i,j,0)+Drhs(i,j-1,0)) : om_v(i,j,0)*Drhs(i,j,0);
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
         });
     }
     mf_DUon.FillBoundary(geom[lev].periodicity());
     mf_DVom.FillBoundary(geom[lev].periodicity());
+
 
     for ( MFIter mfi(*mf_ru, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -437,6 +455,11 @@ ROMSX::advance_2d (int lev,
            amrex::PrintToFile("v_startadvance2").SetPrecision(18)<<FArrayBox(v)<<std::endl;
        }
 
+       if (verbose > 2) {
+           PrintToFile("DUon_mid").SetPrecision(18) << FArrayBox(DUon) << std::endl;
+           PrintToFile("DVom_mid").SetPrecision(18) << FArrayBox(DVom) << std::endl;
+       }
+
         //From ana_grid.h and metrics.F
         amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -547,12 +570,20 @@ ROMSX::advance_2d (int lev,
             });
         }
 
+
         //
         //  Do not perform the actual time stepping during the auxiliary
         //  (nfast(ng)+1) time step. Jump to next box
         //
 
         if (my_iif>=nfast) {
+            if (verbose > 2) {
+                amrex::ParallelFor(gbx2D,
+                [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    printf("%d %d  %15.15g %15.15g %15.15g zeta end adv2 %d\n", i,j,zeta(i,j,0,0),zeta(i,j,0,1), zeta(i,j,0,2));
+                });
+            }
             continue; }
         //Load new free-surface values into shared array at both predictor
         //and corrector steps
@@ -587,6 +618,11 @@ ROMSX::advance_2d (int lev,
                 gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
                 gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
+                if (verbose > 2) {
+                    printf("%d %d  %15.15g %15.15g %15.15g %15.15g  iif0 DUDV\n",i,j,DUon(i,j,0),DUon(i+1,j,0),DVom(i,j,0), DVom(i,j+1,0));
+                    printf("%d %d  %15.15g %15.15g %15.15g  iif0 rhs_zeta zetanew zwrk \n",i,j, rhs_zeta(i,j,0), zeta_new(i,j,0), zwrk(i,j,0));
+                    printf("%d %d  %15.15g %15.15g %15.15g  iif0 gzeta rhoS zwrk \n",i,j, gzeta(i,j,0), rhoS(i,j,0),  zwrk(i,j,0));
+                }
             });
         } else if (predictor_2d_step) {
             Real cff1=2.0_rt*dtfast_lev;
@@ -606,6 +642,11 @@ ROMSX::advance_2d (int lev,
                 gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
                 gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
+                if (verbose > 2) {
+                    printf("%d %d  %15.15g %15.15g %15.15g %15.15g  pred DUDV\n",i,j,DUon(i,j,0),DUon(i+1,j,0),DVom(i,j,0), DVom(i,j+1,0));
+                    printf("%d %d  %15.15g %15.15g %15.15g  pred rhs_zeta zetanew zwrk \n",i,j, rhs_zeta(i,j,0), zeta_new(i,j,0), zwrk(i,j,0));
+                    printf("%d %d  %15.15g %15.15g %15.15g  pred gzeta rhoS zwrk \n",i,j, gzeta(i,j,0), rhoS(i,j,0),  zwrk(i,j,0));
+                }
             });
         } else if (!predictor_2d_step) { //AKA if(corrector_2d_step)
             Real cff1=dtfast_lev*5.0_rt/12.0_rt;
@@ -628,9 +669,17 @@ ROMSX::advance_2d (int lev,
                 gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
                 gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
+                if (verbose > 2) {
+                    printf("%d %d  %15.15g %15.15g %15.15g %15.15g  corr DUDV\n",i,j,DUon(i,j,0),DUon(i+1,j,0),DVom(i,j,0), DVom(i,j+1,0));
+                    printf("%d %d  %15.15g %15.15g %15.15g  corr rhs_zeta zetanew zwrk \n",i,j, rhs_zeta(i,j,0), zeta_new(i,j,0), zwrk(i,j,0));
+                    printf("%d %d  %15.15g %15.15g %15.15g  corr gzeta rhoS zwrk \n",i,j, gzeta(i,j,0), rhoS(i,j,0),  zwrk(i,j,0));
+                }
                 });
         }
 
+        if (verbose > 2) {
+            PrintToFile("zeta_new").SetPrecision(18) << FArrayBox(zeta_new) << std::endl;
+        }
         //
         //  Load new free-surface values into shared array at both predictor
         //  and corrector steps.
@@ -770,7 +819,21 @@ ROMSX::advance_2d (int lev,
                                 Drhs(i,j-1,0)+Drhs(i-1,j-1,0));
         });
 
+        if (verbose > 2) {
+            PrintToFile("ubar_preuv3d2d").SetPrecision(18) << FArrayBox(ubar) << std::endl;
+            PrintToFile("vbar_preuv3d2d").SetPrecision(18) << FArrayBox(vbar) << std::endl;
+            PrintToFile("rhs_ubar_preuv3d2d").SetPrecision(18)  << FArrayBox(rhs_ubar) << std::endl;
+            PrintToFile("rhs_vbar_preuv3d2d").SetPrecision(18)  << FArrayBox(rhs_vbar) << std::endl;
+            PrintToFile("Drhs_preuv3d2d").SetPrecision(18)  << FArrayBox(Drhs) << std::endl;
+        }
         uv3dmix(bxD, gbxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar, visc2_p, visc2_r, Drhs, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
+        if (verbose > 2) {
+            PrintToFile("after_ubar_preuv3d2d").SetPrecision(18) << FArrayBox(ubar) << std::endl;
+            PrintToFile("after_vbar_preuv3d2d").SetPrecision(18) << FArrayBox(vbar) << std::endl;
+            PrintToFile("after_rhs_ubar_preuv3d2d").SetPrecision(18)  << FArrayBox(rhs_ubar) << std::endl;
+            PrintToFile("after_rhs_vbar_preuv3d2d").SetPrecision(18)  << FArrayBox(rhs_vbar) << std::endl;
+            PrintToFile("after_Drhs_preuv3d2d").SetPrecision(18)  << FArrayBox(Drhs) << std::endl;
+        }
 
         //Coupling from 3d to 2d
         /////////Coupling of 3d updates to 2d predictor-corrector
@@ -925,6 +988,10 @@ ROMSX::advance_2d (int lev,
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
                                   cff*cff1*rhs_ubar(i,j,0))*fac;
+                if (verbose > 2) {
+                    printf("%d %d   %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g  branch1 ubarknew ubarkstp Dstp Dstp cff rhs_ubar fac\n",
+                        i,j,ubar(i,j,0,knew), ubar(i,j,0,kstp), Dstp(i,j,0), Dstp(i-1,j,0), cff, rhs_ubar(i,j,0), fac);
+                }
             });
             //END DO
             //END DO
@@ -953,6 +1020,10 @@ ROMSX::advance_2d (int lev,
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
                                   cff*cff1*rhs_ubar(i,j,0))*fac;
+                if (verbose > 2) {
+                    printf("%d %d   %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g  branch2 ubarknew ubarkstp Dstp Dstp cff rhs_ubar fac\n",
+                        i,j,ubar(i,j,0,knew), ubar(i,j,0,kstp), Dstp(i,j,0), Dstp(i-1,j,0), cff, rhs_ubar(i,j,0), fac);
+                }
             });
             //END DO
             //END DO
@@ -985,6 +1056,10 @@ ROMSX::advance_2d (int lev,
                                  cff*(cff1*rhs_ubar(i,j,0)+
                                       cff2*rubar(i,j,0,kstp)-
                                       cff3*rubar(i,j,0,ptsk)))*fac;
+                if (verbose > 2) {
+                    printf("%d %d   %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g  branch3 ubarknew ubarkstp Dstp Dstp cff rubar rubar fac\n",
+                        i,j,ubar(i,j,0,knew), ubar(i,j,0,kstp), Dstp(i,j,0), Dstp(i-1,j,0), cff, rubar(i,j,0,kstp), rubar(i,j,0,ptsk), fac);
+                }
             });
             //END DO
             //END DO

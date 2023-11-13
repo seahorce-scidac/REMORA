@@ -324,6 +324,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         // updates Huon/Hvom
         set_massflux_3d(gbx2,1,0,uold,Huon,Hz,on_u,nnew);
         set_massflux_3d(gbx2,0,1,vold,Hvom,Hz,om_v,nnew);
+        if (verbose > 2) {
+            PrintToFile("Huon_init").SetPrecision(18) << FArrayBox(Huon) << std::endl;
+        }
 
         rho_eos(gbx2,tempold,saltold,rho,rhoA,rhoS,pden,Hz,z_w,h,nrhs,N);
     }
@@ -421,7 +424,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
         //gbx2D.grow(IntVect(NGROW,NGROW,0));
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
@@ -502,7 +505,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
             FC(i,j,k)=0.0;
         });
 
-        prsgrd(gbx1,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,nrhs,N);
+        prsgrd(tbxp1,gbx1,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,nrhs,N);
         if (verbose > 2) {
            amrex::PrintToFile("ru_afterprsgrd").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
            amrex::PrintToFile("rv_afterprsgrd").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
@@ -573,7 +576,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         }
         }
 
-        // Set zeta components to time-averaged value in preparation for barotropic update
+        // Set first two components of zeta to time-averaged values before barotropic update
         amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -632,6 +635,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     }
     }
 
+
+    //BOOKMARK: Zt_avg1 here is wrong at step 2
     // Currently, bathymetry doesn't change, so we do not need to re-set h here. Just re-do stretch, etc
     // because zeta may have changed
     stretch_transform(lev);

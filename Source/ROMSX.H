@@ -522,6 +522,7 @@ public:
                   const int nrhs, const int N);
 
     void prsgrd (const amrex::Box& bx,
+                 const amrex::Box& gbx,
                  amrex::Array4<amrex::Real> ru,
                  amrex::Array4<amrex::Real> rv,
                  amrex::Array4<amrex::Real> on_u,

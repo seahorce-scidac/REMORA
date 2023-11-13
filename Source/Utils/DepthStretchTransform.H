@@ -66,6 +66,10 @@ ROMSX::stretch_transform (int lev)
           z_w(i,j,k) = h(i,j,0);
       });
 
+      if (verbose > 2) {
+        PrintToFile("Zt_avg1_dst").SetPrecision(18) << FArrayBox(Zt_avg1) << std::endl;
+      }
+
       // ROMS Transform 2
       Gpu::streamSynchronize();
       amrex::ParallelFor(gbx2D, ncomp,
@@ -198,9 +202,16 @@ ROMSX::stretch_transform (int lev)
           for(int k=0; k<=N_loop; k++) {
           if(k==0) {
               Hz(i,j,k)=z_w(i,j,k)+h(i,j,0);
+              if (verbose > 2) {
+                printf("%d %d %d  %15.15g %15.15g %15.15g  Hz z_w2\n", i,j,k, Hz(i,j,k), z_w(i,j,k), h(i,j,0));
+              }
           }
-          else
+          else {
               Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1);
+              if (verbose > 2) {
+                printf("%d %d %d  %15.15g %15.15g %15.15g  Hz z_w2\n", i,j,k, Hz(i,j,k), z_w(i,j,k), z_w(i,j,k-1));
+              }
+              }
           }
       });
     }

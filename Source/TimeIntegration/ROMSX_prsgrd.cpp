@@ -3,7 +3,7 @@
 using namespace amrex;
 
 void
-ROMSX::prsgrd (const Box& phi_bx,
+ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
                Array4<Real> ru , Array4<Real> rv,
                Array4<Real> on_u , Array4<Real> om_v,
                Array4<Real> rho,
@@ -18,6 +18,14 @@ ROMSX::prsgrd (const Box& phi_bx,
     const int Mm = Geom(0).Domain().size()[1];
     auto phi_bxD=phi_bx;
     phi_bxD.makeSlab(2,0);
+    auto phi_gbxD=phi_gbx & phi_bx;
+    phi_gbxD.makeSlab(2,0);
+    if (verbose > 1) {
+        Print() << "phi_gbxD " << phi_gbxD << std::endl;
+        Print() << "phi_bxD " << phi_bxD << std::endl;
+        Print() << "rho box " << Box(rho) << std::endl;
+        Print() << "FC box " << Box(FC) << std::endl;
+    }
     //hardcode these for now instead of reading them from inputs
     Real T0=14.0;
     Real S0=35.0;
@@ -104,9 +112,9 @@ ROMSX::prsgrd (const Box& phi_bx,
          }
     });
     if (verbose > 2) {
-    amrex::PrintToFile("P_inprsgrd").SetPrecision(18)<<FArrayBox(P)<<std::endl;
-    amrex::PrintToFile("z_w_inprsgrd").SetPrecision(18)<<FArrayBox(z_w)<<std::endl;
-    amrex::PrintToFile("z_r_inprsgrd").SetPrecision(18)<<FArrayBox(z_r)<<std::endl;
+        amrex::PrintToFile("P_inprsgrd").SetPrecision(18)<<FArrayBox(P)<<std::endl;
+        amrex::PrintToFile("z_w_inprsgrd").SetPrecision(18)<<FArrayBox(z_w)<<std::endl;
+        amrex::PrintToFile("z_r_inprsgrd").SetPrecision(18)<<FArrayBox(z_r)<<std::endl;
     }
     //This should be nodal
     amrex::ParallelFor(phi_bx,
@@ -116,8 +124,9 @@ ROMSX::prsgrd (const Box& phi_bx,
         aux(i,j,k)=phi_bx.contains(i-1,j,k) ? z_r(i,j,k)-z_r(i-1,j,k) : 0.0;
     });
     if (verbose > 2) {
-    amrex::PrintToFile("FC_inprsgrd").SetPrecision(18)<<FArrayBox(FC)<<std::endl;
-    amrex::PrintToFile("aux_inprsgrd").SetPrecision(18)<<FArrayBox(aux)<<std::endl;
+        amrex::PrintToFile("FC_inprsgrd").SetPrecision(18)<<FArrayBox(FC)<<std::endl;
+        amrex::PrintToFile("rho_inprsgrd").SetPrecision(18)<<FArrayBox(rho)<<std::endl;
+        amrex::PrintToFile("aux_inprsgrd").SetPrecision(18)<<FArrayBox(aux)<<std::endl;
     }
     //This should be nodal aux and FC need wider boxes above
     //dZx and dRx may have index mismatch issues at k=2 and k=N
@@ -142,11 +151,11 @@ ROMSX::prsgrd (const Box& phi_bx,
         }
     });
     if (verbose > 2) {
-    amrex::PrintToFile("dRx_inprsgrd").SetPrecision(18)<<FArrayBox(dRx)<<std::endl;
-    amrex::PrintToFile("dZx_inprsgrd").SetPrecision(18)<<FArrayBox(dZx)<<std::endl;
+        amrex::PrintToFile("dRx_inprsgrd").SetPrecision(18)<<FArrayBox(dRx)<<std::endl;
+        amrex::PrintToFile("dZx_inprsgrd").SetPrecision(18)<<FArrayBox(dZx)<<std::endl;
     }
     //This should be nodal aux and FC need wider boxes above
-    amrex::ParallelFor(phi_bxD,
+    amrex::ParallelFor(phi_gbxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;phi_bxD.contains(i-1,j,0)&&k>=0;k--) {
@@ -176,8 +185,9 @@ ROMSX::prsgrd (const Box& phi_bx,
         aux(i,j,k)=phi_bx.contains(i,j-1,k) ? z_r(i,j,k)-z_r(i,j-1,k) : 0.0;
     });
     if (verbose > 2) {
-    amrex::PrintToFile("FC_inprsgrd").SetPrecision(18)<<FArrayBox(FC)<<std::endl;
-    amrex::PrintToFile("aux_inprsgrd").SetPrecision(18)<<FArrayBox(aux)<<std::endl;
+        amrex::PrintToFile("FC_inprsgrd").SetPrecision(18)<<FArrayBox(FC)<<std::endl;
+        amrex::PrintToFile("rho_inprsgrd").SetPrecision(18)<<FArrayBox(rho)<<std::endl;
+        amrex::PrintToFile("aux_inprsgrd").SetPrecision(18)<<FArrayBox(aux)<<std::endl;
     }
     //This should be nodal aux and FC need wider boxes above
     //dZx and dRx may have index mismatch issues at k=2 and k=N
@@ -202,11 +212,11 @@ ROMSX::prsgrd (const Box& phi_bx,
         }
     });
     if (verbose > 2) {
-    amrex::PrintToFile("dRx_inprsgrd").SetPrecision(18)<<FArrayBox(dRx)<<std::endl;
-    amrex::PrintToFile("dZx_inprsgrd").SetPrecision(18)<<FArrayBox(dZx)<<std::endl;
+        amrex::PrintToFile("dRx_inprsgrd").SetPrecision(18)<<FArrayBox(dRx)<<std::endl;
+        amrex::PrintToFile("dZx_inprsgrd").SetPrecision(18)<<FArrayBox(dZx)<<std::endl;
     }
     //This should be nodal aux and FC need wider boxes above
-    amrex::ParallelFor(phi_bxD,
+    amrex::ParallelFor(phi_gbxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;phi_bxD.contains(i,j-1,0)&&k>=0;k--) {

@@ -205,7 +205,11 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Huon(i,j,k)*0.5*(tempold(i,j,k)+tempold(i-1,j,k)-
-                                       cffb*(grad(i,j,k)+ grad(i-1,j,k)));
+                                       cffb*(grad(i,j,k)-grad(i-1,j,k)));
+            if (verbose > 2) {
+                printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g FXC4 Hu told2 cffb grad2\n",
+                    i,j,k, FX(i,j,k), Huon(i,j,k), tempold(i,j,k), tempold(i-1,j,k), cffb, grad(i,j,k), grad(i-1,j,k));
+            }
         });
     }
     else {
@@ -237,7 +241,7 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Hvom(i,j,k)*0.5*(tempold(i,j,k)+tempold(i,j-1,k)-
-                                       cffb*(grad(i,j,k)+ grad(i,j-1,k)));
+                                       cffb*(grad(i,j,k)- grad(i,j-1,k)));
         });
     }
     else {
@@ -272,6 +276,11 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
         Print()<<(Box(FX))<<std::endl;
         Print()<<(Box(FE))<<std::endl;
     }
+    if (verbose > 2) {
+        PrintToFile("prestep_before_t_tempstore").SetPrecision(18) << FArrayBox(tempstore) << std::endl;
+        PrintToFile("prestep_before_t_tempcache").SetPrecision(18) << FArrayBox(tempcache) << std::endl;
+        PrintToFile("prestep_before_t_tempold").SetPrecision(18) << FArrayBox(tempold) << std::endl;
+    }
     amrex::ParallelFor(tbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -280,6 +289,10 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                                     cff*pm(i,j,0)*pn(i,j,0)*
                                     (FX(i+1,j,k)-FX(i,j,k)+
                                      FE(i,j+1,k)-FE(i,j,k));
+        if (verbose > 2) {
+            printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g  Hz told tcache FX2 FE2 tstore prestep\n",
+                i,j,k, Hz(i,j,k), tempold(i,j,k), tempcache(i,j,k), FX(i+1,j,k), FX(i,j,k), FE(i,j+1,k), FE(i,j,k));
+        }
          /*
          tempstore(i,j,k,3)=Hz(i,j,k)*(cff1*tempold(i,j,k,nstp)+
                                        cff2*temp(i,j,k,nnew))-
@@ -287,6 +300,11 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                             (FC(i+1,j)-FC(i,j)+
                              DC(i,j+1)-DC(i,j));*/
     });
+    if (verbose > 2) {
+        PrintToFile("prestep_t_tempstore").SetPrecision(18) << FArrayBox(tempstore) << std::endl;
+        PrintToFile("prestep_t_tempcache").SetPrecision(18) << FArrayBox(tempcache) << std::endl;
+        PrintToFile("prestep_t_tempold").SetPrecision(18) << FArrayBox(tempold) << std::endl;
+    }
 
     //
     // Time-step vertical advection of tracers (Tunits). Impose artificial
