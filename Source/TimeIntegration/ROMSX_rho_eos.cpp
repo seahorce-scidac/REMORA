@@ -40,20 +40,12 @@ ROMSX::rho_eos (const Box& phi_bx,
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        if (verbose > 2) {
-            printf("%d %d %d   %15.15g    temprhoeos\n", i,j,k, temp(i,j,k,nrhs));
-            printf("%d %d %d   %15.15g    saltrhoeos\n", i,j,k, salt(i,j,k,nrhs));
-        }
         rho(i,j,k)=R0-
             R0*Tcoef*(temp(i,j,k,nrhs)-T0);
         rho(i,j,k)=rho(i,j,k)+
             R0*Scoef*(salt(i,j,k,nrhs)-S0);
         rho(i,j,k)=rho(i,j,k)-1000.0_rt;
         pden(i,j,k)=rho(i,j,k);
-        if (verbose > 2) {
-            printf("%d %d %d  %15.15g rhorhoeos\n", i,j,k, rho(i,j,k));
-            printf("%d %d %d  %15.15g Hzrhoeos\n", i,j,k, Hz(i,j,k));
-        }
     });
 
 //

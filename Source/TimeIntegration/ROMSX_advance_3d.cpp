@@ -185,23 +185,23 @@ ROMSX::advance_3d (int lev,
         amrex::ParallelFor(gbx2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                if (verbose > 2) {
-                    printf("%d %d %d  %15.15g %15.15g %15.15g  u start adv3\n", i,j,k, u(i,j,k), ru(i,j,k,nrhs));
-                    printf("%d %d %d  %15.15g %15.15g %15.15g  v start adv3\n", i,j,k, v(i,j,k), rv(i,j,k,nrhs));
-                }
+                //if (verbose > 2) {
+                //    printf("%d %d %d  %15.15g %15.15g %15.15g  u start adv3\n", i,j,k, u(i,j,k), ru(i,j,k,nrhs));
+                //    printf("%d %d %d  %15.15g %15.15g %15.15g  v start adv3\n", i,j,k, v(i,j,k), rv(i,j,k,nrhs));
+                //}
                 u(i,j,k) += tbxp2.contains(i-1,j,0) ? cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * ru(i,j,k,nrhs) ;
                 v(i,j,k) += tbxp2.contains(i,j-1,0) ? cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs) : cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * rv(i,j,k,nrhs);
-                if (verbose > 2) {
-                    printf("%d %d %d  %15.15g %15.15g %15.15g  u start adv3 mid\n", i,j,k, u(i,j,k), ru(i,j,k,nrhs));
-                    printf("%d %d %d  %15.15g %15.15g %15.15g  v start adv3 mid\n", i,j,k, v(i,j,k), rv(i,j,k,nrhs));
-                }
+                //if (verbose > 2) {
+                //    printf("%d %d %d  %15.15g %15.15g %15.15g  u start adv3 mid\n", i,j,k, u(i,j,k), ru(i,j,k,nrhs));
+                //    printf("%d %d %d  %15.15g %15.15g %15.15g  v start adv3 mid\n", i,j,k, v(i,j,k), rv(i,j,k,nrhs));
+                //}
 
                 u(i,j,k) *= tbxp2.contains(i-1,j,0) ? 2.0 / (Hz(i-1,j,k) + Hz(i,j,k)) :  1.0 / (Hz(i,j,k));
                 v(i,j,k) *= tbxp2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
-                if (verbose > 2) {
-                    printf("%d %d %d  %15.15g %15.15g %15.15g  u start adv3 after\n", i,j,k, u(i,j,k), ru(i,j,k,nrhs));
-                    printf("%d %d %d  %15.15g %15.15g %15.15g  v start adv3 after\n", i,j,k, v(i,j,k), rv(i,j,k,nrhs));
-                }
+                //if (verbose > 2) {
+                //    printf("%d %d %d  %15.15g %15.15g %15.15g  u start adv3 after\n", i,j,k, u(i,j,k), ru(i,j,k,nrhs));
+                //    printf("%d %d %d  %15.15g %15.15g %15.15g  v start adv3 after\n", i,j,k, v(i,j,k), rv(i,j,k,nrhs));
+                //}
             });
         {
         amrex::Gpu::synchronize();

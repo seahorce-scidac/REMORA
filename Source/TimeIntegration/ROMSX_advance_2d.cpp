@@ -274,12 +274,17 @@ ROMSX::advance_2d (int lev,
             Print() << "tbxp2D advance_2d " << tbxp2D << std::endl;
         }
 
+        if (verbose > 2) {
+            amrex::ParallelFor(tbxp2D,
+            [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                printf("%d %d  %15.15g zeta start adv2  %d %d \n", i,j, zeta(i,j,0,krhs), my_iif, predictor_2d_step);
+            }
+        }
+
         amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            if (verbose > 2) {
-                printf("%d %d  %15.15g zeta start adv2  %d %d \n", i,j, zeta(i,j,0,krhs), my_iif, predictor_2d_step);
-            }
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });
         amrex::ParallelFor(gbx2D,
@@ -289,10 +294,6 @@ ROMSX::advance_2d (int lev,
             //todo: HACKHACKHACK may not work for evolve_free_surface=1 or flat_bathymetry=0
             Real cff1=tbxp2D.contains(i-1,j,0) ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
-            if (verbose > 2) {
-                printf("%d %d  %15.15g %15.15g %15.15g ubar cff1 DUon %d %d\n", i,j,ubar(i,j,0,krhs),cff1,
-                    DUon(i,j,0), my_iif, predictor_2d_step);
-            }
         });
         amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -620,11 +621,11 @@ ROMSX::advance_2d (int lev,
                 gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
                 gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
-                if (verbose > 2) {
-                    printf("%d %d  %15.15g %15.15g %15.15g %15.15g  iif0 DUDV\n",i,j,DUon(i,j,0),DUon(i+1,j,0),DVom(i,j,0), DVom(i,j+1,0));
-                    printf("%d %d  %15.15g %15.15g %15.15g  iif0 rhs_zeta zetanew zwrk \n",i,j, rhs_zeta(i,j,0), zeta_new(i,j,0), zwrk(i,j,0));
-                    printf("%d %d  %15.15g %15.15g %15.15g  iif0 gzeta rhoS zwrk \n",i,j, gzeta(i,j,0), rhoS(i,j,0),  zwrk(i,j,0));
-                }
+                //if (verbose > 2) {
+                //    printf("%d %d  %15.15g %15.15g %15.15g %15.15g  iif0 DUDV\n",i,j,DUon(i,j,0),DUon(i+1,j,0),DVom(i,j,0), DVom(i,j+1,0));
+                //    printf("%d %d  %15.15g %15.15g %15.15g  iif0 rhs_zeta zetanew zwrk \n",i,j, rhs_zeta(i,j,0), zeta_new(i,j,0), zwrk(i,j,0));
+                //    printf("%d %d  %15.15g %15.15g %15.15g  iif0 gzeta rhoS zwrk \n",i,j, gzeta(i,j,0), rhoS(i,j,0),  zwrk(i,j,0));
+                //}
             });
         } else if (predictor_2d_step) {
             Real cff1=2.0_rt*dtfast_lev;
@@ -644,11 +645,11 @@ ROMSX::advance_2d (int lev,
                 gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
                 gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
-                if (verbose > 2) {
-                    printf("%d %d  %15.15g %15.15g %15.15g %15.15g  pred DUDV\n",i,j,DUon(i,j,0),DUon(i+1,j,0),DVom(i,j,0), DVom(i,j+1,0));
-                    printf("%d %d  %15.15g %15.15g %15.15g  pred rhs_zeta zetanew zwrk \n",i,j, rhs_zeta(i,j,0), zeta_new(i,j,0), zwrk(i,j,0));
-                    printf("%d %d  %15.15g %15.15g %15.15g  pred gzeta rhoS zwrk \n",i,j, gzeta(i,j,0), rhoS(i,j,0),  zwrk(i,j,0));
-                }
+                //if (verbose > 2) {
+                //    printf("%d %d  %15.15g %15.15g %15.15g %15.15g  pred DUDV\n",i,j,DUon(i,j,0),DUon(i+1,j,0),DVom(i,j,0), DVom(i,j+1,0));
+                //    printf("%d %d  %15.15g %15.15g %15.15g  pred rhs_zeta zetanew zwrk \n",i,j, rhs_zeta(i,j,0), zeta_new(i,j,0), zwrk(i,j,0));
+                //    printf("%d %d  %15.15g %15.15g %15.15g  pred gzeta rhoS zwrk \n",i,j, gzeta(i,j,0), rhoS(i,j,0),  zwrk(i,j,0));
+                //}
             });
         } else if (!predictor_2d_step) { //AKA if(corrector_2d_step)
             Real cff1=dtfast_lev*5.0_rt/12.0_rt;
@@ -671,11 +672,11 @@ ROMSX::advance_2d (int lev,
                 gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
                 gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
-                if (verbose > 2) {
-                    printf("%d %d  %15.15g %15.15g %15.15g %15.15g  corr DUDV\n",i,j,DUon(i,j,0),DUon(i+1,j,0),DVom(i,j,0), DVom(i,j+1,0));
-                    printf("%d %d  %15.15g %15.15g %15.15g  corr rhs_zeta zetanew zwrk \n",i,j, rhs_zeta(i,j,0), zeta_new(i,j,0), zwrk(i,j,0));
-                    printf("%d %d  %15.15g %15.15g %15.15g  corr gzeta rhoS zwrk \n",i,j, gzeta(i,j,0), rhoS(i,j,0),  zwrk(i,j,0));
-                }
+                //if (verbose > 2) {
+                //    printf("%d %d  %15.15g %15.15g %15.15g %15.15g  corr DUDV\n",i,j,DUon(i,j,0),DUon(i+1,j,0),DVom(i,j,0), DVom(i,j+1,0));
+                //    printf("%d %d  %15.15g %15.15g %15.15g  corr rhs_zeta zetanew zwrk \n",i,j, rhs_zeta(i,j,0), zeta_new(i,j,0), zwrk(i,j,0));
+                //    printf("%d %d  %15.15g %15.15g %15.15g  corr gzeta rhoS zwrk \n",i,j, gzeta(i,j,0), rhoS(i,j,0),  zwrk(i,j,0));
+                //}
                 });
         }
 
@@ -870,9 +871,6 @@ ROMSX::advance_2d (int lev,
                 {
                     //DO j=Jstr,Jend
                     //DO i=IstrU,Iend
-                    if (verbose > 2) {
-                        printf("%d %d  %15.15g %15.15g %15.15g  %d %d  iic2 rhs_ubar rufrc ru\n", i,j, rhs_ubar(i,j,0), rufrc(i,j,0), ru(i,j,-1,0), my_iif, predictor_2d_step);
-                    }
                     rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
                     rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
                         1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,0);
@@ -880,9 +878,6 @@ ROMSX::advance_2d (int lev,
                     Real r_swap= ru(i,j,-1,1);
                     ru(i,j,-1,1) = ru(i,j,-1,0);
                     ru(i,j,-1,0) = r_swap;
-                    if (verbose > 2) {
-                      printf("%d %d  %15.15g %15.15g %15.15g %15.15g  %d %d  iic2 rhs_ubar rufrc ru r_swap\n", i,j, rhs_ubar(i,j,0), rufrc(i,j,0), ru(i,j,-1,0), r_swap, my_iif, predictor_2d_step);
-                    }
                 });
                                    //END DO
                                    //          END DO
@@ -1028,10 +1023,6 @@ ROMSX::advance_2d (int lev,
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
                                   cff*cff1*rhs_ubar(i,j,0))*fac;
-                if (verbose > 2) {
-                    printf("%d %d   %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g  branch2 ubarknew ubarkstp Dstp Dstp cff rhs_ubar fac\n",
-                        i,j,ubar(i,j,0,knew), ubar(i,j,0,kstp), Dstp(i,j,0), Dstp(i-1,j,0), cff, rhs_ubar(i,j,0), fac);
-                }
             });
             //END DO
             //END DO
@@ -1064,10 +1055,6 @@ ROMSX::advance_2d (int lev,
                                  cff*(cff1*rhs_ubar(i,j,0)+
                                       cff2*rubar(i,j,0,kstp)-
                                       cff3*rubar(i,j,0,ptsk)))*fac;
-                if (verbose > 2) {
-                    printf("%d %d   %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g  branch3 ubarknew ubarkstp Dstp Dstp cff rubar rubar fac\n",
-                        i,j,ubar(i,j,0,knew), ubar(i,j,0,kstp), Dstp(i,j,0), Dstp(i-1,j,0), cff, rubar(i,j,0,kstp), rubar(i,j,0,ptsk), fac);
-                }
             });
             //END DO
             //END DO

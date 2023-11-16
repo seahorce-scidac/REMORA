@@ -87,9 +87,9 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
         }
 
         //Compute correct mass flux, Hz*v/m
-        if (verbose > 2) {
-            printf("%d %d %d  %15.15g %15.15g %15.15g Hadj0\n", i,j,k, Hphi(i,j,k), phi(i,j,k,nnew), DC(i,j,k));
-        }
+        //if (verbose > 2) {
+        //    printf("%d %d %d  %15.15g %15.15g %15.15g Hadj0\n", i,j,k, Hphi(i,j,k), phi(i,j,k,nnew), DC(i,j,k));
+        //}
         Hphi(i,j,k) = 0.5 * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
         FC(i,j,0) = FC(i,j,0)+Hphi(i,j,k); //recursive
         }
@@ -103,13 +103,13 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const Box& valid_bx, const int iof
     amrex::ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        if (verbose > 2) {
-            printf("%d %d %d  %15.15g %15.15g %15.15g Hadj\n", i,j,k, Hphi(i,j,k), DC(i,j,k), FC(i,j,0));
-        }
+        //if (verbose > 2) {
+        //    printf("%d %d %d  %15.15g %15.15g %15.15g Hadj\n", i,j,k, Hphi(i,j,k), DC(i,j,k), FC(i,j,0));
+        //}
         Hphi(i,j,k) = Hphi(i,j,k)-DC(i,j,k)*FC(i,j,0);
-        if (verbose > 2) {
-            printf("%d %d %d  %15.15g %15.15g %15.15g Hadj2\n", i,j,k, Hphi(i,j,k), DC(i,j,k), FC(i,j,0));
-        }
+        //if (verbose > 2) {
+        //    printf("%d %d %d  %15.15g %15.15g %15.15g Hadj2\n", i,j,k, Hphi(i,j,k), DC(i,j,k), FC(i,j,0));
+        //}
     });
 
 }
