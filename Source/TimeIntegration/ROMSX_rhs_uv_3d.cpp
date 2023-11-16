@@ -322,6 +322,9 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
                   cff2=-bustr(i,j,0)*cff;
               else
                   cff2=0.0;
+              if (verbose > 2) {
+                printf("%d %d %d  %15.15g %15.15g %15.15g  rufrc rhs3d\n", i,j,k, rufrc(i,j,0),cff1,cff2);
+              }
               rufrc(i,j,0) += cff1+cff2;
 
               //These forcing terms should possibly be updated on a slabbed box

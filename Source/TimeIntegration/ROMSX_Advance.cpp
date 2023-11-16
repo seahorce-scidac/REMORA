@@ -392,6 +392,9 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
+        Box utbx = mfi.nodaltilebox(0);
+        Box vtbx = mfi.nodaltilebox(1);
+
         tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
         tbxp2.grow(IntVect(NGROW,NGROW,0));
         //copy the tilebox
@@ -505,7 +508,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
             FC(i,j,k)=0.0;
         });
 
-        prsgrd(tbxp1,gbx1,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,nrhs,N);
+        prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,nrhs,N);
         if (verbose > 2) {
            amrex::PrintToFile("ru_afterprsgrd").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
            amrex::PrintToFile("rv_afterprsgrd").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
@@ -566,6 +569,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         if (verbose > 2) {
             amrex::PrintToFile("ru_afteruvmix").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
             amrex::PrintToFile("rv_afteruvmix").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+            amrex::PrintToFile("rufrc_afteruvmix").SetPrecision(18)<<FArrayBox(rufrc)<<std::endl;
+            amrex::PrintToFile("rvfrc_afteruvmix").SetPrecision(18)<<FArrayBox(rvfrc)<<std::endl;
             amrex::PrintToFile("u_afteruvmix").SetPrecision(18)<<FArrayBox(u)<<std::endl;
             amrex::PrintToFile("v_afteruvmix").SetPrecision(18)<<FArrayBox(v)<<std::endl;
             amrex::PrintToFile("Huon").SetPrecision(18)<<FArrayBox(Huon)<<std::endl;

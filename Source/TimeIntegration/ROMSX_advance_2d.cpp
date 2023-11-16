@@ -225,7 +225,7 @@ ROMSX::advance_2d (int lev,
             amrex::ParallelFor(gbx2D,
             [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
-                printf("%d %d  %15.15g %15.15g %15.15g all zeta start adv2 %d\n", i,j,zeta(i,j,0,0),zeta(i,j,0,1), zeta(i,j,0,2));
+                printf("%d %d  %15.15g %15.15g %15.15g all zeta start adv2 %d %d\n", i,j,zeta(i,j,0,0),zeta(i,j,0,1), zeta(i,j,0,2),my_iif,predictor_2d_step);
             });
         }
 
@@ -290,8 +290,8 @@ ROMSX::advance_2d (int lev,
             Real cff1=tbxp2D.contains(i-1,j,0) ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
             if (verbose > 2) {
-                printf("%d %d  %15.15g %15.15g %15.15g ubar cff1 DUon\n", i,j,ubar(i,j,0,krhs),cff1,
-                    DUon(i,j,0));
+                printf("%d %d  %15.15g %15.15g %15.15g ubar cff1 DUon %d %d\n", i,j,ubar(i,j,0,krhs),cff1,
+                    DUon(i,j,0), my_iif, predictor_2d_step);
             }
         });
         amrex::ParallelFor(gbx2D,
@@ -456,7 +456,9 @@ ROMSX::advance_2d (int lev,
        }
 
        if (verbose > 2) {
+           PrintToFile("DUon_mid") << "step  " << my_iif << " " << predictor_2d_step << std::endl;
            PrintToFile("DUon_mid").SetPrecision(18) << FArrayBox(DUon) << std::endl;
+           PrintToFile("DVom_mid") << "step  " << my_iif << " " << predictor_2d_step << std::endl;
            PrintToFile("DVom_mid").SetPrecision(18) << FArrayBox(DVom) << std::endl;
        }
 
@@ -581,7 +583,7 @@ ROMSX::advance_2d (int lev,
                 amrex::ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
-                    printf("%d %d  %15.15g %15.15g %15.15g zeta end adv2 %d\n", i,j,zeta(i,j,0,0),zeta(i,j,0,1), zeta(i,j,0,2));
+                    printf("%d %d  %15.15g %15.15g %15.15g zeta end adv2 %d %d\n", i,j,zeta(i,j,0,0),zeta(i,j,0,1), zeta(i,j,0,2), my_iif, predictor_2d_step);
                 });
             }
             continue; }
@@ -868,13 +870,19 @@ ROMSX::advance_2d (int lev,
                 {
                     //DO j=Jstr,Jend
                     //DO i=IstrU,Iend
-                      rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
-                      rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
-                          1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,0);
-                      ru(i,j,-1,1)=rufrc(i,j,0);
-                      Real r_swap= ru(i,j,-1,1);
-                      ru(i,j,-1,1) = ru(i,j,-1,0);
-                      ru(i,j,-1,0) = r_swap;
+                    if (verbose > 2) {
+                        printf("%d %d  %15.15g %15.15g %15.15g  %d %d  iic2 rhs_ubar rufrc ru\n", i,j, rhs_ubar(i,j,0), rufrc(i,j,0), ru(i,j,-1,0), my_iif, predictor_2d_step);
+                    }
+                    rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
+                    rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
+                        1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,0);
+                    ru(i,j,-1,1)=rufrc(i,j,0);
+                    Real r_swap= ru(i,j,-1,1);
+                    ru(i,j,-1,1) = ru(i,j,-1,0);
+                    ru(i,j,-1,0) = r_swap;
+                    if (verbose > 2) {
+                      printf("%d %d  %15.15g %15.15g %15.15g %15.15g  %d %d  iic2 rhs_ubar rufrc ru r_swap\n", i,j, rhs_ubar(i,j,0), rufrc(i,j,0), ru(i,j,-1,0), r_swap, my_iif, predictor_2d_step);
+                    }
                 });
                                    //END DO
                                    //          END DO

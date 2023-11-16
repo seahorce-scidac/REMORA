@@ -523,6 +523,8 @@ public:
 
     void prsgrd (const amrex::Box& bx,
                  const amrex::Box& gbx,
+                 const amrex::Box& utbx,
+                 const amrex::Box& vtbx,
                  amrex::Array4<amrex::Real> ru,
                  amrex::Array4<amrex::Real> rv,
                  amrex::Array4<amrex::Real> on_u,
