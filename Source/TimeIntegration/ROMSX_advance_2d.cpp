@@ -991,10 +991,10 @@ ROMSX::advance_2d (int lev,
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
                                   cff*cff1*rhs_ubar(i,j,0))*fac;
-                if (verbose > 2) {
-                    printf("%d %d   %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g  branch1 ubarknew ubarkstp Dstp Dstp cff rhs_ubar fac\n",
-                        i,j,ubar(i,j,0,knew), ubar(i,j,0,kstp), Dstp(i,j,0), Dstp(i-1,j,0), cff, rhs_ubar(i,j,0), fac);
-                }
+                //if (verbose > 2) {
+                //    printf("%d %d   %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g  branch1 ubarknew ubarkstp Dstp Dstp cff rhs_ubar fac\n",
+                //        i,j,ubar(i,j,0,knew), ubar(i,j,0,kstp), Dstp(i,j,0), Dstp(i-1,j,0), cff, rhs_ubar(i,j,0), fac);
+                //}
             });
             //END DO
             //END DO
