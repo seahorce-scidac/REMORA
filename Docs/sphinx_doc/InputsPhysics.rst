@@ -128,16 +128,16 @@ List of Parameters
 | Parameter                   | Definition        | Acceptable         | Default    |
 |                             |                   | Values             |            |
 +=============================+===================+====================+============+
-| **romsx.init_type**           | Initialization    | “custom”,          | “*custom*” |
+| **romsx.init_type**         | Initialization    | “custom”,          | “*custom*” |
 |                             | type              | “ideal”,           |            |
 |                             |                   | “real”,            |            |
-|                             |                   |"input_sounding"    |            |
+|                             |                   | "input_sounding"   |            |
 +-----------------------------+-------------------+--------------------+------------+
-| **romsx.nc_init_file**        | NetCDF file with  |  String            | NONE       |
+| **romsx.nc_init_file**      | NetCDF file with  |  String            | NONE       |
 |                             | initial mesocale  |                    |            |
 |                             | data              |                    |            |
 +-----------------------------+-------------------+--------------------+------------+
-| **romsx.nc_bdy_file**         | NetCDF file with  |  String            | NONE       |
+| **romsx.nc_bdy_file**       | NetCDF file with  |  String            | NONE       |
 |                             | mesocale data at  |                    |            |
 |                             | lateral boundaries|                    |            |
 +-----------------------------+-------------------+--------------------+------------+
@@ -166,14 +166,14 @@ Currently, ROMSX has 3 methods of controlling the terrain-fitted coordinates:
 List of Parameters
 ------------------
 
-+-----------------------------+-------------------+--------------------+------------+
-| Parameter                   | Definition        | Acceptable         | Default    |
-|                             |                   | Values             |            |
-+=============================+===================+====================+============+
-| **romsx.terrain_smoothing**   | specify terrain   | 0,                 | 0          |
-|                             | following         | 1,                 |            |
-|                             |                   | 2                  |            |
-+-----------------------------+-------------------+--------------------+------------+
++------------------------------+-------------------+--------------------+------------+
+| Parameter                    | Definition        | Acceptable         | Default    |
+|                              |                   | Values             |            |
++==============================+===================+====================+============+
+| **romsx.terrain_smoothing**  | specify terrain   | 0,                 | 0          |
+|                              | following         | 1,                 |            |
+|                              |                   | 2                  |            |
++------------------------------+-------------------+--------------------+------------+
 
 
 Examples of Usage

@@ -1,4 +1,3 @@
-
  .. role:: cpp(code)
     :language: c++
 
@@ -17,4 +16,4 @@ Each problem setup with a different initial e.g. temperature profile and bathyme
 * ``Make.package``
 * ``amrvis.defaults`` (for visualization with AMRVis)
 
-The file ``prob.cpp`` contains a number of functions that set the initial temeprature profile, as well as surface stress, mixing coefficients, and bathymetry. New problem-specific input parameters can be defined by adding a variable to the ``ProbParm`` class in ``prob.H``, and reading in the value in ``amrex_probinit`` in ``prob.cpp``. See the AMReX documentation on `ParmParse <https://amrex-codes.github.io/amrex/docs_html/Basics.html#parmparse>` for how to add parameters.
+The file ``prob.cpp`` contains a number of functions that set the initial temeprature profile, as well as surface stress, mixing coefficients, and bathymetry. New problem-specific input parameters can be defined by adding a variable to the ``ProbParm`` class in ``prob.H``, and reading in the value in ``amrex_probinit`` in ``prob.cpp``. See the AMReX documentation on `ParmParse <https://amrex-codes.github.io/amrex/docs_html/Basics.html#parmparse>`_ for how to add parameters.
