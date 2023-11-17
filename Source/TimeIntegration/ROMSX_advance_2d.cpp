@@ -279,7 +279,7 @@ ROMSX::advance_2d (int lev,
             [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
                 printf("%d %d  %15.15g zeta start adv2  %d %d \n", i,j, zeta(i,j,0,krhs), my_iif, predictor_2d_step);
-            }
+            });
         }
 
         amrex::ParallelFor(tbxp2D,

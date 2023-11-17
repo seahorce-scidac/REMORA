@@ -76,8 +76,7 @@ ROMSX::uv3dmix  (const Box& bx, const Box& gbx,
             {
                     printf("%d %d %d %15.15g %15.15g %15.15g %15.15g uv3dmix Hzs\n",i,j,k,Hz(i-1,j,k),Hz(i,j,k),Hz(i-1,j-1,k),Hz(i,j-1,k));
                     printf("%d %d %d %15.15g %15.15g %15.15g %15.15g uv3dmix uold vold\n",i,j,k,vold(i,j,k,nrhs), vold(i-1,j,k,nrhs), uold(i,j,k,nrhs),uold(i,j-1,k,nrhs));
-            }
-        });
+            });
     }
     amrex::ParallelFor(gbx1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
