@@ -187,11 +187,11 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
                                (rho(i,j,k)-rho(i-1,j,k)-
                                 OneTwelfth*
                                 (dRx(i,j,k)+dRx(i-1,j,k))))));
-            if (verbose > 2) {
-                printf("%d %d %d  %15.15g %15.15g  %15.15g %15.15g  %15.15g %15.15g  %15.15g %15.15g   %15.15g %15.15g   %15.15g %15.15g ru prsgrd  Hz P rho z_r dZx dRx\n",
-                    i,j,k, Hz(i,j,k), Hz(i-1,j,k),
-                    P(i,j,k), P(i-1,j,k), rho(i,j,k), rho(i-1,j,k), z_r(i,j,k), z_r(i-1,j,k), dZx(i,j,k), dZx(i-1,j,k), dRx(i,j,k), dRx(i-1,j,k));
-            }
+            //if (verbose > 2) {
+            //    printf("%d %d %d  %15.15g %15.15g  %15.15g %15.15g  %15.15g %15.15g  %15.15g %15.15g   %15.15g %15.15g   %15.15g %15.15g ru prsgrd  Hz P rho z_r dZx dRx\n",
+            //        i,j,k, Hz(i,j,k), Hz(i-1,j,k),
+            //        P(i,j,k), P(i-1,j,k), rho(i,j,k), rho(i-1,j,k), z_r(i,j,k), z_r(i-1,j,k), dZx(i,j,k), dZx(i-1,j,k), dRx(i,j,k), dRx(i-1,j,k));
+            //}
         }
     });
 
