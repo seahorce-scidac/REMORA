@@ -202,15 +202,15 @@ ROMSX::stretch_transform (int lev)
           for(int k=0; k<=N_loop; k++) {
           if(k==0) {
               Hz(i,j,k)=z_w(i,j,k)+h(i,j,0);
-              if (verbose > 2) {
-                printf("%d %d %d  %15.15g %15.15g %15.15g  Hz z_w2\n", i,j,k, Hz(i,j,k), z_w(i,j,k), h(i,j,0));
-              }
+              //if (verbose > 2) {
+              //  printf("%d %d %d  %15.15g %15.15g %15.15g  Hz z_w2\n", i,j,k, Hz(i,j,k), z_w(i,j,k), h(i,j,0));
+              //}
           }
           else {
               Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1);
-              if (verbose > 2) {
-                printf("%d %d %d  %15.15g %15.15g %15.15g  Hz z_w2\n", i,j,k, Hz(i,j,k), z_w(i,j,k), z_w(i,j,k-1));
-              }
+              //if (verbose > 2) {
+              //  printf("%d %d %d  %15.15g %15.15g %15.15g  Hz z_w2\n", i,j,k, Hz(i,j,k), z_w(i,j,k), z_w(i,j,k-1));
+              //}
               }
           }
       });
