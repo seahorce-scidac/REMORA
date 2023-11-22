@@ -217,6 +217,10 @@ ROMSX::post_timestep (int nstep, Real time, Real dt_lev0)
 {
     BL_PROFILE("ROMSX::post_timestep()");
 
+#ifdef ROMSX_USE_PARTICLES
+    tracer_particles->Redistribute();
+#endif
+
     if (do_reflux)
     {
         for (int lev = finest_level-1; lev >= 0; lev--)
@@ -746,7 +750,7 @@ ROMSX::ReadParameters ()
         // If two are specified, initialize fixed_ndtfast_ratio
         else if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio <= 0)
         {
-            fixed_ndtfast_ratio = fixed_dt / fixed_fast_dt;
+            fixed_ndtfast_ratio = static_cast<int>(fixed_dt / fixed_fast_dt);
         }
 
 

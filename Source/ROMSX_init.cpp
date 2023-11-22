@@ -236,8 +236,6 @@ ROMSX::init_custom(int lev)
 void
 ROMSX::set_2darrays (int lev)
 {
-    auto& lev_new = vars_new[lev];
-    auto& lev_old = vars_old[lev];
     std::unique_ptr<MultiFab>& mf_x_r = vec_x_r[lev];
     std::unique_ptr<MultiFab>& mf_y_r = vec_y_r[lev];
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
@@ -249,10 +247,9 @@ ROMSX::set_2darrays (int lev)
       Array4<Real> const& y_r = (mf_y_r)->array(mfi);
       const Box& bx = mfi.growntilebox();
       const auto & geomdata = Geom(lev).data();
-      int ncomp = 1;
       Gpu::synchronize();
-      amrex::ParallelFor(amrex::makeSlab(bx,2,0), ncomp,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      amrex::ParallelFor(amrex::makeSlab(bx,2,0),
+      [=] AMREX_GPU_DEVICE (int i, int j, int  )
       {
         const auto prob_lo         = geomdata.ProbLo();
         const auto dx              = geomdata.CellSize();
@@ -268,14 +265,12 @@ ROMSX::set_2darrays (int lev)
 
     MultiFab& U_old = vars_new[lev][Vars::xvel];
     MultiFab& V_old = vars_new[lev][Vars::yvel];
-    MultiFab& W_old = vars_new[lev][Vars::zvel];
     std::unique_ptr<MultiFab>& mf_ubar = vec_ubar[lev];
     std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     int nstp = 0;
     int kstp = 0;
     int knew = 0;
-    int ncomp = 1;
     for ( MFIter mfi(U_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
@@ -303,24 +298,24 @@ ROMSX::set_2darrays (int lev)
 
         //fab_DC.setVal(0.0);
         //fab_CF.setVal(0.0);
-        amrex::ParallelFor(gbx11, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        amrex::ParallelFor(gbx11,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 DC(i,j,k)=0.0;
                 CF(i,j,k)=0.0;
             });
       Gpu::streamSynchronize();
-      amrex::ParallelFor(gbx1D, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int , int )
+      amrex::ParallelFor(gbx1D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                for(int k=0; k<=N; k++) {
-                DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
-                CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*u(i,j,k,nstp);
+                for (int k=0; k<=N; k++) {
+                    DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                    DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
+                    CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*u(i,j,k,nstp);
                 }
             });
         amrex::ParallelFor(amrex::makeSlab(gbx1,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 Real cff1=1.0/DC(i,j,-1);
                 Real cff2=CF(i,j,-1)*cff1;
@@ -328,31 +323,26 @@ ROMSX::set_2darrays (int lev)
                 ubar(i,j,0,knew)=cff2;
             });
 
-        //fab_DC.setVal(0.0);
-        //fab_CF.setVal(0.0);
-        amrex::ParallelFor(gbx11, ncomp,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-            {
-                DC(i,j,k)=0.0;
-                CF(i,j,k)=0.0;
-            });
-      Gpu::streamSynchronize();
+        fab_DC.setVal<RunOn::Device>(0.0);
+        fab_CF.setVal<RunOn::Device>(0.0);
+
+       Gpu::streamSynchronize();
+
         amrex::ParallelFor(gbx1D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 for(int k=0; k<=N; k++) {
-                DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
-                CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*v(i,j,k,nstp);
+                    DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
+                    DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
+                    CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*v(i,j,k,nstp);
                 }
             });
         amrex::ParallelFor(amrex::makeSlab(gbx1,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        [=] AMREX_GPU_DEVICE (int i, int j, int  )
             {
-                Real cff1=1.0/DC(i,j,-1);
-                Real cff2=CF(i,j,-1)*cff1;
-                vbar(i,j,0,kstp)=cff2;
-                vbar(i,j,0,knew)=cff2;
+                Real cff2 = CF(i,j,-1) / DC(i,j,-1);
+                vbar(i,j,0,kstp) = cff2;
+                vbar(i,j,0,knew) = cff2;
             });
     }
     vec_ubar[lev]->FillBoundary(geom[lev].periodicity());

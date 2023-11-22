@@ -15,8 +15,6 @@ ROMSX::rho_eos (const Box& phi_bx,
                 const int nrhs,
                 const int N)
 {
-    const int Mn = Geom(0).Domain().size()[0];
-    const int Mm = Geom(0).Domain().size()[1];
     auto phi_bxD=phi_bx;
     phi_bxD.makeSlab(2,0);
     //hardcode these for now instead of reading them from inputs
@@ -55,7 +53,7 @@ ROMSX::rho_eos (const Box& phi_bx,
 //-----------------------------------------------------------------------
 //
     amrex::ParallelFor(phi_bxD,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         //printf("%d %d  %15.15g Hzstart\n", i,j, Hz(i,j,N));
         Real cff1=rho(i,j,N)*Hz(i,j,N);
@@ -83,7 +81,7 @@ ROMSX::rho_eos (const Box& phi_bx,
       }
     });
     amrex::ParallelFor(phi_bxD,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff2=1.0_rt/rho0;
         Real cff1=1.0_rt/(z_w(i,j,N)+h(i,j,0,0));

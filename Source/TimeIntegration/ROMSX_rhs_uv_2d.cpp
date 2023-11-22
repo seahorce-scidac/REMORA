@@ -13,19 +13,11 @@ ROMSX::rhs_2d (const Box& bx,
                /*Array4<Real> rufrc, Array4<Real> rvfrc,
                  Array4<Real> sustr, Array4<Real> svstr,*/
                Array4<Real> Huon, Array4<Real> Hvom,
-               /*
-               Array4<Real> on_u, Array4<Real> om_v,
-               Array4<Real> om_u, Array4<Real> on_v,
-               Array4<Real> W   , Array4<Real> FC,
-               */
-               int nrhs, int N)
+               int nrhs, int /*N*/)
 {
     //copy the tilebox
     Box gbx1 = bx;
     Box gbx2 = bx;
-
-    Box ubx = surroundingNodes(bx,0);
-    Box vbx = surroundingNodes(bx,1);
 
     //make only gbx be grown to match multifabs
     gbx2.grow(IntVect(NGROW,NGROW,0));
@@ -64,31 +56,21 @@ ROMSX::rhs_2d (const Box& bx,
     auto VFx=fab_VFx.array();
     auto VFe=fab_VFe.array();
 
-    //check this////////////
-    const Real Gadv = 1.0;
-    //uxx, uold AKA grad, ubar
-    //Huxx, Huon AKA Dgrad, Duon
-    //nrhs AKA krhs
-    amrex::ParallelFor(gbx2,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        Huee(i,j,k)=0.0;
-        uee(i,j,k)=0.0;
-        Hvee(i,j,k)=0.0;
-        vee(i,j,k)=0.0;
+    fab_Huee.template setVal<RunOn::Device>(0.);
+    fab_Huxx.template setVal<RunOn::Device>(0.);
+    fab_uee.template setVal<RunOn::Device>(0.);
+    fab_uxx.template setVal<RunOn::Device>(0.);
+    fab_UFx.template setVal<RunOn::Device>(0.);
+    fab_UFe.template setVal<RunOn::Device>(0.);
 
-        Huxx(i,j,k)=0.0;
-        uxx(i,j,k)=0.0;
-        Hvxx(i,j,k)=0.0;
-        vxx(i,j,k)=0.0;
+    fab_Hvee.template setVal<RunOn::Device>(0.);
+    fab_Hvxx.template setVal<RunOn::Device>(0.);
+    fab_vee.template setVal<RunOn::Device>(0.);
+    fab_vxx.template setVal<RunOn::Device>(0.);
+    fab_VFx.template setVal<RunOn::Device>(0.);
+    fab_VFe.template setVal<RunOn::Device>(0.);
 
-        UFx(i,j,k)=0.0;
-        UFe(i,j,k)=0.0;
-        VFx(i,j,k)=0.0;
-        VFe(i,j,k)=0.0;
-    });
-
-    amrex::ParallelFor(gbx1,
+    ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should not include grow cells
@@ -97,7 +79,7 @@ ROMSX::rhs_2d (const Box& bx,
         //neglecting terms about periodicity since testing only periodic for now
         Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
     });
-    amrex::ParallelFor(gbx1,
+    ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff=1.0/6.0;
@@ -111,7 +93,7 @@ ROMSX::rhs_2d (const Box& bx,
         uee(i,j,k)=uold(i,j-1,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i,j+1,k,nrhs);
     });
 
-    amrex::ParallelFor(gbx1,
+    ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         /////////////MIGHT NEED NEW LOOP HERE

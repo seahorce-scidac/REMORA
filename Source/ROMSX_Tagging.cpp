@@ -1,10 +1,16 @@
 #include <ROMSX.H>
+#include <Derive.H>
 
 using namespace amrex;
 
-//
-// Tag cells for refinement -- this overrides the pure virtual function in AmrCore
-//
+/**
+ * Function to tag cells for refinement -- this overrides the pure virtual function in AmrCore
+ *
+ * @param[in] level level of refinement (0 is coarsest leve)
+ * @param[out] tags array of tagged cells
+ * @param[in] time current time
+*/
+
 void
 ROMSX::ErrorEst (int level, TagBoxArray& tags, Real time, int /*ngrow*/)
 {
@@ -14,13 +20,40 @@ ROMSX::ErrorEst (int level, TagBoxArray& tags, Real time, int /*ngrow*/)
     {
         std::unique_ptr<MultiFab> mf;
 
-        // This will work for static refinement
+        // This allows dynamic refinement based on the value of the density
+        if (ref_tags[j].Field() == "density")
+        {
+            mf = std::make_unique<MultiFab>(grids[level], dmap[level], 1, 0);
+            MultiFab::Copy(*mf,vars_new[level][Vars::cons],Rho_comp,0,1,0);
+
+        // This allows dynamic refinement based on the value of the scalar/pressure/theta
+        } else if ( (ref_tags[j].Field() == "scalar"  ) )
+        {
+            mf = std::make_unique<MultiFab>(grids[level], dmap[level], 1, 0);
+            for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+                const Box& bx = mfi.tilebox();
+                auto& dfab = (*mf)[mfi];
+                auto& sfab = vars_new[level][Vars::cons][mfi];
+                if (ref_tags[j].Field() == "scalar") {
+                    derived::romsx_derscalar(bx, dfab, 0, 1, sfab, Geom(level), time, nullptr, level);
+                } else {
+                    Abort("Unrecognized field");
+                }
+            } // mfi
+        }
+
+        // This is sufficient for static refinement (where we don't need mf filled first)
         ref_tags[j](tags,mf.get(),clearval,tagval,time,level,geom[level]);
   }
 }
 
+/**
+ * Function to define the refinement criteria based on user input
+*/
+
 void
-ROMSX::refinement_criteria_setup()
+ROMSX::refinement_criteria_setup ()
 {
     if (max_level > 0)
     {
@@ -49,13 +82,14 @@ ROMSX::refinement_criteria_setup()
                     amrex::Print() << "Reading " << realbox << " at level " << lev_for_box << std::endl;
                     num_boxes_at_level[lev_for_box] += 1;
 
-                    auto dx = geom[lev_for_box].CellSize();
-                    int ilo = static_cast<int>(box_lo[0]/dx[0]);
-                    int jlo = static_cast<int>(box_lo[1]/dx[1]);
-                    int klo = static_cast<int>(box_lo[2]/dx[2]);
-                    int ihi = static_cast<int>(box_hi[0]/dx[0]-1);
-                    int jhi = static_cast<int>(box_hi[1]/dx[1]-1);
-                    int khi = static_cast<int>(box_hi[2]/dx[2]-1);
+                    const auto* dx  = geom[lev_for_box].CellSize();
+                    const Real* plo = geom[lev_for_box].ProbLo();
+                    int ilo = static_cast<int>((box_lo[0] - plo[0])/dx[0]);
+                    int jlo = static_cast<int>((box_lo[1] - plo[1])/dx[1]);
+                    int klo = static_cast<int>((box_lo[2] - plo[2])/dx[2]);
+                    int ihi = static_cast<int>((box_hi[0] - plo[0])/dx[0]-1);
+                    int jhi = static_cast<int>((box_hi[1] - plo[1])/dx[1]-1);
+                    int khi = static_cast<int>((box_hi[2] - plo[2])/dx[2]-1);
                     Box bx(IntVect(ilo,jlo,klo),IntVect(ihi,jhi,khi));
                     if ( (ilo%ref_ratio[lev_for_box-1][0] != 0) || ((ihi+1)%ref_ratio[lev_for_box-1][0] != 0) ||
                          (jlo%ref_ratio[lev_for_box-1][1] != 0) || ((jhi+1)%ref_ratio[lev_for_box-1][1] != 0) )
@@ -63,9 +97,9 @@ ROMSX::refinement_criteria_setup()
                     boxes_at_level[lev_for_box].push_back(bx);
                     amrex::Print() << "Saving in 'boxes at level' as " << bx << std::endl;
                 } // lev
-                if (init_type == "real") {
+                if (init_type == "real" || init_type == "metgrid") {
                     if (num_boxes_at_level[lev_for_box] != num_files_at_level[lev_for_box]) {
-                        amrex::Error("Number of boxes does not match number of wrfinput files");
+                        amrex::Error("Number of boxes doesnt match number of input files");
 
                     }
                 }
@@ -90,23 +124,23 @@ ROMSX::refinement_criteria_setup()
             }
 
             if (ppr.countval("value_greater")) {
-            int num_val = ppr.countval("value_greater");
-            Vector<Real> value(num_val);
-            ppr.getarr("value_greater",value,0,num_val);
+                int num_val = ppr.countval("value_greater");
+                Vector<Real> value(num_val);
+                ppr.getarr("value_greater",value,0,num_val);
                 std::string field; ppr.get("field_name",field);
                 ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::GREATER,field,info));
             }
             else if (ppr.countval("value_less")) {
-            int num_val = ppr.countval("value_less");
-            Vector<Real> value(num_val);
-            ppr.getarr("value_less",value,0,num_val);
+                int num_val = ppr.countval("value_less");
+                Vector<Real> value(num_val);
+                ppr.getarr("value_less",value,0,num_val);
                 std::string field; ppr.get("field_name",field);
                 ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,field,info));
             }
             else if (ppr.countval("adjacent_difference_greater")) {
-            int num_val = ppr.countval("adjacent_difference_greater");
-            Vector<Real> value(num_val);
-            ppr.getarr("adjacent_difference_greater",value,0,num_val);
+                int num_val = ppr.countval("adjacent_difference_greater");
+                Vector<Real> value(num_val);
+                ppr.getarr("adjacent_difference_greater",value,0,num_val);
                 std::string field; ppr.get("field_name",field);
                 ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::GRAD,field,info));
             }

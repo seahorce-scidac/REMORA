@@ -15,7 +15,7 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
                      Array4<Real> /*BC*/, Array4<Real> DC,
                      Array4<Real> /*FC*/, Array4<Real> CF,
                      Array4<Real> dxlen,
-                     const int nnew, const int N, const Real dt_lev)
+                     const int nnew, const int N, const Real /*dt_lev*/)
 {
     // Interior points vertical mean correction
     //
@@ -34,10 +34,10 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
     if ((verbose > 2) && (ioff==1)) {
         PrintToFile("Hzk_vertmean").SetPrecision(18) << FArrayBox(Hzk) << std::endl;
     }
+
     Gpu::synchronize();
-    Real CF_tmp=0.0;
-    Real DC_tmp=0.0;
-    amrex::ParallelFor(phi_bxD,
+
+    ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
       for(int k=0; k<=N; k++) {
@@ -51,7 +51,7 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
       }
     });
     Gpu::synchronize();
-    amrex::ParallelFor(phi_bxD,
+    ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff1=1.0/(CF(i,j,-1)*(1.0/dxlen(i,j,0)));
@@ -63,7 +63,7 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
         PrintToFile("DC_vertmean").SetPrecision(18) << FArrayBox(DC) << std::endl;
         PrintToFile("CF_vertmean").SetPrecision(18) << FArrayBox(CF) << std::endl;
     }
-    amrex::ParallelFor(phi_bx,
+    ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         phi(i,j,k) -= DC(i,j,-1);
