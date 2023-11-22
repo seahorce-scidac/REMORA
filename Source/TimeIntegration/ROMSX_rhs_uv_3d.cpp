@@ -40,10 +40,6 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
     AMREX_ASSERT((ba_gbx2.size() == 1));
     Box gbx2 = ba_gbx2[0];
 
-    Box ubx = surroundingNodes(bx,0);
-    Box vbx = surroundingNodes(bx,1);
-
-
     Box bxD = bx;
     bxD.makeSlab(2,0);
     Box gbx1D = gbx1;
@@ -285,19 +281,19 @@ ROMSX::rhs_3d (const Box& bx, const Box& gbx,
               }
         }); Gpu::synchronize();
         //This uses W being an extra grow cell sized
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        amrex::ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-              Real cff1=9.0/16.0;
-              Real cff2=1.0/16.0;
             Real cff;
-              if(k-1>=0) {
-                  cff=FC(i,j,k)-FC(i,j,k-1);
-              } else {
-                  cff=FC(i,j,k);
-              }
-              rv(i,j,k,nrhs) -= cff;
-        }); Gpu::synchronize();
+            if(k-1>=0) {
+                cff=FC(i,j,k)-FC(i,j,k-1);
+            } else {
+                cff=FC(i,j,k);
+            }
+            rv(i,j,k,nrhs) -= cff;
+        });
+
+        Gpu::synchronize();
+
         //This uses W being an extra grow cell sized
         AMREX_ASSERT(gbx1.smallEnd(2) == 0 && gbx2.bigEnd(2) == N);
         amrex::ParallelFor(gbx1D,

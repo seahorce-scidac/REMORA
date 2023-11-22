@@ -17,6 +17,10 @@ Vector<AMRErrorTag> ROMSX::ref_tags;
 
 SolverChoice ROMSX::solverChoice;
 
+#ifdef ROMSX_USE_PARTICLES
+ParticleData ROMSX::particleData;
+#endif
+
 // Time step control
 amrex::Real ROMSX::cfl           =  0.8;
 amrex::Real ROMSX::fixed_dt      = -1.0;
@@ -41,11 +45,6 @@ std::string ROMSX::plotfile_type    = "amrex";
 
 // init_type:  "custom", "ideal", "real"
 std::string ROMSX::init_type        = "custom";
-
-#ifdef ROMSX_USE_PARTICLES
-bool ROMSX::use_tracer_particles = false;
-amrex::Vector<std::string> ROMSX::tracer_particle_varnames = {AMREX_D_DECL("xvel", "yvel", "zvel")};
-#endif
 
 #ifdef ROMSX_USE_NETCDF
 // NetCDF wrfinput (initialization) file(s)
@@ -218,7 +217,7 @@ ROMSX::post_timestep (int nstep, Real time, Real dt_lev0)
     BL_PROFILE("ROMSX::post_timestep()");
 
 #ifdef ROMSX_USE_PARTICLES
-    tracer_particles->Redistribute();
+    particleData.Redistribute();
 #endif
 
     if (do_reflux)
@@ -267,14 +266,7 @@ ROMSX::InitData ()
         AverageDown();
 
 #ifdef ROMSX_USE_PARTICLES
-        // Initialize tracer particles if required
-        if (use_tracer_particles) {
-            tracer_particles = std::make_unique<TerrainFittedPC>(Geom(0), dmap[0], grids[0]);
-
-            tracer_particles->InitParticles(*vec_z_phys_nd[0]);
-
-            Print() << "Initialized " << tracer_particles->TotalNumberOfParticles() << " tracer particles." << std::endl;
-        }
+        particleData.init_particles((amrex::ParGDBBase*)GetParGDB(),vec_z_phys_nd);
 #endif
 
     } else { // Restart from a checkpoint
@@ -822,8 +814,7 @@ ROMSX::ReadParameters ()
         pp.query("plot_int_2", plot_int_2);
 
 #ifdef ROMSX_USE_PARTICLES
-        // Tracer particle toggle
-        pp.query("use_tracer_particles", use_tracer_particles);
+        particleData.init_particle_params();
 #endif
     }
 

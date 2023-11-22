@@ -4,7 +4,7 @@ using namespace amrex;
 
 // advance a single level for a single time step
  void
-ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle*/)
+ROMSX::Advance (int lev, Real /*time*/, Real dt_lev, int /*iteration*/, int /*ncycle*/)
 {
     BL_PROFILE("ROMSX::Advance()");
 
@@ -75,8 +75,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     std::unique_ptr<MultiFab>& mf_rdrag = vec_rdrag[lev];
     std::unique_ptr<MultiFab>& mf_bustr = vec_bustr[lev];
     std::unique_ptr<MultiFab>& mf_bvstr = vec_bvstr[lev];
-    std::unique_ptr<MultiFab>& mf_ubar = vec_ubar[lev];
-    std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
     MultiFab mf_temp(S_new, amrex::make_alias, Temp_comp, 1);
 #ifdef ROMSX_USE_SALINITY
     MultiFab mf_salt(S_new, amrex::make_alias, Salt_comp, 1);
@@ -153,70 +151,36 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     const auto dxi              = Geom(lev).InvCellSizeArray();
     const auto dx               = Geom(lev).CellSizeArray();
     const int Mm = Geom(lev).Domain().size()[1];
-    auto geomdata = Geom(lev).data();
 
     //MFIter::allowMultipleMFIters(true);
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& DC = mf_DC.array(mfi);
-        Array4<Real> const& Akv = (vec_Akv[lev])->array(mfi);
         Array4<Real> const& h = (vec_hOfTheConfusingName[lev])->array(mfi);
         Array4<Real> const& Hz  = (vec_Hz[lev])->array(mfi);
         Array4<Real> const& Huon  = (vec_Huon[lev])->array(mfi);
         Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
-        Array4<Real> const& z_r = (mf_z_r)->array(mfi);
         Array4<Real> const& z_w = (mf_z_w)->array(mfi);
         Array4<Real> const& uold = (mf_uold).array(mfi);
         Array4<Real> const& vold = (mf_vold).array(mfi);
-        Array4<Real> const& u = (mf_u).array(mfi);
-        Array4<Real> const& v = (mf_v).array(mfi);
         Array4<Real> const& pden = (mf_pden).array(mfi);
         Array4<Real> const& rho = (mf_rho).array(mfi);
         Array4<Real> const& rhoA = (mf_rhoA).array(mfi);
         Array4<Real> const& rhoS = (mf_rhoS).array(mfi);
         Array4<Real> const& tempold = (mf_tempold).array(mfi);
         Array4<Real> const& saltold = (mf_saltold).array(mfi);
-        Array4<Real> const& temp = (mf_temp).array(mfi);
-        Array4<Real> const& salt = (mf_salt).array(mfi);
-        Array4<Real> const& tempstore = (vec_t3[lev])->array(mfi);
-        Array4<Real> const& saltstore = (vec_s3[lev])->array(mfi);
-        Array4<Real> const& ru = (mf_ru)->array(mfi);
-        Array4<Real> const& rv = (mf_rv)->array(mfi);
-        Array4<Real> const& rufrc = (mf_rufrc)->array(mfi);
-        Array4<Real> const& rvfrc = (mf_rvfrc)->array(mfi);
-        Array4<Real> const& W = (mf_W).array(mfi);
-        Array4<Real> const& sustr = (mf_sustr)->array(mfi);
-        Array4<Real> const& svstr = (mf_svstr)->array(mfi);
         Array4<Real> const& rdrag = (mf_rdrag)->array(mfi);
         Array4<Real> const& bustr = (mf_bustr)->array(mfi);
         Array4<Real> const& bvstr = (mf_bvstr)->array(mfi);
-        Array4<Real> const& ubar = (mf_ubar)->array(mfi);
-        Array4<Real> const& vbar = (mf_vbar)->array(mfi);
-        Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
-        Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
-        Array4<Real> const& diff2_salt = (mf_diff2_salt)->array(mfi);
-        Array4<Real> const& diff2_temp = (mf_diff2_temp)->array(mfi);
 
         Box bx = mfi.tilebox();
-        Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
-        //copy the tilebox
-        //Box gbx1 = bx;
-        //Box gbx11 = bx;
-        //Box gbx2 = bx;
+
         //TODO: adjust for tiling
         //Box gbx3uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-3,bx.smallEnd(1)-3,bx.smallEnd(2))),
         //               IntVect(AMREX_D_DECL(bx.bigEnd(0)+2,bx.bigEnd(1)+2,bx.bigEnd(2))));
         //Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
         //               IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
-        Box ubx = surroundingNodes(bx,0);
-        Box vbx = surroundingNodes(bx,1);
-        //make only gbx be grown to match multifabs
-        //gbx2.grow(IntVect(NGROW,NGROW,0));
-        //gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-        //gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         Box bxD = bx;
         bxD.makeSlab(2,0);
@@ -249,9 +213,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         FArrayBox fab_fomn(gbx2D,1,amrex::The_Async_Arena());
         //FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
-        auto FC=fab_FC.array();
-        auto FX=fab_FX.array();
-        auto FE=fab_FE.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto on_u=fab_on_u.array();
@@ -343,8 +304,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
 
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& DC = mf_DC.array(mfi);
-        Array4<Real> const& Akv = (vec_Akv[lev])->array(mfi);
         Array4<Real> const& Hz  = (vec_Hz[lev])->array(mfi);
         Array4<Real> const& Huon  = (vec_Huon[lev])->array(mfi);
         Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
@@ -354,12 +313,7 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& vold = (mf_vold).array(mfi);
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
-        Array4<Real> const& pden = (mf_pden).array(mfi);
         Array4<Real> const& rho = (mf_rho).array(mfi);
-        Array4<Real> const& rhoA = (mf_rhoA).array(mfi);
-        Array4<Real> const& rhoS = (mf_rhoS).array(mfi);
-        Array4<Real> const& tempold = (mf_tempold).array(mfi);
-        Array4<Real> const& saltold = (mf_saltold).array(mfi);
         Array4<Real> const& temp = (mf_temp).array(mfi);
         Array4<Real> const& salt = (mf_salt).array(mfi);
         Array4<Real> const& tempstore = (vec_t3[lev])->array(mfi);
@@ -371,11 +325,8 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Array4<Real> const& W = (mf_W).array(mfi);
         Array4<Real> const& sustr = (mf_sustr)->array(mfi);
         Array4<Real> const& svstr = (mf_svstr)->array(mfi);
-        Array4<Real> const& rdrag = (mf_rdrag)->array(mfi);
         Array4<Real> const& bustr = (mf_bustr)->array(mfi);
         Array4<Real> const& bvstr = (mf_bvstr)->array(mfi);
-        Array4<Real> const& ubar = (mf_ubar)->array(mfi);
-        Array4<Real> const& vbar = (mf_vbar)->array(mfi);
         Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
         Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
         Array4<Real> const& diff2_salt = (mf_diff2_salt)->array(mfi);
@@ -390,7 +341,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         Box utbx = mfi.nodaltilebox(0);
         Box vtbx = mfi.nodaltilebox(1);
@@ -406,12 +356,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //               IntVect(AMREX_D_DECL(bx.bigEnd(0)+2,bx.bigEnd(1)+2,bx.bigEnd(2))));
         //Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
         //               IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
-        Box ubx = surroundingNodes(bx,0);
-        Box vbx = surroundingNodes(bx,1);
-        //make only gbx be grown to match multifabs
-        //gbx2.grow(IntVect(NGROW,NGROW,0));
-        //gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-        //gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         Box bxD = bx;
         bxD.makeSlab(2,0);
@@ -450,8 +394,6 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
         //FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
-        auto FX=fab_FX.array();
-        auto FE=fab_FE.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto on_u=fab_on_u.array();
@@ -668,18 +610,12 @@ ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle
     vec_t3[lev]->FillBoundary(geom[lev].periodicity());
     vec_s3[lev]->FillBoundary(geom[lev].periodicity());
 
-    for (int lev = 0; lev <= finest_level; ++lev) {
-        FillPatch(lev, t_new[lev], vars_new[lev]);
-    }
+    // Not sure why this FillPatch is here??
+    FillPatch(lev, t_new[lev], vars_new[lev]);
 
 #ifdef ROMSX_USE_PARTICLES
-    // Update tracer particles on level 0
-    if (lev == 0 && use_tracer_particles) {
-        MultiFab* Umac = &vars_new[lev][Vars::xvel];
-        tracer_particles->AdvectWithUmac(Umac, lev, dt_lev, *vec_z_phys_nd[0]);
-    }
+    particleData.advance_particles(lev, dt_lev, vars_new, vec_z_phys_nd);
 #endif
-
 
     //We are not storing computed W aka Omega
     //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));

@@ -7,7 +7,7 @@ using namespace amrex;
 //
 
 void
-ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, const int joff,
+ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
                      Array4<Real> phi,
                      Array4<Real> Hz, Array4<Real> Hzk,
                      Array4<Real> oHz,
@@ -23,13 +23,13 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
         amrex::Print() << "updating on box in vert_visc_3d: " << phi_bx << std::endl;
     auto phi_bxD = phi_bx;
     phi_bxD.makeSlab(2,0);
-    amrex::ParallelFor(phi_bx,
+    ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Hzk(i,j,k)=0.5*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
     });
     if (verbose > 2) {
-    amrex::ParallelFor(phi_bx,
+    ParallelFor(phi_bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             printf("%d %d %d  %15.15g %15.15g %15.15g  Hzk Hz2\n", i,j,k, Hzk(i,j,k), Hz(i-ioff, j-joff,k),Hz(i,j,k));
@@ -39,7 +39,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     //
     // Define oHz = (1/Hz)
     //
-    amrex::ParallelFor(phi_bx,
+    ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         oHz(i,j,k) = 1.0/ Hzk(i,j,k);
@@ -48,13 +48,13 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     //
     // Put Akv on the x- or y-face as appropriate, or leave on cell center for tracers
     //
-    amrex::ParallelFor(phi_bx,
+    ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         AK(i,j,k) = 0.5 * (Akv(i-ioff,j-joff,k)+Akv(i,j,k));
     });
     if (verbose > 2) {
-        amrex::ParallelFor(phi_bx,
+        ParallelFor(phi_bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             printf("%d %d %d  %15.15g %15.15g %15.15g  AKs\n", i,j,k, AK(i,j,k), Akv(i-ioff,j-joff,k), Akv(i,j,k));
@@ -68,7 +68,7 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
     /////////////////// This and the following loop is the first non-matching thing that affects plotfile comparison for cuda
     // Begin vertical viscosity term
     // NOTE: vertical viscosity term for tracers is identical except AK=Akt
-    amrex::ParallelFor(phi_bxD,
+    ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=0; k<=N; k++) {
@@ -123,8 +123,8 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
 #else
 #endif
     Gpu::streamSynchronize();
-    amrex::ParallelFor(phi_bxD,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(phi_bxD,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
        for(int k=0; k<=N; k++) {
        //
@@ -139,18 +139,17 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const Box& valid_bx, const int ioff, con
        }
        }
     });
+
 #ifdef AMREX_USE_GPU
     Gpu::synchronize();
-#else
 #endif
-    amrex::ParallelFor(phi_bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+
+    ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         DC(i,j,k) *= AK(i,j,k);
     });
 
-    amrex::ParallelFor(phi_bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff;
         if(k-1>=0) {
