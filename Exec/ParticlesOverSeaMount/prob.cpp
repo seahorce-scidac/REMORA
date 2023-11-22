@@ -197,7 +197,7 @@ init_custom_prob(
 }
 
 void
-init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt, MultiFab& mf_z_w, 
+init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt, MultiFab& mf_z_w,
                  const SolverChoice& /*m_solverChoice*/)
 {
     for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
