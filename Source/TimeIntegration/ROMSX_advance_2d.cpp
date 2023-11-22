@@ -27,7 +27,7 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_h,
                    std::unique_ptr<MultiFab>& mf_visc2_p,
                    std::unique_ptr<MultiFab>& mf_visc2_r,
-                   const int ncomp, Real dt_lev, Real dtfast_lev,
+                   const int ncomp, Real /*dt_lev*/, Real dtfast_lev,
                    bool predictor_2d_step,
                    bool first_2d_step, int my_iif, int nfast /*this doesn't need to be passed*/,
                    int & next_indx1)
@@ -35,13 +35,11 @@ ROMSX::advance_2d (int lev,
     auto geomdata  = Geom(lev).data();
     const auto dxi = Geom(lev).InvCellSizeArray();
 
-    const int Lm = Geom(lev).Domain().size()[0];
     const int Mm = Geom(lev).Domain().size()[1];
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     int iic = istep[lev];
-    const int nrhs  = ncomp-1;
     const int nnew  = ncomp-1;
     const int nstp  = ncomp-1;
     int ntfirst = 0;
@@ -338,7 +336,7 @@ ROMSX::advance_2d (int lev,
         Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
+        // Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
         Box tbxp1 = bx;
         Box tbxp11 = bx;
@@ -350,8 +348,8 @@ ROMSX::advance_2d (int lev,
         //gbx2.grow(IntVect(NGROW,NGROW,0));
         //gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
         //gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-        Box ubxD = surroundingNodes(bx,0);
-        Box vbxD = surroundingNodes(bx,1);
+        // Box ubxD = surroundingNodes(bx,0);
+        // Box vbxD = surroundingNodes(bx,1);
 
         Box bxD = bx;
         bxD.makeSlab(2,0);

@@ -5,17 +5,16 @@
 
 using namespace amrex;
 
-//  This routine sets the weigth functions for the time averaging of
+//  This routine sets the weight functions for the time averaging of
 //  2D fields over all short time-steps.
-void ROMSX::set_weights (int lev) {
+void ROMSX::set_weights (int /*lev*/) {
 
-    int i,j,iter;
     Real gamma, scale;
     Real cff1, cff2;
     Real wsum, shift, cff;
 
     //HACK should possibly store fixed_ndtfast elsewhere
-    int ndtfast=fixed_ndtfast_ratio>0 ? fixed_ndtfast_ratio : fixed_fast_dt / fixed_dt;
+    int ndtfast=fixed_ndtfast_ratio>0 ? fixed_ndtfast_ratio : static_cast<int>(fixed_fast_dt / fixed_dt);
 
     //From mod_scalars
     Real Falpha = 2.0_rt;
@@ -63,7 +62,7 @@ void ROMSX::set_weights (int lev) {
 //  "ndtfast".
 //
       gamma=Fgamma*max(0.0_rt, 1.0_rt-10.0_rt/Real(ndtfast));
-      for(iter=1;iter<=16;iter++) {
+      for(int iter=1;iter<=16;iter++) {
           nfast=0;
       for(int i=1;i<=2*ndtfast;i++) {
           cff=scale*Real(i);
@@ -75,7 +74,7 @@ void ROMSX::set_weights (int lev) {
     }
         wsum=0.0_rt;
         shift=0.0_rt;
-        for(i=1;i<=nfast;i++) {
+        for(int i=1;i<=nfast;i++) {
           wsum=wsum+weight1[i-1];
           shift=shift+weight1[i-1]*Real(i);
         }
@@ -98,10 +97,10 @@ void ROMSX::set_weights (int lev) {
 //  Find center of gravity of the primary weights and subsequently
 //  calculate the mismatch to be compensated.
 //
-      for(iter=1;iter<=ndtfast;iter++) {
+      for(int iter=1;iter<=ndtfast;iter++) {
         wsum=0.0_rt;
         shift=0.0_rt;
-        for(i=1;i<=nfast;i++) {
+        for(int i=1;i<=nfast;i++) {
           wsum=wsum+weight1[i-1];
           shift=shift+Real(i)*weight1[i-1];
         }
@@ -113,25 +112,25 @@ void ROMSX::set_weights (int lev) {
 //
         if (cff>1.0_rt) {
           nfast=nfast+1;
-          for(i=nfast;i>=2;i--) {
+          for(int i=nfast;i>=2;i--) {
             weight1[i-1]=weight1[i-1-1];
           }
           weight1[1-1]=0.0_rt;
         } else if (cff>0.0_rt) {
           wsum=1.0_rt-cff;
-          for(i=nfast;i>=2;i--) {
+          for(int i=nfast;i>=2;i--) {
           weight1[i-1]=wsum*weight1[i-1]+cff*weight1[i-1-1];
           }
           weight1[1-1]=wsum*weight1[1-1];
         } else if (cff<-1.0_rt) {
           nfast=nfast-1;
-          for(i=1;i<=nfast;i++) {
+          for(int i=1;i<=nfast;i++) {
           weight1[i-1]=weight1[i+1-1];
           }
           weight1[nfast+1-1]=0.0_rt;
         } else if (cff<0.0_rt) {
           wsum=1.0_rt+cff;
-          for(i=1;i<=nfast-1;i++) {
+          for(int i=1;i<=nfast-1;i++) {
           weight1[i-1]=wsum*weight1[i-1]-cff*weight1[i+1-1];
           }
           weight1[nfast-1]=wsum*weight1[nfast-1];
@@ -142,9 +141,9 @@ void ROMSX::set_weights (int lev) {
 //  for free surface.  Notice that array weight2[i] is assumed to
 //  have all-zero status at entry in this segment of code.
 //
-        for(j=1;j<=nfast;j++) {
+        for(int j=1;j<=nfast;j++) {
         cff=weight1[j-1];
-        for(i=1;i<=j;i++) {
+        for(int i=1;i<=j;i++) {
             weight2[i-1]=weight2[i-1]+cff;
         }
       }
@@ -153,13 +152,13 @@ void ROMSX::set_weights (int lev) {
 //
       wsum=0.0_rt;
       cff=0.0_rt;
-      for(i=1;i<=nfast;i++) {
+      for(int i=1;i<=nfast;i++) {
         wsum=wsum+weight1[i-1];
         cff=cff+weight2[i-1];
       }
       wsum=1.0_rt/wsum;
       cff=1.0_rt/cff;
-      for(i=1;i<=nfast;i++) {
+      for(int i=1;i<=nfast;i++) {
         weight1[i-1]=wsum*weight1[i-1];
         weight2[i-1]=cff*weight2[i-1];
       }
@@ -173,7 +172,7 @@ void ROMSX::set_weights (int lev) {
         cff2=0.0_rt;
         wsum=0.0_rt;
         shift=0.0_rt;
-        for(i=1;i<=nfast;i++) {
+        for(int i=1;i<=nfast;i++) {
           cff=cff+weight1[i-1];
           cff1=cff1+weight1[i-1]*Real(i);
           cff2=cff2+weight1[i-1]*Real(i*i);

@@ -12,7 +12,6 @@ void
 ROMSX::stretch_transform (int lev)
 {
     auto& lev_new = vars_new[lev];
-    auto& lev_old = vars_old[lev];
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_s_r = vec_s_r[lev];
@@ -40,28 +39,16 @@ ROMSX::stretch_transform (int lev)
 
       const auto & geomdata = Geom(lev).data();
 
-      int ncomp = 1;
-      Box subdomain;
-      if (lev == 0) {
-          subdomain = geom[lev].Domain();
-      } else {
-          amrex::Abort("Geometry information needs to be updated for multilevel");
-      }
-
-      int nx = subdomain.length(0);
-      int ny = subdomain.length(1);
-      int nz = subdomain.length(2);
+      int nz = geom[lev].Domain().length(2);
 
       auto N = nz; // Number of vertical "levels" aka, NZ
       //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
       Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
-      bool NSPeriodic = geomdata.isPeriodic(1);
-      bool EWPeriodic = geomdata.isPeriodic(0);
       const auto local_theta_s = solverChoice.theta_s;
       const auto local_theta_b = solverChoice.theta_b;
 
-      amrex::ParallelFor(wgbx2, ncomp,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+      amrex::ParallelFor(wgbx2,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
           z_w(i,j,k) = h(i,j,0);
       });
@@ -72,16 +59,16 @@ ROMSX::stretch_transform (int lev)
 
       // ROMS Transform 2
       Gpu::streamSynchronize();
-      amrex::ParallelFor(gbx2D, ncomp,
-      [=] AMREX_GPU_DEVICE (int i, int j, int , int )
+      amrex::ParallelFor(gbx2D,
+      [=] AMREX_GPU_DEVICE (int i, int j, int )
       {
         for(int k=-1; k<=N_loop; k++) {
         //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
-        const auto prob_lo         = geomdata.ProbLo();
-        const auto dx              = geomdata.CellSize();
-        //This is the z for the bottom of the cell this k corresponds to
+        // const auto prob_lo         = geomdata.ProbLo();
+        // const auto dx              = geomdata.CellSize();
+        // This is the z for the bottom of the cell this k corresponds to
         //   if we weren't stretching and transforming
-        const Real z = prob_lo[2] + (k) * dx[2];
+        //        const Real z = prob_lo[2] + (k) * dx[2];
         //        h(i,j,0) = -prob_lo[2]; // conceptually
 
         ////////////////////////////////////////////////////////////////////
@@ -196,22 +183,13 @@ ROMSX::stretch_transform (int lev)
         }
       });
       Gpu::streamSynchronize();
-      amrex::ParallelFor(gbx2D, ncomp,
-      [=] AMREX_GPU_DEVICE (int i, int j, int , int )
+      amrex::ParallelFor(gbx2,
+      [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-          for(int k=0; k<=N_loop; k++) {
-          if(k==0) {
+          if (k==0) {
               Hz(i,j,k)=z_w(i,j,k)+h(i,j,0);
-              //if (verbose > 2) {
-              //  printf("%d %d %d  %15.15g %15.15g %15.15g  Hz z_w2\n", i,j,k, Hz(i,j,k), z_w(i,j,k), h(i,j,0));
-              //}
-          }
-          else {
+          } else {
               Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1);
-              //if (verbose > 2) {
-              //  printf("%d %d %d  %15.15g %15.15g %15.15g  Hz z_w2\n", i,j,k, Hz(i,j,k), z_w(i,j,k), z_w(i,j,k-1));
-              //}
-              }
           }
       });
     }

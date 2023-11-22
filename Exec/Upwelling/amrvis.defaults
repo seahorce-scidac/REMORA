@@ -1,5 +1,4 @@
-palette               Pal8.new
-palette               /home/jmsexton/Amrvis_prof/Palette
+palette               ./Palette
 initialderived        x_velocity
 initialscale          8
 numberformat          %8.5f

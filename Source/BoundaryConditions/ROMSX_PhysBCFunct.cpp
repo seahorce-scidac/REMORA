@@ -35,9 +35,6 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
         }
     }
 
-    MultiFab* xvel_ptr   = nullptr;
-    MultiFab* yvel_ptr   = nullptr;
-
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif

@@ -15,8 +15,6 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
                const int nrhs,
                const int N)
 {
-    const int Mn = Geom(0).Domain().size()[0];
-    const int Mm = Geom(0).Domain().size()[1];
     auto phi_bxD=phi_bx;
     phi_bxD.makeSlab(2,0);
     auto phi_gbxD=phi_gbx & phi_bx;
@@ -24,7 +22,6 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     Box phi_ubx = surroundingNodes(phi_bx,0);
     Box phi_vbx = surroundingNodes(phi_bx,1);
     Box phi_ubxD = surroundingNodes(phi_bxD,0);
-    Box phi_vbxD = surroundingNodes(phi_bxD,1);
     auto utbxD = utbx;
     auto vtbxD = vtbx;
     utbxD.makeSlab(2,0);
@@ -38,11 +35,11 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
         Print() << "FC box " << Box(FC) << std::endl;
     }
     //hardcode these for now instead of reading them from inputs
-    Real T0=14.0;
-    Real S0=35.0;
-    Real R0=1027;
-    Real Tcoef=1.7e-4;
-    Real Scoef=0.0;
+    // Real T0=14.0;
+    // Real S0=35.0;
+    // Real R0=1027;
+    // Real Tcoef=1.7e-4;
+    // Real Scoef=0.0;
     Real rho0=1025.0;
 
     const Real OneFifth = 0.2_rt;
@@ -53,7 +50,6 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     Real GRho0=1000.0_rt*GRho;
     Real HalfGRho=0.5_rt*GRho;
 
-    FArrayBox fab_zwrk(phi_bx,1,The_Async_Arena());
     FArrayBox fab_P(phi_bx,1,The_Async_Arena());
     FArrayBox fab_aux(Box(z_r),1,The_Async_Arena());
     FArrayBox fab_dR(phi_bx,1,The_Async_Arena());
@@ -61,7 +57,6 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     FArrayBox fab_dRx(phi_bx,1,The_Async_Arena());
     FArrayBox fab_dZx(phi_bx,1,The_Async_Arena());
 
-    auto zwrk=fab_zwrk.array();
     auto P=fab_P.array();
     auto aux=fab_aux.array();
     auto dR=fab_dR.array();
