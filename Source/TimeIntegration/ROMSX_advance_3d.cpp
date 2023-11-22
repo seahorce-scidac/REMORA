@@ -158,8 +158,8 @@ ROMSX::advance_3d (int lev,
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
-        fab_on_u.template setVal<RunOn::Device>(dx[1]);
-        fab_om_v.template setVal<RunOn::Device>(dx[0]);
+        fab_on_u.template setVal<RunOn::Device>(dx[1],amrex::makeSlab(tbxp2,2,0));
+        fab_om_v.template setVal<RunOn::Device>(dx[0],amrex::makeSlab(tbxp2,2,0));
 
         Real cff;
         if (iic==ntfirst) {
