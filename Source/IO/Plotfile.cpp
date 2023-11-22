@@ -54,9 +54,15 @@ ROMSX::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::strin
 
     for (int i = 0; i < derived_names.size(); ++i) {
         if ( containerHasElement(plot_var_names, derived_names[i]) ) {
-           tmp_plot_names.push_back(derived_names[i]);
-        }
-    }
+#ifdef ROMSX_USE_PARTICLES
+            if (particleData.use_tracer_particles || (derived_names[i] != "tracer_particle_count")) {
+#endif
+               tmp_plot_names.push_back(derived_names[i]);
+#ifdef ROMSX_USE_PARTICLES
+            }
+#endif
+        } // if
+    } // i
 
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names) {
