@@ -32,9 +32,6 @@ ROMSX::advance_3d (int lev,
                    std::unique_ptr<MultiFab>& mf_h,
                    const int ncomp, const int N, Real dt_lev)
 {
-
-    auto geomdata  = Geom(lev).data();
-
     const int Mm = Geom(lev).Domain().size()[1];
 
     const int nrhs  = ncomp-1;
@@ -116,8 +113,8 @@ ROMSX::advance_3d (int lev,
 
         FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_om_v(tbxp2,1,amrex::The_Async_Arena());
-        auto on_u=fab_on_u.array();
-        auto om_v=fab_om_v.array();
+        auto on_u = fab_on_u.array();
+        auto om_v = fab_om_v.array();
 
         auto FC = fab_FC.array();
         auto BC = fab_BC.array();
@@ -199,13 +196,13 @@ ROMSX::advance_3d (int lev,
 #ifdef AMREX_USE_GPU
     Gpu::synchronize();
 #endif
-        vert_visc_3d(gbx1,bx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(gbx1,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
         // Reset to zero
         mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
         fab_CF.template setVal<RunOn::Device>(0.,gbx21);
 
-        vert_visc_3d(gbx1,bx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(gbx1,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
         }
 
         // Reset to zero
@@ -229,7 +226,7 @@ ROMSX::advance_3d (int lev,
             PrintToFile("vbar_beforeupdate").SetPrecision(18) << FArrayBox(vbar) << std::endl;
         }
 
-        update_massflux_3d(gbx2,bx,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
+        update_massflux_3d(gbx2,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
 
         ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -238,7 +235,7 @@ ROMSX::advance_3d (int lev,
                 ubar(i,j,k,1) = ubar(i,j,k,0);
             });
 
-        update_massflux_3d(gbx2,bx,0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
+        update_massflux_3d(gbx2,0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
 
         ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -309,8 +306,6 @@ ROMSX::advance_3d (int lev,
 
         FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_om_v(tbxp2,1,amrex::The_Async_Arena());
-        auto on_u=fab_on_u.array();
-        auto om_v=fab_om_v.array();
 
         auto FC  = fab_FC.array();
         auto oHz = fab_oHz.array();
@@ -336,7 +331,7 @@ ROMSX::advance_3d (int lev,
         // Update to u and v
         //
         ParallelFor(amrex::makeSlab(tbxp2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             pm(i,j,0)=dxi[0];
             pn(i,j,0)=dxi[1];
@@ -497,8 +492,6 @@ ROMSX::advance_3d (int lev,
 
         FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_om_v(tbxp2,1,amrex::The_Async_Arena());
-        auto on_u=fab_on_u.array();
-        auto om_v=fab_om_v.array();
 
         auto FC = fab_FC.array();
         auto BC = fab_BC.array();
@@ -516,7 +509,7 @@ ROMSX::advance_3d (int lev,
         // Update to u and v
         //
         ParallelFor(makeSlab(tbxp2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             pm(i,j,0)=dxi[0];
             pn(i,j,0)=dxi[1];
@@ -538,8 +531,8 @@ ROMSX::advance_3d (int lev,
             PrintToFile("salt_beforevvisc").SetPrecision(18) << FArrayBox(salt) << std::endl;
         }
 
-        vert_visc_3d(gbx1,bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
-        vert_visc_3d(gbx1,bx,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(gbx1,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(gbx1,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
 
         if (verbose > 2) {
             PrintToFile("temp_aftervvisc").SetPrecision(18) << FArrayBox(temp) << std::endl;

@@ -34,7 +34,7 @@
 #include <Derive.H>
 
 #ifdef ROMSX_USE_PARTICLES
-#include "TerrainFittedPC.H"
+#include "ParticleData.H"
 #endif
 
 #ifdef ROMSX_USE_NETCDF
@@ -58,10 +58,6 @@ namespace InterpType {
         CellConservativeQuartic
     };
 }
-
-#ifdef ROMSX_USE_PARTICLES
-typedef amrex::ParticleContainer<AMREX_SPACEDIM, 0, 0, 0> TracerPC;
-#endif
 
 template<typename V, typename T>
 bool containerHasElement(const V& iterable, const T& query) {
@@ -556,7 +552,6 @@ public:
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
     void vert_visc_3d (const amrex::Box& bx,
-                       const amrex::Box& valid_bx,
                        const int ioff, const int joff,
                        amrex::Array4<amrex::Real> phi,
                        amrex::Array4<amrex::Real> Hz,
@@ -580,18 +575,17 @@ public:
                        const int nnew);
 
     void update_massflux_3d (const amrex::Box& bx,
-                             const amrex::Box& valid_bx,
                              const int ioff, const int joff,
-                       amrex::Array4<amrex::Real> phi,
-                       amrex::Array4<amrex::Real> Hphi,
-                       amrex::Array4<amrex::Real> Hz,
-                       amrex::Array4<amrex::Real> on_u_or_om_v,
-                       amrex::Array4<amrex::Real> Dphi1,
-                       amrex::Array4<amrex::Real> Dphi2,
-                       amrex::Array4<amrex::Real> DC,
-                       amrex::Array4<amrex::Real> FC,
-                       amrex::Array4<amrex::Real> CF,
-                       const int nnew);
+                             amrex::Array4<amrex::Real> phi,
+                             amrex::Array4<amrex::Real> Hphi,
+                             amrex::Array4<amrex::Real> Hz,
+                             amrex::Array4<amrex::Real> on_u_or_om_v,
+                             amrex::Array4<amrex::Real> Dphi1,
+                             amrex::Array4<amrex::Real> Dphi2,
+                             amrex::Array4<amrex::Real> DC,
+                             amrex::Array4<amrex::Real> FC,
+                             amrex::Array4<amrex::Real> CF,
+                             const int nnew);
 
     void vert_mean_3d (const amrex::Box& bx,
                        const int ioff, const int joff,
@@ -667,11 +661,6 @@ public:
     void set_drag (int lev);
 
     void set_weights (int lev);
-
-#ifdef ROMSX_USE_PARTICLES
-    std::unique_ptr<TerrainFittedPC> tracer_particles;
-    static amrex::Vector<std::string> tracer_particle_varnames;
-#endif
 
 private:
 
@@ -933,12 +922,17 @@ private:
     // Note that the order of variable names here must match the order in Derive.cpp
     const amrex::Vector<std::string> derived_names {"scalar", "dpdx", "dpdy"
 #ifdef ROMSX_USE_PARTICLES
-                                                    ,"particle_count"
+                                                    ,"tracer_particle_count"
 #endif
                                                    };
 
     // algorithm choices
     static SolverChoice solverChoice;
+
+#ifdef ROMSX_USE_PARTICLES
+    // Particle info
+    static ParticleData particleData;
+#endif
 
     static int verbose;
     static int use_native_mri;

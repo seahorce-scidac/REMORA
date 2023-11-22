@@ -30,7 +30,6 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
     BoxArray ba_gbx1 = intersect(BoxArray(tbxp1),gbx);
     AMREX_ASSERT((ba_gbx1.size() == 1));
-    Box gbx1 = ba_gbx1[0];
 
     //
     // Scratch space

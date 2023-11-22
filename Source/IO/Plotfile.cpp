@@ -132,7 +132,6 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
                 const Array4<const Real> velx_arr = vars_new[lev][Vars::xvel].array(mfi);
                 const Array4<const Real> vely_arr = vars_new[lev][Vars::yvel].array(mfi);
                 const Array4<const Real> velz_arr = vars_new[lev][Vars::zvel].array(mfi);
-                const Array4<Real> msf_arr = mapfac_m[lev]->array(mfi);
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     vel_arr(i,j,k,0) = velx_arr(i,j,k);
@@ -171,8 +170,8 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         {
             MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
             temp_dat.setVal(0);
-            tracer_particles->Redistribute();
-            tracer_particles->Increment(temp_dat, lev);
+            particleData.tracer_particles->Redistribute();
+            particleData.tracer_particles->Increment(temp_dat, lev);
             MultiFab::Copy(mf[lev], temp_dat, 0, mf_comp, 1, 0);
             mf_comp += 1;
         }
@@ -198,9 +197,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             writeJobInfo(plotfilename);
 
 #ifdef ROMSX_USE_PARTICLES
-            if (use_tracer_particles) {
-                tracer_particles->Checkpoint(plotfilename, "tracers", true, tracer_particle_varnames);
-            }
+            particleData.Checkpoint(plotfilename);
 #endif
 
 #ifdef ROMSX_USE_HDF5
@@ -276,9 +273,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             writeJobInfo(plotfilename);
 
 #ifdef ROMSX_USE_PARTICLES
-            if (use_tracer_particles) {
-                tracer_particles->Checkpoint(plotfilename, "tracers", true, tracer_particle_varnames);
-            }
+            particleData.Checkpoint(plotfilename);
 #endif
 
 #ifdef ROMSX_USE_NETCDF

@@ -220,7 +220,7 @@ ROMSX::advance_2d (int lev,
             amrex::PrintToFile("vbar_startadvance2").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
         }
         if (verbose > 2) {
-            amrex::ParallelFor(gbx2D,
+            ParallelFor(gbx2D,
             [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
                 printf("%d %d  %15.15g %15.15g %15.15g all zeta start adv2 %d %d\n", i,j,zeta(i,j,0,0),zeta(i,j,0,1), zeta(i,j,0,2),my_iif,predictor_2d_step);
@@ -228,14 +228,14 @@ ROMSX::advance_2d (int lev,
         }
 
         //From ana_grid.h and metrics.F
-        amrex::ParallelFor(gbx2D,
+        ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
               DUon(i,j,0)=0.0;
               DVom(i,j,0)=0.0;
         });
 
-        amrex::ParallelFor(tbxp2D,
+        ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //Note: are the comment definitons right? Don't seem to match metrics.f90
@@ -249,7 +249,7 @@ ROMSX::advance_2d (int lev,
               on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
               om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
         });
-        amrex::ParallelFor(tbxp2D,
+        ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
         {
 
@@ -273,19 +273,19 @@ ROMSX::advance_2d (int lev,
         }
 
         if (verbose > 2) {
-            amrex::ParallelFor(tbxp2D,
+            ParallelFor(tbxp2D,
             [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
                 printf("%d %d  %15.15g zeta start adv2  %d %d \n", i,j, zeta(i,j,0,krhs), my_iif, predictor_2d_step);
             });
         }
 
-        amrex::ParallelFor(tbxp2D,
+        ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });
-        amrex::ParallelFor(gbx2D,
+        ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*on_u(i,j,0);
@@ -293,7 +293,7 @@ ROMSX::advance_2d (int lev,
             Real cff1=tbxp2D.contains(i-1,j,0) ? cff*(Drhs(i,j,0)+Drhs(i-1,j,0)) : on_u(i,j,0)*Drhs(i,j,0);
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
-        amrex::ParallelFor(gbx2D,
+        ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff=.5*om_v(i,j,0);
@@ -462,7 +462,7 @@ ROMSX::advance_2d (int lev,
        }
 
         //From ana_grid.h and metrics.F
-        amrex::ParallelFor(tbxp2D,
+        ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
               pm(i,j,0)=dxi[0];
@@ -471,7 +471,7 @@ ROMSX::advance_2d (int lev,
               rhs_vbar(i,j,0)=0.0;
         });
 
-        amrex::ParallelFor(tbxp2D,
+        ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //Note: are the comment definitons right? Don't seem to match metrics.f90
@@ -485,7 +485,7 @@ ROMSX::advance_2d (int lev,
               on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
               om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
         });
-        amrex::ParallelFor(tbxp2D,
+        ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
         {
 
@@ -503,7 +503,7 @@ ROMSX::advance_2d (int lev,
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
-        amrex::ParallelFor(tbxp2D,
+        ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
@@ -512,18 +512,18 @@ ROMSX::advance_2d (int lev,
         {
             if(first_2d_step) {
                 Real cff2=(Real(-1.0)/Real(12.0))*weight2[my_iif+1];
-                amrex::ParallelFor(gbx2D,
+                ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     Zt_avg1(i,j,0)=0.0;
                 });
-                amrex::ParallelFor(gbx2D,
+                ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     DU_avg1(i,j,0)=0.0;
                     DU_avg2(i,j,0)=cff2*DUon(i,j,0);
                 });
-                amrex::ParallelFor(gbx2D,
+                ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     DV_avg1(i,j,0)=0.0;
@@ -531,43 +531,43 @@ ROMSX::advance_2d (int lev,
                 });
             }
             else {
-                Real cff1=weight1[my_iif-1];
-                Real cff2=(Real(8.0)/Real(12.0))*weight2[my_iif]-
-                          (Real(1.0)/Real(12.0))*weight2[my_iif+1];
-                amrex::ParallelFor(gbx2D,
+                Real cff1_wt1 = weight1[my_iif-1];
+                Real cff2_wt1 = (Real(8.0)/Real(12.0))*weight2[my_iif]-
+                                (Real(1.0)/Real(12.0))*weight2[my_iif+1];
+                ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
-                    Zt_avg1(i,j,0)=Zt_avg1(i,j,0)+cff1*zeta(i,j,0,krhs);
+                    Zt_avg1(i,j,0)=Zt_avg1(i,j,0)+cff1_wt1*zeta(i,j,0,krhs);
                 });
-                amrex::ParallelFor(gbx2D,
+                ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    DU_avg1(i,j,0)=DU_avg1(i,j,0)+cff1*DUon(i,j,0);
-                    DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2*DUon(i,j,0);
+                    DU_avg1(i,j,0)=DU_avg1(i,j,0)+cff1_wt1*DUon(i,j,0);
+                    DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2_wt1*DUon(i,j,0);
                 });
-                amrex::ParallelFor(gbx2D,
+                ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
-                    DV_avg1(i,j,0)=DV_avg1(i,j,0)+cff1*DVom(i,j,0);
-                    DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2*DVom(i,j,0);
+                    DV_avg1(i,j,0)=DV_avg1(i,j,0)+cff1_wt1*DVom(i,j,0);
+                    DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2_wt1*DVom(i,j,0);
                 });
             }
         }
         else {
-        Real cff2;
+        Real cff2_wt2;
             if(first_2d_step)
-                cff2=weight2[my_iif];
+                cff2_wt2=weight2[my_iif];
             else
-                cff2=Real(5.0)/Real(12.0)*weight2[my_iif];
-            amrex::ParallelFor(gbx2D,
+                cff2_wt2=Real(5.0)/Real(12.0)*weight2[my_iif];
+            ParallelFor(gbx2D,
             [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
-                DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2*DUon(i,j,0);
+                DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2_wt2*DUon(i,j,0);
             });
-            amrex::ParallelFor(gbx2D,
+            ParallelFor(gbx2D,
             [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
-                DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2*DVom(i,j,0);
+                DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2_wt2*DVom(i,j,0);
             });
         }
 
@@ -579,7 +579,7 @@ ROMSX::advance_2d (int lev,
 
         if (my_iif>=nfast) {
             if (verbose > 2) {
-                amrex::ParallelFor(gbx2D,
+                ParallelFor(gbx2D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     printf("%d %d  %15.15g %15.15g %15.15g zeta end adv2 %d %d\n", i,j,zeta(i,j,0,0),zeta(i,j,0,1), zeta(i,j,0,2), my_iif, predictor_2d_step);
@@ -605,7 +605,7 @@ ROMSX::advance_2d (int lev,
 
         if(my_iif==0) {
             Real cff1=dtfast_lev;
-            amrex::ParallelFor(tbxp2unevenD,
+            ParallelFor(tbxp2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
@@ -629,7 +629,7 @@ ROMSX::advance_2d (int lev,
             Real cff1=2.0_rt*dtfast_lev;
             Real cff4=4.0/25.0;
             Real cff5=1.0-2.0*cff4;
-            amrex::ParallelFor(tbxp2unevenD,
+            ParallelFor(tbxp2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
@@ -655,7 +655,7 @@ ROMSX::advance_2d (int lev,
             Real cff3=dtfast_lev*1.0_rt/12.0_rt;
             Real cff4=2.0_rt/5.0_rt;
             Real cff5=1.0_rt-cff4;
-            amrex::ParallelFor(tbxp2unevenD,
+            ParallelFor(tbxp2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 Real cff=cff1*((DUon(i,j,0)-DUon(i+1,j,0))+
@@ -685,7 +685,7 @@ ROMSX::advance_2d (int lev,
         //  Load new free-surface values into shared array at both predictor
         //  and corrector steps.
         //
-        amrex::ParallelFor(gbx2unevenD,
+        ParallelFor(gbx2unevenD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             zeta(i,j,0,knew)=zeta_new(i,j,0);
@@ -695,7 +695,7 @@ ROMSX::advance_2d (int lev,
         //  If predictor step, load right-side-term into shared array.
         //
         if (predictor_2d_step) {
-            amrex::ParallelFor(gbx2unevenD,
+            ParallelFor(gbx2unevenD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
@@ -717,7 +717,7 @@ ROMSX::advance_2d (int lev,
 
         Real cff1 = 0.5 * 9.81; // Should be the variable gravitational field strength
         Real cff2 = 1.0 / 3.0;
-        amrex::ParallelFor(bxD,
+        ParallelFor(bxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
               rhs_ubar(i,j,0)=cff1*on_u(i,j,0)*
@@ -813,7 +813,7 @@ ROMSX::advance_2d (int lev,
        }
         //Add in horizontal harmonic viscosity.
         // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
-        amrex::ParallelFor(amrex::makeSlab(tbxp1,2,0),
+        ParallelFor(amrex::makeSlab(tbxp1,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs_p(i,j,0)=0.25*(Drhs(i,j,0)+Drhs(i-1,j,0)+
@@ -841,7 +841,7 @@ ROMSX::advance_2d (int lev,
         //todo: my_iif=>my_my_iif iic => icc
         if (first_2d_step&&predictor_2d_step) {
             if (iic==ntfirst) {
-                amrex::ParallelFor(gbx1D,
+                ParallelFor(gbx1D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     //DO j=Jstr,Jend
@@ -852,7 +852,7 @@ ROMSX::advance_2d (int lev,
                 });
                 //END DO
                 //END DO
-                amrex::ParallelFor(gbx1D,
+                ParallelFor(gbx1D,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     //DO j=JstrV,Jend
@@ -861,48 +861,36 @@ ROMSX::advance_2d (int lev,
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+rvfrc(i,j,0);
                     rv(i,j,-1,nstp)=rvfrc(i,j,0);
                 });
-                //  END DO
-                //  END DO
+
             } else if (iic==(ntfirst+1)) {
-                amrex::ParallelFor(gbx1D,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+                ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
-                    //DO j=Jstr,Jend
-                    //DO i=IstrU,Iend
                     rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
-                    rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
-                        1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,0);
+                    rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,0);
                     ru(i,j,-1,1)=rufrc(i,j,0);
                     Real r_swap= ru(i,j,-1,1);
                     ru(i,j,-1,1) = ru(i,j,-1,0);
                     ru(i,j,-1,0) = r_swap;
                 });
-                                   //END DO
-                                   //          END DO
-                amrex::ParallelFor(gbx1D,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+                ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
-                    //DO j=JstrV,Jend
-                    //DO i=Istr,Iend
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
-                    rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
-                        1.5_rt*rvfrc(i,j,0)-0.5_rt*rv(i,j,-1,0);
+                    rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+1.5_rt*rvfrc(i,j,0)-0.5_rt*rv(i,j,-1,0);
                     rv(i,j,-1,1)=rvfrc(i,j,0);
                     Real r_swap= rv(i,j,-1,1);
                     rv(i,j,-1,1) = rv(i,j,-1,0);
                     rv(i,j,-1,0) = r_swap;
                 });
-                                   //END DO
-                                   //          END DO
+
             } else {
                 Real cff1=23.0_rt/12.0_rt;
                 Real cff2=16.0_rt/12.0_rt;
                 Real cff3= 5.0_rt/12.0_rt;
-       amrex::ParallelFor(gbx1D,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+                ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
-                    //DO j=Jstr,Jend
-                    //DO i=IstrU,Iend
                     rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
                     rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
                         cff1*rufrc(i,j,0)-
@@ -913,13 +901,9 @@ ROMSX::advance_2d (int lev,
                     ru(i,j,-1,1) = ru(i,j,-1,0);
                     ru(i,j,-1,0) = r_swap;
                 });
-                  //END DO
-                  //END DO
-                amrex::ParallelFor(gbx1D,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+                ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
-                    //DO j=JstrV,Jend
-                    //DO i=Istr,Iend
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
                           cff1*rvfrc(i,j,0)-
@@ -935,7 +919,7 @@ ROMSX::advance_2d (int lev,
                 //END DO
             }
         } else {
-            amrex::ParallelFor(gbx1D,
+            ParallelFor(gbx1D,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 //DO j=Jstr,Jend
@@ -944,7 +928,7 @@ ROMSX::advance_2d (int lev,
             });
             //END DO
             //END DO
-            amrex::ParallelFor(gbx1D,
+            ParallelFor(gbx1D,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 //DO j=JstrV,Jend
@@ -962,7 +946,7 @@ ROMSX::advance_2d (int lev,
         //
         //  Compute total water column depth.
         //
-        amrex::ParallelFor(tbxp2D,
+        ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
         //DO j=JstrV-1,Jend
@@ -979,7 +963,7 @@ ROMSX::advance_2d (int lev,
         //
         if (my_iif==0) {
             Real cff1=0.5_rt*dtfast_lev;
-            amrex::ParallelFor(gbx1D,
+            ParallelFor(gbx1D,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 //DO j=Jstr,Jend
@@ -996,7 +980,7 @@ ROMSX::advance_2d (int lev,
             });
             //END DO
             //END DO
-            amrex::ParallelFor(gbx1D,
+            ParallelFor(gbx1D,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 //DO j=JstrV,Jend
@@ -1011,7 +995,7 @@ ROMSX::advance_2d (int lev,
             //END DO
         } else if (predictor_2d_step) {
             Real cff1=dtfast_lev;
-            amrex::ParallelFor(gbx1D,
+            ParallelFor(gbx1D,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 //DO j=Jstr,Jend
@@ -1024,7 +1008,7 @@ ROMSX::advance_2d (int lev,
             });
             //END DO
             //END DO
-            amrex::ParallelFor(gbx1D,
+            ParallelFor(gbx1D,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 //DO j=JstrV,Jend
@@ -1041,7 +1025,7 @@ ROMSX::advance_2d (int lev,
             Real cff1=0.5_rt*dtfast_lev*5.0_rt/12.0_rt;
             Real cff2=0.5_rt*dtfast_lev*8.0_rt/12.0_rt;
             Real cff3=0.5_rt*dtfast_lev*1.0_rt/12.0_rt;
-            amrex::ParallelFor(gbx1D,
+            ParallelFor(gbx1D,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 //DO j=Jstr,Jend
@@ -1056,7 +1040,7 @@ ROMSX::advance_2d (int lev,
             });
             //END DO
             //END DO
-            amrex::ParallelFor(gbx1D,
+            ParallelFor(gbx1D,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 //DO j=JstrV,Jend
@@ -1080,24 +1064,14 @@ ROMSX::advance_2d (int lev,
         //
 
         if (predictor_2d_step) {
-            amrex::ParallelFor(gbx1D,
-            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                //DO j=Jstr,Jend
-                //DO i=IstrU,Iend
                 rubar(i,j,0,krhs)=rhs_ubar(i,j,0);
             });
-            //END DO
-            //END DO
-            amrex::ParallelFor(gbx1D,
-            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                //DO j=JstrV,Jend
-                //DO i=Istr,Iend
                 rvbar(i,j,0,krhs)=rhs_vbar(i,j,0);
             });
-            //END DO
-            //END DO
         }
     }
     mf_DU_avg1->FillBoundary(geom[lev].periodicity());

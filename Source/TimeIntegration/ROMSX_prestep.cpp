@@ -132,8 +132,6 @@ ROMSX::prestep (int lev,
         //FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
-        auto FX=fab_FX.array();
-        auto FE=fab_FE.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto on_u=fab_on_u.array();
