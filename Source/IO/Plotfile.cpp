@@ -166,7 +166,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         calculate_derived("scalar",      derived::romsx_derscalar);
 
 #ifdef ROMSX_USE_PARTICLES
-        if (containerHasElement(plot_var_names, "particle_count"))
+        if (containerHasElement(plot_var_names, "tracer_particle_count"))
         {
             MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
             temp_dat.setVal(0);
