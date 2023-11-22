@@ -37,12 +37,13 @@ ROMSX::advance_3d (int lev,
 
     const int Mm = Geom(lev).Domain().size()[1];
 
-    const auto prob_lo = geomdata.ProbLo();
-    const auto dx  = Geom(lev).CellSizeArray();
-    const auto dxi = Geom(lev).InvCellSizeArray();
-
     const int nrhs  = ncomp-1;
     const int nnew  = ncomp-1;
+
+    const GpuArray<Real,AMREX_SPACEDIM> dx  = Geom(lev).CellSizeArray();
+    const GpuArray<Real,AMREX_SPACEDIM> dxi = Geom(lev).InvCellSizeArray();
+
+    auto const& prob_lo = Geom(lev).ProbLoArray();
 
     int iic = istep[lev];
     int ntfirst = 0;
@@ -514,10 +515,9 @@ ROMSX::advance_3d (int lev,
         //
         // Update to u and v
         //
-        ParallelFor(tbxp2,
+        ParallelFor(makeSlab(tbxp2,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-          if (k == 0) {
             pm(i,j,0)=dxi[0];
             pn(i,j,0)=dxi[1];
 
@@ -528,7 +528,6 @@ ROMSX::advance_3d (int lev,
             Real y = prob_lo[1] + (j + 0.5) * dx[1];
             Real f=f0+beta*(y-.5*Esize);
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
-            }
         });
 
         fab_on_u.template setVal<RunOn::Device>(dx[1],makeSlab(tbxp2,2,0));
