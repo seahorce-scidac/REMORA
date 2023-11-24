@@ -19,7 +19,7 @@
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_VisMF.H>
 #include <AMReX_PhysBCFunct.H>
-#include <AMReX_FluxRegister.H>
+#include <AMReX_YAFluxRegister.H>
 #include <AMReX_ErrorList.H>
 
 #ifdef AMREX_MEM_PROFILING
@@ -680,6 +680,10 @@ private:
 
     void init_custom(int lev);
 
+    void init_stuff (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
+
+    void resize_stuff (int lev);
+
 #ifdef ROMSX_USE_NETCDF
     void init_from_wrfinput(int lev);
 #endif // ROMSX_USE_NETCDF
@@ -852,7 +856,7 @@ private:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> sst;
 
     // array of flux registers
-    amrex::Vector<amrex::FluxRegister*> flux_registers;
+    amrex::Vector<amrex::YAFluxRegister*> advflux_reg;
 
     // A BCRec is essentially a 2*DIM integer array storing the boundary
     // condition type at each lo/hi walls in each direction. We have one BCRec
@@ -935,13 +939,6 @@ private:
 #endif
 
     static int verbose;
-    static int use_native_mri;
-    static int no_substepping;
-
-    // mesh refinement
-    static std::string coupling_type;
-    static int do_reflux;
-    static int do_avg_down;
 
     // flag to turn tracer particle generation on/off
     static bool use_tracer_particles;
@@ -1031,10 +1028,9 @@ private:
     }
 
     AMREX_FORCE_INLINE
-    amrex::FluxRegister&
-    get_flux_reg(int lev)
+    amrex::YAFluxRegister* getAdvFluxReg (int lev)
     {
-      return *flux_registers[lev];
+        return advflux_reg[lev];
     }
 
     AMREX_FORCE_INLINE

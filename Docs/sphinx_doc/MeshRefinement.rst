@@ -7,7 +7,7 @@
 Mesh Refinement
 ===============
 
-ROMSX allows both static and dynamic mesh refinement.
+ROMS-X allows both static and dynamic mesh refinement, as well as the choice of one-way or two-way coupling.
 
 Note that any tagged region will be covered by one or more boxes.  The user may
 specify the refinement criteria and/or region to be covered, but not the decomposition of the region into
@@ -22,7 +22,7 @@ Static Mesh Refinement
 
 For static refinement, we control the placement of grids by specifying
 the low and high extents (in physical space) of each box in the lateral
-directions.   ROMSX enforces that all refinement spans the entire vertical direction.
+directions.   ROMS-X enforces that all refinement spans the entire vertical direction.
 
 The following example demonstrates how to tag regions for static refinement.
 In this first example, all cells in the region ((.15,.25,prob_lo_z)(.35,.45,prob_hi_z))
@@ -34,13 +34,13 @@ one level of refinement, where prob_lo_z and prob_hi_z are the vertical extents 
           amr.max_level = 1
           amr.ref_ratio = 2
 
-          amr.refinement_indicators = box1 box2
+          romsx.refinement_indicators = box1 box2
 
-          amr.box1.in_box_lo = .15 .25
-          amr.box1.in_box_hi = .35 .45
+          romsx.box1.in_box_lo = .15 .25
+          romsx.box1.in_box_hi = .35 .45
 
-          amr.box2.in_box_lo = .65 .75
-          amr.box2.in_box_hi = .85 .95
+          romsx.box2.in_box_lo = .65 .75
+          romsx.box2.in_box_hi = .85 .95
 
 In the example below, we refine the region ((.15,.25,prob_lo_z)(.35,.45,prob_hi_z))
 by two levels of factor 3 refinement. In this case, the refined region at level 1 will
@@ -51,10 +51,10 @@ be sufficient to enclose the refined region at level 2.
           amr.max_level = 2
           amr.ref_ratio = 3 3
 
-          amr.refinement_indicators = box1
+          romsx.refinement_indicators = box1
 
-          amr.box1.in_box_lo = .15 .25
-          amr.box1.in_box_hi = .35 .45
+          romsx.box1.in_box_lo = .15 .25
+          romsx.box1.in_box_hi = .35 .45
 
 And in this final example, the region ((.15,.25,prob_lo_z)(.35,.45,prob_hi_z))
 will be refined by two levels of factor 3, but the larger region, ((.05,.05,prob_lo_z)(.75,.75,prob_hi_z))
@@ -65,14 +65,14 @@ will be refined by a single factor 3 refinement.
           amr.max_level = 2
           amr.ref_ratio = 3 3
 
-          amr.refinement_indicators = box1 box2
+          romsx.refinement_indicators = box1 box2
 
-          amr.box1.in_box_lo = .15 .25
-          amr.box1.in_box_hi = .35 .45
+          romsx.box1.in_box_lo = .15 .25
+          romsx.box1.in_box_hi = .35 .45
 
-          amr.box2.in_box_lo = .05 .05
-          amr.box2.in_box_hi = .75 .75
-          amr.box2.max_level = 1
+          romsx.box2.in_box_lo = .05 .05
+          romsx.box2.in_box_hi = .75 .75
+          romsx.box2.max_level = 1
 
 
 Dynamic Mesh Refinement
@@ -102,52 +102,52 @@ computed by dividing the variable named rhotheta by the variable named density.
 
 ::
 
-          amr.refinement_indicators = hi_rho lo_theta advdiff
+          romsx.refinement_indicators = hi_rho lo_theta advdiff
 
-          amr.hi_rho.max_level = 3
-          amr.hi_rho.value_greater = 1. 2.
-          amr.hi_rho.field_name = density
+          romsx.hi_rho.max_level = 3
+          romsx.hi_rho.value_greater = 1. 2.
+          romsx.hi_rho.field_name = density
 
-          amr.lo_theta.max_level = 1
-          amr.lo_theta.value_less = 300
-          amr.lo_theta.field_name = rhotheta
-          amr.lo_theta.in_box_lo = .25 .25 .25
-          amr.lo_theta.in_box_hi = .75 .75 .75
+          romsx.lo_theta.max_level = 1
+          romsx.lo_theta.value_less = 300
+          romsx.lo_theta.field_name = rhotheta
+          romsx.lo_theta.in_box_lo = .25 .25 .25
+          romsx.lo_theta.in_box_hi = .75 .75 .75
 
-          amr.advdiff.max_level = 2
-          amr.advdiff.adjacent_difference_greater = 0.01
-          amr.advdiff.field_name = rhoadv_0
-          amr.advdiff.start_time = 0.001
-          amr.advdiff.end_time = 0.002
+          romsx.advdiff.max_level = 2
+          romsx.advdiff.adjacent_difference_greater = 0.01
+          romsx.advdiff.field_name = rhoadv_0
+          romsx.advdiff.start_time = 0.001
+          romsx.advdiff.end_time = 0.002
 
 Coupling Types
 --------------
 
-ROMSX supports both one-way and two-coupling; this is a run-time input
+ROMS-X supports one-way and two-way coupling between levels; this is a run-time input
 
 ::
 
       romsx.coupling_type = "OneWay" or "TwoWay"
 
 By one-way coupling, we mean that between each pair of refinement levels,
-the coarse mesh communicates Dirichlet data to the fine mesh in the form of ghost cell
-data (outside of the valid fine region) for cell-centered quantities, and face-baced normal
-momenta on the coarse-fine interface.  In both of these, the coarse data is conservatively
-interpolated to the fine mesh.
+the coarse level communicates data to the fine level to serve as boundary conditions
+for the time advance of the fine solution. For cell-centered quantities,
+and face-baced normal momenta on the coarse-fine interface, the coarse data is conservatively
+interpolated to the fine level.
 
-By two-way coupling, we mean that in additional to the one-way coupling operations, the fine mesh
-communicates data back to the coarse mesh in two ways:
+The interpolated data is utilized to specify ghost cell data (outside of the valid fine region).
 
-- The fine cell-centered data is conservatively averaged onto the coarse mesh covered by fine mesh.
+By two-way coupling, we mean that in additional to interpolating data from the coarser level
+to supply boundary conditions for the fine regions,
+the fine level also communicates data back to the coarse level in two ways:
 
-- A "reflux" operation is performed for all cell-centered data.
-Because the normal momentum at the fine level is itself interpolated from the coarse, the
-difference between fluxes -- along the coarse-fine interfaces -- used to update the coarse data and fluxes
-used to update the fine data is due to the difference in the averaging of the advected quantity to the face
-where the flux is defined.
+- The fine cell-centered data are conservatively averaged onto the coarse mesh covered by fine mesh.
 
-We note that both coupling schemes are conservative for mass because the fluxes for the continuity
-equation are the momenta themselves, which are interpolated on faces at the coarse-fine interface.  Other advected
-quantities which are advanced in conservation form will lose conservation with one-way coupling.
-Two-way coupling is conservative for these scalars as long as the refluxing operation is included with the
-averaging down.
+- The fine momenta are conservatively averaged onto the coarse faces covered by fine mesh.
+
+- A "reflux" operation is performed for all cell-centered data; this updates values on the coarser
+level outside of regions covered by the finer level.
+
+Advected quantities which are advanced in conservation form will lose conservation with one-way coupling.
+Two-way coupling ensures conservation of the advective contribution to all scalar updates but
+does not account for loss of conservation due to diffusive or source terms.

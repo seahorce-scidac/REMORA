@@ -70,6 +70,8 @@ ROMSX::timeStep (int lev, Real time, int iteration)
             timeStep(lev+1, time+(i-1)*dt[lev+1], i);
         }
 
-        AverageDownTo(lev); // average lev+1 down to lev
+        if (solverChoice.coupling_type == CouplingType::TwoWay) {
+            AverageDownTo(lev); // average lev+1 down to lev
+        }
     }
 }
