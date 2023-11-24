@@ -43,8 +43,8 @@ The final equation expresses the continuity equation for an incompressible fluid
 In the ocean, vertical mixing due to molecular viscosity is extremely weak compared to the turbulent mixing,
 so the terms involving :math:`\nu` and :math:`\nu_\theta` can be neglected.
 
-To close these qeustions, parametrizations of the Reynolds stresses and turbulent tracer fluxes are introduced as functions of the other variables and vertical turbulent eddy viscosity and eddy diffusivity coefficients :math:`K_m` and
-:math:`K_C`, respectively.
+To close these questions, parametrizations of the Reynolds stresses and turbulent tracer fluxes are introduced as functions of the other
+variables and vertical turbulent eddy viscosity and eddy diffusivity coefficients :math:`K_m` and :math:`K_C`, respectively.
 
 .. math::
     \overline{u^\prime w^\prime} = -K_M \frac{\partial u}{\partial z}; \hspace{0.5in} \overline{v^\prime w^\prime} = -K_M \frac{\partial v}{\partial z}; \hspace{0.5in} \overline{C^\prime w^\prime} = -K_C \frac{\partial C}{\partial z};
