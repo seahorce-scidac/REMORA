@@ -10,6 +10,10 @@
 
 #include <ROMSX_Constants.H>
 
+enum struct CouplingType {
+    OneWay, TwoWay
+};
+
 enum class Coord {
     x, y, z
 };
@@ -42,14 +46,6 @@ enum class MomentumEqn {
     x, y, z
 };
 
-enum class LESType {
-    None, Smagorinsky, Deardorff
-};
-
-enum class PBLType {
-    None, MYNN25
-};
-
 enum class MolecDiffType {
     None, Constant, ConstantAlpha
 };
@@ -68,82 +64,6 @@ struct SolverChoice {
 
         if(!flat_bathymetry)  amrex::Warning("Flat bathymetry needs further testing");
 
-        // These default to true but are used for unit testing
-        pp.query("use_gravity", use_gravity);
-
-        gravity = use_gravity? CONST_GRAV: 0.0;
-
-        // Which LES closure?
-        static std::string les_type_string = "None";
-        pp.query("les_type",les_type_string);
-
-        if (!les_type_string.compare("Smagorinsky")) {
-            les_type = LESType::Smagorinsky;
-        } else if (!les_type_string.compare("Deardorff")) {
-            les_type = LESType::Deardorff;
-        } else if (!les_type_string.compare("None")) {
-            les_type = LESType::None; // Means DNS
-        } else {
-            amrex::Error("Don't know this les_type");
-        }
-
-        // Include molecular transport? Default to no.
-        static std::string molec_diff_type_string = "None";
-
-        // If not running LES then default to "Constant"
-        if (les_type == LESType::None) { // DNS
-            molec_diff_type_string = "Constant"; // For DNS, use constant molecular viscosity
-        }
-
-        // But allow the user to reset to None
-        pp.query("molec_diff_type",molec_diff_type_string);
-
-        if (!molec_diff_type_string.compare("Constant")) {
-            molec_diff_type = MolecDiffType::Constant;
-        } else if (!molec_diff_type_string.compare("ConstantAlpha")) {
-            molec_diff_type = MolecDiffType::ConstantAlpha;
-        } else if (!molec_diff_type_string.compare("None")) {
-            molec_diff_type = MolecDiffType::None;
-        } else {
-            amrex::Error("Don't know this molec_diff_type");
-        }
-
-        if ( (molec_diff_type == MolecDiffType::ConstantAlpha) &&
-             (les_type        != LESType::None) ) {
-            amrex::Error("We don't allow LES with MolecDiffType::ConstantAlpha");
-        }
-
-        // Which PBL Closure
-        static std::string pbl_type_string = "None";
-        pp.query("pbl_type",pbl_type_string);
-        if (pbl_type_string == "MYNN2.5") {
-            pbl_type = PBLType::MYNN25;
-        } else if (pbl_type_string == "None") {
-            pbl_type = PBLType::None;
-        } else {
-            amrex::Error("Don't know this pbl_type");
-        }
-
-        // Do some more stuff for PBL Modeling
-        if (pbl_type != PBLType::None) {
-            // Check for compatibility between PBL, LES, Molec Transport
-            if (les_type != LESType::None) {
-                amrex::Print() << "Selected a PBL model and an LES model: " <<
-                "Using PBL for vertical transport, LES for horizontal" << std::endl;
-            } else if (les_type == LESType::Deardorff) {
-                amrex::Error("It is not recommended to use Deardorff LES and a PBL model");
-            }
-            pp.query("pbl_A1", pbl_A1);
-            pp.query("pbl_A2", pbl_A2);
-            pp.query("pbl_B1", pbl_B1);
-            pp.query("pbl_B2", pbl_B2);
-            pp.query("pbl_C1", pbl_C1);
-            pp.query("pbl_C2", pbl_C2);
-            pp.query("pbl_C3", pbl_C3);
-            pp.query("pbl_C4", pbl_C4);
-            pp.query("pbl_C5", pbl_C5);
-        }
-
         // Which horizontal advection scheme
         static std::string hadv_string = "upstream3";
         pp.query("horizontal_advection_scheme",hadv_string);
@@ -154,34 +74,7 @@ struct SolverChoice {
         else
             amrex::Error("Advection scheme unknown.");
 
-        // Diffusive/viscous/LES constants...
-        pp.query("alpha_T", alpha_T);
-        pp.query("alpha_C", alpha_C);
-        pp.query("dynamicViscosity", dynamicViscosity);
-        pp.query("Cs" , Cs);
-        pp.query("CI" , CI);
-        pp.query("Pr_t", Pr_t);
-        pp.query("Sc_t", Sc_t);
-        pp.query("rho0_trans", rho0_trans);
-
         pp.query("rdrag", rdrag);
-
-        if (molec_diff_type == MolecDiffType::ConstantAlpha) {
-            amrex::Print() << "Using constant kinematic diffusion coefficients" << std::endl;
-            amrex::Print() << "  momentum : " << dynamicViscosity/rho0_trans << " m^2/s" << std::endl;
-            amrex::Print() << "  temperature : " << alpha_T << " m^2/s" << std::endl;
-            amrex::Print() << "  scalar : " << alpha_C << " m^2/s" << std::endl;
-        }
-
-        pp.query("Ce" , Ce);
-        pp.query("Ck" , Ck);
-        pp.query("sigma_k" , sigma_k);
-
-        // Compute relevant forms of diffusion parameters
-        Pr_t_inv = 1.0 / Pr_t;
-        Sc_t_inv = 1.0 / Sc_t;
-        rhoAlpha_T = rho0_trans * alpha_T;
-        rhoAlpha_C = rho0_trans * alpha_C;
 
         // Order of spatial discretization
         pp.query("spatial_order", spatial_order);
@@ -208,40 +101,24 @@ struct SolverChoice {
         } else {
             amrex::Error("Don't know this ic_bc_type");
         }
+
+        // Which type of refinement
+        static std::string coupling_type_string = "TwoWay";
+        pp.query("coupling_type",coupling_type_string);
+        if (coupling_type_string == "TwoWay") {
+            coupling_type = CouplingType::TwoWay;
+        } else if (coupling_type_string == "OneWay") {
+            coupling_type = CouplingType::OneWay;
+        } else {
+            amrex::Abort("Dont know this coupling_type");
+        }
     }
 
     void display()
     {
         amrex::Print() << "SOLVER CHOICE: " << std::endl;
         amrex::Print() << "use_coriolis          : " << use_coriolis << std::endl;
-        amrex::Print() << "use_gravity           : " << use_gravity << std::endl;
-        amrex::Print() << "rho0_trans            : " << rho0_trans << std::endl;
-        amrex::Print() << "alpha_T               : " << alpha_T << std::endl;
-        amrex::Print() << "alpha_C               : " << alpha_C << std::endl;
-        amrex::Print() << "dynamicViscosity      : " << dynamicViscosity << std::endl;
-        amrex::Print() << "Cs                    : " << Cs << std::endl;
-        amrex::Print() << "CI                    : " << CI << std::endl;
-        amrex::Print() << "Ce                    : " << Ce << std::endl;
-        amrex::Print() << "Ck                    : " << Ck << std::endl;
-        amrex::Print() << "sigma_k               : " << sigma_k << std::endl;
-        amrex::Print() << "Pr_t                  : " << Pr_t << std::endl;
-        amrex::Print() << "Sc_t                  : " << Sc_t << std::endl;
         amrex::Print() << "spatial_order         : " << spatial_order << std::endl;
-
-        if (les_type == LESType::None) {
-            amrex::Print() << "Using DNS model " << std::endl;
-        } else if  (les_type == LESType::Smagorinsky) {
-            amrex::Print() << "Using Smagorinsky LES model " << std::endl;
-        } else if  (les_type == LESType::Deardorff) {
-            amrex::Print() << "Using Deardorff LES model " << std::endl;
-        }
-
-        if (molec_diff_type == MolecDiffType::Constant) {
-            amrex::Print() << "Using constant molecular diffusivity (relevant for DNS)" << std::endl;
-        } else if (molec_diff_type == MolecDiffType::None) {
-            amrex::Print() << "Not using any molecular diffusivity, i.e. using the modeled turbulent diffusivity"
-            << std::endl;
-        }
 
         if (icBcType == IC_BC_Type::Ideal) {
             amrex::Print() << "Using idealized initial and boundary conditions (No mesoscale forcing!)" << std::endl;
@@ -259,6 +136,12 @@ struct SolverChoice {
         else {
             amrex::Error("Invalid horizontal advection scheme.");
         }
+
+        if (coupling_type == CouplingType::TwoWay) {
+            amrex::Print() << "Using two-way coupling " << std::endl;
+        } else if (coupling_type == CouplingType::OneWay) {
+            amrex::Print() << "Using one-way coupling " << std::endl;
+        }
     }
 
     // Default prefix
@@ -267,7 +150,6 @@ struct SolverChoice {
     bool        flat_bathymetry        = true;
 
     // Specify what additional physics/forcing modules we use
-    bool        use_gravity            = false;
     bool        use_coriolis           = false;
 
     // Specify whether terms are used for debugging purposes
@@ -278,60 +160,15 @@ struct SolverChoice {
 
     AdvectionScheme Hadv_scheme;
 
-    amrex::Real gravity;
+    CouplingType coupling_type;
 
     // Stretching and depth parameters which may need to be read from inputs
     amrex::Real theta_s = 3.0;
     amrex::Real theta_b = 0.0;
     amrex::Real tcline  = 150.0;
 
-    // Molecular transport model
-    MolecDiffType molec_diff_type;
-    // Diffusive/viscous coefficients [m2/s]
-    amrex::Real alpha_T = 0.0;
-    amrex::Real alpha_C = 0.0;
-    // Density for computation of rhoAlpha (which is assumed constant) [kg/m3]
-    amrex::Real rho0_trans = 1.0;
-    // Dynamic diffusion coefficients [kg/(m-s)]
-    amrex::Real rhoAlpha_T = 0.0;
-    amrex::Real rhoAlpha_C = 0.0;
-    amrex::Real dynamicViscosity = 0.0;
-
     // Linear drag coefficient
     amrex::Real rdrag = 3e-4;
-
-    // LES model
-    LESType les_type;
-    // Smagorinsky Cs coefficient
-    amrex::Real Cs = 0.0;
-    // Smagorinsky CI coefficient
-    amrex::Real CI = 0.0;
-    // Smagorinsky Turbulent Prandtl Number
-    amrex::Real Pr_t = 1.0;
-    amrex::Real Pr_t_inv = 1.0;
-    // Smagorinsky Turbulent Schmidt Number
-    amrex::Real Sc_t = 1.0;
-    amrex::Real Sc_t_inv = 1.0;
-
-    // Deardorff Ce coefficient
-    amrex::Real Ce = 0.0;
-    // Deardorff Ck coefficient
-    amrex::Real Ck = 0.0;
-    // Deardorff sigma_k coefficient
-    amrex::Real sigma_k = 1.0;
-
-    // PBL model
-    PBLType pbl_type;
-    // Model coefficients
-    amrex::Real pbl_A1 = 1.18;
-    amrex::Real pbl_A2 = 0.665;
-    amrex::Real pbl_B1 = 24.0;
-    amrex::Real pbl_B2 = 15.0;
-    amrex::Real pbl_C1 = 0.137;
-    amrex::Real pbl_C2 = 0.75;
-    amrex::Real pbl_C3 = 0.352;
-    amrex::Real pbl_C4 = 0.0;
-    amrex::Real pbl_C5 = 0.2;
 
     // Coriolis forcing
     amrex::Real coriolis_factor = 0.0;

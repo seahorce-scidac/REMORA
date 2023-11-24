@@ -40,7 +40,7 @@ Contributions from different directions
 .. image:: figures/grid_discretization/continuity_z.PNG
   :width: 100%
 
-Advection Contribution to DNS/LES
+Advection Contribution
 =================================
 
 U Momentum
@@ -317,10 +317,6 @@ U Momentum viscous stress divergence
               & + \left. \frac{1}{\Delta z}\ \left\lbrack \tau_{13,k + \frac{1}{2}} - \tau_{13,k - \frac{1}{2}} \right\rbrack \right\} \\
    \end{align}
 
-Note that LES equation has a similar format for computing :math:`\tau_{11,i + \frac{1}{2}}`, :math:`\tau_{11,i - \frac{1}{2}}`,
-:math:`\tau_{12,j + \frac{1}{2}}`, :math:`\tau_{12,j - \frac{1}{2}}`, :math:`\tau_{13,k + \frac{1}{2}}`,
-and :math:`\tau_{13,k - \frac{1}{2}}`.
-
 .. math::
 
    \begin{array}{ll}
@@ -348,10 +344,6 @@ V Momentum viscous stress divergence
               & + \left. \frac{1}{\Delta z} \left\lbrack \tau_{23,k + \frac{1}{2}} - \tau_{23,k - \frac{1}{2}} \right\rbrack \right\}
    \end{align}
 
-Note that LES equation has a similar format for computing :math:`\tau_{21,i + \frac{1}{2}}`, :math:`\tau_{21,i - \frac{1}{2}}`,
-:math:`\tau_{22,j + \frac{1}{2}}`, :math:`\tau_{22,j - \frac{1}{2}}`, :math:`\tau_{23,k + \frac{1}{2}}`,
-and :math:`\tau_{23,k - \frac{1}{2}}`.
-
 W Momentum viscous stress divergence
 ------------------------------------
 
@@ -363,10 +355,6 @@ W Momentum viscous stress divergence
              &        + \frac{1}{\Delta y} \left\lbrack \tau_{32,j + \frac{1}{2}} - \tau_{32,j - \frac{1}{2}} \right\rbrack            \\
              & + \left. \frac{1}{\Delta z} \left\lbrack \tau_{33,k + \frac{1}{2}} - \tau_{33,k - \frac{1}{2}} \right\rbrack \right\}
    \end{align}
-
-Note that LES equation has a similar format for computing :math:`\tau_{31,i + \frac{1}{2}}`, :math:`\tau_{31,i - \frac{1}{2}}`,
-:math:`\tau_{32,j + \frac{1}{2}}`, :math:`\tau_{32,j - \frac{1}{2}}`, :math:`\tau_{33,k + \frac{1}{2}}`,
-and :math:`\tau_{33,k - \frac{1}{2}}`.
 
 Potential Temperature Diffusion
 -------------------------------
@@ -391,7 +379,7 @@ Scalar Diffusion
     & & & & & + \left. \frac{1}{{\Delta z}^{2}}\left\lbrack C_{i,j,k + 1}^{n} - \ 2C_{i,j,k}^{n} + \ C_{i,j,k - 1}^{n} \right\rbrack \right\}
    \end{matrix}
 
-Momentum, Thermal, and Scalar Diffusion Contribution to LES
+Momentum, Thermal, and Scalar Diffusion Contribution
 ===========================================================
 
 Strain Rate and Eddy Viscosity

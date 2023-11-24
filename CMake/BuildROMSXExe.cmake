@@ -52,8 +52,7 @@ function(build_romsx_lib romsx_lib_name)
      PRIVATE
        ${SRC_DIR}/Derive.cpp
        ${SRC_DIR}/ROMSX.cpp
-       ${SRC_DIR}/ROMSX_init.cpp
-       ${SRC_DIR}/ROMSX_init1d.cpp
+       ${SRC_DIR}/ROMSX_make_new_level.cpp
        ${SRC_DIR}/ROMSX_SumIQ.cpp
        ${SRC_DIR}/ROMSX_Tagging.cpp
        ${SRC_DIR}/BoundaryConditions/BoundaryConditions_cons.cpp
@@ -62,6 +61,9 @@ function(build_romsx_lib romsx_lib_name)
        ${SRC_DIR}/BoundaryConditions/BoundaryConditions_zvel.cpp
        ${SRC_DIR}/BoundaryConditions/ROMSX_FillPatch.cpp
        ${SRC_DIR}/BoundaryConditions/ROMSX_PhysBCFunct.cpp
+       ${SRC_DIR}/Initialization/ROMSX_init.cpp
+       ${SRC_DIR}/Initialization/ROMSX_init1d.cpp
+       ${SRC_DIR}/Initialization/ROMSX_init_bcs.cpp
        ${SRC_DIR}/IO/Checkpoint.cpp
        ${SRC_DIR}/IO/Plotfile.cpp
        ${SRC_DIR}/IO/writeJobInfo.cpp
@@ -115,6 +117,7 @@ function(build_romsx_lib romsx_lib_name)
   #ROMSX include directories
   target_include_directories(${romsx_lib_name} PUBLIC ${SRC_DIR})
   target_include_directories(${romsx_lib_name} PUBLIC ${SRC_DIR}/BoundaryConditions)
+  target_include_directories(${romsx_lib_name} PUBLIC ${SRC_DIR}/Initialization)
   target_include_directories(${romsx_lib_name} PUBLIC ${SRC_DIR}/Utils)
   target_include_directories(${romsx_lib_name} PUBLIC ${SRC_DIR}/TimeIntegration)
   target_include_directories(${romsx_lib_name} PUBLIC ${SRC_DIR}/IO)
@@ -153,11 +156,6 @@ function(build_romsx_exe romsx_exe_name)
   include(${CMAKE_SOURCE_DIR}/CMake/SetROMSXCompileFlags.cmake)
   set_romsx_compile_flags(${romsx_exe_name})
 
-  target_sources(${romsx_exe_name}
-     PRIVATE
-       ${SRC_DIR}/ROMSX_init_bcs.cpp
-
-  )
   if(ROMSX_ENABLE_CUDA)
     set(pctargets "${romsx_exe_name}")
     foreach(tgt IN LISTS pctargets)
