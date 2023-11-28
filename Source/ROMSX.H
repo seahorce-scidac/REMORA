@@ -336,9 +336,9 @@ public:
                      std::unique_ptr<amrex::MultiFab>& mf_h,
                      std::unique_ptr<amrex::MultiFab>& mf_visc2_p,
                      std::unique_ptr<amrex::MultiFab>& mf_visc2_r,
-                     const int ncomp, const amrex::Real dt_lev, const amrex::Real dtfast_lev,
+                     const int ncomp, const amrex::Real dtfast_lev,
                      const bool predictor_2d_step,
-                     const bool first_2d_step, int my_iif, int nfast,
+                     const bool first_2d_step, int my_iif,
                      int & next_indx1);
 
     /** Advance the 3D variables */
@@ -701,19 +701,6 @@ private:
      */
     void FillPatch (int lev, amrex::Real time,
                     amrex::Vector<amrex::MultiFab>& mf);
-
-    /** compute new multifabs by copying in data from valid region and filling ghost cells
-     *  works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
-     *  unlike FillPatch, FillIntermediatePatch will use the supplied multifabs instead of fine level data.
-     *  This is to support filling boundary cells at an intermediate time between old/new times
-     *  on the fine level when valid data at a specific time is already available (such as
-     *  at each RK stage when integrating between initial and final times at a given level).
-     *  NOTE: mfs should always contain {cons, xvel, yvel, zvel} multifab data.
-     *  if which_var is supplied, then only fill the specified variable in the vector of mfs
-     */
-    void FillIntermediatePatch (int lev, amrex::Real time,
-                                amrex::Vector<std::reference_wrapper<amrex::MultiFab> > mfs,
-                                int ng_cons, int ng_vel, bool cons_only, int scomp_cons, int ncomp_cons);
 
     /** fill an entire multifab by interpolating from the coarser level
      * this comes into play when a new level of refinement appears
