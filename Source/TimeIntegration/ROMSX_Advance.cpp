@@ -544,46 +544,46 @@ ROMSX::Advance (int lev, Real /*time*/, Real dt_lev, int /*iteration*/, int /*nc
     vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
     vec_Hvom[lev]->FillBoundary(geom[lev].periodicity());
 
-    if(solverChoice.use_barotropic) {
-    bool predictor_2d_step=true;
-    bool first_2d_step=(iic==ntfirst);
-    int nfast_counter=predictor_2d_step ? nfast : nfast-1;
-    nfast_counter += 1;
-    //Compute fast timestep from dt_lev and ratio
-    Real dtfast_lev=dt_lev/Real(fixed_ndtfast_ratio);
-    int next_indx1 = 0;
-    for(int my_iif = 0; my_iif < nfast_counter; my_iif++) {
-        first_2d_step=(my_iif==0);
-        //Predictor
-        predictor_2d_step=true;
-        advance_2d(lev, mf_u, mf_v, mf_rhoS, mf_rhoA, vec_ru[lev], vec_rv[lev],
-                   vec_rufrc[lev], vec_rvfrc[lev],
-                   vec_Zt_avg1[lev],
-                   vec_DU_avg1[lev], vec_DU_avg2[lev],
-                   vec_DV_avg1[lev], vec_DV_avg2[lev],
-                   vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
-                    vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
-                   vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
-                   ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
+    if (solverChoice.use_barotropic) {
+        bool predictor_2d_step=true;
+        bool first_2d_step=(iic==ntfirst);
+        int nfast_counter=predictor_2d_step ? nfast : nfast-1;
+        nfast_counter += 1;
 
-       //Corrector. Skip it on last fast step
-        predictor_2d_step=false;
-        if (my_iif < nfast_counter - 1) {
+        //Compute fast timestep from dt_lev and ratio
+        Real dtfast_lev=dt_lev/Real(fixed_ndtfast_ratio);
+        int next_indx1 = 0;
+        for(int my_iif = 0; my_iif < nfast_counter; my_iif++)
+        {
+            first_2d_step=(my_iif==0);
+            //Predictor
+            predictor_2d_step=true;
             advance_2d(lev, mf_u, mf_v, mf_rhoS, mf_rhoA, vec_ru[lev], vec_rv[lev],
-                   vec_rufrc[lev], vec_rvfrc[lev],
-                   vec_Zt_avg1[lev],
-                   vec_DU_avg1[lev], vec_DU_avg2[lev],
-                   vec_DV_avg1[lev], vec_DV_avg2[lev],
-                   vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
-                    vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
-                   vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
-                   ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
-        }
-    }
-    }
+                       vec_rufrc[lev], vec_rvfrc[lev],
+                       vec_Zt_avg1[lev],
+                       vec_DU_avg1[lev], vec_DU_avg2[lev],
+                       vec_DV_avg1[lev], vec_DV_avg2[lev],
+                       vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
+                        vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
+                       vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
+                       ncomp, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, next_indx1);
 
+            //Corrector. Skip it on last fast step
+            predictor_2d_step=false;
+            if (my_iif < nfast_counter - 1) {
+                advance_2d(lev, mf_u, mf_v, mf_rhoS, mf_rhoA, vec_ru[lev], vec_rv[lev],
+                       vec_rufrc[lev], vec_rvfrc[lev],
+                       vec_Zt_avg1[lev],
+                       vec_DU_avg1[lev], vec_DU_avg2[lev],
+                       vec_DV_avg1[lev], vec_DV_avg2[lev],
+                       vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
+                        vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
+                       vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
+                       ncomp, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, next_indx1);
+            }
+        } // iif
+    } // use_barotropic
 
-    //BOOKMARK: Zt_avg1 here is wrong at step 2
     // Currently, bathymetry doesn't change, so we do not need to re-set h here. Just re-do stretch, etc
     // because zeta may have changed
     stretch_transform(lev);
@@ -593,7 +593,8 @@ ROMSX::Advance (int lev, Real /*time*/, Real dt_lev, int /*iteration*/, int /*nc
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
                mf_AK, mf_DC,
-               mf_Hzk, vec_Akv[lev], vec_Akt[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], vec_z_w[lev], vec_hOfTheConfusingName[lev], ncomp, N, dt_lev);
+               mf_Hzk, vec_Akv[lev], vec_Akt[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev],
+               vec_z_w[lev], vec_hOfTheConfusingName[lev], ncomp, N, dt_lev);
 
     U_new.FillBoundary(geom[lev].periodicity());
     V_new.FillBoundary(geom[lev].periodicity());
@@ -610,18 +611,12 @@ ROMSX::Advance (int lev, Real /*time*/, Real dt_lev, int /*iteration*/, int /*nc
     vec_t3[lev]->FillBoundary(geom[lev].periodicity());
     vec_s3[lev]->FillBoundary(geom[lev].periodicity());
 
-    // Not sure why this FillPatch is here??
+    // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
+    //                     3) fine-fine fill of ghost cells with FillBoundary call
     FillPatch(lev, t_new[lev], vars_new[lev]);
 
 #ifdef ROMSX_USE_PARTICLES
     particleData.advance_particles(lev, dt_lev, vars_new, vec_z_phys_nd);
 #endif
-
-    //We are not storing computed W aka Omega
-    //    MultiFab::Copy(W_new,mf_w,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    //    W_new.FillBoundary();
-    //    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),mf_w.nGrowVect());
-
-//    set_drag(lev);
 
 }
