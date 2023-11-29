@@ -45,6 +45,20 @@ ROMSX::advance_3d (int lev,
     int iic = istep[lev];
     int ntfirst = 0;
 
+    // Currently, bathymetry doesn't change, so we do not need to re-set h here. Just re-do stretch, etc
+    MultiFab& S_old = vars_old[lev][Vars::cons];
+    MultiFab& S_new = vars_new[lev][Vars::cons];
+
+    MultiFab& U_old = vars_old[lev][Vars::xvel];
+    MultiFab& V_old = vars_old[lev][Vars::yvel];
+    MultiFab& W_old = vars_old[lev][Vars::zvel];
+
+    MultiFab& U_new = vars_new[lev][Vars::xvel];
+    MultiFab& V_new = vars_new[lev][Vars::yvel];
+    MultiFab& W_new = vars_new[lev][Vars::zvel];
+    // because zeta may have changed
+    stretch_transform(lev);
+
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& u = mf_u.array(mfi);

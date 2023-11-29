@@ -8,7 +8,8 @@ using namespace amrex;
 void
 ROMSX::advance_2d (int lev,
                    MultiFab& mf_u, MultiFab& mf_v,
-                   MultiFab& mf_rhoS, MultiFab& mf_rhoA,
+                   std::unique_ptr<MultiFab>& mf_rhoS,
+                   std::unique_ptr<MultiFab>& mf_rhoA,
                    std::unique_ptr<MultiFab>& mf_ru,
                    std::unique_ptr<MultiFab>& mf_rv,
                    std::unique_ptr<MultiFab>& mf_rufrc,
@@ -77,8 +78,8 @@ ROMSX::advance_2d (int lev,
 
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
-        Array4<Real> const& rhoS = (mf_rhoS).array(mfi);
-        Array4<Real> const& rhoA = (mf_rhoA).array(mfi);
+        Array4<Real> const& rhoS = (mf_rhoS)->array(mfi);
+        Array4<Real> const& rhoA = (mf_rhoA)->array(mfi);
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
         Array4<Real> const& zeta = (mf_zeta)->array(mfi);
@@ -311,8 +312,8 @@ ROMSX::advance_2d (int lev,
 
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
-        Array4<Real> const& rhoS = (mf_rhoS).array(mfi);
-        Array4<Real> const& rhoA = (mf_rhoA).array(mfi);
+        Array4<Real> const& rhoS = (mf_rhoS)->array(mfi);
+        Array4<Real> const& rhoA = (mf_rhoA)->array(mfi);
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
         Array4<Real> const& zeta = (mf_zeta)->array(mfi);

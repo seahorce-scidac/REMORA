@@ -1,6 +1,9 @@
 CEXE_sources += ROMSX_Advance.cpp
 CEXE_sources += ROMSX_advance_2d.cpp
+CEXE_sources += ROMSX_advance_2d_onestep.cpp
 CEXE_sources += ROMSX_advance_3d.cpp
+CEXE_sources += ROMSX_advance_3d_ml.cpp
+CEXE_sources += ROMSX_setup_step.cpp
 CEXE_sources += ROMSX_rho_eos.cpp
 CEXE_sources += ROMSX_prsgrd.cpp
 CEXE_sources += ROMSX_uv3dmix.cpp

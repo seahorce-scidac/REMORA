@@ -308,16 +308,29 @@ public:
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc3d_r;
 
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoS;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoA;
+
     amrex::Vector<amrex::Real> vec_weight1;
     amrex::Vector<amrex::Real> vec_weight2;
 
     /** advance a single level for a single time step */
     void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
 
+    /** Set everything up for a step on a level */
+    void setup_step(int lev, amrex::Real dt_lev);
+
+    /** 3D advance on a single level */
+    void advance_3d_ml (int lev, amrex::Real dt_lev);
+
+    /** 2D advance, one predictor/corrector step */
+    void advance_2d_onestep (int lev, amrex::Real dt_lev, amrex::Real dtfast_lev, int my_iif, int nfast_counter);
+
     /** Perform a 2D predictor (predictor_2d_step=True) or corrector (predictor_2d_step=False) step */
     void advance_2d (int lev,
                      amrex::MultiFab& mf_u , amrex::MultiFab& mf_v ,
-                     amrex::MultiFab& mf_rhoS , amrex::MultiFab& mf_rhoA ,
+                     std::unique_ptr<amrex::MultiFab>& mf_rhoS,
+                     std::unique_ptr<amrex::MultiFab>& mf_rhoA,
                      std::unique_ptr<amrex::MultiFab>& mf_ru,
                      std::unique_ptr<amrex::MultiFab>& mf_rv,
                      std::unique_ptr<amrex::MultiFab>& mf_rufrc,
