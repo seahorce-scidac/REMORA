@@ -884,6 +884,9 @@ private:
     static int fixed_ndtfast_ratio;
     int nfast;
 
+    // Whether to substep fine levels in time
+    int do_substep;
+
     // how often each level regrids the higher levels of refinement
     // (after a level advances that many time steps)
     int regrid_int = 2;
