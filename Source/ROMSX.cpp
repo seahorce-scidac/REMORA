@@ -357,22 +357,36 @@ void
 ROMSX::set_bathymetry(int lev)
 {
     init_custom_bathymetry(geom[lev], *vec_hOfTheConfusingName[lev], *vec_Zt_avg1[lev], solverChoice);
+
+    vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+    vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 void
 ROMSX::set_vmix(int lev) {
     init_custom_vmix(geom[lev], *vec_Akv[lev], *vec_Akt[lev], *vec_z_w[lev], solverChoice);
+
+    vec_Akv[lev]->FillBoundary(geom[lev].periodicity());
+    vec_Akt[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 void
 ROMSX::set_hmixcoef(int lev) {
     init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2_salt[lev],
             *vec_diff2_temp[lev], solverChoice);
+
+    vec_visc2_p[lev]->FillBoundary(geom[lev].periodicity());
+    vec_visc2_r[lev]->FillBoundary(geom[lev].periodicity());
+    vec_diff2_salt[lev]->FillBoundary(geom[lev].periodicity());
+    vec_diff2_temp[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 void
 ROMSX::set_smflux(int lev, Real time) {
     init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
+
+    vec_sustr[lev]->FillBoundary(geom[lev].periodicity());
+    vec_svstr[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 void
