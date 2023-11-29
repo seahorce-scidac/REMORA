@@ -4,6 +4,39 @@ using namespace amrex;
 //
 // Start 2d step
 //
+/**
+ * Function that coordinates the evolution across levels -- this calls Advance to do the
+ * actual advance at this level,  then recursively calls itself at finer levels
+ *
+ * @param[in] lev level of refinement (coarsest level is 0)
+ * @param[in] mf_u
+ * @param[in] mf_v
+ * @param[in] mf_rhoS
+ * @param[in] mf_rhoA
+ * @param[in] mf_ru
+ * @param[in] mf_rv
+ * @param[inout] mf_rufrc
+ * @param[inout] mf_rvfrc
+ * @param[inout] mf_Zt_avg1
+ * @param[inout] mf_DU_avg1
+ * @param[inout] mf_DU_avg2
+ * @param[inout] mf_DV_avg1
+ * @param[inout] mf_DV_avg2
+ * @param[inout] mf_rubar
+ * @param[inout] mf_rvbar
+ * @param[inout] mf_rbar
+ * @param[inout] mf_rbar
+ * @param[inout] mf_zeta
+ * @param[inout] mf_h
+ * @param[inout] mf_visc2_p
+ * @param[inout] mf_visc2_f
+ * @param[in   ] ncomp
+ * @param[in   ] dtfast_lev
+ * @param[in   ] predictor_2d_step
+ * @param[in   ] first_2d_step
+ * @param[in   ] my_iif
+ * @param[in   ] next_indx1
+ */
 
 void
 ROMSX::advance_2d (int lev,
@@ -28,9 +61,9 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_h,
                    std::unique_ptr<MultiFab>& mf_visc2_p,
                    std::unique_ptr<MultiFab>& mf_visc2_r,
-                   const int ncomp, Real /*dt_lev*/, Real dtfast_lev,
+                   const int ncomp, Real dtfast_lev,
                    bool predictor_2d_step,
-                   bool first_2d_step, int my_iif, int nfast /*this doesn't need to be passed*/,
+                   bool first_2d_step, int my_iif,
                    int & next_indx1)
 {
     auto geomdata  = Geom(lev).data();
@@ -50,9 +83,9 @@ ROMSX::advance_2d (int lev,
     int krhs = (my_iif + iic) % 2 + 1;
     int kstp = my_iif <=1 ? iic % 2 + 1 : (iic % 2 + my_iif % 2 + 1) % 2 + 1;
     int indx1 = krhs;
-    if(predictor_2d_step)
+    if (predictor_2d_step) {
         next_indx1 = 3 - indx1;
-    else {
+    } else {
         knew = next_indx1;
         kstp = 3 - knew;
         krhs = 3;
@@ -509,6 +542,7 @@ ROMSX::advance_2d (int lev,
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });
+
         if(predictor_2d_step)
         {
             if(first_2d_step) {
@@ -796,12 +830,13 @@ ROMSX::advance_2d (int lev,
       END DO
 */
        // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
-        //
-        //-----------------------------------------------------------------------
-        // rhs_2d
-        //-----------------------------------------------------------------------
-        //
-        rhs_2d(bxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs, N);
+       //
+       //-----------------------------------------------------------------------
+       // rhs_2d
+       //-----------------------------------------------------------------------
+       //
+       rhs_2d(bxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs);
+
        if (solverChoice.use_coriolis) {
             // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
             //
@@ -812,12 +847,12 @@ ROMSX::advance_2d (int lev,
             // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
             coriolis(bxD, gbxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
        }
-        //Add in horizontal harmonic viscosity.
-        // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
-        ParallelFor(amrex::makeSlab(tbxp1,2,0),
+       //Add in horizontal harmonic viscosity.
+       // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
+       ParallelFor(amrex::makeSlab(tbxp1,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            Drhs_p(i,j,0)=0.25*(Drhs(i,j,0)+Drhs(i-1,j,0)+
+            Drhs_p(i,j,0)=0.25*(Drhs(i,j  ,0)+Drhs(i-1,j  ,0)+
                                 Drhs(i,j-1,0)+Drhs(i-1,j-1,0));
         });
 

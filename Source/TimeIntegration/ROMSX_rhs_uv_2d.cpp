@@ -5,15 +5,45 @@ using namespace amrex;
 //
 // rhs_2d
 //
+/**
+ * rhs_2d
+ *
+ * @param[in] bx
+ * @param[in] uold
+ * @param[in] vold
+ * @param[in] ru
+ * @param[in] rv
+ * @param[in] mf_ru
+ * @param[in] mf_rv
+ * @param[inout] mf_rufrc
+ * @param[inout] mf_rvfrc
+ * @param[inout] mf_Zt_avg1
+ * @param[inout] mf_DU_avg1
+ * @param[inout] mf_DU_avg2
+ * @param[inout] mf_DV_avg1
+ * @param[inout] mf_DV_avg2
+ * @param[inout] mf_rubar
+ * @param[inout] mf_rvbar
+ * @param[inout] mf_rbar
+ * @param[inout] mf_rbar
+ * @param[inout] mf_zeta
+ * @param[inout] mf_h
+ * @param[inout] mf_visc2_p
+ * @param[inout] mf_visc2_f
+ * @param[in   ] ncomp
+ * @param[in   ] dtfast_lev
+ * @param[in   ] predictor_2d_step
+ * @param[in   ] first_2d_step
+ * @param[in   ] my_iif
+ * @param[in   ] next_indx1
+ */
 
 void
 ROMSX::rhs_2d (const Box& bx,
                Array4<Real> uold  , Array4<Real> vold,
                Array4<Real> ru, Array4<Real> rv,
-               /*Array4<Real> rufrc, Array4<Real> rvfrc,
-                 Array4<Real> sustr, Array4<Real> svstr,*/
                Array4<Real> Huon, Array4<Real> Hvom,
-               int nrhs, int /*N*/)
+               int nrhs)
 {
     //copy the tilebox
     Box gbx1 = bx;
@@ -26,22 +56,22 @@ ROMSX::rhs_2d (const Box& bx,
     //
     // Scratch space
     //
-    FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena()); //fab_Huee.setVal(0.0);
-    FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena()); //fab_uee.setVal(0.0);
+    FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena());
 
-    FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena()); //fab_Hvee.setVal(0.0);
-    FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena()); //fab_vee.setVal(0.0);
+    FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena());
 
-    FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena()); //fab_Hvxx.setVal(0.0);
-    FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena()); //fab_uxx.setVal(0.0);
+    FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena());
 
-    FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena()); //fab_Huxx.setVal(0.0);
-    FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena()); //fab_vxx.setVal(0.0);
+    FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena());
 
-    FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena()); //fab_UFx.setVal(0.0);
-    FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena()); //fab_UFe.setVal(0.0);
-    FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena()); //fab_VFx.setVal(0.0);
-    FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena()); //fab_VFe.setVal(0.0);
+    FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena());
 
     auto Huxx=fab_Huxx.array();
     auto Hvxx=fab_Hvxx.array();
@@ -151,13 +181,13 @@ ROMSX::rhs_2d (const Box& bx,
               Real cff1=UFx(i,j  ,k)-UFx(i-1,j,k);
               Real cff2=UFe(i,j+1,k)-UFe(i  ,j,k);
               Real cff=cff1+cff2;
-              //passing in rhs_ubar so need 0 index here
+
               ru(i,j,k) -= cff;
 
               cff1=VFx(i+1,j,k)-VFx(i  ,j,k);
               cff2=VFe(i  ,j,k)-VFe(i,j-1,k);
               cff=cff1+cff2;
-              //passing in rhs_vbar so need 0 index here
+
               rv(i,j,k) -= cff;
         });
 

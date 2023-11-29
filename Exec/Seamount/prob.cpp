@@ -70,7 +70,7 @@ init_custom_bathymetry (const Geometry& geom,
 
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
-      gbx2.grow(IntVect(NGROW,NGROW,0));
+      gbx2.grow(IntVect(NGROW+1,NGROW+1,0));
 
       const auto & geomdata = geom.data();
 
@@ -240,11 +240,11 @@ init_custom_hmix(const Geometry& geom, MultiFab& mf_visc2_p, MultiFab& mf_visc2_
       amrex::ParallelFor(bx, ncomp,
       [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
       {
-        visc2_p(i,j,k) = 0.0;
-        visc2_r(i,j,k) = 0.0;
+          visc2_p(i,j,k) = 0.0;
+          visc2_r(i,j,k) = 0.0;
 
-        diff2_salt(i,j,k) = 0.0;
-        diff2_temp(i,j,k) = 0.0;
+          diff2_salt(i,j,k) = 0.0;
+          diff2_temp(i,j,k) = 0.0;
       });
     }
 }

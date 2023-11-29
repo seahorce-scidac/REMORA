@@ -41,7 +41,7 @@ void ROMSX::advance_2d_onestep (int lev, Real dt_lev, Real dtfast_lev, int my_ii
                vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
                 vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
                vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
-               ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
+               ncomp, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, next_indx1);
 
     //Corrector. Skip it on last fast step
     predictor_2d_step=false;
@@ -54,6 +54,6 @@ void ROMSX::advance_2d_onestep (int lev, Real dt_lev, Real dtfast_lev, int my_ii
                vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
                 vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
                vec_hOfTheConfusingName[lev], vec_visc2_p[lev], vec_visc2_r[lev],
-               ncomp, dt_lev, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, nfast, next_indx1);
+               ncomp, dtfast_lev, predictor_2d_step, first_2d_step, my_iif, next_indx1);
     }
 }

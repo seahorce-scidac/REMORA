@@ -49,7 +49,8 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
                mf_AK, mf_DC,
-               mf_Hzk, vec_Akv[lev], vec_Akt[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev], vec_z_w[lev], vec_hOfTheConfusingName[lev], ncomp, N, dt_lev);
+               mf_Hzk, vec_Akv[lev], vec_Akt[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev],
+               vec_z_w[lev], vec_hOfTheConfusingName[lev], ncomp, N, dt_lev);
 
     U_new.FillBoundary(geom[lev].periodicity());
     V_new.FillBoundary(geom[lev].periodicity());
@@ -66,7 +67,8 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
     vec_t3[lev]->FillBoundary(geom[lev].periodicity());
     vec_s3[lev]->FillBoundary(geom[lev].periodicity());
 
-    // Not sure why this FillPatch is here??
+    // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
+    //                     3) fine-fine fill of ghost cells with FillBoundary call
     FillPatch(lev, t_new[lev], vars_new[lev]);
 
 #ifdef ROMSX_USE_PARTICLES
