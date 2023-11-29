@@ -54,18 +54,13 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     //check this////////////
     // const Real Gadv = -0.25;
 
-    amrex::ParallelFor(tbxp2,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        grad(i,j,k)=0.0;
-        uee(i,j,k)=0.0;
+    fab_grad.template setVal<RunOn::Device>(0.);
+    fab_uee.template setVal<RunOn::Device>(0.);
+    fab_curv.template setVal<RunOn::Device>(0.);
+    fab_uxx.template setVal<RunOn::Device>(0.);
+    fab_FX.template setVal<RunOn::Device>(0.);
+    fab_FE.template setVal<RunOn::Device>(0.);
 
-        curv(i,j,k)=0.0;
-        uxx(i,j,k)=0.0;
-
-        FX(i,j,k)=0.0;
-        FE(i,j,k)=0.0;
-    });
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -77,45 +72,49 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     {
         //should be t index 3
         FX(i,j,k)=tempstore(i,j,k,nrhs)-tempstore(i-1,j,k,nrhs);
-        //printf("%d %d %d  %15.15g   %15.15g %15.15g  FX tempstore2\n", i,j,k, FX(i,j,k), tempstore(i,j,k,nrhs), tempstore(i-1,j,k,nrhs));
     });
+
     Real cffa=1.0/6.0;
     Real cffb=1.0/3.0;
+
     if(solverChoice.flat_bathymetry) {
-    if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
-        amrex::ParallelFor(tbxp1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            //Upstream3
-            curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
-        });
-        //HACK to avoid using the wrong index of t (using upstream3)
-        Real max_Huon=FArrayBox(Huon).max<RunOn::Device>();
-        Real min_Huon=FArrayBox(Huon).min<RunOn::Device>();
-        amrex::ParallelFor(ubx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
-                cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
-        });
-    }
-    else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
-        amrex::ParallelFor(tbxp1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            //Centered4
-            grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
-        });
-        amrex::ParallelFor(ubx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
-                cffb*(grad(i,j,k)+ grad(i-1,j,k));
-        });
-    }
-    else {
-        Error("Not a valid horizontal advection scheme");
-    }
+
+        if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
+
+            amrex::ParallelFor(tbxp1,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                //Upstream3
+                curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
+            });
+            //HACK to avoid using the wrong index of t (using upstream3)
+            Real max_Huon=FArrayBox(Huon).max<RunOn::Device>();
+            Real min_Huon=FArrayBox(Huon).min<RunOn::Device>();
+            amrex::ParallelFor(ubx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
+                    cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
+            });
+
+        } else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+
+            amrex::ParallelFor(tbxp1,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                //Centered4
+                grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
+            });
+            amrex::ParallelFor(ubx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
+                    cffb*(grad(i,j,k)+ grad(i-1,j,k));
+            });
+
+        } else {
+            Error("Not a valid horizontal advection scheme");
+        }
     }
     else {
     if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
@@ -252,7 +251,6 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
               //printf("%d %d %d  %15.15g  before hadv\n", i,j,k, t(i,j,k,nnew));
 
               t(i,j,k,nnew) -= cff3;
-              //printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g after hadv\n", i,j,k, t(i,j,k,nnew),FX(i+1,j,k), FX(i,j,k),cff, cff1, cff2, cff3);
     });
 
         //-----------------------------------------------------------------------
@@ -306,12 +304,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         } else {
             cff4=FC(i,j,k);
         }
-        //printf("%d %d %d   %15.15g  before vadv update\n", i,j,k, t(i,j,k));
+
         t(i,j,k)=oHz(i,j,k)*(t(i,j,k)-cff1*cff4);
-        //printf("%d %d %d   %15.15g %15.15g after vadv update\n", i,j,k, t(i,j,k), cff1*cff4);
-        //    if(i==2&&j==2&&k==2) {
-        //    Print()<<i<<j<<k<<t(i,j,k)<<"\t"<<oHz(i,j,k)<<"\t"<<cff1<<"\t"<<cff4<<std::endl;
-        //    Abort("any nans?");
-        //}
     });
 }

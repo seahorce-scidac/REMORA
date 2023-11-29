@@ -308,3 +308,34 @@ ROMSX::FillCoarsePatchAllVars (int lev, Real time, Vector<MultiFab>& vmf)
         FillCoarsePatch(lev, time, vmf[var_idx], 0, vmf[var_idx].nComp(), var_idx);
     }
 }
+
+void
+ROMSX::FillPatchNoPhysBC (int lev, Real time, const Vector<MultiFab*>& mfs,
+                          MultiFab& mf, int icomp, int ncomp,
+                          MultiFab& crse_old, MultiFab& crse_new,
+                          MultiFab& fine_old, MultiFab& fine_new)
+{
+    BL_PROFILE_VAR("ROMSX::FillPatchNoPhysBC()",ROMSX_FillPatchNoPhysBC);
+    int bccomp = 0;
+    amrex::Interpolater* mapper = nullptr;
+
+    if (lev == 0)
+    {
+        Vector<MultiFab*> fmf = {&fine_old, &fine_new};
+        Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+        amrex::FillPatchSingleLevel(mf, time, fmf, ftime, icomp, icomp, ncomp,
+                                    geom[lev], null_bc, bccomp);
+    }
+    else
+    {
+        Vector<MultiFab*> fmf = {&fine_old, &fine_new};
+        Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+        Vector<MultiFab*> cmf = {&crse_old, &crse_new};
+        Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
+
+        amrex::FillPatchTwoLevels(mf, time, cmf, ctime, fmf, ftime,
+                                  0, icomp, ncomp, geom[lev-1], geom[lev],
+                                  null_bc, bccomp, null_bc, bccomp, refRatio(lev-1),
+                                  mapper, domain_bcs_type, bccomp);
+    } // lev > 0
+}

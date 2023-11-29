@@ -191,6 +191,7 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     }
     BoxArray ba1d(std::move(bl1d));
 
+    // Map factors
     mapfac_m[lev].reset(new MultiFab(ba2d,dm,1,0));
     mapfac_u[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,0));
     mapfac_v[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,0));
@@ -217,8 +218,8 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     vec_z_r[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at r points (cell center)
     vec_Hz[lev].reset                 (new MultiFab(ba  ,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
 
-    vec_Huon[lev].reset               (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // mass flux for u component
-    vec_Hvom[lev].reset               (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
+    vec_Huon[lev].reset               (new MultiFab(convert(ba,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for u component
+    vec_Hvom[lev].reset               (new MultiFab(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
     vec_Akv[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
     vec_Akt[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
     vec_visc3d_r[lev].reset           (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // not used
@@ -246,11 +247,14 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     vec_DU_avg2[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d like above, but correct(or)?
     vec_DV_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
     vec_DV_avg2[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
-    vec_rubar[lev].reset(new MultiFab(ba2d,dm,4,IntVect(NGROW,NGROW,0))); // 2d RHS ubar
-    vec_rvbar[lev].reset(new MultiFab(ba2d,dm,4,IntVect(NGROW,NGROW,0)));
+
+    vec_rubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,4,IntVect(NGROW,NGROW,0))); // 2d RHS ubar
+    vec_rvbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,4,IntVect(NGROW,NGROW,0)));
     vec_rzeta[lev].reset(new MultiFab(ba2d,dm,4,IntVect(NGROW,NGROW,0))); // 2d RHS zeta
-    vec_ubar[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW,NGROW,0))); // starts off kind of like a depth-averaged u, but exists at more points and more timesteps (b/c fast 2D update) than full u
-    vec_vbar[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW,NGROW,0)));
+
+    // starts off kind of like a depth-averaged u, but exists at more points and more timesteps (b/c fast 2D update) than full u
+    vec_ubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,3,IntVect(NGROW,NGROW,0)));
+    vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW,NGROW,0)));  // 2d free surface
 
     vec_t3[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); //tempstore

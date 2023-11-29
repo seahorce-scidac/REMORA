@@ -63,7 +63,7 @@ init_custom_bathymetry (const Geometry& geom,
 
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
-      gbx2.grow(IntVect(NGROW,NGROW,0));
+      gbx2.grow(IntVect(NGROW+1,NGROW+1,0));
 
       const auto & geomdata = geom.data();
 

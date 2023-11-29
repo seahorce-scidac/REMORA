@@ -37,7 +37,6 @@ ROMSX::stretch_transform (int lev)
       gbx3.grow(IntVect(NGROW+1,NGROW+1,0));
       Box gbx2D = gbx2;
       gbx2D.makeSlab(2,0);
-      Box wgbx2 = gbx2.surroundingNodes(2);
       Box gbx3D = gbx3;
       gbx3D.makeSlab(2,0);
       Box wgbx3 = gbx3.surroundingNodes(2);
@@ -199,11 +198,6 @@ ROMSX::stretch_transform (int lev)
       });
     }
 
-    vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
-    vec_z_r[lev]->FillBoundary(geom[lev].periodicity());
-    vec_s_r[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
-
     // Define nodal z as average of z on w-faces
     for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -236,9 +230,6 @@ ROMSX::stretch_transform (int lev)
           if (k == 0)  z_phys_nd(i,j,k) *= -1.;
       });
     } // mf
-
-    // Enforce periodicity
-    vec_z_phys_nd[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 #endif
