@@ -91,7 +91,7 @@ ROMSX::ROMSX ()
     istep.resize(nlevs_max, 0);
     nsubsteps.resize(nlevs_max, 1);
     for (int lev = 1; lev <= max_level; ++lev) {
-        nsubsteps[lev] = MaxRefRatio(lev-1);
+        nsubsteps[lev] = do_substep ? MaxRefRatio(lev-1) : 1;
     }
 
     t_new.resize(nlevs_max, 0.0);
@@ -480,6 +480,7 @@ ROMSX::ReadParameters ()
             fixed_ndtfast_ratio = static_cast<int>(fixed_dt / fixed_fast_dt);
         }
 
+        pp.query("do_substep", do_substep);
 
         AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
 
