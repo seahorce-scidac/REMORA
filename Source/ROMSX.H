@@ -490,19 +490,9 @@ public:
                  amrex::Array4<amrex::Real> vold,
                  amrex::Array4<amrex::Real> ru,
                  amrex::Array4<amrex::Real> rv,
-                 //                 amrex::Array4<amrex::Real> rufrc,
-                 //                 amrex::Array4<amrex::Real> rvfrc,
-                 //                 amrex::Array4<amrex::Real> sustr,
-                 //                 amrex::Array4<amrex::Real> svstr,
                  amrex::Array4<amrex::Real> Huon,
                  amrex::Array4<amrex::Real> Hvom,
-                 //                 amrex::Array4<amrex::Real> on_u,
-                 //                 amrex::Array4<amrex::Real> om_v,
-                 //                 amrex::Array4<amrex::Real> om_u,
-                 //                 amrex::Array4<amrex::Real> on_v,
-                 //                 amrex::Array4<amrex::Real> W,
-                 //                 amrex::Array4<amrex::Real> FC,
-                 int nrhs, int N);
+                 int nrhs);
 
 
     void rho_eos (const amrex::Box& bx,
@@ -713,6 +703,11 @@ private:
      */
     void FillCoarsePatchAllVars (int lev, amrex::Real time,
                                  amrex::Vector<amrex::MultiFab>& vmf);
+
+     void FillPatchNoPhysBC (int lev, amrex::Real time, const amrex::Vector<amrex::MultiFab*>& mfs,
+                             amrex::MultiFab& mf, int icomp, int ncomp,
+                             amrex::MultiFab& crse_old, amrex::MultiFab& crse_new,
+                             amrex::MultiFab& fine_old, amrex::MultiFab& fine_new);
 
     /** utility to copy in data from old and/or new state into another multifab */
     TimeInterpolatedData GetDataAtTime (int lev, amrex::Real time);

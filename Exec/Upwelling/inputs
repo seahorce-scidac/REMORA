@@ -45,20 +45,9 @@ romsx.plot_vars_1     = omega salt temp x_velocity y_velocity z_velocity
 romsx.plotfile_type   = amrex
 
 # SOLVER CHOICE
-romsx.use_gravity = true
 romsx.use_coriolis = true
 romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
-romsx.use_rayleigh_damping = false
 romsx.spatial_order = 2
-
-romsx.les_type         = "None"
-#
-# diffusion coefficient from Straka, K = 75 m^2/s
-#
-romsx.molec_diff_type = "ConstantAlpha"
-romsx.rho0_trans = 1.0 # [kg/m^3], used to convert input diffusivities
-romsx.dynamicViscosity = 75.0 # [kg/(m-s)] ==> nu = 75.0 m^2/s
-romsx.alpha_T = 75.0 # [m^2/s]
 
 # PROBLEM PARAMETERS (optional)
 prob.R0 = 1027.0

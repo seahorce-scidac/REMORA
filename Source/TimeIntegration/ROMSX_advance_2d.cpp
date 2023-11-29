@@ -829,12 +829,13 @@ ROMSX::advance_2d (int lev,
       END DO
 */
        // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
-        //
-        //-----------------------------------------------------------------------
-        // rhs_2d
-        //-----------------------------------------------------------------------
-        //
-        rhs_2d(bxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs, N);
+       //
+       //-----------------------------------------------------------------------
+       // rhs_2d
+       //-----------------------------------------------------------------------
+       //
+       rhs_2d(bxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs);
+
        if (solverChoice.use_coriolis) {
             // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
             //
@@ -845,12 +846,12 @@ ROMSX::advance_2d (int lev,
             // Need to clean up rhs_ubar vs rubar (index only the same for one out of predictor/corrector)
             coriolis(bxD, gbxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
        }
-        //Add in horizontal harmonic viscosity.
-        // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
-        ParallelFor(amrex::makeSlab(tbxp1,2,0),
+       //Add in horizontal harmonic viscosity.
+       // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
+       ParallelFor(amrex::makeSlab(tbxp1,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            Drhs_p(i,j,0)=0.25*(Drhs(i,j,0)+Drhs(i-1,j,0)+
+            Drhs_p(i,j,0)=0.25*(Drhs(i,j  ,0)+Drhs(i-1,j  ,0)+
                                 Drhs(i,j-1,0)+Drhs(i-1,j-1,0));
         });
 

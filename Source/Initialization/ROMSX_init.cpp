@@ -260,8 +260,6 @@ ROMSX::set_2darrays (int lev)
 
       });
     }
-    //    x_r[lev]->FillBoundary(geom[lev].periodicity());
-    //    y_r[lev]->FillBoundary(geom[lev].periodicity());
 
     MultiFab& U_old = vars_new[lev][Vars::xvel];
     MultiFab& V_old = vars_new[lev][Vars::yvel];
@@ -271,80 +269,50 @@ ROMSX::set_2darrays (int lev)
     int nstp = 0;
     int kstp = 0;
     int knew = 0;
-    for ( MFIter mfi(U_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+
+    for ( MFIter mfi(vars_new[lev][Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
-        Array4<Real> const& Hz       = (mf_Hz)->array(mfi);
-        Array4<Real> const& u        = (U_old).array(mfi);
-        Array4<Real> const& v        = (V_old).array(mfi);
 
-        Box bx = mfi.tilebox();
-        //copy the tilebox
-        Box gbx1 = bx;
-        Box gbx11 = bx;
-        Box gbx2 = bx;
-        //make only gbx be grown to match multifabs
-        gbx2.grow(IntVect(NGROW,NGROW,0));
-        gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-        gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-        Box gbx1D = gbx1;
-        gbx1D.makeSlab(2,0);
+        Array4<const Real> const& Hz       = (mf_Hz)->const_array(mfi);
+        Array4<const Real> const& u        = (U_old).const_array(mfi);
+        Array4<const Real> const& v        = (V_old).const_array(mfi);
 
-        FArrayBox fab_DC(gbx11,1,amrex::The_Async_Arena());
-        FArrayBox fab_CF(gbx11,1,amrex::The_Async_Arena());
-        auto DC=fab_DC.array();
-        auto CF=fab_CF.array();
+        Box ubx2 = mfi.nodaltilebox(0); ubx2.grow(IntVect(NGROW  ,NGROW  ,0)); // x-face-centered, grown by 2
+        Box vbx2 = mfi.nodaltilebox(1); vbx2.grow(IntVect(NGROW  ,NGROW  ,0)); // y-face-centered, grown by 2
 
-        //fab_DC.setVal(0.0);
-        //fab_CF.setVal(0.0);
-        amrex::ParallelFor(gbx11,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                DC(i,j,k)=0.0;
-                CF(i,j,k)=0.0;
-            });
-      Gpu::streamSynchronize();
-      amrex::ParallelFor(gbx1D,
+        amrex::ParallelFor(makeSlab(ubx2,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
+                Real CF = 0.;
+                Real sum_of_hz = 0.;
+
                 for (int k=0; k<=N; k++) {
-                    DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                    DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
-                    CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*u(i,j,k,nstp);
+                    Real avg_hz = 0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                    sum_of_hz += avg_hz;
+                    CF += avg_hz*u(i,j,k,nstp);
                 }
-            });
-        amrex::ParallelFor(amrex::makeSlab(gbx1,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
-            {
-                Real cff1=1.0/DC(i,j,-1);
-                Real cff2=CF(i,j,-1)*cff1;
-                ubar(i,j,0,kstp)=cff2;
-                ubar(i,j,0,knew)=cff2;
+                ubar(i,j,0,kstp) = CF / sum_of_hz;
+                ubar(i,j,0,knew) = CF / sum_of_hz;
             });
 
-        fab_DC.setVal<RunOn::Device>(0.0);
-        fab_CF.setVal<RunOn::Device>(0.0);
-
-       Gpu::streamSynchronize();
-
-        amrex::ParallelFor(gbx1D,
+        amrex::ParallelFor(makeSlab(vbx2,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
+                Real CF = 0.;
+                Real sum_of_hz = 0.;
+
                 for(int k=0; k<=N; k++) {
-                    DC(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                    DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
-                    CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*v(i,j,k,nstp);
+                    Real avg_hz = 0.5*(Hz(i,j,k)+Hz(i,j-1,k));
+                    sum_of_hz += avg_hz;
+                    CF += avg_hz*v(i,j,k,nstp);
                 }
-            });
-        amrex::ParallelFor(amrex::makeSlab(gbx1,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int  )
-            {
-                Real cff2 = CF(i,j,-1) / DC(i,j,-1);
-                vbar(i,j,0,kstp) = cff2;
-                vbar(i,j,0,knew) = cff2;
+                vbar(i,j,0,kstp) = CF / sum_of_hz;
+                vbar(i,j,0,knew) = CF / sum_of_hz;
             });
     }
+
     vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
     vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
 }
