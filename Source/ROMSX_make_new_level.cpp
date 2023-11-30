@@ -235,21 +235,21 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     vec_diff2_temp[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature
 
     // maybe TODO: clean up component indexing in prestep?
-    vec_ru[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS u (incl horizontal and vertical advection)
-    vec_rv[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS v
-    vec_rufrc[lev].reset(new MultiFab(ba2d,dm,2,IntVect(NGROW,NGROW,0))); //2d, (incl advection terms and surface/bottom stresses, integral over the whole columnn, k=0)
-    vec_rvfrc[lev].reset(new MultiFab(ba2d,dm,2,IntVect(NGROW,NGROW,0))); //2d, same as above but v
-    vec_sustr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, surface stress
-    vec_svstr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d
+    vec_ru[lev].reset(new MultiFab(convert(ba,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS u (incl horizontal and vertical advection)
+    vec_rv[lev].reset(new MultiFab(convert(ba,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS v
+    vec_rufrc[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0))); //2d, (incl advection terms and surface/bottom stresses, integral over the whole columnn, k=0)
+    vec_rvfrc[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0))); //2d, same as above but v
+    vec_sustr[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d, surface stress
+    vec_svstr[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d
     vec_rdrag[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, linear drag coefficient [m/s], defined at rho, somehow related to rdrg
-    vec_bustr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, bottom stress
-    vec_bvstr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_bustr[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d, bottom stress
+    vec_bvstr[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
     //all 2d -- all associated with the 2D advance
-    vec_DU_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d DU: sum(height[incl free surface?] * u)
-    vec_DU_avg2[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d like above, but correct(or)?
-    vec_DV_avg1[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
-    vec_DV_avg2[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_DU_avg1[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d DU: sum(height[incl free surface?] * u)
+    vec_DU_avg2[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d like above, but correct(or)?
+    vec_DV_avg1[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_DV_avg2[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
     vec_rubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,4,IntVect(NGROW,NGROW,0))); // 2d RHS ubar
     vec_rvbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,4,IntVect(NGROW,NGROW,0)));
