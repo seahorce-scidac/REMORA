@@ -69,7 +69,10 @@ function(build_romsx_lib romsx_lib_name)
        ${SRC_DIR}/IO/writeJobInfo.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_Advance.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_advance_2d.cpp
+       ${SRC_DIR}/TimeIntegration/ROMSX_advance_2d_onestep.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_advance_3d.cpp
+       ${SRC_DIR}/TimeIntegration/ROMSX_advance_3d_ml.cpp
+       ${SRC_DIR}/TimeIntegration/ROMSX_setup_step.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_rho_eos.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_prsgrd.cpp
        ${SRC_DIR}/TimeIntegration/ROMSX_uv3dmix.cpp
