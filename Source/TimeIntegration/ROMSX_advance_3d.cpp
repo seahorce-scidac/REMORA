@@ -45,30 +45,13 @@ ROMSX::advance_3d (int lev,
     int iic = istep[lev];
     int ntfirst = 0;
 
-    // Currently, bathymetry doesn't change, so we do not need to re-set h here. Just re-do stretch, etc
-    MultiFab& S_old = vars_old[lev][Vars::cons];
-    MultiFab& S_new = vars_new[lev][Vars::cons];
-
-    MultiFab& U_old = vars_old[lev][Vars::xvel];
-    MultiFab& V_old = vars_old[lev][Vars::yvel];
-    MultiFab& W_old = vars_old[lev][Vars::zvel];
-
-    MultiFab& U_new = vars_new[lev][Vars::xvel];
-    MultiFab& V_new = vars_new[lev][Vars::yvel];
-    MultiFab& W_new = vars_new[lev][Vars::zvel];
-    // because zeta may have changed
+    // Because zeta may have changed
     stretch_transform(lev);
 
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& u = mf_u.array(mfi);
         Array4<Real> const& v = mf_v.array(mfi);
-
-        Array4<Real> const& temp = (mf_temp).array(mfi);
-        Array4<Real> const& salt = (mf_salt).array(mfi);
-
-        Array4<Real> const& tempstore = mf_tempstore->array(mfi);
-        Array4<Real> const& saltstore = mf_saltstore->array(mfi);
 
         Array4<Real> const& ru = mf_ru->array(mfi);
         Array4<Real> const& rv = mf_rv->array(mfi);
@@ -78,10 +61,11 @@ ROMSX::advance_3d (int lev,
 
         Array4<Real> const& Hzk = mf_Hzk.array(mfi);
         Array4<Real> const& Akv = mf_Akv->array(mfi);
-        Array4<Real> const& Hz  = mf_Hz->array(mfi);
 
-        Array4<Real> const& DU_avg1  = mf_DU_avg1->array(mfi);
-        Array4<Real> const& DV_avg1  = mf_DV_avg1->array(mfi);
+        Array4<Real const> const& Hz  = mf_Hz->const_array(mfi);
+
+        Array4<Real const> const& DU_avg1  = mf_DU_avg1->const_array(mfi);
+        Array4<Real const> const& DV_avg1  = mf_DV_avg1->const_array(mfi);
 
         Array4<Real> const& DU_avg2  = mf_DU_avg2->array(mfi);
         Array4<Real> const& DV_avg2  = mf_DV_avg2->array(mfi);
@@ -108,14 +92,6 @@ ROMSX::advance_3d (int lev,
         tbxp2.grow(IntVect(NGROW,NGROW,0));
         tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
-        Box ubx = surroundingNodes(bx,0);
-        Box vbx = surroundingNodes(bx,1);
-        if (verbose > 1) {
-            amrex::Print() << " BX " <<  bx << std::endl;
-            amrex::Print() << "UBX " << ubx << std::endl;
-            amrex::Print() << "VBX " << vbx << std::endl;
-        }
-
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
@@ -137,20 +113,6 @@ ROMSX::advance_3d (int lev,
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
         auto fomn=fab_fomn.array();
-
-        //From ini_fields and .in file
-        //fab_Akt.setVal(1e-6);
-        //From ana_grid.h and metrics.F
-        //
-        if (verbose > 2) {
-            amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-            amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-            amrex::PrintToFile("temp_startad").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-            amrex::PrintToFile("tempstore_startad").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-            amrex::PrintToFile("salt_startad").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-            amrex::PrintToFile("saltstore_startad").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
-        }
-
 
         //
         // Update to u and v
@@ -180,9 +142,6 @@ ROMSX::advance_3d (int lev,
           cff=0.25*dt_lev*3.0/2.0;
         } else {
           cff=0.25*dt_lev*23.0/12.0;
-        }
-        if (verbose > 2) {
-            PrintToFile("Hz_before_u_start_adv3").SetPrecision(18) << FArrayBox(Hz) << std::endl;
         }
 
         amrex::ParallelFor(gbx2,
@@ -223,27 +182,17 @@ ROMSX::advance_3d (int lev,
         mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
         fab_CF.template setVal<RunOn::Device>(0.,gbx21);
 
-        vert_mean_3d(gbx1,1,0,u,Hz,Hzk,DU_avg1,oHz,Akv,BC,DC,FC,CF,pm,nnew,N,dt_lev);
+        vert_mean_3d(gbx1,1,0,u,Hz,DU_avg1,DC,CF,pm,nnew,N);
 
         // Reset to zero
         mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
         fab_CF.template setVal<RunOn::Device>(0.,gbx21);
 
-        vert_mean_3d(gbx1,0,1,v,Hz,Hzk,DV_avg1,oHz,Akv,BC,DC,FC,CF,pn,nnew,N,dt_lev);
-
-        if (verbose > 2) {
-            PrintToFile("u_aftervmean_adv3").SetPrecision(18) << FArrayBox(u) << std::endl;
-            PrintToFile("v_aftervmean_adv3").SetPrecision(18) << FArrayBox(v) << std::endl;
-            PrintToFile("Huon_beforeupdate").SetPrecision(18) << FArrayBox(Huon) << std::endl;
-            PrintToFile("Hvom_beforeupdate").SetPrecision(18) << FArrayBox(Hvom) << std::endl;
-            PrintToFile("ubar_beforeupdate").SetPrecision(18) << FArrayBox(ubar) << std::endl;
-            PrintToFile("vbar_beforeupdate").SetPrecision(18) << FArrayBox(vbar) << std::endl;
-        }
+        vert_mean_3d(gbx1,0,1,v,Hz,DV_avg1,DC,CF,pn,nnew,N);
 
         update_massflux_3d(gbx2,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
 
-        ParallelFor(gbx2D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 ubar(i,j,k,0) = DC(i,j,-1)*DU_avg1(i,j,0);
                 ubar(i,j,k,1) = ubar(i,j,k,0);
@@ -251,8 +200,7 @@ ROMSX::advance_3d (int lev,
 
         update_massflux_3d(gbx2,0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
 
-        ParallelFor(gbx2D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 vbar(i,j,k,0) = DC(i,j,-1)*DV_avg1(i,j,0);
                 vbar(i,j,k,1) = vbar(i,j,k,0);
@@ -264,9 +212,6 @@ ROMSX::advance_3d (int lev,
 
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& u = mf_u.array(mfi);
-        Array4<Real> const& v = mf_v.array(mfi);
-
         Array4<Real> const& tempold = (mf_tempold).array(mfi);
         Array4<Real> const& saltold = (mf_saltold).array(mfi);
 
@@ -301,14 +246,6 @@ ROMSX::advance_3d (int lev,
         tbxp2.grow(IntVect(NGROW,NGROW,0));
         tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
-        Box ubx = surroundingNodes(bx,0);
-        Box vbx = surroundingNodes(bx,1);
-        if (verbose > 1) {
-            amrex::Print() << " BX " <<  bx << std::endl;
-            amrex::Print() << "UBX " << ubx << std::endl;
-            amrex::Print() << "VBX " << vbx << std::endl;
-        }
-
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
@@ -327,20 +264,6 @@ ROMSX::advance_3d (int lev,
         auto pm  = fab_pm.array();
         auto fomn= fab_fomn.array();
         auto W= fab_W.array();
-        //From ini_fields and .in file
-        //fab_Akt.setVal(1e-6);
-        //From ana_grid.h and metrics.F
-        //
-        if (verbose > 2) {
-            amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-            amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-            amrex::PrintToFile("ubar").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-            amrex::PrintToFile("vbar").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-            amrex::PrintToFile("temp").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-            amrex::PrintToFile("tempstore").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-            amrex::PrintToFile("salt").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-            amrex::PrintToFile("saltstore").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
-        }
 
         // Update to u and v
         //
@@ -418,24 +341,8 @@ ROMSX::advance_3d (int lev,
        // rhs_3d
        //-----------------------------------------------------------------------
        //
-       if (verbose > 2) {
-           PrintToFile("tempold_beforerhs").SetPrecision(18)<<FArrayBox(tempold)<<std::endl;
-           PrintToFile("temp_beforerhs").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-           PrintToFile("saltstore_beforerhs").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
-           PrintToFile("salt_beforerhs").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-       }
        rhs_t_3d(bx, gbx, tempold, temp, tempstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
        rhs_t_3d(bx, gbx, saltold, salt, saltstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
-       if (verbose > 2) {
-            PrintToFile("u_afterrhst").SetPrecision(18) << FArrayBox(u) << std::endl;
-            PrintToFile("v_afterrhst").SetPrecision(18) << FArrayBox(v) << std::endl;
-            PrintToFile("temp_afterrhst").SetPrecision(18) << FArrayBox(temp) << std::endl;
-            PrintToFile("salt_afterrhst").SetPrecision(18) << FArrayBox(salt) << std::endl;
-            PrintToFile("tempold_afterrhst").SetPrecision(18) << FArrayBox(tempold) << std::endl;
-            PrintToFile("saltold_afterrhst").SetPrecision(18) << FArrayBox(saltold) << std::endl;
-            PrintToFile("tempstore_afterrhst").SetPrecision(18) << FArrayBox(tempstore) << std::endl;
-            PrintToFile("saltstore_afterrhst").SetPrecision(18) << FArrayBox(saltstore) << std::endl;
-       }
     }
 
     } // mfi
@@ -450,28 +357,12 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& temp = (mf_temp).array(mfi);
         Array4<Real> const& salt = (mf_salt).array(mfi);
 
-        Array4<Real> const& tempstore = mf_tempstore->array(mfi);
-        Array4<Real> const& saltstore = mf_saltstore->array(mfi);
-
-        // Array4<Real> const& ru = mf_ru->array(mfi);
-        // Array4<Real> const& rv = mf_rv->array(mfi);
-
         Array4<Real> const& AK = mf_AK.array(mfi);
         Array4<Real> const& DC = mf_DC.array(mfi);
 
         Array4<Real> const& Hzk = mf_Hzk.array(mfi);
-        // Array4<Real> const& Akv = mf_Akv->array(mfi);
-        Array4<Real> const& Akt = mf_Akt->array(mfi);
-        Array4<Real> const& Hz  = mf_Hz->array(mfi);
-
-        // Array4<Real> const& DU_avg1  = mf_DU_avg1->array(mfi);
-        // Array4<Real> const& DV_avg1  = mf_DV_avg1->array(mfi);
-
-        // Array4<Real> const& DU_avg2  = mf_DU_avg2->array(mfi);
-        // Array4<Real> const& DV_avg2  = mf_DV_avg2->array(mfi);
-
-        // Array4<Real> const& Huon = mf_Huon->array(mfi);
-        // Array4<Real> const& Hvom = mf_Hvom->array(mfi);
+        Array4<Real      > const& Akt = mf_Akt->array(mfi);
+        Array4<Real const> const& Hz  = mf_Hz->const_array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
@@ -486,14 +377,6 @@ ROMSX::advance_3d (int lev,
         tbxp2.grow(IntVect(NGROW,NGROW,0));
         tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
         tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-
-        Box ubx = surroundingNodes(bx,0);
-        Box vbx = surroundingNodes(bx,1);
-        if (verbose > 1) {
-            amrex::Print() << " BX " <<  bx << std::endl;
-            amrex::Print() << "UBX " << ubx << std::endl;
-            amrex::Print() << "VBX " << vbx << std::endl;
-        }
 
         FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_BC(tbxp2,1,amrex::The_Async_Arena());
@@ -540,21 +423,7 @@ ROMSX::advance_3d (int lev,
         fab_on_u.template setVal<RunOn::Device>(dx[1],makeSlab(tbxp2,2,0));
         fab_om_v.template setVal<RunOn::Device>(dx[0],makeSlab(tbxp2,2,0));
 
-        if (verbose > 2) {
-            PrintToFile("temp_beforevvisc").SetPrecision(18) << FArrayBox(temp) << std::endl;
-            PrintToFile("salt_beforevvisc").SetPrecision(18) << FArrayBox(salt) << std::endl;
-        }
-
         vert_visc_3d(gbx1,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
         vert_visc_3d(gbx1,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
-
-        if (verbose > 2) {
-            PrintToFile("temp_aftervvisc").SetPrecision(18) << FArrayBox(temp) << std::endl;
-            PrintToFile("salt_aftervvisc").SetPrecision(18) << FArrayBox(salt) << std::endl;
-            PrintToFile("tempstore_aftervvisc").SetPrecision(18) << FArrayBox(tempstore) << std::endl;
-            PrintToFile("saltstore_aftervvisc").SetPrecision(18) << FArrayBox(saltstore) << std::endl;
-            amrex::PrintToFile("u_aftervvisc").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-            amrex::PrintToFile("v_aftervvisc").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-        }
     } // MFiter
 }

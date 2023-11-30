@@ -19,8 +19,6 @@ ROMSX::coriolis (const Box& bx, const Box& gbx,
     //-----------------------------------------------------------------------
     //
 
-    //Box ubx = surroundingNodes(bx,0);
-    //Box vbx = surroundingNodes(bx,1);
     Box ubxShift = bx;
     ((((ubxShift.growLo(0,NGROW-1)).growLo(1,NGROW)).growHi(0,NGROW)).growHi(1,NGROW-1));
     Box vbxShift = bx;

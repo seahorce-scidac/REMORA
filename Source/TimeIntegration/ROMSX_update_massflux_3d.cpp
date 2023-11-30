@@ -4,11 +4,10 @@ using namespace amrex;
 
 void
 ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
-                           Array4<Real> phi,
-                           Array4<Real> Hphi,
-                           Array4<Real> Hz, Array4<Real> om_v_or_on_u,
-                           Array4<Real> Dphi_avg1,
-                           Array4<Real> Dphi_avg2, Array4<Real> DC,
+                           Array4<Real> phi, Array4<Real> Hphi,
+                           Array4<Real const> Hz, Array4<Real> om_v_or_on_u,
+                           Array4<Real const> Dphi_avg1,
+                           Array4<Real const> Dphi_avg2, Array4<Real> DC,
                            Array4<Real> FC, Array4<Real> CF, const int nnew)
 {
     const int Mn = Geom(0).Domain().size()[0];
@@ -26,90 +25,66 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
     //Copied depth of water column calculation from DepthStretchTransform
     //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column DC(i,j,-1), and
     // incorrect vertical mean CF(i,j,-1)
-    if (verbose > 1) {
-        Print() << "phi: " << phi_bx << std::endl;
-        Print() << "DC: " << Box(DC) << std::endl;
-        Print() << "CF: " << Box(CF) << std::endl;
-        Print() << "FC: " << Box(FC) << std::endl;
-    }
-    //amrex::ParallelFor(phi_bx,
-    amrex::ParallelFor(phi_bx_g1z,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                DC(i,j,k)=0.0;
-                CF(i,j,k)=0.0;
-            });
-    //amrex::ParallelFor(phi_bx,
-    amrex::ParallelFor(phi_bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                FC(i,j,k)=0.0;
-            });
+
+    ParallelFor(phi_bx_g1z, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            DC(i,j,k)=0.0;
+            CF(i,j,k)=0.0;
+        });
+
+    ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FC(i,j,k)=0.0;
+        });
+
     Gpu::streamSynchronize();
+
     //This takes advantage of Hz being an extra grow cell size
-    amrex::ParallelFor(phi_bx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                DC(i,j,k)=0.5*om_v_or_on_u(i,j,0)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
-            });
-    amrex::ParallelFor(phi_bxD,
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
-            {
-                for(int k=0; k<=N; k++) {
-                DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
-                CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*phi(i,j,k,nnew);
-                }
-            });
+    ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            DC(i,j,k)=0.5*om_v_or_on_u(i,j,0)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+        });
+
+    ParallelFor(phi_bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            for(int k=0; k<=N; k++) {
+            DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
+            CF(i,j,-1)=CF(i,j,-1)+DC(i,j,k)*phi(i,j,k,nnew);
+            }
+        });
 
     // Note this loop is in the opposite direction in k in ROMS but does not
     // appear to affect results
-    amrex::ParallelFor(phi_bxD,
-    [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+    ParallelFor(phi_bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-        for(int k=0; k<=N; k++) {
+        for (int k=0; k<=N; k++) {
             if(k==0) {
                 DC(i,j,-1)=1.0/DC(i,j,-1);
                 CF(i,j,-1)=DC(i,j,-1)*(CF(i,j,-1)-Dphi_avg1(i,j,0));
             }
-        //Consider putting this in a later function:
-        //          ubar(i,j,1)=DC(i,0)*DU_avg1(i,j)
-        //          ubar(i,j,2)=ubar(i,j,1)
-        //          vbar(i,j,1)=DC(i,0)*DV_avg1(i,j)
-        //          vbar(i,j,2)=vbar(i,j,1)
-        //Vertical mean correction on boundary points
-        // Maybe wrong? Will it just get obliterated on the FillBoundary
 
-        if(!(NSPeriodic&&EWPeriodic)) {
-            if((((i<0)||(i>=Mn+1))&&!EWPeriodic)||(((j<0)||(j>=Mm+1))&&!NSPeriodic)) {
-                phi(i,j,k) -= CF(i,j,-1);
-                //                Abort("Untested vertical mean");
+            if (!(NSPeriodic&&EWPeriodic))
+            {
+                if((((i<0)||(i>=Mn+1))&&!EWPeriodic)||(((j<0)||(j>=Mm+1))&&!NSPeriodic)) {
+                    phi(i,j,k) -= CF(i,j,-1);
+                    //                Abort("Untested vertical mean");
+                }
             }
-        }
 
-        //Compute correct mass flux, Hz*v/m
-        //if (verbose > 2) {
-        //    printf("%d %d %d  %15.15g %15.15g %15.15g Hadj0\n", i,j,k, Hphi(i,j,k), phi(i,j,k,nnew), DC(i,j,k));
-        //}
-        Hphi(i,j,k) = 0.5 * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
-        FC(i,j,0) = FC(i,j,0)+Hphi(i,j,k); //recursive
-        }
+            Hphi(i,j,k) = 0.5 * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
+            FC(i,j,0) = FC(i,j,0)+Hphi(i,j,k); //recursive
+        } // k
     });
 
-    amrex::ParallelFor(phi_bxD,
-    [=] AMREX_GPU_DEVICE (int i, int j, int )
+    ParallelFor(phi_bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         FC(i,j,0) = DC(i,j,-1)*(FC(i,j,0)-Dphi_avg2(i,j,0)); //recursive
     });
-    amrex::ParallelFor(phi_bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+
+    ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        //if (verbose > 2) {
-        //    printf("%d %d %d  %15.15g %15.15g %15.15g Hadj\n", i,j,k, Hphi(i,j,k), DC(i,j,k), FC(i,j,0));
-        //}
         Hphi(i,j,k) = Hphi(i,j,k)-DC(i,j,k)*FC(i,j,0);
-        //if (verbose > 2) {
-        //    printf("%d %d %d  %15.15g %15.15g %15.15g Hadj2\n", i,j,k, Hphi(i,j,k), DC(i,j,k), FC(i,j,0));
-        //}
     });
 
 }

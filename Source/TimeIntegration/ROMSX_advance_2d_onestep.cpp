@@ -5,9 +5,6 @@ using namespace amrex;
 // advance a single level one 2D step
 void ROMSX::advance_2d_onestep (int lev, Real dt_lev, Real dtfast_lev, int my_iif, int nfast_counter)
 {
-    MultiFab& S_old = vars_old[lev][Vars::cons];
-    MultiFab& S_new = vars_new[lev][Vars::cons];
-
     MultiFab& U_old = vars_old[lev][Vars::xvel];
     MultiFab& V_old = vars_old[lev][Vars::yvel];
     MultiFab& W_old = vars_old[lev][Vars::zvel];
@@ -16,15 +13,11 @@ void ROMSX::advance_2d_onestep (int lev, Real dt_lev, Real dtfast_lev, int my_ii
     MultiFab& V_new = vars_new[lev][Vars::yvel];
     MultiFab& W_new = vars_new[lev][Vars::zvel];
 
+    MultiFab& S_old = vars_old[lev][Vars::cons];
     const BoxArray&            ba = S_old.boxArray();
     const DistributionMapping& dm = S_old.DistributionMap();
 
-    int nvars = S_old.nComp();
-
     const int ncomp = 1;
-    const int nrhs  = ncomp-1;
-    const int nnew  = ncomp-1;
-    const int nstp  = ncomp-1;
 
     MultiFab mf_u(U_new, amrex::make_alias, 0, 1);
     MultiFab mf_v(V_new, amrex::make_alias, 0, 1);
