@@ -145,7 +145,13 @@ ROMSX::Evolve ()
 
         int lev = 0;
         int iteration = 1;
-        timeStep(lev, cur_time, iteration);
+
+        if (max_level == 0) {
+            timeStep(lev, cur_time, iteration);
+        }
+        else {
+            timeStepML(cur_time, iteration);
+        }
 
         cur_time  += dt[0];
 
