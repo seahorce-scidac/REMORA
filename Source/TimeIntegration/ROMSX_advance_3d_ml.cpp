@@ -10,11 +10,9 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
 
     MultiFab& U_old = vars_old[lev][Vars::xvel];
     MultiFab& V_old = vars_old[lev][Vars::yvel];
-    MultiFab& W_old = vars_old[lev][Vars::zvel];
 
     MultiFab& U_new = vars_new[lev][Vars::xvel];
     MultiFab& V_new = vars_new[lev][Vars::yvel];
-    MultiFab& W_new = vars_new[lev][Vars::zvel];
 
     MultiFab mf_u(U_new, amrex::make_alias, 0, 1);
     MultiFab mf_v(V_new, amrex::make_alias, 0, 1);
