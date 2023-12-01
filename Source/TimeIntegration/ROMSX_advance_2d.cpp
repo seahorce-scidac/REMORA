@@ -104,7 +104,7 @@ ROMSX::advance_2d (int lev,
     MultiFab mf_DUon(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
     MultiFab mf_DVom(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
 
-    for ( MFIter mfi(*mf_ru, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
 
         Array4<Real> const& u = (mf_u).array(mfi);
@@ -320,7 +320,7 @@ ROMSX::advance_2d (int lev,
     mf_DVom.FillBoundary(geom[lev].periodicity());
 
 
-    for ( MFIter mfi(*mf_ru, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
 
         Array4<Real> const& u = (mf_u).array(mfi);
