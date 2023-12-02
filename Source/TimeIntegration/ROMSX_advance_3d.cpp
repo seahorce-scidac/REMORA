@@ -150,7 +150,6 @@ ROMSX::advance_3d (int lev,
                 u(i,j,k) += tbxp2.contains(i-1,j,0) ? cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs) :
                                                       cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * ru(i,j,k,nrhs) ;
                 v(i,j,k) += tbxp2.contains(i,j-1,0) ? cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs) :
-
                                                       cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * rv(i,j,k,nrhs);
                 u(i,j,k) *= tbxp2.contains(i-1,j,0) ? 2.0 / (Hz(i-1,j,k) + Hz(i,j,k)) :  1.0 / (Hz(i,j,k));
                 v(i,j,k) *= tbxp2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
@@ -222,9 +221,6 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& saltstore = mf_saltstore->array(mfi);
 
         Array4<Real> const& Hz  = mf_Hz->array(mfi);
-
-        Array4<Real> const& ubar = mf_ubar->array(mfi);
-        Array4<Real> const& vbar = mf_vbar->array(mfi);
 
         Array4<Real> const& Huon = mf_Huon->array(mfi);
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
@@ -338,7 +334,7 @@ ROMSX::advance_3d (int lev,
 
        //
        //-----------------------------------------------------------------------
-       // rhs_3d
+       // rhs_t_3d
        //-----------------------------------------------------------------------
        //
        rhs_t_3d(bx, gbx, tempold, temp, tempstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
@@ -351,9 +347,6 @@ ROMSX::advance_3d (int lev,
 
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& u = mf_u.array(mfi);
-        Array4<Real> const& v = mf_v.array(mfi);
-
         Array4<Real> const& temp = (mf_temp).array(mfi);
         Array4<Real> const& salt = (mf_salt).array(mfi);
 

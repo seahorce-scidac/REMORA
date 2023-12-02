@@ -223,6 +223,7 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
 
     vec_Huon[lev].reset               (new MultiFab(convert(ba,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for u component
     vec_Hvom[lev].reset               (new MultiFab(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
+
     vec_Akv[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
     vec_Akt[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
     vec_visc3d_r[lev].reset           (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // not used

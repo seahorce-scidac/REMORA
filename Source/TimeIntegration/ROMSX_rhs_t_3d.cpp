@@ -3,7 +3,7 @@
 using namespace amrex;
 
 //
-// rhs_3d
+// rhs_t_3d
 //
 
 void
@@ -35,10 +35,6 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     // Scratch space
     //
     FArrayBox fab_grad(tbxp2,1,amrex::The_Async_Arena()); //fab_grad.setVal(0.0);
-    FArrayBox fab_uee(tbxp2,1,amrex::The_Async_Arena()); //fab_uee.setVal(0.0);
-
-    FArrayBox fab_uxx(tbxp2,1,amrex::The_Async_Arena()); //fab_uxx.setVal(0.0);
-
     FArrayBox fab_curv(tbxp2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0);
 
     FArrayBox fab_FX(tbxp2,1,amrex::The_Async_Arena()); //fab_FX.setVal(0.0);
@@ -46,18 +42,13 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
     auto curv=fab_curv.array();
     auto grad=fab_grad.array();
-    auto uxx=fab_uxx.array();
-    auto uee=fab_uee.array();
+
     auto FX=fab_FX.array();
     auto FE=fab_FE.array();
 
-    //check this////////////
-    // const Real Gadv = -0.25;
-
     fab_grad.template setVal<RunOn::Device>(0.);
-    fab_uee.template setVal<RunOn::Device>(0.);
     fab_curv.template setVal<RunOn::Device>(0.);
-    fab_uxx.template setVal<RunOn::Device>(0.);
+
     fab_FX.template setVal<RunOn::Device>(0.);
     fab_FE.template setVal<RunOn::Device>(0.);
 
@@ -115,49 +106,45 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         } else {
             Error("Not a valid horizontal advection scheme");
         }
-    }
-    else {
-    if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
-        amrex::ParallelFor(tbxp1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
+
+    } else {
+
+        if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
+            amrex::ParallelFor(tbxp1,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
             //Upstream3
-            curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
-        });
-        //HACK to avoid using the wrong index of t (using upstream3)
-        amrex::ParallelFor(ubx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real max_Huon=max(Huon(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
-            Real min_Huon=min(Huon(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
-            FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))-
-                cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
-            //printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g  Huon ts tsim1 cffa curv minH curvim1 maxH\n", i,j,k,Huon(i,j,k), tempstore(i,j,k), tempstore(i-1,j,k), cffa, curv(i,j,k), min_Huon, curv(i-1,j,k), max_Huon);
-        });
-    }
-    else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
-        amrex::ParallelFor(tbxp1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            //Centered4
-            grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
-            //printf("%d %d %d  %15.15g  %15.15g %15.15g  grad FX2\n", i,j,k, grad(i,j,k), FX(i,j,k), FX(i+1,j,k));
-        });
-        amrex::ParallelFor(ubx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k)-
-                                       cffb*(grad(i,j,k)- grad(i-1,j,k)));
-            //printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g FXC4 Hu told2 cffb grad2 rhst\n",
-            //        i,j,k, FX(i,j,k), Huon(i,j,k), tempstore(i,j,k), tempstore(i-1,j,k), cffb, grad(i,j,k), grad(i-1,j,k));
-        });
-    }
-    else {
-        Error("Not a valid horizontal advection scheme");
-    }
-    }
-    if (verbose > 2)
-        PrintToFile("FX_set1").SetPrecision(18) << FArrayBox(FX) << std::endl;
+                curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
+            });
+            //HACK to avoid using the wrong index of t (using upstream3)
+            amrex::ParallelFor(ubx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                Real max_Huon=max(Huon(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
+                Real min_Huon=min(Huon(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
+                FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))-
+                    cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
+            });
+
+        } else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+
+            amrex::ParallelFor(tbxp1,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                //Centered4
+                grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
+            });
+            amrex::ParallelFor(ubx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k)-
+                                           cffb*(grad(i,j,k)- grad(i-1,j,k)));
+            });
+
+        } else {
+            Error("Not a valid horizontal advection scheme");
+        }
+    } // flat bathymetry?
 
     amrex::ParallelFor(vtbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -248,8 +235,6 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
               Real cff2=cff*(FE(i,j+1,k)-FE(i,j,k));
               Real cff3=cff1+cff2;
 
-              //printf("%d %d %d  %15.15g  before hadv\n", i,j,k, t(i,j,k,nnew));
-
               t(i,j,k,nnew) -= cff3;
     });
 
@@ -275,22 +260,17 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
               if (k>=1 && k<=N-2)
               {
                       FC(i,j,k)=( cff2*(tempstore(i  ,j,k  )+ tempstore(i,j,k+1))
-                                 -cff3*(tempstore(i  ,j,k-1)+ tempstore(i,j,k+2)) )*
-                                    ( W(i,j,k));
-              }
-              else // this needs to be split up so that the following can be concurrent
-              {
+                                 -cff3*(tempstore(i  ,j,k-1)+ tempstore(i,j,k+2)) ) * ( W(i,j,k));
+
+              } else {
+
                   FC(i,j,N)=0.0;
 
                   FC(i,j,N-1)=( cff2*tempstore(i  ,j,N-1)+ cff1*tempstore(i,j,N  )
-                               -cff3*tempstore(i  ,j,N-2) )*
-                                  ( W(i  ,j,N-1));
+                               -cff3*tempstore(i  ,j,N-2) ) * ( W(i  ,j,N-1));
 
                   FC(i,j,0)=( cff2*tempstore(i  ,j,1)+ cff1*tempstore(i,j,0)
-                             -cff3*tempstore(i  ,j,2) )*
-                                ( W(i  ,j,0));
-
-                  //              FC(i,0,-1)=0.0;
+                             -cff3*tempstore(i  ,j,2) ) * ( W(i  ,j,0));
               }
 
     });
