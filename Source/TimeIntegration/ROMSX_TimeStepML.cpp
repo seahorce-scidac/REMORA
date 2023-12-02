@@ -42,8 +42,6 @@ ROMSX::timeStepML (Real time, int iteration)
         }
     }
 
-    Print() << "IN TIMESTEPML. FINEST_LEVEL " << finest_level << std::endl;
-
     for (int lev=0; lev <= finest_level;lev++) {
         // Update what we call "old" and "new" time
         t_old[lev] = t_new[lev];
@@ -79,7 +77,6 @@ ROMSX::timeStepML (Real time, int iteration)
     for (int lev=0; lev <= finest_level; lev++) {
         advance_3d_ml(lev, dt[lev]);
         ++istep[lev];
-        Print() << "updated lev step  " << lev << " " << istep[lev] << std::endl;
 
         if (Verbose())
         {
