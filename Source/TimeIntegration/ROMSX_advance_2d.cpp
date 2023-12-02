@@ -71,8 +71,6 @@ ROMSX::advance_2d (int lev,
 
     const int Mm = Geom(lev).Domain().size()[1];
 
-    auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
-
     int iic = istep[lev];
     const int nnew  = ncomp-1;
     const int nstp  = ncomp-1;
@@ -106,7 +104,7 @@ ROMSX::advance_2d (int lev,
     MultiFab mf_DUon(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
     MultiFab mf_DVom(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
 
-    for ( MFIter mfi(*mf_ru, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
 
         Array4<Real> const& u = (mf_u).array(mfi);
@@ -144,12 +142,6 @@ ROMSX::advance_2d (int lev,
         tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
         tbxp2.grow(IntVect(NGROW,NGROW,0));
         tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-        //make only gbx be grown to match multifabs
-        //gbx2.grow(IntVect(NGROW,NGROW,0));
-        //gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-        //gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-        Box ubxD = surroundingNodes(bx,0);
-        Box vbxD = surroundingNodes(bx,1);
 
         Box bxD = bx;
         bxD.makeSlab(2,0);
@@ -163,15 +155,6 @@ ROMSX::advance_2d (int lev,
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-
-        //bxD.makeSlab(2,0);
-        //ubxD.makeSlab(2,0);
-        //vbxD.makeSlab(2,0);
-        //Box gbx1D = bxD;
-        //Box gbx2D = bxD;
-        //gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
-        //gbx2D.grow(IntVect(NGROW,NGROW,0));
-
         Box tbxp2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-NGROW,bx.smallEnd(1)-NGROW,bx.smallEnd(2))),
                        IntVect(AMREX_D_DECL(bx.bigEnd(0)+NGROW-1,bx.bigEnd(1)+NGROW-1,bx.bigEnd(2))));
 
@@ -181,9 +164,6 @@ ROMSX::advance_2d (int lev,
         Box gbx2uneven = tbxp2uneven & gbx;
         Box gbx2unevenD = gbx2uneven;
         gbx2unevenD.makeSlab(2,0);
-        //AKA
-        //ubxD.setRange(2,0);
-        //vbxD.setRange(2,0);
 
         FArrayBox fab_pn(tbxp2,1,The_Async_Arena());
         FArrayBox fab_pm(tbxp2,1,The_Async_Arena());
@@ -340,7 +320,7 @@ ROMSX::advance_2d (int lev,
     mf_DVom.FillBoundary(geom[lev].periodicity());
 
 
-    for ( MFIter mfi(*mf_ru, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
 
         Array4<Real> const& u = (mf_u).array(mfi);
@@ -378,12 +358,6 @@ ROMSX::advance_2d (int lev,
         tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
         tbxp2.grow(IntVect(NGROW,NGROW,0));
         tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-        //make only gbx be grown to match multifabs
-        //gbx2.grow(IntVect(NGROW,NGROW,0));
-        //gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-        //gbx11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-        // Box ubxD = surroundingNodes(bx,0);
-        // Box vbxD = surroundingNodes(bx,1);
 
         Box bxD = bx;
         bxD.makeSlab(2,0);
@@ -397,15 +371,6 @@ ROMSX::advance_2d (int lev,
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-
-        //bxD.makeSlab(2,0);
-        //ubxD.makeSlab(2,0);
-        //vbxD.makeSlab(2,0);
-        //Box gbx1D = bxD;
-        //Box gbx2D = bxD;
-        //gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
-        //gbx2D.grow(IntVect(NGROW,NGROW,0));
-
         Box tbxp2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-NGROW,bx.smallEnd(1)-NGROW,bx.smallEnd(2))),
                        IntVect(AMREX_D_DECL(bx.bigEnd(0)+NGROW-1,bx.bigEnd(1)+NGROW-1,bx.bigEnd(2))));
 
@@ -417,9 +382,6 @@ ROMSX::advance_2d (int lev,
         Box gbx2uneven = ba_gbx2uneven[0];
         Box gbx2unevenD = gbx2uneven;
         gbx2unevenD.makeSlab(2,0);
-        //AKA
-        //ubxD.setRange(2,0);
-        //vbxD.setRange(2,0);
 
         FArrayBox fab_pn(tbxp2,1,The_Async_Arena());
         FArrayBox fab_pm(tbxp2,1,The_Async_Arena());
