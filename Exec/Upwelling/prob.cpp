@@ -67,7 +67,7 @@ init_custom_bathymetry (const Geometry& geom,
 
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
-      gbx2.grow(IntVect(NGROW+1,NGROW+1,0));
+      gbx2.grow(IntVect(NGROW,NGROW,0));
 
       // auto N = geom.Domain().length(2); // Number of vertical "levels" aka, NZ
       bool NSPeriodic = geomdata.isPeriodic(1);
@@ -270,25 +270,21 @@ init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, Mu
     if (NSPeriodic) {
         mf_sustr.setVal(0.0);
     }
-
     else if(EWPeriodic) {
-        if ((tdays-dstart)<=2.0) {
+        if ((tdays-dstart)<=2.0)
             windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
-        } else {
+        else
             windamp=-0.1/rho0;
-        }
         mf_sustr.setVal(windamp);
     }
-
-    if (NSPeriodic) {
-        if ((tdays-dstart)<=2.0) {
+    if(NSPeriodic) {
+        if ((tdays-dstart)<=2.0)
             windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
-        } else {
+        else
             windamp=-0.1/rho0;
-        }
         mf_svstr.setVal(windamp);
-
-    } else if(EWPeriodic) {
+    }
+    else if(EWPeriodic) {
         mf_svstr.setVal(0.0);
     }
 }

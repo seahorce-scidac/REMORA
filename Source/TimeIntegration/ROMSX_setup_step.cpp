@@ -172,7 +172,9 @@ ROMSX::setup_step (int lev, Real dt_lev)
         Array4<Real> const& bustr = (mf_bustr)->array(mfi);
         Array4<Real> const& bvstr = (mf_bvstr)->array(mfi);
 
-        Box bx = mfi.tilebox();
+        Box  bx = mfi.tilebox();
+        Box ubx = Box(uold);
+        Box vbx = Box(vold);
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
@@ -188,30 +190,32 @@ ROMSX::setup_step (int lev, Real dt_lev)
         gbx1D.makeSlab(2,0);
         Box gbx2D = gbx2;
         gbx2D.makeSlab(2,0);
-        //gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
-        //gbx2D.grow(IntVect(NGROW,NGROW,0));
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
+
         FArrayBox fab_pn(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(gbx2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_u(gbx2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_v(gbx2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_u(gbx2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_v(gbx2D,1,amrex::The_Async_Arena());
+
         FArrayBox fab_om_r(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_r(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_p(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_p(gbx2D,1,amrex::The_Async_Arena());
+
         FArrayBox fab_pmon_u(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pnom_u(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pmon_v(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pnom_v(gbx2D,1,amrex::The_Async_Arena());
+
         FArrayBox fab_fomn(gbx2D,1,amrex::The_Async_Arena());
-        //FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
+
+        FArrayBox fab_on_u(makeSlab(ubx,2,0),1,amrex::The_Async_Arena());
+        FArrayBox fab_om_v(makeSlab(vbx,2,0),1,amrex::The_Async_Arena());
+        FArrayBox fab_om_u(gbx2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_on_v(gbx2D,1,amrex::The_Async_Arena());
 
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
@@ -244,12 +248,19 @@ ROMSX::setup_step (int lev, Real dt_lev)
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             });
 
+        amrex::ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+          on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
+        });
+        amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+          om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
+        });
+
         amrex::ParallelFor(gbx2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
           //Note: are the comment definitons right? Don't seem to match metrics.f90
-          om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
-          on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
           om_r(i,j,0)=1.0/dxi[0]; // 1/pm(i,j)
           on_r(i,j,0)=1.0/dxi[1]; // 1/pn(i,j)
           //todo: om_p on_p
@@ -274,20 +285,13 @@ ROMSX::setup_step (int lev, Real dt_lev)
         amrex::ParallelFor(gbx1D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            //DO j=Jstr,Jend
-            //  DO i=IstrU,Iend
             bustr(i,j,0) = 0.5 * (rdrag(i-1,j,0)+rdrag(i,j,0))*(uold(i,j,0,nrhs));
-            //DO j=JstrV,Jend
-            //  DO i=Istr,Iend
             bvstr(i,j,0) = 0.5 * (rdrag(i,j-1,0)+rdrag(i,j,0))*(vold(i,j,0,nrhs));
         });
 
-        // updates Huon/Hvom
-        set_massflux_3d(gbx2,1,0,uold,Huon,Hz,on_u,nnew);
-        set_massflux_3d(gbx2,0,1,vold,Hvom,Hz,om_v,nnew);
-        if (verbose > 2) {
-            PrintToFile("Huon_init").SetPrecision(18) << FArrayBox(Huon) << std::endl;
-        }
+        // Updates Huon and Hvom
+
+        set_massflux_3d(uold,Huon,on_u,vold,Hvom,om_v,Hz,nnew);
 
         rho_eos(gbx2,tempold,saltold,rho,rhoA,rhoS,pden,Hz,z_w,h,nrhs,N);
     }
@@ -316,8 +320,6 @@ ROMSX::setup_step (int lev, Real dt_lev)
         Array4<Real> const& rho = (mf_rho).array(mfi);
         Array4<Real> const& temp = (mf_temp).array(mfi);
         Array4<Real> const& salt = (mf_salt).array(mfi);
-        Array4<Real> const& tempstore = (vec_t3[lev])->array(mfi);
-        Array4<Real> const& saltstore = (vec_s3[lev])->array(mfi);
         Array4<Real> const& ru = (mf_ru)->array(mfi);
         Array4<Real> const& rv = (mf_rv)->array(mfi);
         Array4<Real> const& rufrc = (mf_rufrc)->array(mfi);
@@ -336,26 +338,23 @@ ROMSX::setup_step (int lev, Real dt_lev)
         Array4<Real> const& Zt_avg1 = (vec_Zt_avg1[lev])->array(mfi);
 
         Box bx = mfi.tilebox();
+
         Box tbxp1 = bx;
         Box tbxp2 = bx;
+        Box xbx = mfi.nodaltilebox(0);
+        Box ybx = mfi.nodaltilebox(1);
         Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+
+        Box ubx = Box(uold);
+        Box vbx = Box(vold);
 
         Box utbx = mfi.nodaltilebox(0);
         Box vtbx = mfi.nodaltilebox(1);
 
         tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
         tbxp2.grow(IntVect(NGROW,NGROW,0));
-        //copy the tilebox
-        //Box gbx1 = bx;
-        //Box gbx11 = bx;
-        //Box gbx2 = bx;
-        //TODO: adjust for tiling
-        //Box gbx3uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-3,bx.smallEnd(1)-3,bx.smallEnd(2))),
-        //               IntVect(AMREX_D_DECL(bx.bigEnd(0)+2,bx.bigEnd(1)+2,bx.bigEnd(2))));
-        //Box gbx2uneven(IntVect(AMREX_D_DECL(bx.smallEnd(0)-2,bx.smallEnd(1)-2,bx.smallEnd(2))),
-        //               IntVect(AMREX_D_DECL(bx.bigEnd(0)+1,bx.bigEnd(1)+1,bx.bigEnd(2))));
 
         Box bxD = bx;
         bxD.makeSlab(2,0);
@@ -378,8 +377,6 @@ ROMSX::setup_step (int lev, Real dt_lev)
         FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_pn(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_u(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_v(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_u(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_v(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_r(tbxp2D,1,amrex::The_Async_Arena());
@@ -391,7 +388,9 @@ ROMSX::setup_step (int lev, Real dt_lev)
         FArrayBox fab_pmon_v(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pnom_v(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_fomn(tbxp2D,1,amrex::The_Async_Arena());
-        //FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
+
+        FArrayBox fab_on_u(makeSlab(ubx,2,0),1,amrex::The_Async_Arena());
+        FArrayBox fab_om_v(makeSlab(vbx,2,0),1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
         auto pn=fab_pn.array();
@@ -425,12 +424,19 @@ ROMSX::setup_step (int lev, Real dt_lev)
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
             });
 
+        amrex::ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
+        });
+        amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
+        });
+
         amrex::ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
           //Note: are the comment definitons right? Don't seem to match metrics.f90
-          om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
-          on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
           om_r(i,j,0)=1.0/dxi[0]; // 1/pm(i,j)
           on_r(i,j,0)=1.0/dxi[1]; // 1/pn(i,j)
           //todo: om_p on_p
@@ -451,21 +457,9 @@ ROMSX::setup_step (int lev, Real dt_lev)
         });
 
         prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,nrhs,N);
-        if (verbose > 2) {
-           amrex::PrintToFile("ru_afterprsgrd").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-           amrex::PrintToFile("rv_afterprsgrd").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
-        }
 
-        if (verbose > 2) {
-            amrex::PrintToFile("temp_pret3dmix").SetPrecision(18)<<FArrayBox(temp) << std::endl;
-            amrex::PrintToFile("salt_pret3dmix").SetPrecision(18)<<FArrayBox(salt) << std::endl;
-        }
         t3dmix(bx, temp, diff2_temp, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
         t3dmix(bx, salt, diff2_salt, Hz, pm, pn, pmon_u, pnom_v, nrhs, nnew, dt_lev);
-        if (verbose > 2) {
-            amrex::PrintToFile("temp_postt3dmix").SetPrecision(18)<<FArrayBox(temp) << std::endl;
-            amrex::PrintToFile("salt_postt3dmix").SetPrecision(18)<<FArrayBox(salt) << std::endl;
-        }
 
         if (solverChoice.use_coriolis) {
             //-----------------------------------------------------------------------
@@ -476,51 +470,20 @@ ROMSX::setup_step (int lev, Real dt_lev)
             // In ROMS, coriolis is the first (un-ifdefed) thing to happen in rhs3d_tile, which gets called after t3dmix
             coriolis(bx, gbx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
         }
-        if (verbose > 2) {
-            amrex::PrintToFile("ru_aftercor").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-            amrex::PrintToFile("rv_aftercor").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
-            amrex::PrintToFile("u_aftercor").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-            amrex::PrintToFile("v_aftercor").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-            amrex::PrintToFile("temp_aftercor").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-            amrex::PrintToFile("tempstore_aftercor").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-            amrex::PrintToFile("salt_aftercor").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-            amrex::PrintToFile("saltstore_aftercor").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
-        }
 
         //
-        //-----------------------------------------------------------------------
-        // rhs_3d
         //-----------------------------------------------------------------------
         //
 
         ////rufrc from 3d is set to ru, then the wind stress (and bottom stress) is added, then the mixing is added
         //rufrc=ru+sustr*om_u*on_u
-        rhs_3d(bx, gbx, uold, vold, ru, rv, rufrc, rvfrc, sustr, svstr, bustr, bvstr, Huon, Hvom, on_u, om_v, om_u, on_v, W, FC, nrhs, N);
-        if (verbose > 2) {
-           amrex::PrintToFile("ru_afterrhs").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-           amrex::PrintToFile("rv_afterrhs").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
-           amrex::PrintToFile("u_afterrhs").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-           amrex::PrintToFile("v_afterrhs").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-        }
+
+        rhs_uv_3d(bx, xbx, ybx, gbx, uold, vold, ru, rv, rufrc, rvfrc,
+                  sustr, svstr, bustr, bvstr, Huon, Hvom,
+                  on_u, om_v, om_u, on_v, W, FC, nrhs, N);
 
         if(solverChoice.use_uv3dmix) {
-        //u=u+(contributions from S-surfaces viscosity not scaled by dt)*dt*dx*dy
-        //rufrc=rufrc + (contributions from S-surfaces viscosity not scaled by dt*dx*dy)
-        //For debugging version: uv3dmix(bx, u, v, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev,false);
-        uv3dmix(bx, gbx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
-        if (verbose > 2) {
-            amrex::PrintToFile("ru_afteruvmix").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-            amrex::PrintToFile("rv_afteruvmix").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
-            amrex::PrintToFile("rufrc_afteruvmix").SetPrecision(18)<<FArrayBox(rufrc)<<std::endl;
-            amrex::PrintToFile("rvfrc_afteruvmix").SetPrecision(18)<<FArrayBox(rvfrc)<<std::endl;
-            amrex::PrintToFile("u_afteruvmix").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-            amrex::PrintToFile("v_afteruvmix").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-            amrex::PrintToFile("Huon").SetPrecision(18)<<FArrayBox(Huon)<<std::endl;
-            amrex::PrintToFile("temp_uv3dmix").SetPrecision(18)<<FArrayBox(temp)<<std::endl;
-            amrex::PrintToFile("tempstore_uv3dmix").SetPrecision(18)<<FArrayBox(tempstore)<<std::endl;
-            amrex::PrintToFile("salt_uv3dmix").SetPrecision(18)<<FArrayBox(salt)<<std::endl;
-            amrex::PrintToFile("saltstore_uv3dmix").SetPrecision(18)<<FArrayBox(saltstore)<<std::endl;
-        }
+            uv3dmix(bx, gbx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
         }
 
         // Set first two components of zeta to time-averaged values before barotropic update

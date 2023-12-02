@@ -2,6 +2,24 @@
 
 using namespace amrex;
 
+/**
+ * update_massflux_3d
+ *
+ * @param[in   ] phi_bx box on which to update
+ * @param[in   ] ioff offset in x-direction
+ * @param[in   ] joff offset in y-direction
+ * @param[in   ] phi  u or v
+ * @param[  out] Hphi H-weighted u or v
+ * @param[in   ] Hz   weighting
+ * @param[in   ] om_v_or_on_u
+ * @param[in   ] Dphi_avg1
+ * @param[in   ] Dphi_avg2
+ * @param[inout] DC
+ * @param[inout] FC
+ * @param[inout] CF
+ * @param[in   ] nnew component of velocity
+ */
+
 void
 ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
                            Array4<Real> phi, Array4<Real> Hphi,
@@ -66,9 +84,9 @@ ROMSX::update_massflux_3d (const Box& phi_bx, const int ioff, const int joff,
 
             if (!(NSPeriodic&&EWPeriodic))
             {
-                if((((i<0)||(i>=Mn+1))&&!EWPeriodic)||(((j<0)||(j>=Mm+1))&&!NSPeriodic)) {
+                if ( ( ((i<0)||(i>=Mn+1)) && !EWPeriodic ) ||  ( ((j<0)||(j>=Mm+1)) && !NSPeriodic ) )
+                {
                     phi(i,j,k) -= CF(i,j,-1);
-                    //                Abort("Untested vertical mean");
                 }
             }
 
