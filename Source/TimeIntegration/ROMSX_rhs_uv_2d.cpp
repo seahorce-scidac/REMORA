@@ -2,46 +2,23 @@
 
 using namespace amrex;
 
-//
-// rhs_2d
-//
 /**
  * rhs_2d
  *
- * @param[in] bx
- * @param[in] uold
- * @param[in] vold
- * @param[in] ru
- * @param[in] rv
- * @param[in] mf_ru
- * @param[in] mf_rv
- * @param[inout] mf_rufrc
- * @param[inout] mf_rvfrc
- * @param[inout] mf_Zt_avg1
- * @param[inout] mf_DU_avg1
- * @param[inout] mf_DU_avg2
- * @param[inout] mf_DV_avg1
- * @param[inout] mf_DV_avg2
- * @param[inout] mf_rubar
- * @param[inout] mf_rvbar
- * @param[inout] mf_rbar
- * @param[inout] mf_rbar
- * @param[inout] mf_zeta
- * @param[inout] mf_h
- * @param[inout] mf_visc2_p
- * @param[inout] mf_visc2_f
- * @param[in   ] ncomp
- * @param[in   ] dtfast_lev
- * @param[in   ] predictor_2d_step
- * @param[in   ] first_2d_step
- * @param[in   ] my_iif
- * @param[in   ] next_indx1
+ * @param[in   ] bx
+ * @param[in   ] uold
+ * @param[in   ] vold
+ * @param[  out] ru
+ * @param[  out] rv
+ * @param[in   ] Huon
+ * @param[in   ] Hvom
+ * @param[in   ] nrhs
  */
 
 void
 ROMSX::rhs_2d (const Box& bx,
-               Array4<Real> uold  , Array4<Real> vold,
-               Array4<Real> ru, Array4<Real> rv,
+               Array4<Real> uold, Array4<Real> vold,
+               Array4<Real> ru  , Array4<Real> rv,
                Array4<Real> Huon, Array4<Real> Hvom,
                int nrhs)
 {

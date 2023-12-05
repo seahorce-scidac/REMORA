@@ -11,10 +11,8 @@ ROMSX::Advance (int lev, Real /*time*/, Real dt_lev, int /*iteration*/, int /*nc
 
     setup_step(lev, dt_lev);
 
-    int iic = istep[lev];
-    int ntfirst = 0;
-
-    if(solverChoice.use_barotropic) {
+    if (solverChoice.use_barotropic)
+    {
         bool predictor_2d_step=true;
         int nfast_counter=nfast + 1;
         //Compute fast timestep from dt_lev and ratio
