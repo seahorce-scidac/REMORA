@@ -2,13 +2,31 @@
 
 using namespace amrex;
 
-//
-// rhs_t_3d
-//
+/**
+ * rhs_t_3d
+ *
+ * @param[in   ] bx
+ * @param[in   ] xbx
+ * @param[in   ] ybx
+ * @param[inout] t
+ * @param[in   ] tempstore
+ * @param[in   ] Huon
+ * @param[in   ] Hvom
+ * @param[in   ] Hz
+ * @param[in   ] oHz
+ * @param[in   ] pn
+ * @param[in   ] pm
+ * @param[in   ] W
+ * @param[inout] FC
+ * @param[in   ] nrhs
+ * @param[in   ] nnew
+ * @param[in   ] N
+ * @param[in   ] dt_lev
+ */
 
 void
 ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
-                 Array4<Real> /*told*/, Array4<Real> t, Array4<Real> tempstore,
+                 Array4<Real> t, Array4<Real> tempstore,
                  Array4<Real> Huon, Array4<Real> Hvom,
                  Array4<Real> Hz, Array4<Real> oHz,
                  Array4<Real> pn, Array4<Real> pm,

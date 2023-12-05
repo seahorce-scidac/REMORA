@@ -53,41 +53,42 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
     // NOTE: vertical viscosity term for tracers is identical except AK=Akt
     ParallelFor(makeSlab(phi_bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-        for(int k=0; k<=N; k++) {
-        //
-        //  Use conservative, parabolic spline reconstruction of vertical
-        //  viscosity derivatives.  Then, time step vertical viscosity term
-        //  implicitly by solving a tridiagonal system.
-        //
-        Real cff;
-        Real cff1=1.0/6.0;
+        for (int k=0; k<=N; k++)
+        {
+            //
+            //  Use conservative, parabolic spline reconstruction of vertical
+            //  viscosity derivatives.  Then, time step vertical viscosity term
+            //  implicitly by solving a tridiagonal system.
+            //
+            Real cff;
+            Real cff1=1.0/6.0;
 
-        if(k-1>=0)
-            FC(i,j,k)=cff1*Hzk(i,j,k  )-dt_lev*AK(i,j,k-1)*oHz(i,j,k  );
-        else
-            FC(i,j,k)=cff1*Hzk(i,j,k  );
-        if(k<=N-1)
-         {
-             CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt_lev*AK(i,j,k+1)*oHz(i,j,k+1);
-         }
-         cff1=1.0/3.0;
-         if(k==0)
-         {
-             BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
-                     dt_lev*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
-             cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
-             CF(i,j,k) *= cff;
-             DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*0.0);
-         }
-         if(k+1<=N&&k>=1)
-         {
-                 BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
-                     dt_lev*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
-                 cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
-             CF(i,j,k) *= cff;
-             DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*DC(i,j,k-1));
-         }
-        }
+            FC(i,j,k) = (k >= 1) ? cff1*Hzk(i,j,k  )-dt_lev*AK(i,j,k-1)*oHz(i,j,k  ):
+                                   cff1*Hzk(i,j,k);
+
+            if(k<=N-1)
+            {
+                CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt_lev*AK(i,j,k+1)*oHz(i,j,k+1);
+            }
+
+            cff1=1.0/3.0;
+            if (k==0)
+            {
+                BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
+                        dt_lev*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
+                cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
+                CF(i,j,k) *= cff;
+                DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*0.0);
+
+            } else if (k+1<=N) {
+
+                    BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
+                        dt_lev*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
+                    cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
+                CF(i,j,k) *= cff;
+                DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*DC(i,j,k-1));
+            }
+        } // k
     });
 #ifdef AMREX_USE_GPU
     Gpu::synchronize();
