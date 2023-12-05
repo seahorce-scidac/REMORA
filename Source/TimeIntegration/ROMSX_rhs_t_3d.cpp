@@ -41,6 +41,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     tbxp2.grow(IntVect(NGROW,NGROW,0));
     tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
 
+    // Because grad, curv, FX, FE, are all local, do surroundinNodes
     Box utbxp1 = surroundingNodes(tbxp1, 0);
     Box vtbxp1 = surroundingNodes(tbxp1, 1);
     Box ubx = surroundingNodes(bx, 0);
@@ -174,72 +175,72 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     cffa=1.0/6.0;
     cffb=1.0/3.0;
     if (solverChoice.flat_bathymetry) {
-    if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
-        amrex::ParallelFor(tbxp1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
-        });
-        //HACK to avoid using the wrong index of t (using upstream3)
-        Real max_Hvom=FArrayBox(Hvom).max<RunOn::Device>();
-        Real min_Hvom=FArrayBox(Hvom).min<RunOn::Device>();
-        amrex::ParallelFor(vbx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
-                cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
-        });
-    }
-    else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
-        amrex::ParallelFor(tbxp1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
-        });
-        amrex::ParallelFor(vbx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
-                cffb*(grad(i,j,k)+ grad(i,j-1,k));
-        });
-    }
-    else {
-        Error("Not a valid horizontal advection scheme");
-    }
-    }
-    else {
-    if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
-        amrex::ParallelFor(tbxp1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
-        });
-        //HACK to avoid using the wrong index of t (using upstream3)
-        amrex::ParallelFor(vbx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real max_Hvom=max(Hvom(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
-            Real min_Hvom=min(Hvom(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
-            FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))-
-                cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
-        });
-    }
-    else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
-        amrex::ParallelFor(tbxp1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
-        });
-        amrex::ParallelFor(vbx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k)-
-                                       cffb*(grad(i,j,k)- grad(i,j-1,k)));
-        });
+        if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
+            amrex::ParallelFor(tbxp1,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
+            });
+            //HACK to avoid using the wrong index of t (using upstream3)
+            Real max_Hvom=FArrayBox(Hvom).max<RunOn::Device>();
+            Real min_Hvom=FArrayBox(Hvom).min<RunOn::Device>();
+            amrex::ParallelFor(vbx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
+                    cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
+            });
+        }
+        else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+            amrex::ParallelFor(tbxp1,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
+            });
+            amrex::ParallelFor(vbx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
+                    cffb*(grad(i,j,k)+ grad(i,j-1,k));
+            });
+        }
+        else {
+            Error("Not a valid horizontal advection scheme");
+        }
     }
     else {
-        Error("Not a valid horizontal advection scheme");
-    }
+        if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
+            amrex::ParallelFor(tbxp1,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
+            });
+            //HACK to avoid using the wrong index of t (using upstream3)
+            amrex::ParallelFor(vbx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                Real max_Hvom=max(Hvom(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
+                Real min_Hvom=min(Hvom(i,j,k),0.0); //FArrayBox(Huon).min<RunOn::Device>();
+                FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))-
+                    cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
+            });
+        }
+        else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+            amrex::ParallelFor(tbxp1,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
+            });
+            amrex::ParallelFor(vbx,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k)-
+                                           cffb*(grad(i,j,k)- grad(i,j-1,k)));
+            });
+        }
+        else {
+            Error("Not a valid horizontal advection scheme");
+        }
     }
 
         amrex::ParallelFor(bx,
