@@ -2,21 +2,35 @@
 
 using namespace amrex;
 
+/**
+ * rho_eos
+ *
+ * @param[in ] bx    box for calculation
+ * @param[in ] temp  temperature
+ * @param[out] rho   density
+ * @param[out] rhoA  vertically-averaged density
+ * @param[out] rhoS  density perturbation
+ * @param[in ] Hz
+ * @param[in ] z_w
+ * @param[in ] h
+ * @param[in ] nrhs
+ * @param[in ] N
+ */
+
 void
-ROMSX::rho_eos (const Box& phi_bx,
+ROMSX::rho_eos (const Box& bx,
                 Array4<Real> temp , Array4<Real> salt,
                 Array4<Real> rho,
                 Array4<Real> rhoA,
                 Array4<Real> rhoS,
-                Array4<Real> pden,
                 Array4<Real> Hz,
                 Array4<Real> z_w,
                 Array4<Real> h,
                 const int nrhs,
                 const int N)
 {
-    auto phi_bxD=phi_bx;
-    phi_bxD.makeSlab(2,0);
+    auto bxD=bx;
+    bxD.makeSlab(2,0);
     //hardcode these for now instead of reading them from inputs
     Real T0=14.0;
     Real S0=35.0;
@@ -35,7 +49,7 @@ ROMSX::rho_eos (const Box& phi_bx,
 //  equation of state.
 //-----------------------------------------------------------------------
 //
-    amrex::ParallelFor(phi_bx,
+    amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         rho(i,j,k)=R0-
@@ -43,7 +57,7 @@ ROMSX::rho_eos (const Box& phi_bx,
         rho(i,j,k)=rho(i,j,k)+
             R0*Scoef*(salt(i,j,k,nrhs)-S0);
         rho(i,j,k)=rho(i,j,k)-1000.0_rt;
-        pden(i,j,k)=rho(i,j,k);
+//        pden(i,j,k)=rho(i,j,k);
     });
 
 //
@@ -52,7 +66,7 @@ ROMSX::rho_eos (const Box& phi_bx,
 //  used (rhoS) in barotropic pressure gradient.
 //-----------------------------------------------------------------------
 //
-    amrex::ParallelFor(phi_bxD,
+    amrex::ParallelFor(bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         //printf("%d %d  %15.15g Hzstart\n", i,j, Hz(i,j,N));
@@ -68,9 +82,9 @@ ROMSX::rho_eos (const Box& phi_bx,
         //printf("%d %d  %15.15g %15.15g %15.15g %15.15g %15.15g cff1 rhoN rhoA rhoS Hz rhoeos\n",
         //        i,j, cff1, rho(i,j,N), rhoA(i,j,0), rhoS(i,j,0), Hz(i,j,N));
     });
-    AMREX_ASSERT(phi_bx.smallEnd(2) == 0 &&
-                 phi_bx.bigEnd(2) == N);
-    amrex::ParallelFor(phi_bxD,
+    AMREX_ASSERT(bx.smallEnd(2) == 0 &&
+                 bx.bigEnd(2) == N);
+    amrex::ParallelFor(bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
       for (int k = 1; k <= N; ++k) {
@@ -80,7 +94,7 @@ ROMSX::rho_eos (const Box& phi_bx,
         //printf("%d %d %d  %15.15g %15.15g %15.15g %15.15g   cff1 rhoA rhoS Hz rhoeos\n", i,j,k, cff1, rhoA(i,j,0), rhoS(i,j,0), Hz(i,j,N-k));
       }
     });
-    amrex::ParallelFor(phi_bxD,
+    amrex::ParallelFor(bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff2=1.0_rt/rho0;

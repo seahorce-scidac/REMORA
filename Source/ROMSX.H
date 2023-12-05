@@ -516,7 +516,6 @@ public:
                   amrex::Array4<amrex::Real> rho,
                   amrex::Array4<amrex::Real> rhoA,
                   amrex::Array4<amrex::Real> rhoS,
-                  amrex::Array4<amrex::Real> pden,
                   amrex::Array4<amrex::Real> Hz,
                   amrex::Array4<amrex::Real> z_w,
                   amrex::Array4<amrex::Real> h,

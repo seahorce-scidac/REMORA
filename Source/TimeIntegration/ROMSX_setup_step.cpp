@@ -62,7 +62,6 @@ ROMSX::setup_step (int lev, Real dt_lev)
     MultiFab mf_uold(U_old, amrex::make_alias, 0, 1);
     MultiFab mf_vold(V_old, amrex::make_alias, 0, 1);
     MultiFab mf_w(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_pden(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
     std::unique_ptr<MultiFab>& mf_rhoS = vec_rhoS[lev];
     std::unique_ptr<MultiFab>& mf_rhoA = vec_rhoA[lev];
@@ -102,7 +101,6 @@ ROMSX::setup_step (int lev, Real dt_lev)
     mf_v.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_uold.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_vold.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));*/
-    mf_pden.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rho.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rhoS->setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rhoA->setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
@@ -162,7 +160,6 @@ ROMSX::setup_step (int lev, Real dt_lev)
         Array4<Real> const& z_w = (mf_z_w)->array(mfi);
         Array4<Real> const& uold = (mf_uold).array(mfi);
         Array4<Real> const& vold = (mf_vold).array(mfi);
-        Array4<Real> const& pden = (mf_pden).array(mfi);
         Array4<Real> const& rho = (mf_rho).array(mfi);
         Array4<Real> const& rhoA = (mf_rhoA)->array(mfi);
         Array4<Real> const& rhoS = (mf_rhoS)->array(mfi);
@@ -293,7 +290,7 @@ ROMSX::setup_step (int lev, Real dt_lev)
 
         set_massflux_3d(uold,Huon,on_u,vold,Hvom,om_v,Hz,nnew);
 
-        rho_eos(gbx2,tempold,saltold,rho,rhoA,rhoS,pden,Hz,z_w,h,nrhs,N);
+        rho_eos(gbx2,tempold,saltold,rho,rhoA,rhoS,Hz,z_w,h,nrhs,N);
     }
 
     if(solverChoice.use_prestep) {
