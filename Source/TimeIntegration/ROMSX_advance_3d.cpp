@@ -189,21 +189,9 @@ ROMSX::advance_3d (int lev,
 
         vert_mean_3d(gbx1,0,1,v,Hz,DV_avg1,DC,CF,pn,nnew,N);
 
-        update_massflux_3d(gbx2,1,0,u,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
+        update_massflux_3d(gbx2,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
 
-        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                ubar(i,j,k,0) = DC(i,j,-1)*DU_avg1(i,j,0);
-                ubar(i,j,k,1) = ubar(i,j,k,0);
-            });
-
-        update_massflux_3d(gbx2,0,1,v,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
-
-        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                vbar(i,j,k,0) = DC(i,j,-1)*DV_avg1(i,j,0);
-                vbar(i,j,k,1) = vbar(i,j,k,0);
-            });
+        update_massflux_3d(gbx2,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
     }
 
     mf_Huon->FillBoundary(geom[lev].periodicity());
