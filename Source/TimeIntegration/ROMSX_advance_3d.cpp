@@ -82,6 +82,9 @@ ROMSX::advance_3d (int lev,
         Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
         Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
 
+        Box xbx = mfi.nodaltilebox(0);
+        Box ybx = mfi.nodaltilebox(1);
+
         Box gbx2D = gbx2;
         gbx2D.makeSlab(2,0);
 
@@ -144,16 +147,18 @@ ROMSX::advance_3d (int lev,
           cff=0.25*dt_lev*23.0/12.0;
         }
 
-        amrex::ParallelFor(gbx2,
+        amrex::ParallelFor(xbx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                u(i,j,k) += tbxp2.contains(i-1,j,0) ? cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs) :
-                                                      cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * ru(i,j,k,nrhs) ;
-                v(i,j,k) += tbxp2.contains(i,j-1,0) ? cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs) :
-                                                      cff * (2.0 * pm(i,j,0)) * (2.0 * pn(i,j,0)) * rv(i,j,k,nrhs);
-                u(i,j,k) *= tbxp2.contains(i-1,j,0) ? 2.0 / (Hz(i-1,j,k) + Hz(i,j,k)) :  1.0 / (Hz(i,j,k));
-                v(i,j,k) *= tbxp2.contains(i,j-1,0) ? 2.0 / (Hz(i,j-1,k) + Hz(i,j,k)) : 1.0 / (Hz(i,j,k));
-            });
+        {
+            u(i,j,k) += cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs);
+            u(i,j,k) *= 2.0 / (Hz(i-1,j,k) + Hz(i,j,k));
+        });
+        amrex::ParallelFor(ybx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            v(i,j,k) += cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs);
+            v(i,j,k) *= 2.0 / (Hz(i,j-1,k) + Hz(i,j,k));
+        });
 
         {
         amrex::Gpu::synchronize();
@@ -168,26 +173,26 @@ ROMSX::advance_3d (int lev,
 #ifdef AMREX_USE_GPU
     Gpu::synchronize();
 #endif
-        vert_visc_3d(gbx1,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(xbx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
         // Reset to zero
         mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
         fab_CF.template setVal<RunOn::Device>(0.,gbx21);
 
-        vert_visc_3d(gbx1,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(ybx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
         }
 
         // Reset to zero
         mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
         fab_CF.template setVal<RunOn::Device>(0.,gbx21);
 
-        vert_mean_3d(gbx1,1,0,u,Hz,DU_avg1,DC,CF,pm,nnew,N);
+        vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,pm,nnew,N);
 
         // Reset to zero
         mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
         fab_CF.template setVal<RunOn::Device>(0.,gbx21);
 
-        vert_mean_3d(gbx1,0,1,v,Hz,DV_avg1,DC,CF,pn,nnew,N);
+        vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,pn,nnew,N);
 
         update_massflux_3d(gbx2,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
 
@@ -277,6 +282,7 @@ ROMSX::advance_3d (int lev,
         //------------------------------------------------------------------------
         //
         //Should really use gbx3uneven
+        //TODO: go over these boxes and compare to other spots where we do the same thing
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
 
@@ -404,7 +410,7 @@ ROMSX::advance_3d (int lev,
         fab_on_u.template setVal<RunOn::Device>(dx[1],makeSlab(tbxp2,2,0));
         fab_om_v.template setVal<RunOn::Device>(dx[0],makeSlab(tbxp2,2,0));
 
-        vert_visc_3d(gbx1,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
-        vert_visc_3d(gbx1,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(bx,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
     } // MFiter
 }
