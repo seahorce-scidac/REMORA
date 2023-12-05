@@ -455,7 +455,6 @@ public:
 
     void rhs_t_3d (const amrex::Box& bx,
                    const amrex::Box& gbx,
-                   amrex::Array4<amrex::Real> told,
                    amrex::Array4<amrex::Real> t,
                    amrex::Array4<amrex::Real> tempstore,
                    amrex::Array4<amrex::Real> Huon,

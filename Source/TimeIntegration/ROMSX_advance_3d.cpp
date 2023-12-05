@@ -325,8 +325,8 @@ ROMSX::advance_3d (int lev,
        // rhs_t_3d
        //-----------------------------------------------------------------------
        //
-       rhs_t_3d(bx, gbx, tempold, temp, tempstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
-       rhs_t_3d(bx, gbx, saltold, salt, saltstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
+       rhs_t_3d(bx, gbx, temp, tempstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
+       rhs_t_3d(bx, gbx, salt, saltstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
     }
 
     } // mfi

@@ -2,9 +2,31 @@
 
 using namespace amrex;
 
-//
-// rhs_3d
-//
+/**
+ * rhs_2d
+ *
+ * @param[in   ] bx
+ * @param[in   ] xbx
+ * @param[in   ] ybx
+ * @param[in   ] uold
+ * @param[in   ] vold
+ * @param[  out] ru
+ * @param[  out] rv
+ * @param[  out] rufrc
+ * @param[  out] rvfrc
+ * @param[  out] sustr
+ * @param[  out] svstr
+ * @param[  out] bustr
+ * @param[  out] bvstr
+ * @param[in   ] Huon
+ * @param[in   ] Hvom
+ * @param[in   ] on_u
+ * @param[in   ] om_v
+ * @param[in   ] W
+ * @param[inout] FC
+ * @param[in   ] nrhs
+ * @param[in   ] N
+ */
 
 void
 ROMSX::rhs_uv_3d (const Box&  bx, const Box& xbx,
@@ -30,10 +52,6 @@ ROMSX::rhs_uv_3d (const Box&  bx, const Box& xbx,
     BoxArray ba_gbx1 = intersect(BoxArray(tbxp1), gbx);
     AMREX_ASSERT((ba_gbx1.size() == 1));
     Box gbx1 = ba_gbx1[0];
-
-    BoxArray ba_gbx2 = intersect(BoxArray(tbxp2), gbx);
-    AMREX_ASSERT((ba_gbx2.size() == 1));
-    Box gbx2 = ba_gbx2[0];
 
     Box bxD = bx;
     bxD.makeSlab(2,0);
@@ -117,10 +135,70 @@ ROMSX::rhs_uv_3d (const Box&  bx, const Box& xbx,
           ru(i,j,k,nrhs) -= ( (UFx(i,j,k)-UFx(i-1,j,k)) + (UFe(i,j+1,k)-UFe(i  ,j,k)) );
     });
 
+    ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+          //-----------------------------------------------------------------------
+          //  Add in vertical advection.
+          //-----------------------------------------------------------------------
+          Real cff1=9.0/16.0;
+          Real cff2=1.0/16.0;
+
+          if (k>=1 && k<=N-2)
+          {
+                  FC(i,j,k)=( cff1*(uold(i  ,j,k  ,nrhs)+ uold(i,j,k+1,nrhs))
+                             -cff2*(uold(i  ,j,k-1,nrhs)+ uold(i,j,k+2,nrhs)) )*
+                                ( cff1*(   W(i  ,j,k)+ W(i-1,j,k))
+                                 -cff2*(   W(i+1,j,k)+ W(i-2,j,k)) );
+          }
+          else // this needs to be split up so that the following can be concurrent
+          {
+              FC(i,j,N)=0.0;
+
+              FC(i,j,N-1)=( cff1*(uold(i  ,j,N-1,nrhs)+ uold(i,j,N  ,nrhs))
+                           -cff2*(uold(i  ,j,N-2,nrhs)+ uold(i,j,N  ,nrhs)) )*
+                              ( cff1*(   W(i  ,j,N-1)+ W(i-1,j,N-1))
+                               -cff2*(   W(i+1,j,N-1)+ W(i-2,j,N-1)) );
+
+              FC(i,j,0)=( cff1*(uold(i  ,j,0,nrhs)+ uold(i,j,1,nrhs))
+                         -cff2*(uold(i  ,j,0,nrhs)+ uold(i,j,2,nrhs)) )*
+                            ( cff1*(   W(i  ,j,0)+ W(i-1,j,0))
+                             -cff2*(   W(i+1,j,0)+ W(i-2,j,0)) );
+
+              //              FC(i,0,-1)=0.0;
+          }
+    });
+
+    ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        Real cff = (k >= 1) ? FC(i,j,k)-FC(i,j,k-1) : FC(i,j,k);
+
+        ru(i,j,k,nrhs) -= cff;
+    });
+
+    Gpu::synchronize();
+
+    AMREX_ASSERT(xbx.smallEnd(2) == 0 && xbx.bigEnd(2) == N);
+    ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+    {
+       for (int k = 0; k <= N; ++k)
+       {
+          rufrc(i,j,0) += ru(i,j,k,nrhs);
+
+          Real cff  = om_u(i,j,0)*on_u(i,j,0);
+
+          Real cff1 = (k == N) ?  sustr(i,j,0)*cff : 0.0;
+          Real cff2 = (k == 0) ? -bustr(i,j,0)*cff : 0.0;
+
+          rufrc(i,j,0) += cff1+cff2;
+       }
+    });
+
     // *************************************************************
     // UPDATING V
     // *************************************************************
 
+    // Think of the cell-centered box as                              [ 0:nx-1, 0:ny-1] (0,0,0) cc
+    //
     // ybx is the y-face-centered box on which we update v (with rv)  [ 0:nx-1, 0:ny  ] (1,0,0)  y-faces
     //   to do so requires                                  VFe on    [ 0:nx-1,-1:ny  ] (1,1,0)  xy-nodes
     //      which requires                                    vold on [ 0:nx-1,-2:ny+2] (1,0,0)  y-faces
@@ -165,158 +243,54 @@ ROMSX::rhs_uv_3d (const Box&  bx, const Box& xbx,
           rv(i,j,k,nrhs) -= ( (VFx(i+1,j,k)-VFx(i,j,k)) + (VFe(i,j,k)-VFe(i,j-1,k)) );
     });
 
-        // *************************************************************
-        // DONE WITH V
-        // *************************************************************
+    ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+          Real cff1=9.0/16.0;
+          Real cff2=1.0/16.0;
+          if (k>=1 && k<=N-2)
+          {
+              FC(i,j,k)=( cff1*(vold(i,j,k  ,nrhs)+ vold(i,j,k+1,nrhs))
+                         -cff2*(vold(i,j,k-1,nrhs)+ vold(i,j,k+2,nrhs)) )*
+                            ( cff1*(W(i,j  ,k)+ W(i,j-1,k))
+                             -cff2*(W(i,j+1,k)+ W(i,j-2,k)) );
+          }
+          else // this needs to be split up so that the following can be concurrent
+          {
+              FC(i,j,N)=0.0;
+              FC(i,j,N-1)=( cff1*(vold(i,j,N-1,nrhs)+ vold(i,j,N  ,nrhs))
+                           -cff2*(vold(i,j,N-2,nrhs)+ vold(i,j,N  ,nrhs)) )*
+                              ( cff1*(W(i,j  ,N-1)+ W(i,j-1,N-1))
+                               -cff2*(W(i,j+1,N-1)+ W(i,j-2,N-1)) );
+              FC(i,j,0)=( cff1*(vold(i,j,0,nrhs)+ vold(i,j,1,nrhs))
+                             -cff2*(vold(i,j,0,nrhs)+ vold(i,j,2,nrhs)) )*
+                            ( cff1*(W(i,j  ,0)+ W(i,j-1,0))
+                             -cff2*(W(i,j+1,0)+ W(i,j-2,0)) );
+              //              FC(i,0,-1)=0.0;
+          }
+    }); Gpu::synchronize();
 
-        Gpu::synchronize();
+    ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        Real cff = (k >= 1) ? FC(i,j,k)-FC(i,j,k-1) : FC(i,j,k);
 
-        //This uses W being an extra grow cell sized
-        ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-              //-----------------------------------------------------------------------
-              //  Add in vertical advection.
-              //-----------------------------------------------------------------------
-              Real cff1=9.0/16.0;
-              Real cff2=1.0/16.0;
-              //              if(i>=0)
-              if (k>=1 && k<=N-2)
-              {
-                      FC(i,j,k)=( cff1*(uold(i  ,j,k  ,nrhs)+ uold(i,j,k+1,nrhs))
-                                 -cff2*(uold(i  ,j,k-1,nrhs)+ uold(i,j,k+2,nrhs)) )*
-                                    ( cff1*(   W(i  ,j,k)+ W(i-1,j,k))
-                                     -cff2*(   W(i+1,j,k)+ W(i-2,j,k)) );
-              }
-              else // this needs to be split up so that the following can be concurrent
-              {
-                  FC(i,j,N)=0.0;
+        rv(i,j,k,nrhs) -= cff;
+    });
 
-                  FC(i,j,N-1)=( cff1*(uold(i  ,j,N-1,nrhs)+ uold(i,j,N  ,nrhs))
-                               -cff2*(uold(i  ,j,N-2,nrhs)+ uold(i,j,N  ,nrhs)) )*
-                                  ( cff1*(   W(i  ,j,N-1)+ W(i-1,j,N-1))
-                                   -cff2*(   W(i+1,j,N-1)+ W(i-2,j,N-1)) );
+    Gpu::synchronize();
 
-                  FC(i,j,0)=( cff1*(uold(i  ,j,0,nrhs)+ uold(i,j,1,nrhs))
-                             -cff2*(uold(i  ,j,0,nrhs)+ uold(i,j,2,nrhs)) )*
-                                ( cff1*(   W(i  ,j,0)+ W(i-1,j,0))
-                                 -cff2*(   W(i+1,j,0)+ W(i-2,j,0)) );
+    AMREX_ASSERT(ybx.smallEnd(2) == 0 && ybx.bigEnd(2) == N);
+    ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+    {
+       for (int k = 0; k <= N; ++k)
+       {
+          rvfrc(i,j,0) += rv(i,j,k,nrhs);
 
-                  //              FC(i,0,-1)=0.0;
-              }
-        }); Gpu::synchronize();
-        //This uses W being an extra grow cell sized
-        ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-              Real cff;
-              if(k-1>=0) {
-                  cff=FC(i,j,k)-FC(i,j,k-1);
-              } else {
-                  cff=FC(i,j,k);
-              }
+          Real cff = om_v(i,j,0)*on_v(i,j,0);
 
-              ru(i,j,k,nrhs) -= cff;
-        }); Gpu::synchronize();
-        //This uses W being an extra grow cell sized
-        ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-              Real cff1=9.0/16.0;
-              Real cff2=1.0/16.0;
-              if (k>=1 && k<=N-2)
-              {
-                  FC(i,j,k)=( cff1*(vold(i,j,k  ,nrhs)+ vold(i,j,k+1,nrhs))
-                             -cff2*(vold(i,j,k-1,nrhs)+ vold(i,j,k+2,nrhs)) )*
-                                ( cff1*(W(i,j  ,k)+ W(i,j-1,k))
-                                 -cff2*(W(i,j+1,k)+ W(i,j-2,k)) );
-              }
-              else // this needs to be split up so that the following can be concurrent
-              {
-                  FC(i,j,N)=0.0;
-                  FC(i,j,N-1)=( cff1*(vold(i,j,N-1,nrhs)+ vold(i,j,N  ,nrhs))
-                               -cff2*(vold(i,j,N-2,nrhs)+ vold(i,j,N  ,nrhs)) )*
-                                  ( cff1*(W(i,j  ,N-1)+ W(i,j-1,N-1))
-                                   -cff2*(W(i,j+1,N-1)+ W(i,j-2,N-1)) );
-                  FC(i,j,0)=( cff1*(vold(i,j,0,nrhs)+ vold(i,j,1,nrhs))
-                                 -cff2*(vold(i,j,0,nrhs)+ vold(i,j,2,nrhs)) )*
-                                ( cff1*(W(i,j  ,0)+ W(i,j-1,0))
-                                 -cff2*(W(i,j+1,0)+ W(i,j-2,0)) );
-                  //              FC(i,0,-1)=0.0;
-              }
-        }); Gpu::synchronize();
-        //This uses W being an extra grow cell sized
-        ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real cff;
-            if(k-1>=0) {
-                cff=FC(i,j,k)-FC(i,j,k-1);
-            } else {
-                cff=FC(i,j,k);
-            }
-            rv(i,j,k,nrhs) -= cff;
-        });
+          Real cff1 = (k == N) ?  svstr(i,j,0)*cff : 0.0;
+          Real cff2 = (k == 0) ? -bvstr(i,j,0)*cff : 0.0;
 
-        Gpu::synchronize();
-
-        //This uses W being an extra grow cell sized
-        AMREX_ASSERT(gbx1.smallEnd(2) == 0 && gbx2.bigEnd(2) == N);
-        ParallelFor(gbx1D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-           for (int k = 0; k <= N; ++k) {
-              Real cff1=9.0/16.0;
-              Real cff2=1.0/16.0;
-              Real cff;
-              //Recursive summation:
-              rufrc(i,j,0) += ru(i,j,k,nrhs);
-              rvfrc(i,j,0) += rv(i,j,k,nrhs);
-// This toggles whether to upate forcing terms on slabbed box or not. Slabbing it changes plotfile to machine precision
-#if 1
-              //These forcing terms should possibly be updated on a slabbed box
-              cff=om_u(i,j,0)*on_u(i,j,0);
-              if(k==N) // this is consistent with update_vel_3d
-                  cff1=sustr(i,j,0)*cff;
-              else
-                  cff1=0.0;
-              if(k==0) //should this be k==-1?
-                  cff2=-bustr(i,j,0)*cff;
-              else
-                  cff2=0.0;
-              //if (verbose > 2) {
-              //  printf("%d %d %d  %15.15g %15.15g %15.15g  rufrc rhs3d\n", i,j,k, rufrc(i,j,0),cff1,cff2);
-              //}
-              rufrc(i,j,0) += cff1+cff2;
-
-              //These forcing terms should possibly be updated on a slabbed box
-              cff=om_v(i,j,0)*on_v(i,j,0);
-              if(k==N) // this is consistent with update_vel_3d
-                  cff1=svstr(i,j,0)*cff;
-              else
-                  cff1=0.0;
-              if(k==0) //should this be k==-1?
-                  cff2=-bvstr(i,j,0)*cff;
-              else
-                  cff2=0.0;
-              rvfrc(i,j,0) += cff1+cff2;
-           }
-#else
-           }
-        });
-        ParallelFor(gbx1D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
-        {
-              Real cff=om_u(i,j,0)*on_u(i,j,0);
-              Real cff1=sustr(i,j,0)*cff;
-              Real cff2=-bustr(i,j,0)*cff;
-
-              rufrc(i,j,0) += cff1+cff2;
-
-              cff=om_v(i,j,0)*on_v(i,j,0);
-              cff1=svstr(i,j,0)*cff;
-              cff2=-bvstr(i,j,0)*cff;
-
-              rvfrc(i,j,0)+=cff1+cff2;
-#endif
-        });
+          rvfrc(i,j,0) += cff1+cff2;
+       }
+    });
 }

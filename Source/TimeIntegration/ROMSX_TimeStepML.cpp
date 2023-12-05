@@ -42,7 +42,8 @@ ROMSX::timeStepML (Real time, int iteration)
         }
     }
 
-    for (int lev=0; lev <= finest_level;lev++) {
+    for (int lev=0; lev <= finest_level;lev++)
+    {
         // Update what we call "old" and "new" time
         t_old[lev] = t_new[lev];
         t_new[lev] += dt[lev];
@@ -59,20 +60,20 @@ ROMSX::timeStepML (Real time, int iteration)
         setup_step(lev, dt[lev]);
     }
 
-    for (int lev=0; lev <= finest_level; lev++) {
-        int iic = istep[lev];
-        int ntfirst = 0;
+    if (solverChoice.use_barotropic)
+    {
+        bool predictor_2d_step=true;
+        int nfast_counter=nfast + 1;
 
-        if(solverChoice.use_barotropic) {
-            bool predictor_2d_step=true;
-            int nfast_counter=nfast + 1;
+        for (int lev=0; lev <= finest_level; lev++)
+        {
             //Compute fast timestep from dt_lev and ratio
             Real dtfast_lev=dt[lev]/Real(fixed_ndtfast_ratio);
-            for(int my_iif = 0; my_iif < nfast_counter; my_iif++) {
+            for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
                 advance_2d_onestep(lev, dt[lev], dtfast_lev, my_iif, nfast_counter);
-            }
-        }
-    }
+            } // my_iif
+        } // lev
+    } // use_barotropic
 
     for (int lev=0; lev <= finest_level; lev++) {
         advance_3d_ml(lev, dt[lev]);
