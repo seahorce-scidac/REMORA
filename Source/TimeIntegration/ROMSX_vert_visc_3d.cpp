@@ -3,13 +3,13 @@
 using namespace amrex;
 
 //
-// prestep_uv_3d
+// vert_visc_3d
 //
 
 void
 ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
                      Array4<Real> phi,
-                     Array4<Real const> Hz, Array4<Real> Hzk,
+                     Array4<Real const> Hz, /*temp var */ Array4<Real> Hzk,
                      Array4<Real> oHz,
                      Array4<Real> AK, Array4<Real> Akv,
                      Array4<Real> BC, Array4<Real> DC,
@@ -25,13 +25,6 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
     ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Hzk(i,j,k)=0.5*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
-    });
-
-    //
-    // Define oHz = (1/Hz)
-    //
-    ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
         oHz(i,j,k) = 1.0/ Hzk(i,j,k);
     });
 
@@ -98,16 +91,16 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
     ParallelFor(makeSlab(phi_bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
        for(int k=0; k<=N; k++) {
-       //
-       //  Backward substitution.
-       //
-       DC(i,j,N)=0.0;
+           //
+           //  Backward substitution.
+           //
+           DC(i,j,N)=0.0;
 
-       if(N-k+1<=N && N>=k) //-N,1,-1 => kidx =N-k+1
-       {
-           if(N+1<k || N+2<k) amrex::Abort("-1 here");
-           DC(i,j,N-k) -= CF(i,j,N-k)*DC(i,j,N-k+1);
-       }
+           if(N-k+1<=N && N>=k) //-N,1,-1 => kidx =N-k+1
+           {
+               if(N+1<k || N+2<k) amrex::Abort("-1 here");
+               DC(i,j,N-k) -= CF(i,j,N-k)*DC(i,j,N-k+1);
+           }
        }
     });
 

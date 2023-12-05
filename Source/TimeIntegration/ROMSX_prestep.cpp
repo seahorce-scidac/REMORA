@@ -2,6 +2,38 @@
 
 using namespace amrex;
 
+/**
+ * prestep
+ *
+ * @param[in   ] lev
+ * @param[in   ] mf_uold
+ * @param[in   ] mf_vold
+ * @param[inout] mf_u (looks like reset in update_vel <- prestep_uv_3d, so maybe just out
+ * @param[inout] mf_v maybe just out
+ * @param[inout] mf_ru
+ * @param[inout] mf_rv
+ * @param[in   ] mf_tempold
+ * @param[in   ] mf_saltold
+ * @param[inout] mf_temp  maybe just out
+ * @param[inout] mf_salt  maybe just out
+ * @param[out  ] mf_W
+ * @param[none ] mf_DC (temp)
+ * @param[in   ] mf_z_r
+ * @param[in   ] mf_z_w
+ * @param[in   ] mf_h
+ * @param[in   ] mf_sustr
+ * @param[in   ] mf_svstr
+ * @param[in   ] mf_bustr
+ * @param[in   ] mf_bvstr
+ * @param[in   ] iic
+ * @param[in   ] ntfirst
+ * @param[in   ] nnew
+ * @param[in   ] nstp
+ * @param[in   ] nrhs
+ * @param[in   ] N
+ * @param[in   ] dt_lev
+ */
+
 void
 ROMSX::prestep (int lev,
                 MultiFab& mf_uold, MultiFab& mf_vold,
@@ -10,15 +42,7 @@ ROMSX::prestep (int lev,
                 std::unique_ptr<MultiFab>& mf_rv,
                 MultiFab& mf_tempold, MultiFab& mf_saltold,
                 MultiFab& mf_temp, MultiFab& mf_salt,
-                std::unique_ptr<MultiFab>& /* mf_Hz */,
-                std::unique_ptr<MultiFab>& /* mf_Akv */,
-                std::unique_ptr<MultiFab>& /* mf_Akt */,
-                std::unique_ptr<MultiFab>& /* mf_Huon */,
-                std::unique_ptr<MultiFab>& /* mf_Hvom */,
                 MultiFab& mf_W, MultiFab& mf_DC,
-                /* MF mf_FC? */
-                std::unique_ptr<MultiFab>& /* mf_t3 */,
-                std::unique_ptr<MultiFab>& /* mf_s3 */,
                 std::unique_ptr<MultiFab>& mf_z_r,
                 std::unique_ptr<MultiFab>& mf_z_w,
                 std::unique_ptr<MultiFab>& mf_h,
@@ -112,8 +136,6 @@ ROMSX::prestep (int lev,
         tbxp2D.makeSlab(2,0);
 
         FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_pn(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_u(tbxp2D,1,amrex::The_Async_Arena());
@@ -200,7 +222,6 @@ ROMSX::prestep (int lev,
                           lambda, dt_lev);
 
        if (verbose > 2) {
-           amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
            amrex::PrintToFile("u").SetPrecision(18)<<FArrayBox(u)<<std::endl;
            amrex::PrintToFile("v").SetPrecision(18)<<FArrayBox(v)<<std::endl;
            amrex::PrintToFile("uold").SetPrecision(18)<<FArrayBox(uold)<<std::endl;
