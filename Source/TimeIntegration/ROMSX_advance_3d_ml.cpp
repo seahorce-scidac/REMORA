@@ -23,12 +23,6 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
 #else
     MultiFab mf_salt(S_new, amrex::make_alias, Temp_comp, 1);
 #endif
-    MultiFab mf_tempold(S_old, amrex::make_alias, Temp_comp, 1);
-#ifdef ROMSX_USE_SALINITY
-    MultiFab mf_saltold(S_old, amrex::make_alias, Salt_comp, 1);
-#else
-    MultiFab mf_saltold(S_old, amrex::make_alias, Temp_comp, 1);
-#endif
 
     const BoxArray&            ba = S_old.boxArray();
     const DistributionMapping& dm = S_old.DistributionMap();
@@ -42,7 +36,7 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
 
     const int ncomp = 1;
 
-    advance_3d(lev, mf_u, mf_v, mf_tempold, mf_saltold, mf_temp, mf_salt, vec_t3[lev], vec_s3[lev], vec_ru[lev], vec_rv[lev],
+    advance_3d(lev, mf_u, mf_v, mf_temp, mf_salt, vec_t3[lev], vec_s3[lev], vec_ru[lev], vec_rv[lev],
                vec_DU_avg1[lev], vec_DU_avg2[lev],
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
@@ -58,9 +52,6 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
 
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
-
-    mf_tempold.FillBoundary(geom[lev].periodicity());
-    mf_saltold.FillBoundary(geom[lev].periodicity());
 
     vec_t3[lev]->FillBoundary(geom[lev].periodicity());
     vec_s3[lev]->FillBoundary(geom[lev].periodicity());

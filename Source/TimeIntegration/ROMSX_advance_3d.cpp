@@ -9,7 +9,6 @@ using namespace amrex;
 void
 ROMSX::advance_3d (int lev,
                    MultiFab& mf_u , MultiFab& mf_v ,
-                   MultiFab& mf_tempold, MultiFab& mf_saltold,
                    MultiFab& mf_temp , MultiFab& mf_salt ,
                    std::unique_ptr<MultiFab>& mf_tempstore,
                    std::unique_ptr<MultiFab>& mf_saltstore,
@@ -77,7 +76,6 @@ ROMSX::advance_3d (int lev,
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
 
         Box bx = mfi.tilebox();
-        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
         Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
@@ -160,43 +158,44 @@ ROMSX::advance_3d (int lev,
             v(i,j,k) *= 2.0 / (Hz(i,j-1,k) + Hz(i,j,k));
         });
 
-        {
-        amrex::Gpu::synchronize();
-        amrex::Gpu::LaunchSafeGuard lsg(true);
-
         // NOTE: DC is only used as scratch in vert_visc_3d -- no need to pass or return a value
         // NOTE: may not actually need to set these to zero
 
+        // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
-        fab_CF.template setVal<RunOn::Device>(0.,gbx21);
+        fab_CF.template     setVal<RunOn::Device>(0.,gbx21);
 
-#ifdef AMREX_USE_GPU
-    Gpu::synchronize();
-#endif
         vert_visc_3d(xbx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
-        // Reset to zero
+        // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
-        fab_CF.template setVal<RunOn::Device>(0.,gbx21);
+        fab_CF.template     setVal<RunOn::Device>(0.,gbx21);
 
         vert_visc_3d(ybx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
-        }
 
-        // Reset to zero
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
-        fab_CF.template setVal<RunOn::Device>(0.,gbx21);
+        // Reset to zero on the box on which they'll be used
+        mf_DC[mfi].template setVal<RunOn::Device>(0,xbx);
+        fab_CF.template     setVal<RunOn::Device>(0.,xbx);
 
         vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,pm,nnew,N);
 
-        // Reset to zero
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
-        fab_CF.template setVal<RunOn::Device>(0.,gbx21);
+        // Reset to zero on the box on which they'll be used
+        mf_DC[mfi].template setVal<RunOn::Device>(0.,ybx);
+        fab_CF.template     setVal<RunOn::Device>(0.,ybx);
 
         vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,pn,nnew,N);
 
-        update_massflux_3d(gbx2,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,CF,nnew);
+        // Reset to zero on the box on which they'll be used
+        mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(xbx,IntVect(0,0,1)));
+        fab_FC.template     setVal<RunOn::Device>(0.,xbx);
 
-        update_massflux_3d(gbx2,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,CF,nnew);
+        update_massflux_3d(xbx,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,nnew);
+
+        // Reset to zero on the box on which they'll be used
+        mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(ybx,IntVect(0,0,1)));
+        fab_FC.template     setVal<RunOn::Device>(0.,ybx);
+
+        update_massflux_3d(ybx,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,nnew);
     }
 
     mf_Huon->FillBoundary(geom[lev].periodicity());
@@ -204,9 +203,6 @@ ROMSX::advance_3d (int lev,
 
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& tempold = (mf_tempold).array(mfi);
-        Array4<Real> const& saltold = (mf_saltold).array(mfi);
-
         Array4<Real> const& temp = (mf_temp).array(mfi);
         Array4<Real> const& salt = (mf_salt).array(mfi);
 

@@ -357,7 +357,6 @@ public:
     /** Advance the 3D variables */
     void advance_3d (int lev,
                      amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,
-                     amrex::MultiFab& mf_tempold  , amrex::MultiFab& mf_saltold ,
                      amrex::MultiFab& mf_temp  , amrex::MultiFab& mf_salt ,
                      std::unique_ptr<amrex::MultiFab>& mf_tempstore,
                      std::unique_ptr<amrex::MultiFab>& mf_saltstore,
@@ -582,7 +581,6 @@ public:
                              amrex::Array4<amrex::Real const> Dphi2,
                              amrex::Array4<amrex::Real> DC,
                              amrex::Array4<amrex::Real> FC,
-                             amrex::Array4<amrex::Real> CF,
                              const int nnew);
 
     void vert_mean_3d (const amrex::Box& bx,
