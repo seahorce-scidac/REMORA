@@ -162,19 +162,19 @@ ROMSX::advance_3d (int lev,
         // NOTE: may not actually need to set these to zero
 
         // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
-        fab_CF.template     setVal<RunOn::Device>(0.,gbx21);
+        mf_DC[mfi].template setVal<RunOn::Device>(0.,xbx);
+        fab_CF.template     setVal<RunOn::Device>(0.,xbx);
 
         vert_visc_3d(xbx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
         // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,gbx21);
-        fab_CF.template     setVal<RunOn::Device>(0.,gbx21);
+        mf_DC[mfi].template setVal<RunOn::Device>(0.,ybx);
+        fab_CF.template     setVal<RunOn::Device>(0.,ybx);
 
         vert_visc_3d(ybx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
         // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(0,xbx);
+        mf_DC[mfi].template setVal<RunOn::Device>(0.,xbx);
         fab_CF.template     setVal<RunOn::Device>(0.,xbx);
 
         vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,pm,nnew,N);
@@ -185,17 +185,30 @@ ROMSX::advance_3d (int lev,
 
         vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,pn,nnew,N);
 
+#if 0
         // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(xbx,IntVect(0,0,1)));
-        fab_FC.template     setVal<RunOn::Device>(0.,xbx);
+        fab_CF.template     setVal<RunOn::Device>(0.,grow(xbx,IntVect(0,0,1)));
 
         update_massflux_3d(xbx,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,nnew);
 
         // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(ybx,IntVect(0,0,1)));
-        fab_FC.template     setVal<RunOn::Device>(0.,ybx);
+        fab_CF.template     setVal<RunOn::Device>(0.,grow(ybx,IntVect(0,0,1)));
 
         update_massflux_3d(ybx,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,nnew);
+
+#else
+        // Reset to zero on the box on which they'll be used
+        fab_FC.template setVal<RunOn::Device>(0.,gbx2);
+        mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
+        update_massflux_3d(gbx2,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,nnew);
+
+        // Reset to zero on the box on which they'll be used
+        fab_FC.template     setVal<RunOn::Device>(0.,gbx2);
+        mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
+        update_massflux_3d(gbx2,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,nnew);
+#endif
     }
 
     mf_Huon->FillBoundary(geom[lev].periodicity());
