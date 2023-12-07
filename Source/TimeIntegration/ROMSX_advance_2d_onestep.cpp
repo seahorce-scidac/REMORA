@@ -30,7 +30,7 @@ void ROMSX::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int m
     //Corrector. Skip it on last fast step
     predictor_2d_step=false;
     if (my_iif < nfast_counter - 1) {
-        advance_2d(lev, mf_u, mf_v, vec_rhoA[lev], vec_rhoA[lev], vec_ru[lev], vec_rv[lev],
+        advance_2d(lev, mf_u, mf_v, vec_rhoS[lev], vec_rhoA[lev], vec_ru[lev], vec_rv[lev],
                vec_rufrc[lev], vec_rvfrc[lev],
                vec_Zt_avg1[lev],
                vec_DU_avg1[lev], vec_DU_avg2[lev],
