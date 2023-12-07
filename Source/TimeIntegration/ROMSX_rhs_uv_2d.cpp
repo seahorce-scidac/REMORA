@@ -6,21 +6,21 @@ using namespace amrex;
  * rhs_2d
  *
  * @param[in   ] bx
- * @param[in   ] uold
- * @param[in   ] vold
- * @param[  out] ru
- * @param[  out] rv
- * @param[in   ] Huon
- * @param[in   ] Hvom
- * @param[in   ] nrhs
+ * @param[in   ] ubar
+ * @param[in   ] vbar
+ * @param[  out] rhs_ubar
+ * @param[  out] rhs_vbar
+ * @param[in   ] DUon
+ * @param[in   ] DVom
+ * @param[in   ] krhs
  */
 
 void
 ROMSX::rhs_2d (const Box& bx,
-               Array4<Real> uold, Array4<Real> vold,
-               Array4<Real> ru  , Array4<Real> rv,
-               Array4<Real> Huon, Array4<Real> Hvom,
-               int nrhs)
+               Array4<Real> ubar, Array4<Real> vbar,
+               Array4<Real> rhs_ubar  , Array4<Real> rhs_vbar,
+               Array4<Real> DUon, Array4<Real> DVom,
+               int krhs)
 {
     //copy the tilebox
     Box gbx1 = bx;
@@ -81,23 +81,23 @@ ROMSX::rhs_2d (const Box& bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should not include grow cells
-        uxx(i,j,k)=uold(i-1,j,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i+1,j,k,nrhs);
+        uxx(i,j,k)=ubar(i-1,j,k,krhs)-2.0*ubar(i,j,k,krhs)+ubar(i+1,j,k,krhs);
 
         //neglecting terms about periodicity since testing only periodic for now
-        Huxx(i,j,k)=Huon(i-1,j,k)-2.0*Huon(i,j,k)+Huon(i+1,j,k);
+        Huxx(i,j,k)=DUon(i-1,j,k)-2.0*DUon(i,j,k)+DUon(i+1,j,k);
     });
     ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff=1.0/6.0;
-        Real cff1=uold(i  ,j,k,nrhs)+uold(i+1,j,k,nrhs);
+        Real cff1=ubar(i  ,j,k,krhs)+ubar(i+1,j,k,krhs);
 
         Real cff3=uxx(i,j,k)+uxx(i+1,j,k);
 
-        UFx(i,j,k)=0.25*(cff1-cff*cff3) * (Huon(i,j,k)+ Huon(i+1,j,k)-cff*(Huxx(i,j,k)+ Huxx(i+1,j,k)));
+        UFx(i,j,k)=0.25*(cff1-cff*cff3) * (DUon(i,j,k)+ DUon(i+1,j,k)-cff*(Huxx(i,j,k)+ Huxx(i+1,j,k)));
 
         //should not include grow cells
-        uee(i,j,k)=uold(i,j-1,k,nrhs)-2.0*uold(i,j,k,nrhs)+uold(i,j+1,k,nrhs);
+        uee(i,j,k)=ubar(i,j-1,k,krhs)-2.0*ubar(i,j,k,krhs)+ubar(i,j+1,k,krhs);
     });
 
     ParallelFor(gbx1,
@@ -105,36 +105,36 @@ ROMSX::rhs_2d (const Box& bx,
     {
         /////////////MIGHT NEED NEW LOOP HERE
         //neglecting terms about periodicity since testing only periodic for now
-        Hvxx(i,j,k)=Hvom(i-1,j,k)-2.0*Hvom(i,j,k)+Hvom(i+1,j,k);
+        Hvxx(i,j,k)=DVom(i-1,j,k)-2.0*DVom(i,j,k)+DVom(i+1,j,k);
     });
 
     amrex::ParallelFor(gbx1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
             Real cff=1.0/6.0;
-            Real cff1=uold(i,j  ,k,nrhs)+uold(i,j-1,k,nrhs);
-            Real cff2=Hvom(i,j,k)+Hvom(i-1,j,k);
+            Real cff1=ubar(i,j  ,k,krhs)+ubar(i,j-1,k,krhs);
+            Real cff2=DVom(i,j,k)+DVom(i-1,j,k);
             Real cff3=uee(i,j-1,k)+uee(i,j,k);
 
             UFe(i,j,k)=0.25*(cff1-cff3*cff)*
               (cff2-cff*(Hvxx(i  ,j,k)+Hvxx(i-1,j,k)));
 
-            vxx(i,j,k)=vold(i-1,j,k,nrhs)-2.0*vold(i,j,k,nrhs)+
-              vold(i+1,j,k,nrhs);
+            vxx(i,j,k)=vbar(i-1,j,k,krhs)-2.0*vbar(i,j,k,krhs)+
+              vbar(i+1,j,k,krhs);
             //neglecting terms about periodicity since testing only periodic for now
-            Huee(i,j,k)=Huon(i,j-1,k)-2.0*Huon(i,j,k)+Huon(i,j+1,k);
-            cff1=vold(i  ,j,k,nrhs)+vold(i-1,j,k,nrhs);
-            cff2=Huon(i,j,k)+Huon(i,j-1,k);
+            Huee(i,j,k)=DUon(i,j-1,k)-2.0*DUon(i,j,k)+DUon(i,j+1,k);
+            cff1=vbar(i  ,j,k,krhs)+vbar(i-1,j,k,krhs);
+            cff2=DUon(i,j,k)+DUon(i,j-1,k);
             auto vxx_im1 = (i == gbx1.smallEnd(0)) ? vxx(i-1,j,k) :
-                (vold(i-2,j,k,nrhs)-2.0*vold(i-1,j,k,nrhs)+vold(i,j,k,nrhs));
+                (vbar(i-2,j,k,krhs)-2.0*vbar(i-1,j,k,krhs)+vbar(i,j,k,krhs));
             cff3=vxx_im1+vxx(i,j,k);
 
             auto Huee_jm1 = (j == gbx1.smallEnd(1)) ? Huee(i,j-1,k) :
-                (Huon(i,j-2,k)-2.0*Huon(i,j-1,k)+Huon(i,j,k));
+                (DUon(i,j-2,k)-2.0*DUon(i,j-1,k)+DUon(i,j,k));
             VFx(i,j,k)=0.25*(cff1-cff3*cff)* (cff2-cff*(Huee(i,j,k)+ Huee_jm1));
-            vee(i,j,k)=vold(i,j-1,k,nrhs)-2.0*vold(i,j,k,nrhs)+
-              vold(i,j+1,k,nrhs);
-            Hvee(i,j,k)=Hvom(i,j-1,k)-2.0*Hvom(i,j,k)+Hvom(i,j+1,k);
+            vee(i,j,k)=vbar(i,j-1,k,krhs)-2.0*vbar(i,j,k,krhs)+
+              vbar(i,j+1,k,krhs);
+            Hvee(i,j,k)=DVom(i,j-1,k)-2.0*DVom(i,j,k)+DVom(i,j+1,k);
         });
 
         amrex::ParallelFor(gbx1,
@@ -142,10 +142,10 @@ ROMSX::rhs_2d (const Box& bx,
         {
             //neglecting terms about periodicity since testing only periodic for now
             Real cff=1.0/6.0;
-            Real cff1=vold(i,j  ,k,nrhs)+vold(i,j+1,k,nrhs);
+            Real cff1=vbar(i,j  ,k,krhs)+vbar(i,j+1,k,krhs);
             Real cff3=vee(i,j,k)+vee(i,j+1,k);
 
-            VFe(i,j,k) = 0.25 * (cff1-cff3*cff) * (Hvom(i,j  ,k)+ Hvom(i,j+1,k) -
+            VFe(i,j,k) = 0.25 * (cff1-cff3*cff) * (DVom(i,j  ,k)+ DVom(i,j+1,k) -
                                            cff  * (Hvee(i,j  ,k)+ Hvee(i,j+1,k)));
         });
 
@@ -159,13 +159,13 @@ ROMSX::rhs_2d (const Box& bx,
               Real cff2=UFe(i,j+1,k)-UFe(i  ,j,k);
               Real cff=cff1+cff2;
 
-              ru(i,j,k) -= cff;
+              rhs_ubar(i,j,k) -= cff;
 
               cff1=VFx(i+1,j,k)-VFx(i  ,j,k);
               cff2=VFe(i  ,j,k)-VFe(i,j-1,k);
               cff=cff1+cff2;
 
-              rv(i,j,k) -= cff;
+              rhs_vbar(i,j,k) -= cff;
         });
 
 }
