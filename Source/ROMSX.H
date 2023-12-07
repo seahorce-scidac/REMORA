@@ -470,7 +470,6 @@ public:
     void rhs_uv_3d (const amrex::Box& bx,
                     const amrex::Box& xbx,
                     const amrex::Box& ybx,
-                    const amrex::Box& gbx,
                     amrex::Array4<amrex::Real> uold,
                     amrex::Array4<amrex::Real> vold,
                     amrex::Array4<amrex::Real> ru,

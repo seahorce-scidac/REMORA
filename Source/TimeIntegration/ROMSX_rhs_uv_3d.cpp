@@ -30,7 +30,7 @@ using namespace amrex;
 
 void
 ROMSX::rhs_uv_3d (const Box&  bx, const Box& xbx,
-                  const Box& ybx, const Box& gbx,
+                  const Box& ybx,
                   Array4<Real> uold  , Array4<Real> vold,
                   Array4<Real> ru, Array4<Real> rv,
                   Array4<Real> rufrc, Array4<Real> rvfrc,
@@ -48,15 +48,6 @@ ROMSX::rhs_uv_3d (const Box&  bx, const Box& xbx,
     //make only gbx be grown to match multifabs
     tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
     tbxp2.grow(IntVect(NGROW,NGROW,0));
-
-    BoxArray ba_gbx1 = intersect(BoxArray(tbxp1), gbx);
-    AMREX_ASSERT((ba_gbx1.size() == 1));
-    Box gbx1 = ba_gbx1[0];
-
-    Box bxD = bx;
-    bxD.makeSlab(2,0);
-    Box gbx1D = gbx1;
-    gbx1D.makeSlab(2,0);
 
     //
     // Scratch space
