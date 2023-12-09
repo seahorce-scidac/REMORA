@@ -97,7 +97,10 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
     // We fillpatch here because some of the derived quantities require derivatives
     //     which require ghost cells to be filled
     for (int lev = 0; lev <= finest_level; ++lev) {
-        FillPatch(lev, t_new[lev], vars_new[lev]);
+        FillPatch(lev, t_new[lev], cons_new[lev], cons_new);
+        FillPatch(lev, t_new[lev], xvel_new[lev], xvel_new);
+        FillPatch(lev, t_new[lev], yvel_new[lev], yvel_new);
+        FillPatch(lev, t_new[lev], zvel_new[lev], zvel_new);
     }
 
     if (ncomp_mf == 0)
@@ -115,7 +118,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         AMREX_ALWAYS_ASSERT(cons_names.size() == Cons::NumVars);
         for (int i = 0; i < Cons::NumVars; ++i) {
             if (containerHasElement(plot_var_names, cons_names[i])) {
-              MultiFab::Copy(mf[lev],vars_new[lev][Vars::cons],i,mf_comp,1,ngrow_vars);
+              MultiFab::Copy(mf[lev],*cons_new[lev],i,mf_comp,1,ngrow_vars);
                 mf_comp++;
             }
         }
@@ -126,7 +129,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             containerHasElement(plot_var_names, "z_velocity")) {
             amrex::Print()<<"For now, print faces as if they are at cell centers"<<std::endl;
             //            average_face_to_cellcenter(mf[lev],mf_comp,
-            //                Array<const MultiFab*,3>{&vars_new[lev][Vars::xvel],&vars_new[lev][Vars::yvel],&vars_new[lev][Vars::zvel]});
+            //                Array<const MultiFab*,3>{&xvel_new[lev],&yvel_new[lev],&zvel_new[lev]});
             //
             // Convert the map-factor-scaled-velocities back to velocities
             //
@@ -135,9 +138,9 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             {
                 const Box& bx = mfi.growntilebox();
                 const Array4<Real> vel_arr = dmf.array(mfi);
-                const Array4<const Real> velx_arr = vars_new[lev][Vars::xvel].array(mfi);
-                const Array4<const Real> vely_arr = vars_new[lev][Vars::yvel].array(mfi);
-                const Array4<const Real> velz_arr = vars_new[lev][Vars::zvel].array(mfi);
+                const Array4<const Real> velx_arr = xvel_new[lev]->const_array(mfi);
+                const Array4<const Real> vely_arr = yvel_new[lev]->const_array(mfi);
+                const Array4<const Real> velz_arr = zvel_new[lev]->const_array(mfi);
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     vel_arr(i,j,k,0) = velx_arr(i,j,k);
@@ -160,7 +163,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
                 {
                     const Box& bx = mfi.tilebox();
                     auto& dfab = dmf[mfi];
-                    auto& sfab = vars_new[lev][Vars::cons][mfi];
+                    auto& sfab = (*cons_new[lev])[mfi];
                     der_function(bx, dfab, 0, 1, sfab, Geom(lev), t_new[0], nullptr, lev);
                 }
 

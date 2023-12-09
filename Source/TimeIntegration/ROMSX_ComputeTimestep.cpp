@@ -48,9 +48,7 @@ ROMSX::estTimeStep(int level) const
   MultiFab ccvel(grids[level],dmap[level],3,0);
 
   average_face_to_cellcenter(ccvel,0,
-      Array<const MultiFab*,3>{&vars_new[level][Vars::xvel],
-                               &vars_new[level][Vars::yvel],
-                               &vars_new[level][Vars::zvel]});
+      Array<const MultiFab*,3>{xvel_new[level], yvel_new[level], zvel_new[level]});
 
    Real estdt_lowM_inv = amrex::ReduceMax(ccvel, 0,
        [=] AMREX_GPU_HOST_DEVICE (Box const& b,

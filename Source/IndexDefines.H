@@ -66,19 +66,6 @@ namespace RHSVar {
     };
 }
 
-namespace Vars {
-    enum {
-        cons = 0,
-        xvel,
-        yvel,
-        zvel,
-        NumTypes,
-        xmom,
-        ymom,
-        zmom
-    };
-}
-
 namespace Cons {
     enum {
         Rho = 0,

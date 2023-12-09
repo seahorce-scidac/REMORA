@@ -8,7 +8,7 @@ using namespace amrex;
 // mf is the multifab to be filled
 // icomp is the index into the MultiFab -- if cell-centered this can be any value
 //       from 0 to NVAR-1, if face-centered this must be 0
-// ncomp is the number of components -- if cell-centered (var_idx = 0) this can be any value
+// ncomp is the number of components -- if cell-centered this can be any value
 //       from 1 to NVAR as long as icomp+ncomp <= NVAR-1.  If face-centered this
 //       must be 1
 // nghost is how many ghost cells to be filled
@@ -17,7 +17,7 @@ using namespace amrex;
 //     so this follows the BCVars enum
 //
 void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect const& nghost,
-                                 Real time, int bccomp)
+                                   Real time, int bccomp)
 {
     if (m_geom.isAllPeriodic()) return;
 
@@ -53,30 +53,34 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
                 //! if there are cells not in the valid + periodic grown box
                 //! we need to fill them here
                 //!
-                if (!gdomain.contains(bx) || (m_var_idx == Vars::zvel))
+                if (!gdomain.contains(bx) || (mf[0].box().ixType() == IndexType(IntVect(0,0,1))) )
                 {
-                    if (m_var_idx == Vars::xvel) {
+                    if (mf[0].box().ixType() == IndexType(IntVect(1,0,0)))
+                    {
                         AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
                         impose_xvel_bcs(dest_arr,bx,domain,
                                         dxInv,time,bccomp);
 
-                    } else if (m_var_idx == Vars::yvel) {
+                    } else if (mf[0].box().ixType() == IndexType(IntVect(0,1,0)))
+                    {
                         AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
                         impose_yvel_bcs(dest_arr,bx,domain,
                                         dxInv,time,bccomp);
 
-                    } else if (m_var_idx == Vars::zvel) {
+                    } else if (mf[0].box().ixType() == IndexType(IntVect(0,0,1)))
+                    {
                         AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
                         impose_zvel_bcs(dest_arr,bx,domain,
                                         velx_arr,vely_arr,dx,dxInv,
                                         time,bccomp);
 
-                    } else if (m_var_idx == Vars::cons) {
+                    } else if (mf[0].box().ixType() == IndexType(IntVect(0,0,0)))
+                    {
                         AMREX_ALWAYS_ASSERT(icomp == 0 && icomp+ncomp <= NVAR);
                         impose_cons_bcs(dest_arr,bx,domain,
                                         dxInv,icomp,ncomp,time,bccomp);
                     } else {
-                        amrex::Abort("Dont know this var_idx in ROMSX_PhysBC");
+                        amrex::Abort("Dont know this box type in ROMSX_PhysBC");
                     }
 
                     // ****************************************************************************
@@ -102,26 +106,8 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
                         (bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
 #endif
 
-#ifdef ROMSX_USE_NETCDF
-                    const amrex::BCRec* bc_ptr = bcrs_d.data();
-                    if (m_init_type == "real") {
-                        int icomp_for_wrfbdy, ncomp_for_wrfbdy, bccomp_for_wrfbdy;
-                        if (m_var_idx == Vars::cons) {
-                            icomp_for_wrfbdy = Temp_comp;
-                            bccomp_for_wrfbdy = BCVars::Temp_bc_comp;
-                            ncomp_for_wrfbdy = 1; // (Because we are currently only filling U, V, W, T)
-                        } else {
-                            icomp_for_wrfbdy = icomp;
-                            bccomp_for_wrfbdy = bccomp;
-                            ncomp_for_wrfbdy = 1; // (Because we are currently only filling U, V, W, T)
-                        }
-                        fill_from_wrfbdy(m_lev, bx, dest_arr, icomp_for_wrfbdy, bccomp_for_wrfbdy, ncomp_for_wrfbdy,
-                                         domain, bc_ptr,
-                                         time, m_bdy_time_interval);
-                    }
-#endif
                         Gpu::streamSynchronize(); // because of bcrs_d
                 } // !gdomain.contains(bx)
             } // MFIter
         } // OpenMP
-    } // operator()
+} // operator()

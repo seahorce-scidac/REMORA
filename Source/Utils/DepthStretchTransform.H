@@ -11,7 +11,6 @@ using namespace amrex;
 void
 ROMSX::stretch_transform (int lev)
 {
-    auto& lev_new = vars_new[lev];
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_s_r = vec_s_r[lev];
@@ -21,7 +20,7 @@ ROMSX::stretch_transform (int lev)
     std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
     auto N_loop = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
-    for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
 
       Array4<Real> const& z_w = (mf_z_w)->array(mfi);
@@ -204,7 +203,7 @@ ROMSX::stretch_transform (int lev)
     vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
 
     // Define nodal z as average of z on w-faces
-    for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
       Array4<Real> const& z_w = (mf_z_w)->array(mfi);
       Array4<Real> const& z_phys_nd  = (mf_z_phys_nd)->array(mfi);

@@ -13,80 +13,60 @@ PhysBCFunctNoOp null_bc;
 // values in mf when it is passed in are *not* used.
 //
 void
-ROMSX::FillPatch (int lev, Real time, const Vector<MultiFab*>& mfs)
+ROMSX::FillPatch (int lev, Real time, MultiFab* mf_to_fill, Vector<MultiFab*>& mfs)
 {
     BL_PROFILE_VAR("ROMSX::FillPatch()",ROMSX_FillPatch);
     int bccomp;
     amrex::Interpolater* mapper = nullptr;
 
-    for (int var_idx = 0; var_idx < Vars::NumTypes; ++var_idx) {
-        MultiFab& mf = *mfs[var_idx];
-        const int icomp = 0;
-        const int ncomp = mf.nComp();
+    const int icomp = 0;
+    const int ncomp = mf_to_fill->nComp();
 
-        if (var_idx == Vars::cons)
-        {
-            bccomp = 0;
-            mapper = &cell_cons_interp;
-        }
-        else if (var_idx == Vars::xvel)
-        {
-            bccomp = BCVars::xvel_bc;
-            mapper = &face_linear_interp;
-        }
-        else if (var_idx == Vars::yvel)
-        {
-            bccomp = BCVars::yvel_bc;
-            mapper = &face_linear_interp;
-        }
-        else if (var_idx == Vars::zvel)
-        {
-            bccomp = BCVars::zvel_bc;
-            mapper = &face_linear_interp;
-        } else {
-          amrex::Abort("Dont recognize this variable type in ROMSX_Fillpatch");
-        }
-
-        if (lev == 0)
-        {
-            Vector<MultiFab*> fmf = {&vars_old[lev][var_idx], &vars_new[lev][var_idx]};
-            Vector<Real> ftime    = {t_old[lev], t_new[lev]};
-            amrex::FillPatchSingleLevel(mf, time, fmf, ftime, icomp, icomp, ncomp,
-                                        geom[lev], null_bc, bccomp);
-        }
-        else
-        {
-            Vector<MultiFab*> fmf = {&vars_old[lev][var_idx], &vars_new[lev][var_idx]};
-            Vector<Real> ftime    = {t_old[lev], t_new[lev]};
-            Vector<MultiFab*> cmf = {&vars_old[lev-1][var_idx], &vars_new[lev-1][var_idx]};
-            Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
-
-            amrex::FillPatchTwoLevels(mf, time, cmf, ctime, fmf, ftime,
-                                      0, icomp, ncomp, geom[lev-1], geom[lev],
-                                      null_bc, bccomp, null_bc, bccomp, refRatio(lev-1),
-                                      mapper, domain_bcs_type, bccomp);
-        } // lev > 0
-    } // var_idx
-
-    // ***************************************************************************
-    // Physical bc's at domain boundary
-    // ***************************************************************************
-    bool cons_only = false;
-    int icomp_cons = 0;
-    int ncomp_cons = mfs[Vars::cons]->nComp();
-
-    IntVect ngvect_cons = mfs[Vars::cons]->nGrowVect();
-    //tweaked physbcs
-    for(auto& mf : mfs)
+    Box mf_box(mf_to_fill->boxArray()[0]);
+    if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
     {
-        amrex::Abort("Need to initialize physbcs");
-    (*physbcs[lev])(*mf,icomp_cons,ncomp_cons,ngvect_cons,time,cons_only);
+        bccomp = 0;
+        mapper = &cell_cons_interp;
     }
-    /*
-#ifdef ROMSX_USE_NETCDF
-    if (init_type == "real") amrex::Abort("This init type is not supported");//fill_from_wrfbdy(mfs,time);
-#endif
-    */
+    else if (mf_box.ixType() == IndexType(IntVect(1,0,0)))
+    {
+        bccomp = BCVars::xvel_bc;
+        mapper = &face_linear_interp;
+    }
+    else if (mf_box.ixType() == IndexType(IntVect(0,1,0)))
+    {
+        bccomp = BCVars::yvel_bc;
+        mapper = &face_linear_interp;
+    }
+    else if (mf_box.ixType() == IndexType(IntVect(0,0,1)))
+    {
+        bccomp = BCVars::zvel_bc;
+        mapper = &face_linear_interp;
+    }
+    else
+    {
+        amrex::Abort("Dont recognize this box type in ROMSX_FillPatch");
+    }
+
+    if (lev == 0)
+    {
+        Vector<MultiFab*> fmf = {mfs[lev], mfs[lev]};
+        Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+        amrex::FillPatchSingleLevel(*mf_to_fill, time, fmf, ftime, icomp, icomp, ncomp,
+                                    geom[lev], null_bc, bccomp);
+    }
+    else
+    {
+        Vector<MultiFab*> fmf = {mfs[lev], mfs[lev]};
+        Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+        Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
+        Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
+
+        amrex::FillPatchTwoLevels(*mf_to_fill, time, cmf, ctime, fmf, ftime,
+                                  0, icomp, ncomp, geom[lev-1], geom[lev],
+                                  null_bc, bccomp, null_bc, bccomp, refRatio(lev-1),
+                                  mapper, domain_bcs_type, bccomp);
+    } // lev > 0
 }
 
 // utility to copy in data from old/new data into a struct that holds data for FillPatching
@@ -96,6 +76,8 @@ ROMSX::GetDataAtTime (int lev, Real time)
     BL_PROFILE_VAR("GetDataAtTime()",GetDataAtTime);
     TimeInterpolatedData data;
 
+// HACK HACK HACK
+#if 0
     const Real teps = (t_new[lev] - t_old[lev]) * 1.e-3;
 
     if (time > t_new[lev] - teps && time < t_new[lev] + teps)
@@ -142,198 +124,137 @@ ROMSX::GetDataAtTime (int lev, Real time)
         data.get_var(Vars::zvel).FillBoundary(geom[lev].periodicity());
         data.get_var(Vars::cons).FillBoundary(geom[lev].periodicity());
     }
-
+#endif
     return data;
-}
-//
-// Fill valid and ghost data in the MultiFab "mf"
-// This version fills the MultiFab mf in valid regions with the "state data" at the given time;
-// values in mf when it is passed in are *not* used.
-//
-void
-ROMSX::FillPatch (int lev, Real time, Vector<MultiFab>& mfs)
-{
-    BL_PROFILE_VAR("ROMSX::FillPatch()",ROMSX_FillPatch);
-    int bccomp;
-    amrex::Interpolater* mapper = nullptr;
-
-    TimeInterpolatedData fdata = GetDataAtTime(lev, time);
-    Vector<Real> ftime         = {fdata.get_time()};
-
-    for (int var_idx = 0; var_idx < Vars::NumTypes; ++var_idx) {
-        MultiFab& mf = mfs[var_idx];
-        const int icomp = 0;
-        const int ncomp = mf.nComp();
-
-        if (var_idx == Vars::cons)
-        {
-            bccomp = 0;
-            mapper = &cell_cons_interp;
-        }
-        else if (var_idx == Vars::xvel)
-        {
-            bccomp = BCVars::xvel_bc;
-            mapper = &face_linear_interp;
-        }
-        else if (var_idx == Vars::yvel)
-        {
-            bccomp = BCVars::yvel_bc;
-            mapper = &face_linear_interp;
-        }
-        else if (var_idx == Vars::zvel)
-        {
-            bccomp = BCVars::zvel_bc;
-            mapper = &face_linear_interp;
-        } else {
-          amrex::Abort("Dont recognize this variable type in ROMSX_Fillpatch");
-        }
-
-        if (lev == 0)
-        {
-            Vector<MultiFab*> smf = {&fdata.get_var(var_idx)};
-            ROMSXPhysBCFunct physbc(lev,geom[lev],
-                                   domain_bcs_type,domain_bcs_type_d,
-                                   var_idx,fdata,m_bc_extdir_vals
-#ifdef ROMSX_USE_NETCDF
-                                  ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval
-#endif
-                                  );
-            amrex::FillPatchSingleLevel(mf, time, smf, ftime, 0, icomp, ncomp,
-                                        geom[lev], physbc, bccomp);
-        }
-        else
-        {
-            TimeInterpolatedData cdata = GetDataAtTime(lev-1, time);
-            Vector<Real> ctime = {cdata.get_time()};
-            Vector<MultiFab*> cmf = {&cdata.get_var(var_idx)};
-            Vector<MultiFab*> fmf = {&fdata.get_var(var_idx)};
-
-            ROMSXPhysBCFunct cphysbc(lev-1,geom[lev-1],
-                                   domain_bcs_type,domain_bcs_type_d,
-                                   var_idx,cdata,
-                                   m_bc_extdir_vals
-#ifdef ROMSX_USE_NETCDF
-                                  ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval
-#endif
-                                   );
-            ROMSXPhysBCFunct fphysbc(lev,geom[lev],
-                                   domain_bcs_type,domain_bcs_type_d,
-                                   var_idx,fdata,
-                                   m_bc_extdir_vals
-#ifdef ROMSX_USE_NETCDF
-                                  ,init_type,bdy_data_xlo,bdy_data_xhi,
-                                   bdy_data_ylo,bdy_data_yhi,bdy_time_interval
-#endif
-                                   );
-
-            amrex::FillPatchTwoLevels(mf, time, cmf, ctime, fmf, ftime,
-                                      0, icomp, ncomp, geom[lev-1], geom[lev],
-                                      cphysbc, bccomp, fphysbc, bccomp, refRatio(lev-1),
-                                      mapper, domain_bcs_type, bccomp);
-        } // lev > 0
-    } // var_idx
 }
 
 // Fill an entire multifab by interpolating from the coarser level -- this is used
 //     only when a new level of refinement is being created during a run (i.e not at initialization)
 //     This will never be used with static refinement.
 void
-ROMSX::FillCoarsePatch (int lev, Real time,
-                      MultiFab& mf, int icomp, int ncomp, int var_idx)
+ROMSX::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_crse)
 {
     BL_PROFILE_VAR("FillCoarsePatch()",FillCoarsePatch);
     AMREX_ASSERT(lev > 0);
 
     int bccomp = 0;
+    int  icomp = 0;
+    int  ncomp = 1;
     amrex::Interpolater* mapper = nullptr;
 
-    if (var_idx == Vars::cons)
+    Box box_mf = ((*mf_to_fill)[0]).box();
+    if (box_mf.ixType() == IndexType(IntVect(0,0,0)))
     {
         bccomp = 0;
         mapper = &cell_cons_interp;
+        ncomp = Cons::NumVars;
     }
-    else if (var_idx == Vars::xvel || var_idx == Vars::xmom)
+    else if (box_mf.ixType() == IndexType(IntVect(1,0,0)))
     {
-        bccomp = NVAR;
+        bccomp = BCVars::xvel_bc;
         mapper = &face_linear_interp;
     }
-    else if (var_idx == Vars::yvel || var_idx == Vars::ymom)
+    else if (box_mf.ixType() == IndexType(IntVect(0,1,0)))
     {
-        bccomp = NVAR+1;
+        bccomp = BCVars::yvel_bc;
         mapper = &face_linear_interp;
     }
-    else if (var_idx == Vars::zvel || var_idx == Vars::zmom)
+    else if (box_mf.ixType() == IndexType(IntVect(0,0,1)))
     {
-        bccomp = NVAR+2;
+        bccomp = BCVars::zvel_bc;
         mapper = &face_linear_interp;
+    } else {
+          amrex::Abort("Dont recognize this box type in ROMSX_FillPatch");
     }
 
+#if 0
     TimeInterpolatedData cdata = GetDataAtTime(lev-1, time);
     TimeInterpolatedData fdata = GetDataAtTime(lev  , time);
-    Vector<MultiFab*> cmf = {&cdata.get_var(var_idx)};
-    Vector<MultiFab*> fmf = {&fdata.get_var(var_idx)};
     Vector<Real> ctime = {cdata.get_time()};
-    Vector<Real> ftime = {fdata.get_time()};
+
+    Vector<MultiFab*> cmf = {mf_crse};
+    Vector<Real> ctime = {time};
 
     ROMSXPhysBCFunct cphysbc(lev-1,geom[lev-1],
-                           domain_bcs_type,domain_bcs_type_d,
-                           var_idx,cdata,
-                           m_bc_extdir_vals
+                             domain_bcs_type,domain_bcs_type_d,
+                             cdata,
+                             m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
-                          ,init_type,bdy_data_xlo,bdy_data_xhi,
-                           bdy_data_ylo,bdy_data_yhi,bdy_time_interval
+                            ,init_type,bdy_data_xlo,bdy_data_xhi,
+                             bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
-                           );
+                            );
     ROMSXPhysBCFunct fphysbc(lev,geom[lev],
-                           domain_bcs_type,domain_bcs_type_d,
-                           var_idx,fdata,
-                           m_bc_extdir_vals
+                             domain_bcs_type,domain_bcs_type_d,
+                             fdata,
+                             m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
-                          ,init_type,bdy_data_xlo,bdy_data_xhi,
-                           bdy_data_ylo,bdy_data_yhi,bdy_time_interval
+                            ,init_type,bdy_data_xlo,bdy_data_xhi,
+                             bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
-                           );
+                            );
+#endif
 
-    amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, ncomp, geom[lev-1], geom[lev],
-                                    cphysbc, 0, fphysbc, 0, refRatio(lev-1),
-                                    mapper, domain_bcs_type, bccomp);
+//  amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, ncomp, geom[lev-1], geom[lev],
+//                               cphysbc, 0, fphysbc, 0, refRatio(lev-1),
+//                               mapper, domain_bcs_type, bccomp);
+    amrex::InterpFromCoarseLevel(*mf_to_fill, time, mf_crse[lev-1], 0, icomp, ncomp, geom[lev-1], geom[lev],
+                                 null_bc, 0, null_bc, 0, refRatio(lev-1),
+                                 mapper, domain_bcs_type, bccomp);
 }
 
 void
-ROMSX::FillCoarsePatchAllVars (int lev, Real time, Vector<MultiFab>& vmf)
-{
-    for (int var_idx = 0; var_idx < vmf.size(); ++var_idx) {
-        FillCoarsePatch(lev, time, vmf[var_idx], 0, vmf[var_idx].nComp(), var_idx);
-    }
-}
-
-void
-ROMSX::FillPatchNoPhysBC (int lev, Real time, const Vector<MultiFab*>& mfs,
-                          MultiFab& mf, int icomp, int ncomp,
-                          MultiFab& crse_old, MultiFab& crse_new,
-                          MultiFab& fine_old, MultiFab& fine_new)
+ROMSX::FillPatchNoPhysBC (int lev, Real time, MultiFab& mf_to_fill,
+                          const Vector<MultiFab*>& mfs_to_use,
+                          int icomp, int ncomp)
 {
     BL_PROFILE_VAR("ROMSX::FillPatchNoPhysBC()",ROMSX_FillPatchNoPhysBC);
     int bccomp = 0;
     amrex::Interpolater* mapper = nullptr;
 
+    Box mf_box(mf_to_fill.boxArray()[0]);
+    if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
+    {
+        bccomp = 0;
+        mapper = &cell_cons_interp;
+    }
+    else if (mf_box.ixType() == IndexType(IntVect(1,0,0)))
+    {
+        bccomp = BCVars::xvel_bc;
+        mapper = &face_linear_interp;
+    }
+    else if (mf_box.ixType() == IndexType(IntVect(0,1,0)))
+    {
+        bccomp = BCVars::yvel_bc;
+        mapper = &face_linear_interp;
+    }
+    else if (mf_box.ixType() == IndexType(IntVect(0,0,1)))
+    {
+        bccomp = BCVars::zvel_bc;
+        mapper = &face_linear_interp;
+    } else {
+          amrex::Abort("Dont recognize this box type in ROMSX_FillPatchNoPhysBC");
+    }
+
     if (lev == 0)
     {
-        Vector<MultiFab*> fmf = {&fine_old, &fine_new};
-        Vector<Real> ftime    = {t_old[lev], t_new[lev]};
-        amrex::FillPatchSingleLevel(mf, time, fmf, ftime, icomp, icomp, ncomp,
-                                    geom[lev], null_bc, bccomp);
+        mf_to_fill.FillBoundary(geom[lev].periodicity());
+        // Vector<MultiFab*> fmf = {&fine_old, &fine_new};
+        // Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+        // amrex::FillPatchSingleLevel(*mf, time, fmf, ftime, icomp, icomp, ncomp,
+        //                             geom[lev], null_bc, bccomp);
     }
     else
     {
-        Vector<MultiFab*> fmf = {&fine_old, &fine_new};
-        Vector<Real> ftime    = {t_old[lev], t_new[lev]};
-        Vector<MultiFab*> cmf = {&crse_old, &crse_new};
-        Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
+        Vector<MultiFab*> fmf = {mfs_to_use[lev],mfs_to_use[lev]};
+        Vector<Real> ftime    = {time, time};
+        Vector<MultiFab*> cmf = {mfs_to_use[lev-1],mfs_to_use[lev-1]};
+        Vector<Real> ctime    = {time, time};
 
-        amrex::FillPatchTwoLevels(mf, time, cmf, ctime, fmf, ftime,
+        // At this point this is just a dummy since all boundaries are periodic
+        int bccomp = 0;
+
+        amrex::FillPatchTwoLevels(mf_to_fill, time, cmf, ctime, fmf, ftime,
                                   0, icomp, ncomp, geom[lev-1], geom[lev],
                                   null_bc, bccomp, null_bc, bccomp, refRatio(lev-1),
                                   mapper, domain_bcs_type, bccomp);

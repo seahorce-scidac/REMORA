@@ -98,13 +98,14 @@ ROMSX::ROMSX ()
     t_old.resize(nlevs_max, -1.e100);
     dt.resize(nlevs_max, 1.e100);
 
-    vars_new.resize(nlevs_max);
-    vars_old.resize(nlevs_max);
-
-    for (int lev = 0; lev < nlevs_max; ++lev) {
-        vars_new[lev].resize(Vars::NumTypes);
-        vars_old[lev].resize(Vars::NumTypes);
-    }
+    cons_new.resize(nlevs_max);
+    cons_old.resize(nlevs_max);
+    xvel_new.resize(nlevs_max);
+    xvel_old.resize(nlevs_max);
+    yvel_new.resize(nlevs_max);
+    yvel_old.resize(nlevs_max);
+    zvel_new.resize(nlevs_max);
+    zvel_old.resize(nlevs_max);
 
     advflux_reg.resize(nlevs_max);
 
@@ -227,7 +228,7 @@ ROMSX::post_timestep (int nstep, Real time, Real dt_lev0)
         for (int lev = finest_level-1; lev >= 0; lev--)
         {
             // This call refluxes from the lev/lev+1 interface onto lev
-            getAdvFluxReg(lev+1)->Reflux(vars_new[lev][Vars::cons], 0, 0, NVAR);
+            getAdvFluxReg(lev+1)->Reflux(*cons_new[lev], 0, 0, NVAR);
 
             // We need to do this before anything else because refluxing changes the
             // values of coarse cells underneath fine grids with the assumption they'll
@@ -328,19 +329,21 @@ ROMSX::InitData ()
     // Fill ghost cells/faces
     for (int lev = 0; lev <= finest_level; ++lev)
     {
-        auto& lev_new = vars_new[lev];
-        auto& lev_old = vars_old[lev];
+        FillPatch(lev, t_new[lev], cons_new[lev], cons_new);
+        FillPatch(lev, t_new[lev], xvel_new[lev], xvel_new);
+        FillPatch(lev, t_new[lev], yvel_new[lev], yvel_new);
+        FillPatch(lev, t_new[lev], zvel_new[lev], zvel_new);
 
-        FillPatch(lev, t_new[lev], lev_new);
-
+        //
         // Copy from new into old just in case
-        int ngs   = lev_new[Vars::cons].nGrow();
-        int ngvel = lev_new[Vars::xvel].nGrow();
-        MultiFab::Copy(lev_old[Vars::cons],lev_new[Vars::cons],0,0,NVAR,ngs);
-        MultiFab::Copy(lev_old[Vars::xvel],lev_new[Vars::xvel],0,0,1,ngvel);
-        MultiFab::Copy(lev_old[Vars::yvel],lev_new[Vars::yvel],0,0,1,ngvel);
-        MultiFab::Copy(lev_old[Vars::zvel],lev_new[Vars::zvel],0,0,1,IntVect(ngvel,ngvel,0));
-    }
+        //
+        int ngs   = cons_new[lev]->nGrow();
+        int ngvel = xvel_new[lev]->nGrow();
+        MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,NVAR,ngs);
+        MultiFab::Copy(*xvel_old[lev],*xvel_new[lev],0,0,1,ngvel);
+        MultiFab::Copy(*yvel_old[lev],*yvel_new[lev],0,0,1,ngvel);
+        MultiFab::Copy(*zvel_old[lev],*zvel_new[lev],0,0,1,IntVect(ngvel,ngvel,0));
+    } // lev
 }
 
 void
@@ -401,13 +404,10 @@ ROMSX::init_only(int lev, Real time)
     t_new[lev] = time;
     t_old[lev] = time - 1.e200;
 
-    auto& lev_new = vars_new[lev];
-
-    // Loop over grids at this level to initialize our grid data
-    lev_new[Vars::cons].setVal(0.0);
-    lev_new[Vars::xvel].setVal(0.0);
-    lev_new[Vars::yvel].setVal(0.0);
-    lev_new[Vars::zvel].setVal(0.0);
+    cons_new[lev]->setVal(0.0);
+    xvel_new[lev]->setVal(0.0);
+    yvel_new[lev]->setVal(0.0);
+    zvel_new[lev]->setVal(0.0);
 
     if (init_type == "custom") {
         init_custom(lev);
@@ -419,9 +419,9 @@ ROMSX::init_only(int lev, Real time)
 
     // Ensure that the face-based data are the same on both sides of a periodic domain.
     // The data associated with the lower grid ID is considered the correct value.
-    lev_new[Vars::xvel].OverrideSync(geom[lev].periodicity());
-    lev_new[Vars::yvel].OverrideSync(geom[lev].periodicity());
-    lev_new[Vars::zvel].OverrideSync(geom[lev].periodicity());
+    xvel_new[lev]->OverrideSync(geom[lev].periodicity());
+    yvel_new[lev]->OverrideSync(geom[lev].periodicity());
+    zvel_new[lev]->OverrideSync(geom[lev].periodicity());
 }
 
 // read in some parameters from inputs file
@@ -574,13 +574,19 @@ ROMSX::AverageDown ()
 void
 ROMSX::AverageDownTo (int crse_lev)
 {
-    for (int var_idx = 0; var_idx < Vars::NumTypes; ++var_idx) {
-        const BoxArray& ba(vars_new[crse_lev][var_idx].boxArray());
-        if (ba[0].type() == IntVect::TheZeroVector())
-            amrex::average_down(vars_new[crse_lev+1][var_idx], vars_new[crse_lev][var_idx],
-                                0, vars_new[crse_lev][var_idx].nComp(), refRatio(crse_lev));
-        else // We assume the arrays are face-centered if not cell-centered
-            amrex::average_down_faces(vars_new[crse_lev+1][var_idx], vars_new[crse_lev][var_idx],
-                                      refRatio(crse_lev),geom[crse_lev]);
-    }
+    average_down(*cons_new[crse_lev+1], *cons_new[crse_lev],
+                 0, cons_new[crse_lev]->nComp(), refRatio(crse_lev));
+
+    Array<MultiFab*,AMREX_SPACEDIM>  faces_crse;
+    Array<MultiFab*,AMREX_SPACEDIM>  faces_fine;
+    faces_crse[0] = xvel_new[crse_lev];
+    faces_crse[1] = yvel_new[crse_lev];
+    faces_crse[2] = zvel_new[crse_lev];
+
+    faces_fine[0] = xvel_new[crse_lev+1];
+    faces_fine[1] = yvel_new[crse_lev+1];
+    faces_fine[2] = zvel_new[crse_lev+1];
+
+    average_down_faces(GetArrOfConstPtrs(faces_fine), faces_crse,
+                       refRatio(crse_lev),geom[crse_lev]);
 }

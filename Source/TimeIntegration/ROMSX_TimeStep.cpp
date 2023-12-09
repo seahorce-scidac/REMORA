@@ -49,7 +49,10 @@ ROMSX::timeStep (int lev, Real time, int iteration)
     }
 
     // We must swap the pointers so the previous step's "new" is now this step's "old"
-    std::swap(vars_old[lev], vars_new[lev]);
+    std::swap(cons_old[lev], cons_new[lev]);
+    std::swap(xvel_old[lev], xvel_new[lev]);
+    std::swap(yvel_old[lev], yvel_new[lev]);
+    std::swap(zvel_old[lev], zvel_new[lev]);
 
     // Advance a single level for a single time step
     Advance(lev, time, dt[lev], iteration, nsubsteps[lev]);

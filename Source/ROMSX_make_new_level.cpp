@@ -18,21 +18,17 @@ void
 ROMSX::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
                                const DistributionMapping& dm)
 {
-    const auto& crse_new = vars_new[lev-1];
-    auto& lev_new = vars_new[lev];
-    auto& lev_old = vars_old[lev];
+    cons_new[lev]->define(ba, dm, Cons::NumVars, cons_new[lev-1]->nGrowVect());
+    cons_old[lev]->define(ba, dm, Cons::NumVars, cons_new[lev-1]->nGrowVect());
 
-    lev_new[Vars::cons].define(ba, dm, crse_new[Vars::cons].nComp(), crse_new[Vars::cons].nGrowVect());
-    lev_old[Vars::cons].define(ba, dm, crse_new[Vars::cons].nComp(), crse_new[Vars::cons].nGrowVect());
+    xvel_new[lev]->define(convert(ba, IntVect(1,0,0)), dm, 1, xvel_new[lev-1]->nGrowVect());
+    xvel_old[lev]->define(convert(ba, IntVect(1,0,0)), dm, 1, xvel_new[lev-1]->nGrowVect());
 
-    lev_new[Vars::xvel].define(convert(ba, IntVect(1,0,0)), dm, 1, crse_new[Vars::xvel].nGrowVect());
-    lev_old[Vars::xvel].define(convert(ba, IntVect(1,0,0)), dm, 1, crse_new[Vars::xvel].nGrowVect());
+    yvel_new[lev]->define(convert(ba, IntVect(0,1,0)), dm, 1, yvel_new[lev-1]->nGrowVect());
+    yvel_old[lev]->define(convert(ba, IntVect(0,1,0)), dm, 1, yvel_new[lev-1]->nGrowVect());
 
-    lev_new[Vars::yvel].define(convert(ba, IntVect(0,1,0)), dm, 1, crse_new[Vars::yvel].nGrowVect());
-    lev_old[Vars::yvel].define(convert(ba, IntVect(0,1,0)), dm, 1, crse_new[Vars::yvel].nGrowVect());
-
-    lev_new[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, crse_new[Vars::zvel].nGrowVect());
-    lev_old[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, crse_new[Vars::zvel].nGrowVect());
+    zvel_new[lev]->define(convert(ba, IntVect(0,0,1)), dm, 1, zvel_new[lev-1]->nGrowVect());
+    zvel_old[lev]->define(convert(ba, IntVect(0,0,1)), dm, 1, zvel_new[lev-1]->nGrowVect());
 
     resize_stuff(lev);
       init_stuff(lev, ba, dm);
@@ -40,7 +36,10 @@ ROMSX::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     t_new[lev] = time;
     t_old[lev] = time - 1.e200;
 
-    FillCoarsePatchAllVars(lev, time, vars_new[lev]);
+    FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1]);
+    FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
+    FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1]);
+    FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1]);
 }
 
 // Remake an existing level using provided BoxArray and DistributionMapping and
@@ -49,9 +48,10 @@ ROMSX::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 void
 ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMapping& dm)
 {
-    Vector<MultiFab> tmp_lev_new(Vars::NumTypes);
-    Vector<MultiFab> tmp_lev_old(Vars::NumTypes);
-#if NGROW==2
+    MultiFab* tmp_cons_new; MultiFab* tmp_xvel_new; MultiFab* tmp_yvel_new; MultiFab* tmp_zvel_new;
+    MultiFab* tmp_cons_old; MultiFab* tmp_xvel_old; MultiFab* tmp_yvel_old; MultiFab* tmp_zvel_old;
+
+#if (NGROW==2)
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+1;
 #else
@@ -59,26 +59,34 @@ ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMa
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
 #endif
 
-    tmp_lev_new[Vars::cons].define(ba, dm, Cons::NumVars, ngrow_state);
-    tmp_lev_old[Vars::cons].define(ba, dm, Cons::NumVars, ngrow_state);
+    tmp_cons_new->define(ba, dm, Cons::NumVars, ngrow_state);
+    tmp_cons_old->define(ba, dm, Cons::NumVars, ngrow_state);
 
-    tmp_lev_new[Vars::xvel].define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
-    tmp_lev_old[Vars::xvel].define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
+    tmp_xvel_new->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
+    tmp_xvel_old->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
 
-    tmp_lev_new[Vars::yvel].define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
-    tmp_lev_old[Vars::yvel].define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
+    tmp_yvel_new->define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
+    tmp_yvel_old->define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
 
-    tmp_lev_new[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
-    tmp_lev_old[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
+    tmp_zvel_new->define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
+    tmp_zvel_old->define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
-    // This will fill the temporary MultiFabs with data from vars_new
-    FillPatch(lev, time, tmp_lev_new);
-    FillPatch(lev, time, tmp_lev_old);
+    // This will fill the temporary MultiFabs with data from new
+    // HACK HACK HACK
+    // FillPatch(lev, time, tmp_cons_new);
+    // FillPatch(lev, time, tmp_cons_old);
 
-    for (int var_idx = 0; var_idx < Vars::NumTypes; ++var_idx) {
-        std::swap(tmp_lev_new[var_idx], vars_new[lev][var_idx]);
-        std::swap(tmp_lev_old[var_idx], vars_old[lev][var_idx]);
-    }
+    // FillPatch(lev, time, {tmp_xvel_new}); FillPatch(lev, time, {tmp_yvel_new}); FillPatch(lev, time, {tmp_zvel_new});
+    // FillPatch(lev, time, {tmp_xvel_old}); FillPatch(lev, time, {tmp_yvel_old}); FillPatch(lev, time, {tmp_zvel_old});
+
+    std::swap(tmp_cons_new, cons_new[lev]);
+    std::swap(tmp_cons_old, cons_old[lev]);
+    std::swap(tmp_xvel_new, xvel_new[lev]);
+    std::swap(tmp_xvel_old, xvel_old[lev]);
+    std::swap(tmp_yvel_new, yvel_new[lev]);
+    std::swap(tmp_yvel_old, yvel_old[lev]);
+    std::swap(tmp_zvel_new, zvel_new[lev]);
+    std::swap(tmp_zvel_old, zvel_old[lev]);
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200;
@@ -98,6 +106,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     SetBoxArray(lev, ba);
     SetDistributionMap(lev, dm);
 
+    amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+
     // The number of ghost cells for density must be 1 greater than that for velocity
     //     so that we can go back in forth between velocity and momentum on all faces
 #if NGROW==2
@@ -108,20 +118,17 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
 #endif
 
-    auto& lev_new = vars_new[lev];
-    auto& lev_old = vars_old[lev];
+    cons_old[lev] = new MultiFab(ba, dm, Cons::NumVars, ngrow_state);
+    cons_new[lev] = new MultiFab(ba, dm, Cons::NumVars, ngrow_state);
 
-    lev_new[Vars::cons].define(ba, dm, Cons::NumVars, ngrow_state);
-    lev_old[Vars::cons].define(ba, dm, Cons::NumVars, ngrow_state);
+    xvel_new[lev] = new MultiFab(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
+    xvel_old[lev] = new MultiFab(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
 
-    lev_new[Vars::xvel].define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
-    lev_old[Vars::xvel].define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
+    yvel_new[lev] = new MultiFab(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
+    yvel_old[lev] = new MultiFab(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
 
-    lev_new[Vars::yvel].define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
-    lev_old[Vars::yvel].define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
-
-    lev_new[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
-    lev_old[Vars::zvel].define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
+    zvel_new[lev] = new MultiFab(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
+    zvel_old[lev] = new MultiFab(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
     resize_stuff(lev);
       init_stuff(lev, ba, dm);
@@ -298,8 +305,6 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
 void
 ROMSX::ClearLevel (int lev)
 {
-    for (int var_idx = 0; var_idx < Vars::NumTypes; ++var_idx) {
-        vars_new[lev][var_idx].clear();
-        vars_old[lev][var_idx].clear();
-    }
+    delete cons_new[lev]; delete xvel_new[lev];  delete yvel_new[lev];  delete zvel_new[lev];
+    delete cons_old[lev]; delete xvel_old[lev];  delete yvel_old[lev];  delete zvel_old[lev];
 }

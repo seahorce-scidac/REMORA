@@ -36,7 +36,7 @@ public:
     ROMSXPhysBCFunct (const int lev,
                       const amrex::Geometry& geom, const amrex::Vector<amrex::BCRec>& domain_bcs_type,
                       const amrex::Gpu::DeviceVector<amrex::BCRec>& domain_bcs_type_d,
-                      const int& var_idx, TimeInterpolatedData& data,
+                      TimeInterpolatedData& data,
                       amrex::Array<amrex::Array<amrex::Real,AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NVAR> bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
                      ,const std::string& init_type,
@@ -49,7 +49,7 @@ public:
                     )
         : m_lev(lev), m_geom(geom), m_domain_bcs_type(domain_bcs_type),
           m_domain_bcs_type_d(domain_bcs_type_d),
-          m_var_idx(var_idx), m_data(data),
+          m_data(data),
           m_bc_extdir_vals(bc_extdir_vals)
 #ifdef ROMSX_USE_NETCDF
          ,m_init_type(init_type),
@@ -67,7 +67,7 @@ public:
     // mf is the multifab to be filled
     // icomp is the index into the MultiFab -- if cell-centered this can be any value
     //       from 0 to NVAR-1, if face-centered this must be 0
-    // ncomp is the number of components -- if cell-centered (var_idx = 0) this can be any value
+    // ncomp is the number of components -- if cell-centered this can be any value
     //       from 1 to NVAR as long as icomp+ncomp <= NVAR-1.  If face-centered this
     //       must be 1
     // nghost is how many ghost cells to be filled
@@ -117,7 +117,6 @@ private:
     amrex::Geometry      m_geom;
     amrex::Vector<amrex::BCRec>            m_domain_bcs_type;
     amrex::Gpu::DeviceVector<amrex::BCRec> m_domain_bcs_type_d;
-    int           m_var_idx;
     TimeInterpolatedData& m_data;
     amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NVAR> m_bc_extdir_vals;
 #ifdef ROMSX_USE_NETCDF

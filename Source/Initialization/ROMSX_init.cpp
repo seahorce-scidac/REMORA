@@ -71,19 +71,17 @@ ROMSX::init_from_wrfinput (int lev)
                            NC_PH_fab,NC_PHB_fab,NC_ALB_fab,NC_PB_fab);
     }
 
-    auto& lev_new = vars_new[lev];
-
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
     // INITIAL DATA common for "ideal" as well as "real" simulation
-    for ( MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(cons_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         // Define fabs for holding the initial data
-        FArrayBox &cons_fab = lev_new[Vars::cons][mfi];
-        FArrayBox &xvel_fab = lev_new[Vars::xvel][mfi];
-        FArrayBox &yvel_fab = lev_new[Vars::yvel][mfi];
-        FArrayBox &zvel_fab = lev_new[Vars::zvel][mfi];
+        FArrayBox &cons_fab = cons_new[lev][mfi];
+        FArrayBox &xvel_fab = xvel_new[lev][mfi];
+        FArrayBox &yvel_fab = yvel_new[lev][mfi];
+        FArrayBox &zvel_fab = zvel_new[lev][mfi];
 
         init_state_from_wrfinput(lev, cons_fab, xvel_fab, yvel_fab, zvel_fab,
                                  NC_xvel_fab, NC_yvel_fab, NC_zvel_fab,
@@ -199,7 +197,6 @@ ROMSX::init_msfs_from_wrfinput (int lev, FArrayBox& msfu_fab,
 void
 ROMSX::init_custom(int lev)
 {
-    auto& lev_new = vars_new[lev];
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
@@ -209,13 +206,13 @@ ROMSX::init_custom(int lev)
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(lev_new[Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box &bx = mfi.tilebox();
-        const auto &cons_arr = lev_new[Vars::cons].array(mfi);
-        const auto &xvel_arr = lev_new[Vars::xvel].array(mfi);
-        const auto &yvel_arr = lev_new[Vars::yvel].array(mfi);
-        const auto &zvel_arr = lev_new[Vars::zvel].array(mfi);
+        const auto &cons_arr = cons_new[lev]->array(mfi);
+        const auto &xvel_arr = xvel_new[lev]->array(mfi);
+        const auto &yvel_arr = yvel_new[lev]->array(mfi);
+        const auto &zvel_arr = zvel_new[lev]->array(mfi);
 
         Array4<const Real> const& z_w_arr = (mf_z_w)->array(mfi);
         Array4<const Real> const& z_r_arr = (mf_z_r)->array(mfi);
@@ -261,8 +258,8 @@ ROMSX::set_2darrays (int lev)
       });
     }
 
-    MultiFab& U_old = vars_new[lev][Vars::xvel];
-    MultiFab& V_old = vars_new[lev][Vars::yvel];
+    MultiFab* U_old = xvel_new[lev];
+    MultiFab* V_old = yvel_new[lev];
     std::unique_ptr<MultiFab>& mf_ubar = vec_ubar[lev];
     std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
@@ -270,14 +267,14 @@ ROMSX::set_2darrays (int lev)
     int kstp = 0;
     int knew = 0;
 
-    for ( MFIter mfi(vars_new[lev][Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
 
-        Array4<const Real> const& Hz       = (mf_Hz)->const_array(mfi);
-        Array4<const Real> const& u        = (U_old).const_array(mfi);
-        Array4<const Real> const& v        = (V_old).const_array(mfi);
+        Array4<const Real> const& Hz       = mf_Hz->const_array(mfi);
+        Array4<const Real> const& u        = U_old->const_array(mfi);
+        Array4<const Real> const& v        = V_old->const_array(mfi);
 
         Box ubx2 = mfi.nodaltilebox(0); ubx2.grow(IntVect(NGROW  ,NGROW  ,0)); // x-face-centered, grown by 2
         Box vbx2 = mfi.nodaltilebox(1); vbx2.grow(IntVect(NGROW  ,NGROW  ,0)); // y-face-centered, grown by 2

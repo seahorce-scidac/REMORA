@@ -5,8 +5,8 @@ using namespace amrex;
 // advance a single level one 2D step
 void ROMSX::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int my_iif, int nfast_counter)
 {
-    MultiFab& U_new = vars_new[lev][Vars::xvel];
-    MultiFab& V_new = vars_new[lev][Vars::yvel];
+    MultiFab& U_new = *xvel_new[lev];
+    MultiFab& V_new = *yvel_new[lev];
 
     const int ncomp = 1;
 
