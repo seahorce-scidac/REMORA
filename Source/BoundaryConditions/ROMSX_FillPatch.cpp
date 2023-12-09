@@ -67,6 +67,25 @@ ROMSX::FillPatch (int lev, Real time, MultiFab* mf_to_fill, Vector<MultiFab*>& m
                                   null_bc, bccomp, null_bc, bccomp, refRatio(lev-1),
                                   mapper, domain_bcs_type, bccomp);
     } // lev > 0
+
+    // Also enforce free-slip at top boundary (on xvel or yvel)
+    if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
+         (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
+    {
+        int khi = geom[lev].Domain().bigEnd(2);
+        for (MFIter mfi(*mf_to_fill); mfi.isValid(); ++mfi)
+        {
+            Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is
+            gbx.setSmall(2,khi+1);
+            if (gbx.ok()) {
+                Array4<Real> vel_arr = mf_to_fill->array(mfi);
+                ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    vel_arr(i,j,k) = vel_arr(i,j,khi);
+                });
+            }
+        }
+    }
 }
 
 // utility to copy in data from old/new data into a struct that holds data for FillPatching

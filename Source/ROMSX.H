@@ -180,10 +180,6 @@ public:
                                                 const std::string &mfPrefix) const;
 
 #ifdef ROMSX_USE_NETCDF
-    /** Write a timestep to 1D vertical column output for coupling */
-    void writeToNCColumnFile(const int lev,
-                             const std::string& colfile_name, const amrex::Real xloc, const amrex::Real yloc,
-                             const amrex::Real time);
 
     /** Read the netcdf wrfinput file once */
     void read_from_wrfinput(int lev, int idx,
@@ -758,10 +754,6 @@ private:
                          const std::string &name,
                          int coordinatorProc = amrex::ParallelDescriptor::IOProcessorNumber(),
                          int allow_empty_mf = 0);
-
-    //! Create 1D vertical column output for coupling
-    void createNCColumnFile(const int lev,
-                            const std::string& colfile_name, const amrex::Real xloc, const amrex::Real yloc);
 
     // Copy from the NC*fabs into the MultiFabs holding the boundary data
     void init_from_wrfbdy(amrex::Vector<amrex::FArrayBox*> x_vel_lateral,
