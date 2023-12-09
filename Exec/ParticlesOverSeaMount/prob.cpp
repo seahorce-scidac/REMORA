@@ -139,7 +139,6 @@ init_custom_prob(
         const Real z = z_r(i,j,k);
 
         state(i, j, k, Temp_comp) = 1.;
-        state(i, j, k, Rho_comp) = 1.;
 
         state(i,j,k,Temp_comp)=parms.T0+8.0*std::exp(z/50.0_rt);
 #ifdef ROMSX_USE_SALINITY
@@ -147,7 +146,7 @@ init_custom_prob(
 #endif
 
         // Set scalar = 0 everywhere
-        state(i, j, k, RhoScalar_comp) = parms.rho0;
+        state(i, j, k, Scalar_comp) = 0.0;
     });
 
   // Construct a box that is on x-faces

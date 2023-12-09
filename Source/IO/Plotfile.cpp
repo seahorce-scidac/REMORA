@@ -171,9 +171,6 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             }
         };
 
-        // Note: All derived variables must be computed in order of "derived_names" defined in ROMSX.H
-        calculate_derived("scalar",      derived::romsx_derscalar);
-
 #ifdef ROMSX_USE_PARTICLES
         if (containerHasElement(plot_var_names, "tracer_particle_count"))
         {

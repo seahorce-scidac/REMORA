@@ -890,14 +890,15 @@ private:
     amrex::Vector<std::string> plot_var_names_1;
     amrex::Vector<std::string> plot_var_names_2;
     const amrex::Vector<std::string> velocity_names {"x_velocity", "y_velocity", "z_velocity"};
-    const amrex::Vector<std::string> cons_names { "density", "temp", "rhoadv_0", "omega", "salt"};
+    const amrex::Vector<std::string>     cons_names {"temp", "scalar", "omega", "salt"};
 
     // Note that the order of variable names here must match the order in Derive.cpp
-    const amrex::Vector<std::string> derived_names {"scalar", "dpdx", "dpdy"
 #ifdef ROMSX_USE_PARTICLES
-                                                    ,"tracer_particle_count"
+    const amrex::Vector<std::string> derived_names {"dpdx", "dpdy" ,"tracer_particle_count"};
+#else
+    const amrex::Vector<std::string> derived_names {"dpdx", "dpdy"};
 #endif
-                                                   };
+
 
     // algorithm choices
     static SolverChoice solverChoice;

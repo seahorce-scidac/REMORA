@@ -161,11 +161,13 @@ ROMSX::init_state_from_wrfinput (int lev, FArrayBox& state_fab,
         // We first initialize all state_fab variables to zero
         state_fab.template setVal<RunOn::Device>(0.);
 
-        // This copies the density
-        state_fab.template copy<RunOn::Device>(NC_rho_fab[idx], 0, Rho_comp, 1);
-
-        // This copies (rho*theta)
+        // This copies temperature
         state_fab.template copy<RunOn::Device>(NC_temp_fab[idx], 0, Temp_comp, 1);
+
+#ifdef ROMSX_USE_SALINITY
+        // This copies salt
+        state_fab.template copy<RunOn::Device>(NC_temp_fab[idx], 0, Salt_comp, 1);
+#endif
     } // idx
 }
 

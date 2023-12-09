@@ -17,7 +17,6 @@ ROMSX::sum_integrated_quantities(Real time)
     int datprecision = 6;
 
     amrex::Real scalar = 0.0;
-    amrex::Real mass   = 0.0;
     amrex::Real kineng = 0.0;
 
     for (int lev = 0; lev <= finest_level; lev++)
@@ -35,18 +34,17 @@ ROMSX::sum_integrated_quantities(Real time)
             ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                 kineng_arr(i,j,k) = 0.5 * ( vel_arr(i,j,k,0)*vel_arr(i,j,k,0) + vel_arr(i,j,k,1)*vel_arr(i,j,k,1) +
-                                            vel_arr(i,j,k,2)*vel_arr(i,j,k,2) ) * cons_arr(i,j,k,Rho_comp);
+                                            vel_arr(i,j,k,2)*vel_arr(i,j,k,2) );
             });
         } // mfi
 
-        mass   += volWgtSumMF(lev,*cons_new[lev],Rho_comp      ,false,true);
-        scalar += volWgtSumMF(lev,*cons_new[lev],RhoScalar_comp,false,true);
-        kineng += volWgtSumMF(lev,kineng_mf                ,             0,false,true);
+        scalar += volWgtSumMF(lev,*cons_new[lev],Scalar_comp,false,true);
+        kineng += volWgtSumMF(lev,kineng_mf     ,             0,false,true);
     }
 
     if (verbose > 0) {
-        const int nfoo = 3;
-        amrex::Real foo[nfoo] = {mass,scalar,kineng};
+        const int nfoo = 2;
+        amrex::Real foo[nfoo] = {scalar,kineng};
 #ifdef AMREX_LAZY
         Lazy::QueueReduction([=]() mutable {
 #endif
@@ -55,12 +53,10 @@ ROMSX::sum_integrated_quantities(Real time)
 
           if (amrex::ParallelDescriptor::IOProcessor()) {
             int i = 0;
-            mass   = foo[i++];
             scalar = foo[i++];
             kineng = foo[i++];
 
             amrex::Print() << '\n';
-            amrex::Print() << "TIME= " << time << " MASS        = " << mass   << '\n';
             amrex::Print() << "TIME= " << time << " SCALAR      = " << scalar << '\n';
             amrex::Print() << "TIME= " << time << " KIN. ENG.   = " << kineng << '\n';
 
@@ -69,7 +65,6 @@ ROMSX::sum_integrated_quantities(Real time)
                 if (data_log1.good()) {
                     if (time == 0.0) {
                         data_log1 << std::setw(datwidth) << "          time";
-                        data_log1 << std::setw(datwidth) << "          mass";
                         data_log1 << std::setw(datwidth) << "        scalar";
                         data_log1 << std::setw(datwidth) << "        kineng";
                         data_log1 << std::endl;
@@ -77,8 +72,6 @@ ROMSX::sum_integrated_quantities(Real time)
 
                   // Write the quantities at this time
                   data_log1 << std::setw(datwidth) << time;
-                  data_log1 << std::setw(datwidth) << std::setprecision(datprecision)
-                            << mass;
                   data_log1 << std::setw(datwidth) << std::setprecision(datprecision)
                             << scalar;
                   data_log1 << std::setw(datwidth) << std::setprecision(datprecision)

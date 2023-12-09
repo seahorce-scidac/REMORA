@@ -20,30 +20,13 @@ ROMSX::ErrorEst (int level, TagBoxArray& tags, Real time, int /*ngrow*/)
     {
         std::unique_ptr<MultiFab> mf;
 
-        // This allows dynamic refinement based on the value of the density
-        if (ref_tags[j].Field() == "density")
+        // This allows dynamic refinement based on the value of the scalar
+        if (ref_tags[j].Field() == "scalar")
         {
             mf = std::make_unique<MultiFab>(grids[level], dmap[level], 1, 0);
-            MultiFab::Copy(*mf,*cons_new[level],Rho_comp,0,1,0);
-
-        // This allows dynamic refinement based on the value of the scalar/pressure/theta
-        } else if ( (ref_tags[j].Field() == "scalar"  ) )
-        {
-            mf = std::make_unique<MultiFab>(grids[level], dmap[level], 1, 0);
-            for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-            {
-                const Box& bx = mfi.tilebox();
-                auto& dfab = (*mf)[mfi];
-                auto& sfab = (*cons_new[level])[mfi];
-                if (ref_tags[j].Field() == "scalar") {
-                    derived::romsx_derscalar(bx, dfab, 0, 1, sfab, Geom(level), time, nullptr, level);
-                } else {
-                    Abort("Unrecognized field");
-                }
-            } // mfi
+            MultiFab::Copy(*mf,*cons_new[level],Scalar_comp,0,1,0);
         }
 
-        // This is sufficient for static refinement (where we don't need mf filled first)
         ref_tags[j](tags,mf.get(),clearval,tagval,time,level,geom[level]);
   }
 }
