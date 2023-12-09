@@ -109,26 +109,12 @@ ROMSX::advance_2d (int lev,
 
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
-        Array4<Real> const& rhoS = (mf_rhoS)->array(mfi);
-        Array4<Real> const& rhoA = (mf_rhoA)->array(mfi);
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
         Array4<Real> const& zeta = (mf_zeta)->array(mfi);
         Array4<Real> const& h = (mf_h)->array(mfi);
-        Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
-        Array4<Real> const& DU_avg1 = (mf_DU_avg1)->array(mfi);
-        Array4<Real> const& DU_avg2 = (mf_DU_avg2)->array(mfi);
-        Array4<Real> const& DV_avg1 = (mf_DV_avg1)->array(mfi);
-        Array4<Real> const& DV_avg2 = (mf_DV_avg2)->array(mfi);
         Array4<Real> const& ru = (mf_ru)->array(mfi);
         Array4<Real> const& rv = (mf_rv)->array(mfi);
-        Array4<Real> const& rufrc = (mf_rufrc)->array(mfi);
-        Array4<Real> const& rvfrc = (mf_rvfrc)->array(mfi);
-        Array4<Real> const& rubar = (mf_rubar)->array(mfi);
-        Array4<Real> const& rvbar = (mf_rvbar)->array(mfi);
-        Array4<Real> const& rzeta = (mf_rzeta)->array(mfi);
-        Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
-        Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();

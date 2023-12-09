@@ -217,10 +217,15 @@ public:
 
     std::string pp_prefix {"romsx"};
 
-    /** TODO Vector of containers for current step(?) variables */
-    amrex::Vector<amrex::Vector<amrex::MultiFab> > vars_new;
-    /** TODO Vector of containers for last step(?) variables */
-    amrex::Vector<amrex::Vector<amrex::MultiFab> > vars_old;
+    amrex::Vector<amrex::MultiFab*> cons_old;
+    amrex::Vector<amrex::MultiFab*> xvel_old;
+    amrex::Vector<amrex::MultiFab*> yvel_old;
+    amrex::Vector<amrex::MultiFab*> zvel_old;
+
+    amrex::Vector<amrex::MultiFab*> cons_new;
+    amrex::Vector<amrex::MultiFab*> xvel_new;
+    amrex::Vector<amrex::MultiFab*> yvel_new;
+    amrex::Vector<amrex::MultiFab*> zvel_new;
 
     // Program state data is represented by vectors of pointers to AMReX Multifabs.
     // There is one pointer per level
@@ -318,7 +323,7 @@ public:
     void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
 
     /** Set everything up for a step on a level */
-    void setup_step(int lev, amrex::Real dt_lev);
+    void setup_step(int lev, amrex::Real time, amrex::Real dt_lev);
 
     /** 3D advance on a single level */
     void advance_3d_ml (int lev, amrex::Real dt_lev);
@@ -683,30 +688,23 @@ private:
     /** compute a new multifab by copying in phi from valid region and filling ghost cells
      * works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
      */
-    void FillPatch (int lev, amrex::Real time, const amrex::Vector<amrex::MultiFab*>& mf);
+    // void FillPatch (int lev, amrex::Real time, const amrex::Vector<amrex::MultiFab*>& mf);
 
     /** compute a new multifab by copying in phi from valid region and filling ghost cells
      * works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
      */
     void FillPatch (int lev, amrex::Real time,
-                    amrex::Vector<amrex::MultiFab>& mf);
+                    amrex::MultiFab* mf_to_be_filled,
+                    amrex::Vector<amrex::MultiFab*>& mf);
 
     /** fill an entire multifab by interpolating from the coarser level
      * this comes into play when a new level of refinement appears
      */
-    void FillCoarsePatch (int lev, amrex::Real time,
-                          amrex::MultiFab& mf, int icomp, int ncomp, int var_idx);
+    void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine, amrex::MultiFab* mf_crse);
 
-    /** fill all multifabs (and all components) in a vector of multifabs corresponding to the
-     * grid variables defined in vars_old and vars_new just as FillCoarsePatch.
-     */
-    void FillCoarsePatchAllVars (int lev, amrex::Real time,
-                                 amrex::Vector<amrex::MultiFab>& vmf);
-
-     void FillPatchNoPhysBC (int lev, amrex::Real time, const amrex::Vector<amrex::MultiFab*>& mfs,
-                             amrex::MultiFab& mf, int icomp, int ncomp,
-                             amrex::MultiFab& crse_old, amrex::MultiFab& crse_new,
-                             amrex::MultiFab& fine_old, amrex::MultiFab& fine_new);
+     void FillPatchNoPhysBC (int lev, amrex::Real time, amrex::MultiFab& mf,
+                             const amrex::Vector<amrex::MultiFab*>& mfs,
+                             int icomp, int ncomp);
 
     /** utility to copy in data from old and/or new state into another multifab */
     TimeInterpolatedData GetDataAtTime (int lev, amrex::Real time);

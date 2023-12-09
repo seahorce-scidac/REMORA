@@ -103,11 +103,14 @@ ROMSX::writeToNCColumnFile(const int lev,
                               IntVect{iloc+1, jloc+1, kend});
 
   //  Need data in one grow cell for interpolation
-  FillPatch(lev, t_new[lev], vars_new[lev]);
+  FillPatch(lev, t_new[lev], cons_new[lev]);
+  FillPatch(lev, t_new[lev], xvel_new[lev]);
+  FillPatch(lev, t_new[lev], yvel_new[lev]);
+  FillPatch(lev, t_new[lev], zvel_new[lev]);
 
-  MultiFab& S_new = vars_new[lev][Vars::cons];
-  MultiFab& U_new = vars_new[lev][Vars::xvel];
-  MultiFab& V_new = vars_new[lev][Vars::yvel];
+  MultiFab& S_new = cons_new[lev];
+  MultiFab& U_new = xvel_new[lev];
+  MultiFab& V_new = yvel_new[lev];
 
   // No tiling - we're just interested in one location
   for ( MFIter mfi(S_new); mfi.isValid(); ++mfi){

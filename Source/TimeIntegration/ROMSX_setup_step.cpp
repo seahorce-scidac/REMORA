@@ -3,25 +3,26 @@
 using namespace amrex;
 
 // set up a time step for a single level
- void
-ROMSX::setup_step (int lev, Real dt_lev)
+void
+ROMSX::setup_step (int lev, Real time, Real dt_lev)
 {
     BL_PROFILE("ROMSX::setup_step()");
 
-    MultiFab& S_old = vars_old[lev][Vars::cons];
-    MultiFab& S_new = vars_new[lev][Vars::cons];
+    MultiFab& S_old = *cons_old[lev];
+    MultiFab& S_new = *cons_new[lev];
 
-    MultiFab& U_old = vars_old[lev][Vars::xvel];
-    MultiFab& V_old = vars_old[lev][Vars::yvel];
-    MultiFab& W_old = vars_old[lev][Vars::zvel];
+    MultiFab& U_old = *xvel_old[lev];
+    MultiFab& V_old = *yvel_old[lev];
+    MultiFab& W_old = *zvel_old[lev];
 
-    MultiFab& U_new = vars_new[lev][Vars::xvel];
-    MultiFab& V_new = vars_new[lev][Vars::yvel];
-    MultiFab& W_new = vars_new[lev][Vars::zvel];
+    MultiFab& U_new = *xvel_new[lev];
+    MultiFab& V_new = *yvel_new[lev];
+    MultiFab& W_new = *zvel_new[lev];
 
-    U_old.FillBoundary(geom[lev].periodicity());
-    V_old.FillBoundary(geom[lev].periodicity());
-    W_old.FillBoundary(geom[lev].periodicity());
+    FillPatchNoPhysBC(lev, time, S_old, {cons_old[lev]}, 0, cons_old[lev]->nComp());
+    FillPatchNoPhysBC(lev, time, U_old, {xvel_old[lev]}, 0, 1);
+    FillPatchNoPhysBC(lev, time, V_old, {yvel_old[lev]}, 0, 1);
+    FillPatchNoPhysBC(lev, time, W_old, {zvel_old[lev]}, 0, 1);
 
     //////////    //pre_step3d corrections to boundaries
 
@@ -47,10 +48,11 @@ ROMSX::setup_step (int lev, Real dt_lev)
     MultiFab mf_AK(ba,dm,1,IntVect(NGROW,NGROW,0)); //2d missing j coordinate
     MultiFab mf_DC(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
     MultiFab mf_Hzk(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
-    std::unique_ptr<MultiFab>& mf_Hz = vec_Hz[lev];
+
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_h = vec_hOfTheConfusingName[lev];
+
     //Consider passing these into the advance function or renaming relevant things
     /*
     MultiFab mf_u(ba,dm,1,IntVect(NGROW,NGROW,0));

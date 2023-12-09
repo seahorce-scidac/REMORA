@@ -25,12 +25,13 @@ ROMSX::sum_integrated_quantities(Real time)
         MultiFab kineng_mf(grids[lev], dmap[lev], 1, 0);
         MultiFab cc_vel_mf(grids[lev], dmap[lev], 3, 0);
         average_face_to_cellcenter(cc_vel_mf,0,
-            Array<const MultiFab*,3>{&vars_new[lev][Vars::xvel],&vars_new[lev][Vars::yvel],&vars_new[lev][Vars::zvel]});
-        for (MFIter mfi(vars_new[lev][Vars::cons], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]});
+
+        for (MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
             const Box& bx = mfi.tilebox();
             const Array4<      Real> kineng_arr = kineng_mf.array(mfi);
             const Array4<const Real>    vel_arr = cc_vel_mf.const_array(mfi);
-            const Array4<const Real>   cons_arr = vars_new[lev][Vars::cons].const_array(mfi);
+            const Array4<const Real>   cons_arr = cons_new[lev]->const_array(mfi);
             ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                 kineng_arr(i,j,k) = 0.5 * ( vel_arr(i,j,k,0)*vel_arr(i,j,k,0) + vel_arr(i,j,k,1)*vel_arr(i,j,k,1) +
@@ -38,8 +39,8 @@ ROMSX::sum_integrated_quantities(Real time)
             });
         } // mfi
 
-        mass   += volWgtSumMF(lev,vars_new[lev][Vars::cons],Rho_comp      ,false,true);
-        scalar += volWgtSumMF(lev,vars_new[lev][Vars::cons],RhoScalar_comp,false,true);
+        mass   += volWgtSumMF(lev,*cons_new[lev],Rho_comp      ,false,true);
+        scalar += volWgtSumMF(lev,*cons_new[lev],RhoScalar_comp,false,true);
         kineng += volWgtSumMF(lev,kineng_mf                ,             0,false,true);
     }
 
