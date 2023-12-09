@@ -48,9 +48,6 @@ ROMSX::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 void
 ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMapping& dm)
 {
-    MultiFab* tmp_cons_new; MultiFab* tmp_xvel_new; MultiFab* tmp_yvel_new; MultiFab* tmp_zvel_new;
-    MultiFab* tmp_cons_old; MultiFab* tmp_xvel_old; MultiFab* tmp_yvel_old; MultiFab* tmp_zvel_old;
-
 #if (NGROW==2)
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+1;
@@ -59,25 +56,28 @@ ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMa
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
 #endif
 
-    tmp_cons_new->define(ba, dm, Cons::NumVars, ngrow_state);
-    tmp_cons_old->define(ba, dm, Cons::NumVars, ngrow_state);
+    MultiFab* tmp_cons_new; tmp_cons_new->define(ba, dm, Cons::NumVars, ngrow_state);
+    MultiFab* tmp_cons_old; tmp_cons_old->define(ba, dm, Cons::NumVars, ngrow_state);
 
-    tmp_xvel_new->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
-    tmp_xvel_old->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
+    MultiFab* tmp_xvel_new; tmp_xvel_new->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
+    MultiFab* tmp_xvel_old; tmp_xvel_old->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
 
-    tmp_yvel_new->define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
-    tmp_yvel_old->define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
+    MultiFab* tmp_yvel_new; tmp_yvel_new->define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
+    MultiFab* tmp_yvel_old; tmp_yvel_old->define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
 
-    tmp_zvel_new->define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
-    tmp_zvel_old->define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
+    MultiFab* tmp_zvel_new; tmp_zvel_new->define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
+    MultiFab* tmp_zvel_old; tmp_zvel_old->define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
-    // This will fill the temporary MultiFabs with data from new
-    // HACK HACK HACK
-    // FillPatch(lev, time, tmp_cons_new);
-    // FillPatch(lev, time, tmp_cons_old);
+    // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
+    FillPatch(lev, time, tmp_cons_new, cons_new);
+    FillPatch(lev, time, tmp_xvel_new, xvel_new);
+    FillPatch(lev, time, tmp_yvel_new, yvel_new);
+    FillPatch(lev, time, tmp_zvel_new, zvel_new);
 
-    // FillPatch(lev, time, {tmp_xvel_new}); FillPatch(lev, time, {tmp_yvel_new}); FillPatch(lev, time, {tmp_zvel_new});
-    // FillPatch(lev, time, {tmp_xvel_old}); FillPatch(lev, time, {tmp_yvel_old}); FillPatch(lev, time, {tmp_zvel_old});
+    MultiFab::Copy(*tmp_cons_old,*tmp_cons_new,0,0,NVAR,tmp_cons_new[lev].nGrowVect());
+    MultiFab::Copy(*tmp_xvel_old,*tmp_xvel_new,0,0,   1,tmp_xvel_new[lev].nGrowVect());
+    MultiFab::Copy(*tmp_yvel_old,*tmp_yvel_new,0,0,   1,tmp_yvel_new[lev].nGrowVect());
+    MultiFab::Copy(*tmp_zvel_old,*tmp_zvel_new,0,0,   1,tmp_zvel_new[lev].nGrowVect());
 
     std::swap(tmp_cons_new, cons_new[lev]);
     std::swap(tmp_cons_old, cons_old[lev]);

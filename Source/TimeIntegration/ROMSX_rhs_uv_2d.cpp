@@ -3,9 +3,10 @@
 using namespace amrex;
 
 /**
- * rhs_2d
+ * rhs_uv_2d
  *
- * @param[in   ] bx
+ * @param[in   ] xbx Box for operations on x-velocity
+ * @param[in   ] ybx Box for operations on y-velocity
  * @param[in   ] ubar
  * @param[in   ] vbar
  * @param[  out] rhs_ubar
@@ -16,11 +17,11 @@ using namespace amrex;
  */
 
 void
-ROMSX::rhs_2d (const Box& bx, const Box& xbx, const Box& ybx,
-               Array4<Real> ubar, Array4<Real> vbar,
-               Array4<Real> rhs_ubar  , Array4<Real> rhs_vbar,
-               Array4<Real> DUon, Array4<Real> DVom,
-               int krhs)
+ROMSX::rhs_uv_2d (const Box& xbx, const Box& ybx,
+                  Array4<Real> ubar, Array4<Real> vbar,
+                  Array4<Real> rhs_ubar  , Array4<Real> rhs_vbar,
+                  Array4<Real> DUon, Array4<Real> DVom,
+                  int krhs)
 {
     //
     // Scratch space
@@ -93,7 +94,7 @@ ROMSX::rhs_2d (const Box& bx, const Box& xbx, const Box& ybx,
     //
     //  Add in horizontal advection.
     //
-    amrex::ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    amrex::ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
          Real cff1=UFx(i,j  ,0)-UFx(i-1,j,0);
          Real cff2=UFe(i,j+1,0)-UFe(i  ,j,0);
@@ -154,8 +155,7 @@ ROMSX::rhs_2d (const Box& bx, const Box& xbx, const Box& ybx,
                                            cff  * (Hvee_j+ Hvee_jp1));
     });
 
-    amrex::ParallelFor(ybx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int )
+    amrex::ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
         Real cff1=VFx(i+1,j,0)-VFx(i  ,j,0);
         Real cff2=VFe(i  ,j,0)-VFe(i,j-1,0);

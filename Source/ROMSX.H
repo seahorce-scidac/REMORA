@@ -180,10 +180,6 @@ public:
                                                 const std::string &mfPrefix) const;
 
 #ifdef ROMSX_USE_NETCDF
-    /** Write a timestep to 1D vertical column output for coupling */
-    void writeToNCColumnFile(const int lev,
-                             const std::string& colfile_name, const amrex::Real xloc, const amrex::Real yloc,
-                             const amrex::Real time);
 
     /** Read the netcdf wrfinput file once */
     void read_from_wrfinput(int lev, int idx,
@@ -472,8 +468,7 @@ public:
                    int nrhs, int nnew, int N, const amrex::Real dt_lev);
 
     /** Calculation of the RHS */
-    void rhs_uv_3d (const amrex::Box& bx,
-                    const amrex::Box& xbx,
+    void rhs_uv_3d (const amrex::Box& xbx,
                     const amrex::Box& ybx,
                     amrex::Array4<amrex::Real> uold,
                     amrex::Array4<amrex::Real> vold,
@@ -495,17 +490,15 @@ public:
                     amrex::Array4<amrex::Real> FC,
                     int nrhs, int N);
 
-    void rhs_2d (const amrex::Box& bx,
-                 const amrex::Box& xbx,
-                 const amrex::Box& ybx,
-                 amrex::Array4<amrex::Real> uold,
-                 amrex::Array4<amrex::Real> vold,
-                 amrex::Array4<amrex::Real> ru,
-                 amrex::Array4<amrex::Real> rv,
-                 amrex::Array4<amrex::Real> Huon,
-                 amrex::Array4<amrex::Real> Hvom,
-                 int nrhs);
-
+    void rhs_uv_2d (const amrex::Box& xbx,
+                    const amrex::Box& ybx,
+                    amrex::Array4<amrex::Real> uold,
+                    amrex::Array4<amrex::Real> vold,
+                    amrex::Array4<amrex::Real> ru,
+                    amrex::Array4<amrex::Real> rv,
+                    amrex::Array4<amrex::Real> Huon,
+                    amrex::Array4<amrex::Real> Hvom,
+                    int nrhs);
 
     void rho_eos (const amrex::Box& bx,
                   amrex::Array4<amrex::Real> temp,
@@ -658,6 +651,11 @@ public:
 
     void set_weights (int lev);
 
+    // Fill a new MultiFab by copying in phi from valid region and filling ghost cells
+    void FillPatch (int lev, amrex::Real time,
+                    amrex::MultiFab* mf_to_be_filled,
+                    amrex::Vector<amrex::MultiFab*>& mf);
+
 private:
 
     ///////////////////////////
@@ -687,26 +685,14 @@ private:
     /** more flexible version of AverageDown() that lets you average down across multiple levels */
     void AverageDownTo (int crse_lev);
 
-    /** compute a new multifab by copying in phi from valid region and filling ghost cells
-     * works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
-     */
-    // void FillPatch (int lev, amrex::Real time, const amrex::Vector<amrex::MultiFab*>& mf);
-
-    /** compute a new multifab by copying in phi from valid region and filling ghost cells
-     * works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
-     */
-    void FillPatch (int lev, amrex::Real time,
-                    amrex::MultiFab* mf_to_be_filled,
-                    amrex::Vector<amrex::MultiFab*>& mf);
-
     /** fill an entire multifab by interpolating from the coarser level
      * this comes into play when a new level of refinement appears
      */
     void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine, amrex::MultiFab* mf_crse);
 
-     void FillPatchNoPhysBC (int lev, amrex::Real time, amrex::MultiFab& mf,
-                             const amrex::Vector<amrex::MultiFab*>& mfs,
-                             int icomp, int ncomp);
+    void FillPatchNoPhysBC (int lev, amrex::Real time, amrex::MultiFab& mf,
+                            const amrex::Vector<amrex::MultiFab*>& mfs,
+                            int icomp, int ncomp);
 
     /** utility to copy in data from old and/or new state into another multifab */
     TimeInterpolatedData GetDataAtTime (int lev, amrex::Real time);
@@ -758,10 +744,6 @@ private:
                          const std::string &name,
                          int coordinatorProc = amrex::ParallelDescriptor::IOProcessorNumber(),
                          int allow_empty_mf = 0);
-
-    //! Create 1D vertical column output for coupling
-    void createNCColumnFile(const int lev,
-                            const std::string& colfile_name, const amrex::Real xloc, const amrex::Real yloc);
 
     // Copy from the NC*fabs into the MultiFabs holding the boundary data
     void init_from_wrfbdy(amrex::Vector<amrex::FArrayBox*> x_vel_lateral,

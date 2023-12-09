@@ -3,11 +3,10 @@
 using namespace amrex;
 
 /**
- * rhs_2d
+ * rhs_uv_2d
  *
- * @param[in   ] bx
- * @param[in   ] xbx
- * @param[in   ] ybx
+ * @param[in   ] xbx Box for operations on x-velocity
+ * @param[in   ] ybx Box for operations on y-velocity
  * @param[in   ] uold
  * @param[in   ] vold
  * @param[  out] ru
@@ -29,8 +28,7 @@ using namespace amrex;
  */
 
 void
-ROMSX::rhs_uv_3d (const Box&  bx, const Box& xbx,
-                  const Box& ybx,
+ROMSX::rhs_uv_3d (const Box& xbx, const Box& ybx,
                   Array4<Real> uold  , Array4<Real> vold,
                   Array4<Real> ru, Array4<Real> rv,
                   Array4<Real> rufrc, Array4<Real> rvfrc,

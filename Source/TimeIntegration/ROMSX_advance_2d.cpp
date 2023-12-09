@@ -699,11 +699,14 @@ ROMSX::advance_2d (int lev,
        // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
        //
        //-----------------------------------------------------------------------
-       // rhs_2d
+       // rhs_uv_2d
        //-----------------------------------------------------------------------
        //
-       rhs_2d(bxD, xbxD, ybxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs);
+       rhs_uv_2d(xbxD, ybxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs);
 
+       //-----------------------------------------------------------------------
+       // Add Coriolis forcing
+       //-----------------------------------------------------------------------
        if (solverChoice.use_coriolis) {
             // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
             //
@@ -713,25 +716,19 @@ ROMSX::advance_2d (int lev,
             //
             coriolis(xbxD, ybxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
        }
+
+       //-----------------------------------------------------------------------
        //Add in horizontal harmonic viscosity.
        // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
+       //-----------------------------------------------------------------------
 
-        if (verbose > 2) {
-            PrintToFile("ubar_preuv3d2d").SetPrecision(18) << FArrayBox(ubar) << std::endl;
-            PrintToFile("vbar_preuv3d2d").SetPrecision(18) << FArrayBox(vbar) << std::endl;
-            PrintToFile("rhs_ubar_preuv3d2d").SetPrecision(18)  << FArrayBox(rhs_ubar) << std::endl;
-            PrintToFile("rhs_vbar_preuv3d2d").SetPrecision(18)  << FArrayBox(rhs_vbar) << std::endl;
-        }
-        uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar, visc2_p, visc2_r, Drhs, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
-        if (verbose > 2) {
-            PrintToFile("after_ubar_preuv3d2d").SetPrecision(18) << FArrayBox(ubar) << std::endl;
-            PrintToFile("after_vbar_preuv3d2d").SetPrecision(18) << FArrayBox(vbar) << std::endl;
-            PrintToFile("after_rhs_ubar_preuv3d2d").SetPrecision(18)  << FArrayBox(rhs_ubar) << std::endl;
-            PrintToFile("after_rhs_vbar_preuv3d2d").SetPrecision(18)  << FArrayBox(rhs_vbar) << std::endl;
-        }
+       uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar, visc2_p, visc2_r, Drhs, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
 
-        //Coupling from 3d to 2d
-        if (first_2d_step&&predictor_2d_step) {
+       //-----------------------------------------------------------------------
+       // Coupling from 3d to 2d
+       //-----------------------------------------------------------------------
+       if (first_2d_step&&predictor_2d_step)
+       {
             if (iic==ntfirst) {
                 ParallelFor(xbxD,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -802,16 +799,16 @@ ROMSX::advance_2d (int lev,
                     rv(i,j,-1,0) = r_swap;
                 });
             }
-        } else {
-            ParallelFor(xbxD,
-            [=] AMREX_GPU_DEVICE (int i, int j, int )
+       } else {
+
+            ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+rufrc(i,j,0);
+                rhs_ubar(i,j,0) += rufrc(i,j,0);
             });
-            ParallelFor(ybxD,
-            [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+            ParallelFor(ybxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+rvfrc(i,j,0);
+                rhs_vbar(i,j,0) += rvfrc(i,j,0);
             });
         }
 
@@ -822,8 +819,7 @@ ROMSX::advance_2d (int lev,
         //
         //  Compute total water column depth.
         //
-        ParallelFor(makeSlab(tbxp3,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        ParallelFor(makeSlab(tbxp3,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
               Dstp(i,j,0)=zeta(i,j,0,kstp)+h(i,j,0);
         });
@@ -853,7 +849,9 @@ ROMSX::advance_2d (int lev,
                                  (Dstp(i,j,0)+Dstp(i,j-1,0))+
                                   cff*cff1*rhs_vbar(i,j,0))*Dnew_avg;
             });
+
         } else if (predictor_2d_step) {
+
             cff1=dtfast_lev;
             ParallelFor(xbxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
