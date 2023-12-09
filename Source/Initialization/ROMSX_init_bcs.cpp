@@ -11,10 +11,9 @@ void ROMSX::init_bcs ()
     auto f = [this] (std::string const& bcid, Orientation ori)
     {
         // These are simply defaults for Dirichlet faces -- they should be over-written below
-        m_bc_extdir_vals[BCVars::Rho_bc_comp][ori]       =  1.0;
         m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] = -1.0; // It is important to set this negative
                                                // because the sign is tested on below
-        m_bc_extdir_vals[BCVars::RhoScalar_bc_comp][ori] = 0.0;
+        m_bc_extdir_vals[BCVars::Scalar_bc_comp][ori] = 0.0;
 
         m_bc_extdir_vals[BCVars::xvel_bc][ori] = 0.0; // default
         m_bc_extdir_vals[BCVars::yvel_bc][ori] = 0.0;
@@ -54,17 +53,9 @@ void ROMSX::init_bcs ()
             m_bc_extdir_vals[BCVars::yvel_bc][ori] = v[1];
             m_bc_extdir_vals[BCVars::zvel_bc][ori] = v[2];
 
-            Real rho_in;
-            pp.get("density", rho_in);
-            m_bc_extdir_vals[BCVars::Rho_bc_comp][ori] = rho_in;
-
-            Real theta_in;
-            pp.get("theta", theta_in);
-            m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] = rho_in*theta_in;
-
             Real scalar_in = 0.;
             if (pp.query("scalar", scalar_in))
-            m_bc_extdir_vals[BCVars::RhoScalar_bc_comp][ori] = rho_in*scalar_in;
+            m_bc_extdir_vals[BCVars::Scalar_bc_comp][ori] = scalar_in;
         }
         else if (bc_type == "noslipwall")
         {
@@ -84,12 +75,6 @@ void ROMSX::init_bcs ()
                 m_bc_extdir_vals[BCVars::yvel_bc][ori] = v[1];
                 m_bc_extdir_vals[BCVars::zvel_bc][ori] = v[2];
             }
-
-            Real theta_in;
-            if (pp.query("theta", theta_in))
-            {
-               m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] = theta_in*m_bc_extdir_vals[BCVars::Rho_bc_comp][ori];
-            }
         }
         else if (bc_type == "slipwall")
         {
@@ -97,13 +82,6 @@ void ROMSX::init_bcs ()
 
             phys_bc_type[ori] = ROMSX_BC::slip_wall;
             domain_bc_type[ori] = "SlipWall";
-
-            Real theta_in;
-            if (pp.query("theta", theta_in))
-            {
-               m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] = theta_in*m_bc_extdir_vals[BCVars::Rho_bc_comp][ori];
-            }
-
         }
         else
         {

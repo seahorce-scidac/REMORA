@@ -557,18 +557,12 @@ convert_wrfbdy_data(int which, const Box& domain, Vector<Vector<FArrayBox>>& bdy
 
     Array4<Real const> u_arr   = NC_xvel_fab.const_array();
     Array4<Real const> v_arr   = NC_yvel_fab.const_array();
-    Array4<Real const> r_arr   = NC_rho_fab.const_array();
-    Array4<Real const> rth_arr = NC_temp_fab.const_array();
 
     int ntimes = bdy_data.size();
     for (int nt = 0; nt < ntimes; nt++)
     {
         Array4<Real> bdy_u_arr  = bdy_data[nt][WRFBdyVars::U].array();  // This is face-centered
         Array4<Real> bdy_v_arr  = bdy_data[nt][WRFBdyVars::V].array();
-        Array4<Real> bdy_r_arr  = bdy_data[nt][WRFBdyVars::R].array();
-        Array4<Real> bdy_t_arr  = bdy_data[nt][WRFBdyVars::T].array();
-        Array4<Real> bdy_qv_arr = bdy_data[nt][WRFBdyVars::QV].array();
-        Array4<Real> mu_arr     = bdy_data[nt][WRFBdyVars::MU].array(); // This is cell-centered
 
         int ilo  = domain.smallEnd()[0];
         int ihi  = domain.bigEnd()[0];
@@ -591,22 +585,6 @@ convert_wrfbdy_data(int which, const Box& domain, Vector<Vector<FArrayBox>>& bdy
             bdy_u_arr(i,j,k) = new_bdy;
         });
 
-#ifndef AMREX_USE_GPU
-        if (nt == 0) {
-            FArrayBox diff(bx_u,1);
-            diff.template copy<RunOn::Device>(bdy_data[0][WRFBdyVars::U]);
-            diff.template minus<RunOn::Device>(NC_xvel_fab);
-            if (which == 0)
-                amrex::Print() << "Max norm of diff between initial U and bdy U on lo x face: " << diff.norm(0) << std::endl;
-            if (which == 1)
-                amrex::Print() << "Max norm of diff between initial U and bdy U on hi x face: " << diff.norm(0) << std::endl;
-            if (which == 2)
-                amrex::Print() << "Max norm of diff between initial U and bdy U on lo y face: " << diff.norm(0) << std::endl;
-            if (which == 3)
-                amrex::Print() << "Max norm of diff between initial U and bdy U on hi y face: " << diff.norm(0) << std::endl;
-        }
-#endif
-
         auto& bx_v  = bdy_data[0][WRFBdyVars::V].box();
         amrex::ParallelFor(bx_v, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
             Real xmu;
@@ -623,87 +601,6 @@ convert_wrfbdy_data(int which, const Box& domain, Vector<Vector<FArrayBox>>& bdy
             bdy_v_arr(i,j,k) = new_bdy;
         });
 
-#ifndef AMREX_USE_GPU
-        if (nt == 0) {
-            FArrayBox diff(bx_v,1);
-            diff.template copy<RunOn::Device>(bdy_data[0][WRFBdyVars::V]);
-            diff.template minus<RunOn::Device>(NC_yvel_fab);
-            if (which == 0)
-                amrex::Print() << "Max norm of diff between initial V and bdy V on lo x face: " << diff.norm(0) << std::endl;
-            if (which == 1)
-                amrex::Print() << "Max norm of diff between initial V and bdy V on hi x face: " << diff.norm(0) << std::endl;
-            if (which == 2)
-                amrex::Print() << "Max norm of diff between initial V and bdy V on lo y face: " << diff.norm(0) << std::endl;
-            if (which == 3)
-                amrex::Print() << "Max norm of diff between initial V and bdy V on hi y face: " << diff.norm(0) << std::endl;
-        }
-#endif
-
-        auto& bx_t = bdy_data[0][WRFBdyVars::T].box(); // Note this is currently "THM" aka the perturbational moist pot. temp.
-
-        // Define density
-        amrex::ParallelFor(bx_t, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
-
-            Real xmu = c1h_arr(0,0,k) * (mu_arr(i,j,0) + mub_arr(i,j,0)) + c2h_arr(0,0,k);
-
-            Real dpht =  (ph_arr(i,j,k+1) + phb_arr(i,j,k+1)) - (ph_arr(i,j,k) + phb_arr(i,j,k));
-
-            bdy_r_arr(i,j,k) = -xmu / ( dpht * rdnw_arr(0,0,k) );
-
-            //if (nt == 0 and std::abs(r_arr(i,j,k) - bdy_r_arr(i,j,k)) > 0.) {
-            //    amrex::Print() << "INIT VS BDY DEN " << IntVect(i,j,k) << " " << r_arr(i,j,k) << " " << bdy_r_arr(i,j,k) <<
-            //                    " " << std::abs(r_arr(i,j,k) - bdy_r_arr(i,j,k)) << std::endl;
-            //}
-        });
-
-        // Define theta
-        amrex::Real theta_ref = 300.;
-        amrex::ParallelFor(bx_t, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
-
-            Real xmu  = (mu_arr(i,j,0) + mub_arr(i,j,0));
-            Real xmu_mult = c1h_arr(0,0,k) * xmu + c2h_arr(0,0,k);
-
-            Real new_bdy_Th = bdy_t_arr(i,j,k) / xmu_mult + theta_ref;
-
-            Real qv_fac = (1. + bdy_qv_arr(i,j,k) / 0.622 / xmu_mult);
-
-            new_bdy_Th /= qv_fac;
-
-            bdy_t_arr(i,j,k) = new_bdy_Th * bdy_r_arr(i,j,k);
-
-            //if (nt == 0 and std::abs(rth_arr(i,j,k) - bdy_t_arr(i,j,k)) > 0.) {
-            //    amrex::Print() << "INIT VS BDY TH " << IntVect(i,j,k) << " " << rth_arr(i,j,k) << " " << bdy_t_arr(i,j,k) <<
-            //                    " " << std::abs(th_arr(i,j,k) - bdy_t_arr(i,j,k)) << std::endl;
-            //}
-        });
-
-#ifndef AMREX_USE_GPU
-        if (nt == 0) {
-            FArrayBox diff(bx_t,1);
-            diff.template copy<RunOn::Device>(bdy_data[0][WRFBdyVars::R]);
-            //diff.template mult<RunOn::Device>(NC_rho_fab);
-            diff.template minus<RunOn::Device>(NC_rho_fab);
-            if (which == 0)
-                amrex::Print() << "Max norm of diff between initial r and bdy r on lo x face: " << diff.norm(0) << std::endl;
-            if (which == 1)
-                amrex::Print() << "Max norm of diff between initial r and bdy r on hi x face: " << diff.norm(0) << std::endl;
-            if (which == 2)
-                amrex::Print() << "Max norm of diff between initial r and bdy r on lo y face: " << diff.norm(0) << std::endl;
-            if (which == 3)
-                amrex::Print() << "Max norm of diff between initial r and bdy r on hi y face: " << diff.norm(0) << std::endl;
-
-            diff.template copy<RunOn::Device>(bdy_data[0][WRFBdyVars::T]);
-            diff.template minus<RunOn::Device>(NC_temp_fab);
-            if (which == 0)
-                amrex::Print() << "Max norm of diff between initial rTh and bdy rTh on lo x face: " << diff.norm(0) << std::endl;
-            if (which == 1)
-                amrex::Print() << "Max norm of diff between initial rTh and bdy rTh on hi x face: " << diff.norm(0) << std::endl;
-            if (which == 2)
-                amrex::Print() << "Max norm of diff between initial rTh and bdy rTh on lo y face: " << diff.norm(0) << std::endl;
-            if (which == 3)
-                amrex::Print() << "Max norm of diff between initial rTh and bdy rTh on hi y face: " << diff.norm(0) << std::endl;
-        }
-#endif
     } // ntimes
 }
 #endif // ROMSX_USE_NETCDF

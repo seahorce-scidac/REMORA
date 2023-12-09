@@ -235,17 +235,5 @@ ROMSX::read_from_wrfinput(int lev, int idx,
         {
             w_arr(i,j,k) /= msfw_arr(i,j,0);
         });
-
-        //
-        // WRF decomposes (1/rho) rather than rho so rho = 1/(ALB + AL)
-        //
-        NC_rho_fab[idx].template plus<RunOn::Device>(NC_rhop_fab[idx], 0, 0, 1);
-        NC_rho_fab[idx].template invert<RunOn::Device>(1.0);
-
-        const Real theta_ref = 300.0;
-        NC_temp_fab[idx].template plus<RunOn::Device>(theta_ref);
-
-        // Now multiply by rho to get (rho theta) instead of theta
-        NC_temp_fab[idx].template mult<RunOn::Device>(NC_rho_fab[idx],0,0,1);
 }
 #endif // ROMSX_USE_NETCDF

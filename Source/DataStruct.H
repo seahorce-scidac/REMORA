@@ -18,36 +18,12 @@ enum class Coord {
     x, y, z
 };
 
-enum class Stagger {
-    None, x, y, z
-};
-
-enum class AdvectedQuantity {
-    unity, u, v, w, theta, scalar
-};
-
-enum class AdvectingQuantity {
-    rho_u, rho_v, rho_w
-};
-
 enum class AdvectionDir {
     x, y, z
 };
 
 enum class AdvectionScheme {
     centered4, upstream3
-};
-
-enum class DiffusionDir {
-    x, y, z
-};
-
-enum class MomentumEqn {
-    x, y, z
-};
-
-enum class MolecDiffType {
-    None, Constant, ConstantAlpha
 };
 
 enum class IC_BC_Type {

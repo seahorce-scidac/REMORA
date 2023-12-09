@@ -5,31 +5,24 @@
 #include <AMReX_Arena.H>
 
 // Cell-centered state variables
-#define Rho_comp       0
-#define Temp_comp      1
-#define RhoScalar_comp 2
-#define Omega_comp     3
+#define Temp_comp      0
+#define Scalar_comp    1
+#define Omega_comp     2
 
 #ifdef ROMSX_USE_SALINITY
-#define Salt_comp      4
-#define NVAR           5
-#else
+#define Salt_comp      3
 #define NVAR           4
+#else
+#define NVAR           3
 #endif
 
-// Cell-centered primitive variables
-#define PrimTheta_comp   (Temp_comp -1)
-#define PrimScalar_comp  (RhoScalar_comp-1)
-
-#define NUM_PRIM         (NVAR-1)
 #define NGROW          2
 
 namespace BCVars {
     enum {
         cons_bc = 0,
-        Rho_bc_comp = 0,
-        Temp_bc_comp,
-        RhoScalar_bc_comp,
+        Temp_bc_comp = 0,
+        Scalar_bc_comp,
         xvel_bc = NVAR,
         yvel_bc,
         zvel_bc,
@@ -41,11 +34,7 @@ namespace WRFBdyVars {
     enum {
         U  = 0,
         V  = 1,
-        R  = 2,
-        T  = 3,
-        QV    , // water vapor
-        MU    , // bdy perturbation dry air mass in column (we will get mub from the initial data)
-        PC    , // p_s - p_top = dry hydrostatic pressure diference between the surface and the model top
+        T  = 2,
         NumTypes
     };
 }
@@ -58,47 +47,16 @@ namespace WRFBdyTypes {
         y_hi
     };
 }
-namespace RHSVar {
-    enum {
-        slow = 0,
-        fast,
-        all
-    };
-}
 
 namespace Cons {
     enum {
-        Rho = 0,
-        Temp,
-        RhoScalar,
+        Temp = 0,
+        Scalar,
         Omega,
 #ifdef ROMSX_USE_SALINITY
         Salt,
 #endif
         NumVars
-    };
-}
-
-namespace Prim {
-    enum {
-        Theta = 0,
-        Scalar,
-        NumVars
-    };
-}
-
-// We separate out horizontal and vertical turbulent diffusivities
-// These are the same for LES, but different for PBL models
-namespace EddyDiff {
-    enum {
-        Mom_h = 0,
-        Mom_v,
-        Theta_h,
-        Theta_v,
-        Scalar_h,
-        Scalar_v,
-        PBL_lengthscale,
-        NumDiffs
     };
 }
 
@@ -119,27 +77,5 @@ enum mathematicalBndryTypes : int { bogus        = -666,
     MOST         =  101,
     ext_dir_ingested =  102
 };
-}
-
-namespace TerrainMet {
-  enum {
-        h_xi=0,
-        h_eta,
-        h_zeta,
-        h_xi_eta,
-        h_xi_zeta,
-        h_eta_zeta,
-        all
-  };
-}
-
-namespace IntVar {
-    enum {
-        cons = 0,
-        xmom,
-        ymom,
-        zmom,
-        NumVars
-    };
 }
 #endif
