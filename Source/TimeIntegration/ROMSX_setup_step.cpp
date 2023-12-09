@@ -344,7 +344,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         Box tbxp2 = bx;
         Box xbx = mfi.nodaltilebox(0);
         Box ybx = mfi.nodaltilebox(1);
-        Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
@@ -479,7 +478,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         ////rufrc from 3d is set to ru, then the wind stress (and bottom stress) is added, then the mixing is added
         //rufrc=ru+sustr*om_u*on_u
 
-        rhs_uv_3d(bx, xbx, ybx, uold, vold, ru, rv, rufrc, rvfrc,
+        rhs_uv_3d(xbx, ybx, uold, vold, ru, rv, rufrc, rvfrc,
                   sustr, svstr, bustr, bvstr, Huon, Hvom,
                   on_u, om_v, om_u, on_v, W, FC, nrhs, N);
 

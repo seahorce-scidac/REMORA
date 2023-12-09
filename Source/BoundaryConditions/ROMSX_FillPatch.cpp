@@ -90,7 +90,7 @@ ROMSX::FillPatch (int lev, Real time, MultiFab* mf_to_fill, Vector<MultiFab*>& m
 
 // utility to copy in data from old/new data into a struct that holds data for FillPatching
 TimeInterpolatedData
-ROMSX::GetDataAtTime (int lev, Real time)
+ROMSX::GetDataAtTime (int /*lev*/, Real /*time*/)
 {
     BL_PROFILE_VAR("GetDataAtTime()",GetDataAtTime);
     TimeInterpolatedData data;
@@ -257,11 +257,10 @@ ROMSX::FillPatchNoPhysBC (int lev, Real time, MultiFab& mf_to_fill,
 
     if (lev == 0)
     {
-        mf_to_fill.FillBoundary(geom[lev].periodicity());
-        // Vector<MultiFab*> fmf = {&fine_old, &fine_new};
-        // Vector<Real> ftime    = {t_old[lev], t_new[lev]};
-        // amrex::FillPatchSingleLevel(*mf, time, fmf, ftime, icomp, icomp, ncomp,
-        //                             geom[lev], null_bc, bccomp);
+        Vector<MultiFab*> fmf = {mfs_to_use[lev], mfs_to_use[lev]};
+        Vector<Real> ftime    = {time,time};
+        amrex::FillPatchSingleLevel(mf_to_fill, time, fmf, ftime, icomp, icomp, ncomp,
+                                    geom[lev], null_bc, bccomp);
     }
     else
     {
@@ -269,9 +268,6 @@ ROMSX::FillPatchNoPhysBC (int lev, Real time, MultiFab& mf_to_fill,
         Vector<Real> ftime    = {time, time};
         Vector<MultiFab*> cmf = {mfs_to_use[lev-1],mfs_to_use[lev-1]};
         Vector<Real> ctime    = {time, time};
-
-        // At this point this is just a dummy since all boundaries are periodic
-        int bccomp = 0;
 
         amrex::FillPatchTwoLevels(mf_to_fill, time, cmf, ctime, fmf, ftime,
                                   0, icomp, ncomp, geom[lev-1], geom[lev],

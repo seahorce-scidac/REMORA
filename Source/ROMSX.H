@@ -468,8 +468,7 @@ public:
                    int nrhs, int nnew, int N, const amrex::Real dt_lev);
 
     /** Calculation of the RHS */
-    void rhs_uv_3d (const amrex::Box& bx,
-                    const amrex::Box& xbx,
+    void rhs_uv_3d (const amrex::Box& xbx,
                     const amrex::Box& ybx,
                     amrex::Array4<amrex::Real> uold,
                     amrex::Array4<amrex::Real> vold,
@@ -491,17 +490,15 @@ public:
                     amrex::Array4<amrex::Real> FC,
                     int nrhs, int N);
 
-    void rhs_2d (const amrex::Box& bx,
-                 const amrex::Box& xbx,
-                 const amrex::Box& ybx,
-                 amrex::Array4<amrex::Real> uold,
-                 amrex::Array4<amrex::Real> vold,
-                 amrex::Array4<amrex::Real> ru,
-                 amrex::Array4<amrex::Real> rv,
-                 amrex::Array4<amrex::Real> Huon,
-                 amrex::Array4<amrex::Real> Hvom,
-                 int nrhs);
-
+    void rhs_uv_2d (const amrex::Box& xbx,
+                    const amrex::Box& ybx,
+                    amrex::Array4<amrex::Real> uold,
+                    amrex::Array4<amrex::Real> vold,
+                    amrex::Array4<amrex::Real> ru,
+                    amrex::Array4<amrex::Real> rv,
+                    amrex::Array4<amrex::Real> Huon,
+                    amrex::Array4<amrex::Real> Hvom,
+                    int nrhs);
 
     void rho_eos (const amrex::Box& bx,
                   amrex::Array4<amrex::Real> temp,
