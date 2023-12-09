@@ -651,6 +651,11 @@ public:
 
     void set_weights (int lev);
 
+    // Fill a new MultiFab by copying in phi from valid region and filling ghost cells
+    void FillPatch (int lev, amrex::Real time,
+                    amrex::MultiFab* mf_to_be_filled,
+                    amrex::Vector<amrex::MultiFab*>& mf);
+
 private:
 
     ///////////////////////////
@@ -680,26 +685,14 @@ private:
     /** more flexible version of AverageDown() that lets you average down across multiple levels */
     void AverageDownTo (int crse_lev);
 
-    /** compute a new multifab by copying in phi from valid region and filling ghost cells
-     * works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
-     */
-    // void FillPatch (int lev, amrex::Real time, const amrex::Vector<amrex::MultiFab*>& mf);
-
-    /** compute a new multifab by copying in phi from valid region and filling ghost cells
-     * works for single level and 2-level cases (fill fine grid ghost by interpolating from coarse)
-     */
-    void FillPatch (int lev, amrex::Real time,
-                    amrex::MultiFab* mf_to_be_filled,
-                    amrex::Vector<amrex::MultiFab*>& mf);
-
     /** fill an entire multifab by interpolating from the coarser level
      * this comes into play when a new level of refinement appears
      */
     void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine, amrex::MultiFab* mf_crse);
 
-     void FillPatchNoPhysBC (int lev, amrex::Real time, amrex::MultiFab& mf,
-                             const amrex::Vector<amrex::MultiFab*>& mfs,
-                             int icomp, int ncomp);
+    void FillPatchNoPhysBC (int lev, amrex::Real time, amrex::MultiFab& mf,
+                            const amrex::Vector<amrex::MultiFab*>& mfs,
+                            int icomp, int ncomp);
 
     /** utility to copy in data from old and/or new state into another multifab */
     TimeInterpolatedData GetDataAtTime (int lev, amrex::Real time);
