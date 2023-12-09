@@ -16,156 +16,151 @@ using namespace amrex;
  */
 
 void
-ROMSX::rhs_2d (const Box& bx,
+ROMSX::rhs_2d (const Box& bx, const Box& xbx, const Box& ybx,
                Array4<Real> ubar, Array4<Real> vbar,
                Array4<Real> rhs_ubar  , Array4<Real> rhs_vbar,
                Array4<Real> DUon, Array4<Real> DVom,
                int krhs)
 {
-    //copy the tilebox
-    Box gbx1 = bx;
-    Box gbx2 = bx;
-
-    //make only gbx be grown to match multifabs
-    gbx2.grow(IntVect(NGROW,NGROW,0));
-    gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-
     //
     // Scratch space
     //
-    FArrayBox fab_Huee(gbx2,1,amrex::The_Async_Arena());
-    FArrayBox fab_uee(gbx2,1,amrex::The_Async_Arena());
+    FArrayBox fab_UFx(growLo(xbx,0,1),1,amrex::The_Async_Arena()); fab_UFx.template setVal<RunOn::Device>(0.);
+    FArrayBox fab_UFe(growHi(xbx,1,1),1,amrex::The_Async_Arena()); fab_UFe.template setVal<RunOn::Device>(0.);
+    FArrayBox fab_VFe(growLo(ybx,1,1),1,amrex::The_Async_Arena()); fab_VFe.template setVal<RunOn::Device>(0.);
+    FArrayBox fab_VFx(growHi(ybx,0,1),1,amrex::The_Async_Arena()); fab_VFx.template setVal<RunOn::Device>(0.);
 
-    FArrayBox fab_Hvee(gbx2,1,amrex::The_Async_Arena());
-    FArrayBox fab_vee(gbx2,1,amrex::The_Async_Arena());
-
-    FArrayBox fab_Hvxx(gbx2,1,amrex::The_Async_Arena());
-    FArrayBox fab_uxx(gbx2,1,amrex::The_Async_Arena());
-
-    FArrayBox fab_Huxx(gbx2,1,amrex::The_Async_Arena());
-    FArrayBox fab_vxx(gbx2,1,amrex::The_Async_Arena());
-
-    FArrayBox fab_UFx(gbx2,1,amrex::The_Async_Arena());
-    FArrayBox fab_UFe(gbx2,1,amrex::The_Async_Arena());
-    FArrayBox fab_VFx(gbx2,1,amrex::The_Async_Arena());
-    FArrayBox fab_VFe(gbx2,1,amrex::The_Async_Arena());
-
-    auto Huxx=fab_Huxx.array();
-    auto Hvxx=fab_Hvxx.array();
-    auto Huee=fab_Huee.array();
-    auto Hvee=fab_Hvee.array();
-    auto uxx=fab_uxx.array();
-    auto uee=fab_uee.array();
-    auto vxx=fab_vxx.array();
-    auto vee=fab_vee.array();
     auto UFx=fab_UFx.array();
     auto UFe=fab_UFe.array();
     auto VFx=fab_VFx.array();
     auto VFe=fab_VFe.array();
 
-    fab_Huee.template setVal<RunOn::Device>(0.);
-    fab_Huxx.template setVal<RunOn::Device>(0.);
-    fab_uee.template setVal<RunOn::Device>(0.);
-    fab_uxx.template setVal<RunOn::Device>(0.);
-    fab_UFx.template setVal<RunOn::Device>(0.);
-    fab_UFe.template setVal<RunOn::Device>(0.);
+    // *************************************************************
+    // UPDATING U
+    // *************************************************************
 
-    fab_Hvee.template setVal<RunOn::Device>(0.);
-    fab_Hvxx.template setVal<RunOn::Device>(0.);
-    fab_vee.template setVal<RunOn::Device>(0.);
-    fab_vxx.template setVal<RunOn::Device>(0.);
-    fab_VFx.template setVal<RunOn::Device>(0.);
-    fab_VFe.template setVal<RunOn::Device>(0.);
+    // Think of the cell-centered box as                              [ 0:nx-1, 0:ny-1] (0,0,0) cc
+    //
+    // xbx is the x-face-centered box on which we update ubar (with rhs_ubar)  [ 0:nx  , 0:ny-1] (1,0,0) x-faces
+    //   to do so requires                                           UFx on    [-1:nx  , 0:ny-1] (0,0,0) cc
+    //      which requires                                           ubar on   [-2:nx+2, 0:ny-1] (1,0,0) x-faces
+    //       and  requires                                           DUon on   [-2:nx+2, 0:ny-1] (1,0,0) x-faces
+    //   to do so requires                                           UFe on    [ 0:nx  , 0:ny  ] (1,1,0) xy-nodes
+    //      which requires                                           ubar on   [ 0:nx  ,-2:ny+1] (1,0,0) x-faces
+    //       and  requires                                           DVom on   [-2:nx+1, 0:ny-1] (0,1,0) y-faces
 
-    ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    //
+    // Define UFx, the x-fluxes at cell centers for updating u
+    // (Note that grow arguments are (bx, dir, ng)
+    //
+    ParallelFor(growLo(xbx,0,1),
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
+    {
+        Real uxx_i   = ubar(i-1,j,0,krhs)-2.0*ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
+        Real uxx_ip1 = ubar(i  ,j,0,krhs)-2.0*ubar(i+1,j,0,krhs)+ubar(i+2,j,0,krhs);
+        Real uxx_avg = uxx_i + uxx_ip1;
+
+        Real Huxx_i   = DUon(i-1,j,0)-2.0*DUon(i  ,j,0)+DUon(i+1,j,0);
+        Real Huxx_ip1 = DUon(i  ,j,0)-2.0*DUon(i+1,j,0)+DUon(i+2,j,0);
+
+        Real cff=1.0/6.0;
+        Real ubar_avg=ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
+
+        UFx(i,j,0)=0.25*(ubar_avg-cff*uxx_avg) * (DUon(i,j,0)+ DUon(i+1,j,0)-cff*(Huxx_i+ Huxx_ip1));
+    });
+
+    //
+    // Define UFe, the y-fluxes at nodes for updating u
+    //
+    ParallelFor(growHi(xbx,1,1),
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         //should not include grow cells
-        uxx(i,j,k)=ubar(i-1,j,k,krhs)-2.0*ubar(i,j,k,krhs)+ubar(i+1,j,k,krhs);
+        Real uee_j   = ubar(i,j-1,0,krhs)-2.0*ubar(i,j  ,0,krhs)+ubar(i,j+1,0,krhs);
+        Real uee_jm1 = ubar(i,j-2,0,krhs)-2.0*ubar(i,j-1,0,krhs)+ubar(i,j  ,0,krhs);
+        Real uee_avg = uee_j + uee_jm1;
 
-        //neglecting terms about periodicity since testing only periodic for now
-        Huxx(i,j,k)=DUon(i-1,j,k)-2.0*DUon(i,j,k)+DUon(i+1,j,k);
+        Real Hvxx_i   = DVom(i-1,j,0)-2.0*DVom(i  ,j,0)+DVom(i+1,j,0);
+        Real Hvxx_im1 = DVom(i-2,j,0)-2.0*DVom(i-1,j,0)+DVom(i  ,j,0);
+        Real cff=1.0/6.0;
+        Real cff1=ubar(i,j  ,0,krhs)+ubar(i,j-1,0,krhs);
+        Real cff2=DVom(i,j,0)+DVom(i-1,j,0);
+
+        UFe(i,j,0)=0.25*(cff1-uee_avg*cff)*
+          (cff2-cff*(Hvxx_i+Hvxx_im1));
     });
-    ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+
+    //
+    //  Add in horizontal advection.
+    //
+    amrex::ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+         Real cff1=UFx(i,j  ,0)-UFx(i-1,j,0);
+         Real cff2=UFe(i,j+1,0)-UFe(i  ,j,0);
+
+         rhs_ubar(i,j,0) -= (cff1 + cff2);
+    });
+
+    // *************************************************************
+    // UPDATING V
+    // *************************************************************
+
+    // Think of the cell-centered box as                              [ 0:nx-1, 0:ny-1] (0,0,0) cc
+    //
+    // ybx is the y-face-centered box on which we update vbar (with rhs_vbar)  [ 0:nx-1, 0:ny  ] (1,0,0)  y-faces
+    //   to do so requires                                  VFe on    [ 0:nx-1,-1:ny  ] (1,1,0)  xy-nodes
+    //      which requires                                    vbar on [ 0:nx-1,-2:ny+2] (1,0,0)  y-faces
+    //       and  requires                                    DVom on [ 0:nx-1,-2:ny+2] (0,1,0)  x-faces
+    //   to do so requires                                  VFx on    [ 0:nx  , 0:ny  ] (0,0,0)  cc
+    //      which requires                                    vbar on [-2:nx+1, 0:ny  ] (1,0,0)  y-faces
+    //       and  requires                                    DUon on [ 0:nx-1,-2:ny+1] (0,0,0)  y-faces
+
+    // Grow ybx by one in high x-direction
+    amrex::ParallelFor(growHi(ybx,0,1),
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff=1.0/6.0;
-        Real cff1=ubar(i  ,j,k,krhs)+ubar(i+1,j,k,krhs);
-
-        Real cff3=uxx(i,j,k)+uxx(i+1,j,k);
-
-        UFx(i,j,k)=0.25*(cff1-cff*cff3) * (DUon(i,j,k)+ DUon(i+1,j,k)-cff*(Huxx(i,j,k)+ Huxx(i+1,j,k)));
-
-        //should not include grow cells
-        uee(i,j,k)=ubar(i,j-1,k,krhs)-2.0*ubar(i,j,k,krhs)+ubar(i,j+1,k,krhs);
-    });
-
-    ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        /////////////MIGHT NEED NEW LOOP HERE
+        Real vxx_i   = vbar(i-1,j,0,krhs)-2.0*vbar(i  ,j,0,krhs)+vbar(i+1,j,0,krhs);
+        Real vxx_im1 = vbar(i-2,j,0,krhs)-2.0*vbar(i-1,j,0,krhs)+vbar(i  ,j,0,krhs);
+        Real vxx_avg = vxx_i + vxx_im1;
+        //auto vxx_im1 = (i == gbx1.smallEnd(0)) ? vxx(i-1,j,k) :
+        //    (vbar(i-2,j,0,krhs)-2.0*vbar(i-1,j,0,krhs)+vbar(i,j,0,krhs));
         //neglecting terms about periodicity since testing only periodic for now
-        Hvxx(i,j,k)=DVom(i-1,j,k)-2.0*DVom(i,j,k)+DVom(i+1,j,k);
+        Real Huee_j   = DUon(i,j-1,0)-2.0*DUon(i,j  ,0)+DUon(i,j+1,0);
+        Real Huee_jm1 = DUon(i,j-2,0)-2.0*DUon(i,j-1,0)+DUon(i,j  ,0);
+        Real cff1=vbar(i  ,j,0,krhs)+vbar(i-1,j,0,krhs);
+        Real cff2=DUon(i,j,0)+DUon(i,j-1,0);
+
+        //auto Huee_jm1 = (j == gbx1.smallEnd(1)) ? Huee(i,j-1,k) :
+        //    (DUon(i,j-2,k)-2.0*DUon(i,j-1,k)+DUon(i,j,k));
+
+        VFx(i,j,0)=0.25*(cff1-vxx_avg*cff)* (cff2-cff*(Huee_j+ Huee_jm1));
     });
 
-    amrex::ParallelFor(gbx1,
+    amrex::ParallelFor(growLo(ybx,1,1),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-            Real cff=1.0/6.0;
-            Real cff1=ubar(i,j  ,k,krhs)+ubar(i,j-1,k,krhs);
-            Real cff2=DVom(i,j,k)+DVom(i-1,j,k);
-            Real cff3=uee(i,j-1,k)+uee(i,j,k);
+        Real vee_j    = vbar(i,j-1,0,krhs)-2.0*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
+        Real vee_jp1  = vbar(i,j  ,0,krhs)-2.0*vbar(i,j+1,0,krhs)+vbar(i,j+2,0,krhs);
+        Real vee_avg  = vee_j + vee_jp1;
 
-            UFe(i,j,k)=0.25*(cff1-cff3*cff)*
-              (cff2-cff*(Hvxx(i  ,j,k)+Hvxx(i-1,j,k)));
+        Real Hvee_j   = DVom(i,j-1,0)-2.0*DVom(i,j  ,0)+DVom(i,j+1,0);
+        Real Hvee_jp1 = DVom(i,j  ,0)-2.0*DVom(i,j+1,0)+DVom(i,j+2,0);
 
-            vxx(i,j,k)=vbar(i-1,j,k,krhs)-2.0*vbar(i,j,k,krhs)+
-              vbar(i+1,j,k,krhs);
-            //neglecting terms about periodicity since testing only periodic for now
-            Huee(i,j,k)=DUon(i,j-1,k)-2.0*DUon(i,j,k)+DUon(i,j+1,k);
-            cff1=vbar(i  ,j,k,krhs)+vbar(i-1,j,k,krhs);
-            cff2=DUon(i,j,k)+DUon(i,j-1,k);
-            auto vxx_im1 = (i == gbx1.smallEnd(0)) ? vxx(i-1,j,k) :
-                (vbar(i-2,j,k,krhs)-2.0*vbar(i-1,j,k,krhs)+vbar(i,j,k,krhs));
-            cff3=vxx_im1+vxx(i,j,k);
+        Real cff=1.0/6.0;
+        Real cff1=vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
 
-            auto Huee_jm1 = (j == gbx1.smallEnd(1)) ? Huee(i,j-1,k) :
-                (DUon(i,j-2,k)-2.0*DUon(i,j-1,k)+DUon(i,j,k));
-            VFx(i,j,k)=0.25*(cff1-cff3*cff)* (cff2-cff*(Huee(i,j,k)+ Huee_jm1));
-            vee(i,j,k)=vbar(i,j-1,k,krhs)-2.0*vbar(i,j,k,krhs)+
-              vbar(i,j+1,k,krhs);
-            Hvee(i,j,k)=DVom(i,j-1,k)-2.0*DVom(i,j,k)+DVom(i,j+1,k);
-        });
+        VFe(i,j,0) = 0.25 * (cff1-vee_avg*cff) * (DVom(i,j  ,0)+ DVom(i,j+1,0) -
+                                           cff  * (Hvee_j+ Hvee_jp1));
+    });
 
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            //neglecting terms about periodicity since testing only periodic for now
-            Real cff=1.0/6.0;
-            Real cff1=vbar(i,j  ,k,krhs)+vbar(i,j+1,k,krhs);
-            Real cff3=vee(i,j,k)+vee(i,j+1,k);
+    amrex::ParallelFor(ybx,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
+    {
+        Real cff1=VFx(i+1,j,0)-VFx(i  ,j,0);
+        Real cff2=VFe(i  ,j,0)-VFe(i,j-1,0);
 
-            VFe(i,j,k) = 0.25 * (cff1-cff3*cff) * (DVom(i,j  ,k)+ DVom(i,j+1,k) -
-                                           cff  * (Hvee(i,j  ,k)+ Hvee(i,j+1,k)));
-        });
-
-        amrex::ParallelFor(gbx1,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-              //
-              //  Add in horizontal advection.
-              //
-              Real cff1=UFx(i,j  ,k)-UFx(i-1,j,k);
-              Real cff2=UFe(i,j+1,k)-UFe(i  ,j,k);
-              Real cff=cff1+cff2;
-
-              rhs_ubar(i,j,k) -= cff;
-
-              cff1=VFx(i+1,j,k)-VFx(i  ,j,k);
-              cff2=VFe(i  ,j,k)-VFe(i,j-1,k);
-              cff=cff1+cff2;
-
-              rhs_vbar(i,j,k) -= cff;
-        });
+        rhs_vbar(i,j,0) -= (cff1 + cff2);
+    });
 
 }

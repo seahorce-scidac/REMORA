@@ -42,13 +42,6 @@ ROMSX::rhs_uv_3d (const Box&  bx, const Box& xbx,
                   Array4<Real> W   , Array4<Real> FC,
                   int nrhs, int N)
 {
-    //copy the tilebox
-    Box tbxp1 = bx;
-    Box tbxp2 = bx;
-    //make only gbx be grown to match multifabs
-    tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
-    tbxp2.grow(IntVect(NGROW,NGROW,0));
-
     //
     // Scratch space
     //

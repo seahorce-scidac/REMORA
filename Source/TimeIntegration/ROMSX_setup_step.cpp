@@ -469,7 +469,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
             //
             // ru, rv updated
             // In ROMS, coriolis is the first (un-ifdefed) thing to happen in rhs3d_tile, which gets called after t3dmix
-            coriolis(bx, gbx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
+            coriolis(xbx, ybx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
         }
 
         //
@@ -484,7 +484,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
                   on_u, om_v, om_u, on_v, W, FC, nrhs, N);
 
         if(solverChoice.use_uv3dmix) {
-            uv3dmix(bx, gbx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
+            uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, om_r, on_r, om_p, on_p, pm, pn, nrhs, nnew, dt_lev);
         }
 
         // Set first two components of zeta to time-averaged values before barotropic update

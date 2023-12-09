@@ -50,6 +50,9 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
     U_old.FillBoundary(geom[lev].periodicity());
     V_old.FillBoundary(geom[lev].periodicity());
 
+    vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
+    vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
+
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
 
