@@ -15,8 +15,6 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
                      Array4<Real> dxlen,
                      const int nnew, const int N)
 {
-    if (verbose > 1)
-        amrex::Print() << "updating on box in vert_mean_3d: " << phi_bx << std::endl;
 
     ParallelFor(makeSlab(phi_bx,2,0),
     [=] AMREX_GPU_DEVICE (int i, int j, int )

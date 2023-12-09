@@ -259,7 +259,7 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     // starts off kind of like a depth-averaged u, but exists at more points and more timesteps (b/c fast 2D update) than full u
     vec_ubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
-    vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW,NGROW,0)));  // 2d free surface
+    vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW+1,NGROW+1,0)));  // 2d free surface
 
     vec_t3[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); //tempstore
     vec_s3[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); //saltstore

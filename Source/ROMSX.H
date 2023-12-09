@@ -491,6 +491,8 @@ public:
                     int nrhs, int N);
 
     void rhs_2d (const amrex::Box& bx,
+                 const amrex::Box& xbx,
+                 const amrex::Box& ybx,
                  amrex::Array4<amrex::Real> uold,
                  amrex::Array4<amrex::Real> vold,
                  amrex::Array4<amrex::Real> ru,
@@ -593,8 +595,8 @@ public:
                        const int nnew, const int N);
 
     /** Harmonic viscosity */
-    void uv3dmix  (const amrex::Box& bx,
-                 const amrex::Box& gbx,
+    void uv3dmix  (const amrex::Box& xbx,
+                 const amrex::Box& ybx,
                  amrex::Array4<amrex::Real> u,
                  amrex::Array4<amrex::Real> v,
                  amrex::Array4<amrex::Real> uold,
@@ -625,8 +627,8 @@ public:
                  int nrhs, int nnew,
                  const amrex::Real dt_lev);
 
-    void coriolis (const amrex::Box& bx,
-                   const amrex::Box& gbx,
+    void coriolis (const amrex::Box& xbx,
+                   const amrex::Box& ybx,
                    amrex::Array4<amrex::Real> uold,
                    amrex::Array4<amrex::Real> vold,
                    amrex::Array4<amrex::Real> ru,

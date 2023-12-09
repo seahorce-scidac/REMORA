@@ -7,7 +7,7 @@ using namespace amrex;
 //
 
 void
-ROMSX::coriolis (const Box& bx, const Box& gbx,
+ROMSX::coriolis (const Box& xbx, const Box& ybx,
                  Array4<Real> uold  , Array4<Real> vold,
                  Array4<Real> ru, Array4<Real> rv,
                  Array4<Real> Hz, Array4<Real> fomn,
@@ -19,25 +19,7 @@ ROMSX::coriolis (const Box& bx, const Box& gbx,
     //-----------------------------------------------------------------------
     //
 
-    Box ubxShift = bx;
-    ((((ubxShift.growLo(0,NGROW-1)).growLo(1,NGROW)).growHi(0,NGROW)).growHi(1,NGROW-1));
-    Box vbxShift = bx;
-    ((((vbxShift.growLo(0,NGROW)).growLo(1,NGROW-1)).growHi(0,NGROW-1)).growHi(1,NGROW));
-
-    BoxArray ba_ubxShift = intersect(BoxArray(ubxShift), gbx);
-    AMREX_ASSERT((ba_ubxShift.size() == 1));
-    ubxShift = ba_ubxShift[0];
-
-    BoxArray ba_vbxShift = intersect(BoxArray(vbxShift), gbx);
-    AMREX_ASSERT((ba_vbxShift.size() == 1));
-    vbxShift = ba_vbxShift[0];
-
-    if (verbose > 1) {
-        Print() << "ubxshift in cor" <<  Box(ubxShift) << std::endl;
-        Print() << "vbxshift in cor" <<  Box(vbxShift) << std::endl;
-    }
-
-    amrex::ParallelFor(ubxShift,
+    amrex::ParallelFor(xbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real UFx_i   = 0.5 * Hz(i  ,j,k) * fomn(i  ,j,0) * (vold(i  ,j,k,nrhs)+vold(i  ,j+1,k,nrhs));
@@ -45,7 +27,7 @@ ROMSX::coriolis (const Box& bx, const Box& gbx,
         ru(i,j,k,nr) += 0.5*(UFx_i + UFx_im1);
     });
 
-    amrex::ParallelFor(vbxShift,
+    amrex::ParallelFor(ybx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real VFe_j   = 0.5 * Hz(i,j  ,k) * fomn(i,j  ,0) * (uold(i,j  ,k,nrhs)+uold(i+1,j  ,k,nrhs));
