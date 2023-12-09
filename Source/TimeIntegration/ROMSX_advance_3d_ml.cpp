@@ -67,7 +67,7 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
     FillPatch(lev, t_new[lev], zvel_new[lev], zvel_new);
 
 #ifdef ROMSX_USE_PARTICLES
-    particleData.advance_particles(lev, dt_lev, {cons_new, xvel_new, yvel_new, zvel_new}, vec_z_phys_nd);
+    particleData.advance_particles(lev, dt_lev, xvel_new[lev], yvel_new[lev], zvel_new[lev], vec_z_phys_nd);
 #endif
 
 }

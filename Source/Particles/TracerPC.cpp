@@ -129,19 +129,20 @@ InitParticles (const MultiFab& a_z_height)
   /brief Uses midpoint method to advance particles using umac.
 */
 void
-TracerPC::AdvectWithUmac (MultiFab* umac, int lev, Real dt, bool use_terrain, MultiFab& a_z_height)
+TracerPC::AdvectWithUmac (Array<MultiFab const*, AMREX_SPACEDIM> umac,
+                          int lev, Real dt, bool use_terrain, MultiFab& a_z_height)
 {
     BL_PROFILE("TracerPC::AdvectWithUmac()");
-    AMREX_ASSERT(OK(lev, lev, umac[0].nGrow()-1));
+    AMREX_ASSERT(OK(lev, lev, umac[0]->nGrow()-1));
     AMREX_ASSERT(lev >= 0 && lev < GetParticles().size());
 
-    AMREX_D_TERM(AMREX_ASSERT(umac[0].nGrow() >= 1);,
-                 AMREX_ASSERT(umac[1].nGrow() >= 1);,
-                 AMREX_ASSERT(umac[2].nGrow() >= 1););
+    AMREX_D_TERM(AMREX_ASSERT(umac[0]->nGrow() >= 1);,
+                 AMREX_ASSERT(umac[1]->nGrow() >= 1);,
+                 AMREX_ASSERT(umac[2]->nGrow() >= 1););
 
-    AMREX_D_TERM(AMREX_ASSERT(!umac[0].contains_nan());,
-                 AMREX_ASSERT(!umac[1].contains_nan());,
-                 AMREX_ASSERT(!umac[2].contains_nan()););
+    AMREX_D_TERM(AMREX_ASSERT(!umac[0]->contains_nan());,
+                 AMREX_ASSERT(!umac[1]->contains_nan());,
+                 AMREX_ASSERT(!umac[2]->contains_nan()););
 
     const auto      strttime = amrex::second();
     const Geometry& geom = m_gdb->Geom(lev);
@@ -151,25 +152,12 @@ TracerPC::AdvectWithUmac (MultiFab* umac, int lev, Real dt, bool use_terrain, Mu
     const auto dx  = geom.CellSizeArray();
 
     Vector<std::unique_ptr<MultiFab> > raii_umac(AMREX_SPACEDIM);
-    Vector<MultiFab*> umac_pointer(AMREX_SPACEDIM);
-    if (OnSameGrids(lev, umac[0]))
-    {
-        for (int i = 0; i < AMREX_SPACEDIM; i++) {
-            umac_pointer[i] = &umac[i];
-        }
-    }
-    else
-    {
-        for (int i = 0; i < AMREX_SPACEDIM; i++)
-        {
-            int ng = umac[i].nGrow();
-            raii_umac[i] = std::make_unique<MultiFab>
-                (amrex::convert(m_gdb->ParticleBoxArray(lev), IntVect::TheDimensionVector(i)),
-                 m_gdb->ParticleDistributionMap(lev), umac[i].nComp(), ng);
-            umac_pointer[i] = raii_umac[i].get();
-            umac_pointer[i]->ParallelCopy(umac[i],0,0,umac[i].nComp(),ng,ng);
-        }
-    }
+    Vector<MultiFab const*> umac_pointer(AMREX_SPACEDIM);
+    AMREX_ALWAYS_ASSERT(OnSameGrids(lev, *umac[0]));
+
+     for (int i = 0; i < AMREX_SPACEDIM; i++) {
+         umac_pointer[i] = umac[i];
+     }
 
     for (int ipass = 0; ipass < 2; ipass++)
     {
