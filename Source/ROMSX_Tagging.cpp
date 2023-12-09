@@ -24,7 +24,7 @@ ROMSX::ErrorEst (int level, TagBoxArray& tags, Real time, int /*ngrow*/)
         if (ref_tags[j].Field() == "density")
         {
             mf = std::make_unique<MultiFab>(grids[level], dmap[level], 1, 0);
-            MultiFab::Copy(*mf,vars_new[level][Vars::cons],Rho_comp,0,1,0);
+            MultiFab::Copy(*mf,*cons_new[level],Rho_comp,0,1,0);
 
         // This allows dynamic refinement based on the value of the scalar/pressure/theta
         } else if ( (ref_tags[j].Field() == "scalar"  ) )
@@ -34,7 +34,7 @@ ROMSX::ErrorEst (int level, TagBoxArray& tags, Real time, int /*ngrow*/)
             {
                 const Box& bx = mfi.tilebox();
                 auto& dfab = (*mf)[mfi];
-                auto& sfab = vars_new[level][Vars::cons][mfi];
+                auto& sfab = (*cons_new[level])[mfi];
                 if (ref_tags[j].Field() == "scalar") {
                     derived::romsx_derscalar(bx, dfab, 0, 1, sfab, Geom(level), time, nullptr, level);
                 } else {

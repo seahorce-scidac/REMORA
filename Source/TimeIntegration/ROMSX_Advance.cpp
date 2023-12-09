@@ -4,12 +4,12 @@ using namespace amrex;
 
 // advance a single level for a single time step
  void
-ROMSX::Advance (int lev, Real /*time*/, Real dt_lev, int /*iteration*/, int /*ncycle*/)
+ROMSX::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle*/)
 {
 
     BL_PROFILE("ROMSX::Advance()");
 
-    setup_step(lev, dt_lev);
+    setup_step(lev, time, dt_lev);
 
     if (solverChoice.use_barotropic)
     {

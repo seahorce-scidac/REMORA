@@ -361,7 +361,6 @@ ROMSX::advance_3d (int lev,
         Array4<Real const> const& Hz  = mf_Hz->const_array(mfi);
 
         Box bx = mfi.tilebox();
-        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
 
         // Copy the tilebox
         Box tbxp1 = bx;

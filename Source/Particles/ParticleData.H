@@ -59,12 +59,13 @@ struct ParticleData {
         }
     }
 
-    void advance_particles(int lev, amrex::Real dt_lev,       amrex::Vector<amrex::Vector<amrex::MultiFab>>& vars_new,
-                                                        const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& z_phys_nd)
+    void advance_particles(int lev, amrex::Real dt_lev,
+                           amrex::Vector<amrex::Vector<amrex::MultiFab>>& vel_new,
+                           const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& z_phys_nd)
     {
         // Update tracer particles
         if (use_tracer_particles) {
-            amrex::MultiFab* mac_vel = &vars_new[lev][Vars::xvel];
+            amrex::MultiFab* mac_vel = {&xvel_new[lev], &yvel_new[lev], &zvel_new[lev]};
             bool use_terrain = (z_phys_nd[lev] != nullptr);
             if (use_terrain) {
                 tracer_particles->AdvectWithUmac(mac_vel, lev, dt_lev, use_terrain, *z_phys_nd[lev]);

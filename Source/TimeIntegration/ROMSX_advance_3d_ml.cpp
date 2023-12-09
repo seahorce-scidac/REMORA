@@ -5,14 +5,14 @@ using namespace amrex;
 // advance a single 3D level for a single time step
 void ROMSX::advance_3d_ml (int lev, Real dt_lev)
 {
-    MultiFab& S_old = vars_old[lev][Vars::cons];
-    MultiFab& S_new = vars_new[lev][Vars::cons];
+    MultiFab& S_old = *cons_old[lev];
+    MultiFab& S_new = *cons_new[lev];
 
-    MultiFab& U_old = vars_old[lev][Vars::xvel];
-    MultiFab& V_old = vars_old[lev][Vars::yvel];
+    MultiFab& U_old = *xvel_old[lev];
+    MultiFab& V_old = *yvel_old[lev];
 
-    MultiFab& U_new = vars_new[lev][Vars::xvel];
-    MultiFab& V_new = vars_new[lev][Vars::yvel];
+    MultiFab& U_new = *xvel_new[lev];
+    MultiFab& V_new = *yvel_new[lev];
 
     MultiFab mf_u(U_new, amrex::make_alias, 0, 1);
     MultiFab mf_v(V_new, amrex::make_alias, 0, 1);
@@ -58,10 +58,13 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
 
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
-    FillPatch(lev, t_new[lev], vars_new[lev]);
+    FillPatch(lev, t_new[lev], cons_new[lev], cons_new);
+    FillPatch(lev, t_new[lev], xvel_new[lev], xvel_new);
+    FillPatch(lev, t_new[lev], yvel_new[lev], yvel_new);
+    FillPatch(lev, t_new[lev], zvel_new[lev], zvel_new);
 
 #ifdef ROMSX_USE_PARTICLES
-    particleData.advance_particles(lev, dt_lev, vars_new, vec_z_phys_nd);
+    particleData.advance_particles(lev, dt_lev, {cons_new, xvel_new, yvel_new, zvel_new}, vec_z_phys_nd);
 #endif
 
 }
