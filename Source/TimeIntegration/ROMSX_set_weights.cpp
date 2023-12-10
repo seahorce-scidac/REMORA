@@ -10,7 +10,6 @@ using namespace amrex;
 void ROMSX::set_weights (int /*lev*/) {
 
     Real gamma, scale;
-    Real cff1, cff2;
     Real wsum, shift, cff;
 
     //HACK should possibly store fixed_ndtfast elsewhere
@@ -165,6 +164,8 @@ void ROMSX::set_weights (int /*lev*/) {
 //
 //  Report weights.
 //
+#if 0
+    Real cff1, cff2;
     if (ParallelDescriptor::IOProcessor()) {
         Print().SetPrecision(18)<<ParallelDescriptor::NProcs()<<"  "<<ndtfast<<"  "<<nfast<<"  "<<wsum<<std::endl;
         cff=0.0_rt;
@@ -187,4 +188,5 @@ void ROMSX::set_weights (int /*lev*/) {
         Print().SetPrecision(18)<<cff1<<"  "<<cff2<<"  "<<shift<<"  "<<cff<<"  "<<wsum<<"  "<<Fgamma<<"  "<<gamma<<std::endl;
       if (cff2<1.0001_rt) Print()<<"\n\n\n"<<std::endl;
       }
+#endif
 }

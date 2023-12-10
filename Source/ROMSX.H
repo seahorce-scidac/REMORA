@@ -357,20 +357,16 @@ public:
 
     /** Advance the 3D variables */
     void advance_3d (int lev,
-                     amrex::MultiFab& mf_u  , amrex::MultiFab& mf_v ,
-                     amrex::MultiFab& mf_temp  , amrex::MultiFab& mf_salt ,
-                     std::unique_ptr<amrex::MultiFab>& mf_tempstore,
-                     std::unique_ptr<amrex::MultiFab>& mf_saltstore,
-                     std::unique_ptr<amrex::MultiFab>& mf_ru,
-                     std::unique_ptr<amrex::MultiFab>& mf_rv,
+                     amrex::MultiFab& mf_u        , amrex::MultiFab& mf_v,
+                     amrex::MultiFab& mf_temp     , amrex::MultiFab& mf_salt,
+                     amrex::MultiFab* mf_tempstore, amrex::MultiFab* mf_saltstore,
+                     amrex::MultiFab* mf_ru       , amrex::MultiFab* mf_rv,
                      std::unique_ptr<amrex::MultiFab>& mf_DU_avg1,
                      std::unique_ptr<amrex::MultiFab>& mf_DU_avg2,
                      std::unique_ptr<amrex::MultiFab>& mf_DV_avg1,
                      std::unique_ptr<amrex::MultiFab>& mf_DV_avg2,
                      std::unique_ptr<amrex::MultiFab>& mf_ubar,
                      std::unique_ptr<amrex::MultiFab>& mf_vbar,
-                     amrex::MultiFab& mf_AK , amrex::MultiFab& mf_DC,
-                     amrex::MultiFab& mf_Hzk,
                      std::unique_ptr<amrex::MultiFab>& mf_Akv,
                      std::unique_ptr<amrex::MultiFab>& mf_Akt,
                      std::unique_ptr<amrex::MultiFab>& mf_Hz,
@@ -501,14 +497,14 @@ public:
                     int nrhs);
 
     void rho_eos (const amrex::Box& bx,
-                  amrex::Array4<amrex::Real> temp,
-                  amrex::Array4<amrex::Real> salt,
-                  amrex::Array4<amrex::Real> rho,
-                  amrex::Array4<amrex::Real> rhoA,
-                  amrex::Array4<amrex::Real> rhoS,
-                  amrex::Array4<amrex::Real> Hz,
-                  amrex::Array4<amrex::Real> z_w,
-                  amrex::Array4<amrex::Real> h,
+                  amrex::Array4<amrex::Real const> temp,
+                  amrex::Array4<amrex::Real const> salt,
+                  amrex::Array4<amrex::Real      > rho,
+                  amrex::Array4<amrex::Real      > rhoA,
+                  amrex::Array4<amrex::Real      > rhoS,
+                  amrex::Array4<amrex::Real const> Hz,
+                  amrex::Array4<amrex::Real const> z_w,
+                  amrex::Array4<amrex::Real const> h,
                   const int nrhs, const int N);
 
     void prsgrd (const amrex::Box& bx,
@@ -566,7 +562,7 @@ public:
                           amrex::Array4<amrex::Real> v,
                           amrex::Array4<amrex::Real> Hv,
                           amrex::Array4<amrex::Real> om_v,
-                          amrex::Array4<amrex::Real> Hz,
+                          amrex::Array4<amrex::Real const> Hz,
                           const int nnew);
 
     void update_massflux_3d (const amrex::Box& bx,

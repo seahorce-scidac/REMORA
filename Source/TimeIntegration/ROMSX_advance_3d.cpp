@@ -8,20 +8,16 @@ using namespace amrex;
 
 void
 ROMSX::advance_3d (int lev,
-                   MultiFab& mf_u , MultiFab& mf_v ,
-                   MultiFab& mf_temp , MultiFab& mf_salt ,
-                   std::unique_ptr<MultiFab>& mf_tempstore,
-                   std::unique_ptr<MultiFab>& mf_saltstore,
-                   std::unique_ptr<MultiFab>& mf_ru,
-                   std::unique_ptr<MultiFab>& mf_rv,
+                   MultiFab& mf_u        , MultiFab& mf_v ,
+                   MultiFab& mf_temp     , MultiFab& mf_salt     ,
+                   MultiFab* mf_tempstore, MultiFab* mf_saltstore,
+                   MultiFab* mf_ru       , MultiFab* mf_rv,
                    std::unique_ptr<MultiFab>& mf_DU_avg1,
                    std::unique_ptr<MultiFab>& mf_DU_avg2,
                    std::unique_ptr<MultiFab>& mf_DV_avg1,
                    std::unique_ptr<MultiFab>& mf_DV_avg2,
                    std::unique_ptr<MultiFab>& mf_ubar,
                    std::unique_ptr<MultiFab>& mf_vbar,
-                   MultiFab& mf_AK, MultiFab& mf_DC,
-                   MultiFab& mf_Hzk,
                    std::unique_ptr<MultiFab>& mf_Akv,
                    std::unique_ptr<MultiFab>& mf_Akt,
                    std::unique_ptr<MultiFab>& mf_Hz,
@@ -46,6 +42,17 @@ ROMSX::advance_3d (int lev,
 
     // Because zeta may have changed
     stretch_transform(lev);
+
+    // These temporaries used to be made in advance_3d_ml and passed in;
+    // now we make them here
+
+    const BoxArray&            ba = mf_temp.boxArray();
+    const DistributionMapping& dm = mf_temp.DistributionMap();
+
+    //Only used locally, probably should be rearranged into FArrayBox declaration
+    MultiFab mf_AK (ba,dm,1,IntVect(NGROW,NGROW,0));       //2d missing j coordinate
+    MultiFab mf_DC (ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
+    MultiFab mf_Hzk(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
 
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -214,6 +221,10 @@ ROMSX::advance_3d (int lev,
     mf_Huon->FillBoundary(geom[lev].periodicity());
     mf_Hvom->FillBoundary(geom[lev].periodicity());
 
+    // ************************************************************************
+    // This should fill both temp and salt with temp/salt currently in cons_old
+    // ************************************************************************
+
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& temp = (mf_temp).array(mfi);
@@ -283,8 +294,6 @@ ROMSX::advance_3d (int lev,
         fab_on_u.template setVal<RunOn::Device>(dx[1],makeSlab(tbxp2,2,0));
         fab_om_v.template setVal<RunOn::Device>(dx[0],makeSlab(tbxp2,2,0));
 
-        bool test_functionality=true;
-        if (test_functionality) {
         //
         //------------------------------------------------------------------------
         //  Vertically integrate horizontal mass flux divergence.
@@ -295,56 +304,49 @@ ROMSX::advance_3d (int lev,
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
 
-        ParallelFor(gbx1D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        //  Starting with zero vertical velocity at the bottom, integrate
+        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
+        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
+        //  Notice that barotropic mass flux divergence is not used directly.
+        ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
+            W(i,j,0) = - (Huon(i+1,j,0)-Huon(i,j,0)) - (Hvom(i,j+1,0)-Hvom(i,j,0));
+
+            for (int k=1; k<=N; k++) {
+                W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
+            }
+        });
+
         //  Starting with zero vertical velocity at the bottom, integrate
         //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-        //W(i,j,-1)=0.0;
-        int k=0;
-        W(i,j,k) = - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
-        for(k=1;k<=N;k++) {
-            W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
-        }
-    });
+        ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real wrk_ij = W(i,j,N) / (z_w(i,j,N)+h(i,j,0,0));
 
-    ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
-        Real wrk_i=W(i,j,N)/(z_w(i,j,N)+h(i,j,0,0));
+            if(k!=N) {
+                W(i,j,k) -=  wrk_ij * (z_w(i,j,k)+h(i,j,0,0));
+            }
+        });
 
-        if(k!=N) {
-            W(i,j,k) = W(i,j,k)- wrk_i*(z_w(i,j,k)+h(i,j,0,0));
-        }
-    });
-
-    // probably not the most efficient way
-    ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        if (k == N) {
+        ParallelFor(makeSlab(gbx1,2,N),
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
             W(i,j,N) = 0.0;
-        }
-    });
+        });
 
-       //
-       //-----------------------------------------------------------------------
-       // rhs_t_3d
-       //-----------------------------------------------------------------------
-       //
-       rhs_t_3d(bx, gbx, temp, tempstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
-       rhs_t_3d(bx, gbx, salt, saltstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
-    }
+        //
+        //-----------------------------------------------------------------------
+        // rhs_t_3d
+        //-----------------------------------------------------------------------
+        //
+        rhs_t_3d(bx, gbx, temp, tempstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
+        rhs_t_3d(bx, gbx, salt, saltstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
 
     } // mfi
+
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
 

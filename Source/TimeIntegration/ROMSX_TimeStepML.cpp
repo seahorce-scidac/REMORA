@@ -65,7 +65,6 @@ ROMSX::timeStepML (Real time, int iteration)
 
     if (solverChoice.use_barotropic)
     {
-        bool predictor_2d_step=true;
         int nfast_counter=nfast + 1;
 
         for (int lev=0; lev <= finest_level; lev++)
