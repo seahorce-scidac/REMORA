@@ -94,7 +94,7 @@ ROMSX::rhs_uv_2d (const Box& xbx, const Box& ybx,
     //
     //  Add in horizontal advection.
     //
-    amrex::ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+    amrex::ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
          Real cff1=UFx(i,j  ,0)-UFx(i-1,j,0);
          Real cff2=UFe(i,j+1,0)-UFe(i  ,j,0);
@@ -139,7 +139,7 @@ ROMSX::rhs_uv_2d (const Box& xbx, const Box& ybx,
     });
 
     amrex::ParallelFor(growLo(ybx,1,1),
-    [=] AMREX_GPU_DEVICE (int i, int j, int)
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real vee_j    = vbar(i,j-1,0,krhs)-2.0*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
         Real vee_jp1  = vbar(i,j  ,0,krhs)-2.0*vbar(i,j+1,0,krhs)+vbar(i,j+2,0,krhs);

@@ -303,50 +303,31 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
     // continuity equation.
     //
     amrex::ParallelFor(tbx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //-----------------------------------------------------------------------
+        //  Add in vertical advection.
+        //-----------------------------------------------------------------------
+        if (k>=1 && k<=N-2)
         {
-              //-----------------------------------------------------------------------
-              //  Add in vertical advection.
-              //-----------------------------------------------------------------------
+            FC(i,j,k)=( 7.0/12.0*(tempold(i  ,j,k  ,nrhs)+ tempold(i,j,k+1,nrhs))
+                           -1.0/12.0*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k+2,nrhs)) )*
+                              ( W(i,j,k));
+        }
+        else // this needs to be split up so that the following can be concurrent
+        {
+            FC(i,j,N)=0.0;
 
-              Real cff1=0.5;
-              Real cff2=7.0/12.0;
-              Real cff3=1.0/12.0;
+            FC(i,j,N-1)=( 7.0/12.0*tempold(i  ,j,N-1,nrhs)+ 0.5_rt*tempold(i,j,N  ,nrhs)
+                         -1.0/12.0*tempold(i  ,j,N-2,nrhs) )*
+                            ( W(i  ,j,N-1));
 
-              if (k>=1 && k<=N-2)
-              {
-                      FC(i,j,k)=( cff2*(tempold(i  ,j,k  ,nrhs)+ tempold(i,j,k+1,nrhs))
-                                 -cff3*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k+2,nrhs)) )*
-                                    ( W(i,j,k));
-              }
-              else // this needs to be split up so that the following can be concurrent
-              {
-                  FC(i,j,N)=0.0;
-
-                  FC(i,j,N-1)=( cff2*tempold(i  ,j,N-1,nrhs)+ cff1*tempold(i,j,N  ,nrhs)
-                               -cff3*tempold(i  ,j,N-2,nrhs) )*
-                                  ( W(i  ,j,N-1));
-
-                  FC(i,j,0)=( cff2*tempold(i  ,j,1,nrhs)+ cff1*tempold(i,j,0,nrhs)
-                             -cff3*tempold(i  ,j,2,nrhs) )*
-                                ( W(i  ,j,0));
-
-                  //              FC(i,0,-1)=0.0;
-              }
+            FC(i,j,0)=( 7.0/12.0*tempold(i  ,j,1,nrhs)+ 0.5_rt*tempold(i,j,0,nrhs)
+                       -1.0/12.0*tempold(i  ,j,2,nrhs) )*
+                          ( W(i  ,j,0));
+        }
 
     });
-    //    exit(0);
-/*
-    Real cff;
-
-    Real GammaT = 1.0/6.0;
-
-    if (iic==ntfirst)
-    {
-        cff=0.5*dt_lev;
-    } else {
-        cff=(1-GammaT)*dt_lev;
-        }*/
 
     amrex::ParallelFor(tbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -364,27 +345,19 @@ ROMSX::prestep_t_3d (const Box& tbx, const Box& gbx,
                          Hvom(i,j+1,k)-Hvom(i,j,k)+
                          (W(i,j,k))));
         }
-
-         /*
-         tempstore(i,j,k,3)=Hz(i,j,k)*(cff1*tempold(i,j,k,nstp)+
-                                       cff2*temp(i,j,k,nnew))-
-                            cff*pm(i,j,0)*pn(i,j,0)*
-                            (FC(i+1,j)-FC(i,j)+
-                             DC(i,j+1)-DC(i,j));*/
     });
 
     amrex::ParallelFor(tbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Real cff1=cff*pm(i,j,0)*pn(i,j,0);
+        Real pmn_dt=cff*pm(i,j,0)*pn(i,j,0);
         Real cff4;
         if(k-1>=0) {
             cff4=FC(i,j,k)-FC(i,j,k-1);
         } else {
             cff4=FC(i,j,k);
         }
-        tempstore(i,j,k)=DC(i,j,k)*(tempstore(i,j,k)-cff1*cff4);
-//      temp(i,j,k)=tempold(i,j,k);
+        tempstore(i,j,k)=DC(i,j,k)*(tempstore(i,j,k)-pmn_dt*cff4);
     });
 
     //-----------------------------------------------------------------------
