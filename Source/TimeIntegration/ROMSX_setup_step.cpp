@@ -19,17 +19,18 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     MultiFab& V_new = *yvel_new[lev];
     MultiFab& W_new = *zvel_new[lev];
 
-    FillPatchNoPhysBC(lev, time, S_old, {cons_old[lev]}, 0, cons_old[lev]->nComp());
-    FillPatchNoPhysBC(lev, time, U_old, {xvel_old[lev]}, 0, 1);
-    FillPatchNoPhysBC(lev, time, V_old, {yvel_old[lev]}, 0, 1);
-    FillPatchNoPhysBC(lev, time, W_old, {zvel_old[lev]}, 0, 1);
+    int nvars = S_old.nComp();
+
+    // Fill ghost cells/faces at old time
+    FillPatch(lev, time, cons_old[lev], cons_old);
+    FillPatch(lev, time, xvel_old[lev], xvel_old);
+    FillPatch(lev, time, yvel_old[lev], yvel_old);
+    FillPatch(lev, time, zvel_old[lev], zvel_old);
 
     //////////    //pre_step3d corrections to boundaries
 
     const BoxArray&            ba = S_old.boxArray();
     const DistributionMapping& dm = S_old.DistributionMap();
-
-    int nvars = S_old.nComp();
 
     const int ncomp = 1;
     const int nrhs  = ncomp-1;
@@ -54,11 +55,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     std::unique_ptr<MultiFab>& mf_h = vec_hOfTheConfusingName[lev];
 
     //Consider passing these into the advance function or renaming relevant things
-    /*
-    MultiFab mf_u(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_v(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_uold(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_vold(ba,dm,1,IntVect(NGROW,NGROW,0));*/
+
     MultiFab mf_u(U_new, amrex::make_alias, 0, 1);
     MultiFab mf_v(V_new, amrex::make_alias, 0, 1);
     MultiFab mf_uold(U_old, amrex::make_alias, 0, 1);
@@ -98,14 +95,10 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
     // We need to set these because otherwise in the first call to romsx_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
-    /*
-    mf_u.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_v.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_uold.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_vold.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));*/
     mf_rho.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rhoS->setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rhoA->setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+
     mf_w.setVal(0);
     mf_DC.setVal(0);
     mf_w.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
@@ -155,21 +148,21 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     //MFIter::allowMultipleMFIters(true);
     for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& h = (vec_hOfTheConfusingName[lev])->array(mfi);
-        Array4<Real> const& Hz  = (vec_Hz[lev])->array(mfi);
-        Array4<Real> const& Huon  = (vec_Huon[lev])->array(mfi);
-        Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
-        Array4<Real> const& z_w = (mf_z_w)->array(mfi);
-        Array4<Real> const& uold = (mf_uold).array(mfi);
-        Array4<Real> const& vold = (mf_vold).array(mfi);
-        Array4<Real> const& rho = (mf_rho).array(mfi);
-        Array4<Real> const& rhoA = (mf_rhoA)->array(mfi);
-        Array4<Real> const& rhoS = (mf_rhoS)->array(mfi);
-        Array4<Real> const& tempold = (mf_tempold).array(mfi);
-        Array4<Real> const& saltold = (mf_saltold).array(mfi);
-        Array4<Real> const& rdrag = (mf_rdrag)->array(mfi);
-        Array4<Real> const& bustr = (mf_bustr)->array(mfi);
-        Array4<Real> const& bvstr = (mf_bvstr)->array(mfi);
+        Array4<Real const> const& h = (vec_hOfTheConfusingName[lev])->const_array(mfi);
+        Array4<Real const> const& Hz  = (vec_Hz[lev])->const_array(mfi);
+        Array4<Real      > const& Huon  = (vec_Huon[lev])->array(mfi);
+        Array4<Real      > const& Hvom  = (vec_Hvom[lev])->array(mfi);
+        Array4<Real const> const& z_w = (mf_z_w)->const_array(mfi);
+        Array4<Real      > const& uold = (mf_uold).array(mfi);
+        Array4<Real      > const& vold = (mf_vold).array(mfi);
+        Array4<Real      > const& rho = (mf_rho).array(mfi);
+        Array4<Real      > const& rhoA = (mf_rhoA)->array(mfi);
+        Array4<Real      > const& rhoS = (mf_rhoS)->array(mfi);
+        Array4<Real const> const& tempold = (mf_tempold).const_array(mfi);
+        Array4<Real const> const& saltold = (mf_saltold).const_array(mfi);
+        Array4<Real      > const& rdrag = (mf_rdrag)->array(mfi);
+        Array4<Real      > const& bustr = (mf_bustr)->array(mfi);
+        Array4<Real      > const& bvstr = (mf_bvstr)->array(mfi);
 
         Box  bx = mfi.tilebox();
         Box ubx = Box(uold);
@@ -256,8 +249,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
           om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
         });
 
-        amrex::ParallelFor(gbx2D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        amrex::ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
           //Note: are the comment definitons right? Don't seem to match metrics.f90
           om_r(i,j,0)=1.0/dxi[0]; // 1/pm(i,j)
@@ -500,11 +492,13 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
     mf_temp.FillBoundary(geom[lev].periodicity());
     mf_salt.FillBoundary(geom[lev].periodicity());
+
     mf_tempold.FillBoundary(geom[lev].periodicity());
     mf_saltold.FillBoundary(geom[lev].periodicity());
+
     vec_t3[lev]->FillBoundary(geom[lev].periodicity());
     vec_s3[lev]->FillBoundary(geom[lev].periodicity());
+
     vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
     vec_Hvom[lev]->FillBoundary(geom[lev].periodicity());
-
 }

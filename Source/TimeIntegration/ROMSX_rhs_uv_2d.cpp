@@ -139,7 +139,7 @@ ROMSX::rhs_uv_2d (const Box& xbx, const Box& ybx,
     });
 
     amrex::ParallelFor(growLo(ybx,1,1),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
         Real vee_j    = vbar(i,j-1,0,krhs)-2.0*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
         Real vee_jp1  = vbar(i,j  ,0,krhs)-2.0*vbar(i,j+1,0,krhs)+vbar(i,j+2,0,krhs);

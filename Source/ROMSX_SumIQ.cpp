@@ -30,7 +30,6 @@ ROMSX::sum_integrated_quantities(Real time)
             const Box& bx = mfi.tilebox();
             const Array4<      Real> kineng_arr = kineng_mf.array(mfi);
             const Array4<const Real>    vel_arr = cc_vel_mf.const_array(mfi);
-            const Array4<const Real>   cons_arr = cons_new[lev]->const_array(mfi);
             ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                 kineng_arr(i,j,k) = 0.5 * ( vel_arr(i,j,k,0)*vel_arr(i,j,k,0) + vel_arr(i,j,k,1)*vel_arr(i,j,k,1) +
