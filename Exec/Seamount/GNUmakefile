@@ -31,6 +31,6 @@ Bpack := ./Make.package
 Blocs := .
 ROMSX_HOME := ../..
 ROMSX_PROBLEM_DIR = $(ROMSX_HOME)/Exec/Seamount
-USE_NETCDF = TRUE
+USE_NETCDF = FALSE
 DEFINES += -DROMSX_USE_HISTORYFILE
 include $(ROMSX_HOME)/Exec/Make.ROMSX
