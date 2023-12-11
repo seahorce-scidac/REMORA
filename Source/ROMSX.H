@@ -37,10 +37,6 @@
 #include "ParticleData.H"
 #endif
 
-#ifdef ROMSX_USE_NETCDF
-#include "NCWpsFile.H"
-#endif
-
 #include <iostream>
 
 #ifdef AMREX_LAZY
@@ -178,38 +174,6 @@ public:
                                                 const std::string &versionName,
                                                 const std::string &levelPrefix,
                                                 const std::string &mfPrefix) const;
-
-#ifdef ROMSX_USE_NETCDF
-
-    /** Read the netcdf wrfinput file once */
-    void read_from_wrfinput(int lev, int idx,
-                            amrex::Vector<amrex::FArrayBox>& NC_xvel_fab, amrex::Vector<amrex::FArrayBox>& NC_yvel_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_zvel_fab, amrex::Vector<amrex::FArrayBox>& NC_rho_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_rhop_fab, amrex::Vector<amrex::FArrayBox>& NC_rhoth_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_MUB_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_MSFU_fab, amrex::Vector<amrex::FArrayBox>& NC_MSFV_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_MSFM_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_SST_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_C1H_fab,  amrex::Vector<amrex::FArrayBox>& NC_C2H_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_RDNW_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_PH_fab, amrex::Vector<amrex::FArrayBox>& NC_PHB_fab,
-                            amrex::Vector<amrex::FArrayBox>& NC_ALB_fab, amrex::Vector<amrex::FArrayBox>& NC_PB_fab);
-
-    /** Copy from the NC*fabs into the MultiFabs holding the initial data */
-    void init_state_from_wrfinput(int lev,
-                            amrex::FArrayBox& state_vel_fab, amrex::FArrayBox& x_vel_fab,
-                            amrex::FArrayBox&     y_vel_fab, amrex::FArrayBox& z_vel_fab,
-                            const amrex::Vector<amrex::FArrayBox>& NC_xvel_fab, const amrex::Vector<amrex::FArrayBox>& NC_yvel_fab,
-                            const amrex::Vector<amrex::FArrayBox>& NC_zvel_fab, const amrex::Vector<amrex::FArrayBox>& NC_rho_fab,
-                            const amrex::Vector<amrex::FArrayBox>& NC_rhoth_fab);
-
-    void init_msfs_from_wrfinput(int lev,
-                            amrex::FArrayBox& msfu_fab, amrex::FArrayBox& msfv_fab,
-                            amrex::FArrayBox& msfm_fab,
-                            const amrex::Vector<amrex::FArrayBox>& NC_MSFU_fab,
-                            const amrex::Vector<amrex::FArrayBox>& NC_MSFV_fab,
-                            const amrex::Vector<amrex::FArrayBox>& NC_MSFM_fab);
-#endif //ROMSX_USE_NETCDF
 
     std::string pp_prefix {"romsx"};
 
@@ -674,10 +638,6 @@ private:
 
     void resize_stuff (int lev);
 
-#ifdef ROMSX_USE_NETCDF
-    void init_from_wrfinput(int lev);
-#endif // ROMSX_USE_NETCDF
-
     /** more flexible version of AverageDown() that lets you average down across multiple levels */
     void AverageDownTo (int crse_lev);
 
@@ -740,12 +700,6 @@ private:
                          const std::string &name,
                          int coordinatorProc = amrex::ParallelDescriptor::IOProcessorNumber(),
                          int allow_empty_mf = 0);
-
-    // Copy from the NC*fabs into the MultiFabs holding the boundary data
-    void init_from_wrfbdy(amrex::Vector<amrex::FArrayBox*> x_vel_lateral,
-                          amrex::Vector<amrex::FArrayBox*> y_vel_lateral,
-                          amrex::Vector<amrex::FArrayBox*> z_vel_lateral,
-                          amrex::Vector<amrex::FArrayBox*> T_lateral);
 
     // *** *** FArrayBox's for holding the SURFACE data
     // Data read from the wrfinput NetCDF file

@@ -2,7 +2,6 @@ CEXE_sources += BoundaryConditions_xvel.cpp
 CEXE_sources += BoundaryConditions_yvel.cpp
 CEXE_sources += BoundaryConditions_zvel.cpp
 CEXE_sources += BoundaryConditions_cons.cpp
-CEXE_sources += BoundaryConditions_wrfbdy.cpp
 
 CEXE_sources += ROMSX_FillPatch.cpp
 

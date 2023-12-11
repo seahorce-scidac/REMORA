@@ -99,13 +99,6 @@ public:
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv,
                           int icomp, int ncomp, amrex::Real time, int bccomp);
 
-#ifdef ROMSX_USE_NETCDF
-    void fill_from_wrfbdy (const int lev,   const amrex::Box& bx, const amrex::Array4<amrex::Real>& dest_arr,
-                           const int icomp, const int bccomp, const int ncomp,
-                           const amrex::Box& domain, const amrex::BCRec* bc_ptr,
-                           const amrex::Real time, const amrex::Real bdy_time_interval);
-#endif
-
     // For backward compatibility
     void FillBoundary (amrex::MultiFab& mf, int dcomp, int ncomp, amrex::IntVect const& nghost,
                        amrex::Real time, int bccomp) {

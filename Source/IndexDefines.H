@@ -30,24 +30,6 @@ namespace BCVars {
     };
 }
 
-namespace WRFBdyVars {
-    enum {
-        U  = 0,
-        V  = 1,
-        T  = 2,
-        NumTypes
-    };
-}
-
-namespace WRFBdyTypes {
-    enum {
-        x_lo,
-        x_hi,
-        y_lo,
-        y_hi
-    };
-}
-
 namespace Cons {
     enum {
         Temp = 0,
