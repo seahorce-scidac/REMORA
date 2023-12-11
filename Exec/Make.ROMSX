@@ -73,6 +73,7 @@ endif
 
 #turn on NetCDF macro define
 ifeq ($(USE_NETCDF), TRUE)
+  USERSuffix = .NC
   DEFINES += -DROMSX_USE_NETCDF
   includes += $(shell pkg-config --cflags netcdf)
   LIBRARIES += $(shell pkg-config --libs netcdf)
