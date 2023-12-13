@@ -30,19 +30,13 @@ ROMSX::rho_eos (const Box& bx,
                 const int nrhs,
                 const int N)
 {
-    // Hardcode these for now instead of reading them from inputs
-    Real T0=14.0;
-    Real S0=35.0;
-    Real R0=1027;
-    Real Tcoef=1.7e-4;
-    Real Scoef=0.0;
-    Real rho0=1025.0;
-
+//
     AMREX_ASSERT(bx.smallEnd(2) == 0 && bx.bigEnd(2) == N);
 //
 //=======================================================================
 //  Linear equation of state.
 //=======================================================================
+//
 //
 //-----------------------------------------------------------------------
 //  Compute "in situ" density anomaly (kg/m3 - 1000) using the linear
@@ -52,8 +46,8 @@ ROMSX::rho_eos (const Box& bx,
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        rho(i,j,k)  = R0 - R0*Tcoef*(temp(i,j,k,nrhs)-T0);
-        rho(i,j,k) += R0*Scoef*(salt(i,j,k,nrhs)-S0) - 1000.0_rt;
+        rho(i,j,k)  = solverChoice.R0 - solverChoice.R0*solverChoice.Tcoef*(temp(i,j,k,nrhs)-solverChoice.T0);
+        rho(i,j,k) += solverChoice.R0*solverChoice.Scoef*(salt(i,j,k,nrhs)-solverChoice.S0) - 1000.0_rt;
     });
 
 //
@@ -62,7 +56,7 @@ ROMSX::rho_eos (const Box& bx,
 //  used (rhoS) in barotropic pressure gradient.
 //-----------------------------------------------------------------------
 //
-    Real cff2 =1.0_rt/rho0;
+    Real cff2 =1.0_rt/solverChoice.rho0;
 
     amrex::ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {

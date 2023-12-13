@@ -40,29 +40,32 @@ romsx.check_int       = -57600      # number of timesteps between checkpoints
 
 # PLOTFILES
 romsx.plot_file_1     = plt        # prefix of plotfile name
-romsx.plot_int_1      = 100          # number of timesteps between plotfiles
+romsx.plot_int_1      = 1          # number of timesteps between plotfiles
 romsx.plot_vars_1     = omega salt temp x_velocity y_velocity z_velocity
 romsx.plotfile_type   = amrex
 
 # SOLVER CHOICE
 romsx.use_coriolis = true
+romsx.flat_bathymetry=true
 romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 romsx.spatial_order = 2
 
-# PROBLEM PARAMETERS (optional)
-prob.R0 = 1027.0
-prob.S0 = 35.0
-prob.T0 = 14.0
+# Linear EOS parameters
+romsx.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+romsx.S0    = 35.0    # background salinity (nondimensional) constant
+romsx.T0    = 14.0    # background potential temperature (Celsius) constant
+romsx.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celcius)
+romsx.Scoef = 0.0     # linear equation of state parameter (nondimensional)
+romsx.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
 
-# PROBLEM PARAMETERS (shear)
-prob.rho_0 = 1.0
-prob.T_0   = 1.0
-prob.A_0   = 1.0
+# Coriolis params
+romsx.coriolis_f0 = -8.26e-5
+romsx.coriolis_beta = 0.0
+
+# PROBLEM PARAMETERS (velocity fields)
 prob.u_0   = 0.0
 prob.v_0   = 0.0
-prob.rad_0 = 0.25
 prob.z0    = 0.1
 prob.zRef  = 80.0e-3
 prob.uRef  = 8.0e-3
 
-prob.prob_type = 12

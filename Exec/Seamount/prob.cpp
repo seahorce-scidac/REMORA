@@ -18,26 +18,6 @@ amrex_probinit(
 {
   // Parse params
   ParmParse pp("prob");
-  pp.query("R0", parms.R0);
-  pp.query("S0", parms.S0);
-  pp.query("T0", parms.T0);
-
-  pp.query("rho_0", parms.rho_0);
-  pp.query("T_0", parms.Theta_0);
-  pp.query("A_0", parms.A_0);
-  pp.query("B_0", parms.B_0);
-  pp.query("u_0", parms.u_0);
-  pp.query("v_0", parms.v_0);
-  pp.query("rad_0", parms.rad_0);
-  pp.query("z0", parms.z0);
-  pp.query("zRef", parms.zRef);
-  pp.query("uRef", parms.uRef);
-
-  pp.query("xc_frac", parms.xc_frac);
-  pp.query("yc_frac", parms.yc_frac);
-  pp.query("zc_frac", parms.zc_frac);
-
-  pp.query("prob_type", parms.prob_type);
 }
 
 /**
@@ -89,8 +69,6 @@ init_custom_bathymetry (const Geometry& geom,
       amrex::Real Xsize = 320000.0_rt;
       amrex::Real Esize = 320000.0_rt;
       amrex::Real depth = 5000.0_rt;
-      amrex::Real f0 = 1e-4;
-      amrex::Real beta = 1.0_rt;
 
       if(!m_solverChoice.flat_bathymetry) {
       Gpu::streamSynchronize();
@@ -143,8 +121,8 @@ init_custom_prob(
 
   AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
 
-  const Real& rho_sfc   = p_0 / (R_d*parms.T0);
-  const Real& thetabar  = parms.T0;
+  const Real& rho_sfc   = p_0 / (R_d*m_solverChoice.T0);
+  const Real& thetabar  = m_solverChoice.T0;
   const Real& dz        = geomdata.CellSize()[2];
   const Real& el        = geomdata.ProbHi()[1];
   const Real& prob_lo_z = geomdata.ProbLo()[2];
@@ -161,9 +139,9 @@ init_custom_prob(
 
         state(i, j, k, Temp_comp) = 1.;
 
-        state(i,j,k,Temp_comp)=parms.T0+7.5_rt*std::exp(z/1000.0_rt);
+        state(i,j,k,Temp_comp)=m_solverChoice.T0+7.5_rt*std::exp(z/1000.0_rt);
 #ifdef ROMSX_USE_SALINITY
-        state(i,j,k,Salt_comp)=parms.S0;
+        state(i,j,k,Salt_comp)=m_solverChoice.S0;
 #endif
 
         // Set scalar = 0 everywhere

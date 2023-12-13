@@ -150,7 +150,6 @@ ROMSX::advance_2d (int lev,
         FArrayBox fab_pm(tbxp2,1,The_Async_Arena());
         FArrayBox fab_on_u(tbxp3,1,The_Async_Arena());
         FArrayBox fab_om_v(tbxp3,1,The_Async_Arena());
-        FArrayBox fab_fomn(tbxp2,1,The_Async_Arena());
         FArrayBox fab_om_u(tbxp3,1,amrex::The_Async_Arena());
         FArrayBox fab_on_v(tbxp3,1,amrex::The_Async_Arena());
         FArrayBox fab_om_r(tbxp3,1,amrex::The_Async_Arena());
@@ -176,7 +175,6 @@ ROMSX::advance_2d (int lev,
         auto om_v=fab_om_v.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
-        auto fomn=fab_fomn.array();
         auto om_u=fab_om_u.array();
         auto on_v=fab_on_v.array();
         auto om_r=fab_om_r.array();
@@ -231,23 +229,7 @@ ROMSX::advance_2d (int lev,
               on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
               om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
         });
-        ParallelFor(tbxp2D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int  )
-        {
 
-              const auto prob_lo         = geomdata.ProbLo();
-              const auto dx              = geomdata.CellSize();
-
-              pm(i,j,0)=dxi[0];
-              pn(i,j,0)=dxi[1];
-              //defined UPWELLING
-              Real f0=-8.26e-5;
-              Real beta=0.0;
-              Real Esize=1000*(Mm);
-              Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=f0+beta*(y-.5*Esize);
-              fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
-        });
 
         if (verbose > 1) {
             Print() << "gbx2D advance_2d " << gbx2D << std::endl;
@@ -453,14 +435,10 @@ ROMSX::advance_2d (int lev,
               const auto prob_lo         = geomdata.ProbLo();
               const auto dx              = geomdata.CellSize();
 
-              pm(i,j,0)=dxi[0];
-              pn(i,j,0)=dxi[1];
               //defined UPWELLING
-              Real f0=-8.26e-5;
-              Real beta=0.0;
-              Real Esize=1000*(Mm);
+              Real Esize=geomdata.ProbHi()[1] - geomdata.ProbLo()[1];
               Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=f0+beta*(y-.5*Esize);
+              Real f=solverChoice.coriolis_f0 + solverChoice.coriolis_beta*(y-.5*Esize);
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
@@ -654,7 +632,7 @@ ROMSX::advance_2d (int lev,
 !
 */
 
-        Real cff1 = 0.5 * 9.81; // Should be the variable gravitational field strength
+        Real cff1 = 0.5 * solverChoice.g; // Should be the variable gravitational field strength
         Real cff2 = 1.0 / 3.0;
         ParallelFor(xbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )

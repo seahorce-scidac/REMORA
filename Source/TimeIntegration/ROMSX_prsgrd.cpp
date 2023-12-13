@@ -26,14 +26,10 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     utbxD.makeSlab(2,0);
     vtbxD.makeSlab(2,0);
 
-    //hardcode these for now instead of reading them from inputs
-    Real rho0=1025.0;
-
     const Real OneFifth = 0.2_rt;
     const Real OneTwelfth = 1.0_rt/12.0_rt;
     const Real eps = 1.0E-10_rt;
-    Real g=9.81;
-    Real GRho=g/rho0;
+    Real GRho=solverChoice.g/solverChoice.rho0;
     Real GRho0=1000.0_rt*GRho;
     Real HalfGRho=0.5_rt*GRho;
 
