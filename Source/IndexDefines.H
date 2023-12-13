@@ -7,9 +7,8 @@
 // Cell-centered state variables
 #define Temp_comp      0
 #define Scalar_comp    1
-#define Omega_comp     2
-#define Salt_comp      3
-#define NCONS           4
+#define Salt_comp      2
+#define NCONS          3
 
 #define NGROW          2
 

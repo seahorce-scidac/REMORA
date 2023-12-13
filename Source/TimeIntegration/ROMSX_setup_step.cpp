@@ -72,7 +72,9 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     std::unique_ptr<MultiFab>& mf_bustr = vec_bustr[lev];
     std::unique_ptr<MultiFab>& mf_bvstr = vec_bvstr[lev];
     MultiFab mf_rw(ba,dm,1,IntVect(NGROW,NGROW,0));
+
     MultiFab mf_W(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
+    mf_W.setVal(0.0);
 
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
@@ -92,7 +94,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     MultiFab::Copy(mf_uold,U_old,0,0,U_old.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     MultiFab::Copy(mf_vold,V_old,0,0,V_old.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
     MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
-    MultiFab::Copy(mf_W,S_old,Omega_comp,0,mf_W.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
 
     mf_u.FillBoundary(geom[lev].periodicity());
     mf_v.FillBoundary(geom[lev].periodicity());
