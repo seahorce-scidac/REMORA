@@ -39,7 +39,7 @@ ROMSX::uv3dmix  (const Box& xbx, const Box& ybx,
     //   to do so requires                        UFe on    [ 0:nx  , 0:ny  ] (1,1,0) xy-nodes
     //      which requires                        uold on   [ 0:nx  ,-1:ny  ] (1,0,0) x-faces
     //       and  requires                        vold on   [ -1:nx , 0:ny  ] (0,1,0) y-faces
-    amrex::ParallelFor(growLo(xbx,0,1),
+    ParallelFor(growLo(xbx,0,1),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         const amrex::Real cff = 0.5*Hz(i,j,k) * (pm(i,j,0) / pn(i,j,0) *
@@ -50,7 +50,7 @@ ROMSX::uv3dmix  (const Box& xbx, const Box& ybx,
                                     (pm(i,j-1,0)+pm(i,j  ,0))*vold(i,j  ,k,nrhs)));
         UFx(i,j,k) = on_r(i,j,0)*on_r(i,j,0)*visc2_r(i,j,0)*cff;
     });
-    amrex::ParallelFor(growHi(xbx,1,1),
+    ParallelFor(growHi(xbx,1,1),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         const amrex::Real cff = 0.125 * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
@@ -64,7 +64,7 @@ ROMSX::uv3dmix  (const Box& xbx, const Box& ybx,
         UFe(i,j,k) = om_p(i,j,0)*om_p(i,j,0)*visc2_p(i,j,0)*cff;
     });
 
-    amrex::ParallelFor(xbx,
+    ParallelFor(xbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         const amrex::Real cff=dt_lev*0.25*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
@@ -85,7 +85,7 @@ ROMSX::uv3dmix  (const Box& xbx, const Box& ybx,
     //   to do so requires                        VFx on    [ 0:nx  , 0:ny  ] (1,1,0) xy-nodes
     //      which requires                        uold on   [ 0:nx  ,-1:ny  ] (1,0,0) x-faces
     //       and  requires                        vold on   [-1:nx  , 0:ny  ] (0,1,0) y-faces
-    amrex::ParallelFor(growLo(ybx,1,1),
+    ParallelFor(growLo(ybx,1,1),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         // cff depends on k, but UFx and VFe will only be affected by the last cell?
@@ -97,7 +97,7 @@ ROMSX::uv3dmix  (const Box& xbx, const Box& ybx,
                  (pm(i,j-1,0)+pm(i,j  ,0))*vold(i,j  ,k,nrhs)));
         VFe(i,j,k) = om_r(i,j,0)*om_r(i,j,0)*visc2_r(i,j,0)*cff;
     });
-    amrex::ParallelFor(growHi(ybx,0,1),
+    ParallelFor(growHi(ybx,0,1),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         const amrex::Real cff = 0.125 * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
@@ -111,7 +111,7 @@ ROMSX::uv3dmix  (const Box& xbx, const Box& ybx,
         VFx(i,j,k) = on_p(i,j,0)*on_p(i,j,0)*visc2_p(i,j,0)*cff;
     });
 
-    amrex::ParallelFor(ybx,
+    ParallelFor(ybx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         const amrex::Real cff=dt_lev*0.25*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));

@@ -49,7 +49,7 @@ amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 //             - initializes BCRec boundary condition object
 ROMSX::ROMSX ()
 {
-    if (amrex::ParallelDescriptor::IOProcessor()) {
+    if (ParallelDescriptor::IOProcessor()) {
         const char* romsx_hash = amrex::buildInfoGetGitHash(1);
         const char* amrex_hash = amrex::buildInfoGetGitHash(2);
         const char* buildgithash = amrex::buildInfoGetBuildGitHash();
@@ -241,7 +241,7 @@ void
 ROMSX::InitData ()
 {
     // Initialize the start time for our CPU-time tracker
-    startCPUTime = amrex::ParallelDescriptor::second();
+    startCPUTime = ParallelDescriptor::second();
 
     // Map the words in the inputs file to BC types, then translate
     //     those types into what they mean for each variable
@@ -265,7 +265,7 @@ ROMSX::InitData ()
         }
 
 #ifdef ROMSX_USE_PARTICLES
-        particleData.init_particles((amrex::ParGDBBase*)GetParGDB(),vec_z_phys_nd);
+        particleData.init_particles((ParGDBBase*)GetParGDB(),vec_z_phys_nd);
 #endif
 
     } else { // Restart from a checkpoint
@@ -375,13 +375,11 @@ ROMSX::set_vmix(int lev) {
 
 void
 ROMSX::set_hmixcoef(int lev) {
-    init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2_salt[lev],
-            *vec_diff2_temp[lev], solverChoice);
+    init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev], solverChoice);
 
     vec_visc2_p[lev]->FillBoundary(geom[lev].periodicity());
     vec_visc2_r[lev]->FillBoundary(geom[lev].periodicity());
-    vec_diff2_salt[lev]->FillBoundary(geom[lev].periodicity());
-    vec_diff2_temp[lev]->FillBoundary(geom[lev].periodicity());
+    vec_diff2[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 void

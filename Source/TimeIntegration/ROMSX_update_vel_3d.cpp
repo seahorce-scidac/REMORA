@@ -49,7 +49,7 @@ ROMSX::update_vel_3d (const Box& vel_bx, const Box& gbx,
         Print() << "vel old " << Box(vel_old) << std::endl;
         Print() << "Akv " << Box(Akv) << std::endl;
     }
-    amrex::ParallelFor(vel_bx,
+    ParallelFor(vel_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         if(k+1<=N&&k>=0)
@@ -72,7 +72,7 @@ ROMSX::update_vel_3d (const Box& vel_bx, const Box& gbx,
                                       * (pn(i,j,0)+pn(i-ioff,j-joff,0));
     });
 
-    amrex::ParallelFor(gbxvel,
+    ParallelFor(gbxvel,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff3=dt_lev*(1.0-lambda);
