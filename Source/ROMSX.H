@@ -215,10 +215,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_p;
     /** Harmonic viscosity devined on the rho points (centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_r;
-    /** Harmonic diffusivity for salinity */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_diff2_salt;
-    /** Harmonic diffusivity for temperature */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_diff2_temp;
+    /** Harmonic diffusivity for temperature / salinity */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_diff2;
 
     /** x coordinates at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_x_r;
@@ -314,7 +312,8 @@ public:
                      std::unique_ptr<amrex::MultiFab>& mf_h,
                      std::unique_ptr<amrex::MultiFab>& mf_visc2_p,
                      std::unique_ptr<amrex::MultiFab>& mf_visc2_r,
-                     const int ncomp, const amrex::Real dtfast_lev,
+                     const int ncomp,
+                     const amrex::Real dtfast_lev,
                      const bool predictor_2d_step,
                      const bool first_2d_step, int my_iif,
                      int & next_indx1);
@@ -338,7 +337,7 @@ public:
                      std::unique_ptr<amrex::MultiFab>& mf_Hvom,
                      std::unique_ptr<amrex::MultiFab>& mf_z_w,
                      std::unique_ptr<amrex::MultiFab>& mf_h  ,
-                     const int ncomp, const int N,
+                     const int N,
                      const amrex::Real dt_lev);
 
     /** Wrapper function for prestep */
@@ -347,8 +346,8 @@ public:
                   amrex::MultiFab& mf_u, amrex::MultiFab& mf_v,
                   std::unique_ptr<amrex::MultiFab>& mf_ru,
                   std::unique_ptr<amrex::MultiFab>& mf_rv,
-                  amrex::MultiFab& mf_tempold, amrex::MultiFab& mf_saltold,
-                  amrex::MultiFab& mf_temp, amrex::MultiFab& mf_salt,
+                  amrex::MultiFab& S_old,
+                  amrex::MultiFab& S_new,
                   amrex::MultiFab& mf_W, amrex::MultiFab& mf_DC,
                   /* MF mf_FC? */
                   std::unique_ptr<amrex::MultiFab>& mf_z_r,
@@ -396,10 +395,6 @@ public:
                         amrex::Array4<amrex::Real> rv,
                         amrex::Array4<amrex::Real> Hz,
                         amrex::Array4<amrex::Real> Akv,
-                        amrex::Array4<amrex::Real> on_u,
-                        amrex::Array4<amrex::Real> om_v,
-                        amrex::Array4<amrex::Real> Huon,
-                        amrex::Array4<amrex::Real> Hvom,
                         amrex::Array4<amrex::Real> pm,
                         amrex::Array4<amrex::Real> pn,
                         amrex::Array4<amrex::Real> W,
@@ -461,15 +456,14 @@ public:
                     int nrhs);
 
     void rho_eos (const amrex::Box& bx,
-                  amrex::Array4<amrex::Real const> temp,
-                  amrex::Array4<amrex::Real const> salt,
+                  amrex::Array4<amrex::Real const> state,
                   amrex::Array4<amrex::Real      > rho,
                   amrex::Array4<amrex::Real      > rhoA,
                   amrex::Array4<amrex::Real      > rhoS,
                   amrex::Array4<amrex::Real const> Hz,
                   amrex::Array4<amrex::Real const> z_w,
                   amrex::Array4<amrex::Real const> h,
-                  const int nrhs, const int N);
+                  const int N);
 
     void prsgrd (const amrex::Box& bx,
                  const amrex::Box& gbx,
@@ -526,8 +520,7 @@ public:
                           amrex::Array4<amrex::Real> v,
                           amrex::Array4<amrex::Real> Hv,
                           amrex::Array4<amrex::Real> om_v,
-                          amrex::Array4<amrex::Real const> Hz,
-                          const int nnew);
+                          amrex::Array4<amrex::Real const> Hz);
 
     void update_massflux_3d (const amrex::Box& bx,
                              const int ioff, const int joff,
@@ -575,15 +568,15 @@ public:
 
     /** Harmonic diffusivity for tracers */
     void t3dmix  (const amrex::Box& bx,
-                 amrex::Array4<amrex::Real> t,
+                 amrex::Array4<amrex::Real> state,
                  amrex::Array4<amrex::Real> diff2,
                  amrex::Array4<amrex::Real> Hz,
                  amrex::Array4<amrex::Real> pm,
                  amrex::Array4<amrex::Real> pn,
                  amrex::Array4<amrex::Real> pmon_u,
                  amrex::Array4<amrex::Real> pnom_v,
-                 int nrhs, int nnew,
-                 const amrex::Real dt_lev);
+                 const amrex::Real dt_lev,
+                 const int ncomp);
 
     void coriolis (const amrex::Box& xbx,
                    const amrex::Box& ybx,
@@ -784,7 +777,7 @@ private:
     amrex::Array<std::string,2*AMREX_SPACEDIM> domain_bc_type;
 
     // These hold the Dirichlet values at walls which need them ...
-    amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NVAR> m_bc_extdir_vals;
+    amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS> m_bc_extdir_vals;
 
     // These are the "physical" boundary condition types (e.g. "inflow")
     amrex::GpuArray<ROMSX_BC, AMREX_SPACEDIM*2> phys_bc_type;

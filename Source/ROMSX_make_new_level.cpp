@@ -18,8 +18,8 @@ void
 ROMSX::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
                                const DistributionMapping& dm)
 {
-    cons_new[lev]->define(ba, dm, Cons::NumVars, cons_new[lev-1]->nGrowVect());
-    cons_old[lev]->define(ba, dm, Cons::NumVars, cons_new[lev-1]->nGrowVect());
+    cons_new[lev]->define(ba, dm, NCONS, cons_new[lev-1]->nGrowVect());
+    cons_old[lev]->define(ba, dm, NCONS, cons_new[lev-1]->nGrowVect());
 
     xvel_new[lev]->define(convert(ba, IntVect(1,0,0)), dm, 1, xvel_new[lev-1]->nGrowVect());
     xvel_old[lev]->define(convert(ba, IntVect(1,0,0)), dm, 1, xvel_new[lev-1]->nGrowVect());
@@ -56,8 +56,8 @@ ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMa
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
 #endif
 
-    MultiFab* tmp_cons_new; tmp_cons_new->define(ba, dm, Cons::NumVars, ngrow_state);
-    MultiFab* tmp_cons_old; tmp_cons_old->define(ba, dm, Cons::NumVars, ngrow_state);
+    MultiFab* tmp_cons_new; tmp_cons_new->define(ba, dm, NCONS, ngrow_state);
+    MultiFab* tmp_cons_old; tmp_cons_old->define(ba, dm, NCONS, ngrow_state);
 
     MultiFab* tmp_xvel_new; tmp_xvel_new->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
     MultiFab* tmp_xvel_old; tmp_xvel_old->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
@@ -74,7 +74,7 @@ ROMSX::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMa
     FillPatch(lev, time, tmp_yvel_new, yvel_new);
     FillPatch(lev, time, tmp_zvel_new, zvel_new);
 
-    MultiFab::Copy(*tmp_cons_old,*tmp_cons_new,0,0,NVAR,tmp_cons_new[lev].nGrowVect());
+    MultiFab::Copy(*tmp_cons_old,*tmp_cons_new,0,0,NCONS,tmp_cons_new[lev].nGrowVect());
     MultiFab::Copy(*tmp_xvel_old,*tmp_xvel_new,0,0,   1,tmp_xvel_new[lev].nGrowVect());
     MultiFab::Copy(*tmp_yvel_old,*tmp_yvel_new,0,0,   1,tmp_yvel_new[lev].nGrowVect());
     MultiFab::Copy(*tmp_zvel_old,*tmp_zvel_new,0,0,   1,tmp_zvel_new[lev].nGrowVect());
@@ -118,8 +118,8 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
 #endif
 
-    cons_old[lev] = new MultiFab(ba, dm, Cons::NumVars, ngrow_state);
-    cons_new[lev] = new MultiFab(ba, dm, Cons::NumVars, ngrow_state);
+    cons_old[lev] = new MultiFab(ba, dm, NCONS, ngrow_state);
+    cons_new[lev] = new MultiFab(ba, dm, NCONS, ngrow_state);
 
     xvel_new[lev] = new MultiFab(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
     xvel_old[lev] = new MultiFab(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
@@ -153,8 +153,7 @@ void ROMSX::resize_stuff(int lev)
     vec_visc3d_r.resize(lev+1);
     vec_visc2_p.resize(lev+1);
     vec_visc2_r.resize(lev+1);
-    vec_diff2_salt.resize(lev+1);
-    vec_diff2_temp.resize(lev+1);
+    vec_diff2.resize(lev+1);
     vec_ru.resize(lev+1);
     vec_rv.resize(lev+1);
     vec_rufrc.resize(lev+1);
@@ -239,8 +238,7 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     // check dimensionality
     vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?
     vec_visc2_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at rho points
-    vec_diff2_salt[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic diffusivity salt
-    vec_diff2_temp[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature
+    vec_diff2[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature/salt
 
     // maybe TODO: clean up component indexing in prestep?
     vec_ru[lev].reset(new MultiFab(convert(ba,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS u (incl horizontal and vertical advection)

@@ -4,8 +4,7 @@ stop_time = 30000.0
 
 amrex.fpe_trap_invalid = 1
 
-#fabarray.mfiter_tile_size = 1024 1024 1024
-fabarray.mfiter_tile_size = 16 16 1024
+fabarray.mfiter_tile_size = 1024 1024 1024
 
 # PROBLEM SIZE & GEOMETRY
 # dims come from ROMS ana_grid, and must match vals in prob.cpp right now
@@ -53,16 +52,20 @@ romsx.use_coriolis = true
 romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 romsx.spatial_order = 2
 
-romsx.coriolis_f0 = -8.26e-5
-
-romsx.theta_s = 3.0
-romsx.theta_b = 0
-romsx.tcline = 150
-
 # PROBLEM PARAMETERS (optional)
-romsx.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
-romsx.S0    = 35.0    # background salinity (nondimensional) constant
-romsx.T0    = 14.0    # background potential temperature (Celsius) constant
-romsx.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celcius)
-romsx.Scoef = 0.0     # linear equation of state parameter (nondimensional)
-romsx.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
+prob.R0 = 1027.0
+prob.S0 = 32.0
+prob.T0 = 10.0
+
+# PROBLEM PARAMETERS (shear)
+prob.rho_0 = 1.0
+prob.T_0   = 1.0
+prob.A_0   = 1.0
+prob.u_0   = 0.0
+prob.v_0   = 0.0
+prob.rad_0 = 0.25
+prob.z0    = 0.1
+prob.zRef  = 80.0e-3
+prob.uRef  = 8.0e-3
+
+prob.prob_type = 12

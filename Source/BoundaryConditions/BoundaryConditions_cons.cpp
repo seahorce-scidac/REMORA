@@ -6,16 +6,16 @@ using namespace amrex;
 //
 // mf is the multifab to be filled
 // icomp is the index into the MultiFab -- if cell-centered this can be any value
-//       from 0 to NVAR-1, if face-centered this must be 0
+//       from 0 to NCONS-1, if face-centered this must be 0
 // ncomp is the number of components -- if cell-centered (var_idx = 0) this can be any value
-//       from 1 to NVAR as long as icomp+ncomp <= NVAR-1.  If face-centered this
+//       from 1 to NCONS as long as icomp+ncomp <= NCONS-1.  If face-centered this
 //       must be 1
 // time is the time at which the data should be filled
 // bccomp is the index into both domain_bcs_type_bcr and bc_extdir_vals for icomp = 0  --
 //     so this follows the BCVars enum
 //
 void ROMSXPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
-                                        const GpuArray<Real,AMREX_SPACEDIM> dxInv,
+                                        const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/,
                                         int icomp, int ncomp, Real /*time*/, int bccomp)
 {
     BL_PROFILE_VAR("impose_cons_bcs()",impose_cons_bcs);
@@ -43,7 +43,7 @@ void ROMSXPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box&
 #endif
     const amrex::BCRec* bc_ptr = bcrs_d.data();
 
-    GpuArray<GpuArray<Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NVAR> l_bc_extdir_vals_d;
+    GpuArray<GpuArray<Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS> l_bc_extdir_vals_d;
 
     for (int i = 0; i < ncomp; i++)
         for (int ori = 0; ori < 2*AMREX_SPACEDIM; ori++)

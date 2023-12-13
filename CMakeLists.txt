@@ -10,7 +10,6 @@ include(CMakePackageConfigHelpers)
 #General options for all executables in the project
 set(ROMSX_DIM "3" CACHE STRING "Number of physical dimensions")
 option(ROMSX_ENABLE_DOCUMENTATION "Build documentation" OFF)
-option(ROMSX_ENABLE_SALINITY      "Enable Salinity" ON)
 option(ROMSX_ENABLE_ALL_WARNINGS  "Enable all compiler warnings" OFF)
 option(ROMSX_ENABLE_TESTS         "Enable regression and unit tests" OFF)
 option(ROMSX_ENABLE_NETCDF        "Enable NetCDF IO" OFF)

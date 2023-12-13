@@ -13,15 +13,9 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
     FillPatch(lev, t_old[lev], zvel_old[lev], zvel_old);
 
     MultiFab mf_temp(*cons_new[lev], amrex::make_alias, Temp_comp, 1);
-#ifdef ROMSX_USE_SALINITY
     MultiFab mf_salt(*cons_new[lev], amrex::make_alias, Salt_comp, 1);
-#else
-    MultiFab mf_salt(*cons_new[lev], amrex::make_alias, Temp_comp, 1);
-#endif
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
-
-    const int ncomp = 1;
 
     advance_3d(lev, *xvel_new[lev], *yvel_new[lev],
                mf_temp, mf_salt,
@@ -31,7 +25,7 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
                vec_Akv[lev], vec_Akt[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev],
-               vec_z_w[lev], vec_hOfTheConfusingName[lev], ncomp, N, dt_lev);
+               vec_z_w[lev], vec_hOfTheConfusingName[lev], N, dt_lev);
 
     vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
     vec_vbar[lev]->FillBoundary(geom[lev].periodicity());

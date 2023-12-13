@@ -97,8 +97,8 @@ ROMSX::WriteNCCheckpointFile () const
    // Here we make copies of the MultiFab with no ghost cells
    for (int lev = 0; lev <= finest_level; ++lev) {
 
-       MultiFab cons(grids[lev],dmap[lev],Cons::NumVars,0);
-       MultiFab::Copy(cons,*cons_new[lev],0,0,NVAR,0);
+       MultiFab cons(grids[lev],dmap[lev],NCONS,0);
+       MultiFab::Copy(cons,*cons_new[lev],0,0,NCONS,0);
        WriteNCMultiFab(cons, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Cell"));
 
        MultiFab xvel(convert(grids[lev],IntVect(1,0,0)),dmap[lev],1,0);
@@ -136,7 +136,7 @@ ROMSX::ReadNCCheckpointFile ()
     const std::string ntime_name = "num_newtime";
 
     const int nvar         = static_cast<int>(ncf.dim(nvar_name).len());
-    AMREX_ALWAYS_ASSERT(nvar == Cons::NumVars);
+    AMREX_ALWAYS_ASSERT(nvar == NCONS);
 
     const int ndt          = static_cast<int>(ncf.dim(ndt_name).len());
     const int nstep        = static_cast<int>(ncf.dim(nstep_name).len());
@@ -188,7 +188,7 @@ ROMSX::ReadNCCheckpointFile ()
         SetDistributionMap(lev, dm);
 
         // build MultiFab data
-        int ncomp = Cons::NumVars;
+        int ncomp = NCONS;
 
         cons_new[lev]->define(grids[lev], dmap[lev], ncomp, ngrow_state);
         cons_old[lev]->define(grids[lev], dmap[lev], ncomp, ngrow_state);
@@ -207,9 +207,9 @@ ROMSX::ReadNCCheckpointFile ()
     for (int lev = 0; lev <= finest_level; ++lev)
     {
 
-        MultiFab cons(grids[lev],dmap[lev],Cons::NumVars,0);
+        MultiFab cons(grids[lev],dmap[lev],NCONS,0);
         WriteNCMultiFab(cons, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Cell"));
-        MultiFab::Copy(*cons_new[lev],cons,0,0,Cons::NumVars,0);
+        MultiFab::Copy(*cons_new[lev],cons,0,0,NCONS,0);
 
         MultiFab xvel(convert(grids[lev],IntVect(1,0,0)),dmap[lev],1,0);
         WriteNCMultiFab(xvel, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Cell"));
@@ -224,7 +224,7 @@ ROMSX::ReadNCCheckpointFile ()
         MultiFab::Copy(*zvel_new[lev],zvel,0,0,1,0);
 
         // Copy from new into old just in case
-        MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,NVAR,0);
+        MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,NCONS,0);
         MultiFab::Copy(*xvel_old[lev],*xvel_new[lev],0,0,1,0);
         MultiFab::Copy(*yvel_old[lev],*yvel_new[lev],0,0,1,0);
         MultiFab::Copy(*zvel_old[lev],*zvel_new[lev],0,0,1,0);

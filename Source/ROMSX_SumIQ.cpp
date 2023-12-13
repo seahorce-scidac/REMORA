@@ -16,8 +16,8 @@ ROMSX::sum_integrated_quantities(Real time)
     int datwidth = 14;
     int datprecision = 6;
 
-    amrex::Real scalar = 0.0;
-    amrex::Real kineng = 0.0;
+    Real scalar = 0.0;
+    Real kineng = 0.0;
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
@@ -43,14 +43,14 @@ ROMSX::sum_integrated_quantities(Real time)
 
     if (verbose > 0) {
         const int nfoo = 2;
-        amrex::Real foo[nfoo] = {scalar,kineng};
+        Real foo[nfoo] = {scalar,kineng};
 #ifdef AMREX_LAZY
         Lazy::QueueReduction([=]() mutable {
 #endif
-        amrex::ParallelDescriptor::ReduceRealSum(
-            foo, nfoo, amrex::ParallelDescriptor::IOProcessorNumber());
+        ParallelDescriptor::ReduceRealSum(
+            foo, nfoo, ParallelDescriptor::IOProcessorNumber());
 
-          if (amrex::ParallelDescriptor::IOProcessor()) {
+          if (ParallelDescriptor::IOProcessor()) {
             int i = 0;
             scalar = foo[i++];
             kineng = foo[i++];
@@ -86,8 +86,7 @@ ROMSX::sum_integrated_quantities(Real time)
 }
 
 Real
-ROMSX::volWgtSumMF(int lev,
-  const amrex::MultiFab& mf, int comp, bool local, bool finemask)
+ROMSX::volWgtSumMF(int lev, const MultiFab& mf, int comp, bool local, bool finemask)
 {
     BL_PROFILE("ROMSX::volWgtSumMF()");
 
@@ -104,7 +103,7 @@ ROMSX::volWgtSumMF(int lev,
     auto const& dx = geom[lev].CellSizeArray();
     Real cell_vol = dx[0]*dx[1]*dx[2];
     volume.setVal(cell_vol);
-    sum = amrex::MultiFab::Dot(tmp, 0, volume, 0, 1, 0, local);
+    sum = MultiFab::Dot(tmp, 0, volume, 0, 1, 0, local);
 
     if (!local)
       ParallelDescriptor::ReduceRealSum(sum);
@@ -112,7 +111,7 @@ ROMSX::volWgtSumMF(int lev,
     return sum;
 }
 
-amrex::MultiFab&
+MultiFab&
 ROMSX::build_fine_mask(int level)
 {
     // Mask for zeroing covered cells
@@ -122,26 +121,26 @@ ROMSX::build_fine_mask(int level)
     const DistributionMapping& cdm = dmap[level-1];
 
     // TODO -- we should make a vector of these a member of ROMSX class
-    fine_mask.define(cba, cdm, 1, 0, amrex::MFInfo());
+    fine_mask.define(cba, cdm, 1, 0, MFInfo());
     fine_mask.setVal(1.0);
 
-    amrex::BoxArray fba = grids[level];
-    amrex::iMultiFab ifine_mask = makeFineMask(cba, cdm, fba, ref_ratio[level-1], 1, 0);
+    BoxArray fba = grids[level];
+    iMultiFab ifine_mask = makeFineMask(cba, cdm, fba, ref_ratio[level-1], 1, 0);
 
     const auto  fma =  fine_mask.arrays();
     const auto ifma = ifine_mask.arrays();
-    amrex::ParallelFor(fine_mask, [=] AMREX_GPU_DEVICE(int bno, int i, int j, int k) noexcept
+    ParallelFor(fine_mask, [=] AMREX_GPU_DEVICE(int bno, int i, int j, int k) noexcept
     {
         fma[bno](i,j,k) = ifma[bno](i,j,k);
     });
 
-    amrex::Gpu::synchronize();
+    Gpu::synchronize();
 
     return fine_mask;
 }
 
 bool
-ROMSX::is_it_time_for_action(int nstep, Real time, Real dtlev, int action_interval, amrex::Real action_per)
+ROMSX::is_it_time_for_action(int nstep, Real time, Real dtlev, int action_interval, Real action_per)
 {
   bool int_test = (action_interval > 0 && nstep % action_interval == 0);
 

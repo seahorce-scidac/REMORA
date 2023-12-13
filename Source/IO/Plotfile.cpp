@@ -37,7 +37,7 @@ ROMSX::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::strin
     // since they may be in any order in the input list
     Vector<std::string> tmp_plot_names;
 
-    for (int i = 0; i < Cons::NumVars; ++i) {
+    for (int i = 0; i < NCONS; ++i) {
         if ( containerHasElement(plot_var_names, cons_names[i]) ) {
             tmp_plot_names.push_back(cons_names[i]);
         }
@@ -115,8 +115,8 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         int mf_comp = 0;
 
         // First, copy any of the conserved state variables into the output plotfile
-        AMREX_ALWAYS_ASSERT(cons_names.size() == Cons::NumVars);
-        for (int i = 0; i < Cons::NumVars; ++i) {
+        AMREX_ALWAYS_ASSERT(cons_names.size() == NCONS);
+        for (int i = 0; i < NCONS; ++i) {
             if (containerHasElement(plot_var_names, cons_names[i])) {
               MultiFab::Copy(mf[lev],*cons_new[lev],i,mf_comp,1,ngrow_vars);
                 mf_comp++;

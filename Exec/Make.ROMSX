@@ -73,6 +73,7 @@ endif
 
 #turn on NetCDF macro define
 ifeq ($(USE_NETCDF), TRUE)
+  USERSuffix = .NC
   DEFINES += -DROMSX_USE_NETCDF
   includes += $(shell pkg-config --cflags netcdf)
   LIBRARIES += $(shell pkg-config --libs netcdf)
@@ -87,10 +88,6 @@ endif
 
 ifeq ($(USE_PARTICLES), TRUE)
   DEFINES += -DROMSX_USE_PARTICLES
-endif
-
-ifeq ($(SALINITY),TRUE)
-  DEFINES += -DROMSX_USE_SALINITY
 endif
 
 CEXE_sources += AMReX_buildInfo.cpp

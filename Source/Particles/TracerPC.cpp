@@ -176,14 +176,14 @@ TracerPC::AdvectWithUmac (Array<MultiFab const*, AMREX_SPACEDIM> umac,
                                                                   &((*umac_pointer[2])[grid])) };
 
             //array of these pointers to pass to the GPU
-            amrex::GpuArray<amrex::Array4<const Real>, AMREX_SPACEDIM>
+            GpuArray<Array4<const Real>, AMREX_SPACEDIM>
                 const umacarr {{AMREX_D_DECL((*fab[0]).array(),
                                              (*fab[1]).array(),
                                              (*fab[2]).array() )}};
 
             auto zheight      = use_terrain ? a_z_height[grid].array() : Array4<Real>{};
 
-            amrex::ParallelFor(n,
+            ParallelFor(n,
                                [=] AMREX_GPU_DEVICE (int i)
             {
                 ParticleType& p = p_pbox[i];

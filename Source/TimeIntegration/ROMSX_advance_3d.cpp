@@ -25,12 +25,12 @@ ROMSX::advance_3d (int lev,
                    std::unique_ptr<MultiFab>& mf_Hvom,
                    std::unique_ptr<MultiFab>& mf_z_w,
                    std::unique_ptr<MultiFab>& mf_h,
-                   const int ncomp, const int N, Real dt_lev)
+                   const int N, Real dt_lev)
 {
     const int Mm = Geom(lev).Domain().size()[1];
 
-    const int nrhs  = ncomp-1;
-    const int nnew  = ncomp-1;
+    const int nrhs  = 0;
+    const int nnew  = 0;
 
     const GpuArray<Real,AMREX_SPACEDIM> dx  = Geom(lev).CellSizeArray();
     const GpuArray<Real,AMREX_SPACEDIM> dxi = Geom(lev).InvCellSizeArray();
@@ -123,8 +123,7 @@ ROMSX::advance_3d (int lev,
         //
         // Update to u and v
         //
-        ParallelFor(amrex::makeSlab(tbxp2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        ParallelFor(amrex::makeSlab(tbxp2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             pm(i,j,0)=dxi[0];
             pn(i,j,0)=dxi[1];
@@ -141,14 +140,14 @@ ROMSX::advance_3d (int lev,
         } else {
           cff=0.25*dt_lev*23.0/12.0;
         }
-        amrex::ParallelFor(xbx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+
+        ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             u(i,j,k) += cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs);
             u(i,j,k) *= 2.0 / (Hz(i-1,j,k) + Hz(i,j,k));
         });
-        amrex::ParallelFor(ybx,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+
+        ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             v(i,j,k) += cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs);
             v(i,j,k) *= 2.0 / (Hz(i,j-1,k) + Hz(i,j,k));
@@ -261,10 +260,10 @@ ROMSX::advance_3d (int lev,
         auto pm  = fab_pm.array();
         auto W= fab_W.array();
 
+        //
         // Update to u and v
         //
-        ParallelFor(amrex::makeSlab(tbxp2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        ParallelFor(amrex::makeSlab(tbxp2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             pm(i,j,0)=dxi[0];
             pn(i,j,0)=dxi[1];
@@ -310,8 +309,7 @@ ROMSX::advance_3d (int lev,
             }
         });
 
-        ParallelFor(makeSlab(gbx1,2,N),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(makeSlab(gbx1,2,N), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             W(i,j,N) = 0.0;
         });
@@ -379,8 +377,7 @@ ROMSX::advance_3d (int lev,
         //
         // Update to u and v
         //
-        ParallelFor(makeSlab(tbxp2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
+        ParallelFor(makeSlab(tbxp2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             pm(i,j,0)=dxi[0];
             pn(i,j,0)=dxi[1];

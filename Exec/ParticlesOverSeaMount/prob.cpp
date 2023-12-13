@@ -72,7 +72,7 @@ init_custom_bathymetry (const Geometry& geom,
 
       Gpu::streamSynchronize();
 
-      if(!m_solverChoice.flat_bathymetry) {
+      if (!m_solverChoice.flat_bathymetry) {
           ParallelFor(makeSlab(gbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
           {
               Real val1, val2;
@@ -122,9 +122,11 @@ init_custom_prob(
         Array4<Real const> const& /*h*/,
         Array4<Real const> const& /*Zt_avg1*/,
         GeometryData const& geomdata,
-        const SolverChoice& /*m_solverChoice*/)
+        const SolverChoice& m_solverChoice)
 {
     const int khi = geomdata.Domain().bigEnd()[2];
+
+    bool l_use_salt = m_solverChoice.use_salt;
 
     AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
 
@@ -141,9 +143,9 @@ init_custom_prob(
         state(i, j, k, Temp_comp) = 1.;
 
         state(i,j,k,Temp_comp)=parms.T0+8.0*std::exp(z/50.0_rt);
-#ifdef ROMSX_USE_SALINITY
-        state(i,j,k,Salt_comp)=parms.S0;
-#endif
+        if (l_use_salt) {
+            state(i,j,k,Salt_comp)=parms.S0;
+        }
 
         // Set scalar = 0 everywhere
         state(i, j, k, Scalar_comp) = 0.0;
@@ -219,26 +221,27 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt, M
 
 void
 init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_visc2_r,
-                 MultiFab& mf_diff2_salt, MultiFab& mf_diff2_temp, const SolverChoice& /*m_solverChoice*/)
+                 MultiFab& mf_diff2, const SolverChoice& /*m_solverChoice*/)
 {
     for ( MFIter mfi((mf_visc2_p), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
       Array4<Real> const& visc2_p = (mf_visc2_p).array(mfi);
       Array4<Real> const& visc2_r = (mf_visc2_r).array(mfi);
-      Array4<Real> const& diff2_salt = (mf_diff2_salt).array(mfi);
-      Array4<Real> const& diff2_temp = (mf_diff2_temp).array(mfi);
+      Array4<Real> const& diff2   = mf_diff2.array(mfi);
       Box bx = mfi.tilebox();
       bx.grow(IntVect(NGROW,NGROW,0));
-
       Gpu::streamSynchronize();
 
-      ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-      {
-          visc2_p(i,j,k) = 5.0;
-          visc2_r(i,j,k) = 5.0;
+      int ncomp = mf_diff2.nComp();
 
-          diff2_salt(i,j,k) = 0.0;
-          diff2_temp(i,j,k) = 0.0;
+      amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+      {
+        visc2_p(i,j,k) = 5.0;
+        visc2_r(i,j,k) = 5.0;
+
+        for (int n = 0; n < ncomp; n++) {
+            diff2(i,j,k,n) = 0.0;
+        }
       });
     }
 }

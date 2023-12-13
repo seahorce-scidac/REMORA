@@ -64,7 +64,7 @@ ROMSX::estTimeStep(int level) const
            return new_lm_dt;
        });
 
-   amrex::ParallelDescriptor::ReduceRealMax(estdt_lowM_inv);
+   ParallelDescriptor::ReduceRealMax(estdt_lowM_inv);
    if (estdt_lowM_inv > 0.0_rt)
        estdt_lowM = cfl / estdt_lowM_inv;;
 

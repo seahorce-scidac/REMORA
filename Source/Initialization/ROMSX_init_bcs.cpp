@@ -119,8 +119,8 @@ void ROMSX::init_bcs ()
     //
     // *****************************************************************************
     {
-        domain_bcs_type.resize(AMREX_SPACEDIM+NVAR);
-        domain_bcs_type_d.resize(AMREX_SPACEDIM+NVAR);
+        domain_bcs_type.resize(AMREX_SPACEDIM+NCONS);
+        domain_bcs_type_d.resize(AMREX_SPACEDIM+NCONS);
 
         for (OrientationIter oit; oit; ++oit) {
             Orientation ori = oit();
@@ -214,32 +214,32 @@ void ROMSX::init_bcs ()
             if ( bct == ROMSX_BC::symmetry )
             {
                 if (side == Orientation::low) {
-                    for (int i = 0; i < NVAR; i++)
+                    for (int i = 0; i < NCONS; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, ROMSXBCType::reflect_even);
                 } else {
-                    for (int i = 0; i < NVAR; i++)
+                    for (int i = 0; i < NCONS; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, ROMSXBCType::reflect_even);
                 }
             }
             else if ( bct == ROMSX_BC::outflow )
             {
                 if (side == Orientation::low) {
-                    for (int i = 0; i < NVAR; i++)
+                    for (int i = 0; i < NCONS; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, ROMSXBCType::foextrap);
                 } else {
-                    for (int i = 0; i < NVAR; i++)
+                    for (int i = 0; i < NCONS; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, ROMSXBCType::foextrap);
                 }
             }
             else if ( bct == ROMSX_BC::no_slip_wall)
             {
                 if (side == Orientation::low) {
-                    for (int i = 0; i < NVAR; i++)
+                    for (int i = 0; i < NCONS; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, ROMSXBCType::foextrap);
                     if (m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] > 0.)
                         domain_bcs_type[BCVars::Temp_bc_comp].setLo(dir, ROMSXBCType::ext_dir);
                 } else {
-                    for (int i = 0; i < NVAR; i++)
+                    for (int i = 0; i < NCONS; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, ROMSXBCType::foextrap);
                     if (m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] > 0.)
                         domain_bcs_type[BCVars::Temp_bc_comp].setHi(dir, ROMSXBCType::ext_dir);
@@ -248,12 +248,12 @@ void ROMSX::init_bcs ()
             else if (bct == ROMSX_BC::slip_wall)
             {
                 if (side == Orientation::low) {
-                    for (int i = 0; i < NVAR; i++)
+                    for (int i = 0; i < NCONS; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, ROMSXBCType::foextrap);
                     if (m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] > 0.)
                         domain_bcs_type[BCVars::Temp_bc_comp].setLo(dir, ROMSXBCType::ext_dir);
                 } else {
-                    for (int i = 0; i < NVAR; i++)
+                    for (int i = 0; i < NCONS; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, ROMSXBCType::foextrap);
                     if (m_bc_extdir_vals[BCVars::Temp_bc_comp][ori] > 0.)
                         domain_bcs_type[BCVars::Temp_bc_comp].setHi(dir, ROMSXBCType::ext_dir);
@@ -262,11 +262,11 @@ void ROMSX::init_bcs ()
             else if (bct == ROMSX_BC::inflow)
             {
                 if (side == Orientation::low) {
-                    for (int i = 0; i < NVAR; i++) {
+                    for (int i = 0; i < NCONS; i++) {
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, ROMSXBCType::ext_dir);
                     }
                 } else {
-                    for (int i = 0; i < NVAR; i++) {
+                    for (int i = 0; i < NCONS; i++) {
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, ROMSXBCType::ext_dir);
                     }
                 }
@@ -274,10 +274,10 @@ void ROMSX::init_bcs ()
             else if (bct == ROMSX_BC::periodic)
             {
                 if (side == Orientation::low) {
-                    for (int i = 0; i < NVAR; i++)
+                    for (int i = 0; i < NCONS; i++)
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, ROMSXBCType::int_dir);
                 } else {
-                    for (int i = 0; i < NVAR; i++)
+                    for (int i = 0; i < NCONS; i++)
                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, ROMSXBCType::int_dir);
                 }
             }
@@ -287,11 +287,11 @@ void ROMSX::init_bcs ()
 #ifdef AMREX_USE_GPU
     Gpu::htod_memcpy
         (domain_bcs_type_d.data(), domain_bcs_type.data(),
-         sizeof(amrex::BCRec)*(NVAR+AMREX_SPACEDIM));
+         sizeof(amrex::BCRec)*(NCONS+AMREX_SPACEDIM));
 #else
     std::memcpy
         (domain_bcs_type_d.data(), domain_bcs_type.data(),
-         sizeof(amrex::BCRec)*(NVAR+AMREX_SPACEDIM));
+         sizeof(amrex::BCRec)*(NCONS+AMREX_SPACEDIM));
 #endif
 }
 

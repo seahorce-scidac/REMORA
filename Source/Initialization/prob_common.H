@@ -39,8 +39,7 @@ void init_custom_vmix (const amrex::Geometry& geom,
 void init_custom_hmix (const amrex::Geometry& geom,
                         amrex::MultiFab& mf_visc2_p,
                         amrex::MultiFab& mf_visc2_r,
-                        amrex::MultiFab& mf_diff2_salt,
-                        amrex::MultiFab& mf_diff2_temp,
+                        amrex::MultiFab& mf_diff2,
                         SolverChoice const& m_solverChoice);
 
 void init_custom_smflux (const amrex::Geometry& geom,

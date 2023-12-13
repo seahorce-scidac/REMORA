@@ -94,7 +94,7 @@ ROMSX::rhs_uv_2d (const Box& xbx, const Box& ybx,
     //
     //  Add in horizontal advection.
     //
-    amrex::ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+    ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
          Real cff1=UFx(i,j  ,0)-UFx(i-1,j,0);
          Real cff2=UFe(i,j+1,0)-UFe(i  ,j,0);
@@ -117,7 +117,7 @@ ROMSX::rhs_uv_2d (const Box& xbx, const Box& ybx,
     //       and  requires                                    DUon on [ 0:nx-1,-2:ny+1] (0,0,0)  y-faces
 
     // Grow ybx by one in high x-direction
-    amrex::ParallelFor(growHi(ybx,0,1),
+    ParallelFor(growHi(ybx,0,1),
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff=1.0/6.0;
@@ -138,7 +138,7 @@ ROMSX::rhs_uv_2d (const Box& xbx, const Box& ybx,
         VFx(i,j,0)=0.25*(cff1-vxx_avg*cff)* (cff2-cff*(Huee_j+ Huee_jm1));
     });
 
-    amrex::ParallelFor(growLo(ybx,1,1),
+    ParallelFor(growLo(ybx,1,1),
     [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
         Real vee_j    = vbar(i,j-1,0,krhs)-2.0*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
@@ -155,7 +155,7 @@ ROMSX::rhs_uv_2d (const Box& xbx, const Box& ybx,
                                            cff  * (Hvee_j+ Hvee_jp1));
     });
 
-    amrex::ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+    ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
         Real cff1=VFx(i+1,j,0)-VFx(i  ,j,0);
         Real cff2=VFe(i  ,j,0)-VFe(i,j-1,0);

@@ -7,9 +7,9 @@ using namespace amrex;
 //
 // mf is the multifab to be filled
 // icomp is the index into the MultiFab -- if cell-centered this can be any value
-//       from 0 to NVAR-1, if face-centered this must be 0
+//       from 0 to NCONS-1, if face-centered this must be 0
 // ncomp is the number of components -- if cell-centered this can be any value
-//       from 1 to NVAR as long as icomp+ncomp <= NVAR-1.  If face-centered this
+//       from 1 to NCONS as long as icomp+ncomp <= NCONS-1.  If face-centered this
 //       must be 1
 // nghost is how many ghost cells to be filled
 // time is the time at which the data should be filled
@@ -76,7 +76,7 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
 
                     } else if (mf[0].box().ixType() == IndexType(IntVect(0,0,0)))
                     {
-                        AMREX_ALWAYS_ASSERT(icomp == 0 && icomp+ncomp <= NVAR);
+                        AMREX_ALWAYS_ASSERT(icomp == 0 && icomp+ncomp <= NCONS);
                         impose_cons_bcs(dest_arr,bx,domain,
                                         dxInv,icomp,ncomp,time,bccomp);
                     } else {

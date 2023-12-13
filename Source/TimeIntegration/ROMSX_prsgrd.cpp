@@ -48,7 +48,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     auto dZx=fab_dZx.array();
 
     // Derivatives in the z direction
-    amrex::ParallelFor(phi_bx,
+    ParallelFor(phi_bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         if(k>=0&&k<N) {
@@ -63,7 +63,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
         }
     });
 
-    amrex::ParallelFor(phi_bxD,
+    ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--) {
@@ -78,7 +78,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
         }
     });
 
-    amrex::ParallelFor(phi_bxD,
+    ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff1=1.0_rt/(z_r(i,j,N)-z_r(i,j,N-1));
@@ -100,7 +100,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
 
     //This should be nodal
     // Derivatives in the x direction
-    amrex::ParallelFor(phi_ubx,
+    ParallelFor(phi_ubx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FC(i,j,k)=rho(i,j,k)-rho(i-1,j,k);
@@ -109,7 +109,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
 
     //This should be nodal aux and FC need wider boxes above
     //dZx and dRx may have index mismatch issues at k=2 and k=N
-    amrex::ParallelFor(phi_bxD,
+    ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--) {
@@ -131,7 +131,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     });
 
     //This should be nodal aux and FC need wider boxes above
-    amrex::ParallelFor(utbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
+    ParallelFor(utbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--)
         {
@@ -150,7 +150,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     });
 
     //This should be nodal
-    amrex::ParallelFor(phi_vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(phi_vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FC(i,j,k)= rho(i,j,k)-rho(i,j-1,k);
         aux(i,j,k)= z_r(i,j,k)-z_r(i,j-1,k);
@@ -158,7 +158,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
 
     //This should be nodal aux and FC need wider boxes above
     //dZx and dRx may have index mismatch issues at k=2 and k=N
-    amrex::ParallelFor(phi_bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
+    ParallelFor(phi_bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--) {
             Real cff= 2.0*aux(i,j,k)*aux(i,j+1,k);
@@ -179,7 +179,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     });
 
     //This should be nodal aux and FC need wider boxes above
-    amrex::ParallelFor(vtbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
+    ParallelFor(vtbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for (int k=N;k>=0;k--)
         {
