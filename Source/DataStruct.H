@@ -55,6 +55,9 @@ struct SolverChoice {
         // Order of spatial discretization
         pp.query("spatial_order", spatial_order);
 
+        // Include salinity?
+        pp.query("use_salt", use_salt);
+
         // Include Coriolis forcing?
         pp.query("use_coriolis", use_coriolis);
 
@@ -93,6 +96,7 @@ struct SolverChoice {
     void display()
     {
         amrex::Print() << "SOLVER CHOICE: " << std::endl;
+        amrex::Print() << "use_salt              : " << use_salt     << std::endl;
         amrex::Print() << "use_coriolis          : " << use_coriolis << std::endl;
         amrex::Print() << "spatial_order         : " << spatial_order << std::endl;
 
@@ -124,6 +128,8 @@ struct SolverChoice {
     std::string pp_prefix {"romsx"};
 
     bool        flat_bathymetry        = true;
+
+    bool        use_salt               = true;
 
     // Specify what additional physics/forcing modules we use
     bool        use_coriolis           = false;

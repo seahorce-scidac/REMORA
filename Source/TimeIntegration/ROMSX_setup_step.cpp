@@ -424,10 +424,8 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
         prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,nrhs,N);
 
-        int ncomp = 1;
-#ifdef ROMSX_USE_SALINITY
-            ncomp = 2;
-#endif
+        // Apply mixing to temperature and, if use_salt, salt
+        int ncomp = solverChoice.use_salt ? 2 : 1;
         Array4<Real> const&     s_arr = S_old.array(mfi);
         Array4<Real> const& diff2_arr = vec_diff2[lev]->array(mfi);
         t3dmix(bx, s_arr, diff2_arr, Hz, pm, pn, pmon_u, pnom_v, dt_lev, ncomp);

@@ -109,8 +109,10 @@ init_custom_prob(
         Array4<Real const> const& /*h*/,
         Array4<Real const> const& /*Zt_avg1*/,
         GeometryData const& geomdata,
-        const SolverChoice& /*m_solverChoice*/)
+        const SolverChoice& m_solverChoice)
 {
+    bool l_use_salt = m_solverChoice.use_salt;
+
     const int khi = geomdata.Domain().bigEnd()[2];
 
     AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
@@ -128,9 +130,9 @@ init_custom_prob(
         state(i, j, k, Temp_comp) = 1.;
 
         state(i,j,k,Temp_comp)=parms.T0+7.5_rt*std::exp(z/1000.0_rt);
-#ifdef ROMSX_USE_SALINITY
-        state(i,j,k,Salt_comp)=parms.S0;
-#endif
+        if (l_use_salt) {
+            state(i,j,k,Salt_comp)=parms.S0;
+        }
 
         // Set scalar = 0 everywhere
         state(i, j, k, Scalar_comp) = 0.0;
@@ -201,10 +203,7 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
       Box bx = mfi.tilebox();
       bx.grow(IntVect(NGROW,NGROW,0));
 
-      int ncomp = 1;
-#ifdef ROMSX_USE_SALINITY
-          ncomp = 2;
-#endif
+      int ncomp = 2; // temperature and salt
       Gpu::streamSynchronize();
 
       amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)

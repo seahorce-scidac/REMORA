@@ -62,7 +62,7 @@ ROMSX::WriteCheckpointFile () const
        // for each variable we store
 
        // conservative, cell-centered vars
-       HeaderFile << Cons::NumVars << "\n";
+       HeaderFile << NCONS << "\n";
 
        // x-velocity on faces
        HeaderFile << 1 << "\n";
@@ -116,8 +116,8 @@ ROMSX::WriteCheckpointFile () const
        }
        BoxArray ba2d(std::move(bl2d));
 
-       MultiFab cons(grids[lev],dmap[lev],Cons::NumVars,0);
-       MultiFab::Copy(cons,*cons_new[lev],0,0,NVAR,0);
+       MultiFab cons(grids[lev],dmap[lev],NCONS,0);
+       MultiFab::Copy(cons,*cons_new[lev],0,0,NCONS,0);
        VisMF::Write(cons, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Cell"));
 
        MultiFab xvel(convert(grids[lev],IntVect(1,0,0)),dmap[lev],1,0);
@@ -205,7 +205,7 @@ ROMSX::ReadCheckpointFile ()
     // conservative, cell-centered vars
     is >> chk_ncomp;
     GotoNextLine(is);
-    AMREX_ASSERT(chk_ncomp == Cons::NumVars);
+    AMREX_ASSERT(chk_ncomp == NCONS);
 
     // x-velocity on faces
     is >> chk_ncomp;
@@ -290,9 +290,9 @@ ROMSX::ReadCheckpointFile ()
         }
         BoxArray ba2d(std::move(bl2d));
 
-        MultiFab cons(grids[lev],dmap[lev],Cons::NumVars,0);
+        MultiFab cons(grids[lev],dmap[lev],NCONS,0);
         VisMF::Read(cons, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Cell"));
-        MultiFab::Copy(*cons_new[lev],cons,0,0,NVAR,0);
+        MultiFab::Copy(*cons_new[lev],cons,0,0,NCONS,0);
 
         MultiFab xvel(convert(grids[lev],IntVect(1,0,0)),dmap[lev],1,0);
         VisMF::Read(xvel, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "XFace"));

@@ -23,9 +23,6 @@ USE_ASSERTION = TRUE
 # Debugging
 DEBUG = TRUE
 
-# Physics
-SALINITY = TRUE
-
 # GNU Make
 Bpack := ./Make.package
 Blocs := .
