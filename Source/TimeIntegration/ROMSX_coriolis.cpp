@@ -19,7 +19,7 @@ ROMSX::coriolis (const Box& xbx, const Box& ybx,
     //-----------------------------------------------------------------------
     //
 
-    amrex::ParallelFor(xbx,
+    ParallelFor(xbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real UFx_i   = 0.5 * Hz(i  ,j,k) * fomn(i  ,j,0) * (vold(i  ,j,k,nrhs)+vold(i  ,j+1,k,nrhs));
@@ -27,7 +27,7 @@ ROMSX::coriolis (const Box& xbx, const Box& ybx,
         ru(i,j,k,nr) += 0.5*(UFx_i + UFx_im1);
     });
 
-    amrex::ParallelFor(ybx,
+    ParallelFor(ybx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real VFe_j   = 0.5 * Hz(i,j  ,k) * fomn(i,j  ,0) * (uold(i,j  ,k,nrhs)+uold(i+1,j  ,k,nrhs));

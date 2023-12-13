@@ -153,8 +153,7 @@ void ROMSX::resize_stuff(int lev)
     vec_visc3d_r.resize(lev+1);
     vec_visc2_p.resize(lev+1);
     vec_visc2_r.resize(lev+1);
-    vec_diff2_salt.resize(lev+1);
-    vec_diff2_temp.resize(lev+1);
+    vec_diff2.resize(lev+1);
     vec_ru.resize(lev+1);
     vec_rv.resize(lev+1);
     vec_rufrc.resize(lev+1);
@@ -239,8 +238,12 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     // check dimensionality
     vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?
     vec_visc2_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at rho points
-    vec_diff2_salt[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic diffusivity salt
-    vec_diff2_temp[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature
+
+#ifdef ROMSX_USE_SALINITY
+    vec_diff2[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature/salt
+#else
+    vec_diff2[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature
+#endif
 
     // maybe TODO: clean up component indexing in prestep?
     vec_ru[lev].reset(new MultiFab(convert(ba,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS u (incl horizontal and vertical advection)

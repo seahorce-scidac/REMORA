@@ -6,28 +6,25 @@ using namespace amrex;
  * rho_eos
  *
  * @param[in ] bx    box for calculation
- * @param[in ] temp  temperature
+ * @param[in ] state state holds temp, salt
  * @param[out] rho   density
  * @param[out] rhoA  vertically-averaged density
  * @param[out] rhoS  density perturbation
  * @param[in ] Hz
  * @param[in ] z_w
  * @param[in ] h
- * @param[in ] nrhs
  * @param[in ] N
  */
 
 void
 ROMSX::rho_eos (const Box& bx,
-                Array4<Real const> temp,
-                Array4<Real const> salt,
+                Array4<Real const> state,
                 Array4<Real      > rho,
                 Array4<Real      > rhoA,
                 Array4<Real      > rhoS,
                 Array4<Real const> Hz,
                 Array4<Real const> z_w,
                 Array4<Real const> h,
-                const int nrhs,
                 const int N)
 {
     // Hardcode these for now instead of reading them from inputs
@@ -49,11 +46,11 @@ ROMSX::rho_eos (const Box& bx,
 //  equation of state.
 //-----------------------------------------------------------------------
 //
-    amrex::ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        rho(i,j,k)  = R0 - R0*Tcoef*(temp(i,j,k,nrhs)-T0);
-        rho(i,j,k) += R0*Scoef*(salt(i,j,k,nrhs)-S0) - 1000.0_rt;
+        rho(i,j,k)  = R0 - R0*Tcoef*(state(i,j,k,Temp_comp)-T0)
+                         + R0*Scoef*(state(i,j,k,Salt_comp)-S0)
+                         - 1000.0_rt;
     });
 
 //
@@ -64,7 +61,7 @@ ROMSX::rho_eos (const Box& bx,
 //
     Real cff2 =1.0_rt/rho0;
 
-    amrex::ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+    ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff0 = rho(i,j,N)*Hz(i,j,N);
         rhoS(i,j,0) = 0.5_rt*cff0*Hz(i,j,N);

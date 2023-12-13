@@ -12,9 +12,6 @@ ROMSX::prestep_uv_3d (const Box& tbx, const Box& gbx,
                       Array4<Real> u , Array4<Real> v,
                       Array4<Real> ru, Array4<Real> rv,
                       Array4<Real> Hz, Array4<Real> Akv,
-                      Array4<Real> /*on_u*/,
-                      Array4<Real> /*om_v*/,
-                      Array4<Real> Huon, Array4<Real> Hvom,
                       Array4<Real> pm, Array4<Real> pn,
                       Array4<Real> /*W */, Array4<Real> DC,
                       Array4<Real> FC  , Array4<Real> z_r,
@@ -35,11 +32,6 @@ ROMSX::prestep_uv_3d (const Box& tbx, const Box& gbx,
     //make only gbx be grown to match multifabs
     gbx2.grow(IntVect(NGROW,NGROW,0));
     gbx1.grow(IntVect(NGROW-1,NGROW-1,0));
-
-    if (verbose > 1) {
-        amrex::AllPrint() << "Box(Huon) " << Box(Huon) << std::endl;
-        amrex::AllPrint() << "Box(Hvom) " << Box(Hvom) << std::endl;
-    }
 
     //Need to include pre_step3d.F terms
 

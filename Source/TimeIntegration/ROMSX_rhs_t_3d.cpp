@@ -71,13 +71,13 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     fab_FX.template setVal<RunOn::Device>(0.);
     fab_FE.template setVal<RunOn::Device>(0.);
 
-    amrex::ParallelFor(bx,
+    ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         oHz(i,j,k) = 1.0/ Hz(i,j,k);
     });
 
-    amrex::ParallelFor(utbxp1,
+    ParallelFor(utbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
@@ -91,7 +91,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
         if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
 
-            amrex::ParallelFor(tbxp1,
+            ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Upstream3
@@ -100,7 +100,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             //HACK to avoid using the wrong index of t (using upstream3)
             Real max_Huon=FArrayBox(Huon).max<RunOn::Device>();
             Real min_Huon=FArrayBox(Huon).min<RunOn::Device>();
-            amrex::ParallelFor(ubx,
+            ParallelFor(ubx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
@@ -109,13 +109,13 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
         } else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
 
-            amrex::ParallelFor(tbxp1,
+            ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Centered4
                 grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
             });
-            amrex::ParallelFor(ubx,
+            ParallelFor(ubx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k))+
@@ -129,14 +129,14 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     } else {
 
         if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
-            amrex::ParallelFor(tbxp1,
+            ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
             //Upstream3
                 curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
             });
             //HACK to avoid using the wrong index of t (using upstream3)
-            amrex::ParallelFor(ubx,
+            ParallelFor(ubx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 Real max_Huon=max(Huon(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
@@ -147,13 +147,13 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
         } else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
 
-            amrex::ParallelFor(tbxp1,
+            ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Centered4
                 grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
             });
-            amrex::ParallelFor(ubx,
+            ParallelFor(ubx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FX(i,j,k)=Huon(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i-1,j,k)-
@@ -165,7 +165,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         }
     } // flat bathymetry?
 
-    amrex::ParallelFor(vtbxp1,
+    ParallelFor(vtbxp1,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
@@ -176,7 +176,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     cffb=1.0/3.0;
     if (solverChoice.flat_bathymetry) {
         if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
-            amrex::ParallelFor(tbxp1,
+            ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
@@ -184,7 +184,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             //HACK to avoid using the wrong index of t (using upstream3)
             Real max_Hvom=FArrayBox(Hvom).max<RunOn::Device>();
             Real min_Hvom=FArrayBox(Hvom).min<RunOn::Device>();
-            amrex::ParallelFor(vbx,
+            ParallelFor(vbx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
@@ -192,12 +192,12 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             });
         }
         else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
-            amrex::ParallelFor(tbxp1,
+            ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
             });
-            amrex::ParallelFor(vbx,
+            ParallelFor(vbx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k))+
@@ -210,13 +210,13 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
     }
     else {
         if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
-            amrex::ParallelFor(tbxp1,
+            ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
             });
             //HACK to avoid using the wrong index of t (using upstream3)
-            amrex::ParallelFor(vbx,
+            ParallelFor(vbx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 Real max_Hvom=max(Hvom(i,j,k),0.0); //FArrayBox(Huon).max<RunOn::Device>();
@@ -226,12 +226,12 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             });
         }
         else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
-            amrex::ParallelFor(tbxp1,
+            ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
             });
-            amrex::ParallelFor(vbx,
+            ParallelFor(vbx,
             [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FE(i,j,k)=Hvom(i,j,k)*0.5*(tempstore(i,j,k)+tempstore(i,j-1,k)-
@@ -243,7 +243,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         }
     }
 
-        amrex::ParallelFor(bx,
+        ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //
@@ -265,7 +265,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         //  Fourth-order, central differences vertical advective flux
         //  (Tunits m3/s).
         //
-    amrex::ParallelFor(bx,
+    ParallelFor(bx,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
               //-----------------------------------------------------------------------
@@ -293,7 +293,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
               }
 
     });
-    amrex::ParallelFor(bx,
+    ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1=dt_lev*pm(i,j,0)*pn(i,j,0);

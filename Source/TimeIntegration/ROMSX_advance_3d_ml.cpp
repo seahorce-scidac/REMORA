@@ -21,8 +21,6 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
-    const int ncomp = 1;
-
     advance_3d(lev, *xvel_new[lev], *yvel_new[lev],
                mf_temp, mf_salt,
                vec_t3[lev].get(), vec_s3[lev].get(),
@@ -31,7 +29,7 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
                vec_Akv[lev], vec_Akt[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev],
-               vec_z_w[lev], vec_hOfTheConfusingName[lev], ncomp, N, dt_lev);
+               vec_z_w[lev], vec_hOfTheConfusingName[lev], N, dt_lev);
 
     vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
     vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
