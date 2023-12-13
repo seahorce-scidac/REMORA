@@ -112,6 +112,7 @@ init_custom_prob(
         state(i,j,k,Temp_comp)=m_solverChoice.T0+7.5_rt*std::exp(z/1000.0_rt);
         if (l_use_salt) {
             state(i,j,k,Salt_comp)=m_solverChoice.S0;
+        }
 
         // Set scalar = 0 everywhere
         state(i, j, k, Scalar_comp) = 0.0;
