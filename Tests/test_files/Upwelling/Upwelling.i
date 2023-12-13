@@ -1,5 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 10
+stop_time = 30000.0
 
 amrex.fpe_trap_invalid = 1
 
@@ -28,7 +29,7 @@ romsx.fixed_ndtfast_ratio  = 30 # Baratropic timestep size (seconds)
 # DIAGNOSTICS & VERBOSITY
 romsx.sum_interval   = 1       # timesteps between computing mass
 romsx.v              = 0       # verbosity in ROMSX.cpp (0: none, 1: print boxes, etc, 2: print values)
-amr.v              = 1       # verbosity in Amr.cpp
+amr.v                = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
 amr.max_level       = 0       # maximum level number allowed
@@ -44,35 +45,27 @@ romsx.plot_vars_1     = omega salt temp x_velocity y_velocity z_velocity
 romsx.plotfile_type   = amrex
 
 # SOLVER CHOICE
-romsx.use_gravity = true
 romsx.use_coriolis = true
+romsx.flat_bathymetry=true
 romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
-romsx.use_rayleigh_damping = false
 romsx.spatial_order = 2
 
-romsx.les_type         = "None"
-#
-# diffusion coefficient from Straka, K = 75 m^2/s
-#
-romsx.molec_diff_type = "ConstantAlpha"
-romsx.rho0_trans = 1.0 # [kg/m^3], used to convert input diffusivities
-romsx.dynamicViscosity = 75.0 # [kg/(m-s)] ==> nu = 75.0 m^2/s
-romsx.alpha_T = 75.0 # [m^2/s]
+# Linear EOS parameters
+romsx.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+romsx.S0    = 35.0    # background salinity (nondimensional) constant
+romsx.T0    = 14.0    # background potential temperature (Celsius) constant
+romsx.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celcius)
+romsx.Scoef = 0.0     # linear equation of state parameter (nondimensional)
+romsx.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
 
-# PROBLEM PARAMETERS (optional)
-prob.R0 = 1027.0
-prob.S0 = 35.0
-prob.T0 = 14.0
+# Coriolis params
+romsx.coriolis_f0 = -8.26e-5
+romsx.coriolis_beta = 0.0
 
-# PROBLEM PARAMETERS (shear)
-prob.rho_0 = 1.0
-prob.T_0   = 1.0
-prob.A_0   = 1.0
+# PROBLEM PARAMETERS (velocity fields)
 prob.u_0   = 0.0
 prob.v_0   = 0.0
-prob.rad_0 = 0.25
 prob.z0    = 0.1
 prob.zRef  = 80.0e-3
 prob.uRef  = 8.0e-3
 
-prob.prob_type = 12

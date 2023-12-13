@@ -106,7 +106,6 @@ ROMSX::advance_3d (int lev,
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
         FArrayBox fab_pn(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_fomn(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
 
         FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
@@ -120,7 +119,6 @@ ROMSX::advance_3d (int lev,
         auto oHz= fab_oHz.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
-        auto fomn=fab_fomn.array();
 
         //
         // Update to u and v
@@ -129,14 +127,6 @@ ROMSX::advance_3d (int lev,
         {
             pm(i,j,0)=dxi[0];
             pn(i,j,0)=dxi[1];
-
-            //defined UPWELLING
-            Real f0=-8.26e-5;
-            Real beta=0.0;
-            Real Esize=1000*(Mm);
-            Real y = prob_lo[1] + (j + 0.5) * dx[1];
-            Real f=f0+beta*(y-.5*Esize);
-            fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
         fab_on_u.template setVal<RunOn::Device>(dx[1],amrex::makeSlab(tbxp2,2,0));
@@ -259,7 +249,6 @@ ROMSX::advance_3d (int lev,
         FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
         FArrayBox fab_pn(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_fomn(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
 
         FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
@@ -269,7 +258,6 @@ ROMSX::advance_3d (int lev,
         auto oHz = fab_oHz.array();
         auto pn  = fab_pn.array();
         auto pm  = fab_pm.array();
-        auto fomn= fab_fomn.array();
         auto W= fab_W.array();
 
         //
@@ -279,14 +267,6 @@ ROMSX::advance_3d (int lev,
         {
             pm(i,j,0)=dxi[0];
             pn(i,j,0)=dxi[1];
-
-            //defined UPWELLING
-            Real f0=-8.26e-5;
-            Real beta=0.0;
-            Real Esize=1000*(Mm);
-            Real y = prob_lo[1] + (j + 0.5) * dx[1];
-            Real f=f0+beta*(y-.5*Esize);
-            fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
         fab_on_u.template setVal<RunOn::Device>(dx[1],makeSlab(tbxp2,2,0));
@@ -378,7 +358,6 @@ ROMSX::advance_3d (int lev,
         FArrayBox fab_oHz(tbxp11,1,amrex::The_Async_Arena());
         FArrayBox fab_pn(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_fomn(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
 
         FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
@@ -390,7 +369,6 @@ ROMSX::advance_3d (int lev,
         auto oHz= fab_oHz.array();
         auto pn=fab_pn.array();
         auto pm=fab_pm.array();
-        auto fomn=fab_fomn.array();
 
         //From ini_fields and .in file
         //fab_Akt.setVal(1e-6);
@@ -403,14 +381,6 @@ ROMSX::advance_3d (int lev,
         {
             pm(i,j,0)=dxi[0];
             pn(i,j,0)=dxi[1];
-
-            //defined UPWELLING
-            Real f0=-8.26e-5;
-            Real beta=0.0;
-            Real Esize=1000*(Mm);
-            Real y = prob_lo[1] + (j + 0.5) * dx[1];
-            Real f=f0+beta*(y-.5*Esize);
-            fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
         fab_on_u.template setVal<RunOn::Device>(dx[1],makeSlab(tbxp2,2,0));

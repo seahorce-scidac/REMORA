@@ -18,26 +18,13 @@ amrex_probinit(
 {
   // Parse params
   ParmParse pp("prob");
-  pp.query("R0", parms.R0);
-  pp.query("S0", parms.S0);
-  pp.query("T0", parms.T0);
 
-  pp.query("rho_0", parms.rho_0);
-  pp.query("T_0", parms.Theta_0);
-  pp.query("A_0", parms.A_0);
-  pp.query("B_0", parms.B_0);
   pp.query("u_0", parms.u_0);
   pp.query("v_0", parms.v_0);
-  pp.query("rad_0", parms.rad_0);
   pp.query("z0", parms.z0);
   pp.query("zRef", parms.zRef);
   pp.query("uRef", parms.uRef);
 
-  pp.query("xc_frac", parms.xc_frac);
-  pp.query("yc_frac", parms.yc_frac);
-  pp.query("zc_frac", parms.zc_frac);
-
-  pp.query("prob_type", parms.prob_type);
 }
 
 /**
@@ -150,9 +137,9 @@ init_custom_prob(
 
         state(i, j, k, Temp_comp) = 1.;
 
-        state(i,j,k,Temp_comp)=parms.T0+8.0*std::exp(z/50.0_rt);
+        state(i,j,k,Temp_comp)=m_solverChoice.T0+8.0*std::exp(z/50.0_rt);
         if (l_use_salt) {
-            state(i,j,k,Salt_comp)=parms.S0;
+            state(i,j,k,Salt_comp)=m_solverChoice.S0;
         }
 
         // Set scalar = 0 everywhere
@@ -189,7 +176,6 @@ init_custom_prob(
         // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
         // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
         y_vel(i, j, k) = parms.v_0;
-        y_vel(i, j, k) = 0.0;
   });
 
   // Construct a box that is on z-faces
@@ -254,7 +240,7 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
 
 void
 init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, MultiFab& mf_svstr,
-                   const SolverChoice& /*m_solverChoice*/)
+                   const SolverChoice& m_solverChoice)
 {
     auto geomdata = geom.data();
     bool NSPeriodic = geomdata.isPeriodic(1);
@@ -262,28 +248,24 @@ init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, Mu
     //If we had wind stress and bottom stress we would need to set these:
     Real pi = 3.14159265359;
     Real tdays=time/(24.0*60.0*60.0);
-    amrex::Print()<<"Hacking in time offset for fixed dt=300"<<std::endl;
-    //this is a hack because time is off by dt. this needs to be fixed for non-fixed dt
-    Real dstart=0.0;//-300.0/(24.0*60.0*60.0);
-    Real rho0=parms.rho0;
+    Real dstart=0.0;
     Real windamp;
-    amrex::Print()<<tdays<<" "<<dstart<<" "<<rho0<<std::endl;
     //It's possible these should be set to be nonzero only at the boundaries they affect
     if (NSPeriodic) {
         mf_sustr.setVal(0.0);
     }
     else if(EWPeriodic) {
         if ((tdays-dstart)<=2.0)
-            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
+            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/m_solverChoice.rho0;
         else
-            windamp=-0.1/rho0;
+            windamp=-0.1/m_solverChoice.rho0;
         mf_sustr.setVal(windamp);
     }
     if(NSPeriodic) {
         if ((tdays-dstart)<=2.0)
-            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/rho0;
+            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/m_solverChoice.rho0;
         else
-            windamp=-0.1/rho0;
+            windamp=-0.1/m_solverChoice.rho0;
         mf_svstr.setVal(windamp);
     }
     else if(EWPeriodic) {

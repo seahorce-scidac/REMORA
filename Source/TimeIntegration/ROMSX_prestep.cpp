@@ -136,8 +136,8 @@ ROMSX::prestep (int lev,
         tbxp2D.makeSlab(2,0);
 
         FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_pn(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pm(tbxp2D,1,amrex::The_Async_Arena());
+        FArrayBox fab_pn(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_u(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_v(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_u(tbxp2D,1,amrex::The_Async_Arena());
@@ -150,12 +150,11 @@ ROMSX::prestep (int lev,
         FArrayBox fab_pnom_u(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pmon_v(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pnom_v(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_fomn(tbxp2D,1,amrex::The_Async_Arena());
         //FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
-        auto pn=fab_pn.array();
         auto pm=fab_pm.array();
+        auto pn=fab_pn.array();
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
         auto om_u=fab_om_u.array();
@@ -168,47 +167,22 @@ ROMSX::prestep (int lev,
         auto pnom_u=fab_pnom_u.array();
         auto pmon_v=fab_pmon_v.array();
         auto pnom_v=fab_pnom_v.array();
-        auto fomn=fab_fomn.array();
 
-        ParallelFor(tbxp2D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int  )
-            {
-              pm(i,j,0)=dxi[0];
-              pn(i,j,0)=dxi[1];
-              //defined UPWELLING
-              Real f0=-8.26e-5;
-              Real beta=0.0;
-              Real Esize=1000*(Mm);
-              Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=f0+beta*(y-.5*Esize);
-              fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
-            });
 
         ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-          //Note: are the comment definitons right? Don't seem to match metrics.f90
-          om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
-          on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
-          om_r(i,j,0)=1.0/dxi[0]; // 1/pm(i,j)
-          on_r(i,j,0)=1.0/dxi[1]; // 1/pn(i,j)
-          //todo: om_p on_p
-          om_p(i,j,0)=1.0/dxi[0]; // 4/(pm(i-1,j-1)+pm(i-1,j)+pm(i,j-1)+pm(i,j))
-          on_p(i,j,0)=1.0/dxi[1]; // 4/(pn(i-1,j-1)+pn(i-1,j)+pn(i,j-1)+pn(i,j))
-          on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
-          om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
-          pmon_u(i,j,0)=1.0;        // (pm(i-1,j)+pm(i,j))/(pn(i-1,j)+pn(i,j))
-          pnom_u(i,j,0)=1.0;        // (pn(i-1,j)+pn(i,j))/(pm(i-1,j)+pm(i,j))
-          pmon_v(i,j,0)=1.0;        // (pm(i,j-1)+pm(i,j))/(pn(i,j-1)+pn(i,j))
-          pnom_v(i,j,0)=1.0;        // (pn(i,j-1)+pn(i,j))/(pm(i,j-1)+pm(i,j))
+            //Note: are the comment definitons right? Don't seem to match metrics.f90
+            pm(i,j,0) = dxi[0];
+            pn(i,j,0) = dxi[1];
         });
 
         prestep_t_3d(bx, gbx, tempold, temp, tempcache, ru, Hz, Akt, Huon, Hvom,
                      pm, pn, W, DC, FC, tempstore, z_r, z_w, h, iic, ntfirst, nnew, nstp, nrhs, N,
-                          lambda, dt_lev);
+                     lambda, dt_lev);
         prestep_t_3d(bx, gbx, saltold, salt, saltcache, ru, Hz, Akt, Huon, Hvom,
                      pm, pn, W, DC, FC, saltstore, z_r, z_w, h, iic, ntfirst, nnew, nstp, nrhs, N,
-                          lambda, dt_lev);
+                     lambda, dt_lev);
 
         //
         //-----------------------------------------------------------------------

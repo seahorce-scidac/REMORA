@@ -184,8 +184,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         FArrayBox fab_pmon_v(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pnom_v(gbx2D,1,amrex::The_Async_Arena());
 
-        FArrayBox fab_fomn(gbx2D,1,amrex::The_Async_Arena());
-
         FArrayBox fab_on_u(makeSlab(ubx,2,0),1,amrex::The_Async_Arena());
         FArrayBox fab_om_v(makeSlab(vbx,2,0),1,amrex::The_Async_Arena());
         FArrayBox fab_om_u(gbx2D,1,amrex::The_Async_Arena());
@@ -205,21 +203,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         auto pnom_u=fab_pnom_u.array();
         auto pmon_v=fab_pmon_v.array();
         auto pnom_v=fab_pnom_v.array();
-        auto fomn=fab_fomn.array();
-
-        //From ana_grid.h and metrics.F
-        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
-            {
-              pm(i,j,0)=dxi[0];
-              pn(i,j,0)=dxi[1];
-              //defined UPWELLING
-              Real f0=-8.26e-5;
-              Real beta=0.0;
-              Real Esize=1000*(Mm);
-              Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=f0+beta*(y-.5*Esize);
-              fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
-            });
 
         ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -378,20 +361,21 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         auto pnom_v=fab_pnom_v.array();
         auto fomn=fab_fomn.array();
 
-        //From ana_grid.h and metrics.F
-        ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
-            {
-              pm(i,j,0)=dxi[0];
-              pn(i,j,0)=dxi[1];
-              //defined UPWELLING
-              Real f0=-8.26e-5;
-              Real beta=0.0;
-              Real Esize=1000*(Mm);
-              Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=f0+beta*(y-.5*Esize);
-              fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
-            });
+        Real coriolis_f0 = solverChoice.coriolis_f0;
+        Real coriolis_beta = solverChoice.coriolis_beta;
 
+        const auto dx               = Geom(lev).CellSizeArray();
+        Real Esize=geom[lev].ProbHi()[1] - geom[lev].ProbLo()[1];
+
+        ParallelFor(tbxp2D,
+        [=] AMREX_GPU_DEVICE (int i, int j, int  )
+        {
+            pm(i,j,0) = dxi[0];
+            pn(i,j,0) = dxi[1];
+            Real y = prob_lo[1] + (j + 0.5) * dx[1];
+            Real f=coriolis_f0 + coriolis_beta*(y-.5*Esize);
+            fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
+        });
         ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))

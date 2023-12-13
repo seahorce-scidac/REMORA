@@ -27,25 +27,25 @@ ROMSX::rho_eos (const Box& bx,
                 Array4<Real const> h,
                 const int N)
 {
-    // Hardcode these for now instead of reading them from inputs
-    Real T0=14.0;
-    Real S0=35.0;
-    Real R0=1027;
-    Real Tcoef=1.7e-4;
-    Real Scoef=0.0;
-    Real rho0=1025.0;
-
+//
     AMREX_ASSERT(bx.smallEnd(2) == 0 && bx.bigEnd(2) == N);
 //
 //=======================================================================
 //  Linear equation of state.
 //=======================================================================
 //
+//
 //-----------------------------------------------------------------------
 //  Compute "in situ" density anomaly (kg/m3 - 1000) using the linear
 //  equation of state.
 //-----------------------------------------------------------------------
 //
+    Real R0 = solverChoice.R0;
+    Real S0 = solverChoice.S0;
+    Real T0 = solverChoice.T0;
+    Real Tcoef = solverChoice.Tcoef;
+    Real Scoef = solverChoice.Scoef;
+
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         rho(i,j,k)  = R0 - R0*Tcoef*(state(i,j,k,Temp_comp)-T0)
@@ -59,7 +59,7 @@ ROMSX::rho_eos (const Box& bx,
 //  used (rhoS) in barotropic pressure gradient.
 //-----------------------------------------------------------------------
 //
-    Real cff2 =1.0_rt/rho0;
+    Real cff2 =1.0_rt/solverChoice.rho0;
 
     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {

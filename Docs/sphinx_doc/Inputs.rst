@@ -445,8 +445,8 @@ Examples of Usage
    | for example. If this line is commented out then it will not compute
      and print these quanitities.
 
-Forcing Terms
-=============
+Included terms
+==============
 
 .. _list-of-parameters-14:
 
@@ -457,22 +457,75 @@ List of Parameters
 | Parameter                        | Definition                  | Acceptable        | Default     |
 |                                  |                             | Values            |             |
 +==================================+=============================+===================+=============+
-| **romsx.use_gravity**            | Include gravity             | true / false      | false       |
-|                                  | in momentum                 |                   |             |
-|                                  | update?  If true,           |                   |             |
-|                                  | there is buoyancy           |                   |             |
-+----------------------------------+-----------------------------+-------------------+-------------+
 | **romsx.use_coriolis**           | Include Coriolis terms.     | true / false      | false       |
-|                                  | Coriolis parameter :math`f` |                   |             |
-|                                  | is hard-coded for Upwelling |                   |             |
-|                                  | problem in                  |                   |             |
-|                                  | ``ROMSX::Advance()``        |                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
+| **romsx.flat_bathymetry**        | Use flat bathymetry.        | true / false      | true        |
++----------------------------------+-----------------------------+-------------------+-------------+
+| **romsx.use_prestep**            | Do prestep terms. Only for  |  true / false     | true        |
+|                                  | debugging purposes.         |                   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
+| **romsx.use_uv3dmix**            | Include harmonic viscosity. | true / false      | true        |
+|                                  | Only for debugging purposes.|                   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
+| **romsx.use_barotropic**         | Include 2d barotropic step. | true / false      | true        |
+|                                  | Only for debugging purposes.|                   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
+
+Physics Parameters
+==================
+
+.. _list-of-parameters-15:
+
+List of Parameters
+------------------
+
++----------------------------------+------------------------------+-------------------+-------------+
+| Parameter                        | Definition                   | Acceptable        | Default     |
+|                                  |                              | Values            |             |
++==================================+==============================+===================+=============+
+| **romsx.ggrav**                  | Gravitational field strength | Real number       | 9.81        |
+|                                  | [kg m/s^2]                   |                   |             |
++----------------------------------+------------------------------+-------------------+-------------+
+| **romsx.R0**                     | Background density [kg/m^3]  | Real number       | 1028        |
+|                                  | used in Linear Equation of   |                   |             |
+|                                  | State. May be used in setup  |                   |             |
+|                                  | of some problems.            |                   |             |
++----------------------------------+------------------------------+-------------------+-------------+
+| **romsx.S0**                     | Background salinity          | Real number       | 35          |
+|                                  | (nondimensional) used in     |                   |             |
+|                                  | Linear Equation of State     |                   |             |
+|                                  | State. May be used in setup  |                   |             |
+|                                  | of some problems.            |                   |             |
++----------------------------------+------------------------------+-------------------+-------------+
+| **romsx.T0**                     | Background temperature       | Real number       | 5           |
+|                                  | (Celsius) used in            |                   |             |
+|                                  | Linear Equation of State     |                   |             |
+|                                  | State. May be used in setup  |                   |             |
+|                                  | of some problems.            |                   |             |
++----------------------------------+------------------------------+-------------------+-------------+
+| **romsx.Tcoef**                  | Linear EOS parameter         | Real number       | 1.7e-4      |
+|                                  | (1/Celsius)                  |                   |             |
++----------------------------------+------------------------------+-------------------+-------------+
+| **romsx.Scoef**                  | Linear EOS parameter         | Real number       | 0.0         |
+|                                  | (nondimensional)             |                   |             |
++----------------------------------+------------------------------+-------------------+-------------+
+| **romsx.rho0**                   | Mean density (kg/m^3) used   | Real number       | 1025        |
+|                                  | when Boussinesq approx is    |                   |             |
+|                                  | inferred                     |                   |             |
++----------------------------------+------------------------------+-------------------+-------------+
+| **romsx.coriolis_f0**            | f-plane constant for         | Real number       | 0.0         |
+|                                  | Coriolis param               |                   |             |
+|                                  | :math:`f = f_0 + \beta y`    |                   |             |
++----------------------------------+------------------------------+-------------------+-------------+
+| **romsx.coriolis_beta**          | beta-plane constant for      | Real number       | 0.0         |
+|                                  | Coriolis param               |                   |             |
+|                                  | :math:`f = f_0 + \beta y`    |                   |             |
++----------------------------------+------------------------------+-------------------+-------------+
 
 Numerical Algorithms
 ====================
 
-.. _list-of-parameters-15:
+.. _list-of-parameters-16:
 
 List of Parameters
 ------------------
@@ -484,6 +537,33 @@ List of Parameters
 | **romsx.horizontal_advection_scheme** | Scheme for horizontal       | upstream3,        | upstream3   |
 |                                       | advection                   | centered4         |             |
 +---------------------------------------+-----------------------------+-------------------+-------------+
+
+Vertical Stretch prameters
+==========================
+
+.. _list-of-parameters-17:
+
+List of Parameters
+------------------
+
++---------------------------------------+-----------------------------+----------------------------------+-------------+
+| Parameter                             | Definition                  | Acceptable                       | Default     |
+|                                       |                             | Values                           |             |
++=======================================+=============================+==================================+=============+
+| **romsx.theta_s**                     | Stretching parameter for    | :math:`0 \leq \theta_S \leq 10`  | 3.0         |
+|                                       | surface refinement of       |                                  |             |
+|                                       | vertical S-grid             |                                  |             |
++---------------------------------------+-----------------------------+----------------------------------+-------------+
+| **romsx.theta_b**                     | Stretching parameter for    | :math:`0 \leq \theta_B \leq 4`   | 0.0         |
+|                                       | bottom refinement of        |                                  |             |
+|                                       | vertical S-grid             |                                  |             |
++---------------------------------------+-----------------------------+----------------------------------+-------------+
+| **romsx.tcline**                      | Surface/bottom layer width  | Positive number                  | 150         |
+|                                       | (m) in vertical S-grid      |                                  |             |
++---------------------------------------+-----------------------------+----------------------------------+-------------+
+
+These parameters are used to calculate the vertical S-grid stretch/transform functions detailed in
+:ref:`Vertical S-Coordinate<VerticalSCoord>`.
 
 ..
   include:: InputsPhysics.rst

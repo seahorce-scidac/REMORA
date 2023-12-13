@@ -3,38 +3,38 @@
 ===============================================================================
 inputs file: inputs
 
-number of MPI processes: 4
+number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.0158847
+CPU time used since start of simulation (CPU-hours): 0.00935854
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Tue Dec 12 10:35:43 2023
-output dir:         /home/almgren/GitCode/ROMSX/Exec/Seamount
+output data / time: Wed Dec 13 13:48:14 2023
+output dir:         /home/klion/software/ROMSX/Exec/Seamount
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    2023-12-12 10:31:21.485092
-build machine: Linux manda 5.15.0-76-generic #83~20.04.1-Ubuntu SMP Wed Jun 21 20:23:31 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
-build dir:     /home/almgren/GitCode/ROMSX/Exec/Seamount
-AMReX dir:     /home/almgren/GitCode/amrex
+build date:    2023-12-13 10:58:24.850589
+build machine: Linux varan 5.15.0-79-generic #86~20.04.2-Ubuntu SMP Mon Jul 17 23:27:17 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
+build dir:     /home/klion/software/ROMSX/Exec/Seamount
+AMReX dir:     ../../Submodules/AMReX
 
 COMP:          gnu
 COMP version:  9.4.0
 
 
-ROMSX       git hash: fe8d901-dirty
-AMReX       git hash: 23.12-8-g43d71da32-dirty
+ROMSX       git hash: 80e5cb2-dirty
+AMReX       git hash: 23.09-22-gb2052f2d2
 
 
 ===============================================================================
  Grid Information
 ===============================================================================
  level: 0
-   number of boxes = 6
+   number of boxes = 1
    maximum zones   = 49 48 13 
 
  Boundary conditions
@@ -75,19 +75,16 @@ romsx.plotfile_type = amrex
 romsx.use_coriolis = true
 romsx.horizontal_advection_scheme = upstream3
 romsx.spatial_order = 2
-prob.R0 = 1027.0
-prob.S0 = 32.0
-prob.T0 = 10.0
-prob.rho_0 = 1.0
-prob.T_0 = 1.0
-prob.A_0 = 1.0
-prob.u_0 = 0.0
-prob.v_0 = 0.0
-prob.rad_0 = 0.25
-prob.z0 = 0.1
-prob.zRef = 80.0e-3
-prob.uRef = 8.0e-3
-prob.prob_type = 12
+romsx.coriolis_f0 = 1.0e-4
+romsx.theta_s = 6.5
+romsx.theta_b = 2.0
+romsx.tcline = 100.
+romsx.R0 = 1027.0
+romsx.S0 = 32.0
+romsx.T0 = 10.0
+romsx.Tcoef = 1.7e-4
+romsx.Scoef = 0.0
+romsx.rho0 = 1025.0
 amr.refine_grid_layout_x = 1
 amr.refine_grid_layout_y = 1
 amr.refine_grid_layout_z = 0
