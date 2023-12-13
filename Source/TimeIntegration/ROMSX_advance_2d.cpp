@@ -382,6 +382,10 @@ ROMSX::advance_2d (int lev,
 
         auto weight1 = vec_weight1.dataPtr();
         auto weight2 = vec_weight2.dataPtr();
+
+        Real coriolis_f0 = solverChoice.coriolis_f0;
+        Real coriolis_beta = solverChoice.coriolis_beta;
+
        if ((verbose > 2) && predictor_2d_step && my_iif == 0) {
            amrex::PrintToFile("ru_startadvance").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
            amrex::PrintToFile("rv_startadvance").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
@@ -438,7 +442,7 @@ ROMSX::advance_2d (int lev,
               //defined UPWELLING
               Real Esize=geomdata.ProbHi()[1] - geomdata.ProbLo()[1];
               Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=solverChoice.coriolis_f0 + solverChoice.coriolis_beta*(y-.5*Esize);
+              Real f=coriolis_f0 + coriolis_beta*(y-.5*Esize);
               fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 

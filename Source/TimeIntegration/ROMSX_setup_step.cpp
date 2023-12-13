@@ -383,6 +383,9 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         auto pnom_v=fab_pnom_v.array();
         auto fomn=fab_fomn.array();
 
+        Real coriolis_f0 = solverChoice.coriolis_f0;
+        Real coriolis_beta = solverChoice.coriolis_beta;
+
         ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
         {
@@ -392,7 +395,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
             pn(i,j,0) = dxi[1];
             Real Esize=geom[lev].ProbHi()[1] - geom[lev].ProbLo()[1];
             Real y = prob_lo[1] + (j + 0.5) * dx[1];
-            Real f=solverChoice.coriolis_f0 + solverChoice.coriolis_beta*(y-.5*Esize);
+            Real f=coriolis_f0 + coriolis_beta*(y-.5*Esize);
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
         amrex::ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int )
