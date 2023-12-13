@@ -166,7 +166,7 @@ ROMSX::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_c
     {
         bccomp = 0;
         mapper = &cell_cons_interp;
-        ncomp = Cons::NumVars;
+        ncomp = NCONS;
     }
     else if (box_mf.ixType() == IndexType(IntVect(1,0,0)))
     {

@@ -90,10 +90,6 @@ ifeq ($(USE_PARTICLES), TRUE)
   DEFINES += -DROMSX_USE_PARTICLES
 endif
 
-ifeq ($(SALINITY),TRUE)
-  DEFINES += -DROMSX_USE_SALINITY
-endif
-
 CEXE_sources += AMReX_buildInfo.cpp
 CEXE_headers += $(AMREX_HOME)/Tools/C_scripts/AMReX_buildInfo.H
 INCLUDE_LOCATIONS += $(AMREX_HOME)/Tools/C_scripts

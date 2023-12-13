@@ -13,11 +13,7 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
     FillPatch(lev, t_old[lev], zvel_old[lev], zvel_old);
 
     MultiFab mf_temp(*cons_new[lev], amrex::make_alias, Temp_comp, 1);
-#ifdef ROMSX_USE_SALINITY
     MultiFab mf_salt(*cons_new[lev], amrex::make_alias, Salt_comp, 1);
-#else
-    MultiFab mf_salt(*cons_new[lev], amrex::make_alias, Temp_comp, 1);
-#endif
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 

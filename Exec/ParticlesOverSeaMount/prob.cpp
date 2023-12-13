@@ -72,7 +72,7 @@ init_custom_bathymetry (const Geometry& geom,
 
       Gpu::streamSynchronize();
 
-      if(!m_solverChoice.flat_bathymetry) {
+      if (!m_solverChoice.flat_bathymetry) {
           ParallelFor(makeSlab(gbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
           {
               Real val1, val2;
@@ -122,9 +122,11 @@ init_custom_prob(
         Array4<Real const> const& /*h*/,
         Array4<Real const> const& /*Zt_avg1*/,
         GeometryData const& geomdata,
-        const SolverChoice& /*m_solverChoice*/)
+        const SolverChoice& m_solverChoice)
 {
     const int khi = geomdata.Domain().bigEnd()[2];
+
+    bool l_use_salt = m_solverChoice.use_salt;
 
     AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
 
@@ -141,9 +143,9 @@ init_custom_prob(
         state(i, j, k, Temp_comp) = 1.;
 
         state(i,j,k,Temp_comp)=parms.T0+8.0*std::exp(z/50.0_rt);
-#ifdef ROMSX_USE_SALINITY
-        state(i,j,k,Salt_comp)=parms.S0;
-#endif
+        if (l_use_salt) {
+            state(i,j,k,Salt_comp)=parms.S0;
+        }
 
         // Set scalar = 0 everywhere
         state(i, j, k, Scalar_comp) = 0.0;

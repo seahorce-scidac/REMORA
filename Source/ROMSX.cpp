@@ -222,7 +222,7 @@ ROMSX::post_timestep (int nstep, Real time, Real dt_lev0)
         for (int lev = finest_level-1; lev >= 0; lev--)
         {
             // This call refluxes from the lev/lev+1 interface onto lev
-            getAdvFluxReg(lev+1)->Reflux(*cons_new[lev], 0, 0, NVAR);
+            getAdvFluxReg(lev+1)->Reflux(*cons_new[lev], 0, 0, NCONS);
 
             // We need to do this before anything else because refluxing changes the
             // values of coarse cells underneath fine grids with the assumption they'll
@@ -282,7 +282,7 @@ ROMSX::InitData ()
             advflux_reg[lev] = new YAFluxRegister(grids[lev], grids[lev-1],
                                                    dmap[lev],  dmap[lev-1],
                                                    geom[lev],  geom[lev-1],
-                                              ref_ratio[lev-1], lev, NVAR);
+                                              ref_ratio[lev-1], lev, NCONS);
         }
     }
 
@@ -333,7 +333,7 @@ ROMSX::InitData ()
         //
         int ngs   = cons_new[lev]->nGrow();
         int ngvel = xvel_new[lev]->nGrow();
-        MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,NVAR,ngs);
+        MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,NCONS,ngs);
         MultiFab::Copy(*xvel_old[lev],*xvel_new[lev],0,0,1,ngvel);
         MultiFab::Copy(*yvel_old[lev],*yvel_new[lev],0,0,1,ngvel);
         MultiFab::Copy(*zvel_old[lev],*zvel_new[lev],0,0,1,IntVect(ngvel,ngvel,0));

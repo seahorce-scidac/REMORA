@@ -8,13 +8,8 @@
 #define Temp_comp      0
 #define Scalar_comp    1
 #define Omega_comp     2
-
-#ifdef ROMSX_USE_SALINITY
 #define Salt_comp      3
-#define NVAR           4
-#else
-#define NVAR           3
-#endif
+#define NCONS           4
 
 #define NGROW          2
 
@@ -23,22 +18,10 @@ namespace BCVars {
         cons_bc = 0,
         Temp_bc_comp = 0,
         Scalar_bc_comp,
-        xvel_bc = NVAR,
+        xvel_bc = NCONS,
         yvel_bc,
         zvel_bc,
         NumTypes
-    };
-}
-
-namespace Cons {
-    enum {
-        Temp = 0,
-        Scalar,
-        Omega,
-#ifdef ROMSX_USE_SALINITY
-        Salt,
-#endif
-        NumVars
     };
 }
 
