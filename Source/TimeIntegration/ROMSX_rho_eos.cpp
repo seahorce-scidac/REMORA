@@ -43,11 +43,16 @@ ROMSX::rho_eos (const Box& bx,
 //  equation of state.
 //-----------------------------------------------------------------------
 //
+    Real R0 = solverChoice.R0;
+    Real S0 = solverChoice.S0;
+    Real T0 = solverChoice.T0;
+    Real Tcoef = solverChoice.Tcoef;
+    Real Scoef = solverChoice.Scoef;
     amrex::ParallelFor(bx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        rho(i,j,k)  = solverChoice.R0 - solverChoice.R0*solverChoice.Tcoef*(temp(i,j,k,nrhs)-solverChoice.T0);
-        rho(i,j,k) += solverChoice.R0*solverChoice.Scoef*(salt(i,j,k,nrhs)-solverChoice.S0) - 1000.0_rt;
+        rho(i,j,k)  = R0 - R0*Tcoef*(temp(i,j,k,nrhs)-T0);
+        rho(i,j,k) += R0*Scoef*(salt(i,j,k,nrhs)-S0) - 1000.0_rt;
     });
 
 //
