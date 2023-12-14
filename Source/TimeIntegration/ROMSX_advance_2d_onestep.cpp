@@ -7,6 +7,11 @@ void ROMSX::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int m
 {
     bool first_2d_step=(my_iif==0);
 
+    // These are needed to pass ctests
+    Real dummy_time = 0.0;
+    FillPatch(lev, dummy_time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar));
+    FillPatch(lev, dummy_time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar));
+
     //Predictor
     bool predictor_2d_step=true;
     int next_indx1 = 0;
@@ -25,6 +30,11 @@ void ROMSX::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int m
     //Corrector. Skip it on last fast step
     predictor_2d_step=false;
     if (my_iif < nfast_counter - 1) {
+
+        // These are needed to pass ctests
+        FillPatch(lev, dummy_time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar));
+        FillPatch(lev, dummy_time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar));
+
         advance_2d(lev, *xvel_new[lev], *yvel_new[lev],
                    vec_rhoS[lev].get(), vec_rhoA[lev].get(),
                    vec_ru[lev].get(), vec_rv[lev].get(),
