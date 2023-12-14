@@ -256,9 +256,6 @@ ROMSX::advance_2d (int lev,
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
         });
     }
-    mf_DUon.FillBoundary(geom[lev].periodicity());
-    mf_DVom.FillBoundary(geom[lev].periodicity());
-
 
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -866,17 +863,4 @@ ROMSX::advance_2d (int lev,
             });
         }
     }
-    mf_DU_avg1->FillBoundary(geom[lev].periodicity());
-    mf_DU_avg2->FillBoundary(geom[lev].periodicity());
-    mf_DV_avg1->FillBoundary(geom[lev].periodicity());
-    mf_DV_avg2->FillBoundary(geom[lev].periodicity());
-    mf_ru->FillBoundary(geom[lev].periodicity());
-    mf_rv->FillBoundary(geom[lev].periodicity());
-    mf_rubar->FillBoundary(geom[lev].periodicity());
-    mf_rvbar->FillBoundary(geom[lev].periodicity());
-    mf_rzeta->FillBoundary(geom[lev].periodicity());
-    mf_ubar->FillBoundary(geom[lev].periodicity());
-    mf_vbar->FillBoundary(geom[lev].periodicity());
-    mf_zeta->FillBoundary(geom[lev].periodicity());
-
 }
