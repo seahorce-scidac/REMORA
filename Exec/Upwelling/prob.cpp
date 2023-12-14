@@ -127,12 +127,10 @@ init_custom_prob(
 
     ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
-        // Geometry (note we must include these here to get the data on device)
-        // const auto prob_lo         = geomdata.ProbLo();
-        // const auto dx              = geomdata.CellSize();
+        const auto prob_lo         = geomdata.ProbLo();
+        const auto prob_hi         = geomdata.ProbHi();
+        const auto dx              = geomdata.CellSize();
 
-        // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
-        // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
         const Real z = z_r(i,j,k);
 
         state(i, j, k, Temp_comp) = 1.;
@@ -143,7 +141,16 @@ init_custom_prob(
         }
 
         // Set scalar = 0 everywhere
-        state(i, j, k, Scalar_comp) = 0.0;
+        const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
+        const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
+
+        const Real x  = prob_lo[0] + (i + 0.5) * dx[0] - xcent;
+        const Real y  = prob_lo[1] + (j + 0.5) * dx[1] - ycent;
+        const Real r2 = x*x + y*y;
+        const Real rad = 0.1 * (prob_hi[0]-prob_lo[0]);
+        const Real radsq = rad*rad;
+
+        state(i, j, k, Scalar_comp) = (r2 < radsq) ? 1.0 : 0.0;
     });
 
   // Construct a box that is on x-faces
