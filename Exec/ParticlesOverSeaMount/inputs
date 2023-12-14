@@ -51,6 +51,10 @@ romsx.use_coriolis = true
 romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 romsx.spatial_order = 2
 
+# Coriolis params
+romsx.coriolis_f0 = -8.26e-5
+romsx.coriolis_beta = 0.0
+
 # LINEAR EOS PARAMETERS (optional)
 romsx.R0 = 1027.0
 romsx.S0 = 35.0
