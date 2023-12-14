@@ -125,6 +125,8 @@ ROMSX::set_2darrays (int lev)
             });
     }
 
-    vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
-    vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
+    // DEBUGGING NOTE -- Upwelling fails if these are commented out
+    const Real time = 0.0;
+    FillPatch(lev,time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar));
+    FillPatch(lev,time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar));
 }

@@ -361,16 +361,18 @@ ROMSX::set_bathymetry(int lev)
 {
     init_custom_bathymetry(geom[lev], *vec_hOfTheConfusingName[lev], *vec_Zt_avg1[lev], solverChoice);
 
-    vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
+    Real time = 0.0;
+    FillPatch(lev, time, *vec_Zt_avg1[lev], GetVecOfPtrs(vec_Zt_avg1));
+    FillPatch(lev, time, *vec_hOfTheConfusingName[lev], GetVecOfPtrs(vec_hOfTheConfusingName));
 }
 
 void
 ROMSX::set_vmix(int lev) {
     init_custom_vmix(geom[lev], *vec_Akv[lev], *vec_Akt[lev], *vec_z_w[lev], solverChoice);
 
-    vec_Akv[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Akt[lev]->FillBoundary(geom[lev].periodicity());
+    Real time = 0.0;
+    FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv));
+    FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt));
 }
 
 void
@@ -378,9 +380,10 @@ ROMSX::set_hmixcoef(int lev)
 {
     init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev], solverChoice);
 
-    vec_visc2_p[lev]->FillBoundary(geom[lev].periodicity());
-    vec_visc2_r[lev]->FillBoundary(geom[lev].periodicity());
-    vec_diff2[lev]->FillBoundary(geom[lev].periodicity());
+    Real time = 0.0;
+    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p));
+    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r));
+    FillPatch(lev, time, *vec_diff2[lev]  , GetVecOfPtrs(vec_diff2));
 }
 
 void
@@ -388,8 +391,8 @@ ROMSX::set_smflux(int lev, Real time)
 {
     init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
 
-    vec_sustr[lev]->FillBoundary(geom[lev].periodicity());
-    vec_svstr[lev]->FillBoundary(geom[lev].periodicity());
+    // FillPatch(lev, time, *vec_sustr[lev], GetVecOfPtrs(vec_sustr));
+    // FillPatch(lev, time, *vec_svstr[lev], GetVecOfPtrs(vec_svstr));
 }
 
 void
