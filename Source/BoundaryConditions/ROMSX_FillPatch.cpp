@@ -13,16 +13,16 @@ PhysBCFunctNoOp null_bc;
 // values in mf when it is passed in are *not* used.
 //
 void
-ROMSX::FillPatch (int lev, Real time, MultiFab* mf_to_fill, Vector<MultiFab*>& mfs)
+ROMSX::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs)
 {
     BL_PROFILE_VAR("ROMSX::FillPatch()",ROMSX_FillPatch);
     int bccomp;
     amrex::Interpolater* mapper = nullptr;
 
     const int icomp = 0;
-    const int ncomp = mf_to_fill->nComp();
+    const int ncomp = mf_to_fill.nComp();
 
-    Box mf_box(mf_to_fill->boxArray()[0]);
+    Box mf_box(mf_to_fill.boxArray()[0]);
     if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
     {
         bccomp = 0;
@@ -52,7 +52,7 @@ ROMSX::FillPatch (int lev, Real time, MultiFab* mf_to_fill, Vector<MultiFab*>& m
     {
         Vector<MultiFab*> fmf = {mfs[lev], mfs[lev]};
         Vector<Real> ftime    = {t_old[lev], t_new[lev]};
-        amrex::FillPatchSingleLevel(*mf_to_fill, time, fmf, ftime, icomp, icomp, ncomp,
+        amrex::FillPatchSingleLevel(mf_to_fill, time, fmf, ftime, icomp, icomp, ncomp,
                                     geom[lev], null_bc, bccomp);
     }
     else
@@ -62,7 +62,7 @@ ROMSX::FillPatch (int lev, Real time, MultiFab* mf_to_fill, Vector<MultiFab*>& m
         Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
         Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
 
-        amrex::FillPatchTwoLevels(*mf_to_fill, time, cmf, ctime, fmf, ftime,
+        amrex::FillPatchTwoLevels(mf_to_fill, time, cmf, ctime, fmf, ftime,
                                   0, icomp, ncomp, geom[lev-1], geom[lev],
                                   null_bc, bccomp, null_bc, bccomp, refRatio(lev-1),
                                   mapper, domain_bcs_type, bccomp);
@@ -73,12 +73,12 @@ ROMSX::FillPatch (int lev, Real time, MultiFab* mf_to_fill, Vector<MultiFab*>& m
          (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
     {
         int khi = geom[lev].Domain().bigEnd(2);
-        for (MFIter mfi(*mf_to_fill); mfi.isValid(); ++mfi)
+        for (MFIter mfi(mf_to_fill); mfi.isValid(); ++mfi)
         {
             Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is
             gbx.setSmall(2,khi+1);
             if (gbx.ok()) {
-                Array4<Real> vel_arr = mf_to_fill->array(mfi);
+                Array4<Real> vel_arr = mf_to_fill.array(mfi);
                 ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     vel_arr(i,j,k) = vel_arr(i,j,khi);
@@ -87,6 +87,7 @@ ROMSX::FillPatch (int lev, Real time, MultiFab* mf_to_fill, Vector<MultiFab*>& m
         }
     }
 }
+
 
 // utility to copy in data from old/new data into a struct that holds data for FillPatching
 TimeInterpolatedData

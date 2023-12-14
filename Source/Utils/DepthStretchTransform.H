@@ -197,10 +197,11 @@ ROMSX::stretch_transform (int lev)
       });
     }
 
-    vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
-    vec_z_r[lev]->FillBoundary(geom[lev].periodicity());
-    vec_s_r[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
+    Real time = t_new[lev];
+    FillPatch(lev, time, *vec_z_w[lev], GetVecOfPtrs(vec_z_w));
+    FillPatch(lev, time, *vec_z_r[lev], GetVecOfPtrs(vec_z_r));
+    FillPatch(lev, time, *vec_s_r[lev], GetVecOfPtrs(vec_s_r));
+    FillPatch(lev, time, *vec_Hz[lev] , GetVecOfPtrs(vec_Hz));
 
     // Define nodal z as average of z on w-faces
     for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -235,7 +236,8 @@ ROMSX::stretch_transform (int lev)
       });
     } // mf
 
-    // Enforce periodicity
+    // Note that we do *not* want to do a multilevel fill here -- we have
+    // already filled z_phys_nd on the grown boxes, but we enforce periodicity just in case
     vec_z_phys_nd[lev]->FillBoundary(geom[lev].periodicity());
 }
 
