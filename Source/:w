@@ -15,8 +15,8 @@ using namespace amrex;
  * @param[in] mf_rhoA
  * @param[in] mf_ru
  * @param[in] mf_rv
- * @param[inout] mf_rufrc
- * @param[inout] mf_rvfrc
+ * @param[in] mf_rufrc
+ * @param[in] mf_rvfrc
  * @param[inout] mf_Zt_avg1
  * @param[inout] mf_DU_avg1
  * @param[inout] mf_DU_avg2
@@ -27,7 +27,7 @@ using namespace amrex;
  * @param[inout] mf_rbar
  * @param[inout] mf_rbar
  * @param[inout] mf_zeta
- * @param[in   ] mf_h
+ * @param[inout] mf_h
  * @param[inout] mf_visc2_p
  * @param[inout] mf_visc2_f
  * @param[in   ] dtfast_lev
@@ -43,11 +43,11 @@ ROMSX::advance_2d (int lev,
                    MultiFab const& mf_v,
                    MultiFab const* mf_rhoS,
                    MultiFab const* mf_rhoA,
-                   MultiFab      * mf_ru,
-                   MultiFab      * mf_rv,
-                   MultiFab      * mf_rufrc,
-                   MultiFab      * mf_rvfrc,
-                   MultiFab      * mf_Zt_avg1,
+                   std::unique_ptr<MultiFab>& mf_ru,
+                   std::unique_ptr<MultiFab>& mf_rv,
+                   std::unique_ptr<MultiFab>& mf_rufrc,
+                   std::unique_ptr<MultiFab>& mf_rvfrc,
+                   std::unique_ptr<MultiFab>& mf_Zt_avg1,
                    std::unique_ptr<MultiFab>& mf_DU_avg1,
                    std::unique_ptr<MultiFab>& mf_DU_avg2,
                    std::unique_ptr<MultiFab>& mf_DV_avg1,
@@ -58,7 +58,7 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_ubar,
                    std::unique_ptr<MultiFab>& mf_vbar,
                    std::unique_ptr<MultiFab>& mf_zeta,
-                   MultiFab const* mf_h,
+                   std::unique_ptr<MultiFab>& mf_h,
                    std::unique_ptr<MultiFab>& mf_visc2_p,
                    std::unique_ptr<MultiFab>& mf_visc2_r,
                    Real dtfast_lev,
@@ -75,7 +75,8 @@ ROMSX::advance_2d (int lev,
     const int nnew  = 0;
     const int nstp  = 0;
     int ntfirst = 0;
-
+    //bool predictor_2d_step = true;
+    //    int my_iif = 1; //substep index
     int knew = 3;
     int krhs = (my_iif + iic) % 2 + 1;
     int kstp = my_iif <=1 ? iic % 2 + 1 : (iic % 2 + my_iif % 2 + 1) % 2 + 1;
@@ -105,14 +106,15 @@ ROMSX::advance_2d (int lev,
 
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real const> const& u    = mf_u.const_array(mfi);
-        Array4<Real const> const& v    = mf_v.const_array(mfi);
-        Array4<Real      > const& ubar = mf_ubar->array(mfi);
-        Array4<Real      > const& vbar = mf_vbar->array(mfi);
-        Array4<Real      > const& zeta = mf_zeta->array(mfi);
-        Array4<Real const> const& h    = mf_h->const_array(mfi);
-        Array4<Real      > const& ru   = mf_ru->array(mfi);
-        Array4<Real      > const& rv   = mf_rv->array(mfi);
+
+        Array4<Real const> const& u = mf_u.const_array(mfi);
+        Array4<Real const> const& v = mf_v.const_array(mfi);
+        Array4<Real> const& ubar = (mf_ubar)->array(mfi);
+        Array4<Real> const& vbar = (mf_vbar)->array(mfi);
+        Array4<Real> const& zeta = (mf_zeta)->array(mfi);
+        Array4<Real> const& h = (mf_h)->array(mfi);
+        Array4<Real> const& ru = (mf_ru)->array(mfi);
+        Array4<Real> const& rv = (mf_rv)->array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -132,10 +134,14 @@ ROMSX::advance_2d (int lev,
         tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
         tbxp3.grow(IntVect(NGROW+1,NGROW+1,0));
 
-        Box bxD   = bx  ;   bxD.makeSlab(2,0);
-        Box gbxD  = gbx ;  gbxD.makeSlab(2,0);
-        Box gbx1D = gbx1; gbx1D.makeSlab(2,0);
-        Box gbx2D = gbx2; gbx2D.makeSlab(2,0);
+        Box bxD = bx;
+        bxD.makeSlab(2,0);
+        Box gbxD = gbx;
+        gbxD.makeSlab(2,0);
+        Box gbx1D = gbx1;
+        gbx1D.makeSlab(2,0);
+        Box gbx2D = gbx2;
+        gbx2D.makeSlab(2,0);
 
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
@@ -263,29 +269,28 @@ ROMSX::advance_2d (int lev,
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
 
-        Array4<Real const> const& u    = mf_u.const_array(mfi);
-        Array4<Real const> const& v    = mf_v.const_array(mfi);
+        Array4<Real const> const& u = mf_u.const_array(mfi);
+        Array4<Real const> const& v = mf_v.const_array(mfi);
         Array4<Real const> const& rhoS = mf_rhoS->const_array(mfi);
         Array4<Real const> const& rhoA = mf_rhoA->const_array(mfi);
-        Array4<Real const> const& h    = mf_h->const_array(mfi);
-
-        Array4<Real      > const& rufrc   = mf_rufrc->array(mfi);
-        Array4<Real      > const& rvfrc   = mf_rvfrc->array(mfi);
-        Array4<Real      > const& Zt_avg1 = mf_Zt_avg1->array(mfi);
-        Array4<Real      > const& ubar = mf_ubar->array(mfi);
-        Array4<Real      > const& vbar = mf_vbar->array(mfi);
-        Array4<Real      > const& zeta = mf_zeta->array(mfi);
-        Array4<Real      > const& DU_avg1 = (mf_DU_avg1)->array(mfi);
-        Array4<Real      > const& DU_avg2 = (mf_DU_avg2)->array(mfi);
-        Array4<Real      > const& DV_avg1 = (mf_DV_avg1)->array(mfi);
-        Array4<Real      > const& DV_avg2 = (mf_DV_avg2)->array(mfi);
-        Array4<Real      > const& ru = (mf_ru)->array(mfi);
-        Array4<Real      > const& rv = (mf_rv)->array(mfi);
-        Array4<Real      > const& rubar = (mf_rubar)->array(mfi);
-        Array4<Real      > const& rvbar = (mf_rvbar)->array(mfi);
-        Array4<Real      > const& rzeta = (mf_rzeta)->array(mfi);
-        Array4<Real      > const& visc2_p = (mf_visc2_p)->array(mfi);
-        Array4<Real      > const& visc2_r = (mf_visc2_r)->array(mfi);
+        Array4<Real> const& ubar = mf_ubar->array(mfi);
+        Array4<Real> const& vbar = mf_vbar->array(mfi);
+        Array4<Real> const& zeta = mf_zeta->array(mfi);
+        Array4<Real> const& h = (mf_h)->array(mfi);
+        Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
+        Array4<Real> const& DU_avg1 = (mf_DU_avg1)->array(mfi);
+        Array4<Real> const& DU_avg2 = (mf_DU_avg2)->array(mfi);
+        Array4<Real> const& DV_avg1 = (mf_DV_avg1)->array(mfi);
+        Array4<Real> const& DV_avg2 = (mf_DV_avg2)->array(mfi);
+        Array4<Real> const& ru = (mf_ru)->array(mfi);
+        Array4<Real> const& rv = (mf_rv)->array(mfi);
+        Array4<Real> const& rufrc = (mf_rufrc)->array(mfi);
+        Array4<Real> const& rvfrc = (mf_rvfrc)->array(mfi);
+        Array4<Real> const& rubar = (mf_rubar)->array(mfi);
+        Array4<Real> const& rvbar = (mf_rvbar)->array(mfi);
+        Array4<Real> const& rzeta = (mf_rzeta)->array(mfi);
+        Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
+        Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -381,6 +386,20 @@ ROMSX::advance_2d (int lev,
         Real coriolis_f0 = solverChoice.coriolis_f0;
         Real coriolis_beta = solverChoice.coriolis_beta;
 
+       if ((verbose > 2) && predictor_2d_step && my_iif == 0) {
+           amrex::PrintToFile("ru_startadvance").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
+           amrex::PrintToFile("rv_startadvance").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
+           amrex::PrintToFile("u_startadvance2").SetPrecision(18)<<FArrayBox(u)<<std::endl;
+           amrex::PrintToFile("v_startadvance2").SetPrecision(18)<<FArrayBox(v)<<std::endl;
+       }
+
+       if (verbose > 2) {
+           PrintToFile("DUon_mid") << "step  " << my_iif << " " << predictor_2d_step << std::endl;
+           PrintToFile("DUon_mid").SetPrecision(18) << FArrayBox(DUon) << std::endl;
+           PrintToFile("DVom_mid") << "step  " << my_iif << " " << predictor_2d_step << std::endl;
+           PrintToFile("DVom_mid").SetPrecision(18) << FArrayBox(DVom) << std::endl;
+       }
+
         //From ana_grid.h and metrics.F
         ParallelFor(makeSlab(tbxp3,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -459,19 +478,19 @@ ROMSX::advance_2d (int lev,
                 Real cff1_wt1 = weight1[my_iif-1];
                 Real cff2_wt1 = (Real(8.0)/Real(12.0))*weight2[my_iif]-
                                 (Real(1.0)/Real(12.0))*weight2[my_iif+1];
-
-                ParallelFor(makeSlab(gbx3,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                ParallelFor(makeSlab(gbx3,2,0),
+                [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     Zt_avg1(i,j,0) += cff1_wt1*zeta(i,j,0,krhs);
                 });
-
-                ParallelFor(makeSlab(xgbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                ParallelFor(makeSlab(xgbx2,2,0),
+                [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     DU_avg1(i,j,0) += cff1_wt1*DUon(i,j,0);
                     DU_avg2(i,j,0) += cff2_wt1*DUon(i,j,0);
                 });
-
-                ParallelFor(makeSlab(ygbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                ParallelFor(makeSlab(ygbx2,2,0),
+                [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     DV_avg1(i,j,0) += cff1_wt1*DVom(i,j,0);
                     DV_avg2(i,j,0) += cff2_wt1*DVom(i,j,0);
@@ -480,19 +499,17 @@ ROMSX::advance_2d (int lev,
         }
         else {
             Real cff2_wt2;
-
-            if (first_2d_step) {
+            if(first_2d_step)
                 cff2_wt2=weight2[my_iif];
-            } else {
+            else
                 cff2_wt2=Real(5.0)/Real(12.0)*weight2[my_iif];
-            }
-
-            ParallelFor(makeSlab(xgbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            ParallelFor(makeSlab(xgbx2,2,0),
+            [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
                 DU_avg2(i,j,0)=DU_avg2(i,j,0)+cff2_wt2*DUon(i,j,0);
             });
-
-            ParallelFor(makeSlab(ygbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            ParallelFor(makeSlab(ygbx2,2,0),
+            [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
                 DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2_wt2*DVom(i,j,0);
             });
@@ -526,10 +543,11 @@ ROMSX::advance_2d (int lev,
             ParallelFor(tbxp1,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                rhs_zeta(i,j,0) = (DUon(i,j,0)-DUon(i+1,j,0))+
-                                  (DVom(i,j,0)-DVom(i,j+1,0));
-                zeta_new(i,j,0) = zeta(i,j,0,kstp)+ pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
-                Dnew(i,j,0) = zeta_new(i,j,0)+h(i,j,0);
+                rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
+                                (DVom(i,j,0)-DVom(i,j+1,0));
+                zeta_new(i,j,0)=zeta(i,j,0,kstp)+
+                                pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
+                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
 
                 //Pressure gradient terms:
                 zwrk(i,j,0)=0.5_rt*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
@@ -669,8 +687,7 @@ ROMSX::advance_2d (int lev,
        // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
        //-----------------------------------------------------------------------
 
-       uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar,
-               visc2_p, visc2_r, Drhs, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
+       uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar, visc2_p, visc2_r, Drhs, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
 
        //-----------------------------------------------------------------------
        // Coupling from 3d to 2d
@@ -681,16 +698,16 @@ ROMSX::advance_2d (int lev,
                 ParallelFor(xbxD,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
-                    rufrc(i,j,0)    -= rhs_ubar(i,j,0);
-                    rhs_ubar(i,j,0) += rufrc(i,j,0);
-                    ru(i,j,-1,nstp)  = rufrc(i,j,0);
+                    rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
+                    rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+rufrc(i,j,0);
+                    ru(i,j,-1,nstp)=rufrc(i,j,0);
                 });
                 ParallelFor(ybxD,
                 [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
-                    rvfrc(i,j,0)    -= rhs_vbar(i,j,0);
-                    rhs_vbar(i,j,0) += rvfrc(i,j,0);
-                    rv(i,j,-1,nstp)  = rvfrc(i,j,0);
+                    rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
+                    rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+rvfrc(i,j,0);
+                    rv(i,j,-1,nstp)=rvfrc(i,j,0);
                 });
 
             } else if (iic==(ntfirst+1)) {
@@ -819,9 +836,7 @@ ROMSX::advance_2d (int lev,
                                  (Dstp(i,j,0)+Dstp(i,j-1,0))+
                                   cff*cff1*rhs_vbar(i,j,0))*Dnew_avg;
             });
-
         } else if ((!predictor_2d_step)) {
-
             cff1=0.5_rt*dtfast_lev*5.0_rt/12.0_rt;
             cff2=0.5_rt*dtfast_lev*8.0_rt/12.0_rt;
             Real cff3=0.5_rt*dtfast_lev*1.0_rt/12.0_rt;

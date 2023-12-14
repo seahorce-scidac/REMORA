@@ -12,13 +12,9 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
     FillPatch(lev, t_old[lev], yvel_old[lev], yvel_old);
     FillPatch(lev, t_old[lev], zvel_old[lev], zvel_old);
 
-    MultiFab mf_temp(*cons_new[lev], amrex::make_alias, Temp_comp, 1);
-    MultiFab mf_salt(*cons_new[lev], amrex::make_alias, Salt_comp, 1);
-
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
-    advance_3d(lev, *xvel_new[lev], *yvel_new[lev],
-               mf_temp, mf_salt,
+    advance_3d(lev, *cons_new[lev], *xvel_new[lev], *yvel_new[lev],
                vec_t3[lev].get(), vec_s3[lev].get(),
                vec_ru[lev].get(), vec_rv[lev].get(),
                vec_DU_avg1[lev], vec_DU_avg2[lev],
