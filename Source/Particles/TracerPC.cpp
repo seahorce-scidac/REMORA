@@ -227,9 +227,6 @@ TracerPC::AdvectWithUmac (Array<MultiFab const*, AMREX_SPACEDIM> umac,
                         p.idata(0) -= 1;
                     }
                 }
-                p.rdata(TracerRealIdx::vx) = v[0];
-                p.rdata(TracerRealIdx::vy) = v[1];
-                p.rdata(TracerRealIdx::vz) = v[2];
             });
         }
     }
