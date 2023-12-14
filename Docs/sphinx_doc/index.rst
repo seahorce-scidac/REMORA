@@ -36,7 +36,6 @@ In addition to this documentation, there is API documentation for ROMSX generate
 .. toctree::
    :caption: USER GUIDE
    :maxdepth: 1
-   :hidden:
 
    GettingStarted.rst
    Inputs.rst
