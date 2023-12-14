@@ -23,11 +23,10 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
                vec_Akv[lev], vec_Akt[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev],
                vec_z_w[lev], vec_hOfTheConfusingName[lev], N, dt_lev);
 
-    vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
-    vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
-
-    vec_t3[lev]->FillBoundary(geom[lev].periodicity());
-    vec_s3[lev]->FillBoundary(geom[lev].periodicity());
+    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar));
+    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar));
+    FillPatch(lev, t_new[lev], *vec_t3[lev], GetVecOfPtrs(vec_t3));
+    FillPatch(lev, t_new[lev], *vec_s3[lev], GetVecOfPtrs(vec_s3));
 
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call

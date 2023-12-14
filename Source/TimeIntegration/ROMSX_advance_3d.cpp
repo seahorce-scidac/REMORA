@@ -205,8 +205,9 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
 #endif
     }
 
-    mf_Huon->FillBoundary(geom[lev].periodicity());
-    mf_Hvom->FillBoundary(geom[lev].periodicity());
+    // WE BELIEVE THESE VALUES SHOULD ALREADY BE FILLED
+    // mf_Huon->FillBoundary(geom[lev].periodicity());
+    // mf_Hvom->FillBoundary(geom[lev].periodicity());
 
     // ************************************************************************
     // This should fill both temp and salt with temp/salt currently in cons_old
@@ -323,7 +324,7 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
 
     } // mfi
 
-    mf_cons.FillBoundary(geom[lev].periodicity());
+    FillPatch(lev, t_new[lev], mf_cons, cons_new);
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {

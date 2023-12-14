@@ -68,9 +68,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     std::unique_ptr<MultiFab>& mf_bvstr = vec_bvstr[lev];
     MultiFab mf_rw(ba,dm,1,IntVect(NGROW,NGROW,0));
 
-    MultiFab mf_W(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
-    mf_W.setVal(0.0);
-
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
 
@@ -82,19 +79,15 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
     mf_DC.setVal(0);
 
-    U_old.FillBoundary(geom[lev].periodicity());
-    U_new.FillBoundary(geom[lev].periodicity());
-    V_old.FillBoundary(geom[lev].periodicity());
-    V_new.FillBoundary(geom[lev].periodicity());
-    mf_W.FillBoundary(geom[lev].periodicity());
+    FillPatch(lev, time, *cons_old[lev], cons_old);
+    FillPatch(lev, time, *xvel_old[lev], xvel_old);
+    FillPatch(lev, time, *yvel_old[lev], yvel_old);
 
-    S_old.FillBoundary(geom[lev].periodicity());
-    S_new.FillBoundary(geom[lev].periodicity());
+    FillPatch(lev, time, *cons_new[lev], cons_new);
+    FillPatch(lev, time, *xvel_new[lev], xvel_new);
+    FillPatch(lev, time, *yvel_new[lev], yvel_new);
 
     mf_rw.setVal(0.0);
-    mf_W.setVal(0.0);
-    U_old.FillBoundary(geom[lev].periodicity());
-    V_old.FillBoundary(geom[lev].periodicity());
     mf_rufrc->setVal(0);
     mf_rvfrc->setVal(0);
 
@@ -237,7 +230,10 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         rho_eos(gbx2,state_old,rho,rhoA,rhoS,Hz,z_w,h,N);
     }
 
-    if(solverChoice.use_prestep) {
+    MultiFab mf_W(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
+    mf_W.setVal(0.0);
+
+    if (solverChoice.use_prestep) {
         const int nnew  = 0;
         prestep(lev, U_old, V_old, U_new, V_new,
                 mf_ru, mf_rv,
@@ -246,7 +242,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
                 mf_bvstr, iic, ntfirst, nnew, nstp, nrhs, N, dt_lev);
     }
 
-
+    // We use FillBoundary not FillPatch here since mf_W is single-level scratch space
     mf_W.FillBoundary(geom[lev].periodicity());
 
     for ( MFIter mfi(S_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -436,12 +432,12 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     // Update Akv with new depth. NOTE: this happens before set_zeta in ROMS
     set_vmix(lev);
 
-    S_old.FillBoundary(geom[lev].periodicity());
-    S_new.FillBoundary(geom[lev].periodicity());
+    FillPatch(lev, time, *cons_old[lev], cons_old);
+    FillPatch(lev, time, *cons_new[lev], cons_new);
 
-    vec_t3[lev]->FillBoundary(geom[lev].periodicity());
-    vec_s3[lev]->FillBoundary(geom[lev].periodicity());
+    FillPatch(lev, time, *vec_t3[lev], GetVecOfPtrs(vec_t3));
+    FillPatch(lev, time, *vec_s3[lev], GetVecOfPtrs(vec_s3));
 
-    vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Hvom[lev]->FillBoundary(geom[lev].periodicity());
+    FillPatch(lev, time, *vec_Huon[lev], GetVecOfPtrs(vec_Huon));
+    FillPatch(lev, time, *vec_Hvom[lev], GetVecOfPtrs(vec_Hvom));
 }
