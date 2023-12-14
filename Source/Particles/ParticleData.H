@@ -87,6 +87,6 @@ struct ParticleData {
 
     int use_tracer_particles;
     std::unique_ptr<TracerPC> tracer_particles;
-    amrex::Vector<std::string> tracer_particle_varnames = {AMREX_D_DECL("xvel", "yvel", "zvel")};
+    amrex::Vector<std::string> tracer_particle_varnames = {AMREX_D_DECL("old_x", "old_y", "old_z")};
 };
 #endif

@@ -6,8 +6,9 @@
 struct TracerRealIdx
 {
     enum {
-        vx = 0,
-        vy, vz,
+        old_x = 0,
+        old_y,
+        old_z,
         ncomps
     };
 };
