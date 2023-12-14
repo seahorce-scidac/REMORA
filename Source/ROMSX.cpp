@@ -323,10 +323,10 @@ ROMSX::InitData ()
     // Fill ghost cells/faces
     for (int lev = 0; lev <= finest_level; ++lev)
     {
-        FillPatch(lev, t_new[lev], cons_new[lev], cons_new);
-        FillPatch(lev, t_new[lev], xvel_new[lev], xvel_new);
-        FillPatch(lev, t_new[lev], yvel_new[lev], yvel_new);
-        FillPatch(lev, t_new[lev], zvel_new[lev], zvel_new);
+        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new);
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new);
+        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new);
 
         //
         // Copy from new into old just in case

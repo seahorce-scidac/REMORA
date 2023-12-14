@@ -97,10 +97,10 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
     // We fillpatch here because some of the derived quantities require derivatives
     //     which require ghost cells to be filled
     for (int lev = 0; lev <= finest_level; ++lev) {
-        FillPatch(lev, t_new[lev], cons_new[lev], cons_new);
-        FillPatch(lev, t_new[lev], xvel_new[lev], xvel_new);
-        FillPatch(lev, t_new[lev], yvel_new[lev], yvel_new);
-        FillPatch(lev, t_new[lev], zvel_new[lev], zvel_new);
+        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new);
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new);
+        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new);
     }
 
     if (ncomp_mf == 0)

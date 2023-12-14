@@ -22,10 +22,10 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     int nvars = S_old.nComp();
 
     // Fill ghost cells/faces at old time
-    FillPatch(lev, time, cons_old[lev], cons_old);
-    FillPatch(lev, time, xvel_old[lev], xvel_old);
-    FillPatch(lev, time, yvel_old[lev], yvel_old);
-    FillPatch(lev, time, zvel_old[lev], zvel_old);
+    FillPatch(lev, time, *cons_old[lev], cons_old);
+    FillPatch(lev, time, *xvel_old[lev], xvel_old);
+    FillPatch(lev, time, *yvel_old[lev], yvel_old);
+    FillPatch(lev, time, *zvel_old[lev], zvel_old);
 
     //////////    //pre_step3d corrections to boundaries
 

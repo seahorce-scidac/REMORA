@@ -606,8 +606,8 @@ public:
 
     // Fill a new MultiFab by copying in phi from valid region and filling ghost cells
     void FillPatch (int lev, amrex::Real time,
-                    amrex::MultiFab* mf_to_be_filled,
-                    amrex::Vector<amrex::MultiFab*>& mf);
+                    amrex::MultiFab& mf_to_be_filled,
+                    amrex::Vector<amrex::MultiFab*> const& mfs);
 
 private:
 

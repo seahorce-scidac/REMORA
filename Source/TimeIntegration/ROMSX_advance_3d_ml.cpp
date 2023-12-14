@@ -7,10 +7,10 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
 {
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
-    FillPatch(lev, t_old[lev], cons_old[lev], cons_old);
-    FillPatch(lev, t_old[lev], xvel_old[lev], xvel_old);
-    FillPatch(lev, t_old[lev], yvel_old[lev], yvel_old);
-    FillPatch(lev, t_old[lev], zvel_old[lev], zvel_old);
+    FillPatch(lev, t_new[lev], *cons_new[lev], cons_new);
+    FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new);
+    FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new);
+    FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new);
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
@@ -32,10 +32,10 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     // Note that we need the fine-fine and physical bc's in order to correctly move the particles
-    FillPatch(lev, t_new[lev], cons_new[lev], cons_new);
-    FillPatch(lev, t_new[lev], xvel_new[lev], xvel_new);
-    FillPatch(lev, t_new[lev], yvel_new[lev], yvel_new);
-    FillPatch(lev, t_new[lev], zvel_new[lev], zvel_new);
+    FillPatch(lev, t_new[lev], *cons_new[lev], cons_new);
+    FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new);
+    FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new);
+    FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new);
 
 #ifdef ROMSX_USE_PARTICLES
     //***************************************************
