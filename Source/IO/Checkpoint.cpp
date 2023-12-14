@@ -314,10 +314,6 @@ ROMSX::ReadCheckpointFile ()
        VisMF::Read(mf_rv, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YRHS"));
        MultiFab::Copy(*(vec_rv[lev]),mf_rv,0,0,2,(vec_rv[lev])->nGrowVect());
 
-       //Do not update with FillBoundary since k=-1 contains boundary information
-       //       vec_ru[lev]->FillBoundary(geom[lev].periodicity());
-       //       vec_rv[lev]->FillBoundary(geom[lev].periodicity());
-
        MultiFab mf_ubar(ba2d,dmap[lev],3,NGROW);
        VisMF::Read(mf_ubar, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "XBar"));
        MultiFab::Copy(*(vec_ubar[lev]),mf_ubar,0,0,3,(vec_ubar[lev])->nGrowVect());
@@ -326,41 +322,24 @@ ROMSX::ReadCheckpointFile ()
        VisMF::Read(mf_vbar, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YBar"));
        MultiFab::Copy(*(vec_vbar[lev]),mf_vbar,0,0,3,(vec_vbar[lev])->nGrowVect());
 
-       //Do not update with FillBoundary since k=-1 contains boundary information
-       //       vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
-       //       vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
-
        VisMF::Read(*(vec_rufrc[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rufrc"));
        VisMF::Read(*(vec_rvfrc[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rvfrc"));
-       vec_rufrc[lev]->FillBoundary(geom[lev].periodicity());
-       vec_rvfrc[lev]->FillBoundary(geom[lev].periodicity());
 
        VisMF::Read(*(vec_sustr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "sustr"));
        VisMF::Read(*(vec_svstr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "svstr"));
-       vec_sustr[lev]->FillBoundary(geom[lev].periodicity());
-       vec_svstr[lev]->FillBoundary(geom[lev].periodicity());
 
        VisMF::Read(*(vec_rdrag[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rdrag"));
-       vec_rdrag[lev]->FillBoundary(geom[lev].periodicity());
 
        VisMF::Read(*(vec_bustr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "bustr"));
        VisMF::Read(*(vec_bvstr[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "bvstr"));
-       vec_bustr[lev]->FillBoundary(geom[lev].periodicity());
-       vec_bvstr[lev]->FillBoundary(geom[lev].periodicity());
 
        VisMF::Read(*(vec_DU_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "DU_avg1"));
        VisMF::Read(*(vec_DU_avg2[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "DU_avg2"));
        VisMF::Read(*(vec_DV_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "DV_avg1"));
        VisMF::Read(*(vec_DV_avg2[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "DV_avg2"));
-       vec_DU_avg1[lev]->FillBoundary(geom[lev].periodicity());
-       vec_DU_avg2[lev]->FillBoundary(geom[lev].periodicity());
-       vec_DV_avg1[lev]->FillBoundary(geom[lev].periodicity());
-       vec_DV_avg2[lev]->FillBoundary(geom[lev].periodicity());
 
        VisMF::Read(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "zeta"));
        VisMF::Read(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Zt_avg1"));
-       vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
-       vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
     }
 
 #ifdef ROMSX_USE_PARTICLES
