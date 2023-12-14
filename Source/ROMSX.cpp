@@ -374,7 +374,8 @@ ROMSX::set_vmix(int lev) {
 }
 
 void
-ROMSX::set_hmixcoef(int lev) {
+ROMSX::set_hmixcoef(int lev)
+{
     init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev], solverChoice);
 
     vec_visc2_p[lev]->FillBoundary(geom[lev].periodicity());
@@ -383,7 +384,8 @@ ROMSX::set_hmixcoef(int lev) {
 }
 
 void
-ROMSX::set_smflux(int lev, Real time) {
+ROMSX::set_smflux(int lev, Real time)
+{
     init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
 
     vec_sustr[lev]->FillBoundary(geom[lev].periodicity());

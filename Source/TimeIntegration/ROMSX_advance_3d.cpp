@@ -7,9 +7,8 @@ using namespace amrex;
 //
 
 void
-ROMSX::advance_3d (int lev,
+ROMSX::advance_3d (int lev, MultiFab& mf_cons,
                    MultiFab& mf_u        , MultiFab& mf_v ,
-                   MultiFab& mf_temp     , MultiFab& mf_salt     ,
                    MultiFab* mf_tempstore, MultiFab* mf_saltstore,
                    MultiFab* mf_ru       , MultiFab* mf_rv,
                    std::unique_ptr<MultiFab>& mf_DU_avg1,
@@ -46,15 +45,15 @@ ROMSX::advance_3d (int lev,
     // These temporaries used to be made in advance_3d_ml and passed in;
     // now we make them here
 
-    const BoxArray&            ba = mf_temp.boxArray();
-    const DistributionMapping& dm = mf_temp.DistributionMap();
+    const BoxArray&            ba = mf_cons.boxArray();
+    const DistributionMapping& dm = mf_cons.DistributionMap();
 
     //Only used locally, probably should be rearranged into FArrayBox declaration
     MultiFab mf_AK (ba,dm,1,IntVect(NGROW,NGROW,0));       //2d missing j coordinate
     MultiFab mf_DC (ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
     MultiFab mf_Hzk(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
 
-    for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& u = mf_u.array(mfi);
         Array4<Real> const& v = mf_v.array(mfi);
@@ -213,10 +212,10 @@ ROMSX::advance_3d (int lev,
     // This should fill both temp and salt with temp/salt currently in cons_old
     // ************************************************************************
 
-    for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& temp = (mf_temp).array(mfi);
-        Array4<Real> const& salt = (mf_salt).array(mfi);
+        Array4<Real> const& temp = mf_cons.array(mfi,Temp_comp);
+        Array4<Real> const& salt = mf_cons.array(mfi,Salt_comp);
 
         Array4<Real> const& tempstore = mf_tempstore->array(mfi);
         Array4<Real> const& saltstore = mf_saltstore->array(mfi);
@@ -324,13 +323,12 @@ ROMSX::advance_3d (int lev,
 
     } // mfi
 
-    mf_temp.FillBoundary(geom[lev].periodicity());
-    mf_salt.FillBoundary(geom[lev].periodicity());
+    mf_cons.FillBoundary(geom[lev].periodicity());
 
-    for ( MFIter mfi(mf_temp, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& temp = (mf_temp).array(mfi);
-        Array4<Real> const& salt = (mf_salt).array(mfi);
+        Array4<Real> const& temp = mf_cons.array(mfi,Temp_comp);
+        Array4<Real> const& salt = mf_cons.array(mfi,Salt_comp);
 
         Array4<Real> const& AK = mf_AK.array(mfi);
         Array4<Real> const& DC = mf_DC.array(mfi);

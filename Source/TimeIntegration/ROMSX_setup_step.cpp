@@ -54,11 +54,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
     //Consider passing these into the advance function or renaming relevant things
 
-    MultiFab mf_u(U_new, amrex::make_alias, 0, 1);
-    MultiFab mf_v(V_new, amrex::make_alias, 0, 1);
-    MultiFab mf_uold(U_old, amrex::make_alias, 0, 1);
-    MultiFab mf_vold(V_old, amrex::make_alias, 0, 1);
-    MultiFab mf_w(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
     std::unique_ptr<MultiFab>& mf_rhoS = vec_rhoS[lev];
     std::unique_ptr<MultiFab>& mf_rhoA = vec_rhoA[lev];
@@ -85,21 +80,12 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     mf_rhoS->setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rhoA->setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
 
-    mf_w.setVal(0);
     mf_DC.setVal(0);
-    mf_w.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
 
-    MultiFab::Copy(mf_u,U_new,0,0,U_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
-    MultiFab::Copy(mf_v,V_new,0,0,V_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
-    MultiFab::Copy(mf_uold,U_old,0,0,U_old.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
-    MultiFab::Copy(mf_vold,V_old,0,0,V_old.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
-    MultiFab::Copy(mf_w,W_new,0,0,W_new.nComp(),IntVect(AMREX_D_DECL(NGROW,NGROW,0)));
-
-    mf_u.FillBoundary(geom[lev].periodicity());
-    mf_v.FillBoundary(geom[lev].periodicity());
-    mf_uold.FillBoundary(geom[lev].periodicity());
-    mf_vold.FillBoundary(geom[lev].periodicity());
-    mf_w.FillBoundary(geom[lev].periodicity());
+    U_old.FillBoundary(geom[lev].periodicity());
+    U_new.FillBoundary(geom[lev].periodicity());
+    V_old.FillBoundary(geom[lev].periodicity());
+    V_new.FillBoundary(geom[lev].periodicity());
     mf_W.FillBoundary(geom[lev].periodicity());
 
     S_old.FillBoundary(geom[lev].periodicity());
@@ -137,8 +123,8 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real      > const& Huon  = (vec_Huon[lev])->array(mfi);
         Array4<Real      > const& Hvom  = (vec_Hvom[lev])->array(mfi);
         Array4<Real const> const& z_w = (mf_z_w)->const_array(mfi);
-        Array4<Real      > const& uold = (mf_uold).array(mfi);
-        Array4<Real      > const& vold = (mf_vold).array(mfi);
+        Array4<Real      > const& uold = U_old.array(mfi);
+        Array4<Real      > const& vold = V_old.array(mfi);
         Array4<Real      > const& rho = (mf_rho).array(mfi);
         Array4<Real      > const& rhoA = (mf_rhoA)->array(mfi);
         Array4<Real      > const& rhoS = (mf_rhoS)->array(mfi);
@@ -253,8 +239,8 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
     if(solverChoice.use_prestep) {
         const int nnew  = 0;
-        prestep(lev, mf_uold, mf_vold,
-                mf_u, mf_v, mf_ru, mf_rv,
+        prestep(lev, U_old, V_old, U_new, V_new,
+                mf_ru, mf_rv,
                 S_old, S_new, mf_W,
                 mf_DC, mf_z_r, mf_z_w, mf_h, mf_sustr, mf_svstr, mf_bustr,
                 mf_bvstr, iic, ntfirst, nnew, nstp, nrhs, N, dt_lev);
@@ -270,10 +256,10 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
         Array4<Real> const& z_r = (mf_z_r)->array(mfi);
         Array4<Real> const& z_w = (mf_z_w)->array(mfi);
-        Array4<Real> const& uold = (mf_uold).array(mfi);
-        Array4<Real> const& vold = (mf_vold).array(mfi);
-        Array4<Real> const& u = (mf_u).array(mfi);
-        Array4<Real> const& v = (mf_v).array(mfi);
+        Array4<Real> const& uold = U_old.array(mfi);
+        Array4<Real> const& vold = V_old.array(mfi);
+        Array4<Real> const& u    = U_new.array(mfi);
+        Array4<Real> const& v    = V_new.array(mfi);
         Array4<Real> const& rho = (mf_rho).array(mfi);
         Array4<Real> const& ru = (mf_ru)->array(mfi);
         Array4<Real> const& rv = (mf_rv)->array(mfi);
@@ -319,8 +305,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         tbxp1D.makeSlab(2,0);
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
-        //gbx1D.grow(IntVect(NGROW-1,NGROW-1,0));
-        //gbx2D.grow(IntVect(NGROW,NGROW,0));
 
         FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
