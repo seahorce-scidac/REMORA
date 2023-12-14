@@ -34,9 +34,9 @@ InitParticles ()
                 p.pos(1) = y;
                 p.pos(2) = z;
 
-                p.rdata(TracerRealIdx::vx) = v[0];
-                p.rdata(TracerRealIdx::vy) = v[1];
-                p.rdata(TracerRealIdx::vz) = v[2];
+                p.rdata(TracerRealIdx::old_x) = p.pos(0);
+                p.rdata(TracerRealIdx::old_y) = p.pos(1);
+                p.rdata(TracerRealIdx::old_z) = p.pos(2);
 
                 p.idata(TracerIntIdx::k) = iv[2];  // particles carry their z-index
 
@@ -102,9 +102,9 @@ InitParticles (const MultiFab& a_z_height)
                 p.pos(1) = y;
                 p.pos(2) = z;
 
-                p.rdata(TracerRealIdx::vx) = v[0];
-                p.rdata(TracerRealIdx::vy) = v[1];
-                p.rdata(TracerRealIdx::vz) = v[2];
+                p.rdata(TracerRealIdx::old_x) = p.pos(0);
+                p.rdata(TracerRealIdx::old_y) = p.pos(1);
+                p.rdata(TracerRealIdx::old_z) = p.pos(2);
 
                 p.idata(TracerIntIdx::k) = iv[2];  // particles carry their z-index
 
