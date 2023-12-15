@@ -93,12 +93,12 @@ endfunction(add_test_u)
 # Regression tests
 #=============================================================================
 if(WIN32)
-  add_test_r(Upwelling                    "Upwelling/*/upwelling.exe" "plt00010")
-  add_test_r(Upwelling_bathy              "Upwelling/*/upwelling.exe" "plt00010")
+  add_test_r(DoublyPeriodic               "DoublyPeriodic/*/doublyperiodic.exe" "plt00010")
+  add_test_r(DoublyPeriodic_bathy         "DoublyPeriodic/*/doublyperiodic.exe" "plt00010")
   add_test_r(Seamount                     "Seamount/*/seamount.exe"   "plt00010")
 else()
-  add_test_r(Upwelling                    "Upwelling/upwelling" "plt00010")
-  add_test_r(Upwelling_bathy              "Upwelling/upwelling" "plt00010")
+  add_test_r(DoublyPeriodic               "DoublyPeriodic/doublyperiodic" "plt00010")
+  add_test_r(DoublyPeriodic_bathy         "DoublyPeriodic/doublyperiodic" "plt00010")
   add_test_r(Seamount                     "Seamount/seamount"   "plt00010")
 endif()
 #=============================================================================
