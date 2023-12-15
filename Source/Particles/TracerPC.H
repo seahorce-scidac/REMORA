@@ -59,7 +59,6 @@ public:
                                    amrex::DefaultAllocator, TracerAssignor>(geom, dmap, ba)
         {}
 
-    void InitParticles ();
     void InitParticles (const amrex::MultiFab& a_z_height);
 
     void AdvectWithUmac (amrex::Array<amrex::MultiFab const*, AMREX_SPACEDIM> umac,

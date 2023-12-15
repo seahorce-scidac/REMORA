@@ -212,30 +212,22 @@ ROMSX::stretch_transform (int lev)
       // WARNING: z_w(i,j,k)       refers to the face on the HIGH side of cell (i,j,k)
       // WARNING: z_phys_nd(i,j,k) refers to the node on the LOW  side of cell (i,j,k)
       //
-      if (solverChoice.flat_bathymetry) {
-          Real dz = geom[lev].CellSize(2);
-          ParallelFor(Box(z_phys_nd), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+      ParallelFor(Box(z_phys_nd), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+      {
+          // For now assume all boundaries are constant height --
+          //     we will enforce periodicity below
+          int kk = (k == 0) ? hi.z : k-1;
+          if ( i >= lo.x && i <= hi.x-1 && j >= lo.y && j <= hi.y-1 )
           {
-             z_phys_nd(i,j,k) = k * dz;
-          });
-      } else {
-          ParallelFor(Box(z_phys_nd), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-          {
-              // For now assume all boundaries are constant height --
-              //     we will enforce periodicity below
-              int kk = (k == 0) ? hi.z : k-1;
-              if ( i >= lo.x && i <= hi.x-1 && j >= lo.y && j <= hi.y-1 )
-              {
-                  z_phys_nd(i,j,k)=0.25*( z_w(i,j  ,kk) + z_w(i+1,j  ,kk) +
-                                          z_w(i,j+1,kk) + z_w(i+1,j+1,kk) );
-              } else {
-                 int ii = std::min(std::max(i, lo.x), hi.x);
-                 int jj = std::min(std::max(j, lo.y), hi.y);
-                 z_phys_nd(i,j,k) = z_w(ii,jj,kk);
-              }
-              if (k == 0)  z_phys_nd(i,j,k) *= -1.;
-          });
-      } // if not flat
+              z_phys_nd(i,j,k)=0.25*( z_w(i,j  ,kk) + z_w(i+1,j  ,kk) +
+                                      z_w(i,j+1,kk) + z_w(i+1,j+1,kk) );
+          } else {
+             int ii = std::min(std::max(i, lo.x), hi.x);
+             int jj = std::min(std::max(j, lo.y), hi.y);
+             z_phys_nd(i,j,k) = z_w(ii,jj,kk);
+          }
+          if (k == 0)  z_phys_nd(i,j,k) *= -1.;
+      });
     } // mf
 
     // Note that we do *not* want to do a multilevel fill here -- we have
