@@ -71,6 +71,8 @@ Notes
 
 -  The NeTCDF option is only available if ROMSX has been built with USE_NETCDF enabled.
 
+-  File prefixes can include directories.
+
 .. _examples-of-usage-8:
 
 Examples of Usage
@@ -78,12 +80,13 @@ Examples of Usage
 
 -  **romsx.plotfile_type** = *amrex*
 
--  **romsx.plot_file_1** = *plt_run*
+-  **romsx.plot_file_1** = *out/plt_run*
 
 -  **romsx.plot_int_1** = 10
 
    means that native plot files (actually directories) starting with the prefix
-   “*plt_run*” will be generated every 10 level-0 time steps. If using
+   “*plt_run*” will be generated every 10 level-0 time steps in the directory
+   `out`. If using
    amrex format, that directory names will be *plt_run00000*, *plt_run00010*,
    *plt_run00020*, etc. If using NetCDF format, the names will have ".nc" appended.
 
