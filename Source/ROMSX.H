@@ -815,7 +815,6 @@ private:
 
     amrex::Vector<std::string> plot_var_names_1;
     amrex::Vector<std::string> plot_var_names_2;
-    const amrex::Vector<std::string> velocity_names {"x_velocity", "y_velocity", "z_velocity"};
     const amrex::Vector<std::string>     cons_names {"temp", "salt", "scalar"};
 
     // Note that the order of variable names here must match the order in Derive.cpp

@@ -42,14 +42,23 @@ ROMSX::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::strin
             tmp_plot_names.push_back(cons_names[i]);
         }
     }
-    // check for velocity since it's not in cons_names
-    // if we are asked for any velocity component, we will need them all
+    // Check for velocity since it's not in cons_names
+    // If we are asked for any velocity component, we will need them all
     if (containerHasElement(plot_var_names, "x_velocity") ||
         containerHasElement(plot_var_names, "y_velocity") ||
         containerHasElement(plot_var_names, "z_velocity")) {
         tmp_plot_names.push_back("x_velocity");
         tmp_plot_names.push_back("y_velocity");
         tmp_plot_names.push_back("z_velocity");
+    }
+
+    // If we are asked for any location component, we will provide them all
+    if (containerHasElement(plot_var_names, "x_cc") ||
+        containerHasElement(plot_var_names, "y_cc") ||
+        containerHasElement(plot_var_names, "z_cc")) {
+        tmp_plot_names.push_back("x_cc");
+        tmp_plot_names.push_back("y_cc");
+        tmp_plot_names.push_back("z_cc");
     }
 
     for (int i = 0; i < derived_names.size(); ++i) {
@@ -89,7 +98,6 @@ ROMSX::PlotFileVarNames ( Vector<std::string> plot_var_names ) const
 void
 ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
 {
-
     const Vector<std::string> varnames = PlotFileVarNames(plot_var_names);
     const int ncomp_mf = varnames.size();
     const auto ngrow_vars = IntVect(NGROW-1,NGROW-1,0);
@@ -158,6 +166,33 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             mf_comp += AMREX_SPACEDIM;
         }
 
+        // Fill cell-centered location
+        Real dx = Geom()[lev].CellSizeArray()[0];
+        Real dy = Geom()[lev].CellSizeArray()[1];
+
+        // Next, check for location names -- if we write one we write all
+        if (containerHasElement(plot_var_names, "x_cc") ||
+            containerHasElement(plot_var_names, "y_cc") ||
+            containerHasElement(plot_var_names, "z_cc"))
+        {
+            MultiFab dmf(mf[lev], make_alias, mf_comp, AMREX_SPACEDIM);
+            for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                const Box& bx = mfi.tilebox();
+                const Array4<Real> loc_arr = dmf.array(mfi);
+                const Array4<Real const> zp_arr = vec_z_phys_nd[lev]->const_array(mfi);
+
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    loc_arr(i,j,k,0) = (i+0.5) * dx;
+                    loc_arr(i,j,k,1) = (j+0.5) * dy;
+                    loc_arr(i,j,k,2) = Real(0.125) * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
+                                                      zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
+                                                      zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +
+                                                      zp_arr(i,j+1,k+1) + zp_arr(i+1,j+1,k+1) );
+                });
+            } // mfi
+            mf_comp += AMREX_SPACEDIM;
+        } // if containerHasElement
+
 #ifdef ROMSX_USE_PARTICLES
         if (containerHasElement(plot_var_names, "tracer_particle_count"))
         {
@@ -169,20 +204,19 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             mf_comp += 1;
         }
 #endif
-    }
 
-    // Fill terrain distortion MF
-    for (int lev(0); lev <= finest_level; ++lev) {
         MultiFab::Copy(mf_nd[lev],*vec_z_phys_nd[lev],0,2,1,0);
         Real dz = Geom()[lev].CellSizeArray()[2];
-        for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
             const Box& bx = mfi.tilebox();
-            Array4<      Real> mf_arr = mf_nd[lev].array(mfi);
+            Array4<Real> mf_arr = mf_nd[lev].array(mfi);
             ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
                 mf_arr(i,j,k,2) -= k * dz;
             });
-        }
-    }
+        } // mfi
+
+    } // lev
 
     std::string plotfilename;
     if (which == 1)
