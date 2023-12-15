@@ -158,8 +158,7 @@ ROMSX::advance_2d (int lev,
         FArrayBox fab_gzeta2(tbxp1,1,The_Async_Arena());
         FArrayBox fab_gzetaSA(tbxp1,1,The_Async_Arena());
         FArrayBox fab_Dstp(tbxp2,1,The_Async_Arena());
-        FArrayBox & fab_DUon=mf_DUon[mfi];
-        FArrayBox & fab_DVom=mf_DVom[mfi];
+
         FArrayBox fab_rhs_ubar(xbxD,1,The_Async_Arena());
         FArrayBox fab_rhs_vbar(ybxD,1,The_Async_Arena());
         FArrayBox fab_rhs_zeta(tbxp1,1,The_Async_Arena());
@@ -177,35 +176,9 @@ ROMSX::advance_2d (int lev,
         auto on_p=fab_on_p.array();
 
         auto Drhs=fab_Drhs.array();
-        auto DUon=fab_DUon.array();
-        auto DVom=fab_DVom.array();
 
-        if ((verbose > 2) && predictor_2d_step && my_iif == 0) {
-            amrex::PrintToFile("ru_startadvance2").SetPrecision(18)<<FArrayBox(ru)<<std::endl;
-            amrex::PrintToFile("rv_startadvance2").SetPrecision(18)<<FArrayBox(rv)<<std::endl;
-            amrex::PrintToFile("u_startadvance2").SetPrecision(18)<<FArrayBox(u)<<std::endl;
-            amrex::PrintToFile("v_startadvance2").SetPrecision(18)<<FArrayBox(v)<<std::endl;
-            amrex::PrintToFile("ubar_startadvance2").SetPrecision(18)<<FArrayBox(ubar)<<std::endl;
-            amrex::PrintToFile("vbar_startadvance2").SetPrecision(18)<<FArrayBox(vbar)<<std::endl;
-        }
-        if (verbose > 2) {
-            ParallelFor(gbx2D,
-            [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                printf("%d %d  %15.15g %15.15g %15.15g all zeta start adv2 %d %d\n", i,j,zeta(i,j,0,0),zeta(i,j,0,1), zeta(i,j,0,2),my_iif,predictor_2d_step);
-            });
-        }
-
-        ParallelFor(makeSlab(xgbx2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-              DUon(i,j,0)=0.0;
-        });
-        ParallelFor(makeSlab(ygbx2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-              DVom(i,j,0)=0.0;
-        });
+        auto DUon = mf_DUon.array(mfi);
+        auto DVom = mf_DVom.array(mfi);
 
         // NOTE: these will eventually be on smaller boxes, since these
         // are all centered on different points
@@ -224,38 +197,27 @@ ROMSX::advance_2d (int lev,
               om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
         });
 
-
-        if (verbose > 1) {
-            Print() << "gbx2D advance_2d " << gbx2D << std::endl;
-            Print() << "tbxp2D advance_2d " << tbxp2D << std::endl;
-        }
-
-        if (verbose > 2) {
-            ParallelFor(tbxp2D,
-            [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                printf("%d %d  %15.15g zeta start adv2  %d %d \n", i,j, zeta(i,j,0,krhs), my_iif, predictor_2d_step);
-            });
-        }
-
-        ParallelFor(makeSlab(tbxp3,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(makeSlab(tbxp3,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });
-        ParallelFor(makeSlab(xgbx2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+
+        ParallelFor(makeSlab(xgbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff1= 0.5 * on_u(i,j,0) *(Drhs(i,j,0)+Drhs(i-1,j,0));
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
-        ParallelFor(makeSlab(ygbx2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+
+        ParallelFor(makeSlab(ygbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real cff1= 0.5*om_v(i,j,0)*(Drhs(i,j,0)+Drhs(i,j-1,0));
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
         });
     }
+
+    // These are needed to pass the tests with bathymetry but I don't quite see why
+    mf_DUon.FillBoundary(geom[lev].periodicity());
+    mf_DVom.FillBoundary(geom[lev].periodicity());
 
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
