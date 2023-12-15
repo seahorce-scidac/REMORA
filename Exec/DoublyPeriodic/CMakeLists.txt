@@ -1,4 +1,4 @@
-set(romsx_exe_name upwelling)
+set(romsx_exe_name doublyperiodic)
 
 add_executable(${romsx_exe_name} "")
 target_sources(${romsx_exe_name}

@@ -1,7 +1,6 @@
 HyperCLaw-V1.1
-6
+5
 temp
-omega
 salt
 x_velocity
 y_velocity
@@ -17,9 +16,18 @@ z_velocity
 1000 1000 9.375 
 0
 0
-0 1 3000
+0 2 3000
 10
 0 41000
-0 80000
+0 40000
+-150 0
+0 41000
+40000 80000
 -150 0
 Level_0/Cell
+1
+3
+amrexvec_nu_x
+amrexvec_nu_y
+amrexvec_nu_z
+Level_0/Nu_nd
