@@ -51,10 +51,7 @@ ROMSX::prestep (int lev,
                 const int nnew, int nstp, int nrhs,
                 int N, const Real dt_lev)
 {
-    const auto prob_lo          = Geom(lev).ProbLoArray();
     const auto dxi              = Geom(lev).InvCellSizeArray();
-    const auto dx               = Geom(lev).CellSizeArray();
-    const int Mm = Geom(lev).Domain().size()[1];
 
     const BoxArray&            ba = S_old.boxArray();
     const DistributionMapping& dm = S_old.DistributionMap();
@@ -155,18 +152,6 @@ ROMSX::prestep (int lev,
         auto FC=fab_FC.array();
         auto pm=fab_pm.array();
         auto pn=fab_pn.array();
-        auto on_u=fab_on_u.array();
-        auto om_v=fab_om_v.array();
-        auto om_u=fab_om_u.array();
-        auto on_v=fab_on_v.array();
-        auto om_r=fab_om_r.array();
-        auto on_r=fab_on_r.array();
-        auto om_p=fab_om_p.array();
-        auto on_p=fab_on_p.array();
-        auto pmon_u=fab_pmon_u.array();
-        auto pnom_u=fab_pnom_u.array();
-        auto pmon_v=fab_pmon_v.array();
-        auto pnom_v=fab_pnom_v.array();
 
 
         ParallelFor(tbxp2D,

@@ -6,7 +6,7 @@ using namespace amrex;
 // Advance all levels by dt
 //
 void
-ROMSX::timeStepML (Real time, int iteration)
+ROMSX::timeStepML (Real time, int /*iteration*/)
 {
     // HACK HACK so lev is defined and compiler won't complain, but always say regrid_int=-1
     for (int lev=0; lev <= finest_level;lev++) {

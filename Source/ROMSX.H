@@ -291,8 +291,6 @@ public:
 
     /** Perform a 2D predictor (predictor_2d_step=True) or corrector (predictor_2d_step=False) step */
     void advance_2d (int lev,
-                     amrex::MultiFab const& mf_u,
-                     amrex::MultiFab const& mf_v ,
                      amrex::MultiFab const* mf_rhoS,
                      amrex::MultiFab const* mf_rhoA,
                      amrex::MultiFab      * mf_ru,

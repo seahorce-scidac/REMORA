@@ -21,7 +21,6 @@ InitParticles ()
         for (IntVect iv = tile_box.smallEnd(); iv <= tile_box.bigEnd(); tile_box.next(iv)) {
             if (iv[0] == 3) {
                 Real r[3] = {0.5, 0.5, 0.5};  // this means place at cell center
-                Real v[3] = {0.0, 0.0, 0.0};  // with 0 initial velocity
 
                 Real x = plo[0] + (iv[0] + r[0])*dx[0];
                 Real y = plo[1] + (iv[1] + r[1])*dx[1];
@@ -89,7 +88,6 @@ InitParticles (const MultiFab& a_z_height)
         for (IntVect iv = tile_box.smallEnd(); iv <= tile_box.bigEnd(); tile_box.next(iv)) {
             if (iv[0] == 3) {
                 Real r[3] = {0.5, 0.5, 0.5};  // this means place at cell center
-                Real v[3] = {0.0, 0.0, 0.0};  // with 0 initial velocity
 
                 Real x = plo[0] + (iv[0] + r[0])*dx[0];
                 Real y = plo[1] + (iv[1] + r[1])*dx[1];

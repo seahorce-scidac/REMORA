@@ -9,8 +9,6 @@ using namespace amrex;
  * actual advance at this level,  then recursively calls itself at finer levels
  *
  * @param[in] lev level of refinement (coarsest level is 0)
- * @param[in] mf_u
- * @param[in] mf_v
  * @param[in] mf_rhoS
  * @param[in] mf_rhoA
  * @param[in] mf_ru
@@ -39,8 +37,6 @@ using namespace amrex;
 
 void
 ROMSX::advance_2d (int lev,
-                   MultiFab const& mf_u,
-                   MultiFab const& mf_v,
                    MultiFab const* mf_rhoS,
                    MultiFab const* mf_rhoA,
                    MultiFab      * mf_ru,
@@ -68,8 +64,6 @@ ROMSX::advance_2d (int lev,
 {
     auto geomdata  = Geom(lev).data();
     const auto dxi = Geom(lev).InvCellSizeArray();
-
-    const int Mm = Geom(lev).Domain().size()[1];
 
     int iic = istep[lev];
     const int nnew  = 0;
@@ -105,14 +99,10 @@ ROMSX::advance_2d (int lev,
 
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real const> const& u    = mf_u.const_array(mfi);
-        Array4<Real const> const& v    = mf_v.const_array(mfi);
         Array4<Real      > const& ubar = mf_ubar->array(mfi);
         Array4<Real      > const& vbar = mf_vbar->array(mfi);
         Array4<Real      > const& zeta = mf_zeta->array(mfi);
         Array4<Real const> const& h    = mf_h->const_array(mfi);
-        Array4<Real      > const& ru   = mf_ru->array(mfi);
-        Array4<Real      > const& rv   = mf_rv->array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -166,8 +156,6 @@ ROMSX::advance_2d (int lev,
 
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
-        auto pn=fab_pn.array();
-        auto pm=fab_pm.array();
         auto om_u=fab_om_u.array();
         auto on_v=fab_on_v.array();
         auto om_r=fab_om_r.array();
@@ -221,9 +209,6 @@ ROMSX::advance_2d (int lev,
 
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-
-        Array4<Real const> const& u    = mf_u.const_array(mfi);
-        Array4<Real const> const& v    = mf_v.const_array(mfi);
         Array4<Real const> const& rhoS = mf_rhoS->const_array(mfi);
         Array4<Real const> const& rhoA = mf_rhoA->const_array(mfi);
         Array4<Real const> const& h    = mf_h->const_array(mfi);

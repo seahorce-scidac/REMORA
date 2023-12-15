@@ -15,7 +15,7 @@ void ROMSX::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int m
     //Predictor
     bool predictor_2d_step=true;
     int next_indx1 = 0;
-    advance_2d(lev, *xvel_new[lev], *yvel_new[lev],
+    advance_2d(lev,
                vec_rhoS[lev].get() , vec_rhoA[lev].get(),
                vec_ru[lev].get()   , vec_rv[lev].get(),
                vec_rufrc[lev].get(), vec_rvfrc[lev].get(),
@@ -35,7 +35,7 @@ void ROMSX::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int m
         FillPatch(lev, dummy_time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar));
         FillPatch(lev, dummy_time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar));
 
-        advance_2d(lev, *xvel_new[lev], *yvel_new[lev],
+        advance_2d(lev,
                    vec_rhoS[lev].get(), vec_rhoA[lev].get(),
                    vec_ru[lev].get(), vec_rv[lev].get(),
                    vec_rufrc[lev].get(), vec_rvfrc[lev].get(),
