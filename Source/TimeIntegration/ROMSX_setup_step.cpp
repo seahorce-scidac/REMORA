@@ -106,7 +106,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     const auto prob_lo          = Geom(lev).ProbLoArray();
     const auto dxi              = Geom(lev).InvCellSizeArray();
     const auto dx               = Geom(lev).CellSizeArray();
-    const int Mm = Geom(lev).Domain().size()[1];
 
     //MFIter::allowMultipleMFIters(true);
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -168,8 +167,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         FArrayBox fab_om_u(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_v(gbx2D,1,amrex::The_Async_Arena());
 
-        auto pn=fab_pn.array();
-        auto pm=fab_pm.array();
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
         auto om_u=fab_om_u.array();
@@ -344,7 +341,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         Real coriolis_f0 = solverChoice.coriolis_f0;
         Real coriolis_beta = solverChoice.coriolis_beta;
 
-        const auto dx               = Geom(lev).CellSizeArray();
         Real Esize=geom[lev].ProbHi()[1] - geom[lev].ProbLo()[1];
 
         ParallelFor(tbxp2D,

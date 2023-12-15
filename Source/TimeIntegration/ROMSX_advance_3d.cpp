@@ -26,15 +26,11 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
                    std::unique_ptr<MultiFab>& mf_h,
                    const int N, Real dt_lev)
 {
-    const int Mm = Geom(lev).Domain().size()[1];
-
     const int nrhs  = 0;
     const int nnew  = 0;
 
     const GpuArray<Real,AMREX_SPACEDIM> dx  = Geom(lev).CellSizeArray();
     const GpuArray<Real,AMREX_SPACEDIM> dxi = Geom(lev).InvCellSizeArray();
-
-    auto const& prob_lo = Geom(lev).ProbLoArray();
 
     int iic = istep[lev];
     int ntfirst = 0;

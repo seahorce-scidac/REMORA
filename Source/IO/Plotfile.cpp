@@ -158,31 +158,12 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             mf_comp += AMREX_SPACEDIM;
         }
 
-        // Finally, check for any derived quantities and compute them, inserting
-        // them into our output multifab
-        auto calculate_derived = [&](std::string der_name,
-                                     decltype(derived::romsx_dernull)& der_function)
-        {
-            if (containerHasElement(plot_var_names, der_name)) {
-                MultiFab dmf(mf[lev], make_alias, mf_comp, 1);
-
-                for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-                {
-                    const Box& bx = mfi.tilebox();
-                    auto& dfab = dmf[mfi];
-                    auto& sfab = (*cons_new[lev])[mfi];
-                    der_function(bx, dfab, 0, 1, sfab, Geom(lev), t_new[0], nullptr, lev);
-                }
-
-                mf_comp++;
-            }
-        };
-
 #ifdef ROMSX_USE_PARTICLES
         if (containerHasElement(plot_var_names, "tracer_particle_count"))
         {
             MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
             temp_dat.setVal(0);
+            particleData.tracer_particles->Redistribute();
             particleData.tracer_particles->Increment(temp_dat, lev);
             MultiFab::Copy(mf[lev], temp_dat, 0, mf_comp, 1, 0);
             mf_comp += 1;
