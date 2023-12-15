@@ -6,58 +6,6 @@ using namespace amrex;
 
 void
 TracerPC::
-InitParticles ()
-{
-    BL_PROFILE("TracerPC::InitParticles");
-
-    const int lev = 0;
-    const Real* dx = Geom(lev).CellSize();
-    const Real* plo = Geom(lev).ProbLo();
-
-    for(MFIter mfi = MakeMFIter(lev); mfi.isValid(); ++mfi)
-    {
-        const Box& tile_box  = mfi.tilebox();
-        Gpu::HostVector<ParticleType> host_particles;
-        for (IntVect iv = tile_box.smallEnd(); iv <= tile_box.bigEnd(); tile_box.next(iv)) {
-            if (iv[0] == 3) {
-                Real r[3] = {0.5, 0.5, 0.5};  // this means place at cell center
-
-                Real x = plo[0] + (iv[0] + r[0])*dx[0];
-                Real y = plo[1] + (iv[1] + r[1])*dx[1];
-                Real z = plo[2] + (iv[2] + r[2])*dx[2];
-
-                ParticleType p;
-                p.id()  = ParticleType::NextID();
-                p.cpu() = ParallelDescriptor::MyProc();
-                p.pos(0) = x;
-                p.pos(1) = y;
-                p.pos(2) = z;
-
-                p.rdata(TracerRealIdx::old_x) = p.pos(0);
-                p.rdata(TracerRealIdx::old_y) = p.pos(1);
-                p.rdata(TracerRealIdx::old_z) = p.pos(2);
-
-                p.idata(TracerIntIdx::k) = iv[2];  // particles carry their z-index
-
-                host_particles.push_back(p);
-           }
-        }
-
-        auto& particles = GetParticles(lev);
-        auto& particle_tile = particles[std::make_pair(mfi.index(), mfi.LocalTileIndex())];
-        auto old_size = particle_tile.GetArrayOfStructs().size();
-        auto new_size = old_size + host_particles.size();
-        particle_tile.resize(new_size);
-
-        Gpu::copy(Gpu::hostToDevice,
-                  host_particles.begin(),
-                  host_particles.end(),
-                  particle_tile.GetArrayOfStructs().begin() + old_size);
-    }
-}
-
-void
-TracerPC::
 InitParticles (const MultiFab& a_z_height)
 {
     BL_PROFILE("TracerPC::InitParticles");

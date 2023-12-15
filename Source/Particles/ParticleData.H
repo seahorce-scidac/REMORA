@@ -32,12 +32,7 @@ struct ParticleData {
         // Initialize tracer particles
         if (use_tracer_particles) {
             tracer_particles = std::make_unique<TracerPC>(a_gdb);
-            if (z_phys_nd[0] != nullptr) {
-                tracer_particles->InitParticles(*z_phys_nd[0]);
-            } else {
-                tracer_particles->InitParticles();
-            }
-            tracer_particles->Redistribute();
+            tracer_particles->InitParticles(*z_phys_nd[0]);
             amrex::Print() << "Initialized " << tracer_particles->TotalNumberOfParticles() << " tracer particles." << std::endl;
         }
     }
