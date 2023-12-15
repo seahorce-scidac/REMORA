@@ -198,6 +198,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         {
             MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
             temp_dat.setVal(0);
+            particleData.tracer_particles->Redistribute();
             particleData.tracer_particles->Increment(temp_dat, lev);
             MultiFab::Copy(mf[lev], temp_dat, 0, mf_comp, 1, 0);
             mf_comp += 1;
