@@ -152,28 +152,28 @@ public:
     /** write plotfile to disk */
     void WritePlotFile  (int which, amrex::Vector<std::string> plot_var_names);
 
-    void WriteMultiLevelPlotfileWithTerrain (const std::string &plotfilename,
-                                             int nlevels,
-                                             const amrex::Vector<const amrex::MultiFab*> &mf,
-                                             const amrex::Vector<const amrex::MultiFab*> &mf_nd,
-                                             const amrex::Vector<std::string> &varnames,
-                                             amrex::Real time,
-                                             const amrex::Vector<int> &level_steps,
-                                             const std::string &versionName = "HyperCLaw-V1.1",
-                                             const std::string &levelPrefix = "Level_",
-                                             const std::string &mfPrefix = "Cell",
-                                             const amrex::Vector<std::string>& extra_dirs = amrex::Vector<std::string>()) const;
-
-
-    void WriteGenericPlotfileHeaderWithTerrain (std::ostream &HeaderFile,
+    void WriteMultiLevelPlotfileWithBathymetry (const std::string &plotfilename,
                                                 int nlevels,
-                                                const amrex::Vector<amrex::BoxArray> &bArray,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_nd,
                                                 const amrex::Vector<std::string> &varnames,
                                                 amrex::Real time,
                                                 const amrex::Vector<int> &level_steps,
-                                                const std::string &versionName,
-                                                const std::string &levelPrefix,
-                                                const std::string &mfPrefix) const;
+                                                const std::string &versionName = "HyperCLaw-V1.1",
+                                                const std::string &levelPrefix = "Level_",
+                                                const std::string &mfPrefix = "Cell",
+                                                const amrex::Vector<std::string>& extra_dirs = amrex::Vector<std::string>()) const;
+
+
+    void WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
+                                                   int nlevels,
+                                                   const amrex::Vector<amrex::BoxArray> &bArray,
+                                                   const amrex::Vector<std::string> &varnames,
+                                                   amrex::Real time,
+                                                   const amrex::Vector<int> &level_steps,
+                                                   const std::string &versionName,
+                                                   const std::string &levelPrefix,
+                                                   const std::string &mfPrefix) const;
 
     std::string pp_prefix {"romsx"};
 
@@ -694,21 +694,6 @@ private:
                          int coordinatorProc = amrex::ParallelDescriptor::IOProcessorNumber(),
                          int allow_empty_mf = 0);
 
-    // *** *** FArrayBox's for holding the SURFACE data
-    // Data read from the wrfinput NetCDF file
-    amrex::FArrayBox NC_HGT_fab;    // Terrain height (variable HGT in the wrfinput file)
-    amrex::IArrayBox NC_IVGTYP_fab; // Vegetation type (IVGTYP); Discrete numbers;
-    amrex::FArrayBox NC_z0_fab;     // Surface Roughness, z0 = z0 (IVGTYP)
-    amrex::FArrayBox NC_PSFC_fab;   // Surface pressure
-
-    // TODO: Clarify the relation between SST and TSK
-    amrex::FArrayBox NC_SST_fab;    // Sea Surface Temperature; Defined even for land area
-    amrex::FArrayBox NC_TSK_fab;    // Surface Skin Temperature; Appears to be same as SST...
-
-    amrex::FArrayBox NC_eta_fab, NC_phb_fab, NC_z_phy_fab;
-#endif // ROMSX_USE_NETCDF
-
-#ifdef ROMSX_USE_NETCDF
     // Vectors (over time) of Vector (over variables) of FArrayBoxs for holding the data read from the wrfbdy NetCDF file
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_xlo;
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_xhi;
