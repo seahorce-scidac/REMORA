@@ -111,6 +111,13 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         mf[lev].define(grids[lev], dmap[lev], ncomp_mf, ngrow_vars);
     }
 
+    Vector<MultiFab> mf_nd(finest_level+1);
+    for (int lev = 0; lev <= finest_level; ++lev) {
+        BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
+        mf_nd[lev].define(nodal_grids, dmap[lev], AMREX_SPACEDIM, 0);
+        mf_nd[lev].setVal(0.);
+    }
+
     for (int lev = 0; lev <= finest_level; ++lev) {
         int mf_comp = 0;
 
@@ -176,12 +183,24 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         {
             MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
             temp_dat.setVal(0);
-            particleData.tracer_particles->Redistribute();
             particleData.tracer_particles->Increment(temp_dat, lev);
             MultiFab::Copy(mf[lev], temp_dat, 0, mf_comp, 1, 0);
             mf_comp += 1;
         }
 #endif
+    }
+
+    // Fill terrain distortion MF
+    for (int lev(0); lev <= finest_level; ++lev) {
+        MultiFab::Copy(mf_nd[lev],*vec_z_phys_nd[lev],0,2,1,0);
+        Real dz = Geom()[lev].CellSizeArray()[2];
+        for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            const Box& bx = mfi.tilebox();
+            Array4<      Real> mf_arr = mf_nd[lev].array(mfi);
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                mf_arr(i,j,k,2) -= k * dz;
+            });
+        }
     }
 
     std::string plotfilename;
@@ -194,10 +213,11 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
     {
         if (plotfile_type == "amrex") {
             amrex::Print() << "Writing plotfile " << plotfilename << "\n";
-            WriteMultiLevelPlotfile(plotfilename, finest_level+1,
-                                           GetVecOfConstPtrs(mf),
-                                           varnames,
-                                           Geom(), t_new[0], istep, refRatio());
+            WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
+                                                  GetVecOfConstPtrs(mf),
+                                                  GetVecOfConstPtrs(mf_nd),
+                                                  varnames,
+                                                  t_new[0], istep);
             writeJobInfo(plotfilename);
 
 #ifdef ROMSX_USE_PARTICLES
@@ -273,7 +293,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             }
 
             WriteMultiLevelPlotfile(plotfilename, finest_level+1, GetVecOfConstPtrs(mf2), varnames,
-                                           g2, t_new[0], istep, rr);
+                                    g2, t_new[0], istep, rr);
             writeJobInfo(plotfilename);
 
 #ifdef ROMSX_USE_PARTICLES
@@ -294,18 +314,18 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
 }
 
 void
-ROMSX::WriteMultiLevelPlotfileWithTerrain (const std::string& plotfilename, int nlevels,
-                                         const Vector<const MultiFab*>& mf,
-                                         const Vector<const MultiFab*>& mf_nd,
-                                         const Vector<std::string>& varnames,
-                                         Real time,
-                                         const Vector<int>& level_steps,
-                                         const std::string &versionName,
-                                         const std::string &levelPrefix,
-                                         const std::string &mfPrefix,
-                                         const Vector<std::string>& extra_dirs) const
+ROMSX::WriteMultiLevelPlotfileWithBathymetry (const std::string& plotfilename, int nlevels,
+                                              const Vector<const MultiFab*>& mf,
+                                              const Vector<const MultiFab*>& mf_nd,
+                                              const Vector<std::string>& varnames,
+                                              Real time,
+                                              const Vector<int>& level_steps,
+                                              const std::string &versionName,
+                                              const std::string &levelPrefix,
+                                              const std::string &mfPrefix,
+                                              const Vector<std::string>& extra_dirs) const
 {
-    BL_PROFILE("WriteMultiLevelPlotfileWithTerrain()");
+    BL_PROFILE("WriteMultiLevelPlotfileWithBathymetry()");
 
     BL_ASSERT(nlevels <= mf.size());
     BL_ASSERT(nlevels <= ref_ratio.size()+1);
@@ -337,9 +357,9 @@ ROMSX::WriteMultiLevelPlotfileWithTerrain (const std::string& plotfilename, int 
                                                     std::ofstream::trunc |
                                                     std::ofstream::binary);
             if( ! HeaderFile.good()) FileOpenFailed(HeaderFileName);
-            WriteGenericPlotfileHeaderWithTerrain(HeaderFile, nlevels, boxArrays, varnames,
-                                                  time, level_steps, versionName,
-                                                  levelPrefix, mfPrefix);
+            WriteGenericPlotfileHeaderWithBathymetry(HeaderFile, nlevels, boxArrays, varnames,
+                                                     time, level_steps, versionName,
+                                                     levelPrefix, mfPrefix);
         };
 
         if (AsyncOut::UseAsyncOut()) {
@@ -379,15 +399,15 @@ ROMSX::WriteMultiLevelPlotfileWithTerrain (const std::string& plotfilename, int 
 }
 
 void
-ROMSX::WriteGenericPlotfileHeaderWithTerrain (std::ostream &HeaderFile,
-                                            int nlevels,
-                                            const Vector<BoxArray> &bArray,
-                                            const Vector<std::string> &varnames,
-                                            Real time,
-                                            const Vector<int> &level_steps,
-                                            const std::string &versionName,
-                                            const std::string &levelPrefix,
-                                            const std::string &mfPrefix) const
+ROMSX::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
+                                                 int nlevels,
+                                                 const Vector<BoxArray> &bArray,
+                                                 const Vector<std::string> &varnames,
+                                                 Real time,
+                                                 const Vector<int> &level_steps,
+                                                 const std::string &versionName,
+                                                 const std::string &levelPrefix,
+                                                 const std::string &mfPrefix) const
 {
         BL_ASSERT(nlevels <= bArray.size());
         BL_ASSERT(nlevels <= ref_ratio.size()+1);
