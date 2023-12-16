@@ -21,7 +21,7 @@ using PlaneVector = amrex::Vector<amrex::FArrayBox>;
 struct NullFill
 {
     AMREX_GPU_DEVICE
-    void operator() (const amrex::IntVect& /*iv*/, amrex::Array4<amrex::Real> const& /*dest*/,
+    void operator() (amrex::Array4<amrex::Real> const& /*dest*/,
                      const int /*dcomp*/, const int /*numcomp*/,
                      amrex::GeometryData const& /*geom*/, const amrex::Real /*time*/,
                      const amrex::BCRec* /*bcr*/, const int /*bcomp*/,
@@ -36,29 +36,11 @@ public:
     ROMSXPhysBCFunct (const int lev,
                       const amrex::Geometry& geom, const amrex::Vector<amrex::BCRec>& domain_bcs_type,
                       const amrex::Gpu::DeviceVector<amrex::BCRec>& domain_bcs_type_d,
-                      TimeInterpolatedData& data,
                       amrex::Array<amrex::Array<amrex::Real,AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS> bc_extdir_vals
-#ifdef ROMSX_USE_NETCDF
-                     ,const std::string& init_type,
-                      const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_xlo,
-                      const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_xhi,
-                      const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_ylo,
-                      const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& bdy_data_yhi,
-                      const amrex::Real bdy_time_interval
-#endif
                     )
         : m_lev(lev), m_geom(geom), m_domain_bcs_type(domain_bcs_type),
           m_domain_bcs_type_d(domain_bcs_type_d),
-          m_data(data),
           m_bc_extdir_vals(bc_extdir_vals)
-#ifdef ROMSX_USE_NETCDF
-         ,m_init_type(init_type),
-          m_bdy_data_xlo(bdy_data_xlo),
-          m_bdy_data_xhi(bdy_data_xhi),
-          m_bdy_data_ylo(bdy_data_ylo),
-          m_bdy_data_yhi(bdy_data_yhi),
-          m_bdy_time_interval(bdy_time_interval)
-#endif
           {}
 
     ~ROMSXPhysBCFunct () {}
@@ -110,16 +92,7 @@ private:
     amrex::Geometry      m_geom;
     amrex::Vector<amrex::BCRec>            m_domain_bcs_type;
     amrex::Gpu::DeviceVector<amrex::BCRec> m_domain_bcs_type_d;
-    TimeInterpolatedData& m_data;
     amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS> m_bc_extdir_vals;
-#ifdef ROMSX_USE_NETCDF
-    const std::string m_init_type;
-    const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& m_bdy_data_xlo;
-    const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& m_bdy_data_xhi;
-    const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& m_bdy_data_ylo;
-    const amrex::Vector<amrex::Vector<amrex::FArrayBox>>& m_bdy_data_yhi;
-    const amrex::Real m_bdy_time_interval;
-#endif
 };
 
 #endif

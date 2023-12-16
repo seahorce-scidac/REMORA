@@ -637,10 +637,6 @@ private:
      */
     void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine, amrex::MultiFab* mf_crse);
 
-    void FillPatchNoPhysBC (int lev, amrex::Real time, amrex::MultiFab& mf,
-                            const amrex::Vector<amrex::MultiFab*>& mfs,
-                            int icomp, int ncomp);
-
     /** utility to copy in data from old and/or new state into another multifab */
     TimeInterpolatedData GetDataAtTime (int lev, amrex::Real time);
 

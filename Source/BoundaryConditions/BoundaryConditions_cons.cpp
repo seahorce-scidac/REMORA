@@ -112,10 +112,13 @@ void ROMSXPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box&
     if (!is_periodic_in_x)
     {
         // Populate ghost cells on lo-x and hi-x domain boundaries
-        Box bx_xlo(bx);  bx_xlo.setBig  (0,dom_lo.x-1); bx_xlo.setSmall(2,dom_lo.z); bx_xlo.setBig(2,dom_hi.z);
-        Box bx_xhi(bx);  bx_xhi.setSmall(0,dom_hi.x+1); bx_xhi.setSmall(2,dom_lo.z); bx_xhi.setBig(2,dom_hi.z);
-        ParallelFor(
-            bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
+        Box bx_xlo(bx);  bx_xlo.setBig  (0,dom_lo.x-1);
+                         bx_xlo.setSmall(2,std::max(dom_lo.z,bx.smallEnd(2)));
+                         bx_xlo.setBig  (2,std::min(dom_hi.z,bx.bigEnd(2)));
+        Box bx_xhi(bx);  bx_xhi.setSmall(0,dom_hi.x+1);
+                         bx_xhi.setSmall(2,std::max(dom_lo.z,bx.smallEnd(2)));
+                         bx_xhi.setBig  (2,std::min(dom_hi.z,bx.bigEnd(2)));
+        ParallelFor(bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip = dom_lo.x - 1 - i;
                 if (bc_ptr[n].lo(0) == ROMSXBCType::foextrap) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(dom_lo.x,j,k,icomp+n);
@@ -141,8 +144,12 @@ void ROMSXPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box&
     if (!is_periodic_in_y)
     {
         // Populate ghost cells on lo-y and hi-y domain boundaries
-        Box bx_ylo(bx);  bx_ylo.setBig  (1,dom_lo.y-1); bx_ylo.setSmall(2,dom_lo.z); bx_ylo.setBig(2,dom_hi.z);
-        Box bx_yhi(bx);  bx_yhi.setSmall(1,dom_hi.y+1); bx_yhi.setSmall(2,dom_lo.z); bx_yhi.setBig(2,dom_hi.z);
+        Box bx_ylo(bx);  bx_ylo.setBig  (1,dom_lo.y-1);
+                         bx_ylo.setSmall(2,std::max(dom_lo.z,bx.smallEnd(2)));
+                         bx_ylo.setBig  (2,std::min(dom_hi.z,bx.bigEnd(2)));
+        Box bx_yhi(bx);  bx_yhi.setSmall(1,dom_hi.y+1);
+                         bx_yhi.setSmall(2,std::max(dom_lo.z,bx.smallEnd(2)));
+                         bx_yhi.setBig  (2,std::min(dom_hi.z,bx.bigEnd(2)));
         ParallelFor(
             bx_ylo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int jflip = dom_lo.y - 1 - j;
@@ -168,11 +175,13 @@ void ROMSXPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box&
     }
 
     {
-        Box bx_zlo(bx);  bx_zlo.setBig  (2,dom_lo.z-1);
-        Box bx_zhi(bx);  bx_zhi.setSmall(2,dom_hi.z+1);
+        Box bx_zlo(bx);  bx_zlo.setBig  (2,std::max(dom_lo.z-1,bx.smallEnd(2)));
+        Box bx_zhi(bx);  bx_zhi.setSmall(2,std::min(dom_hi.z+1,bx.bigEnd(2)));
         // Populate ghost cells on lo-z and hi-z domain boundaries
-        ParallelFor(
-            bx_zlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
+
+        if (bx_zlo.ok()) {
+            ParallelFor(bx_zlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
                 int kflip = dom_lo.z - 1 - i;
                 if (bc_ptr[n].lo(2) == ROMSXBCType::foextrap) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,j,dom_lo.z,icomp+n);
@@ -181,8 +190,12 @@ void ROMSXPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box&
                 } else if (bc_ptr[n].lo(2) == ROMSXBCType::reflect_odd) {
                     dest_arr(i,j,k,icomp+n) = -dest_arr(i,j,kflip,icomp+n);
                 }
-            },
-            bx_zhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
+            });
+        }
+
+        if (bx_zlo.ok()) {
+            ParallelFor(bx_zhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            {
                 int kflip =  2*dom_hi.z + 1 - i;
                 if (bc_ptr[n].hi(2) == ROMSXBCType::foextrap) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,j,dom_hi.z,icomp+n);
@@ -191,8 +204,8 @@ void ROMSXPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box&
                 } else if (bc_ptr[n].hi(2) == ROMSXBCType::reflect_odd) {
                     dest_arr(i,j,k,icomp+n) = -dest_arr(i,j,kflip,icomp+n);
                 }
-            }
-        );
+            });
+        }
     }
 
     Gpu::streamSynchronize();
