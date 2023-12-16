@@ -53,28 +53,26 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
                 //! if there are cells not in the valid + periodic grown box
                 //! we need to fill them here
                 //!
-                if (!gdomain.contains(bx) || (mf[0].box().ixType() == IndexType(IntVect(0,0,1))) )
+                if (!gdomain.contains(bx) || (mf.boxArray()[0].ixType() == IndexType(IntVect(0,0,1))) )
                 {
-                    if (mf[0].box().ixType() == IndexType(IntVect(1,0,0)))
+                    if (mf.boxArray()[0].ixType() == IndexType(IntVect(1,0,0)))
+                    {
+                        // AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
+                        impose_xvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
+
+                    } else if (mf.boxArray()[0].ixType() == IndexType(IntVect(0,1,0)))
+                    {
+                        // AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
+                        impose_yvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
+
+                    } else if (mf.boxArray()[0].ixType() == IndexType(IntVect(0,0,1)))
                     {
                         AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
-                        impose_xvel_bcs(dest_arr,bx,domain,
-                                        dxInv,time,bccomp);
+                        // amrex::Warning("Dont know what to do with zvel in FillPatch!");
+                        // impose_zvel_bcs(dest_arr,bx,domain,velx_arr,vely_arr,dx,dxInv,
+                        //                 time,bccomp);
 
-                    } else if (mf[0].box().ixType() == IndexType(IntVect(0,1,0)))
-                    {
-                        AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
-                        impose_yvel_bcs(dest_arr,bx,domain,
-                                        dxInv,time,bccomp);
-
-                    } else if (mf[0].box().ixType() == IndexType(IntVect(0,0,1)))
-                    {
-                        AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
-                        impose_zvel_bcs(dest_arr,bx,domain,
-                                        velx_arr,vely_arr,dx,dxInv,
-                                        time,bccomp);
-
-                    } else if (mf[0].box().ixType() == IndexType(IntVect(0,0,0)))
+                    } else if (mf.boxArray()[0].ixType() == IndexType(IntVect(0,0,0)))
                     {
                         AMREX_ALWAYS_ASSERT(icomp == 0 && icomp+ncomp <= NCONS);
                         impose_cons_bcs(dest_arr,bx,domain,

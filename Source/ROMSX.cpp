@@ -88,6 +88,8 @@ ROMSX::ROMSX ()
         nsubsteps[lev] = do_substep ? MaxRefRatio(lev-1) : 1;
     }
 
+    physbcs.resize(nlevs_max);
+
     t_new.resize(nlevs_max, 0.0);
     t_old.resize(nlevs_max, -1.e100);
     dt.resize(nlevs_max, 1.e100);
