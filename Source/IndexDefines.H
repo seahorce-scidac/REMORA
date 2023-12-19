@@ -16,6 +16,7 @@ namespace BCVars {
     enum {
         cons_bc = 0,
         Temp_bc_comp = 0,
+        Salt_bc_comp,
         Scalar_bc_comp,
         xvel_bc = NCONS,
         yvel_bc,

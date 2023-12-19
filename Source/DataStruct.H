@@ -27,7 +27,7 @@ enum class AdvectionScheme {
 };
 
 enum class IC_BC_Type {
-    Ideal, Real
+    Custom, Real
 };
 
 struct SolverChoice {
@@ -87,14 +87,15 @@ struct SolverChoice {
 
         pp.query("ggrav",g);
 
-
-        static std::string ic_bc_type_string = "Ideal";
+        static std::string ic_bc_type_string = "custom";
         pp.query("ic_bc_type", ic_bc_type_string);
 
-        if (!ic_bc_type_string.compare("Ideal")) {
-            icBcType = IC_BC_Type::Ideal;
-        } else if (!ic_bc_type_string.compare("Real")) {
-            icBcType = IC_BC_Type::Real;
+        if ( !ic_bc_type_string.compare("Custom") ||
+             !ic_bc_type_string.compare("custom") ) {
+            ic_bc_type = IC_BC_Type::Custom;
+        } else if ( !ic_bc_type_string.compare("Real") ||
+                    !ic_bc_type_string.compare("real") ) {
+            ic_bc_type = IC_BC_Type::Real;
         } else {
             amrex::Error("Don't know this ic_bc_type");
         }
@@ -122,10 +123,10 @@ struct SolverChoice {
         amrex::Print() << "flat_bathymetry       : " << flat_bathymetry << std::endl;
         amrex::Print() << "spatial_order         : " << spatial_order << std::endl;
 
-        if (icBcType == IC_BC_Type::Ideal) {
-            amrex::Print() << "Using idealized initial and boundary conditions (No mesoscale forcing!)" << std::endl;
+        if (ic_bc_type == IC_BC_Type::Custom) {
+            amrex::Print() << "Using custom initial and boundary conditions (No mesoscale forcing!)" << std::endl;
         }
-        else if (icBcType == IC_BC_Type::Real) {
+        else if (ic_bc_type == IC_BC_Type::Real) {
             amrex::Print() << "Using REAL initial and boundary conditions (Mesoscale forcing!)" << std::endl;
         }
 
@@ -164,7 +165,11 @@ struct SolverChoice {
 
     AdvectionScheme Hadv_scheme;
 
+    // Coupling options are "OneWay" or "TwoWay"
     CouplingType coupling_type;
+
+    // IC and BC Type: "Custom" or "Real"
+    IC_BC_Type ic_bc_type;
 
     // Stretching and depth parameters which may need to be read from inputs
     amrex::Real theta_s = 3.0;
@@ -191,9 +196,6 @@ struct SolverChoice {
 
     // Spatial discretization
     int         spatial_order = 2;
-
-    // IC and BC Type: "Ideal" or "Real"
-    IC_BC_Type icBcType;
 };
 
 #endif

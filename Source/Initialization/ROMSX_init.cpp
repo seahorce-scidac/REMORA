@@ -125,7 +125,7 @@ ROMSX::set_2darrays (int lev)
             });
     }
 
-    // DEBUGGING NOTE -- Upwelling fails if these are commented out
+    // DEBUGGING NOTE -- DoublyPeriodic fails if these are commented out
     const Real time = 0.0;
     FillPatch(lev,time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar));
     FillPatch(lev,time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar));

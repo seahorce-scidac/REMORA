@@ -23,7 +23,7 @@ amrex_probinit(
   pp.query("v_0", parms.v_0);
   pp.query("z0", parms.z0);
   pp.query("zRef", parms.zRef);
-  pp.query("velRef", parms.velRef);
+  pp.query("uRef", parms.uRef);
 
 }
 
@@ -36,14 +36,10 @@ init_custom_bathymetry (const Geometry& geom,
                         MultiFab& mf_Zt_avg1,
                         const SolverChoice& m_solverChoice)
 {
-    auto geomdata = geom.data();
-    bool EWPeriodic = geomdata.isPeriodic(0);
-    bool NSPeriodic = geomdata.isPeriodic(1);
+    //std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
+    //std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
 
-    // Must not be doubly periodic, and must have terrain
-    AMREX_ALWAYS_ASSERT( !NSPeriodic || !EWPeriodic);
-    AMREX_ALWAYS_ASSERT( !m_solverChoice.flat_bathymetry);
-
+    const auto & geomdata = geom.data();
     mf_h.setVal(geomdata.ProbHi(2));
 
     const int Lm = geom.Domain().size()[0];
@@ -60,31 +56,49 @@ init_custom_bathymetry (const Geometry& geom,
       Box gbx2 = bx;
       gbx2.grow(IntVect(NGROW,NGROW,0));
 
+      // auto N = geom.Domain().length(2); // Number of vertical "levels" aka, NZ
+      bool NSPeriodic = geomdata.isPeriodic(1);
+      bool EWPeriodic = geomdata.isPeriodic(0);
+
       Box gbx2D = gbx2;
       gbx2D.makeSlab(2,0);
 
-      Gpu::streamSynchronize();
-
-      if (NSPeriodic) {
-
-          ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+      if(!m_solverChoice.flat_bathymetry) {
+          Gpu::streamSynchronize();
+          amrex::ParallelFor(gbx2D,
+          [=] AMREX_GPU_DEVICE (int i, int j, int )
           {
-              int iFort = i+1; // (+1 is to match the Fortran indexing in ROMS)
-
-              Real val1 = (iFort <= Lm/2.0) ? iFort : Lm+1-iFort;
-
-              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+              Real val1, val2;
+              int iFort = i+1;
+              int jFort = j+1;
+              if (NSPeriodic) {
+                  if (iFort<=Lm/2.0) {
+                      val1=iFort;
+                  } else {
+                      val1=Lm+1-iFort;
+                  }
+                  val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+                  h(i,j,0) = val2;
+              }
+              else if(EWPeriodic) {
+                  if (jFort<=Mm/2.0) {
+                      val1=jFort;
+                  } else {
+                      val1=Mm+1-jFort;
+                  }
+                  val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+                  h(i,j,0) = val2;
+              }
           });
-
-      } else if (EWPeriodic) {
-
-          ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+      } else { // Flat
+          Gpu::streamSynchronize();
+          amrex::ParallelFor(gbx2,
+          [=] AMREX_GPU_DEVICE (int i, int j, int k)
           {
-              int jFort = j+1; // (+1 is to match the Fortran indexing in ROMS)
-
-              Real val1 = (jFort<=Mm/2.0) ? jFort : Mm+1-jFort;
-
-              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+              h(i,j,0,0) = -geomdata.ProbLo(2);
+              if (k==0) {
+                  h(i,j,0,1) = h(i,j,0,0);
+              }
           });
       }
     } // mfi
@@ -111,9 +125,6 @@ init_custom_prob(
 
     AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
 
-    bool EWPeriodic = geomdata.isPeriodic(0);
-    bool NSPeriodic = geomdata.isPeriodic(1);
-
     ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
         const auto prob_lo         = geomdata.ProbLo();
@@ -139,47 +150,40 @@ init_custom_prob(
         const Real rad = 0.1 * (prob_hi[0]-prob_lo[0]);
         const Real radsq = rad*rad;
 
-        state(i, j, k, Scalar_comp) = 0.0;
+        state(i, j, k, Scalar_comp) = (r2 < radsq) ? 1.0 : 0.0;
     });
 
+  // Construct a box that is on x-faces
   const Box& xbx = surroundingNodes(bx,0);
+  // Set the x-velocity
+  ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  {
+        // const auto prob_lo         = geomdata.ProbLo();
+        // const auto dx              = geomdata.CellSize();
+
+        // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
+        // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
+        const Real z = -z_r(i,j,k);
+
+        // Set the x-velocity
+        x_vel(i, j, k) = parms.u_0 + parms.uRef *
+                         std::log((z + parms.z0)/parms.z0)/
+                         std::log((parms.zRef +parms.z0)/parms.z0);
+  });
+
+  // Construct a box that is on y-faces
   const Box& ybx = surroundingNodes(bx,1);
 
-   // Below we set the velocity to be non-zero only in the periodic direction, and
-   //      zero it in the non-periodic direction
+  // Set the y-velocity
+  ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  {
+        //const auto prob_lo         = geomdata.ProbLo();
+        //const auto dx              = geomdata.CellSize();
 
-  if (NSPeriodic) {
-      ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-      {
-          const Real z = -z_r(i,j,k);
-
-          x_vel(i, j, k) = parms.u_0 + parms.velRef *
-                           std::log((z + parms.z0)/parms.z0)/
-                           std::log((parms.zRef +parms.z0)/parms.z0);
-      });
-  } else {
-      ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-      {
-          x_vel(i, j, k) = 0.0;
-      });
-  }
-
-
-  if (EWPeriodic) {
-      ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-      {
-          const Real z = -z_r(i,j,k);
-
-          x_vel(i, j, k) = parms.v_0 + parms.velRef *
-                           std::log((z + parms.z0)/parms.z0)/
-                           std::log((parms.zRef +parms.z0)/parms.z0);
-      });
-  } else {
-      ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-      {
-          y_vel(i, j, k) = 0.0;
-      });
-  }
+        // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
+        // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
+        y_vel(i, j, k) = parms.v_0;
+  });
 
   // Construct a box that is on z-faces
   const Box& zbx = surroundingNodes(bx,2);
@@ -209,10 +213,7 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
       [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
         Akv(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w(i,j,k)/150.0);
-
-        Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
-        Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
-        Akt(i,j,k,Scalar_comp) = 0.0_rt;
+        Akt(i,j,k) = 1.0e-6_rt;
       });
     }
 }
@@ -249,33 +250,25 @@ init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, Mu
                    const SolverChoice& m_solverChoice)
 {
     auto geomdata = geom.data();
-    bool EWPeriodic = geomdata.isPeriodic(0);
     bool NSPeriodic = geomdata.isPeriodic(1);
-
+    bool EWPeriodic = geomdata.isPeriodic(0);
     //If we had wind stress and bottom stress we would need to set these:
     Real pi = 3.14159265359;
     Real tdays=time/(24.0*60.0*60.0);
     Real dstart=0.0;
     Real windamp;
     //It's possible these should be set to be nonzero only at the boundaries they affect
-
-    // Don't allow doubly periodic in this case
-    AMREX_ALWAYS_ASSERT( !NSPeriodic || !EWPeriodic);
-
-    // Flow in x-direction (EW):
     if (NSPeriodic) {
         mf_sustr.setVal(0.0);
     }
-    else if (EWPeriodic) {
+    else if(EWPeriodic) {
         if ((tdays-dstart)<=2.0)
             windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/m_solverChoice.rho0;
         else
             windamp=-0.1/m_solverChoice.rho0;
         mf_sustr.setVal(windamp);
     }
-
-    // Flow in y-direction (NS):
-    if (NSPeriodic) {
+    if(NSPeriodic) {
         if ((tdays-dstart)<=2.0)
             windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/m_solverChoice.rho0;
         else

@@ -41,12 +41,12 @@ romsx.check_int       = -57600      # number of timesteps between checkpoints
 # PLOTFILES
 romsx.plot_file_1     = plt        # prefix of plotfile name
 romsx.plot_int_1      = 100          # number of timesteps between plotfiles
-romsx.plot_vars_1     = omega salt temp x_velocity y_velocity z_velocity
+romsx.plot_vars_1     = salt temp x_velocity y_velocity z_velocity
 romsx.plotfile_type   = amrex
 
 # SOLVER CHOICE
 romsx.use_coriolis = true
-romsx.flat_bathymetry=false
+romsx.flat_bathymetry=true
 romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 romsx.spatial_order = 2
 

@@ -636,10 +636,6 @@ private:
      */
     void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine, amrex::MultiFab* mf_crse);
 
-    void FillPatchNoPhysBC (int lev, amrex::Real time, amrex::MultiFab& mf,
-                            const amrex::Vector<amrex::MultiFab*>& mfs,
-                            int icomp, int ncomp);
-
     /** utility to copy in data from old and/or new state into another multifab */
     TimeInterpolatedData GetDataAtTime (int lev, amrex::Real time);
 
@@ -843,9 +839,6 @@ private:
 
     // Native or NetCDF
     static std::string plotfile_type;
-
-    // init_type:  "custom", "ideal", "real"
-    static std::string init_type;
 
     // NetCDF initialization (wrfinput) file
     static amrex::Vector<amrex::Vector<std::string>> nc_init_file;

@@ -17,7 +17,7 @@ using namespace amrex;
 //     so this follows the BCVars enum
 //
 void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect const& nghost,
-                                   Real time, int bccomp)
+                                   Real time, int bccomp, IC_BC_Type& ic_bc_type)
 {
     if (m_geom.isAllPeriodic()) return;
 
@@ -39,75 +39,35 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
         {
-            Vector<BCRec> bcrs(ncomp);
+            if (mf.boxArray()[0].ixType() == IndexType(IntVect(0,0,0))) {
 
-            // Do all BCs except MOST
-            for (MFIter mfi(mf); mfi.isValid(); ++mfi)
-            {
-                const Array4<Real>& dest_arr = mf.array(mfi);
-                Box bx = mfi.validbox(); bx.grow(nghost);
-
-                Array4<const Real> velx_arr;
-                Array4<const Real> vely_arr;
-
-                //! if there are cells not in the valid + periodic grown box
-                //! we need to fill them here
-                //!
-                if (!gdomain.contains(bx) || (mf[0].box().ixType() == IndexType(IntVect(0,0,1))) )
+                // Cell-centered arrays only
+                for (MFIter mfi(mf); mfi.isValid(); ++mfi)
                 {
-                    if (mf[0].box().ixType() == IndexType(IntVect(1,0,0)))
-                    {
-                        AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
-                        impose_xvel_bcs(dest_arr,bx,domain,
-                                        dxInv,time,bccomp);
+                    const Array4<Real>& dest_arr = mf.array(mfi);
+                    Box bx = mfi.validbox(); bx.grow(nghost);
 
-                    } else if (mf[0].box().ixType() == IndexType(IntVect(0,1,0)))
-                    {
-                        AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
-                        impose_yvel_bcs(dest_arr,bx,domain,
-                                        dxInv,time,bccomp);
-
-                    } else if (mf[0].box().ixType() == IndexType(IntVect(0,0,1)))
-                    {
-                        AMREX_ALWAYS_ASSERT(ncomp == 1 && icomp == 0);
-                        impose_zvel_bcs(dest_arr,bx,domain,
-                                        velx_arr,vely_arr,dx,dxInv,
-                                        time,bccomp);
-
-                    } else if (mf[0].box().ixType() == IndexType(IntVect(0,0,0)))
-                    {
+                    if (!gdomain.contains(bx)) {
                         AMREX_ALWAYS_ASSERT(icomp == 0 && icomp+ncomp <= NCONS);
                         impose_cons_bcs(dest_arr,bx,domain,
                                         dxInv,icomp,ncomp,time,bccomp);
-                    } else {
-                        amrex::Abort("Dont know this box type in ROMSX_PhysBC");
                     }
+                } // mfi
 
-                    // ****************************************************************************
-                    // Based on BCRec for the domain, we need to make BCRec for this Box
-                    // bccomp is used as starting index for m_domain_bcs_type
-                    //      0 is used as starting index for bcrs
-                    // ****************************************************************************
-                    amrex::setBC(bx, domain, bccomp, 0, ncomp, m_domain_bcs_type, bcrs);
+            } else {
 
-                    // xlo: ori = 0
-                    // ylo: ori = 1
-                    // zlo: ori = 2
-                    // xhi: ori = 3
-                    // yhi: ori = 4
-                    // zhi: ori = 5
+                // Face-based arrays only
+                for (MFIter mfi(mf); mfi.isValid(); ++mfi)
+                {
+                    Box bx = mfi.validbox(); bx.grow(nghost);
 
-                    amrex::Gpu::DeviceVector<BCRec> bcrs_d(ncomp);
-#ifdef AMREX_USE_GPU
-                    Gpu::htod_memcpy_async
-                        (bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
-#else
-                    std::memcpy
-                        (bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
-#endif
-
-                        Gpu::streamSynchronize(); // because of bcrs_d
-                } // !gdomain.contains(bx)
-            } // MFIter
+                    if (!gdomain.contains(bx)) {
+                        for (int nn = 0; nn < ncomp; nn++) {
+                            const Array4<Real>& dest_arr = mf.array(mfi,nn);
+                            impose_xvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
+                        }
+                    }
+                } // mfi
+            } // box type
         } // OpenMP
 } // operator()

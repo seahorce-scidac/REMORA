@@ -12,6 +12,9 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
     FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new);
     FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new);
 
+    FillPatch(lev, t_new[lev], *vec_t3[lev], GetVecOfPtrs(vec_t3));
+    FillPatch(lev, t_new[lev], *vec_s3[lev], GetVecOfPtrs(vec_s3));
+
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     advance_3d(lev, *cons_new[lev], *xvel_new[lev], *yvel_new[lev],
