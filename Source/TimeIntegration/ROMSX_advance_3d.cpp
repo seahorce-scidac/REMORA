@@ -9,7 +9,7 @@ using namespace amrex;
 void
 ROMSX::advance_3d (int lev, MultiFab& mf_cons,
                    MultiFab& mf_u        , MultiFab& mf_v ,
-                   MultiFab* mf_tempstore, MultiFab* mf_saltstore,
+                   MultiFab* mf_sstore,
                    MultiFab* mf_ru       , MultiFab* mf_rv,
                    std::unique_ptr<MultiFab>& mf_DU_avg1,
                    std::unique_ptr<MultiFab>& mf_DU_avg2,
@@ -214,8 +214,8 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real> const& temp = mf_cons.array(mfi,Temp_comp);
         Array4<Real> const& salt = mf_cons.array(mfi,Salt_comp);
 
-        Array4<Real> const& tempstore = mf_tempstore->array(mfi);
-        Array4<Real> const& saltstore = mf_saltstore->array(mfi);
+        //Array4<Real> const& tempstore = mf_tempstore->array(mfi);
+        //Array4<Real> const& saltstore = mf_saltstore->array(mfi);
 
         Array4<Real> const& Hz  = mf_Hz->array(mfi);
 
@@ -315,8 +315,10 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         // rhs_t_3d
         //-----------------------------------------------------------------------
         //
-        rhs_t_3d(bx, gbx, temp, tempstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
-        rhs_t_3d(bx, gbx, salt, saltstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
+        for (int i_comp=0; i_comp < NCONS; i_comp++) {
+            Array4<Real> const& sstore = mf_sstore->array(mfi, i_comp);
+            rhs_t_3d(bx, gbx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
+        }
 
     } // mfi
 
@@ -331,7 +333,6 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real> const& DC = mf_DC.array(mfi);
 
         Array4<Real> const& Hzk = mf_Hzk.array(mfi);
-        Array4<Real      > const& Akt = mf_Akt->array(mfi);
         Array4<Real const> const& Hz  = mf_Hz->const_array(mfi);
 
         Box bx = mfi.tilebox();
@@ -381,7 +382,9 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         fab_on_u.template setVal<RunOn::Device>(dx[1],makeSlab(tbxp2,2,0));
         fab_om_v.template setVal<RunOn::Device>(dx[0],makeSlab(tbxp2,2,0));
 
-        vert_visc_3d(bx,0,0,temp,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
-        vert_visc_3d(bx,0,0,salt,Hz,Hzk,oHz,AK,Akt,BC,DC,FC,CF,nnew,N,dt_lev);
+        for (int i_comp=0; i_comp < NCONS; i_comp++) {
+            vert_visc_3d(bx,0,0,mf_cons.array(mfi,i_comp),Hz,Hzk,oHz,
+                    AK,mf_Akt->array(mfi,i_comp),BC,DC,FC,CF,nnew,N,dt_lev);
+        }
     } // MFiter
 }

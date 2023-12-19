@@ -131,7 +131,7 @@ void ROMSX::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba,
     zvel_old[lev] = new MultiFab(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
     resize_stuff(lev);
-      init_stuff(lev, ba, dm);
+    init_stuff(lev, ba, dm);
 }
 
 void ROMSX::resize_stuff(int lev)
@@ -174,8 +174,7 @@ void ROMSX::resize_stuff(int lev)
     vec_ubar.resize(lev+1);
     vec_vbar.resize(lev+1);
     vec_zeta.resize(lev+1);
-    vec_t3.resize(lev+1);
-    vec_s3.resize(lev+1);
+    vec_sstore.resize(lev+1);
 
     vec_rhoS.resize(lev+1);
     vec_rhoA.resize(lev+1);
@@ -237,14 +236,14 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     vec_Hvom[lev].reset               (new MultiFab(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
 
     vec_Akv[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
-    vec_Akt[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
+    vec_Akt[lev].reset                (new MultiFab(ba  ,dm,NCONS,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
     vec_visc3d_r[lev].reset           (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // not used
 
 
     // check dimensionality
     vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?
     vec_visc2_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at rho points
-    vec_diff2[lev].reset(new MultiFab(ba,dm,2,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature/salt
+    vec_diff2[lev].reset(new MultiFab(ba,dm,NCONS,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature/salt
 
     vec_ru[lev].reset(new MultiFab(convert(ba,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS u (incl horizontal and vertical advection)
     vec_rv[lev].reset(new MultiFab(convert(ba,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS v
@@ -281,8 +280,8 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW+1,NGROW+1,0)));  // 2d free surface
 
-    vec_t3[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); //tempstore
-    vec_s3[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); //saltstore
+    // tempstore, saltstore, etc
+    vec_sstore[lev].reset(new MultiFab(ba,dm,NCONS,IntVect(NGROW,NGROW,0)));
 
     vec_rhoS[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
     vec_rhoA[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));

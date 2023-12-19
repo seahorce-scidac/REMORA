@@ -264,10 +264,8 @@ public:
     /** free surface height (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_zeta;
 
-    /** saltstore */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_t3;
-    /** tempstore */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s3;
+    /** saltstore, tempstore, etc*/
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sstore;
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc3d_r;
 
@@ -320,7 +318,7 @@ public:
     void advance_3d (int lev,
                      amrex::MultiFab& mf_cons,
                      amrex::MultiFab& mf_u        , amrex::MultiFab& mf_v,
-                     amrex::MultiFab* mf_tempstore, amrex::MultiFab* mf_saltstore,
+                     amrex::MultiFab* mf_sstore,
                      amrex::MultiFab* mf_ru       , amrex::MultiFab* mf_rv,
                      std::unique_ptr<amrex::MultiFab>& mf_DU_avg1,
                      std::unique_ptr<amrex::MultiFab>& mf_DU_avg2,
@@ -360,7 +358,7 @@ public:
                   int N, const amrex::Real dt_lev);
 
     /** Prestep calculations for the tracers */
-    void prestep_t_3d (const amrex::Box& tbx,
+    void prestep_t_advection (const amrex::Box& tbx,
                         const amrex::Box& gbx,
                         amrex::Array4<amrex::Real> tempold,
                         amrex::Array4<amrex::Real> temp,
@@ -478,8 +476,9 @@ public:
                  amrex::Array4<amrex::Real> z_w,
                  const int nrhs, const int N);
 
-    /** Update velocities or tracers as the last part of the prestep */
-    void update_vel_3d (const amrex::Box& bx,
+    /** Update velocities or tracers with diffusion/viscosity
+     * as the last part of the prestep */
+    void prestep_diffusion (const amrex::Box& bx,
                         const amrex::Box& gbx,
                         const int ioff, const int joff,
                         amrex::Array4<amrex::Real> vel,

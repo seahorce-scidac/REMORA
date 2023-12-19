@@ -391,6 +391,9 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real> const& diff2_arr = vec_diff2[lev]->array(mfi);
         t3dmix(bx, s_arr, diff2_arr, Hz, pm, pn, pmon_u, pnom_v, dt_lev, ncomp);
 
+        Array4<Real> const& diff2_arr_scalar = vec_diff2[lev]->array(mfi,Scalar_comp);
+        t3dmix(bx, S_old.array(mfi,Scalar_comp), diff2_arr_scalar, Hz, pm, pn, pmon_u, pnom_v, dt_lev, 1);
+
         if (solverChoice.use_coriolis) {
             //-----------------------------------------------------------------------
             // coriolis
@@ -431,8 +434,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     FillPatch(lev, time, *cons_old[lev], cons_old);
     FillPatch(lev, time, *cons_new[lev], cons_new);
 
-    FillPatch(lev, time, *vec_t3[lev], GetVecOfPtrs(vec_t3));
-    FillPatch(lev, time, *vec_s3[lev], GetVecOfPtrs(vec_s3));
+    FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore));
 
     FillPatch(lev, time, *vec_Huon[lev], GetVecOfPtrs(vec_Huon));
     FillPatch(lev, time, *vec_Hvom[lev], GetVecOfPtrs(vec_Hvom));

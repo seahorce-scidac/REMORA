@@ -165,7 +165,10 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
       amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
         Akv(i,j,k) = 1.0e-5_rt;
-        Akt(i,j,k) = 1.0e-6_rt;
+
+        Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
+        Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
+        Akt(i,j,k,Scalar_comp) = 0.0_rt;
       });
     }
 }
@@ -183,7 +186,7 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
       Box bx = mfi.tilebox();
       bx.grow(IntVect(NGROW,NGROW,0));
 
-      int ncomp = 2; // temperature and salt
+      int ncomp = mf_diff2.nComp(); // temperature and salt and scalar
       Gpu::streamSynchronize();
 
       amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)

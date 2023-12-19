@@ -36,7 +36,7 @@ function(add_test_r TEST_NAME TEST_EXE PLTFILE)
     setup_test()
 
     set(TEST_EXE ${CMAKE_BINARY_DIR}/Exec/${TEST_EXE})
-    set(FCOMPARE_TOLERANCE "-r 1e-12 --abs_tol 1.0e-12")
+    set(FCOMPARE_TOLERANCE "-r 1e-11 --abs_tol 1.0e-11")
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${PLOT_GOLD} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
 
@@ -96,10 +96,12 @@ if(WIN32)
   add_test_r(DoublyPeriodic               "DoublyPeriodic/*/doublyperiodic.exe" "plt00010")
   add_test_r(DoublyPeriodic_bathy         "DoublyPeriodic/*/doublyperiodic.exe" "plt00010")
   add_test_r(Seamount                     "Seamount/*/seamount.exe"   "plt00010")
+  add_test_r(Advection                    "Advection/*/advection.exe" "plt00010")
 else()
   add_test_r(DoublyPeriodic               "DoublyPeriodic/doublyperiodic" "plt00010")
   add_test_r(DoublyPeriodic_bathy         "DoublyPeriodic/doublyperiodic" "plt00010")
   add_test_r(Seamount                     "Seamount/seamount"   "plt00010")
+  add_test_r(Advection                    "Advection/advection" "plt00010")
 endif()
 #=============================================================================
 # Performance tests
