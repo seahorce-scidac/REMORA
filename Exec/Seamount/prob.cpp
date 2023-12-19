@@ -186,7 +186,7 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
       Box bx = mfi.tilebox();
       bx.grow(IntVect(NGROW,NGROW,0));
 
-      int ncomp = 2; // temperature and salt
+      int ncomp = mf_diff2.nComp(); // temperature and salt and scalar
       Gpu::streamSynchronize();
 
       amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)

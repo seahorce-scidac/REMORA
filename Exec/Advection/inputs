@@ -2,9 +2,9 @@
 max_step = 10
 stop_time = 30000.0
 
-amrex.fpe_trap_invalid = 0
+amrex.fpe_trap_invalid = 1
 
-fabarray.mfiter_tile_size = 16 16 1024
+fabarray.mfiter_tile_size = 1024 1024 1024
 
 # PROBLEM SIZE & GEOMETRY
 geometry.prob_lo     =      0.     0.    -150.

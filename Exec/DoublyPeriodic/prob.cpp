@@ -213,7 +213,9 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
       [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
         Akv(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w(i,j,k)/150.0);
-        Akt(i,j,k) = 1.0e-6_rt;
+        Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
+        Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
+        Akt(i,j,k,Scalar_comp) = 0.0_rt;
       });
     }
 }
