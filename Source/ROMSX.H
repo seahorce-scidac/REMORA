@@ -841,9 +841,6 @@ private:
     // Native or NetCDF
     static std::string plotfile_type;
 
-    // init_type:  "custom", "ideal", "real"
-    static std::string init_type;
-
     // NetCDF initialization (wrfinput) file
     static amrex::Vector<amrex::Vector<std::string>> nc_init_file;
 

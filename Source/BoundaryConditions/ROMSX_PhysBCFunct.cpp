@@ -17,7 +17,7 @@ using namespace amrex;
 //     so this follows the BCVars enum
 //
 void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect const& nghost,
-                                   Real time, int bccomp)
+                                   Real time, int bccomp, IC_BC_Type& ic_bc_type)
 {
     if (m_geom.isAllPeriodic()) return;
 
