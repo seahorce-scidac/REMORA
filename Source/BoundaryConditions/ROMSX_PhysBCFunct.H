@@ -58,7 +58,7 @@ public:
     //     so this follows the BCVars enum
     //
     void operator() (amrex::MultiFab& mf, int icomp, int ncomp, amrex::IntVect const& nghost,
-                     amrex::Real time, int bccomp);
+                     amrex::Real time, int bccomp, IC_BC_Type& ic_bc_type);
 
     void impose_xvel_bcs (const amrex::Array4<amrex::Real>& dest_arr, const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv,
@@ -82,10 +82,10 @@ public:
                           int icomp, int ncomp, amrex::Real time, int bccomp);
 
     // For backward compatibility
-    void FillBoundary (amrex::MultiFab& mf, int dcomp, int ncomp, amrex::IntVect const& nghost,
-                       amrex::Real time, int bccomp) {
-        this->operator()(mf,dcomp,ncomp,nghost,time,bccomp);
-    }
+    // void FillBoundary (amrex::MultiFab& mf, int dcomp, int ncomp, amrex::IntVect const& nghost,
+    //                    amrex::Real time, int bccomp) {
+    //     this->operator()(mf,dcomp,ncomp,nghost,time,bccomp);
+    // }
 
 private:
     int                  m_lev;

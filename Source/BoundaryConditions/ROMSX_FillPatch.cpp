@@ -72,7 +72,7 @@ ROMSX::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> co
     // Physical bc's at domain boundary
     // ***************************************************************************
     // Enforce physical boundary conditions
-    (*physbcs[lev])(mf_to_fill,0,ncomp,mf_to_fill.nGrowVect(),time,bccomp);
+    (*physbcs[lev])(mf_to_fill,0,ncomp,mf_to_fill.nGrowVect(),time,bccomp,solverChoice.ic_bc_type);
 
     // Also enforce free-slip at top boundary (on xvel or yvel)
     if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
@@ -206,7 +206,7 @@ ROMSX::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_c
                              cdata,
                              m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
-                            ,init_type,bdy_data_xlo,bdy_data_xhi,
+                            ,ic_bc_type,bdy_data_xlo,bdy_data_xhi,
                              bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                             );
@@ -215,7 +215,7 @@ ROMSX::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_c
                              fdata,
                              m_bc_extdir_vals
 #ifdef ROMSX_USE_NETCDF
-                            ,init_type,bdy_data_xlo,bdy_data_xhi,
+                            ,ic_bc_type,bdy_data_xlo,bdy_data_xhi,
                              bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                             );

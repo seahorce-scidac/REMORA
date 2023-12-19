@@ -39,9 +39,6 @@ amrex::Real ROMSX::sum_per       = -1.0;
 // Native AMReX vs NetCDF
 std::string ROMSX::plotfile_type    = "amrex";
 
-// init_type:  "custom", "ideal", "real"
-std::string ROMSX::init_type        = "custom";
-
 amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 
 // constructor - reads in parameters from inputs file
@@ -408,7 +405,7 @@ ROMSX::init_only(int lev, Real time)
     yvel_new[lev]->setVal(0.0);
     zvel_new[lev]->setVal(0.0);
 
-    if (init_type == "custom") {
+    if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
         init_custom(lev);
     }
 
@@ -485,15 +482,6 @@ ROMSX::ReadParameters ()
         pp.query("do_substep", do_substep);
 
         AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
-
-        // How to initialize
-        pp.query("init_type",init_type);
-        if (init_type != "custom" &&
-            init_type != "ideal" &&
-            init_type != "real")
-        {
-            amrex::Error("init_type must be custom, ideal, or real ");
-        }
 
         // We use this to keep track of how many boxes we read in from WRF initialization
         num_files_at_level.resize(max_level+1,0);
