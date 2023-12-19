@@ -204,6 +204,7 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
     for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
       Array4<Real> const& Akv = (mf_Akv).array(mfi);
+      Array4<Real> const& Akt = (mf_Akt).array(mfi);
       Array4<Real> const& z_w = (mf_z_w).array(mfi);
       Box bx = mfi.tilebox();
       bx.grow(IntVect(NGROW,NGROW,0));
