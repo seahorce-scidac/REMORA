@@ -61,6 +61,9 @@ ROMSX::prestep (int lev,
     MultiFab mf_saltcache(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_tempcache(ba,dm,1,IntVect(NGROW,NGROW,0));
 
+    MultiFab mf_scalarcache(ba,dm,NCONS,IntVect(NGROW,NGROW,0));
+    MultiFab::Copy(mf_scalarcache,S_new,0,0,NCONS,IntVect(NGROW,NGROW,0));
+
     MultiFab::Copy(mf_saltcache,S_new,Salt_comp,0,1,IntVect(NGROW,NGROW,0));
     MultiFab::Copy(mf_tempcache,S_new,Temp_comp,0,1,IntVect(NGROW,NGROW,0));
 
@@ -85,8 +88,6 @@ ROMSX::prestep (int lev,
         Array4<Real> const& temp    = S_new.array(mfi,Temp_comp);
         Array4<Real> const& salt    = S_new.array(mfi,Salt_comp);
 
-        Array4<Real> const& tempstore = (vec_t3[lev])->array(mfi);
-        Array4<Real> const& saltstore = (vec_s3[lev])->array(mfi);
         Array4<Real> const& ru = (mf_ru)->array(mfi);
         Array4<Real> const& rv = (mf_rv)->array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
@@ -162,12 +163,38 @@ ROMSX::prestep (int lev,
             pn(i,j,0) = dxi[1];
         });
 
-        prestep_t_3d(bx, gbx, tempold, temp, tempcache, ru, Hz, Akt, Huon, Hvom,
-                     pm, pn, W, DC, FC, tempstore, z_r, z_w, h, iic, ntfirst, nnew, nstp, nrhs, N,
-                     lambda, dt_lev);
-        prestep_t_3d(bx, gbx, saltold, salt, saltcache, ru, Hz, Akt, Huon, Hvom,
-                     pm, pn, W, DC, FC, saltstore, z_r, z_w, h, iic, ntfirst, nnew, nstp, nrhs, N,
-                     lambda, dt_lev);
+        //From ini_fields and .in file
+        //fab_Akt.setVal(1e-6);
+        FArrayBox fab_stflux(tbxp2,1,amrex::The_Async_Arena());
+        auto stflux= fab_stflux.array();
+        FArrayBox fab_btflux(tbxp2,1,amrex::The_Async_Arena());
+        auto btflux= fab_btflux.array();
+
+        //From ini_fields and .in file
+        //fab_stflux.setVal(0.0);
+        //also set btflux=0 (as in ana_btflux.H)
+        ParallelFor(tbxp2,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            stflux(i,j,k)=0.0;
+            btflux(i,j,k)=0.0;
+        });
+
+        for (int i_comp=0; i_comp < NCONS; i_comp++) {
+            Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
+            prestep_t_advection(bx, gbx, S_old.array(mfi,i_comp), S_new.array(mfi,i_comp),
+                                mf_scalarcache.array(mfi,i_comp), ru, Hz, Akt, Huon, Hvom,
+                                pm, pn, W, DC, FC, sstore, z_r, z_w, h, iic, ntfirst,
+                                nnew, nstp, nrhs, N,
+                                lambda, dt_lev);
+        }
+
+        // Only do diffusion for salt and temperature, not other tracer(s)
+        for (int i_comp=0; i_comp < NCONS; i_comp++) {
+            prestep_diffusion(bx,gbx,0,0,S_new.array(mfi,i_comp), S_old.array(mfi,i_comp), ru,
+                              Hz, Akt, DC, FC, stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp,
+                              nrhs, N, lambda, dt_lev);
+        }
 
         //
         //-----------------------------------------------------------------------
@@ -175,8 +202,11 @@ ROMSX::prestep (int lev,
         //-----------------------------------------------------------------------
         //
         //updates u,v,ru,rv (ru and rv have multiple components)
-        prestep_uv_3d(bx, gbx, uold, vold, u, v, ru, rv, Hz, Akv,
-                          pm, pn, W, DC, FC, z_r, sustr, svstr, bustr, bvstr,
-                          iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
+
+        prestep_diffusion(tbxp1, gbx, 1, 0, u, uold, ru, Hz, Akv, DC, FC,
+                          sustr, bustr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
+
+        prestep_diffusion(tbxp1, gbx, 0, 1, v, vold, rv, Hz, Akv, DC, FC,
+                          svstr, bvstr, z_r, pm, pn, iic, ntfirst, nnew, nstp, nrhs, N, lambda, dt_lev);
     }
 }

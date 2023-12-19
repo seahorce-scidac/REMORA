@@ -15,7 +15,7 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     advance_3d(lev, *cons_new[lev], *xvel_new[lev], *yvel_new[lev],
-               vec_t3[lev].get(), vec_s3[lev].get(),
+               vec_sstore[lev].get(),
                vec_ru[lev].get(), vec_rv[lev].get(),
                vec_DU_avg1[lev], vec_DU_avg2[lev],
                vec_DV_avg1[lev], vec_DV_avg2[lev],
@@ -25,8 +25,7 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
 
     FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar));
     FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar));
-    FillPatch(lev, t_new[lev], *vec_t3[lev], GetVecOfPtrs(vec_t3));
-    FillPatch(lev, t_new[lev], *vec_s3[lev], GetVecOfPtrs(vec_s3));
+    FillPatch(lev, t_new[lev], *vec_sstore[lev], GetVecOfPtrs(vec_sstore));
 
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call

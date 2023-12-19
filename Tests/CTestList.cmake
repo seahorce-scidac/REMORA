@@ -96,10 +96,12 @@ if(WIN32)
   add_test_r(Upwelling                    "Upwelling/*/upwelling.exe" "plt00010")
   add_test_r(Upwelling_bathy              "Upwelling/*/upwelling.exe" "plt00010")
   add_test_r(Seamount                     "Seamount/*/seamount.exe"   "plt00010")
+  add_test_r(Advection                    "Advection/*/advection.exe" "plt00010")
 else()
   add_test_r(Upwelling                    "Upwelling/upwelling" "plt00010")
   add_test_r(Upwelling_bathy              "Upwelling/upwelling" "plt00010")
   add_test_r(Seamount                     "Seamount/seamount"   "plt00010")
+  add_test_r(Advection                    "Advection/advection" "plt00010")
 endif()
 #=============================================================================
 # Performance tests
