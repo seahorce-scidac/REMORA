@@ -47,7 +47,7 @@ romsx.plotfile_type   = amrex
 # SOLVER CHOICE
 romsx.use_coriolis = false
 romsx.flat_bathymetry=true
-romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+romsx.horizontal_advection_scheme = "centered4" # upstream3 or centered4
 romsx.spatial_order = 2
 
 # Linear EOS parameters
@@ -61,6 +61,8 @@ romsx.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is infe
 # Coriolis params
 romsx.coriolis_f0 = 0.0
 romsx.coriolis_beta = 0.0
+
+romsx.rdrag=0.0
 
 # PROBLEM PARAMETERS (velocity fields)
 prob.u_0   =1.0e-1
