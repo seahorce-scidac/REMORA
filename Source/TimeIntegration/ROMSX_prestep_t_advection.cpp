@@ -9,17 +9,15 @@ using namespace amrex;
 void
 ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
                             Array4<Real> tempold,
-                            Array4<Real> temp,
                             Array4<Real> tempcache,
-                            Array4<Real> ru,
-                            Array4<Real> Hz, Array4<Real> Akt,
+                            Array4<Real> Hz,
                             Array4<Real> Huon, Array4<Real> Hvom,
                             Array4<Real> pm,   Array4<Real> pn,
                             Array4<Real> W  ,  Array4<Real> DC,
                             Array4<Real> FC ,  Array4<Real> tempstore,
-                            Array4<Real> z_r,  Array4<Real> z_w, Array4<Real> h,
-                            int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
-                            Real lambda, Real dt_lev)
+                            Array4<Real> z_w, Array4<Real> h,
+                            int iic, int ntfirst, int nrhs, int N,
+                            Real dt_lev)
 {
     //copy the tilebox
     Box gbx1 = tbx;

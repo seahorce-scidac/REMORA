@@ -37,6 +37,10 @@
 #include "ParticleData.H"
 #endif
 
+#ifdef ROMSX_USE_NETCDF
+#include "NCFile.H"
+#endif
+
 #include <iostream>
 
 #ifdef AMREX_LAZY
@@ -361,11 +365,8 @@ public:
     void prestep_t_advection (const amrex::Box& tbx,
                         const amrex::Box& gbx,
                         amrex::Array4<amrex::Real> tempold,
-                        amrex::Array4<amrex::Real> temp,
                         amrex::Array4<amrex::Real> tempcache,
-                        amrex::Array4<amrex::Real> ru,
                         amrex::Array4<amrex::Real> Hz,
-                        amrex::Array4<amrex::Real> Akt,
                         amrex::Array4<amrex::Real> Huon,
                         amrex::Array4<amrex::Real> Hvom,
                         amrex::Array4<amrex::Real> pm,
@@ -374,11 +375,10 @@ public:
                         amrex::Array4<amrex::Real> DC,
                         amrex::Array4<amrex::Real> FC,
                         amrex::Array4<amrex::Real> tempstore,
-                        amrex::Array4<amrex::Real> z_r,
                         amrex::Array4<amrex::Real> z_w,
                         amrex::Array4<amrex::Real> h  ,
-                        int iic, int ntfirst, int nnew, int nstp, int nrhs, int N,
-                        const amrex::Real lambda, const amrex::Real dt_lev);
+                        int iic, int ntfirst, int nrhs, int N,
+                        const amrex::Real dt_lev);
 
     /** Prestep calculations for momentum */
     void prestep_uv_3d (const amrex::Box& bx,
@@ -694,6 +694,8 @@ private:
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_yhi;
 
     amrex::Real bdy_time_interval;
+
+    void init_from_netcdf (int lev);
 #endif // ROMSX_USE_NETCDF
 
     // write checkpoint file to disk

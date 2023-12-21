@@ -211,9 +211,6 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& temp = mf_cons.array(mfi,Temp_comp);
-        Array4<Real> const& salt = mf_cons.array(mfi,Salt_comp);
-
         //Array4<Real> const& tempstore = mf_tempstore->array(mfi);
         //Array4<Real> const& saltstore = mf_saltstore->array(mfi);
 
@@ -326,9 +323,6 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& temp = mf_cons.array(mfi,Temp_comp);
-        Array4<Real> const& salt = mf_cons.array(mfi,Salt_comp);
-
         Array4<Real> const& AK = mf_AK.array(mfi);
         Array4<Real> const& DC = mf_DC.array(mfi);
 

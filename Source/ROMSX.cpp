@@ -39,6 +39,9 @@ amrex::Real ROMSX::sum_per       = -1.0;
 // Native AMReX vs NetCDF
 std::string ROMSX::plotfile_type    = "amrex";
 
+// NetCDF initialization file
+amrex::Vector<amrex::Vector<std::string>> ROMSX::nc_init_file = {{""}}; // Must provide via input
+
 amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 
 // constructor - reads in parameters from inputs file
@@ -405,8 +408,15 @@ ROMSX::init_only(int lev, Real time)
     yvel_new[lev]->setVal(0.0);
     zvel_new[lev]->setVal(0.0);
 
-    if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+    if (solverChoice.ic_bc_type == IC_BC_Type::Custom)
+    {
         init_custom(lev);
+#ifdef ROMSX_USE_NETCDF
+    } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+        init_from_netcdf(lev);
+#endif
+    } else {
+        Abort("Need to specify ic_bc_type");
     }
 
     // Ensure that the face-based data are the same on both sides of a periodic domain.
@@ -492,6 +502,8 @@ ROMSX::ReadParameters ()
 
         // We always have exactly one file at level 0
         num_boxes_at_level[0] = 1;
+        boxes_at_level[0].resize(1);
+        boxes_at_level[0][0] = geom[0].Domain();
 
         // Output format
         pp.query("plotfile_type", plotfile_type);
@@ -505,6 +517,28 @@ ROMSX::ReadParameters ()
         if (plotfile_type == "netcdf" || plotfile_type == "NetCDF")
         {
             amrex::Abort("Please compile with NetCDF in order to enable NetCDF plotfiles");
+        }
+
+#endif
+
+#ifdef ROMSX_USE_NETCDF
+        nc_init_file.resize(max_level+1);
+
+        // NetCDF initialization files -- possibly multiple files at each of multiple levels
+        //        but we always have exactly one file at level 0
+        for (int lev = 0; lev <= max_level; lev++)
+        {
+            const std::string nc_file_names = amrex::Concatenate("nc_init_file_",lev,1);
+            if (pp.contains(nc_file_names.c_str()))
+            {
+                int num_files = pp.countval(nc_file_names.c_str());
+                num_files_at_level[lev] = num_files;
+                nc_init_file[lev].resize(num_files);
+                pp.queryarr(nc_file_names.c_str(), nc_init_file[lev],0,num_files);
+                for (int j = 0; j < num_files; j++)
+                    amrex::Print() << "Reading NC init file names at level " << lev <<
+                                       " and index " << j << " : " << nc_init_file[lev][j] << std::endl;
+            }
         }
 #endif
         pp.query("plot_file_1", plot_file_1);

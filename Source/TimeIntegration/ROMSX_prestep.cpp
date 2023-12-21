@@ -83,11 +83,6 @@ ROMSX::prestep (int lev,
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
 
-        Array4<Real> const& tempold = S_old.array(mfi,Temp_comp);
-        Array4<Real> const& saltold = S_old.array(mfi,Salt_comp);
-        Array4<Real> const& temp    = S_new.array(mfi,Temp_comp);
-        Array4<Real> const& salt    = S_new.array(mfi,Salt_comp);
-
         Array4<Real> const& ru = (mf_ru)->array(mfi);
         Array4<Real> const& rv = (mf_rv)->array(mfi);
         Array4<Real> const& W = (mf_W).array(mfi);
@@ -95,8 +90,6 @@ ROMSX::prestep (int lev,
         Array4<Real> const& svstr = (mf_svstr)->array(mfi);
         Array4<Real> const& bustr = (mf_bustr)->array(mfi);
         Array4<Real> const& bvstr = (mf_bvstr)->array(mfi);
-        Array4<Real> const& tempcache = (mf_tempcache).array(mfi);
-        Array4<Real> const& saltcache = (mf_saltcache).array(mfi);
 
         Real lambda = 1.0;
 
@@ -182,11 +175,10 @@ ROMSX::prestep (int lev,
 
         for (int i_comp=0; i_comp < NCONS; i_comp++) {
             Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
-            prestep_t_advection(bx, gbx, S_old.array(mfi,i_comp), S_new.array(mfi,i_comp),
-                                mf_scalarcache.array(mfi,i_comp), ru, Hz, Akt, Huon, Hvom,
-                                pm, pn, W, DC, FC, sstore, z_r, z_w, h, iic, ntfirst,
-                                nnew, nstp, nrhs, N,
-                                lambda, dt_lev);
+            prestep_t_advection(bx, gbx, S_old.array(mfi,i_comp),
+                                mf_scalarcache.array(mfi,i_comp), Hz, Huon, Hvom,
+                                pm, pn, W, DC, FC, sstore, z_w, h, iic, ntfirst,
+                                nrhs, N, dt_lev);
         }
 
         // Only do diffusion for salt and temperature, not other tracer(s)
