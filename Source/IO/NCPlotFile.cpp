@@ -28,9 +28,6 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
                      const Vector<std::string> &plot_var_names,
                      const Vector<int> level_steps, const Real time) const
 {
-     // get the processor number
-     int iproc = amrex::ParallelContext::MyProcAll();
-
      // number of cells in this "domain" at this level
      std::vector<int> n_cells;
 
@@ -269,7 +266,6 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
        }
    }
 */
-   size_t nfai = 0;
    const int ncomp = plotMF[lev]->nComp();
 
    //   std::vector<Real> x_grid;//(box.length(0));
@@ -286,9 +282,6 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
        Box box = fai.tilebox();
        box.grow(IntVect(1,1,0));
        if (subdomain.contains(box)||true) {
-           long unsigned numpts = box.numPts();
-           auto array_version = plotMF[lev]->array(fai);
-           auto x_r = vec_x_r[lev]->array(fai);
 
            #ifdef ROMSX_USE_HISTORYFILE
            int num_var_dims=AMREX_SPACEDIM+1;
@@ -300,11 +293,14 @@ ROMSX::writeNCPlotFile(int lev, int which_subdomain, const std::string& dir,
 
            for (int i=0;i<3;i++) {
              //Only use ghost cells in x and y direction
-             if(i!=2)
+
+             if(i!=2) {
                startp[num_var_dims-1-i]=box.smallEnd(i)+indexOffset;
-             else
+             } else {
                startp[num_var_dims-1-i]=box.smallEnd(i);
-               countp[num_var_dims-1-i]=box.length(i);
+             }
+
+             countp[num_var_dims-1-i]=box.length(i);
            }
 #ifdef ROMSX_USE_HISTORYFILE
            startp[0]=total_plot_file_step_1+1;
