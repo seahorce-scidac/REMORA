@@ -124,7 +124,7 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
         int bdy_width          = static_cast<int>(ncf.dim("bdy_width").len());
         */
 
-        Print() << "Reading the dimensions from the netcdf file " << "\n";
+        amrex::Print() << "Reading the dimensions from the netcdf file " << "\n";
 
         for (auto n=0; n<arrays.size(); ++n) {
             // read the data from NetCDF file
@@ -143,12 +143,12 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
             std::vector<size_t> start(shape.size(), 0);
 
             // auto numPts               = arrays[n].ndim();
-            // Print() << "NetCDF Variable name = " << vname_to_read << std::endl;
-            // Print() << "numPts read from NetCDF file/var = " << numPts << std::endl;
-            // Print()  << "Dims of the variable = (";
+            // amrex::Print() << "NetCDF Variable name = " << vname_to_read << std::endl;
+            // amrex::Print() << "numPts read from NetCDF file/var = " << numPts << std::endl;
+            // amrex::Print()  << "Dims of the variable = (";
             // for (auto &dim:shape)
-            //     Print() << dim << ", " ;
-            // Print()  << ")" << std::endl;
+            //     amrex::Print() << dim << ", " ;
+            // amrex::Print()  << ")" << std::endl;
 
             ncf.var(vname_to_read).get(dataPtr, start, shape);
         }
@@ -179,12 +179,12 @@ fill_fab_from_arrays (int iv,
         ns1 = 1;
         ns2 = nc_arrays[iv].get_vshape()[1];
         ns3 = nc_arrays[iv].get_vshape()[2];
-        // Print() << "TYPE SN WE " << ns2 << " " << ns3 << std::endl;
+        // amrex::Print() << "TYPE SN WE " << ns2 << " " << ns3 << std::endl;
     } else if (NC_dim_type == NC_Data_Dims_Type::Time_BT_SN_WE) {
         ns1 = nc_arrays[iv].get_vshape()[1];
         ns2 = nc_arrays[iv].get_vshape()[2];
         ns3 = nc_arrays[iv].get_vshape()[3];
-        // Print() << "TYPE BT SN WE " << ns1 << " " << ns2 << " " << ns3 << std::endl;
+        // amrex::Print() << "TYPE BT SN WE " << ns1 << " " << ns2 << " " << ns3 << std::endl;
     } else {
         amrex::Abort("Dont know this NC_Data_Dims_Type");
     }
@@ -195,8 +195,8 @@ fill_fab_from_arrays (int iv,
     if (var_name == "u" || var_name == "ubar") my_box.setType(amrex::IndexType(amrex::IntVect(1,0,0)));
     if (var_name == "v" || var_name == "vbar") my_box.setType(amrex::IndexType(amrex::IntVect(0,1,0)));
 
-    // Print() <<" NAME for this VAR " << var_name << std::endl;
-    // Print() <<" BOX  for THIS VAR " << my_box << std::endl;
+    // amrex::Print() <<" NAME for this VAR " << var_name << std::endl;
+    // amrex::Print() <<" BOX  for THIS VAR " << my_box << std::endl;
 
 #ifdef AMREX_USE_GPU
     // Make sure temp lives on CPU since nc_arrays lives on CPU only
@@ -211,8 +211,8 @@ fill_fab_from_arrays (int iv,
 
     auto num_pts = my_box.numPts();
 
-    // Print() <<" ns1 * ns2 * ns3 " << ns1 * ns2 * ns3 << std::endl;
-    // Print() <<" NUMPTS " << num_pts << std::endl;
+    // amrex::Print() <<" ns1 * ns2 * ns3 " << ns1 * ns2 * ns3 << std::endl;
+    // amrex::Print() <<" NUMPTS " << num_pts << std::endl;
 
     for (int n(0); n < num_pts; ++n) {
         int k  = n / (ns2*ns3);
