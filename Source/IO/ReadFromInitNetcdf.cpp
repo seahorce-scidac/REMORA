@@ -6,15 +6,15 @@ using namespace amrex;
 
 #ifdef ROMSX_USE_NETCDF
 void
-read_from_netcdf (int lev,
-                  const Box& domain,
-                  const std::string& fname,
-                  FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
-                  FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
-                  FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab,
-                  FArrayBox& NC_zeta_fab)
+read_data_from_netcdf (int lev,
+                       const Box& domain,
+                       const std::string& fname,
+                       FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
+                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
+                       FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab,
+                       FArrayBox& NC_zeta_fab)
 {
-    amrex::Print() << "Loading initial data from NetCDF file at level " << lev << std::endl;
+    amrex::Print() << "Loading initial solution data from NetCDF file at level " << lev << std::endl;
 
     Vector<FArrayBox*> NC_fabs;
     Vector<std::string> NC_names;
@@ -29,7 +29,28 @@ read_from_netcdf (int lev,
     NC_fabs.push_back(&NC_zeta_fab); NC_names.push_back("zeta"); NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 6
 
     // Read the netcdf file and fill these FABs
-    amrex::Print() << "Building initial FABS from file " << fname << std::endl;
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+}
+
+void
+read_bathymetry_from_netcdf (int lev,
+                             const Box& domain,
+                             const std::string& fname,
+                             FArrayBox& NC_h_fab,
+                             FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab)
+{
+    amrex::Print() << "Loading initial bathymetry from NetCDF file at level " << lev << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_h_fab )   ; NC_names.push_back("h")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
+    NC_fabs.push_back(&NC_pm_fab)   ; NC_names.push_back("pm")   ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 1
+    NC_fabs.push_back(&NC_pn_fab)   ; NC_names.push_back("pn")   ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 2
+
+    // Read the netcdf file and fill these FABs
+    amrex::Print() << "Building initial bathymetry FABS from file " << fname << std::endl;
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
 #endif // ROMSX_USE_NETCDF

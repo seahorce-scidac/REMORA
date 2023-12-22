@@ -41,6 +41,7 @@ std::string ROMSX::plotfile_type    = "amrex";
 
 // NetCDF initialization file
 amrex::Vector<amrex::Vector<std::string>> ROMSX::nc_init_file = {{""}}; // Must provide via input
+amrex::Vector<amrex::Vector<std::string>> ROMSX::nc_init_grid_file = {{""}}; // Must provide via input
 
 amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 
@@ -361,7 +362,21 @@ ROMSX::restart()
 void
 ROMSX::set_bathymetry(int lev)
 {
-    init_custom_bathymetry(geom[lev], *vec_hOfTheConfusingName[lev], *vec_Zt_avg1[lev], solverChoice);
+    if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+        init_custom_bathymetry(geom[lev], *vec_hOfTheConfusingName[lev], solverChoice);
+
+#ifdef ROMSX_USE_NETCDF
+    } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+        amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
+        init_bathymetry_from_netcdf(lev);
+        amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+#endif
+    } else {
+        Abort("Don't know this ic_bc_type!");
+    }
+
+    // HACK -- SHOULD WE ALWAYS DO THIS??
+    vec_Zt_avg1[lev]->setVal(0.0);
 
     Real time = 0.0;
     FillPatch(lev, time, *vec_Zt_avg1[lev], GetVecOfPtrs(vec_Zt_avg1));
@@ -413,7 +428,9 @@ ROMSX::init_only(int lev, Real time)
         init_custom(lev);
 #ifdef ROMSX_USE_NETCDF
     } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
-        init_from_netcdf(lev);
+        amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
+        init_data_from_netcdf(lev);
+        amrex::Print() << "Initial data loaded from netcdf file /n " << std::endl;
 #endif
     } else {
         Abort("Need to specify ic_bc_type");
@@ -523,21 +540,29 @@ ROMSX::ReadParameters ()
 
 #ifdef ROMSX_USE_NETCDF
         nc_init_file.resize(max_level+1);
+        nc_init_grid_file.resize(max_level+1);
 
         // NetCDF initialization files -- possibly multiple files at each of multiple levels
         //        but we always have exactly one file at level 0
         for (int lev = 0; lev <= max_level; lev++)
         {
             const std::string nc_file_names = amrex::Concatenate("nc_init_file_",lev,1);
+            const std::string nc_bathy_file_names = amrex::Concatenate("nc_init_grid_file_",lev,1);
+
             if (pp.contains(nc_file_names.c_str()))
             {
                 int num_files = pp.countval(nc_file_names.c_str());
+                int num_bathy_files = pp.countval(nc_bathy_file_names.c_str());
+                if (num_files != num_bathy_files) {
+                    amrex::Error("Must have same number of netcdf files for grid info as for solution");
+                }
+
                 num_files_at_level[lev] = num_files;
                 nc_init_file[lev].resize(num_files);
-                pp.queryarr(nc_file_names.c_str(), nc_init_file[lev],0,num_files);
-                for (int j = 0; j < num_files; j++)
-                    amrex::Print() << "Reading NC init file names at level " << lev <<
-                                       " and index " << j << " : " << nc_init_file[lev][j] << std::endl;
+                nc_init_grid_file[lev].resize(num_files);
+
+                pp.queryarr(nc_file_names.c_str()      , nc_init_file[lev]     ,0,num_files);
+                pp.queryarr(nc_bathy_file_names.c_str(), nc_init_grid_file[lev],0,num_files);
             }
         }
 #endif

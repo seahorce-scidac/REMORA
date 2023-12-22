@@ -33,7 +33,7 @@ ROMSX::init_custom(int lev)
         Array4<const Real> const& z_r_arr = (mf_z_r)->array(mfi);
         Array4<const Real> const& Hz_arr  = (mf_Hz)->array(mfi);
         Array4<const Real> const& h_arr  = (mf_h)->array(mfi);
-        Array4<const Real> const& Zt_avg1_arr  = (mf_Zt_avg1)->array(mfi);
+        Array4<const Real> const& Zt_avg1_arr  = mf_Zt_avg1->const_array(mfi);
 
         init_custom_prob(bx, cons_arr, xvel_arr, yvel_arr, zvel_arr,
                          z_w_arr, z_r_arr, Hz_arr, h_arr, Zt_avg1_arr, geom[lev].data(),

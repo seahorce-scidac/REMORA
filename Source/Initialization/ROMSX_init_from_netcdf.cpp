@@ -13,11 +13,11 @@ using namespace amrex;
 #ifdef ROMSX_USE_NETCDF
 
 void
-read_from_netcdf (int lev, const Box& domain, const std::string& fname,
-                  FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
-                  FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
-                  FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab,
-                  FArrayBox& NC_zeta_fab);
+read_data_from_netcdf (int lev, const Box& domain, const std::string& fname,
+                       FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
+                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
+                       FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab,
+                       FArrayBox& NC_zeta_fab);
 
 void
 init_state_from_netcdf (int lev,
@@ -33,13 +33,21 @@ init_state_from_netcdf (int lev,
                         const Vector<FArrayBox>& NC_vbar_fab,
                         const Vector<FArrayBox>& NC_zeta_fab);
 
+void
+read_bathymetry_from_netcdf (int lev, const Box& domain, const std::string& fname,
+                             FArrayBox& NC_h_fab,
+                             FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab);
+
+void
+init_bathymetry_from_netcdf (int lev);
+
 /**
  * ROMSX function that initializes data from a netcdf file
  *
  * @param lev Integer specifying the current level
  */
 void
-ROMSX::init_from_netcdf (int lev)
+ROMSX::init_data_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_temp_fab ; NC_temp_fab.resize(num_boxes_at_level[lev]);
@@ -52,12 +60,11 @@ ROMSX::init_from_netcdf (int lev)
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
-        amrex::Print() << "Building initial FABS from file " << nc_init_file[lev][0] << std::endl;
-        read_from_netcdf(lev, boxes_at_level[lev][idx], nc_init_file[lev][idx],
-                         NC_temp_fab[idx], NC_salt_fab[idx],
-                         NC_xvel_fab[idx], NC_yvel_fab[idx],
-                         NC_ubar_fab[idx], NC_vbar_fab[idx],
-                         NC_zeta_fab[idx]);
+        read_data_from_netcdf(lev, boxes_at_level[lev][idx], nc_init_file[lev][idx],
+                              NC_temp_fab[idx], NC_salt_fab[idx],
+                              NC_xvel_fab[idx], NC_yvel_fab[idx],
+                              NC_ubar_fab[idx], NC_vbar_fab[idx],
+                              NC_zeta_fab[idx]);
     }
 
     MultiFab mf_temp(*cons_new[lev], make_alias, Temp_comp, 1);
@@ -88,6 +95,58 @@ ROMSX::init_from_netcdf (int lev)
                                NC_zeta_fab);
     } // mf
     } // omp
+}
+
+/**
+ * ROMSX function that initializes bathymetry from a netcdf file
+ *
+ * @param lev Integer specifying the current level
+ */
+void
+ROMSX::init_bathymetry_from_netcdf (int lev)
+{
+    // *** FArrayBox's at this level for holding the INITIAL data
+    Vector<FArrayBox> NC_h_fab     ; NC_h_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_pm_fab    ; NC_pm_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_pn_fab    ; NC_pn_fab.resize(num_boxes_at_level[lev]);
+
+    int nboxes = NC_h_fab.size();
+    amrex::Print() << "init_bathymetry_from_netcdf: start " << nboxes << std::endl;
+
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
+    {
+        read_bathymetry_from_netcdf(lev, boxes_at_level[lev][idx], nc_init_grid_file[lev][idx],
+                                    NC_h_fab[idx],
+                                    NC_pm_fab[idx], NC_pn_fab[idx]);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        {
+        // Don't tile this since we are operating on full FABs in this routine
+        for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
+        {
+            FArrayBox &h_fab     = (*vec_hOfTheConfusingName[lev])[mfi];
+            FArrayBox &pm_fab    = (*vec_pm[lev])[mfi];
+            FArrayBox &pn_fab    = (*vec_pn[lev])[mfi];
+
+            //
+            // FArrayBox to FArrayBox copy does "copy on intersection"
+            // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
+            //
+
+            // Copy into both components of h
+            h_fab.template     copy<RunOn::Device>(NC_h_fab[idx],0,0,1);
+            h_fab.template     copy<RunOn::Device>(NC_h_fab[idx],0,1,1);
+
+            pm_fab.template    copy<RunOn::Device>(NC_pm_fab[idx]);
+            pn_fab.template    copy<RunOn::Device>(NC_pn_fab[idx]);
+        } // mf
+        } // omp
+    } // idx
+    vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+    vec_pm[lev]->FillBoundary(geom[lev].periodicity());
+    vec_pn[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 /**
