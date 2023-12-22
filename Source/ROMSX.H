@@ -37,10 +37,6 @@
 #include "ParticleData.H"
 #endif
 
-#ifdef ROMSX_USE_NETCDF
-#include "NCFile.H"
-#endif
-
 #include <iostream>
 
 #ifdef AMREX_LAZY
@@ -224,26 +220,37 @@ public:
 
     /** x coordinates at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_x_r;
+
     /** y coordinates at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_y_r;
+
     /** z coordinates at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_r;
+
     /** z coordinates at w points (faces between z-cells) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_w;
+
     /** Scaled vertical coordinate (range [0,1]) that transforms to z, defined at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_r;
+
     /** z coordinates at psi points (cell nodes) **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_phys_nd;
+
     /** Average of the free surface, zeta (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Zt_avg1;
+
     /** Surface stress in the u direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sustr;
+
     /** Surface stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr;
-    /** Linear drag coeifficient [m/s], defined at rho points */
+
+    /** Linear drag coefficient [m/s], defined at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;
+
     /** Bottom stress in the u direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bustr;
+
     /** Bottom stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvstr;
 
@@ -267,6 +274,12 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_vbar;
     /** free surface height (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_zeta;
+
+    /** map factor (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm;
+
+    /** map factor (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn;
 
     /** saltstore, tempstore, etc*/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sstore;
@@ -695,7 +708,8 @@ private:
 
     amrex::Real bdy_time_interval;
 
-    void init_from_netcdf (int lev);
+    void init_data_from_netcdf (int lev);
+    void init_bathymetry_from_netcdf (int lev);
 #endif // ROMSX_USE_NETCDF
 
     // write checkpoint file to disk
@@ -842,8 +856,9 @@ private:
     // Native or NetCDF
     static std::string plotfile_type;
 
-    // NetCDF initialization (wrfinput) file
+    // NetCDF initialization files
     static amrex::Vector<amrex::Vector<std::string>> nc_init_file;
+    static amrex::Vector<amrex::Vector<std::string>> nc_init_grid_file;
 
     // NetCDF initialization (wrfbdy) file
     static std::string nc_bdy_file;

@@ -1,5 +1,5 @@
-#ifndef _NCWPSFILE_H_
-#define _NCWPSFILE_H_
+#ifndef _NCFILE_H_
+#define _NCFILE_H_
 
 #include <sstream>
 #include <string>
@@ -15,6 +15,7 @@ using PlaneVector = amrex::Vector<amrex::FArrayBox>;
 enum class NC_Data_Dims_Type {
     Time_BT_SN_WE,
     Time_SN_WE,
+    SN_WE,
 };
 
 //
@@ -131,10 +132,8 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
             std::string vname_to_write = names[n];
             std::string vname_to_read  = names[n];
 
-            //
             // amrex::AllPrint() << "About to read " << vname_to_read
             //                   << " while filling the array for " << vname_to_write << std::endl;
-            //
 
             std::vector<size_t> shape = ncf.var(vname_to_read).shape();
             arrays[n]                 = NDArray<DType>(vname_to_read,shape);
@@ -174,29 +173,47 @@ fill_fab_from_arrays (int iv,
                       NC_Data_Dims_Type& NC_dim_type,
                       FAB& temp)
 {
-    int ns1, ns2, ns3;
-    if (NC_dim_type == NC_Data_Dims_Type::Time_SN_WE) {
-        ns1 = 1;
-        ns2 = nc_arrays[iv].get_vshape()[1];
-        ns3 = nc_arrays[iv].get_vshape()[2];
-        // amrex::Print() << "TYPE SN WE " << ns2 << " " << ns3 << std::endl;
+    int nsx, nsy, nsz;
+    if (NC_dim_type == NC_Data_Dims_Type::SN_WE) {
+        nsz = 1;
+        nsy = nc_arrays[iv].get_vshape()[0];
+        nsx = nc_arrays[iv].get_vshape()[1];
+        // amrex::Print() << "TYPE SN WE " << nsy << " " << nsx << std::endl;
+    } else if (NC_dim_type == NC_Data_Dims_Type::Time_SN_WE) {
+        nsz = 1;
+        nsy = nc_arrays[iv].get_vshape()[1];
+        nsx = nc_arrays[iv].get_vshape()[2];
+        // amrex::Print() << "TYPE TIME SN WE " << nsy << " " << nsx << std::endl;
     } else if (NC_dim_type == NC_Data_Dims_Type::Time_BT_SN_WE) {
-        ns1 = nc_arrays[iv].get_vshape()[1];
-        ns2 = nc_arrays[iv].get_vshape()[2];
-        ns3 = nc_arrays[iv].get_vshape()[3];
-        // amrex::Print() << "TYPE BT SN WE " << ns1 << " " << ns2 << " " << ns3 << std::endl;
+        nsz = nc_arrays[iv].get_vshape()[1];
+        nsy = nc_arrays[iv].get_vshape()[2];
+        nsx = nc_arrays[iv].get_vshape()[3];
+        // amrex::Print() << "TYPE TIME BT SN WE " << nsx << " " << nsy << " " << nsz << std::endl;
     } else {
         amrex::Abort("Dont know this NC_Data_Dims_Type");
     }
 
-    // TODO:  The box will only start at (0,0,0) at level 0 -- we need to generalize this
-    amrex::Box my_box(amrex::IntVect(0,0,0), amrex::IntVect(ns3-1,ns2-1,ns1-1));
+    amrex::Box my_box;
 
-    if (var_name == "u" || var_name == "ubar") my_box.setType(amrex::IndexType(amrex::IntVect(1,0,0)));
-    if (var_name == "v" || var_name == "vbar") my_box.setType(amrex::IndexType(amrex::IntVect(0,1,0)));
+    if (var_name == "u" || var_name == "ubar")
+    {
+        my_box.setSmall(amrex::IntVect(0,-1,0));
+        my_box.setBig(amrex::IntVect(nsx-1,nsy-1,nsz-1));
+        my_box.setType(amrex::IndexType(amrex::IntVect(1,0,0)));
+    }
+    else if (var_name == "v" || var_name == "vbar")
+    {
+        my_box.setSmall(amrex::IntVect(-1,0,0));
+        my_box.setBig(amrex::IntVect(nsx-1,nsy-1,nsz-1));
+        my_box.setType(amrex::IndexType(amrex::IntVect(0,1,0)));
+    }
+    else  // everything cell-centered -- these have one ghost cell
+    {
+        my_box.setSmall(amrex::IntVect(-1,-1,0));
+        my_box.setBig(amrex::IntVect(nsx-2,nsy-2,nsz-1));
+    }
 
-    // amrex::Print() <<" NAME for this VAR " << var_name << std::endl;
-    // amrex::Print() <<" BOX  for THIS VAR " << my_box << std::endl;
+    // amrex::Print() <<" NAME and BOX for this VAR " << var_name << " " << my_box << std::endl;
 
 #ifdef AMREX_USE_GPU
     // Make sure temp lives on CPU since nc_arrays lives on CPU only
@@ -209,15 +226,17 @@ fill_fab_from_arrays (int iv,
     int ioff = temp.box().smallEnd()[0];
     int joff = temp.box().smallEnd()[1];
 
-    auto num_pts = my_box.numPts();
+    auto num_pts_in_box = my_box.numPts();
+    auto num_pts_in_src = nsx*nsy*nsz;
+    // amrex::Print() <<" NUM PTS IN BOX " << num_pts_in_box << std::endl;
+    // amrex::Print() <<" NUM PTS IN SRC " << num_pts_in_src << std::endl;
+    AMREX_ALWAYS_ASSERT(num_pts_in_box >= num_pts_in_src);
 
-    // amrex::Print() <<" ns1 * ns2 * ns3 " << ns1 * ns2 * ns3 << std::endl;
-    // amrex::Print() <<" NUMPTS " << num_pts << std::endl;
-
-    for (int n(0); n < num_pts; ++n) {
-        int k  = n / (ns2*ns3);
-        int j  = (n - k*(ns2*ns3)) / ns3 + joff;
-        int i  = n - k*(ns2*ns3) - (j-joff) * ns3 + ioff;
+    for (int n(0); n < num_pts_in_src; ++n) {
+        int nplane = nsx*nsy;
+        int k  =  n / nplane;
+        int j  = (n - k*nplane) / nsx + joff;
+        int i  =  n - k*nplane - (j-joff) * nsx + ioff;
         fab_arr(i,j,k,0) = static_cast<DType>(*(nc_arrays[iv].get_data()+n));
     }
 }

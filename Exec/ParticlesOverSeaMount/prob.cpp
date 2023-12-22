@@ -33,15 +33,11 @@ amrex_probinit(
 void
 init_custom_bathymetry (const Geometry& geom,
                         MultiFab& mf_h,
-                        MultiFab& mf_Zt_avg1,
                         const SolverChoice& m_solverChoice)
 {
     mf_h.setVal(geom.ProbHi(2));
     const int Lm = geom.Domain().size()[0];
     const int Mm = geom.Domain().size()[1];
-
-    //HACK HACK manually setting zeta to 0
-    mf_Zt_avg1.setVal(0.0);
 
     for ( MFIter mfi(mf_h, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {

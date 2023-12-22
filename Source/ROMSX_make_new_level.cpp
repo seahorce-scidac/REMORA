@@ -176,6 +176,9 @@ void ROMSX::resize_stuff(int lev)
     vec_zeta.resize(lev+1);
     vec_sstore.resize(lev+1);
 
+    vec_pm.resize(lev+1);
+    vec_pn.resize(lev+1);
+
     vec_rhoS.resize(lev+1);
     vec_rhoA.resize(lev+1);
 
@@ -279,6 +282,9 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     vec_ubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW+1,NGROW+1,0)));  // 2d free surface
+
+    vec_pm[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_pn[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
     // tempstore, saltstore, etc
     vec_sstore[lev].reset(new MultiFab(ba,dm,NCONS,IntVect(NGROW,NGROW,0)));

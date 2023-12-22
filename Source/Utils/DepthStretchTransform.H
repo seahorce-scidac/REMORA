@@ -49,140 +49,140 @@ ROMSX::stretch_transform (int lev)
       const auto local_theta_s = solverChoice.theta_s;
       const auto local_theta_b = solverChoice.theta_b;
 
-      amrex::ParallelFor(wgbx3,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k)
+      amrex::ParallelFor(wgbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
           z_w(i,j,k) = h(i,j,0);
       });
 
       // ROMS Transform 2
       Gpu::streamSynchronize();
-      amrex::ParallelFor(gbx3D,
-      [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+      amrex::ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int )
       {
-        for(int k=-1; k<=N_loop; k++) {
-        //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
-        // const auto prob_lo         = geomdata.ProbLo();
-        // const auto dx              = geomdata.CellSize();
-        // This is the z for the bottom of the cell this k corresponds to
-        //   if we weren't stretching and transforming
-        //        const Real z = prob_lo[2] + (k) * dx[2];
-        //        h(i,j,0) = -prob_lo[2]; // conceptually
+          for (int k=-1; k<=N_loop; k++) {
+              //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
+              // const auto prob_lo         = geomdata.ProbLo();
+              // const auto dx              = geomdata.CellSize();
+              // This is the z for the bottom of the cell this k corresponds to
+              //   if we weren't stretching and transforming
+              //        const Real z = prob_lo[2] + (k) * dx[2];
+              //        h(i,j,0) = -prob_lo[2]; // conceptually
 
-        ////////////////////////////////////////////////////////////////////
-        //ROMS Stretching 4
-        // Move this block to it's own function for maintainability if needed
-        // Information about the problem dimension would need to be added
-        // This file would need a k dependent function to return the
-        // stretching scalars, or access to 4 vectors of length prob_length(2)
-        /////////////////////////////////////////////////////////////////////
-        Real ds = 1.0_rt / Real(N);
+              ////////////////////////////////////////////////////////////////////
+              //ROMS Stretching 4
+              // Move this block to it's own function for maintainability if needed
+              // Information about the problem dimension would need to be added
+              // This file would need a k dependent function to return the
+              // stretching scalars, or access to 4 vectors of length prob_length(2)
+              /////////////////////////////////////////////////////////////////////
+              Real ds = 1.0_rt / Real(N);
 
-        Real cff_r, cff_w, cff1_r, cff1_w, cff2_r, cff2_w, Csur, Cbot;
-        Real sc_r,sc_w,Cs_r,Cs_w;
+              Real cff_r, cff_w, cff1_r, cff1_w, cff2_r, cff2_w, Csur, Cbot;
+              Real sc_r,sc_w,Cs_r,Cs_w;
 
-        if(k==N) // end of array // pretend we're storing 0?
-        {
-        sc_w=0.0; //sc_w / hc
-        Cs_w=0.0; //Cs_w
-        }
-        else if (k==0) // beginning of array
-        {
-        sc_w=-1.0; //sc_w / hc
-        Cs_w=-1.0; //Cs_w
-        }
-        else
-        {
-          sc_w=ds*(k-N);
+              if (k==N) // end of array // pretend we're storing 0?
+              {
+                  sc_w=0.0; //sc_w / hc
+                  Cs_w=0.0; //Cs_w
+              }
+              else if (k==0) // beginning of array
+              {
+                  sc_w=-1.0; //sc_w / hc
+                  Cs_w=-1.0; //Cs_w
+              }
+              else
+              {
+                sc_w=ds*(k-N);
 
-          if (local_theta_s > 0.0_rt) {
-            Csur=(1.0_rt-std::cosh(local_theta_s*sc_w))/
-              (std::cosh(local_theta_s)-1.0_rt);
-          } else {
-            Csur=-sc_w*sc_w;
-          }
+                if (local_theta_s > 0.0_rt) {
+                  Csur=(1.0_rt-std::cosh(local_theta_s*sc_w))/
+                    (std::cosh(local_theta_s)-1.0_rt);
+                } else {
+                  Csur=-sc_w*sc_w;
+                }
 
-          if (local_theta_b > 0.0_rt) {
-            Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
-              (1.0_rt-std::exp(-local_theta_b));
-            Cs_w=Cbot;
-          } else {
-            Cs_w=Csur;
-          }
-        }
+                if (local_theta_b > 0.0_rt) {
+                  Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
+                    (1.0_rt-std::exp(-local_theta_b));
+                  Cs_w=Cbot;
+                } else {
+                  Cs_w=Csur;
+                }
+              } // k test
 
-        cff_w=hc*sc_w;
-        cff1_w=Cs_w;
+              cff_w=hc*sc_w;
+              cff1_w=Cs_w;
 
-        //cff_r => sc_r *hc
-        //cff1_r => Cs_r
-        //Don't do anything special for first/last index
-        {
-          sc_r=ds*(k-N+0.5_rt);
+              //cff_r => sc_r *hc
+              //cff1_r => Cs_r
+              //Don't do anything special for first/last index
+              {
+                sc_r=ds*(k-N+0.5_rt);
 
-          if (local_theta_s > 0.0_rt) {
-            Csur=(1.0_rt-std::cosh(local_theta_s*sc_r))/
-              (std::cosh(local_theta_s)-1.0_rt);
-          } else {
-            Csur=-sc_r*sc_r;
-          }
+                if (local_theta_s > 0.0_rt) {
+                  Csur=(1.0_rt-std::cosh(local_theta_s*sc_r))/
+                    (std::cosh(local_theta_s)-1.0_rt);
+                } else {
+                  Csur=-sc_r*sc_r;
+                }
 
-          if (local_theta_b > 0.0_rt) {
-            Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
-              (1.0_rt-std::exp(-local_theta_b));
-            Cs_r=Cbot;
-          } else {
-            Cs_r=Csur;
-          }
-        }
+                if (local_theta_b > 0.0_rt) {
+                  Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
+                    (1.0_rt-std::exp(-local_theta_b));
+                  Cs_r=Cbot;
+                } else {
+                  Cs_r=Csur;
+                }
+              }
 
-        if (i==0&&j==0&&k<N&&k>=0) {
-            s_r(0,0,k) = sc_r;
-        }
+              if (i==0&&j==0&&k<N&&k>=0) {
+                  s_r(0,0,k) = sc_r;
+              }
 
-        cff_r=hc*sc_r;
-        cff1_r=Cs_r;
+              cff_r=hc*sc_r;
+              cff1_r=Cs_r;
 
-        ////////////////////////////////////////////////////////////////////
-        Real hwater=h(i,j,0);
-        /*
-        if(k==0)
-         {
-          //extra guess added (maybe not actually defined in ROMS)
-        Real hinv=1.0_rt/(hc+hwater);
-         cff2_r=(cff_r+cff1_r*hwater)*hinv;
-         //         z_w(i,j,k-2) = hwater;
-         //         z_w(i,j,k-1)= -hwater;
+              ////////////////////////////////////////////////////////////////////
+              Real hwater=h(i,j,0);
+              //
+              // if (k==0)  //extra guess added (maybe not actually defined in ROMS)
+              // {
+              //     Real hinv=1.0_rt/(hc+hwater);
+              //     cff2_r=(cff_r+cff1_r*hwater)*hinv;
+              //     //         z_w(i,j,k-2) = hwater;
+              //     //         z_w(i,j,k-1)= -hwater;
 
-         z_r(i,j,k) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
-         Hz(i,j,k)=z_w(i,j,k)+hwater;//-z_w(i,j,k-1);
-         }
-        else
-        */
-        {
-        //Note, we are not supporting ICESHELF flag
-          Real hinv=1.0_rt/(hc+hwater);
-          cff2_r=(cff_r+cff1_r*hwater)*hinv;
-          cff2_w=(cff_w+cff1_w*hwater)*hinv;
+              //     z_r(i,j,k) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
+              //     Hz(i,j,k)=z_w(i,j,k)+hwater;//-z_w(i,j,k-1);
+              // } else
 
-          if(k==0) {
-              // HACK: should actually be the normal expression with coeffs evaluated at k=N-1
-              z_w(i,j,N-1)=Zt_avg1(i,j,0);
-          }
-          else if(k==-1)
-              h(i,j,0,1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
-          else {
-              z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
-          }
-          if(k!=-1) {
-          z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
-          }
-        }
-        }
+              //Note, we are not supporting ICESHELF flag
+
+              Real hinv=1.0_rt/(hc+hwater);
+              cff2_r=(cff_r+cff1_r*hwater)*hinv;
+              cff2_w=(cff_w+cff1_w*hwater)*hinv;
+
+              if(k==0) {
+                  // HACK: should actually be the normal expression with coeffs evaluated at k=N-1
+                  z_w(i,j,N-1)=Zt_avg1(i,j,0);
+
+              } else if (k==-1) {
+                  h(i,j,0,1) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+
+              } else {
+                  z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+
+              }
+
+              if(k!=-1) {
+                  z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
+              }
+          } // k
       });
+
       Gpu::streamSynchronize();
-      amrex::ParallelFor(gbx3,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k)
+
+      amrex::ParallelFor(gbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
           if (k==0) {
               Hz(i,j,k)=z_w(i,j,k)+h(i,j,0);
