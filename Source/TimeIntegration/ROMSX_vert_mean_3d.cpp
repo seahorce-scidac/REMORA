@@ -8,11 +8,12 @@ using namespace amrex;
 
 void
 ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
-                     Array4<Real> phi,
-                     Array4<Real const> Hz,
-                     Array4<Real const> Dphi_avg1,
-                     Array4<Real      > DC, Array4<Real      > CF,
-                     Array4<Real> dxlen,
+                     const Array4<Real      >& phi,
+                     const Array4<Real const>& Hz,
+                     const Array4<Real const>& Dphi_avg1,
+                     const Array4<Real      >& DC,
+                     const Array4<Real      >& CF,
+                     const Array4<Real const>& dxlen,
                      const int nnew, const int N)
 {
 
@@ -30,17 +31,13 @@ ROMSX::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
       }
     });
 
-    Gpu::synchronize();
-
-    ParallelFor(makeSlab(phi_bx,2,0),
-    [=] AMREX_GPU_DEVICE (int i, int j, int )
+    ParallelFor(makeSlab(phi_bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff1=1.0/(CF(i,j,-1)*(1.0/dxlen(i,j,0)));
         DC(i,j,-1) = (DC(i,j,-1)*(1.0/dxlen(i,j,0)) - Dphi_avg1(i,j,0))*cff1; // recursive
     });
 
-    ParallelFor(phi_bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         phi(i,j,k) -= DC(i,j,-1);
     });

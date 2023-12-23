@@ -8,12 +8,15 @@ using namespace amrex;
 
 void
 ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
-                     Array4<Real> phi,
-                     Array4<Real const> Hz, /*temp var */ Array4<Real> Hzk,
-                     Array4<Real> oHz,
-                     Array4<Real> AK, Array4<Real> Akv,
-                     Array4<Real> BC, Array4<Real> DC,
-                     Array4<Real> FC, Array4<Real> CF,
+                     const Array4<Real      >& phi,
+                     const Array4<Real const>& Hz,
+                     const Array4<Real      >& Hzk, /*temp var */
+                     const Array4<Real      >& AK,
+                     const Array4<Real      >& Akv,
+                     const Array4<Real      >& BC,
+                     const Array4<Real      >& DC,
+                     const Array4<Real      >& FC,
+                     const Array4<Real      >& CF,
                      const int nnew, const int N, const Real dt_lev)
 {
     //
@@ -25,7 +28,6 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
     ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Hzk(i,j,k)=0.5*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
-        oHz(i,j,k) = 1.0/ Hzk(i,j,k);
     });
 
     //
@@ -42,8 +44,10 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
 #else
 #endif
     /////////////////// This and the following loop is the first non-matching thing that affects plotfile comparison for cuda
-    // Begin vertical viscosity term
     // NOTE: vertical viscosity term for tracers is identical except AK=Akt
+    const Real sixth = Real(1.0) / Real(6.0);
+    const Real third = Real(1.0) / Real(3.0);
+
     ParallelFor(makeSlab(phi_bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for (int k=0; k<=N; k++)
@@ -54,33 +58,34 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
             //  implicitly by solving a tridiagonal system.
             //
             Real cff;
-            Real cff1=1.0/6.0;
 
-            FC(i,j,k) = (k >= 1) ? cff1*Hzk(i,j,k  )-dt_lev*AK(i,j,k-1)*oHz(i,j,k  ):
-                                   cff1*Hzk(i,j,k);
+            const Real oHz = 1.0/ Hzk(i,j,k);
 
-            if(k<=N-1)
+            FC(i,j,k) = (k >= 1) ? sixth*Hzk(i,j,k  )-dt_lev*AK(i,j,k-1)*oHz :
+                                   sixth*Hzk(i,j,k);
+
+            if (k < N)
             {
-                CF(i,j,k)=cff1*Hzk(i,j,k+1)-dt_lev*AK(i,j,k+1)*oHz(i,j,k+1);
-            }
+                const Real oHzkp1 = 1.0/ Hzk(i,j,k+1);
 
-            cff1=1.0/3.0;
-            if (k==0)
-            {
-                BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
-                        dt_lev*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
-                cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
-                CF(i,j,k) *= cff;
-                DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*0.0);
+                CF(i,j,k)=sixth*Hzk(i,j,k+1)-dt_lev*AK(i,j,k+1)*oHzkp1;
 
-            } else if (k+1<=N) {
+                if (k==0)
+                {
+                    BC(i,j,k)=third*(Hzk(i,j,k)+Hzk(i,j,k+1)) + dt_lev*AK(i,j,k)*(oHz+oHzkp1);
 
-                    BC(i,j,k)=cff1*(Hzk(i,j,k)+Hzk(i,j,k+1))+
-                        dt_lev*AK(i,j,k)*(oHz(i,j,k)+oHz(i,j,k+1));
+                    cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
+                    CF(i,j,k) *= cff;
+                    DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*0.0);
+
+                } else {
+
+                    BC(i,j,k)=third*(Hzk(i,j,k)+Hzk(i,j,k+1)) + dt_lev*AK(i,j,k)*(oHz+oHzkp1);
                     cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
-                CF(i,j,k) *= cff;
-                DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*DC(i,j,k-1));
-            }
+                    CF(i,j,k) *= cff;
+                    DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*DC(i,j,k-1));
+                }
+            } // k < N
         } // k
     });
 #ifdef AMREX_USE_GPU
@@ -117,9 +122,11 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
     {
         Real cff;
         if(k-1>=0) {
-            cff = dt_lev*oHz(i,j,k)*(DC(i,j,k)-DC(i,j,k-1));
+            const Real oHz = 1.0/ Hzk(i,j,k);
+            cff = dt_lev*oHz*(DC(i,j,k)-DC(i,j,k-1));
         } else {
-            cff = dt_lev*oHz(i,j,k)*(DC(i,j,k));
+            const Real oHz = 1.0/ Hzk(i,j,k);
+            cff = dt_lev*oHz*(DC(i,j,k));
         }
         phi(i,j,k) += cff;
      });

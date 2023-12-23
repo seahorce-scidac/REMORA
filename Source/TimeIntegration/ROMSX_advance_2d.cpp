@@ -22,8 +22,6 @@ using namespace amrex;
  * @param[inout] mf_DV_avg2
  * @param[inout] mf_rubar
  * @param[inout] mf_rvbar
- * @param[inout] mf_rbar
- * @param[inout] mf_rbar
  * @param[inout] mf_zeta
  * @param[in   ] mf_h
  * @param[inout] mf_visc2_p
@@ -53,17 +51,18 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_rzeta,
                    std::unique_ptr<MultiFab>& mf_ubar,
                    std::unique_ptr<MultiFab>& mf_vbar,
-                   std::unique_ptr<MultiFab>& mf_zeta,
+                   MultiFab      * mf_zeta,
                    MultiFab const* mf_h,
-                   std::unique_ptr<MultiFab>& mf_visc2_p,
-                   std::unique_ptr<MultiFab>& mf_visc2_r,
+                   MultiFab const* mf_pm,
+                   MultiFab const* mf_pn,
+                   MultiFab const* mf_visc2_p,
+                   MultiFab const* mf_visc2_r,
                    Real dtfast_lev,
                    bool predictor_2d_step,
                    bool first_2d_step, int my_iif,
                    int & next_indx1)
 {
     auto geomdata  = Geom(lev).data();
-    const auto dxi = Geom(lev).InvCellSizeArray();
 
     int iic = istep[lev];
     const int nnew  = 0;
@@ -104,12 +103,13 @@ ROMSX::advance_2d (int lev,
         Array4<Real      > const& zeta = mf_zeta->array(mfi);
         Array4<Real const> const& h    = mf_h->const_array(mfi);
 
+        Array4<Real const> const& pm   = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn   = mf_pn->const_array(mfi);
+
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box xbxD = mfi.nodaltilebox(0).makeSlab(2,0);
-        Box ybxD = mfi.nodaltilebox(1).makeSlab(2,0);
         Box xgbx2 = mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0));
         Box ygbx2 = mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0));
 
@@ -130,60 +130,12 @@ ROMSX::advance_2d (int lev,
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-        FArrayBox fab_pn(tbxp2,1,The_Async_Arena());
-        FArrayBox fab_pm(tbxp2,1,The_Async_Arena());
-        FArrayBox fab_on_u(tbxp3,1,The_Async_Arena());
-        FArrayBox fab_om_v(tbxp3,1,The_Async_Arena());
-        FArrayBox fab_om_u(tbxp3,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_v(tbxp3,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_r(tbxp3,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_r(tbxp3,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_p(tbxp3,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_p(tbxp3,1,amrex::The_Async_Arena());
-
-        //step2d work arrays
+        // step2d work arrays
         FArrayBox fab_Drhs(tbxp3,1,The_Async_Arena());
-        FArrayBox fab_Dnew(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_gzeta(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_gzeta2(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_gzetaSA(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_Dstp(tbxp2,1,The_Async_Arena());
-
-        FArrayBox fab_rhs_ubar(xbxD,1,The_Async_Arena());
-        FArrayBox fab_rhs_vbar(ybxD,1,The_Async_Arena());
-        FArrayBox fab_rhs_zeta(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_zeta_new(tbxp1,1,The_Async_Arena());
-
-        auto on_u=fab_on_u.array();
-        auto om_v=fab_om_v.array();
-        auto om_u=fab_om_u.array();
-        auto on_v=fab_on_v.array();
-        auto om_r=fab_om_r.array();
-        auto on_r=fab_on_r.array();
-        auto om_p=fab_om_p.array();
-        auto on_p=fab_on_p.array();
-
         auto Drhs=fab_Drhs.array();
 
         auto DUon = mf_DUon.array(mfi);
         auto DVom = mf_DVom.array(mfi);
-
-        // NOTE: these will eventually be on smaller boxes, since these
-        // are all centered on different points
-        ParallelFor(makeSlab(tbxp3,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
-        {
-              //Note: are the comment definitons right? Don't seem to match metrics.f90
-              om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
-              on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
-              om_r(i,j,0)=1.0/dxi[0]; // 1/pm(i,j)
-              on_r(i,j,0)=1.0/dxi[1]; // 1/pn(i,j)
-              //todo: om_p on_p
-              om_p(i,j,0)=1.0/dxi[0]; // 4/(pm(i-1,j-1)+pm(i-1,j)+pm(i,j-1)+pm(i,j))
-              on_p(i,j,0)=1.0/dxi[1]; // 4/(pn(i-1,j-1)+pn(i-1,j)+pn(i,j-1)+pn(i,j))
-              on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
-              om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
-        });
 
         ParallelFor(makeSlab(tbxp3,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -192,13 +144,15 @@ ROMSX::advance_2d (int lev,
 
         ParallelFor(makeSlab(xgbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            Real cff1= 0.5 * on_u(i,j,0) *(Drhs(i,j,0)+Drhs(i-1,j,0));
+            Real on_u = Real(2.0) / (pn(i,j,0)+pn(i-1,j,0));
+            Real cff1= 0.5 * on_u *(Drhs(i,j,0)+Drhs(i-1,j,0));
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
 
         ParallelFor(makeSlab(ygbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            Real cff1= 0.5*om_v(i,j,0)*(Drhs(i,j,0)+Drhs(i,j-1,0));
+            Real om_v = Real(2.0) / (pm(i,j,0)+pm(i,j-1,0));
+            Real cff1= 0.5 * om_v * (Drhs(i,j,0)+Drhs(i,j-1,0));
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
         });
     }
@@ -216,8 +170,8 @@ ROMSX::advance_2d (int lev,
         Array4<Real      > const& rufrc   = mf_rufrc->array(mfi);
         Array4<Real      > const& rvfrc   = mf_rvfrc->array(mfi);
         Array4<Real      > const& Zt_avg1 = mf_Zt_avg1->array(mfi);
-        Array4<Real      > const& ubar = mf_ubar->array(mfi);
-        Array4<Real      > const& vbar = mf_vbar->array(mfi);
+        Array4<Real      > const& ubar    = mf_ubar->array(mfi);
+        Array4<Real      > const& vbar    = mf_vbar->array(mfi);
         Array4<Real      > const& zeta = mf_zeta->array(mfi);
         Array4<Real      > const& DU_avg1 = (mf_DU_avg1)->array(mfi);
         Array4<Real      > const& DU_avg2 = (mf_DU_avg2)->array(mfi);
@@ -228,8 +182,11 @@ ROMSX::advance_2d (int lev,
         Array4<Real      > const& rubar = (mf_rubar)->array(mfi);
         Array4<Real      > const& rvbar = (mf_rvbar)->array(mfi);
         Array4<Real      > const& rzeta = (mf_rzeta)->array(mfi);
-        Array4<Real      > const& visc2_p = (mf_visc2_p)->array(mfi);
-        Array4<Real      > const& visc2_r = (mf_visc2_r)->array(mfi);
+        Array4<Real const> const& visc2_p = mf_visc2_p->const_array(mfi);
+        Array4<Real const> const& visc2_r = mf_visc2_r->const_array(mfi);
+
+        Array4<Real const> const& pm = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn = mf_pn->const_array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -245,38 +202,20 @@ ROMSX::advance_2d (int lev,
         Box ybxD = mfi.nodaltilebox(1);
         ybxD.makeSlab(2,0);
 
-        Box tbxp1 = bx;
-        Box tbxp11 = bx;
-        Box tbxp2 = bx;
-        Box tbxp3 = bx;
-        tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
-        tbxp2.grow(IntVect(NGROW,NGROW,0));
-        tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
-        tbxp3.grow(IntVect(NGROW+1,NGROW+1,0));
+        Box tbxp1  = bx;  tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
+        Box tbxp11 = bx; tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
+        Box tbxp2  = bx;  tbxp2.grow(IntVect(NGROW,NGROW,0));
+        Box tbxp3  = bx;  tbxp3.grow(IntVect(NGROW+1,NGROW+1,0));
 
-        Box bxD = bx;
-        bxD.makeSlab(2,0);
-        Box gbxD = gbx;
-        gbxD.makeSlab(2,0);
-        Box gbx1D = gbx1;
-        gbx1D.makeSlab(2,0);
-        Box gbx2D = gbx2;
-        gbx2D.makeSlab(2,0);
+        Box bxD   = bx;   bxD.makeSlab(2,0);
+        Box gbxD  = gbx;  gbxD.makeSlab(2,0);
+        Box gbx1D = gbx1; gbx1D.makeSlab(2,0);
+        Box gbx2D = gbx2; gbx2D.makeSlab(2,0);
 
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-        FArrayBox fab_pn(tbxp3,1,The_Async_Arena());
-        FArrayBox fab_pm(tbxp3,1,The_Async_Arena());
-        FArrayBox fab_on_u(tbxp3,1,The_Async_Arena());
-        FArrayBox fab_om_v(tbxp3,1,The_Async_Arena());
         FArrayBox fab_fomn(tbxp2,1,The_Async_Arena());
-        FArrayBox fab_om_u(tbxp3,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_v(tbxp3,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_r(tbxp3,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_r(tbxp3,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_p(tbxp3,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_p(tbxp3,1,amrex::The_Async_Arena());
 
         //step2d work arrays
         FArrayBox fab_Drhs(tbxp3,1,The_Async_Arena());
@@ -293,19 +232,10 @@ ROMSX::advance_2d (int lev,
         FArrayBox fab_rhs_zeta(tbxp1,1,The_Async_Arena());
         FArrayBox fab_zeta_new(tbxp1,1,The_Async_Arena());
 
-        auto on_u=fab_on_u.array();
-        auto om_v=fab_om_v.array();
-        auto pn=fab_pn.array();
-        auto pm=fab_pm.array();
         auto fomn=fab_fomn.array();
-        auto om_u=fab_om_u.array();
-        auto on_v=fab_on_v.array();
-        auto om_r=fab_om_r.array();
-        auto on_r=fab_on_r.array();
-        auto om_p=fab_om_p.array();
-        auto on_p=fab_on_p.array();
 
-        auto Drhs=fab_Drhs.array();
+        auto Drhs = fab_Drhs.array();
+        auto Drhs_const = fab_Drhs.const_array();
         auto Dnew=fab_Dnew.array();
         auto zwrk=fab_zwrk.array();
         auto gzeta=fab_gzeta.array();
@@ -326,53 +256,30 @@ ROMSX::advance_2d (int lev,
         Real coriolis_beta = solverChoice.coriolis_beta;
 
         //From ana_grid.h and metrics.F
-        ParallelFor(makeSlab(tbxp3,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-              pm(i,j,0)=dxi[0];
-              pn(i,j,0)=dxi[1];
-        });
-        ParallelFor(xbxD,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
               rhs_ubar(i,j,0)=0.0;
         });
-        ParallelFor(ybxD,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+
+        ParallelFor(ybxD, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
               rhs_vbar(i,j,0)=0.0;
         });
 
-        ParallelFor(makeSlab(tbxp3,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
-        {
-              //Note: are the comment definitons right? Don't seem to match metrics.f90
-              om_v(i,j,0)=1.0/dxi[0]; // 2/(pm(i,j-1)+pm(i,j))
-              on_u(i,j,0)=1.0/dxi[1]; // 2/(pm(i,j-1)+pm(i,j))
-              om_r(i,j,0)=1.0/dxi[0]; // 1/pm(i,j)
-              on_r(i,j,0)=1.0/dxi[1]; // 1/pn(i,j)
-              //todo: om_p on_p
-              om_p(i,j,0)=1.0/dxi[0]; // 4/(pm(i-1,j-1)+pm(i-1,j)+pm(i,j-1)+pm(i,j))
-              on_p(i,j,0)=1.0/dxi[1]; // 4/(pn(i-1,j-1)+pn(i-1,j)+pn(i,j-1)+pn(i,j))
-              on_v(i,j,0)=1.0/dxi[1]; // 2/(pn(i-1,j)+pn(i,j))
-              om_u(i,j,0)=1.0/dxi[0]; // 2/(pm(i-1,j)+pm(i,j))
-        });
-        ParallelFor(tbxp2D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int  )
-        {
+        Real Esize = Geom(lev).ProbHi()[1] - Geom(lev).ProbLo()[1];
 
-              const auto prob_lo         = geomdata.ProbLo();
-              const auto dx              = geomdata.CellSize();
+        ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
+        {
+            const auto prob_lo         = geomdata.ProbLo();
+            const auto dx              = geomdata.CellSize();
 
-              //defined UPWELLING
-              Real Esize=geomdata.ProbHi()[1] - geomdata.ProbLo()[1];
-              Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              Real f=coriolis_f0 + coriolis_beta*(y-.5*Esize);
-              fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
+            //defined UPWELLING
+            Real y = prob_lo[1] + (j + 0.5) * dx[1];
+            Real f=coriolis_f0 + coriolis_beta*(y-.5*Esize);
+            fomn(i,j,0) = f*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
-        ParallelFor(makeSlab(tbxp3,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(makeSlab(tbxp3,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
         });
@@ -465,10 +372,10 @@ ROMSX::advance_2d (int lev,
         // todo: HACKHACKHACK Should use rho0 from prob.H
         Real fac=1000.0/1025.0;
 
-        if(my_iif==0) {
+        if (my_iif==0) {
             Real cff1=dtfast_lev;
-            ParallelFor(tbxp1,
-            [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rhs_zeta(i,j,0) = (DUon(i,j,0)-DUon(i+1,j,0))+
                                   (DVom(i,j,0)-DVom(i,j+1,0));
@@ -481,12 +388,14 @@ ROMSX::advance_2d (int lev,
                 gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
             });
+
         } else if (predictor_2d_step) {
+
             Real cff1=2.0_rt*dtfast_lev;
             Real cff4=4.0/25.0;
             Real cff5=1.0-2.0*cff4;
-            ParallelFor(tbxp1,
-            [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
                                 (DVom(i,j,0)-DVom(i,j+1,0));
@@ -500,14 +409,16 @@ ROMSX::advance_2d (int lev,
                 gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
             });
+
         } else if (!predictor_2d_step) { //AKA if(corrector_2d_step)
+
             Real cff1=dtfast_lev*5.0_rt/12.0_rt;
             Real cff2=dtfast_lev*8.0_rt/12.0_rt;
             Real cff3=dtfast_lev*1.0_rt/12.0_rt;
             Real cff4=2.0_rt/5.0_rt;
             Real cff5=1.0_rt-cff4;
-            ParallelFor(tbxp1,
-            [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 Real cff=cff1*((DUon(i,j,0)-DUon(i+1,j,0))+
                                (DVom(i,j,0)-DVom(i,j+1,0)));
@@ -532,15 +443,14 @@ ROMSX::advance_2d (int lev,
         ParallelFor(gbx1,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            zeta(i,j,0,knew)=zeta_new(i,j,0);
+            zeta(i,j,0,knew) = zeta_new(i,j,0);
         });
 
         //
         //  If predictor step, load right-side-term into shared array.
         //
         if (predictor_2d_step) {
-            ParallelFor(gbx1,
-            [=] AMREX_GPU_DEVICE (int i, int j, int )
+            ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
             });
@@ -564,7 +474,8 @@ ROMSX::advance_2d (int lev,
         ParallelFor(xbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-          rhs_ubar(i,j,0)=cff1*on_u(i,j,0)*
+          Real on_u = Real(2.0) / (pn(i,j,0)+pn(i-1,j,0));
+          rhs_ubar(i,j,0)=cff1 * on_u *
                         ((    h(i-1,j,0) +     h(i,j,0))*
                          (gzeta(i-1,j,0) - gzeta(i,j,0))+
                          (    h(i-1,j,0) -     h(i,j,0))*
@@ -577,7 +488,8 @@ ROMSX::advance_2d (int lev,
         ParallelFor(ybxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            rhs_vbar(i,j,0) = cff1*om_v(i,j,0)*
+            Real om_v = Real(2.0) / (pm(i,j,0)+pm(i,j-1,0));
+            rhs_vbar(i,j,0) = cff1*om_v *
                           ((    h(i,j-1,0) +     h(i,j,0))*
                            (gzeta(i,j-1,0) - gzeta(i,j,0))+
                            (    h(i,j-1,0) -     h(i,j,0))*
@@ -593,7 +505,9 @@ ROMSX::advance_2d (int lev,
        // rhs_uv_2d
        //-----------------------------------------------------------------------
        //
-       rhs_uv_2d(xbxD, ybxD, ubar, vbar, rhs_ubar, rhs_vbar, DUon, DVom, krhs);
+       Array4<Real const> const& ubar_const = mf_ubar->const_array(mfi);
+       Array4<Real const> const& vbar_const = mf_vbar->const_array(mfi);
+       rhs_uv_2d(xbxD, ybxD, ubar_const, vbar_const, rhs_ubar, rhs_vbar, DUon, DVom, krhs);
 
        //-----------------------------------------------------------------------
        // Add Coriolis forcing
@@ -605,16 +519,16 @@ ROMSX::advance_2d (int lev,
             // coriolis
             //-----------------------------------------------------------------------
             //
-            coriolis(xbxD, ybxD, ubar, vbar, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
+            coriolis(xbxD, ybxD, ubar_const, vbar_const, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
        }
 
        //-----------------------------------------------------------------------
        //Add in horizontal harmonic viscosity.
        // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
        //-----------------------------------------------------------------------
-
        uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar,
-               visc2_p, visc2_r, Drhs, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
+               visc2_p, visc2_r, Drhs_const,
+               pn, pm, krhs, nnew, 0.0);
 
        //-----------------------------------------------------------------------
        // Coupling from 3d to 2d
@@ -622,15 +536,15 @@ ROMSX::advance_2d (int lev,
        if (first_2d_step&&predictor_2d_step)
        {
             if (iic==ntfirst) {
-                ParallelFor(xbxD,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+                ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     rufrc(i,j,0)    -= rhs_ubar(i,j,0);
                     rhs_ubar(i,j,0) += rufrc(i,j,0);
                     ru(i,j,-1,nstp)  = rufrc(i,j,0);
                 });
-                ParallelFor(ybxD,
-                [=] AMREX_GPU_DEVICE (int i, int j, int )
+
+                ParallelFor(ybxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     rvfrc(i,j,0)    -= rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0) += rvfrc(i,j,0);

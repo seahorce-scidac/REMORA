@@ -23,7 +23,9 @@ void ROMSX::advance_3d_ml (int lev, Real dt_lev)
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
                vec_Akv[lev], vec_Akt[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev],
-               vec_z_w[lev], vec_hOfTheConfusingName[lev], N, dt_lev);
+               vec_z_w[lev], vec_hOfTheConfusingName[lev].get(),
+               vec_pm[lev].get(), vec_pn[lev].get(),
+               N, dt_lev);
 
     FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar));
     FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar));

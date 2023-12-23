@@ -23,14 +23,13 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
                    std::unique_ptr<MultiFab>& mf_Huon,
                    std::unique_ptr<MultiFab>& mf_Hvom,
                    std::unique_ptr<MultiFab>& mf_z_w,
-                   std::unique_ptr<MultiFab>& mf_h,
+                   MultiFab const* mf_h,
+                   MultiFab const* mf_pm,
+                   MultiFab const* mf_pn,
                    const int N, Real dt_lev)
 {
     const int nrhs  = 0;
     const int nnew  = 0;
-
-    const GpuArray<Real,AMREX_SPACEDIM> dx  = Geom(lev).CellSizeArray();
-    const GpuArray<Real,AMREX_SPACEDIM> dxi = Geom(lev).InvCellSizeArray();
 
     int iic = istep[lev];
     int ntfirst = 0;
@@ -51,17 +50,17 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& u = mf_u.array(mfi);
-        Array4<Real> const& v = mf_v.array(mfi);
+        Array4<Real      > const& u = mf_u.array(mfi);
+        Array4<Real      > const& v = mf_v.array(mfi);
 
-        Array4<Real> const& ru = mf_ru->array(mfi);
-        Array4<Real> const& rv = mf_rv->array(mfi);
+        Array4<Real      > const& ru = mf_ru->array(mfi);
+        Array4<Real      > const& rv = mf_rv->array(mfi);
 
-        Array4<Real> const& AK = mf_AK.array(mfi);
-        Array4<Real> const& DC = mf_DC.array(mfi);
+        Array4<Real      > const& AK = mf_AK.array(mfi);
+        Array4<Real      > const& DC = mf_DC.array(mfi);
 
-        Array4<Real> const& Hzk = mf_Hzk.array(mfi);
-        Array4<Real> const& Akv = mf_Akv->array(mfi);
+        Array4<Real      > const& Hzk = mf_Hzk.array(mfi);
+        Array4<Real      > const& Akv = mf_Akv->array(mfi);
 
         Array4<Real const> const& Hz  = mf_Hz->const_array(mfi);
 
@@ -77,9 +76,11 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real> const& Huon = mf_Huon->array(mfi);
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
 
+        Array4<Real const> const& pm  = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn  = mf_pn->const_array(mfi);
+
         Box bx = mfi.tilebox();
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
         Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
 
         Box xbx = mfi.nodaltilebox(0);
@@ -98,34 +99,11 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
-        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
-        FArrayBox fab_pn(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pm(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
-
-        FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_v(tbxp2,1,amrex::The_Async_Arena());
-        auto on_u = fab_on_u.array();
-        auto om_v = fab_om_v.array();
 
         auto FC = fab_FC.array();
         auto BC = fab_BC.array();
         auto CF = fab_CF.array();
-        auto oHz= fab_oHz.array();
-        auto pn=fab_pn.array();
-        auto pm=fab_pm.array();
-
-        //
-        // Update to u and v
-        //
-        ParallelFor(amrex::makeSlab(tbxp2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
-        {
-            pm(i,j,0)=dxi[0];
-            pn(i,j,0)=dxi[1];
-        });
-
-        fab_on_u.template setVal<RunOn::Device>(dx[1],amrex::makeSlab(tbxp2,2,0));
-        fab_om_v.template setVal<RunOn::Device>(dx[0],amrex::makeSlab(tbxp2,2,0));
 
         Real cff;
         if (iic==ntfirst) {
@@ -155,13 +133,13 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         mf_DC[mfi].template setVal<RunOn::Device>(0.,xbx);
         fab_CF.template     setVal<RunOn::Device>(0.,xbx);
 
-        vert_visc_3d(xbx,1,0,u,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(xbx,1,0,u,Hz,Hzk,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
         // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,ybx);
         fab_CF.template     setVal<RunOn::Device>(0.,ybx);
 
-        vert_visc_3d(ybx,0,1,v,Hz,Hzk,oHz,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
+        vert_visc_3d(ybx,0,1,v,Hz,Hzk,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
         // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,xbx);
@@ -180,24 +158,24 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(xbx,IntVect(0,0,1)));
         fab_CF.template     setVal<RunOn::Device>(0.,grow(xbx,IntVect(0,0,1)));
 
-        update_massflux_3d(xbx,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,nnew);
+        update_massflux_3d(xbx,1,0,u,ubar,Huon,Hz,pn,DU_avg1,DU_avg2,DC,FC,nnew);
 
         // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(ybx,IntVect(0,0,1)));
         fab_CF.template     setVal<RunOn::Device>(0.,grow(ybx,IntVect(0,0,1)));
 
-        update_massflux_3d(ybx,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,nnew);
+        update_massflux_3d(ybx,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,nnew);
 
 #else
         // Reset to zero on the box on which they'll be used
         fab_FC.template setVal<RunOn::Device>(0.,gbx2);
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(gbx2,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,nnew);
+        update_massflux_3d(gbx2,1,0,u,ubar,Huon,Hz,pn,DU_avg1,DU_avg2,DC,FC,nnew);
 
         // Reset to zero on the box on which they'll be used
         fab_FC.template     setVal<RunOn::Device>(0.,gbx2);
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(gbx2,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,nnew);
+        update_massflux_3d(gbx2,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,nnew);
 #endif
     }
 
@@ -211,22 +189,20 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        //Array4<Real> const& tempstore = mf_tempstore->array(mfi);
-        //Array4<Real> const& saltstore = mf_saltstore->array(mfi);
-
         Array4<Real> const& Hz  = mf_Hz->array(mfi);
 
         Array4<Real> const& Huon = mf_Huon->array(mfi);
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
 
-        Array4<Real> const& z_w= (mf_z_w)->array(mfi);
-        Array4<Real> const& h= (mf_h)->array(mfi);
+        Array4<Real const> const& z_w = mf_z_w->const_array(mfi);
+        Array4<Real const> const& h   = mf_h->const_array(mfi);
+        Array4<Real const> const& pm  = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn  = mf_pn->const_array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box gbx11 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,NGROW-1));
         Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
 
         Box tbxp1 = bx;
@@ -239,31 +215,10 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
-        FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
-        FArrayBox fab_pn(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pm(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
 
-        FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_v(tbxp2,1,amrex::The_Async_Arena());
-
         auto FC  = fab_FC.array();
-        auto oHz = fab_oHz.array();
-        auto pn  = fab_pn.array();
-        auto pm  = fab_pm.array();
-        auto W= fab_W.array();
-
-        //
-        // Update to u and v
-        //
-        ParallelFor(amrex::makeSlab(tbxp2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
-        {
-            pm(i,j,0)=dxi[0];
-            pn(i,j,0)=dxi[1];
-        });
-
-        fab_on_u.template setVal<RunOn::Device>(dx[1],makeSlab(tbxp2,2,0));
-        fab_om_v.template setVal<RunOn::Device>(dx[0],makeSlab(tbxp2,2,0));
+        auto W   = fab_W.array();
 
         //
         //------------------------------------------------------------------------
@@ -314,7 +269,7 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         //
         for (int i_comp=0; i_comp < NCONS; i_comp++) {
             Array4<Real> const& sstore = mf_sstore->array(mfi, i_comp);
-            rhs_t_3d(bx, gbx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom, Hz, oHz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
+            rhs_t_3d(bx, gbx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom, Hz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
         }
 
     } // mfi
@@ -345,39 +300,14 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_BC(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(tbxp21,1,amrex::The_Async_Arena());
-        FArrayBox fab_oHz(tbxp11,1,amrex::The_Async_Arena());
-        FArrayBox fab_pn(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pm(tbxp2,1,amrex::The_Async_Arena());
         FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
-
-        FArrayBox fab_on_u(tbxp2,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_v(tbxp2,1,amrex::The_Async_Arena());
 
         auto FC = fab_FC.array();
         auto BC = fab_BC.array();
         auto CF = fab_CF.array();
-        auto oHz= fab_oHz.array();
-        auto pn=fab_pn.array();
-        auto pm=fab_pm.array();
-
-        //From ini_fields and .in file
-        //fab_Akt.setVal(1e-6);
-        //From ana_grid.h and metrics.F
-
-        //
-        // Update to u and v
-        //
-        ParallelFor(makeSlab(tbxp2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
-        {
-            pm(i,j,0)=dxi[0];
-            pn(i,j,0)=dxi[1];
-        });
-
-        fab_on_u.template setVal<RunOn::Device>(dx[1],makeSlab(tbxp2,2,0));
-        fab_om_v.template setVal<RunOn::Device>(dx[0],makeSlab(tbxp2,2,0));
 
         for (int i_comp=0; i_comp < NCONS; i_comp++) {
-            vert_visc_3d(bx,0,0,mf_cons.array(mfi,i_comp),Hz,Hzk,oHz,
+            vert_visc_3d(bx,0,0,mf_cons.array(mfi,i_comp),Hz,Hzk,
                     AK,mf_Akt->array(mfi,i_comp),BC,DC,FC,CF,nnew,N,dt_lev);
         }
     } // MFiter

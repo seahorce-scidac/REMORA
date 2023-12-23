@@ -5,15 +5,12 @@ using namespace amrex;
 /**
  * rhs_t_3d
  *
- * @param[in   ] bx
- * @param[in   ] xbx
- * @param[in   ] ybx
+ * @param[in   ] gbx
  * @param[inout] t
  * @param[in   ] tempstore
  * @param[in   ] Huon
  * @param[in   ] Hvom
  * @param[in   ] Hz
- * @param[in   ] oHz
  * @param[in   ] pn
  * @param[in   ] pm
  * @param[in   ] W
@@ -26,11 +23,15 @@ using namespace amrex;
 
 void
 ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
-                 Array4<Real> t, Array4<Real> tempstore,
-                 Array4<Real> Huon, Array4<Real> Hvom,
-                 Array4<Real> Hz, Array4<Real> oHz,
-                 Array4<Real> pn, Array4<Real> pm,
-                 Array4<Real> W   , Array4<Real> FC,
+                 const Array4<Real      >& t,
+                 const Array4<Real const>& tempstore,
+                 const Array4<Real const>& Huon,
+                 const Array4<Real const>& Hvom,
+                 const Array4<Real const>& Hz,
+                 const Array4<Real const>& pn,
+                 const Array4<Real const>& pm,
+                 const Array4<Real const>& W ,
+                 const Array4<Real      >& FC,
                  int nrhs, int nnew, int N, Real dt_lev)
 {
     //copy the tilebox
@@ -70,12 +71,6 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
     fab_FX.template setVal<RunOn::Device>(0.);
     fab_FE.template setVal<RunOn::Device>(0.);
-
-    ParallelFor(bx,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        oHz(i,j,k) = 1.0/ Hz(i,j,k);
-    });
 
     ParallelFor(utbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
@@ -300,6 +295,6 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             cff4=FC(i,j,k);
         }
 
-        t(i,j,k)=oHz(i,j,k)*(t(i,j,k)-cff1*cff4);
+        t(i,j,k) = (t(i,j,k)-cff1*cff4) / Hz(i,j,k);
     });
 }

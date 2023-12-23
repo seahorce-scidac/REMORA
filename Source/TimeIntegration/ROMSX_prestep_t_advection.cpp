@@ -8,14 +8,19 @@ using namespace amrex;
 
 void
 ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
-                            Array4<Real> tempold,
-                            Array4<Real> tempcache,
-                            Array4<Real> Hz,
-                            Array4<Real> Huon, Array4<Real> Hvom,
-                            Array4<Real> pm,   Array4<Real> pn,
-                            Array4<Real> W  ,  Array4<Real> DC,
-                            Array4<Real> FC ,  Array4<Real> tempstore,
-                            Array4<Real> z_w, Array4<Real> h,
+                            const Array4<Real      >& tempold,
+                            const Array4<Real      >& tempcache,
+                            const Array4<Real      >& Hz,
+                            const Array4<Real      >& Huon,
+                            const Array4<Real      >& Hvom,
+                            const Array4<Real      >& W  ,
+                            const Array4<Real      >& DC,
+                            const Array4<Real      >& FC ,
+                            const Array4<Real      >& tempstore,
+                            const Array4<Real const>& z_w,
+                            const Array4<Real const>& h,
+                            const Array4<Real const>& pm,
+                            const Array4<Real const>& pn,
                             int iic, int ntfirst, int nrhs, int N,
                             Real dt_lev)
 {

@@ -167,14 +167,7 @@ ROMSX::Evolve ()
 
         if (check_int > 0 && (step+1) % check_int == 0) {
             last_check_file_step = step+1;
-#ifdef ROMSX_USE_NETCDF
-            if (check_type == "netcdf") {
-               WriteNCCheckpointFile();
-            }
-#endif
-            if (check_type == "native") {
-               WriteCheckpointFile();
-            }
+            WriteCheckpointFile();
         }
 
         post_timestep(step, cur_time, dt[0]);
@@ -198,14 +191,7 @@ ROMSX::Evolve ()
     }
 
     if (check_int > 0 && istep[0] > last_check_file_step) {
-#ifdef ROMSX_USE_NETCDF
-        if (check_type == "netcdf") {
-           WriteNCCheckpointFile();
-        }
-#endif
-        if (check_type == "native") {
-           WriteCheckpointFile();
-        }
+        WriteCheckpointFile();
     }
 
 }
@@ -291,14 +277,7 @@ ROMSX::InitData ()
 
     if (restart_chkfile == "" && check_int > 0)
     {
-#ifdef ROMSX_USE_NETCDF
-        if (check_type == "netcdf") {
-           WriteNCCheckpointFile();
-        }
-#endif
-        if (check_type == "native") {
-           WriteCheckpointFile();
-        }
+        WriteCheckpointFile();
         last_check_file_step = 0;
     }
 
@@ -346,14 +325,7 @@ ROMSX::InitData ()
 void
 ROMSX::restart()
 {
-#ifdef ROMSX_USE_NETCDF
-    if (restart_type == "netcdf") {
-       ReadNCCheckpointFile();
-    }
-#endif
-    if (restart_type == "native") {
-       ReadCheckpointFile();
-    }
+    ReadCheckpointFile();
 
     // We set this here so that we don't over-write the checkpoint file we just started from
     last_check_file_step = istep[0];
@@ -455,12 +427,8 @@ ROMSX::ReadParameters ()
 
     ParmParse pp(pp_prefix);
     {
-        // The type of the file we restart from
-        pp.query("restart_type", restart_type);
-
         pp.query("regrid_int", regrid_int);
         pp.query("check_file", check_file);
-        pp.query("check_type", check_type);
         pp.query("check_int", check_int);
 
         pp.query("restart", restart_chkfile);
