@@ -5,8 +5,6 @@ using namespace amrex;
 /**
  * prestep
  *
- * @param[in   ] lev
- * @param[in   ] mf_uold
  * @param[in   ] mf_vold
  * @param[inout] mf_u (looks like reset in update_vel <- prestep_uv_3d, so maybe just out
  * @param[inout] mf_v maybe just out
@@ -53,8 +51,6 @@ ROMSX::prestep (int lev,
                 const int nnew, int nstp, int nrhs,
                 int N, const Real dt_lev)
 {
-    const auto dxi              = Geom(lev).InvCellSizeArray();
-
     const BoxArray&            ba = S_old.boxArray();
     const DistributionMapping& dm = S_old.DistributionMap();
 
@@ -72,13 +68,13 @@ ROMSX::prestep (int lev,
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
-        Array4<Real> const& Akv = (vec_Akv[lev])->array(mfi);
-        Array4<Real> const& Akt = (vec_Akt[lev])->array(mfi);
-        Array4<Real> const& Hz  = (vec_Hz[lev])->array(mfi);
-        Array4<Real> const& Huon  = (vec_Huon[lev])->array(mfi);
-        Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
-        Array4<Real> const& uold = (mf_uold).array(mfi);
-        Array4<Real> const& vold = (mf_vold).array(mfi);
+        Array4<Real> const& Akv   = vec_Akv[lev]->array(mfi);
+        Array4<Real> const& Akt   = vec_Akt[lev]->array(mfi);
+        Array4<Real> const& Hz    = vec_Hz[lev]->array(mfi);
+        Array4<Real> const& Huon  = vec_Huon[lev]->array(mfi);
+        Array4<Real> const& Hvom  = vec_Hvom[lev]->array(mfi);
+        Array4<Real const> const& uold  = mf_uold.const_array(mfi);
+        Array4<Real const> const& vold = mf_vold.const_array(mfi);
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
 
@@ -132,19 +128,6 @@ ROMSX::prestep (int lev,
         tbxp2D.makeSlab(2,0);
 
         FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_on_u(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_v(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_u(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_v(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_r(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_r(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_om_p(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_on_p(tbxp2D,1,amrex::The_Async_Arena());
-
-        FArrayBox fab_pmon_u(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_pnom_u(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_pmon_v(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_pnom_v(tbxp2D,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
 

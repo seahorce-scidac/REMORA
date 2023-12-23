@@ -20,16 +20,19 @@ using namespace amrex;
  */
 
 void
-ROMSX::update_massflux_3d (const Box& bx, const int ioff, const int joff,
-                           Array4<Real> phi, Array4<Real> phibar, Array4<Real> Hphi,
-                           Array4<Real const> Hz, Array4<Real> om_v_or_on_u,
-                           Array4<Real const> Dphi_avg1,
-                           Array4<Real const> Dphi_avg2, Array4<Real> DC,
-                           Array4<Real> FC, const int nnew)
+ROMSX::update_massflux_3d (const Box& bx,
+                           const int ioff, const int joff,
+                           const Array4<Real      >& phi,
+                           const Array4<Real      >& phibar,
+                           const Array4<Real      >& Hphi,
+                           const Array4<Real const>& Hz,
+                           const Array4<Real const>& pm_or_pn,
+                           const Array4<Real const>& Dphi_avg1,
+                           const Array4<Real const>& Dphi_avg2,
+                           const Array4<Real      >& DC,
+                           const Array4<Real      >& FC,
+                           const int nnew)
 {
-    // const int Mn = Geom(0).Domain().size()[0];
-    // const int Mm = Geom(0).Domain().size()[1];
-
     auto N = Geom(0).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     auto bxD=bx;
@@ -47,19 +50,18 @@ ROMSX::update_massflux_3d (const Box& bx, const int ioff, const int joff,
     //This takes advantage of Hz being an extra grow cell size
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        DC(i,j,k)=0.5*om_v_or_on_u(i,j,0)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+        Real om_v_or_on_u = Real(2.0) / (pm_or_pn(i,j,0) + pm_or_pn(i-ioff,j-joff,0));
+
+        DC(i,j,k) = Real(0.5) * om_v_or_on_u * (Hz(i,j,k)+Hz(i-ioff,j-joff,k));
     });
 
     ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-        // Real CF = 0.;
-        for(int k=0; k<=N; k++) {
-            DC(i,j,-1)=DC(i,j,-1)+DC(i,j,k);
-            // CF += DC(i,j,k)*phi(i,j,k,nnew);
+        for (int k=0; k<=N; k++) {
+            DC(i,j,-1) += DC(i,j,k);
         }
 
-        DC(i,j,-1) = 1.0/DC(i,j,-1);
-        // CF = DC(i,j,-1) * (CF-Dphi_avg1(i,j,0));
+        DC(i,j,-1) = 1.0 / DC(i,j,-1);
 
         for (int k=0; k<=N; k++) {
 

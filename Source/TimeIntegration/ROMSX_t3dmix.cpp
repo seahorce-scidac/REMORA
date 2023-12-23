@@ -9,8 +9,6 @@ ROMSX::t3dmix  (const Box& bx,
                 const Array4<Real const>& Hz,
                 const Array4<Real const>& pm,
                 const Array4<Real const>& pn,
-                const Array4<Real const>& pmon_u,
-                const Array4<Real const>& pnom_v,
                 const Real dt_lev, const int ncomp)
 {
     //-----------------------------------------------------------------------
@@ -27,25 +25,29 @@ ROMSX::t3dmix  (const Box& bx,
     auto FE=fab_FE.array();
 
     ParallelFor(xbx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-        {
-            const Real cff = 0.25 * (diff2(i,j,n) + diff2(i-1,j,n)) * pmon_u(i,j,0);
-            FX(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i+1,j,k)) * (state(i,j,k,n)-state(i-1,j,k,n));
-        });
+    {
+        const Real pmon_u = (pm(i-1,j,0)+pm(i,j,0))/(pn(i-1,j,0)+pn(i,j,0));
+
+        const Real cff = 0.25 * (diff2(i,j,n) + diff2(i-1,j,n)) * pmon_u;
+        FX(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i+1,j,k)) * (state(i,j,k,n)-state(i-1,j,k,n));
+    });
 
     ParallelFor(ybx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-        {
-            const Real cff = 0.25*(diff2(i,j,n)+diff2(i,j-1,n)) * pnom_v(i,j,0);
-            FE(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i,j-1,k)) * (state(i,j,k,n) - state(i,j-1,k,n));
-        });
+    {
+        const Real pnom_v = (pn(i,j-1,0)+pn(i,j,0))/(pm(i,j-1,0)+pm(i,j,0));
+
+        const Real cff = 0.25*(diff2(i,j,n)+diff2(i,j-1,n)) * pnom_v;
+        FE(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i,j-1,k)) * (state(i,j,k,n) - state(i,j-1,k,n));
+    });
 
     /*
      Time-step harmonic, S-surfaces diffusion term.
     */
     ParallelFor(bx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
-        {
-            const Real cff = dt_lev*pm(i,j,0)*pn(i,j,0);
+    {
+        const Real cff = dt_lev*pm(i,j,0)*pn(i,j,0);
 
-            state(i,j,k,n) += cff * ( (FX(i+1,j  ,k,n)-FX(i,j,k,n))
-                                     +(FE(i  ,j+1,k,n)-FE(i,j,k,n)) );
-        });
+        state(i,j,k,n) += cff * ( (FX(i+1,j  ,k,n)-FX(i,j,k,n))
+                                 +(FE(i  ,j+1,k,n)-FE(i,j,k,n)) );
+    });
 }

@@ -18,10 +18,13 @@ using namespace amrex;
 
 void
 ROMSX::rhs_uv_2d (const Box& xbx, const Box& ybx,
-                  Array4<Real> ubar, Array4<Real> vbar,
-                  Array4<Real> rhs_ubar  , Array4<Real> rhs_vbar,
-                  Array4<Real> DUon, Array4<Real> DVom,
-                  int krhs)
+                  const Array4<Real const>& ubar,
+                  const Array4<Real const>& vbar,
+                  const Array4<Real      >& rhs_ubar  ,
+                  const Array4<Real      >& rhs_vbar,
+                  const Array4<Real const>& DUon,
+                  const Array4<Real const>& DVom,
+                  const int krhs)
 {
     //
     // Scratch space
@@ -65,7 +68,7 @@ ROMSX::rhs_uv_2d (const Box& xbx, const Box& ybx,
         Real Huxx_ip1 = DUon(i  ,j,0)-2.0*DUon(i+1,j,0)+DUon(i+2,j,0);
 
         Real cff=1.0/6.0;
-        Real ubar_avg=ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
+        Real ubar_avg = ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
 
         UFx(i,j,0)=0.25*(ubar_avg-cff*uxx_avg) * (DUon(i,j,0)+ DUon(i+1,j,0)-cff*(Huxx_i+ Huxx_ip1));
     });

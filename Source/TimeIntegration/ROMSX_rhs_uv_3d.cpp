@@ -13,14 +13,14 @@ using namespace amrex;
  * @param[  out] rv
  * @param[  out] rufrc
  * @param[  out] rvfrc
- * @param[  out] sustr
- * @param[  out] svstr
- * @param[  out] bustr
- * @param[  out] bvstr
+ * @param[in   ] sustr
+ * @param[in   ] svstr
+ * @param[in   ] bustr
+ * @param[in   ] bvstr
  * @param[in   ] Huon
  * @param[in   ] Hvom
- * @param[in   ] on_u
- * @param[in   ] om_v
+ * @param[in   ] pm
+ * @param[in   ] pn
  * @param[in   ] W
  * @param[inout] FC
  * @param[in   ] nrhs
@@ -29,15 +29,22 @@ using namespace amrex;
 
 void
 ROMSX::rhs_uv_3d (const Box& xbx, const Box& ybx,
-                  Array4<Real> uold  , Array4<Real> vold,
-                  Array4<Real> ru, Array4<Real> rv,
-                  Array4<Real> rufrc, Array4<Real> rvfrc,
-                  Array4<Real> sustr, Array4<Real> svstr,
-                  Array4<Real> bustr, Array4<Real> bvstr,
-                  Array4<Real> Huon, Array4<Real> Hvom,
-                  Array4<Real> on_u, Array4<Real> om_v,
-                  Array4<Real> om_u, Array4<Real> on_v,
-                  Array4<Real> W   , Array4<Real> FC,
+                  const Array4<Real const>& uold  ,
+                  const Array4<Real const>& vold,
+                  const Array4<Real      >& ru,
+                  const Array4<Real      >& rv,
+                  const Array4<Real      >& rufrc,
+                  const Array4<Real      >& rvfrc,
+                  const Array4<Real const>& sustr,
+                  const Array4<Real const>& svstr,
+                  const Array4<Real const>& bustr,
+                  const Array4<Real const>& bvstr,
+                  const Array4<Real const>& Huon,
+                  const Array4<Real const>& Hvom,
+                  const Array4<Real const>& pm,
+                  const Array4<Real const>& pn,
+                  const Array4<Real const>& W   ,
+                  const Array4<Real      >& FC,
                   int nrhs, int N)
 {
     //
@@ -166,7 +173,9 @@ ROMSX::rhs_uv_3d (const Box& xbx, const Box& ybx,
        {
           rufrc(i,j,0) += ru(i,j,k,nrhs);
 
-          Real cff  = om_u(i,j,0)*on_u(i,j,0);
+          Real om_u = 2.0 / (pm(i-1,j,0)+pm(i,j,0));
+          Real on_u = 2.0 / (pn(i-1,j,0)+pn(i,j,0));
+          Real cff  = om_u * on_u;
 
           Real cff1 = (k == N) ?  sustr(i,j,0)*cff : 0.0;
           Real cff2 = (k == 0) ? -bustr(i,j,0)*cff : 0.0;
@@ -267,7 +276,9 @@ ROMSX::rhs_uv_3d (const Box& xbx, const Box& ybx,
        {
           rvfrc(i,j,0) += rv(i,j,k,nrhs);
 
-          Real cff = om_v(i,j,0)*on_v(i,j,0);
+          Real om_v = Real(2.0) / (pm(i,j-1,0)+pm(i,j,0));
+          Real on_v = Real(2.0) / (pn(i,j-1,0)+pn(i,j,0));
+          Real cff = om_v * on_v;
 
           Real cff1 = (k == N) ?  svstr(i,j,0)*cff : 0.0;
           Real cff2 = (k == 0) ? -bvstr(i,j,0)*cff : 0.0;
