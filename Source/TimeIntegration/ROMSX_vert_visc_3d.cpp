@@ -8,12 +8,16 @@ using namespace amrex;
 
 void
 ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
-                     Array4<Real> phi,
-                     Array4<Real const> Hz, /*temp var */ Array4<Real> Hzk,
-                     Array4<Real> oHz,
-                     Array4<Real> AK, Array4<Real> Akv,
-                     Array4<Real> BC, Array4<Real> DC,
-                     Array4<Real> FC, Array4<Real> CF,
+                     const Array4<Real      >& phi,
+                     const Array4<Real const>& Hz,
+                     const Array4<Real      >& Hzk, /*temp var */
+                     const Array4<Real      >& oHz,
+                     const Array4<Real      >& AK,
+                     const Array4<Real      >& Akv,
+                     const Array4<Real      >& BC,
+                     const Array4<Real      >& DC,
+                     const Array4<Real      >& FC,
+                     const Array4<Real      >& CF,
                      const int nnew, const int N, const Real dt_lev)
 {
     //
@@ -42,7 +46,6 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
 #else
 #endif
     /////////////////// This and the following loop is the first non-matching thing that affects plotfile comparison for cuda
-    // Begin vertical viscosity term
     // NOTE: vertical viscosity term for tracers is identical except AK=Akt
     ParallelFor(makeSlab(phi_bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {

@@ -14,9 +14,13 @@ using namespace amrex;
  */
 
 void
-ROMSX::set_massflux_3d (Array4<Real> u, Array4<Real> Hu, Array4<Real> on_u,
-                        Array4<Real> v, Array4<Real> Hv, Array4<Real> om_v,
-                        Array4<Real const> Hz)
+ROMSX::set_massflux_3d (const Array4<Real const>& u,
+                        const Array4<Real      >& Hu,
+                        const Array4<Real const>& on_u,
+                        const Array4<Real const>& v,
+                        const Array4<Real      >& Hv,
+                        const Array4<Real const>& om_v,
+                        const Array4<Real const>& Hz)
 {
     //
     //-----------------------------------------------------------------------

@@ -36,17 +36,19 @@ void
 ROMSX::prestep (int lev,
                 MultiFab& mf_uold, MultiFab& mf_vold,
                 MultiFab& mf_u, MultiFab& mf_v,
-                std::unique_ptr<MultiFab>& mf_ru,
-                std::unique_ptr<MultiFab>& mf_rv,
+                      MultiFab* mf_ru,
+                      MultiFab* mf_rv,
                 MultiFab& S_old, MultiFab& S_new,
                 MultiFab& mf_W, MultiFab& mf_DC,
-                std::unique_ptr<MultiFab>& mf_z_r,
-                std::unique_ptr<MultiFab>& mf_z_w,
-                std::unique_ptr<MultiFab>& mf_h,
-                std::unique_ptr<MultiFab>& mf_sustr,
-                std::unique_ptr<MultiFab>& mf_svstr,
-                std::unique_ptr<MultiFab>& mf_bustr,
-                std::unique_ptr<MultiFab>& mf_bvstr,
+                const MultiFab* mf_z_r,
+                const MultiFab* mf_z_w,
+                const MultiFab* mf_h,
+                const MultiFab* mf_pm,
+                const MultiFab* mf_pn,
+                const MultiFab* mf_sustr,
+                const MultiFab* mf_svstr,
+                const MultiFab* mf_bustr,
+                const MultiFab* mf_bvstr,
                 const int iic, const int ntfirst,
                 const int nnew, int nstp, int nrhs,
                 int N, const Real dt_lev)
@@ -75,21 +77,24 @@ ROMSX::prestep (int lev,
         Array4<Real> const& Hz  = (vec_Hz[lev])->array(mfi);
         Array4<Real> const& Huon  = (vec_Huon[lev])->array(mfi);
         Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
-        Array4<Real> const& z_r = (mf_z_r)->array(mfi);
-        Array4<Real> const& z_w= (mf_z_w)->array(mfi);
-        Array4<Real> const& h= (mf_h)->array(mfi);
         Array4<Real> const& uold = (mf_uold).array(mfi);
         Array4<Real> const& vold = (mf_vold).array(mfi);
         Array4<Real> const& u = (mf_u).array(mfi);
         Array4<Real> const& v = (mf_v).array(mfi);
 
-        Array4<Real> const& ru = (mf_ru)->array(mfi);
-        Array4<Real> const& rv = (mf_rv)->array(mfi);
-        Array4<Real> const& W = (mf_W).array(mfi);
-        Array4<Real> const& sustr = (mf_sustr)->array(mfi);
-        Array4<Real> const& svstr = (mf_svstr)->array(mfi);
-        Array4<Real> const& bustr = (mf_bustr)->array(mfi);
-        Array4<Real> const& bvstr = (mf_bvstr)->array(mfi);
+        Array4<Real const> const& z_r   = mf_z_r->const_array(mfi);
+        Array4<Real const> const& z_w   = mf_z_w->const_array(mfi);
+        Array4<Real const> const& h     = mf_h->const_array(mfi);
+        Array4<Real const> const& pm    = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn    = mf_pn->const_array(mfi);
+
+        Array4<Real      > const& ru = mf_ru->array(mfi);
+        Array4<Real      > const& rv = mf_rv->array(mfi);
+        Array4<Real      > const& W = (mf_W).array(mfi);
+        Array4<Real const> const& sustr = mf_sustr->const_array(mfi);
+        Array4<Real const> const& svstr = mf_svstr->const_array(mfi);
+        Array4<Real const> const& bustr = mf_bustr->const_array(mfi);
+        Array4<Real const> const& bvstr = mf_bvstr->const_array(mfi);
 
         Real lambda = 1.0;
 
@@ -127,8 +132,6 @@ ROMSX::prestep (int lev,
         tbxp2D.makeSlab(2,0);
 
         FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_pm(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_pn(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_u(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_v(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_u(tbxp2D,1,amrex::The_Async_Arena());
@@ -137,24 +140,13 @@ ROMSX::prestep (int lev,
         FArrayBox fab_on_r(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_p(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_p(tbxp2D,1,amrex::The_Async_Arena());
+
         FArrayBox fab_pmon_u(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pnom_u(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pmon_v(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pnom_v(tbxp2D,1,amrex::The_Async_Arena());
-        //FArrayBox fab_oHz(gbx11,1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
-        auto pm=fab_pm.array();
-        auto pn=fab_pn.array();
-
-
-        ParallelFor(tbxp2D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
-        {
-            //Note: are the comment definitons right? Don't seem to match metrics.f90
-            pm(i,j,0) = dxi[0];
-            pn(i,j,0) = dxi[1];
-        });
 
         //From ini_fields and .in file
         //fab_Akt.setVal(1e-6);
@@ -177,7 +169,7 @@ ROMSX::prestep (int lev,
             Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
             prestep_t_advection(bx, gbx, S_old.array(mfi,i_comp),
                                 mf_scalarcache.array(mfi,i_comp), Hz, Huon, Hvom,
-                                pm, pn, W, DC, FC, sstore, z_w, h, iic, ntfirst,
+                                W, DC, FC, sstore, z_w, h, pm, pn, iic, ntfirst,
                                 nrhs, N, dt_lev);
         }
 

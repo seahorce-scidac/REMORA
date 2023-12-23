@@ -4,10 +4,13 @@ using namespace amrex;
 
 void
 ROMSX::t3dmix  (const Box& bx,
-                Array4<Real> state,
-                Array4<Real> diff2, Array4<Real> Hz,
-                Array4<Real> pm, Array4<Real> pn,
-                Array4<Real> pmon_u, Array4<Real> pnom_v,
+                const Array4<Real      >& state,
+                const Array4<Real const>& diff2,
+                const Array4<Real const>& Hz,
+                const Array4<Real const>& pm,
+                const Array4<Real const>& pn,
+                const Array4<Real const>& pmon_u,
+                const Array4<Real const>& pnom_v,
                 const Real dt_lev, const int ncomp)
 {
     //-----------------------------------------------------------------------

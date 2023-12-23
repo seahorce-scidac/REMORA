@@ -23,8 +23,10 @@ void ROMSX::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int m
                vec_DU_avg1[lev], vec_DU_avg2[lev],
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
-                vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
-               vec_hOfTheConfusingName[lev].get(), vec_visc2_p[lev], vec_visc2_r[lev],
+                vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev].get(),
+               vec_hOfTheConfusingName[lev].get(),
+               vec_pm[lev].get(), vec_pn[lev].get(),
+               vec_visc2_p[lev].get(), vec_visc2_r[lev].get(),
                dtfast_lev, predictor_2d_step, first_2d_step, my_iif, next_indx1);
 
     //Corrector. Skip it on last fast step
@@ -43,8 +45,10 @@ void ROMSX::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int m
                    vec_DU_avg1[lev], vec_DU_avg2[lev],
                    vec_DV_avg1[lev], vec_DV_avg2[lev],
                    vec_rubar[lev], vec_rvbar[lev], vec_rzeta[lev],
-                    vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev],
-                   vec_hOfTheConfusingName[lev].get(), vec_visc2_p[lev], vec_visc2_r[lev],
+                    vec_ubar[lev],  vec_vbar[lev],  vec_zeta[lev].get(),
+                   vec_hOfTheConfusingName[lev].get(),
+                   vec_pm[lev].get(), vec_pn[lev].get(),
+                   vec_visc2_p[lev].get(), vec_visc2_r[lev].get(),
                    dtfast_lev, predictor_2d_step, first_2d_step, my_iif, next_indx1);
     }
 }

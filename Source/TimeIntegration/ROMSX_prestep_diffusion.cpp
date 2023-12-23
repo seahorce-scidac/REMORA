@@ -18,13 +18,18 @@ using namespace amrex;
 void
 ROMSX::prestep_diffusion (const Box& vel_bx, const Box& gbx,
                           const int ioff, const int joff,
-                          Array4<Real>  vel, Array4<Real> vel_old,
-                          Array4<Real> rvel, Array4<Real> Hz,
-                          Array4<Real>  Akv,
-                          Array4<Real>   DC, Array4<Real> FC,
-                          Array4<Real> sstr, Array4<Real> bstr,
-                          Array4<Real> z_r,
-                          Array4<Real>   pm, Array4<Real>  pn,
+                          const Array4<Real      >& vel,
+                          const Array4<Real const>& vel_old,
+                          const Array4<Real      >& rvel,
+                          const Array4<Real const>& Hz,
+                          const Array4<Real const>& Akv,
+                          const Array4<Real      >& DC,
+                          const Array4<Real      >& FC,
+                          const Array4<Real const>& sstr,
+                          const Array4<Real const>& bstr,
+                          const Array4<Real const>& z_r,
+                          const Array4<Real const>& pm,
+                          const Array4<Real const>& pn,
                           const int iic, const int ntfirst, const int nnew, int nstp, int nrhs, int N,
                           const Real lambda, const Real dt_lev)
 {
@@ -68,7 +73,7 @@ ROMSX::prestep_diffusion (const Box& vel_bx, const Box& gbx,
         }
 
         DC(i,j,k) = 0.25 * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
-                                      * (pn(i,j,0)+pn(i-ioff,j-joff,0));
+                                  * (pn(i,j,0)+pn(i-ioff,j-joff,0));
     });
 
     ParallelFor(gbxvel,
@@ -116,9 +121,10 @@ ROMSX::prestep_diffusion (const Box& vel_bx, const Box& gbx,
             }
 
             cff3=0.5*DC(i,j,k);
-            if(ioff==0&&joff==0)
+
+            if (ioff==0&&joff==0) {
                 vel(i,j,k,nnew)=cff1 + cff2;
-            else {
+            } else {
                 indx=nrhs ? 0 : 1;
                 Real r_swap= rvel(i,j,k,indx);
                 rvel(i,j,k,indx) = rvel(i,j,k,nrhs);
@@ -126,8 +132,8 @@ ROMSX::prestep_diffusion (const Box& vel_bx, const Box& gbx,
                 vel(i,j,k,nnew)=cff1- cff3*rvel(i,j,k,indx)+ cff2;
             }
         } else {
-            cff1= 5.0/12.0;
-            cff2=16.0/12.0;
+            cff1 =  5.0/12.0;
+            cff2 = 16.0/12.0;
             if (k==0) {
                 cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff4=FC(i,j,k)-dt_lev*bstr(i,j,0);
@@ -141,17 +147,17 @@ ROMSX::prestep_diffusion (const Box& vel_bx, const Box& gbx,
                 cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff4=FC(i,j,k)-FC(i,j,k-1);
             }
-            if(ioff==0&&joff==0)
-                vel(i,j,k,nnew)=cff3 + cff4;
-            else {
+
+            if (ioff==0 && joff==0) {
+                vel(i,j,k,nnew) = cff3 + cff4;
+            } else {
                 indx=nrhs ? 0 : 1;
                 Real r_swap= rvel(i,j,k,indx);
                 rvel(i,j,k,indx) = rvel(i,j,k,nrhs);
                 rvel(i,j,k,nrhs) = r_swap;
 
-                vel(i,j,k,nnew)=cff3+
-                    DC(i,j,k)*(cff1*rvel(i,j,k,nrhs)-
-                               cff2*rvel(i,j,k,indx))+
+                vel(i,j,k,nnew) = cff3 + DC(i,j,k)*(cff1*rvel(i,j,k,nrhs)-
+                                                    cff2*rvel(i,j,k,indx))+
                     cff4;
                 rvel(i,j,k,nrhs) = 0.0;
             }

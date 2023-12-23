@@ -48,9 +48,11 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     MultiFab mf_DC(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
     MultiFab mf_Hzk(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
 
-    std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
-    std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
-    std::unique_ptr<MultiFab>& mf_h = vec_hOfTheConfusingName[lev];
+    MultiFab* mf_z_r = vec_z_r[lev].get();
+    MultiFab* mf_z_w = vec_z_w[lev].get();
+    MultiFab* mf_h   = vec_hOfTheConfusingName[lev].get();
+    MultiFab* mf_pm  = vec_pm[lev].get();
+    MultiFab* mf_pn  =   vec_pn[lev].get();
 
     //Consider passing these into the advance function or renaming relevant things
 
@@ -66,6 +68,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     std::unique_ptr<MultiFab>& mf_rdrag = vec_rdrag[lev];
     std::unique_ptr<MultiFab>& mf_bustr = vec_bustr[lev];
     std::unique_ptr<MultiFab>& mf_bvstr = vec_bvstr[lev];
+
     MultiFab mf_rw(ba,dm,1,IntVect(NGROW,NGROW,0));
 
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
@@ -124,6 +127,9 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real      > const& bustr = (mf_bustr)->array(mfi);
         Array4<Real      > const& bvstr = (mf_bvstr)->array(mfi);
 
+        Array4<Real const> const& pm = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn = mf_pn->const_array(mfi);
+
         Box  bx = mfi.tilebox();
         Box ubx = Box(uold);
         Box vbx = Box(vold);
@@ -149,9 +155,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
 
-        FArrayBox fab_pn(gbx2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_pm(gbx2D,1,amrex::The_Async_Arena());
-
         FArrayBox fab_om_r(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_r(gbx2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_p(gbx2D,1,amrex::The_Async_Arena());
@@ -175,6 +178,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         auto on_r=fab_on_r.array();
         auto om_p=fab_om_p.array();
         auto on_p=fab_on_p.array();
+
         auto pmon_u=fab_pmon_u.array();
         auto pnom_u=fab_pnom_u.array();
         auto pmon_v=fab_pmon_v.array();
@@ -233,10 +237,11 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     if (solverChoice.use_prestep) {
         const int nnew  = 0;
         prestep(lev, U_old, V_old, U_new, V_new,
-                mf_ru, mf_rv,
+                mf_ru.get(), mf_rv.get(),
                 S_old, S_new, mf_W,
-                mf_DC, mf_z_r, mf_z_w, mf_h, mf_sustr, mf_svstr, mf_bustr,
-                mf_bvstr, iic, ntfirst, nnew, nstp, nrhs, N, dt_lev);
+                mf_DC, mf_z_r, mf_z_w, mf_h, mf_pm, mf_pn,
+                mf_sustr.get(), mf_svstr.get(), mf_bustr.get(), mf_bvstr.get(),
+                iic, ntfirst, nnew, nstp, nrhs, N, dt_lev);
     }
 
     // We use FillBoundary not FillPatch here since mf_W is single-level scratch space
@@ -244,13 +249,13 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
     for ( MFIter mfi(S_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& Hz  = (vec_Hz[lev])->array(mfi);
-        Array4<Real> const& Huon  = (vec_Huon[lev])->array(mfi);
-        Array4<Real> const& Hvom  = (vec_Hvom[lev])->array(mfi);
-        Array4<Real> const& z_r = (mf_z_r)->array(mfi);
-        Array4<Real> const& z_w = (mf_z_w)->array(mfi);
-        Array4<Real> const& uold = U_old.array(mfi);
-        Array4<Real> const& vold = V_old.array(mfi);
+        Array4<Real const> const& Hz    = vec_Hz[lev]->const_array(mfi);
+        Array4<Real> const& Huon  = vec_Huon[lev]->array(mfi);
+        Array4<Real> const& Hvom  = vec_Hvom[lev]->array(mfi);
+        Array4<Real> const& z_r   = (mf_z_r)->array(mfi);
+        Array4<Real> const& z_w   = (mf_z_w)->array(mfi);
+        Array4<Real> const& uold  = U_old.array(mfi);
+        Array4<Real> const& vold  = V_old.array(mfi);
         Array4<Real> const& u    = U_new.array(mfi);
         Array4<Real> const& v    = V_new.array(mfi);
         Array4<Real> const& rho = (mf_rho).array(mfi);
@@ -268,6 +273,9 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
         Array4<Real> const& zeta = (vec_zeta[lev])->array(mfi);
         Array4<Real> const& Zt_avg1 = (vec_Zt_avg1[lev])->array(mfi);
+
+        Array4<Real const> const& pm = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn = mf_pn->const_array(mfi);
 
         Box bx = mfi.tilebox();
 
@@ -304,14 +312,14 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_pn(tbxp2D,1,amrex::The_Async_Arena());
-        FArrayBox fab_pm(tbxp2D,1,amrex::The_Async_Arena());
+
         FArrayBox fab_om_u(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_v(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_r(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_r(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_om_p(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_on_p(tbxp2D,1,amrex::The_Async_Arena());
+
         FArrayBox fab_pmon_u(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pnom_u(tbxp2D,1,amrex::The_Async_Arena());
         FArrayBox fab_pmon_v(tbxp2D,1,amrex::The_Async_Arena());
@@ -322,8 +330,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         FArrayBox fab_om_v(makeSlab(vbx,2,0),1,amrex::The_Async_Arena());
 
         auto FC=fab_FC.array();
-        auto pn=fab_pn.array();
-        auto pm=fab_pm.array();
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
         auto om_u=fab_om_u.array();
@@ -332,6 +338,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         auto on_r=fab_on_r.array();
         auto om_p=fab_om_p.array();
         auto on_p=fab_on_p.array();
+
         auto pmon_u=fab_pmon_u.array();
         auto pnom_u=fab_pnom_u.array();
         auto pmon_v=fab_pmon_v.array();
@@ -346,8 +353,6 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         ParallelFor(tbxp2D,
         [=] AMREX_GPU_DEVICE (int i, int j, int  )
         {
-            pm(i,j,0) = dxi[0];
-            pn(i,j,0) = dxi[1];
             Real y = prob_lo[1] + (j + 0.5) * dx[1];
             Real f=coriolis_f0 + coriolis_beta*(y-.5*Esize);
             fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
@@ -389,6 +394,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
         int ncomp = solverChoice.use_salt ? 2 : 1;
         Array4<Real> const&     s_arr = S_old.array(mfi);
         Array4<Real> const& diff2_arr = vec_diff2[lev]->array(mfi);
+
         t3dmix(bx, s_arr, diff2_arr, Hz, pm, pn, pmon_u, pnom_v, dt_lev, ncomp);
 
         Array4<Real> const& diff2_arr_scalar = vec_diff2[lev]->array(mfi,Scalar_comp);

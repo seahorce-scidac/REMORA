@@ -8,9 +8,12 @@ using namespace amrex;
 
 void
 ROMSX::coriolis (const Box& xbx, const Box& ybx,
-                 Array4<Real> uold  , Array4<Real> vold,
-                 Array4<Real> ru, Array4<Real> rv,
-                 Array4<Real> Hz, Array4<Real> fomn,
+                 const Array4<Real const>& uold,
+                 const Array4<Real const>& vold,
+                 const Array4<Real      >& ru,
+                 const Array4<Real      >& rv,
+                 const Array4<Real const>& Hz,
+                 const Array4<Real const>& fomn,
                  int nrhs, int nr)
 {
     //

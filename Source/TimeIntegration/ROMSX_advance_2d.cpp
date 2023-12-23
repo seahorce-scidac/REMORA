@@ -22,8 +22,6 @@ using namespace amrex;
  * @param[inout] mf_DV_avg2
  * @param[inout] mf_rubar
  * @param[inout] mf_rvbar
- * @param[inout] mf_rbar
- * @param[inout] mf_rbar
  * @param[inout] mf_zeta
  * @param[in   ] mf_h
  * @param[inout] mf_visc2_p
@@ -53,10 +51,12 @@ ROMSX::advance_2d (int lev,
                    std::unique_ptr<MultiFab>& mf_rzeta,
                    std::unique_ptr<MultiFab>& mf_ubar,
                    std::unique_ptr<MultiFab>& mf_vbar,
-                   std::unique_ptr<MultiFab>& mf_zeta,
+                   MultiFab      * mf_zeta,
                    MultiFab const* mf_h,
-                   std::unique_ptr<MultiFab>& mf_visc2_p,
-                   std::unique_ptr<MultiFab>& mf_visc2_r,
+                   MultiFab const* mf_pm,
+                   MultiFab const* mf_pn,
+                   MultiFab const* mf_visc2_p,
+                   MultiFab const* mf_visc2_r,
                    Real dtfast_lev,
                    bool predictor_2d_step,
                    bool first_2d_step, int my_iif,
@@ -104,6 +104,9 @@ ROMSX::advance_2d (int lev,
         Array4<Real      > const& zeta = mf_zeta->array(mfi);
         Array4<Real const> const& h    = mf_h->const_array(mfi);
 
+        Array4<Real const> const& pm   = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn   = mf_pn->const_array(mfi);
+
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
@@ -130,8 +133,6 @@ ROMSX::advance_2d (int lev,
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-        FArrayBox fab_pn(tbxp2,1,The_Async_Arena());
-        FArrayBox fab_pm(tbxp2,1,The_Async_Arena());
         FArrayBox fab_on_u(tbxp3,1,The_Async_Arena());
         FArrayBox fab_om_v(tbxp3,1,The_Async_Arena());
         FArrayBox fab_om_u(tbxp3,1,amrex::The_Async_Arena());
@@ -228,8 +229,11 @@ ROMSX::advance_2d (int lev,
         Array4<Real      > const& rubar = (mf_rubar)->array(mfi);
         Array4<Real      > const& rvbar = (mf_rvbar)->array(mfi);
         Array4<Real      > const& rzeta = (mf_rzeta)->array(mfi);
-        Array4<Real      > const& visc2_p = (mf_visc2_p)->array(mfi);
-        Array4<Real      > const& visc2_r = (mf_visc2_r)->array(mfi);
+        Array4<Real const> const& visc2_p = mf_visc2_p->const_array(mfi);
+        Array4<Real const> const& visc2_r = mf_visc2_r->const_array(mfi);
+
+        Array4<Real const> const& pm = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn = mf_pn->const_array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -266,8 +270,6 @@ ROMSX::advance_2d (int lev,
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-        FArrayBox fab_pn(tbxp3,1,The_Async_Arena());
-        FArrayBox fab_pm(tbxp3,1,The_Async_Arena());
         FArrayBox fab_on_u(tbxp3,1,The_Async_Arena());
         FArrayBox fab_om_v(tbxp3,1,The_Async_Arena());
         FArrayBox fab_fomn(tbxp2,1,The_Async_Arena());
@@ -295,8 +297,6 @@ ROMSX::advance_2d (int lev,
 
         auto on_u=fab_on_u.array();
         auto om_v=fab_om_v.array();
-        auto pn=fab_pn.array();
-        auto pm=fab_pm.array();
         auto fomn=fab_fomn.array();
         auto om_u=fab_om_u.array();
         auto on_v=fab_on_v.array();
@@ -305,7 +305,8 @@ ROMSX::advance_2d (int lev,
         auto om_p=fab_om_p.array();
         auto on_p=fab_on_p.array();
 
-        auto Drhs=fab_Drhs.array();
+        auto Drhs = fab_Drhs.array();
+        auto Drhs_const = fab_Drhs.const_array();
         auto Dnew=fab_Dnew.array();
         auto zwrk=fab_zwrk.array();
         auto gzeta=fab_gzeta.array();
@@ -326,19 +327,12 @@ ROMSX::advance_2d (int lev,
         Real coriolis_beta = solverChoice.coriolis_beta;
 
         //From ana_grid.h and metrics.F
-        ParallelFor(makeSlab(tbxp3,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-              pm(i,j,0)=dxi[0];
-              pn(i,j,0)=dxi[1];
-        });
-        ParallelFor(xbxD,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
               rhs_ubar(i,j,0)=0.0;
         });
-        ParallelFor(ybxD,
-        [=] AMREX_GPU_DEVICE (int i, int j, int)
+
+        ParallelFor(ybxD, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
               rhs_vbar(i,j,0)=0.0;
         });
@@ -612,9 +606,13 @@ ROMSX::advance_2d (int lev,
        //Add in horizontal harmonic viscosity.
        // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
        //-----------------------------------------------------------------------
+       auto const_om_r=fab_om_r.const_array();
+       auto const_on_r=fab_on_r.const_array();
+       auto const_om_p=fab_om_p.const_array();
+       auto const_on_p=fab_on_p.const_array();
 
        uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar,
-               visc2_p, visc2_r, Drhs, on_r, om_r, on_p, om_p, pn, pm, krhs, nnew, 0.0);
+               visc2_p, visc2_r, Drhs_const, const_on_r, const_om_r, const_on_p, const_om_p, pn, pm, krhs, nnew, 0.0);
 
        //-----------------------------------------------------------------------
        // Coupling from 3d to 2d

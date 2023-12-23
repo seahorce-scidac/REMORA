@@ -5,15 +5,16 @@ using namespace amrex;
 void
 ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
                const Box& utbx, const Box& vtbx,
-               Array4<Real> ru , Array4<Real> rv,
-               Array4<Real> on_u , Array4<Real> om_v,
-               Array4<Real> rho,
-               Array4<Real> FC,
-               Array4<Real> Hz,
-               Array4<Real> z_r,
-               Array4<Real> z_w,
-               const int nrhs,
-               const int N)
+               const Array4<Real      >& ru,
+               const Array4<Real      >& rv,
+               const Array4<Real const>& on_u,
+               const Array4<Real const>& om_v,
+               const Array4<Real const>& rho,
+               const Array4<Real      >& FC,
+               const Array4<Real const>& Hz,
+               const Array4<Real const>& z_r,
+               const Array4<Real const>& z_w,
+               const int nrhs, const int N)
 {
     auto phi_bxD=phi_bx;
     phi_bxD.makeSlab(2,0);
@@ -57,9 +58,6 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
         } else {
             dR(i,j,N)=rho(i,j,N)-rho(i,j,N-1);
             dZ(i,j,N)=z_r(i,j,N)-z_r(i,j,N-1);
-            //This is really k=-1
-            //dR(i,j,0)=dR(i,j,1);
-            //dZ(i,j,0)=dZ(i,j,1);
         }
     });
 

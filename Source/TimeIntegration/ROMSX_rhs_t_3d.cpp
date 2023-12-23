@@ -5,9 +5,7 @@ using namespace amrex;
 /**
  * rhs_t_3d
  *
- * @param[in   ] bx
- * @param[in   ] xbx
- * @param[in   ] ybx
+ * @param[in   ] gbx
  * @param[inout] t
  * @param[in   ] tempstore
  * @param[in   ] Huon
@@ -26,11 +24,16 @@ using namespace amrex;
 
 void
 ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
-                 Array4<Real> t, Array4<Real> tempstore,
-                 Array4<Real> Huon, Array4<Real> Hvom,
-                 Array4<Real> Hz, Array4<Real> oHz,
-                 Array4<Real> pn, Array4<Real> pm,
-                 Array4<Real> W   , Array4<Real> FC,
+                 const Array4<Real      >& t,
+                 const Array4<Real const>& tempstore,
+                 const Array4<Real const>& Huon,
+                 const Array4<Real const>& Hvom,
+                 const Array4<Real const>& Hz,
+                 const Array4<Real      >& oHz,
+                 const Array4<Real const>& pn,
+                 const Array4<Real const>& pm,
+                 const Array4<Real      >& W ,
+                 const Array4<Real      >& FC,
                  int nrhs, int nnew, int N, Real dt_lev)
 {
     //copy the tilebox

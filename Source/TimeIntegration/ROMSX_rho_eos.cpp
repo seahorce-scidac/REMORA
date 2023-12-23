@@ -18,13 +18,13 @@ using namespace amrex;
 
 void
 ROMSX::rho_eos (const Box& bx,
-                Array4<Real const> state,
-                Array4<Real      > rho,
-                Array4<Real      > rhoA,
-                Array4<Real      > rhoS,
-                Array4<Real const> Hz,
-                Array4<Real const> z_w,
-                Array4<Real const> h,
+                const Array4<Real const>& state,
+                const Array4<Real      >& rho,
+                const Array4<Real      >& rhoA,
+                const Array4<Real      >& rhoS,
+                const Array4<Real const>& Hz,
+                const Array4<Real const>& z_w,
+                const Array4<Real const>& h,
                 const int N)
 {
 //
