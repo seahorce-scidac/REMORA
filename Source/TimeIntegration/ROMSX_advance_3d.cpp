@@ -267,9 +267,11 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
         // rhs_t_3d
         //-----------------------------------------------------------------------
         //
-        for (int i_comp=0; i_comp < NCONS; i_comp++) {
+        for (int i_comp=0; i_comp < NCONS; i_comp++)
+        {
             Array4<Real> const& sstore = mf_sstore->array(mfi, i_comp);
-            rhs_t_3d(bx, gbx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom, Hz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
+            rhs_t_3d(bx, gbx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
+                     Hz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
         }
 
     } // mfi

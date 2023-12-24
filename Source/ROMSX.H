@@ -199,9 +199,9 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Huon;
     /** v-volume flux (3D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hvom;
-    /** u velocity RHS (3D, includes hoirzontal and vertical advection) */
+    /** u velocity RHS (3D, includes horizontal and vertical advection) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ru;
-    /** v velocity RHS (3D, includes hoirzontal and vertical advection) */
+    /** v velocity RHS (3D, includes horizontal and vertical advection) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rv;
     /** u velocity RHS, integrated, including advection and bottom/surface stresses (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rufrc;
