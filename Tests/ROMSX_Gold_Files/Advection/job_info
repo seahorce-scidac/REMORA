@@ -1,40 +1,40 @@
 ===============================================================================
  ROMSX Job Information
 ===============================================================================
-inputs file: inputs
+inputs file: ../../Tests/test_files/Advection/Advection.i
 
-number of MPI processes: 1
+number of MPI processes: 4
 
-CPU time used since start of simulation (CPU-hours): 0.00105076
+CPU time used since start of simulation (CPU-hours): 0.00109075
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Tue Dec 19 09:39:26 2023
-output dir:         /home/klion/software/ROMSX/Exec/Advection
+output data / time: Sat Dec 23 20:08:28 2023
+output dir:         /home/almgren/GitCode/ROMSX/Exec/Advection
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    2023-12-16 14:39:20.722969
-build machine: Linux varan 5.15.0-91-generic #101~20.04.1-Ubuntu SMP Thu Nov 16 14:22:28 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
-build dir:     /home/klion/software/ROMSX/Exec/Advection
-AMReX dir:     ../../Submodules/AMReX
+build date:    2023-12-23 10:57:39.015027
+build machine: Linux manda 5.15.0-76-generic #83~20.04.1-Ubuntu SMP Wed Jun 21 20:23:31 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
+build dir:     /home/almgren/GitCode/ROMSX/Exec/Advection
+AMReX dir:     /home/almgren/GitCode/amrex
 
 COMP:          gnu
 COMP version:  9.4.0
 
 
-ROMSX       git hash: 7557e72-dirty
-AMReX       git hash: 23.09-22-gb2052f2d2
+ROMSX       git hash: 7fe876e-dirty
+AMReX       git hash: 23.10-43-g6494b111f-dirty
 
 
 ===============================================================================
  Grid Information
 ===============================================================================
  level: 0
-   number of boxes = 1
+   number of boxes = 9
    maximum zones   = 81 81 16 
 
  Boundary conditions
@@ -51,8 +51,8 @@ AMReX       git hash: 23.09-22-gb2052f2d2
 ===============================================================================
 max_step = 10
 stop_time = 30000.0
-amrex.fpe_trap_invalid = 0
-fabarray.mfiter_tile_size = 16 16 1024
+amrex.fpe_trap_invalid = 1
+fabarray.mfiter_tile_size = 1024 1024 1024
 geometry.prob_lo = 0. 0. -150.
 geometry.prob_hi = 41000. 41000. 0.
 amr.n_cell = 81 81 16
