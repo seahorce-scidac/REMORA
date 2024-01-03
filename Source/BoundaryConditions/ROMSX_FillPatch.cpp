@@ -13,7 +13,8 @@ PhysBCFunctNoOp null_bc;
 // values in mf when it is passed in are *not* used.
 //
 void
-ROMSX::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs)
+ROMSX::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs,
+                  const int bdy_var_type)
 {
     BL_PROFILE_VAR("ROMSX::FillPatch()",ROMSX_FillPatch);
     int bccomp;
@@ -71,8 +72,18 @@ ROMSX::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> co
     // ***************************************************************************
     // Physical bc's at domain boundary
     // ***************************************************************************
+
+#ifdef ROMSX_USE_NETCDF
+    // Fill the data which is stored in the boundary data read from netcdf files
+    if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) &&
+         (bdy_var_type != BdyVars::null) )
+    {
+        fill_from_bdyfiles (mf_to_fill,time,bdy_var_type);
+    }
+#endif
+
     // Enforce physical boundary conditions
-    (*physbcs[lev])(mf_to_fill,0,ncomp,mf_to_fill.nGrowVect(),time,bccomp,solverChoice.ic_bc_type);
+    (*physbcs[lev])(mf_to_fill,0,ncomp,mf_to_fill.nGrowVect(),time,bccomp);
 
     // Also enforce free-slip at top boundary (on xvel or yvel)
     if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||

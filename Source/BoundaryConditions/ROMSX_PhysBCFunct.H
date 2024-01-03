@@ -58,7 +58,7 @@ public:
     //     so this follows the BCVars enum
     //
     void operator() (amrex::MultiFab& mf, int icomp, int ncomp, amrex::IntVect const& nghost,
-                     amrex::Real time, int bccomp, IC_BC_Type& ic_bc_type);
+                     amrex::Real time, int bccomp);
 
     void impose_xvel_bcs (const amrex::Array4<amrex::Real>& dest_arr, const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv,

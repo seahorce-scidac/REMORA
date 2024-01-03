@@ -53,32 +53,38 @@ void ROMSX::set_weights (int /*lev*/) {
 //  resulting in overall second-order temporal accuracy for time-averaged
 //  barotropic motions resolved by baroclinic time step.
 //
-      scale=(Falpha+1.0_rt)*(Falpha+Fbeta+1.0_rt)/
-      ((Falpha+2.0_rt)*(Falpha+Fbeta+2.0_rt)*Real(ndtfast));
-//
-//  Find center of gravity of the primary weighting shape function and
-//  iteratively adjust "scale" to place the  centroid exactly at
-//  "ndtfast".
-//
-      gamma=Fgamma*max(0.0_rt, 1.0_rt-10.0_rt/Real(ndtfast));
-      for(int iter=1;iter<=16;iter++) {
-          nfast=0;
-      for(int i=1;i<=2*ndtfast;i++) {
-          cff=scale*Real(i);
-          weight1[i-1]=pow(cff,Falpha)-pow(cff,(Falpha+Fbeta))-gamma*cff;
-          if (weight1[i-1]>0.0_rt) nfast=i;
-          if ((nfast>0)&&(weight1[i-1]<0.0_rt)) {
-            weight1[i-1]=0.0_rt;
-          }
-    }
-        wsum=0.0_rt;
-        shift=0.0_rt;
-        for(int i=1;i<=nfast;i++) {
-          wsum=wsum+weight1[i-1];
-          shift=shift+weight1[i-1]*Real(i);
+      scale=(Falpha+Real(1.0))*(Falpha+Fbeta+Real(1.0)) /
+        ((Falpha+Real(2.0))*(Falpha+Fbeta+Real(2.0))*Real(ndtfast));
+    //
+    //  Find center of gravity of the primary weighting shape function and
+    //  iteratively adjust "scale" to place the  centroid exactly at
+    //  "ndtfast".
+    //
+    gamma = Fgamma*max(Real(0.0), Real(1.0)-Real(10.0)/Real(ndtfast));
+
+    for (int iter=1;iter<=16;iter++) {
+        nfast=0;
+        for(int i=1;i<=2*ndtfast;i++) {
+            cff=scale*Real(i);
+
+            weight1[i-1]=pow(cff,Falpha)-pow(cff,(Falpha+Fbeta))-gamma*cff;
+
+            if (weight1[i-1] > Real(0.0)) {
+                nfast=i;
+            }
+
+            if ( (nfast>0) && (weight1[i-1] < Real(0.0)) ) {
+                weight1[i-1] = Real(0.0);
+            }
         }
-        scale=scale*shift/(wsum*Real(ndtfast));
-      }
+        wsum  = Real(0.0);
+        shift = Real(0.0);
+        for(int i=1;i<=nfast;i++) {
+            wsum=wsum+weight1[i-1];
+            shift=shift+weight1[i-1]*Real(i);
+        }
+        scale *= shift/(wsum*Real(ndtfast));
+    }
 //
 //-----------------------------------------------------------------------
 //  Post-processing of primary weights.
@@ -96,71 +102,73 @@ void ROMSX::set_weights (int /*lev*/) {
 //  Find center of gravity of the primary weights and subsequently
 //  calculate the mismatch to be compensated.
 //
-      for(int iter=1;iter<=ndtfast;iter++) {
-        wsum=0.0_rt;
-        shift=0.0_rt;
+    for (int iter=1;iter<=ndtfast;iter++) {
+        wsum  = Real(0.0);
+        shift = Real(0.0);
         for(int i=1;i<=nfast;i++) {
-          wsum=wsum+weight1[i-1];
-          shift=shift+Real(i)*weight1[i-1];
+            wsum=wsum+weight1[i-1];
+            shift=shift+Real(i)*weight1[i-1];
         }
         shift=shift/wsum;
         cff=Real(ndtfast)-shift;
-//
-//  Apply advection step using either whole, or fractional shifts.
-//  Notice that none of the four loops here is reversible.
-//
-        if (cff>1.0_rt) {
-          nfast=nfast+1;
-          for(int i=nfast;i>=2;i--) {
-            weight1[i-1]=weight1[i-1-1];
-          }
-          weight1[1-1]=0.0_rt;
-        } else if (cff>0.0_rt) {
-          wsum=1.0_rt-cff;
-          for(int i=nfast;i>=2;i--) {
-          weight1[i-1]=wsum*weight1[i-1]+cff*weight1[i-1-1];
-          }
-          weight1[1-1]=wsum*weight1[1-1];
-        } else if (cff<-1.0_rt) {
-          nfast=nfast-1;
-          for(int i=1;i<=nfast;i++) {
-          weight1[i-1]=weight1[i+1-1];
-          }
-          weight1[nfast+1-1]=0.0_rt;
-        } else if (cff<0.0_rt) {
-          wsum=1.0_rt+cff;
-          for(int i=1;i<=nfast-1;i++) {
-          weight1[i-1]=wsum*weight1[i-1]-cff*weight1[i+1-1];
-          }
-          weight1[nfast-1]=wsum*weight1[nfast-1];
+        //
+        //  Apply advection step using either whole, or fractional shifts.
+        //  Notice that none of the four loops here is reversible.
+        //
+        if (cff > Real(1.0)) {
+            nfast=nfast+1;
+            for (int i=nfast;i>=2;i--) {
+                weight1[i-1]=weight1[i-1-1];
+            }
+            weight1[1-1] = Real(0.0);
+        } else if (cff> Real(0.0)) {
+            wsum=1.0_rt-cff;
+            for (int i=nfast;i>=2;i--) {
+                weight1[i-1]=wsum*weight1[i-1]+cff*weight1[i-1-1];
+            }
+            weight1[1-1]=wsum*weight1[1-1];
+        } else if (cff < Real(-1.0)) {
+            nfast=nfast-1;
+            for (int i=1;i<=nfast;i++) {
+                weight1[i-1]=weight1[i+1-1];
+            }
+            weight1[nfast+1-1] = Real(0.0);
+        } else if (cff < Real(0.0)) {
+            wsum=1.0_rt+cff;
+            for (int i=1;i<=nfast-1;i++) {
+                weight1[i-1]=wsum*weight1[i-1]-cff*weight1[i+1-1];
+            }
+            weight1[nfast-1]=wsum*weight1[nfast-1];
         }
-      }
-//
-//  Set SECONDARY weights assuming that backward Euler time step is used
-//  for free surface.  Notice that array weight2[i] is assumed to
-//  have all-zero status at entry in this segment of code.
-//
-        for(int j=1;j<=nfast;j++) {
+    }
+
+    //  Set SECONDARY weights assuming that backward Euler time step is used
+    //  for free surface.  Notice that array weight2[i] is assumed to
+    //  have all-zero status at entry in this segment of code.
+    for(int j=1;j<=nfast;j++) {
         cff=weight1[j-1];
         for(int i=1;i<=j;i++) {
             weight2[i-1]=weight2[i-1]+cff;
         }
-      }
-//
-//  Normalize both set of weights.
-//
-      wsum=0.0_rt;
-      cff=0.0_rt;
-      for(int i=1;i<=nfast;i++) {
+    }
+
+    //
+    //  Normalize both set of weights.
+    //
+    wsum = Real(0.0);
+    cff  = Real(0.0);
+    for(int i=1;i<=nfast;i++) {
         wsum=wsum+weight1[i-1];
         cff=cff+weight2[i-1];
-      }
-      wsum=1.0_rt/wsum;
-      cff=1.0_rt/cff;
-      for(int i=1;i<=nfast;i++) {
+    }
+
+    wsum = Real(1.0) / wsum;
+    cff  = Real(1.0) / cff;
+
+    for(int i=1;i<=nfast;i++) {
         weight1[i-1]=wsum*weight1[i-1];
         weight2[i-1]=cff*weight2[i-1];
-      }
+    }
 //
 //  Report weights.
 //

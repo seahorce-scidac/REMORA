@@ -17,7 +17,7 @@ using namespace amrex;
 //     so this follows the BCVars enum
 //
 void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect const& nghost,
-                                   Real time, int bccomp, IC_BC_Type& ic_bc_type)
+                                   Real time, int bccomp)
 {
     if (m_geom.isAllPeriodic()) return;
 
@@ -49,8 +49,7 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
 
                     if (!gdomain.contains(bx)) {
                         AMREX_ALWAYS_ASSERT(icomp == 0 && icomp+ncomp <= NCONS);
-                        impose_cons_bcs(dest_arr,bx,domain,
-                                        dxInv,icomp,ncomp,time,bccomp);
+                        impose_cons_bcs(dest_arr,bx,domain,dxInv,icomp,ncomp,time,bccomp);
                     }
                 } // mfi
 
@@ -60,11 +59,13 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
                 for (MFIter mfi(mf); mfi.isValid(); ++mfi)
                 {
                     Box bx = mfi.validbox(); bx.grow(nghost);
-
                     if (!gdomain.contains(bx)) {
-                        for (int nn = 0; nn < ncomp; nn++) {
-                            const Array4<Real>& dest_arr = mf.array(mfi,nn);
+                        if(bx.ixType() == IndexType(IntVect(1,0,0))) {
+                            const Array4<Real>& dest_arr = mf.array(mfi,0);
                             impose_xvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
+                        } else if (bx.ixType() == IndexType(IntVect(0,1,0))) {
+                            const Array4<Real>& dest_arr = mf.array(mfi,0);
+                            impose_yvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
                         }
                     }
                 } // mfi

@@ -132,6 +132,6 @@ ROMSX::set_2darrays (int lev)
 
     // DEBUGGING NOTE -- DoublyPeriodic fails if these are commented out
     const Real time = 0.0;
-    FillPatch(lev,time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar));
-    FillPatch(lev,time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar));
+    FillPatch(lev,time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar);
+    FillPatch(lev,time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar);
 }

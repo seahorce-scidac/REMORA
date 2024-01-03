@@ -19,6 +19,14 @@ read_data_from_netcdf (int lev, const Box& domain, const std::string& fname,
                        FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab,
                        FArrayBox& NC_zeta_fab);
 
+Real
+read_bdry_from_netcdf (const Box& domain, const std::string& fname,
+                       Vector<Vector<FArrayBox>>& bdy_data_xlo,
+                       Vector<Vector<FArrayBox>>& bdy_data_xhi,
+                       Vector<Vector<FArrayBox>>& bdy_data_ylo,
+                       Vector<Vector<FArrayBox>>& bdy_data_yhi,
+                       int& width, amrex::Real& start_bdy_time);
+
 void
 init_state_from_netcdf (int lev,
                         FArrayBox&  temp_fab, FArrayBox&  salt_fab,
@@ -42,7 +50,7 @@ void
 init_bathymetry_from_netcdf (int lev);
 
 /**
- * ROMSX function that initializes data from a netcdf file
+ * ROMSX function that initializes solution data from a netcdf file
  *
  * @param lev Integer specifying the current level
  */
@@ -111,11 +119,10 @@ ROMSX::init_bathymetry_from_netcdf (int lev)
     Vector<FArrayBox> NC_pn_fab    ; NC_pn_fab.resize(num_boxes_at_level[lev]);
 
     int nboxes = NC_h_fab.size();
-    amrex::Print() << "init_bathymetry_from_netcdf: start " << nboxes << std::endl;
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
-        read_bathymetry_from_netcdf(lev, boxes_at_level[lev][idx], nc_init_grid_file[lev][idx],
+        read_bathymetry_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
                                     NC_h_fab[idx],
                                     NC_pm_fab[idx], NC_pn_fab[idx]);
 
@@ -147,6 +154,32 @@ ROMSX::init_bathymetry_from_netcdf (int lev)
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     vec_pm[lev]->FillBoundary(geom[lev].periodicity());
     vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+}
+
+/**
+ * ROMSX function that initializes time series of boundary data from a netcdf file
+ *
+ * @param lev Integer specifying the current level
+ */
+void
+ROMSX::init_bdry_from_netcdf (int lev)
+{
+    if (nc_bdry_file.empty()) {
+        amrex::Error("NetCDF boundary file name must be provided via input");
+    }
+
+    bdy_time_interval = read_bdry_from_netcdf(geom[0].Domain(), nc_bdry_file,
+                                              bdy_data_xlo,bdy_data_xhi,bdy_data_ylo,bdy_data_yhi,
+                                              bdy_width, start_bdy_time);
+
+    if (bdy_width-1 <= bdy_set_width) bdy_set_width = bdy_width;
+    amrex::Print() << "Read in boundary data with width "  << bdy_width << std::endl;
+    amrex::Print() << "Running with specification width: " << bdy_set_width
+                   << " and relaxation width: " << bdy_width - bdy_set_width << std::endl;
+
+    // NOTE: Last bdy cell is a ghost cell for Laplacian relaxation.
+    //       Without relaxation zones, we must augment this value by 1.
+    if (bdy_width == bdy_set_width) bdy_width += 1;
 }
 
 /**
@@ -184,7 +217,6 @@ init_state_from_netcdf (int /*lev*/,
                         const Vector<FArrayBox>& NC_zeta_fab)
 {
     int nboxes = NC_xvel_fab.size();
-    amrex::Print() << "init_state_from_netcdf: start " << nboxes << std::endl;
     for (int idx = 0; idx < nboxes; idx++)
     {
         //
@@ -219,7 +251,6 @@ init_state_from_netcdf (int /*lev*/,
         // zeta_fab.template copy<RunOn::Device>(NC_zeta_fab[idx],0,1,1);
         // zeta_fab.template copy<RunOn::Device>(NC_zeta_fab[idx],0,2,1);
     } // idx
-    amrex::Print() << "init_state_from_netcdf: done  " << std::endl;
 }
 
 #endif // ROMSX_USE_NETCDF

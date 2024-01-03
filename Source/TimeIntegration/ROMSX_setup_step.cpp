@@ -22,10 +22,10 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     int nvars = S_old.nComp();
 
     // Fill ghost cells/faces at old time
-    FillPatch(lev, time, *cons_old[lev], cons_old);
-    FillPatch(lev, time, *xvel_old[lev], xvel_old);
-    FillPatch(lev, time, *yvel_old[lev], yvel_old);
-    FillPatch(lev, time, *zvel_old[lev], zvel_old);
+    FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
+    FillPatch(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
+    FillPatch(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
+    FillPatch(lev, time, *zvel_old[lev], zvel_old, BdyVars::null);
 
     //////////    //pre_step3d corrections to boundaries
 
@@ -82,13 +82,13 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
     mf_DC.setVal(0);
 
-    FillPatch(lev, time, *cons_old[lev], cons_old);
-    FillPatch(lev, time, *xvel_old[lev], xvel_old);
-    FillPatch(lev, time, *yvel_old[lev], yvel_old);
+    FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
+    FillPatch(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
+    FillPatch(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
 
-    FillPatch(lev, time, *cons_new[lev], cons_new);
-    FillPatch(lev, time, *xvel_new[lev], xvel_new);
-    FillPatch(lev, time, *yvel_new[lev], yvel_new);
+    FillPatch(lev, time, *cons_new[lev], cons_new, BdyVars::t);
+    FillPatch(lev, time, *xvel_new[lev], xvel_new, BdyVars::u);
+    FillPatch(lev, time, *yvel_new[lev], yvel_new, BdyVars::v);
 
     mf_rw.setVal(0.0);
     mf_rufrc->setVal(0);
@@ -327,10 +327,10 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     // Update Akv with new depth. NOTE: this happens before set_zeta in ROMS
     set_vmix(lev);
 
-    FillPatch(lev, time, *cons_old[lev], cons_old);
-    FillPatch(lev, time, *cons_new[lev], cons_new);
+    FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
+    FillPatch(lev, time, *cons_new[lev], cons_new, BdyVars::t);
 
-    FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore));
+    FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BdyVars::t);
 
     FillPatch(lev, time, *vec_Huon[lev], GetVecOfPtrs(vec_Huon));
     FillPatch(lev, time, *vec_Hvom[lev], GetVecOfPtrs(vec_Hvom));
