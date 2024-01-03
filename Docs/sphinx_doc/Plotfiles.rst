@@ -71,6 +71,9 @@ Notes
 
 -  The NeTCDF option is only available if ROMSX has been built with USE_NETCDF enabled.
 
+-  Velocity components are defined on faces within the ROMS-X code, but are averaged onto
+   cell centers when written in amrex/native plotfiles.
+
 -  File prefixes can include directories.
 
 .. _examples-of-usage-8:

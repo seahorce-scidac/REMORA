@@ -14,7 +14,11 @@ PhysBCFunctNoOp null_bc;
 //
 void
 ROMSX::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs,
+#ifdef ROMSX_USE_NETCDF
                   const int bdy_var_type)
+#else
+                  const int /*bdy_var_type*/)
+#endif
 {
     BL_PROFILE_VAR("ROMSX::FillPatch()",ROMSX_FillPatch);
     int bccomp;

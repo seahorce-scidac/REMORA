@@ -682,7 +682,7 @@ private:
     int bdy_set_width{0};
 
     void init_data_from_netcdf (int lev);
-    void init_bdry_from_netcdf (int lev);
+    void init_bdry_from_netcdf ();
     void init_bathymetry_from_netcdf (int lev);
 #endif // ROMSX_USE_NETCDF
 
