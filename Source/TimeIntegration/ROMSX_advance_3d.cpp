@@ -276,7 +276,7 @@ ROMSX::advance_3d (int lev, MultiFab& mf_cons,
 
     } // mfi
 
-    FillPatch(lev, t_new[lev], mf_cons, cons_new);
+    FillPatch(lev, t_new[lev], mf_cons, cons_new, BdyVars::t);
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {

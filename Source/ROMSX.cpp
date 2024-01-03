@@ -40,8 +40,9 @@ amrex::Real ROMSX::sum_per       = -1.0;
 std::string ROMSX::plotfile_type    = "amrex";
 
 // NetCDF initialization file
+std::string ROMSX::nc_bdry_file = ""; // Must provide via input
 amrex::Vector<amrex::Vector<std::string>> ROMSX::nc_init_file = {{""}}; // Must provide via input
-amrex::Vector<amrex::Vector<std::string>> ROMSX::nc_init_grid_file = {{""}}; // Must provide via input
+amrex::Vector<amrex::Vector<std::string>> ROMSX::nc_grid_file = {{""}}; // Must provide via input
 
 amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 
@@ -305,10 +306,10 @@ ROMSX::InitData ()
     // Fill ghost cells/faces
     for (int lev = 0; lev <= finest_level; ++lev)
     {
-        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new);
-        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new);
-        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new);
-        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new);
+        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t);
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v);
+        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null);
 
         //
         // Copy from new into old just in case
@@ -400,9 +401,14 @@ ROMSX::init_only(int lev, Real time)
         init_custom(lev);
 #ifdef ROMSX_USE_NETCDF
     } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+
         amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
         init_data_from_netcdf(lev);
-        amrex::Print() << "Initial data loaded from netcdf file /n " << std::endl;
+        amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
+
+        amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
+        init_bdry_from_netcdf(lev);
+        amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
 #endif
     } else {
         Abort("Need to specify ic_bc_type");
@@ -508,14 +514,14 @@ ROMSX::ReadParameters ()
 
 #ifdef ROMSX_USE_NETCDF
         nc_init_file.resize(max_level+1);
-        nc_init_grid_file.resize(max_level+1);
+        nc_grid_file.resize(max_level+1);
 
         // NetCDF initialization files -- possibly multiple files at each of multiple levels
         //        but we always have exactly one file at level 0
         for (int lev = 0; lev <= max_level; lev++)
         {
             const std::string nc_file_names = amrex::Concatenate("nc_init_file_",lev,1);
-            const std::string nc_bathy_file_names = amrex::Concatenate("nc_init_grid_file_",lev,1);
+            const std::string nc_bathy_file_names = amrex::Concatenate("nc_grid_file_",lev,1);
 
             if (pp.contains(nc_file_names.c_str()))
             {
@@ -527,12 +533,21 @@ ROMSX::ReadParameters ()
 
                 num_files_at_level[lev] = num_files;
                 nc_init_file[lev].resize(num_files);
-                nc_init_grid_file[lev].resize(num_files);
+                nc_grid_file[lev].resize(num_files);
 
                 pp.queryarr(nc_file_names.c_str()      , nc_init_file[lev]     ,0,num_files);
-                pp.queryarr(nc_bathy_file_names.c_str(), nc_init_grid_file[lev],0,num_files);
+                pp.queryarr(nc_bathy_file_names.c_str(), nc_grid_file[lev],0,num_files);
             }
         }
+        // We only read boundary data at level 0
+        pp.query("nc_bdry_file", nc_bdry_file);
+
+        // Query the set and total widths for bdy interior ghost cells
+        pp.query("bdy_width", bdy_width);
+        pp.query("bdy_set_width", bdy_set_width);
+        AMREX_ALWAYS_ASSERT(bdy_width >= 0);
+        AMREX_ALWAYS_ASSERT(bdy_set_width >= 0);
+        AMREX_ALWAYS_ASSERT(bdy_width >= bdy_set_width);
 #endif
         pp.query("plot_file_1", plot_file_1);
         pp.query("plot_file_2", plot_file_2);

@@ -5,6 +5,7 @@ CEXE_sources += writeJobInfo.cpp
 
 ifeq ($(USE_NETCDF), TRUE)
   CEXE_sources += ReadFromInitNetcdf.cpp
+  CEXE_sources += ReadFromBdryNetcdf.cpp
   CEXE_sources += NCInterface.cpp
   CEXE_sources += NCPlotFile.cpp
   CEXE_sources += NCMultiFabFile.cpp

@@ -581,7 +581,12 @@ public:
     // Fill a new MultiFab by copying in phi from valid region and filling ghost cells
     void FillPatch (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,
-                    amrex::Vector<amrex::MultiFab*> const& mfs);
+                    amrex::Vector<amrex::MultiFab*> const& mfs,
+                    const int bdy_var_type = BdyVars::null);
+
+   void fill_from_bdyfiles (amrex::MultiFab& mf_to_fill,
+                            const amrex::Real time,
+                            const int bdy_var_type);
 
 private:
 
@@ -670,9 +675,14 @@ private:
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_ylo;
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_yhi;
 
+    amrex::Real start_bdy_time;
     amrex::Real bdy_time_interval;
 
+    int bdy_width{0};
+    int bdy_set_width{0};
+
     void init_data_from_netcdf (int lev);
+    void init_bdry_from_netcdf (int lev);
     void init_bathymetry_from_netcdf (int lev);
 #endif // ROMSX_USE_NETCDF
 
@@ -818,12 +828,12 @@ private:
     // Native or NetCDF
     static std::string plotfile_type;
 
-    // NetCDF initialization files
+    // NetCDF initialization files for solution and grid
     static amrex::Vector<amrex::Vector<std::string>> nc_init_file;
-    static amrex::Vector<amrex::Vector<std::string>> nc_init_grid_file;
+    static amrex::Vector<amrex::Vector<std::string>> nc_grid_file;
 
-    // NetCDF initialization (wrfbdy) file
-    static std::string nc_bdy_file;
+    // NetCDF file of time series of boundary data
+    static std::string nc_bdry_file;
 
     // Text input_sounding file
     static std::string input_sounding_file;

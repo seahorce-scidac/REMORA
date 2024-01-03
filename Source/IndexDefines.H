@@ -25,8 +25,25 @@ namespace BCVars {
     };
 }
 
+// These are only for the variables read in from netcdf boundary condition files
+// Note that the salt component must be one greater than the temp component for the
+//      logic in fill_from_bdyfiles to work
+namespace BdyVars {
+    enum {
+       null  = -1,
+       u     =  0,
+       v     =  1,
+       t     =  2,
+       s     =  3,
+       ubar      ,
+       vbar      ,
+       zeta      ,
+       NumTypes
+    };
+}
+
 enum struct ROMSX_BC {
-    symmetry, inflow, outflow, no_slip_wall, slip_wall, periodic, MOST, undefined
+    symmetry, inflow, outflow, no_slip_wall, slip_wall, periodic, undefined
 };
 
 // NOTE: the first of these must match up with the BCType enum
@@ -38,9 +55,7 @@ enum mathematicalBndryTypes : int { bogus        = -666,
     int_dir      =  0,
     reflect_even =  1,
     foextrap     =  2,
-    ext_dir      =  3,
-    MOST         =  101,
-    ext_dir_ingested =  102
+    ext_dir      =  3
 };
 }
 #endif

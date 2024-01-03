@@ -59,6 +59,7 @@ romsx.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celcius)
 romsx.Scoef = 0.0     # linear equation of state parameter (nondimensional)
 romsx.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
 
-romsx.ic_bc_type          = "real"
-romsx.nc_init_file_0      = "OCCAMS_ini_v7_merc_20200101.nc"
-romsx.nc_init_grid_file_0 = "OCCAMS_grd_v7.nc"
+romsx.ic_bc_type       = "real"
+romsx.nc_init_file_0   = "OCCAMS_ini_v7_merc_20200101.nc"
+romsx.nc_grid_file_0   = "OCCAMS_grd_v7.nc"
+romsx.nc_bdry_file      = "OCCAMS_bdry_v7_merc_202001.nc"
