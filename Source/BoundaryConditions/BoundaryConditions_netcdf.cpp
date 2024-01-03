@@ -74,52 +74,46 @@ ROMSX::fill_from_bdyfiles (MultiFab& mf_to_fill, const Real time, const int bdy_
         {
             Box mf_box(mf_to_fill[mfi.index()].box());
 
-            // We only proceed if the ghost cells of this FAB are not contained by domain
-            if (!domain.contains(mf_box)) {
+            // Compute intersections of the FAB to be filled and the bdry data boxes
+            Box xlo = bdy_data_xlo[n_time][ivar].box() & mf_box;
+            Box xhi = bdy_data_xhi[n_time][ivar].box() & mf_box;
+            Box ylo = bdy_data_ylo[n_time][ivar].box() & mf_box;
+            Box yhi = bdy_data_yhi[n_time][ivar].box() & mf_box;
 
-                // Compute intersections of the FAB to be filled and the bdry data boxes
-                Box xlo = bdy_data_xlo[n_time][ivar].box() & mf_box;
-                Box xhi = bdy_data_xhi[n_time][ivar].box() & mf_box;
-                Box ylo = bdy_data_ylo[n_time][ivar].box() & mf_box;
-                Box yhi = bdy_data_yhi[n_time][ivar].box() & mf_box;
+            const Array4<Real>& dest_arr = mf_to_fill.array(mfi,icomp);
 
-                const Array4<Real>& dest_arr = mf_to_fill.array(mfi,icomp);
+            if (!xlo.isEmpty()) {
+                ParallelFor(xlo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    dest_arr(i,j,k,icomp) = oma   * bdatxlo_n  (i,j,k,0)
+                                          + alpha * bdatxlo_np1(i,j,k,0);
+                });
+            }
 
-                if (!xlo.isEmpty()) {
-                    ParallelFor(xlo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                    {
-                        dest_arr(i,j,k,icomp) = oma   * bdatxlo_n  (i,j,k,0)
-                                              + alpha * bdatxlo_np1(i,j,k,0);
-                    });
-                }
+            if (!xhi.isEmpty()) {
+                ParallelFor(xhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    dest_arr(i,j,k,icomp) = oma   * bdatxhi_n  (i,j,k,0)
+                                          + alpha * bdatxhi_np1(i,j,k,0);
+                });
+            }
 
-                if (!xhi.isEmpty()) {
-                    ParallelFor(xhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                    {
-                        dest_arr(i,j,k,icomp) = oma   * bdatxhi_n  (i,j,k,0)
-                                              + alpha * bdatxhi_np1(i,j,k,0);
-                    });
-                }
+            if (!ylo.isEmpty()) {
+                ParallelFor(ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    dest_arr(i,j,k,icomp) = oma   * bdatylo_n  (i,j,k,0)
+                                          + alpha * bdatylo_np1(i,j,k,0);
+                });
+            }
 
-                if (!ylo.isEmpty()) {
-                    ParallelFor(ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                    {
-                        dest_arr(i,j,k,icomp) = oma   * bdatylo_n  (i,j,k,0)
-                                              + alpha * bdatylo_np1(i,j,k,0);
-                    });
-                }
-
-                if (!yhi.isEmpty()) {
-                    ParallelFor(yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                    {
-                        dest_arr(i,j,k,icomp) = oma    * bdatyhi_n  (i,j,k,0)
-                                               + alpha * bdatyhi_np1(i,j,k,0);
-                    });
-                }
-
-            } // FAB not contained in domain
+            if (!yhi.isEmpty()) {
+                ParallelFor(yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    dest_arr(i,j,k,icomp) = oma    * bdatyhi_n  (i,j,k,0)
+                                           + alpha * bdatyhi_np1(i,j,k,0);
+                });
+            }
         } // mfi
     } // icomp
-
 }
 #endif
