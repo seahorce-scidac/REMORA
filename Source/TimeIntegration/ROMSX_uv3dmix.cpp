@@ -51,7 +51,7 @@ ROMSX::uv3dmix  (const Box& xbx, const Box& ybx,
                                     ( (pm(i,j  ,0) + pm(i,j+1,0)) * vold(i,j+1,k,nrhs)-
                                       (pm(i,j-1,0) + pm(i,j  ,0)) * vold(i,j  ,k,nrhs) ) );
 
-        Real on_r = Real(1.0) / pm(i,j,0);
+        Real on_r = 1.0_rt / pm(i,j,0);
         UFx(i,j,k) = on_r * on_r * visc2_r(i,j,0) * cff;
     });
 
@@ -65,7 +65,7 @@ ROMSX::uv3dmix  (const Box& xbx, const Box& ybx,
                      ((pm(i-1,j  ,0)+pm(i,j  ,0))*uold(i,j  ,k,nrhs)-
                       (pm(i-1,j-1,0)+pm(i,j-1,0))*uold(i,j-1,k,nrhs)));
 
-        const Real om_p =  Real(4.0) / (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0));
+        const Real om_p =  4.0_rt / (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0));
         UFe(i,j,k) = om_p*om_p*visc2_p(i,j,0)*cff;
     });
 
@@ -100,7 +100,7 @@ ROMSX::uv3dmix  (const Box& xbx, const Box& ybx,
                 ((pm(i,j  ,0)+pm(i,j+1,0))*vold(i,j+1,k,nrhs)-
                  (pm(i,j-1,0)+pm(i,j  ,0))*vold(i,j  ,k,nrhs)));
 
-        Real om_r = Real(1.0) / pm(i,j,0);
+        Real om_r = 1.0_rt / pm(i,j,0);
         VFe(i,j,k) = om_r * om_r * visc2_r(i,j,0) * cff;
     });
 
@@ -115,7 +115,7 @@ ROMSX::uv3dmix  (const Box& xbx, const Box& ybx,
                      ((pm(i-1,j  ,0)+pm(i,j  ,0))*uold(i,j  ,k,nrhs)-
                       (pm(i-1,j-1,0)+pm(i,j-1,0))*uold(i,j-1,k,nrhs)));
 
-        const Real on_p =  Real(4.0) / (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0));
+        const Real on_p =  4.0_rt / (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0));
         VFx(i,j,k) = on_p*on_p*visc2_p(i,j,0)*cff;
     });
 

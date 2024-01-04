@@ -45,8 +45,8 @@ ROMSX::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
 #endif
     /////////////////// This and the following loop is the first non-matching thing that affects plotfile comparison for cuda
     // NOTE: vertical viscosity term for tracers is identical except AK=Akt
-    const Real sixth = Real(1.0) / Real(6.0);
-    const Real third = Real(1.0) / Real(3.0);
+    const Real sixth = 1.0_rt / 6.0_rt;
+    const Real third = 1.0_rt / 3.0_rt;
 
     ParallelFor(makeSlab(phi_bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {

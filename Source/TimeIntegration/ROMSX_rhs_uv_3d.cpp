@@ -276,12 +276,12 @@ ROMSX::rhs_uv_3d (const Box& xbx, const Box& ybx,
        {
           rvfrc(i,j,0) += rv(i,j,k,nrhs);
 
-          Real om_v = Real(2.0) / (pm(i,j-1,0)+pm(i,j,0));
-          Real on_v = Real(2.0) / (pn(i,j-1,0)+pn(i,j,0));
+          Real om_v = 2.0_rt / (pm(i,j-1,0)+pm(i,j,0));
+          Real on_v = 2.0_rt / (pn(i,j-1,0)+pn(i,j,0));
           Real cff = om_v * on_v;
 
-          Real cff1 = (k == N) ?  svstr(i,j,0)*cff : 0.0;
-          Real cff2 = (k == 0) ? -bvstr(i,j,0)*cff : 0.0;
+          Real cff1 = (k == N) ?  svstr(i,j,0)*cff : 0.0_rt;
+          Real cff2 = (k == 0) ? -bvstr(i,j,0)*cff : 0.0_rt;
 
           rvfrc(i,j,0) += cff1+cff2;
        }

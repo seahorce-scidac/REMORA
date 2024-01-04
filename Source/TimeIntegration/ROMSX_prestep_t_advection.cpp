@@ -34,8 +34,8 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
     tbxp2.grow(IntVect(NGROW,NGROW,0));
     FArrayBox fab_FX(tbxp2,1,amrex::The_Async_Arena()); //3D
     FArrayBox fab_FE(tbxp2,1,amrex::The_Async_Arena()); //3D
-    FArrayBox fab_curv(tbxp2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0);
-    FArrayBox fab_grad(tbxp2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0);
+    FArrayBox fab_curv(tbxp2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0_rt);
+    FArrayBox fab_grad(tbxp2,1,amrex::The_Async_Arena()); //fab_curv.setVal(0.0_rt);
 
     auto FX=fab_FX.array();
     auto FE=fab_FE.array();
@@ -44,12 +44,12 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
     ParallelFor(tbxp2,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        grad(i,j,k)=0.0;
+        grad(i,j,k)=0.0_rt;
 
-        curv(i,j,k)=0.0;
+        curv(i,j,k)=0.0_rt;
 
-        FX(i,j,k)=0.0;
-        FE(i,j,k)=0.0;
+        FX(i,j,k)=0.0_rt;
+        FE(i,j,k)=0.0_rt;
     });
 
 
@@ -93,7 +93,7 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-        //W(i,j,-1)=0.0;
+        //W(i,j,-1)=0.0_rt;
         int k=0;
         W(i,j,k) = -(Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
         for(k=1;k<=N;k++) {
@@ -119,7 +119,7 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         if (k == N) {
-            W(i,j,N) = 0.0;
+            W(i,j,N) = 0.0_rt;
         }
     });
 
@@ -131,13 +131,13 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
     auto btflux= fab_btflux.array();
 
     //From ini_fields and .in file
-    //fab_stflux.setVal(0.0);
+    //fab_stflux.setVal(0.0_rt);
     //also set btflux=0 (as in ana_btflux.H)
 
     ParallelFor(tbxp2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        stflux(i,j,k)=0.0;
-        btflux(i,j,k)=0.0;
+        stflux(i,j,k)=0.0_rt;
+        btflux(i,j,k)=0.0_rt;
     });
 
     //Use FC and DC as intermediate arrays for FX and FE
@@ -147,14 +147,12 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
         ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
-                        0.5*(tempold(i-1,j,k)+
-                             tempold(i  ,j,k)) : 1e34;
+                        0.5_rt*(tempold(i-1,j,k)+tempold(i  ,j,k)) : 1e34;
         });
         ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
-                        0.5*(tempold(i,j-1,k)+
-                             tempold(i,j,k)) : 1e34;
+                        0.5_rt*(tempold(i,j-1,k)+tempold(i,j,k)) : 1e34;
         });
 
     } else {
@@ -171,8 +169,8 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
             FE(i,j,k)=tempold(i,j,k,nrhs)-tempold(i,j-1,k,nrhs);
         });
 
-        Real cffa=1.0/6.0;
-        Real cffb=1.0/3.0;
+        Real cffa=1.0_rt/6.0_rt;
+        Real cffb=1.0_rt/3.0_rt;
         if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3)
         {
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -183,10 +181,10 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real max_Huon = std::max(Huon(i,j,k),0.0);
-                Real min_Huon = std::min(Huon(i,j,k),0.0);
+                Real max_Huon = std::max(Huon(i,j,k),0.0_rt);
+                Real min_Huon = std::min(Huon(i,j,k),0.0_rt);
 
-                FX(i,j,k)=Huon(i,j,k)*0.5*(tempold(i,j,k)+tempold(i-1,j,k))-
+                FX(i,j,k)=Huon(i,j,k)*0.5_rt*(tempold(i,j,k)+tempold(i-1,j,k))-
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
 
@@ -195,12 +193,12 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Centered4
-                grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
+                grad(i,j,k)=0.5_rt*(FX(i,j,k)+FX(i+1,j,k));
             });
 
             ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FX(i,j,k)=Huon(i,j,k)*0.5*(tempold(i,j,k)+tempold(i-1,j,k)-
+                FX(i,j,k)=Huon(i,j,k)*0.5_rt*(tempold(i,j,k)+tempold(i-1,j,k)-
                                            cffb*(grad(i,j,k)-grad(i-1,j,k)));
             });
         } else {
@@ -216,10 +214,10 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real max_Hvom = std::max(Hvom(i,j,k),0.0);
-                Real min_Hvom = std::min(Hvom(i,j,k),0.0);
+                Real max_Hvom = std::max(Hvom(i,j,k),0.0_rt);
+                Real min_Hvom = std::min(Hvom(i,j,k),0.0_rt);
 
-                FE(i,j,k)=Hvom(i,j,k)*0.5*(tempold(i,j,k)+tempold(i,j-1,k))-
+                FE(i,j,k)=Hvom(i,j,k)*0.5_rt*(tempold(i,j,k)+tempold(i,j-1,k))-
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
             });
 
@@ -227,12 +225,12 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
+                grad(i,j,k)=0.5_rt*(FE(i,j,k)+FE(i,j+1,k));
             });
 
             ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FE(i,j,k)=Hvom(i,j,k)*0.5*(tempold(i,j,k)+tempold(i,j-1,k)-
+                FE(i,j,k)=Hvom(i,j,k)*0.5_rt*(tempold(i,j,k)+tempold(i,j-1,k)-
                                            cffb*(grad(i,j,k)- grad(i,j-1,k)));
             });
         } else {
@@ -245,19 +243,19 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
     //  Time-step horizontal advection (m Tunits).
     //
 
-    Real cff1 = 0.0, cff2 = 0.0, cff;
+    Real cff1 = 0.0_rt, cff2 = 0.0_rt, cff;
 
-    Real GammaT = 1.0/6.0;
+    Real GammaT = 1.0_rt/6.0_rt;
 
     if (iic==ntfirst)
     {
-        cff=0.5*dt_lev;
-        cff1=1.0;
-        cff2=0.0;
+        cff=0.5_rt*dt_lev;
+        cff1=1.0_rt;
+        cff2=0.0_rt;
     } else {
-        cff=(1-GammaT)*dt_lev;
-        cff1=0.5+GammaT;
-        cff2=0.5-GammaT;
+        cff=(1.0_rt-GammaT)*dt_lev;
+        cff1=0.5_rt+GammaT;
+        cff2=0.5_rt-GammaT;
     }
 
     ParallelFor(tbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -278,9 +276,9 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
           //  Add in vertical advection.
           //-----------------------------------------------------------------------
 
-          Real c1=0.5;
-          Real c2=7.0/12.0;
-          Real c3=1.0/12.0;
+          Real c1=0.5_rt;
+          Real c2=7.0_rt/12.0_rt;
+          Real c3=1.0_rt/12.0_rt;
 
           if (k>=1 && k<=N-2)
           {
@@ -290,7 +288,7 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
           }
           else // this needs to be split up so that the following can be concurrent
           {
-              FC(i,j,N)=0.0;
+              FC(i,j,N)=0.0_rt;
 
               FC(i,j,N-1) = ( c2*tempold(i,j,N-1,nrhs)+ c1*tempold(i,j,N,nrhs)-c3*tempold(i,j,N-2,nrhs) )
                           * W(i,j,N-1);
@@ -303,13 +301,13 @@ ROMSX::prestep_t_advection (const Box& tbx, const Box& gbx,
     ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         if(k-1>=0) {
-        DC(i,j,k)=1.0/(Hz(i,j,k)-
+        DC(i,j,k)=1.0_rt/(Hz(i,j,k)-
                         cff*pm(i,j,0)*pn(i,j,0)*
                         (Huon(i+1,j,k)-Huon(i,j,k)+
                          Hvom(i,j+1,k)-Hvom(i,j,k)+
                          (W(i,j,k)-W(i,j,k-1))));
         } else {
-        DC(i,j,k)=1.0/(Hz(i,j,k)-
+        DC(i,j,k)=1.0_rt/(Hz(i,j,k)-
                         cff*pm(i,j,0)*pn(i,j,0)*
                         (Huon(i+1,j,k)-Huon(i,j,k)+
                          Hvom(i,j+1,k)-Hvom(i,j,k)+
