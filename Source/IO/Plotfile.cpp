@@ -166,10 +166,10 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
                     loc_arr(i,j,k,0) = (i+0.5) * dx;
                     loc_arr(i,j,k,1) = (j+0.5) * dy;
-                    loc_arr(i,j,k,2) = Real(0.125) * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
-                                                      zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
-                                                      zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +
-                                                      zp_arr(i,j+1,k+1) + zp_arr(i+1,j+1,k+1) );
+                    loc_arr(i,j,k,2) = 0.125_rt * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
+                                                   zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
+                                                   zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +
+                                                   zp_arr(i,j+1,k+1) + zp_arr(i+1,j+1,k+1) );
                 });
             } // mfi
             mf_comp += AMREX_SPACEDIM;
