@@ -69,7 +69,7 @@ init_custom_bathymetry (const Geometry& geom,
 
               Real val1 = (iFort <= Lm/2.0) ? iFort : Lm+1-iFort;
 
-              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1-10.0_rt)/7.0_rt)));
           });
 
       } else if (EWPeriodic) {
@@ -80,7 +80,7 @@ init_custom_bathymetry (const Geometry& geom,
 
               Real val1 = (jFort<=Mm/2.0) ? jFort : Mm+1-jFort;
 
-              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
+              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1-10.0_rt)/7.0_rt)));
           });
       }
     } // mfi
@@ -120,22 +120,22 @@ init_custom_prob(
 
         state(i, j, k, Temp_comp) = 1.;
 
-        state(i,j,k,Temp_comp)=m_solverChoice.T0+8.0*std::exp(z/50.0_rt);
+        state(i,j,k,Temp_comp)=m_solverChoice.T0+8.0_rt*std::exp(z/50.0_rt);
         if (l_use_salt) {
             state(i,j,k,Salt_comp)=m_solverChoice.S0;
         }
 
         // Set scalar = 0 everywhere
-        const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
-        const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
+        const Real xcent = 0.5_rt*(prob_lo[0] + prob_hi[0]);
+        const Real ycent = 0.5_rt*(prob_lo[1] + prob_hi[1]);
 
-        const Real x  = prob_lo[0] + (i + 0.5) * dx[0] - xcent;
-        const Real y  = prob_lo[1] + (j + 0.5) * dx[1] - ycent;
+        const Real x  = prob_lo[0] + (i + 0.5_rt) * dx[0] - xcent;
+        const Real y  = prob_lo[1] + (j + 0.5_rt) * dx[1] - ycent;
         const Real r2 = x*x + y*y;
-        const Real rad = 0.1 * (prob_hi[0]-prob_lo[0]);
+        const Real rad = 0.1_rt * (prob_hi[0]-prob_lo[0]);
         const Real radsq = rad*rad;
 
-        state(i, j, k, Scalar_comp) = 0.0;
+        state(i, j, k, Scalar_comp) = 0.0_rt;
     });
 
   const Box& xbx = surroundingNodes(bx,0);
@@ -156,7 +156,7 @@ init_custom_prob(
   } else {
       ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
       {
-          x_vel(i, j, k) = 0.0;
+          x_vel(i, j, k) = 0.0_rt;
       });
   }
 
@@ -173,7 +173,7 @@ init_custom_prob(
   } else {
       ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
       {
-          y_vel(i, j, k) = 0.0;
+          y_vel(i, j, k) = 0.0_rt;
       });
   }
 
@@ -183,7 +183,7 @@ init_custom_prob(
   // Set the z-velocity
   ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
-      z_vel(i, j, k) = 0.0;
+      z_vel(i, j, k) = 0.0_rt;
   });
 
   Gpu::streamSynchronize();
@@ -204,7 +204,7 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
       amrex::ParallelFor(bx,
       [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-        Akv(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w(i,j,k)/150.0);
+        Akv(i,j,k) = 2.0e-03_rt+8.0e-03_rt*std::exp(z_w(i,j,k)/150.0_rt);
 
         Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
         Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
@@ -230,11 +230,11 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
 
       amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-        visc2_p(i,j,k) = 5.0;
-        visc2_r(i,j,k) = 5.0;
+        visc2_p(i,j,k) = 5.0_rt;
+        visc2_r(i,j,k) = 5.0_rt;
 
         for (int n = 0; n < ncomp; n++) {
-            diff2(i,j,k,n) = 0.0;
+            diff2(i,j,k,n) = 0.0_rt;
         }
       });
     }
@@ -249,9 +249,9 @@ init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, Mu
     bool NSPeriodic = geomdata.isPeriodic(1);
 
     //If we had wind stress and bottom stress we would need to set these:
-    Real pi = 3.14159265359;
-    Real tdays=time/(24.0*60.0*60.0);
-    Real dstart=0.0;
+    Real pi = 3.14159265359_rt;
+    Real tdays=time/Real(24.0*60.0*60.0);
+    Real dstart=0.0_rt;
     Real windamp;
     //It's possible these should be set to be nonzero only at the boundaries they affect
 
@@ -260,25 +260,25 @@ init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, Mu
 
     // Flow in x-direction (EW):
     if (NSPeriodic) {
-        mf_sustr.setVal(0.0);
+        mf_sustr.setVal(0.0_rt);
     }
     else if (EWPeriodic) {
         if ((tdays-dstart)<=2.0)
-            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/m_solverChoice.rho0;
+            windamp=-0.1_rt*sin(pi*(tdays-dstart)/4.0_rt)/m_solverChoice.rho0;
         else
-            windamp=-0.1/m_solverChoice.rho0;
+            windamp=-0.1_rt/m_solverChoice.rho0;
         mf_sustr.setVal(windamp);
     }
 
     // Flow in y-direction (NS):
     if (NSPeriodic) {
         if ((tdays-dstart)<=2.0)
-            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/m_solverChoice.rho0;
+            windamp=-0.1_rt*sin(pi*(tdays-dstart)/4.0_rt)/m_solverChoice.rho0;
         else
-            windamp=-0.1/m_solverChoice.rho0;
+            windamp=-0.1_rt/m_solverChoice.rho0;
         mf_svstr.setVal(windamp);
     }
     else if(EWPeriodic) {
-        mf_svstr.setVal(0.0);
+        mf_svstr.setVal(0.0_rt);
     }
 }
