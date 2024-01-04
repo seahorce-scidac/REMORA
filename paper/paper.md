@@ -11,10 +11,22 @@ authors:
     orcid: 
     corresponding: true
     affiliation: 1
+  - name: Jean Sexton
+    orcid: 
+    corresponding: false
+    affiliation: 1
   - name: Ann Almgren
     orcid: 0000-0003-2103-312X
     corresponding: false
     affiliation: 1
+  - name: Robert Hetland
+    orcid: 
+    corresponding: false
+    affiliation: 2
+  - name: Kyle Hinson
+    orcid: 
+    corresponding: false
+    affiliation: 2
 
 affiliations:
  - name: Lawrence Berkeley National Laboratory
