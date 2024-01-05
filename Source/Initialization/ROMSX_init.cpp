@@ -67,10 +67,12 @@ ROMSX::init_beta_plane_coriolis (int lev)
         Real coriolis_f0 = solverChoice.coriolis_f0;
         Real coriolis_beta = solverChoice.coriolis_beta;
         Real Esize = geomdata.ProbHi()[1] - geomdata.ProbLo()[1];
+        Real prob_lo = geomdata.ProbLo()[1];
+        Real dx = geomdata.CellSize()[1];
 
         ParallelFor(Box(fcor_arr), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real y = geomdata.ProbLo()[1] + (j + 0.5) * geomdata.CellSize()[1];
+            Real y = prob_lo + (j + 0.5) * dx;
             fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - 0.5 * Esize);
         });
     } //mfi
