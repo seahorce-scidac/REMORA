@@ -691,8 +691,9 @@ private:
     void init_bdry_from_netcdf (int lev);
     void init_bathymetry_from_netcdf (int lev);
     void init_coriolis_from_netcdf (int lev);
-    void init_beta_plane_coriolis (int lev);
 #endif // ROMSX_USE_NETCDF
+
+    void init_beta_plane_coriolis (int lev);
 
     // write checkpoint file to disk
     void WriteCheckpointFile () const;
