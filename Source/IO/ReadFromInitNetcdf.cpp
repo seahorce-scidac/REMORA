@@ -52,4 +52,22 @@ read_bathymetry_from_netcdf (int lev,
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
+
+void
+read_coriolis_from_netcdf (int lev,
+                             const Box& domain,
+                             const std::string& fname,
+                             FArrayBox& NC_fcor_fab)
+{
+    amrex::Print() << "Loading initial coriolis from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_fcor_fab )   ; NC_names.push_back("f")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
+
+    // Read the netcdf file and fill these FABs
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+}
 #endif // ROMSX_USE_NETCDF

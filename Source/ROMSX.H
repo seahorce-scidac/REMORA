@@ -281,6 +281,9 @@ public:
     /** map factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn;
 
+    /** coriolis factor (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_fcor;
+
     /** saltstore, tempstore, etc*/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sstore;
 
@@ -326,6 +329,7 @@ public:
                      amrex::MultiFab const* mf_h,
                      amrex::MultiFab const* mf_pm,
                      amrex::MultiFab const* mf_pn,
+                     amrex::MultiFab const* mf_fcor,
                      amrex::MultiFab const* mf_visc2_p,
                      amrex::MultiFab const* mf_visc2_r,
                      const amrex::Real dtfast_lev,
@@ -566,6 +570,8 @@ public:
 
     void set_bathymetry (int lev);
 
+    void set_coriolis (int lev);
+
     void stretch_transform (int lev);
 
     void set_vmix (int lev);
@@ -684,6 +690,8 @@ private:
     void init_data_from_netcdf (int lev);
     void init_bdry_from_netcdf (int lev);
     void init_bathymetry_from_netcdf (int lev);
+    void init_coriolis_from_netcdf (int lev);
+    void init_beta_plane_coriolis (int lev);
 #endif // ROMSX_USE_NETCDF
 
     // write checkpoint file to disk

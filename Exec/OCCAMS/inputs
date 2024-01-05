@@ -45,6 +45,7 @@ romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 romsx.spatial_order = 2
 
 romsx.use_coriolis  = true
+romsx.coriolis_type = real
 romsx.coriolis_f0   = 1.0e-4 #-8.26e-5
 
 romsx.theta_s = 6.5

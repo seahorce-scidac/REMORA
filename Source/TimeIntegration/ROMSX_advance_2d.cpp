@@ -55,6 +55,7 @@ ROMSX::advance_2d (int lev,
                    MultiFab const* mf_h,
                    MultiFab const* mf_pm,
                    MultiFab const* mf_pn,
+                   MultiFab const* mf_fcor,
                    MultiFab const* mf_visc2_p,
                    MultiFab const* mf_visc2_r,
                    Real dtfast_lev,
@@ -185,8 +186,9 @@ ROMSX::advance_2d (int lev,
         Array4<Real const> const& visc2_p = mf_visc2_p->const_array(mfi);
         Array4<Real const> const& visc2_r = mf_visc2_r->const_array(mfi);
 
-        Array4<Real const> const& pm = mf_pm->const_array(mfi);
-        Array4<Real const> const& pn = mf_pn->const_array(mfi);
+        Array4<Real const> const& pm   = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn   = mf_pn->const_array(mfi);
+        Array4<Real const> const& fcor = mf_fcor->const_array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -252,9 +254,6 @@ ROMSX::advance_2d (int lev,
         auto weight1 = vec_weight1.dataPtr();
         auto weight2 = vec_weight2.dataPtr();
 
-        Real coriolis_f0 = solverChoice.coriolis_f0;
-        Real coriolis_beta = solverChoice.coriolis_beta;
-
         //From ana_grid.h and metrics.F
         ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -266,17 +265,9 @@ ROMSX::advance_2d (int lev,
               rhs_vbar(i,j,0)=0.0;
         });
 
-        Real Esize = Geom(lev).ProbHi()[1] - Geom(lev).ProbLo()[1];
-
         ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
         {
-            const auto prob_lo         = geomdata.ProbLo();
-            const auto dx              = geomdata.CellSize();
-
-            //defined UPWELLING
-            Real y = prob_lo[1] + (j + 0.5) * dx[1];
-            Real f=coriolis_f0 + coriolis_beta*(y-.5*Esize);
-            fomn(i,j,0) = f*(1.0/(pm(i,j,0)*pn(i,j,0)));
+            fomn(i,j,0) = fcor(i,j,0)*(1.0/(pm(i,j,0)*pn(i,j,0)));
         });
 
         ParallelFor(makeSlab(tbxp3,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)

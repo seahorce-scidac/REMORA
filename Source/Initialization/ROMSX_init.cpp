@@ -51,6 +51,34 @@ ROMSX::init_custom(int lev)
 }
 
 void
+ROMSX::init_beta_plane_coriolis (int lev)
+{
+    std::unique_ptr<MultiFab>& mf_fcor = vec_fcor[lev];
+    auto geomdata  = Geom(lev).data();
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box &bx = mfi.tilebox();
+
+        auto fcor_arr = (mf_fcor)->array(mfi);
+        Real coriolis_f0 = solverChoice.coriolis_f0;
+        Real coriolis_beta = solverChoice.coriolis_beta;
+        Real Esize = geomdata.ProbHi()[1] - geomdata.ProbLo()[1];
+
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            Real y = geomdata.ProbLo()[1] + (j + 0.5) * geomdata.CellSize()[1];
+            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - 0.5 * Esize);
+        });
+    } //mfi
+
+    vec_fcor[lev]->FillBoundary(geom[lev].periodicity());
+}
+
+void
 ROMSX::set_2darrays (int lev)
 {
     std::unique_ptr<MultiFab>& mf_x_r = vec_x_r[lev];
