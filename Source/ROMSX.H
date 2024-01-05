@@ -594,6 +594,8 @@ public:
                             const amrex::Real time,
                             const int bdy_var_type);
 
+    void init_beta_plane_coriolis (int lev);
+
 private:
 
     ///////////////////////////
@@ -692,8 +694,6 @@ private:
     void init_bathymetry_from_netcdf (int lev);
     void init_coriolis_from_netcdf (int lev);
 #endif // ROMSX_USE_NETCDF
-
-    void init_beta_plane_coriolis (int lev);
 
     // write checkpoint file to disk
     void WriteCheckpointFile () const;
