@@ -265,10 +265,12 @@ ROMSX::advance_2d (int lev,
               rhs_vbar(i,j,0)=0.0;
         });
 
-        ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
-        {
-            fomn(i,j,0) = fcor(i,j,0)*(1.0/(pm(i,j,0)*pn(i,j,0)));
-        });
+        if (solverChoice.use_coriolis) {
+            ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
+            {
+                fomn(i,j,0) = fcor(i,j,0)*(1.0/(pm(i,j,0)*pn(i,j,0)));
+            });
+        }
 
         ParallelFor(makeSlab(tbxp3,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
