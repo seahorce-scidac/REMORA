@@ -112,10 +112,6 @@ init_custom_prob(
 
     ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
-        const auto prob_lo         = geomdata.ProbLo();
-        const auto prob_hi         = geomdata.ProbHi();
-        const auto dx              = geomdata.CellSize();
-
         const Real z = z_r(i,j,k);
 
         state(i, j, k, Temp_comp) = 1.;
@@ -126,15 +122,6 @@ init_custom_prob(
         }
 
         // Set scalar = 0 everywhere
-        const Real xcent = 0.5_rt*(prob_lo[0] + prob_hi[0]);
-        const Real ycent = 0.5_rt*(prob_lo[1] + prob_hi[1]);
-
-        const Real x  = prob_lo[0] + (i + 0.5_rt) * dx[0] - xcent;
-        const Real y  = prob_lo[1] + (j + 0.5_rt) * dx[1] - ycent;
-        const Real r2 = x*x + y*y;
-        const Real rad = 0.1_rt * (prob_hi[0]-prob_lo[0]);
-        const Real radsq = rad*rad;
-
         state(i, j, k, Scalar_comp) = 0.0_rt;
     });
 
@@ -264,7 +251,7 @@ init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, Mu
     }
     else if (EWPeriodic) {
         if ((tdays-dstart)<=2.0)
-            windamp=-0.1_rt*sin(pi*(tdays-dstart)/4.0_rt)/m_solverChoice.rho0;
+            windamp=-0.1_rt*Real(sin(pi*(tdays-dstart)/4.0_rt))/Real(m_solverChoice.rho0);
         else
             windamp=-0.1_rt/m_solverChoice.rho0;
         mf_sustr.setVal(windamp);
@@ -273,7 +260,7 @@ init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, Mu
     // Flow in y-direction (NS):
     if (NSPeriodic) {
         if ((tdays-dstart)<=2.0)
-            windamp=-0.1_rt*sin(pi*(tdays-dstart)/4.0_rt)/m_solverChoice.rho0;
+            windamp=-0.1_rt*Real(sin(pi*(tdays-dstart)/4.0_rt))/Real(m_solverChoice.rho0);
         else
             windamp=-0.1_rt/m_solverChoice.rho0;
         mf_svstr.setVal(windamp);
