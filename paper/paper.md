@@ -24,7 +24,7 @@ authors:
     corresponding: false
     affiliation: 2
   - name: Kyle Hinson
-    orcid: 
+    orcid: 0000-0002-2737-2379
     corresponding: false
     affiliation: 2
 
