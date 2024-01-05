@@ -82,18 +82,18 @@ init_custom_coriolis (const Geometry& geom,
 
 void
 init_custom_prob(
-        const Box& bx,
-        Array4<Real      > const& state,
-        Array4<Real      > const& x_vel,
-        Array4<Real      > const& y_vel,
-        Array4<Real      > const& z_vel,
+        const Box& /*bx*/,
+        Array4<Real      > const& /*state*/,
+        Array4<Real      > const& /*x_vel*/,
+        Array4<Real      > const& /*y_vel*/,
+        Array4<Real      > const& /*z_vel*/,
         Array4<Real const> const& /*z_w*/,
-        Array4<Real const> const& z_r,
+        Array4<Real const> const& /*z_r*/,
         Array4<Real const> const& /*Hz*/,
         Array4<Real const> const& /*h*/,
         Array4<Real const> const& /*Zt_avg1*/,
-        GeometryData const& geomdata,
-        const SolverChoice& m_solverChoice)
+        GeometryData const& /*geomdata*/,
+        const SolverChoice& /*m_solverChoice*/)
 {
     Abort("Shouldn't be in init_custom_prob!");
 }

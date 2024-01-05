@@ -138,31 +138,13 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             }
         }
 
-        // Next, check for velocities and if desired, output them
+        // Next, check for velocities and output none or all
         if (containerHasElement(plot_var_names, "x_velocity") ||
             containerHasElement(plot_var_names, "y_velocity") ||
             containerHasElement(plot_var_names, "z_velocity")) {
-            amrex::Print()<<"For now, print faces as if they are at cell centers"<<std::endl;
-            //            average_face_to_cellcenter(mf[lev],mf_comp,
-            //                Array<const MultiFab*,3>{&xvel_new[lev],&yvel_new[lev],&zvel_new[lev]});
-            //
-            // Convert the map-factor-scaled-velocities back to velocities
-            //
-            MultiFab dmf(mf[lev], make_alias, mf_comp, AMREX_SPACEDIM);
-            for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-            {
-                const Box& bx = mfi.growntilebox();
-                const Array4<Real> vel_arr = dmf.array(mfi);
-                const Array4<const Real> velx_arr = xvel_new[lev]->const_array(mfi);
-                const Array4<const Real> vely_arr = yvel_new[lev]->const_array(mfi);
-                const Array4<const Real> velz_arr = zvel_new[lev]->const_array(mfi);
-                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                {
-                    vel_arr(i,j,k,0) = velx_arr(i,j,k);
-                    vel_arr(i,j,k,1) = vely_arr(i,j,k);
-                    vel_arr(i,j,k,2) = velz_arr(i,j,k);
-                });
-            }
+            amrex::Print()<<"We now average the face-based velocity components onto cell centers for plotting "<<std::endl;
+            average_face_to_cellcenter(mf[lev],mf_comp,
+                                       Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]});
             mf_comp += AMREX_SPACEDIM;
         }
 
@@ -184,10 +166,10 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
                     loc_arr(i,j,k,0) = (i+0.5) * dx;
                     loc_arr(i,j,k,1) = (j+0.5) * dy;
-                    loc_arr(i,j,k,2) = Real(0.125) * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
-                                                      zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
-                                                      zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +
-                                                      zp_arr(i,j+1,k+1) + zp_arr(i+1,j+1,k+1) );
+                    loc_arr(i,j,k,2) = 0.125_rt * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
+                                                   zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
+                                                   zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +
+                                                   zp_arr(i,j+1,k+1) + zp_arr(i+1,j+1,k+1) );
                 });
             } // mfi
             mf_comp += AMREX_SPACEDIM;
@@ -250,8 +232,8 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
 #ifdef ROMSX_USE_NETCDF
         } else if (plotfile_type == "netcdf" || plotfile_type == "NetCDF") {
              int lev   = 0;
-             int which = 0;
-             writeNCPlotFile(lev, which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
+             int nc_which = 0;
+             writeNCPlotFile(lev, nc_which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
              total_plot_file_step_1 += 1;
 #endif
         } else {
@@ -318,8 +300,8 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
 #ifdef ROMSX_USE_NETCDF
         } else if (plotfile_type == "netcdf" || plotfile_type == "NetCDF") {
              for (int lev = 0; lev <= finest_level; ++lev) {
-                 for (int which = 0; which < num_boxes_at_level[lev]; which++) {
-                     writeNCPlotFile(lev, which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
+                 for (int nc_which = 0; nc_which < num_boxes_at_level[lev]; nc_which++) {
+                     writeNCPlotFile(lev, nc_which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
                      total_plot_file_step_1 += 1;
                  }
              }

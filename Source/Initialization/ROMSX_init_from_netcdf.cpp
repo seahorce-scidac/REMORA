@@ -13,7 +13,7 @@ using namespace amrex;
 #ifdef ROMSX_USE_NETCDF
 
 void
-read_data_from_netcdf (int lev, const Box& domain, const std::string& fname,
+read_data_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
                        FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
                        FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
                        FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab,
@@ -125,8 +125,6 @@ ROMSX::init_bathymetry_from_netcdf (int lev)
     Vector<FArrayBox> NC_pm_fab    ; NC_pm_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_pn_fab    ; NC_pn_fab.resize(num_boxes_at_level[lev]);
 
-    int nboxes = NC_h_fab.size();
-
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         read_bathymetry_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
@@ -208,7 +206,7 @@ ROMSX::init_coriolis_from_netcdf (int lev)
  * @param lev Integer specifying the current level
  */
 void
-ROMSX::init_bdry_from_netcdf (int lev)
+ROMSX::init_bdry_from_netcdf ()
 {
     if (nc_bdry_file.empty()) {
         amrex::Error("NetCDF boundary file name must be provided via input");

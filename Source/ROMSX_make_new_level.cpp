@@ -302,20 +302,20 @@ void ROMSX::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& d
     set_weights(lev);
 
     //consider tracking ru and rv indexes more specifically or more similarly to indx
-    vec_ru[lev]->setVal(0.0);
-    vec_rv[lev]->setVal(0.0);
+    vec_ru[lev]->setVal(0.0_rt);
+    vec_rv[lev]->setVal(0.0_rt);
 
-    vec_DU_avg1[lev]->setVal(0.0);
-    vec_DU_avg2[lev]->setVal(0.0);
-    vec_DV_avg1[lev]->setVal(0.0);
-    vec_DV_avg2[lev]->setVal(0.0);
-    vec_rubar[lev]->setVal(0.0);
-    vec_rvbar[lev]->setVal(0.0);
-    vec_rzeta[lev]->setVal(0.0);
+    vec_DU_avg1[lev]->setVal(0.0_rt);
+    vec_DU_avg2[lev]->setVal(0.0_rt);
+    vec_DV_avg1[lev]->setVal(0.0_rt);
+    vec_DV_avg2[lev]->setVal(0.0_rt);
+    vec_rubar[lev]->setVal(0.0_rt);
+    vec_rvbar[lev]->setVal(0.0_rt);
+    vec_rzeta[lev]->setVal(0.0_rt);
 
-    vec_ubar[lev]->setVal(0.0);
-    vec_vbar[lev]->setVal(0.0);
-    vec_zeta[lev]->setVal(0.0);
+    vec_ubar[lev]->setVal(0.0_rt);
+    vec_vbar[lev]->setVal(0.0_rt);
+    vec_zeta[lev]->setVal(0.0_rt);
 
     // Set initial linear drag coefficient
     vec_rdrag[lev]->setVal(solverChoice.rdrag);

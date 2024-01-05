@@ -10,7 +10,7 @@ using namespace amrex;
 //     so this follows the BCVars enum
 //
 void ROMSXPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
-                                        const GpuArray<Real,AMREX_SPACEDIM> dxInv,
+                                        const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/,
                                         Real /*time*/, int bccomp)
 {
     BL_PROFILE_VAR("impose_yvel_bcs()",impose_yvel_bcs);

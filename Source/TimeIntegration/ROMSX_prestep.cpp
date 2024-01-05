@@ -92,7 +92,7 @@ ROMSX::prestep (int lev,
         Array4<Real const> const& bustr = mf_bustr->const_array(mfi);
         Array4<Real const> const& bvstr = mf_bvstr->const_array(mfi);
 
-        Real lambda = 1.0;
+        Real lambda = 1.0_rt;
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -139,13 +139,13 @@ ROMSX::prestep (int lev,
         auto btflux= fab_btflux.array();
 
         //From ini_fields and .in file
-        //fab_stflux.setVal(0.0);
+        //fab_stflux.setVal(0.0_rt);
         //also set btflux=0 (as in ana_btflux.H)
         ParallelFor(tbxp2,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            stflux(i,j,k)=0.0;
-            btflux(i,j,k)=0.0;
+            stflux(i,j,k)=0.0_rt;
+            btflux(i,j,k)=0.0_rt;
         });
 
         for (int i_comp=0; i_comp < NCONS; i_comp++) {

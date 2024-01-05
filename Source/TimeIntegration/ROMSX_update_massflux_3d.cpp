@@ -50,9 +50,9 @@ ROMSX::update_massflux_3d (const Box& bx,
     //This takes advantage of Hz being an extra grow cell size
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Real om_v_or_on_u = Real(2.0) / (pm_or_pn(i,j,0) + pm_or_pn(i-ioff,j-joff,0));
+        Real om_v_or_on_u = 2.0_rt / (pm_or_pn(i,j,0) + pm_or_pn(i-ioff,j-joff,0));
 
-        DC(i,j,k) = Real(0.5) * om_v_or_on_u * (Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+        DC(i,j,k) = 0.5_rt * om_v_or_on_u * (Hz(i,j,k)+Hz(i-ioff,j-joff,k));
     });
 
     ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )

@@ -24,7 +24,6 @@ void ROMSXPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect c
     BL_PROFILE("ROMSXPhysBCFunct::()");
 
     const auto& domain = m_geom.Domain();
-    const auto dx      = m_geom.CellSizeArray();
     const auto dxInv   = m_geom.InvCellSizeArray();
 
     // Create a grown domain box containing valid + periodic cells

@@ -78,8 +78,8 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         FX(i,j,k)=sstore(i,j,k,nrhs)-sstore(i-1,j,k,nrhs);
     });
 
-    Real cffa=1.0/6.0;
-    Real cffb=1.0/3.0;
+    Real cffa=1.0_rt/6.0_rt;
+    Real cffb=1.0_rt/3.0_rt;
 
     if(solverChoice.flat_bathymetry) {
 
@@ -93,8 +93,8 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
             ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real max_Huon = std::max(Huon(i,j,k),0.0);
-                Real min_Huon = std::min(Huon(i,j,k),0.0);
+                Real max_Huon = std::max(Huon(i,j,k),0.0_rt);
+                Real min_Huon = std::min(Huon(i,j,k),0.0_rt);
                 FX(i,j,k)=Huon(i,j,k)*0.5*(sstore(i,j,k)+sstore(i-1,j,k))+
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
@@ -130,8 +130,8 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
             //HACK to avoid using the wrong index of t (using upstream3)
             ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real max_Huon = std::max(Huon(i,j,k),0.0);
-                Real min_Huon = std::min(Huon(i,j,k),0.0);
+                Real max_Huon = std::max(Huon(i,j,k),0.0_rt);
+                Real min_Huon = std::min(Huon(i,j,k),0.0_rt);
                 FX(i,j,k)=Huon(i,j,k)*0.5*(sstore(i,j,k)+sstore(i-1,j,k))-
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
@@ -161,8 +161,8 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
         FE(i,j,k)=sstore(i,j,k,nrhs)-sstore(i,j-1,k,nrhs);
     });
 
-    cffa=1.0/6.0;
-    cffb=1.0/3.0;
+    cffa=1.0_rt/6.0_rt;
+    cffb=1.0_rt/3.0_rt;
     if (solverChoice.flat_bathymetry) {
 
         if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
@@ -174,8 +174,8 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
             ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real max_Hvom = std::max(Hvom(i,j,k),0.0);
-                Real min_Hvom = std::min(Hvom(i,j,k),0.0);
+                Real max_Hvom = std::max(Hvom(i,j,k),0.0_rt);
+                Real min_Hvom = std::min(Hvom(i,j,k),0.0_rt);
 
                 FE(i,j,k)=Hvom(i,j,k)*0.5*(sstore(i,j,k)+sstore(i,j-1,k))+
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
@@ -209,8 +209,8 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
             ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real max_Hvom = std::max(Hvom(i,j,k),0.0);
-                Real min_Hvom = std::min(Hvom(i,j,k),0.0);
+                Real max_Hvom = std::max(Hvom(i,j,k),0.0_rt);
+                Real min_Hvom = std::min(Hvom(i,j,k),0.0_rt);
 
                 FE(i,j,k)=Hvom(i,j,k)*0.5*(sstore(i,j,k)+sstore(i,j-1,k))-
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
@@ -263,9 +263,9 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
               //  Add in vertical advection.
               //-----------------------------------------------------------------------
 
-              Real cff1=0.5;
-              Real cff2=7.0/12.0;
-              Real cff3=1.0/12.0;
+              Real cff1=0.5_rt;
+              Real cff2=7.0_rt/12.0_rt;
+              Real cff3=1.0_rt/12.0_rt;
 
               if (k>=1 && k<=N-2)
               {
@@ -274,7 +274,7 @@ ROMSX::rhs_t_3d (const Box& bx, const Box& gbx,
 
               } else {
 
-                  FC(i,j,N)=0.0;
+                  FC(i,j,N)=0.0_rt;
 
                   FC(i,j,N-1)=( cff2*sstore(i  ,j,N-1)+ cff1*sstore(i,j,N  )
                                -cff3*sstore(i  ,j,N-2) ) * ( W(i  ,j,N-1));

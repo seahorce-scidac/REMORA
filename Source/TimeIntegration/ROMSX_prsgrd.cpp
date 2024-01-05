@@ -31,8 +31,8 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     const Real OneTwelfth = 1.0_rt/12.0_rt;
     const Real eps = 1.0E-10_rt;
     Real GRho     = solverChoice.g/solverChoice.rho0;
-    Real GRho0    = Real(1000.0) * GRho;
-    Real HalfGRho = Real(0.5)    * GRho;
+    Real GRho0    = 1000.0_rt * GRho;
+    Real HalfGRho = 0.5_rt    * GRho;
 
     FArrayBox fab_P(phi_bx,1,The_Async_Arena());
     FArrayBox fab_aux(Box(z_r),1,The_Async_Arena());
@@ -137,7 +137,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
             Real z_r_diff   = z_r(i,j,k)-z_r(i-1,j,k)- OneTwelfth* (dZx(i,j,k)+dZx(i-1,j,k));
             Real   Hz_avg   = 0.5_rt * (Hz(i,j,k)+Hz(i-1,j,k));
 
-            Real on_u = Real(2.0) / (pn(i-1,j,0)+pn(i,j,0));
+            Real on_u = 2.0_rt / (pn(i-1,j,0)+pn(i,j,0));
             ru(i,j,k,nrhs) = on_u * Hz_avg * (
                             P(i-1,j,k) - P(i,j,k) - HalfGRho *
                             ( (rho(i,j,k)+rho(i-1,j,k))*(z_r(i,j,k)-z_r(i-1,j,k))-
@@ -184,7 +184,7 @@ ROMSX::prsgrd (const Box& phi_bx, const Box& phi_gbx,
             Real z_r_diff   = z_r(i,j,k)-z_r(i,j-1,k)- OneTwelfth* (dZx(i,j,k)+dZx(i,j-1,k));
             Real   Hz_avg   = 0.5_rt * (Hz(i,j,k)+Hz(i,j-1,k));
 
-            Real om_v = Real(2.0) / (pm(i,j-1,0)+pm(i,j,0));
+            Real om_v = 2.0_rt / (pm(i,j-1,0)+pm(i,j,0));
             rv(i,j,k,nrhs) = om_v * Hz_avg * (
                             P(i,j-1,k) - P(i,j,k) - HalfGRho *
                             ( (rho(i,j,k)+rho(i,j-1,k))*(z_r(i,j,k)-z_r(i,j-1,k))-

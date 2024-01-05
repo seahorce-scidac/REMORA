@@ -6,7 +6,7 @@ using namespace amrex;
 
 #ifdef ROMSX_USE_NETCDF
 void
-read_data_from_netcdf (int lev,
+read_data_from_netcdf (int /*lev*/,
                        const Box& domain,
                        const std::string& fname,
                        FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
@@ -33,7 +33,7 @@ read_data_from_netcdf (int lev,
 }
 
 void
-read_bathymetry_from_netcdf (int lev,
+read_bathymetry_from_netcdf (int /*lev*/,
                              const Box& domain,
                              const std::string& fname,
                              FArrayBox& NC_h_fab,

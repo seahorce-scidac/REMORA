@@ -429,7 +429,7 @@ ROMSX::init_only(int lev, Real time)
         amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
 
         amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
-        init_bdry_from_netcdf(lev);
+        init_bdry_from_netcdf();
         amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
 #endif
     } else {
