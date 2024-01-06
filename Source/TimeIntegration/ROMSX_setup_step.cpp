@@ -53,6 +53,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
     MultiFab* mf_h   = vec_hOfTheConfusingName[lev].get();
     MultiFab* mf_pm  = vec_pm[lev].get();
     MultiFab* mf_pn  =   vec_pn[lev].get();
+    MultiFab* mf_fcor  = vec_fcor[lev].get();
 
     //Consider passing these into the advance function or renaming relevant things
 
@@ -220,6 +221,7 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
         Array4<Real const> const& pm = mf_pm->const_array(mfi);
         Array4<Real const> const& pn = mf_pn->const_array(mfi);
+        Array4<Real const> const& fcor = mf_fcor->const_array(mfi);
 
         Box bx = mfi.tilebox();
 
@@ -260,18 +262,12 @@ ROMSX::setup_step (int lev, Real time, Real dt_lev)
 
         auto fomn=fab_fomn.array();
 
-        Real coriolis_f0 = solverChoice.coriolis_f0;
-        Real coriolis_beta = solverChoice.coriolis_beta;
-
-        Real Esize=geom[lev].ProbHi()[1] - geom[lev].ProbLo()[1];
-
-        ParallelFor(tbxp2D,
-        [=] AMREX_GPU_DEVICE (int i, int j, int  )
-        {
-            Real y = prob_lo[1] + (j + 0.5) * dx[1];
-            Real f=coriolis_f0 + coriolis_beta*(y-.5*Esize);
-            fomn(i,j,0)=f*(1.0/(pm(i,j,0)*pn(i,j,0)));
-        });
+        if (solverChoice.use_coriolis) {
+            ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
+            {
+                fomn(i,j,0) = fcor(i,j,0)*(1.0/(pm(i,j,0)*pn(i,j,0)));
+            });
+        }
 
         ParallelFor(gbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {

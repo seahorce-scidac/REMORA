@@ -357,6 +357,28 @@ ROMSX::set_bathymetry(int lev)
 }
 
 void
+ROMSX::set_coriolis(int lev) {
+    if (solverChoice.use_coriolis) {
+        if (solverChoice.coriolis_type == Cor_Type::Custom) {
+            init_custom_coriolis(geom[lev], *vec_fcor[lev], solverChoice);
+        } else if (solverChoice.coriolis_type == Cor_Type::Beta_Plane) {
+            init_beta_plane_coriolis(lev);
+#ifdef ROMSX_USE_NETCDF
+        } else if (solverChoice.coriolis_type == Cor_Type::Real) {
+            amrex::Print() << "Calling init_coriolis_from_netcdf " << std::endl;
+            init_coriolis_from_netcdf(lev);
+            amrex::Print() << "Coriolis loaded from netcdf file \n" << std::endl;
+#endif
+        } else {
+            Abort("Don't know this coriolis_type!");
+        }
+
+        Real time = 0.0;
+        FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor));
+    }
+}
+
+void
 ROMSX::set_vmix(int lev) {
     init_custom_vmix(geom[lev], *vec_Akv[lev], *vec_Akt[lev], *vec_z_w[lev], solverChoice);
 

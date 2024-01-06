@@ -59,6 +59,7 @@ romsx.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is infe
 
 # Coriolis params
 romsx.use_coriolis = true
+romsx.coriolis_type = beta_plane
 romsx.coriolis_f0 = -8.26e-5
 romsx.coriolis_beta = 0.0
 
