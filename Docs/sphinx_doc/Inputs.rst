@@ -331,42 +331,40 @@ Time Step
 List of Parameters for Single-Rate
 ----------------------------------
 
-+------------------------------+-----------------+----------------+-------------------+
-| Parameter                    | Definition      | Acceptable     | Default           |
-|                              |                 | Values         |                   |
-+==============================+=================+================+===================+
++-------------------------------+-----------------+----------------+-------------------+
+| Parameter                     | Definition      | Acceptable     | Default           |
+|                               |                 | Values         |                   |
++===============================+=================+================+===================+
 | **remora.cfl**                | CFL number for  | Real > 0 and   | 0.8               |
-|                              | hydro           | <= 1           |                   |
-|                              |                 |                |                   |
-|                              |                 |                |                   |
-+------------------------------+-----------------+----------------+-------------------+
+|                               | hydro           | <= 1           |                   |
++-------------------------------+-----------------+----------------+-------------------+
 | **remora.fixed_dt**           | set level 0 dt  | Real > 0       | unused if not     |
-|                              | as this value   |                | set               |
-|                              | regardless of   |                |                   |
-|                              | cfl or other    |                |                   |
-|                              | settings        |                |                   |
-+------------------------------+-----------------+----------------+-------------------+
+|                               | as this value   |                | set               |
+|                               | regardless of   |                |                   |
+|                               | cfl or other    |                |                   |
+|                               | settings        |                |                   |
++-------------------------------+-----------------+----------------+-------------------+
 | **remora.use_lowM_dt**        | set level 0 dt  | bool           | false             |
-|                              | based on        |                |                   |
-|                              | low M cfl cond  |                |                   |
-+------------------------------+-----------------+----------------+-------------------+
+|                               | based on        |                |                   |
+|                               | low M cfl cond  |                |                   |
++-------------------------------+-----------------+----------------+-------------------+
 | **remora.fixed_fast_dt**      | set fast dt     | Real > 0       | only relevant     |
-|                              | as this value   |                | if use_native_mri |
-|                              |                 |                | is true           |
-+------------------------------+-----------------+----------------+-------------------+
+|                               | as this value   |                | if use_native_mri |
+|                               |                 |                | is true           |
++-------------------------------+-----------------+----------------+-------------------+
 | **remora.fixed_mri_dt_ratio** | set fast dt     | int            | only relevant     |
-|                              | as slow dt /    |                | if use_native_mri |
-|                              | this ratio      |                | is true           |
-+------------------------------+-----------------+----------------+-------------------+
+|                               | as slow dt /    |                | if use_native_mri |
+|                               | this ratio      |                | is true           |
++-------------------------------+-----------------+----------------+-------------------+
 | **remora.init_shrink**        | factor by which | Real > 0 and   | 1.0               |
-|                              | to shrink the   | <= 1           |                   |
-|                              | initial dt      |                |                   |
-+------------------------------+-----------------+----------------+-------------------+
+|                               | to shrink the   | <= 1           |                   |
+|                               | initial dt      |                |                   |
++-------------------------------+-----------------+----------------+-------------------+
 | **remora.change_max**         | factor by which | Real >= 1      | 1.1               |
-|                              | dt can grow     |                |                   |
-|                              | in subsequent   |                |                   |
-|                              | steps           |                |                   |
-+------------------------------+-----------------+----------------+-------------------+
+|                               | dt can grow     |                |                   |
+|                               | in subsequent   |                |                   |
+|                               | steps           |                |                   |
++-------------------------------+-----------------+----------------+-------------------+
 
 .. _examples-of-usage-5:
 
@@ -417,10 +415,10 @@ List of Parameters
 | **amr.v**                  | verbosity of     | 0 or 1         | 0              |
 |                            | Amr.cpp          |                |                |
 +----------------------------+------------------+----------------+----------------+
-| **remora.v**                | verbosity of     | 0,1,2          | 0              |
-|                            | REMORA functions  |                |                |
+| **remora.v**               | verbosity of     | 0,1,2          | 0              |
+|                            | REMORA functions |                |                |
 +----------------------------+------------------+----------------+----------------+
-| **remora.sum_interval**     | if               |                |                |
+| **remora.sum_interval**    | if               |                |                |
 |                            | :math:`> 0,`     |                |                |
 |                            | how often (in    |                |                |
 |                            | level-0 time     |                |                |
@@ -457,17 +455,17 @@ List of Parameters
 | Parameter                        | Definition                  | Acceptable        | Default     |
 |                                  |                             | Values            |             |
 +==================================+=============================+===================+=============+
-| **remora.use_coriolis**           | Include Coriolis terms.     | true / false      | false       |
+| **remora.use_coriolis**          | Include Coriolis terms.     | true / false      | false       |
 +----------------------------------+-----------------------------+-------------------+-------------+
-| **remora.flat_bathymetry**        | Use flat bathymetry.        | true / false      | true        |
+| **remora.flat_bathymetry**       | Use flat bathymetry.        | true / false      | true        |
 +----------------------------------+-----------------------------+-------------------+-------------+
-| **remora.use_prestep**            | Do prestep terms. Only for  |  true / false     | true        |
+| **remora.use_prestep**           | Do prestep terms. Only for  |  true / false     | true        |
 |                                  | debugging purposes.         |                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
-| **remora.use_uv3dmix**            | Include harmonic viscosity. | true / false      | true        |
+| **remora.use_uv3dmix**           | Include harmonic viscosity. | true / false      | true        |
 |                                  | Only for debugging purposes.|                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
-| **remora.use_barotropic**         | Include 2d barotropic step. | true / false      | true        |
+| **remora.use_barotropic**        | Include 2d barotropic step. | true / false      | true        |
 |                                  | Only for debugging purposes.|                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
 
@@ -479,48 +477,59 @@ Physics Parameters
 List of Parameters
 ------------------
 
-+----------------------------------+------------------------------+-------------------+-------------+
-| Parameter                        | Definition                   | Acceptable        | Default     |
-|                                  |                              | Values            |             |
-+==================================+==============================+===================+=============+
-| **remora.ggrav**                  | Gravitational field strength | Real number       | 9.81        |
-|                                  | [kg m/s^2]                   |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **remora.R0**                     | Background density [kg/m^3]  | Real number       | 1028        |
-|                                  | used in Linear Equation of   |                   |             |
-|                                  | State. May be used in setup  |                   |             |
-|                                  | of some problems.            |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **remora.S0**                     | Background salinity          | Real number       | 35          |
-|                                  | (nondimensional) used in     |                   |             |
-|                                  | Linear Equation of State     |                   |             |
-|                                  | State. May be used in setup  |                   |             |
-|                                  | of some problems.            |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **remora.T0**                     | Background temperature       | Real number       | 5           |
-|                                  | (Celsius) used in            |                   |             |
-|                                  | Linear Equation of State     |                   |             |
-|                                  | State. May be used in setup  |                   |             |
-|                                  | of some problems.            |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **remora.Tcoef**                  | Linear EOS parameter         | Real number       | 1.7e-4      |
-|                                  | (1/Celsius)                  |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **remora.Scoef**                  | Linear EOS parameter         | Real number       | 0.0         |
-|                                  | (nondimensional)             |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **remora.rho0**                   | Mean density (kg/m^3) used   | Real number       | 1025        |
-|                                  | when Boussinesq approx is    |                   |             |
-|                                  | inferred                     |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **remora.coriolis_f0**            | f-plane constant for         | Real number       | 0.0         |
-|                                  | Coriolis param               |                   |             |
-|                                  | :math:`f = f_0 + \beta y`    |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **remora.coriolis_beta**          | beta-plane constant for      | Real number       | 0.0         |
-|                                  | Coriolis param               |                   |             |
-|                                  | :math:`f = f_0 + \beta y`    |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
++----------------------------------+----------------------------------+-------------------+---------------+
+| Parameter                        | Definition                       | Acceptable        | Default       |
+|                                  |                                  | Values            |               |
++==================================+==================================+===================+===============+
+| **remora.ggrav**                 | Gravitational field strength     | Real number       | 9.81          |
+|                                  | [kg m/s^2]                       |                   |               |
++----------------------------------+----------------------------------+-------------------+---------------+
+| **remora.R0**                    | Background density [kg/m^3]      | Real number       | 1028          |
+|                                  | used in Linear Equation of       |                   |               |
+|                                  | State. May be used in setup      |                   |               |
+|                                  | of some problems.                |                   |               |
++----------------------------------+----------------------------------+-------------------+---------------+
+| **remora.S0**                    | Background salinity              | Real number       | 35            |
+|                                  | (nondimensional) used in         |                   |               |
+|                                  | Linear Equation of State         |                   |               |
+|                                  | State. May be used in setup      |                   |               |
+|                                  | of some problems.                |                   |               |
++----------------------------------+----------------------------------+-------------------+---------------+
+| **remora.T0**                    | Background temperature           | Real number       | 5             |
+|                                  | (Celsius) used in                |                   |               |
+|                                  | Linear Equation of State         |                   |               |
+|                                  | State. May be used in setup      |                   |               |
+|                                  | of some problems.                |                   |               |
++----------------------------------+----------------------------------+-------------------+---------------+
+| **remora.Tcoef**                 | Linear EOS parameter             | Real number       | 1.7e-4        |
+|                                  | (1/Celsius)                      |                   |               |
++----------------------------------+----------------------------------+-------------------+---------------+
+| **remora.Scoef**                 | Linear EOS parameter             | Real number       | 0.0           |
+|                                  | (nondimensional)                 |                   |               |
++----------------------------------+----------------------------------+-------------------+---------------+
+| **remora.rho0**                  | Mean density (kg/m^3) used       | Real number       | 1025          |
+|                                  | when Boussinesq approx is        |                   |               |
+|                                  | inferred                         |                   |               |
++----------------------------------+----------------------------------+-------------------+---------------+
+| **remora.coriolis_type**         | Type of Coriolis forcing.        | `beta_plane` /    | `beta_plane`  |
+|                                  | beta_plane uses a linear         | `custom` /        |               |
+|                                  | approximation. Custom is         | `real             |               |
+|                                  | calculated from a function in    |                   |               |
+|                                  | prob.cpp, and Real is read from  |                   |               |
+|                                  | the netcdf grid file             |                   |               |
++----------------------------------+----------------------------------+-------------------+---------------+
+| **remora.coriolis_f0**           | f-plane constant for             | Real number       | 0.0           |
+|                                  | Coriolis param                   |                   |               |
+|                                  | :math:`f = f_0 + \beta y`        |                   |               |
+|                                  | when using beta plane            |                   |               |
+|                                  | Coriolis type                    |                   |               |
++----------------------------------+----------------------------------+-------------------+---------------+
+| **remora.coriolis_beta**         | beta-plane constant for          | Real number       | 0.0           |
+|                                  | Coriolis param                   |                   |               |
+|                                  | :math:`f = f_0 + \beta y`        |                   |               |
+|                                  | when using beta plane            |                   |               |
+|                                  | Coriolis type                    |                   |               |
++----------------------------------+----------------------------------+-------------------+---------------+
 
 Numerical Algorithms
 ====================
@@ -530,13 +539,13 @@ Numerical Algorithms
 List of Parameters
 ------------------
 
-+---------------------------------------+-----------------------------+-------------------+-------------+
-| Parameter                             | Definition                  | Acceptable        | Default     |
-|                                       |                             | Values            |             |
-+=======================================+=============================+===================+=============+
++----------------------------------------+-----------------------------+-------------------+-------------+
+| Parameter                              | Definition                  | Acceptable        | Default     |
+|                                        |                             | Values            |             |
++========================================+=============================+===================+=============+
 | **remora.horizontal_advection_scheme** | Scheme for horizontal       | upstream3,        | upstream3   |
-|                                       | advection                   | centered4         |             |
-+---------------------------------------+-----------------------------+-------------------+-------------+
+|                                        | advection                   | centered4         |             |
++----------------------------------------+-----------------------------+-------------------+-------------+
 
 Vertical Stretch prameters
 ==========================
@@ -550,15 +559,15 @@ List of Parameters
 | Parameter                             | Definition                  | Acceptable                       | Default     |
 |                                       |                             | Values                           |             |
 +=======================================+=============================+==================================+=============+
-| **remora.theta_s**                     | Stretching parameter for    | :math:`0 \leq \theta_S \leq 10`  | 3.0         |
+| **remora.theta_s**                    | Stretching parameter for    | :math:`0 \leq \theta_S \leq 10`  | 3.0         |
 |                                       | surface refinement of       |                                  |             |
 |                                       | vertical S-grid             |                                  |             |
 +---------------------------------------+-----------------------------+----------------------------------+-------------+
-| **remora.theta_b**                     | Stretching parameter for    | :math:`0 \leq \theta_B \leq 4`   | 0.0         |
+| **remora.theta_b**                    | Stretching parameter for    | :math:`0 \leq \theta_B \leq 4`   | 0.0         |
 |                                       | bottom refinement of        |                                  |             |
 |                                       | vertical S-grid             |                                  |             |
 +---------------------------------------+-----------------------------+----------------------------------+-------------+
-| **remora.tcline**                      | Surface/bottom layer width  | Positive number                  | 150         |
+| **remora.tcline**                     | Surface/bottom layer width  | Positive number                  | 150         |
 |                                       | (m) in vertical S-grid      |                                  |             |
 +---------------------------------------+-----------------------------+----------------------------------+-------------+
 

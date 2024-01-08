@@ -24,7 +24,7 @@ remora.flat_bathymetry=0
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval   = 1       # timesteps between computing mass
-remora.v              = 0       # verbosity in REMORA.cpp (0: none, 1: print boxes, etc, 2: print values)
+remora.v              = 0       # verbosity in ROMSX.cpp (0: none, 1: print boxes, etc, 2: print values)
 amr.v                = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
@@ -46,6 +46,7 @@ remora.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 remora.spatial_order = 2
 
 remora.use_coriolis  = true
+remora.coriolis_type = real
 remora.coriolis_f0   = 1.0e-4 #-8.26e-5
 
 remora.theta_s = 6.5
@@ -63,4 +64,4 @@ remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inf
 remora.ic_bc_type       = "real"
 remora.nc_init_file_0   = "OCCAMS_ini_v7_merc_20200101.nc"
 remora.nc_grid_file_0   = "OCCAMS_grd_v7.nc"
-remora.nc_bdry_file      = "OCCAMS_bdry_v7_merc_202001.nc"
+remora.nc_bdry_file     = "OCCAMS_bdry_v7_merc_202001.nc"

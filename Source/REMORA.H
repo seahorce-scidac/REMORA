@@ -138,13 +138,12 @@ public:
 
     /** Interface for advancing the data at one level by one "slow" timestep */
     void remora_advance(int level,
-                       amrex::MultiFab& cons_old,  amrex::MultiFab& cons_new,
-                       amrex::MultiFab& xvel_old,  amrex::MultiFab& yvel_old,  amrex::MultiFab& zvel_old,
-                       amrex::MultiFab& xvel_new,  amrex::MultiFab& yvel_new,  amrex::MultiFab& zvel_new,
-                       amrex::MultiFab& source,
-                       const amrex::Geometry fine_geom,
-                       const amrex::Real dt, const amrex::Real time
-                      );
+                        amrex::MultiFab& cons_old,  amrex::MultiFab& cons_new,
+                        amrex::MultiFab& xvel_old,  amrex::MultiFab& yvel_old,  amrex::MultiFab& zvel_old,
+                        amrex::MultiFab& xvel_new,  amrex::MultiFab& yvel_new,  amrex::MultiFab& zvel_new,
+                        amrex::MultiFab& source,
+                        const amrex::Geometry fine_geom,
+                        const amrex::Real dt, const amrex::Real time);
 
     /** Make mask to zero out covered cells*/
     amrex::MultiFab& build_fine_mask(int lev);
@@ -281,6 +280,9 @@ public:
     /** map factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn;
 
+    /** coriolis factor (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_fcor;
+
     /** saltstore, tempstore, etc*/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sstore;
 
@@ -326,6 +328,7 @@ public:
                      amrex::MultiFab const* mf_h,
                      amrex::MultiFab const* mf_pm,
                      amrex::MultiFab const* mf_pn,
+                     amrex::MultiFab const* mf_fcor,
                      amrex::MultiFab const* mf_visc2_p,
                      amrex::MultiFab const* mf_visc2_r,
                      const amrex::Real dtfast_lev,
@@ -566,6 +569,8 @@ public:
 
     void set_bathymetry (int lev);
 
+    void set_coriolis (int lev);
+
     void stretch_transform (int lev);
 
     void set_vmix (int lev);
@@ -587,6 +592,8 @@ public:
    void fill_from_bdyfiles (amrex::MultiFab& mf_to_fill,
                             const amrex::Real time,
                             const int bdy_var_type);
+
+    void init_beta_plane_coriolis (int lev);
 
 private:
 
@@ -684,6 +691,7 @@ private:
     void init_data_from_netcdf (int lev);
     void init_bdry_from_netcdf ();
     void init_bathymetry_from_netcdf (int lev);
+    void init_coriolis_from_netcdf (int lev);
 #endif // REMORA_USE_NETCDF
 
     // write checkpoint file to disk

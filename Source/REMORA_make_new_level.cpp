@@ -178,6 +178,7 @@ void REMORA::resize_stuff(int lev)
 
     vec_pm.resize(lev+1);
     vec_pn.resize(lev+1);
+    vec_fcor.resize(lev+1);
 
     vec_rhoS.resize(lev+1);
     vec_rhoA.resize(lev+1);
@@ -285,6 +286,7 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
 
     vec_pm[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+2,0)));
     vec_pn[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+2,NGROW+1,0)));
+    vec_fcor[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
     // tempstore, saltstore, etc
     vec_sstore[lev].reset(new MultiFab(ba,dm,NCONS,IntVect(NGROW,NGROW,0)));
@@ -296,6 +298,7 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
     stretch_transform(lev);
     set_vmix(lev);
     set_hmixcoef(lev);
+    set_coriolis(lev);
     set_weights(lev);
 
     //consider tracking ru and rv indexes more specifically or more similarly to indx

@@ -49,6 +49,13 @@ read_bathymetry_from_netcdf (int lev, const Box& domain, const std::string& fnam
 void
 init_bathymetry_from_netcdf (int lev);
 
+void
+read_coriolis_from_netcdf (int lev, const Box& domain, const std::string& fname,
+                             FArrayBox& NC_fcor_fab);
+
+void
+init_coriolis_from_netcdf (int lev);
+
 /**
  * REMORA function that initializes solution data from a netcdf file
  *
@@ -155,7 +162,50 @@ REMORA::init_bathymetry_from_netcdf (int lev)
 }
 
 /**
+<<<<<<< HEAD:Source/Initialization/REMORA_init_from_netcdf.cpp
  * REMORA function that initializes time series of boundary data from a netcdf file
+=======
+ * ROMSX function that initializes coriolis parameter f from a netcdf file
+ *
+ * @param lev Integer specifying the current level
+ */
+void
+ROMSX::init_coriolis_from_netcdf (int lev)
+{
+    // *** FArrayBox's at this level for holding the INITIAL data
+    Vector<FArrayBox> NC_fcor_fab     ; NC_fcor_fab.resize(num_boxes_at_level[lev]);
+
+    int nboxes = NC_fcor_fab.size();
+
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
+    {
+        read_coriolis_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
+                                    NC_fcor_fab[idx]);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        {
+        // Don't tile this since we are operating on full FABs in this routine
+        for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
+        {
+            FArrayBox &fcor_fab  = (*vec_fcor[lev])[mfi];
+
+            //
+            // FArrayBox to FArrayBox copy does "copy on intersection"
+            // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
+            //
+
+            fcor_fab.template    copy<RunOn::Device>(NC_fcor_fab[idx]);
+        } // mf
+        } // omp
+    } // idx
+    vec_fcor[lev]->FillBoundary(geom[lev].periodicity());
+}
+
+/**
+ * ROMSX function that initializes time series of boundary data from a netcdf file
+>>>>>>> b553961fff1475da8f0d7bfed08e83a7d53cf393:Source/Initialization/ROMSX_init_from_netcdf.cpp
  *
  * @param lev Integer specifying the current level
  */
