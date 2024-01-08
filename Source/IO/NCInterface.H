@@ -6,8 +6,8 @@
  *  OOP-like manner.
  */
 
-#ifndef NC_INTROMSXACE_H
-#define NC_INTROMSXACE_H
+#ifndef NC_INTREMORAACE_H
+#define NC_INTREMORAACE_H
 
 #ifndef USE_NETCDF
 #include <string>
@@ -342,4 +342,4 @@ class NCFile : public NCGroup
 
 #endif
 
-#endif /* NC_INTROMSXACE_H */
+#endif /* NC_INTREMORAACE_H */

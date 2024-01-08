@@ -30,11 +30,11 @@ jobs:
           make SPHINXOPTS=-v NO_DOXYGEN=TRUE linkcheck
 
       - name: Deploy to Webpage
-        if: github.event_name == 'push' && github.repository == 'seahorce-scidac/ROMSX' && github.ref == 'refs/heads/development'
+        if: github.event_name == 'push' && github.repository == 'seahorce-scidac/REMORA' && github.ref == 'refs/heads/development'
         uses: JamesIves/github-pages-deploy-action@4.1.5
         with:
           ssh-key: ${{ secrets.DEPLOY_KEY }}
           repository-name: seahorce-scidac/docs
           branch: main # The branch the action should deploy to.
           folder: Docs/doxygen_output/html # The folder the action should deploy.
-          commit-message: "Deployed from seahorce-scidac/ROMSX"
+          commit-message: "Deployed from seahorce-scidac/REMORA"

@@ -4,7 +4,7 @@
 
 using namespace amrex;
 
-#ifdef ROMSX_USE_NETCDF
+#ifdef REMORA_USE_NETCDF
 void
 read_data_from_netcdf (int /*lev*/,
                        const Box& domain,
@@ -52,4 +52,4 @@ read_bathymetry_from_netcdf (int /*lev*/,
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
-#endif // ROMSX_USE_NETCDF
+#endif // REMORA_USE_NETCDF

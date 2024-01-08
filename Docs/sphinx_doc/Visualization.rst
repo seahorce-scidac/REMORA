@@ -7,7 +7,7 @@
 Visualization
 =============
 
-By default, ROMSX currently generates plotfile in the native AMReX format, but
+By default, REMORA currently generates plotfile in the native AMReX format, but
 they can also be written in HDF5 or NetCDF.
 
 There are several visualization tools that can be used for AMReX plotfiles, specifically
@@ -18,7 +18,7 @@ ParaView, VisIt and yt.
 ParaView
 --------
 
-The open source visualization package ParaView v5.10 and later can be used to view ROMSX
+The open source visualization package ParaView v5.10 and later can be used to view REMORA
 plotfiles with and without terrain. You can download the paraview executable at https://www.paraview.org/.
 
 To open a plotfile
@@ -29,7 +29,7 @@ To open a plotfile
    Open multiple plotfile at once by selecting ``plt..`` Paraview will load the plotfiles as a time series.
    ParaView will ask you about the file type -- choose "AMReX/BoxLib Grid Reader".
 
-#. If you have run the ROMSX executable with terrain, then the mapped grid information will
+#. If you have run the REMORA executable with terrain, then the mapped grid information will
    be stored as nodal data.  Choose the "point data" called "nu", then click on "Warp by Vector"
    which can be found via Filters-->Alphabetical.  This wil then plot data onto the mapped grid
    locations.

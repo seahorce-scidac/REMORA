@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# ROMSX documentation build configuration file, created by
+# REMORA documentation build configuration file, created by
 # sphinx-quickstart on Tue Nov 15 14:07:58 2016.
 #
 # This file is execfile()d with the current directory set to its
@@ -35,8 +35,8 @@ extensions = [ 'sphinx.ext.mathjax']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
-#breathe_projects = {"ROMSX": "../doxygen_output/xml/"}
-#breathe_default_project = "ROMSX"
+#breathe_projects = {"REMORA": "../doxygen_output/xml/"}
+#breathe_default_project = "REMORA"
 
 fortran_src ='../../Source/Src_2d/'
 #fortran_ext =[' 'F90']
@@ -55,9 +55,9 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project   = u'ROMSX'
+project   = u'REMORA'
 copyright = u' '
-author    = u'ROMSX development team'
+author    = u'REMORA development team'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -143,7 +143,7 @@ html_theme = 'sphinx_rtd_theme'
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
 #
-# html_title = u'ROMSX v0.01'
+# html_title = u'REMORA v0.01'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #
@@ -243,7 +243,7 @@ html_static_path = ['_static']
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'ROMSXdoc'
+htmlhelp_basename = 'REMORAdoc'
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -269,7 +269,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'ROMSX.tex', u'ROMSX Documentation',
+    (master_doc, 'REMORA.tex', u'REMORA Documentation',
      author, 'manual'),
 ]
 
@@ -311,7 +311,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'romsx', u'ROMSX Documentation',
+    (master_doc, 'remora', u'REMORA Documentation',
      [author], 1)
 ]
 
@@ -326,8 +326,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'ROMSX', u'ROMSX Documentation',
-     author, 'ROMSX', 'One line description of project.',
+    (master_doc, 'REMORA', u'REMORA Documentation',
+     author, 'REMORA', 'One line description of project.',
      'Miscellaneous'),
 ]
 

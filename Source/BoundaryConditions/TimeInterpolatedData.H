@@ -1,5 +1,5 @@
-#ifndef ROMSX_TIME_INTERP_DATA_H_
-#define ROMSX_TIME_INTERP_DATA_H_
+#ifndef REMORA_TIME_INTERP_DATA_H_
+#define REMORA_TIME_INTERP_DATA_H_
 
 #include <AMReX_MultiFab.H>
 #include <AMReX_Vector.H>

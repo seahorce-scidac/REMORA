@@ -4,19 +4,19 @@ set -e
 
 umask 002
 
-git clone --recursive git@github.com:seahorce-scidac/ROMSX
+git clone --recursive git@github.com:seahorce-scidac/REMORA
 git clone --recursive git@github.com:seahorce-scidac/COAWST
 
 cd COAWST
 
-git apply ../ROMSX/Build/compare_flat_tweak_inputs.patch
+git apply ../REMORA/Build/compare_flat_tweak_inputs.patch
 
 #Functionals/ana_grid.h changes are for flat bottom
 #Functionals/ana_initial.h changes the initial condition
 #Nonlinear/step2d_LF_AM3.h changes are primarily from pressure gradient changes
 git checkout ROMS/Nonlinear/step2d_LF_AM3.h
 
-cd ../ROMSX/Build
+cd ../REMORA/Build
 if [ "$NERSC_HOST" == "cori" ]
 then
 source cori-env.sh
@@ -35,18 +35,18 @@ echo "${NETCDF_INCDIR}"
 
 cd ../Exec/Upwelling
 
-#compile ROMSX
+#compile REMORA
 nice make -j16 USE_NETCDF=TRUE DEBUG=TRUE
 
 #sed -i s/"ndtfast_ratio  = 30"/"ndtfast_ratio  = 30/g Exec/Upwelling/inputs
 
-#Run ROMSX
-#./ROMSX3d.gnu.DEBUG.TPROF.MPI.ex inputs amrex.fpe_trap_invalid=0 romsx.plotfile_type=netcdf romsx.plot_int_1=1 max_step=100
+#Run REMORA
+#./REMORA3d.gnu.DEBUG.TPROF.MPI.ex inputs amrex.fpe_trap_invalid=0 remora.plotfile_type=netcdf remora.plot_int_1=1 max_step=100
 
 cd ../../../
 
 #sed -i s/NDTFAST == 1/NDTFAST == 30/g COAWST/ROMS/External/roms_upwelling.in
-#sed -i s/"ndtfast_ratio  = 30"/"ndtfast_ratio  = 30/g ROMSX/Exec/Upwelling/inputs
+#sed -i s/"ndtfast_ratio  = 30"/"ndtfast_ratio  = 30/g REMORA/Exec/Upwelling/inputs
 
 cd COAWST
 

@@ -11,18 +11,18 @@ Downloading the code
 
 First, make sure that git is installed on your machine.
 
-Then download the ROMS-X repository by typing:
+Then download the REMORA repository by typing:
 
    .. code:: shell
 
-             git clone https://github.com/seahorce-scidac/ROMSX.git
+             git clone https://github.com/seahorce-scidac/REMORA.git
 
-Or, to automatically include the AMReX submodule when downloading ROMSX,
+Or, to automatically include the AMReX submodule when downloading REMORA,
 type:
 
    .. code:: shell
 
-             git clone --recursive https://github.com/seahorce-scidac/ROMSX.git
+             git clone --recursive https://github.com/seahorce-scidac/REMORA.git
 
 .. include:: submodule.rst
 

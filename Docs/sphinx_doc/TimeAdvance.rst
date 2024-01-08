@@ -8,7 +8,7 @@
 Time Advance
 ============
 
-To advance the solution in time, ROMSX uses a 3rd order Runge-Kutta method with acoustic sub-stepping
+To advance the solution in time, REMORA uses a 3rd order Runge-Kutta method with acoustic sub-stepping
 in each Runge-Kutta stage, following the approach of `Klemp, Skamarock and Dudhia (2007)`_
 
 .. _`Klemp, Skamarock and Dudhia (2007)`: https://journals.ametsoc.org/view/journals/mwre/135/8/mwr3440.1.xml

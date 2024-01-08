@@ -326,8 +326,8 @@ U Momentum viscous stress divergence
 
 where :math:`m = i, j, k`.
 
-:math:`\mu_{eff} = 2\mu` if a constant molecular diffusion type is chosen (``romsx.molec_diff_type = "Constant"``).
-Otherwise (``romsx.molec_diff_type = "None"``), :math:`\mu_{eff} = 0`.
+:math:`\mu_{eff} = 2\mu` if a constant molecular diffusion type is chosen (``remora.molec_diff_type = "Constant"``).
+Otherwise (``remora.molec_diff_type = "None"``), :math:`\mu_{eff} = 0`.
 
 The nomenclature is similar for other two momentum equations. Note that :math:`\mu` is constant in the current
 implementation and its variation with temperature for low-Mach atmospheric flows has been ignored.
@@ -432,8 +432,8 @@ Owing to symmetry we need to compute 6 of the 9 tensor components.
 :math:`K_{i,j,k} = 2 \ {\mu_{t}}_{i, j, k}` is the modeled turbulent viscosity and can be considered analogous to
 :math:`2\mu_{i, j, k}`.
 
-:math:`\mu_{eff} = 2\mu + K = 2\mu + 2\mu_{t}` if a constant molecular diffusion type is chosen (``romsx.molec_diff_type = "Constant"``).
-Otherwise (``romsx.molec_diff_type = "None"``), :math:`\mu_{eff} = K = 2\mu_{t}`.
+:math:`\mu_{eff} = 2\mu + K = 2\mu + 2\mu_{t}` if a constant molecular diffusion type is chosen (``remora.molec_diff_type = "Constant"``).
+Otherwise (``remora.molec_diff_type = "None"``), :math:`\mu_{eff} = K = 2\mu_{t}`.
 
 
 

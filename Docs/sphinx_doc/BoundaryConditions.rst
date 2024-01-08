@@ -6,7 +6,7 @@
 
 Filling Ghost Values
 --------------------------
-ROMSX uses an operation called ``FillPatch`` to fill the ghost cells/faces for each grid of data.
+REMORA uses an operation called ``FillPatch`` to fill the ghost cells/faces for each grid of data.
 The data is filled outside the valid region with a combination of three operations: interpolation
 from coarser level, copy from same level, and enforcement of physical boundary conditions.
 
@@ -41,7 +41,7 @@ Imposition of physical/domain boundary conditions
 There are two primary types of physical/domain boundary conditions: those which rely only on the
 data in the valid regions, and those which rely on externally specified values.
 
-ROMSX allows users to specify types of boundary condition with keywords in the inputs file.
+REMORA allows users to specify types of boundary condition with keywords in the inputs file.
 The information for each face is preceded by
 ``xlo``, ``xhi``, ``ylo``, ``yhi``, ``zlo``, or ``zhi``.
 
@@ -74,7 +74,7 @@ for each type; this is summarized in the table below.
 Dirichlet Boundary Conditions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-ROMSX provides the ability to specify constant Dirichlet BCs in the inputs file. We use the following options
+REMORA provides the ability to specify constant Dirichlet BCs in the inputs file. We use the following options
 preceded by
 ``xlo``, ``xhi``, ``ylo``, ``yhi``, ``zlo``, and ``zhi``:
 

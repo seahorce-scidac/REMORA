@@ -7,7 +7,7 @@
 Particles
 =========
 
-ROMSX has the option to include Lagrangian particles in addition to the mesh-based solution.  Currently the
+REMORA has the option to include Lagrangian particles in addition to the mesh-based solution.  Currently the
 particle functionality is very simple -- the particles are initialized one per mesh cell
 in a particular plane, and are advected by the velocity field.
 
@@ -24,7 +24,7 @@ in the GNUmakefile if using gmake, or add
 
 ::
 
-   -DROMSX_ENABLE_PARTICLES:BOOL=ON \
+   -DREMORA_ENABLE_PARTICLES:BOOL=ON \
 
 to the cmake command if using cmake.  (See, e.g., ``Build/cmake_with_particles.sh``)
 
@@ -32,7 +32,7 @@ One must also set
 
 ::
 
-   romsx.use_tracer_particles = true
+   remora.use_tracer_particles = true
 
 in the inputs file or on the command line at runtime.
 
@@ -48,5 +48,5 @@ To visualize the number of particles per cell as a mesh-based variable, add ``tr
 
 ::
 
-   romsx.plot_vars_1 =
+   remora.plot_vars_1 =
 

@@ -17,49 +17,50 @@ zlo.type = "SlipWall"
 zhi.type = "SlipWall"
 
 # TIME STEP CONTROL
-romsx.fixed_dt            = 60.0 # Timestep size (seconds)
-romsx.fixed_ndtfast_ratio = 20 # Baratropic timestep size (seconds)
+remora.fixed_dt            = 60.0 # Timestep size (seconds)
+remora.fixed_ndtfast_ratio = 20 # Baratropic timestep size (seconds)
 
-romsx.flat_bathymetry=0
+remora.flat_bathymetry=0
 
 # DIAGNOSTICS & VERBOSITY
-romsx.sum_interval   = 1       # timesteps between computing mass
-romsx.v              = 0       # verbosity in ROMSX.cpp (0: none, 1: print boxes, etc, 2: print values)
+remora.sum_interval   = 1       # timesteps between computing mass
+remora.v              = 0       # verbosity in REMORA.cpp (0: none, 1: print boxes, etc, 2: print values)
 amr.v                = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
 amr.max_level        = 0       # maximum level number allowed
 
 # CHECKPOINT FILES
-romsx.check_file      = chk        # root name of checkpoint file
-romsx.check_int       = -57600      # number of timesteps between checkpoints
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
 
 # PLOTFILES
-romsx.plot_file_1     = plt        # prefix of plotfile name
-romsx.plot_int_1      = 1          # number of timesteps between plotfiles
-romsx.plot_vars_1     = salt temp x_velocity y_velocity z_velocity
-romsx.plotfile_type   = amrex
+remora.plot_file_1     = plt        # prefix of plotfile name
+remora.plot_int_1      = 1          # number of timesteps between plotfiles
+remora.plot_vars_1     = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type   = amrex
+remora.plotfile_type   = netcdf
 
 # SOLVER CHOICE
-romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
-romsx.spatial_order = 2
+remora.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+remora.spatial_order = 2
 
-romsx.use_coriolis  = true
-romsx.coriolis_f0   = 1.0e-4 #-8.26e-5
+remora.use_coriolis  = true
+remora.coriolis_f0   = 1.0e-4 #-8.26e-5
 
-romsx.theta_s = 6.5
-romsx.theta_b = 2.0
-romsx.tcline = 100.
+remora.theta_s = 6.5
+remora.theta_b = 2.0
+remora.tcline = 100.
 
 # PROBLEM PARAMETERS (optional)
-romsx.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
-romsx.S0    = 32.0    # background salinity (nondimensional) constant
-romsx.T0    = 10.0    # background potential temperature (Celsius) constant
-romsx.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celcius)
-romsx.Scoef = 0.0     # linear equation of state parameter (nondimensional)
-romsx.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
+remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+remora.S0    = 32.0    # background salinity (nondimensional) constant
+remora.T0    = 10.0    # background potential temperature (Celsius) constant
+remora.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celcius)
+remora.Scoef = 0.0     # linear equation of state parameter (nondimensional)
+remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
 
-romsx.ic_bc_type       = "real"
-romsx.nc_init_file_0   = "OCCAMS_ini_v7_merc_20200101.nc"
-romsx.nc_grid_file_0   = "OCCAMS_grd_v7.nc"
-romsx.nc_bdry_file      = "OCCAMS_bdry_v7_merc_202001.nc"
+remora.ic_bc_type       = "real"
+remora.nc_init_file_0   = "OCCAMS_ini_v7_merc_20200101.nc"
+remora.nc_grid_file_0   = "OCCAMS_grd_v7.nc"
+remora.nc_bdry_file      = "OCCAMS_bdry_v7_merc_202001.nc"

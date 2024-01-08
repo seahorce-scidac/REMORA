@@ -8,7 +8,7 @@
 #include <AMReX_Print.H>
 #include <AMReX_Gpu.H>
 
-#include <ROMSX_Constants.H>
+#include <REMORA_Constants.H>
 
 enum struct CouplingType {
     OneWay, TwoWay
@@ -148,7 +148,7 @@ struct SolverChoice {
     }
 
     // Default prefix
-    std::string pp_prefix {"romsx"};
+    std::string pp_prefix {"remora"};
 
     bool        flat_bathymetry        = true;
 

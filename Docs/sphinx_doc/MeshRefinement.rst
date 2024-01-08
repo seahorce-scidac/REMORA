@@ -7,7 +7,7 @@
 Mesh Refinement
 ===============
 
-ROMS-X allows both static and dynamic mesh refinement, as well as the choice of one-way or two-way coupling.
+REMORA allows both static and dynamic mesh refinement, as well as the choice of one-way or two-way coupling.
 
 Note that any tagged region will be covered by one or more boxes.  The user may
 specify the refinement criteria and/or region to be covered, but not the decomposition of the region into
@@ -22,7 +22,7 @@ Static Mesh Refinement
 
 For static refinement, we control the placement of grids by specifying
 the low and high extents (in physical space) of each box in the lateral
-directions.   ROMS-X enforces that all refinement spans the entire vertical direction.
+directions.   REMORA enforces that all refinement spans the entire vertical direction.
 
 The following example demonstrates how to tag regions for static refinement.
 In this first example, all cells in the region ((.15,.25,prob_lo_z)(.35,.45,prob_hi_z))
@@ -34,13 +34,13 @@ one level of refinement, where prob_lo_z and prob_hi_z are the vertical extents 
           amr.max_level = 1
           amr.ref_ratio = 2
 
-          romsx.refinement_indicators = box1 box2
+          remora.refinement_indicators = box1 box2
 
-          romsx.box1.in_box_lo = .15 .25
-          romsx.box1.in_box_hi = .35 .45
+          remora.box1.in_box_lo = .15 .25
+          remora.box1.in_box_hi = .35 .45
 
-          romsx.box2.in_box_lo = .65 .75
-          romsx.box2.in_box_hi = .85 .95
+          remora.box2.in_box_lo = .65 .75
+          remora.box2.in_box_hi = .85 .95
 
 In the example below, we refine the region ((.15,.25,prob_lo_z)(.35,.45,prob_hi_z))
 by two levels of factor 3 refinement. In this case, the refined region at level 1 will
@@ -51,10 +51,10 @@ be sufficient to enclose the refined region at level 2.
           amr.max_level = 2
           amr.ref_ratio = 3 3
 
-          romsx.refinement_indicators = box1
+          remora.refinement_indicators = box1
 
-          romsx.box1.in_box_lo = .15 .25
-          romsx.box1.in_box_hi = .35 .45
+          remora.box1.in_box_lo = .15 .25
+          remora.box1.in_box_hi = .35 .45
 
 And in this final example, the region ((.15,.25,prob_lo_z)(.35,.45,prob_hi_z))
 will be refined by two levels of factor 3, but the larger region, ((.05,.05,prob_lo_z)(.75,.75,prob_hi_z))
@@ -65,14 +65,14 @@ will be refined by a single factor 3 refinement.
           amr.max_level = 2
           amr.ref_ratio = 3 3
 
-          romsx.refinement_indicators = box1 box2
+          remora.refinement_indicators = box1 box2
 
-          romsx.box1.in_box_lo = .15 .25
-          romsx.box1.in_box_hi = .35 .45
+          remora.box1.in_box_lo = .15 .25
+          remora.box1.in_box_hi = .35 .45
 
-          romsx.box2.in_box_lo = .05 .05
-          romsx.box2.in_box_hi = .75 .75
-          romsx.box2.max_level = 1
+          remora.box2.in_box_lo = .05 .05
+          remora.box2.in_box_hi = .75 .75
+          remora.box2.max_level = 1
 
 
 Dynamic Mesh Refinement
@@ -80,7 +80,7 @@ Dynamic Mesh Refinement
 
 Dynamically created tagging functions are based on runtime data specified in the inputs file.
 These dynamically generated functions test on either state variables or derived variables
-defined in ROMSX_derive.cpp and included in the derive_lst in Setup.cpp.
+defined in REMORA_derive.cpp and included in the derive_lst in Setup.cpp.
 
 Available tests include
 
@@ -102,32 +102,32 @@ computed by dividing the variable named rhotheta by the variable named density.
 
 ::
 
-          romsx.refinement_indicators = hi_rho lo_theta advdiff
+          remora.refinement_indicators = hi_rho lo_theta advdiff
 
-          romsx.hi_rho.max_level = 3
-          romsx.hi_rho.value_greater = 1. 2.
-          romsx.hi_rho.field_name = density
+          remora.hi_rho.max_level = 3
+          remora.hi_rho.value_greater = 1. 2.
+          remora.hi_rho.field_name = density
 
-          romsx.lo_theta.max_level = 1
-          romsx.lo_theta.value_less = 300
-          romsx.lo_theta.field_name = rhotheta
-          romsx.lo_theta.in_box_lo = .25 .25 .25
-          romsx.lo_theta.in_box_hi = .75 .75 .75
+          remora.lo_theta.max_level = 1
+          remora.lo_theta.value_less = 300
+          remora.lo_theta.field_name = rhotheta
+          remora.lo_theta.in_box_lo = .25 .25 .25
+          remora.lo_theta.in_box_hi = .75 .75 .75
 
-          romsx.advdiff.max_level = 2
-          romsx.advdiff.adjacent_difference_greater = 0.01
-          romsx.advdiff.field_name = rhoadv_0
-          romsx.advdiff.start_time = 0.001
-          romsx.advdiff.end_time = 0.002
+          remora.advdiff.max_level = 2
+          remora.advdiff.adjacent_difference_greater = 0.01
+          remora.advdiff.field_name = rhoadv_0
+          remora.advdiff.start_time = 0.001
+          remora.advdiff.end_time = 0.002
 
 Coupling Types
 --------------
 
-ROMS-X supports one-way and two-way coupling between levels; this is a run-time input
+REMORA supports one-way and two-way coupling between levels; this is a run-time input
 
 ::
 
-      romsx.coupling_type = "OneWay" or "TwoWay"
+      remora.coupling_type = "OneWay" or "TwoWay"
 
 By one-way coupling, we mean that between each pair of refinement levels,
 the coarse level communicates data to the fine level to serve as boundary conditions

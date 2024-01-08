@@ -51,4 +51,4 @@ variables and vertical turbulent eddy viscosity and eddy diffusivity coefficient
 
 An overbar represents a time average and a prime represents a fluctuation about the mean.
 
-See :ref:`sec:VerticalMixing` for how :math:`K_m` and :math:`K_C` are computed in ROMS-X.
+See :ref:`sec:VerticalMixing` for how :math:`K_m` and :math:`K_C` are computed in REMORA.

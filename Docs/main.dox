@@ -1,19 +1,19 @@
 // Main landing page for Doxygen Documentation
 
 /**
-\mainpage Regional Ocean Modeling built on AMReX: ROMSX
+\mainpage Regional Modeling of Oceans Refined Adaptively (built on AMReX): REMORA
 
   \tableofcontents
 
   \section Introduction
 
-  ROMSX is currently under development as a next-generation version of
+  REMORA is currently under development as a next-generation version of
   the Regional Ocean Modeling System (ROMS). It is designed to run on a wide range
   of machines, from laptops to multicore CPU and hybrid CPU-GPU systems.
 
   \section amr Adaptive Mesh Refinement
 
-  ROMSX is built on
+  REMORA is built on
   <a href="https://github.com/AMReX-Codes/amrex">AMReX</a> an adaptive
   mesh refinement software framework, which provides the underlying
   software infrastructure for block structured adaptive mesh refinement
@@ -26,13 +26,13 @@
   \section getting_started Getting Started
 
   To get started, please see the
-  <a href="https://github.com/seahorce-scidac/COAWST/blob/development/ROMSX/README.rst">
+  <a href="https://github.com/seahorce-scidac/REMORA/README.rst">
   README</a> at GitHub.
 
   \section dev_model Development Model
 
   Please see the
-  <a href="https://github.com/seahorce-scidac/COAWST/blob/development/ROMSX/CONTRIBUTING.md">
+  <a href="https://github.com/seahorce-scidac/REMORA/CONTRIBUTING.md">
   CONTRIBUTING</a> document on GitHub for details on how to contribute to
   this project.
 

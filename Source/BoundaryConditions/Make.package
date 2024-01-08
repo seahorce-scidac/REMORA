@@ -7,9 +7,9 @@ ifeq ($(USE_NETCDF), TRUE)
 CEXE_sources += BoundaryConditions_netcdf.cpp
 endif
 
-CEXE_sources += ROMSX_FillPatch.cpp
+CEXE_sources += REMORA_FillPatch.cpp
 
-CEXE_sources += ROMSX_PhysBCFunct.cpp
-CEXE_headers += ROMSX_PhysBCFunct.H
+CEXE_sources += REMORA_PhysBCFunct.cpp
+CEXE_headers += REMORA_PhysBCFunct.H
 
 CEXE_headers += TimeInterpolatedData.H
