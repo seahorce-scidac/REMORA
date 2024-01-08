@@ -162,15 +162,12 @@ REMORA::init_bathymetry_from_netcdf (int lev)
 }
 
 /**
-<<<<<<< HEAD:Source/Initialization/REMORA_init_from_netcdf.cpp
- * REMORA function that initializes time series of boundary data from a netcdf file
-=======
- * ROMSX function that initializes coriolis parameter f from a netcdf file
+ * REMORA function that initializes coriolis parameter f from a netcdf file
  *
  * @param lev Integer specifying the current level
  */
 void
-ROMSX::init_coriolis_from_netcdf (int lev)
+REMORA::init_coriolis_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_fcor_fab     ; NC_fcor_fab.resize(num_boxes_at_level[lev]);
@@ -204,8 +201,7 @@ ROMSX::init_coriolis_from_netcdf (int lev)
 }
 
 /**
- * ROMSX function that initializes time series of boundary data from a netcdf file
->>>>>>> b553961fff1475da8f0d7bfed08e83a7d53cf393:Source/Initialization/ROMSX_init_from_netcdf.cpp
+ * REMORA function that initializes time series of boundary data from a netcdf file
  *
  * @param lev Integer specifying the current level
  */
@@ -231,7 +227,7 @@ REMORA::init_bdry_from_netcdf ()
 }
 
 /**
- * Helper function to initialize state and velocity data in a Fab from a ROMS-x dataset.
+ * Helper function to initialize state and velocity data in a Fab from a REMORAdataset.
  *
  * @param lev Integer specifying current level
  * @param state_fab FArrayBox object holding the state data we initialize
@@ -242,13 +238,13 @@ REMORA::init_bdry_from_netcdf ()
  * @param ubar_fab  FArrayBox object holding the ubar       data we initialize
  * @param vbar_fab  FArrayBox object holding the vbar       data we initialize
  * @param zeta_fab  FArrayBox object holding the zeta       data we initialize
- * @param NC_temp_fab Vector of FArrayBox objects with the ROMS-x dataset specifying temperature
- * @param NC_salt_fab Vector of FArrayBox objects with the ROMS-x dataset specifying salinity
- * @param NC_xvel_fab Vector of FArrayBox objects with the ROMS-x dataset specifying x-velocity
- * @param NC_yvel_fab Vector of FArrayBox objects with the ROMS-x dataset specifying y-velocity
- * @param NC_ubar_fab Vector of FArrayBox objects with the ROMS-x dataset specifying ubar
- * @param NC_vbar_fab Vector of FArrayBox objects with the ROMS-x dataset specifying vbar
- * @param NC_zeta_fab Vector of FArrayBox objects with the ROMS-x dataset specifying zeta
+ * @param NC_temp_fab Vector of FArrayBox objects with the REMORA dataset specifying temperature
+ * @param NC_salt_fab Vector of FArrayBox objects with the REMORA dataset specifying salinity
+ * @param NC_xvel_fab Vector of FArrayBox objects with the REMORA dataset specifying x-velocity
+ * @param NC_yvel_fab Vector of FArrayBox objects with the REMORA dataset specifying y-velocity
+ * @param NC_ubar_fab Vector of FArrayBox objects with the REMORA dataset specifying ubar
+ * @param NC_vbar_fab Vector of FArrayBox objects with the REMORA dataset specifying vbar
+ * @param NC_zeta_fab Vector of FArrayBox objects with the REMORA dataset specifying zeta
  */
 void
 init_state_from_netcdf (int /*lev*/,
