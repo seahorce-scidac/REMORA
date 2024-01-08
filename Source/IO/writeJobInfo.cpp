@@ -1,10 +1,10 @@
-#include <ROMSX.H>
+#include <REMORA.H>
 #include <AMReX_buildInfo.H>
 
 extern std::string inputs_name;
 
 void
-ROMSX::writeJobInfo(const std::string& dir) const
+REMORA::writeJobInfo(const std::string& dir) const
 {
   // job_info file with details about the run
   std::ofstream jobInfoFile;
@@ -20,7 +20,7 @@ ROMSX::writeJobInfo(const std::string& dir) const
 
   // job information
   jobInfoFile << PrettyLine;
-  jobInfoFile << " ROMSX Job Information\n";
+  jobInfoFile << " REMORA Job Information\n";
   jobInfoFile << PrettyLine;
 
   jobInfoFile << "inputs file: " << inputs_name << "\n\n";
@@ -80,7 +80,7 @@ ROMSX::writeJobInfo(const std::string& dir) const
   const char* githash1 = amrex::buildInfoGetGitHash(1);
   const char* githash2 = amrex::buildInfoGetGitHash(2);
   if (strlen(githash1) > 0) {
-    jobInfoFile << "ROMSX       git hash: " << githash1 << "\n";
+    jobInfoFile << "REMORA       git hash: " << githash1 << "\n";
   }
   if (strlen(githash2) > 0) {
     jobInfoFile << "AMReX       git hash: " << githash2 << "\n";
@@ -132,7 +132,7 @@ ROMSX::writeJobInfo(const std::string& dir) const
 }
 
 void
-ROMSX::writeBuildInfo(std::ostream& os)
+REMORA::writeBuildInfo(std::ostream& os)
 {
   std::string PrettyLine = std::string(78, '=') + "\n";
   std::string OtherLine = std::string(78, '-') + "\n";
@@ -140,7 +140,7 @@ ROMSX::writeBuildInfo(std::ostream& os)
 
   // build information
   os << PrettyLine;
-  os << " ROMSX Build Information\n";
+  os << " REMORA Build Information\n";
   os << PrettyLine;
 
   os << "build date:    " << amrex::buildInfoGetBuildDate() << "\n";
@@ -172,7 +172,7 @@ ROMSX::writeBuildInfo(std::ostream& os)
   const char* githash1 = amrex::buildInfoGetGitHash(1);
   const char* githash2 = amrex::buildInfoGetGitHash(2);
   if (strlen(githash1) > 0) {
-    os << "ROMSX       git hash: " << githash1 << "\n";
+    os << "REMORA       git hash: " << githash1 << "\n";
   }
   if (strlen(githash2) > 0) {
     os << "AMReX       git hash: " << githash2 << "\n";
@@ -185,10 +185,10 @@ ROMSX::writeBuildInfo(std::ostream& os)
   }
 
   os << "\n";
-  os << " ROMSX Compile time variables: \n";
+  os << " REMORA Compile time variables: \n";
 
   os << "\n";
-  os << " ROMSX Defines: \n";
+  os << " REMORA Defines: \n";
 #ifdef _OPENMP
   os << std::setw(35) << std::left << "_OPENMP " << std::setw(6) << "ON"
      << std::endl;

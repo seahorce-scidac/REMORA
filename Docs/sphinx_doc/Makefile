@@ -91,9 +91,9 @@ qthelp:
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
 	      ".qhcp project file in $(BUILDDIR)/qthelp, like this:"
-	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/ROMSX.qhcp"
+	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/REMORA.qhcp"
 	@echo "To view the help file:"
-	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/ROMSX.qhc"
+	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/REMORA.qhc"
 
 .PHONY: applehelp
 applehelp:
@@ -110,8 +110,8 @@ devhelp:
 	@echo
 	@echo "Build finished."
 	@echo "To view the help file:"
-	@echo "# mkdir -p $$HOME/.local/share/devhelp/ROMSX"
-	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/ROMSX"
+	@echo "# mkdir -p $$HOME/.local/share/devhelp/REMORA"
+	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/REMORA"
 	@echo "# devhelp"
 
 .PHONY: epub

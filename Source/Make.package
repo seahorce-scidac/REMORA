@@ -1,14 +1,14 @@
 CEXE_sources += main.cpp
-CEXE_sources += ROMSX.cpp
-CEXE_headers += ROMSX.H
+CEXE_sources += REMORA.cpp
+CEXE_headers += REMORA.H
 
 CEXE_headers += IndexDefines.H
 CEXE_headers += EOS.H
 CEXE_headers += DataStruct.H
-CEXE_headers += ROMSX_Constants.H
-CEXE_sources += ROMSX_make_new_level.cpp
-CEXE_sources += ROMSX_Tagging.cpp
-CEXE_sources += ROMSX_SumIQ.cpp
+CEXE_headers += REMORA_Constants.H
+CEXE_sources += REMORA_make_new_level.cpp
+CEXE_sources += REMORA_Tagging.cpp
+CEXE_sources += REMORA_SumIQ.cpp
 
 CEXE_sources += Derive.cpp
 CEXE_headers += Derive.H

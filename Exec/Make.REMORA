@@ -1,0 +1,115 @@
+AMREX_HOME      ?= $(REMORA_HOME)/Submodules/AMReX
+
+BL_NO_FORT = TRUE
+
+include $(AMREX_HOME)/Tools/GNUMake/Make.defs
+
+EBASE = REMORA
+USE_RPATH = TRUE
+
+REMORA_SOURCE_DIR = $(REMORA_HOME)/Source
+include $(REMORA_SOURCE_DIR)/Make.package
+
+VPATH_LOCATIONS   += $(REMORA_SOURCE_DIR)
+INCLUDE_LOCATIONS += $(REMORA_SOURCE_DIR)
+
+REMORA_TIMEINT_DIR = $(REMORA_SOURCE_DIR)/TimeIntegration
+include $(REMORA_TIMEINT_DIR)/Make.package
+
+VPATH_LOCATIONS   += $(REMORA_TIMEINT_DIR)
+INCLUDE_LOCATIONS += $(REMORA_TIMEINT_DIR)
+
+REMORA_BC_DIR = $(REMORA_SOURCE_DIR)/BoundaryConditions
+include $(REMORA_BC_DIR)/Make.package
+
+VPATH_LOCATIONS   += $(REMORA_BC_DIR)
+INCLUDE_LOCATIONS += $(REMORA_BC_DIR)
+
+REMORA_INIT_DIR = $(REMORA_SOURCE_DIR)/Initialization
+include $(REMORA_INIT_DIR)/Make.package
+
+VPATH_LOCATIONS   += $(REMORA_INIT_DIR)
+INCLUDE_LOCATIONS += $(REMORA_INIT_DIR)
+
+REMORA_UTIL_DIR = $(REMORA_SOURCE_DIR)/Utils
+include $(REMORA_UTIL_DIR)/Make.package
+
+VPATH_LOCATIONS   += $(REMORA_UTIL_DIR)
+INCLUDE_LOCATIONS += $(REMORA_UTIL_DIR)
+
+REMORA_IO_DIR = $(REMORA_SOURCE_DIR)/IO
+include $(REMORA_IO_DIR)/Make.package
+
+VPATH_LOCATIONS   += $(REMORA_IO_DIR)
+INCLUDE_LOCATIONS += $(REMORA_IO_DIR)
+
+include $(REMORA_PROBLEM_DIR)/Make.package
+
+VPATH_LOCATIONS   += $(REMORA_PROBLEM_DIR)
+INCLUDE_LOCATIONS += $(REMORA_PROBLEM_DIR)
+
+include $(AMREX_HOME)/Src/Base/Make.package
+
+AMReXdirs             := Base Boundary AmrCore
+
+ifeq ($(USE_HDF5),TRUE)
+AMReXdirs             += Extern/HDF5
+endif
+
+ifeq ($(USE_PARTICLES),TRUE)
+AMReXdirs             += Particle
+endif
+
+AMReXpack             += $(foreach dir, $(AMReXdirs), $(AMREX_HOME)/Src/$(dir)/Make.package)
+
+include $(AMReXpack)
+
+ifeq ($(USE_PARTICLES),TRUE)
+REMORA_PARTICLES_DIR = $(REMORA_SOURCE_DIR)/Particles
+include $(REMORA_PARTICLES_DIR)/Make.package
+VPATH_LOCATIONS   += $(REMORA_PARTICLES_DIR)
+INCLUDE_LOCATIONS += $(REMORA_PARTICLES_DIR)
+endif
+
+#turn on NetCDF macro define
+ifeq ($(USE_NETCDF), TRUE)
+  USERSuffix = .NC
+  DEFINES += -DREMORA_USE_NETCDF
+  includes += $(shell pkg-config --cflags netcdf)
+  LIBRARIES += $(shell pkg-config --libs netcdf)
+#  includes += $(shell pkg-config --cflags netcdf-cxx4_parallel)
+#  LIBRARIES += $(shell pkg-config --libs netcdf-cxx4_parallel)
+endif
+
+ifeq ($(USE_HDF5), TRUE)
+  DEFINES += -DREMORA_USE_HDF5
+  DEFINES += -DAMREX_USE_HDF5
+endif
+
+ifeq ($(USE_PARTICLES), TRUE)
+  DEFINES += -DREMORA_USE_PARTICLES
+endif
+
+CEXE_sources += AMReX_buildInfo.cpp
+CEXE_headers += $(AMREX_HOME)/Tools/C_scripts/AMReX_buildInfo.H
+INCLUDE_LOCATIONS += $(AMREX_HOME)/Tools/C_scripts
+
+include $(AMREX_HOME)/Tools/GNUMake/Make.rules
+
+all: $(executable)
+	(SILENT) $(RM) AMReX_buildInfo.cpp
+	@echo SUCCESS
+
+AMReX_buildInfo.cpp:
+	$(AMREX_HOME)/Tools/C_scripts/makebuildinfo_C.py \
+          --amrex_home "$(AMREX_HOME)" \
+          --COMP "$(COMP)" --COMP_VERSION "$(COMP_VERSION)" \
+          --CXX_comp_name "$(CXX)" \
+          --CXX_flags "$(CXXFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(includes)" \
+          --link_flags "$(LINKFLAGS) $(CPPFLAGS) $(includes) $(LDFLAGS)" \
+          --libraries "$(FINAL_LIBS)" \
+          --MODULES "$(MNAMES)" \
+          --GIT "$(REMORA_HOME) $(AMREX_HOME)"
+
+clean::
+	$(SILENT) $(RM) AMReX_buildInfo.cpp

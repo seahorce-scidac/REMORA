@@ -3,7 +3,7 @@
 include(ProcessorCount)
 ProcessorCount(PROCESSES)
 
-set(FCOMPARE_GOLD_FILES_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ROMSX_Gold_Files)
+set(FCOMPARE_GOLD_FILES_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/REMORA_Gold_Files)
 
 #=============================================================================
 # Functions for adding tests / Categories of tests
@@ -17,7 +17,7 @@ macro(setup_test)
     file(GLOB TEST_FILES "${CURRENT_TEST_SOURCE_DIR}/*")
     file(COPY ${TEST_FILES} DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
 
-    if(ROMSX_ENABLE_MPI)
+    if(REMORA_ENABLE_MPI)
         set(NP 2)
         set(MPI_COMMANDS "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NP} ${MPIEXEC_PREFLAGS}")
     else()

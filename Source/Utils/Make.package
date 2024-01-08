@@ -1,2 +1,2 @@
-CEXE_headers += ROMSX_Math.H
+CEXE_headers += REMORA_Math.H
 CEXE_headers += DepthStretchTransform.H

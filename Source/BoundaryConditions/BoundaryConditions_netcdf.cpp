@@ -1,8 +1,8 @@
-#include "ROMSX.H"
+#include "REMORA.H"
 
 using namespace amrex;
 
-#ifdef ROMSX_USE_NETCDF
+#ifdef REMORA_USE_NETCDF
 /*
  * Impose boundary conditions using data read in from netcdf boundary files
  *
@@ -11,7 +11,7 @@ using namespace amrex;
  */
 
 void
-ROMSX::fill_from_bdyfiles (MultiFab& mf_to_fill, const Real time, const int bdy_var_type)
+REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const Real time, const int bdy_var_type)
 {
     int lev = 0;
 

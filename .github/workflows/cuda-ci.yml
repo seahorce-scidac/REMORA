@@ -1,4 +1,4 @@
-name: ROMSX CUDA CI
+name: REMORA CUDA CI
 
 on:
   push:
@@ -52,7 +52,7 @@ jobs:
             -DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo \
             -DAMReX_CUDA_ERROR_CROSS_EXECUTION_SPACE_CALL=ON \
             -DAMReX_CUDA_ERROR_CAPTURE_THIS=ON \
-            -DROMSX_DIM:STRING=3 \
-            -DROMSX_ENABLE_MPI:BOOL=OFF \
-            -DROMSX_ENABLE_CUDA:BOOL=ON .
+            -DREMORA_DIM:STRING=3 \
+            -DREMORA_ENABLE_MPI:BOOL=OFF \
+            -DREMORA_ENABLE_CUDA:BOOL=ON .
           cmake --build build-${{matrix.cuda_pkg}} -- -j $(nproc)

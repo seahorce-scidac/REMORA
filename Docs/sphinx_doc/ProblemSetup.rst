@@ -11,7 +11,7 @@ Each problem setup with a different initial e.g. temperature profile and bathyme
 * ``prob.cpp``
 * ``prob.H``
 * ``inputs``
-* ``GNUmakefile`` (change the directory in ``ROMSX_PROBLEM_DIR`` to match)
+* ``GNUmakefile`` (change the directory in ``REMORA_PROBLEM_DIR`` to match)
 * ``CMakeLists.txt`` (change the problem name to match)
 * ``Make.package``
 * ``amrvis.defaults`` (for visualization with AMRVis)

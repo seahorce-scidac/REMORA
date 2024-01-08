@@ -30,7 +30,7 @@ USE_ASSERTION = TRUE
 Bpack := ./Make.package
 Blocs := .
 
-ROMSX_HOME := ../..
-ROMSX_PROBLEM_DIR = $(ROMSX_HOME)/Exec/ParticlesOverSeaMount
+REMORA_HOME := ../..
+REMORA_PROBLEM_DIR = $(REMORA_HOME)/Exec/ParticlesOverSeaMount
 
-include $(ROMSX_HOME)/Exec/Make.ROMSX
+include $(REMORA_HOME)/Exec/Make.REMORA

@@ -1,5 +1,5 @@
 #include "AMReX_PhysBCFunct.H"
-#include <ROMSX_PhysBCFunct.H>
+#include <REMORA_PhysBCFunct.H>
 
 using namespace amrex;
 
@@ -9,7 +9,7 @@ using namespace amrex;
 // bccomp is the index into both domain_bcs_type_bcr and bc_extdir_vals
 //     so this follows the BCVars enum
 //
-void ROMSXPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
+void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
                                         const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/,
                                         Real /*time*/, int bccomp)
 {
@@ -58,25 +58,25 @@ void ROMSXPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box&
         ParallelFor(
             bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip = dom_lo.x - 1- i;
-                if (bc_ptr[n].lo(0) == ROMSXBCType::ext_dir) {
+                if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][0];
-                } else if (bc_ptr[n].lo(0) == ROMSXBCType::foextrap) {
+                } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap) {
                     dest_arr(i,j,k) =  dest_arr(dom_lo.x,j,k);
-                } else if (bc_ptr[n].lo(0) == ROMSXBCType::reflect_even) {
+                } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(iflip,j,k);
-                } else if (bc_ptr[n].lo(0) == ROMSXBCType::reflect_odd) {
+                } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_odd) {
                     dest_arr(i,j,k) = -dest_arr(iflip,j,k);
                 }
             },
             bx_xhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip =  2*dom_hi.x + 1 - i;
-                if (bc_ptr[n].hi(0) == ROMSXBCType::ext_dir) {
+                if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3];
-                } else if (bc_ptr[n].hi(0) == ROMSXBCType::foextrap) {
+                } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap) {
                     dest_arr(i,j,k) =  dest_arr(dom_hi.x,j,k);
-                } else if (bc_ptr[n].hi(0) == ROMSXBCType::reflect_even) {
+                } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(iflip,j,k);
-                } else if (bc_ptr[n].hi(0) == ROMSXBCType::reflect_odd) {
+                } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_odd) {
                     dest_arr(i,j,k) = -dest_arr(iflip,j,k);
                 }
             }
@@ -94,38 +94,38 @@ void ROMSXPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box&
         ParallelFor(
             bx_ylo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int jflip = dom_lo.y-j;
-                if (bc_ptr[n].lo(1) == ROMSXBCType::ext_dir) {
+                if (bc_ptr[n].lo(1) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][1];
-                } else if (bc_ptr[n].lo(1) == ROMSXBCType::foextrap) {
+                } else if (bc_ptr[n].lo(1) == REMORABCType::foextrap) {
                     dest_arr(i,j,k) =  dest_arr(i,dom_lo.y,k);
-                } else if (bc_ptr[n].lo(1) == ROMSXBCType::reflect_even) {
+                } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(i,jflip,k);
-                } else if (bc_ptr[n].lo(1) == ROMSXBCType::reflect_odd) {
+                } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_odd) {
                     dest_arr(i,j,k) = -dest_arr(i,jflip,k);
                 }
             },
             // We only set the values on the domain faces themselves if EXT_DIR
             bx_ylo_face, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-                if (bc_ptr[n].lo(1) == ROMSXBCType::ext_dir)
+                if (bc_ptr[n].lo(1) == REMORABCType::ext_dir)
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][1];
             }
         );
         ParallelFor(
             bx_yhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                  int jflip =  2*(dom_hi.y + 1) - j;
-                 if (bc_ptr[n].hi(1) == ROMSXBCType::ext_dir) {
+                 if (bc_ptr[n].hi(1) == REMORABCType::ext_dir) {
                      dest_arr(i,j,k) = l_bc_extdir_vals_d[n][4];
-                 } else if (bc_ptr[n].hi(1) == ROMSXBCType::foextrap) {
+                 } else if (bc_ptr[n].hi(1) == REMORABCType::foextrap) {
                      dest_arr(i,j,k) =  dest_arr(i,dom_hi.y+1,k);
-                 } else if (bc_ptr[n].hi(1) == ROMSXBCType::reflect_even) {
+                 } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_even) {
                      dest_arr(i,j,k) =  dest_arr(i,jflip,k);
-                 } else if (bc_ptr[n].hi(1) == ROMSXBCType::reflect_odd) {
+                 } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_odd) {
                      dest_arr(i,j,k) = -dest_arr(i,jflip,k);
                 }
             },
             // We only set the values on the domain faces themselves if EXT_DIR
             bx_yhi_face, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-                if (bc_ptr[n].lo(4) == ROMSXBCType::ext_dir)
+                if (bc_ptr[n].lo(4) == REMORABCType::ext_dir)
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][4];
             }
         );
@@ -138,25 +138,25 @@ void ROMSXPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box&
         ParallelFor(
             bx_zlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int kflip = dom_lo.z - 1 - k;
-                if (bc_ptr[n].lo(2) == ROMSXBCType::ext_dir) {
+                if (bc_ptr[n].lo(2) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][2];
-                } else if (bc_ptr[n].lo(2) == ROMSXBCType::foextrap) {
+                } else if (bc_ptr[n].lo(2) == REMORABCType::foextrap) {
                     dest_arr(i,j,k) =  dest_arr(i,j,dom_lo.z);
-                } else if (bc_ptr[n].lo(2) == ROMSXBCType::reflect_even) {
+                } else if (bc_ptr[n].lo(2) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(i,j,kflip);
-                } else if (bc_ptr[n].lo(2) == ROMSXBCType::reflect_odd) {
+                } else if (bc_ptr[n].lo(2) == REMORABCType::reflect_odd) {
                     dest_arr(i,j,k) = -dest_arr(i,j,kflip);
                 }
             },
             bx_zhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int kflip =  2*dom_hi.z + 1 - k;
-                if (bc_ptr[n].hi(2) == ROMSXBCType::ext_dir) {
+                if (bc_ptr[n].hi(2) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][5];
-                } else if (bc_ptr[n].hi(2) == ROMSXBCType::foextrap) {
+                } else if (bc_ptr[n].hi(2) == REMORABCType::foextrap) {
                     dest_arr(i,j,k) =  dest_arr(i,j,dom_hi.z);
-                } else if (bc_ptr[n].hi(2) == ROMSXBCType::reflect_even) {
+                } else if (bc_ptr[n].hi(2) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(i,j,kflip);
-                } else if (bc_ptr[n].hi(2) == ROMSXBCType::reflect_odd) {
+                } else if (bc_ptr[n].hi(2) == REMORABCType::reflect_odd) {
                     dest_arr(i,j,k) = -dest_arr(i,j,kflip);
                 }
             }

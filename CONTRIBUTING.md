@@ -14,7 +14,7 @@ Development generally follows the following ideas:
        * We suggest asking questions through GitHub Discussions.
        * All contributions should be done via pull requests.
          A pull request should be generated from your fork of
-         ROMSX and target the `development` branch. See below for
+         REMORA and target the `development` branch. See below for
          details on how this process works.
 
          In general we squash commits upon merge to have a clean history.
@@ -31,7 +31,7 @@ Development generally follows the following ideas:
 
 ## Git workflow
 
-ROMSX uses [git](https://git-scm.com) for version control. If you
+REMORA uses [git](https://git-scm.com) for version control. If you
 are new to git, you can follow one of these tutorials:
 - [Learn git with bitbucket](https://www.atlassian.com/git/tutorials/learn-git-with-bitbucket-cloud)
 - [git - the simple guide](http://rogerdudler.github.io/git-guide/)
@@ -43,22 +43,23 @@ The basic workflow is:
 - Implement your changes and push them on a new branch `<branch_name>` on
 your fork.
 - Create a Pull Request from branch `<branch_name>` on your fork to branch
-`development` on the main ROMSX repository.
+`development` on the main REMORA repository.
 
 First, let us setup your local git repo. To make your own fork of the main
-(`upstream`) repository, press the fork button on the [ROMSX Github page](https://github.com/ROMSX).
+(`upstream`) repository, press the fork button on the
+[REMORA Github page](https://github.com/seahorce-scidac/REMORA).
 
-Then, clone your fork on your local computer. If you plan on doing a lot of ROMSX development,
+Then, clone your fork on your local computer. If you plan on doing a lot of REMORA development,
 we recommend configuring your clone to use ssh access so you won't have to enter your Github
 password every time, which you can do using these commands:
 
 ```
-git clone --branch development git@github.com:<myGithubUsername>/ROMSX.git
+git clone --branch development git@github.com:<myGithubUsername>/REMORA.git
 
-# Then, navigate into your repo, add a new remote for the main ROMSX repo, and fetch it:
-cd ROMSX
-git remote add upstream https://github.com/seahorce-scidac/ROMSX
-git remote set-url --push upstream git@github.com:<myGithubUsername>/ROMSX.git
+# Then, navigate into your repo, add a new remote for the main REMORA repo, and fetch it:
+cd REMORA
+git remote add upstream https://github.com/seahorce-scidac/REMORA
+git remote set-url --push upstream git@github.com:<myGithubUsername>/REMORA.git
 git fetch upstream
 
 # We recommend setting your development branch to track the upstream one instead of your fork:
@@ -70,12 +71,12 @@ For instructions on setting up SSH access to your Github account on a new machin
 If you instead prefer to use HTTPS authentication, configure your local clone as follows:
 
 ```
-git clone --branch development https://github.com/<myGithubUsername>/ROMSX.git
+git clone --branch development https://github.com/<myGithubUsername>/REMORA.git
 
-# Navigate into your repo, add a new remote for the main ROMSX repo, and fetch it
-cd ROMSX
-git remote add upstream https://github.com/ROMSX
-git remote set-url --push upstream https://github.com/<myGithubUsername>/ROMSX.git
+# Navigate into your repo, add a new remote for the main REMORA repo, and fetch it
+cd REMORA
+git remote add upstream https://github.com/REMORA
+git remote set-url --push upstream https://github.com/<myGithubUsername>/REMORA.git
 git fetch upstream
 
 # We recommend setting your development branch to track the upstream one instead of your fork:
@@ -97,7 +98,7 @@ Make sure you are on the `development` branch with
 ```
 git checkout development
 ```
-in the ROMSX directory.
+in the REMORA directory.
 
 Create a branch `<branch_name>` (the branch name should reflect the piece
 of code you want to add, like `add_new_physics`) with
@@ -140,7 +141,7 @@ matching branch in the main repository after your PR is merged.
 ### Submit a Pull Request
 
 A Pull Request is the way to efficiently visualize the changes you made
-and to propose your new feature/improvement/fix to the ROMSX project.
+and to propose your new feature/improvement/fix to the REMORA project.
 Right after you push changes, a banner should appear on the Github page of
 your fork, with your `<branch_name>`.
 - Click on the `compare & pull request` button to prepare your PR.
@@ -159,7 +160,7 @@ For example, if find typos in the documentation open a pull request that only fi
 If you want to fix a bug, make a small pull request that only fixes a bug.
 If you want to implement a large feature, write helper functionality first, test it and submit those as a first pull request.
 If you want to implement a feature and are not too sure how to split it,
-just open a discussion about your plans and ping other ROMSX developers on it to chime in.
+just open a discussion about your plans and ping other REMORA developers on it to chime in.
 
 Even before your work is ready to merge, it can be convenient to create a PR
 (so you can use Github tools to visualize your changes). In this case, please
@@ -179,11 +180,11 @@ git push origin --delete <branch_name>
 
 Generally speaking, you want to follow the following rules.
 
-  * Do not merge your branch for PR into your local `development` branch that tracks ROMSX
-    `development` branch.  Otherwise your local `development` branch will diverge from ROMSX
+  * Do not merge your branch for PR into your local `development` branch that tracks REMORA
+    `development` branch.  Otherwise your local `development` branch will diverge from REMORA
     `development` branch.
 
-  * Do not commit in your `development` branch that tracks ROMSX `development` branch.
+  * Do not commit in your `development` branch that tracks REMORA `development` branch.
 
   * Always create a new branch based off `development` branch for each pull request, unless you are
     going to use git to fix it later.
@@ -195,13 +196,13 @@ git checkout development
 git reset HEAD~2  # Here 2 is the number of commits you have accidentally committed in development
 git checkout .
 ```
-After this, the local `development` should be in sync with ROMSX `development` and your recent
+After this, the local `development` should be in sync with REMORA `development` and your recent
 commits have been saved in `new_branch` branch.
 
-If for some reason your PR branch has diverged from ROMSX, you can try to fix it as follows.  Before
+If for some reason your PR branch has diverged from REMORA, you can try to fix it as follows.  Before
 you try it, you should back up your code in case things might go wrong.
 ```
-git fetch upstream   # assuming upstream is the remote name for the official ROMSX repo
+git fetch upstream   # assuming upstream is the remote name for the official REMORA repo
 git checkout -b xxx upstream/development  # replace xxx with whatever name you like
 git branch -D development
 git checkout -b development upstream/development
@@ -229,11 +230,11 @@ After saving and then exiting the editor, `git log` should show a clean history 
 all goes well, you can submit a PR using `xxx` branch.
 Don't worry, if something goes wrong during the rebase, you an always `git rebase --abort` and start over.
 
-## ROMSX Coding Style Guide
+## REMORA Coding Style Guide
 
 ### Code Guidelines
 
-ROMSX developers should adhere to the following coding guidelines:
+REMORA developers should adhere to the following coding guidelines:
   * Indentations should use 4 spaces, not tabs.
   * Use curly braces for single statement blocks. For example:
 ```cpp
@@ -270,19 +271,19 @@ not when simply calling the function). For example:
 ```cpp
        amrex::Real m_variable;
 ```
-These guidelines should be adhered to in new contributions to ROMSX, but
+These guidelines should be adhered to in new contributions to REMORA, but
 please refrain from making stylistic changes to unrelated sections of code in your PRs.
 
 ### Fixing Style Issues
 
 On any pull request, or any new commits to an open pull request that trigger
-the ROMSX CI tests, ROMSX will run style checks. These checks ensure the developer
+the REMORA CI tests, REMORA will run style checks. These checks ensure the developer
 is using spaces instead of tabs and has not inserted any whitespace at the end
 of source lines.
 
 We require pull requests to pass these style checks before merging. If failures
 arise, there is an easy way to automatically fix style issues like this by
-running the following shell commands from the main ROMSX repository.
+running the following shell commands from the main REMORA repository.
 
 For removing whitespace at the end of lines:
 

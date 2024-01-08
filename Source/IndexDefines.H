@@ -1,5 +1,5 @@
-#ifndef ROMSX_INDEX_DEFINES_H_
-#define ROMSX_INDEX_DEFINES_H_
+#ifndef REMORA_INDEX_DEFINES_H_
+#define REMORA_INDEX_DEFINES_H_
 
 #include <AMReX_REAL.H>
 #include <AMReX_Arena.H>
@@ -42,14 +42,14 @@ namespace BdyVars {
     };
 }
 
-enum struct ROMSX_BC {
+enum struct REMORA_BC {
     symmetry, inflow, outflow, no_slip_wall, slip_wall, periodic, undefined
 };
 
 // NOTE: the first of these must match up with the BCType enum
 //     in amrex/Src/Base/AMReX_BC_TYPES.H.  We had extras at
 //     the end to use locally
-namespace ROMSXBCType {
+namespace REMORABCType {
 enum mathematicalBndryTypes : int { bogus        = -666,
     reflect_odd  = -1,
     int_dir      =  0,

@@ -12,7 +12,7 @@
 #include <AMReX_buildInfo.H>
 #include <AMReX_ParmParse.H>
 
-#include "ROMSX.H"
+#include "REMORA.H"
 #include "NCInterface.H"
 #include "NCPlotFile.H"
 #include "IndexDefines.H"
@@ -20,7 +20,7 @@
 using namespace amrex;
 
 void
-ROMSX::ReadNCMultiFab(FabArray<FArrayBox> &mf,
+REMORA::ReadNCMultiFab(FabArray<FArrayBox> &mf,
                     const std::string  &mf_name,
                     int /*coordinatorProc*/,
                     int /*allow_empty_mf*/) {
@@ -80,7 +80,7 @@ ROMSX::ReadNCMultiFab(FabArray<FArrayBox> &mf,
 
 
 void
-ROMSX::WriteNCMultiFab (const FabArray<FArrayBox> &fab,
+REMORA::WriteNCMultiFab (const FabArray<FArrayBox> &fab,
                       const std::string& name,
                       bool /*set_ghost*/) const {
 
@@ -127,7 +127,7 @@ ROMSX::WriteNCMultiFab (const FabArray<FArrayBox> &fab,
         }
 
         ncf.enter_def_mode();
-        ncf.put_attr("title", "ROMSX NetCDF MultiFab Data");
+        ncf.put_attr("title", "REMORA NetCDF MultiFab Data");
 
         ncf.def_dim(ndim_name, AMREX_SPACEDIM);
         ncf.def_dim(nb_name, nbox);
