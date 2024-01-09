@@ -826,7 +826,7 @@ private:
     static amrex::Real sum_per;
 
     // Native or NetCDF
-    static std::string plotfile_type;
+    static PlotfileType plotfile_type;
 
     // NetCDF initialization files for solution and grid
     static amrex::Vector<amrex::Vector<std::string>> nc_init_file;
