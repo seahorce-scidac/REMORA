@@ -21,53 +21,104 @@ using namespace amrex;
 void
 REMORA::WriteNCPlotFile(int which_step) const
 {
-     // For right now we assume single level -- we will generalize this later to multilevel
-     int lev             = 0;
-     int which_subdomain = 0;
+    bool use_history_file = false;
+#ifdef REMORA_USE_HISTORYFILE
+    use_history_file = true;
+#endif
 
-     // Number of cells in this "domain" at this level
-     std::vector<int> n_cells;
+    // For right now we assume single level -- we will generalize this later to multilevel
+    int lev             = 0;
+    int which_subdomain = 0;
+
+    // Create filename
+    std::string plt_string;
+    if (use_history_file) {
+        plt_string = "plt_his";
+    } else {
+        plt_string = "plt";
+    }
+    std::string plotfilename = Concatenate(plt_string, which_step, 5);
+
+    // Set the full IO path for NetCDF output
+    std::string FullPath = plotfilename;
+    if (lev == 0) {
+        const std::string& extension = amrex::Concatenate("_d",lev+1,2);
+        FullPath += extension + ".nc";
+    } else {
+        const std::string& extension = amrex::Concatenate("_d",lev+1+which_subdomain,2);
+        FullPath += extension + ".nc";
+    }
 
 #ifdef REMORA_USE_HISTORYFILE
-     std::string plotfilename = Concatenate("plt_his", which_step, 5);
+    // if (use_history_file)
+    // {
+        bool not_empty_file = amrex::FileSystem::Exists(FullPath);
+
+        auto ncf = not_empty_file ?
+        ncutils::NCFile::open_par(FullPath, NC_WRITE | NC_NETCDF4 | NC_MPIIO,
+                                  amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
+        ncutils::NCFile::create_par(FullPath, NC_NETCDF4 | NC_MPIIO,
+                                    amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+
+        amrex::Print() << "Writing level " << lev << " NetCDF history file " << FullPath
+                       << "\nFor step "<< which_step <<std::endl;
 #else
-     std::string plotfilename = Concatenate("plt", which_step, 5);
+    // } else {
+        // Open new netcdf file to write data
+        auto ncf = ncutils::NCFile::create_par(FullPath, NC_NETCDF4 | NC_MPIIO,
+                                               amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+        amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath
+                       << "\nFor step "<< which_step <<std::endl;
+    // }
 #endif
+    WriteNCPlotFile_which(which_step, lev, which_subdomain, use_history_file, ncf);
+}
 
-     // Set the full IO path for NetCDF output
-     std::string FullPath = plotfilename;
-     if (lev == 0) {
-         const std::string& extension = amrex::Concatenate("_d",lev+1,2);
-         FullPath += extension + ".nc";
-     } else {
-         const std::string& extension = amrex::Concatenate("_d",lev+1+which_subdomain,2);
-         FullPath += extension + ".nc";
-     }
+void
+REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
+                              bool use_history_file, ncutils::NCFile& ncf) const
+{
+    int iproc = amrex::ParallelContext::MyProcAll();
+    int nproc = amrex::ParallelDescriptor::NProcs();
 
-#ifdef REMORA_USE_HISTORYFILE
-     bool not_empty_file = true;
-     if (true) {
-         FullPath = plot_file_1 + "_his.nc";
-         not_empty_file = amrex::FileSystem::Exists(FullPath);
-     }
-#endif
+    // Number of cells in this "domain" at this level
+    std::vector<int> n_cells;
 
-     amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath
-                    << "\nFor step "<< which_step <<std::endl;
+    int ncomp_mf = 1;
+    Vector<MultiFab> mf(1);
+    mf[lev].define(grids[lev], dmap[lev], ncomp_mf, 0);
+    mf[lev].setVal(1.0);
 
-#ifdef REMORA_USE_HISTORYFILE
-     // open netcdf file to write data
-     auto ncf = not_empty_file ?
-       ncutils::NCFile::open_par(FullPath, NC_WRITE | NC_NETCDF4 | NC_MPIIO,
-                                 amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
-       ncutils::NCFile::create_par(FullPath, NC_NETCDF4 | NC_MPIIO,
-                                   amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
-#else
-     // open netcdf file to write data
-     auto ncf = ncutils::NCFile::create_par(FullPath, NC_NETCDF4 | NC_MPIIO,
-                                            amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
-#endif
-     int nblocks = grids[lev].size();
+    int nblocks = grids[lev].size();
+    auto dm = mf[lev].DistributionMap();
+
+    // Number of points in each block at this level
+    std::vector<int> offset_s;
+    std::vector<int> offset_u;
+    std::vector<int> offset_v;
+    offset_s.reserve(nproc);
+    offset_u.reserve(nproc);
+    offset_v.reserve(nproc);
+
+    for (auto n = 0; n < nproc; n++) {
+        offset_s[n] = 0;
+        offset_u[n] = 0;
+        offset_v[n] = 0;
+    }
+
+    for (auto ib=0; ib<nblocks; ib++) {
+       Box tmp_bx_s(grids[lev][ib]); tmp_bx_s.grow(IntVect(1,1,0));
+       offset_s[dm[ib]] += tmp_bx_s.numPts();
+
+       Box tmp_bx_u(grids[lev][ib]); tmp_bx_u.surroundingNodes(0); tmp_bx_u.grow(IntVect(0,1,0));
+       offset_u[dm[ib]] += tmp_bx_u.numPts();
+
+       Box tmp_bx_v(grids[lev][ib]); tmp_bx_v.surroundingNodes(1); tmp_bx_v.grow(IntVect(1,0,0));
+       offset_v[dm[ib]] += tmp_bx_v.numPts();
+    }
+
+    // We only do single-level writes when using NetCDF format
+    int flev = lev;
 
      Box subdomain;
      if (lev == 0) {
@@ -76,346 +127,285 @@ REMORA::WriteNCPlotFile(int which_step) const
          subdomain = boxes_at_level[lev][which_subdomain];
      }
 
-     int dom_nx = subdomain.length(0);
-     int dom_ny = subdomain.length(1);
-     int dom_nz = subdomain.length(2);
-     n_cells.push_back(dom_nx); n_cells.push_back(dom_ny); n_cells.push_back(dom_nz);
-     int num_pts = dom_nx * dom_ny * dom_nz;
+     int nx = subdomain.length(0);
+     int ny = subdomain.length(1);
+     int nz = subdomain.length(2);
 
-     const std::string nt_name   = "ocean_time";
+     n_cells.push_back(nx);
+     n_cells.push_back(ny);
+     n_cells.push_back(nz);
+
+     int num_pts   = nx*ny*nz;
+     int num_s_pts = (nx+2)*(ny+2)*nz;
+     int num_u_pts = (nx+1)*(ny+2)*nz;
+     int num_v_pts = (nx+2)*(ny+1)*nz;
+
+     int n_data_items = mf[lev].nComp();
+
+     const std::string nt_name   = "num_time_steps";
      const std::string ndim_name = "num_geo_dimensions";
+
      const std::string np_name   = "num_points_per_block";
+     const std::string np_s_name = "num_points_per_block_s";
+     const std::string np_u_name = "num_points_per_block_u";
+     const std::string np_v_name = "num_points_per_block_v";
+
      const std::string nb_name   = "num_blocks";
-     const std::string x_r_name   = "x_rho";
-     const std::string y_r_name   = "y_rho";
+     const std::string nx_name   = "NX";
+     const std::string ny_name   = "NY";
+     const std::string nz_name   = "NZ";
+     const std::string flev_name = "FINEST_LEVEL";
 
-     const std::string s_r_name   = "s_rho";
-     const std::string s_w_name   = "s_w";
+     ncf.enter_def_mode();
+     ncf.put_attr("title", "ERF NetCDF Plot data output");
+     ncf.def_dim(nt_name,   NC_UNLIMITED);
+     ncf.def_dim(ndim_name, AMREX_SPACEDIM);
 
-     const std::string xi_rho_name   = "xi_rho";
-     const std::string xi_u_name     = "xi_u";
-     const std::string xi_v_name     = "xi_v";
-     const std::string xi_psi_name   = "xi_psi";
-     const std::string xi_vert_name  = "xi_vert";
+     ncf.def_dim(np_name  ,   num_pts);
+     ncf.def_dim(np_s_name,   num_s_pts);
+     ncf.def_dim(np_u_name,   num_u_pts);
+     ncf.def_dim(np_v_name,   num_v_pts);
 
-     const std::string eta_rho_name  = "eta_rho";
-     const std::string eta_u_name    = "eta_u";
-     const std::string eta_v_name    = "eta_v";
-     const std::string eta_psi_name  = "eta_psi";
-     const std::string eta_vert_name = "eta_vert";
+     ncf.def_dim(nb_name,   nblocks);
+     ncf.def_dim(flev_name, flev);
 
-     const std::string z_r_name   = "z_rho";
-     const std::string z_w_name   = "z_w";
+     ncf.def_dim(nx_name,   n_cells[0]);
+     ncf.def_dim(ny_name,   n_cells[1]);
+     ncf.def_dim(nz_name,   n_cells[2]);
 
-#ifdef REMORA_USE_HISTORYFILE
-     if (!not_empty_file)
-#endif
+     ncf.def_var("probLo"  ,   NC_FLOAT,  {ndim_name});
+     ncf.def_var("probHi"  ,   NC_FLOAT,  {ndim_name});
+
+     ncf.def_var("Geom.smallend", NC_INT, {flev_name, ndim_name});
+     ncf.def_var("Geom.bigend"  , NC_INT, {flev_name, ndim_name});
+     ncf.def_var("CellSize"     , NC_FLOAT, {flev_name, ndim_name});
+
+     ncf.def_var("x_grid", NC_FLOAT, {np_name});
+     ncf.def_var("y_grid", NC_FLOAT, {np_name});
+     ncf.def_var("z_grid", NC_FLOAT, {np_name});
+
+     ncf.def_var("temp", NC_FLOAT, {np_s_name});
+     ncf.def_var("salt", NC_FLOAT, {np_s_name});
+     ncf.def_var("u"   , NC_FLOAT, {np_u_name});
+     ncf.def_var("v"   , NC_FLOAT, {np_v_name});
+
+     ncf.exit_def_mode();
+
      {
-         ncf.enter_def_mode();
-         ncf.put_attr("title", "REMORA NetCDF Plot data output");
-         ncf.def_dim(nt_name,   NC_UNLIMITED);
-         ncf.def_dim(ndim_name, AMREX_SPACEDIM);
-         ncf.def_dim(np_name,   num_pts);
-         ncf.def_dim(nb_name,   nblocks);
-
-         ncf.def_dim(xi_rho_name,  dom_nx+2);
-         ncf.def_dim(xi_u_name,    dom_nx+1);
-         ncf.def_dim(xi_v_name,    dom_nx+2);
-         ncf.def_dim(xi_psi_name,  dom_nx+1);
-         ncf.def_dim(xi_vert_name, dom_nx+2);
-
-         ncf.def_dim(eta_rho_name,  dom_ny+2);
-         ncf.def_dim(eta_u_name,    dom_ny+2);
-         ncf.def_dim(eta_v_name,    dom_ny+1);
-         ncf.def_dim(eta_psi_name,  dom_ny+1);
-         ncf.def_dim(eta_vert_name, dom_ny+2);
-
-         ncf.def_dim(s_r_name,      dom_nz+2);
-         ncf.def_dim(s_w_name,      dom_nz+1);
-
-         ncf.def_dim(x_r_name,     (dom_nx+2)*(dom_ny+2));
-         ncf.def_dim(y_r_name,     (dom_nx+2)*(dom_ny+2));
-         ncf.def_dim(z_r_name,     (dom_nx+2)*(dom_ny+2)*(dom_nz+2));
-         ncf.def_dim(z_w_name,     (dom_nx+2)*(dom_ny+2)*(dom_nz+1));
-
-         // ncf.def_var("z_w"     , NC_FLOAT, {s_r_name, eta_vert_name, xi_vert_name});
-         // ncf.def_var("s_rho"   , NC_FLOAT, {s_r_name});
-         ncf.def_var("x_rho"   , NC_FLOAT, {eta_rho_name, xi_rho_name});
-         ncf.def_var("y_rho"   , NC_FLOAT, {eta_rho_name, xi_rho_name});
-         ncf.def_var("z_rho"   , NC_FLOAT, {s_r_name, eta_rho_name, xi_rho_name});
-
-         ncf.def_var("x_grid"  , NC_FLOAT, {nb_name, x_r_name});
-         ncf.def_var("y_grid"  , NC_FLOAT, {nb_name, y_r_name});
-         ncf.def_var("z_grid"  , NC_FLOAT, {nb_name, z_r_name});
-         ncf.def_var("z_w_grid", NC_FLOAT, {nb_name, z_w_name});
-
-#ifdef REMORA_USE_HISTORYFILE
-         ncf.def_var("temp", NC_FLOAT, {nt_name, s_r_name, eta_rho_name, xi_rho_name});
-         ncf.def_var("salt", NC_FLOAT, {nt_name, s_r_name, eta_rho_name, xi_rho_name});
-         ncf.def_var("u"   , NC_FLOAT, {nt_name, s_r_name, eta_u_name  , xi_u_name});
-         ncf.def_var("v"   , NC_FLOAT, {nt_name, s_r_name, eta_v_name  , xi_v_name});
-#else
-         ncf.def_var("temp", NC_FLOAT, {s_r_name, eta_rho_name, xi_rho_name});
-         ncf.def_var("salt", NC_FLOAT, {s_r_name, eta_rho_name, xi_rho_name});
-         ncf.def_var("u"   , NC_FLOAT, {s_r_name, eta_u_name  , xi_u_name});
-         ncf.def_var("v"   , NC_FLOAT, {s_r_name, eta_v_name  , xi_v_name});
-#endif
-         ncf.exit_def_mode();
-     }
-
-     // Here we hardwire our output to plot {temp, salt, u, v, ubar, vbar};
-     int n_data_items = 6;
-
-     ncf.put_attr("number_variables", std::vector<int>{n_data_items});
-
-     // std::vector<Real> xi_grid;
-     // std::vector<Real> eta_grid;
-     // std::vector<Real> vert_grid;
-
-     // std::vector<Real> z_r_grid;
-     // std::vector<Real> z_w_grid;
-
-     const unsigned long indexOffset = 1;
-
-#ifdef REMORA_USE_HISTORYFILE
-     int num_var_dims=AMREX_SPACEDIM+1; // we include time if writing a history file
-#else
-     int num_var_dims=AMREX_SPACEDIM;
-#endif
-
-      std::vector<size_t> startp(num_var_dims);
-      std::vector<size_t> countp(num_var_dims);
-
-#ifdef REMORA_USE_HISTORYFILE
-      startp[0] = REMORA::total_nc_plot_file_step+1;
-      countp[0] = 1;
-#endif
-
-     // Number of points in each block at this level
-     std::vector<int> offset_s;
-     std::vector<int> offset_u;
-     std::vector<int> offset_v;
-
-     int iproc = amrex::ParallelContext::MyProcAll();
-     int nproc = ParallelDescriptor::NProcs();
-
-     auto dm = cons_new[lev]->DistributionMap();
-
-     offset_s.reserve(nproc);
-     offset_u.reserve(nproc);
-     offset_v.reserve(nproc);
-
-     for (auto n = 0; n < nproc; n++) {
-         offset_s[n] = 0;
-         offset_u[n] = 0;
-         offset_v[n] = 0;
-     }
-
-     for (auto ib=0; ib<nblocks; ib++) {
-        Box tmp_bx_s(grids[lev][ib]); tmp_bx_s.grow(IntVect(1,1,0));
-        offset_s[dm[ib]] += tmp_bx_s.numPts();
+      // We are doing single-level writes but it doesn't have to be level 0
+      //
+      // Write out the netcdf plotfile head information.
+      //
+      if (n_data_items == 0)
+        amrex::Error("Must specify at least one valid data item to plot");
+
+      Real time = 0.;
+
+      ncf.put_attr("number_variables", std::vector<int>{n_data_items});
+      ncf.put_attr("space_dimension", std::vector<int>{AMREX_SPACEDIM});
+      ncf.put_attr("current_time", std::vector<double>{time});
+      ncf.put_attr("start_time", std::vector<double>{start_bdy_time});
+      ncf.put_attr("CurrentLevel", std::vector<int>{flev});
+
+      Real dx[AMREX_SPACEDIM];
+      for (int i = 0; i < AMREX_SPACEDIM; i++)
+         dx[i] = geom[lev].CellSize()[i];
+      const auto *base = geom[lev].ProbLo();
+      RealBox rb(subdomain,dx,base);
+
+      amrex::Vector<Real> probLo;
+      amrex::Vector<Real> probHi;
+      for (int i = 0; i < AMREX_SPACEDIM; i++) {
+        probLo.push_back(rb.lo(i));
+        probHi.push_back(rb.hi(i));
+      }
+
+      auto nc_probLo = ncf.var("probLo");
+      nc_probLo.par_access(NC_COLLECTIVE);
+      nc_probLo.put(probLo.data(), {0}, {AMREX_SPACEDIM});
+
+      auto nc_probHi = ncf.var("probHi");
+      nc_probHi.par_access(NC_COLLECTIVE);
+      nc_probHi.put(probHi.data(), {0}, {AMREX_SPACEDIM});
+
+      amrex::Vector<int> smallend;
+      amrex::Vector<int> bigend;
+      for (int i = lev; i <= flev; i++) {
+        smallend.clear(); bigend.clear();
+        for (int j = 0; j < AMREX_SPACEDIM; j++) {
+           smallend.push_back(subdomain.smallEnd(j));
+             bigend.push_back(subdomain.bigEnd(j));
+        }
+        auto nc_Geom_smallend = ncf.var("Geom.smallend");
+        nc_Geom_smallend.par_access(NC_COLLECTIVE);
+        nc_Geom_smallend.put(smallend.data(), {static_cast<long unsigned int>(i-lev), 0}, {1, AMREX_SPACEDIM});
+
+        auto nc_Geom_bigend = ncf.var("Geom.bigend");
+        nc_Geom_bigend.par_access(NC_COLLECTIVE);
+        nc_Geom_bigend.put(bigend.data(), {static_cast<long unsigned int>(i-lev), 0}, {1, AMREX_SPACEDIM});
+      }
+
+      amrex::Vector<Real> CellSize;
+      for (int i = lev; i <= flev; i++) {
+        CellSize.clear();
+        for (double & j : dx) {
+          CellSize.push_back(j);
+        }
+        auto nc_CellSize = ncf.var("CellSize");
+        nc_CellSize.par_access(NC_COLLECTIVE);
+        nc_CellSize.put(CellSize.data(), {static_cast<long unsigned int>(i-lev), 0}, {1, AMREX_SPACEDIM});
+      }
+
+      ncf.put_attr("DefaultGeometry", std::vector<int>{amrex::DefaultGeometry().Coord()});
+    }
+
+    std::vector<Real> x_grid;
+    std::vector<Real> y_grid;
+    std::vector<Real> z_grid;
+    long unsigned goffset = 0;
+    long unsigned glen    = 0;
+    for (int i = 0; i < grids[lev].size(); ++i) {
+        auto box = grids[lev][i];
+        if (subdomain.contains(box)) {
+            RealBox gridloc = RealBox(grids[lev][i], geom[lev].CellSize(), geom[lev].ProbLo());
+
+            x_grid.clear(); y_grid.clear(); z_grid.clear();
+            for (auto k1 = 0; k1 < grids[lev][i].length(0); ++k1) {
+              for (auto k2 = 0; k2 < grids[lev][i].length(1); ++k2) {
+                 for (auto k3 = 0; k3 < grids[lev][i].length(2); ++k3) {
+                    x_grid.push_back(gridloc.lo(0)+geom[lev].CellSize(0)*static_cast<Real>(k1));
+                    y_grid.push_back(gridloc.lo(1)+geom[lev].CellSize(1)*static_cast<Real>(k2));
+                    z_grid.push_back(gridloc.lo(2)+geom[lev].CellSize(2)*static_cast<Real>(k3));
+                 }
+              }
+            }
+
+            goffset += glen;
+            glen = grids[lev][i].length(0)*grids[lev][i].length(1)*grids[lev][i].length(2);
+
+            auto nc_x_grid = ncf.var("x_grid");
+            auto nc_y_grid = ncf.var("y_grid");
+            auto nc_z_grid = ncf.var("z_grid");
+
+            nc_x_grid.par_access(NC_INDEPENDENT);
+            nc_y_grid.par_access(NC_INDEPENDENT);
+            nc_z_grid.par_access(NC_INDEPENDENT);
+
+            nc_x_grid.put(x_grid.data(), {goffset}, {glen});
+            nc_y_grid.put(y_grid.data(), {goffset}, {glen});
+            nc_z_grid.put(z_grid.data(), {goffset}, {glen});
+       }
+    }
 
-        Box tmp_bx_u(grids[lev][ib]); tmp_bx_u.surroundingNodes(0); tmp_bx_u.grow(IntVect(0,1,0));
-        offset_u[dm[ib]] += tmp_bx_u.numPts();
+    size_t nbox_per_proc = 0;
+    long unsigned numpts = 0;
+    const int ncomp = mf[lev].nComp();
 
-        Box tmp_bx_v(grids[lev][ib]); tmp_bx_v.surroundingNodes(1); tmp_bx_v.grow(IntVect(1,0,0));
-        offset_v[dm[ib]] += tmp_bx_v.numPts();
-     }
+    long unsigned diff_s = 0;
+    long unsigned npts_s = 0;
 
-     long unsigned diff_s = 0;
-     long unsigned npts_s = 0;
+    for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
+        auto box = mfi.validbox();
+        if (subdomain.contains(box)) {
+            long unsigned diff = nbox_per_proc*numpts;
+            for(auto ip = 1; ip <= iproc; ++ip) {diff += offset_s[ip-1];}
 
-     // No tiling
-     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
-     {
-         Box box = mfi.validbox();
-         int idx = mfi.index();
+            Box tmp_bx(box); tmp_bx.grow(IntVect(1,1,0));
+            long unsigned numpts = tmp_bx.numPts();
 
-         if (subdomain.contains(box))
-         {
-             diff_s = npts_s;
+            {
+            FArrayBox tmp_temp(tmp_bx,1);
+            tmp_temp.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Temp_comp,0,1);
+            const auto *data = tmp_temp.dataPtr();
 
-             for (auto ip = 0; ip < iproc; ++ip) {
-                 diff_s += offset_s[ip];
-             }
+            auto nc_plot_var = ncf.var("temp");
+            nc_plot_var.par_access(NC_INDEPENDENT);
+            nc_plot_var.put(data, {diff}, {numpts});
+            }
 
-             Box tmp_bx(box); tmp_bx.grow(IntVect(1,1,0));
-             amrex::Print() << "TMP_BX FOR S " << tmp_bx << std::endl;
+            {
+            FArrayBox tmp_salt(tmp_bx,1);
+            tmp_salt.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Salt_comp,0,1);
+            const auto *data = tmp_salt.dataPtr();
 
-             long unsigned numpts = tmp_bx.numPts();
+            auto nc_plot_var = ncf.var("salt");
+            nc_plot_var.par_access(NC_INDEPENDENT);
+            nc_plot_var.put(data, {diff}, {numpts});
+            }
 
-             amrex::Print() << " DIFF NMPTS " << diff_s << " " << numpts << std::endl;
+            nbox_per_proc++;
+        }
+    }
 
-             FArrayBox tmp(tmp_bx,1);
+    long unsigned diff_u = 0;
+    long unsigned npts_u = 0;
 
-             // Writing temperature (1 ghost cell in lateral directions)
-             {
-             tmp.template copy<RunOn::Device>((*cons_new[lev])[idx],Temp_comp,0,1);
-             auto data = tmp.dataPtr();
-             auto nc_plot_var = ncf.var("temp");
-             nc_plot_var.par_access(NC_INDEPENDENT);
-             nc_plot_var.put(data, {diff_s}, {numpts});
-             }
+    // Writing u
+    for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
+    {
+        Box box = mfi.validbox();
+        int idx = mfi.index();
 
-             // Writing salt (1 ghost cell in lateral directions)
-             {
-             tmp.template copy<RunOn::Device>((*cons_new[lev])[idx],Salt_comp,0,1);
-             auto data = tmp.dataPtr();
-             auto nc_plot_var = ncf.var("salt");
-             nc_plot_var.par_access(NC_INDEPENDENT);
-             nc_plot_var.put(data, {diff_s}, {numpts});
-             }
+        if (subdomain.contains(box))
+        {
+            diff_u = npts_u;
 
-             npts_s += numpts;
+            for (auto ip = 0; ip < iproc; ++ip) {
+                diff_u += offset_u[ip];
+            }
 
-         } // in subdomain
-     } // mfi
+            Box tmp_bx(box); tmp_bx.surroundingNodes(0); tmp_bx.grow(IntVect(0,1,0));
 
-     Print() << "FINISHED WRITING TEMP AND SALT " << std::endl;
+            long unsigned numpts = tmp_bx.numPts();
 
-     long unsigned diff_u = 0;
-     long unsigned npts_u = 0;
+            FArrayBox tmp(tmp_bx,1);
+            tmp.template copy<RunOn::Device>((*xvel_new[lev])[idx],0,0,1);
 
-     // Writing u
-     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
-     {
-         Box box = mfi.validbox();
-         int idx = mfi.index();
+            // auto data = tmp.dataPtr();
 
-         if (subdomain.contains(box))
-         {
-             diff_u = npts_u;
+            auto nc_plot_var = ncf.var("u");
+            nc_plot_var.par_access(NC_INDEPENDENT);
+            nc_plot_var.put(tmp.dataPtr(), {diff_u}, {numpts});
 
-             for (auto ip = 0; ip < iproc; ++ip) {
-                 diff_u += offset_u[ip];
-             }
-
-             Box tmp_bx(box); tmp_bx.surroundingNodes(0); tmp_bx.grow(IntVect(0,1,0));
-             amrex::Print() << "TMP_BX FOR U " << tmp_bx << std::endl;
-
-             long unsigned numpts = tmp_bx.numPts();
-
-             FArrayBox tmp(tmp_bx,1);
-             tmp.template copy<RunOn::Device>((*xvel_new[lev])[idx],0,0,1);
-
-             auto data = tmp.dataPtr();
-
-             auto nc_plot_var = ncf.var("u");
-             nc_plot_var.par_access(NC_INDEPENDENT);
-             nc_plot_var.put(data, {diff_u}, {numpts});
-
-             npts_u += numpts;
-
-         } // in subdomain
-     } // mfi
-
-     Print() << "FINISHED WRITING U " << std::endl;
-
-     long unsigned diff_v = 0;
-     long unsigned npts_v = 0;
-
-     // Writing v
-     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
-     {
-         Box box = mfi.validbox();
-         int idx = mfi.index();
-
-         if (subdomain.contains(box))
-         {
-             diff_v = npts_v;
-
-             for (auto ip = 0; ip <= iproc-1; ++ip) {
-                 diff_v += offset_v[ip];
-             }
-
-             Box tmp_bx(box); tmp_bx.surroundingNodes(1); tmp_bx.grow(IntVect(1,0,0));
-             amrex::Print() << "TMP_BX FOR V " << tmp_bx << std::endl;
-
-             long unsigned numpts = tmp_bx.numPts();
-
-             FArrayBox tmp(tmp_bx,1);
-             tmp.template copy<RunOn::Device>((*yvel_new[lev])[idx],0,0,1);
-
-             auto data = tmp.dataPtr();
-
-             auto nc_plot_var = ncf.var("v");
-             nc_plot_var.par_access(NC_INDEPENDENT);
-             nc_plot_var.put(data, {diff_v}, {numpts});
-
-             npts_v += numpts;
-
-         } // in subdomain
-     } // mfi
-
-     Print() << "FINISHED WRITING V " << std::endl;
-
-#if 0
-     // Writing others
-     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
-     {
-         Box box = mfi.validbox();
-         int idx = mfi.index();
-
-         if (subdomain.contains(box))
-         {
-
-             {
-             auto data = vec_x_r[lev]->get(mfi).dataPtr();
-             auto nc_plot_var = ncf.var(x_r_name);
-             nc_plot_var.par_access(NC_COLLECTIVE);
-             nc_plot_var.put(data, {(unsigned long) box.smallEnd(1)+indexOffset,
-                                    (unsigned long) box.smallEnd(0)+indexOffset},
-                                   {(unsigned long) box.length(1),
-                                    (unsigned long) box.length(0)});
-             }
-
-             {
-             auto data = vec_y_r[lev]->get(mfi).dataPtr();
-             auto nc_plot_var = ncf.var(y_r_name);
-             nc_plot_var.par_access(NC_COLLECTIVE);
-             nc_plot_var.put(data, {(unsigned long) box.smallEnd(1)+indexOffset,
-                                    (unsigned long) box.smallEnd(0)+indexOffset},
-                                   {(unsigned long) box.length(1),
-                                    (unsigned long) box.length(0)});
-             }
-
-             {
-             auto data = vec_z_r[lev]->get(mfi).dataPtr();
-             auto nc_plot_var = ncf.var(z_r_name);
-             nc_plot_var.par_access(NC_COLLECTIVE);
-             nc_plot_var.put(data, {(unsigned long) box.smallEnd(2),
-                                    (unsigned long) box.smallEnd(1)+indexOffset,
-                                    (unsigned long) box.smallEnd(0)+indexOffset},
-                                   {(unsigned long) box.length(2),
-                                    (unsigned long) box.length(1),
-                                    (unsigned long) box.length(0)});
-             }
-
-             {
-             auto data = vec_z_w[lev]->get(mfi).dataPtr();
-             auto nc_plot_var = ncf.var(z_w_name);
-             nc_plot_var.par_access(NC_COLLECTIVE);
-             nc_plot_var.put(data, {(unsigned long) box.smallEnd(2),
-                                    (unsigned long) box.smallEnd(1)+indexOffset,
-                                    (unsigned long) box.smallEnd(0)+indexOffset},
-                                   {(unsigned long) box.length(2),
-                                    (unsigned long) box.length(1),
-                                    (unsigned long) box.length(0)});
-             }
-
-             {
-             auto data = vec_s_r[lev]->get(mfi).dataPtr();
-             auto nc_plot_var = ncf.var(s_r_name);
-             nc_plot_var.par_access(NC_COLLECTIVE);
-             nc_plot_var.put(data, {(unsigned long) box.smallEnd(2)}, {(unsigned long) box.length(2)});
-             }
-         } // if in subdomain
-     } // mfi
-#endif
-
-#ifdef REMORA_USE_HISTORYFILE
-   REMORA::total_nc_plot_file_step += 1 ;
-#endif
+            npts_u += numpts;
+
+        } // in subdomain
+    } // mfi
+
+    long unsigned diff_v = 0;
+    long unsigned npts_v = 0;
+
+    // Writing v (we loop over cons to get cell-centered box)
+    for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
+    {
+       Box box = mfi.validbox();
+        int idx = mfi.index();
+
+        if (subdomain.contains(box))
+        {
+            diff_v = npts_v;
+
+            for (auto ip = 0; ip <= iproc-1; ++ip) {
+                diff_v += offset_v[ip];
+            }
+
+            Box tmp_bx(box); tmp_bx.surroundingNodes(1); tmp_bx.grow(IntVect(1,0,0));
+
+            long unsigned numpts = tmp_bx.numPts();
+
+            FArrayBox tmp(tmp_bx,1);
+            tmp.template copy<RunOn::Device>((*yvel_new[lev])[idx],0,0,1);
+
+            // auto data = tmp.dataPtr();
+
+            auto nc_plot_var = ncf.var("v");
+            nc_plot_var.par_access(NC_INDEPENDENT);
+            nc_plot_var.put(tmp.dataPtr(), {diff_v}, {numpts});
+
+            npts_v += numpts;
+
+        } // in subdomain
+    } // mfi
 
    ncf.close();
 }

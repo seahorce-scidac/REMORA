@@ -37,6 +37,10 @@
 #include "ParticleData.H"
 #endif
 
+#ifdef REMORA_USE_NETCDF
+#include "NCInterface.H"
+#endif
+
 #include <iostream>
 
 #ifdef AMREX_LAZY
@@ -658,6 +662,8 @@ private:
 #ifdef REMORA_USE_NETCDF
     //! Write plotfile using NETCDF
     void WriteNCPlotFile(int istep) const;
+    void WriteNCPlotFile_which(int istep, int lev, int which_subdomain,
+                               bool use_history_file, ncutils::NCFile& ncf) const;
 
     //! Write MultiFab in NetCDF format
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
