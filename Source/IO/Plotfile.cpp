@@ -233,10 +233,10 @@ REMORA::WritePlotFile (int which, Vector<std::string> plot_var_names)
 #endif
 #ifdef REMORA_USE_NETCDF
         } else if (plotfile_type == "netcdf" || plotfile_type == "NetCDF") {
-             int lev   = 0;
-             int nc_which = 0;
-             writeNCPlotFile(lev, nc_which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
-             total_plot_file_step_1 += 1;
+             // int lev   = 0;
+             // int nc_which = 0;
+             // writeNCPlotFile(lev, nc_which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
+             // total_plot_file_step_1 += 1;
 #endif
         } else {
             amrex::Print() << "User specified plot_filetype = " << plotfile_type << std::endl;
@@ -297,16 +297,6 @@ REMORA::WritePlotFile (int which, Vector<std::string> plot_var_names)
 
 #ifdef REMORA_USE_PARTICLES
             particleData.Checkpoint(plotfilename);
-#endif
-
-#ifdef REMORA_USE_NETCDF
-        } else if (plotfile_type == "netcdf" || plotfile_type == "NetCDF") {
-             for (int lev = 0; lev <= finest_level; ++lev) {
-                 for (int nc_which = 0; nc_which < num_boxes_at_level[lev]; nc_which++) {
-                     writeNCPlotFile(lev, nc_which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
-                     total_plot_file_step_1 += 1;
-                 }
-             }
 #endif
         }
     } // end multi-level

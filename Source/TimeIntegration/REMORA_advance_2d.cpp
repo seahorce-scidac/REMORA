@@ -63,8 +63,6 @@ REMORA::advance_2d (int lev,
                    bool first_2d_step, int my_iif,
                    int & next_indx1)
 {
-    auto geomdata  = Geom(lev).data();
-
     int iic = istep[lev];
     const int nnew  = 0;
     const int nstp  = 0;

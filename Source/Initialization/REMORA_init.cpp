@@ -61,8 +61,6 @@ REMORA::init_beta_plane_coriolis (int lev)
 #endif
     for (MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-        const Box &bx = mfi.tilebox();
-
         auto fcor_arr = (mf_fcor)->array(mfi);
         Real coriolis_f0 = solverChoice.coriolis_f0;
         Real coriolis_beta = solverChoice.coriolis_beta;

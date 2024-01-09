@@ -107,10 +107,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
-    const auto prob_lo          = Geom(lev).ProbLoArray();
-    const auto dx               = Geom(lev).CellSizeArray();
-
-    //MFIter::allowMultipleMFIters(true);
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& h     = vec_hOfTheConfusingName[lev]->const_array(mfi);
