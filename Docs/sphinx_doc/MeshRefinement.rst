@@ -145,8 +145,7 @@ the fine level also communicates data back to the coarse level in two ways:
 
 - The fine momenta are conservatively averaged onto the coarse faces covered by fine mesh.
 
-- A "reflux" operation is performed for all cell-centered data; this updates values on the coarser
-level outside of regions covered by the finer level.
+- A "reflux" operation is performed for all cell-centered data; this updates values on the coarser level outside of regions covered by the finer level.
 
 Advected quantities which are advanced in conservation form will lose conservation with one-way coupling.
 Two-way coupling ensures conservation of the advective contribution to all scalar updates but
