@@ -599,7 +599,9 @@ public:
 
     void init_beta_plane_coriolis (int lev);
 
+#ifdef REMORA_USE_NETCDF
     static int total_nc_plot_file_step;
+#endif
 
 private:
 
@@ -663,7 +665,7 @@ private:
     //! Write plotfile using NETCDF
     void WriteNCPlotFile(int istep) const;
     void WriteNCPlotFile_which(int istep, int lev, int which_subdomain,
-                               bool use_history_file, ncutils::NCFile& ncf) const;
+                               ncutils::NCFile& ncf) const;
 
     //! Write MultiFab in NetCDF format
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
@@ -684,6 +686,8 @@ private:
 
     amrex::Real start_bdy_time;
     amrex::Real bdy_time_interval;
+
+    static bool write_history_file;
 
     int bdy_width{0};
     int bdy_set_width{0};

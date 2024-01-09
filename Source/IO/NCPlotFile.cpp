@@ -21,18 +21,13 @@ using namespace amrex;
 void
 REMORA::WriteNCPlotFile(int which_step) const
 {
-    bool use_history_file = false;
-#ifdef REMORA_USE_HISTORYFILE
-    use_history_file = true;
-#endif
-
     // For right now we assume single level -- we will generalize this later to multilevel
     int lev             = 0;
     int which_subdomain = 0;
 
     // Create filename
     std::string plt_string;
-    if (use_history_file) {
+    if (REMORA::write_history_file) {
         plt_string = "plt_his";
     } else {
         plt_string = "plt";
@@ -49,9 +44,8 @@ REMORA::WriteNCPlotFile(int which_step) const
         FullPath += extension + ".nc";
     }
 
-#ifdef REMORA_USE_HISTORYFILE
-    // if (use_history_file)
-    // {
+     if (REMORA::write_history_file)
+     {
         bool not_empty_file = amrex::FileSystem::Exists(FullPath);
 
         auto ncf = not_empty_file ?
@@ -62,21 +56,24 @@ REMORA::WriteNCPlotFile(int which_step) const
 
         amrex::Print() << "Writing level " << lev << " NetCDF history file " << FullPath
                        << "\nFor step "<< which_step <<std::endl;
-#else
-    // } else {
+
+        WriteNCPlotFile_which(which_step, lev, which_subdomain, ncf);
+
+     } else {
+
         // Open new netcdf file to write data
         auto ncf = ncutils::NCFile::create_par(FullPath, NC_NETCDF4 | NC_MPIIO,
                                                amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
         amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath
                        << "\nFor step "<< which_step <<std::endl;
-    // }
-#endif
-    WriteNCPlotFile_which(which_step, lev, which_subdomain, use_history_file, ncf);
+
+        WriteNCPlotFile_which(which_step, lev, which_subdomain, ncf);
+     }
 }
 
 void
 REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
-                              bool use_history_file, ncutils::NCFile& ncf) const
+                              ncutils::NCFile& ncf) const
 {
     int iproc = amrex::ParallelContext::MyProcAll();
     int nproc = amrex::ParallelDescriptor::NProcs();
@@ -316,21 +313,19 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
             {
             FArrayBox tmp_temp(tmp_bx,1);
             tmp_temp.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Temp_comp,0,1);
-            const auto *data = tmp_temp.dataPtr();
 
             auto nc_plot_var = ncf.var("temp");
             nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(data, {diff}, {numpts});
+            nc_plot_var.put(tmp_temp.dataPtr(), {diff}, {numpts});
             }
 
             {
             FArrayBox tmp_salt(tmp_bx,1);
             tmp_salt.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Salt_comp,0,1);
-            const auto *data = tmp_salt.dataPtr();
 
             auto nc_plot_var = ncf.var("salt");
             nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(data, {diff}, {numpts});
+            nc_plot_var.put(tmp_salt.dataPtr(), {diff}, {numpts});
             }
 
             nbox_per_proc++;
@@ -360,8 +355,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
             FArrayBox tmp(tmp_bx,1);
             tmp.template copy<RunOn::Device>((*xvel_new[lev])[idx],0,0,1);
-
-            // auto data = tmp.dataPtr();
 
             auto nc_plot_var = ncf.var("u");
             nc_plot_var.par_access(NC_INDEPENDENT);
@@ -395,8 +388,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
             FArrayBox tmp(tmp_bx,1);
             tmp.template copy<RunOn::Device>((*yvel_new[lev])[idx],0,0,1);
-
-            // auto data = tmp.dataPtr();
 
             auto nc_plot_var = ncf.var("v");
             nc_plot_var.par_access(NC_INDEPENDENT);

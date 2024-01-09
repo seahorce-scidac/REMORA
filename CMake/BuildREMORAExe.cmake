@@ -48,7 +48,6 @@ function(build_remora_lib remora_lib_name)
      PRIVATE
        ${SRC_DIR}/Derive.cpp
        ${SRC_DIR}/REMORA.cpp
-       ${SRC_DIR}/REMORA_make_new_level.cpp
        ${SRC_DIR}/REMORA_SumIQ.cpp
        ${SRC_DIR}/REMORA_Tagging.cpp
        ${SRC_DIR}/BoundaryConditions/BoundaryConditions_cons.cpp
@@ -60,6 +59,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/Initialization/REMORA_init.cpp
        ${SRC_DIR}/Initialization/REMORA_init1d.cpp
        ${SRC_DIR}/Initialization/REMORA_init_bcs.cpp
+       ${SRC_DIR}/Initialization/REMORA_make_new_level.cpp
        ${SRC_DIR}/IO/Checkpoint.cpp
        ${SRC_DIR}/IO/Plotfile.cpp
        ${SRC_DIR}/IO/writeJobInfo.cpp

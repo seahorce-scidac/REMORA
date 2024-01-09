@@ -30,8 +30,6 @@ amrex::Real REMORA::change_max    =  1.1;
 
 int   REMORA::fixed_ndtfast_ratio = 0;
 
-int   REMORA::total_nc_plot_file_step = 0;
-
 // Dictate verbosity in screen output
 int         REMORA::verbose       = 0;
 
@@ -42,10 +40,18 @@ amrex::Real REMORA::sum_per       = -1.0;
 // Native AMReX vs NetCDF
 PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
 
+#ifdef REMORA_USE_NETCDF
+
+int   REMORA::total_nc_plot_file_step = 0;
+
+// Do we write one file per timestep (false) or one file for all timesteps (true)
+bool  REMORA::write_history_file      = false;
+
 // NetCDF initialization file
 std::string REMORA::nc_bdry_file = ""; // Must provide via input
 amrex::Vector<amrex::Vector<std::string>> REMORA::nc_init_file = {{""}}; // Must provide via input
 amrex::Vector<amrex::Vector<std::string>> REMORA::nc_grid_file = {{""}}; // Must provide via input
+#endif
 
 amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 
@@ -551,11 +557,12 @@ REMORA::ReadParameters ()
         // Output format
         std::string plotfile_type_str = "amrex";
         pp.query("plotfile_type", plotfile_type_str);
-        if (plotfile_type_str == "amrex")
+        if (plotfile_type_str == "amrex") {
             plotfile_type = PlotfileType::amrex;
-        else if (plotfile_type_str == "netcdf" || plotfile_type_str == "NetCDF")
+        } else if (plotfile_type_str == "netcdf" || plotfile_type_str == "NetCDF") {
             plotfile_type = PlotfileType::netcdf;
-        else {
+            pp.query("write_history_file",write_history_file);
+        } else {
             amrex::Print() << "User selected plotfile_type = " << plotfile_type_str << std::endl;
             amrex::Abort("Dont know this plotfile_type");
         }
