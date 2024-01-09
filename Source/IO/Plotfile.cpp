@@ -142,7 +142,7 @@ REMORA::WritePlotFile (int which, Vector<std::string> plot_var_names)
         if (containerHasElement(plot_var_names, "x_velocity") ||
             containerHasElement(plot_var_names, "y_velocity") ||
             containerHasElement(plot_var_names, "z_velocity")) {
-            if (plotfile_type == "amrex") {
+            if (plotfile_type == PlotfileType::amrex) {
                 Print()<<"We now average the face-based velocity components onto cell centers for plotting "<<std::endl;
             }
             average_face_to_cellcenter(mf[lev],mf_comp,
@@ -210,7 +210,7 @@ REMORA::WritePlotFile (int which, Vector<std::string> plot_var_names)
 
     if (finest_level == 0)
     {
-        if (plotfile_type == "amrex") {
+        if (plotfile_type == PlotfileType::amrex) {
             amrex::Print() << "Writing plotfile " << plotfilename << "\n";
             WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
                                                   GetVecOfConstPtrs(mf),
@@ -224,7 +224,7 @@ REMORA::WritePlotFile (int which, Vector<std::string> plot_var_names)
 #endif
 
 #ifdef REMORA_USE_HDF5
-        } else if (plotfile_type == "hdf5" || plotfile_type == "HDF5") {
+        } else if (plotfile_type == PlotfileType::hdf5) {
             amrex::Print() << "Writing plotfile " << plotfilename+"d01.h5" << "\n";
             WriteMultiLevelPlotfileHDF5(plotfilename, finest_level+1,
                                         GetVecOfConstPtrs(mf),
@@ -232,15 +232,14 @@ REMORA::WritePlotFile (int which, Vector<std::string> plot_var_names)
                                         Geom(), t_new[0], istep, refRatio());
 #endif
 #ifdef REMORA_USE_NETCDF
-        } else if (plotfile_type == "netcdf" || plotfile_type == "NetCDF") {
+        } else if (plotfile_type == PlotfileType::netcdf) {
              // int lev   = 0;
              // int nc_which = 0;
              // writeNCPlotFile(lev, nc_which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
              // total_plot_file_step_1 += 1;
 #endif
         } else {
-            amrex::Print() << "User specified plot_filetype = " << plotfile_type << std::endl;
-            amrex::Abort("Dont know this plot_filetype");
+            amrex::Abort("User specified unknown plot_filetype");
         }
 
     } else { // multilevel
@@ -259,7 +258,7 @@ REMORA::WritePlotFile (int which, Vector<std::string> plot_var_names)
                      {Geom()[0].isPeriodic(0),Geom()[0].isPeriodic(1),Geom()[0].isPeriodic(2)};
         g2[0].define(Geom()[0].Domain(),&(Geom()[0].ProbDomain()),0,periodicity.data());
 
-        if (plotfile_type == "amrex") {
+        if (plotfile_type == PlotfileType::amrex) {
             r2[0] = IntVect(1,1,ref_ratio[0][0]);
             for (int lev = 1; lev <= finest_level; ++lev) {
                 if (lev > 1) {

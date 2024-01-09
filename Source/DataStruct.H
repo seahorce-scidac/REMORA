@@ -34,6 +34,10 @@ enum class Cor_Type {
     Custom, Beta_Plane, Real
 };
 
+enum class PlotfileType {
+    amrex, netcdf, hdf5
+};
+
 struct SolverChoice {
   public:
     void init_params()
