@@ -52,7 +52,7 @@ REMORA::WriteNCPlotFile(int which_step) const
      }
 #endif
 
-     amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath 
+     amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath
                     << "\nFor step "<< which_step <<std::endl;
 
 #ifdef REMORA_USE_HISTORYFILE
@@ -231,7 +231,7 @@ REMORA::WriteNCPlotFile(int which_step) const
          Box box = mfi.validbox();
          int idx = mfi.index();
 
-         if (subdomain.contains(box)) 
+         if (subdomain.contains(box))
          {
              diff_s = npts_s;
 
@@ -240,7 +240,7 @@ REMORA::WriteNCPlotFile(int which_step) const
              }
 
              Box tmp_bx(box); tmp_bx.grow(IntVect(1,1,0));
-             amrex::Print() << "TMP_BX FOR S " << tmp_bx << std::endl; 
+             amrex::Print() << "TMP_BX FOR S " << tmp_bx << std::endl;
 
              long unsigned numpts = tmp_bx.numPts();
 
@@ -256,7 +256,7 @@ REMORA::WriteNCPlotFile(int which_step) const
              nc_plot_var.par_access(NC_INDEPENDENT);
              nc_plot_var.put(data, {diff_s}, {numpts});
              }
-  
+
              // Writing salt (1 ghost cell in lateral directions)
              {
              tmp.template copy<RunOn::Device>((*cons_new[lev])[idx],Salt_comp,0,1);
@@ -275,24 +275,24 @@ REMORA::WriteNCPlotFile(int which_step) const
 
      long unsigned diff_u = 0;
      long unsigned npts_u = 0;
-   
+
      // Writing u
      for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
      {
          Box box = mfi.validbox();
          int idx = mfi.index();
 
-         if (subdomain.contains(box)) 
+         if (subdomain.contains(box))
          {
              diff_u = npts_u;
 
              for (auto ip = 0; ip < iproc; ++ip) {
                  diff_u += offset_u[ip];
              }
- 
+
              Box tmp_bx(box); tmp_bx.surroundingNodes(0); tmp_bx.grow(IntVect(0,1,0));
-             amrex::Print() << "TMP_BX FOR U " << tmp_bx << std::endl; 
- 
+             amrex::Print() << "TMP_BX FOR U " << tmp_bx << std::endl;
+
              long unsigned numpts = tmp_bx.numPts();
 
              FArrayBox tmp(tmp_bx,1);
@@ -313,14 +313,14 @@ REMORA::WriteNCPlotFile(int which_step) const
 
      long unsigned diff_v = 0;
      long unsigned npts_v = 0;
-   
+
      // Writing v
      for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
      {
          Box box = mfi.validbox();
          int idx = mfi.index();
 
-         if (subdomain.contains(box)) 
+         if (subdomain.contains(box))
          {
              diff_v = npts_v;
 
@@ -329,7 +329,7 @@ REMORA::WriteNCPlotFile(int which_step) const
              }
 
              Box tmp_bx(box); tmp_bx.surroundingNodes(1); tmp_bx.grow(IntVect(1,0,0));
-             amrex::Print() << "TMP_BX FOR V " << tmp_bx << std::endl; 
+             amrex::Print() << "TMP_BX FOR V " << tmp_bx << std::endl;
 
              long unsigned numpts = tmp_bx.numPts();
 
@@ -356,7 +356,7 @@ REMORA::WriteNCPlotFile(int which_step) const
          Box box = mfi.validbox();
          int idx = mfi.index();
 
-         if (subdomain.contains(box)) 
+         if (subdomain.contains(box))
          {
 
              {
