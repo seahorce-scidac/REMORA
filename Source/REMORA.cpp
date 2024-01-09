@@ -40,7 +40,7 @@ int         REMORA::sum_interval  = -1;
 amrex::Real REMORA::sum_per       = -1.0;
 
 // Native AMReX vs NetCDF
-std::string REMORA::plotfile_type    = "amrex";
+PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
 
 // NetCDF initialization file
 std::string REMORA::nc_bdry_file = ""; // Must provide via input
@@ -162,14 +162,21 @@ REMORA::Evolve ()
 
         if (plot_int_1 > 0 && (step+1) % plot_int_1 == 0) {
             last_plot_file_step_1 = step+1;
-            WritePlotFile(1,plot_var_names_1);
+            if (plotfile_type == PlotfileType::amrex)
+                WritePlotFile(1,plot_var_names_1);
 #ifdef REMORA_USE_NETCDF
-            WriteNCPlotFile(step);
+            else if (plotfile_type == PlotfileType::netcdf)
+                WriteNCPlotFile(step);
 #endif
         }
         if (plot_int_2 > 0 && (step+1) % plot_int_2 == 0) {
             last_plot_file_step_2 = step+1;
-            WritePlotFile(2,plot_var_names_2);
+            if (plotfile_type == PlotfileType::amrex)
+                WritePlotFile(2,plot_var_names_2);
+#ifdef REMORA_USE_NETCDF
+            else if (plotfile_type == PlotfileType::netcdf)
+                WriteNCPlotFile(step);
+#endif
         }
 
         if (check_int > 0 && (step+1) % check_int == 0) {
@@ -191,13 +198,20 @@ REMORA::Evolve ()
     }
 
     if (plot_int_1 > 0 && istep[0] > last_plot_file_step_1) {
-        WritePlotFile(1,plot_var_names_1);
+        if (plotfile_type == PlotfileType::amrex)
+            WritePlotFile(1,plot_var_names_1);
 #ifdef REMORA_USE_NETCDF
-        WriteNCPlotFile(istep[0]);
+        if (plotfile_type == PlotfileType::netcdf)
+            WriteNCPlotFile(istep[0]);
 #endif
     }
     if (plot_int_2 > 0 && istep[0] > last_plot_file_step_2) {
-        WritePlotFile(2,plot_var_names_2);
+        if (plotfile_type == PlotfileType::amrex)
+            WritePlotFile(2,plot_var_names_2);
+#ifdef REMORA_USE_NETCDF
+        else if (plotfile_type == PlotfileType::netcdf)
+            WriteNCPlotFile(istep[0]);
+#endif
     }
 
     if (check_int > 0 && istep[0] > last_check_file_step) {
@@ -296,10 +310,13 @@ REMORA::InitData ()
     {
         if (plot_int_1 > 0)
         {
-            WritePlotFile(1,plot_var_names_1);
+            if (plotfile_type == PlotfileType::amrex)
+                WritePlotFile(1,plot_var_names_1);
 #ifdef REMORA_USE_NETCDF
-            int step0 = 0;
-            WriteNCPlotFile(step0);
+            if (plotfile_type == PlotfileType::netcdf) {
+                int step0 = 0;
+                WriteNCPlotFile(step0);
+            }
 #endif
             last_plot_file_step_1 = istep[0];
         }
@@ -532,15 +549,18 @@ REMORA::ReadParameters ()
         boxes_at_level[0][0] = geom[0].Domain();
 
         // Output format
-        pp.query("plotfile_type", plotfile_type);
-        if (plotfile_type != "amrex" &&
-            plotfile_type != "netcdf" && plotfile_type != "NetCDF")
-        {
-            amrex::Print() << "User selected plotfile_type = " << plotfile_type << std::endl;
+        std::string plotfile_type_str = "amrex";
+        pp.query("plotfile_type", plotfile_type_str);
+        if (plotfile_type_str == "amrex")
+            plotfile_type = PlotfileType::amrex;
+        else if (plotfile_type_str == "netcdf" || plotfile_type_str == "NetCDF")
+            plotfile_type = PlotfileType::netcdf;
+        else {
+            amrex::Print() << "User selected plotfile_type = " << plotfile_type_str << std::endl;
             amrex::Abort("Dont know this plotfile_type");
         }
 #ifndef REMORA_USE_NETCDF
-        if (plotfile_type == "netcdf" || plotfile_type == "NetCDF")
+        if (plotfile_type == PlotfileType::netcdf)
         {
             amrex::Abort("Please compile with NetCDF in order to enable NetCDF plotfiles");
         }
