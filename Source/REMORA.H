@@ -37,6 +37,10 @@
 #include "ParticleData.H"
 #endif
 
+#ifdef REMORA_USE_NETCDF
+#include "NCInterface.H"
+#endif
+
 #include <iostream>
 
 #ifdef AMREX_LAZY
@@ -595,7 +599,9 @@ public:
 
     void init_beta_plane_coriolis (int lev);
 
+#ifdef REMORA_USE_NETCDF
     static int total_nc_plot_file_step;
+#endif
 
 private:
 
@@ -658,6 +664,8 @@ private:
 #ifdef REMORA_USE_NETCDF
     //! Write plotfile using NETCDF
     void WriteNCPlotFile(int istep) const;
+    void WriteNCPlotFile_which(int istep, int lev, int which_subdomain,
+                               ncutils::NCFile& ncf) const;
 
     //! Write MultiFab in NetCDF format
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
@@ -678,6 +686,8 @@ private:
 
     amrex::Real start_bdy_time;
     amrex::Real bdy_time_interval;
+
+    static bool write_history_file;
 
     int bdy_width{0};
     int bdy_set_width{0};

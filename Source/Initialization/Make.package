@@ -4,3 +4,4 @@ CEXE_headers += prob_common.H
 CEXE_sources += REMORA_init_bcs.cpp
 CEXE_sources += REMORA_init1d.cpp
 CEXE_sources += REMORA_init_from_netcdf.cpp
+CEXE_sources += REMORA_make_new_level.cpp

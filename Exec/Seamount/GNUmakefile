@@ -23,11 +23,11 @@ USE_ASSERTION = TRUE
 # Debugging
 DEBUG = TRUE
 
+USE_NETCDF = FALSE
+
 # GNU Make
 Bpack := ./Make.package
 Blocs := .
 REMORA_HOME := ../..
 REMORA_PROBLEM_DIR = $(REMORA_HOME)/Exec/Seamount
-USE_NETCDF = FALSE
-DEFINES += -DREMORA_USE_HISTORYFILE
 include $(REMORA_HOME)/Exec/Make.REMORA

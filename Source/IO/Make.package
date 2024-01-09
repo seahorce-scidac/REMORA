@@ -8,7 +8,6 @@ ifeq ($(USE_NETCDF), TRUE)
   CEXE_sources += ReadFromBdryNetcdf.cpp
   CEXE_sources += NCInterface.cpp
   CEXE_sources += NCPlotFile.cpp
-  CEXE_sources += NCMultiFabFile.cpp
   CEXE_headers += NCInterface.H
   CEXE_headers += NCPlotFile.H
   CEXE_headers += NCFile.H
