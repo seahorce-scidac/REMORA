@@ -561,7 +561,9 @@ REMORA::ReadParameters ()
             plotfile_type = PlotfileType::amrex;
         } else if (plotfile_type_str == "netcdf" || plotfile_type_str == "NetCDF") {
             plotfile_type = PlotfileType::netcdf;
+#ifdef REMORA_USE_NETCDF
             pp.query("write_history_file",write_history_file);
+#endif
         } else {
             amrex::Print() << "User selected plotfile_type = " << plotfile_type_str << std::endl;
             amrex::Abort("Dont know this plotfile_type");
