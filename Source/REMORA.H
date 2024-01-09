@@ -595,6 +595,8 @@ public:
 
     void init_beta_plane_coriolis (int lev);
 
+    static int total_nc_plot_file_step;
+
 private:
 
     ///////////////////////////
@@ -652,18 +654,10 @@ private:
     /** set which variables and derived quantities go into plotfiles */
     void setPlotVariables (const std::string& pp_plot_var_names, amrex::Vector<std::string>& plot_var_names);
 
+
 #ifdef REMORA_USE_NETCDF
     //! Write plotfile using NETCDF
-    void writeNCPlotFile(int lev, int which, const std::string& dir,
-                         const amrex::Vector<const amrex::MultiFab*> &mf,
-                         const amrex::Vector<std::string> &varnames,
-                         const amrex::Vector<int> level_steps, const amrex::Real time) const;
-
-    //! Write checkpointFile using NetCdf
-    void WriteNCCheckpointFile () const;
-
-    //! Read checkpointFile for restart
-    void ReadNCCheckpointFile ();
+    void WriteNCPlotFile(int istep) const;
 
     //! Write MultiFab in NetCDF format
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
@@ -760,8 +754,6 @@ private:
 
     int last_plot_file_step_1;
     int last_plot_file_step_2;
-
-    int total_plot_file_step_1 = -1;
 
     int last_check_file_step;
     int plot_file_on_restart = 1;

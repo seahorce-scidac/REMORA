@@ -27,7 +27,10 @@ amrex::Real REMORA::fixed_dt      = -1.0;
 amrex::Real REMORA::fixed_fast_dt = -1.0;
 amrex::Real REMORA::init_shrink   =  1.0;
 amrex::Real REMORA::change_max    =  1.1;
+
 int   REMORA::fixed_ndtfast_ratio = 0;
+
+int   REMORA::total_nc_plot_file_step = 0;
 
 // Dictate verbosity in screen output
 int         REMORA::verbose       = 0;
@@ -160,6 +163,9 @@ REMORA::Evolve ()
         if (plot_int_1 > 0 && (step+1) % plot_int_1 == 0) {
             last_plot_file_step_1 = step+1;
             WritePlotFile(1,plot_var_names_1);
+#ifdef REMORA_USE_NETCDF
+            WriteNCPlotFile(step);
+#endif
         }
         if (plot_int_2 > 0 && (step+1) % plot_int_2 == 0) {
             last_plot_file_step_2 = step+1;
@@ -186,6 +192,9 @@ REMORA::Evolve ()
 
     if (plot_int_1 > 0 && istep[0] > last_plot_file_step_1) {
         WritePlotFile(1,plot_var_names_1);
+#ifdef REMORA_USE_NETCDF
+        WriteNCPlotFile(istep[0]);
+#endif
     }
     if (plot_int_2 > 0 && istep[0] > last_plot_file_step_2) {
         WritePlotFile(2,plot_var_names_2);
@@ -288,6 +297,10 @@ REMORA::InitData ()
         if (plot_int_1 > 0)
         {
             WritePlotFile(1,plot_var_names_1);
+#ifdef REMORA_USE_NETCDF
+            int step0 = 0;
+            WriteNCPlotFile(step0);
+#endif
             last_plot_file_step_1 = istep[0];
         }
         if (plot_int_2 > 0)

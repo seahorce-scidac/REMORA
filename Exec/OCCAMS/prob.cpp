@@ -76,9 +76,9 @@ init_custom_bathymetry (const Geometry& geom,
  * \brief Initializes coriolis forcing
  */
 void
-init_custom_coriolis (const Geometry& geom,
-                     MultiFab& mf_fcor,
-                     const SolverChoice& m_solverChoice) {}
+init_custom_coriolis (const Geometry& /*geom*/,
+                      MultiFab& /*mf_fcor*/,
+                      const SolverChoice& /*m_solverChoice*/) {}
 
 void
 init_custom_prob(
