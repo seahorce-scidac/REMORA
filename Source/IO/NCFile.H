@@ -156,6 +156,18 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
 }
 
 /**
+ * Helper function for reading a single variable attribute
+ *
+ * @param fname Name of NetCDF file
+ * @param var_name Name of variable
+ * @param attr_name Name of attribute to read
+ * @returns attribute value
+ */
+std::string ReadNetCDFVarAttrStr (const std::string& fname,
+                                  const std::string& var_name,
+                                  const std::string& attr_name);
+
+/**
  * Helper function for reading data from NetCDF file into a
  * provided FAB.
  *
