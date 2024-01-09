@@ -102,7 +102,7 @@ in the directory where the executable has been built.
 CMake
 ~~~~~
 
-CMake is often preferred by developers of REMORA; CMake allows for building as well as easy testing and verification of REMORA through the use of CTest which is included in CMake.
+CMake is often preferred by developers of REMORA; CMake allows for building as well as easy testing and verification of REMORA through the use of CTest which is included in CMake. CTest functionality requires additional options, described in :ref:`Testing`.
 
 Using CMake involves an additional configure step before using the ``make`` command. It is also expected that the user has cloned the REMORA repo with the ``--recursive`` option or performed ``git submodule init; git submodule update`` in the REMORA repo to populate its submodules.
 

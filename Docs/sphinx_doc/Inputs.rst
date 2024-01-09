@@ -477,59 +477,59 @@ Physics Parameters
 List of Parameters
 ------------------
 
-+----------------------------------+----------------------------------+-------------------+---------------+
-| Parameter                        | Definition                       | Acceptable        | Default       |
-|                                  |                                  | Values            |               |
-+==================================+==================================+===================+===============+
-| **remora.ggrav**                 | Gravitational field strength     | Real number       | 9.81          |
-|                                  | [kg m/s^2]                       |                   |               |
-+----------------------------------+----------------------------------+-------------------+---------------+
-| **remora.R0**                    | Background density [kg/m^3]      | Real number       | 1028          |
-|                                  | used in Linear Equation of       |                   |               |
-|                                  | State. May be used in setup      |                   |               |
-|                                  | of some problems.                |                   |               |
-+----------------------------------+----------------------------------+-------------------+---------------+
-| **remora.S0**                    | Background salinity              | Real number       | 35            |
-|                                  | (nondimensional) used in         |                   |               |
-|                                  | Linear Equation of State         |                   |               |
-|                                  | State. May be used in setup      |                   |               |
-|                                  | of some problems.                |                   |               |
-+----------------------------------+----------------------------------+-------------------+---------------+
-| **remora.T0**                    | Background temperature           | Real number       | 5             |
-|                                  | (Celsius) used in                |                   |               |
-|                                  | Linear Equation of State         |                   |               |
-|                                  | State. May be used in setup      |                   |               |
-|                                  | of some problems.                |                   |               |
-+----------------------------------+----------------------------------+-------------------+---------------+
-| **remora.Tcoef**                 | Linear EOS parameter             | Real number       | 1.7e-4        |
-|                                  | (1/Celsius)                      |                   |               |
-+----------------------------------+----------------------------------+-------------------+---------------+
-| **remora.Scoef**                 | Linear EOS parameter             | Real number       | 0.0           |
-|                                  | (nondimensional)                 |                   |               |
-+----------------------------------+----------------------------------+-------------------+---------------+
-| **remora.rho0**                  | Mean density (kg/m^3) used       | Real number       | 1025          |
-|                                  | when Boussinesq approx is        |                   |               |
-|                                  | inferred                         |                   |               |
-+----------------------------------+----------------------------------+-------------------+---------------+
-| **remora.coriolis_type**         | Type of Coriolis forcing.        | `beta_plane` /    | `beta_plane`  |
-|                                  | beta_plane uses a linear         | `custom` /        |               |
-|                                  | approximation. Custom is         | `real             |               |
-|                                  | calculated from a function in    |                   |               |
-|                                  | prob.cpp, and Real is read from  |                   |               |
-|                                  | the netcdf grid file             |                   |               |
-+----------------------------------+----------------------------------+-------------------+---------------+
-| **remora.coriolis_f0**           | f-plane constant for             | Real number       | 0.0           |
-|                                  | Coriolis param                   |                   |               |
-|                                  | :math:`f = f_0 + \beta y`        |                   |               |
-|                                  | when using beta plane            |                   |               |
-|                                  | Coriolis type                    |                   |               |
-+----------------------------------+----------------------------------+-------------------+---------------+
-| **remora.coriolis_beta**         | beta-plane constant for          | Real number       | 0.0           |
-|                                  | Coriolis param                   |                   |               |
-|                                  | :math:`f = f_0 + \beta y`        |                   |               |
-|                                  | when using beta plane            |                   |               |
-|                                  | Coriolis type                    |                   |               |
-+----------------------------------+----------------------------------+-------------------+---------------+
++----------------------------------+--------------------------------------+-------------------+----------------+
+| Parameter                        | Definition                           | Acceptable        | Default        |
+|                                  |                                      | Values            |                |
++==================================+======================================+===================+================+
+| **remora.ggrav**                 | Gravitational field strength         | Real number       | 9.81           |
+|                                  | [kg m/s^2]                           |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.R0**                    | Background density [kg/m^3]          | Real number       | 1028           |
+|                                  | used in Linear Equation of           |                   |                |
+|                                  | State. May be used in setup          |                   |                |
+|                                  | of some problems.                    |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.S0**                    | Background salinity                  | Real number       | 35             |
+|                                  | (nondimensional) used in             |                   |                |
+|                                  | Linear Equation of State             |                   |                |
+|                                  | State. May be used in setup          |                   |                |
+|                                  | of some problems.                    |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.T0**                    | Background temperature               | Real number       | 5              |
+|                                  | (Celsius) used in                    |                   |                |
+|                                  | Linear Equation of State             |                   |                |
+|                                  | State. May be used in setup          |                   |                |
+|                                  | of some problems.                    |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.Tcoef**                 | Linear EOS parameter                 | Real number       | 1.7e-4         |
+|                                  | (1/Celsius)                          |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.Scoef**                 | Linear EOS parameter                 | Real number       | 0.0            |
+|                                  | (nondimensional)                     |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.rho0**                  | Mean density (kg/m^3) used           | Real number       | 1025           |
+|                                  | when Boussinesq approx is            |                   |                |
+|                                  | inferred                             |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.coriolis_type**         | Type of Coriolis forcing.            | ``beta_plane`` /  | ``beta_plane`` |
+|                                  | ``beta_plane`` uses a linear         | ``custom`` /      |                |
+|                                  | approximation. ``custom`` is         | ``real``          |                |
+|                                  | calculated from a function in        |                   |                |
+|                                  | ``prob.cpp``, and ``real`` is        |                   |                |
+|                                  | read from the netcdf grid file       |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.coriolis_f0**           | f-plane constant for                 | Real number       | 0.0            |
+|                                  | Coriolis param                       |                   |                |
+|                                  | :math:`f = f_0 + \beta y`            |                   |                |
+|                                  | when using beta plane                |                   |                |
+|                                  | Coriolis type                        |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.coriolis_beta**         | beta-plane constant for              | Real number       | 0.0            |
+|                                  | Coriolis param                       |                   |                |
+|                                  | :math:`f = f_0 + \beta y`            |                   |                |
+|                                  | when using beta plane                |                   |                |
+|                                  | Coriolis type                        |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
 
 Numerical Algorithms
 ====================

@@ -1,7 +1,7 @@
 :orphan:
 
 REMORA
------
+------
 
 REMORA is currently under development as a next-generation version of the Regional Ocean Modeling System (ROMS).
 
@@ -36,6 +36,7 @@ In addition to this documentation, there is API documentation for REMORA generat
 .. toctree::
    :caption: USER GUIDE
    :maxdepth: 1
+   :hidden:
 
    GettingStarted.rst
    Inputs.rst
