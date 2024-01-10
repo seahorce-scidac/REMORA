@@ -665,7 +665,7 @@ private:
     //! Write plotfile using NETCDF
     void WriteNCPlotFile(int istep) const;
     void WriteNCPlotFile_which(int istep, int lev, int which_subdomain,
-                               ncutils::NCFile& ncf) const;
+                               bool not_empty, ncutils::NCFile& ncf) const;
 
     //! Write MultiFab in NetCDF format
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
