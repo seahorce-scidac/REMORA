@@ -132,7 +132,7 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
      int num_u_pts = (nx+1)*(ny+2)*nz;
      int num_v_pts = (nx+2)*(ny+1)*nz;
 
-     const std::string nt_name   = "num_time_steps";
+     const std::string nt_name   = "ocean_time";
      const std::string ndim_name = "num_geo_dimensions";
 
      const std::string np_name   = "num_points_per_block";
@@ -146,17 +146,15 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
      const std::string ny_name   = "NY";
      const std::string nz_name   = "NZ";
 
-     const std::string nx_s_name   = "NX_for_s";
-     const std::string ny_s_name   = "NY_for_s";
-     const std::string nz_s_name   = "NZ_for_s";
+     const std::string nx_s_name   = "xi_rho";
+     const std::string ny_s_name   = "eta_rho";
+     const std::string nz_s_name   = "s_rho";
 
-     const std::string nx_u_name   = "NX_for_u";
-     const std::string ny_u_name   = "NY_for_u";
-     const std::string nz_u_name   = "NZ_for_u";
+     const std::string nx_u_name   = "xi_u";
+     const std::string ny_u_name   = "eta_u";
 
-     const std::string nx_v_name   = "NX_for_v";
-     const std::string ny_v_name   = "NY_for_v";
-     const std::string nz_v_name   = "NZ_for_v";
+     const std::string nx_v_name   = "xi_v";
+     const std::string ny_v_name   = "eta_v";
 
      if (!not_empty)
      {
@@ -171,11 +169,9 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
          ncf.def_dim(nx_u_name  , nx+1);
          ncf.def_dim(ny_u_name  , ny+2);
-         ncf.def_dim(nz_u_name  , nz);
 
          ncf.def_dim(nx_v_name  , nx+2);
          ncf.def_dim(ny_v_name  , ny+1);
-         ncf.def_dim(nz_v_name  , nz);
 
          ncf.def_dim(np_name  ,   num_pts);
          ncf.def_dim(np_u_name,   num_u_pts);
@@ -205,13 +201,13 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
      if (REMORA::write_history_file) {
          ncf.def_var("temp", NC_FLOAT, {nt_name, nz_s_name, ny_s_name, nx_s_name});
          ncf.def_var("salt", NC_FLOAT, {nt_name, nz_s_name, ny_s_name, nx_s_name});
-         ncf.def_var("u"   , NC_FLOAT, {nt_name, nz_u_name, ny_u_name, nx_u_name});
-         ncf.def_var("v"   , NC_FLOAT, {nt_name, nz_v_name, ny_v_name, nx_v_name});
+         ncf.def_var("u"   , NC_FLOAT, {nt_name, nz_s_name, ny_u_name, nx_u_name});
+         ncf.def_var("v"   , NC_FLOAT, {nt_name, nz_s_name, ny_v_name, nx_v_name});
      } else {
          ncf.def_var("temp", NC_FLOAT, {nz_s_name, ny_s_name, nx_s_name});
          ncf.def_var("salt", NC_FLOAT, {nz_s_name, ny_s_name, nx_s_name});
-         ncf.def_var("u"   , NC_FLOAT, {nz_u_name, ny_u_name, nx_u_name});
-         ncf.def_var("v"   , NC_FLOAT, {nz_v_name, ny_v_name, nx_v_name});
+         ncf.def_var("u"   , NC_FLOAT, {nz_s_name, ny_u_name, nx_u_name});
+         ncf.def_var("v"   , NC_FLOAT, {nz_s_name, ny_v_name, nx_v_name});
      }
      ncf.exit_def_mode();
 
