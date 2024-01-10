@@ -66,6 +66,13 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
     if (ParallelDescriptor::IOProcessor())
     {
+        // Check units of time stamps. Should be days.
+        std::string unit_str;
+        unit_str = ReadNetCDFVarAttrStr(nc_bdry_file, "ocean_time", "units");
+        if (unit_str.find("days") == std::string::npos) {
+            amrex::Print() << "Units of ocean_time given as: " << unit_str << std::endl;
+            amrex::Abort("Units must be in days.");
+        }
         // Read the time stamps
         using RARRAY = NDArray<float>;
         amrex::Vector<RARRAY> array_ts(1);
@@ -78,7 +85,8 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
         // amrex::Print() << " NTIMES " << ntimes << std::endl;
         for (int nt(0); nt < ntimes; nt++)
         {
-            ocean_times[nt] = *(array_ts[0].get_data() + nt);
+            // Convert ocean time from days to seconds
+            ocean_times[nt] = (*(array_ts[0].get_data() + nt)) * 60._rt * 60._rt * 24._rt;
             // amrex::Print() << "TIMES " << ocean_times[nt] << std::endl;
         }
 
