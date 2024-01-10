@@ -27,12 +27,12 @@ REMORA::WriteNCPlotFile(int which_step) const
 
     // Create filename
     std::string plt_string;
+    std::string plotfilename;
     if (REMORA::write_history_file) {
-        plt_string = "plt_his";
+        plotfilename = "plt_his";
     } else {
-        plt_string = "plt";
+        plotfilename = Concatenate("plt", which_step, 5);
     }
-    std::string plotfilename = Concatenate(plt_string, which_step, 5);
 
     // Set the full IO path for NetCDF output
     std::string FullPath = plotfilename;
@@ -44,9 +44,11 @@ REMORA::WriteNCPlotFile(int which_step) const
         FullPath += extension + ".nc";
     }
 
-     if (REMORA::write_history_file)
-     {
-        bool not_empty_file = amrex::FileSystem::Exists(FullPath);
+    bool not_empty_file = false;
+
+    if (REMORA::write_history_file)
+    {
+        not_empty_file = amrex::FileSystem::Exists(FullPath);
 
         auto ncf = not_empty_file ?
         ncutils::NCFile::open_par(FullPath, NC_WRITE | NC_NETCDF4 | NC_MPIIO,
@@ -57,7 +59,7 @@ REMORA::WriteNCPlotFile(int which_step) const
         amrex::Print() << "Writing level " << lev << " NetCDF history file " << FullPath
                        << "\nFor step "<< which_step <<std::endl;
 
-        WriteNCPlotFile_which(which_step, lev, which_subdomain, ncf);
+        WriteNCPlotFile_which(which_step, lev, not_empty_file, which_subdomain, ncf);
 
      } else {
 
@@ -67,13 +69,13 @@ REMORA::WriteNCPlotFile(int which_step) const
         amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath
                        << "\nFor step "<< which_step <<std::endl;
 
-        WriteNCPlotFile_which(which_step, lev, which_subdomain, ncf);
+        WriteNCPlotFile_which(which_step, lev, not_empty_file, which_subdomain, ncf);
      }
 }
 
 void
 REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
-                              ncutils::NCFile& ncf) const
+                              bool not_empty, ncutils::NCFile& ncf) const
 {
     int iproc = amrex::ParallelContext::MyProcAll();
     int nproc = amrex::ParallelDescriptor::NProcs();
@@ -81,13 +83,8 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
     // Number of cells in this "domain" at this level
     std::vector<int> n_cells;
 
-    int ncomp_mf = 1;
-    Vector<MultiFab> mf(1);
-    mf[lev].define(grids[lev], dmap[lev], ncomp_mf, 0);
-    mf[lev].setVal(1.0);
-
     int nblocks = grids[lev].size();
-    auto dm = mf[lev].DistributionMap();
+    // auto dm = mf[lev].DistributionMap();
 
     // Number of points in each block at this level
     std::vector<int> offset_s;
@@ -105,13 +102,13 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
     for (auto ib=0; ib<nblocks; ib++) {
        Box tmp_bx_s(grids[lev][ib]); tmp_bx_s.grow(IntVect(1,1,0));
-       offset_s[dm[ib]] += tmp_bx_s.numPts();
+       offset_s[dmap[lev][ib]] += tmp_bx_s.numPts();
 
        Box tmp_bx_u(grids[lev][ib]); tmp_bx_u.surroundingNodes(0); tmp_bx_u.grow(IntVect(0,1,0));
-       offset_u[dm[ib]] += tmp_bx_u.numPts();
+       offset_u[dmap[lev][ib]] += tmp_bx_u.numPts();
 
        Box tmp_bx_v(grids[lev][ib]); tmp_bx_v.surroundingNodes(1); tmp_bx_v.grow(IntVect(1,0,0));
-       offset_v[dm[ib]] += tmp_bx_v.numPts();
+       offset_v[dmap[lev][ib]] += tmp_bx_v.numPts();
     }
 
     // We only do single-level writes when using NetCDF format
@@ -137,8 +134,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
      int num_u_pts = (nx+1)*(ny+2)*nz;
      int num_v_pts = (nx+2)*(ny+1)*nz;
 
-     int n_data_items = mf[lev].nComp();
-
      const std::string nt_name   = "num_time_steps";
      const std::string ndim_name = "num_geo_dimensions";
 
@@ -153,56 +148,69 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
      const std::string nz_name   = "NZ";
      const std::string flev_name = "FINEST_LEVEL";
 
+     amrex::Print() << "NOT EMPTY" << not_empty << std::endl;
+     // if (!not_empty)
+     {
+         ncf.enter_def_mode();
+         ncf.put_attr("title", "REMORA data ");
+         ncf.def_dim(nt_name,   NC_UNLIMITED);
+         ncf.def_dim(ndim_name, AMREX_SPACEDIM);
+
+         ncf.def_dim(np_name  ,   num_pts);
+         ncf.def_dim(np_s_name,   num_s_pts);
+         ncf.def_dim(np_u_name,   num_u_pts);
+         ncf.def_dim(np_v_name,   num_v_pts);
+
+         ncf.def_dim(nb_name,   nblocks);
+         ncf.def_dim(flev_name, flev);
+
+         ncf.def_dim(nx_name,   n_cells[0]);
+         ncf.def_dim(ny_name,   n_cells[1]);
+         ncf.def_dim(nz_name,   n_cells[2]);
+
+         ncf.def_var("probLo"  ,   NC_FLOAT,  {ndim_name});
+         ncf.def_var("probHi"  ,   NC_FLOAT,  {ndim_name});
+
+         ncf.def_var("Geom.smallend", NC_INT, {flev_name, ndim_name});
+         ncf.def_var("Geom.bigend"  , NC_INT, {flev_name, ndim_name});
+         ncf.def_var("CellSize"     , NC_FLOAT, {flev_name, ndim_name});
+
+         ncf.def_var("x_grid", NC_FLOAT, {np_name});
+         ncf.def_var("y_grid", NC_FLOAT, {np_name});
+         ncf.def_var("z_grid", NC_FLOAT, {np_name});
+         ncf.exit_def_mode();
+     }
+
      ncf.enter_def_mode();
-     ncf.put_attr("title", "ERF NetCDF Plot data output");
-     ncf.def_dim(nt_name,   NC_UNLIMITED);
-     ncf.def_dim(ndim_name, AMREX_SPACEDIM);
-
-     ncf.def_dim(np_name  ,   num_pts);
-     ncf.def_dim(np_s_name,   num_s_pts);
-     ncf.def_dim(np_u_name,   num_u_pts);
-     ncf.def_dim(np_v_name,   num_v_pts);
-
-     ncf.def_dim(nb_name,   nblocks);
-     ncf.def_dim(flev_name, flev);
-
-     ncf.def_dim(nx_name,   n_cells[0]);
-     ncf.def_dim(ny_name,   n_cells[1]);
-     ncf.def_dim(nz_name,   n_cells[2]);
-
-     ncf.def_var("probLo"  ,   NC_FLOAT,  {ndim_name});
-     ncf.def_var("probHi"  ,   NC_FLOAT,  {ndim_name});
-
-     ncf.def_var("Geom.smallend", NC_INT, {flev_name, ndim_name});
-     ncf.def_var("Geom.bigend"  , NC_INT, {flev_name, ndim_name});
-     ncf.def_var("CellSize"     , NC_FLOAT, {flev_name, ndim_name});
-
-     ncf.def_var("x_grid", NC_FLOAT, {np_name});
-     ncf.def_var("y_grid", NC_FLOAT, {np_name});
-     ncf.def_var("z_grid", NC_FLOAT, {np_name});
-
-     ncf.def_var("temp", NC_FLOAT, {np_s_name});
-     ncf.def_var("salt", NC_FLOAT, {np_s_name});
-     ncf.def_var("u"   , NC_FLOAT, {np_u_name});
-     ncf.def_var("v"   , NC_FLOAT, {np_v_name});
-
+     if (REMORA::write_history_file) {
+         ncf.def_var("temp", NC_FLOAT, {nt_name,np_s_name});
+         ncf.def_var("salt", NC_FLOAT, {nt_name, np_s_name});
+         ncf.def_var("u"   , NC_FLOAT, {nt_name, np_u_name});
+         ncf.def_var("v"   , NC_FLOAT, {nt_name, np_v_name});
+     } else {
+         ncf.def_var("temp", NC_FLOAT, {np_s_name});
+         ncf.def_var("salt", NC_FLOAT, {np_s_name});
+         ncf.def_var("u"   , NC_FLOAT, {np_u_name});
+         ncf.def_var("v"   , NC_FLOAT, {np_v_name});
+     }
      ncf.exit_def_mode();
 
      {
-      // We are doing single-level writes but it doesn't have to be level 0
-      //
-      // Write out the netcdf plotfile head information.
-      //
-      if (n_data_items == 0)
-        amrex::Error("Must specify at least one valid data item to plot");
+     // We are doing single-level writes but it doesn't have to be level 0
+     //
+     // Write out the header information.
+     //
 
-      Real time = 0.;
+     Real time = 0.;
 
-      ncf.put_attr("number_variables", std::vector<int>{n_data_items});
-      ncf.put_attr("space_dimension", std::vector<int>{AMREX_SPACEDIM});
-      ncf.put_attr("current_time", std::vector<double>{time});
-      ncf.put_attr("start_time", std::vector<double>{start_bdy_time});
-      ncf.put_attr("CurrentLevel", std::vector<int>{flev});
+     // Right now this is hard-wired to {temp, salt, u, v}
+     int n_data_items = 4;
+
+     ncf.put_attr("number_variables", std::vector<int>{n_data_items});
+     ncf.put_attr("space_dimension", std::vector<int>{AMREX_SPACEDIM});
+     ncf.put_attr("current_time", std::vector<double>{time});
+     ncf.put_attr("start_time", std::vector<double>{start_bdy_time});
+     ncf.put_attr("CurrentLevel", std::vector<int>{flev});
 
       Real dx[AMREX_SPACEDIM];
       for (int i = 0; i < AMREX_SPACEDIM; i++)
@@ -296,7 +304,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
     size_t nbox_per_proc = 0;
     long unsigned numpts = 0;
-    const int ncomp = mf[lev].nComp();
 
     long unsigned diff_s = 0;
     long unsigned npts_s = 0;
@@ -311,6 +318,7 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
             long unsigned numpts = tmp_bx.numPts();
 
             {
+            amrex::Print() << "WRITING TEMP " << std::endl;
             FArrayBox tmp_temp(tmp_bx,1);
             tmp_temp.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Temp_comp,0,1);
 
@@ -320,6 +328,7 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
             }
 
             {
+            amrex::Print() << "WRITING SALT " << std::endl;
             FArrayBox tmp_salt(tmp_bx,1);
             tmp_salt.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Salt_comp,0,1);
 
@@ -335,7 +344,7 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
     long unsigned diff_u = 0;
     long unsigned npts_u = 0;
 
-    // Writing u
+    // Writing u (we loop over cons to get cell-centered box)
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
         Box box = mfi.validbox();
