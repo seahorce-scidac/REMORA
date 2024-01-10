@@ -305,6 +305,24 @@ REMORA::InitData ()
         }
     }
 
+    // Fill ghost cells/faces
+    for (int lev = 0; lev <= finest_level; ++lev)
+    {
+        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t);
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v);
+        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null);
+
+        //
+        // Copy from new into old just in case
+        //
+        int ngs   = cons_new[lev]->nGrow();
+        int ngvel = xvel_new[lev]->nGrow();
+        MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,NCONS,ngs);
+        MultiFab::Copy(*xvel_old[lev],*xvel_new[lev],0,0,1,ngvel);
+        MultiFab::Copy(*yvel_old[lev],*yvel_new[lev],0,0,1,ngvel);
+        MultiFab::Copy(*zvel_old[lev],*zvel_new[lev],0,0,1,IntVect(ngvel,ngvel,0));
+    } // lev
     if (restart_chkfile == "" && check_int > 0)
     {
         WriteCheckpointFile();
@@ -339,24 +357,6 @@ REMORA::InitData ()
 
     ComputeDt();
 
-    // Fill ghost cells/faces
-    for (int lev = 0; lev <= finest_level; ++lev)
-    {
-        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t);
-        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u);
-        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v);
-        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null);
-
-        //
-        // Copy from new into old just in case
-        //
-        int ngs   = cons_new[lev]->nGrow();
-        int ngvel = xvel_new[lev]->nGrow();
-        MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,NCONS,ngs);
-        MultiFab::Copy(*xvel_old[lev],*xvel_new[lev],0,0,1,ngvel);
-        MultiFab::Copy(*yvel_old[lev],*yvel_new[lev],0,0,1,ngvel);
-        MultiFab::Copy(*zvel_old[lev],*zvel_new[lev],0,0,1,IntVect(ngvel,ngvel,0));
-    } // lev
 }
 
 void
