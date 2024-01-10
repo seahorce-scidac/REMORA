@@ -2,6 +2,7 @@
 
 #include "NCInterface.H"
 #include <AMReX.H>
+#include <AMReX_Print.H>
 
 #define abort_func amrex::Abort
 
@@ -381,7 +382,9 @@ NCVar NCGroup::def_array(
     int newid;
     int ndims = dnames.size();
     std::vector<int> dimids(ndims);
-    for (int i = 0; i < ndims; ++i) dimids[i] = dim(dnames[i]).dimid;
+    for (int i = 0; i < ndims; ++i) {
+        dimids[i] = dim(dnames[i]).dimid;
+    }
 
     check_nc_error(
         nc_def_var(ncid, name.data(), dtype, ndims, dimids.data(), &newid));

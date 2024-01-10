@@ -84,7 +84,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
     std::vector<int> n_cells;
 
     int nblocks = grids[lev].size();
-    // auto dm = mf[lev].DistributionMap();
 
     // Number of points in each block at this level
     std::vector<int> offset_s;
@@ -130,7 +129,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
      n_cells.push_back(nz);
 
      int num_pts   = nx*ny*nz;
-     int num_s_pts = (nx+2)*(ny+2)*nz;
      int num_u_pts = (nx+1)*(ny+2)*nz;
      int num_v_pts = (nx+2)*(ny+1)*nz;
 
@@ -138,26 +136,48 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
      const std::string ndim_name = "num_geo_dimensions";
 
      const std::string np_name   = "num_points_per_block";
-     const std::string np_s_name = "num_points_per_block_s";
      const std::string np_u_name = "num_points_per_block_u";
      const std::string np_v_name = "num_points_per_block_v";
 
      const std::string nb_name   = "num_blocks";
+     const std::string flev_name = "FINEST_LEVEL";
+
      const std::string nx_name   = "NX";
      const std::string ny_name   = "NY";
      const std::string nz_name   = "NZ";
-     const std::string flev_name = "FINEST_LEVEL";
 
-     amrex::Print() << "NOT EMPTY" << not_empty << std::endl;
-     // if (!not_empty)
+     const std::string nx_s_name   = "NX_for_s";
+     const std::string ny_s_name   = "NY_for_s";
+     const std::string nz_s_name   = "NZ_for_s";
+
+     const std::string nx_u_name   = "NX_for_u";
+     const std::string ny_u_name   = "NY_for_u";
+     const std::string nz_u_name   = "NZ_for_u";
+
+     const std::string nx_v_name   = "NX_for_v";
+     const std::string ny_v_name   = "NY_for_v";
+     const std::string nz_v_name   = "NZ_for_v";
+
+     if (!not_empty)
      {
          ncf.enter_def_mode();
          ncf.put_attr("title", "REMORA data ");
-         ncf.def_dim(nt_name,   NC_UNLIMITED);
+         ncf.def_dim(nt_name,   1);
          ncf.def_dim(ndim_name, AMREX_SPACEDIM);
 
+         ncf.def_dim(nx_s_name  , nx+2);
+         ncf.def_dim(ny_s_name  , ny+2);
+         ncf.def_dim(nz_s_name  , nz);
+
+         ncf.def_dim(nx_u_name  , nx+1);
+         ncf.def_dim(ny_u_name  , ny+2);
+         ncf.def_dim(nz_u_name  , nz);
+
+         ncf.def_dim(nx_v_name  , nx+2);
+         ncf.def_dim(ny_v_name  , ny+1);
+         ncf.def_dim(nz_v_name  , nz);
+
          ncf.def_dim(np_name  ,   num_pts);
-         ncf.def_dim(np_s_name,   num_s_pts);
          ncf.def_dim(np_u_name,   num_u_pts);
          ncf.def_dim(np_v_name,   num_v_pts);
 
@@ -183,15 +203,15 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
      ncf.enter_def_mode();
      if (REMORA::write_history_file) {
-         ncf.def_var("temp", NC_FLOAT, {nt_name,np_s_name});
-         ncf.def_var("salt", NC_FLOAT, {nt_name, np_s_name});
-         ncf.def_var("u"   , NC_FLOAT, {nt_name, np_u_name});
-         ncf.def_var("v"   , NC_FLOAT, {nt_name, np_v_name});
+         ncf.def_var("temp", NC_FLOAT, {nt_name, nz_s_name, ny_s_name, nx_s_name});
+         ncf.def_var("salt", NC_FLOAT, {nt_name, nz_s_name, ny_s_name, nx_s_name});
+         ncf.def_var("u"   , NC_FLOAT, {nt_name, nz_u_name, ny_u_name, nx_u_name});
+         ncf.def_var("v"   , NC_FLOAT, {nt_name, nz_v_name, ny_v_name, nx_v_name});
      } else {
-         ncf.def_var("temp", NC_FLOAT, {np_s_name});
-         ncf.def_var("salt", NC_FLOAT, {np_s_name});
-         ncf.def_var("u"   , NC_FLOAT, {np_u_name});
-         ncf.def_var("v"   , NC_FLOAT, {np_v_name});
+         ncf.def_var("temp", NC_FLOAT, {nz_s_name, ny_s_name, nx_s_name});
+         ncf.def_var("salt", NC_FLOAT, {nz_s_name, ny_s_name, nx_s_name});
+         ncf.def_var("u"   , NC_FLOAT, {nz_u_name, ny_u_name, nx_u_name});
+         ncf.def_var("v"   , NC_FLOAT, {nz_v_name, ny_v_name, nx_v_name});
      }
      ncf.exit_def_mode();
 
@@ -311,30 +331,43 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
         auto box = mfi.validbox();
         if (subdomain.contains(box)) {
+
             long unsigned diff = nbox_per_proc*numpts;
+
             for(auto ip = 1; ip <= iproc; ++ip) {diff += offset_s[ip-1];}
 
             Box tmp_bx(box); tmp_bx.grow(IntVect(1,1,0));
             long unsigned numpts = tmp_bx.numPts();
+            long unsigned local_nx = nx+2;
+            long unsigned local_ny = ny+2;
+            long unsigned local_nz = nz;
+            long unsigned local_nt = 1;
 
             {
-            amrex::Print() << "WRITING TEMP " << std::endl;
             FArrayBox tmp_temp(tmp_bx,1);
             tmp_temp.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Temp_comp,0,1);
 
             auto nc_plot_var = ncf.var("temp");
             nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp_temp.dataPtr(), {diff}, {numpts});
+            if (REMORA::write_history_file) {
+                nc_plot_var.put(tmp_temp.dataPtr(), {diff,diff,diff,diff}, {local_nt, local_nz, local_ny, local_nx});
+            } else {
+                nc_plot_var.put(tmp_temp.dataPtr(), {diff,diff,diff}, {local_nz, local_ny, local_nx});
+            }
             }
 
             {
-            amrex::Print() << "WRITING SALT " << std::endl;
             FArrayBox tmp_salt(tmp_bx,1);
             tmp_salt.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Salt_comp,0,1);
 
             auto nc_plot_var = ncf.var("salt");
             nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp_salt.dataPtr(), {diff}, {numpts});
+            if (REMORA::write_history_file) {
+                nc_plot_var.put(tmp_salt.dataPtr(), {diff,diff,diff,diff}, {local_nt, local_nz, local_ny, local_nx});
+            } else {
+                nc_plot_var.put(tmp_salt.dataPtr(), {diff,diff,diff}, {local_nz, local_ny, local_nx});
+            }
+
             }
 
             nbox_per_proc++;
@@ -358,6 +391,11 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
                 diff_u += offset_u[ip];
             }
 
+            long unsigned local_nx = nx+1;
+            long unsigned local_ny = ny+2;
+            long unsigned local_nz = nz;
+            long unsigned local_nt = 1;
+
             Box tmp_bx(box); tmp_bx.surroundingNodes(0); tmp_bx.grow(IntVect(0,1,0));
 
             long unsigned numpts = tmp_bx.numPts();
@@ -367,7 +405,11 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("u");
             nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp.dataPtr(), {diff_u}, {numpts});
+            if (REMORA::write_history_file) {
+                nc_plot_var.put(tmp.dataPtr(), {diff_u,diff_u,diff_u,diff_u}, {local_nt, local_nz, local_ny, local_nx});
+            } else {
+                nc_plot_var.put(tmp.dataPtr(), {diff_u,diff_u,diff_u}, {local_nz, local_ny, local_nx});
+            }
 
             npts_u += numpts;
 
@@ -391,6 +433,11 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
                 diff_v += offset_v[ip];
             }
 
+            long unsigned local_nx = nx+2;
+            long unsigned local_ny = ny+1;
+            long unsigned local_nz = nz;
+            long unsigned local_nt = 1;
+
             Box tmp_bx(box); tmp_bx.surroundingNodes(1); tmp_bx.grow(IntVect(1,0,0));
 
             long unsigned numpts = tmp_bx.numPts();
@@ -400,7 +447,11 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("v");
             nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp.dataPtr(), {diff_v}, {numpts});
+            if (REMORA::write_history_file) {
+                nc_plot_var.put(tmp.dataPtr(), {diff_v,diff_v,diff_v,diff_v}, {local_nt, local_nz, local_ny, local_nx});
+            } else {
+                nc_plot_var.put(tmp.dataPtr(), {diff_v,diff_v,diff_v}, {local_nz, local_ny, local_nx});
+            }
 
             npts_v += numpts;
 
