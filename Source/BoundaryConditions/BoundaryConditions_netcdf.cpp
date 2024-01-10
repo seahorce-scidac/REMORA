@@ -51,6 +51,9 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const Real time, const int bdy
     AMREX_ALWAYS_ASSERT(Temp_comp == 0);
     AMREX_ALWAYS_ASSERT(Salt_comp == 1);
 
+    // Make sure we can interpolate in time
+    AMREX_ALWAYS_ASSERT(n_time + 1 < bdy_data_xlo.size());
+
     for (int icomp = 0; icomp < ncomp; icomp++) // This is to do both temp and salt if doing scalars
     {
         // We have data at fixed time intervals we will call dT
