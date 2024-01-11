@@ -92,6 +92,14 @@ void REMORA::init_bcs ()
              amrex::Print() << "BC Type specified for face " << bcid << " is " << bc_type_in << std::endl;
              amrex::Abort("This BC type is unknown");
         }
+
+        if ((bcid == "xlo" || bcid == "xhi" ||
+             bcid == "ylo" || bcid == "yhi") &&
+            solverChoice.ic_bc_type == IC_BC_Type::Real &&
+            phys_bc_type[ori] != REMORA_BC::outflow)
+        {
+            amrex::Abort("BC type must be outflow in x and y when reading BCs from file");
+        }
     };
 
     f("xlo", Orientation(Direction::x,Orientation::low));
