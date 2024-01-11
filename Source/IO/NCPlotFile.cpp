@@ -331,8 +331,8 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
         auto bx = mfi.validbox();
-	if (subdomain.contains(bx))
-	{
+    if (subdomain.contains(bx))
+    {
             // for(auto ip = 1; ip <= iproc; ++ip) {diff += offset_s[ip-1];}
 
             //
