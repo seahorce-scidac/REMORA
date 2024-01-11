@@ -321,23 +321,48 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
     size_t nbox_per_proc = 0;
     long unsigned numpts = 0;
 
-    long unsigned diff_s = 0;
-    long unsigned npts_s = 0;
+    long unsigned local_start_x    = 0;
+    long unsigned local_start_y    = 0;
+    long unsigned local_start_z    = 0;
+    long unsigned local_start_time = 1;
 
-    for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
-        auto box = mfi.validbox();
-        if (subdomain.contains(box)) {
+    cons_new[lev]->FillBoundary(geom[lev].periodicity());
 
-            long unsigned diff = nbox_per_proc*numpts;
+    for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
+    {
+        auto bx = mfi.validbox();
+    if (subdomain.contains(bx))
+    {
+            // for(auto ip = 1; ip <= iproc; ++ip) {diff += offset_s[ip-1];}
 
-            for(auto ip = 1; ip <= iproc; ++ip) {diff += offset_s[ip-1];}
+            //
+            // We only include one grow cell at subdomain boundaries, not internal grid boundaries
+            //
+            Box tmp_bx(bx);
+            if (tmp_bx.smallEnd()[0] == subdomain.smallEnd()[0]) tmp_bx.growLo(0,1);
+            if (tmp_bx.smallEnd()[1] == subdomain.smallEnd()[1]) tmp_bx.growLo(1,1);
+            if (tmp_bx.bigEnd()[0]   == subdomain.bigEnd()[0])   tmp_bx.growHi(0,1);
+            if (tmp_bx.bigEnd()[1]   == subdomain.bigEnd()[1])   tmp_bx.growHi(1,1);
+            // amrex::Print() << "    BX " << bx << std::endl;
+            // amrex::Print() << "TMP_BX " << tmp_bx << std::endl;
 
-            Box tmp_bx(box); tmp_bx.grow(IntVect(1,1,0));
-            long unsigned numpts = tmp_bx.numPts();
-            long unsigned local_nx = nx+2;
-            long unsigned local_ny = ny+2;
-            long unsigned local_nz = nz;
+            //
+            // These are the dimensions of the data we write for only this box
+            //
+            long unsigned local_nx = tmp_bx.length()[0];
+            long unsigned local_ny = tmp_bx.length()[1];
+            long unsigned local_nz = tmp_bx.length()[2];
             long unsigned local_nt = 1;
+
+            //
+            // We compute the offsets based on location of the box within the domain
+            //
+            long unsigned local_start_nt = static_cast<long unsigned>(1);
+
+            // We do the "+1" because the offset needs to start at 0
+            long unsigned local_start_x  = static_cast<long unsigned>(tmp_bx.smallEnd()[0]+1);
+            long unsigned local_start_y  = static_cast<long unsigned>(tmp_bx.smallEnd()[1]+1);
+            long unsigned local_start_z  = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             {
             FArrayBox tmp_temp(tmp_bx,1);
@@ -346,9 +371,11 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
             auto nc_plot_var = ncf.var("temp");
             nc_plot_var.par_access(NC_INDEPENDENT);
             if (REMORA::write_history_file) {
-                nc_plot_var.put(tmp_temp.dataPtr(), {diff,diff,diff,diff}, {local_nt, local_nz, local_ny, local_nx});
+                nc_plot_var.put(tmp_temp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+                                                    {local_nt, local_nz, local_ny, local_nx});
             } else {
-                nc_plot_var.put(tmp_temp.dataPtr(), {diff,diff,diff}, {local_nz, local_ny, local_nx});
+                nc_plot_var.put(tmp_temp.dataPtr(), {local_start_z,local_start_y,local_start_x},
+                                                    {local_nz, local_ny, local_nx});
             }
             }
 
@@ -359,9 +386,11 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
             auto nc_plot_var = ncf.var("salt");
             nc_plot_var.par_access(NC_INDEPENDENT);
             if (REMORA::write_history_file) {
-                nc_plot_var.put(tmp_salt.dataPtr(), {diff,diff,diff,diff}, {local_nt, local_nz, local_ny, local_nx});
+                nc_plot_var.put(tmp_salt.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+                                                    {local_nt, local_nz, local_ny, local_nx});
             } else {
-                nc_plot_var.put(tmp_salt.dataPtr(), {diff,diff,diff}, {local_nz, local_ny, local_nx});
+                nc_plot_var.put(tmp_salt.dataPtr(), {local_start_z,local_start_y,local_start_x},
+                                                    {local_nz, local_ny, local_nx});
             }
 
             }
@@ -376,80 +405,103 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
     // Writing u (we loop over cons to get cell-centered box)
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
-        Box box = mfi.validbox();
-        int idx = mfi.index();
+        Box bx = mfi.validbox();
 
-        if (subdomain.contains(box))
+        if (subdomain.contains(bx))
         {
-            diff_u = npts_u;
+            // for (auto ip = 0; ip < iproc; ++ip) { diff_u += offset_u[ip]; }
 
-            for (auto ip = 0; ip < iproc; ++ip) {
-                diff_u += offset_u[ip];
-            }
+            //
+            // We only include one grow cell at subdomain boundaries, not internal grid boundaries
+            //
+            Box tmp_bx(bx); tmp_bx.surroundingNodes(0);
+            if (tmp_bx.smallEnd()[1] == subdomain.smallEnd()[1]) tmp_bx.growLo(1,1);
+            if (tmp_bx.bigEnd()[1]   == subdomain.bigEnd()[1])   tmp_bx.growHi(1,1);
+            // amrex::Print() << "    BX " << bx << std::endl;
+            // amrex::Print() << "TMP_BX " << tmp_bx << std::endl;
 
-            long unsigned local_nx = nx+1;
-            long unsigned local_ny = ny+2;
-            long unsigned local_nz = nz;
+            //
+            // These are the dimensions of the data we write for only this box
+            //
+            long unsigned local_nx = tmp_bx.length()[0];
+            long unsigned local_ny = tmp_bx.length()[1];
+            long unsigned local_nz = tmp_bx.length()[2];
             long unsigned local_nt = 1;
 
-            Box tmp_bx(box); tmp_bx.surroundingNodes(0); tmp_bx.grow(IntVect(0,1,0));
+            //
+            // We compute the offsets based on location of the box within the domain
+            //
+            long unsigned local_start_nt = static_cast<long unsigned>(1);
 
-            long unsigned numpts = tmp_bx.numPts();
+            // We do the "+1" because the offset needs to start at 0
+            long unsigned local_start_x  = static_cast<long unsigned>(tmp_bx.smallEnd()[0]);
+            long unsigned local_start_y  = static_cast<long unsigned>(tmp_bx.smallEnd()[1]+1);
+            long unsigned local_start_z  = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             FArrayBox tmp(tmp_bx,1);
-            tmp.template copy<RunOn::Device>((*xvel_new[lev])[idx],0,0,1);
+            tmp.template copy<RunOn::Device>((*xvel_new[lev])[mfi.index()],0,0,1);
 
             auto nc_plot_var = ncf.var("u");
             nc_plot_var.par_access(NC_INDEPENDENT);
             if (REMORA::write_history_file) {
-                nc_plot_var.put(tmp.dataPtr(), {diff_u,diff_u,diff_u,diff_u}, {local_nt, local_nz, local_ny, local_nx});
+                nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+                                               {local_nt, local_nz, local_ny, local_nx});
             } else {
-                nc_plot_var.put(tmp.dataPtr(), {diff_u,diff_u,diff_u}, {local_nz, local_ny, local_nx});
+                nc_plot_var.put(tmp.dataPtr(), {local_start_z,local_start_y,local_start_x},
+                                               {local_nz, local_ny, local_nx});
             }
-
-            npts_u += numpts;
 
         } // in subdomain
     } // mfi
 
-    long unsigned diff_v = 0;
-    long unsigned npts_v = 0;
-
     // Writing v (we loop over cons to get cell-centered box)
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
-       Box box = mfi.validbox();
-        int idx = mfi.index();
+        Box bx = mfi.validbox();
 
-        if (subdomain.contains(box))
+        if (subdomain.contains(bx))
         {
-            diff_v = npts_v;
+            // for (auto ip = 0; ip <= iproc-1; ++ip) { diff_v += offset_v[ip]; }
 
-            for (auto ip = 0; ip <= iproc-1; ++ip) {
-                diff_v += offset_v[ip];
-            }
+            //
+            // We only include one grow cell at subdomain boundaries, not internal grid boundaries
+            //
+            Box tmp_bx(bx); tmp_bx.surroundingNodes(1);
+            if (tmp_bx.smallEnd()[0] == subdomain.smallEnd()[0]) tmp_bx.growLo(0,1);
+            if (tmp_bx.bigEnd()[0]   == subdomain.bigEnd()[0])   tmp_bx.growHi(0,1);
+            // amrex::Print() << "    BX " << bx << std::endl;
+            // amrex::Print() << "TMP_BX " << tmp_bx << std::endl;
 
-            long unsigned local_nx = nx+2;
-            long unsigned local_ny = ny+1;
-            long unsigned local_nz = nz;
+            //
+            // These are the dimensions of the data we write for only this box
+            //
+            long unsigned local_nx = tmp_bx.length()[0];
+            long unsigned local_ny = tmp_bx.length()[1];
+            long unsigned local_nz = tmp_bx.length()[2];
             long unsigned local_nt = 1;
 
-            Box tmp_bx(box); tmp_bx.surroundingNodes(1); tmp_bx.grow(IntVect(1,0,0));
+            //
+            // We compute the offsets based on location of the box within the domain
+            //
+            long unsigned local_start_nt = static_cast<long unsigned>(1);
 
-            long unsigned numpts = tmp_bx.numPts();
+            // We do the "+1" because the offset needs to start at 0
+            long unsigned local_start_x  = static_cast<long unsigned>(tmp_bx.smallEnd()[0]+1);
+            long unsigned local_start_y  = static_cast<long unsigned>(tmp_bx.smallEnd()[1]);
+            long unsigned local_start_z  = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             FArrayBox tmp(tmp_bx,1);
-            tmp.template copy<RunOn::Device>((*yvel_new[lev])[idx],0,0,1);
+            tmp.template copy<RunOn::Device>((*yvel_new[lev])[mfi.index()],0,0,1);
 
             auto nc_plot_var = ncf.var("v");
             nc_plot_var.par_access(NC_INDEPENDENT);
             if (REMORA::write_history_file) {
-                nc_plot_var.put(tmp.dataPtr(), {diff_v,diff_v,diff_v,diff_v}, {local_nt, local_nz, local_ny, local_nx});
+                nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+                                               {local_nt, local_nz, local_ny, local_nx});
             } else {
-                nc_plot_var.put(tmp.dataPtr(), {diff_v,diff_v,diff_v}, {local_nz, local_ny, local_nx});
+                nc_plot_var.put(tmp.dataPtr(), {local_start_z,local_start_y,local_start_x},
+                                               {local_nz, local_ny, local_nx});
             }
-
-            npts_v += numpts;
 
         } // in subdomain
     } // mfi
