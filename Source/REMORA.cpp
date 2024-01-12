@@ -42,7 +42,7 @@ PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
 
 #ifdef REMORA_USE_NETCDF
 
-int   REMORA::total_nc_plot_file_step = 0;
+int   REMORA::total_nc_plot_file_step = 1;
 
 // Do we write one file per timestep (false) or one file for all timesteps (true)
 bool  REMORA::write_history_file      = false;
