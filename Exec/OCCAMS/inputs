@@ -12,9 +12,14 @@ geometry.prob_hi     =   320000.  320000.       0.
 
 amr.n_cell           =  563 751 40
 
-geometry.is_periodic = 1 1 0
+geometry.is_periodic = 0 0 0
 zlo.type = "SlipWall"
 zhi.type = "SlipWall"
+
+xlo.type = "outflow"
+xhi.type = "outflow"
+ylo.type = "outflow"
+yhi.type = "outflow"
 
 # TIME STEP CONTROL
 remora.fixed_dt            = 60.0 # Timestep size (seconds)
