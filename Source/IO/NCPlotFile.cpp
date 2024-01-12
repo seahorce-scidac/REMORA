@@ -46,15 +46,18 @@ REMORA::WriteNCPlotFile(int which_step) const
 
     //
     // Check if this file/directory already exists and if so,
-    //       move the existing file/directory to filename.old
+    //       have the IOProcessor move the existing
+    //       file/directory to filename.old
     //
-    if ( (!REMORA::write_history_file) || (which_step == 0) ) {
-        if (amrex::FileExists(FullPath)) {
-            std::string newoldname(FullPath + ".old." + amrex::UniqueString());
-            amrex::Print() << "WriteNCPlotFile:  " << FullPath
-                           << " exists.  Renaming to:  " << newoldname << std::endl;
-            if (std::rename(FullPath.c_str(), newoldname.c_str())) {
-                amrex::Abort("WriteNCPlotfile:: std::rename failed");
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        if ( (!REMORA::write_history_file) || (which_step == 0) ) {
+            if (amrex::FileExists(FullPath)) {
+                std::string newoldname(FullPath + ".old." + amrex::UniqueString());
+                amrex::Print() << "WriteNCPlotFile:  " << FullPath
+                               << " exists.  Renaming to:  " << newoldname << std::endl;
+                if (std::rename(FullPath.c_str(), newoldname.c_str())) {
+                    amrex::Abort("WriteNCPlotfile:: std::rename failed");
+                }
             }
         }
     }
