@@ -1,6 +1,6 @@
 name: Linux GCC
 
-on: [push, pull_request]
+on: [pull_request]
 
 concurrency:
   group: ${{ github.ref }}-${{ github.head_ref }}-linux-gcc
