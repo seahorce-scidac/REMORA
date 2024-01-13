@@ -6,7 +6,7 @@
 using namespace amrex;
 
 void
-REMORA::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::string>& plot_var_names)
+REMORA::setPlotVariables (const std::string& pp_plot_var_names)
 {
     ParmParse pp(pp_prefix);
 
@@ -82,23 +82,13 @@ REMORA::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::stri
     plot_var_names = tmp_plot_names;
 }
 
-// set plotfile variable names
-Vector<std::string>
-REMORA::PlotFileVarNames ( Vector<std::string> plot_var_names ) const
-{
-    Vector<std::string> names;
-
-    names.insert(names.end(), plot_var_names.begin(), plot_var_names.end());
-
-    return names;
-
-}
-
 // Write plotfile to disk
 void
-REMORA::WritePlotFile (Vector<std::string> plot_var_names)
+REMORA::WritePlotFile ()
 {
-    const Vector<std::string> varnames = PlotFileVarNames(plot_var_names);
+    Vector<std::string> varnames;
+    varnames.insert(varnames.end(), plot_var_names.begin(), plot_var_names.end());
+
     const int ncomp_mf = varnames.size();
     const auto ngrow_vars = IntVect(NGROW-1,NGROW-1,0);
 

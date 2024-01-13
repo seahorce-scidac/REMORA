@@ -79,8 +79,6 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
         ReadNetCDFFile(nc_bdry_file, {"ocean_time"}, array_ts);
 
         ntimes = array_ts[0].get_vshape()[0];
-        auto dateStrLen = array_ts[0].get_vshape()[1];
-        char timeStamps[ntimes][dateStrLen];
 
         // amrex::Print() << " NTIMES " << ntimes << std::endl;
         for (int nt(0); nt < ntimes; nt++)
@@ -156,7 +154,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     // This loops over every variable on every face, so nvars should be 4 * number of "ivartype" below
     for (int iv = 0; iv < nvars; iv++)
     {
-        amrex::Print() << "Building FAB for the NetCDF variable : " << nc_var_names[iv] << std::endl;
+        // amrex::Print() << "Building FAB for the NetCDF variable : " << nc_var_names[iv] << std::endl;
 
         int bdyVarType;
 

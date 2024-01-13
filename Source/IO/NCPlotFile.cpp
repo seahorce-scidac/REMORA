@@ -74,10 +74,9 @@ REMORA::WriteNCPlotFile(int which_step) const
         ncutils::NCFile::open_par(FullPath, NC_WRITE | NC_NETCDF4 | NC_MPIIO,
                                   amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
 
-        amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath
-                       << "\nFor step "<< which_step <<std::endl;
+        amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
 
-        WriteNCPlotFile_which(which_step, lev, which_subdomain, write_header, ncf);
+        WriteNCPlotFile_which(lev, which_subdomain, write_header, ncf);
 
 
      } else {
@@ -85,15 +84,14 @@ REMORA::WriteNCPlotFile(int which_step) const
         // Open new netcdf file to write data
         auto ncf = ncutils::NCFile::create_par(FullPath, NC_NETCDF4 | NC_MPIIO,
                                                amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
-        amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath
-                       << "\nFor step "<< which_step <<std::endl;
+        amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
 
-        WriteNCPlotFile_which(which_step, lev, which_subdomain, write_header, ncf);
+        WriteNCPlotFile_which(lev, which_subdomain, write_header, ncf);
      }
 }
 
 void
-REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
+REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
                               bool write_header, ncutils::NCFile& ncf) const
 {
     // Number of cells in this "domain" at this level
@@ -310,11 +308,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
     size_t nbox_per_proc = 0;
 
-    long unsigned local_start_x    = 0;
-    long unsigned local_start_y    = 0;
-    long unsigned local_start_z    = 0;
-    long unsigned local_start_time = 1;
-
     long unsigned local_nt         = 1;  // We write data for only one time
 
     cons_new[lev]->FillBoundary(geom[lev].periodicity());
@@ -387,10 +380,8 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
         }
     }
 
-    long unsigned diff_u = 0;
-    long unsigned npts_u = 0;
-
     // Writing u (we loop over cons to get cell-centered box)
+    {
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
         Box bx = mfi.validbox();
@@ -438,8 +429,10 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
         } // in subdomain
     } // mfi
+    }
 
     // Writing v (we loop over cons to get cell-centered box)
+    {
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
         Box bx = mfi.validbox();
@@ -487,6 +480,7 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
         } // in subdomain
     } // mfi
+    }
 
    ncf.close();
 
