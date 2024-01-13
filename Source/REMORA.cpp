@@ -367,8 +367,8 @@ REMORA::set_bathymetry(int lev)
     vec_Zt_avg1[lev]->setVal(0.0);
 
     Real time = 0.0;
-    FillPatch(lev, time, *vec_Zt_avg1[lev], GetVecOfPtrs(vec_Zt_avg1));
-    FillPatch(lev, time, *vec_hOfTheConfusingName[lev], GetVecOfPtrs(vec_hOfTheConfusingName));
+    vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
+    vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 void
