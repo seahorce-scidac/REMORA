@@ -93,7 +93,7 @@ REMORA::set_2darrays (int lev)
       const Box& bx = mfi.growntilebox();
       const auto & geomdata = Geom(lev).data();
       Gpu::synchronize();
-      amrex::ParallelFor(amrex::makeSlab(bx,2,0),
+      ParallelFor(amrex::makeSlab(bx,2,0),
       [=] AMREX_GPU_DEVICE (int i, int j, int  )
       {
         const auto prob_lo         = geomdata.ProbLo();
@@ -110,56 +110,70 @@ REMORA::set_2darrays (int lev)
     MultiFab* V_old = yvel_new[lev];
     std::unique_ptr<MultiFab>& mf_ubar = vec_ubar[lev];
     std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
+    std::unique_ptr<MultiFab>& mf_mskr = vec_mskr[lev];
+    std::unique_ptr<MultiFab>& mf_msku = vec_msku[lev];
+    std::unique_ptr<MultiFab>& mf_mskv = vec_mskv[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     int nstp = 0;
-    int kstp = 0;
-    int knew = 0;
 
     for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
 
+        Array4<Real> const& mskr = (mf_mskr)->array(mfi);
+        Array4<Real> const& msku = (mf_msku)->array(mfi);
+        Array4<Real> const& mskv = (mf_mskv)->array(mfi);
+
         Array4<const Real> const& Hz       = mf_Hz->const_array(mfi);
         Array4<const Real> const& u        = U_old->const_array(mfi);
         Array4<const Real> const& v        = V_old->const_array(mfi);
 
+        Box  bx2 = mfi.tilebox()      ;  bx2.grow(IntVect(NGROW  ,NGROW  ,0)); //   cell-centered, grown by 2
         Box ubx2 = mfi.nodaltilebox(0); ubx2.grow(IntVect(NGROW  ,NGROW  ,0)); // x-face-centered, grown by 2
         Box vbx2 = mfi.nodaltilebox(1); vbx2.grow(IntVect(NGROW  ,NGROW  ,0)); // y-face-centered, grown by 2
 
-        amrex::ParallelFor(makeSlab(ubx2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
-            {
-                Real CF = 0.;
-                Real sum_of_hz = 0.;
+        ParallelFor(makeSlab(bx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            mskr(i,j,0,0) = 1.0;
+        });
 
-                for (int k=0; k<=N; k++) {
-                    Real avg_hz = 0.5*(Hz(i,j,k)+Hz(i-1,j,k));
-                    sum_of_hz += avg_hz;
-                    CF += avg_hz*u(i,j,k,nstp);
-                }
-                ubar(i,j,0,kstp) = CF / sum_of_hz;
-                ubar(i,j,0,knew) = CF / sum_of_hz;
-            });
+        ParallelFor(makeSlab(ubx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            Real CF = 0.;
+            Real sum_of_hz = 0.;
 
-        amrex::ParallelFor(makeSlab(vbx2,2,0),
-        [=] AMREX_GPU_DEVICE (int i, int j, int )
-            {
-                Real CF = 0.;
-                Real sum_of_hz = 0.;
+            for (int k=0; k<=N; k++) {
+                Real avg_hz = 0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                sum_of_hz += avg_hz;
+                CF += avg_hz*u(i,j,k,nstp);
+            }
+            ubar(i,j,0,0) = CF / sum_of_hz;
 
-                for(int k=0; k<=N; k++) {
-                    Real avg_hz = 0.5*(Hz(i,j,k)+Hz(i,j-1,k));
-                    sum_of_hz += avg_hz;
-                    CF += avg_hz*v(i,j,k,nstp);
-                }
-                vbar(i,j,0,kstp) = CF / sum_of_hz;
-                vbar(i,j,0,knew) = CF / sum_of_hz;
-            });
+            msku(i,j,0,0) = 1.0;
+        });
+
+        ParallelFor(makeSlab(vbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            Real CF = 0.;
+            Real sum_of_hz = 0.;
+
+            for(int k=0; k<=N; k++) {
+                Real avg_hz = 0.5*(Hz(i,j,k)+Hz(i,j-1,k));
+                sum_of_hz += avg_hz;
+                CF += avg_hz*v(i,j,k,nstp);
+            }
+            vbar(i,j,0,0) = CF / sum_of_hz;
+
+            mskv(i,j,0,0) = 1.0;
+        });
     }
 
     // DEBUGGING NOTE -- DoublyPeriodic fails if these are commented out
     const Real time = 0.0;
-    FillPatch(lev,time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar);
-    FillPatch(lev,time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar);
+    FillPatch(lev, time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar);
+    FillPatch(lev, time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar);
+
+    FillPatch(lev, time, *vec_msku[lev], GetVecOfPtrs(vec_ubar));
+    FillPatch(lev, time, *vec_mskv[lev], GetVecOfPtrs(vec_vbar));
 }

@@ -17,7 +17,8 @@ read_data_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
                        FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
                        FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
                        FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab,
-                       FArrayBox& NC_zeta_fab);
+                       FArrayBox& NC_zeta_fab, FArrayBox& NC_mskr_fab,
+                       FArrayBox& NC_msku_fab, FArrayBox& NC_mskv_fab);
 
 Real
 read_bdry_from_netcdf (const Box& domain, const std::string& fname,
@@ -32,14 +33,18 @@ init_state_from_netcdf (int lev,
                         FArrayBox&  temp_fab, FArrayBox&  salt_fab,
                         FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
                         FArrayBox&  ubar_fab, FArrayBox&  vbar_fab,
-                        FArrayBox& zeta_fab,
+                        FArrayBox&  zeta_fab, FArrayBox&  mskr_fab,
+                        FArrayBox&  msku_fab, FArrayBox&  mskv_fab,
                         const Vector<FArrayBox>& NC_temp_fab,
                         const Vector<FArrayBox>& NC_salt_fab,
                         const Vector<FArrayBox>& NC_xvel_fab,
                         const Vector<FArrayBox>& NC_yvel_fab,
                         const Vector<FArrayBox>& NC_ubar_fab,
                         const Vector<FArrayBox>& NC_vbar_fab,
-                        const Vector<FArrayBox>& NC_zeta_fab);
+                        const Vector<FArrayBox>& NC_zeta_fab,
+                        const Vector<FArrayBox>& NC_mskr_fab,
+                        const Vector<FArrayBox>& NC_msku_fab,
+                        const Vector<FArrayBox>& NC_mskv_fab);
 
 void
 read_bathymetry_from_netcdf (int lev, const Box& domain, const std::string& fname,
@@ -72,6 +77,9 @@ REMORA::init_data_from_netcdf (int lev)
     Vector<FArrayBox> NC_ubar_fab ; NC_ubar_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_vbar_fab ; NC_vbar_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_zeta_fab ; NC_zeta_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_mskr_fab ; NC_mskr_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_msku_fab ; NC_msku_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_mskv_fab ; NC_mskv_fab.resize(num_boxes_at_level[lev]);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -79,7 +87,9 @@ REMORA::init_data_from_netcdf (int lev)
                               NC_temp_fab[idx], NC_salt_fab[idx],
                               NC_xvel_fab[idx], NC_yvel_fab[idx],
                               NC_ubar_fab[idx], NC_vbar_fab[idx],
-                              NC_zeta_fab[idx]);
+                              NC_zeta_fab[idx],
+                              NC_mskr_fab[idx], NC_msku_fab[idx],
+                              NC_mskv_fab[idx]);
     }
 
     MultiFab mf_temp(*cons_new[lev], make_alias, Temp_comp, 1);
@@ -100,14 +110,20 @@ REMORA::init_data_from_netcdf (int lev)
         FArrayBox &ubar_fab = (*vec_ubar[lev])[mfi];
         FArrayBox &vbar_fab = (*vec_vbar[lev])[mfi];
         FArrayBox &zeta_fab = (*vec_zeta[lev])[mfi];
+        FArrayBox &mskr_fab = (*vec_mskr[lev])[mfi];
+        FArrayBox &msku_fab = (*vec_msku[lev])[mfi];
+        FArrayBox &mskv_fab = (*vec_mskv[lev])[mfi];
 
         init_state_from_netcdf(lev, temp_fab, salt_fab,
                                xvel_fab, yvel_fab,
-                               ubar_fab, vbar_fab, zeta_fab,
+                               ubar_fab, vbar_fab,
+                               zeta_fab, mskr_fab,
+                               msku_fab, mskv_fab,
                                NC_temp_fab, NC_salt_fab,
                                NC_xvel_fab, NC_yvel_fab,
                                NC_ubar_fab, NC_vbar_fab,
-                               NC_zeta_fab);
+                               NC_zeta_fab, NC_mskr_fab,
+                               NC_msku_fab, NC_mskv_fab);
     } // mf
     } // omp
 }
@@ -171,8 +187,6 @@ REMORA::init_coriolis_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_fcor_fab     ; NC_fcor_fab.resize(num_boxes_at_level[lev]);
-
-    int nboxes = NC_fcor_fab.size();
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
@@ -251,14 +265,18 @@ init_state_from_netcdf (int /*lev*/,
                         FArrayBox&  temp_fab, FArrayBox&  salt_fab,
                         FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
                         FArrayBox&  ubar_fab, FArrayBox&  vbar_fab,
-                        FArrayBox& zeta_fab,
+                        FArrayBox& zeta_fab,  FArrayBox&  mskr_fab,
+                        FArrayBox& msku_fab,  FArrayBox&  mskv_fab,
                         const Vector<FArrayBox>& NC_temp_fab,
                         const Vector<FArrayBox>& NC_salt_fab,
                         const Vector<FArrayBox>& NC_xvel_fab,
                         const Vector<FArrayBox>& NC_yvel_fab,
                         const Vector<FArrayBox>& NC_ubar_fab,
                         const Vector<FArrayBox>& NC_vbar_fab,
-                        const Vector<FArrayBox>& NC_zeta_fab)
+                        const Vector<FArrayBox>& NC_zeta_fab,
+                        const Vector<FArrayBox>& NC_mskr_fab,
+                        const Vector<FArrayBox>& NC_msku_fab,
+                        const Vector<FArrayBox>& NC_mskv_fab)
 {
     int nboxes = NC_xvel_fab.size();
     for (int idx = 0; idx < nboxes; idx++)
@@ -267,33 +285,17 @@ init_state_from_netcdf (int /*lev*/,
         // FArrayBox to FArrayBox copy does "copy on intersection"
         // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
         //
-
-        // This copies temperature
         temp_fab.template copy<RunOn::Device>(NC_temp_fab[idx]);
-
-        // This copies salinity
         salt_fab.template copy<RunOn::Device>(NC_salt_fab[idx]);
-
-        // This copies x-vel
         x_vel_fab.template copy<RunOn::Device>(NC_xvel_fab[idx]);
-
-        // This copies y-vel
         y_vel_fab.template copy<RunOn::Device>(NC_yvel_fab[idx]);
-
-        // This copies ubar -- from a single value to fill all three values
         ubar_fab.template copy<RunOn::Device>(NC_ubar_fab[idx],0,0,1);
-        // ubar_fab.template copy<RunOn::Device>(NC_ubar_fab[idx],0,1,1);
-        // ubar_fab.template copy<RunOn::Device>(NC_ubar_fab[idx],0,2,1);
-
-        // This copies vbar
         vbar_fab.template copy<RunOn::Device>(NC_vbar_fab[idx],0,0,1);
-        // vbar_fab.template copy<RunOn::Device>(NC_vbar_fab[idx],0,1,1);
-        // vbar_fab.template copy<RunOn::Device>(NC_vbar_fab[idx],0,2,1);
-
-        // This copies zeta
         zeta_fab.template copy<RunOn::Device>(NC_zeta_fab[idx],0,0,1);
-        // zeta_fab.template copy<RunOn::Device>(NC_zeta_fab[idx],0,1,1);
-        // zeta_fab.template copy<RunOn::Device>(NC_zeta_fab[idx],0,2,1);
+        mskr_fab.template copy<RunOn::Device>(NC_mskr_fab[idx],0,0,1);
+        msku_fab.template copy<RunOn::Device>(NC_msku_fab[idx],0,0,1);
+        mskv_fab.template copy<RunOn::Device>(NC_mskv_fab[idx],0,0,1);
+
     } // idx
 }
 
