@@ -278,6 +278,15 @@ public:
     /** free surface height (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_zeta;
 
+    /** land/sea mask at cell centers (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskr;
+
+    /** land/sea mask at x-faces (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_msku;
+
+    /** land/sea mask at y-faces (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskv;
+
     /** map factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm;
 

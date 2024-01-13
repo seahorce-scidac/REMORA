@@ -96,38 +96,10 @@ void
 REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
                               bool write_header, ncutils::NCFile& ncf) const
 {
-    int iproc = amrex::ParallelContext::MyProcAll();
-    int nproc = amrex::ParallelDescriptor::NProcs();
-
     // Number of cells in this "domain" at this level
     std::vector<int> n_cells;
 
     int nblocks = grids[lev].size();
-
-    // Number of points in each block at this level
-    std::vector<int> offset_s;
-    std::vector<int> offset_u;
-    std::vector<int> offset_v;
-    offset_s.reserve(nproc);
-    offset_u.reserve(nproc);
-    offset_v.reserve(nproc);
-
-    for (auto n = 0; n < nproc; n++) {
-        offset_s[n] = 0;
-        offset_u[n] = 0;
-        offset_v[n] = 0;
-    }
-
-    for (auto ib=0; ib<nblocks; ib++) {
-       Box tmp_bx_s(grids[lev][ib]); tmp_bx_s.grow(IntVect(1,1,0));
-       offset_s[dmap[lev][ib]] += tmp_bx_s.numPts();
-
-       Box tmp_bx_u(grids[lev][ib]); tmp_bx_u.surroundingNodes(0); tmp_bx_u.grow(IntVect(0,1,0));
-       offset_u[dmap[lev][ib]] += tmp_bx_u.numPts();
-
-       Box tmp_bx_v(grids[lev][ib]); tmp_bx_v.surroundingNodes(1); tmp_bx_v.grow(IntVect(1,0,0));
-       offset_v[dmap[lev][ib]] += tmp_bx_v.numPts();
-    }
 
     // We only do single-level writes when using NetCDF format
     int flev = lev;
@@ -337,7 +309,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
     } // end if write_header
 
     size_t nbox_per_proc = 0;
-    long unsigned numpts = 0;
 
     long unsigned local_start_x    = 0;
     long unsigned local_start_y    = 0;
@@ -353,8 +324,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
         auto bx = mfi.validbox();
     if (subdomain.contains(bx))
     {
-            // for(auto ip = 1; ip <= iproc; ++ip) {diff += offset_s[ip-1];}
-
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
@@ -428,8 +397,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
         if (subdomain.contains(bx))
         {
-            // for (auto ip = 0; ip < iproc; ++ip) { diff_u += offset_u[ip]; }
-
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //
@@ -479,8 +446,6 @@ REMORA::WriteNCPlotFile_which(int which_step, int lev, int which_subdomain,
 
         if (subdomain.contains(bx))
         {
-            // for (auto ip = 0; ip <= iproc-1; ++ip) { diff_v += offset_v[ip]; }
-
             //
             // We only include one grow cell at subdomain boundaries, not internal grid boundaries
             //

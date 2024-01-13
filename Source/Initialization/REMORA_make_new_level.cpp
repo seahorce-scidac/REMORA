@@ -174,6 +174,9 @@ void REMORA::resize_stuff(int lev)
     vec_ubar.resize(lev+1);
     vec_vbar.resize(lev+1);
     vec_zeta.resize(lev+1);
+    vec_mskr.resize(lev+1);
+    vec_msku.resize(lev+1);
+    vec_mskv.resize(lev+1);
     vec_sstore.resize(lev+1);
 
     vec_pm.resize(lev+1);
@@ -284,6 +287,10 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
     vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW+1,NGROW+1,0)));  // 2d free surface
 
+    vec_mskr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_msku[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_mskv[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+
     vec_pm[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+2,0)));
     vec_pn[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+2,NGROW+1,0)));
     vec_fcor[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
@@ -316,6 +323,10 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
     vec_ubar[lev]->setVal(0.0_rt);
     vec_vbar[lev]->setVal(0.0_rt);
     vec_zeta[lev]->setVal(0.0_rt);
+
+    vec_mskr[lev]->setVal(1.0_rt);
+    vec_msku[lev]->setVal(1.0_rt);
+    vec_mskv[lev]->setVal(1.0_rt);
 
     // Set initial linear drag coefficient
     vec_rdrag[lev]->setVal(solverChoice.rdrag);
