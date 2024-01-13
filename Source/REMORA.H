@@ -152,8 +152,8 @@ public:
     /** Make mask to zero out covered cells*/
     amrex::MultiFab& build_fine_mask(int lev);
 
-    /** write plotfile to disk */
-    void WritePlotFile  (amrex::Vector<std::string> plot_var_names);
+    /** write plotfile */
+    void WritePlotFile ();
 
     void WriteMultiLevelPlotfileWithBathymetry (const std::string &plotfilename,
                                                 int nlevels,
@@ -624,8 +624,6 @@ private:
     /** set covered coarse cells to be the average of overlying fine cells */
     void AverageDown ();
 
-    void init1DArrays();
-
     void init_bcs();
 
     void init_custom(int lev);
@@ -651,30 +649,21 @@ private:
     /** advance all levels by dt, loops over finer levels */
     void timeStepML (amrex::Real time, int iteration);
 
-    //! Initialize HSE
-    void initHSE();
-
-    //! Initialize Rayleigh damping profiles
-    void initRayleigh();
-
     /** a wrapper for estTimeStep() */
     void ComputeDt ();
 
     /** get plotfile name */
     std::string PlotFileName (int lev) const;
 
-    /** set plotfile variables names */
-    amrex::Vector<std::string> PlotFileVarNames (amrex::Vector<std::string> plot_var_names) const;
-
     /** set which variables and derived quantities go into plotfiles */
-    void setPlotVariables (const std::string& pp_plot_var_names, amrex::Vector<std::string>& plot_var_names);
+    void setPlotVariables (const std::string& pp_plot_var_names);
 
 
 #ifdef REMORA_USE_NETCDF
     //! Write plotfile using NETCDF
-    void WriteNCPlotFile(int istep) const;
-    void WriteNCPlotFile_which(int istep, int lev, int which_subdomain,
-                               bool write_header, ncutils::NCFile& ncf) const;
+    void WriteNCPlotFile       (int istep) const;
+    void WriteNCPlotFile_which (int lev, int which_subdomain,
+                                bool write_header, ncutils::NCFile& ncf) const;
 
     //! Write MultiFab in NetCDF format
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
@@ -849,33 +838,6 @@ private:
 
     // NetCDF file of time series of boundary data
     static std::string nc_bdry_file;
-
-    // Text input_sounding file
-    static std::string input_sounding_file;
-
-    // 1D CDF output (for ingestion in AMR-Wind)
-    static int         output_1d_column;
-    static int         column_interval;
-    static amrex::Real column_per;
-    static amrex::Real column_loc_x;
-    static amrex::Real column_loc_y;
-    static std::string column_file_name;
-
-    // 2D BndryRegister output (for ingestion in AMR-Wind)
-    static int         output_bndry_planes;
-    static int         bndry_output_planes_interval;
-    static amrex::Real bndry_output_planes_per;
-    static amrex::Real bndry_output_planes_start_time;
-
-    // 2D BndryRegister input
-    static int          input_bndry_planes;
-
-    amrex::Vector<amrex::Real> h_havg_density;
-    amrex::Vector<amrex::Real> h_havg_temperature;
-    amrex::Vector<amrex::Real> h_havg_pressure;
-    amrex::Gpu::DeviceVector<amrex::Real> d_havg_density;
-    amrex::Gpu::DeviceVector<amrex::Real> d_havg_temperature;
-    amrex::Gpu::DeviceVector<amrex::Real> d_havg_pressure;
 
     void refinement_criteria_setup();
 

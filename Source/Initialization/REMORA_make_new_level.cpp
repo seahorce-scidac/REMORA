@@ -328,6 +328,11 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
     vec_msku[lev]->setVal(1.0_rt);
     vec_mskv[lev]->setVal(1.0_rt);
 
+    // We need to do this in order to do foextrap for init_type = real
+    // We choose a bad value here to make sure the arrays get filled correctly
+    vec_pm[lev]->setVal(1.0e34_rt);
+    vec_pn[lev]->setVal(1.0e34_rt);
+
     // Set initial linear drag coefficient
     vec_rdrag[lev]->setVal(solverChoice.rdrag);
 }

@@ -59,10 +59,9 @@ read_bathymetry_from_netcdf (int /*lev*/,
 }
 
 void
-read_coriolis_from_netcdf (int lev,
-                             const Box& domain,
-                             const std::string& fname,
-                             FArrayBox& NC_fcor_fab)
+read_coriolis_from_netcdf (const Box& domain,
+                           const std::string& fname,
+                           FArrayBox& NC_fcor_fab)
 {
     amrex::Print() << "Loading initial coriolis from NetCDF file " << fname << std::endl;
 

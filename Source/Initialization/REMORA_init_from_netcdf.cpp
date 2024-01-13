@@ -55,8 +55,7 @@ void
 init_bathymetry_from_netcdf (int lev);
 
 void
-read_coriolis_from_netcdf (int lev, const Box& domain, const std::string& fname,
-                             FArrayBox& NC_fcor_fab);
+read_coriolis_from_netcdf (const Box& domain, const std::string& fname, FArrayBox& NC_fcor_fab);
 
 void
 init_coriolis_from_netcdf (int lev);
@@ -172,6 +171,69 @@ REMORA::init_bathymetry_from_netcdf (int lev)
         } // mf
         } // omp
     } // idx
+
+    int ng = vec_pm[lev]->nGrow();
+
+    const auto& dom_lo = amrex::lbound(geom[lev].Domain());
+    const auto& dom_hi = amrex::ubound(geom[lev].Domain());
+
+    //
+    // We need values of pm and pn outside the domain so we fill
+    //    them here with foextrap
+    //
+    // We first fill interior ghost cells because we will need to extrapolate
+    //    from ghost cells inside the domain to ghost cells outside the domain
+    //
+    vec_pm[lev]->FillBoundary(geom[lev].periodicity());
+    vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+
+    for ( MFIter mfi(*vec_pm[lev]); mfi.isValid(); ++mfi )
+    {
+        Box bx   = mfi.tilebox();
+
+        auto pm_fab = vec_pm[lev]->array(mfi);
+        auto pn_fab = vec_pn[lev]->array(mfi);
+
+        Box gbx_lox = adjCellLo(bx,0,ng); gbx_lox.grow(1,ng); gbx_lox.setBig  (0,dom_lo.x-1);
+        Box gbx_hix = adjCellHi(bx,0,ng); gbx_hix.grow(1,ng); gbx_hix.setSmall(0,dom_hi.x+1);
+        Box gbx_loy = adjCellLo(bx,1,ng); gbx_loy.grow(0,ng); gbx_loy.setBig  (1,dom_lo.y-1);
+        Box gbx_hiy = adjCellHi(bx,1,ng); gbx_hiy.grow(0,ng); gbx_hiy.setSmall(1,dom_hi.y+1);
+
+        // if (gbx_lox.ok()) amrex::AllPrint() << "GBX_XLO " << gbx_lox << std::endl;
+        // if (gbx_hix.ok()) amrex::AllPrint() << "GBX_XHI " << gbx_hix << std::endl;
+        // if (gbx_loy.ok()) amrex::AllPrint() << "GBX_YLO " << gbx_loy << std::endl;
+        // if (gbx_hiy.ok()) amrex::AllPrint() << "GBX_YHI " << gbx_hiy << std::endl;
+
+        if (gbx_lox.ok()) {
+            ParallelFor(gbx_lox, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                pm_fab(i,j,k,0) = pm_fab(dom_lo.x,j,k,0);
+                pn_fab(i,j,k,0) = pn_fab(dom_lo.x,j,k,0);
+            });
+        }
+        if (gbx_hix.ok()) {
+            ParallelFor(gbx_hix, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                pm_fab(i,j,k,0) = pm_fab(dom_hi.x,j,k,0);
+                pn_fab(i,j,k,0) = pn_fab(dom_hi.x,j,k,0);
+            });
+        }
+        if (gbx_loy.ok()) {
+            ParallelFor(gbx_loy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                pm_fab(i,j,k,0) = pm_fab(i,dom_lo.y,k,0);
+                pn_fab(i,j,k,0) = pn_fab(i,dom_lo.y,k,0);
+            });
+        }
+        if (gbx_hiy.ok()) {
+            ParallelFor(gbx_hiy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                pm_fab(i,j,k,0) = pm_fab(i,dom_hi.y,k,0);
+                pn_fab(i,j,k,0) = pn_fab(i,dom_hi.y,k,0);
+            });
+        }
+    } // mfi
+
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
     vec_pm[lev]->FillBoundary(geom[lev].periodicity());
     vec_pn[lev]->FillBoundary(geom[lev].periodicity());
@@ -190,7 +252,7 @@ REMORA::init_coriolis_from_netcdf (int lev)
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
-        read_coriolis_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
+        read_coriolis_from_netcdf(boxes_at_level[lev][idx], nc_grid_file[lev][idx],
                                     NC_fcor_fab[idx]);
 
 #ifdef _OPENMP

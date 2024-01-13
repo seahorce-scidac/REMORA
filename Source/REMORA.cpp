@@ -81,7 +81,7 @@ REMORA::REMORA ()
     }
 
     ReadParameters();
-    const std::string& pv1 = "plot_vars"; setPlotVariables(pv1,plot_var_names);
+    const std::string& pv1 = "plot_vars"; setPlotVariables(pv1);
 
     amrex_probinit(geom[0].ProbLo(),geom[0].ProbHi());
 
@@ -168,7 +168,7 @@ REMORA::Evolve ()
         if (plot_int > 0 && (step+1) % plot_int == 0) {
             last_plot_file_step = step+1;
             if (plotfile_type == PlotfileType::amrex) {
-                WritePlotFile(plot_var_names);
+                WritePlotFile();
             }
 #ifdef REMORA_USE_NETCDF
             else if (plotfile_type == PlotfileType::netcdf) {
@@ -197,7 +197,7 @@ REMORA::Evolve ()
 
     if (plot_int > 0 && istep[0] > last_plot_file_step) {
         if (plotfile_type == PlotfileType::amrex) {
-            WritePlotFile(plot_var_names);
+            WritePlotFile();
         }
 #ifdef REMORA_USE_NETCDF
         if (plotfile_type == PlotfileType::netcdf) {
@@ -319,7 +319,7 @@ REMORA::InitData ()
         if (plot_int > 0)
         {
             if (plotfile_type == PlotfileType::amrex)
-                WritePlotFile(plot_var_names);
+                WritePlotFile();
 #ifdef REMORA_USE_NETCDF
             if (plotfile_type == PlotfileType::netcdf) {
                 int step0 = 0;
