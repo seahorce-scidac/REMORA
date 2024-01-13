@@ -81,8 +81,7 @@ REMORA::REMORA ()
     }
 
     ReadParameters();
-    const std::string& pv1 = "plot_vars_1"; setPlotVariables(pv1,plot_var_names_1);
-    const std::string& pv2 = "plot_vars_2"; setPlotVariables(pv2,plot_var_names_2);
+    const std::string& pv1 = "plot_vars"; setPlotVariables(pv1,plot_var_names);
 
     amrex_probinit(geom[0].ProbLo(),geom[0].ProbHi());
 
@@ -166,22 +165,15 @@ REMORA::Evolve ()
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
                        << " DT = " << dt[0]  << std::endl;
 
-        if (plot_int_1 > 0 && (step+1) % plot_int_1 == 0) {
-            last_plot_file_step_1 = step+1;
-            if (plotfile_type == PlotfileType::amrex)
-                WritePlotFile(1,plot_var_names_1);
+        if (plot_int > 0 && (step+1) % plot_int == 0) {
+            last_plot_file_step = step+1;
+            if (plotfile_type == PlotfileType::amrex) {
+                WritePlotFile(plot_var_names);
+            }
 #ifdef REMORA_USE_NETCDF
-            else if (plotfile_type == PlotfileType::netcdf)
-                WriteNCPlotFile(step);
-#endif
-        }
-        if (plot_int_2 > 0 && (step+1) % plot_int_2 == 0) {
-            last_plot_file_step_2 = step+1;
-            if (plotfile_type == PlotfileType::amrex)
-                WritePlotFile(2,plot_var_names_2);
-#ifdef REMORA_USE_NETCDF
-            else if (plotfile_type == PlotfileType::netcdf)
-                WriteNCPlotFile(step);
+            else if (plotfile_type == PlotfileType::netcdf) {
+                WriteNCPlotFile(step+1);
+            }
 #endif
         }
 
@@ -203,27 +195,20 @@ REMORA::Evolve ()
         if (cur_time >= stop_time - 1.e-6*dt[0]) break;
     }
 
-    if (plot_int_1 > 0 && istep[0] > last_plot_file_step_1) {
-        if (plotfile_type == PlotfileType::amrex)
-            WritePlotFile(1,plot_var_names_1);
+    if (plot_int > 0 && istep[0] > last_plot_file_step) {
+        if (plotfile_type == PlotfileType::amrex) {
+            WritePlotFile(plot_var_names);
+        }
 #ifdef REMORA_USE_NETCDF
-        if (plotfile_type == PlotfileType::netcdf)
+        if (plotfile_type == PlotfileType::netcdf) {
             WriteNCPlotFile(istep[0]);
-#endif
-    }
-    if (plot_int_2 > 0 && istep[0] > last_plot_file_step_2) {
-        if (plotfile_type == PlotfileType::amrex)
-            WritePlotFile(2,plot_var_names_2);
-#ifdef REMORA_USE_NETCDF
-        else if (plotfile_type == PlotfileType::netcdf)
-            WriteNCPlotFile(istep[0]);
+        }
 #endif
     }
 
     if (check_int > 0 && istep[0] > last_check_file_step) {
         WriteCheckpointFile();
     }
-
 }
 
 // Called after every coarse timestep
@@ -266,8 +251,7 @@ REMORA::InitData ()
     //     those types into what they mean for each variable
     init_bcs();
 
-    last_plot_file_step_1 = -1;
-    last_plot_file_step_2 = -1;
+    last_plot_file_step = -1;
     last_check_file_step = -1;
 
     if (restart_chkfile == "") {
@@ -332,22 +316,17 @@ REMORA::InitData ()
     if ( (restart_chkfile == "") ||
          (restart_chkfile != "" && plot_file_on_restart) )
     {
-        if (plot_int_1 > 0)
+        if (plot_int > 0)
         {
             if (plotfile_type == PlotfileType::amrex)
-                WritePlotFile(1,plot_var_names_1);
+                WritePlotFile(plot_var_names);
 #ifdef REMORA_USE_NETCDF
             if (plotfile_type == PlotfileType::netcdf) {
                 int step0 = 0;
                 WriteNCPlotFile(step0);
             }
 #endif
-            last_plot_file_step_1 = istep[0];
-        }
-        if (plot_int_2 > 0)
-        {
-            WritePlotFile(2,plot_var_names_2);
-            last_plot_file_step_2 = istep[0];
+            last_plot_file_step = istep[0];
         }
     }
 
@@ -613,10 +592,8 @@ REMORA::ReadParameters ()
         AMREX_ALWAYS_ASSERT(bdy_set_width >= 0);
         AMREX_ALWAYS_ASSERT(bdy_width >= bdy_set_width);
 #endif
-        pp.query("plot_file_1", plot_file_1);
-        pp.query("plot_file_2", plot_file_2);
-        pp.query("plot_int_1", plot_int_1);
-        pp.query("plot_int_2", plot_int_2);
+        pp.query("plot_file", plot_file_name);
+        pp.query("plot_int", plot_int);
 
 #ifdef REMORA_USE_PARTICLES
         particleData.init_particle_params();
