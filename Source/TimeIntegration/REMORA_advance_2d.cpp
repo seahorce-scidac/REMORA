@@ -366,7 +366,7 @@ REMORA::advance_2d (int lev,
         if (my_iif==0) {
             Real cff1=dtfast_lev;
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int )
+            ParallelFor(makeSlab(tbxp1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rhs_zeta(i,j,0) = (DUon(i,j,0)-DUon(i+1,j,0))+
                                   (DVom(i,j,0)-DVom(i,j+1,0));
@@ -386,7 +386,7 @@ REMORA::advance_2d (int lev,
             Real cff4=4.0_rt / 25.0_rt;
             Real cff5=1.0_rt - 2.0_rt*cff4;
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int )
+            ParallelFor(makeSlab(tbxp1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
                                 (DVom(i,j,0)-DVom(i,j+1,0));
@@ -409,7 +409,7 @@ REMORA::advance_2d (int lev,
             Real cff4=2.0_rt/5.0_rt;
             Real cff5=1.0_rt-cff4;
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int )
+            ParallelFor(makeSlab(tbxp1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 Real cff=cff1*((DUon(i,j,0)-DUon(i+1,j,0))+
                                (DVom(i,j,0)-DVom(i,j+1,0)));
@@ -431,7 +431,7 @@ REMORA::advance_2d (int lev,
         //  and corrector steps.
         //
         //// zeta(knew) only valid at zeta_new, i.e. tbxp1
-        ParallelFor(gbx1,
+        ParallelFor(makeSlab(gbx1,2,0),
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             zeta(i,j,0,knew) = zeta_new(i,j,0);
@@ -441,7 +441,7 @@ REMORA::advance_2d (int lev,
         //  If predictor step, load right-side-term into shared array.
         //
         if (predictor_2d_step) {
-            ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int )
+            ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
             });
