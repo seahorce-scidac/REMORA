@@ -153,7 +153,7 @@ public:
     amrex::MultiFab& build_fine_mask(int lev);
 
     /** write plotfile to disk */
-    void WritePlotFile  (int which, amrex::Vector<std::string> plot_var_names);
+    void WritePlotFile  (amrex::Vector<std::string> plot_var_names);
 
     void WriteMultiLevelPlotfileWithBathymetry (const std::string &plotfilename,
                                                 int nlevels,
@@ -762,8 +762,7 @@ private:
     // These are the "physical" boundary condition types (e.g. "inflow")
     amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2> phys_bc_type;
 
-    int last_plot_file_step_1;
-    int last_plot_file_step_2;
+    int last_plot_file_step;
 
     int last_check_file_step;
     int plot_file_on_restart = 1;
@@ -797,17 +796,14 @@ private:
     int regrid_int = 2;
 
     // plotfile prefix and frequency
-    std::string plot_file_1 {"plt_1_"};
-    std::string plot_file_2 {"plt_2_"};
-    int plot_int_1 = -1;
-    int plot_int_2 = -1;
+    std::string plot_file_name {"plt_"};
+    int plot_int = -1;
 
     // Checkpoint type, prefix and frequency
     std::string check_file {"chk"};
     int check_int = -1;
 
-    amrex::Vector<std::string> plot_var_names_1;
-    amrex::Vector<std::string> plot_var_names_2;
+    amrex::Vector<std::string> plot_var_names;
     const amrex::Vector<std::string>     cons_names {"temp", "salt", "scalar"};
 
     // Note that the order of variable names here must match the order in Derive.cpp

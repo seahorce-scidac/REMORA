@@ -96,7 +96,7 @@ REMORA::PlotFileVarNames ( Vector<std::string> plot_var_names ) const
 
 // Write plotfile to disk
 void
-REMORA::WritePlotFile (int which, Vector<std::string> plot_var_names)
+REMORA::WritePlotFile (Vector<std::string> plot_var_names)
 {
     const Vector<std::string> varnames = PlotFileVarNames(plot_var_names);
     const int ncomp_mf = varnames.size();
@@ -202,11 +202,7 @@ REMORA::WritePlotFile (int which, Vector<std::string> plot_var_names)
 
     } // lev
 
-    std::string plotfilename;
-    if (which == 1)
-       plotfilename = Concatenate(plot_file_1, istep[0], 5);
-    else if (which == 2)
-       plotfilename = Concatenate(plot_file_2, istep[0], 5);
+    std::string plotfilename = Concatenate(plot_file_name, istep[0], 5);
 
     if (finest_level == 0)
     {
@@ -231,14 +227,7 @@ REMORA::WritePlotFile (int which, Vector<std::string> plot_var_names)
                                         varnames,
                                         Geom(), t_new[0], istep, refRatio());
 #endif
-#ifdef REMORA_USE_NETCDF
-        } else if (plotfile_type == PlotfileType::netcdf) {
-             // int lev   = 0;
-             // int nc_which = 0;
-             // writeNCPlotFile(lev, nc_which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
-             // total_plot_file_step_1 += 1;
-#endif
-        } else {
+        } else if (!(plotfile_type == PlotfileType::netcdf)) {
             amrex::Abort("User specified unknown plot_filetype");
         }
 

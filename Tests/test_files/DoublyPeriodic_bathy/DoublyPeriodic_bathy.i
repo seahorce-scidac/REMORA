@@ -39,10 +39,10 @@ remora.check_file      = chk        # root name of checkpoint file
 remora.check_int       = -57600      # number of timesteps between checkpoints
 
 # PLOTFILES
-remora.plot_file_1     = plt        # prefix of plotfile name
-remora.plot_int_1      = 100          # number of timesteps between plotfiles
-remora.plot_vars_1     = salt temp x_velocity y_velocity z_velocity
-remora.plotfile_type   = amrex
+remora.plot_file     = plt        # prefix of plotfile name
+remora.plot_int      = 100          # number of timesteps between plotfiles
+remora.plot_vars     = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
 
 # SOLVER CHOICE
 remora.use_coriolis = true

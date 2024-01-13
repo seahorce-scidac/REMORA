@@ -29,9 +29,9 @@ REMORA::WriteNCPlotFile(int which_step) const
     std::string plt_string;
     std::string plotfilename;
     if (REMORA::write_history_file) {
-        plotfilename = "plt_his";
+        plotfilename = plot_file_name + "_his";
     } else {
-        plotfilename = Concatenate("plt", which_step, 5);
+        plotfilename = Concatenate(plot_file_name, which_step, 5);
     }
 
     // Set the full IO path for NetCDF output
