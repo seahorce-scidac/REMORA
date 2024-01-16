@@ -20,7 +20,7 @@ authors:
     corresponding: false
     affiliation: 1
   - name: Robert Hetland
-    orcid:
+    orcid: 0000-0001-9531-2119
     corresponding: false
     affiliation: 2
   - name: Kyle Hinson
