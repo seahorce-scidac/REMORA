@@ -3,8 +3,9 @@
 
 #include <AMReX_REAL.H>
 
-constexpr amrex::Real PI = 3.14159265358979323846264338327950288;
-
+constexpr amrex::Real PI = amrex::Real(3.14159265358979323846264338327950288);
+//Note that amrex source code uses fewer digits of pi:
+//     constexpr Real pi = Real(3.1415926535897932);
 //TODO: Change these types of macros to 'const'
 #define R_d      287.0   // gas constant for dry air [J/(kg-K)]
 #define R_v      461.6   // gas constant for dry air [J/(kg-K)]
