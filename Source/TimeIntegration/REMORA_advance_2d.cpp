@@ -80,14 +80,16 @@ REMORA::advance_2d (int lev,
         krhs = 3;
         //If it's not the auxiliary time step, set indx1 to next_indx1
         // NOTE: should this ever not execute?
-        if (my_iif<nfast+1)
-            indx1=next_indx1;
+        // Include indx1 updates for diagnostic purposes?
+        //        if (my_iif<nfast+1)
+        //            indx1=next_indx1;
     }
     int ptsk = 3-kstp;
     knew-=1;
     krhs-=1;
     kstp-=1;
-    indx1-=1;
+    // Include indx1 updates for diagnostic purposes?
+    //indx1-=1;
     ptsk-=1;
     auto ba = mf_h->boxArray();
     auto dm = mf_h->DistributionMap();

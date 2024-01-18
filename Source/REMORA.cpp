@@ -10,8 +10,8 @@
 
 using namespace amrex;
 
-amrex::Real REMORA::startCPUTime        = 0.0;
-amrex::Real REMORA::previousCPUTimeUsed = 0.0;
+amrex::Real REMORA::startCPUTime        = 0.0_rt;
+amrex::Real REMORA::previousCPUTimeUsed = 0.0_rt;
 
 Vector<AMRErrorTag> REMORA::ref_tags;
 
@@ -22,11 +22,11 @@ ParticleData REMORA::particleData;
 #endif
 
 // Time step control
-amrex::Real REMORA::cfl           =  0.8;
-amrex::Real REMORA::fixed_dt      = -1.0;
-amrex::Real REMORA::fixed_fast_dt = -1.0;
-amrex::Real REMORA::init_shrink   =  1.0;
-amrex::Real REMORA::change_max    =  1.1;
+amrex::Real REMORA::cfl           =  0.8_rt;
+amrex::Real REMORA::fixed_dt      = -1.0_rt;
+amrex::Real REMORA::fixed_fast_dt = -1.0_rt;
+amrex::Real REMORA::init_shrink   =  1.0_rt;
+amrex::Real REMORA::change_max    =  1.1_rt;
 
 int   REMORA::fixed_ndtfast_ratio = 0;
 
@@ -35,7 +35,7 @@ int         REMORA::verbose       = 0;
 
 // Frequency of diagnostic output
 int         REMORA::sum_interval  = -1;
-amrex::Real REMORA::sum_per       = -1.0;
+amrex::Real REMORA::sum_per       = -1.0_rt;
 
 // Native AMReX vs NetCDF
 PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
@@ -100,9 +100,9 @@ REMORA::REMORA ()
 
     physbcs.resize(nlevs_max);
 
-    t_new.resize(nlevs_max, 0.0);
-    t_old.resize(nlevs_max, -1.e100);
-    dt.resize(nlevs_max, 1.e100);
+    t_new.resize(nlevs_max, 0.0_rt);
+    t_old.resize(nlevs_max, -1.e100_rt);
+    dt.resize(nlevs_max, 1.e100_rt);
 
     cons_new.resize(nlevs_max);
     cons_old.resize(nlevs_max);
@@ -120,7 +120,7 @@ REMORA::REMORA ()
 
     // We have already read in the ref_Ratio (via amr.ref_ratio =) but we need to enforce
     //     that there is no refinement in the vertical so we test on that here.
-    for (int lev = 0; lev < max_level; ++lev)
+    for (int lev = 0_rt; lev < max_level; ++lev)
     {
        amrex::Print() << "Refinement ratio at level " << lev << " set to be " <<
           ref_ratio[lev][0]  << " " << ref_ratio[lev][1]  <<  " " << ref_ratio[lev][2] << std::endl;
@@ -150,7 +150,7 @@ REMORA::Evolve ()
 
         ComputeDt();
 
-        int lev = 0;
+        int lev = 0_rt;
         int iteration = 1;
 
         if (max_level == 0) {
@@ -245,7 +245,7 @@ void
 REMORA::InitData ()
 {
     // Initialize the start time for our CPU-time tracker
-    startCPUTime = ParallelDescriptor::second();
+    startCPUTime = Real(ParallelDescriptor::second());
 
     // Map the words in the inputs file to BC types, then translate
     //     those types into what they mean for each variable
@@ -257,10 +257,10 @@ REMORA::InitData ()
     if (restart_chkfile == "") {
         // start simulation from the beginning
 
-        const Real time = 0.0;
+        const Real time = 0.0_rt;
         InitFromScratch(time);
 
-        for (int lev = 0; lev <= finest_level; lev++)
+        for (int lev = 0_rt; lev <= finest_level; lev++)
             init_only(lev, time);
 
         if (solverChoice.coupling_type == CouplingType::TwoWay) {
@@ -290,7 +290,7 @@ REMORA::InitData ()
     }
 
     // Fill ghost cells/faces
-    for (int lev = 0; lev <= finest_level; ++lev)
+    for (int lev = 0_rt; lev <= finest_level; ++lev)
     {
         FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t);
         FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u);
@@ -310,7 +310,7 @@ REMORA::InitData ()
     if (restart_chkfile == "" && check_int > 0)
     {
         WriteCheckpointFile();
-        last_check_file_step = 0;
+        last_check_file_step = 0_rt;
     }
 
     if ( (restart_chkfile == "") ||
@@ -322,7 +322,7 @@ REMORA::InitData ()
                 WritePlotFile();
 #ifdef REMORA_USE_NETCDF
             if (plotfile_type == PlotfileType::netcdf) {
-                int step0 = 0;
+                int step0 = 0_rt;
                 WriteNCPlotFile(step0);
             }
 #endif
@@ -366,7 +366,6 @@ REMORA::set_bathymetry(int lev)
     // HACK -- SHOULD WE ALWAYS DO THIS??
     vec_Zt_avg1[lev]->setVal(0.0);
 
-    Real time = 0.0;
     vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
 }
@@ -388,7 +387,7 @@ REMORA::set_coriolis(int lev) {
             Abort("Don't know this coriolis_type!");
         }
 
-        Real time = 0.0;
+        Real time = 0.0_rt;
         FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor));
     }
 }
@@ -397,7 +396,7 @@ void
 REMORA::set_vmix(int lev) {
     init_custom_vmix(geom[lev], *vec_Akv[lev], *vec_Akt[lev], *vec_z_w[lev], solverChoice);
 
-    Real time = 0.0;
+    Real time = 0.0_rt;
     FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv));
     FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt));
 }
@@ -407,7 +406,7 @@ REMORA::set_hmixcoef(int lev)
 {
     init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev], solverChoice);
 
-    Real time = 0.0;
+    Real time = 0.0_rt;
     FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p));
     FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r));
     FillPatch(lev, time, *vec_diff2[lev]  , GetVecOfPtrs(vec_diff2));
@@ -426,7 +425,7 @@ void
 REMORA::init_only(int lev, Real time)
 {
     t_new[lev] = time;
-    t_old[lev] = time - 1.e200;
+    t_old[lev] = time - 1.e200_rt;
 
     cons_new[lev]->setVal(0.0);
     xvel_new[lev]->setVal(0.0);
@@ -482,7 +481,7 @@ REMORA::ReadParameters ()
             datalog.resize(num_datalogs);
             datalogname.resize(num_datalogs);
             pp.queryarr("data_log",datalogname,0,num_datalogs);
-            for (int i = 0; i < num_datalogs; i++)
+            for (int i = 0_rt; i < num_datalogs; i++)
                 setRecordDataInfo(i,datalogname[i]);
         }
 
@@ -561,7 +560,7 @@ REMORA::ReadParameters ()
 
         // NetCDF initialization files -- possibly multiple files at each of multiple levels
         //        but we always have exactly one file at level 0
-        for (int lev = 0; lev <= max_level; lev++)
+        for (int lev = 0_rt; lev <= max_level; lev++)
         {
             const std::string nc_file_names = amrex::Concatenate("nc_init_file_",lev,1);
             const std::string nc_bathy_file_names = amrex::Concatenate("nc_grid_file_",lev,1);

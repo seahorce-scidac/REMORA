@@ -855,7 +855,7 @@ private:
     AMREX_FORCE_INLINE
     int
     ComputeGhostCells(const int& spatial_order) {
-      int nGhostCells;
+      int nGhostCells = 0;
 
       switch (spatial_order) {
         case 2:
@@ -912,7 +912,7 @@ private:
 #endif
 
       amrex::Real T =
-        numCores * (amrex::ParallelDescriptor::second() - startCPUTime) +
+	  numCores * (amrex::Real(amrex::ParallelDescriptor::second()) - startCPUTime) +
         previousCPUTimeUsed;
 
       return T;

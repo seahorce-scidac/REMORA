@@ -147,8 +147,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         // Set bottom stress as defined in set_vbx.F
         ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            bustr(i,j,0) = 0.5 * (rdrag(i-1,j,0)+rdrag(i,j,0))*(uold(i,j,0));
-            bvstr(i,j,0) = 0.5 * (rdrag(i,j-1,0)+rdrag(i,j,0))*(vold(i,j,0));
+            bustr(i,j,0) = 0.5_rt * (rdrag(i-1,j,0)+rdrag(i,j,0))*(uold(i,j,0));
+            bvstr(i,j,0) = 0.5_rt * (rdrag(i,j-1,0)+rdrag(i,j,0))*(vold(i,j,0));
         });
 
         //
@@ -158,14 +158,14 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         //
         ParallelFor(Box(Huon), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real on_u = 2.0 / (pn(i-1,j,0)+pn(i,j,0));
-            Huon(i,j,k)=0.5*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k)* on_u;
+            Real on_u = 2.0_rt / (pn(i-1,j,0)+pn(i,j,0));
+            Huon(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k)* on_u;
         });
 
         ParallelFor(Box(Hvom), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real om_v= 2.0 / (pm(i,j-1,0)+pm(i,j,0));
-            Hvom(i,j,k)=0.5*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k)* om_v;
+            Real om_v= 2.0_rt / (pm(i,j-1,0)+pm(i,j,0));
+            Hvom(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k)* om_v;
         });
 
         Array4<Real const> const& state_old = S_old.const_array(mfi);
@@ -261,13 +261,13 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         if (solverChoice.use_coriolis) {
             ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
             {
-                fomn(i,j,0) = fcor(i,j,0)*(1.0/(pm(i,j,0)*pn(i,j,0)));
+                fomn(i,j,0) = fcor(i,j,0)*(1.0_rt/(pm(i,j,0)*pn(i,j,0)));
             });
         }
 
         ParallelFor(gbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            FC(i,j,k)=0.0;
+            FC(i,j,k)=0.0_rt;
         });
 
         prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,pn,pm,rho,FC,Hz,z_r,z_w,nrhs,N);

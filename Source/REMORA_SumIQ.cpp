@@ -16,8 +16,8 @@ REMORA::sum_integrated_quantities(Real time)
     int datwidth = 14;
     int datprecision = 6;
 
-    Real scalar = 0.0;
-    Real kineng = 0.0;
+    Real scalar = 0.0_rt;
+    Real kineng = 0.0_rt;
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
@@ -32,7 +32,7 @@ REMORA::sum_integrated_quantities(Real time)
             const Array4<const Real>    vel_arr = cc_vel_mf.const_array(mfi);
             ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                kineng_arr(i,j,k) = 0.5 * ( vel_arr(i,j,k,0)*vel_arr(i,j,k,0) + vel_arr(i,j,k,1)*vel_arr(i,j,k,1) +
+                kineng_arr(i,j,k) = 0.5_rt * ( vel_arr(i,j,k,0)*vel_arr(i,j,k,0) + vel_arr(i,j,k,1)*vel_arr(i,j,k,1) +
                                             vel_arr(i,j,k,2)*vel_arr(i,j,k,2) );
             });
         } // mfi

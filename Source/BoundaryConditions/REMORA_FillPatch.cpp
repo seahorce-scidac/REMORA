@@ -43,14 +43,9 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         bccomp = BCVars::yvel_bc;
         mapper = &face_linear_interp;
     }
-    else if (mf_box.ixType() == IndexType(IntVect(0,0,1)))
-    {
+    else {
         bccomp = BCVars::zvel_bc;
         mapper = &face_linear_interp;
-    }
-    else
-    {
-        amrex::Abort("Dont recognize this box type in REMORA_FillPatch");
     }
 
     if (lev == 0)
