@@ -10,7 +10,7 @@ Numerical Solution Technique
 
 Horizontal Discretization
 -------------------------
-In the horizontal, the ROMSX governing equations are discretized over a boundary-fitted, orthogonal curvilinear coordinates :math:`\left(\xi,\eta\right)` grid. The general formulation of the curvilinear coordinates system allows Cartesian, polar, and spherical coordinates applications. The transformation of any of these coordinates to ROMSX :math:`\left(\xi,\eta\right)` grid is specified in the metric terms (``pm``, ``pn``).
+In the horizontal, the REMORA governing equations are discretized over a boundary-fitted, orthogonal curvilinear coordinates :math:`\left(\xi,\eta\right)` grid. The general formulation of the curvilinear coordinates system allows Cartesian, polar, and spherical coordinates applications. The transformation of any of these coordinates to REMORA :math:`\left(\xi,\eta\right)` grid is specified in the metric terms (``pm``, ``pn``).
 
 The model state variables are staggered using an ``Arakawa C-grid``. As illustrated below, the free-surface (``zeta``), density (``rho``), and active/passive tracers (``t``) are located at the center of the cell whereas the horizontal velocity (``u`` and ``v``) are located at the west/east and south/north edges of the cell, respectively. That is, the density is evaluated between points where the currents are evaluated.
 
@@ -19,7 +19,7 @@ Staggered Horizontal Grid
 .. image:: figures/staggered_grid_rho_cells.png
    :width: 100%
 
-In ROMSX all the state arrays are dimensioned the same size to facilitate parallelization. However, the computational ranges for all the state variables are:
+In REMORA all the state arrays are dimensioned the same size to facilitate parallelization. However, the computational ranges for all the state variables are:
 
 Grid Cell
 ~~~~~~~~~
@@ -42,7 +42,7 @@ Grid Cell
 
 Vertical Discretization
 -----------------------
-The ROMSX governing equations are discretized over variable topography using a stretched, terrain-following, vertical coordinate. As a result, each grid cell may have different level thickness (``Hz``) and volume. The model state variables are vertically staggered so that horizontal momentum (``u``, ``v``), (``rho``), and active/passive tracers (``t``) are located at the center of the grid cell. The vertical velocity (``omega``, ``w``) and vertical mixing variables (``Akt``, ``Akv``, etc) are located at the bottom and top faces of the cell. See diagram below.
+The REMORA governing equations are discretized over variable topography using a stretched, terrain-following, vertical coordinate. As a result, each grid cell may have different level thickness (``Hz``) and volume. The model state variables are vertically staggered so that horizontal momentum (``u``, ``v``), (``rho``), and active/passive tracers (``t``) are located at the center of the grid cell. The vertical velocity (``omega``, ``w``) and vertical mixing variables (``Akt``, ``Akv``, etc) are located at the bottom and top faces of the cell. See diagram below.
 
 Vieste-Dubrovnik Transect
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -53,7 +53,8 @@ Staggered Vertical Grid
 ~~~~~~~~~~~~~~~~~~~~~~~
 .. image:: figures/vertical_grid.png
    :width: 60%
-In this diagram, indices are 1-indexed (as in ROMS), while the indices in ROMS-X are 0-indexed.
+
+In this diagram, indices are 1-indexed (as in ROMS), while the indices in REMORA are 0-indexed.
 
 The total thickness of the water column is :math:`\zeta\left(i,j\right)+h\left(i,j\right)`. The bathymetry (``h``) is usually time invariant whereas the free-surface (``zeta``) evolves in time. At input and output, the bathymetry is always a positive quantity. However, the depths ``z_r(i,j,k)`` and ``z_w(i,j,k)`` are negative for all locations below the mean sea level.
 
@@ -86,7 +87,7 @@ Grid Variables
 +-------------------------------------------------+-----------------------------+------------------------------------------------------------------+-------------------+-------------------+
 | :math:`\psi`                                    |                             |                                                                  | corners           |                   |
 +-------------------------------------------------+-----------------------------+------------------------------------------------------------------+-------------------+-------------------+
-| :math:`H_z`                                     | ``vec_Hz`                   | level thickness                                                  | center            |                   |
+| :math:`H_z`                                     | ``vec_Hz``                  | level thickness                                                  | center            |                   |
 +-------------------------------------------------+-----------------------------+------------------------------------------------------------------+-------------------+-------------------+
 | :math:`\omega`                                  |                             | vertical velocity                                                | bottom/top faces  |                   |
 +-------------------------------------------------+-----------------------------+------------------------------------------------------------------+-------------------+-------------------+
@@ -183,7 +184,7 @@ The timestep in eq. (4) is assumed to be from time :math:`n` to time :math:`n+1`
 
 If this equation holds true for the step from time :math:`n` to time :math:`n+1`, then constancy preservation will hold.
 
-In a hydrostatic model such as ROMSX, the discrete continuity equation is needed to compute vertical velocity rather than grid-box volume :math:`\dfrac{H_z}{mn}` (the latter is controlled by changes in :math:`\zeta` in the barotropic mode computations). Here, :math:`\dfrac{H_z\Omega}{mn}` is the finite-volume flux across the `moving` grid-box interface, vertically on the :math:`w` grid.
+In a hydrostatic model such as REMORA, the discrete continuity equation is needed to compute vertical velocity rather than grid-box volume :math:`\dfrac{H_z}{mn}` (the latter is controlled by changes in :math:`\zeta` in the barotropic mode computations). Here, :math:`\dfrac{H_z\Omega}{mn}` is the finite-volume flux across the `moving` grid-box interface, vertically on the :math:`w` grid.
 
 The vertical integral of the continuity equation (5), using the vertical boundary conditions on :math:`\Omega`, is:
 
@@ -351,7 +352,7 @@ The fluxes now become:
 
 Third-order Upwind
 ~~~~~~~~~~~~~~~~~~
-There is a class of third-order upwind advection schemes, both one-dimensional (``Leanord, 1979``) and two-dimensional (``Rasch, 1994`` and ``Shchepetkin and McWilliams, 1998``). This scheme is known as UTOPIA (Uniformly Third-Order Polynomial Interpolation Algorithm). Applying flux limiters to UTOPIA is explored in ``Thuburn (1995)``, although it is not implemented in ROMSX.  The two-dimensional formulation in Rasch contains terms of order :math:`u^2C` and :math:`u^3C`, including cross terms (:math:`uvC`). The terms which are nonlinear in velocity have been dropped in ROMSX, leaving one extra upwind term in the computation of the advective fluxes:
+There is a class of third-order upwind advection schemes, both one-dimensional (``Leanord, 1979``) and two-dimensional (``Rasch, 1994`` and ``Shchepetkin and McWilliams, 1998``). This scheme is known as UTOPIA (Uniformly Third-Order Polynomial Interpolation Algorithm). Applying flux limiters to UTOPIA is explored in ``Thuburn (1995)``, although it is not implemented in REMORA.  The two-dimensional formulation in Rasch contains terms of order :math:`u^2C` and :math:`u^3C`, including cross terms (:math:`uvC`). The terms which are nonlinear in velocity have been dropped in REMORA, leaving one extra upwind term in the computation of the advective fluxes:
 
 .. math::
    F^{\xi}&=\frac{H_zu}{n}\left(C-\gamma\frac{\partial^2C}{\partial\xi^2}\right)\\
@@ -406,6 +407,6 @@ The integral is actually computed as a sum from the bottom upwards and also as a
 
 Equation of State
 -----------------
-The density is obtained from temperature and salinity via an equation of state. ROMSX provides a choice of a nonlinear equation of state :math:`\rho=\rho\left(T,S,z\right)` or a linear equation of state :math:`\rho=\rho\left(T\right)`. The nonlinear equation of state has been modified and now corresponds to the UNESCO equation of state as derived by ``Jackett and McDougall (1995)``. It computes `in situ` density as a function of potential temperature, salinity and pressure.
+The density is obtained from temperature and salinity via an equation of state. REMORA provides a choice of a nonlinear equation of state :math:`\rho=\rho\left(T,S,z\right)` or a linear equation of state :math:`\rho=\rho\left(T\right)`. The nonlinear equation of state has been modified and now corresponds to the UNESCO equation of state as derived by ``Jackett and McDougall (1995)``. It computes `in situ` density as a function of potential temperature, salinity and pressure.
 
 Warning: although we have used it quite extensively in the past, McDougall (personal communication) claims that the single-variable :math:`\left(\rho=\rho\left(T\right)\right)` equation of state is not dynamically appropriate as is. He has worked out the extra source and sink terms required, arising from vertical motions and the compressibility of water. They are quite complicated and we have not implemented them to see if they alter the flow.

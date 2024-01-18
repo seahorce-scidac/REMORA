@@ -1,13 +1,6 @@
-name: ROMSX CI
+name: REMORA CI
 
 on:
-  push:
-    # branches: [development]
-    paths-ignore:
-      - Docs
-      - README.rst
-      - license.txt
-
   pull_request:
     branches: [development]
 
@@ -49,33 +42,33 @@ jobs:
     - name: Configure CMake
       run: |
         cmake \
-          -B${{runner.workspace}}/ROMSX/build-${{matrix.os}} \
-          -DCMAKE_INSTALL_PREFIX:PATH=${{runner.workspace}}/ROMSX/install \
+          -B${{runner.workspace}}/REMORA/build-${{matrix.os}} \
+          -DCMAKE_INSTALL_PREFIX:PATH=${{runner.workspace}}/REMORA/install \
           -DCMAKE_BUILD_TYPE:STRING=Debug \
-          -DROMSX_DIM:STRING=3 \
-          -DROMSX_ENABLE_MPI:BOOL=ON \
-          -DROMSX_ENABLE_TESTS:BOOL=ON \
-          -DROMSX_ENABLE_ALL_WARNINGS:BOOL=ON \
-          -DROMSX_ENABLE_FCOMPARE:BOOL=ON \
+          -DREMORA_DIM:STRING=3 \
+          -DREMORA_ENABLE_MPI:BOOL=ON \
+          -DREMORA_ENABLE_TESTS:BOOL=ON \
+          -DREMORA_ENABLE_ALL_WARNINGS:BOOL=ON \
+          -DREMORA_ENABLE_FCOMPARE:BOOL=ON \
           ${{github.workspace}};
         # ${{matrix.mpipreflags}} \
         # -DCODECOVERAGE:BOOL=ON \
 
     - name: Build
       run: |
-        cmake --build ${{runner.workspace}}/ROMSX/build-${{matrix.os}} --parallel ${{env.NPROCS}};
+        cmake --build ${{runner.workspace}}/REMORA/build-${{matrix.os}} --parallel ${{env.NPROCS}};
 
     - name: Regression Tests
       run: |
         ctest -L regression -VV
-      working-directory: ${{runner.workspace}}/ROMSX/build-${{matrix.os}}
+      working-directory: ${{runner.workspace}}/REMORA/build-${{matrix.os}}
 
     # Raf: disabled Codecov since the dashboard and GitHub comments were buggy,
     # but it may be useful to post the gcov coverage reports to GitHub Actions
     # artifacts.
     # Note: if reenabling Codecov, the reports must be in xml format not html.
     # - name: Generate coverage report
-    #   working-directory: ${{runner.workspace}}/ROMSX/build-${{matrix.os}}
+    #   working-directory: ${{runner.workspace}}/REMORA/build-${{matrix.os}}
     #   run: |
     #     find . -type f -name '*.gcno' -path "**Source**" -exec gcov -pb {} +
     #     cd ..
@@ -86,11 +79,11 @@ jobs:
     #   with:
     #     name: build-and-test
     #     path: |
-    #       ${{runner.workspace}}/ROMSX/regressioncov.html
+    #       ${{runner.workspace}}/REMORA/regressioncov.html
     # - name: Failing test artifacts
     #   uses: actions/upload-artifact@v3
     #   if: failure()
     #   with:
     #     name: build-and-test
     #     path: |
-    #       ${{runner.workspace}}/ROMSX/regressioncov.html
+    #       ${{runner.workspace}}/REMORA/regressioncov.html

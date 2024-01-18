@@ -3,9 +3,9 @@
 
 .. _sec:Plotfiles:
 
-******
+*********
 Plotfiles
-******
+*********
 .. toctree::
    :maxdepth: 1
 
@@ -24,54 +24,65 @@ frequency and content of the two streams are controlled separately.
 List of Parameters
 ------------------
 
-+-----------------------------+------------------+-----------------------+------------+
-| Parameter                   | Definition       | Acceptable            | Default    |
-|                             |                  | Values                |            |
-+=============================+==================+=======================+============+
-| **romsx.plotfile_type**     | AMReX or NETCDF  | "amrex" or            | "amrex"    |
-|                             |                  | "netcdf / "NetCDF"    |            |
-+-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_file_1**       | prefix for       | String                | “*plt_1_*” |
-|                             | plotfiles        |                       |            |
-|                             | at first freq.   |                       |            |
-+-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_file_2**       | prefix for       | String                | “*plt_2_*” |
-|                             | plotfiles        |                       |            |
-|                             | at seoncd freq.  |                       |            |
-+-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_int_1**        | how often (by    | Integer               | -1         |
-|                             | level-0 time     | :math:`> 0`           |            |
-|                             | steps) to write  |                       |            |
-|                             | plot files       |                       |            |
-|                             | at first freq.   |                       |            |
-+-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_int_2**        | how often (by    | Integer               | -1         |
-|                             | level-0 time     | :math:`> 0`           |            |
-|                             | steps) to write  |                       |            |
-|                             | plot files       |                       |            |
-|                             | at seoncd freq.  |                       |            |
-+-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_vars_1**       | name of          | list of names         | None       |
-|                             | variables to     |                       |            |
-|                             | include in       |                       |            |
-|                             | plotfiles        |                       |            |
-|                             | at first freq.   |                       |            |
-+-----------------------------+------------------+-----------------------+------------+
-| **romsx.plot_vars_2**       | name of          | list of names         | None       |
-|                             | variables to     |                       |            |
-|                             | include in       |                       |            |
-|                             | plotfiles        |                       |            |
-|                             | at seoncd freq.  |                       |            |
-+-----------------------------+------------------+-----------------------+------------+
++--------------------------------+------------------+-----------------------+------------+
+| Parameter                      | Definition       | Acceptable            | Default    |
+|                                |                  | Values                |            |
++================================+==================+=======================+============+
+| **remora.plotfile_type**       | AMReX or NETCDF  | "amrex" or            | "amrex"    |
+|                                |                  | "netcdf / "NetCDF"    |            |
++--------------------------------+------------------+-----------------------+------------+
+| **remora.write_history_file**  | do we write      | false or true         | false      |
+|                                | netcdf files at  |                       |            |
+|                                | each timestep    |                       |            |
+|                                | or one file for  |                       |            |
+|                                | all timesteps?   |                       |            |
++--------------------------------+------------------+-----------------------+------------+
+| **remora.plot_file_1**         | prefix for       | String                | “*plt_1_*” |
+|                                | plotfiles        |                       |            |
+|                                | at first freq.   |                       |            |
++--------------------------------+------------------+-----------------------+------------+
+| **remora.plot_file_2**         | prefix for       | String                | “*plt_2_*” |
+|                                | plotfiles        |                       |            |
+|                                | at seoncd freq.  |                       |            |
++--------------------------------+------------------+-----------------------+------------+
+| **remora.plot_int_1**          | how often (by    | Integer               | -1         |
+|                                | level-0 time     | :math:`> 0`           |            |
+|                                | steps) to write  |                       |            |
+|                                | plot files       |                       |            |
+|                                | at first freq.   |                       |            |
++--------------------------------+------------------+-----------------------+------------+
+| **remora.plot_int_2**          | how often (by    | Integer               | -1         |
+|                                | level-0 time     | :math:`> 0`           |            |
+|                                | steps) to write  |                       |            |
+|                                | plot files       |                       |            |
+|                                | at seoncd freq.  |                       |            |
++--------------------------------+------------------+-----------------------+------------+
+| **remora.plot_vars_1**         | name of          | list of names         | None       |
+|                                | variables to     |                       |            |
+|                                | include in       |                       |            |
+|                                | plotfiles        |                       |            |
+|                                | at first freq.   |                       |            |
++--------------------------------+------------------+-----------------------+------------+
+| **remora.plot_vars_2**         | name of          | list of names         | None       |
+|                                | variables to     |                       |            |
+|                                | include in       |                       |            |
+|                                | plotfiles        |                       |            |
+|                                | at seoncd freq.  |                       |            |
++--------------------------------+------------------+-----------------------+------------+
 
 .. _notes-5:
 
 Notes
 -----
 
--  The NeTCDF option is only available if ROMSX has been built with USE_NETCDF enabled.
+-  The NeTCDF option is only available if REMORA has been built with USE_NETCDF enabled.
 
--  Velocity components are defined on faces within the ROMS-X code, but are averaged onto
+-  The write_history_file option is only available if **plotfile_type = netcdf**
+
+-  If  **plotfile_type = netcdf** and **write_history_file = false**, the frequency
+   will be determined by **plot_int_1**
+
+-  Velocity components are defined on faces within the REMORA code, but are averaged onto
    cell centers when written in amrex/native plotfiles.
 
 -  File prefixes can include directories.
@@ -81,11 +92,11 @@ Notes
 Examples of Usage
 -----------------
 
--  **romsx.plotfile_type** = *amrex*
+-  **remora.plotfile_type** = *amrex*
 
--  **romsx.plot_file_1** = *out/plt_run*
+-  **remora.plot_file_1** = *out/plt_run*
 
--  **romsx.plot_int_1** = 10
+-  **remora.plot_int_1** = 10
 
    means that native plot files (actually directories) starting with the prefix
    “*plt_run*” will be generated every 10 level-0 time steps in the directory

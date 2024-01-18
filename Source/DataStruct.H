@@ -8,7 +8,7 @@
 #include <AMReX_Print.H>
 #include <AMReX_Gpu.H>
 
-#include <ROMSX_Constants.H>
+#include <REMORA_Constants.H>
 
 enum struct CouplingType {
     OneWay, TwoWay
@@ -28,6 +28,14 @@ enum class AdvectionScheme {
 
 enum class IC_BC_Type {
     Custom, Real
+};
+
+enum class Cor_Type {
+    Custom, Beta_Plane, Real
+};
+
+enum class PlotfileType {
+    amrex, netcdf, hdf5
 };
 
 struct SolverChoice {
@@ -110,6 +118,24 @@ struct SolverChoice {
         } else {
             amrex::Abort("Dont know this coupling_type");
         }
+
+        // Which type of coriolis forcing
+        if (use_coriolis) {
+            static std::string coriolis_type_string = "beta_plane";
+            pp.query("coriolis_type",coriolis_type_string);
+            if ( (coriolis_type_string == "Custom") || (coriolis_type_string == "custom") ) {
+                coriolis_type = Cor_Type::Custom;
+            } else if ((coriolis_type_string == "Beta_Plane") ||
+                       (coriolis_type_string == "beta_Plane") ||
+                       (coriolis_type_string == "beta_plane") ||
+                       (coriolis_type_string == "Beta_plane")) {
+                coriolis_type = Cor_Type::Beta_Plane;
+            } else if ( (coriolis_type_string == "Real") || (coriolis_type_string == "real") ) {
+                coriolis_type = Cor_Type::Real;
+            } else {
+                amrex::Abort("Don't know this coriolis_type");
+            }
+        }
     }
 
     void display()
@@ -145,10 +171,20 @@ struct SolverChoice {
         } else if (coupling_type == CouplingType::OneWay) {
             amrex::Print() << "Using one-way coupling " << std::endl;
         }
+
+        if (use_coriolis) {
+            if (coriolis_type == Cor_Type::Custom) {
+                amrex::Print() << "Using custom coriolis forcing " << std::endl;
+            } else if (coriolis_type == Cor_Type::Beta_Plane) {
+                amrex::Print() << "Using beta plane coriolis forcing " << std::endl;
+            } else if (coriolis_type == Cor_Type::Real) {
+                amrex::Print() << "Using coriolis forcing loaded from file " << std::endl;
+            }
+        }
     }
 
     // Default prefix
-    std::string pp_prefix {"romsx"};
+    std::string pp_prefix {"remora"};
 
     bool        flat_bathymetry        = true;
 
@@ -170,6 +206,9 @@ struct SolverChoice {
 
     // IC and BC Type: "Custom" or "Real"
     IC_BC_Type ic_bc_type;
+
+    // Coriolis forcing type
+    Cor_Type coriolis_type;
 
     // Stretching and depth parameters which may need to be read from inputs
     amrex::Real theta_s = amrex::Real(3.0);

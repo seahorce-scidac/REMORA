@@ -5,9 +5,9 @@
 
 using namespace amrex;
 
-#ifdef ROMSX_USE_NETCDF
+#ifdef REMORA_USE_NETCDF
 
-namespace ROMSXBdyTypes {
+namespace REMORABdyTypes {
     enum {
         x_lo,
         x_hi,
@@ -66,19 +66,25 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
     if (ParallelDescriptor::IOProcessor())
     {
+        // Check units of time stamps. Should be days.
+        std::string unit_str;
+        unit_str = ReadNetCDFVarAttrStr(nc_bdry_file, "ocean_time", "units");
+        if (unit_str.find("days") == std::string::npos) {
+            amrex::Print() << "Units of ocean_time given as: " << unit_str << std::endl;
+            amrex::Abort("Units must be in days.");
+        }
         // Read the time stamps
         using RARRAY = NDArray<float>;
         amrex::Vector<RARRAY> array_ts(1);
         ReadNetCDFFile(nc_bdry_file, {"ocean_time"}, array_ts);
 
         ntimes = array_ts[0].get_vshape()[0];
-        auto dateStrLen = array_ts[0].get_vshape()[1];
-        char timeStamps[ntimes][dateStrLen];
 
         // amrex::Print() << " NTIMES " << ntimes << std::endl;
         for (int nt(0); nt < ntimes; nt++)
         {
-            ocean_times[nt] = *(array_ts[0].get_data() + nt);
+            // Convert ocean time from days to seconds
+            ocean_times[nt] = (*(array_ts[0].get_data() + nt)) * 60._rt * 60._rt * 24._rt;
             // amrex::Print() << "TIMES " << ocean_times[nt] << std::endl;
         }
 
@@ -148,7 +154,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     // This loops over every variable on every face, so nvars should be 4 * number of "ivartype" below
     for (int iv = 0; iv < nvars; iv++)
     {
-        amrex::Print() << "Building FAB for the NetCDF variable : " << nc_var_names[iv] << std::endl;
+        // amrex::Print() << "Building FAB for the NetCDF variable : " << nc_var_names[iv] << std::endl;
 
         int bdyVarType;
 
@@ -179,20 +185,20 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
         int bdyType;
 
         if        (last4 == "west") {
-            bdyType = ROMSXBdyTypes::x_lo;
+            bdyType = REMORABdyTypes::x_lo;
         } else if (last4 == "east") {
-            bdyType = ROMSXBdyTypes::x_hi;
+            bdyType = REMORABdyTypes::x_hi;
         } else if (last5 == "south") {
-            bdyType = ROMSXBdyTypes::y_lo;
+            bdyType = REMORABdyTypes::y_lo;
         } else if (last5 == "north") {
-            bdyType = ROMSXBdyTypes::y_hi;
+            bdyType = REMORABdyTypes::y_hi;
         }
 
         plo[0] = lo[0]; plo[1] = lo[1]; plo[2] = lo[2];
         phi[0] = hi[0]; phi[1] = hi[1]; phi[2] = hi[2];
         const Box pbx(plo, phi);
 
-        if (bdyType == ROMSXBdyTypes::x_lo) {
+        if (bdyType == REMORABdyTypes::x_lo) {
 
                 // *******************************************************************************
                 // xlo bdy
@@ -239,7 +245,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                     }
                 }
 
-            } else if (bdyType == ROMSXBdyTypes::x_hi) {
+            } else if (bdyType == REMORABdyTypes::x_hi) {
 
                 // *******************************************************************************
                 // xhi bdy
@@ -287,7 +293,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                     }
                 }
 
-            } else if (bdyType == ROMSXBdyTypes::y_lo) {
+            } else if (bdyType == REMORABdyTypes::y_lo) {
 
                 // *******************************************************************************
                 // ylo bdy
@@ -335,7 +341,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                     }
                 }
 
-            } else if (bdyType == ROMSXBdyTypes::y_hi) {
+            } else if (bdyType == REMORABdyTypes::y_hi) {
 
                 // *******************************************************************************
                 // yhi bdy
@@ -399,18 +405,18 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
             Array4<Real> fab_arr;
             Box my_box;
 
-            if (bdyType == ROMSXBdyTypes::x_lo) {
+            if (bdyType == REMORABdyTypes::x_lo) {
                 my_box = bdy_data_xlo[0][bdyVarType].box();
-            } else if (bdyType == ROMSXBdyTypes::x_hi) {
+            } else if (bdyType == REMORABdyTypes::x_hi) {
                 my_box = bdy_data_xhi[0][bdyVarType].box();
-            } else if (bdyType == ROMSXBdyTypes::y_lo) {
+            } else if (bdyType == REMORABdyTypes::y_lo) {
                 my_box = bdy_data_ylo[0][bdyVarType].box();
-            } else if (bdyType == ROMSXBdyTypes::y_hi) {
+            } else if (bdyType == REMORABdyTypes::y_hi) {
                 my_box = bdy_data_yhi[0][bdyVarType].box();
             }
 
             {
-                if ( (bdyType == ROMSXBdyTypes::x_lo) || (bdyType == ROMSXBdyTypes::x_hi) ) {
+                if ( (bdyType == REMORABdyTypes::x_lo) || (bdyType == REMORABdyTypes::x_hi) ) {
 
                     if (my_box.length()[2] == 1) {
                         nz = 1;
@@ -428,9 +434,9 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
                     for (int nt(0); nt < ntimes; ++nt)
                     {
-                        if (bdyType == ROMSXBdyTypes::x_lo) {
+                        if (bdyType == REMORABdyTypes::x_lo) {
                             fab_arr  = bdy_data_xlo[nt][bdyVarType].array();
-                        } else if (bdyType == ROMSXBdyTypes::x_hi) {
+                        } else if (bdyType == REMORABdyTypes::x_hi) {
                             fab_arr  = bdy_data_xhi[nt][bdyVarType].array();
                         }
                         int n_off = nt * n_plane;
@@ -442,7 +448,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                         }
                     }
 
-                } else if ( (bdyType == ROMSXBdyTypes::y_lo) || (bdyType == ROMSXBdyTypes::y_hi) ) {
+                } else if ( (bdyType == REMORABdyTypes::y_lo) || (bdyType == REMORABdyTypes::y_hi) ) {
 
                     if (my_box.length()[2] == 1) {
                         nz = 1;
@@ -460,9 +466,9 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
                     for (int nt(0); nt < ntimes; ++nt)
                     {
-                        if (bdyType == ROMSXBdyTypes::y_lo) {
+                        if (bdyType == REMORABdyTypes::y_lo) {
                             fab_arr  = bdy_data_ylo[nt][bdyVarType].array();
-                        } else if (bdyType == ROMSXBdyTypes::y_hi) {
+                        } else if (bdyType == REMORABdyTypes::y_hi) {
                             fab_arr  = bdy_data_yhi[nt][bdyVarType].array();
                         }
                         int n_off = nt * n_plane;

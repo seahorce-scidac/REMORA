@@ -13,7 +13,7 @@ These equations are as given in the `ROMS documentation`_
 
 .. _`ROMS documentation`: https://www.myroms.org/wiki/Vertical_S-coordinate
 
-ROMSX has a generalized vertical, terrain-following, coordinate system.  Currently, the vertical transformation equation :math:`z=z \left( x,y, \sigma ,t \right)`, (``Vtransform=2`` from ROMS) is available which can support vertical stretching 1D-functions when several constraints are satisfied.
+REMORA has a generalized vertical, terrain-following, coordinate system.  Currently, the vertical transformation equation :math:`z=z \left( x,y, \sigma ,t \right)`, (``Vtransform=2`` from ROMS) is available which can support vertical stretching 1D-functions when several constraints are satisfied.
 
 Transformation Equation
 -----------------------
@@ -29,7 +29,7 @@ We find it convenient to define:
 .. math::
    H_z \equiv \frac{\partial z}{\partial \sigma }
 
-where :math:`H_z = H_z \left( x,y,\sigma ,t\right)` are the vertical grid thicknesses. In ROMSX, :math:`H_z` is computed discretely as :math:`\Delta z/\Delta \sigma` since this leads to the vertical sum of :math:`H_z` being exactly the total water column thickness :math:`D`.
+where :math:`H_z = H_z \left( x,y,\sigma ,t\right)` are the vertical grid thicknesses. In REMORA, :math:`H_z` is computed discretely as :math:`\Delta z/\Delta \sigma` since this leads to the vertical sum of :math:`H_z` being exactly the total water column thickness :math:`D`.
 
 Notice that,
 

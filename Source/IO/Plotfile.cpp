@@ -1,12 +1,12 @@
 #include <EOS.H>
-#include <ROMSX.H>
+#include <REMORA.H>
 #include "AMReX_Interp_3D_C.H"
 #include "AMReX_PlotFileUtil.H"
 
 using namespace amrex;
 
 void
-ROMSX::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::string>& plot_var_names)
+REMORA::setPlotVariables (const std::string& pp_plot_var_names)
 {
     ParmParse pp(pp_prefix);
 
@@ -63,11 +63,11 @@ ROMSX::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::strin
 
     for (int i = 0; i < derived_names.size(); ++i) {
         if ( containerHasElement(plot_var_names, derived_names[i]) ) {
-#ifdef ROMSX_USE_PARTICLES
+#ifdef REMORA_USE_PARTICLES
             if (particleData.use_tracer_particles || (derived_names[i] != "tracer_particle_count")) {
 #endif
                tmp_plot_names.push_back(derived_names[i]);
-#ifdef ROMSX_USE_PARTICLES
+#ifdef REMORA_USE_PARTICLES
             }
 #endif
         } // if
@@ -82,23 +82,13 @@ ROMSX::setPlotVariables (const std::string& pp_plot_var_names, Vector<std::strin
     plot_var_names = tmp_plot_names;
 }
 
-// set plotfile variable names
-Vector<std::string>
-ROMSX::PlotFileVarNames ( Vector<std::string> plot_var_names ) const
-{
-    Vector<std::string> names;
-
-    names.insert(names.end(), plot_var_names.begin(), plot_var_names.end());
-
-    return names;
-
-}
-
 // Write plotfile to disk
 void
-ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
+REMORA::WritePlotFile ()
 {
-    const Vector<std::string> varnames = PlotFileVarNames(plot_var_names);
+    Vector<std::string> varnames;
+    varnames.insert(varnames.end(), plot_var_names.begin(), plot_var_names.end());
+
     const int ncomp_mf = varnames.size();
     const auto ngrow_vars = IntVect(NGROW-1,NGROW-1,0);
 
@@ -142,7 +132,9 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
         if (containerHasElement(plot_var_names, "x_velocity") ||
             containerHasElement(plot_var_names, "y_velocity") ||
             containerHasElement(plot_var_names, "z_velocity")) {
-            amrex::Print()<<"We now average the face-based velocity components onto cell centers for plotting "<<std::endl;
+            if (plotfile_type == PlotfileType::amrex) {
+                Print()<<"We now average the face-based velocity components onto cell centers for plotting "<<std::endl;
+            }
             average_face_to_cellcenter(mf[lev],mf_comp,
                                        Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]});
             mf_comp += AMREX_SPACEDIM;
@@ -175,7 +167,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
             mf_comp += AMREX_SPACEDIM;
         } // if containerHasElement
 
-#ifdef ROMSX_USE_PARTICLES
+#ifdef REMORA_USE_PARTICLES
         if (containerHasElement(plot_var_names, "tracer_particle_count"))
         {
             MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
@@ -200,15 +192,11 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
 
     } // lev
 
-    std::string plotfilename;
-    if (which == 1)
-       plotfilename = Concatenate(plot_file_1, istep[0], 5);
-    else if (which == 2)
-       plotfilename = Concatenate(plot_file_2, istep[0], 5);
+    std::string plotfilename = Concatenate(plot_file_name, istep[0], 5);
 
     if (finest_level == 0)
     {
-        if (plotfile_type == "amrex") {
+        if (plotfile_type == PlotfileType::amrex) {
             amrex::Print() << "Writing plotfile " << plotfilename << "\n";
             WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
                                                   GetVecOfConstPtrs(mf),
@@ -217,28 +205,20 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
                                                   t_new[0], istep);
             writeJobInfo(plotfilename);
 
-#ifdef ROMSX_USE_PARTICLES
+#ifdef REMORA_USE_PARTICLES
             particleData.Checkpoint(plotfilename);
 #endif
 
-#ifdef ROMSX_USE_HDF5
-        } else if (plotfile_type == "hdf5" || plotfile_type == "HDF5") {
+#ifdef REMORA_USE_HDF5
+        } else if (plotfile_type == PlotfileType::hdf5) {
             amrex::Print() << "Writing plotfile " << plotfilename+"d01.h5" << "\n";
             WriteMultiLevelPlotfileHDF5(plotfilename, finest_level+1,
                                         GetVecOfConstPtrs(mf),
                                         varnames,
                                         Geom(), t_new[0], istep, refRatio());
 #endif
-#ifdef ROMSX_USE_NETCDF
-        } else if (plotfile_type == "netcdf" || plotfile_type == "NetCDF") {
-             int lev   = 0;
-             int nc_which = 0;
-             writeNCPlotFile(lev, nc_which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
-             total_plot_file_step_1 += 1;
-#endif
-        } else {
-            amrex::Print() << "User specified plot_filetype = " << plotfile_type << std::endl;
-            amrex::Abort("Dont know this plot_filetype");
+        } else if (!(plotfile_type == PlotfileType::netcdf)) {
+            amrex::Abort("User specified unknown plot_filetype");
         }
 
     } else { // multilevel
@@ -257,7 +237,7 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
                      {Geom()[0].isPeriodic(0),Geom()[0].isPeriodic(1),Geom()[0].isPeriodic(2)};
         g2[0].define(Geom()[0].Domain(),&(Geom()[0].ProbDomain()),0,periodicity.data());
 
-        if (plotfile_type == "amrex") {
+        if (plotfile_type == PlotfileType::amrex) {
             r2[0] = IntVect(1,1,ref_ratio[0][0]);
             for (int lev = 1; lev <= finest_level; ++lev) {
                 if (lev > 1) {
@@ -293,25 +273,15 @@ ROMSX::WritePlotFile (int which, Vector<std::string> plot_var_names)
                                     g2, t_new[0], istep, rr);
             writeJobInfo(plotfilename);
 
-#ifdef ROMSX_USE_PARTICLES
+#ifdef REMORA_USE_PARTICLES
             particleData.Checkpoint(plotfilename);
-#endif
-
-#ifdef ROMSX_USE_NETCDF
-        } else if (plotfile_type == "netcdf" || plotfile_type == "NetCDF") {
-             for (int lev = 0; lev <= finest_level; ++lev) {
-                 for (int nc_which = 0; nc_which < num_boxes_at_level[lev]; nc_which++) {
-                     writeNCPlotFile(lev, nc_which, plotfilename, GetVecOfConstPtrs(mf), varnames, istep, t_new[0]);
-                     total_plot_file_step_1 += 1;
-                 }
-             }
 #endif
         }
     } // end multi-level
 }
 
 void
-ROMSX::WriteMultiLevelPlotfileWithBathymetry (const std::string& plotfilename, int nlevels,
+REMORA::WriteMultiLevelPlotfileWithBathymetry (const std::string& plotfilename, int nlevels,
                                               const Vector<const MultiFab*>& mf,
                                               const Vector<const MultiFab*>& mf_nd,
                                               const Vector<std::string>& varnames,
@@ -396,7 +366,7 @@ ROMSX::WriteMultiLevelPlotfileWithBathymetry (const std::string& plotfilename, i
 }
 
 void
-ROMSX::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
+REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                  int nlevels,
                                                  const Vector<BoxArray> &bArray,
                                                  const Vector<std::string> &varnames,

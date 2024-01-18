@@ -23,11 +23,11 @@ USE_ASSERTION = TRUE
 # Debugging
 DEBUG = TRUE
 
+USE_NETCDF = FALSE
+
 # GNU Make
 Bpack := ./Make.package
 Blocs := .
-ROMSX_HOME := ../..
-ROMSX_PROBLEM_DIR = $(ROMSX_HOME)/Exec/Seamount
-USE_NETCDF = FALSE
-DEFINES += -DROMSX_USE_HISTORYFILE
-include $(ROMSX_HOME)/Exec/Make.ROMSX
+REMORA_HOME := ../..
+REMORA_PROBLEM_DIR = $(REMORA_HOME)/Exec/Seamount
+include $(REMORA_HOME)/Exec/Make.REMORA

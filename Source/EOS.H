@@ -1,7 +1,7 @@
 #ifndef _EOS_H_
 #define _EOS_H_
 
-#include <ROMSX_Constants.H>
+#include <REMORA_Constants.H>
 #include <AMReX.H>
 #include <cmath>
 

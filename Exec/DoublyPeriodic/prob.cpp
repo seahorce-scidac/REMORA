@@ -100,6 +100,14 @@ init_custom_bathymetry (const Geometry& geom,
     } // mfi
 }
 
+/**
+ * \brief Initializes custom coriolis forcing
+ */
+void
+init_custom_coriolis (const Geometry& geom,
+                        MultiFab& mf_fcor,
+                        const SolverChoice& m_solverChoice) {}
+
 void
 init_custom_prob(
         const Box& bx,
@@ -121,7 +129,9 @@ init_custom_prob(
 
     AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
 
-    ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    auto T0 = m_solverChoice.T0;
+    auto S0 = m_solverChoice.S0;
+    ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
         const auto prob_lo         = geomdata.ProbLo();
         const auto prob_hi         = geomdata.ProbHi();
@@ -131,9 +141,9 @@ init_custom_prob(
 
         state(i, j, k, Temp_comp) = 1.;
 
-        state(i,j,k,Temp_comp)=m_solverChoice.T0+8.0*std::exp(z/50.0_rt);
+        state(i,j,k,Temp_comp)=T0+8.0*std::exp(z/50.0_rt);
         if (l_use_salt) {
-            state(i,j,k,Salt_comp)=m_solverChoice.S0;
+            state(i,j,k,Salt_comp)=S0;
         }
 
         // Set scalar = 0 everywhere

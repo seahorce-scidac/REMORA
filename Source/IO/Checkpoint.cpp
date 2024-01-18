@@ -1,18 +1,18 @@
-#include <ROMSX.H>
+#include <REMORA.H>
 #include "AMReX_PlotFileUtil.H"
 
 using namespace amrex;
 
 // utility to skip to next line in Header
 void
-ROMSX::GotoNextLine (std::istream& is)
+REMORA::GotoNextLine (std::istream& is)
 {
     constexpr std::streamsize bl_ignore_max { 100000 };
     is.ignore(bl_ignore_max, '\n');
 }
 
 void
-ROMSX::WriteCheckpointFile () const
+REMORA::WriteCheckpointFile () const
 {
     // chk00010            write a checkpoint file with this root directory
     // chk00010/Header     this contains information you need to save (e.g., finest_level, t_new, etc.) and also
@@ -53,7 +53,7 @@ ROMSX::WriteCheckpointFile () const
        HeaderFile.precision(17);
 
        // write out title line
-       HeaderFile << "Checkpoint file for ROMSX\n";
+       HeaderFile << "Checkpoint file for REMORA\n";
 
        // write out finest_level
        HeaderFile << finest_level << "\n";
@@ -148,6 +148,18 @@ ROMSX::WriteCheckpointFile () const
        MultiFab::Copy(mf_vbar,*(vec_vbar[lev]),0,0,3,NGROW);
        VisMF::Write(mf_vbar, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "YBar"));
 
+       MultiFab mf_mskr(ba2d,dmap[lev],1,NGROW);
+       MultiFab::Copy(mf_mskr,*(vec_mskr[lev]),0,0,3,NGROW);
+       VisMF::Write(mf_mskr, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Mskr"));
+
+       MultiFab mf_msku(ba2d,dmap[lev],1,NGROW);
+       MultiFab::Copy(mf_msku,*(vec_msku[lev]),0,0,3,NGROW);
+       VisMF::Write(mf_msku, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Msku"));
+
+       MultiFab mf_mskv(ba2d,dmap[lev],1,NGROW);
+       MultiFab::Copy(mf_mskv,*(vec_mskv[lev]),0,0,3,NGROW);
+       VisMF::Write(mf_mskv, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Mskv"));
+
        VisMF::Write(*(vec_rufrc[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rufrc"));
        VisMF::Write(*(vec_rvfrc[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rvfrc"));
 
@@ -168,11 +180,11 @@ ROMSX::WriteCheckpointFile () const
        VisMF::Write(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Zt_avg1"));
    }
 
-#ifdef ROMSX_USE_PARTICLES
+#ifdef REMORA_USE_PARTICLES
    particleData.Checkpoint(checkpointname);
 #endif
 
-#ifdef ROMSX_USE_NETCDF
+#ifdef REMORA_USE_NETCDF
    // Write bdy_data files
    if ( ParallelDescriptor::IOProcessor() && (solverChoice.ic_bc_type == IC_BC_Type::Real) )
    {
@@ -211,7 +223,7 @@ ROMSX::WriteCheckpointFile () const
 }
 
 void
-ROMSX::ReadCheckpointFile ()
+REMORA::ReadCheckpointFile ()
 {
     amrex::Print() << "Restart from checkpoint " << restart_chkfile << "\n";
 
@@ -359,6 +371,18 @@ ROMSX::ReadCheckpointFile ()
        VisMF::Read(mf_vbar, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YBar"));
        MultiFab::Copy(*(vec_vbar[lev]),mf_vbar,0,0,3,(vec_vbar[lev])->nGrowVect());
 
+       MultiFab mf_mskr(ba2d,dmap[lev],3,NGROW);
+       VisMF::Read(mf_mskr, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Mskr"));
+       MultiFab::Copy(*(vec_mskr[lev]),mf_mskr,0,0,1,(vec_mskr[lev])->nGrowVect());
+
+       MultiFab mf_msku(ba2d,dmap[lev],3,NGROW);
+       VisMF::Read(mf_msku, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Msku"));
+       MultiFab::Copy(*(vec_msku[lev]),mf_msku,0,0,1,(vec_msku[lev])->nGrowVect());
+
+       MultiFab mf_mskv(ba2d,dmap[lev],3,NGROW);
+       VisMF::Read(mf_mskv, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Mskv"));
+       MultiFab::Copy(*(vec_mskv[lev]),mf_mskv,0,0,1,(vec_mskv[lev])->nGrowVect());
+
        VisMF::Read(*(vec_rufrc[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rufrc"));
        VisMF::Read(*(vec_rvfrc[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rvfrc"));
 
@@ -379,11 +403,11 @@ ROMSX::ReadCheckpointFile ()
        VisMF::Read(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Zt_avg1"));
     }
 
-#ifdef ROMSX_USE_PARTICLES
+#ifdef REMORA_USE_PARTICLES
    particleData.Restart((amrex::ParGDBBase*)GetParGDB(),restart_chkfile);
 #endif
 
-#ifdef ROMSX_USE_NETCDF
+#ifdef REMORA_USE_NETCDF
     // Read bdy_data files
     if ( solverChoice.ic_bc_type == IC_BC_Type::Real)
     {

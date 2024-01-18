@@ -1,8 +1,8 @@
-#include "ROMSX.H"
+#include "REMORA.H"
 
 using namespace amrex;
 
-#ifdef ROMSX_USE_NETCDF
+#ifdef REMORA_USE_NETCDF
 /*
  * Impose boundary conditions using data read in from netcdf boundary files
  *
@@ -11,7 +11,7 @@ using namespace amrex;
  */
 
 void
-ROMSX::fill_from_bdyfiles (MultiFab& mf_to_fill, const Real time, const int bdy_var_type)
+REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const Real time, const int bdy_var_type)
 {
     int lev = 0;
 
@@ -51,6 +51,9 @@ ROMSX::fill_from_bdyfiles (MultiFab& mf_to_fill, const Real time, const int bdy_
     AMREX_ALWAYS_ASSERT(Temp_comp == 0);
     AMREX_ALWAYS_ASSERT(Salt_comp == 1);
 
+    // Make sure we can interpolate in time
+    AMREX_ALWAYS_ASSERT(n_time + 1 < bdy_data_xlo.size());
+
     for (int icomp = 0; icomp < ncomp; icomp++) // This is to do both temp and salt if doing scalars
     {
         // We have data at fixed time intervals we will call dT
@@ -80,7 +83,7 @@ ROMSX::fill_from_bdyfiles (MultiFab& mf_to_fill, const Real time, const int bdy_
             Box ylo = bdy_data_ylo[n_time][ivar].box() & mf_box;
             Box yhi = bdy_data_yhi[n_time][ivar].box() & mf_box;
 
-            const Array4<Real>& dest_arr = mf_to_fill.array(mfi,icomp);
+            const Array4<Real>& dest_arr = mf_to_fill.array(mfi);
 
             if (!xlo.isEmpty()) {
                 ParallelFor(xlo, [=] AMREX_GPU_DEVICE (int i, int j, int k)

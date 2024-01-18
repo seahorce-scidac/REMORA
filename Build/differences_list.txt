@@ -1,11 +1,11 @@
 change max_step=100 to match NTIMES=1440 or vice versa (inputs vs roms_upwelling.in)
-change romsx.plot_int_1=1 to match NHIS=72 or vice versa (inputs vs roms_upwelling.in)
-change romsx.fixed_ndtfast_ratio=1 to match NDTFAST=30 or vice versa (inputs vs roms_upwelling.in) //May be hard-coded into assumptions about surface stress time test conversion
-change prob.tcline=25 to match TCLINE=150 or vice versa (inputs vs roms_upwelling.in) //May be hard-coded into assumptions about setting depth in ROMSX
+change remora.plot_int_1=1 to match NHIS=72 or vice versa (inputs vs roms_upwelling.in)
+change remora.fixed_ndtfast_ratio=1 to match NDTFAST=30 or vice versa (inputs vs roms_upwelling.in) //May be hard-coded into assumptions about surface stress time test conversion
+change prob.tcline=25 to match TCLINE=150 or vice versa (inputs vs roms_upwelling.in) //May be hard-coded into assumptions about setting depth in REMORA
 number of boxes is 1 vs 64 => change max_grid_size to match NtileI and NtileJ or vice versa (inputs vs roms_upwelling.in)
 periodic in both x and y vs in only x => change "geometry.is_periodic = 1 1 0" and uncomment '#ylo.type = "SlipWall"' and '#yhi.type = "SlipWall"' to match 'LBC(isUbar) ==   Per     Clo     Per     Clo         ! 2D U-momentum' and possibly update the problem size in the y direction, or change 'LBC(isUbar) ==   Per     Clo     Per     Clo         ! 2D U-momentum' etc to 'LBC(isUbar) ==   Per     Per     Per     Per         ! 2D U-momentum' to match "geometry.is_periodic = 1 1 0" and uncomment '#ylo.type = "SlipWall"' and '#yhi.type = "SlipWall"' (inputs vs roms_upwelling.in) (inputs vs roms_upwelling.in)
-flat depth => Can change with input flag romsx.flat_bathymetry (inputs)
-time varying free surface => Can change with input flag romsx.evolve_free_surface (inputs)
+flat depth => Can change with input flag remora.flat_bathymetry (inputs)
+time varying free surface => Can change with input flag remora.evolve_free_surface (inputs)
 nonzero initial condition for u and v => can change with input flags prob.u_0=0.0 prob.uRef=0.0 (inputs)
-set_depth location is in init in ROMSX and in main3d in ROMS => could move it to Advance to use Zt_avg1 which changes (should be immaterial since upwelling does not have time-varying depth unless I read the defines wrong (no time-filtered free surface changes?))
+set_depth location is in init in REMORA and in main3d in ROMS => could move it to Advance to use Zt_avg1 which changes (should be immaterial since upwelling does not have time-varying depth unless I read the defines wrong (no time-filtered free surface changes?))
 need pressure gradient terms implemented

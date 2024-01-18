@@ -20,35 +20,35 @@ zlo.type = "SlipWall"
 zhi.type = "SlipWall"
 
 #TIME STEP CONTROL
-romsx.fixed_dt       = 300.0 # Timestep size (seconds)
+remora.fixed_dt       = 300.0 # Timestep size (seconds)
 # NDTFAST  = 30.0 # Number of baratropic steps => 300.0/30.0 = 10.0
-romsx.fixed_fast_dt  = 10.0 # Baratropic timestep size (seconds)
-# romsx.fixed_fast_dt  = 300.0 # Baratropic timestep size (seconds) testing value
+remora.fixed_fast_dt  = 10.0 # Baratropic timestep size (seconds)
+# remora.fixed_fast_dt  = 300.0 # Baratropic timestep size (seconds) testing value
 
-romsx.fixed_ndtfast_ratio  = 30 # Baratropic timestep size (seconds)
+remora.fixed_ndtfast_ratio  = 30 # Baratropic timestep size (seconds)
 
 # DIAGNOSTICS & VERBOSITY
-romsx.sum_interval   = 1       # timesteps between computing mass
-romsx.v              = 1       # verbosity in ROMSX.cpp (0: none, 1: print boxes, etc, 2: print values)
+remora.sum_interval   = 1       # timesteps between computing mass
+remora.v              = 1       # verbosity in REMORA.cpp (0: none, 1: print boxes, etc, 2: print values)
 amr.v                = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
 amr.max_level       = 1       # maximum level number allowed
 
 # CHECKPOINT FILES
-romsx.check_file      = chk        # root name of checkpoint file
-romsx.check_int       = -57600      # number of timesteps between checkpoints
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
 
 # PLOTFILES
-romsx.plot_file_1     = plt        # prefix of plotfile name
-romsx.plot_int_1      = 100          # number of timesteps between plotfiles
-romsx.plot_vars_1     = salt temp x_velocity y_velocity z_velocity
-romsx.plotfile_type   = amrex
+remora.plot_file     = plt        # prefix of plotfile name
+remora.plot_int      = 100          # number of timesteps between plotfiles
+remora.plot_vars     = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
 
 # SOLVER CHOICE
-romsx.use_coriolis = true
-romsx.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
-romsx.spatial_order = 2
+remora.use_coriolis = true
+remora.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+remora.spatial_order = 2
 
 # PROBLEM PARAMETERS (optional)
 prob.R0 = 1027.0
@@ -70,9 +70,9 @@ prob.prob_type = 12
 
 amr.ref_ratio_vect = 2 2 1
 
-romsx.refinement_indicators = box1
-romsx.box1.max_level = 1
-romsx.box1.in_box_lo = 10000. 20000. -150.
-romsx.box1.in_box_hi = 20000. 40000.    0.
+remora.refinement_indicators = box1
+remora.box1.max_level = 1
+remora.box1.in_box_lo = 10000. 20000. -150.
+remora.box1.in_box_hi = 20000. 40000.    0.
 
-romsx.coupling_type  = "OneWay"
+remora.coupling_type  = "OneWay"

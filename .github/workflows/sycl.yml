@@ -1,0 +1,43 @@
+name: REMORA CI (sycl)
+
+on:
+  pull_request:
+    branches: [development]
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.head_ref }}-sycl
+  cancel-in-progress: true
+
+jobs:
+  Build-And-Test-SYCL:
+    name: oneAPI SYCL
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - name: Dependencies
+      run: Submodules/AMReX/.github/workflows/dependencies/dependencies_dpcpp.sh
+
+    - name: Build
+      run: |
+        set +e
+        source /opt/intel/oneapi/setvars.sh
+        set -e
+        mkdir build
+        cd build
+        cmake .. \
+          -DCMAKE_VERBOSE_MAKEFILE=ON                   \
+          -DCMAKE_INSTALL_PREFIX:PATH=${{runner.workspace}}/REMORA/install \
+          -DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo \
+          -DREMORA_DIM:STRING=3 \
+          -DREMORA_ENABLE_MPI:BOOL=ON \
+          -DREMORA_ENABLE_SYCL:BOOL=ON \
+          -DREMORA_ENABLE_TESTS:BOOL=ON \
+          -DREMORA_ENABLE_ALL_WARNINGS:BOOL=ON \
+          -DREMORA_ENABLE_FCOMPARE:BOOL=ON \
+          -DCMAKE_C_COMPILER=$(which icx) \
+          -DCMAKE_CXX_COMPILER=$(which icpx) \
+          -DCMAKE_CXX_STANDARD=17
+        make -j 2;

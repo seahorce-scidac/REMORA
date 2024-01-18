@@ -29,6 +29,10 @@ void init_custom_bathymetry (const amrex::Geometry& geom,
                              amrex::MultiFab& mf_h,
                              SolverChoice const& m_solverChoice);
 
+void init_custom_coriolis (const amrex::Geometry& geom,
+                             amrex::MultiFab& mf_fcor,
+                             SolverChoice const& m_solverChoice);
+
 void init_custom_vmix (const amrex::Geometry& geom,
                        amrex::MultiFab& mf_Akv,
                        amrex::MultiFab& mf_Akt,

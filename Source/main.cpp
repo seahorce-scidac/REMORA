@@ -4,14 +4,14 @@
 #include <AMReX_BLProfiler.H>
 #include <AMReX_ParallelDescriptor.H>
 
-#include <ROMSX.H>
+#include <REMORA.H>
 
 std::string inputs_name = "";
 
 using namespace amrex;
 
 // Set the refine_grid_layout flags to (NGROW-1,NGROW-1,0) by default
-// since the ROMSX default is different from the amrex default (NGROW-1,NGROW-1,NGROW-1)
+// since the REMORA default is different from the amrex default (NGROW-1,NGROW-1,NGROW-1)
 // Also set max_grid_size to very large since the only reason for
 // chopping grids is if Nprocs > Ngrids
 void add_par () {
@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
     if (argc >= 2) {
         for (auto i = 1; i < argc; i++) {
             if (std::string(argv[i]) == "--describe") {
-                ROMSX::writeBuildInfo(std::cout);
+                REMORA::writeBuildInfo(std::cout);
                 return 0;
             }
         }
@@ -68,20 +68,20 @@ int main(int argc, char* argv[])
     {
         // constructor - reads in parameters from inputs file
         //             - sizes multilevel arrays and data structures
-        ROMSX romsx;
+        REMORA remora;
 
         // initialize AMR data
-        romsx.InitData();
+        remora.InitData();
 
         // advance solution to final time
-        romsx.Evolve();
+        remora.Evolve();
 
         // wallclock time
         Real end_total = amrex::second() - strt_total;
 
         // print wallclock time
         ParallelDescriptor::ReduceRealMax(end_total ,ParallelDescriptor::IOProcessorNumber());
-        if (romsx.Verbose()) {
+        if (remora.Verbose()) {
             amrex::Print() << "\nTotal Time: " << end_total << '\n';
         }
     }

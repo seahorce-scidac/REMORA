@@ -5,9 +5,9 @@
 namespace derived {
 
 void
-romsx_dernull(
+remora_dernull(
   const amrex::Box& /*bx*/,
-  amrex::FArrayBox& /*dromsxab*/,
+  amrex::FArrayBox& /*dremoraab*/,
   int /*dcomp*/,
   int /*ncomp*/,
   const amrex::FArrayBox& /*datfab*/,

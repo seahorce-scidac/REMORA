@@ -3,13 +3,13 @@
 
 #include <cmath>
 #include <DataStruct.H>
-#include <ROMSX.H>
+#include <REMORA.H>
 #include <prob_common.H>
 
 using namespace amrex;
 
 void
-ROMSX::stretch_transform (int lev)
+REMORA::stretch_transform (int lev)
 {
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];

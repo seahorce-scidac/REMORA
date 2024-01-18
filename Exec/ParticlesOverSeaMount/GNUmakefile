@@ -17,20 +17,20 @@ USE_CUDA  = FALSE
 USE_HIP   = FALSE
 USE_SYCL  = FALSE
 
-USE_NETCDF    = FALSE
-USE_PARTICLES = TRUE
-
 # Debugging
 DEBUG = FALSE
 
 TEST = TRUE
 USE_ASSERTION = TRUE
 
+USE_NETCDF    = FALSE
+USE_PARTICLES = TRUE
+
 # GNU Make
 Bpack := ./Make.package
 Blocs := .
 
-ROMSX_HOME := ../..
-ROMSX_PROBLEM_DIR = $(ROMSX_HOME)/Exec/ParticlesOverSeaMount
+REMORA_HOME := ../..
+REMORA_PROBLEM_DIR = $(REMORA_HOME)/Exec/ParticlesOverSeaMount
 
-include $(ROMSX_HOME)/Exec/Make.ROMSX
+include $(REMORA_HOME)/Exec/Make.REMORA

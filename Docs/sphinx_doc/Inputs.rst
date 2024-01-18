@@ -9,7 +9,7 @@ Inputs
 .. toctree::
    :maxdepth: 1
 
-The ROMSX executable reads run-time information from an “inputs” file which you put on the command line.
+The REMORA executable reads run-time information from an “inputs” file which you put on the command line.
 This section describes the inputs which can be specified either in the inputs file or on the command line.
 If a value is specified on the command line, that value will override a value specified in the inputs file.
 
@@ -275,7 +275,7 @@ Examples of Usage
 Gridding and Load Balancing
 ---------------------------
 
-The ROMSX gridding and load balancing strategy is based on that in AMReX.
+The REMORA gridding and load balancing strategy is based on that in AMReX.
 See the `Gridding`_ section of the AMReX documentation for details.
 
 .. _`Gridding`: https://amrex-codes.github.io/amrex/docs_html/ManagingGridHierarchy_Chapter.html
@@ -331,64 +331,62 @@ Time Step
 List of Parameters for Single-Rate
 ----------------------------------
 
-+------------------------------+-----------------+----------------+-------------------+
-| Parameter                    | Definition      | Acceptable     | Default           |
-|                              |                 | Values         |                   |
-+==============================+=================+================+===================+
-| **romsx.cfl**                | CFL number for  | Real > 0 and   | 0.8               |
-|                              | hydro           | <= 1           |                   |
-|                              |                 |                |                   |
-|                              |                 |                |                   |
-+------------------------------+-----------------+----------------+-------------------+
-| **romsx.fixed_dt**           | set level 0 dt  | Real > 0       | unused if not     |
-|                              | as this value   |                | set               |
-|                              | regardless of   |                |                   |
-|                              | cfl or other    |                |                   |
-|                              | settings        |                |                   |
-+------------------------------+-----------------+----------------+-------------------+
-| **romsx.use_lowM_dt**        | set level 0 dt  | bool           | false             |
-|                              | based on        |                |                   |
-|                              | low M cfl cond  |                |                   |
-+------------------------------+-----------------+----------------+-------------------+
-| **romsx.fixed_fast_dt**      | set fast dt     | Real > 0       | only relevant     |
-|                              | as this value   |                | if use_native_mri |
-|                              |                 |                | is true           |
-+------------------------------+-----------------+----------------+-------------------+
-| **romsx.fixed_mri_dt_ratio** | set fast dt     | int            | only relevant     |
-|                              | as slow dt /    |                | if use_native_mri |
-|                              | this ratio      |                | is true           |
-+------------------------------+-----------------+----------------+-------------------+
-| **romsx.init_shrink**        | factor by which | Real > 0 and   | 1.0               |
-|                              | to shrink the   | <= 1           |                   |
-|                              | initial dt      |                |                   |
-+------------------------------+-----------------+----------------+-------------------+
-| **romsx.change_max**         | factor by which | Real >= 1      | 1.1               |
-|                              | dt can grow     |                |                   |
-|                              | in subsequent   |                |                   |
-|                              | steps           |                |                   |
-+------------------------------+-----------------+----------------+-------------------+
++-------------------------------+-----------------+----------------+-------------------+
+| Parameter                     | Definition      | Acceptable     | Default           |
+|                               |                 | Values         |                   |
++===============================+=================+================+===================+
+| **remora.cfl**                | CFL number for  | Real > 0 and   | 0.8               |
+|                               | hydro           | <= 1           |                   |
++-------------------------------+-----------------+----------------+-------------------+
+| **remora.fixed_dt**           | set level 0 dt  | Real > 0       | unused if not     |
+|                               | as this value   |                | set               |
+|                               | regardless of   |                |                   |
+|                               | cfl or other    |                |                   |
+|                               | settings        |                |                   |
++-------------------------------+-----------------+----------------+-------------------+
+| **remora.use_lowM_dt**        | set level 0 dt  | bool           | false             |
+|                               | based on        |                |                   |
+|                               | low M cfl cond  |                |                   |
++-------------------------------+-----------------+----------------+-------------------+
+| **remora.fixed_fast_dt**      | set fast dt     | Real > 0       | only relevant     |
+|                               | as this value   |                | if use_native_mri |
+|                               |                 |                | is true           |
++-------------------------------+-----------------+----------------+-------------------+
+| **remora.fixed_mri_dt_ratio** | set fast dt     | int            | only relevant     |
+|                               | as slow dt /    |                | if use_native_mri |
+|                               | this ratio      |                | is true           |
++-------------------------------+-----------------+----------------+-------------------+
+| **remora.init_shrink**        | factor by which | Real > 0 and   | 1.0               |
+|                               | to shrink the   | <= 1           |                   |
+|                               | initial dt      |                |                   |
++-------------------------------+-----------------+----------------+-------------------+
+| **remora.change_max**         | factor by which | Real >= 1      | 1.1               |
+|                               | dt can grow     |                |                   |
+|                               | in subsequent   |                |                   |
+|                               | steps           |                |                   |
++-------------------------------+-----------------+----------------+-------------------+
 
 .. _examples-of-usage-5:
 
 Examples of Usage
 -----------------
 
--  | **romsx.cfl** = 0.9
+-  | **remora.cfl** = 0.9
    | defines the timestep as dt = cfl \* dx / (u+c).  Only relevant if **fixed_dt** not set
 
--  | **romsx.init_shrink** = 0.01
+-  | **remora.init_shrink** = 0.01
    | sets the initial time step to 1% of what it would be otherwise.
 
--  | **romsx.change_max** = 1.1
+-  | **remora.change_max** = 1.1
    | allows the time step to increase by no more than 10% in this case.
      Note that the time step can shrink by any factor; this only
      controls the extent to which it can grow.
 
--  | **romsx.fixed_dt** = 1.e-4
+-  | **remora.fixed_dt** = 1.e-4
    | sets the level-0 time step to be 1.e-4 for the entire simulation,
      ignoring the other timestep controls. Note that if
-     **romsx.init_shrink** :math:`\neq 1` then the first time step will in
-     fact be **romsx.init_shrink** \* **romsx.fixed_dt**.
+     **remora.init_shrink** :math:`\neq 1` then the first time step will in
+     fact be **remora.init_shrink** \* **remora.fixed_dt**.
 
 Restart Capability
 ==================
@@ -417,10 +415,10 @@ List of Parameters
 | **amr.v**                  | verbosity of     | 0 or 1         | 0              |
 |                            | Amr.cpp          |                |                |
 +----------------------------+------------------+----------------+----------------+
-| **romsx.v**                | verbosity of     | 0,1,2          | 0              |
-|                            | ROMSX functions  |                |                |
+| **remora.v**               | verbosity of     | 0,1,2          | 0              |
+|                            | REMORA functions |                |                |
 +----------------------------+------------------+----------------+----------------+
-| **romsx.sum_interval**     | if               |                |                |
+| **remora.sum_interval**    | if               |                |                |
 |                            | :math:`> 0,`     |                |                |
 |                            | how often (in    |                |                |
 |                            | level-0 time     |                |                |
@@ -435,10 +433,10 @@ List of Parameters
 Examples of Usage
 -----------------
 
--  | **romsx.sum_interval** = 2
-   | if **romsx.sum_interval** :math:`> 0` then the code computes and
+-  | **remora.sum_interval** = 2
+   | if **remora.sum_interval** :math:`> 0` then the code computes and
      prints certain integral quantities, such as total mass, momentum
-     and energy in the domain every **romsx.sum_interval** level-0 steps.
+     and energy in the domain every **remora.sum_interval** level-0 steps.
      In this example the code will print these quantities every two
      coarse time steps. The print statements have the form
    | TIME= 1.91717746 MASS= 1.792410279e+34
@@ -457,17 +455,17 @@ List of Parameters
 | Parameter                        | Definition                  | Acceptable        | Default     |
 |                                  |                             | Values            |             |
 +==================================+=============================+===================+=============+
-| **romsx.use_coriolis**           | Include Coriolis terms.     | true / false      | false       |
+| **remora.use_coriolis**          | Include Coriolis terms.     | true / false      | false       |
 +----------------------------------+-----------------------------+-------------------+-------------+
-| **romsx.flat_bathymetry**        | Use flat bathymetry.        | true / false      | true        |
+| **remora.flat_bathymetry**       | Use flat bathymetry.        | true / false      | true        |
 +----------------------------------+-----------------------------+-------------------+-------------+
-| **romsx.use_prestep**            | Do prestep terms. Only for  |  true / false     | true        |
+| **remora.use_prestep**           | Do prestep terms. Only for  |  true / false     | true        |
 |                                  | debugging purposes.         |                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
-| **romsx.use_uv3dmix**            | Include harmonic viscosity. | true / false      | true        |
+| **remora.use_uv3dmix**           | Include harmonic viscosity. | true / false      | true        |
 |                                  | Only for debugging purposes.|                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
-| **romsx.use_barotropic**         | Include 2d barotropic step. | true / false      | true        |
+| **remora.use_barotropic**        | Include 2d barotropic step. | true / false      | true        |
 |                                  | Only for debugging purposes.|                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
 
@@ -479,48 +477,59 @@ Physics Parameters
 List of Parameters
 ------------------
 
-+----------------------------------+------------------------------+-------------------+-------------+
-| Parameter                        | Definition                   | Acceptable        | Default     |
-|                                  |                              | Values            |             |
-+==================================+==============================+===================+=============+
-| **romsx.ggrav**                  | Gravitational field strength | Real number       | 9.81        |
-|                                  | [kg m/s^2]                   |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **romsx.R0**                     | Background density [kg/m^3]  | Real number       | 1028        |
-|                                  | used in Linear Equation of   |                   |             |
-|                                  | State. May be used in setup  |                   |             |
-|                                  | of some problems.            |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **romsx.S0**                     | Background salinity          | Real number       | 35          |
-|                                  | (nondimensional) used in     |                   |             |
-|                                  | Linear Equation of State     |                   |             |
-|                                  | State. May be used in setup  |                   |             |
-|                                  | of some problems.            |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **romsx.T0**                     | Background temperature       | Real number       | 5           |
-|                                  | (Celsius) used in            |                   |             |
-|                                  | Linear Equation of State     |                   |             |
-|                                  | State. May be used in setup  |                   |             |
-|                                  | of some problems.            |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **romsx.Tcoef**                  | Linear EOS parameter         | Real number       | 1.7e-4      |
-|                                  | (1/Celsius)                  |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **romsx.Scoef**                  | Linear EOS parameter         | Real number       | 0.0         |
-|                                  | (nondimensional)             |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **romsx.rho0**                   | Mean density (kg/m^3) used   | Real number       | 1025        |
-|                                  | when Boussinesq approx is    |                   |             |
-|                                  | inferred                     |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **romsx.coriolis_f0**            | f-plane constant for         | Real number       | 0.0         |
-|                                  | Coriolis param               |                   |             |
-|                                  | :math:`f = f_0 + \beta y`    |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
-| **romsx.coriolis_beta**          | beta-plane constant for      | Real number       | 0.0         |
-|                                  | Coriolis param               |                   |             |
-|                                  | :math:`f = f_0 + \beta y`    |                   |             |
-+----------------------------------+------------------------------+-------------------+-------------+
++----------------------------------+--------------------------------------+-------------------+----------------+
+| Parameter                        | Definition                           | Acceptable        | Default        |
+|                                  |                                      | Values            |                |
++==================================+======================================+===================+================+
+| **remora.ggrav**                 | Gravitational field strength         | Real number       | 9.81           |
+|                                  | [kg m/s^2]                           |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.R0**                    | Background density [kg/m^3]          | Real number       | 1028           |
+|                                  | used in Linear Equation of           |                   |                |
+|                                  | State. May be used in setup          |                   |                |
+|                                  | of some problems.                    |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.S0**                    | Background salinity                  | Real number       | 35             |
+|                                  | (nondimensional) used in             |                   |                |
+|                                  | Linear Equation of State             |                   |                |
+|                                  | State. May be used in setup          |                   |                |
+|                                  | of some problems.                    |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.T0**                    | Background temperature               | Real number       | 5              |
+|                                  | (Celsius) used in                    |                   |                |
+|                                  | Linear Equation of State             |                   |                |
+|                                  | State. May be used in setup          |                   |                |
+|                                  | of some problems.                    |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.Tcoef**                 | Linear EOS parameter                 | Real number       | 1.7e-4         |
+|                                  | (1/Celsius)                          |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.Scoef**                 | Linear EOS parameter                 | Real number       | 0.0            |
+|                                  | (nondimensional)                     |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.rho0**                  | Mean density (kg/m^3) used           | Real number       | 1025           |
+|                                  | when Boussinesq approx is            |                   |                |
+|                                  | inferred                             |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.coriolis_type**         | Type of Coriolis forcing.            | ``beta_plane`` /  | ``beta_plane`` |
+|                                  | ``beta_plane`` uses a linear         | ``custom`` /      |                |
+|                                  | approximation. ``custom`` is         | ``real``          |                |
+|                                  | calculated from a function in        |                   |                |
+|                                  | ``prob.cpp``, and ``real`` is        |                   |                |
+|                                  | read from the netcdf grid file       |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.coriolis_f0**           | f-plane constant for                 | Real number       | 0.0            |
+|                                  | Coriolis param                       |                   |                |
+|                                  | :math:`f = f_0 + \beta y`            |                   |                |
+|                                  | when using beta plane                |                   |                |
+|                                  | Coriolis type                        |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.coriolis_beta**         | beta-plane constant for              | Real number       | 0.0            |
+|                                  | Coriolis param                       |                   |                |
+|                                  | :math:`f = f_0 + \beta y`            |                   |                |
+|                                  | when using beta plane                |                   |                |
+|                                  | Coriolis type                        |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
 
 Numerical Algorithms
 ====================
@@ -530,13 +539,13 @@ Numerical Algorithms
 List of Parameters
 ------------------
 
-+---------------------------------------+-----------------------------+-------------------+-------------+
-| Parameter                             | Definition                  | Acceptable        | Default     |
-|                                       |                             | Values            |             |
-+=======================================+=============================+===================+=============+
-| **romsx.horizontal_advection_scheme** | Scheme for horizontal       | upstream3,        | upstream3   |
-|                                       | advection                   | centered4         |             |
-+---------------------------------------+-----------------------------+-------------------+-------------+
++----------------------------------------+-----------------------------+-------------------+-------------+
+| Parameter                              | Definition                  | Acceptable        | Default     |
+|                                        |                             | Values            |             |
++========================================+=============================+===================+=============+
+| **remora.horizontal_advection_scheme** | Scheme for horizontal       | upstream3,        | upstream3   |
+|                                        | advection                   | centered4         |             |
++----------------------------------------+-----------------------------+-------------------+-------------+
 
 Vertical Stretch prameters
 ==========================
@@ -550,15 +559,15 @@ List of Parameters
 | Parameter                             | Definition                  | Acceptable                       | Default     |
 |                                       |                             | Values                           |             |
 +=======================================+=============================+==================================+=============+
-| **romsx.theta_s**                     | Stretching parameter for    | :math:`0 \leq \theta_S \leq 10`  | 3.0         |
+| **remora.theta_s**                    | Stretching parameter for    | :math:`0 \leq \theta_S \leq 10`  | 3.0         |
 |                                       | surface refinement of       |                                  |             |
 |                                       | vertical S-grid             |                                  |             |
 +---------------------------------------+-----------------------------+----------------------------------+-------------+
-| **romsx.theta_b**                     | Stretching parameter for    | :math:`0 \leq \theta_B \leq 4`   | 0.0         |
+| **remora.theta_b**                    | Stretching parameter for    | :math:`0 \leq \theta_B \leq 4`   | 0.0         |
 |                                       | bottom refinement of        |                                  |             |
 |                                       | vertical S-grid             |                                  |             |
 +---------------------------------------+-----------------------------+----------------------------------+-------------+
-| **romsx.tcline**                      | Surface/bottom layer width  | Positive number                  | 150         |
+| **remora.tcline**                     | Surface/bottom layer width  | Positive number                  | 150         |
 |                                       | (m) in vertical S-grid      |                                  |             |
 +---------------------------------------+-----------------------------+----------------------------------+-------------+
 

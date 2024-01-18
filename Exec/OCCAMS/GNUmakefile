@@ -28,7 +28,9 @@ USE_NETCDF = TRUE
 # GNU Make
 Bpack := ./Make.package
 Blocs := .
-ROMSX_HOME := ../..
-ROMSX_PROBLEM_DIR = $(ROMSX_HOME)/Exec/OCCAMS
-DEFINES += -DROMSX_USE_HISTORYFILE
-include $(ROMSX_HOME)/Exec/Make.ROMSX
+
+REMORA_HOME := ../..
+
+REMORA_PROBLEM_DIR = $(REMORA_HOME)/Exec/OCCAMS
+
+include $(REMORA_HOME)/Exec/Make.REMORA

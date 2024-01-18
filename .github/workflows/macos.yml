@@ -1,6 +1,6 @@
 name: MacOS
 
-on: [push, pull_request]
+on: [pull_request]
 
 concurrency:
   group: ${{ github.ref }}-${{ github.head_ref }}-macos
@@ -17,27 +17,27 @@ jobs:
         submodules: true
 
     - name: Install Dependencies
-      run: .github/workflows/dependencies/dependencies_mac.sh
+      run: Submodules/AMReX/.github/workflows/dependencies/dependencies_mac.sh
 
     - name: Configure Project and Generate Build System
       run: |
         cmake \
-          -B${{runner.workspace}}/ROMSX/build \
+          -B${{runner.workspace}}/REMORA/build \
           -DBUILD_SHARED_LIBS:BOOL=TRUE \
           -DCMAKE_CXX_COMPILER_LAUNCHER=$(which ccache) \
           -DCMAKE_BUILD_TYPE:STRING=Debug \
-          -DROMSX_DIM:STRING=3 \
-          -DROMSX_ENABLE_MPI:BOOL=TRUE \
-          -DROMSX_ENABLE_TESTS:BOOL=TRUE \
-          -DROMSX_ENABLE_ALL_WARNINGS:BOOL=TRUE \
-          -DROMSX_ENABLE_FCOMPARE:BOOL=TRUE \
+          -DREMORA_DIM:STRING=3 \
+          -DREMORA_ENABLE_MPI:BOOL=TRUE \
+          -DREMORA_ENABLE_TESTS:BOOL=TRUE \
+          -DREMORA_ENABLE_ALL_WARNINGS:BOOL=TRUE \
+          -DREMORA_ENABLE_FCOMPARE:BOOL=TRUE \
           ${{github.workspace}};
 
     - name: Compile and Link
       run: |
-        cmake --build ${{runner.workspace}}/ROMSX/build --parallel 2 --verbose
+        cmake --build ${{runner.workspace}}/REMORA/build --parallel 2 --verbose
 
-    - name: CMake Tests # see file ROMSX/Tests/CTestList.cmake
+    - name: CMake Tests # see file REMORA/Tests/CTestList.cmake
       run: |
         ctest -L regression -VV
-      working-directory: ${{runner.workspace}}/ROMSX/build
+      working-directory: ${{runner.workspace}}/REMORA/build

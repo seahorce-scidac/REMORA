@@ -78,7 +78,7 @@ struct ParticleData {
         }
     }
 
-    std::string pp_prefix {"romsx"};
+    std::string pp_prefix {"remora"};
 
     int use_tracer_particles;
     std::unique_ptr<TracerPC> tracer_particles;

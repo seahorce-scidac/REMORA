@@ -161,8 +161,16 @@ TracerPC::AdvectWithUmac (Array<MultiFab const*, AMREX_SPACEDIM> umac,
                     iv[1] += domain.smallEnd()[1];
                     ParticleReal zlo, zhi;
                     if (use_terrain) {
-                        zlo = zheight(iv[0], iv[1], iv[2]);
-                        zhi = zheight(iv[0], iv[1], iv[2]+1);
+                        Real lx = (p.pos(0)-plo[0])*dxi[0] - static_cast<Real>(iv[0]-domain.smallEnd()[0]);
+                        Real ly = (p.pos(1)-plo[1])*dxi[1] - static_cast<Real>(iv[1]-domain.smallEnd()[1]);
+                        zlo =  zheight(iv[0]  ,iv[1]  ,iv[2]  ) * (1.0-lx) * (1.0-ly) +
+                               zheight(iv[0]+1,iv[1]  ,iv[2]  ) *      lx  * (1.0-ly) +
+                               zheight(iv[0]  ,iv[1]+1,iv[2]  ) * (1.0-lx) * ly +
+                               zheight(iv[0]+1,iv[1]+1,iv[2]  ) *      lx  * ly;
+                        zhi =  zheight(iv[0]  ,iv[1]  ,iv[2]+1) * (1.0-lx) * (1.0-ly) +
+                               zheight(iv[0]+1,iv[1]  ,iv[2]+1) *      lx  * (1.0-ly) +
+                               zheight(iv[0]  ,iv[1]+1,iv[2]+1) * (1.0-lx) * ly +
+                               zheight(iv[0]+1,iv[1]+1,iv[2]+1) *      lx  * ly;
                     } else {
                         zlo =  iv[2]    * dx[2];
                         zhi = (iv[2]+1) * dx[2];

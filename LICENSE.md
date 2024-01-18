@@ -1,4 +1,4 @@
-ROMS-X Copyright (c) 2023, The Regents of the University of California,
+REMORA Copyright (c) 2023, The Regents of the University of California,
 through Lawrence Berkeley National Laboratory, Triad National Security, LLC
 through Los Alamos National Laboratory, UChicago Argonne LLC through
 Argonne National Laboratory, Battelle Memorial Institute through Pacific
