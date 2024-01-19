@@ -73,8 +73,7 @@ init_custom_bathymetry (const Geometry& geom,
                   } else {
                       val1=Lm+1-iFort;
                   }
-                  val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
-                  h(i,j,0) = val2;
+              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1-10.0_rt)/7.0_rt)));
               }
               else if(EWPeriodic) {
                   if (jFort<=Mm/2.0) {
@@ -82,8 +81,7 @@ init_custom_bathymetry (const Geometry& geom,
                   } else {
                       val1=Mm+1-jFort;
                   }
-                  val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
-                  h(i,j,0) = val2;
+              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1-10.0_rt)/7.0_rt)));
               }
           });
       } else { // Flat
@@ -104,9 +102,9 @@ init_custom_bathymetry (const Geometry& geom,
  * \brief Initializes custom coriolis forcing
  */
 void
-init_custom_coriolis (const Geometry& geom,
-                        MultiFab& mf_fcor,
-                        const SolverChoice& m_solverChoice) {}
+init_custom_coriolis    (const Geometry& /*geom*/,
+                         MultiFab& /*mf_fcor*/,
+                         const SolverChoice& /*m_solverChoice*/) {}
 
 void
 init_custom_prob(
@@ -141,7 +139,7 @@ init_custom_prob(
 
         state(i, j, k, Temp_comp) = 1.;
 
-        state(i,j,k,Temp_comp)=T0+8.0*std::exp(z/50.0_rt);
+        state(i,j,k,Temp_comp)=T0+8.0_rt*std::exp(z/50.0_rt);
         if (l_use_salt) {
             state(i,j,k,Salt_comp)=S0;
         }
@@ -156,7 +154,7 @@ init_custom_prob(
         const Real rad = 0.1 * (prob_hi[0]-prob_lo[0]);
         const Real radsq = rad*rad;
 
-        state(i, j, k, Scalar_comp) = (r2 < radsq) ? 1.0 : 0.0;
+        state(i, j, k, Scalar_comp) = (r2 < radsq) ? 1.0_rt : 0.0_rt;
     });
 
   // Construct a box that is on x-faces
@@ -197,7 +195,7 @@ init_custom_prob(
   // Set the z-velocity
   ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
-      z_vel(i, j, k) = 0.0;
+      z_vel(i, j, k) = 0.0_rt;
   });
 
   Gpu::streamSynchronize();
@@ -218,7 +216,8 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
       amrex::ParallelFor(bx,
       [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-        Akv(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w(i,j,k)/150.0);
+        Akv(i,j,k) = 2.0e-03_rt+8.0e-03_rt*std::exp(z_w(i,j,k)/150.0_rt);
+
         Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
         Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
         Akt(i,j,k,Scalar_comp) = 0.0_rt;
@@ -243,11 +242,11 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
 
       amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-        visc2_p(i,j,k) = 5.0;
-        visc2_r(i,j,k) = 5.0;
+        visc2_p(i,j,k) = 5.0_rt;
+        visc2_r(i,j,k) = 5.0_rt;
 
         for (int n = 0; n < ncomp; n++) {
-            diff2(i,j,k,n) = 0.0;
+            diff2(i,j,k,n) = 0.0_rt;
         }
       });
     }
@@ -261,29 +260,29 @@ init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, Mu
     bool NSPeriodic = geomdata.isPeriodic(1);
     bool EWPeriodic = geomdata.isPeriodic(0);
     //If we had wind stress and bottom stress we would need to set these:
-    Real pi = 3.14159265359;
-    Real tdays=time/(24.0*60.0*60.0);
-    Real dstart=0.0;
+    Real pi = 3.14159265359_rt;
+    Real tdays=time/Real(24.0*60.0*60.0);
+    Real dstart=0.0_rt;
     Real windamp;
     //It's possible these should be set to be nonzero only at the boundaries they affect
     if (NSPeriodic) {
-        mf_sustr.setVal(0.0);
+        mf_sustr.setVal(0.0_rt);
     }
     else if(EWPeriodic) {
         if ((tdays-dstart)<=2.0)
-            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/m_solverChoice.rho0;
+            windamp=-0.1_rt*Real(sin(pi*(tdays-dstart)/4.0_rt))/Real(m_solverChoice.rho0);
         else
-            windamp=-0.1/m_solverChoice.rho0;
+            windamp=-0.1_rt/m_solverChoice.rho0;
         mf_sustr.setVal(windamp);
     }
     if(NSPeriodic) {
         if ((tdays-dstart)<=2.0)
-            windamp=-0.1*sin(pi*(tdays-dstart)/4.0)/m_solverChoice.rho0;
+            windamp=-0.1_rt*Real(sin(pi*(tdays-dstart)/4.0_rt))/Real(m_solverChoice.rho0);
         else
-            windamp=-0.1/m_solverChoice.rho0;
+            windamp=-0.1_rt/m_solverChoice.rho0;
         mf_svstr.setVal(windamp);
     }
     else if(EWPeriodic) {
-        mf_svstr.setVal(0.0);
+        mf_svstr.setVal(0.0_rt);
     }
 }
