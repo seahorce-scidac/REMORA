@@ -60,17 +60,17 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
     ParallelFor(growLo(xbx,0,1),
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-        Real uxx_i   = ubar(i-1,j,0,krhs)-2.0*ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
-        Real uxx_ip1 = ubar(i  ,j,0,krhs)-2.0*ubar(i+1,j,0,krhs)+ubar(i+2,j,0,krhs);
+        Real uxx_i   = ubar(i-1,j,0,krhs)-2.0_rt*ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
+        Real uxx_ip1 = ubar(i  ,j,0,krhs)-2.0_rt*ubar(i+1,j,0,krhs)+ubar(i+2,j,0,krhs);
         Real uxx_avg = uxx_i + uxx_ip1;
 
-        Real Huxx_i   = DUon(i-1,j,0)-2.0*DUon(i  ,j,0)+DUon(i+1,j,0);
-        Real Huxx_ip1 = DUon(i  ,j,0)-2.0*DUon(i+1,j,0)+DUon(i+2,j,0);
+        Real Huxx_i   = DUon(i-1,j,0)-2.0_rt*DUon(i  ,j,0)+DUon(i+1,j,0);
+        Real Huxx_ip1 = DUon(i  ,j,0)-2.0_rt*DUon(i+1,j,0)+DUon(i+2,j,0);
 
-        Real cff=1.0/6.0;
+        Real cff=1.0_rt/6.0_rt;
         Real ubar_avg = ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
 
-        UFx(i,j,0)=0.25*(ubar_avg-cff*uxx_avg) * (DUon(i,j,0)+ DUon(i+1,j,0)-cff*(Huxx_i+ Huxx_ip1));
+        UFx(i,j,0)=0.25_rt*(ubar_avg-cff*uxx_avg) * (DUon(i,j,0)+ DUon(i+1,j,0)-cff*(Huxx_i+ Huxx_ip1));
     });
 
     //
@@ -80,17 +80,17 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         //should not include grow cells
-        Real uee_j   = ubar(i,j-1,0,krhs)-2.0*ubar(i,j  ,0,krhs)+ubar(i,j+1,0,krhs);
-        Real uee_jm1 = ubar(i,j-2,0,krhs)-2.0*ubar(i,j-1,0,krhs)+ubar(i,j  ,0,krhs);
+        Real uee_j   = ubar(i,j-1,0,krhs)-2.0_rt*ubar(i,j  ,0,krhs)+ubar(i,j+1,0,krhs);
+        Real uee_jm1 = ubar(i,j-2,0,krhs)-2.0_rt*ubar(i,j-1,0,krhs)+ubar(i,j  ,0,krhs);
         Real uee_avg = uee_j + uee_jm1;
 
-        Real Hvxx_i   = DVom(i-1,j,0)-2.0*DVom(i  ,j,0)+DVom(i+1,j,0);
-        Real Hvxx_im1 = DVom(i-2,j,0)-2.0*DVom(i-1,j,0)+DVom(i  ,j,0);
-        Real cff=1.0/6.0;
+        Real Hvxx_i   = DVom(i-1,j,0)-2.0_rt*DVom(i  ,j,0)+DVom(i+1,j,0);
+        Real Hvxx_im1 = DVom(i-2,j,0)-2.0_rt*DVom(i-1,j,0)+DVom(i  ,j,0);
+        Real cff=1.0_rt/6.0_rt;
         Real cff1=ubar(i,j  ,0,krhs)+ubar(i,j-1,0,krhs);
         Real cff2=DVom(i,j,0)+DVom(i-1,j,0);
 
-        UFe(i,j,0)=0.25*(cff1-uee_avg*cff)*
+        UFe(i,j,0)=0.25_rt*(cff1-uee_avg*cff)*
           (cff2-cff*(Hvxx_i+Hvxx_im1));
     });
 
@@ -123,38 +123,38 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
     ParallelFor(growHi(ybx,0,1),
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-        Real cff=1.0/6.0;
-        Real vxx_i   = vbar(i-1,j,0,krhs)-2.0*vbar(i  ,j,0,krhs)+vbar(i+1,j,0,krhs);
-        Real vxx_im1 = vbar(i-2,j,0,krhs)-2.0*vbar(i-1,j,0,krhs)+vbar(i  ,j,0,krhs);
+        Real cff=1.0_rt/6.0_rt;
+        Real vxx_i   = vbar(i-1,j,0,krhs)-2.0_rt*vbar(i  ,j,0,krhs)+vbar(i+1,j,0,krhs);
+        Real vxx_im1 = vbar(i-2,j,0,krhs)-2.0_rt*vbar(i-1,j,0,krhs)+vbar(i  ,j,0,krhs);
         Real vxx_avg = vxx_i + vxx_im1;
         //auto vxx_im1 = (i == gbx1.smallEnd(0)) ? vxx(i-1,j,k) :
-        //    (vbar(i-2,j,0,krhs)-2.0*vbar(i-1,j,0,krhs)+vbar(i,j,0,krhs));
+        //    (vbar(i-2,j,0,krhs)-2.0_rt*vbar(i-1,j,0,krhs)+vbar(i,j,0,krhs));
         //neglecting terms about periodicity since testing only periodic for now
-        Real Huee_j   = DUon(i,j-1,0)-2.0*DUon(i,j  ,0)+DUon(i,j+1,0);
-        Real Huee_jm1 = DUon(i,j-2,0)-2.0*DUon(i,j-1,0)+DUon(i,j  ,0);
+        Real Huee_j   = DUon(i,j-1,0)-2.0_rt*DUon(i,j  ,0)+DUon(i,j+1,0);
+        Real Huee_jm1 = DUon(i,j-2,0)-2.0_rt*DUon(i,j-1,0)+DUon(i,j  ,0);
         Real cff1=vbar(i  ,j,0,krhs)+vbar(i-1,j,0,krhs);
         Real cff2=DUon(i,j,0)+DUon(i,j-1,0);
 
         //auto Huee_jm1 = (j == gbx1.smallEnd(1)) ? Huee(i,j-1,k) :
-        //    (DUon(i,j-2,k)-2.0*DUon(i,j-1,k)+DUon(i,j,k));
+        //    (DUon(i,j-2,k)-2.0_rt*DUon(i,j-1,k)+DUon(i,j,k));
 
-        VFx(i,j,0)=0.25*(cff1-vxx_avg*cff)* (cff2-cff*(Huee_j+ Huee_jm1));
+        VFx(i,j,0)=0.25_rt*(cff1-vxx_avg*cff)* (cff2-cff*(Huee_j+ Huee_jm1));
     });
 
     ParallelFor(growLo(ybx,1,1),
     [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
-        Real vee_j    = vbar(i,j-1,0,krhs)-2.0*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
-        Real vee_jp1  = vbar(i,j  ,0,krhs)-2.0*vbar(i,j+1,0,krhs)+vbar(i,j+2,0,krhs);
+        Real vee_j    = vbar(i,j-1,0,krhs)-2.0_rt*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
+        Real vee_jp1  = vbar(i,j  ,0,krhs)-2.0_rt*vbar(i,j+1,0,krhs)+vbar(i,j+2,0,krhs);
         Real vee_avg  = vee_j + vee_jp1;
 
-        Real Hvee_j   = DVom(i,j-1,0)-2.0*DVom(i,j  ,0)+DVom(i,j+1,0);
-        Real Hvee_jp1 = DVom(i,j  ,0)-2.0*DVom(i,j+1,0)+DVom(i,j+2,0);
+        Real Hvee_j   = DVom(i,j-1,0)-2.0_rt*DVom(i,j  ,0)+DVom(i,j+1,0);
+        Real Hvee_jp1 = DVom(i,j  ,0)-2.0_rt*DVom(i,j+1,0)+DVom(i,j+2,0);
 
-        Real cff=1.0/6.0;
+        Real cff=1.0_rt/6.0_rt;
         Real cff1=vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
 
-        VFe(i,j,0) = 0.25 * (cff1-vee_avg*cff) * (DVom(i,j  ,0)+ DVom(i,j+1,0) -
+        VFe(i,j,0) = 0.25_rt * (cff1-vee_avg*cff) * (DVom(i,j  ,0)+ DVom(i,j+1,0) -
                                            cff  * (Hvee_j+ Hvee_jp1));
     });
 

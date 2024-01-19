@@ -11,13 +11,13 @@ void REMORA::init_bcs ()
     auto f = [this] (std::string const& bcid, Orientation ori)
     {
         // These are simply defaults for Dirichlet faces -- they should be over-written below
-        m_bc_extdir_vals[BCVars::Temp_bc_comp  ][ori] = 1.e19;
-        m_bc_extdir_vals[BCVars::Salt_bc_comp  ][ori] = 1.e20;
-        m_bc_extdir_vals[BCVars::Scalar_bc_comp][ori] = 1.e21;
+        m_bc_extdir_vals[BCVars::Temp_bc_comp  ][ori] = 1.e19_rt;
+        m_bc_extdir_vals[BCVars::Salt_bc_comp  ][ori] = 1.e20_rt;
+        m_bc_extdir_vals[BCVars::Scalar_bc_comp][ori] = 1.e21_rt;
 
-        m_bc_extdir_vals[BCVars::xvel_bc][ori] = 0.0; // default
-        m_bc_extdir_vals[BCVars::yvel_bc][ori] = 0.0;
-        m_bc_extdir_vals[BCVars::zvel_bc][ori] = 0.0;
+        m_bc_extdir_vals[BCVars::xvel_bc][ori] = 0.0_rt; // default
+        m_bc_extdir_vals[BCVars::yvel_bc][ori] = 0.0_rt;
+        m_bc_extdir_vals[BCVars::zvel_bc][ori] = 0.0_rt;
 
         ParmParse pp(bcid);
         std::string bc_type_in = "null";
@@ -60,7 +60,7 @@ void REMORA::init_bcs ()
             // But if we find "velocity" in the inputs file, use those values instead.
             if (pp.queryarr("velocity", v, 0, AMREX_SPACEDIM))
             {
-                v[ori.coordDir()] = 0.0;
+                v[ori.coordDir()] = 0.0_rt;
                 m_bc_extdir_vals[BCVars::xvel_bc][ori] = v[0];
                 m_bc_extdir_vals[BCVars::yvel_bc][ori] = v[1];
                 m_bc_extdir_vals[BCVars::zvel_bc][ori] = v[2];

@@ -34,7 +34,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
       init_stuff(lev, ba, dm);
 
     t_new[lev] = time;
-    t_old[lev] = time - 1.e200;
+    t_old[lev] = time - 1.e200_rt;
 
     FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1]);
     FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
@@ -89,7 +89,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     std::swap(tmp_zvel_old, zvel_old[lev]);
 
     t_new[lev] = time;
-    t_old[lev] = time - 1.e200;
+    t_old[lev] = time - 1.e200_rt;
 
     init_stuff(lev, ba, dm);
 }

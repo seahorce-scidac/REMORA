@@ -70,8 +70,8 @@ REMORA::init_beta_plane_coriolis (int lev)
 
         ParallelFor(Box(fcor_arr), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real y = prob_lo + (j + 0.5) * dx;
-            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - 0.5 * Esize);
+            Real y = prob_lo + (j + 0.5_rt) * dx;
+            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - 0.5_rt * Esize);
         });
     } //mfi
 
@@ -99,9 +99,9 @@ REMORA::set_2darrays (int lev)
         const auto prob_lo         = geomdata.ProbLo();
         const auto dx              = geomdata.CellSize();
 
-        x_r(i,j,0) = prob_lo[0] + (i + 0.5) * dx[0];
-        y_r(i,j,0) = prob_lo[1] + (j + 0.5) * dx[1];
-        //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
+        x_r(i,j,0) = prob_lo[0] + (i + 0.5_rt) * dx[0];
+        y_r(i,j,0) = prob_lo[1] + (j + 0.5_rt) * dx[1];
+        //        const Real z = prob_lo[2] + (k + 0.5_rt) * dx[2];
 
       });
     }
@@ -135,7 +135,7 @@ REMORA::set_2darrays (int lev)
 
         ParallelFor(makeSlab(bx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            mskr(i,j,0,0) = 1.0;
+            mskr(i,j,0,0) = 1.0_rt;
         });
 
         ParallelFor(makeSlab(ubx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -144,13 +144,13 @@ REMORA::set_2darrays (int lev)
             Real sum_of_hz = 0.;
 
             for (int k=0; k<=N; k++) {
-                Real avg_hz = 0.5*(Hz(i,j,k)+Hz(i-1,j,k));
+                Real avg_hz = 0.5_rt*(Hz(i,j,k)+Hz(i-1,j,k));
                 sum_of_hz += avg_hz;
                 CF += avg_hz*u(i,j,k,nstp);
             }
             ubar(i,j,0,0) = CF / sum_of_hz;
 
-            msku(i,j,0,0) = 1.0;
+            msku(i,j,0,0) = 1.0_rt;
         });
 
         ParallelFor(makeSlab(vbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -159,18 +159,18 @@ REMORA::set_2darrays (int lev)
             Real sum_of_hz = 0.;
 
             for(int k=0; k<=N; k++) {
-                Real avg_hz = 0.5*(Hz(i,j,k)+Hz(i,j-1,k));
+                Real avg_hz = 0.5_rt*(Hz(i,j,k)+Hz(i,j-1,k));
                 sum_of_hz += avg_hz;
                 CF += avg_hz*v(i,j,k,nstp);
             }
             vbar(i,j,0,0) = CF / sum_of_hz;
 
-            mskv(i,j,0,0) = 1.0;
+            mskv(i,j,0,0) = 1.0_rt;
         });
     }
 
     // DEBUGGING NOTE -- DoublyPeriodic fails if these are commented out
-    const Real time = 0.0;
+    const Real time = 0.0_rt;
     FillPatch(lev, time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar);
     FillPatch(lev, time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar);
 

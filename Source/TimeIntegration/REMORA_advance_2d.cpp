@@ -268,7 +268,7 @@ REMORA::advance_2d (int lev,
         if (solverChoice.use_coriolis) {
             ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
             {
-                fomn(i,j,0) = fcor(i,j,0)*(1.0/(pm(i,j,0)*pn(i,j,0)));
+                fomn(i,j,0) = fcor(i,j,0)*(1.0_rt/(pm(i,j,0)*pn(i,j,0)));
             });
         }
 

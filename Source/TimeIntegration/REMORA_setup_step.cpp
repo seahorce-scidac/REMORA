@@ -37,7 +37,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // Place-holder for source array -- for now just set to 0
     MultiFab source(ba,dm,nvars,1);
-    source.setVal(0.0);
+    source.setVal(0.0_rt);
 
     //-----------------------------------------------------------------------
     //  Time step momentum equation
@@ -77,9 +77,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // We need to set these because otherwise in the first call to remora_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
-    mf_rho.setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_rhoS->setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_rhoA->setVal(0.e34,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_rho.setVal(0.e34_rt,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_rhoS->setVal(0.e34_rt,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_rhoA->setVal(0.e34_rt,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
 
     mf_DC.setVal(0);
 
@@ -91,7 +91,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     FillPatch(lev, time, *xvel_new[lev], xvel_new, BdyVars::u);
     FillPatch(lev, time, *yvel_new[lev], yvel_new, BdyVars::v);
 
-    mf_rw.setVal(0.0);
+    mf_rw.setVal(0.0_rt);
     mf_rufrc->setVal(0);
     mf_rvfrc->setVal(0);
 
@@ -173,7 +173,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
 
     MultiFab mf_W(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
-    mf_W.setVal(0.0);
+    mf_W.setVal(0.0_rt);
 
     if (solverChoice.use_prestep) {
         const int nnew  = 0;

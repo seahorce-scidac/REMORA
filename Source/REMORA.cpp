@@ -364,7 +364,7 @@ REMORA::set_bathymetry(int lev)
     }
 
     // HACK -- SHOULD WE ALWAYS DO THIS??
-    vec_Zt_avg1[lev]->setVal(0.0);
+    vec_Zt_avg1[lev]->setVal(0.0_rt);
 
     vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
@@ -427,10 +427,10 @@ REMORA::init_only(int lev, Real time)
     t_new[lev] = time;
     t_old[lev] = time - 1.e200_rt;
 
-    cons_new[lev]->setVal(0.0);
-    xvel_new[lev]->setVal(0.0);
-    yvel_new[lev]->setVal(0.0);
-    zvel_new[lev]->setVal(0.0);
+    cons_new[lev]->setVal(0.0_rt);
+    xvel_new[lev]->setVal(0.0_rt);
+    yvel_new[lev]->setVal(0.0_rt);
+    zvel_new[lev]->setVal(0.0_rt);
 
     if (solverChoice.ic_bc_type == IC_BC_Type::Custom)
     {

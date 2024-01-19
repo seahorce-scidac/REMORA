@@ -194,7 +194,7 @@ void REMORA::set_weights (int /*lev*/) {
         shift=shift/Real(ndtfast);
         Print().SetPrecision(18)<<ndtfast <<"  "<< nfast<<"  "<<Real(nfast)/Real(ndtfast)<<std::endl;
         Print().SetPrecision(18)<<cff1<<"  "<<cff2<<"  "<<shift<<"  "<<cff<<"  "<<wsum<<"  "<<Fgamma<<"  "<<gamma<<std::endl;
-      if (cff2<1.0001_rt) Print()<<"\n\n\n"<<std::endl;
+      if (cff2<1.0_rt001_rt) Print()<<"\n\n\n"<<std::endl;
       }
 #endif
 }

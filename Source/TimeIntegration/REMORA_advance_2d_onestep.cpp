@@ -8,7 +8,7 @@ void REMORA::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int 
     bool first_2d_step=(my_iif==0);
 
     // These are needed to pass ctests
-    Real dummy_time = 0.0;
+    Real dummy_time = 0.0_rt;
     FillPatch(lev, dummy_time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar);
     FillPatch(lev, dummy_time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar);
 

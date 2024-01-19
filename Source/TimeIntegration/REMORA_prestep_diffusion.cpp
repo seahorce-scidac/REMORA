@@ -40,14 +40,14 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
 
     //
     //  Weighting coefficient for the newest (implicit) time step derivatives
-    //  using either a Crank-Nicolson implicit scheme (lambda=0.5) or a
-    //  backward implicit scheme (lambda=1.0).
+    //  using either a Crank-Nicolson implicit scheme (lambda=0.5_rt) or a
+    //  backward implicit scheme (lambda=1.0_rt).
     //
 
-    Real oml_dt = dt_lev*(1.0-lambda);
+    Real oml_dt = dt_lev*(1.0_rt-lambda);
     //N is one less than ROMS
 
-    //  Except the commented out part means lambda is always 1.0
+    //  Except the commented out part means lambda is always 1.0_rt
     if (verbose > 1) {
         amrex::Print() << "in update_vel_3d with box " << vel_bx << std::endl;
         Print() << "vel old " << Box(vel_old) << std::endl;
@@ -58,7 +58,7 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
     {
         if(k+1<=N&&k>=0)
         {
-            Real cff = 1.0 / ( z_r(i,j,k+1)+z_r(i-ioff,j-joff,k+1)
+            Real cff = 1.0_rt / ( z_r(i,j,k+1)+z_r(i-ioff,j-joff,k+1)
                               -z_r(i,j,k  )-z_r(i-ioff,j-joff,k  ));
             FC(i,j,k) = oml_dt * cff * (vel_old(i,j,k+1,nstp)-vel_old(i,j,k,nstp)) *
                                            (Akv(i,j,k)     +Akv(i-ioff,j-joff,k));
@@ -72,15 +72,15 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
             FC(i,j, N) = dt_lev*sstr(i,j,0);
         }
 
-        DC(i,j,k) = 0.25 * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
+        DC(i,j,k) = 0.25_rt * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
                                   * (pn(i,j,0)+pn(i-ioff,j-joff,0));
     });
 
     ParallelFor(gbxvel,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Real cff3=dt_lev*(1.0-lambda);
-        Real cff1 = 0.0, cff2 = 0.0, cff4;
+        Real cff3=dt_lev*(1.0_rt-lambda);
+        Real cff1 = 0.0_rt, cff2 = 0.0_rt, cff4;
 
         int indx=0; //nrhs-3
 
@@ -88,19 +88,19 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
         {
             if (k+1<=N && k>=1)
             {
-                cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+                cff1=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff2=FC(i,j,k)-FC(i,j,k-1);
                 vel(i,j,k,nnew)=cff1+cff2;
             }
             else if(k==0)
             {
-                cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+                cff1=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff2=FC(i,j,k)-dt_lev*bstr(i,j,0);
                 vel(i,j,k,nnew)=cff1+cff2;
             }
             else if(k==N)
             {
-                cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+                cff1=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff2=dt_lev*sstr(i,j,0)-FC(i,j,k-1); //or: -FC(i,j,k-1)+dt_lev*sstr(i,j,0);
                 vel(i,j,k,nnew)=cff1+cff2;
             }
@@ -108,19 +108,19 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
         } else if(iic==ntfirst+1) {
 
             if (k<N && k>0) {
-                cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+                cff1=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff2=FC(i,j,k)-FC(i,j,k-1);
             }
             else if(k==0) {
-                cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+                cff1=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff2=FC(i,j,k)-dt_lev*bstr(i,j,0);
             }
             else if(k==N) {
-                cff1=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+                cff1=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff2=dt_lev*sstr(i,j,0)-FC(i,j,k-1); //or: -FC(i,j,k-1)+dt_lev*sstr(i,j,0);
             }
 
-            cff3=0.5*DC(i,j,k);
+            cff3=0.5_rt*DC(i,j,k);
 
             if (ioff==0&&joff==0) {
                 vel(i,j,k,nnew)=cff1 + cff2;
@@ -132,19 +132,19 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
                 vel(i,j,k,nnew)=cff1- cff3*rvel(i,j,k,indx)+ cff2;
             }
         } else {
-            cff1 =  5.0/12.0;
-            cff2 = 16.0/12.0;
+            cff1 =  5.0_rt/12.0_rt;
+            cff2 = 16.0_rt/12.0_rt;
             if (k==0) {
-                cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+                cff3=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff4=FC(i,j,k)-dt_lev*bstr(i,j,0);
                 //cff4=FC(i,j,k)-FC(i,j,k-1);//-bustr(i,j,0);
 
             } else if (k == N) {
-                cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+                cff3=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff4=dt_lev*sstr(i,j,0)-FC(i,j,k-1);
 
             } else {
-                cff3=vel_old(i,j,k,nstp)*0.5*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+                cff3=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
                 cff4=FC(i,j,k)-FC(i,j,k-1);
             }
 
@@ -159,7 +159,7 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
                 vel(i,j,k,nnew) = cff3 + DC(i,j,k)*(cff1*rvel(i,j,k,nrhs)-
                                                     cff2*rvel(i,j,k,indx))+
                     cff4;
-                rvel(i,j,k,nrhs) = 0.0;
+                rvel(i,j,k,nrhs) = 0.0_rt;
             }
         }
     });
