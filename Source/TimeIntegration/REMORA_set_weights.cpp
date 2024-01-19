@@ -67,7 +67,7 @@ void REMORA::set_weights (int /*lev*/) {
         for(int i=1;i<=2*ndtfast;i++) {
             cff=scale*Real(i);
 
-            weight1[i-1]=pow(cff,Falpha)-pow(cff,(Falpha+Fbeta))-gamma*cff;
+            weight1[i-1]=Real(pow(cff,Falpha)-pow(cff,(Falpha+Fbeta)))-gamma*cff;
 
             if (weight1[i-1] > 0.0_rt) {
                 nfast=i;

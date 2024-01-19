@@ -25,7 +25,7 @@ REMORA::ComputeDt ()
     }
 
     // Limit dt's by the value of stop_time.
-    const Real eps = 1.e-3*dt_0;
+    const Real eps = 1.e-3_rt*dt_0;
     if (t_new[0] + dt_0 > stop_time - eps) {
         dt_0 = stop_time - t_new[0];
     }

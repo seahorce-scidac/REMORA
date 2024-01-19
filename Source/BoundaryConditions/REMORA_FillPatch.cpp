@@ -114,7 +114,7 @@ REMORA::GetDataAtTime (int /*lev*/, Real /*time*/)
 
 // HACK HACK HACK
 #if 0
-    const Real teps = (t_new[lev] - t_old[lev]) * 1.e-3;
+    const Real teps = (t_new[lev] - t_old[lev]) * 1.e-3_rt;
 
     if (time > t_new[lev] - teps && time < t_new[lev] + teps)
     {
