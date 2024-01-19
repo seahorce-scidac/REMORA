@@ -912,8 +912,8 @@ private:
 #endif
 
       amrex::Real T =
-	  numCores * (amrex::Real(amrex::ParallelDescriptor::second()) - startCPUTime) +
-        previousCPUTimeUsed;
+          numCores * (amrex::Real(amrex::ParallelDescriptor::second()) - startCPUTime) +
+          previousCPUTimeUsed;
 
       return T;
     }

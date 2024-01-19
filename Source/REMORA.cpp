@@ -120,7 +120,7 @@ REMORA::REMORA ()
 
     // We have already read in the ref_Ratio (via amr.ref_ratio =) but we need to enforce
     //     that there is no refinement in the vertical so we test on that here.
-    for (int lev = 0_rt; lev < max_level; ++lev)
+    for (int lev = 0; lev < max_level; ++lev)
     {
        amrex::Print() << "Refinement ratio at level " << lev << " set to be " <<
           ref_ratio[lev][0]  << " " << ref_ratio[lev][1]  <<  " " << ref_ratio[lev][2] << std::endl;
@@ -150,7 +150,7 @@ REMORA::Evolve ()
 
         ComputeDt();
 
-        int lev = 0_rt;
+        int lev = 0;
         int iteration = 1;
 
         if (max_level == 0) {
@@ -260,7 +260,7 @@ REMORA::InitData ()
         const Real time = 0.0_rt;
         InitFromScratch(time);
 
-        for (int lev = 0_rt; lev <= finest_level; lev++)
+        for (int lev = 0; lev <= finest_level; lev++)
             init_only(lev, time);
 
         if (solverChoice.coupling_type == CouplingType::TwoWay) {
@@ -290,7 +290,7 @@ REMORA::InitData ()
     }
 
     // Fill ghost cells/faces
-    for (int lev = 0_rt; lev <= finest_level; ++lev)
+    for (int lev = 0; lev <= finest_level; ++lev)
     {
         FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t);
         FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u);
@@ -310,7 +310,7 @@ REMORA::InitData ()
     if (restart_chkfile == "" && check_int > 0)
     {
         WriteCheckpointFile();
-        last_check_file_step = 0_rt;
+        last_check_file_step = 0;
     }
 
     if ( (restart_chkfile == "") ||
@@ -322,7 +322,7 @@ REMORA::InitData ()
                 WritePlotFile();
 #ifdef REMORA_USE_NETCDF
             if (plotfile_type == PlotfileType::netcdf) {
-                int step0 = 0_rt;
+                int step0 = 0;
                 WriteNCPlotFile(step0);
             }
 #endif
@@ -481,7 +481,7 @@ REMORA::ReadParameters ()
             datalog.resize(num_datalogs);
             datalogname.resize(num_datalogs);
             pp.queryarr("data_log",datalogname,0,num_datalogs);
-            for (int i = 0_rt; i < num_datalogs; i++)
+            for (int i = 0; i < num_datalogs; i++)
                 setRecordDataInfo(i,datalogname[i]);
         }
 
@@ -560,7 +560,7 @@ REMORA::ReadParameters ()
 
         // NetCDF initialization files -- possibly multiple files at each of multiple levels
         //        but we always have exactly one file at level 0
-        for (int lev = 0_rt; lev <= max_level; lev++)
+        for (int lev = 0; lev <= max_level; lev++)
         {
             const std::string nc_file_names = amrex::Concatenate("nc_init_file_",lev,1);
             const std::string nc_bathy_file_names = amrex::Concatenate("nc_grid_file_",lev,1);
