@@ -61,7 +61,7 @@ REMORA::update_massflux_3d (const Box& bx,
             DC(i,j,-1) += DC(i,j,k);
         }
 
-        DC(i,j,-1) = 1.0 / DC(i,j,-1);
+        DC(i,j,-1) = 1.0_rt / DC(i,j,-1);
 
         for (int k=0; k<=N; k++) {
 
@@ -74,7 +74,7 @@ REMORA::update_massflux_3d (const Box& bx,
 //              }
 //          }
 
-            Hphi(i,j,k) = 0.5 * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
+            Hphi(i,j,k) = 0.5_rt * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
             FC(i,j,0)  += Hphi(i,j,k);
         } // k
 

@@ -65,11 +65,11 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--) {
-            Real cff= k>0 ? 2.0*dR(i,j,k)*dR(i,j,k-1) : 2.0*dR(i,j,k)*dR(i,j,k);
+            Real cff= k>0 ? 2.0_rt*dR(i,j,k)*dR(i,j,k-1) : 2.0_rt*dR(i,j,k)*dR(i,j,k);
             if (cff>eps) {
                 dR(i,j,k)= k>0 ? cff/(dR(i,j,k)+dR(i,j,k-1)) : cff/(dR(i,j,k)+dR(i,j,k));
             } else {
-                dR(i,j,k)=0.0;
+                dR(i,j,k)=0.0_rt;
             }
             dZ(i,j,k)= k>0 ? 2.0_rt*dZ(i,j,k)*dZ(i,j,k-1)/(dZ(i,j,k)+dZ(i,j,k-1)) :
                              2.0_rt*dZ(i,j,k)*dZ(i,j,k)/(dZ(i,j,k)+dZ(i,j,k));
@@ -111,19 +111,19 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--) {
-            Real cff= 2.0*aux(i,j,k)*aux(i+1,j,k);
+            Real cff= 2.0_rt*aux(i,j,k)*aux(i+1,j,k);
             if (cff>eps) {
                 Real cff1= 1.0_rt/(aux(i+1,j,k)+aux(i,j,k));
                 dZx(i,j,k)=cff*cff1;
             } else {
-                dZx(i,j,k)=0.0;
+                dZx(i,j,k)=0.0_rt;
             }
-            Real cff1= 2.0*FC(i,j,k)*FC(i+1,j,k);
+            Real cff1= 2.0_rt*FC(i,j,k)*FC(i+1,j,k);
             if (cff1>eps) {
                 Real cff2= 1.0_rt/(FC(i,j,k)+FC(i+1,j,k));
                 dRx(i,j,k)=cff1*cff2;
             } else {
-                dRx(i,j,k)=0.0;
+                dRx(i,j,k)=0.0_rt;
             }
         }
     });
@@ -158,19 +158,19 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     ParallelFor(phi_bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--) {
-            Real cff= 2.0*aux(i,j,k)*aux(i,j+1,k);
+            Real cff= 2.0_rt*aux(i,j,k)*aux(i,j+1,k);
             if (cff>eps) {
                 Real cff1= 1.0_rt/(aux(i,j+1,k)+aux(i,j,k));
                 dZx(i,j,k)=cff*cff1;
             } else {
-                dZx(i,j,k)=0.0;
+                dZx(i,j,k)=0.0_rt;
             }
-            Real cff1= 2.0*FC(i,j,k)*FC(i,j+1,k);
+            Real cff1= 2.0_rt*FC(i,j,k)*FC(i,j+1,k);
             if (cff1>eps) {
                 Real cff2= 1.0_rt/(FC(i,j,k)+FC(i,j+1,k));
                 dRx(i,j,k)=cff1*cff2;
             } else {
-                dRx(i,j,k)=0.0;
+                dRx(i,j,k)=0.0_rt;
             }
         }
     });

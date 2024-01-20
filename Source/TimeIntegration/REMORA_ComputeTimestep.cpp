@@ -25,7 +25,7 @@ REMORA::ComputeDt ()
     }
 
     // Limit dt's by the value of stop_time.
-    const Real eps = 1.e-3*dt_0;
+    const Real eps = 1.e-3_rt*dt_0;
     if (t_new[0] + dt_0 > stop_time - eps) {
         dt_0 = stop_time - t_new[0];
     }
@@ -41,7 +41,7 @@ REMORA::estTimeStep(int level) const
 {
   BL_PROFILE("REMORA::estTimeStep()");
 
-  amrex::Real estdt_lowM = 1.e20;
+  amrex::Real estdt_lowM = 1.e20_rt;
 
   auto const dxinv = geom[level].InvCellSizeArray();
 
@@ -54,7 +54,7 @@ REMORA::estTimeStep(int level) const
        [=] AMREX_GPU_HOST_DEVICE (Box const& b,
                                   Array4<Real const> const& u) -> Real
        {
-           Real new_lm_dt = -1.e100;
+           Real new_lm_dt = -1.e100_rt;
            amrex::Loop(b, [=,&new_lm_dt] (int i, int j, int k) noexcept
            {
                new_lm_dt = amrex::max(((amrex::Math::abs(u(i,j,k,0)))*dxinv[0]),
@@ -69,7 +69,7 @@ REMORA::estTimeStep(int level) const
        estdt_lowM = cfl / estdt_lowM_inv;;
 
   if (verbose) {
-    if (fixed_dt <= 0.0) {
+    if (fixed_dt <= 0.0_rt) {
         amrex::Print() << "Using cfl = " << cfl << std::endl;
         if (estdt_lowM_inv > 0.0_rt) {
             amrex::Print() << "Slow  dt at level " << level << ":  " << estdt_lowM << std::endl;
@@ -77,8 +77,8 @@ REMORA::estTimeStep(int level) const
             amrex::Print() << "Slow  dt at level " << level << ": undefined " << std::endl;
         }
     }
-    if (fixed_dt > 0.0) {
-        amrex::Print() << "Based on cfl of 1.0 " << std::endl;
+    if (fixed_dt > 0.0_rt) {
+        amrex::Print() << "Based on cfl of 1.0_rt " << std::endl;
         if (estdt_lowM_inv > 0.0_rt) {
             amrex::Print() << "Slow  dt at level " << level << " would be:  " << estdt_lowM/cfl << std::endl;
         } else {
@@ -88,7 +88,7 @@ REMORA::estTimeStep(int level) const
     }
   }
 
-  if (fixed_dt > 0.0) {
+  if (fixed_dt > 0.0_rt) {
     return fixed_dt;
   } else {
         return estdt_lowM;

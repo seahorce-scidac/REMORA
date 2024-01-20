@@ -66,8 +66,7 @@ init_custom_bathymetry (const Geometry& geom,
                       val1=iFort;
                   else
                       val1=Lm+1-iFort;
-                  val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
-                  h(i,j,0) = val2;
+              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1-10.0_rt)/7.0_rt)));
 
               } else if(EWPeriodic) {
 
@@ -75,8 +74,7 @@ init_custom_bathymetry (const Geometry& geom,
                       val1=jFort;
                   else
                       val1=Mm+1-jFort;
-                  val2=min(-geomdata.ProbLo(2),(84.5+66.526*std::tanh((val1-10.0)/7.0)));
-                  h(i,j,0) = val2;
+              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1-10.0_rt)/7.0_rt)));
               }
           });
       } else {
@@ -96,9 +94,9 @@ init_custom_bathymetry (const Geometry& geom,
  * \brief Initializes custom coriolis forcing
  */
 void
-init_custom_coriolis (const Geometry& geom,
-                        MultiFab& mf_fcor,
-                        const SolverChoice& m_solverChoice) {}
+init_custom_coriolis    (const Geometry& /*geom*/,
+                         MultiFab& /*mf_fcor*/,
+                         const SolverChoice& /*m_solverChoice*/) {}
 
 void
 init_custom_prob(
@@ -133,13 +131,13 @@ init_custom_prob(
 
         state(i, j, k, Temp_comp) = 1.;
 
-        state(i,j,k,Temp_comp)=m_solverChoice.T0+8.0*std::exp(z/50.0_rt);
+        state(i,j,k,Temp_comp)=m_solverChoice.T0+8.0_rt*std::exp(z/50.0_rt);
         if (l_use_salt) {
             state(i,j,k,Salt_comp)=m_solverChoice.S0;
         }
 
         // Set scalar = 0 everywhere
-        state(i, j, k, Scalar_comp) = 0.0;
+        state(i, j, k, Scalar_comp) = 0.0_rt;
     });
 
   // Construct a box that is on x-faces
@@ -172,7 +170,7 @@ init_custom_prob(
 
         // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
         // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-        y_vel(i, j, k) = 0.0;
+        y_vel(i, j, k) = 0.0_rt;
   });
 
   // Construct a box that is on z-faces
@@ -181,7 +179,7 @@ init_custom_prob(
   // Set the z-velocity
   ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
-      z_vel(i, j, k) = 0.0;
+      z_vel(i, j, k) = 0.0_rt;
   });
 
   Gpu::streamSynchronize();
@@ -203,7 +201,7 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt, M
 
       ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-          Akv(i,j,k) = 2.0e-03+8.0e-03*std::exp(z_w(i,j,k)/150.0);
+        Akv(i,j,k) = 2.0e-03_rt+8.0e-03_rt*std::exp(z_w(i,j,k)/150.0_rt);
 
           Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
           Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
@@ -229,11 +227,11 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
 
       amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-        visc2_p(i,j,k) = 5.0;
-        visc2_r(i,j,k) = 5.0;
+        visc2_p(i,j,k) = 5.0_rt;
+        visc2_r(i,j,k) = 5.0_rt;
 
         for (int n = 0; n < ncomp; n++) {
-            diff2(i,j,k,n) = 0.0;
+            diff2(i,j,k,n) = 0.0_rt;
         }
       });
     }

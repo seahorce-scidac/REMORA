@@ -67,7 +67,7 @@ void REMORA::set_weights (int /*lev*/) {
         for(int i=1;i<=2*ndtfast;i++) {
             cff=scale*Real(i);
 
-            weight1[i-1]=pow(cff,Falpha)-pow(cff,(Falpha+Fbeta))-gamma*cff;
+            weight1[i-1]=Real(pow(cff,Falpha)-pow(cff,(Falpha+Fbeta)))-gamma*cff;
 
             if (weight1[i-1] > 0.0_rt) {
                 nfast=i;
@@ -194,7 +194,7 @@ void REMORA::set_weights (int /*lev*/) {
         shift=shift/Real(ndtfast);
         Print().SetPrecision(18)<<ndtfast <<"  "<< nfast<<"  "<<Real(nfast)/Real(ndtfast)<<std::endl;
         Print().SetPrecision(18)<<cff1<<"  "<<cff2<<"  "<<shift<<"  "<<cff<<"  "<<wsum<<"  "<<Fgamma<<"  "<<gamma<<std::endl;
-      if (cff2<1.0001_rt) Print()<<"\n\n\n"<<std::endl;
+      if (cff2<1.0_rt001_rt) Print()<<"\n\n\n"<<std::endl;
       }
 #endif
 }

@@ -211,27 +211,27 @@ struct SolverChoice {
     Cor_Type coriolis_type;
 
     // Stretching and depth parameters which may need to be read from inputs
-    amrex::Real theta_s = 3.0;
-    amrex::Real theta_b = 0.0;
-    amrex::Real tcline  = 150.0;
+    amrex::Real theta_s = amrex::Real(3.0);
+    amrex::Real theta_b = amrex::Real(0.0);
+    amrex::Real tcline  = amrex::Real(150.0);
 
     // Linear drag coefficient
-    amrex::Real rdrag = 3e-4;
+    amrex::Real rdrag = amrex::Real(3e-4);
 
     // Linear equation of state parameters
-    amrex::Real R0 = 1028; // background density value (Kg/m3) used in Linear Equation of State
-    amrex::Real S0 = 35.0; // background salinity (nondimensional) constant
-    amrex::Real T0 = 5.0; // background potential temperature (Celsius) constant
-    amrex::Real Tcoef = 1.7e-4; // linear equation of state parameter (1/Celcius)
-    amrex::Real Scoef = 0.0; // linear equation of state parameter (nondimensional)
-    amrex::Real rho0 = 1025.0; // Mean density (Kg/m3) used when Boussinesq approx is inferred
+    amrex::Real R0 = amrex::Real(1028); // background density value (Kg/m3) used in Linear Equation of State
+    amrex::Real S0 = amrex::Real(35.0); // background salinity (nondimensional) constant
+    amrex::Real T0 = amrex::Real(5.0); // background potential temperature (Celsius) constant
+    amrex::Real Tcoef = amrex::Real(1.7e-4); // linear equation of state parameter (1/Celcius)
+    amrex::Real Scoef = amrex::Real(0.0); // linear equation of state parameter (nondimensional)
+    amrex::Real rho0 = amrex::Real(1025.0); // Mean density (Kg/m3) used when Boussinesq approx is inferred
 
     // Coriolis forcing
-    amrex::Real coriolis_f0 = 0.0; // f-plane constant (1/s)
-    amrex::Real coriolis_beta = 0.0; // beta-plane constant (1/s/m)
+    amrex::Real coriolis_f0 = amrex::Real(0.0); // f-plane constant (1/s)
+    amrex::Real coriolis_beta = amrex::Real(0.0); // beta-plane constant (1/s/m)
 
     // Gravity
-    amrex::Real g = 9.81; // gravitational field strength [kg m/s^2]
+    amrex::Real g = amrex::Real(9.81); // gravitational field strength [kg m/s^2]
 
     // Spatial discretization
     int         spatial_order = 2;

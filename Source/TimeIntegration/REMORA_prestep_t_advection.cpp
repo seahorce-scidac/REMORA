@@ -147,12 +147,12 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
         ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
-                        0.5_rt*(tempold(i-1,j,k)+tempold(i  ,j,k)) : 1e34;
+                        0.5_rt*(tempold(i-1,j,k)+tempold(i  ,j,k)) : 1e34_rt;
         });
         ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
-                        0.5_rt*(tempold(i,j-1,k)+tempold(i,j,k)) : 1e34;
+                        0.5_rt*(tempold(i,j-1,k)+tempold(i,j,k)) : 1e34_rt;
         });
 
     } else {

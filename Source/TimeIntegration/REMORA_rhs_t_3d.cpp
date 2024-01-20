@@ -95,7 +95,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
             {
                 Real max_Huon = std::max(Huon(i,j,k),0.0_rt);
                 Real min_Huon = std::min(Huon(i,j,k),0.0_rt);
-                FX(i,j,k)=Huon(i,j,k)*0.5*(sstore(i,j,k)+sstore(i-1,j,k))+
+                FX(i,j,k)=Huon(i,j,k)*0.5_rt*(sstore(i,j,k)+sstore(i-1,j,k))+
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
 
@@ -104,12 +104,12 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Centered4
-                grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
+                grad(i,j,k)=0.5_rt*(FX(i,j,k)+FX(i+1,j,k));
             });
 
             ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FX(i,j,k)=Huon(i,j,k)*0.5*(sstore(i,j,k)+sstore(i-1,j,k))+
+                FX(i,j,k)=Huon(i,j,k)*0.5_rt*(sstore(i,j,k)+sstore(i-1,j,k))+
                     cffb*(grad(i,j,k)+ grad(i-1,j,k));
             });
 
@@ -132,7 +132,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
             {
                 Real max_Huon = std::max(Huon(i,j,k),0.0_rt);
                 Real min_Huon = std::min(Huon(i,j,k),0.0_rt);
-                FX(i,j,k)=Huon(i,j,k)*0.5*(sstore(i,j,k)+sstore(i-1,j,k))-
+                FX(i,j,k)=Huon(i,j,k)*0.5_rt*(sstore(i,j,k)+sstore(i-1,j,k))-
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
 
@@ -141,12 +141,12 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Centered4
-                grad(i,j,k)=0.5*(FX(i,j,k)+FX(i+1,j,k));
+                grad(i,j,k)=0.5_rt*(FX(i,j,k)+FX(i+1,j,k));
             });
 
             ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FX(i,j,k)=Huon(i,j,k)*0.5*(sstore(i,j,k)+sstore(i-1,j,k)-
+                FX(i,j,k)=Huon(i,j,k)*0.5_rt*(sstore(i,j,k)+sstore(i-1,j,k)-
                                            cffb*(grad(i,j,k)- grad(i-1,j,k)));
             });
 
@@ -177,7 +177,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
                 Real max_Hvom = std::max(Hvom(i,j,k),0.0_rt);
                 Real min_Hvom = std::min(Hvom(i,j,k),0.0_rt);
 
-                FE(i,j,k)=Hvom(i,j,k)*0.5*(sstore(i,j,k)+sstore(i,j-1,k))+
+                FE(i,j,k)=Hvom(i,j,k)*0.5_rt*(sstore(i,j,k)+sstore(i,j-1,k))+
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
             });
 
@@ -185,12 +185,12 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
+                grad(i,j,k)=0.5_rt*(FE(i,j,k)+FE(i,j+1,k));
             });
 
             ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FE(i,j,k)=Hvom(i,j,k)*0.5*(sstore(i,j,k)+sstore(i,j-1,k))+
+                FE(i,j,k)=Hvom(i,j,k)*0.5_rt*(sstore(i,j,k)+sstore(i,j-1,k))+
                     cffb*(grad(i,j,k)+ grad(i,j-1,k));
             });
 
@@ -212,7 +212,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
                 Real max_Hvom = std::max(Hvom(i,j,k),0.0_rt);
                 Real min_Hvom = std::min(Hvom(i,j,k),0.0_rt);
 
-                FE(i,j,k)=Hvom(i,j,k)*0.5*(sstore(i,j,k)+sstore(i,j-1,k))-
+                FE(i,j,k)=Hvom(i,j,k)*0.5_rt*(sstore(i,j,k)+sstore(i,j-1,k))-
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
             });
 
@@ -220,12 +220,12 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                grad(i,j,k)=0.5*(FE(i,j,k)+FE(i,j+1,k));
+                grad(i,j,k)=0.5_rt*(FE(i,j,k)+FE(i,j+1,k));
             });
 
             ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FE(i,j,k)=Hvom(i,j,k)*0.5*(sstore(i,j,k)+sstore(i,j-1,k)-
+                FE(i,j,k)=Hvom(i,j,k)*0.5_rt*(sstore(i,j,k)+sstore(i,j-1,k)-
                                            cffb*(grad(i,j,k)- grad(i,j-1,k)));
             });
 

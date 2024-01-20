@@ -5,11 +5,11 @@
 
 struct ProbParm {
 
-  amrex::Real u_0     = 0.0;
-  amrex::Real v_0     = 0.0;
-  amrex::Real z0      = 0.1;  // Surface Roughness
-  amrex::Real zRef    = 80.0; // Reference Height
-  amrex::Real velRef  = 0.0;  // Reference Wind Speed
+  amrex::Real u_0     = amrex::Real(0.0);
+  amrex::Real v_0     = amrex::Real(0.0);
+  amrex::Real z0      = amrex::Real(0.1);  // Surface Roughness
+  amrex::Real zRef    = amrex::Real(80.0); // Reference Height
+  amrex::Real velRef  = amrex::Real(0.0);  // Reference Wind Speed
 
 }; // namespace ProbParm
 

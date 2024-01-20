@@ -43,14 +43,9 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         bccomp = BCVars::yvel_bc;
         mapper = &face_linear_interp;
     }
-    else if (mf_box.ixType() == IndexType(IntVect(0,0,1)))
-    {
+    else {
         bccomp = BCVars::zvel_bc;
         mapper = &face_linear_interp;
-    }
-    else
-    {
-        amrex::Abort("Dont recognize this box type in REMORA_FillPatch");
     }
 
     if (lev == 0)
@@ -119,7 +114,7 @@ REMORA::GetDataAtTime (int /*lev*/, Real /*time*/)
 
 // HACK HACK HACK
 #if 0
-    const Real teps = (t_new[lev] - t_old[lev]) * 1.e-3;
+    const Real teps = (t_new[lev] - t_old[lev]) * 1.e-3_rt;
 
     if (time > t_new[lev] - teps && time < t_new[lev] + teps)
     {

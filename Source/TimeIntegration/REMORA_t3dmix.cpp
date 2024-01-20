@@ -28,7 +28,7 @@ REMORA::t3dmix  (const Box& bx,
     {
         const Real pmon_u = (pm(i-1,j,0)+pm(i,j,0))/(pn(i-1,j,0)+pn(i,j,0));
 
-        const Real cff = 0.25 * (diff2(i,j,n) + diff2(i-1,j,n)) * pmon_u;
+        const Real cff = 0.25_rt * (diff2(i,j,n) + diff2(i-1,j,n)) * pmon_u;
         FX(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i+1,j,k)) * (state(i,j,k,n)-state(i-1,j,k,n));
     });
 
@@ -36,7 +36,7 @@ REMORA::t3dmix  (const Box& bx,
     {
         const Real pnom_v = (pn(i,j-1,0)+pn(i,j,0))/(pm(i,j-1,0)+pm(i,j,0));
 
-        const Real cff = 0.25*(diff2(i,j,n)+diff2(i,j-1,n)) * pnom_v;
+        const Real cff = 0.25_rt*(diff2(i,j,n)+diff2(i,j-1,n)) * pnom_v;
         FE(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i,j-1,k)) * (state(i,j,k,n) - state(i,j-1,k,n));
     });
 

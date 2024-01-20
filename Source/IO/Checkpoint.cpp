@@ -303,7 +303,11 @@ REMORA::ReadCheckpointFile ()
         std::istringstream lis(line);
         int i = 0;
         while (lis >> word) {
+#ifdef AMREX_USE_FLOAT
+            dt[i++] = std::stof(word);
+#else
             dt[i++] = std::stod(word);
+#endif
         }
     }
 
@@ -313,7 +317,11 @@ REMORA::ReadCheckpointFile ()
         std::istringstream lis(line);
         int i = 0;
         while (lis >> word) {
+#ifdef AMREX_USE_FLOAT
+            t_new[i++] = std::stof(word);
+#else
             t_new[i++] = std::stod(word);
+#endif
         }
     }
 

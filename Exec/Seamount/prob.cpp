@@ -51,8 +51,8 @@ init_custom_bathymetry (const Geometry& geom,
               const auto prob_lo         = geomdata.ProbLo();
               const auto dx              = geomdata.CellSize();
 
-              const Real x = prob_lo[0] + (i + 0.5) * dx[0];
-              const Real y = prob_lo[1] + (j + 0.5) * dx[1];
+              const Real x = prob_lo[0] + (i + 0.5_rt) * dx[0];
+              const Real y = prob_lo[1] + (j + 0.5_rt) * dx[1];
 
               Real val1, val2;
               val1 = (x-0.5_rt*Xsize)/40000.0_rt;
@@ -108,8 +108,8 @@ init_custom_prob(
         // const auto prob_lo         = geomdata.ProbLo();
         // const auto dx              = geomdata.CellSize();
 
-        // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
-        // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
+        // const Real x = prob_lo[0] + (i + 0.5_rt) * dx[0];
+        // const Real y = prob_lo[1] + (j + 0.5_rt) * dx[1];
         const Real z = z_r(i,j,k);
 
         state(i, j, k, Temp_comp) = 1.;

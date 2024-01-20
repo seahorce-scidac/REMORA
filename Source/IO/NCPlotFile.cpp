@@ -255,8 +255,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         amrex::Vector<Real> CellSize;
         for (int i = lev; i <= flev; i++) {
            CellSize.clear();
-           for (double & j : dx) {
-             CellSize.push_back(j);
+           for (Real & j : dx) {
+               CellSize.push_back(amrex::Real(j));
            }
            auto nc_CellSize = ncf.var("CellSize");
            nc_CellSize.par_access(NC_COLLECTIVE);

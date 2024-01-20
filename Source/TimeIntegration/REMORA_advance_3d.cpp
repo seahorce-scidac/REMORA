@@ -107,23 +107,23 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Real cff;
         if (iic==ntfirst) {
-          cff=0.25*dt_lev;
+          cff=0.25_rt*dt_lev;
         } else if (iic==ntfirst+1) {
-          cff=0.25*dt_lev*3.0/2.0;
+          cff=0.25_rt*dt_lev*3.0_rt/2.0_rt;
         } else {
-          cff=0.25*dt_lev*23.0/12.0;
+          cff=0.25_rt*dt_lev*23.0_rt/12.0_rt;
         }
 
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             u(i,j,k) += cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs);
-            u(i,j,k) *= 2.0 / (Hz(i-1,j,k) + Hz(i,j,k));
+            u(i,j,k) *= 2.0_rt / (Hz(i-1,j,k) + Hz(i,j,k));
         });
 
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             v(i,j,k) += cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs);
-            v(i,j,k) *= 2.0 / (Hz(i,j-1,k) + Hz(i,j,k));
+            v(i,j,k) *= 2.0_rt / (Hz(i,j-1,k) + Hz(i,j,k));
         });
 
         // NOTE: DC is only used as scratch in vert_visc_3d -- no need to pass or return a value
@@ -259,7 +259,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         ParallelFor(makeSlab(gbx1,2,N), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            W(i,j,N) = 0.0;
+            W(i,j,N) = 0.0_rt;
         });
 
         //

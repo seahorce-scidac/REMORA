@@ -16,8 +16,8 @@ REMORA::sum_integrated_quantities(Real time)
     int datwidth = 14;
     int datprecision = 6;
 
-    Real scalar = 0.0;
-    Real kineng = 0.0;
+    Real scalar = 0.0_rt;
+    Real kineng = 0.0_rt;
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
@@ -32,7 +32,7 @@ REMORA::sum_integrated_quantities(Real time)
             const Array4<const Real>    vel_arr = cc_vel_mf.const_array(mfi);
             ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                kineng_arr(i,j,k) = 0.5 * ( vel_arr(i,j,k,0)*vel_arr(i,j,k,0) + vel_arr(i,j,k,1)*vel_arr(i,j,k,1) +
+                kineng_arr(i,j,k) = 0.5_rt * ( vel_arr(i,j,k,0)*vel_arr(i,j,k,0) + vel_arr(i,j,k,1)*vel_arr(i,j,k,1) +
                                             vel_arr(i,j,k,2)*vel_arr(i,j,k,2) );
             });
         } // mfi
@@ -62,7 +62,7 @@ REMORA::sum_integrated_quantities(Real time)
             if (NumDataLogs() > 0) {
                 std::ostream& data_log1 = DataLog(0);
                 if (data_log1.good()) {
-                    if (time == 0.0) {
+                    if (time == 0.0_rt) {
                         data_log1 << std::setw(datwidth) << "          time";
                         data_log1 << std::setw(datwidth) << "        scalar";
                         data_log1 << std::setw(datwidth) << "        kineng";
@@ -90,7 +90,7 @@ REMORA::volWgtSumMF(int lev, const MultiFab& mf, int comp, bool local, bool fine
 {
     BL_PROFILE("REMORA::volWgtSumMF()");
 
-    Real sum = 0.0;
+    Real sum = 0.0_rt;
     MultiFab tmp(grids[lev], dmap[lev], 1, 0);
     MultiFab::Copy(tmp, mf, comp, 0, 1, 0);
 
@@ -122,7 +122,7 @@ REMORA::build_fine_mask(int level)
 
     // TODO -- we should make a vector of these a member of REMORA class
     fine_mask.define(cba, cdm, 1, 0, MFInfo());
-    fine_mask.setVal(1.0);
+    fine_mask.setVal(1.0_rt);
 
     BoxArray fba = grids[level];
     iMultiFab ifine_mask = makeFineMask(cba, cdm, fba, ref_ratio[level-1], 1, 0);
@@ -145,7 +145,7 @@ REMORA::is_it_time_for_action(int nstep, Real time, Real dtlev, int action_inter
   bool int_test = (action_interval > 0 && nstep % action_interval == 0);
 
   bool per_test = false;
-  if (action_per > 0.0) {
+  if (action_per > 0.0_rt) {
     const int num_per_old = static_cast<int>(amrex::Math::floor((time - dtlev) / action_per));
     const int num_per_new = static_cast<int>(amrex::Math::floor((time) / action_per));
 

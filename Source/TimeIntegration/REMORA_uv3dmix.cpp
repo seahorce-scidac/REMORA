@@ -44,7 +44,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
 
     ParallelFor(growLo(xbx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real cff = 0.5*Hz(i,j,k) * ( pm(i,j,0) / pn(i,j,0) *
+        const Real cff = 0.5_rt*Hz(i,j,k) * ( pm(i,j,0) / pn(i,j,0) *
                                     ( (pn(i  ,j,0) + pn(i+1,j,0)) * uold(i+1,j,k,nrhs)-
                                       (pn(i-1,j,0) + pn(i  ,j,0)) * uold(i  ,j,k,nrhs) )-
                                                 pn(i,j,0) / pm(i,j,0) *
@@ -57,7 +57,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
 
     ParallelFor(growHi(xbx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real cff = 0.125 * (Hz(i-1,j  ,k) + Hz(i,j ,k)+ Hz(i-1,j-1,k) + Hz(i,j-1,k))*
+        const Real cff = 0.125_rt * (Hz(i-1,j  ,k) + Hz(i,j ,k)+ Hz(i-1,j-1,k) + Hz(i,j-1,k))*
                     (pm(i,j,0)/pn(i,j,0)*
                      ((pn(i  ,j-1,0)+pn(i  ,j,0))*vold(i  ,j,k,nrhs)-
                       (pn(i-1,j-1,0)+pn(i-1,j,0))*vold(i-1,j,k,nrhs))+
@@ -71,9 +71,9 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
 
     ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real cff=dt_lev*0.25*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
-        const Real cff1=0.5*(pn(i-1,j,0)+pn(i,j,0))*(UFx(i,j  ,k)-UFx(i-1,j,k));
-        const Real cff2=0.5*(pm(i-1,j,0)+pm(i,j,0))*(UFe(i,j+1,k)-UFe(i  ,j,k));
+        const Real cff=dt_lev*0.25_rt*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
+        const Real cff1=0.5_rt*(pn(i-1,j,0)+pn(i,j,0))*(UFx(i,j  ,k)-UFx(i-1,j,k));
+        const Real cff2=0.5_rt*(pm(i-1,j,0)+pm(i,j,0))*(UFe(i,j+1,k)-UFe(i  ,j,k));
         const Real cff3=cff*(cff1+cff2);
         amrex::Gpu::Atomic::Add(&(rufrc(i,j,0)), cff1+cff2);
         u(i,j,k,nnew)=u(i,j,k,nnew)+cff3;
@@ -93,7 +93,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
     ParallelFor(growLo(ybx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         // cff depends on k, but UFx and VFe will only be affected by the last cell?
-        const Real cff = 0.5*Hz(i,j,k) * (pm(i,j,0) / pn(i,j,0) *
+        const Real cff = 0.5_rt*Hz(i,j,k) * (pm(i,j,0) / pn(i,j,0) *
                 ((pn(i,  j,0) + pn(i+1,j,0)) * uold(i+1,j,k,nrhs)-
                  (pn(i-1,j,0) + pn(i,  j,0)) * uold(i  ,j,k,nrhs))-
                 pn(i,j,0) / pm(i,j,0) *
@@ -106,7 +106,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
 
     ParallelFor(growHi(ybx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real cff = 0.125 * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
+        const Real cff = 0.125_rt * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
                               Hz(i-1,j-1,k)+Hz(i,j-1,k))*
                     (pm(i,j,0)/pn(i,j,0)*
                      ((pn(i  ,j-1,0)+pn(i  ,j,0))*vold(i  ,j,k,nrhs)-
@@ -121,9 +121,9 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
 
     ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real cff=dt_lev*0.25*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
-        const Real cff1=0.5*(pn(i,j-1,0)+pn(i,j,0))*(VFx(i+1,j,k)-VFx(i,j  ,k));
-        const Real cff2=0.5*(pm(i,j-1,0)+pm(i,j,0))*(VFe(i  ,j,k)-VFe(i,j-1,k));
+        const Real cff=dt_lev*0.25_rt*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+        const Real cff1=0.5_rt*(pn(i,j-1,0)+pn(i,j,0))*(VFx(i+1,j,k)-VFx(i,j  ,k));
+        const Real cff2=0.5_rt*(pm(i,j-1,0)+pm(i,j,0))*(VFe(i  ,j,k)-VFe(i,j-1,k));
         const Real cff3=cff*(cff1-cff2);
         amrex::Gpu::Atomic::Add(&(rvfrc(i,j,0)), cff1-cff2);
         v(i,j,k,nnew)=v(i,j,k,nnew)+cff3;

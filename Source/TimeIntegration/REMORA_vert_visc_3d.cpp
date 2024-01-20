@@ -27,7 +27,7 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
 
     ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Hzk(i,j,k)=0.5*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
+        Hzk(i,j,k)=0.5_rt*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
     });
 
     //
@@ -35,7 +35,7 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
     //
     ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        AK(i,j,k) = 0.5 * (Akv(i-ioff,j-joff,k)+Akv(i,j,k));
+        AK(i,j,k) = 0.5_rt * (Akv(i-ioff,j-joff,k)+Akv(i,j,k));
     });
 
     Gpu::streamSynchronize();
@@ -59,14 +59,14 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
             //
             Real cff;
 
-            const Real oHz = 1.0/ Hzk(i,j,k);
+            const Real oHz = 1.0_rt/ Hzk(i,j,k);
 
             FC(i,j,k) = (k >= 1) ? sixth*Hzk(i,j,k  )-dt_lev*AK(i,j,k-1)*oHz :
                                    sixth*Hzk(i,j,k);
 
             if (k < N)
             {
-                const Real oHzkp1 = 1.0/ Hzk(i,j,k+1);
+                const Real oHzkp1 = 1.0_rt/ Hzk(i,j,k+1);
 
                 CF(i,j,k)=sixth*Hzk(i,j,k+1)-dt_lev*AK(i,j,k+1)*oHzkp1;
 
@@ -74,14 +74,14 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
                 {
                     BC(i,j,k)=third*(Hzk(i,j,k)+Hzk(i,j,k+1)) + dt_lev*AK(i,j,k)*(oHz+oHzkp1);
 
-                    cff=1.0/(BC(i,j,k)-FC(i,j,k)*0.0);
+                    cff=1.0_rt/(BC(i,j,k)-FC(i,j,k)*0.0_rt);
                     CF(i,j,k) *= cff;
-                    DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*0.0);
+                    DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*0.0_rt);
 
                 } else {
 
                     BC(i,j,k)=third*(Hzk(i,j,k)+Hzk(i,j,k+1)) + dt_lev*AK(i,j,k)*(oHz+oHzkp1);
-                    cff=1.0/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
+                    cff=1.0_rt/(BC(i,j,k)-FC(i,j,k)*CF(i,j,k-1));
                     CF(i,j,k) *= cff;
                     DC(i,j,k) = cff*(phi(i,j,k+1,nnew)-phi(i,j,k,nnew)-FC(i,j,k)*DC(i,j,k-1));
                 }
@@ -99,7 +99,7 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
            //
            //  Backward substitution.
            //
-           DC(i,j,N)=0.0;
+           DC(i,j,N)=0.0_rt;
 
            if(N-k+1<=N && N>=k) //-N,1,-1 => kidx =N-k+1
            {
@@ -122,10 +122,10 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
     {
         Real cff;
         if(k-1>=0) {
-            const Real oHz = 1.0/ Hzk(i,j,k);
+            const Real oHz = 1.0_rt/ Hzk(i,j,k);
             cff = dt_lev*oHz*(DC(i,j,k)-DC(i,j,k-1));
         } else {
-            const Real oHz = 1.0/ Hzk(i,j,k);
+            const Real oHz = 1.0_rt/ Hzk(i,j,k);
             cff = dt_lev*oHz*(DC(i,j,k));
         }
         phi(i,j,k) += cff;

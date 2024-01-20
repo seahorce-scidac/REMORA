@@ -26,8 +26,8 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const Real time, const int bdy
     int n_time = static_cast<int>( time_since_start /  dT);
 
     amrex::Real alpha = (time_since_start - n_time * dT) / dT;
-    AMREX_ALWAYS_ASSERT( alpha >= 0. && alpha <= 1.0);
-    amrex::Real oma   = 1.0 - alpha;
+    AMREX_ALWAYS_ASSERT( alpha >= 0. && alpha <= 1.0_rt);
+    amrex::Real oma   = 1.0_rt - alpha;
 
     // Which variable are we filling
     int ivar = bdy_var_type;

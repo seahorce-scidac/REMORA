@@ -34,7 +34,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
       init_stuff(lev, ba, dm);
 
     t_new[lev] = time;
-    t_old[lev] = time - 1.e200;
+    t_old[lev] = time - 1.e200_rt;
 
     FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1]);
     FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
@@ -56,17 +56,17 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
 #endif
 
-    MultiFab* tmp_cons_new; tmp_cons_new->define(ba, dm, NCONS, ngrow_state);
-    MultiFab* tmp_cons_old; tmp_cons_old->define(ba, dm, NCONS, ngrow_state);
+    MultiFab* tmp_cons_new = nullptr; tmp_cons_new->define(ba, dm, NCONS, ngrow_state);
+    MultiFab* tmp_cons_old = nullptr; tmp_cons_old->define(ba, dm, NCONS, ngrow_state);
 
-    MultiFab* tmp_xvel_new; tmp_xvel_new->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
-    MultiFab* tmp_xvel_old; tmp_xvel_old->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
+    MultiFab* tmp_xvel_new = nullptr; tmp_xvel_new->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
+    MultiFab* tmp_xvel_old = nullptr; tmp_xvel_old->define(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
 
-    MultiFab* tmp_yvel_new; tmp_yvel_new->define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
-    MultiFab* tmp_yvel_old; tmp_yvel_old->define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
+    MultiFab* tmp_yvel_new = nullptr; tmp_yvel_new->define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
+    MultiFab* tmp_yvel_old = nullptr; tmp_yvel_old->define(convert(ba, IntVect(0,1,0)), dm, 1, ngrow_vels);
 
-    MultiFab* tmp_zvel_new; tmp_zvel_new->define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
-    MultiFab* tmp_zvel_old; tmp_zvel_old->define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
+    MultiFab* tmp_zvel_new = nullptr; tmp_zvel_new->define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
+    MultiFab* tmp_zvel_old = nullptr; tmp_zvel_old->define(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
     FillPatch(lev, time, *tmp_cons_new, cons_new, BdyVars::t);
@@ -89,7 +89,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     std::swap(tmp_zvel_old, zvel_old[lev]);
 
     t_new[lev] = time;
-    t_old[lev] = time - 1.e200;
+    t_old[lev] = time - 1.e200_rt;
 
     init_stuff(lev, ba, dm);
 }
