@@ -43,6 +43,8 @@ void add_par () {
 
 int main(int argc, char* argv[])
 {
+    {
+    amrex::Initialize(argc,argv,true,MPI_COMM_WORLD,add_par);
     // Check to see if the command line contains --describe
     if (argc >= 2) {
         for (auto i = 1; i < argc; i++) {
@@ -51,8 +53,13 @@ int main(int argc, char* argv[])
                 return 0;
             }
         }
+    } else if(argc < 2) {
+        amrex::Print() << "REMORA is currently under development as a next-generation version of the Regional Ocean Modeling System (ROMS). See Docs for more information.\n"
+        <<"  usage:\n"
+        <<"    ./REMORA3d.xxx.yyy.ex inputs" <<std::endl;
+//        std::cerr << "inputs should follow executable on command line" << std::endl;
+	return -1;
     }
-    amrex::Initialize(argc,argv,true,MPI_COMM_WORLD,add_par);
 
     // Save the inputs file name for later.
     if (!strchr(argv[1], '=')) {
@@ -88,6 +95,6 @@ int main(int argc, char* argv[])
 
     // destroy timer for profiling
     BL_PROFILE_VAR_STOP(pmain);
-
     amrex::Finalize();
+    }
 }
