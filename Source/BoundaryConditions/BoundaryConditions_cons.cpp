@@ -45,9 +45,11 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
 
     GpuArray<GpuArray<Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS> l_bc_extdir_vals_d;
 
-    for (int i = 0; i < ncomp; i++)
-        for (int ori = 0; ori < 2*AMREX_SPACEDIM; ori++)
+    for (int i = 0; i < ncomp; i++) {
+        for (int ori = 0; ori < 2*AMREX_SPACEDIM; ori++) {
             l_bc_extdir_vals_d[i][ori] = m_bc_extdir_vals[bccomp+i][ori];
+        }
+    }
 
     GeometryData const& geomdata = m_geom.data();
     bool is_periodic_in_x = geomdata.isPeriodic(0);
