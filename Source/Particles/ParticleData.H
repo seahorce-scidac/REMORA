@@ -62,12 +62,7 @@ struct ParticleData {
         if (use_tracer_particles) {
             amrex::Array<amrex::MultiFab const*, AMREX_SPACEDIM> mac_vel = {xvel, yvel, zvel};
             bool use_terrain = (z_phys_nd[lev] != nullptr);
-            if (use_terrain) {
-                tracer_particles->AdvectWithUmac(mac_vel, lev, dt_lev, use_terrain, *z_phys_nd[lev]);
-            } else {
-                amrex::MultiFab dummy;
-                tracer_particles->AdvectWithUmac(mac_vel, lev, dt_lev, use_terrain, dummy);
-            }
+            tracer_particles->AdvectWithUmac(mac_vel, lev, dt_lev, use_terrain, *z_phys_nd[lev]);
         }
     }
 
