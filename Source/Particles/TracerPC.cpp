@@ -127,10 +127,9 @@ TracerPC::AdvectWithUmac (Array<MultiFab const*, AMREX_SPACEDIM> umac,
                                              (*fab[1]).array(),
                                              (*fab[2]).array() )}};
 
-            auto zheight      = use_terrain ? a_z_height[grid].array() : Array4<Real>{};
+            auto const& zheight = a_z_height[grid].array();
 
-            ParallelFor(n,
-                               [=] AMREX_GPU_DEVICE (int i)
+            ParallelFor(n, [=] AMREX_GPU_DEVICE (int i)
             {
                 ParticleType& p = p_pbox[i];
                 if (p.id() <= 0) { return; }
@@ -143,6 +142,9 @@ TracerPC::AdvectWithUmac (Array<MultiFab const*, AMREX_SPACEDIM> umac,
                         p.rdata(dim) = p.pos(dim);
                         p.pos(dim) += static_cast<ParticleReal>(ParticleReal(0.5_rt)*dt*v[dim]);
                     }
+
+                    // Update z-coordinate stored in p.idata(0)
+                    update_location_idata(p,plo,dxi,zheight);
                 }
                 else
                 {
@@ -152,25 +154,8 @@ TracerPC::AdvectWithUmac (Array<MultiFab const*, AMREX_SPACEDIM> umac,
                         p.rdata(dim) = v[dim];
                     }
 
-                    // also update z-coordinate here
-                    IntVect iv(
-                        AMREX_D_DECL(int(amrex::Math::floor((p.pos(0)-plo[0])*dxi[0])),
-                                     int(amrex::Math::floor((p.pos(1)-plo[1])*dxi[1])),
-                                     p.idata(0)));
-                    iv[0] += domain.smallEnd()[0];
-                    iv[1] += domain.smallEnd()[1];
-                    ParticleReal zlo, zhi;
-                    if (use_terrain) {
-                        update_location_idata(p,plo,dxi,zheight);
-                    } else {
-                        zlo =  iv[2]    * dx[2];
-                        zhi = (iv[2]+1) * dx[2];
-                        if (p.pos(2) > zhi) { // need to be careful here
-                            p.idata(0) += 1;
-                        } else if (p.pos(2) <= zlo) {
-                            p.idata(0) -= 1;
-                        }
-                    }
+                    // Update z-coordinate stored in p.idata(0)
+                    update_location_idata(p,plo,dxi,zheight);
                 }
             });
         }
