@@ -940,8 +940,14 @@ private:
     const std::string DataLogName (int i) const noexcept { return datalogname[i]; }
 
 public:
-    void writeJobInfo(const std::string& dir) const;
-    static void writeBuildInfo(std::ostream& os);
+    void writeJobInfo (const std::string& dir) const;
+    static void writeBuildInfo (std::ostream& os);
+
+    static void print_banner(MPI_Comm /*comm*/, std::ostream& /*out*/);
+    static void print_usage(MPI_Comm /*comm*/, std::ostream& /*out*/);
+    static void print_error(MPI_Comm /*comm*/, const std::string& msg);
+    static void print_summary(std::ostream&);
+    static void print_tpls(std::ostream& /*out*/);
 };
 
 #endif

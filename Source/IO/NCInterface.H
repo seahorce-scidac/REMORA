@@ -9,7 +9,7 @@
 #ifndef NC_INTREMORAACE_H
 #define NC_INTREMORAACE_H
 
-#ifndef USE_NETCDF
+#ifdef REMORA_USE_NETCDF
 #include <string>
 #include <unordered_map>
 #include <vector>
