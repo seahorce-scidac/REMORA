@@ -717,4 +717,11 @@ REMORA::advance_2d (int lev,
             });
         }
     }
+
+    Real dummy_time = 0.0_rt;
+    FillPatch(lev, dummy_time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar,
+              knew, false);
+    FillPatch(lev, dummy_time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,
+              knew, false);
+
 }
