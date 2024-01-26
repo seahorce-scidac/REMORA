@@ -3,6 +3,8 @@ CEXE_sources += Plotfile.cpp
 CEXE_sources += Checkpoint.cpp
 CEXE_sources += writeJobInfo.cpp
 
+CEXE_sources += console_io.cpp
+
 ifeq ($(USE_NETCDF), TRUE)
   CEXE_sources += ReadFromInitNetcdf.cpp
   CEXE_sources += ReadFromBdryNetcdf.cpp

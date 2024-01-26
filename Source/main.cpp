@@ -43,8 +43,39 @@ void add_par () {
 
 int main(int argc, char* argv[])
 {
-    {
-    amrex::Initialize(argc,argv,true,MPI_COMM_WORLD,add_par);
+{
+#ifdef AMREX_USE_MPI
+    MPI_Init(&argc, &argv);
+#endif
+
+    if (argc < 2) {
+        // Print usage and exit with error code if no input file was provided.
+        REMORA::print_usage(MPI_COMM_WORLD, std::cout);
+        REMORA::print_error(
+            MPI_COMM_WORLD, "No input file provided. Exiting!!");
+        return 1;
+    }
+
+    // Look for "-h" or "--help" flag and print usage
+    for (auto i = 1; i < argc; i++) {
+        const std::string param(argv[i]);
+        if ((param == "--help") || (param == "-h") || (param == "--usage")) {
+            REMORA::print_banner(MPI_COMM_WORLD, std::cout);
+            REMORA::print_usage(MPI_COMM_WORLD, std::cout);
+            return 0;
+        }
+    }
+
+    if (!amrex::FileSystem::Exists(std::string(argv[1]))) {
+        // Print usage and exit with error code if we cannot find the input file
+        REMORA::print_usage(MPI_COMM_WORLD, std::cout);
+        REMORA::print_error(
+            MPI_COMM_WORLD, "Input file does not exist = " +
+                                std::string(argv[1]) + ". Exiting!!");
+        return 1;
+    }
+
+  //  print_banner(MPI_COMM_WORLD, std::cout);
     // Check to see if the command line contains --describe
     if (argc >= 2) {
         for (auto i = 1; i < argc; i++) {
@@ -60,6 +91,7 @@ int main(int argc, char* argv[])
 //        std::cerr << "inputs should follow executable on command line" << std::endl;
 	return -1;
     }
+    amrex::Initialize(argc,argv,true,MPI_COMM_WORLD,add_par);
 
     // Save the inputs file name for later.
     if (!strchr(argv[1], '=')) {
