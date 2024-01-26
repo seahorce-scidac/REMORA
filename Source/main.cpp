@@ -91,6 +91,7 @@ int main(int argc, char* argv[])
 //        std::cerr << "inputs should follow executable on command line" << std::endl;
         return -1;
     }
+
     amrex::Initialize(argc,argv,true,MPI_COMM_WORLD,add_par);
 
     // Save the inputs file name for later.
@@ -128,5 +129,8 @@ int main(int argc, char* argv[])
     // destroy timer for profiling
     BL_PROFILE_VAR_STOP(pmain);
     amrex::Finalize();
-    }
+#ifdef AMREX_USE_MPI
+    MPI_Finalize();
+#endif
+}
 }
