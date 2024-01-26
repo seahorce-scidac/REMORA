@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
         <<"  usage:\n"
         <<"    ./REMORA3d.xxx.yyy.ex inputs" <<std::endl;
 //        std::cerr << "inputs should follow executable on command line" << std::endl;
-	return -1;
+        return -1;
     }
     amrex::Initialize(argc,argv,true,MPI_COMM_WORLD,add_par);
 
