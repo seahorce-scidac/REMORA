@@ -152,7 +152,44 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         fab_CF.template     setVal<RunOn::Device>(0.,ybx);
 
         vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,pn,nnew,N);
+    }
 
+    // Apply physical boundary conditions to u and v
+    (*physbcs[lev])(mf_u,0,1,mf_u.nGrowVect(),t_new[lev],BdyVars::u);
+    (*physbcs[lev])(mf_v,0,1,mf_v.nGrowVect(),t_new[lev],BdyVars::v);
+
+    for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real      > const& u = mf_u.array(mfi);
+        Array4<Real      > const& v = mf_v.array(mfi);
+
+        Array4<Real      > const& DC = mf_DC.array(mfi);
+
+        Array4<Real const> const& Hz  = mf_Hz->const_array(mfi);
+
+        Array4<Real const> const& DU_avg1  = mf_DU_avg1->const_array(mfi);
+        Array4<Real const> const& DV_avg1  = mf_DV_avg1->const_array(mfi);
+
+        Array4<Real> const& DU_avg2  = mf_DU_avg2->array(mfi);
+        Array4<Real> const& DV_avg2  = mf_DV_avg2->array(mfi);
+
+        Array4<Real> const& ubar = mf_ubar->array(mfi);
+        Array4<Real> const& vbar = mf_vbar->array(mfi);
+
+        Array4<Real> const& Huon = mf_Huon->array(mfi);
+        Array4<Real> const& Hvom = mf_Hvom->array(mfi);
+
+        Array4<Real const> const& pm  = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn  = mf_pn->const_array(mfi);
+
+        Box bx = mfi.tilebox();
+        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+
+        Box xbx = mfi.nodaltilebox(0);
+        Box ybx = mfi.nodaltilebox(1);
+
+        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
+        auto FC = fab_FC.array();
 #if 0
         // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(xbx,IntVect(0,0,1)));
