@@ -7,11 +7,6 @@ void REMORA::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int 
 {
     bool first_2d_step=(my_iif==0);
 
-    // These are needed to pass ctests
-    Real dummy_time = 0.0_rt;
-    FillPatch(lev, dummy_time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar);
-    FillPatch(lev, dummy_time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar);
-
     //Predictor
     bool predictor_2d_step=true;
     int next_indx1 = 0;
@@ -35,8 +30,6 @@ void REMORA::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int 
     if (my_iif < nfast_counter - 1) {
 
         // These are needed to pass ctests
-        FillPatch(lev, dummy_time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar);
-        FillPatch(lev, dummy_time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar);
 
         advance_2d(lev,
                    vec_rhoS[lev].get(), vec_rhoA[lev].get(),

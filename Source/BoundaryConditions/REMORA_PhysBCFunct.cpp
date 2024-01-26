@@ -7,7 +7,7 @@ using namespace amrex;
 //
 // mf is the multifab to be filled
 // icomp is the index into the MultiFab -- if cell-centered this can be any value
-//       from 0 to NCONS-1, if face-centered this must be 0
+//       from 0 to NCONS-1, if face-centered can be any value from 0 to 2 (inclusive)
 // ncomp is the number of components -- if cell-centered this can be any value
 //       from 1 to NCONS as long as icomp+ncomp <= NCONS-1.  If face-centered this
 //       must be 1
@@ -60,10 +60,10 @@ void REMORAPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect 
                     Box bx = mfi.validbox(); bx.grow(nghost);
                     if (!gdomain.contains(bx)) {
                         if(bx.ixType() == IndexType(IntVect(1,0,0))) {
-                            const Array4<Real>& dest_arr = mf.array(mfi,0);
+                            const Array4<Real>& dest_arr = mf.array(mfi,icomp);
                             impose_xvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
                         } else if (bx.ixType() == IndexType(IntVect(0,1,0))) {
-                            const Array4<Real>& dest_arr = mf.array(mfi,0);
+                            const Array4<Real>& dest_arr = mf.array(mfi,icomp);
                             impose_yvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
                         }
                     }

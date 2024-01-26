@@ -192,11 +192,10 @@ REMORA::stretch_transform (int lev)
       });
     } // mfi
 
-    Real time = t_new[lev];
-    FillPatch(lev, time, *vec_z_w[lev], GetVecOfPtrs(vec_z_w));
-    FillPatch(lev, time, *vec_z_r[lev], GetVecOfPtrs(vec_z_r));
-    FillPatch(lev, time, *vec_s_r[lev], GetVecOfPtrs(vec_s_r));
-    FillPatch(lev, time, *vec_Hz[lev] , GetVecOfPtrs(vec_Hz));
+    vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
+    vec_z_r[lev]->FillBoundary(geom[lev].periodicity());
+    vec_s_r[lev]->FillBoundary(geom[lev].periodicity());
+    vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
 
     // Define nodal z as average of z on w-faces
     for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )

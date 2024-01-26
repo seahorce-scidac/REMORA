@@ -15,17 +15,23 @@ PhysBCFunctNoOp null_bc;
 void
 REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs,
 #ifdef REMORA_USE_NETCDF
-                  const int bdy_var_type)
+                  const int bdy_var_type,
 #else
-                  const int /*bdy_var_type*/)
+                  const int /*bdy_var_type*/,
 #endif
+                  const int  icomp,
+                  const bool fill_all)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
     int bccomp;
     amrex::Interpolater* mapper = nullptr;
 
-    const int icomp = 0;
-    const int ncomp = mf_to_fill.nComp();
+    int ncomp;
+    if (fill_all) {
+        ncomp = mf_to_fill.nComp();
+    } else {
+        ncomp = 1;
+    }
 
     Box mf_box(mf_to_fill.boxArray()[0]);
     if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
@@ -82,7 +88,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
 #endif
 
     // Enforce physical boundary conditions
-    (*physbcs[lev])(mf_to_fill,0,ncomp,mf_to_fill.nGrowVect(),time,bccomp);
+    (*physbcs[lev])(mf_to_fill,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp);
 
     // Also enforce free-slip at top boundary (on xvel or yvel)
     if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
