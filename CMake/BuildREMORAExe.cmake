@@ -63,6 +63,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/IO/Checkpoint.cpp
        ${SRC_DIR}/IO/Plotfile.cpp
        ${SRC_DIR}/IO/writeJobInfo.cpp
+       ${SRC_DIR}/IO/console_io.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_Advance.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_advance_2d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_advance_2d_onestep.cpp
