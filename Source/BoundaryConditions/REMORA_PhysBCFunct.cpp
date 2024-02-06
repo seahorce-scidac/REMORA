@@ -47,7 +47,6 @@ void REMORAPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect 
                     Box bx = mfi.validbox(); bx.grow(nghost);
 
                     if (!gdomain.contains(bx)) {
-                        AMREX_ALWAYS_ASSERT(icomp == 0 && icomp+ncomp <= NCONS);
                         impose_cons_bcs(dest_arr,bx,domain,dxInv,icomp,ncomp,time,bccomp);
                     }
                 } // mfi
