@@ -47,6 +47,16 @@ REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
                   const Array4<Real      >& FC,
                   int nrhs, int N)
 {
+    const Box& domain = geom[0].Domain();
+    const auto dlo = amrex::lbound(domain);
+    const auto dhi = amrex::ubound(domain);
+
+    int ncomp = 1;
+    Vector<BCRec> bcrs_x(ncomp);
+    Vector<BCRec> bcrs_y(ncomp);
+    amrex::setBC(xbx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
+    amrex::setBC(ybx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
+
     //
     // Scratch space
     //
@@ -85,17 +95,27 @@ REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
     {
         Real cff1 = uold(i,j,k,nrhs)+uold(i+1,j,k,nrhs);
 
+        Real uxx_i   = uold(i-1,j,k,nrhs)-2.0_rt*uold(i  ,j,k,nrhs)+uold(i+1,j,k,nrhs);
+        Real uxx_ip1 = uold(i  ,j,k,nrhs)-2.0_rt*uold(i+1,j,k,nrhs)+uold(i+2,j,k,nrhs);
         // Upwinding
-        Real cff = (cff1 > 0.0_rt) ? uold(i-1,j,k,nrhs)-2.0_rt*uold(i  ,j,k,nrhs)+uold(i+1,j,k,nrhs) :
-                                  uold(i  ,j,k,nrhs)-2.0_rt*uold(i+1,j,k,nrhs)+uold(i+2,j,k,nrhs);
 
         Real Huxx_i   = Huon(i-1,j,k)-2.0_rt*Huon(i  ,j,k)+Huon(i+1,j,k);
         Real Huxx_ip1 = Huon(i  ,j,k)-2.0_rt*Huon(i+1,j,k)+Huon(i+2,j,k);
-        Real Huxx_avg = 0.5_rt * (Huxx_i + Huxx_ip1);
+
+        if (i == dlo.x && bcrs_x[0].lo(0) == REMORABCType::ext_dir) {
+            uxx_i = uxx_ip1;
+            Huxx_i = Huxx_ip1;
+        }
+        else if (i == dhi.x && bcrs_x[0].hi(0) == REMORABCType::ext_dir) {
+            uxx_ip1 = uxx_i;
+            Huxx_ip1 = Huxx_i;
+        }
+
+        Real cff = (cff1 > 0.0_rt) ? uxx_i : uxx_ip1;
 
         Real Huon_avg = (Huon(i,j,k) + Huon(i+1,j,k));
 
-        UFx(i,j,k) = 0.25_rt*(cff1+Gadv*cff) * ( Huon_avg + Gadv*Huxx_avg );
+        UFx(i,j,k) = 0.25_rt*(cff1+Gadv*cff) * ( Huon_avg + 0.5_rt*Gadv*(Huxx_i + Huxx_ip1) );
     });
 
     //
@@ -106,9 +126,17 @@ REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
         Real cff1 = uold(i,j,k,nrhs) + uold(i  ,j-1,k,nrhs);
         Real cff2 = Hvom(i,j,k)      + Hvom(i-1,j  ,k);
 
+        Real uee_jm1 = uold(i,j-2,k,nrhs) - 2.0_rt*uold(i,j-1,k,nrhs) + uold(i  ,j,k,nrhs);
+        Real uee_j   = uold(i,j-1,k,nrhs) - 2.0_rt*uold(i,j  ,k,nrhs) + uold(i,j+1,k,nrhs);
+
+        if (j == dlo.y and bcrs_y[0].lo(1) == REMORABCType::ext_dir) {
+            uee_jm1 = uee_j;
+        } else if (j == dhi.y+1 and bcrs_y[0].hi(1) == REMORABCType::ext_dir) {
+            uee_j = uee_jm1;
+        }
+
         // Upwinding
-        Real cff = (cff2 > 0.0_rt) ?  uold(i,j-2,k,nrhs) - 2.0_rt*uold(i,j-1,k,nrhs) + uold(i  ,j,k,nrhs) :
-                                   uold(i,j-1,k,nrhs) - 2.0_rt*uold(i,j  ,k,nrhs) + uold(i,j+1,k,nrhs);
+        Real cff = (cff2 > 0.0_rt) ?  uee_jm1 : uee_j;
 
         Real Hvxx_i   = Hvom(i-1,j,k)-2.0_rt*Hvom(i  ,j,k)+Hvom(i+1,j,k);
         Real Hvxx_im1 = Hvom(i-2,j,k)-2.0_rt*Hvom(i-1,j,k)+Hvom(i  ,j,k);
@@ -198,35 +226,54 @@ REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
     //      which requires                                    vold on [-2:nx+1, -:ny  ] (1,0,0)  y-faces
     //       and  requires                                    Hvom on [ 0:nx-1,-2:ny+1] (0,0,0)  y-faces
 
-    // Grow ybx by one in low y-direction
-    ParallelFor(growLo(ybx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        Real cff1=vold(i,j,k,nrhs)+vold(i,j+1,k,nrhs);
-
-        // Upwinding
-        Real cff = (cff1 > 0.0_rt) ? vold(i,j-1,k,nrhs)-2.0_rt*vold(i,j,k,nrhs)+ vold(i,j+1,k,nrhs) :
-                                  vold(i,j,k,nrhs)-2.0_rt*vold(i,j+1,k,nrhs)+ vold(i,j+2,k,nrhs);
-
-        Real Hvee_j   = Hvom(i,j-1,k)-2.0_rt*Hvom(i,j  ,k)+Hvom(i,j+1,k);
-        Real Hvee_jp1 = Hvom(i,j  ,k)-2.0_rt*Hvom(i,j+1,k)+Hvom(i,j+2,k);
-
-        VFe(i,j,k) = 0.25_rt * (cff1+Gadv*cff) * ( Hvom(i,j  ,k)+ Hvom(i,j+1,k) + 0.5_rt * Gadv * (Hvee_j + Hvee_jp1) );
-    });
-
     // Grow ybx by one in high x-direction
     ParallelFor(growHi(ybx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1 = vold(i,j,k,nrhs) + vold(i-1,j  ,k,nrhs);
         Real cff2 = Huon(i,j,k)      + Huon(i  ,j-1,k);
 
+        Real vxx_im1 = vold(i-2,j,k,nrhs)-2.0_rt*vold(i-1,j,k,nrhs)+vold(i  ,j,k,nrhs);
+        Real vxx_i   = vold(i-1,j,k,nrhs)-2.0_rt*vold(i  ,j,k,nrhs)+vold(i+1,j,k,nrhs);
+
+        if (i == dlo.x and bcrs_x[0].lo(0) == REMORABCType::ext_dir) {
+            vxx_i = vxx_im1;
+        } else if (i == dhi.x+1 and bcrs_x[0].hi(0) == REMORABCType::ext_dir) {
+            vxx_im1 = vxx_i;
+        }
+
         // Upwinding
-        Real cff = (cff2 > 0.0_rt) ? vold(i-2,j,k,nrhs)-2.0_rt*vold(i-1,j,k,nrhs)+vold(i  ,j,k,nrhs) :
-                                  vold(i-1,j,k,nrhs)-2.0_rt*vold(i  ,j,k,nrhs)+vold(i+1,j,k,nrhs);
+        Real cff = (cff2 > 0.0_rt) ? vxx_im1 : vxx_i;
+
 
         Real Huee_j   = Huon(i,j-1,k)-2.0_rt*Huon(i,j  ,k)+Huon(i,j+1,k);
         Real Huee_jm1 = Huon(i,j-2,k)-2.0_rt*Huon(i,j-1,k)+Huon(i,j  ,k);
 
         VFx(i,j,k) = 0.25_rt*(cff1+Gadv*cff)* (cff2+Gadv*0.5_rt*(Huee_j + Huee_jm1));
+    });
+
+    // Grow ybx by one in low y-direction
+    ParallelFor(growLo(ybx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        Real cff1=vold(i,j,k,nrhs)+vold(i,j+1,k,nrhs);
+
+        // Upwinding
+        Real vee_j    = vold(i,j-1,k,nrhs)-2.0_rt*vold(i,j  ,k,nrhs)+ vold(i,j+1,k,nrhs);
+        Real vee_jp1  = vold(i,j  ,k,nrhs)-2.0_rt*vold(i,j+1,k,nrhs)+ vold(i,j+2,k,nrhs);
+
+        Real Hvee_j   = Hvom(i,j-1,k)-2.0_rt*Hvom(i,j  ,k)+Hvom(i,j+1,k);
+        Real Hvee_jp1 = Hvom(i,j  ,k)-2.0_rt*Hvom(i,j+1,k)+Hvom(i,j+2,k);
+
+        if (j == dlo.y and bcrs_y[0].lo(1) == REMORABCType::ext_dir) {
+            vee_j = vee_jp1;
+            Hvee_j = Hvee_jp1;
+        }
+        else if (j == dhi.y and bcrs_y[0].hi(1) == REMORABCType::ext_dir) {
+            vee_jp1 = vee_j;
+            Hvee_jp1 = Hvee_j;
+        }
+        Real cff = (cff1 > 0.0_rt) ? vee_j : vee_jp1;
+
+        VFe(i,j,k) = 0.25_rt * (cff1+Gadv*cff) * ( Hvom(i,j  ,k)+ Hvom(i,j+1,k) + 0.5_rt * Gadv * (Hvee_j + Hvee_jp1) );
     });
 
     ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)

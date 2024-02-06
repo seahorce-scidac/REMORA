@@ -67,6 +67,7 @@ REMORA::advance_2d (int lev,
     const int nnew  = 0;
     const int nstp  = 0;
     int ntfirst = 0;
+    Real dummy_time = 0.0_rt;
 
     int knew = 3;
     int krhs = (my_iif + iic) % 2 + 1;
@@ -500,6 +501,7 @@ REMORA::advance_2d (int lev,
        //
        Array4<Real const> const& ubar_const = mf_ubar->const_array(mfi);
        Array4<Real const> const& vbar_const = mf_vbar->const_array(mfi);
+
        rhs_uv_2d(xbxD, ybxD, ubar_const, vbar_const, rhs_ubar, rhs_vbar, DUon, DVom, krhs);
 
        //-----------------------------------------------------------------------
@@ -718,10 +720,10 @@ REMORA::advance_2d (int lev,
         }
     }
 
-    Real dummy_time = 0.0_rt;
     FillPatch(lev, dummy_time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar,
               knew, false);
     FillPatch(lev, dummy_time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,
               knew, false);
-
+    FillPatch(lev, dummy_time, *vec_zeta[lev], GetVecOfPtrs(vec_zeta), BdyVars::zeta,
+              knew, false);
 }
