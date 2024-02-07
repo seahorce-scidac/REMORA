@@ -23,8 +23,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // Fill ghost cells/faces at old time
     FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
-    FillPatch(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
-    FillPatch(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
+    FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
+    FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
     FillPatch(lev, time, *zvel_old[lev], zvel_old, BdyVars::null);
 
     //////////    //pre_step3d corrections to boundaries
@@ -84,12 +84,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     mf_DC.setVal(0);
 
     FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
-    FillPatch(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
-    FillPatch(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
+    FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
+    FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
 
     FillPatch(lev, time, *cons_new[lev], cons_new, BdyVars::t);
-    FillPatch(lev, time, *xvel_new[lev], xvel_new, BdyVars::u);
-    FillPatch(lev, time, *yvel_new[lev], yvel_new, BdyVars::v);
+    FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u);
+    FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v);
 
     mf_rw.setVal(0.0_rt);
     mf_rufrc->setVal(0);
@@ -187,6 +187,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // We use FillBoundary not FillPatch here since mf_W is single-level scratch space
     mf_W.FillBoundary(geom[lev].periodicity());
+    (*physbcs[lev])(mf_W,0,1,mf_W.nGrowVect(),t_new[lev],BCVars::zvel_bc);
 
     for ( MFIter mfi(S_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -324,6 +325,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BdyVars::t);
 
-    FillPatch(lev, time, *vec_Huon[lev], GetVecOfPtrs(vec_Huon));
-    FillPatch(lev, time, *vec_Hvom[lev], GetVecOfPtrs(vec_Hvom));
+    // Don't actually want to apply boundary conditions here
+    vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
+    vec_Hvom[lev]->FillBoundary(geom[lev].periodicity());
 }

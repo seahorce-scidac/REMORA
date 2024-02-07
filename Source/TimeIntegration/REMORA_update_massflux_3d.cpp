@@ -33,12 +33,27 @@ REMORA::update_massflux_3d (const Box& bx,
                            const Array4<Real      >& FC,
                            const int nnew)
 {
+    const Box& domain = geom[0].Domain();
+    const auto dlo = amrex::lbound(domain);
+    const auto dhi = amrex::ubound(domain);
+
+    int ncomp = 1;
+    Vector<BCRec> bcrs_x(ncomp);
+    Vector<BCRec> bcrs_y(ncomp);
+    amrex::setBC(bx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
+    amrex::setBC(bx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
+    auto bcr_x = bcrs_x[0];
+    auto bcr_y = bcrs_y[0];
+
     auto N = Geom(0).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
     auto bxD=bx;
     auto bx_g1z=bx;
     bxD.makeSlab(2,0);
     bx_g1z.grow(IntVect(0,0,1));
+
+    FArrayBox fab_CF(bxD,1,amrex::The_Async_Arena()); fab_CF.template setVal<RunOn::Device>(0.);
+    auto CF=fab_CF.array();
 
     // auto geomdata = Geom(0).data();
     // bool NSPeriodic = geomdata.isPeriodic(1);
@@ -59,21 +74,27 @@ REMORA::update_massflux_3d (const Box& bx,
     {
         for (int k=0; k<=N; k++) {
             DC(i,j,-1) += DC(i,j,k);
+            CF(i,j,0) += DC(i,j,k) * phi(i,j,k,nnew);
         }
 
         DC(i,j,-1) = 1.0_rt / DC(i,j,-1);
+        CF(i,j,0)  = DC(i,j,-1) * (CF(i,j,0) - Dphi_avg1(i,j,0));
 
         for (int k=0; k<=N; k++) {
+            if (i == dlo.x-joff && bcr_x.lo(0) == REMORABCType::ext_dir) {
+                phi(i,j,k,nnew) -= CF(i,j,0);
+            } else if (i == dhi.x+1 && bcr_x.hi(0) == REMORABCType::ext_dir) {
+                phi(i,j,k,nnew) -= CF(i,j,0);
+            }
 
-//          BOUNDARY CONDITIONS
-//          if (!(NSPeriodic&&EWPeriodic))
-//          {
-//              if ( ( ((i<0)||(i>=Mn+1)) && !EWPeriodic ) ||  ( ((j<0)||(j>=Mm+1)) && !NSPeriodic ) )
-//              {
-//                  phi(i,j,k) -= CF;
-//              }
-//          }
+            if (j == dlo.y-ioff && bcr_y.lo(1) == REMORABCType::ext_dir) {
+                phi(i,j,k,nnew) -= CF(i,j,0);
+            } else if (j == dhi.y+1 && bcr_y.hi(1) == REMORABCType::ext_dir) {
+                phi(i,j,k,nnew) -= CF(i,j,0);
+            }
+        }
 
+        for (int k=0; k<=N; k++) {
             Hphi(i,j,k) = 0.5_rt * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
             FC(i,j,0)  += Hphi(i,j,k);
         } // k

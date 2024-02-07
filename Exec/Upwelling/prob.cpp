@@ -16,15 +16,6 @@ amrex_probinit(
   const amrex_real* /*problo*/,
   const amrex_real* /*probhi*/)
 {
-  // Parse params
-  ParmParse pp("prob");
-
-  pp.query("u_0", parms.u_0);
-  pp.query("v_0", parms.v_0);
-  pp.query("z0", parms.z0);
-  pp.query("zRef", parms.zRef);
-  pp.query("velRef", parms.velRef);
-
 }
 
 /**
@@ -135,47 +126,17 @@ init_custom_prob(
 
   const Box& xbx = surroundingNodes(bx,0);
   const Box& ybx = surroundingNodes(bx,1);
-
-   // Below we set the velocity to be non-zero only in the periodic direction, and
-   //      zero it in the non-periodic direction
-
-  if (NSPeriodic) {
-      ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-      {
-          const Real z = -z_r(i,j,k);
-
-          x_vel(i, j, k) = parms.u_0 + parms.velRef *
-                           std::log((z + parms.z0)/parms.z0)/
-                           std::log((parms.zRef +parms.z0)/parms.z0);
-      });
-  } else {
-      ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-      {
-          x_vel(i, j, k) = 0.0_rt;
-      });
-  }
-
-
-  if (EWPeriodic) {
-      ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-      {
-          const Real z = -z_r(i,j,k);
-
-          x_vel(i, j, k) = parms.v_0 + parms.velRef *
-                           std::log((z + parms.z0)/parms.z0)/
-                           std::log((parms.zRef +parms.z0)/parms.z0);
-      });
-  } else {
-      ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-      {
-          y_vel(i, j, k) = 0.0_rt;
-      });
-  }
-
-  // Construct a box that is on z-faces
   const Box& zbx = surroundingNodes(bx,2);
 
-  // Set the z-velocity
+  ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  {
+      x_vel(i, j, k) = 0.0_rt;
+  });
+  ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  {
+      y_vel(i, j, k) = 0.0_rt;
+  });
+
   ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
       z_vel(i, j, k) = 0.0_rt;

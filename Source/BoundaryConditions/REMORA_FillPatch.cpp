@@ -74,40 +74,115 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                                   mapper, domain_bcs_type, bccomp);
     } // lev > 0
 
-    // ***************************************************************************
-    // Physical bc's at domain boundary
-    // ***************************************************************************
+    // This is currently unconditionally true, but do_bc flag should actually be passed in
+    const bool do_bc=true;
+    if (do_bc) {
+        // ***************************************************************************
+        // Physical bc's at domain boundary
+        // ***************************************************************************
 
 #ifdef REMORA_USE_NETCDF
-    // Fill the data which is stored in the boundary data read from netcdf files
-    if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) &&
-         (bdy_var_type != BdyVars::null) )
-    {
-        fill_from_bdyfiles (mf_to_fill,time,bdy_var_type);
-    }
+        // Fill the data which is stored in the boundary data read from netcdf files
+        if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) &&
+             (bdy_var_type != BdyVars::null) )
+        {
+            fill_from_bdyfiles (mf_to_fill,time,bdy_var_type);
+        }
 #endif
 
-    // Enforce physical boundary conditions
-    (*physbcs[lev])(mf_to_fill,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp);
+        // Enforce physical boundary conditions
+        (*physbcs[lev])(mf_to_fill,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp);
 
-    // Also enforce free-slip at top boundary (on xvel or yvel)
-    if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
-         (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
-    {
-        int khi = geom[lev].Domain().bigEnd(2);
-        for (MFIter mfi(mf_to_fill); mfi.isValid(); ++mfi)
+        // Also enforce free-slip at top boundary (on xvel or yvel)
+        if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
+             (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
         {
-            Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is
-            gbx.setSmall(2,khi+1);
-            if (gbx.ok()) {
-                Array4<Real> vel_arr = mf_to_fill.array(mfi);
-                ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                {
-                    vel_arr(i,j,k) = vel_arr(i,j,khi);
-                });
+            int khi = geom[lev].Domain().bigEnd(2);
+            for (MFIter mfi(mf_to_fill); mfi.isValid(); ++mfi)
+            {
+                Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is
+                gbx.setSmall(2,khi+1);
+                if (gbx.ok()) {
+                    Array4<Real> vel_arr = mf_to_fill.array(mfi);
+                    ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                    {
+                        vel_arr(i,j,k) = vel_arr(i,j,khi);
+                    });
+                }
             }
         }
     }
+}
+//
+// Fill valid and ghost data in the MultiFab "mf"
+// This version fills the MultiFab mf in valid regions with the "state data" at the given time;
+// values in mf when it is passed in are *not* used.
+// Unlike FillPatch, FillPatchNoBC does not apply boundary conditions.
+//
+void
+REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs,
+#ifdef REMORA_USE_NETCDF
+                  const int bdy_var_type,
+#else
+                  const int /*bdy_var_type*/,
+#endif
+                  const int  icomp,
+                  const bool fill_all)
+{
+    // HACK: Note that this is hacky; should be able to have a single call to FillPatch with a
+    // flag for bcs, but for some reason it was acting weird, so we're splitting this out into
+    // two functions with repeated code for the time being
+    BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
+    int bccomp;
+    amrex::Interpolater* mapper = nullptr;
+
+    int ncomp;
+    if (fill_all) {
+        ncomp = mf_to_fill.nComp();
+    } else {
+        ncomp = 1;
+    }
+
+    Box mf_box(mf_to_fill.boxArray()[0]);
+    if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
+    {
+        bccomp = 0;
+        mapper = &cell_cons_interp;
+    }
+    else if (mf_box.ixType() == IndexType(IntVect(1,0,0)))
+    {
+        bccomp = BCVars::xvel_bc;
+        mapper = &face_linear_interp;
+    }
+    else if (mf_box.ixType() == IndexType(IntVect(0,1,0)))
+    {
+        bccomp = BCVars::yvel_bc;
+        mapper = &face_linear_interp;
+    }
+    else {
+        bccomp = BCVars::zvel_bc;
+        mapper = &face_linear_interp;
+    }
+
+    if (lev == 0)
+    {
+        Vector<MultiFab*> fmf = {mfs[lev], mfs[lev]};
+        Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+        amrex::FillPatchSingleLevel(mf_to_fill, time, fmf, ftime, icomp, icomp, ncomp,
+                                    geom[lev], null_bc, bccomp);
+    }
+    else
+    {
+        Vector<MultiFab*> fmf = {mfs[lev], mfs[lev]};
+        Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+        Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
+        Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
+
+        amrex::FillPatchTwoLevels(mf_to_fill, time, cmf, ctime, fmf, ftime,
+                                  0, icomp, ncomp, geom[lev-1], geom[lev],
+                                  null_bc, bccomp, null_bc, bccomp, refRatio(lev-1),
+                                  mapper, domain_bcs_type, bccomp);
+    } // lev > 0
 }
 
 
