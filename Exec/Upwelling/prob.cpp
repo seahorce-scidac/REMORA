@@ -107,15 +107,17 @@ init_custom_prob(
     bool EWPeriodic = geomdata.isPeriodic(0);
     bool NSPeriodic = geomdata.isPeriodic(1);
 
+    auto T0 = m_solverChoice.T0;
+    auto S0 = m_solverChoice.S0;
     ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
         const Real z = z_r(i,j,k);
 
         state(i, j, k, Temp_comp) = 1.;
 
-        state(i,j,k,Temp_comp)=m_solverChoice.T0+8.0_rt*std::exp(z/50.0_rt);
+        state(i,j,k,Temp_comp)=T0+8.0_rt*std::exp(z/50.0_rt);
         if (l_use_salt) {
-            state(i,j,k,Salt_comp)=m_solverChoice.S0;
+            state(i,j,k,Salt_comp)=S0;
         }
 
         // Set scalar = 0 everywhere
