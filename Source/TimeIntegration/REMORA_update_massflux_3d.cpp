@@ -42,6 +42,8 @@ REMORA::update_massflux_3d (const Box& bx,
     Vector<BCRec> bcrs_y(ncomp);
     amrex::setBC(bx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
     amrex::setBC(bx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
+    auto bcr_x = bcrs_x[0];
+    auto bcr_y = bcrs_y[0];
 
     auto N = Geom(0).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
@@ -79,15 +81,15 @@ REMORA::update_massflux_3d (const Box& bx,
         CF(i,j,0)  = DC(i,j,-1) * (CF(i,j,0) - Dphi_avg1(i,j,0));
 
         for (int k=0; k<=N; k++) {
-            if (i == dlo.x-joff && bcrs_x[0].lo(0) == REMORABCType::ext_dir) {
+            if (i == dlo.x-joff && bcr_x.lo(0) == REMORABCType::ext_dir) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
-            } else if (i == dhi.x+1 && bcrs_x[0].hi(0) == REMORABCType::ext_dir) {
+            } else if (i == dhi.x+1 && bcr_x.hi(0) == REMORABCType::ext_dir) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
             }
 
-            if (j == dlo.y-ioff && bcrs_y[0].lo(1) == REMORABCType::ext_dir) {
+            if (j == dlo.y-ioff && bcr_y.lo(1) == REMORABCType::ext_dir) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
-            } else if (j == dhi.y+1 && bcrs_y[0].hi(1) == REMORABCType::ext_dir) {
+            } else if (j == dhi.y+1 && bcr_y.hi(1) == REMORABCType::ext_dir) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
             }
         }
