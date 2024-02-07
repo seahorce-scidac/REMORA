@@ -9,8 +9,6 @@
 
 using namespace amrex;
 
-ProbParm parms;
-
 void
 amrex_probinit(
   const amrex_real* /*problo*/,
@@ -109,15 +107,17 @@ init_custom_prob(
     bool EWPeriodic = geomdata.isPeriodic(0);
     bool NSPeriodic = geomdata.isPeriodic(1);
 
-    ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    auto T0 = m_solverChoice.T0;
+    auto S0 = m_solverChoice.S0;
+    ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
         const Real z = z_r(i,j,k);
 
         state(i, j, k, Temp_comp) = 1.;
 
-        state(i,j,k,Temp_comp)=m_solverChoice.T0+8.0_rt*std::exp(z/50.0_rt);
+        state(i,j,k,Temp_comp)=T0+8.0_rt*std::exp(z/50.0_rt);
         if (l_use_salt) {
-            state(i,j,k,Salt_comp)=m_solverChoice.S0;
+            state(i,j,k,Salt_comp)=S0;
         }
 
         // Set scalar = 0 everywhere
@@ -128,16 +128,16 @@ init_custom_prob(
   const Box& ybx = surroundingNodes(bx,1);
   const Box& zbx = surroundingNodes(bx,2);
 
-  ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
       x_vel(i, j, k) = 0.0_rt;
   });
-  ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
       y_vel(i, j, k) = 0.0_rt;
   });
 
-  ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+  ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
   {
       z_vel(i, j, k) = 0.0_rt;
   });
