@@ -133,7 +133,7 @@ REMORA::advance_2d (int lev,
         tbxp2D.makeSlab(2,0);
 
         // step2d work arrays
-        FArrayBox fab_Drhs(tbxp3,1,The_Async_Arena());
+        FArrayBox fab_Drhs(makeSlab(tbxp3,2,0),1,The_Async_Arena());
         auto Drhs=fab_Drhs.array();
 
         auto DUon = mf_DUon.array(mfi);
