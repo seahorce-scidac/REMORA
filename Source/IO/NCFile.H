@@ -210,13 +210,13 @@ fill_fab_from_arrays (int iv,
     if (var_name == "u" || var_name == "ubar" || var_name == "mask_u")
     {
         my_box.setSmall(amrex::IntVect(0,-1,0));
-        my_box.setBig(amrex::IntVect(nsx-1,nsy-1,nsz-1));
+        my_box.setBig(amrex::IntVect(nsx-1,nsy-2,nsz-1));
         my_box.setType(amrex::IndexType(amrex::IntVect(1,0,0)));
     }
     else if (var_name == "v" || var_name == "vbar" || var_name == "mask_v")
     {
         my_box.setSmall(amrex::IntVect(-1,0,0));
-        my_box.setBig(amrex::IntVect(nsx-1,nsy-1,nsz-1));
+        my_box.setBig(amrex::IntVect(nsx-2,nsy-1,nsz-1));
         my_box.setType(amrex::IndexType(amrex::IntVect(0,1,0)));
     }
     else  // everything cell-centered -- these have one ghost cell
