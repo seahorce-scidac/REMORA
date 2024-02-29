@@ -91,6 +91,7 @@ REMORA::init_data_from_netcdf (int lev)
                               NC_mskv_fab[idx]);
     }
 
+
     MultiFab mf_temp(*cons_new[lev], make_alias, Temp_comp, 1);
     MultiFab mf_salt(*cons_new[lev], make_alias, Salt_comp, 1);
 
@@ -171,6 +172,9 @@ REMORA::init_bathymetry_from_netcdf (int lev)
         } // mf
         } // omp
     } // idx
+
+    const double dummy_time = 0.0_rt;
+    FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName));
 
     int ng = vec_pm[lev]->nGrow();
 
