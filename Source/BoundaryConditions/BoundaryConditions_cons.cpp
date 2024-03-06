@@ -63,7 +63,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     amrex::Vector<int> real_bcs;
     for (int n=0; n<ncomp; n++) {
         int is_comp_real = (m_ic_bc_type == IC_BC_Type::Real) ? 1 : 0;
-        is_comp_real = (n == 2) ? 0 : 1;
+        is_comp_real = (n == 2) ? 0 : is_comp_real;
         real_bcs.push_back(is_comp_real);
     }
 
