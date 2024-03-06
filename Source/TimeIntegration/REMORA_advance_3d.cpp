@@ -155,8 +155,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     }
 
     // Apply physical boundary conditions to u and v
-    (*physbcs[lev])(mf_u,0,1,mf_u.nGrowVect(),t_new[lev],BCVars::xvel_bc);
-    (*physbcs[lev])(mf_v,0,1,mf_v.nGrowVect(),t_new[lev],BCVars::yvel_bc);
+    (*physbcs[lev])(mf_u,0,1,mf_u.nGrowVect(),t_old[lev],BCVars::xvel_bc);
+    (*physbcs[lev])(mf_v,0,1,mf_v.nGrowVect(),t_old[lev],BCVars::yvel_bc);
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -313,7 +313,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
     } // mfi
 
-    FillPatch(lev, t_new[lev], mf_cons, cons_new, BdyVars::t);
+    FillPatch(lev, t_old[lev], mf_cons, cons_new, BdyVars::t);
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
