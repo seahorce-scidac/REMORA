@@ -28,6 +28,18 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     Vector<BCRec> bcrs(ncomp);
     amrex::setBC(bx, domain, bccomp, 0, ncomp, m_domain_bcs_type, bcrs);
 
+    // Somewhat hacky logic to determine which components have real BCs
+    // specified by file. Here, we assume that if any BCs are specified in
+    // file, salt and temperature will be specified by file. If the passive
+    // scalar exists (i.e. we hit n=2), then we mark that it does not have
+    // real data to read.
+    Vector<int> real_bcs;
+    for (int n=0; n<ncomp; n++) {
+        int is_comp_real = (m_ic_bc_type == IC_BC_Type::Real) ? 1 : 0;
+        is_comp_real = (n == 2) ? 0 : is_comp_real;
+        real_bcs.push_back(is_comp_real);
+    }
+
     // xlo: ori = 0
     // ylo: ori = 1
     // zlo: ori = 2
@@ -36,12 +48,16 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     // zhi: ori = 5
 
     amrex::Gpu::DeviceVector<BCRec> bcrs_d(ncomp);
+    amrex::Gpu::DeviceVector<int> real_bcs_d(ncomp);
 #ifdef AMREX_USE_GPU
     Gpu::htod_memcpy_async(bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
+    Gpu::htod_memcpy_async(real_bcs_d.data(), real_bcs.data(), sizeof(int)*ncomp);
 #else
     std::memcpy(bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
+    std::memcpy(real_bcs_d.data(), real_bcs.data(), sizeof(int)*ncomp);
 #endif
     const amrex::BCRec* bc_ptr = bcrs_d.data();
+    const    int* real_bcs_ptr = real_bcs_d.data();
 
     GpuArray<GpuArray<Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS> l_bc_extdir_vals_d;
 
@@ -55,18 +71,6 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
-    // Somewhat hacky logic to determine which components have real BCs
-    // specified by file. Here, we assume that if any BCs are specified in
-    // file, salt and temperature will be specified by file. If the passive
-    // scalar exists (i.e. we hit n=2), then we mark that it does not have
-    // real data to read.
-    amrex::Vector<int> real_bcs;
-    for (int n=0; n<ncomp; n++) {
-        int is_comp_real = (m_ic_bc_type == IC_BC_Type::Real) ? 1 : 0;
-        is_comp_real = (n == 2) ? 0 : is_comp_real;
-        real_bcs.push_back(is_comp_real);
-    }
-    auto real_bcs_ptr = real_bcs.dataPtr();
 
     // First do all ext_dir bcs
     if (!is_periodic_in_x)
