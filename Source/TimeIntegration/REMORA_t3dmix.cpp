@@ -5,6 +5,7 @@ using namespace amrex;
 void
 REMORA::t3dmix  (const Box& bx,
                 const Array4<Real      >& state,
+                const Array4<Real      >& state_rhs,
                 const Array4<Real const>& diff2,
                 const Array4<Real const>& Hz,
                 const Array4<Real const>& pm,
@@ -29,7 +30,7 @@ REMORA::t3dmix  (const Box& bx,
         const Real pmon_u = (pm(i-1,j,0)+pm(i,j,0))/(pn(i-1,j,0)+pn(i,j,0));
 
         const Real cff = 0.25_rt * (diff2(i,j,n) + diff2(i-1,j,n)) * pmon_u;
-        FX(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i+1,j,k)) * (state(i,j,k,n)-state(i-1,j,k,n));
+        FX(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i+1,j,k)) * (state_rhs(i,j,k,n)-state_rhs(i-1,j,k,n));
     });
 
     ParallelFor(ybx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -37,7 +38,7 @@ REMORA::t3dmix  (const Box& bx,
         const Real pnom_v = (pn(i,j-1,0)+pn(i,j,0))/(pm(i,j-1,0)+pm(i,j,0));
 
         const Real cff = 0.25_rt*(diff2(i,j,n)+diff2(i,j-1,n)) * pnom_v;
-        FE(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i,j-1,k)) * (state(i,j,k,n) - state(i,j-1,k,n));
+        FE(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i,j-1,k)) * (state_rhs(i,j,k,n) - state_rhs(i,j-1,k,n));
     });
 
     /*
