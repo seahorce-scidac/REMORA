@@ -29,14 +29,16 @@ function(build_remora_lib remora_lib_name)
 
   if(REMORA_ENABLE_NETCDF)
     target_sources(${remora_lib_name} PRIVATE
-                   ${SRC_DIR}/IO/NCIntremoraace.H
-                   ${SRC_DIR}/IO/NCWpsFile.H
+                   ${SRC_DIR}/IO/NCInterface.H
                    ${SRC_DIR}/IO/NCPlotFile.H
-                   ${SRC_DIR}/IO/NCBuildFABs.cpp
-                   ${SRC_DIR}/IO/NCIntremoraace.cpp
+                   ${SRC_DIR}/IO/NCFile.H
+                   ${SRC_DIR}/IO/NCInterface.cpp
                    ${SRC_DIR}/IO/NCPlotFile.cpp
-                   ${SRC_DIR}/IO/NCCheckpoint.cpp
-                   ${SRC_DIR}/IO/NCMultiFabFile.cpp)
+                   ${SRC_DIR}/IO/NCFile.cpp
+                   ${SRC_DIR}/IO/ReadFromInitNetcdf.cpp
+                   ${SRC_DIR}/IO/ReadFromBdryNetcdf.cpp
+                   ${SRC_DIR}/BoundaryConditions/BoundaryConditions_netcdf.cpp
+                   ${SRC_DIR}/Initialization/REMORA_init_from_netcdf.cpp)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_NETCDF)
   endif()
 
