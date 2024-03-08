@@ -197,7 +197,7 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
     // Initialize the boundary conditions
     // ********************************************************************************************
     physbcs[lev] = std::make_unique<REMORAPhysBCFunct> (lev, geom[lev], domain_bcs_type, domain_bcs_type_d,
-                                                       m_bc_extdir_vals, solverChoice.ic_bc_type);
+                                                       m_bc_extdir_vals);
 
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {

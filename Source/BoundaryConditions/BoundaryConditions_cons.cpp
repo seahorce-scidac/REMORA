@@ -55,18 +55,6 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
-    // Somewhat hacky logic to determine which components have real BCs
-    // specified by file. Here, we assume that if any BCs are specified in
-    // file, salt and temperature will be specified by file. If the passive
-    // scalar exists (i.e. we hit n=2), then we mark that it does not have
-    // real data to read.
-    amrex::Vector<int> real_bcs;
-    for (int n=0; n<ncomp; n++) {
-        int is_comp_real = (m_ic_bc_type == IC_BC_Type::Real) ? 1 : 0;
-        is_comp_real = (n == 2) ? 0 : is_comp_real;
-        real_bcs.push_back(is_comp_real);
-    }
-    auto real_bcs_ptr = real_bcs.dataPtr();
 
     // First do all ext_dir bcs
     if (!is_periodic_in_x)
@@ -136,7 +124,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
         ParallelFor(bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip = dom_lo.x - 1 - i;
                 if (bc_ptr[n].lo(0) == REMORABCType::foextrap) {
-                    dest_arr(i,j,k,icomp+n) =  dest_arr(dom_lo.x-real_bcs_ptr[n],j,k,icomp+n);
+                    dest_arr(i,j,k,icomp+n) =  dest_arr(dom_lo.x,j,k,icomp+n);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(iflip,j,k,icomp+n);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_odd) {
@@ -146,7 +134,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             bx_xhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip =  2*dom_hi.x + 1 - i;
                 if (bc_ptr[n].hi(0) == REMORABCType::foextrap) {
-                    dest_arr(i,j,k,icomp+n) =  dest_arr(dom_hi.x+real_bcs_ptr[n],j,k,icomp+n);
+                    dest_arr(i,j,k,icomp+n) =  dest_arr(dom_hi.x,j,k,icomp+n);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(iflip,j,k,icomp+n);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_odd) {
@@ -169,7 +157,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             bx_ylo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int jflip = dom_lo.y - 1 - j;
                 if (bc_ptr[n].lo(1) == REMORABCType::foextrap) {
-                    dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_lo.y-real_bcs_ptr[n],k,icomp+n);
+                    dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_lo.y,k,icomp+n);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,jflip,k,icomp+n);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_odd) {
@@ -179,7 +167,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             bx_yhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int jflip =  2*dom_hi.y + 1 - j;
                 if (bc_ptr[n].hi(1) == REMORABCType::foextrap) {
-                    dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_hi.y+real_bcs_ptr[n],k,icomp+n);
+                    dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_hi.y,k,icomp+n);
                 } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,jflip,k,icomp+n);
                 } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_odd) {

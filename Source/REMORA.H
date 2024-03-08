@@ -561,6 +561,7 @@ public:
     /** Harmonic diffusivity for tracers */
     void t3dmix  (const amrex::Box& bx,
                   const amrex::Array4<amrex::Real      >& state,
+                  const amrex::Array4<amrex::Real      >& state_rhs,
                   const amrex::Array4<amrex::Real const>& diff2,
                   const amrex::Array4<amrex::Real const>& Hz,
                   const amrex::Array4<amrex::Real const>& pm,

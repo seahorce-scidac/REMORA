@@ -22,7 +22,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     int nvars = S_old.nComp();
 
     // Fill ghost cells/faces at old time
-    FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
+    FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t);
     FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
     FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
     FillPatch(lev, time, *zvel_old[lev], zvel_old, BdyVars::null);
@@ -83,11 +83,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     mf_DC.setVal(0);
 
-    FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
-    FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
-    FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
-
-    FillPatch(lev, time, *cons_new[lev], cons_new, BdyVars::t);
+    FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t);
     FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u);
     FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v);
 
@@ -275,13 +271,14 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
         // Apply mixing to temperature and, if use_salt, salt
         int ncomp = solverChoice.use_salt ? 2 : 1;
-        Array4<Real> const&     s_arr = S_old.array(mfi);
+        Array4<Real> const&     s_arr = S_new.array(mfi);
+        Array4<Real> const& s_arr_rhs = S_old.array(mfi);
         Array4<Real> const& diff2_arr = vec_diff2[lev]->array(mfi);
 
-        t3dmix(bx, s_arr, diff2_arr, Hz, pm, pn, dt_lev, ncomp);
+        t3dmix(bx, s_arr, s_arr_rhs, diff2_arr, Hz, pm, pn, dt_lev, ncomp);
 
         Array4<Real> const& diff2_arr_scalar = vec_diff2[lev]->array(mfi,Scalar_comp);
-        t3dmix(bx, S_old.array(mfi,Scalar_comp), diff2_arr_scalar, Hz, pm, pn, dt_lev, 1);
+        t3dmix(bx, S_new.array(mfi,Scalar_comp), S_old.array(mfi,Scalar_comp), diff2_arr_scalar, Hz, pm, pn, dt_lev, 1);
 
         if (solverChoice.use_coriolis) {
             //-----------------------------------------------------------------------

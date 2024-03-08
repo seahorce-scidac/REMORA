@@ -81,6 +81,9 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         // Physical bc's at domain boundary
         // ***************************************************************************
 
+        // Enforce physical boundary conditions
+        (*physbcs[lev])(mf_to_fill,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp);
+
 #ifdef REMORA_USE_NETCDF
         // Fill the data which is stored in the boundary data read from netcdf files
         if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) &&
@@ -89,9 +92,6 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
             fill_from_bdyfiles (mf_to_fill,time,bdy_var_type);
         }
 #endif
-
-        // Enforce physical boundary conditions
-        (*physbcs[lev])(mf_to_fill,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp);
 
         // Also enforce free-slip at top boundary (on xvel or yvel)
         if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
