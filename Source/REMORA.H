@@ -618,6 +618,11 @@ public:
 
     void init_beta_plane_coriolis (int lev);
 
+    void init_data_from_netcdf (int lev);
+    void init_bdry_from_netcdf ();
+    void init_bathymetry_from_netcdf (int lev);
+    void init_coriolis_from_netcdf (int lev);
+
 #ifdef REMORA_USE_NETCDF
     static int total_nc_plot_file_step;
 #endif
@@ -700,10 +705,6 @@ private:
     int bdy_width{0};
     int bdy_set_width{0};
 
-    void init_data_from_netcdf (int lev);
-    void init_bdry_from_netcdf ();
-    void init_bathymetry_from_netcdf (int lev);
-    void init_coriolis_from_netcdf (int lev);
 #endif // REMORA_USE_NETCDF
 
     // write checkpoint file to disk
