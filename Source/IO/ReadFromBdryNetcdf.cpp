@@ -198,9 +198,9 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
         phi[0] = hi[0]; phi[1] = hi[1]; phi[2] = hi[2];
         const Box pbx(plo, phi);
 
-	Arena* Arena_Used = The_Arena();
+        Arena* Arena_Used = The_Arena();
 #ifdef AMREX_USE_GPU
-	Arena_Used = The_Pinned_Arena();
+        Arena_Used = The_Pinned_Arena();
 #endif
 
         if (bdyType == REMORABdyTypes::x_lo) {
