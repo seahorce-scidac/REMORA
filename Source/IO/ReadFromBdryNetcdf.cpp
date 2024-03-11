@@ -198,6 +198,11 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
         phi[0] = hi[0]; phi[1] = hi[1]; phi[2] = hi[2];
         const Box pbx(plo, phi);
 
+        Arena* Arena_Used = The_Arena();
+#ifdef AMREX_USE_GPU
+        Arena_Used = The_Pinned_Arena();
+#endif
+
         if (bdyType == REMORABdyTypes::x_lo) {
 
                 // *******************************************************************************
@@ -214,34 +219,34 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
                 if        (bdyVarType == BdyVars::u) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_u, 1)); // u
+                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_u, 1, Arena_Used)); // u
                     }
                 } else if (bdyVarType == BdyVars::v) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_v , 1)); // v
+                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_v , 1, Arena_Used)); // v
                     }
                 } else if (bdyVarType == BdyVars::t) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_t, 1)); // temp
+                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
                     }
                 } else if (bdyVarType == BdyVars::s) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_t, 1)); // salt
+                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
                     }
                 } else if (bdyVarType == BdyVars::ubar) {
                     Box xlo_ubar(makeSlab(bx_for_u,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(xlo_ubar, 1)); // ubar
+                        bdy_data_xlo[nt].push_back(FArrayBox(xlo_ubar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::vbar) {
                     Box xlo_vbar(makeSlab(bx_for_v,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(xlo_vbar, 1)); // ubar
+                        bdy_data_xlo[nt].push_back(FArrayBox(xlo_vbar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::zeta) {
                     Box xlo_zeta(makeSlab(bx_for_t,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(xlo_zeta, 1)); // ubar
+                        bdy_data_xlo[nt].push_back(FArrayBox(xlo_zeta, 1, Arena_Used)); // ubar
                     }
                 }
 
@@ -262,34 +267,34 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
                 if        (bdyVarType == BdyVars::u) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_u, 1)); // u
+                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_u, 1, Arena_Used)); // u
                     }
                 } else if (bdyVarType == BdyVars::v) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_v , 1)); // v
+                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_v , 1, Arena_Used)); // v
                     }
                 } else if (bdyVarType == BdyVars::t) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_t, 1)); // temp
+                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
                     }
                 } else if (bdyVarType == BdyVars::s) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_t, 1)); // salt
+                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
                     }
                 } else if (bdyVarType == BdyVars::ubar) {
                     Box xhi_ubar(makeSlab(bx_for_u,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(xhi_ubar, 1)); // ubar
+                        bdy_data_xhi[nt].push_back(FArrayBox(xhi_ubar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::vbar) {
                     Box xhi_vbar(makeSlab(bx_for_v,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(xhi_vbar, 1)); // ubar
+                        bdy_data_xhi[nt].push_back(FArrayBox(xhi_vbar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::zeta) {
                     Box xhi_zeta(makeSlab(bx_for_t,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(xhi_zeta, 1)); // ubar
+                        bdy_data_xhi[nt].push_back(FArrayBox(xhi_zeta, 1, Arena_Used)); // ubar
                     }
                 }
 
@@ -310,34 +315,34 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
                 if        (bdyVarType == BdyVars::u) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_u , 1)); // u
+                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_u , 1, Arena_Used)); // u
                     }
                 } else if (bdyVarType == BdyVars::v) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_v, 1)); // v
+                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_v, 1, Arena_Used)); // v
                     }
                 } else if (bdyVarType == BdyVars::t) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_t, 1)); // temp
+                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
                     }
                 } else if (bdyVarType == BdyVars::s) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_t, 1)); // salt
+                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
                     }
                 } else if (bdyVarType == BdyVars::ubar) {
                     Box ylo_ubar(makeSlab(bx_for_u,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(ylo_ubar, 1)); // ubar
+                        bdy_data_ylo[nt].push_back(FArrayBox(ylo_ubar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::vbar) {
                     Box ylo_vbar(makeSlab(bx_for_v,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(ylo_vbar, 1)); // ubar
+                        bdy_data_ylo[nt].push_back(FArrayBox(ylo_vbar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::zeta) {
                     Box ylo_zeta(makeSlab(bx_for_t,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(ylo_zeta, 1)); // ubar
+                        bdy_data_ylo[nt].push_back(FArrayBox(ylo_zeta, 1, Arena_Used)); // ubar
                     }
                 }
 
@@ -358,34 +363,34 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
                 if        (bdyVarType == BdyVars::u) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_u , 1)); // u
+                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_u , 1, Arena_Used)); // u
                     }
                 } else if (bdyVarType == BdyVars::v) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_v, 1)); // v
+                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_v, 1, Arena_Used)); // v
                     }
                 } else if (bdyVarType == BdyVars::t) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_t, 1)); // temp
+                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
                     }
                 } else if (bdyVarType == BdyVars::s) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_t, 1)); // salt
+                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
                     }
                 } else if (bdyVarType == BdyVars::ubar) {
                     Box yhi_ubar(makeSlab(bx_for_u,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(yhi_ubar, 1)); // ubar
+                        bdy_data_yhi[nt].push_back(FArrayBox(yhi_ubar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::vbar) {
                     Box yhi_vbar(makeSlab(bx_for_v,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(yhi_vbar, 1)); // ubar
+                        bdy_data_yhi[nt].push_back(FArrayBox(yhi_vbar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::zeta) {
                     Box yhi_zeta(makeSlab(bx_for_t,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(yhi_zeta, 1)); // ubar
+                        bdy_data_yhi[nt].push_back(FArrayBox(yhi_zeta, 1, Arena_Used)); // ubar
                     }
                 }
         }
