@@ -17,10 +17,6 @@ Vector<AMRErrorTag> REMORA::ref_tags;
 
 SolverChoice REMORA::solverChoice;
 
-#ifdef REMORA_USE_PARTICLES
-ParticleData REMORA::particleData;
-#endif
-
 // Time step control
 amrex::Real REMORA::cfl           =  0.8_rt;
 amrex::Real REMORA::fixed_dt      = -1.0_rt;
@@ -292,6 +288,10 @@ REMORA::InitData ()
     // Fill ghost cells/faces
     for (int lev = 0; lev <= finest_level; ++lev)
     {
+        if (lev > 0 && cf_width >= 0) {
+            Construct_REMORAFillPatchers(lev);
+        }
+
         FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t);
         FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u);
         FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v);
@@ -336,6 +336,58 @@ REMORA::InitData ()
 
     ComputeDt();
 
+}
+
+void
+REMORA::Construct_REMORAFillPatchers (int lev)
+{
+    amrex::Print() << ":::Construct_REMORAFillPatchers " << lev << std::endl;
+
+    auto& ba_fine  = cons_new[lev  ]->boxArray();
+    auto& ba_crse  = cons_new[lev-1]->boxArray();
+    auto& dm_fine  = cons_new[lev  ]->DistributionMap();
+    auto& dm_crse  = cons_new[lev-1]->DistributionMap();
+
+    int ncomp = cons_new[lev]->nComp();
+
+    FPr_c.emplace_back(ba_fine, dm_fine, geom[lev]  ,
+                       ba_crse, dm_crse, geom[lev-1],
+                       -cf_width, -cf_set_width, ncomp, &cell_cons_interp);
+    FPr_u.emplace_back(convert(ba_fine, IntVect(1,0,0)), dm_fine, geom[lev]  ,
+                       convert(ba_crse, IntVect(1,0,0)), dm_crse, geom[lev-1],
+                       -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+    FPr_v.emplace_back(convert(ba_fine, IntVect(0,1,0)), dm_fine, geom[lev]  ,
+                       convert(ba_crse, IntVect(0,1,0)), dm_crse, geom[lev-1],
+                       -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+    FPr_w.emplace_back(convert(ba_fine, IntVect(0,0,1)), dm_fine, geom[lev]  ,
+                       convert(ba_crse, IntVect(0,0,1)), dm_crse, geom[lev-1],
+                       -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+}
+
+void
+REMORA::Define_REMORAFillPatchers (int lev)
+{
+    amrex::Print() << ":::Define_REMORAFillPatchers " << lev << std::endl;
+
+    auto& ba_fine  = cons_new[lev  ]->boxArray();
+    auto& ba_crse  = cons_new[lev-1]->boxArray();
+    auto& dm_fine  = cons_new[lev  ]->DistributionMap();
+    auto& dm_crse  = cons_new[lev-1]->DistributionMap();
+
+    int ncomp = cons_new[lev]->nComp();
+
+    FPr_c[lev-1].Define(ba_fine, dm_fine, geom[lev]  ,
+                        ba_crse, dm_crse, geom[lev-1],
+                        -cf_width, -cf_set_width, ncomp, &cell_cons_interp);
+    FPr_u[lev-1].Define(convert(ba_fine, IntVect(1,0,0)), dm_fine, geom[lev]  ,
+                        convert(ba_crse, IntVect(1,0,0)), dm_crse, geom[lev-1],
+                        -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+    FPr_v[lev-1].Define(convert(ba_fine, IntVect(0,1,0)), dm_fine, geom[lev]  ,
+                        convert(ba_crse, IntVect(0,1,0)), dm_crse, geom[lev-1],
+                        -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+    FPr_w[lev-1].Define(convert(ba_fine, IntVect(0,0,1)), dm_fine, geom[lev]  ,
+                        convert(ba_crse, IntVect(0,0,1)), dm_crse, geom[lev-1],
+                        -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
 }
 
 void

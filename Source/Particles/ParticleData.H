@@ -37,7 +37,7 @@ struct ParticleData {
         }
     }
 
-    void Checkpoint(const std::string& filename)
+    void Checkpoint(const std::string& filename) const
     {
         if (use_tracer_particles) {
             tracer_particles->Checkpoint(filename, "tracer_particles", true, tracer_particle_varnames);
@@ -61,8 +61,7 @@ struct ParticleData {
         // Update tracer particles
         if (use_tracer_particles) {
             amrex::Array<amrex::MultiFab const*, AMREX_SPACEDIM> mac_vel = {xvel, yvel, zvel};
-            bool use_terrain = (z_phys_nd[lev] != nullptr);
-            tracer_particles->AdvectWithUmac(mac_vel, lev, dt_lev, use_terrain, *z_phys_nd[lev]);
+            tracer_particles->AdvectWithUmac(mac_vel, lev, dt_lev, *z_phys_nd[lev]);
         }
     }
 

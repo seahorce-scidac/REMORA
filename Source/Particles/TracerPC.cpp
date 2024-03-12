@@ -35,7 +35,9 @@ InitParticles (const MultiFab& a_z_height)
         Gpu::HostVector<ParticleType> host_particles;
         for (IntVect iv = tile_box.smallEnd(); iv <= tile_box.bigEnd(); tile_box.next(iv)) {
             if (iv[0] == 3) {
-                Real r[3] = {0.5_rt, 0.5_rt, 0.5_rt};  // this means place at cell center
+                // Real r[3] = {0.5_rt, 0.5_rt, 0.4_rt};  // this means place just below the cell center
+                // Real r[3] = {0.5_rt, 0.5_rt, 0.6_rt};  // this means place just above the cell center
+                Real r[3] = {0.5_rt, 0.5_rt, 0.5_rt};  // this means place just at the cell center
 
                 Real x = plo[0] + (iv[0] + r[0])*dx[0];
                 Real y = plo[1] + (iv[1] + r[1])*dx[1];
@@ -76,7 +78,7 @@ InitParticles (const MultiFab& a_z_height)
 */
 void
 TracerPC::AdvectWithUmac (Array<MultiFab const*, AMREX_SPACEDIM> umac,
-                          int lev, Real dt, bool use_terrain, MultiFab& a_z_height)
+                          int lev, Real dt, MultiFab& a_z_height)
 {
     BL_PROFILE("TracerPC::AdvectWithUmac()");
     AMREX_ASSERT(OK(lev, lev, umac[0]->nGrow()-1));
@@ -129,12 +131,20 @@ TracerPC::AdvectWithUmac (Array<MultiFab const*, AMREX_SPACEDIM> umac,
 
             auto const& zheight = a_z_height[grid].array();
 
+            // We set this flag because the velocity arrays do not extend outside
+            //    the domain in the z-direction
+            int protect_against_out_of_bounds_in_vert = 1;
+
             ParallelFor(n, [=] AMREX_GPU_DEVICE (int i)
             {
                 ParticleType& p = p_pbox[i];
                 if (p.id() <= 0) { return; }
                 ParticleReal v[AMREX_SPACEDIM];
-                mac_interpolate_mapped_z(p, plo, dxi, umacarr, zheight, v);
+
+                // Interpolate the velocity from faces to the particle location
+                mac_interpolate_mapped_z(p, plo, dxi, umacarr, zheight, v,
+                                         protect_against_out_of_bounds_in_vert);
+
                 if (ipass == 0)
                 {
                     for (int dim=0; dim < AMREX_SPACEDIM; dim++)

@@ -26,6 +26,30 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
     int bccomp;
     amrex::Interpolater* mapper = nullptr;
 
+    Box mf_box(mf_to_fill.boxArray()[0]);
+
+    //
+    // ***************************************************************************
+    // The first thing we do is interpolate the momenta on the "valid" faces of
+    // the fine grids (where the interface is coarse/fine not fine/fine) -- this
+    // will not be over-written below because the FillPatch operators see these as
+    // valid faces.
+    // ***************************************************************************
+    if (lev>0) {
+        if (cf_set_width > 0 &&
+            mf_box.ixType() == IndexType(IntVect(0,0,0))) {
+            FPr_c[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+        } else if (fill_all && cf_set_width >= 0) {
+            if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
+                FPr_u[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+            } else if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
+                FPr_v[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+            } else if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
+                FPr_w[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+            }
+        }
+    }
+
     int ncomp;
     if (fill_all) {
         ncomp = mf_to_fill.nComp();
@@ -33,7 +57,6 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         ncomp = 1;
     }
 
-    Box mf_box(mf_to_fill.boxArray()[0]);
     if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
     {
         bccomp = 0;

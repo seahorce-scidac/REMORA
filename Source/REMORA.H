@@ -28,6 +28,8 @@
 
 #include <REMORA_Math.H>
 #include <REMORA_PhysBCFunct.H>
+#include <REMORA_FillPatcher.H>
+
 #include <IndexDefines.H>
 #include <TimeInterpolatedData.H>
 #include <DataStruct.H>
@@ -650,6 +652,10 @@ private:
     /** more flexible version of AverageDown() that lets you average down across multiple levels */
     void AverageDownTo (int crse_lev);
 
+    void Construct_REMORAFillPatchers (int lev);
+
+    void Define_REMORAFillPatchers (int lev);
+
     /** fill an entire multifab by interpolating from the coarser level
      * this comes into play when a new level of refinement appears
      */
@@ -706,6 +712,14 @@ private:
     int bdy_set_width{0};
 
 #endif // REMORA_USE_NETCDF
+
+    // Fillpatcher classes for coarse-fine boundaries
+    int cf_width{0};
+    int cf_set_width{0};
+    amrex::Vector<REMORAFillPatcher> FPr_c;
+    amrex::Vector<REMORAFillPatcher> FPr_u;
+    amrex::Vector<REMORAFillPatcher> FPr_v;
+    amrex::Vector<REMORAFillPatcher> FPr_w;
 
     // write checkpoint file to disk
     void WriteCheckpointFile () const;
