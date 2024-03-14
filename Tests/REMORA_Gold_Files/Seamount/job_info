@@ -1,0 +1,158 @@
+===============================================================================
+ REMORA Job Information
+===============================================================================
+inputs file: Seamount.i
+
+number of MPI processes: 1
+
+CPU time used since start of simulation (CPU-hours): 0.00582639
+
+===============================================================================
+ Plotfile Information
+===============================================================================
+output data / time: Thu Mar 14 10:12:41 2024
+output dir:         /home/klion/software/REMORA/Exec/Seamount
+
+
+===============================================================================
+ Build Information
+===============================================================================
+build date:    2023-12-13 10:58:24.850589
+build machine: Linux varan 5.15.0-79-generic #86~20.04.2-Ubuntu SMP Mon Jul 17 23:27:17 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
+build dir:     /home/klion/software/ROMSX/Exec/Seamount
+AMReX dir:     ../../Submodules/AMReX
+
+COMP:          gnu
+COMP version:  9.4.0
+
+
+REMORA       git hash: 80e5cb2-dirty
+AMReX       git hash: 23.09-22-gb2052f2d2
+
+
+===============================================================================
+ Grid Information
+===============================================================================
+ level: 0
+   number of boxes = 1
+   maximum zones   = 49 48 13 
+
+ Boundary conditions
+   -x: Periodic
+   +x: Periodic
+   -y: Periodic
+   +y: Periodic
+   -z: SlipWall
+   +z: SlipWall
+
+
+===============================================================================
+ Inputs File Parameters
+===============================================================================
+max_step = 10
+stop_time = 30000.0
+amrex.fpe_trap_invalid = 1
+fabarray.mfiter_tile_size = 1024 1024 1024
+geometry.prob_lo = 0. 0. -5000.
+geometry.prob_hi = 320000. 320000. 0.
+amr.n_cell = 49 48 13
+geometry.is_periodic = 1 1 0
+zlo.type = SlipWall
+zhi.type = SlipWall
+remora.fixed_dt = 60.0
+remora.fixed_ndtfast_ratio = 20
+remora.flat_bathymetry = 0
+remora.sum_interval = 1
+remora.v = 0
+amr.v = 1
+amr.max_level = 0
+remora.check_file = chk
+remora.check_int = -57600
+remora.plot_file = plt
+remora.plot_int = 1
+remora.plot_vars = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+remora.use_coriolis = true
+remora.horizontal_advection_scheme = upstream3
+remora.spatial_order = 2
+remora.coriolis_f0 = 1.0e-4
+remora.theta_s = 6.5
+remora.theta_b = 2.0
+remora.tcline = 100.
+remora.R0 = 1027.0
+remora.S0 = 32.0
+remora.T0 = 10.0
+remora.Tcoef = 1.7e-4
+remora.Scoef = 0.0
+remora.rho0 = 1025.0
+amr.refine_grid_layout_x = 1
+amr.refine_grid_layout_y = 1
+amr.refine_grid_layout_z = 0
+amr.n_proper = 2
+amr.max_grid_size = 2048
+amr.blocking_factor = 1
+amr.n_error_buf = 0
+amrex.v = 1
+amrex.verbose = 1
+amrex.regtest_reduction = 0
+amrex.signal_handling = 1
+amrex.throw_exception = 0
+amrex.call_addr2line = 1
+amrex.abort_on_unused_inputs = 0
+amrex.handle_sigsegv = 1
+amrex.handle_sigterm = 0
+amrex.handle_sigint = 1
+amrex.handle_sigabrt = 1
+amrex.handle_sigfpe = 1
+amrex.handle_sigill = 1
+amrex.fpe_trap_zero = 0
+amrex.fpe_trap_overflow = 0
+amrex.use_gpu_aware_mpi = 0
+amrex.the_arena_init_size = 0
+amrex.the_device_arena_init_size = 8388608
+amrex.the_managed_arena_init_size = 8388608
+amrex.the_pinned_arena_init_size = 8388608
+amrex.the_comms_arena_init_size = 8388608
+amrex.the_arena_release_threshold = 9223372036854775807
+amrex.the_device_arena_release_threshold = 9223372036854775807
+amrex.the_managed_arena_release_threshold = 9223372036854775807
+amrex.the_pinned_arena_release_threshold = 9223372036854775807
+amrex.the_comms_arena_release_threshold = 9223372036854775807
+amrex.the_async_arena_release_threshold = 9223372036854775807
+amrex.the_arena_is_managed = 0
+amrex.abort_on_out_of_gpu_memory = 0
+fab.init_snan = 1
+DistributionMapping.v = 0
+DistributionMapping.verbose = 0
+DistributionMapping.efficiency = 0.90000000000000002
+DistributionMapping.sfc_threshold = 0
+DistributionMapping.node_size = 0
+DistributionMapping.verbose_mapper = 0
+fab.initval = nan
+fab.do_initval = 1
+fabarray.maxcomp = 25
+vismf.v = 0
+vismf.headerversion = 1
+vismf.groupsets = 0
+vismf.setbuf = 1
+vismf.usesingleread = 0
+vismf.usesinglewrite = 0
+vismf.checkfilepositions = 0
+vismf.usepersistentifstreams = 0
+vismf.usesynchronousreads = 0
+vismf.usedynamicsetselection = 1
+vismf.iobuffersize = 2097152
+vismf.allowsparsewrites = 1
+amrex.async_out = 0
+amrex.async_out_nfiles = 64
+amrex.vector_growth_factor = 1.5
+machine.verbose = 0
+machine.very_verbose = 0
+tiny_profiler.device_synchronize_around_region = 0
+tiny_profiler.verbose = 0
+tiny_profiler.v = 0
+amrex.use_profiler_syncs = 0
+geometry.coord_sys = 0
+amr.grid_eff = 0.69999999999999996
+amr.refine_grid_layout = 1
+amr.check_input = 1

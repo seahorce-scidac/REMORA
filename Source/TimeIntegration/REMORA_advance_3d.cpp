@@ -145,18 +145,27 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         mf_DC[mfi].template setVal<RunOn::Device>(0.,xbx);
         fab_CF.template     setVal<RunOn::Device>(0.,xbx);
 
-        vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,pm,nnew,N);
+        vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,pn,nnew,N);
 
         // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,ybx);
         fab_CF.template     setVal<RunOn::Device>(0.,ybx);
 
-        vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,pn,nnew,N);
+        vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,pm,nnew,N);
     }
 
     // Apply physical boundary conditions to u and v
     (*physbcs[lev])(mf_u,0,1,mf_u.nGrowVect(),t_old[lev],BCVars::xvel_bc);
     (*physbcs[lev])(mf_v,0,1,mf_v.nGrowVect(),t_old[lev],BCVars::yvel_bc);
+
+#ifdef REMORA_USE_NETCDF
+        // Fill the data which is stored in the boundary data read from netcdf files
+        if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) )
+        {
+            fill_from_bdyfiles (mf_u,t_old[lev],BdyVars::u,0);
+            fill_from_bdyfiles (mf_v,t_old[lev],BdyVars::v,0);
+        }
+#endif
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
