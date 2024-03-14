@@ -614,7 +614,8 @@ public:
 
    void fill_from_bdyfiles (amrex::MultiFab& mf_to_fill,
                             const amrex::Real time,
-                            const int bdy_var_type);
+                            const int bdy_var_type,
+                            const int icomp_to_fill);
 
     void init_beta_plane_coriolis (int lev);
 
