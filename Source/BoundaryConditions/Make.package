@@ -8,8 +8,10 @@ CEXE_sources += BoundaryConditions_netcdf.cpp
 endif
 
 CEXE_sources += REMORA_FillPatch.cpp
+CEXE_sources += REMORA_FillPatcher.cpp
 
 CEXE_sources += REMORA_PhysBCFunct.cpp
 CEXE_headers += REMORA_PhysBCFunct.H
 
+CEXE_headers += REMORA_FillPatcher.H
 CEXE_headers += TimeInterpolatedData.H

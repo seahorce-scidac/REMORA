@@ -40,6 +40,14 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
     FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1]);
     FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1]);
+
+    // ********************************************************************************************
+    // If we are making a new level then the FillPatcher for this level hasn't been allocated yet
+    // ********************************************************************************************
+    if (cf_width >= 0) {
+        Construct_REMORAFillPatchers(lev);
+           Define_REMORAFillPatchers(lev);
+    }
 }
 
 // Remake an existing level using provided BoxArray and DistributionMapping and
@@ -48,6 +56,9 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 void
 REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMapping& dm)
 {
+    BoxArray            ba_old(cons_new[lev]->boxArray());
+    DistributionMapping dm_old(cons_new[lev]->DistributionMap());
+
 #if (NGROW==2)
     int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+1;
@@ -92,6 +103,15 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     t_old[lev] = time - 1.e200_rt;
 
     init_stuff(lev, ba, dm);
+
+    // We need to re-define the FillPatcher if the grids have changed
+    if (lev > 0 && cf_width >= 0) {
+        bool ba_changed = (ba != ba_old);
+        bool dm_changed = (dm != dm_old);
+        if (ba_changed || dm_changed) {
+          Define_REMORAFillPatchers(lev);
+        }
+    }
 }
 
 // Make a new level from scratch using provided BoxArray and DistributionMapping.
@@ -334,6 +354,14 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
 
     // Set initial linear drag coefficient
     vec_rdrag[lev]->setVal(solverChoice.rdrag);
+
+    // ********************************************************************************************
+    // Create the REMORAFillPatcher object
+    // ********************************************************************************************
+    if (lev > 0 && cf_width >= 0) {
+        Construct_REMORAFillPatchers(lev);
+           Define_REMORAFillPatchers(lev);
+    }
 }
 
 // Delete level data

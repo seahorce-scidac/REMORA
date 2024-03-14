@@ -62,7 +62,7 @@ public:
     void InitParticles (const amrex::MultiFab& a_z_height);
 
     void AdvectWithUmac (amrex::Array<amrex::MultiFab const*, AMREX_SPACEDIM> umac,
-                         int level, amrex::Real dt, bool use_terrain,
+                         int level, amrex::Real dt,
                          amrex::MultiFab& a_z_height);
 };
 
