@@ -32,31 +32,4 @@ REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycl
     //***************************************************
     advance_3d_ml(lev, dt_lev);
 
-    // **************************************************************************************
-    // Register old and new coarse data if we are at a level less than the finest level
-    // **************************************************************************************
-    if (lev < finest_level)
-    {
-        if (cf_width > 0) {
-            // We must fill the ghost cells of these so that the parallel copy works correctly
-            cons_old[lev]->FillBoundary(geom[lev].periodicity());
-            cons_new[lev]->FillBoundary(geom[lev].periodicity());
-            FPr_c[lev].RegisterCoarseData({cons_old[lev], cons_new[lev]}, {time, time + dt_lev});
-        }
-
-        if (cf_width >= 0) {
-            // We must fill the ghost cells of these so that the parallel copy works correctly
-            xvel_old[lev]->FillBoundary(geom[lev].periodicity());
-            xvel_new[lev]->FillBoundary(geom[lev].periodicity());
-            FPr_u[lev].RegisterCoarseData({xvel_old[lev], xvel_new[lev]}, {time, time + dt_lev});
-
-            yvel_old[lev]->FillBoundary(geom[lev].periodicity());
-            yvel_new[lev]->FillBoundary(geom[lev].periodicity());
-            FPr_v[lev].RegisterCoarseData({yvel_old[lev], yvel_new[lev]}, {time, time + dt_lev});
-
-            zvel_old[lev]->FillBoundary(geom[lev].periodicity());
-            zvel_new[lev]->FillBoundary(geom[lev].periodicity());
-            FPr_w[lev].RegisterCoarseData({zvel_old[lev], zvel_new[lev]}, {time, time + dt_lev});
-        }
-    }
 }
