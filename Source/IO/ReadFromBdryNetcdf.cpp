@@ -74,7 +74,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
             amrex::Abort("Units must be in days.");
         }
         // Read the time stamps
-        using RARRAY = NDArray<float>;
+        using RARRAY = NDArray<Real>;
         amrex::Vector<RARRAY> array_ts(1);
         ReadNetCDFFile(nc_bdry_file, {"ocean_time"}, array_ts);
 
@@ -129,7 +129,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
        nc_var_names.push_back(nc_var_prefix[ip] + "_north");
     }
 
-    using RARRAY = NDArray<float>;
+    using RARRAY = NDArray<Real>;
     amrex::Vector<RARRAY> arrays(nc_var_names.size());
 
     // The width of the boundary region we need to read is 1
