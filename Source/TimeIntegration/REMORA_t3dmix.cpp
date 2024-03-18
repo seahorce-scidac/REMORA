@@ -30,7 +30,7 @@ REMORA::t3dmix  (const Box& bx,
         const Real pmon_u = (pm(i-1,j,0)+pm(i,j,0))/(pn(i-1,j,0)+pn(i,j,0));
 
         const Real cff = 0.25_rt * (diff2(i,j,n) + diff2(i-1,j,n)) * pmon_u;
-        FX(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i+1,j,k)) * (state_rhs(i,j,k,n)-state_rhs(i-1,j,k,n));
+        FX(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i-1,j,k)) * (state_rhs(i,j,k,n)-state_rhs(i-1,j,k,n));
     });
 
     ParallelFor(ybx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
