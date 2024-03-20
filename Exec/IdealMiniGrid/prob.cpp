@@ -100,8 +100,8 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
 
       amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-          visc2_p_arr(i,j,k) = 0.0;
-          visc2_r_arr(i,j,k) = 0.0;
+          visc2_p_arr(i,j,k) = 5.0e0;
+          visc2_r_arr(i,j,k) = 5.0e0;
 
           for (int n = 0; n < ncomp; n++) {
               diff2_arr(i,j,k,n) = 5.0e3;
