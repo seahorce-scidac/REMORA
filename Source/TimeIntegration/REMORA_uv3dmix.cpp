@@ -51,17 +51,21 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
                                     ( (pm(i,j  ,0) + pm(i,j+1,0)) * vold(i,j+1,k,nrhs)-
                                       (pm(i,j-1,0) + pm(i,j  ,0)) * vold(i,j  ,k,nrhs) ) );
 
-        Real on_r = 1.0_rt / pm(i,j,0);
+        Real on_r = 1.0_rt / pn(i,j,0);
         UFx(i,j,k) = on_r * on_r * visc2_r(i,j,0) * cff;
     });
 
     ParallelFor(growHi(xbx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
+        const Real pmon_p = (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0)) /
+                            (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0));
+        const Real pnom_p = (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0)) /
+                            (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0));
         const Real cff = 0.125_rt * (Hz(i-1,j  ,k) + Hz(i,j ,k)+ Hz(i-1,j-1,k) + Hz(i,j-1,k))*
-                    (pm(i,j,0)/pn(i,j,0)*
+                    (pmon_p*
                      ((pn(i  ,j-1,0)+pn(i  ,j,0))*vold(i  ,j,k,nrhs)-
                       (pn(i-1,j-1,0)+pn(i-1,j,0))*vold(i-1,j,k,nrhs))+
-                     pn(i,j,0)/pm(i,j,0)*
+                     pnom_p*
                      ((pm(i-1,j  ,0)+pm(i,j  ,0))*uold(i,j  ,k,nrhs)-
                       (pm(i-1,j-1,0)+pm(i,j-1,0))*uold(i,j-1,k,nrhs)));
 
@@ -106,12 +110,16 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
 
     ParallelFor(growHi(ybx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
+        const Real pmon_p = (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0)) /
+                            (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0));
+        const Real pnom_p = (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0)) /
+                            (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0));
         const Real cff = 0.125_rt * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
                               Hz(i-1,j-1,k)+Hz(i,j-1,k))*
-                    (pm(i,j,0)/pn(i,j,0)*
+                    (pmon_p*
                      ((pn(i  ,j-1,0)+pn(i  ,j,0))*vold(i  ,j,k,nrhs)-
                       (pn(i-1,j-1,0)+pn(i-1,j,0))*vold(i-1,j,k,nrhs))+
-                     pn(i,j,0)/pm(i,j,0)*
+                     pnom_p*
                      ((pm(i-1,j  ,0)+pm(i,j  ,0))*uold(i,j  ,k,nrhs)-
                       (pm(i-1,j-1,0)+pm(i,j-1,0))*uold(i,j-1,k,nrhs)));
 
