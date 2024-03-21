@@ -523,7 +523,7 @@ REMORA::advance_2d (int lev,
        //-----------------------------------------------------------------------
        uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar,
                visc2_p, visc2_r, Drhs_const,
-               pn, pm, krhs, nnew, 0.0_rt);
+               pm, pn, krhs, nnew, 0.0_rt);
 
        //-----------------------------------------------------------------------
        // Coupling from 3d to 2d

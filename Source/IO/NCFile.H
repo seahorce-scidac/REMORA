@@ -180,7 +180,7 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
 template<class FAB,typename DType>
 void
 fill_fab_from_arrays (int iv,
-                      amrex::Vector<NDArray<float>>& nc_arrays,
+                      amrex::Vector<NDArray<amrex::Real>>& nc_arrays,
                       const std::string& var_name,
                       NC_Data_Dims_Type& NC_dim_type,
                       FAB& temp)
@@ -271,7 +271,7 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
 {
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();  // I/O rank
 
-    amrex::Vector<NDArray<float>> nc_arrays(nc_var_names.size());
+    amrex::Vector<NDArray<amrex::Real>> nc_arrays(nc_var_names.size());
 
     if (amrex::ParallelDescriptor::IOProcessor())
     {

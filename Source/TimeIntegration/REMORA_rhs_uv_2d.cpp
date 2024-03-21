@@ -51,6 +51,8 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
     auto VFx=fab_VFx.array();
     auto VFe=fab_VFe.array();
 
+    auto ic_bc_type = solverChoice.ic_bc_type;
+
     // *************************************************************
     // UPDATING U
     // *************************************************************
@@ -78,11 +80,11 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
         Real Huxx_i   = DUon(i-1,j,0)-2.0_rt*DUon(i  ,j,0)+DUon(i+1,j,0);
         Real Huxx_ip1 = DUon(i  ,j,0)-2.0_rt*DUon(i+1,j,0)+DUon(i+2,j,0);
 
-        if (i == dlo.x && bcr_x.lo(0) == REMORABCType::ext_dir) {
+        if (i == dlo.x && (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
             uxx_i = uxx_ip1;
             Huxx_i = Huxx_ip1;
         }
-        else if (i == dhi.x && bcr_x.hi(0) == REMORABCType::ext_dir) {
+        else if (i == dhi.x && (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
             uxx_ip1 = uxx_i;
             Huxx_ip1 = Huxx_i;
         }
@@ -106,9 +108,9 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
         Real Hvxx_i   = DVom(i-1,j,0)-2.0_rt*DVom(i  ,j,0)+DVom(i+1,j,0);
         Real Hvxx_im1 = DVom(i-2,j,0)-2.0_rt*DVom(i-1,j,0)+DVom(i  ,j,0);
 
-        if (j == dlo.y and bcr_y.lo(1) == REMORABCType::ext_dir) {
+        if (j == dlo.y and (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
             uee_jm1 = uee_j;
-        } else if (j == dhi.y+1 and bcr_y.hi(1) == REMORABCType::ext_dir) {
+        } else if (j == dhi.y+1 and (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
             uee_j = uee_jm1;
         }
 
@@ -156,10 +158,10 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
         Real Huee_j   = DUon(i,j-1,0)-2.0_rt*DUon(i,j  ,0)+DUon(i,j+1,0);
         Real Huee_jm1 = DUon(i,j-2,0)-2.0_rt*DUon(i,j-1,0)+DUon(i,j  ,0);
 
-        if (i == dlo.x and bcr_x.lo(0) == REMORABCType::ext_dir) {
-            vxx_i = vxx_im1;
-        } else if (i == dhi.x + 1 and bcr_x.hi(0) == REMORABCType::ext_dir) {
+        if (i == dlo.x and (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
             vxx_im1 = vxx_i;
+        } else if (i == dhi.x + 1 and (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            vxx_i = vxx_im1;
         }
 
         Real cff1=vbar(i  ,j,0,krhs)+vbar(i-1,j,0,krhs);
@@ -177,11 +179,11 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
         Real Hvee_j   = DVom(i,j-1,0)-2.0_rt*DVom(i,j  ,0)+DVom(i,j+1,0);
         Real Hvee_jp1 = DVom(i,j  ,0)-2.0_rt*DVom(i,j+1,0)+DVom(i,j+2,0);
 
-        if (j == dlo.y and bcr_y.lo(1) == REMORABCType::ext_dir) {
+        if (j == dlo.y and (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
             vee_j = vee_jp1;
             Hvee_j = Hvee_jp1;
         }
-        else if (j == dhi.y and bcr_y.hi(1) == REMORABCType::ext_dir) {
+        else if (j == dhi.y and (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
             vee_jp1 = vee_j;
             Hvee_jp1 = Hvee_j;
         }
