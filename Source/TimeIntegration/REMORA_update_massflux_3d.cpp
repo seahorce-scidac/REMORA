@@ -37,6 +37,8 @@ REMORA::update_massflux_3d (const Box& bx,
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
 
+    auto ic_bc_type = solverChoice.ic_bc_type;
+
     int ncomp = 1;
     Vector<BCRec> bcrs_x(ncomp);
     Vector<BCRec> bcrs_y(ncomp);
@@ -81,15 +83,15 @@ REMORA::update_massflux_3d (const Box& bx,
         CF(i,j,0)  = DC(i,j,-1) * (CF(i,j,0) - Dphi_avg1(i,j,0));
 
         for (int k=0; k<=N; k++) {
-            if (i == dlo.x-joff && (bcr_x.lo(0) == REMORABCType::ext_dir or solverChoice.ic_bc_type==IC_BC_Type::Real)) {
+            if (i == dlo.x-joff && (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
-            } else if (i == dhi.x+1 && (bcr_x.hi(0) == REMORABCType::ext_dir or solverChoice.ic_bc_type==IC_BC_Type::Real)) {
+            } else if (i == dhi.x+1 && (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
             }
 
-            if (j == dlo.y-ioff && (bcr_y.lo(1) == REMORABCType::ext_dir or solverChoice.ic_bc_type==IC_BC_Type::Real)) {
+            if (j == dlo.y-ioff && (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
-            } else if (j == dhi.y+1 && (bcr_y.hi(1) == REMORABCType::ext_dir or solverChoice.ic_bc_type==IC_BC_Type::Real)) {
+            } else if (j == dhi.y+1 && (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
             }
         }
