@@ -8,8 +8,9 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BdyVars::t);
-    FillPatchNoBC(lev, t_old[lev], *xvel_new[lev], xvel_new, BdyVars::u);
-    FillPatchNoBC(lev, t_old[lev], *yvel_new[lev], yvel_new, BdyVars::v);
+    // May still need a FillBoundary here?
+    //FillPatchNoBC(lev, t_old[lev], *xvel_new[lev], xvel_new, BdyVars::u);
+    //FillPatchNoBC(lev, t_old[lev], *yvel_new[lev], yvel_new, BdyVars::v);
     FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, BdyVars::null);
 
     FillPatch(lev, t_old[lev], *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BdyVars::t);
@@ -40,8 +41,9 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     // Note that we need the fine-fine and physical bc's in order to correctly move the particles
     FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BdyVars::t);
-    FillPatchNoBC(lev, t_old[lev], *xvel_new[lev], xvel_new, BdyVars::u);
-    FillPatchNoBC(lev, t_old[lev], *yvel_new[lev], yvel_new, BdyVars::v);
+    // May still need a FillBoundary here?
+    //FillPatchNoBC(lev, t_old[lev], *xvel_new[lev], xvel_new, BdyVars::u);
+    //FillPatchNoBC(lev, t_old[lev], *yvel_new[lev], yvel_new, BdyVars::v);
     FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, BdyVars::null);
 
 #ifdef REMORA_USE_PARTICLES
