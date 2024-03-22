@@ -42,18 +42,11 @@ init_custom_bathymetry (const Geometry& geom,
     {
       Array4<Real> const& h  = (mf_h).array(mfi);
 
-      Box bx = mfi.tilebox();
-      Box gbx2 = bx;
-      gbx2.grow(IntVect(NGROW,NGROW,0));
-
       bool NSPeriodic = geomdata.isPeriodic(1);
       bool EWPeriodic = geomdata.isPeriodic(0);
 
-      Box gbx2D = gbx2;
-      gbx2D.makeSlab(2,0);
-
       Gpu::streamSynchronize();
-      amrex::ParallelFor(gbx2,
+      amrex::ParallelFor(Box(h),
       [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
           h(i,j,0,0) = -geomdata.ProbLo(2);

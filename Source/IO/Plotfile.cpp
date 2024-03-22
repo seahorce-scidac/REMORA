@@ -95,10 +95,10 @@ REMORA::WritePlotFile ()
     // We fillpatch here because some of the derived quantities require derivatives
     //     which require ghost cells to be filled
     for (int lev = 0; lev <= finest_level; ++lev) {
-        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t);
-        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u);
-        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v);
-        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null);
+        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t,0,true,false);
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u,0,true,false);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v,0,true,false);
+        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,false);
     }
 
     if (ncomp_mf == 0)

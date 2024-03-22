@@ -222,7 +222,7 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
         for (int lev = finest_level-1; lev >= 0; lev--)
         {
             // This call refluxes from the lev/lev+1 interface onto lev
-            getAdvFluxReg(lev+1)->Reflux(*cons_new[lev], 0, 0, NCONS);
+            //getAdvFluxReg(lev+1)->Reflux(*cons_new[lev], 0, 0, NCONS);
 
             // We need to do this before anything else because refluxing changes the
             // values of coarse cells underneath fine grids with the assumption they'll
@@ -292,10 +292,10 @@ REMORA::InitData ()
             Construct_REMORAFillPatchers(lev);
         }
 
-        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t);
-        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u);
-        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v);
-        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null);
+        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t, 0, true, false);
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u, 0, true, false);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v, 0, true, false);
+        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null, 0, true, false);
 
         //
         // Copy from new into old just in case
