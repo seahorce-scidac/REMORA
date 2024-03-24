@@ -67,7 +67,6 @@ REMORA::advance_2d (int lev,
     const int nnew  = 0;
     const int nstp  = 0;
     int ntfirst = 0;
-    Real dummy_time = 0.0_rt;
 
     int knew = 3;
     int krhs = (my_iif + iic) % 2 + 1;

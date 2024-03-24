@@ -263,10 +263,6 @@ REMORA::InitData ()
             AverageDown();
         }
 
-#ifdef REMORA_USE_PARTICLES
-        particleData.init_particles((ParGDBBase*)GetParGDB(),vec_z_phys_nd);
-#endif
-
     } else { // Restart from a checkpoint
 
         restart();
@@ -307,6 +303,11 @@ REMORA::InitData ()
         MultiFab::Copy(*yvel_old[lev],*yvel_new[lev],0,0,1,ngvel);
         MultiFab::Copy(*zvel_old[lev],*zvel_new[lev],0,0,1,IntVect(ngvel,ngvel,0));
     } // lev
+
+    // Check for additional plotting variables that are available after
+    // particle containers are setup.
+    const std::string& pv1 = "plot_vars"; appendPlotVariables(pv1);
+
     if (restart_chkfile == "" && check_int > 0)
     {
         WriteCheckpointFile();
@@ -647,7 +648,7 @@ REMORA::ReadParameters ()
         pp.query("plot_int", plot_int);
 
 #ifdef REMORA_USE_PARTICLES
-        particleData.init_particle_params();
+        readTracersParams();
 #endif
     }
 

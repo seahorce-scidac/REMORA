@@ -63,15 +63,19 @@ REMORA::setPlotVariables (const std::string& pp_plot_var_names)
 
     for (int i = 0; i < derived_names.size(); ++i) {
         if ( containerHasElement(plot_var_names, derived_names[i]) ) {
-#ifdef REMORA_USE_PARTICLES
-            if (particleData.use_tracer_particles || (derived_names[i] != "tracer_particle_count")) {
-#endif
                tmp_plot_names.push_back(derived_names[i]);
-#ifdef REMORA_USE_PARTICLES
-            }
-#endif
         } // if
     } // i
+
+#ifdef REMORA_USE_PARTICLES
+    const auto& particles_namelist( particleData.getNamesUnalloc() );
+    for (auto it = particles_namelist.cbegin(); it != particles_namelist.cend(); ++it) {
+        std::string tmp( (*it)+"_count" );
+        if (containerHasElement(plot_var_names, tmp) ) {
+            tmp_plot_names.push_back(tmp);
+        }
+    }
+#endif
 
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names) {
@@ -80,6 +84,50 @@ REMORA::setPlotVariables (const std::string& pp_plot_var_names)
       }
     }
     plot_var_names = tmp_plot_names;
+}
+
+void
+REMORA::appendPlotVariables (const std::string& pp_plot_var_names)
+{
+    ParmParse pp(pp_prefix);
+
+    if (pp.contains(pp_plot_var_names.c_str())) {
+        std::string nm;
+        int nPltVars = pp.countval(pp_plot_var_names.c_str());
+        for (int i = 0; i < nPltVars; i++) {
+            pp.get(pp_plot_var_names.c_str(), nm, i);
+            // Add the named variable to our list of plot variables
+            // if it is not already in the list
+            if (!containerHasElement(plot_var_names, nm)) {
+                plot_var_names.push_back(nm);
+            }
+        }
+    }
+
+    Vector<std::string> tmp_plot_names(0);
+#ifdef REMORA_USE_PARTICLES
+    Vector<std::string> particle_mesh_plot_names;
+    particleData.GetMeshPlotVarNames( particle_mesh_plot_names );
+    for (int i = 0; i < particle_mesh_plot_names.size(); i++) {
+        std::string tmp(particle_mesh_plot_names[i]);
+        if (containerHasElement(plot_var_names, tmp) ) {
+            tmp_plot_names.push_back(tmp);
+        }
+    }
+#endif
+
+    for (int i = 0; i < tmp_plot_names.size(); i++) {
+        plot_var_names.push_back( tmp_plot_names[i] );
+    }
+
+    // Finally, check to see if we found all the requested variables
+    for (const auto& plot_name : plot_var_names) {
+        if (!containerHasElement(plot_var_names, plot_name)) {
+             if (amrex::ParallelDescriptor::IOProcessor()) {
+                 Warning("\nWARNING: Requested to plot variable '" + plot_name + "' but it is not available");
+             }
+        }
+    }
 }
 
 // Write plotfile to disk
@@ -168,14 +216,28 @@ REMORA::WritePlotFile ()
         } // if containerHasElement
 
 #ifdef REMORA_USE_PARTICLES
-        if (containerHasElement(plot_var_names, "tracer_particle_count"))
-        {
-            MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
-            temp_dat.setVal(0);
-            particleData.tracer_particles->Redistribute();
-            particleData.tracer_particles->Increment(temp_dat, lev);
-            MultiFab::Copy(mf[lev], temp_dat, 0, mf_comp, 1, 0);
-            mf_comp += 1;
+        const auto& particles_namelist( particleData.getNames() );
+        for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++) {
+            if (containerHasElement(plot_var_names, std::string(particles_namelist[i]+"_count"))) {
+                MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
+                temp_dat.setVal(0);
+                particleData[particles_namelist[i]]->Increment(temp_dat, lev);
+                MultiFab::Copy(mf[lev], temp_dat, 0, mf_comp, 1, 0);
+                mf_comp += 1;
+            }
+        }
+
+        Vector<std::string> particle_mesh_plot_names(0);
+        particleData.GetMeshPlotVarNames( particle_mesh_plot_names );
+        for (int i = 0; i < particle_mesh_plot_names.size(); i++) {
+            std::string plot_var_name(particle_mesh_plot_names[i]);
+            if (containerHasElement(plot_var_names, plot_var_name) ) {
+                MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 1);
+                temp_dat.setVal(0);
+                particleData.GetMeshPlotVar(plot_var_name, temp_dat, lev);
+                MultiFab::Copy(mf[lev], temp_dat, 0, mf_comp, 1, 0);
+                mf_comp += 1;
+            }
         }
 #endif
 

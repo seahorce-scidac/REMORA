@@ -517,4 +517,4 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     // Return the number of seconds between the boundary plane data
     return timeInterval;
 }
-#endif // ERF_USE_NETCDF
+#endif // REMORA_USE_NETCDF

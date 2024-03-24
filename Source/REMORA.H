@@ -679,9 +679,11 @@ private:
     /** get plotfile name */
     std::string PlotFileName (int lev) const;
 
-    /** set which variables and derived quantities go into plotfiles */
+    // set which variables and derived quantities go into plotfiles
     void setPlotVariables (const std::string& pp_plot_var_names);
 
+    // append variables to plot
+    void appendPlotVariables (const std::string& pp_plot_var_names);
 
 #ifdef REMORA_USE_NETCDF
     //! Write plotfile using NETCDF
@@ -833,25 +835,36 @@ private:
     const amrex::Vector<std::string>     cons_names {"temp", "salt", "scalar"};
 
     // Note that the order of variable names here must match the order in Derive.cpp
-#ifdef REMORA_USE_PARTICLES
-    const amrex::Vector<std::string> derived_names {"dpdx", "dpdy" ,"tracer_particle_count"};
-#else
     const amrex::Vector<std::string> derived_names {"dpdx", "dpdy"};
-#endif
 
 
     // algorithm choices
     static SolverChoice solverChoice;
 
 #ifdef REMORA_USE_PARTICLES
-    // Particle info
-    static ParticleData particleData;
+    // Particle container with all particle species
+    ParticleData particleData;
+
+    // variables and functions for tracers particles
+    bool  m_use_tracer_particles; /*!< tracer particles that advect with flow */
+    bool  m_use_hydro_particles;  /*!< tracer particles that fall with gravity */
+
+    /*! Read tracer and hydro particles parameters */
+    void readTracersParams();
+
+    /*! Initialize tracer and hydro particles */
+    void initializeTracers ( amrex::ParGDBBase*,
+                             const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& );
+
+    /*! Evolve tracers and hydro particles */
+    void evolveTracers( int lev,
+                        amrex::Real dt,
+                        amrex::Vector<amrex::MultiFab const*>& flow_vel,
+                        const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& );
+
 #endif
 
     static int verbose;
-
-    // flag to turn tracer particle generation on/off
-    static bool use_tracer_particles;
 
     // Diagnostic output interval
     static int sum_interval;
