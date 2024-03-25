@@ -6,9 +6,9 @@ using namespace amrex;
 /**
  * Function to tag cells for refinement -- this overrides the pure virtual function in AmrCore
  *
- * @param[in] levc level of refinement (0 is coarsest level)
+ * @param[in]  levc level of refinement (0 is coarsest leve)
  * @param[out] tags array of tagged cells
- * @param[in] time current time
+ * @param[in]  time current time
 */
 
 void
@@ -16,19 +16,15 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 {
     const int clearval = TagBox::CLEAR;
     const int   tagval = TagBox::SET;
-
-    bool tag_found = false;
-
     for (int j=0; j < ref_tags.size(); ++j)
     {
-        std::unique_ptr<MultiFab> mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+        std::unique_ptr<MultiFab> mf;
 
         // This allows dynamic refinement based on the value of the scalar
         if (ref_tags[j].Field() == "scalar")
         {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab::Copy(*mf,*cons_new[levc],Scalar_comp,0,1,0);
-            tag_found = true;
-
 #ifdef REMORA_USE_PARTICLES
         } else {
             //
@@ -63,7 +59,6 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
                             MultiFab::Add(*mf, temp_dat_crse, 0, 0, 1, 0);
                         }
                     }
-                    tag_found = true;
                 }
             }
 
@@ -71,10 +66,8 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 #endif
         }
 
-        if (tag_found) {
-            ref_tags[j](tags,mf.get(),clearval,tagval,time,levc,geom[levc]);
-        }
-    } // loop over j
+        ref_tags[j](tags,mf.get(),clearval,tagval,time,levc,geom[levc]);
+  }
 }
 
 /**
