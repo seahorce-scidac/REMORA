@@ -211,7 +211,12 @@ REMORA::stretch_transform (int lev)
       // WARNING: z_w(i,j,k)       refers to the face on the HIGH side of cell (i,j,k)
       // WARNING: z_phys_nd(i,j,k) refers to the node on the LOW  side of cell (i,j,k)
       //
-      ParallelFor(Box(z_phys_nd), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+
+      // We shrink the box in the vertical since z_phys_nd has a ghost cell in the vertical
+      //    which we will fill by extrapolation, not from z_w
+      Box bx = Box(z_phys_nd); bx.grow(2,-1);
+
+      ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
           // For now assume all boundaries are constant height --
           //     we will enforce periodicity below
@@ -227,6 +232,12 @@ REMORA::stretch_transform (int lev)
           }
           if (k == 0)  z_phys_nd(i,j,k) *= -1._rt;
       });
+      if (bx.smallEnd(2) == 0) {
+          ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+          {
+              z_phys_nd(i,j,-1) = 2.0_rt * z_phys_nd(i,j,0) - z_phys_nd(i,j,1);
+          });
+      }
     } // mf
 
     // Note that we do *not* want to do a multilevel fill here -- we have

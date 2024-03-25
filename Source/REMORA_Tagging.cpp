@@ -16,6 +16,9 @@ REMORA::ErrorEst (int level, TagBoxArray& tags, Real time, int /*ngrow*/)
 {
     const int clearval = TagBox::CLEAR;
     const int   tagval = TagBox::SET;
+
+    bool tag_found = false;
+
     for (int j=0; j < ref_tags.size(); ++j)
     {
         std::unique_ptr<MultiFab> mf;
@@ -25,10 +28,27 @@ REMORA::ErrorEst (int level, TagBoxArray& tags, Real time, int /*ngrow*/)
         {
             mf = std::make_unique<MultiFab>(grids[level], dmap[level], 1, 0);
             MultiFab::Copy(*mf,*cons_new[level],Scalar_comp,0,1,0);
+#ifdef REMORA_USE_PARTICLES
+        } else {
+            // This allows dynamic refinement based on the number of particles per cell
+            const auto& particles_namelist( particleData.getNames() );
+            for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++) {
+                std::string tmp_string(particles_namelist[i]+"_count");
+                if (ref_tags[j].Field() == tmp_string) {
+                    MultiFab temp_dat(grids[level], dmap[level], 1, 0); temp_dat.setVal(0);
+                    particleData[particles_namelist[i]]->Increment(temp_dat, level);
+                    mf = std::make_unique<MultiFab>(grids[level], dmap[level], 1, 0);
+                    MultiFab::Copy(*mf, temp_dat, 0, 0, 1, 0);
+                    tag_found = true;
+                }
+            }
+#endif
         }
 
-        ref_tags[j](tags,mf.get(),clearval,tagval,time,level,geom[level]);
-  }
+        if (tag_found) {
+            ref_tags[j](tags,mf.get(),clearval,tagval,time,level,geom[level]);
+        }
+    } // loop over j
 }
 
 /**

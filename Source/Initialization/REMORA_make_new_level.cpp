@@ -48,6 +48,10 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
         Construct_REMORAFillPatchers(lev);
            Define_REMORAFillPatchers(lev);
     }
+
+#ifdef REMORA_USE_PARTICLES
+    // particleData.Redistribute();
+#endif
 }
 
 // Remake an existing level using provided BoxArray and DistributionMapping and
@@ -112,6 +116,10 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
           Define_REMORAFillPatchers(lev);
         }
     }
+
+#ifdef REMORA_USE_PARTICLES
+    particleData.Redistribute();
+#endif
 }
 
 // Make a new level from scratch using provided BoxArray and DistributionMapping.
@@ -152,6 +160,16 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real /*time*/, const BoxArray& ba
 
     resize_stuff(lev);
     init_stuff(lev, ba, dm);
+
+#ifdef REMORA_USE_PARTICLES
+    if (restart_chkfile.empty()) {
+        if (lev == 0) {
+            initializeTracers((ParGDBBase*)GetParGDB(),vec_z_phys_nd);
+        } else {
+            particleData.Redistribute();
+        }
+    }
+#endif
 }
 
 void REMORA::resize_stuff(int lev)
@@ -245,7 +263,7 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
     BoxArray ba_w(ba);
     ba_w.surroundingNodes(2);
 
-    vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,1,IntVect(NGROW,NGROW,0))); // z at psi points (nodes) MIGHT NEED NGROW+1
+    vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,1,IntVect(NGROW,NGROW,1))); // z at psi points (nodes) MIGHT NEED NGROW+1
 
     vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d ,dm,2,IntVect(NGROW+1,NGROW+1,0))); //2d, depth (double check if negative)
     vec_Zt_avg1[lev].reset            (new MultiFab(ba2d ,dm,1,IntVect(NGROW+1,NGROW+1,0))); //2d, average of the free surface (zeta)

@@ -26,6 +26,12 @@ REMORA::timeStep (int lev, Real time, int iteration)
                 int old_finest = finest_level;
                 regrid(lev, time);
 
+#ifdef REMORA_USE_PARTICLES
+                if (finest_level != old_finest) {
+                    particleData.Redistribute();
+                }
+#endif
+
                 // Mark that we have regridded this level already
                 for (int k = lev; k <= finest_level; ++k) {
                     last_regrid_step[k] = istep[k];

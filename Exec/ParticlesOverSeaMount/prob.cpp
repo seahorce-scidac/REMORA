@@ -58,7 +58,7 @@ init_custom_bathymetry (const Geometry& geom,
       if (!m_solverChoice.flat_bathymetry) {
           ParallelFor(makeSlab(gbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
           {
-              Real val1, val2;
+              Real val1;
               int iFort = i+1;
               int jFort = j+1;
               if(NSPeriodic) {

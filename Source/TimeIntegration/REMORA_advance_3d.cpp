@@ -67,15 +67,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real const> const& DU_avg1  = mf_DU_avg1->const_array(mfi);
         Array4<Real const> const& DV_avg1  = mf_DV_avg1->const_array(mfi);
 
-        Array4<Real> const& DU_avg2  = mf_DU_avg2->array(mfi);
-        Array4<Real> const& DV_avg2  = mf_DV_avg2->array(mfi);
-
-        Array4<Real> const& ubar = mf_ubar->array(mfi);
-        Array4<Real> const& vbar = mf_vbar->array(mfi);
-
-        Array4<Real> const& Huon = mf_Huon->array(mfi);
-        Array4<Real> const& Hvom = mf_Hvom->array(mfi);
-
         Array4<Real const> const& pm  = mf_pm->const_array(mfi);
         Array4<Real const> const& pn  = mf_pn->const_array(mfi);
 
@@ -191,11 +182,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real const> const& pm  = mf_pm->const_array(mfi);
         Array4<Real const> const& pn  = mf_pn->const_array(mfi);
 
-        Box bx = mfi.tilebox();
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-
-        Box xbx = mfi.nodaltilebox(0);
-        Box ybx = mfi.nodaltilebox(1);
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         auto FC = fab_FC.array();
