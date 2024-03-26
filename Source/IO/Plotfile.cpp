@@ -155,6 +155,7 @@ REMORA::WritePlotFile ()
         FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,false);
     }
 
+    // Array of MultiFabs to hold the plotfile data
     Vector<MultiFab> mf(finest_level+1);
     for (int lev = 0; lev <= finest_level; ++lev) {
         mf[lev].define(grids[lev], dmap[lev], ncomp_mf, ngrow_vars);
@@ -220,11 +221,11 @@ REMORA::WritePlotFile ()
             mf_comp += 1;
         }
         if (containerHasElement(plot_var_names, "y_velocity")) {
-            MultiFab::Copy(mf[lev], mf_cc_vel[lev], 0, mf_comp, 1, 0);
+            MultiFab::Copy(mf[lev], mf_cc_vel[lev], 1, mf_comp, 1, 0);
             mf_comp += 1;
         }
         if (containerHasElement(plot_var_names, "z_velocity")) {
-            MultiFab::Copy(mf[lev], mf_cc_vel[lev], 0, mf_comp, 1, 0);
+            MultiFab::Copy(mf[lev], mf_cc_vel[lev], 2, mf_comp, 1, 0);
             mf_comp += 1;
         }
 
