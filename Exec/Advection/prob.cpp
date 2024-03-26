@@ -30,20 +30,14 @@ amrex_probinit(
 void
 init_custom_bathymetry (const Geometry& geom,
                         MultiFab& mf_h,
-                        const SolverChoice& m_solverChoice)
+                        const SolverChoice& /*m_solverChoice*/)
 {
     const auto & geomdata = geom.data();
     mf_h.setVal(geomdata.ProbHi(2));
 
-    const int Lm = geom.Domain().size()[0];
-    const int Mm = geom.Domain().size()[1];
-
     for ( MFIter mfi(mf_h, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
       Array4<Real> const& h  = (mf_h).array(mfi);
-
-      bool NSPeriodic = geomdata.isPeriodic(1);
-      bool EWPeriodic = geomdata.isPeriodic(0);
 
       Gpu::streamSynchronize();
       amrex::ParallelFor(Box(h),
@@ -61,9 +55,9 @@ init_custom_bathymetry (const Geometry& geom,
  * \brief Initializes custom coriolis forcing
  */
 void
-init_custom_coriolis (const Geometry& geom,
-                      MultiFab& mf_fcor,
-                      const SolverChoice& m_solverChoice) {}
+init_custom_coriolis (const Geometry& /*geom*/,
+                      MultiFab& /*mf_fcor*/,
+                      const SolverChoice& /*m_solverChoice*/) {}
 
 void
 init_custom_prob(
@@ -73,7 +67,7 @@ init_custom_prob(
         Array4<Real      > const& y_vel,
         Array4<Real      > const& z_vel,
         Array4<Real const> const& /*z_w*/,
-        Array4<Real const> const& z_r,
+        Array4<Real const> const& /*z_r*/,
         Array4<Real const> const& /*Hz*/,
         Array4<Real const> const& /*h*/,
         Array4<Real const> const& /*Zt_avg1*/,
@@ -94,7 +88,7 @@ init_custom_prob(
         const auto prob_hi         = geomdata.ProbHi();
         const auto dx              = geomdata.CellSize();
 
-        const Real z = z_r(i,j,k);
+        // const Real z = z_r(i,j,k);
 
         state(i, j, k, Temp_comp) = 1.;
 
@@ -198,8 +192,8 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
 }
 
 void
-init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, MultiFab& mf_svstr,
-                   const SolverChoice& m_solverChoice)
+init_custom_smflux(const Geometry& /*geom*/, const Real /*time*/, MultiFab& mf_sustr, MultiFab& mf_svstr,
+                   const SolverChoice& /*m_solverChoice*/)
 {
     //It's possible these should be set to be nonzero only at the boundaries they affect
     mf_sustr.setVal(0.0);
