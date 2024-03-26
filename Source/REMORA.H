@@ -834,8 +834,8 @@ private:
     amrex::Vector<std::string> plot_var_names;
     const amrex::Vector<std::string>     cons_names {"temp", "salt", "scalar"};
 
-    // Note that the order of variable names here must match the order in Derive.cpp
-    const amrex::Vector<std::string> derived_names {"dpdx", "dpdy"};
+    // Note that the order of variable names here must match the order in PlotFile.cpp
+    const amrex::Vector<std::string> derived_names {"vorticity"};
 
 
     // algorithm choices

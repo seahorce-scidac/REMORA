@@ -5,6 +5,8 @@
 
 using namespace amrex;
 
+PhysBCFunctNoOp null_bc_for_fill;
+
 void
 REMORA::setPlotVariables (const std::string& pp_plot_var_names)
 {
@@ -140,6 +142,10 @@ REMORA::WritePlotFile ()
     const int ncomp_mf = varnames.size();
     const auto ngrow_vars = IntVect(NGROW-1,NGROW-1,0);
 
+    if (ncomp_mf == 0) {
+        return;
+    }
+
     // We fillpatch here because some of the derived quantities require derivatives
     //     which require ghost cells to be filled
     for (int lev = 0; lev <= finest_level; ++lev) {
@@ -149,14 +155,13 @@ REMORA::WritePlotFile ()
         FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,false);
     }
 
-    if (ncomp_mf == 0)
-        return;
-
+    // Array of MultiFabs to hold the plotfile data
     Vector<MultiFab> mf(finest_level+1);
     for (int lev = 0; lev <= finest_level; ++lev) {
         mf[lev].define(grids[lev], dmap[lev], ncomp_mf, ngrow_vars);
     }
 
+    // Array of MultiFabs for nodal data
     Vector<MultiFab> mf_nd(finest_level+1);
     for (int lev = 0; lev <= finest_level; ++lev) {
         BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
@@ -164,7 +169,41 @@ REMORA::WritePlotFile ()
         mf_nd[lev].setVal(0.);
     }
 
-    for (int lev = 0; lev <= finest_level; ++lev) {
+    // Array of MultiFabs for cell-centered velocity
+    Vector<MultiFab> mf_cc_vel(finest_level+1);
+
+    if (containerHasElement(plot_var_names, "x_velocity") ||
+        containerHasElement(plot_var_names, "y_velocity") ||
+        containerHasElement(plot_var_names, "z_velocity") ||
+        containerHasElement(plot_var_names, "vorticity") ) {
+
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(1,1,0));
+            average_face_to_cellcenter(mf_cc_vel[lev],0,
+                                       Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]});
+            mf_cc_vel[lev].FillBoundary(geom[lev].periodicity());
+        } // lev
+
+        // We need ghost cells if computing vorticity
+        amrex::Interpolater* mapper = &cell_cons_interp;
+        if ( containerHasElement(plot_var_names, "vorticity") ) {
+            for (int lev = 1; lev <= finest_level; ++lev) {
+                Vector<MultiFab*> fmf = {&(mf_cc_vel[lev]), &(mf_cc_vel[lev])};
+                Vector<Real> ftime    = {t_new[lev], t_new[lev]};
+                Vector<MultiFab*> cmf = {&mf_cc_vel[lev-1], &mf_cc_vel[lev-1]};
+                Vector<Real> ctime    = {t_new[lev], t_new[lev]};
+
+                MultiFab mf_to_fill;
+                amrex::FillPatchTwoLevels(mf_cc_vel[lev], t_new[lev], cmf, ctime, fmf, ftime,
+                                          0, 0, AMREX_SPACEDIM, geom[lev-1], geom[lev],
+                                          null_bc_for_fill, 0, null_bc_for_fill, 0, refRatio(lev-1),
+                                          mapper, domain_bcs_type, 0);
+            } // lev
+        } // if
+    } // if
+
+    for (int lev = 0; lev <= finest_level; ++lev)
+    {
         int mf_comp = 0;
 
         // First, copy any of the conserved state variables into the output plotfile
@@ -174,19 +213,50 @@ REMORA::WritePlotFile ()
               MultiFab::Copy(mf[lev],*cons_new[lev],i,mf_comp,1,ngrow_vars);
                 mf_comp++;
             }
-        }
+        } // NCONS
 
         // Next, check for velocities and output none or all
-        if (containerHasElement(plot_var_names, "x_velocity") ||
-            containerHasElement(plot_var_names, "y_velocity") ||
-            containerHasElement(plot_var_names, "z_velocity")) {
-            if (plotfile_type == PlotfileType::amrex) {
-                Print()<<"We now average the face-based velocity components onto cell centers for plotting "<<std::endl;
-            }
-            average_face_to_cellcenter(mf[lev],mf_comp,
-                                       Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]});
-            mf_comp += AMREX_SPACEDIM;
+        if (containerHasElement(plot_var_names, "x_velocity")) {
+            MultiFab::Copy(mf[lev], mf_cc_vel[lev], 0, mf_comp, 1, 0);
+            mf_comp += 1;
         }
+        if (containerHasElement(plot_var_names, "y_velocity")) {
+            MultiFab::Copy(mf[lev], mf_cc_vel[lev], 1, mf_comp, 1, 0);
+            mf_comp += 1;
+        }
+        if (containerHasElement(plot_var_names, "z_velocity")) {
+            MultiFab::Copy(mf[lev], mf_cc_vel[lev], 2, mf_comp, 1, 0);
+            mf_comp += 1;
+        }
+
+        // Define standard process for calling the functions in Derive.cpp
+        auto calculate_derived = [&](const std::string& der_name,
+                                     decltype(derived::remora_dernull)& der_function)
+        {
+            if (containerHasElement(plot_var_names, der_name)) {
+                MultiFab dmf(mf[lev], make_alias, mf_comp, 1);
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+                for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+                {
+                    const Box& bx = mfi.tilebox();
+                    auto& dfab = dmf[mfi];
+                    if (der_name == "vorticity") {
+                        auto const& sfab = mf_cc_vel[lev][mfi];
+                        der_function(bx, dfab, 0, 1, sfab, Geom(lev), t_new[0], nullptr, lev);
+                    } else {
+                        auto const& sfab = (*cons_new[lev])[mfi];
+                        der_function(bx, dfab, 0, 1, sfab, Geom(lev), t_new[0], nullptr, lev);
+                    }
+                }
+
+                mf_comp++;
+            }
+        };
+
+        // Note: All derived variables must be computed in order of "derived_names" defined in REMORA.H
+        calculate_derived("vorticity",  derived::remora_dervort);
 
         // Fill cell-centered location
         Real dx = Geom()[lev].CellSizeArray()[0];
