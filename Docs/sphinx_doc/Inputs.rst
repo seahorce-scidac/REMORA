@@ -331,40 +331,32 @@ Time Step
 List of Parameters for Single-Rate
 ----------------------------------
 
-+-------------------------------+-----------------+----------------+-------------------+
-| Parameter                     | Definition      | Acceptable     | Default           |
-|                               |                 | Values         |                   |
-+===============================+=================+================+===================+
-| **remora.cfl**                | CFL number for  | Real > 0 and   | 0.8               |
-|                               | hydro           | <= 1           |                   |
-+-------------------------------+-----------------+----------------+-------------------+
-| **remora.fixed_dt**           | set level 0 dt  | Real > 0       | unused if not     |
-|                               | as this value   |                | set               |
-|                               | regardless of   |                |                   |
-|                               | cfl or other    |                |                   |
-|                               | settings        |                |                   |
-+-------------------------------+-----------------+----------------+-------------------+
-| **remora.use_lowM_dt**        | set level 0 dt  | bool           | false             |
-|                               | based on        |                |                   |
-|                               | low M cfl cond  |                |                   |
-+-------------------------------+-----------------+----------------+-------------------+
-| **remora.fixed_fast_dt**      | set fast dt     | Real > 0       | only relevant     |
-|                               | as this value   |                | if use_native_mri |
-|                               |                 |                | is true           |
-+-------------------------------+-----------------+----------------+-------------------+
-| **remora.fixed_mri_dt_ratio** | set fast dt     | int            | only relevant     |
-|                               | as slow dt /    |                | if use_native_mri |
-|                               | this ratio      |                | is true           |
-+-------------------------------+-----------------+----------------+-------------------+
-| **remora.init_shrink**        | factor by which | Real > 0 and   | 1.0               |
-|                               | to shrink the   | <= 1           |                   |
-|                               | initial dt      |                |                   |
-+-------------------------------+-----------------+----------------+-------------------+
-| **remora.change_max**         | factor by which | Real >= 1      | 1.1               |
-|                               | dt can grow     |                |                   |
-|                               | in subsequent   |                |                   |
-|                               | steps           |                |                   |
-+-------------------------------+-----------------+----------------+-------------------+
++-------------------------------+-----------------+----------------+----------------------------+
+| Parameter                     | Definition      | Acceptable     | Default                    |
+|                               |                 | Values         |                            |
++===============================+=================+================+============================+
+| **remora.cfl**                | CFL number for  | Real > 0 and   | 0.8                        |
+|                               | hydro           | <= 1           |                            |
++-------------------------------+-----------------+----------------+----------------------------+
+| **remora.fixed_dt**           | set level 0 dt  | Real > 0       | unused if not              |
+|                               | as this value   |                | set                        |
+|                               | regardless of   |                |                            |
+|                               | cfl or other    |                |                            |
+|                               | settings        |                |                            |
++-------------------------------+-----------------+----------------+----------------------------+
+| **remora.fixed_fast_dt**      | set fast dt     | real > 0       | inferred from **fixed_dt** |
+|                               | as this value   |                | and **fixed_ndfast_ratio** |
+|                               |                 |                | if not set                 |
++-------------------------------+-----------------+----------------+----------------------------+
+| **remora.fixed_ndfast_ratio** | set fast dt     | int            | inferred from **fixed_dt** |
+|                               | as slow dt /    |                | and **fixed_fast_dt**      |
+|                               | this ratio      |                | if not set                 |
++-------------------------------+-----------------+----------------+----------------------------+
+| **remora.change_max**         | factor by which | Real >= 1      | 1.1                        |
+|                               | dt can grow     |                |                            |
+|                               | in subsequent   |                |                            |
+|                               | steps           |                |                            |
++-------------------------------+-----------------+----------------+----------------------------+
 
 .. _examples-of-usage-5:
 
@@ -373,9 +365,6 @@ Examples of Usage
 
 -  | **remora.cfl** = 0.9
    | defines the timestep as dt = cfl \* dx / (u+c).  Only relevant if **fixed_dt** not set
-
--  | **remora.init_shrink** = 0.01
-   | sets the initial time step to 1% of what it would be otherwise.
 
 -  | **remora.change_max** = 1.1
    | allows the time step to increase by no more than 10% in this case.
