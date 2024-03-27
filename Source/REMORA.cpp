@@ -392,7 +392,7 @@ REMORA::Define_REMORAFillPatchers (int lev)
 }
 
 void
-REMORA::restart()
+REMORA::restart ()
 {
     ReadCheckpointFile();
 
@@ -401,7 +401,25 @@ REMORA::restart()
 }
 
 void
-REMORA::set_bathymetry(int lev)
+REMORA::set_zeta (int lev)
+{
+    if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+        init_custom_zeta(geom[lev], *vec_zeta[lev], solverChoice);
+
+#ifdef REMORA_USE_NETCDF
+    } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+        amrex::Print() << "Calling init_zeta_from_netcdf " << std::endl;
+        init_zeta_from_netcdf(lev);
+        amrex::Print() << "Sea surface height loaded from netcdf file \n " << std::endl;
+#endif
+    } else {
+        Abort("Don't know this ic_bc_type!");
+    }
+    set_zeta_average(lev);
+}
+
+void
+REMORA::set_bathymetry (int lev)
 {
     if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
         init_custom_bathymetry(geom[lev], *vec_hOfTheConfusingName[lev], solverChoice);
@@ -417,9 +435,9 @@ REMORA::set_bathymetry(int lev)
     }
 
     // HACK -- SHOULD WE ALWAYS DO THIS??
-    vec_Zt_avg1[lev]->setVal(0.0_rt);
+    //vec_Zt_avg1[lev]->setVal(0.0_rt);
 
-    vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
+    //vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
 }
 
@@ -485,6 +503,9 @@ REMORA::init_only(int lev, Real time)
     yvel_new[lev]->setVal(0.0_rt);
     zvel_new[lev]->setVal(0.0_rt);
 
+    set_zeta(lev);
+    stretch_transform(lev);
+
     if (solverChoice.ic_bc_type == IC_BC_Type::Custom)
     {
         init_custom(lev);
@@ -502,6 +523,12 @@ REMORA::init_only(int lev, Real time)
     } else {
         Abort("Need to specify ic_bc_type");
     }
+
+    set_2darrays(lev);
+
+    set_vmix(lev);
+    set_hmixcoef(lev);
+    set_coriolis(lev);
 
     // Ensure that the face-based data are the same on both sides of a periodic domain.
     // The data associated with the lower grid ID is considered the correct value.

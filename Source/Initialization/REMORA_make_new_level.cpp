@@ -341,10 +341,6 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
 
     set_bathymetry(lev);
 
-    stretch_transform(lev);
-    set_vmix(lev);
-    set_hmixcoef(lev);
-    set_coriolis(lev);
     set_weights(lev);
 
     //consider tracking ru and rv indexes more specifically or more similarly to indx

@@ -583,6 +583,10 @@ public:
 
     void set_2darrays (int lev);
 
+    void set_zeta_average (int lev);
+
+    void set_zeta (int lev);
+
     void set_bathymetry (int lev);
 
     void set_coriolis (int lev);
@@ -626,6 +630,7 @@ public:
     void init_data_from_netcdf (int lev);
     void init_bdry_from_netcdf ();
     void init_bathymetry_from_netcdf (int lev);
+    void init_zeta_from_netcdf (int lev);
     void init_coriolis_from_netcdf (int lev);
 
 #ifdef REMORA_USE_NETCDF

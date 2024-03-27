@@ -46,8 +46,6 @@ REMORA::init_custom(int lev)
     vec_pm[lev]->setVal(dxi[0]); vec_pm[lev]->FillBoundary(geom[lev].periodicity());
     vec_pn[lev]->setVal(dxi[1]); vec_pn[lev]->FillBoundary(geom[lev].periodicity());
 
-    set_2darrays(lev);
-
 }
 
 void
@@ -76,6 +74,27 @@ REMORA::init_beta_plane_coriolis (int lev)
     } //mfi
 
     vec_fcor[lev]->FillBoundary(geom[lev].periodicity());
+}
+
+void
+REMORA::set_zeta_average (int lev)
+{
+    std::unique_ptr<MultiFab>& mf_zeta = vec_zeta[lev];
+    std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
+    for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        int nstp = 0;
+        Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
+        Array4<const Real> const& zeta     = mf_zeta->const_array(mfi);
+
+        Box  bx3 = mfi.tilebox()      ;  bx3.grow(IntVect(NGROW+1,NGROW+1,0)); //   cell-centered, grown by 3
+
+        ParallelFor(makeSlab(bx3,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            Zt_avg1(i,j,0) = zeta(i,j,0,nstp);
+        });
+
+    }
 }
 
 void
@@ -108,6 +127,7 @@ REMORA::set_2darrays (int lev)
 
     MultiFab* U_old = xvel_new[lev];
     MultiFab* V_old = yvel_new[lev];
+    std::unique_ptr<MultiFab>& mf_zeta = vec_zeta[lev];
     std::unique_ptr<MultiFab>& mf_ubar = vec_ubar[lev];
     std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
     std::unique_ptr<MultiFab>& mf_mskr = vec_mskr[lev];

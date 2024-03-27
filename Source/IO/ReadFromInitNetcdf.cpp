@@ -12,7 +12,6 @@ read_data_from_netcdf (int /*lev*/,
                        FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
                        FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
                        FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab,
-                       FArrayBox& NC_zeta_fab,
                        FArrayBox& NC_mskr_fab, FArrayBox& NC_msku_fab,
                        FArrayBox& NC_mskv_fab)
 {
@@ -28,10 +27,27 @@ read_data_from_netcdf (int /*lev*/,
     NC_fabs.push_back(&NC_yvel_fab); NC_names.push_back("v");        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 3
     NC_fabs.push_back(&NC_ubar_fab), NC_names.push_back("ubar");     NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 4
     NC_fabs.push_back(&NC_vbar_fab); NC_names.push_back("vbar");     NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 5
-    NC_fabs.push_back(&NC_zeta_fab); NC_names.push_back("zeta");     NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 6
-    NC_fabs.push_back(&NC_mskr_fab); NC_names.push_back("mask_rho"); NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 7
-    NC_fabs.push_back(&NC_msku_fab); NC_names.push_back("mask_u");   NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 8
-    NC_fabs.push_back(&NC_mskv_fab); NC_names.push_back("mask_v");   NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 9
+    NC_fabs.push_back(&NC_mskr_fab); NC_names.push_back("mask_rho"); NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 6
+    NC_fabs.push_back(&NC_msku_fab); NC_names.push_back("mask_u");   NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 7
+    NC_fabs.push_back(&NC_mskv_fab); NC_names.push_back("mask_v");   NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 8
+
+    // Read the netcdf file and fill these FABs
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+}
+
+void
+read_zeta_from_netcdf (int /*lev*/,
+                      const Box& domain,
+                      const std::string& fname,
+                      FArrayBox& NC_zeta_fab)
+{
+    amrex::Print() << "Loading initial sea surface height from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_zeta_fab )   ; NC_names.push_back("zeta")    ; NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 0
 
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
@@ -59,7 +75,8 @@ read_bathymetry_from_netcdf (int /*lev*/,
 }
 
 void
-read_coriolis_from_netcdf (const Box& domain,
+read_coriolis_from_netcdf (int /*lev*/,
+                           const Box& domain,
                            const std::string& fname,
                            FArrayBox& NC_fcor_fab)
 {
