@@ -7,6 +7,11 @@ using namespace amrex;
 
 PhysBCFunctNoOp null_bc_for_fill;
 
+template<typename V, typename T>
+bool containerHasElement(const V& iterable, const T& query) {
+    return std::find(iterable.begin(), iterable.end(), query) != iterable.end();
+}
+
 void
 REMORA::setPlotVariables (const std::string& pp_plot_var_names)
 {
@@ -215,7 +220,7 @@ REMORA::WritePlotFile ()
             }
         } // NCONS
 
-        // Next, check for velocities and output none or all
+        // Next, check for velocities
         if (containerHasElement(plot_var_names, "x_velocity")) {
             MultiFab::Copy(mf[lev], mf_cc_vel[lev], 0, mf_comp, 1, 0);
             mf_comp += 1;
