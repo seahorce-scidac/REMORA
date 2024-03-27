@@ -98,6 +98,17 @@ init_custom_coriolis    (const Geometry& /*geom*/,
                          MultiFab& /*mf_fcor*/,
                          const SolverChoice& /*m_solverChoice*/) {}
 
+/**
+ * \brief Initializes custom sea surface height
+ */
+void
+init_custom_zeta (const Geometry& geom,
+                      MultiFab& mf_zeta,
+                      const SolverChoice& m_solverChoice)
+{
+    mf_zeta.setVal(0.0_rt);
+}
+
 void
 init_custom_prob(
         const Box& bx,

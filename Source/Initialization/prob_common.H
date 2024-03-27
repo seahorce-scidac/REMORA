@@ -29,6 +29,10 @@ void init_custom_bathymetry (const amrex::Geometry& geom,
                              amrex::MultiFab& mf_h,
                              SolverChoice const& m_solverChoice);
 
+void init_custom_zeta  (const amrex::Geometry& geom,
+                             amrex::MultiFab& mf_zeta,
+                             SolverChoice const& m_solverChoice);
+
 void init_custom_coriolis (const amrex::Geometry& geom,
                              amrex::MultiFab& mf_fcor,
                              SolverChoice const& m_solverChoice);
