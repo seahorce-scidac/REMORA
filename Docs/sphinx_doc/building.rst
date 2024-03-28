@@ -139,12 +139,7 @@ Perlmutter (NERSC)
 
 Recall the GNU Make system is best for use on large computing facility machines and production runs. With the GNU Make implementation, the build system will inspect the machine and use known compiler optimizations explicit to that machine if possible. These explicit settings are kept up-to-date by the AMReX project.
 
-For Perlmutter at NERSC, look at the general instructions for building REMORA using GNU Make, and then you can initialize your environment by loading these modules:
-
-::
-
-   module load PrgEnv-gnu
-   module load cudatoolkit
+For Perlmutter at NERSC, look at the general instructions for building REMORA using GNU Make, and then you can initialize your environment by sourcing or running the `saul-env.sh` script in the `Build` directory. GNU Make may complain that it cannot find NetCDF. This is fine.
 
 Then build REMORA as, for example (specify your own path to the AMReX submodule in `REMORA/Submodules/AMReX`):
 
@@ -159,7 +154,7 @@ Finally, you can prepare your SLURM job script, using the following as a guide:
              #!/bin/bash
 
              ## specify your allocation (with the _g) and that you want GPU nodes
-             #SBATCH -A m4106_g
+             #SBATCH -A mXXXX_g
              #SBATCH -C gpu
 
              ## the job will be named "REMORA" in the queue and will save stdout to remora_[job ID].out
@@ -174,13 +169,22 @@ Finally, you can prepare your SLURM job script, using the following as a guide:
 
              ## we use the same number of MPI ranks per node as GPUs per node
              #SBATCH --ntasks-per-node=4
+             #SBATCH --gpus-per-node=4
+             #SBATCH --gpu-bind=none
 
-             ## assign 1 MPI rank per GPU on each node
-             #SBATCH --gpus-per-task=1
-             #SBATCH --gpu-bind=map_gpu:0,1,2,3
+             # pin to closest NIC to GPU
+             export MPICH_OFI_NIC_POLICY=GPU
+
+             # use GPU-aware MPI
+             #GPU_AWARE_MPI=""
+             GPU_AWARE_MPI="amrex.use_gpu_aware_mpi=1"
 
              # the -n argument is (--ntasks-per-node) * (-N) = (number of MPI ranks per node) * (number of nodes)
-             srun -n 8 ./REMORA3d.gnu.MPI.CUDA.ex inputs_wrf_baseline max_step=100
+             # set ordering of CUDA visible devices inverse to local task IDs for optimal GPU-aware MPI
+             srun -n 8 --cpus-per-task=32 --cpu-bind=cores bash -c "
+               export CUDA_VISIBLE_DEVICES=\$((3-SLURM_LOCALID));
+               ./REMORA3d.gnu.MPI.CUDA.ex inputs ${GPU_AWARE_MPI}" \
+             > test.out
 
 To submit your job script, do `sbatch [your job script]` and you can check its status by doing `squeue -u [your username]`.
 
