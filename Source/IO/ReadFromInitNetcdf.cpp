@@ -27,9 +27,9 @@ read_data_from_netcdf (int /*lev*/,
     NC_fabs.push_back(&NC_yvel_fab); NC_names.push_back("v");        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 3
     NC_fabs.push_back(&NC_ubar_fab), NC_names.push_back("ubar");     NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 4
     NC_fabs.push_back(&NC_vbar_fab); NC_names.push_back("vbar");     NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 5
-    NC_fabs.push_back(&NC_mskr_fab); NC_names.push_back("mask_rho"); NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 6
-    NC_fabs.push_back(&NC_msku_fab); NC_names.push_back("mask_u");   NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 7
-    NC_fabs.push_back(&NC_mskv_fab); NC_names.push_back("mask_v");   NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 8
+    NC_fabs.push_back(&NC_mskr_fab); NC_names.push_back("mask_rho"); NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 6
+    NC_fabs.push_back(&NC_msku_fab); NC_names.push_back("mask_u");   NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 7
+    NC_fabs.push_back(&NC_mskv_fab); NC_names.push_back("mask_v");   NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 8
 
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
