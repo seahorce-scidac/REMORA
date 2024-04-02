@@ -802,6 +802,9 @@ private:
     int max_step = std::numeric_limits<int>::max();
     amrex::Real stop_time = std::numeric_limits<amrex::Real>::max();
 
+    // Time of the start of the simulation, in seconds
+    amrex::Real start_time = 0.0;
+
     // if >= 0 we restart from a checkpoint
     std::string restart_chkfile = "";
 
