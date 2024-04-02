@@ -63,12 +63,22 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     BoxArray            ba_old(cons_new[lev]->boxArray());
     DistributionMapping dm_old(cons_new[lev]->DistributionMap());
 
+    BoxList bl2d = ba.boxList();
+    for (auto& b : bl2d) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d(std::move(bl2d));
+
 #if (NGROW==2)
-    int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
-    int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+1;
+    int ngrow_state   = ComputeGhostCells(solverChoice.spatial_order)+1;
+    int ngrow_vels    = ComputeGhostCells(solverChoice.spatial_order)+1;
+    int ngrow_zeta    = ComputeGhostCells(solverChoice.spatial_order)+1;
+    int ngrow_velbar  = ComputeGhostCells(solverChoice.spatial_order);
 #else
-    int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+2;
-    int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
+    int ngrow_state   = ComputeGhostCells(solverChoice.spatial_order)+2;
+    int ngrow_vels    = ComputeGhostCells(solverChoice.spatial_order)+2;
+    int ngrow_zeta    = ComputeGhostCells(solverChoice.spatial_order)+2;
+    int ngrow_velbar  = ComputeGhostCells(solverChoice.spatial_order)+1;
 #endif
 
     MultiFab tmp_cons_new(ba, dm, NCONS, ngrow_state);
@@ -83,11 +93,27 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     MultiFab tmp_zvel_new(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
     MultiFab tmp_zvel_old(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
+    MultiFab tmp_Zt_avg1_new(ba2d, dm, 1, IntVect(ngrow_zeta,ngrow_zeta,0));
+    MultiFab tmp_Zt_avg1_old(ba2d, dm, 1, IntVect(ngrow_zeta,ngrow_zeta,0));
+
+    MultiFab tmp_ubar_new(convert(ba2d, IntVect(1,0,0)), dm, 3, IntVect(ngrow_velbar,ngrow_velbar,0));
+    MultiFab tmp_ubar_old(convert(ba2d, IntVect(1,0,0)), dm, 3, IntVect(ngrow_velbar,ngrow_velbar,0));
+
+    MultiFab tmp_vbar_new(convert(ba2d, IntVect(0,1,0)), dm, 3, IntVect(ngrow_velbar,ngrow_velbar,0));
+    MultiFab tmp_vbar_old(convert(ba2d, IntVect(0,1,0)), dm, 3, IntVect(ngrow_velbar,ngrow_velbar,0));
+
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
     FillPatch(lev, time, tmp_cons_new, cons_new, BdyVars::t,0,true,false);
     FillPatch(lev, time, tmp_xvel_new, xvel_new, BdyVars::u,0,true,false);
     FillPatch(lev, time, tmp_yvel_new, yvel_new, BdyVars::v,0,true,false);
     FillPatch(lev, time, tmp_zvel_new, zvel_new, BdyVars::null,0,true,false);
+
+    FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), BdyVars::null,0,true,false);
+    print_state(tmp_Zt_avg1_new,IntVect(59,57,0),-1,IntVect(3,3,0));
+    for (int icomp=0; icomp<3; icomp++) {
+        FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), BdyVars::ubar, icomp,false,false);
+        FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), BdyVars::vbar, icomp,false,false);
+    }
 
     MultiFab::Copy(tmp_cons_old,tmp_cons_new,0,0,NCONS,tmp_cons_new.nGrowVect());
     MultiFab::Copy(tmp_xvel_old,tmp_xvel_new,0,0,    1,tmp_xvel_new.nGrowVect());
@@ -102,11 +128,20 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     std::swap(tmp_yvel_old, *yvel_old[lev]);
     std::swap(tmp_zvel_new, *zvel_new[lev]);
     std::swap(tmp_zvel_old, *zvel_old[lev]);
+    std::swap(tmp_Zt_avg1_new, *vec_Zt_avg1[lev]);
+    std::swap(tmp_ubar_new,    *vec_ubar[lev]);
+    std::swap(tmp_vbar_new,    *vec_vbar[lev]);
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200_rt;
 
     init_stuff(lev, ba, dm);
+
+    stretch_transform(lev);
+
+    set_vmix(lev);
+    set_hmixcoef(lev);
+    set_coriolis(lev);
 
     // We need to re-define the FillPatcher if the grids have changed
     if (lev > 0 && cf_width >= 0) {
@@ -134,6 +169,12 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     SetBoxArray(lev, ba);
     SetDistributionMap(lev, dm);
 
+    BoxList bl2d = ba.boxList();
+    for (auto& b : bl2d) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d(std::move(bl2d));
+
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
 
     // The number of ghost cells for density must be 1 greater than that for velocity
@@ -159,6 +200,11 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     zvel_old[lev] = new MultiFab(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
     resize_stuff(lev);
+
+    vec_Zt_avg1[lev].reset(new MultiFab(ba2d ,dm,1,IntVect(NGROW+1,NGROW+1,0))); //2d, average of the free surface (zeta)
+    vec_ubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,3,IntVect(NGROW,NGROW,0)));
+    vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
+
     init_stuff(lev, ba, dm);
 
     init_only(lev, time);
@@ -268,7 +314,6 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
     vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,1,IntVect(NGROW,NGROW,1))); // z at psi points (nodes) MIGHT NEED NGROW+1
 
     vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d ,dm,2,IntVect(NGROW+1,NGROW+1,0))); //2d, depth (double check if negative)
-    vec_Zt_avg1[lev].reset            (new MultiFab(ba2d ,dm,1,IntVect(NGROW+1,NGROW+1,0))); //2d, average of the free surface (zeta)
 
     vec_x_r[lev].reset                (new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0))); // x at r points (cell center)
     vec_y_r[lev].reset                (new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0))); // y at r points (cell center)
@@ -323,8 +368,6 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
     vec_rzeta[lev].reset(new MultiFab(ba2d,dm,4,IntVect(NGROW,NGROW,0))); // 2d RHS zeta
 
     // starts off kind of like a depth-averaged u, but exists at more points and more timesteps (b/c fast 2D update) than full u
-    vec_ubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,3,IntVect(NGROW,NGROW,0)));
-    vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW+1,NGROW+1,0)));  // 2d free surface
 
     vec_mskr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
