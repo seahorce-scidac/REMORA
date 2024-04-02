@@ -253,11 +253,10 @@ REMORA::InitData ()
     if (restart_chkfile == "") {
         // start simulation from the beginning
 
-        const Real time = 0.0_rt;
-        InitFromScratch(time);
+        InitFromScratch(start_time);
 
         for (int lev = 0; lev <= finest_level; lev++)
-            init_only(lev, time);
+            init_only(lev, start_time);
 
         if (solverChoice.coupling_type == CouplingType::TwoWay) {
             AverageDown();
@@ -554,6 +553,7 @@ REMORA::ReadParameters ()
         pp.query("check_int", check_int);
 
         pp.query("restart", restart_chkfile);
+        pp.query("start_time",start_time);
 
         if (pp.contains("data_log"))
         {

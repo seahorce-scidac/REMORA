@@ -189,10 +189,9 @@ REMORA::set_2darrays (int lev)
         });
     }
 
-    const Real time = 0.0_rt;
-    FillPatch(lev, time, *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar,0,false,false);
-    FillPatch(lev, time, *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,0,false,false);
+    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar,0,false,false);
+    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,0,false,false);
 
-    FillPatch(lev, time, *vec_msku[lev], GetVecOfPtrs(vec_ubar), BdyVars::null,0,true,false);
-    FillPatch(lev, time, *vec_mskv[lev], GetVecOfPtrs(vec_vbar), BdyVars::null,0,true,false);
+    FillPatch(lev, t_new[lev], *vec_msku[lev], GetVecOfPtrs(vec_ubar), BdyVars::null,0,true,false);
+    FillPatch(lev, t_new[lev], *vec_mskv[lev], GetVecOfPtrs(vec_vbar), BdyVars::null,0,true,false);
 }
