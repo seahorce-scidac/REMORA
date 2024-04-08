@@ -297,14 +297,21 @@ REMORA::GetDataAtTime (int /*lev*/, Real /*time*/)
 //     only when a new level of refinement is being created during a run (i.e not at initialization)
 //     This will never be used with static refinement.
 void
-REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_crse)
+REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_crse,
+                         const int  icomp,
+                         const bool fill_all)
 {
     BL_PROFILE_VAR("FillCoarsePatch()",FillCoarsePatch);
     AMREX_ASSERT(lev > 0);
 
+    int ncomp;
+    if (fill_all) {
+        ncomp = mf_to_fill->nComp();
+    } else {
+        ncomp = 1;
+    }
+
     int bccomp = 0;
-    int  icomp = 0;
-    int  ncomp = 1;
     amrex::Interpolater* mapper = nullptr;
 
     Box box_mf = ((*mf_to_fill)[0]).box();
@@ -312,7 +319,6 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
     {
         bccomp = 0;
         mapper = &cell_cons_interp;
-        ncomp = NCONS;
     }
     else if (box_mf.ixType() == IndexType(IntVect(1,0,0)))
     {

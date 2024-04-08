@@ -35,7 +35,7 @@ REMORA::timeStepML (Real time, int /*iteration*/)
 
                     // If there are newly created levels, set the time step
                     for (int k = old_finest+1; k <= finest_level; ++k) {
-                        dt[k] = dt[k-1] / MaxRefRatio(k-1);
+                        dt[k] = dt[k-1] / nsubsteps[lev];
                     }
                 }
             }
