@@ -42,9 +42,7 @@ REMORA::init_custom(int lev)
     } //mfi
 
     // Initialize the "pm" and "pn" arrays
-    const auto dxi = Geom(lev).InvCellSize();
-    vec_pm[lev]->setVal(dxi[0]); vec_pm[lev]->FillBoundary(geom[lev].periodicity());
-    vec_pn[lev]->setVal(dxi[1]); vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+    set_pm_pn(lev);
 
 }
 
