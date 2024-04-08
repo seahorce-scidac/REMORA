@@ -13,6 +13,8 @@ remora_dernull(
   int /*dcomp*/,
   int /*ncomp*/,
   const amrex::FArrayBox& /*datfab*/,
+  const amrex::Array4<const amrex::Real>& /*pm*/,
+  const amrex::Array4<const amrex::Real>& /*pn*/,
   const amrex::Geometry& /*geomdata*/,
   amrex::Real /*time*/,
   const int* /*bcrec*/,
@@ -28,10 +30,12 @@ remora_dervort(
   int dcomp,
   int ncomp,
   const amrex::FArrayBox& datfab,
+  const amrex::Array4<const amrex::Real>& pm,
+  const amrex::Array4<const amrex::Real>& pn,
   const amrex::Geometry& geomdata,
   amrex::Real /*time*/,
   const int* /*bcrec*/,
-  const int /*level*/)
+  const int level)
 {
     AMREX_ALWAYS_ASSERT(ncomp == 1);
 
@@ -43,8 +47,10 @@ remora_dervort(
 
     ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
-        tfab(i,j,k,dcomp) = (dat(i+1,j,k,1) - dat(i-1,j,k,1)) / (2.0*dx)  // dv/dx
-                          - (dat(i,j+1,k,0) - dat(i,j-1,k,0)) / (2.0*dy); // du/dy
+        Real d2x = 0.5_rt / pm(i-1,j,  k) + 1.0_rt / pm(i,j,k) + 0.5_rt / pm(i+1,j,k);
+        Real d2y = 0.5_rt / pn(i,  j-1,k) + 1.0_rt / pm(i,j,k) + 0.5_rt / pm(i,j+1,k);
+        tfab(i,j,k,dcomp) = (dat(i+1,j,k,1) - dat(i-1,j,k,1)) / (d2x)  // dv/dx
+                          - (dat(i,j+1,k,0) - dat(i,j-1,k,0)) / (d2y); // du/dy
     });
 }
 }

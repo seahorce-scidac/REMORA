@@ -247,12 +247,13 @@ REMORA::WritePlotFile ()
                 {
                     const Box& bx = mfi.tilebox();
                     auto& dfab = dmf[mfi];
+
                     if (der_name == "vorticity") {
                         auto const& sfab = mf_cc_vel[lev][mfi];
-                        der_function(bx, dfab, 0, 1, sfab, Geom(lev), t_new[0], nullptr, lev);
+                        der_function(bx, dfab, 0, 1, sfab, vec_pm[lev]->const_array(mfi), vec_pn[lev]->const_array(mfi), Geom(lev), t_new[0], nullptr, lev);
                     } else {
                         auto const& sfab = (*cons_new[lev])[mfi];
-                        der_function(bx, dfab, 0, 1, sfab, Geom(lev), t_new[0], nullptr, lev);
+                        der_function(bx, dfab, 0, 1, sfab, vec_pm[lev]->const_array(mfi), vec_pn[lev]->const_array(mfi), Geom(lev), t_new[0], nullptr, lev);
                     }
                 }
 
