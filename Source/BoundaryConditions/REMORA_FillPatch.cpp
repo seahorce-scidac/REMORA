@@ -314,7 +314,8 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
     int bccomp = 0;
     amrex::Interpolater* mapper = nullptr;
 
-    Box box_mf = ((*mf_to_fill)[0]).box();
+    Box box_mf(mf_to_fill->boxArray()[0]);
+
     if (box_mf.ixType() == IndexType(IntVect(0,0,0)))
     {
         bccomp = 0;
