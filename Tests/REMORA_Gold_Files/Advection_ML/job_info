@@ -1,16 +1,16 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: inputs_ml
+inputs file: Advection_ML.i
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.0161432
+CPU time used since start of simulation (CPU-hours): 0.000421119
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Mon Mar 25 12:43:18 2024
+output data / time: Mon Apr  8 14:37:45 2024
 output dir:         /home/klion/software/REMORA/Exec/Advection
 
 
@@ -63,7 +63,7 @@ amr.n_cell = 80 80 16
 geometry.is_periodic = 1 1 0
 zlo.type = SlipWall
 zhi.type = SlipWall
-remora.fixed_dt = 200.0
+remora.fixed_dt = 100.0
 remora.fixed_ndtfast_ratio = 10
 remora.sum_interval = 10
 remora.v = 0
@@ -92,13 +92,15 @@ remora.coriolis_beta = 0.0
 remora.rdrag = 0.0
 prob.u_0 = 1.0e-0
 prob.v_0 = -1.0e-0
-remora.refinement_indicators = box1
-remora.box1.max_level = 1
-remora.box1.in_box_lo = 20000. 20000. -150.
-remora.box1.in_box_hi = 30000. 30000. 0.
+remora.refinement_indicators = scalar
+remora.scalar.max_level = 1
+remora.scalar.field_name = scalar
+remora.scalar.value_greater = 0.5
+remora.scalar.start_time = 200
 remora.coupling_type = TwoWay
-remora.cf_set_width(nvals = 1)  :: [0]
 remora.do_substep = 0
+amr.n_error_buf = 3 3
+remora.regrid_int = 1
 amr.refine_grid_layout_x = 1
 amr.refine_grid_layout_y = 1
 amr.refine_grid_layout_z = 0

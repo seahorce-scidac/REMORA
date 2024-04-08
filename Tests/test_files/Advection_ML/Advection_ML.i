@@ -20,10 +20,7 @@ zlo.type = "SlipWall"
 zhi.type = "SlipWall"
 
 # TIME STEP CONTROL
-remora.fixed_dt       = 200.0 # Timestep size (seconds)
-# NDTFAST  = 30.0 # Number of baratropic steps => 300.0/30.0 = 10.0
-#remora.fixed_fast_dt  = 10.0 # Baratropic timestep size (seconds)
-# remora.fixed_fast_dt  = 300.0 # Baratropic timestep size (seconds) testing value
+remora.fixed_dt       = 100.0 # Timestep size (seconds)
 remora.fixed_ndtfast_ratio  = 10 # Baratropic timestep size (seconds)
 
 # DIAGNOSTICS & VERBOSITY
@@ -70,11 +67,15 @@ remora.rdrag=0.0
 prob.u_0   =1.0e-0
 prob.v_0   = -1.0e-0
 
-remora.refinement_indicators = box1
-remora.box1.max_level = 1
-remora.box1.in_box_lo =     20000.   20000. -150.
-remora.box1.in_box_hi =  30000. 30000. 0.
+remora.refinement_indicators = scalar
+remora.scalar.max_level = 1
+remora.scalar.field_name = scalar
+remora.scalar.value_greater = 0.5
+remora.scalar.start_time = 200
 remora.coupling_type = "TwoWay"
 
-remora.cf_set_width=0
 remora.do_substep=0
+
+amr.n_error_buf = 3 3
+
+remora.regrid_int=1
