@@ -134,6 +134,12 @@ public:
     virtual void MakeNewLevelFromScratch (int lev, amrex::Real time, const amrex::BoxArray& ba,
                       const amrex::DistributionMapping& dm) override;
 
+    /** Set pm and pn arrays on level lev. Only works if using Custom initialization */
+    void set_pm_pn (int lev);
+
+    /** Set zeta components to be equal to time-averaged Zt_avg1 */
+    void set_zeta_to_Ztavg (int lev);
+
     /** compute dt from CFL considerations */
     amrex::Real estTimeStep (int lev) const;
 

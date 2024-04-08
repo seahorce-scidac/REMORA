@@ -109,7 +109,6 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     FillPatch(lev, time, tmp_zvel_new, zvel_new, BdyVars::null,0,true,false);
 
     FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), BdyVars::null,0,true,false);
-    print_state(tmp_Zt_avg1_new,IntVect(59,57,0),-1,IntVect(3,3,0));
     for (int icomp=0; icomp<3; icomp++) {
         FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), BdyVars::ubar, icomp,false,false);
         FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), BdyVars::vbar, icomp,false,false);
@@ -137,11 +136,13 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     init_stuff(lev, ba, dm);
 
+    set_pm_pn(lev);
     stretch_transform(lev);
 
     set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
+    set_zeta_to_Ztavg(lev);
 
     // We need to re-define the FillPatcher if the grids have changed
     if (lev > 0 && cf_width >= 0) {
@@ -400,10 +401,6 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
     vec_rvbar[lev]->setVal(0.0_rt);
     vec_rzeta[lev]->setVal(0.0_rt);
 
-    vec_ubar[lev]->setVal(0.0_rt);
-    vec_vbar[lev]->setVal(0.0_rt);
-    vec_zeta[lev]->setVal(0.0_rt);
-
     vec_mskr[lev]->setVal(1.0_rt);
     vec_msku[lev]->setVal(1.0_rt);
     vec_mskv[lev]->setVal(1.0_rt);
@@ -430,4 +427,34 @@ REMORA::ClearLevel (int lev)
 {
     delete cons_new[lev]; delete xvel_new[lev];  delete yvel_new[lev];  delete zvel_new[lev];
     delete cons_old[lev]; delete xvel_old[lev];  delete yvel_old[lev];  delete zvel_old[lev];
+}
+
+void
+REMORA::set_pm_pn (int lev)
+{
+    AMREX_ASSERT(solverChoice.ic_bc_type == IC_BC_Type::Custom);
+    const auto dxi = Geom(lev).InvCellSize();
+    vec_pm[lev]->setVal(dxi[0]); vec_pm[lev]->FillBoundary(geom[lev].periodicity());
+    vec_pn[lev]->setVal(dxi[1]); vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+}
+
+void
+REMORA::set_zeta_to_Ztavg (int lev)
+{
+    std::unique_ptr<MultiFab>& mf_zeta = vec_zeta[lev];
+    std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
+    for ( MFIter mfi(*vec_zeta[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        int nstp = 0;
+        Array4<const Real> const& Zt_avg1 = (mf_Zt_avg1)->const_array(mfi);
+        Array4<Real> const& zeta = mf_zeta->array(mfi);
+
+        Box  bx3 = mfi.tilebox(); bx3.grow(IntVect(NGROW+1,NGROW+1,0));
+
+        ParallelFor(bx3, 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
+        {
+            zeta(i,j,0,n) = Zt_avg1(i,j,0);
+        });
+
+    }
 }
