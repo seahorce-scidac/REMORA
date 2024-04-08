@@ -668,7 +668,9 @@ private:
     /** fill an entire multifab by interpolating from the coarser level
      * this comes into play when a new level of refinement appears
      */
-    void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine, amrex::MultiFab* mf_crse);
+    void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine, amrex::MultiFab* mf_crse,
+          const int  icomp = 0,
+          const bool fill_all = true);
 
     /** utility to copy in data from old and/or new state into another multifab */
     TimeInterpolatedData GetDataAtTime (int lev, amrex::Real time);

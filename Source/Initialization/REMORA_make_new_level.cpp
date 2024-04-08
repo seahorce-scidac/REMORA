@@ -18,20 +18,30 @@ void
 REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
                                const DistributionMapping& dm)
 {
-    cons_new[lev]->define(ba, dm, NCONS, cons_new[lev-1]->nGrowVect());
-    cons_old[lev]->define(ba, dm, NCONS, cons_new[lev-1]->nGrowVect());
+    BoxList bl2d = ba.boxList();
+    for (auto& b : bl2d) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d(std::move(bl2d));
 
-    xvel_new[lev]->define(convert(ba, IntVect(1,0,0)), dm, 1, xvel_new[lev-1]->nGrowVect());
-    xvel_old[lev]->define(convert(ba, IntVect(1,0,0)), dm, 1, xvel_new[lev-1]->nGrowVect());
+    cons_new[lev] = new MultiFab(ba, dm, NCONS, cons_new[lev-1]->nGrowVect());
+    cons_old[lev] = new MultiFab(ba, dm, NCONS, cons_new[lev-1]->nGrowVect());
 
-    yvel_new[lev]->define(convert(ba, IntVect(0,1,0)), dm, 1, yvel_new[lev-1]->nGrowVect());
-    yvel_old[lev]->define(convert(ba, IntVect(0,1,0)), dm, 1, yvel_new[lev-1]->nGrowVect());
+    xvel_new[lev] = new MultiFab(convert(ba, IntVect(1,0,0)), dm, 1, xvel_new[lev-1]->nGrowVect());
+    xvel_old[lev] = new MultiFab(convert(ba, IntVect(1,0,0)), dm, 1, xvel_new[lev-1]->nGrowVect());
 
-    zvel_new[lev]->define(convert(ba, IntVect(0,0,1)), dm, 1, zvel_new[lev-1]->nGrowVect());
-    zvel_old[lev]->define(convert(ba, IntVect(0,0,1)), dm, 1, zvel_new[lev-1]->nGrowVect());
+    yvel_new[lev] = new MultiFab(convert(ba, IntVect(0,1,0)), dm, 1, yvel_new[lev-1]->nGrowVect());
+    yvel_old[lev] = new MultiFab(convert(ba, IntVect(0,1,0)), dm, 1, yvel_new[lev-1]->nGrowVect());
+
+    zvel_new[lev] = new MultiFab(convert(ba, IntVect(0,0,1)), dm, 1, zvel_new[lev-1]->nGrowVect());
+    zvel_old[lev] = new MultiFab(convert(ba, IntVect(0,0,1)), dm, 1, zvel_new[lev-1]->nGrowVect());
 
     resize_stuff(lev);
-      init_stuff(lev, ba, dm);
+
+    vec_Zt_avg1[lev].reset(new MultiFab(ba2d ,dm,1,IntVect(NGROW+1,NGROW+1,0))); //2d, average of the free surface (zeta)
+    vec_ubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,3,IntVect(NGROW,NGROW,0)));
+    vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
+
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200_rt;
@@ -40,6 +50,23 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
     FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1]);
     FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1]);
+
+    init_stuff(lev, ba, dm);
+
+    FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get());
+    for (int icomp=0; icomp<3; icomp++) {
+        FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(),icomp,false);
+        FillCoarsePatch(lev, time, vec_vbar[lev].get(), vec_vbar[lev-1].get(),icomp,false);
+    }
+
+
+    set_pm_pn(lev);
+    stretch_transform(lev);
+
+    set_vmix(lev);
+    set_hmixcoef(lev);
+    set_coriolis(lev);
+    set_zeta_to_Ztavg(lev);
 
     // ********************************************************************************************
     // If we are making a new level then the FillPatcher for this level hasn't been allocated yet
