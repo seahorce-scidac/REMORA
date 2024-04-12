@@ -30,8 +30,8 @@ remora.fixed_ndtfast_ratio  = 20 # Baratropic timestep size (seconds)
 remora.flat_bathymetry=0
 
 # DIAGNOSTICS & VERBOSITY
-remora.sum_interval   = 1       # timesteps between computing mass
-remora.v              = 0       # verbosity in REMORA.cpp (0: none, 1: print boxes, etc, 2: print values)
+remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
+remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
 amr.v              = 1       # verbosity in Amr.cpp
 
 # REFINEMENT / REGRIDDING
