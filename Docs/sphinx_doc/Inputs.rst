@@ -400,25 +400,24 @@ Screen Output
 List of Parameters
 ------------------
 
-+----------------------------+------------------+----------------+----------------+
-| Parameter                  | Definition       | Acceptable     | Default        |
-|                            |                  | Values         |                |
-+============================+==================+================+================+
-| **amr.v**                  | verbosity of     | 0 or 1         | 0              |
-|                            | Amr.cpp          |                |                |
-+----------------------------+------------------+----------------+----------------+
-| **remora.v**               | verbosity of     | 0,1,2          | 0              |
-|                            | REMORA functions |                |                |
-+----------------------------+------------------+----------------+----------------+
-| **remora.sum_interval**    | if               |                |                |
-|                            | :math:`> 0,`     |                |                |
-|                            | how often (in    |                |                |
-|                            | level-0 time     |                |                |
-|                            | steps)           |                |                |
-|                            | to compute and   | Integer        | -1             |
-|                            | print integral   |                |                |
-|                            | quantities       |                |                |
-+----------------------------+------------------+----------------+----------------+
++----------------------------+------------------+----------------------------------+----------------+
+| Parameter                  | Definition       | Acceptable                       | Default        |
+|                            |                  | Values                           |                |
++============================+==================+==================================+================+
+| **amr.v**                  | verbosity of     | 0 or 1                           | 0              |
+|                            | Amr.cpp          |                                  |                |
++----------------------------+------------------+----------------------------------+----------------+
+| **remora.v**               | verbosity of     | - 0: none                        | 0              |
+|                            | REMORA functions | - 1: integrated/max quantities   |                |
+|                            |                  | - 2: print boxes                 |                |
++----------------------------+------------------+----------------------------------+----------------+
+| **remora.sum_interval**    | how often (in    |                                  |                |
+|                            | level-0 time     |                                  |                |
+|                            | steps)           |                                  |                |
+|                            | to compute       | Integer                          | -1             |
+|                            | integral         |                                  |                |
+|                            | quantities       |                                  |                |
++----------------------------+------------------+----------------------------------+----------------+
 
 .. _examples-of-usage-9:
 
@@ -431,9 +430,9 @@ Examples of Usage
      and energy in the domain every **remora.sum_interval** level-0 steps.
      In this example the code will print these quantities every two
      coarse time steps. The print statements have the form
-   | TIME= 1.91717746 MASS= 1.792410279e+34
-   | for example. If this line is commented out then it will not compute
-     and print these quanitities.
+   | ``TIME= 1.91717746 MASS= 1.792410279e+34``
+   | for example. If this line is commented out or if **remora.v** :math:`<= 0`
+     then it will not compute and print these quanitities.
 
 Included terms
 ==============

@@ -18,46 +18,64 @@ REMORA::sum_integrated_quantities(Real time)
 
     Real scalar = 0.0_rt;
     Real kineng = 0.0_rt;
+    Real volume = 0.0_rt;
+    Real max_vel = 0.0_rt;
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
         MultiFab kineng_mf(grids[lev], dmap[lev], 1, 0);
-        MultiFab cc_vel_mf(grids[lev], dmap[lev], 3, 0);
-        average_face_to_cellcenter(cc_vel_mf,0,
-            Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]});
+        MultiFab ones_mf(grids[lev], dmap[lev], 1, 0);
+        ones_mf.setVal(1.0_rt);
 
         for (MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
             const Box& bx = mfi.tilebox();
             const Array4<      Real> kineng_arr = kineng_mf.array(mfi);
-            const Array4<const Real>    vel_arr = cc_vel_mf.const_array(mfi);
+            const Array4<const Real> xvel_u_arr = xvel_new[lev]->const_array(mfi);
+            const Array4<const Real> yvel_v_arr = yvel_new[lev]->const_array(mfi);
             ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                kineng_arr(i,j,k) = 0.5_rt * ( vel_arr(i,j,k,0)*vel_arr(i,j,k,0) + vel_arr(i,j,k,1)*vel_arr(i,j,k,1) +
-                                            vel_arr(i,j,k,2)*vel_arr(i,j,k,2) );
+                // This is the same expression for kinetic energy that is used in ROMS
+                kineng_arr(i,j,k) = 0.25_rt * ( xvel_u_arr(i,j,k)*xvel_u_arr(i,j,k) + xvel_u_arr(i+1,j,k)*xvel_u_arr(i+1,j,k) +
+                                                yvel_v_arr(i,j,k)*yvel_v_arr(i,j,k) + yvel_v_arr(i  ,j+1,k)*yvel_v_arr(i,j+1,k));
             });
         } // mfi
 
+        const int icomp = 0;
+        Real max_vel_local = std::sqrt(2.0_rt * kineng_mf.max(icomp));
+
         scalar += volWgtSumMF(lev,*cons_new[lev],Scalar_comp,false,true);
         kineng += volWgtSumMF(lev,kineng_mf     ,             0,false,true);
+        volume += volWgtSumMF(lev,ones_mf       ,             0,false,true);
+        max_vel = std::max(max_vel, max_vel_local);
     }
 
     if (verbose > 0) {
-        const int nfoo = 2;
-        Real foo[nfoo] = {scalar,kineng};
+        const int n_sum_vars = 3;
+        Real sum_vars[n_sum_vars] = {scalar,kineng,volume};
+
+        const int n_max_vars = 1;
+        Real max_vars[n_max_vars] = {max_vel};
 #ifdef AMREX_LAZY
         Lazy::QueueReduction([=]() mutable {
 #endif
         ParallelDescriptor::ReduceRealSum(
-            foo, nfoo, ParallelDescriptor::IOProcessorNumber());
+            sum_vars, n_sum_vars, ParallelDescriptor::IOProcessorNumber());
+        ParallelDescriptor::ReduceRealMax(
+            max_vars, n_max_vars, ParallelDescriptor::IOProcessorNumber());
 
           if (ParallelDescriptor::IOProcessor()) {
             int i = 0;
-            scalar = foo[i++];
-            kineng = foo[i++];
+            scalar = sum_vars[i++];
+            kineng = sum_vars[i++];
+            volume = sum_vars[i++];
+            int j = 0;
+            max_vel = max_vars[j++];
 
             amrex::Print() << '\n';
-            amrex::Print() << "TIME= " << time << " SCALAR      = " << scalar << '\n';
-            amrex::Print() << "TIME= " << time << " KIN. ENG.   = " << kineng << '\n';
+            amrex::Print() << "TIME= " << time << " SCALAR      = " << scalar  << '\n';
+            amrex::Print() << "TIME= " << time << " KIN. ENG.   = " << kineng  << '\n';
+            amrex::Print() << "TIME= " << time << " VOLUME      = " << volume  << '\n';
+            amrex::Print() << "TIME= " << time << " MAX. VEL.   = " << max_vel << '\n';
 
             if (NumDataLogs() > 0) {
                 std::ostream& data_log1 = DataLog(0);
@@ -66,6 +84,8 @@ REMORA::sum_integrated_quantities(Real time)
                         data_log1 << std::setw(datwidth) << "          time";
                         data_log1 << std::setw(datwidth) << "        scalar";
                         data_log1 << std::setw(datwidth) << "        kineng";
+                        data_log1 << std::setw(datwidth) << "        volume";
+                        data_log1 << std::setw(datwidth) << "       max_vel";
                         data_log1 << std::endl;
                     }
 
@@ -101,8 +121,18 @@ REMORA::volWgtSumMF(int lev, const MultiFab& mf, int comp, bool local, bool fine
 
     MultiFab volume(grids[lev], dmap[lev], 1, 0);
     auto const& dx = geom[lev].CellSizeArray();
-    Real cell_vol = dx[0]*dx[1]*dx[2];
-    volume.setVal(cell_vol);
+    for (MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.tilebox();
+        const Array4<      Real> vol_arr = volume.array(mfi);
+        const Array4<const Real>      Hz = vec_Hz[lev]->const_array(mfi);
+        const Array4<const Real>      pm = vec_pm[lev]->const_array(mfi);
+        const Array4<const Real>      pn = vec_pn[lev]->const_array(mfi);
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            vol_arr(i,j,k) = Hz(i,j,k) / (pm(i,j,0) * pn(i,j,0));
+        });
+    } // mfi
+
     sum = MultiFab::Dot(tmp, 0, volume, 0, 1, 0, local);
 
     if (!local)
