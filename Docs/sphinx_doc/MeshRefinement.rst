@@ -22,11 +22,11 @@ Static Mesh Refinement
 
 For static refinement, we control the placement of grids by specifying
 the low and high extents (in physical space) of each box in the lateral
-directions.   REMORA enforces that all refinement spans the entire vertical direction.
+directions. REMORA enforces that all refinement spans the entire vertical direction.
 
 The following example demonstrates how to tag regions for static refinement.
-In this first example, all cells in the region ((.15,.25,prob_lo_z)(.35,.45,prob_hi_z))
-and in the region ((.65,.75,prob_lo_z)(.85,.95,prob_hi_z)) are tagged for
+In this first example, all cells in the region :math:`[0.15,0.25,\texttt{prob_lo_z}] \times [0.35,0.45,\texttt{prob_hi_z}]`
+and in the region :math:`[0.65,0.75,\texttt{prob_lo_z}]\times[0.85,0.95,\texttt{prob_hi_z}]` are tagged for
 one level of refinement, where prob_lo_z and prob_hi_z are the vertical extents of the domain:
 
 ::
@@ -42,7 +42,7 @@ one level of refinement, where prob_lo_z and prob_hi_z are the vertical extents 
           remora.box2.in_box_lo = .65 .75
           remora.box2.in_box_hi = .85 .95
 
-In the example below, we refine the region ((.15,.25,prob_lo_z)(.35,.45,prob_hi_z))
+In the example below, we refine the region :math:`[0.15,0.25,\texttt{prob_lo_z}]\times [0.35,0.45,\texttt{prob_hi_z}]`
 by two levels of factor 3 refinement. In this case, the refined region at level 1 will
 be sufficient to enclose the refined region at level 2.
 
@@ -56,8 +56,8 @@ be sufficient to enclose the refined region at level 2.
           remora.box1.in_box_lo = .15 .25
           remora.box1.in_box_hi = .35 .45
 
-And in this final example, the region ((.15,.25,prob_lo_z)(.35,.45,prob_hi_z))
-will be refined by two levels of factor 3, but the larger region, ((.05,.05,prob_lo_z)(.75,.75,prob_hi_z))
+And in this final example, the region :math:`[0.15,0.25,\texttt{prob_lo_z}]\times[0.35,0.45,\texttt{prob_hi_z}]`
+will be refined by two levels of factor 3, but the larger region, :math:`[0.05,0.05,\texttt{prob_lo_z}]\times [0.75,0.75,\texttt{prob_hi_z}]``
 will be refined by a single factor 3 refinement.
 
 ::
@@ -80,45 +80,48 @@ Dynamic Mesh Refinement
 
 Dynamically created tagging functions are based on runtime data specified in the inputs file.
 These dynamically generated functions test on either state variables or derived variables
-defined in REMORA_derive.cpp and included in the derive_lst in Setup.cpp.
+defined in REMORA_derive.cpp and included in the derive_list in Setup.cpp.
 
 Available tests include
 
--  “greater\_than”: :math:`field >= threshold`
+-  “greater\_than”: :math:`\text{field} \geq \text{threshold}`
 
--  “less\_than”: :math:`field <= threshold`
+-  “less\_than”: :math:`\text{field} \leq \text{threshold}`
 
--  “adjacent\_difference\_greater”: :math:`max( | \text{difference between any nearest-neighbor cell} | ) >= threshold`
+-  “adjacent\_difference\_greater”: :math:`\text{max}( | \text{difference between any nearest-neighbor cell} | ) \geq \text{threshold}`
 
-This example adds three user-named criteria –
-hi\_rho: cells with density greater than 1 on level 0, and greater than 2 on level 1 and higher;
-lo\_theta: cells with theta less than 300 that are inside the region ((.25,.25,.25)(.75,.75,.75));
-and adv_diff: cells having a difference in the scalar of 0.01 or more from that of any immediate neighbor.
-The first will trigger up to AMR level 3, the second only to level 1, and the third to level 2.
-The third will be active only when the problem time is between 0.001 and 0.002 seconds.
+The example below adds two user-named criteria:
 
-Note that density and rhoadv_0 are the names of state variables, whereas theta is the name of a derived variable,
-computed by dividing the variable named rhotheta by the variable named density.
+- ``hi_temp``: cells with density greater than 10 on level 0, and greater than 20 on level 1 and higher;
+.. - ``lo_vort``: cells with relative vorticity less than 0 that are inside the region :math:`[0.25,0.25,\texttt{prob_lo_z}]\times[0.75,0.75,\texttt{prob_hi_z}]`;
+- ``scalardiff``: cells having a difference in the scalar of 0.01 or more from that of any immediate neighbor.
+
+The first will trigger up to AMR level 3 and the second to level 2.
+The second will be active only when the problem time is between 100 and 300 seconds.
+
+Note that ``temp`` and ``scalar`` are the names of state variables.
+
+.. , whereas ``vorticity`` is the name of a derived variable.
 
 ::
 
-          remora.refinement_indicators = hi_rho lo_theta advdiff
+          remora.refinement_indicators = hi_temp scalardiff
 
-          remora.hi_rho.max_level = 3
-          remora.hi_rho.value_greater = 1. 2.
-          remora.hi_rho.field_name = density
+          remora.hi_temp.max_level = 3
+          remora.hi_temp.value_greater = 10. 20.
+          remora.hi_temp.field_name = temp
 
-          remora.lo_theta.max_level = 1
-          remora.lo_theta.value_less = 300
-          remora.lo_theta.field_name = rhotheta
-          remora.lo_theta.in_box_lo = .25 .25 .25
-          remora.lo_theta.in_box_hi = .75 .75 .75
+          remora.scalardiff.max_level = 2
+          remora.scalardiff.adjacent_difference_greater = 0.01
+          remora.scalardiff.field_name = scalar
+          remora.scalardiff.start_time = 100
+          remora.scalardiff.end_time = 300
 
-          remora.advdiff.max_level = 2
-          remora.advdiff.adjacent_difference_greater = 0.01
-          remora.advdiff.field_name = rhoadv_0
-          remora.advdiff.start_time = 0.001
-          remora.advdiff.end_time = 0.002
+..          remora.lo_vort.max_level = 1
+          remora.lo_vort.value_less = 0
+          remora.lo_vort.field_name = vorticity
+          remora.lo_vort.in_box_lo = .25 .25
+          remora.lo_vort.in_box_hi = .75 .75
 
 Coupling Types
 --------------

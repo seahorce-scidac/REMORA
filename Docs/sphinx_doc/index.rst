@@ -40,6 +40,10 @@ In addition to this documentation, there is API documentation for REMORA generat
 
    GettingStarted.rst
    Inputs.rst
+   MeshRefinement.rst
+   Checkpoint.rst
+   Plotfiles.rst
+   Visualization.rst
    ProblemSetup.rst
 
 .. toctree::
@@ -61,10 +65,6 @@ In addition to this documentation, there is API documentation for REMORA generat
    Numerical_Solution_Technique.rst
    Time_Stepping.rst
    VerticalSCoord.rst
-   MeshRefinement.rst
-   Checkpoint.rst
-   Plotfiles.rst
-   Visualization.rst
 ..   TimeAdvance.rst
 ..   Discretizations.rst
 ..   BoundaryConditions.rst
