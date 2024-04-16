@@ -697,7 +697,8 @@ private:
     //! Write plotfile using NETCDF
     void WriteNCPlotFile       (int istep) const;
     void WriteNCPlotFile_which (int lev, int which_subdomain,
-                                bool write_header, ncutils::NCFile& ncf) const;
+                                bool write_header, ncutils::NCFile& ncf,
+                                bool is_history) const;
 
     //! Write MultiFab in NetCDF format
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
@@ -890,6 +891,9 @@ private:
 
     // NetCDF file of time series of boundary data
     static std::string nc_bdry_file;
+
+    // Counter for which time index we are writing to in the netcdf history file
+    int history_count = 0;
 
     void refinement_criteria_setup();
 

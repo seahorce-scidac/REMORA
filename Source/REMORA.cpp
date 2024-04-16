@@ -169,6 +169,7 @@ REMORA::Evolve ()
 #ifdef REMORA_USE_NETCDF
             else if (plotfile_type == PlotfileType::netcdf) {
                 WriteNCPlotFile(step+1);
+                history_count++;
             }
 #endif
         }
@@ -198,6 +199,7 @@ REMORA::Evolve ()
 #ifdef REMORA_USE_NETCDF
         if (plotfile_type == PlotfileType::netcdf) {
             WriteNCPlotFile(istep[0]);
+            history_count++;
         }
 #endif
     }
@@ -324,6 +326,7 @@ REMORA::InitData ()
             if (plotfile_type == PlotfileType::netcdf) {
                 int step0 = 0;
                 WriteNCPlotFile(step0);
+                history_count++;
             }
 #endif
             last_plot_file_step = istep[0];
