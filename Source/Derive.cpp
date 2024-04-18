@@ -42,13 +42,10 @@ remora_dervort(
     auto const dat = datfab.array(); // cell-centered velocity
     auto tfab      = derfab.array(); // cell-centered vorticity
 
-    const Real dx = geomdata.CellSize(0);
-    const Real dy = geomdata.CellSize(1);
-
     ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
-        Real d2x = 0.5_rt / pm(i-1,j,  k) + 1.0_rt / pm(i,j,k) + 0.5_rt / pm(i+1,j,k);
-        Real d2y = 0.5_rt / pn(i,  j-1,k) + 1.0_rt / pm(i,j,k) + 0.5_rt / pm(i,j+1,k);
+        Real d2x = 0.5_rt / pm(i-1,j,  0) + 1.0_rt / pm(i,j,0) + 0.5_rt / pm(i+1,j,0);
+        Real d2y = 0.5_rt / pn(i,  j-1,0) + 1.0_rt / pm(i,j,0) + 0.5_rt / pm(i,j+1,0);
         tfab(i,j,k,dcomp) = (dat(i+1,j,k,1) - dat(i-1,j,k,1)) / (d2x)  // dv/dx
                           - (dat(i,j+1,k,0) - dat(i,j-1,k,0)) / (d2y); // du/dy
     });
