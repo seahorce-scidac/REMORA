@@ -417,6 +417,7 @@ REMORA::set_zeta (int lev)
     } else {
         Abort("Don't know this ic_bc_type!");
     }
+    vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
     set_zeta_average(lev);
 }
 
@@ -436,11 +437,10 @@ REMORA::set_bathymetry (int lev)
         Abort("Don't know this ic_bc_type!");
     }
 
-    // HACK -- SHOULD WE ALWAYS DO THIS??
-    //vec_Zt_avg1[lev]->setVal(0.0_rt);
-
-    //vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
+    // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
+    // to make sure ghost cells in the domain corners are consistent.
     vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+    vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
 }
 
 void
