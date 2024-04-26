@@ -308,6 +308,13 @@ public:
     amrex::Vector<amrex::Real> vec_weight1;
     amrex::Vector<amrex::Real> vec_weight2;
 
+    // GLS
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_tke;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_gls;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Lscale;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akk;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akp;
+
     /** advance a single level for a single time step */
     void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
 
@@ -592,7 +599,12 @@ public:
 
     void stretch_transform (int lev);
 
-    void set_vmix (int lev);
+    void init_set_vmix (int lev);
+    void init_gls_vmix (int lev, SolverChoice solver_choice);
+    void gls_prestep (int lev, amrex::MultiFab* mf_gls, amrex::MultiFab* mf_tke,
+                      amrex::MultiFab& mf_W,
+                      const int nstp, const int nnew, const int iic, const int ntfirst,
+                      const int N, const amrex::Real dt_lev);
 
     void set_smflux (int lev, amrex::Real time);
 

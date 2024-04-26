@@ -23,8 +23,8 @@ function(build_remora_lib remora_lib_name)
   if(REMORA_ENABLE_PARTICLES)
     target_sources(${remora_lib_name} PRIVATE
                    ${SRC_DIR}/Particles/REMORA_PC_Evolve.cpp
-                   ${SRC_DIR}/Particles/REMORA_PC_Init.cpp 
-                   ${SRC_DIR}/Particles/REMORA_PC_Utils.cpp 
+                   ${SRC_DIR}/Particles/REMORA_PC_Init.cpp
+                   ${SRC_DIR}/Particles/REMORA_PC_Utils.cpp
                    ${SRC_DIR}/Particles/REMORA_Tracers.cpp)
     target_include_directories(${remora_lib_name} PUBLIC ${SRC_DIR}/Particles)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_PARTICLES)
@@ -77,6 +77,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/TimeIntegration/REMORA_advance_3d_ml.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_setup_step.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_rho_eos.cpp
+       ${SRC_DIR}/TimeIntegration/REMORA_gls.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_prsgrd.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_uv3dmix.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_t3dmix.cpp

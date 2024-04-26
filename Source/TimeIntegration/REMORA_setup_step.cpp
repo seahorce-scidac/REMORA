@@ -55,6 +55,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     MultiFab* mf_pn  =   vec_pn[lev].get();
     MultiFab* mf_fcor  = vec_fcor[lev].get();
 
+    MultiFab* mf_gls = vec_gls[lev].get();
+    MultiFab* mf_tke = vec_tke[lev].get();
+
     //Consider passing these into the advance function or renaming relevant things
 
     MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
@@ -167,6 +170,13 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real const> const& state_old = S_old.const_array(mfi);
         rho_eos(gbx2,state_old,rho,rhoA,rhoS,Hz,z_w,h,N);
     }
+
+    if (solverChoice.vert_mixing_type == VertMixingType::analytical) {
+        // Update Akv if using analytical mixing
+        init_set_vmix(lev);
+    }
+
+    set_zeta_to_Ztavg(lev);
 
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
     mf_W.setVal(0.0_rt);
@@ -305,17 +315,10 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             const int nnew = 0;
             uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, pm, pn, nrhs, nnew, dt_lev);
         }
-
-        // Set first two components of zeta to time-averaged values before barotropic update
-        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-            zeta(i,j,0,0) = Zt_avg1(i,j,0);
-            zeta(i,j,0,1) = Zt_avg1(i,j,0);
-        });
     } // MFIter
 
-    // Update Akv with new depth. NOTE: this happens before set_zeta in ROMS
-    set_vmix(lev);
+    int nnew = 0;
+    gls_prestep(lev, mf_gls, mf_tke, mf_W, nstp, nnew, iic, ntfirst, N, dt_lev);
 
     FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
     FillPatch(lev, time, *cons_new[lev], cons_new, BdyVars::t);

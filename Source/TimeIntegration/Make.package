@@ -16,6 +16,7 @@ CEXE_sources += REMORA_rhs_t_3d.cpp
 CEXE_sources += REMORA_rhs_uv_3d.cpp
 CEXE_sources += REMORA_rhs_uv_2d.cpp
 CEXE_sources += REMORA_vert_visc_3d.cpp
+CEXE_sources += REMORA_gls.cpp
 CEXE_sources += REMORA_set_weights.cpp
 CEXE_sources += REMORA_update_massflux_3d.cpp
 CEXE_sources += REMORA_vert_mean_3d.cpp

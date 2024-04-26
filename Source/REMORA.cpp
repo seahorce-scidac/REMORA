@@ -466,13 +466,20 @@ REMORA::set_coriolis(int lev) {
 }
 
 void
-REMORA::set_vmix(int lev) {
-    init_custom_vmix(geom[lev], *vec_Akv[lev], *vec_Akt[lev], *vec_z_w[lev], solverChoice);
-
+REMORA::init_set_vmix(int lev) {
     Real time = 0.0_rt;
-    FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv),BdyVars::null,0,true,false);
-    for (int n=0; n<NCONS;n++) {
-        FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt),BdyVars::null,n,false,false);
+    if (solverChoice.vert_mixing_type == VertMixingType::analytical) {
+        init_custom_vmix(geom[lev], *vec_Akv[lev], *vec_Akt[lev], *vec_z_w[lev], solverChoice);
+        FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv),BdyVars::null,0,true,false);
+        for (int n=0; n<NCONS;n++) {
+            FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt),BdyVars::null,0,false,false);
+        }
+    } else if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
+        init_gls_vmix(lev, solverChoice);
+        // The GLS initialization just sets the multifab to a value, so there's
+        // no need to call FillPatch here
+    } else {
+        Abort("Don't know this vertical mixing type");
     }
 }
 
@@ -530,7 +537,7 @@ REMORA::init_only(int lev, Real time)
 
     set_2darrays(lev);
 
-    set_vmix(lev);
+    init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
 
