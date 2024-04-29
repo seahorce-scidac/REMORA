@@ -10,7 +10,7 @@ GNU Make
 
 The GNU Make system is best for use on large computing facility machines and production runs. With the GNU Make implementation, the build system will inspect the machine and use known compiler optimizations explicit to that machine if possible. These explicit settings are kept up-to-date by the AMReX project.
 
-Using the GNU Make build system involves first setting environment variables for the directories of the dependencies of REMORA which is the repository of AMReX. AMReX is provided as a git submodule in REMORA and can be populated by using ``git submodule init; git submodule update`` in the REMORA repo, or before cloning by using ``git clone --recursive <coawst_repo>``. Although submodules of these projects are provided, they can be placed externally as long as the ``<REPO_HOME>`` environment variables for each dependency is set correctly. An example of setting the ``<REPO_HOME>`` environment variables in the user's ``.bashrc`` is shown below:
+Using the GNU Make build system involves first setting environment variables for the directories of the dependencies of REMORA which is the repository of AMReX. AMReX is provided as a git submodule in REMORA and can be populated by using ``git submodule init; git submodule update`` in the REMORA repo, or before cloning by using ``git clone --recursive <remora_repo>``. Although submodules of these projects are provided, they can be placed externally as long as the ``<REPO_HOME>`` environment variables for each dependency is set correctly. An example of setting the ``<REPO_HOME>`` environment variables in the user's ``.bashrc`` is shown below:
 
 ::
 
