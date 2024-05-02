@@ -304,6 +304,7 @@ public:
 
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoS;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoA;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvf;
 
     amrex::Vector<amrex::Real> vec_weight1;
     amrex::Vector<amrex::Real> vec_weight2;
@@ -472,8 +473,10 @@ public:
                   const amrex::Array4<amrex::Real      >& rho,
                   const amrex::Array4<amrex::Real      >& rhoA,
                   const amrex::Array4<amrex::Real      >& rhoS,
+                  const amrex::Array4<amrex::Real      >& bvf,
                   const amrex::Array4<amrex::Real const>& Hz,
                   const amrex::Array4<amrex::Real const>& z_w,
+                  const amrex::Array4<amrex::Real const>& z_r,
                   const amrex::Array4<amrex::Real const>& h,
                   const int N);
 
@@ -605,6 +608,11 @@ public:
                       amrex::MultiFab& mf_W,
                       const int nstp, const int nnew, const int iic, const int ntfirst,
                       const int N, const amrex::Real dt_lev);
+    void gls_corrector (int lev, amrex::MultiFab* mf_gls, amrex::MultiFab* mf_tke,
+                        amrex::MultiFab& mf_W, amrex::MultiFab* mf_Akv, amrex::MultiFab* mf_Akt,
+                        amrex::MultiFab* mf_Akk, amrex::MultiFab* mf_Akp,
+                        const int nstp, const int nnew,
+                        const int N, const amrex::Real dt_lev);
 
     void set_smflux (int lev, amrex::Real time);
 

@@ -157,8 +157,7 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
                 rvel(i,j,k,nrhs) = r_swap;
 
                 vel(i,j,k,nnew) = cff3 + DC(i,j,k)*(cff1*rvel(i,j,k,nrhs)-
-                                                    cff2*rvel(i,j,k,indx))+
-                    cff4;
+                                                    cff2*rvel(i,j,k,indx))+cff4;
                 rvel(i,j,k,nrhs) = 0.0_rt;
             }
         }

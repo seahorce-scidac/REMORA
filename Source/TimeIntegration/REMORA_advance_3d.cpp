@@ -220,6 +220,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     // This should fill both temp and salt with temp/salt currently in cons_old
     // ************************************************************************
 
+    MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
+    mf_W.setVal(0.0_rt);
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& Hz  = mf_Hz->array(mfi);
@@ -248,10 +250,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         FArrayBox fab_FC(surroundingNodes(gbx2,2),1,amrex::The_Async_Arena());
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
-        FArrayBox fab_W(surroundingNodes(tbxp2,2),1,amrex::The_Async_Arena());
 
         auto FC  = fab_FC.array();
-        auto W   = fab_W.array();
+        auto W   = mf_W.array(mfi);
 
         //
         //------------------------------------------------------------------------
@@ -289,7 +290,44 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             }
             W(i,j,N+1) = 0.0_rt;
         });
+    }
 
+    const int nstp = 0;
+    gls_corrector(lev, vec_gls[lev].get(), vec_tke[lev].get(), mf_W, vec_Akv[lev].get(),
+                  vec_Akt[lev].get(),vec_Akk[lev].get(), vec_Akp[lev].get(), nstp, nnew, N, dt_lev);
+
+    for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& Hz  = mf_Hz->array(mfi);
+
+        Array4<Real> const& Huon = mf_Huon->array(mfi);
+        Array4<Real> const& Hvom = mf_Hvom->array(mfi);
+
+        Array4<Real const> const& z_w = mf_z_w->const_array(mfi);
+        Array4<Real const> const& h   = mf_h->const_array(mfi);
+        Array4<Real const> const& pm  = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn  = mf_pn->const_array(mfi);
+
+        Box bx = mfi.tilebox();
+        Box gbx = mfi.growntilebox();
+        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+        Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
+
+        Box tbxp1 = bx;
+        Box tbxp11 = bx;
+        Box tbxp2 = bx;
+        tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
+        tbxp2.grow(IntVect(NGROW,NGROW,0));
+        tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
+
+        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
+        FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
+
+        auto FC  = fab_FC.array();
+        auto W   = fab_W.array();
         //
         //-----------------------------------------------------------------------
         // rhs_t_3d

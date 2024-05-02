@@ -12,6 +12,7 @@ using namespace amrex;
  * @param[out] rhoS  density perturbation
  * @param[in ] Hz
  * @param[in ] z_w
+ * @param[in ] z_r
  * @param[in ] h
  * @param[in ] N
  */
@@ -22,8 +23,10 @@ REMORA::rho_eos (const Box& bx,
                 const Array4<Real      >& rho,
                 const Array4<Real      >& rhoA,
                 const Array4<Real      >& rhoS,
+                const Array4<Real      >& bvf,
                 const Array4<Real const>& Hz,
                 const Array4<Real const>& z_w,
+                const Array4<Real const>& z_r,
                 const Array4<Real const>& h,
                 const int N)
 {
@@ -78,5 +81,17 @@ REMORA::rho_eos (const Box& bx,
         rhoA(i,j,0) *= cff2*cff11;
 
         rhoS(i,j,0) *= 2.0_rt*cff11*cff11*cff2;
+    });
+
+    // Compute Brunt-Vaisala frequency (1/s2)
+    Real gorho0 = solverChoice.g / solverChoice.rho0;
+    // Really want enclosed nodes or something similar
+    Box box_w = bx;
+    box_w.surroundingNodes(2);
+    box_w.grow(IntVect(0,0,-1));
+
+    ParallelFor(box_w, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        bvf(i,j,k) = -gorho0 * (rho(i,j,k)-rho(i,j,k-1)) / (z_r(i,j,k)-z_r(i,j,k-1));
     });
 }

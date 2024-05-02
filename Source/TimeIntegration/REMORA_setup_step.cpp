@@ -63,6 +63,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
     std::unique_ptr<MultiFab>& mf_rhoS = vec_rhoS[lev];
     std::unique_ptr<MultiFab>& mf_rhoA = vec_rhoA[lev];
+    std::unique_ptr<MultiFab>& mf_bvf = vec_bvf[lev];
     std::unique_ptr<MultiFab>& mf_ru = vec_ru[lev];
     std::unique_ptr<MultiFab>& mf_rv = vec_rv[lev];
     std::unique_ptr<MultiFab>& mf_rufrc = vec_rufrc[lev];
@@ -114,11 +115,13 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real      > const& Hvom  = vec_Hvom[lev]->array(mfi);
 
         Array4<Real const> const& z_w   = mf_z_w->const_array(mfi);
+        Array4<Real const> const& z_r   = mf_z_r->const_array(mfi);
         Array4<Real const> const& uold  = U_old.const_array(mfi);
         Array4<Real const> const& vold  = V_old.const_array(mfi);
         Array4<Real      > const& rho   = mf_rho.array(mfi);
         Array4<Real      > const& rhoA  = mf_rhoA->array(mfi);
         Array4<Real      > const& rhoS  = mf_rhoS->array(mfi);
+        Array4<Real      > const& bvf   = mf_bvf->array(mfi);
         Array4<Real const> const& rdrag = mf_rdrag->const_array(mfi);
         Array4<Real      > const& bustr = mf_bustr->array(mfi);
         Array4<Real      > const& bvstr = mf_bvstr->array(mfi);
@@ -168,7 +171,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         });
 
         Array4<Real const> const& state_old = S_old.const_array(mfi);
-        rho_eos(gbx2,state_old,rho,rhoA,rhoS,Hz,z_w,h,N);
+        rho_eos(gbx2,state_old,rho,rhoA,rhoS,bvf,Hz,z_w,z_r,h,N);
     }
 
     if (solverChoice.vert_mixing_type == VertMixingType::analytical) {
