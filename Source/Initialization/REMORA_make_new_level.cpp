@@ -264,7 +264,6 @@ void REMORA::resize_stuff(int lev)
     vec_Hvom.resize(lev+1);
     vec_Akv.resize(lev+1);
     vec_Akt.resize(lev+1);
-    vec_visc3d_r.resize(lev+1);
     vec_visc2_p.resize(lev+1);
     vec_visc2_r.resize(lev+1);
     vec_diff2.resize(lev+1);
@@ -357,8 +356,6 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
 
     vec_Akv[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
     vec_Akt[lev].reset                (new MultiFab(ba  ,dm,NCONS,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
-    vec_visc3d_r[lev].reset           (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // not used
-
 
     // check dimensionality
     vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?
