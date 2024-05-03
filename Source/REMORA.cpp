@@ -470,8 +470,10 @@ REMORA::set_vmix(int lev) {
     init_custom_vmix(geom[lev], *vec_Akv[lev], *vec_Akt[lev], *vec_z_w[lev], solverChoice);
 
     Real time = 0.0_rt;
-    FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv));
-    FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt));
+    FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv),BdyVars::null,0,true,false);
+    for (int n=0; n<NCONS;n++) {
+        FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt),BdyVars::null,n,false,false);
+    }
 }
 
 void
