@@ -264,7 +264,6 @@ void REMORA::resize_stuff(int lev)
     vec_Hvom.resize(lev+1);
     vec_Akv.resize(lev+1);
     vec_Akt.resize(lev+1);
-    vec_visc3d_r.resize(lev+1);
     vec_visc2_p.resize(lev+1);
     vec_visc2_r.resize(lev+1);
     vec_diff2.resize(lev+1);
@@ -348,17 +347,15 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
 
     vec_s_r[lev].reset                (new MultiFab(ba1d,dm,1,IntVect(    0,    0,0))); // scaled vertical coordinate [0,1] , transforms to z
 
-    vec_z_w[lev].reset                (new MultiFab(ba_w,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at w points (cell faces)
-    vec_z_r[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at r points (cell center)
-    vec_Hz[lev].reset                 (new MultiFab(ba  ,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
+    vec_z_w[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at w points (cell faces)
+    vec_z_r[lev].reset                (new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at r points (cell center)
+    vec_Hz[lev].reset                 (new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
 
     vec_Huon[lev].reset               (new MultiFab(convert(ba,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for u component
     vec_Hvom[lev].reset               (new MultiFab(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
 
-    vec_Akv[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
-    vec_Akt[lev].reset                (new MultiFab(ba  ,dm,NCONS,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
-    vec_visc3d_r[lev].reset           (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // not used
-
+    vec_Akv[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
+    vec_Akt[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,NCONS,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
 
     // check dimensionality
     vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?

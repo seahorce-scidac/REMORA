@@ -302,8 +302,6 @@ public:
     /** saltstore, tempstore, etc*/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sstore;
 
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc3d_r;
-
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoS;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoA;
 
