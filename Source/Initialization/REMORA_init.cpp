@@ -205,6 +205,8 @@ REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
     vec_Lscale[lev]->setVal(0.0_rt);
     vec_Akk[lev]->setVal(solver_choice.Akk_bak);
     vec_Akp[lev]->setVal(solver_choice.Akp_bak);
+    vec_Akv[lev]->setVal(solver_choice.Akv_bak);
+    vec_Akt[lev]->setVal(solver_choice.Akt_bak);
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
