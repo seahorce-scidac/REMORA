@@ -19,9 +19,9 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Array4<Real> const& pm = vec_pm[lev]->array(mfi);
         Array4<Real> const& pn = vec_pn[lev]->array(mfi);
 
+        Box bx = mfi.tilebox();
         Box xbx = mfi.nodaltilebox(0);
         Box ybx = mfi.nodaltilebox(1);
-        Box bx = mfi.tilebox();
 
         Box xbx_hi = growHi(xbx,0,1);
 
@@ -63,8 +63,8 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
         auto ic_bc_type = solverChoice.ic_bc_type;
 
-        // need XF/FX/FXL from  [xlo to xhi+1] by [ylo to yhi  ]
-        ParallelFor(growHi(xbx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        // need XF/FX/FXL from  [xlo to xhi] by [ylo to yhi  ] on u points
+        ParallelFor(grow(xbx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real grad_im1 = tke(i-1,j,k,nstp) - tke(i-2,j,k,nstp);
             Real grad_ip1 = tke(i+1,j,k,nstp) - tke(i  ,j,k,nstp);
@@ -83,7 +83,7 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 gradL_ip1 = gls(i,j,k,nstp) - gls(i-1,j,k,nstp);
             }
             Real cff = 1.0_rt/6.0_rt;
-            XF(i,j,k) = 0.5_rt * (Huon(i,j,k) + Huon(i,j,k+1));
+            XF(i,j,k) = 0.5_rt * (Huon(i,j,k) + Huon(i,j,k-1));
             FX(i,j,k) = XF(i,j,k) * 0.5_rt * (tke(i-1,j,k,nstp) + tke(i,j,k,nstp) -
                 cff * (grad_ip1 - grad_im1));
             FXL(i,j,k) = XF(i,j,k) * 0.5_rt * (gls(i-1,j,k,nstp) + gls(i,j,k,nstp) -
@@ -91,7 +91,7 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
 
         // need EF/FE/FEL from  [xlo to xhi  ] by [ylo to yhi+1]
-        ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(grow(ybx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real grad_jm1 = tke(i,j-1,k,nstp) - tke(i,j-2,k,nstp);
             Real grad_jp1 = tke(i,j+1,k,nstp) - tke(i,j  ,k,nstp);
@@ -110,7 +110,7 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 gradL_jp1 = gls(i,j,k,nstp) - gls(i,j-1,k,nstp);
             }
             Real cff = 1.0_rt/6.0_rt;
-            EF(i,j,k) = 0.5_rt * (Hvom(i,j,k) + Hvom(i,j,k+1));
+            EF(i,j,k) = 0.5_rt * (Hvom(i,j,k) + Hvom(i,j,k-1));
             FE(i,j,k) = EF(i,j,k) * 0.5_rt * (tke(i,j-1,k,nstp) + tke(i,j,k,nstp) -
                 cff * (grad_jp1 - grad_jm1));
             FEL(i,j,k) = EF(i,j,k) * 0.5_rt * (gls(i,j-1,k,nstp) + gls(i,j,k,nstp) -
@@ -136,9 +136,9 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         // update tke, gls from [xlo to xhi  ] by [ylo to yhi  ]
         // need XF/FX/FXL from  [xlo to xhi+1] by [ylo to yhi  ]
         // need EF/FE/FEL from  [xlo to xhi  ] by [ylo to yhi+1]
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real cff = 0.5_rt * (Hz(i,j,k) + Hz(i,j,k+1));
+            Real cff = 0.5_rt * (Hz(i,j,k) + Hz(i,j,k-1));
             Real cff4 = cff3 * pm(i,j,0) * pn(i,j,0);
             Hz_half(i,j,k) = cff - cff4 * (XF(i+1,j,k)-XF(i,j,k)+EF(i,j+1,k)-EF(i,j,k));
             tke(i,j,k,2) = cff * (cff1*tke(i,j,k,nstp) + cff2*tke(i,j,k,indx)) -
@@ -151,11 +151,12 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
         // Will do a FillPatch after this, so don't need to do any ghost zones in x,y
         // Compute vertical advection
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
+            // Not 100% sure on this -- might be k and k+1
             CF(i,j,k) = 0.5_rt * (W(i,j,k) + W(i,j,k-1));
             // DO k=2,N(ng)-1
-            if (k == 0) {
+            if (k == 1) {
                 Real cff1_vadv = 1.0_rt / 3.0_rt;
                 Real cff2_vadv = 5.0_rt / 6.0_rt;
                 Real cff3_vadv = 1.0_rt / 6.0_rt;
@@ -192,9 +193,9 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             cff3 = (1.0_rt - gamma) * dt_lev;
         }
         // DO k=1,N-1
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real cff4 = cff3 * pm(i,j,k) * pn(i,j,k);
+            Real cff4 = cff3 * pm(i,j,0) * pn(i,j,0);
             Hz_half(i,j,k) = Hz_half(i,j,k) - cff4 * (CF(i,j,k+1)-CF(i,j,k));
             Real cff1_loc = 1.0_rt / Hz_half(i,j,k);
             tke(i,j,k,2) = cff1_loc * (tke(i,j,k,2) - cff4 * (FC (i,j,k+1) - FC (i,j,k)));
@@ -316,8 +317,8 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
     const BoxArray&            ba = cons_old[lev]->boxArray();
     const DistributionMapping& dm = cons_old[lev]->DistributionMap();
-    MultiFab mf_dU(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_dV(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_dU(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_dV(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_CF(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_shear2(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_buoy2(ba,dm,1,IntVect(NGROW,NGROW,0));
@@ -358,11 +359,11 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         auto shear2 = mf_shear2.array(mfi);
         auto buoy2 = mf_buoy2.array(mfi);
 
-        ParallelFor(gbx1D.surroundingNodes(2), [=] AMREX_GPU_DEVICE (int i, int j, int )
+        ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             CF(i,j,0) = 0.0_rt;
             dU(i,j,0) = 0.0_rt;
-            dU(i,j,0) = 0.0_rt;
+            dV(i,j,0) = 0.0_rt;
             for (int k=1; k<=N; k++) {
                 Real cff = 1.0_rt / (2.0_rt * Hz(i,j,k+1) + Hz(i,j,k)*(2.0_rt - CF(i,j,k-1)));
                 CF(i,j,k) = cff * Hz(i,j,k+1);
@@ -454,54 +455,60 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         auto Akp = mf_Akp->array(mfi);
         auto Akk = mf_Akk->array(mfi);
 
-        ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(grow(bx,IntVect(0,0,-1)).growLo(0,1).growLo(1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             tmp_buoy(i,j,k)=0.25_rt * (buoy2(i,j,k) + buoy2(i+1,j,k) + buoy2(i,j+1,k)+buoy2(i+1,j+1,k));
             tmp_shear(i,j,k)=0.25_rt * (shear2(i,j,k) + shear2(i+1,j,k) + shear2(i,j+1,k)+shear2(i+1,j+1,k));
         });
 
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             buoy2(i,j,k)=0.25_rt * (tmp_buoy(i,j,k) + tmp_buoy(i-1,j,k) + tmp_buoy(i,j-1,k)+tmp_buoy(i-1,j-1,k));
             shear2(i,j,k)=0.25_rt * (tmp_shear(i,j,k) + tmp_shear(i-1,j,k) + tmp_shear(i,j-1,k)+tmp_shear(i-1,j-1,k));
         });
 
         //Time step advective terms
-        ParallelFor(xgbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(growLo(grow(xbx,IntVect(0,0,-1)),0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real gradK     = tke(i  ,j,k,3)-tke(i-1,j,k,3);
-            Real gradK_ip1 = tke(i+1,j,k,3)-tke(i  ,j,k,3);
-            Real gradP     = gls(i  ,j,k,3)-gls(i-1,j,k,3);
-            Real gradP_ip1 = gls(i+1,j,k,3)-gls(i  ,j,k,3);
+            Real gradK, gradK_ip1, gradP, gradP_ip1;
 
             if (i == dlo.x-1 && (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+                gradK_ip1 = tke(i+1,j,k,2)-tke(i  ,j,k,2);
                 gradK = gradK_ip1;
+                gradP_ip1 = gls(i+1,j,k,2)-gls(i  ,j,k,2);
                 gradP = gradP_ip1;
             } else if (i == dhi.x+1 && (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+                gradK = tke(i  ,j,k,2)-tke(i-1,j,k,2);
                 gradK_ip1 = gradK;
+                gradP = gls(i  ,j,k,2)-gls(i-1,j,k,2);
                 gradP_ip1 = gradP;
+            } else {
+                gradK     = tke(i  ,j,k,2)-tke(i-1,j,k,2);
+                gradK_ip1 = tke(i+1,j,k,2)-tke(i  ,j,k,2);
+                gradP     = gls(i  ,j,k,2)-gls(i-1,j,k,2);
+                gradP_ip1 = gls(i+1,j,k,2)-gls(i  ,j,k,2);
             }
 
             curvK(i,j,k) = gradK_ip1 - gradK;
             curvP(i,j,k) = gradP_ip1 - gradP;
         });
-        ParallelFor(xgbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(grow(xbx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real cff = 0.5_rt * (Huon(i,j,k) + Huon(i,j,k+1));
+            Real cff = 0.5_rt * (Huon(i,j,k) + Huon(i,j,k-1));
             Real cff1 = (cff > 0.0) ? curvK(i-1,j,k) : curvK(i,j,k);
             Real cff2 = (cff > 0.0) ? curvP(i-1,j,k) : curvP(i,j,k);
 
-            FXK(i,j,k) = cff * 0.5_rt * (tke(i-1,j,k,3)+tke(i,j,k,3)-Gadv*cff1);
-            FXP(i,j,k) = cff * 0.5_rt * (gls(i-1,j,k,3)+gls(i,j,k,3)-Gadv*cff2);
+            FXK(i,j,k) = cff * 0.5_rt * (tke(i-1,j,k,2)+tke(i,j,k,2)-Gadv*cff1);
+            FXP(i,j,k) = cff * 0.5_rt * (gls(i-1,j,k,2)+gls(i,j,k,2)-Gadv*cff2);
         });
 
         //Time step advective terms
-        ParallelFor(ygbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(growLo(grow(ybx,IntVect(0,0,-1)),1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real gradK     = tke(i,j  ,k,3)-tke(i,j-1,k,3);
-            Real gradK_jp1 = tke(i,j+1,k,3)-tke(i,j  ,k,3);
-            Real gradP     = gls(i,j  ,k,3)-gls(i,j-1,k,3);
-            Real gradP_jp1 = gls(i,j+1,k,3)-gls(i,j  ,k,3);
+            Real gradK     = tke(i,j  ,k,2)-tke(i,j-1,k,2);
+            Real gradK_jp1 = tke(i,j+1,k,2)-tke(i,j  ,k,2);
+            Real gradP     = gls(i,j  ,k,2)-gls(i,j-1,k,2);
+            Real gradP_jp1 = gls(i,j+1,k,2)-gls(i,j  ,k,2);
 
             if (j == dlo.y-1 && (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
                 gradK = gradK_jp1;
@@ -515,17 +522,17 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             curvK(i,j,k) = gradK_jp1 - gradK;
             curvP(i,j,k) = gradP_jp1 - gradP;
         });
-        ParallelFor(ygbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(grow(ybx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real cff = 0.5_rt * (Hvom(i,j,k) + Hvom(i,j,k+1));
+            Real cff = 0.5_rt * (Hvom(i,j,k) + Hvom(i,j,k-1));
             Real cff1 = (cff > 0.0) ? curvK(i,j-1,k) : curvK(i,j,k);
             Real cff2 = (cff > 0.0) ? curvP(i,j-1,k) : curvP(i,j,k);
 
-            FXK(i,j,k) = cff * 0.5_rt * (tke(i,j-1,k,3)+tke(i,j,k,3)-Gadv*cff1);
-            FXP(i,j,k) = cff * 0.5_rt * (gls(i,j-1,k,3)+gls(i,j,k,3)-Gadv*cff2);
+            FEK(i,j,k) = cff * 0.5_rt * (tke(i,j-1,k,2)+tke(i,j,k,2)-Gadv*cff1);
+            FEP(i,j,k) = cff * 0.5_rt * (gls(i,j-1,k,2)+gls(i,j,k,2)-Gadv*cff2);
         });
 
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
             tke(i,j,k,nnew) = tke(i,j,k,nnew) - cff * (FXK(i+1,j  ,k)-FXK(i,j,k)+
@@ -543,19 +550,19 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         {
             Real cff1 = 7.0_rt / 12.0_rt;
             Real cff2 = 1.0_rt / 12.0_rt;
-            for (int k=1; k<=N; k++) {
+            for (int k=2; k<=N; k++) {
                 Real cff = 0.5_rt * (W(i,j,k)+W(i,j,k-1));
-                FCK(i,j,k) = cff * (cff1 * (tke(i,j,k-1,3)+tke(i,j,k  ,3))-
-                                    cff2 * (tke(i,j,k-2,3)+tke(i,j,k+1,3)));
-                FCP(i,j,k) = cff * (cff1 * (gls(i,j,k-1,3)+gls(i,j,k  ,3))-
-                                    cff2 * (gls(i,j,k-2,3)+gls(i,j,k+1,3)));
+                FCK(i,j,k) = cff * (cff1 * (tke(i,j,k-1,2)+tke(i,j,k  ,2))-
+                                    cff2 * (tke(i,j,k-2,2)+tke(i,j,k+1,2)));
+                FCP(i,j,k) = cff * (cff1 * (gls(i,j,k-1,2)+gls(i,j,k  ,2))-
+                                    cff2 * (gls(i,j,k-2,2)+gls(i,j,k+1,2)));
             }
             cff1 = 1.0_rt/3.0_rt;
             cff2 = 5.0_rt/6.0_rt;
             Real cff3 = 1.0_rt / 6.0_rt;
-            Real cff = 0.5_rt * (W(i,j,-1)+W(i,j,0));
-            FCK(i,j,0) = cff * (cff1 * tke(i,j,-1,2)+cff2 * tke(i,j,0,2)-cff3 * tke(i,j,1,2));
-            FCP(i,j,0) = cff * (cff1 * gls(i,j,-1,2)+cff2 * gls(i,j,0,2)-cff3 * gls(i,j,1,2));
+            Real cff = 0.5_rt * (W(i,j,0)+W(i,j,1));
+            FCK(i,j,1) = cff * (cff1 * tke(i,j,0,2)+cff2 * tke(i,j,1,2)-cff3 * tke(i,j,2,2));
+            FCP(i,j,1) = cff * (cff1 * gls(i,j,0,2)+cff2 * gls(i,j,1,2)-cff3 * gls(i,j,2,2));
             cff = 0.5_rt * (W(i,j,N+1)+W(i,j,N));
             FCK(i,j,N+1) = cff * (cff1 * tke(i,j,N+1,2)+cff2*tke(i,j,N,2)+cff3*tke(i,j,N-1,2));
             FCP(i,j,N+1) = cff * (cff1 * gls(i,j,N+1,2)+cff2*gls(i,j,N,2)+cff3*gls(i,j,N-1,2));
