@@ -127,7 +127,7 @@ REMORA::prestep (int lev,
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-        FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_FC(convert(tbxp2,IntVect(0,0,1)),1,amrex::The_Async_Arena()); //3D
 
         auto FC=fab_FC.array();
 

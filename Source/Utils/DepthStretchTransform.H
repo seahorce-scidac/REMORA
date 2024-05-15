@@ -18,7 +18,7 @@ REMORA::stretch_transform (int lev)
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
-    auto N_loop = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
+    auto N_loop = Geom(lev).Domain().size()[2]; // Number of vertical "levs" aka, NZ
 
     for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -37,7 +37,8 @@ REMORA::stretch_transform (int lev)
       gbx2D.makeSlab(2,0);
       Box gbx3D = gbx3;
       gbx3D.makeSlab(2,0);
-      Box wgbx3 = gbx3.surroundingNodes(2);
+      Box wgbx3 = gbx3;
+      wgbx3.surroundingNodes(2);
 
       const auto & geomdata = Geom(lev).data();
 
@@ -59,7 +60,7 @@ REMORA::stretch_transform (int lev)
 
       amrex::ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int )
       {
-          for (int k=-1; k<=N_loop; k++) {
+          for (int k=0; k<=N_loop; k++) {
               //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
               // const auto prob_lo         = geomdata.ProbLo();
               // const auto dx              = geomdata.CellSize();
@@ -162,19 +163,20 @@ REMORA::stretch_transform (int lev)
               cff2_r=(cff_r+cff1_r*hwater)*hinv;
               cff2_w=(cff_w+cff1_w*hwater)*hinv;
 
-              if(k==0) {
+              if(k==N) {
                   // HACK: should actually be the normal expression with coeffs evaluated at k=N-1
-                  z_w(i,j,N-1)=Zt_avg1(i,j,0);
+                  z_w(i,j,N)=Zt_avg1(i,j,0);
 
-              } else if (k==-1) {
+              } else if (k==0) {
                   h(i,j,0,1) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+                  z_w(i,j,0) = h(i,j,0,1);
 
               } else {
-                  z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+                  z_w(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
 
               }
 
-              if(k!=-1) {
+              if(k!=N) {
                   z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
               }
           } // k
@@ -184,11 +186,7 @@ REMORA::stretch_transform (int lev)
 
       amrex::ParallelFor(gbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-          if (k==0) {
-              Hz(i,j,k)=z_w(i,j,k)+h(i,j,0);
-          } else {
-              Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1);
-          }
+            Hz(i,j,k)=z_w(i,j,k+1)-z_w(i,j,k);
       });
     } // mfi
 

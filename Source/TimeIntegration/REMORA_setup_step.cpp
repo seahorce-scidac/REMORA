@@ -168,7 +168,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         rho_eos(gbx2,state_old,rho,rhoA,rhoS,Hz,z_w,h,N);
     }
 
-    MultiFab mf_W(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
+    MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
     mf_W.setVal(0.0_rt);
 
     if (solverChoice.use_prestep) {
@@ -243,7 +243,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-        FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_FC(surroundingNodes(tbxp2,2),1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());

@@ -80,9 +80,9 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff1=1.0_rt/(z_r(i,j,N)-z_r(i,j,N-1));
-        Real cff2=0.5_rt*(rho(i,j,N)-rho(i,j,N-1))*(z_w(i,j,N)-z_r(i,j,N))*cff1;
+        Real cff2=0.5_rt*(rho(i,j,N)-rho(i,j,N-1))*(z_w(i,j,N+1)-z_r(i,j,N))*cff1;
 
-        P(i,j,N)=GRho0*z_w(i,j,N)+GRho*(rho(i,j,N)+cff2)*(z_w(i,j,N)-z_r(i,j,N));
+        P(i,j,N)=GRho0*z_w(i,j,N+1)+GRho*(rho(i,j,N)+cff2)*(z_w(i,j,N+1)-z_r(i,j,N));
 
         for (int k=N-1;k>=0;k--)
         {
