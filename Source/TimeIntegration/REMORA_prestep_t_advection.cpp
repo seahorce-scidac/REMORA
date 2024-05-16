@@ -95,7 +95,7 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
         //
         //W(i,j,-1)=0.0_rt;
         W(i,j,0) = 0.0_rt;
-        for(k=1;k<=N+1;k++) {
+        for(int k=1;k<=N+1;k++) {
             W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k-1)-Huon(i,j,k-1)) - (Hvom(i,j+1,k-1)-Hvom(i,j,k-1));
         }
     });
