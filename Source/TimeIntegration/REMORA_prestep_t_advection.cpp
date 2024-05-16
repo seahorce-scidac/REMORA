@@ -99,8 +99,8 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
             W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k-1)-Huon(i,j,k-1)) - (Hvom(i,j+1,k-1)-Hvom(i,j,k-1));
         }
     });
-    ParallelFor(convert(gbx1,IntVect(0,0,1)),
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(gbx1D,
+    [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         //  Starting with zero vertical velocity at the bottom, integrate
         //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
@@ -109,11 +109,10 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
         //
         Real wrk_i=W(i,j,N+1)/(z_w(i,j,N+1)+h(i,j,0,0));
 
-        if(k!=N+1) {
+        for (int k=1; k<=N; k++) {
             W(i,j,k) = W(i,j,k)- wrk_i*(z_w(i,j,k)+h(i,j,0,0));
-        } else {
-            W(i,j,N+1)=0.0_rt;
         }
+        W(i,j,N+1)=0.0_rt;
     });
 
     //From ini_fields and .in file

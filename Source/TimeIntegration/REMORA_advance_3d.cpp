@@ -280,15 +280,14 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-        ParallelFor(convert(gbx1,IntVect(0,0,1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             Real wrk_ij = W(i,j,N+1) / (z_w(i,j,N+1)+h(i,j,0,0));
 
-            if(k!=N+1) {
+            for (int k=1; k<=N; k++) {
                 W(i,j,k) -=  wrk_ij * (z_w(i,j,k)+h(i,j,0,0));
-            } else {
-                W(i,j,N+1) = 0.0_rt;
             }
+            W(i,j,N+1) = 0.0_rt;
         });
 
         //
