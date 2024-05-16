@@ -11,7 +11,6 @@ using namespace amrex;
 //     so this follows the BCVars enum
 //
 void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
-                                        const GpuArray<Real,AMREX_SPACEDIM> /*dx*/,
                                         const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/,
                                         Real /*time*/, int bccomp)
 {

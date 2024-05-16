@@ -73,7 +73,7 @@ REMORA::rho_eos (const Box& bx,
             rhoA(i,j,0) += cff1;
         }
 
-        Real cff11 =1.0_rt/(z_w(i,j,N)+h(i,j,0,0));
+        Real cff11 =1.0_rt/(z_w(i,j,N+1)+h(i,j,0,0));
 
         rhoA(i,j,0) *= cff2*cff11;
 

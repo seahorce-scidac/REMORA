@@ -257,43 +257,37 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
     //  (Tunits m3/s).
     //
 
-    ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(surroundingNodes(bx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-              //-----------------------------------------------------------------------
-              //  Add in vertical advection.
-              //-----------------------------------------------------------------------
+        //-----------------------------------------------------------------------
+        //  Add in vertical advection.
+        //-----------------------------------------------------------------------
 
-              Real cff1=0.5_rt;
-              Real cff2=7.0_rt/12.0_rt;
-              Real cff3=1.0_rt/12.0_rt;
+        Real cff1=0.5_rt;
+        Real cff2=7.0_rt/12.0_rt;
+        Real cff3=1.0_rt/12.0_rt;
 
-              if (k>=1 && k<=N-2)
-              {
-                      FC(i,j,k)=( cff2*(sstore(i  ,j,k  )+ sstore(i,j,k+1))
-                                 -cff3*(sstore(i  ,j,k-1)+ sstore(i,j,k+2)) ) * ( W(i,j,k));
-
-              } else {
-
-                  FC(i,j,N)=0.0_rt;
-
-                  FC(i,j,N-1)=( cff2*sstore(i  ,j,N-1)+ cff1*sstore(i,j,N  )
-                               -cff3*sstore(i  ,j,N-2) ) * ( W(i  ,j,N-1));
-
-                  FC(i,j,0)=( cff2*sstore(i  ,j,1)+ cff1*sstore(i,j,0)
-                             -cff3*sstore(i  ,j,2) ) * ( W(i  ,j,0));
-              }
-
+        if (k>=2 && k<=N-1)
+        {
+                FC(i,j,k)=( cff2*(sstore(i  ,j,k-1)+ sstore(i,j,k))
+                           -cff3*(sstore(i  ,j,k-2)+ sstore(i,j,k+1)) ) * ( W(i,j,k));
+        } else if (k==N+1) {
+            FC(i,j,N+1)=0.0_rt;
+        } else if (k==N) {
+            FC(i,j,N)=( cff2*sstore(i  ,j,N-1)+ cff1*sstore(i,j,N  )
+                         -cff3*sstore(i  ,j,N-2) ) * ( W(i  ,j,N));
+        } else if (k==1) {
+            FC(i,j,1)=( cff2*sstore(i  ,j,1)+ cff1*sstore(i,j,0)
+                       -cff3*sstore(i  ,j,2) ) * ( W(i  ,j,1));
+        } else if (k==0) {
+            FC(i,j,0) = 0.0_rt;
+        }
     });
 
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff1=dt_lev*pm(i,j,0)*pn(i,j,0);
-        Real cff4;
-        if(k-1>=0) {
-            cff4=FC(i,j,k)-FC(i,j,k-1);
-        } else {
-            cff4=FC(i,j,k);
-        }
+        Real cff4=FC(i,j,k+1)-FC(i,j,k);
 
         t(i,j,k) = (t(i,j,k)-cff1*cff4) / Hz(i,j,k);
     });

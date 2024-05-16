@@ -94,13 +94,12 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
         //  Notice that barotropic mass flux divergence is not used directly.
         //
         //W(i,j,-1)=0.0_rt;
-        int k=0;
-        W(i,j,k) = -(Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
-        for(k=1;k<=N;k++) {
-            W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k)-Huon(i,j,k)) - (Hvom(i,j+1,k)-Hvom(i,j,k));
+        W(i,j,0) = 0.0_rt;
+        for(int k=1;k<=N+1;k++) {
+            W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k-1)-Huon(i,j,k-1)) - (Hvom(i,j+1,k-1)-Hvom(i,j,k-1));
         }
     });
-    ParallelFor(gbx1,
+    ParallelFor(convert(gbx1,IntVect(0,0,1)),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //  Starting with zero vertical velocity at the bottom, integrate
@@ -108,18 +107,12 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
         //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
         //  Notice that barotropic mass flux divergence is not used directly.
         //
-        Real wrk_i=W(i,j,N)/(z_w(i,j,N)+h(i,j,0,0));
+        Real wrk_i=W(i,j,N+1)/(z_w(i,j,N+1)+h(i,j,0,0));
 
-        if(k!=N) {
+        if(k!=N+1) {
             W(i,j,k) = W(i,j,k)- wrk_i*(z_w(i,j,k)+h(i,j,0,0));
-        }
-    });
-
-    ParallelFor(gbx1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        if (k == N) {
-            W(i,j,N) = 0.0_rt;
+        } else {
+            W(i,j,N+1)=0.0_rt;
         }
     });
 
@@ -270,7 +263,7 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
     // Time-step vertical advection of tracers (Tunits). Impose artificial
     // continuity equation.
     //
-    ParallelFor(tbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(convert(tbx,IntVect(0,0,1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
           //-----------------------------------------------------------------------
           //  Add in vertical advection.
@@ -280,39 +273,43 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
           Real c2=7.0_rt/12.0_rt;
           Real c3=1.0_rt/12.0_rt;
 
-          if (k>=1 && k<=N-2)
+          if (k>=2 && k<=N-1)
           {
-                  FC(i,j,k)=( c2*(tempold(i  ,j,k  ,nrhs)+ tempold(i,j,k+1,nrhs))
-                             -c3*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k+2,nrhs)) )*
+                  FC(i,j,k)=( c2*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k  ,nrhs))
+                             -c3*(tempold(i  ,j,k-2 ,nrhs)+ tempold(i,j,k+1,nrhs)) )*
                                 ( W(i,j,k));
           }
-          else // this needs to be split up so that the following can be concurrent
+          else if (k==N+1) // this needs to be split up so that the following can be concurrent
           {
-              FC(i,j,N)=0.0_rt;
+              FC(i,j,N+1)=0.0_rt;
+          } else if (k==N) {
 
-              FC(i,j,N-1) = ( c2*tempold(i,j,N-1,nrhs)+ c1*tempold(i,j,N,nrhs)-c3*tempold(i,j,N-2,nrhs) )
-                          * W(i,j,N-1);
+              FC(i,j,N) = ( c2*tempold(i,j,N-1,nrhs)+ c1*tempold(i,j,N,nrhs)-c3*tempold(i,j,N-2,nrhs) )
+                          * W(i,j,N);
+          } else if (k==1) {
 
-              FC(i,j,  0) = ( c2*tempold(i,j,  1,nrhs)+ c1*tempold(i,j,0,nrhs)-c3*tempold(i,j,2,nrhs) )
-                          * W(i,j,0);
+              FC(i,j,  1) = ( c2*tempold(i,j,  1,nrhs)+ c1*tempold(i,j,0,nrhs)-c3*tempold(i,j,2,nrhs) )
+                          * W(i,j,1);
+        } else if (k==0) {
+              FC(i,j,  0) = 0.0_rt;
           }
     });
 
     ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        if(k-1>=0) {
+        //if(k-1>=0) {
         DC(i,j,k)=1.0_rt/(Hz(i,j,k)-
                         cff*pm(i,j,0)*pn(i,j,0)*
                         (Huon(i+1,j,k)-Huon(i,j,k)+
                          Hvom(i,j+1,k)-Hvom(i,j,k)+
-                         (W(i,j,k)-W(i,j,k-1))));
-        } else {
-        DC(i,j,k)=1.0_rt/(Hz(i,j,k)-
-                        cff*pm(i,j,0)*pn(i,j,0)*
-                        (Huon(i+1,j,k)-Huon(i,j,k)+
-                         Hvom(i,j+1,k)-Hvom(i,j,k)+
-                         (W(i,j,k))));
-        }
+                         (W(i,j,k+1)-W(i,j,k))));
+        //} else {
+        //DC(i,j,k)=1.0_rt/(Hz(i,j,k)-
+        //                cff*pm(i,j,0)*pn(i,j,0)*
+        //                (Huon(i+1,j,k)-Huon(i,j,k)+
+        //                 Hvom(i,j+1,k)-Hvom(i,j,k)+
+        //                 (W(i,j,k))));
+        //}
     });
 
     ParallelFor(tbx,
@@ -320,7 +317,7 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
     {
         Real c1 = cff*pm(i,j,0)*pn(i,j,0);
 
-        Real c4 = (k>0) ? FC(i,j,k)-FC(i,j,k-1) : FC(i,j,k);
+        Real c4 = FC(i,j,k+1)-FC(i,j,k);
 
         tempstore(i,j,k) = DC(i,j,k)*(tempstore(i,j,k)-c1*c4);
     });

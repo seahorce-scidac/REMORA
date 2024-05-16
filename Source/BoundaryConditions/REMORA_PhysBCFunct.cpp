@@ -64,6 +64,9 @@ void REMORAPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect 
                         } else if (bx.ixType() == IndexType(IntVect(0,1,0))) {
                             const Array4<Real>& dest_arr = mf.array(mfi,icomp);
                             impose_yvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
+                        } else if (bx.ixType() == IndexType(IntVect(0,0,1))) {
+                            const Array4<Real>& dest_arr = mf.array(mfi,icomp);
+                            impose_zvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
                         }
                     }
                 } // mfi
