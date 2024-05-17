@@ -321,7 +321,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     } // MFIter
 
     int nnew = 0;
-    gls_prestep(lev, mf_gls, mf_tke, mf_W, nstp, nnew, iic, ntfirst, N, dt_lev);
+    if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
+        gls_prestep(lev, mf_gls, mf_tke, mf_W, nstp, nnew, iic, ntfirst, N, dt_lev);
+    }
 
     FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
     FillPatch(lev, time, *cons_new[lev], cons_new, BdyVars::t);

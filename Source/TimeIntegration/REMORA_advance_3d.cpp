@@ -293,8 +293,10 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     }
 
     const int nstp = 0;
-    gls_corrector(lev, vec_gls[lev].get(), vec_tke[lev].get(), mf_W, vec_Akv[lev].get(),
+    if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
+        gls_corrector(lev, vec_gls[lev].get(), vec_tke[lev].get(), mf_W, vec_Akv[lev].get(),
                   vec_Akt[lev].get(),vec_Akk[lev].get(), vec_Akp[lev].get(), nstp, nnew, N, dt_lev);
+    }
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -321,13 +323,12 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         tbxp2.grow(IntVect(NGROW,NGROW,0));
         tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
 
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_FC(surroundingNodes(gbx2,2),1,amrex::The_Async_Arena());
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
-        FArrayBox fab_W(tbxp2,1,amrex::The_Async_Arena());
 
         auto FC  = fab_FC.array();
-        auto W   = fab_W.array();
+        auto W   = mf_W.array(mfi);
         //
         //-----------------------------------------------------------------------
         // rhs_t_3d
