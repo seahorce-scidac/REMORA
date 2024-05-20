@@ -469,7 +469,6 @@ REMORA::set_zeta_to_Ztavg (int lev)
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     for ( MFIter mfi(*vec_zeta[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        int nstp = 0;
         Array4<const Real> const& Zt_avg1 = (mf_Zt_avg1)->const_array(mfi);
         Array4<Real> const& zeta = mf_zeta->array(mfi);
 
