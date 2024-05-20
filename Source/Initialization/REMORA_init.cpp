@@ -128,7 +128,6 @@ REMORA::set_2darrays (int lev)
 
     MultiFab* U_old = xvel_new[lev];
     MultiFab* V_old = yvel_new[lev];
-    std::unique_ptr<MultiFab>& mf_zeta = vec_zeta[lev];
     std::unique_ptr<MultiFab>& mf_ubar = vec_ubar[lev];
     std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
     std::unique_ptr<MultiFab>& mf_mskr = vec_mskr[lev];

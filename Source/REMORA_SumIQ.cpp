@@ -120,7 +120,6 @@ REMORA::volWgtSumMF(int lev, const MultiFab& mf, int comp, bool local, bool fine
     }
 
     MultiFab volume(grids[lev], dmap[lev], 1, 0);
-    auto const& dx = geom[lev].CellSizeArray();
     for (MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         const Box& bx = mfi.tilebox();
         const Array4<      Real> vol_arr = volume.array(mfi);
