@@ -43,7 +43,7 @@ enum class VertMixingType {
 };
 
 enum class GLS_StabilityType {
-    Canuto_A, Canuto_B, other
+    Canuto_A, Canuto_B, Galperin
 };
 
 struct SolverChoice {
@@ -162,6 +162,15 @@ struct SolverChoice {
             vert_mixing_type = VertMixingType::GLS;
             if ( (gls_stability_type_string == "Canuto_A") || (gls_stability_type_string == "canuto_a") || (gls_stability_type_string == "canuto_A") ) {
                 gls_stability_type = GLS_StabilityType::Canuto_A;
+            }
+            else if ( (gls_stability_type_string == "Canuto_B") || (gls_stability_type_string == "canuto_b") || (gls_stability_type_string == "canuto_B") ) {
+                gls_stability_type = GLS_StabilityType::Canuto_B;
+            }
+            else if ( (gls_stability_type_string == "galperin") || (gls_stability_type_string == "Galperin") ) {
+                gls_stability_type = GLS_StabilityType::Galperin;
+            }
+            else {
+                amrex::Abort("Don't know this GLS stability type");
             }
         } else {
             amrex::Abort("Don't know this vertical mixing type");

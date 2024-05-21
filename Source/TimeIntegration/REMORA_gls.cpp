@@ -251,6 +251,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     // (Canuto, V.M., Cheng, H.Y., and Dubovikov, M.S., 2001: Ocean
     // turbulence. Part I: One-point closure model - momentum and
     // heat vertical diffusivities, JPO, 1413-1426).
+
     if (solverChoice.gls_stability_type == GLS_StabilityType::Canuto_A ||
         solverChoice.gls_stability_type == GLS_StabilityType::Canuto_B) {
 
@@ -778,6 +779,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Gh=std::min(Gh,Gh-(Gh-solverChoice.gls_Ghcri)*(Gh-solverChoice.gls_Ghcri)/
                        (Gh+solverChoice.gls_Gh0-2.0_rt*solverChoice.gls_Ghcri));
             Gh=std::max(Gh,solverChoice.gls_Ghmin);
+
             if (solverChoice.gls_stability_type == GLS_StabilityType::Canuto_A ||
                 solverChoice.gls_stability_type == GLS_StabilityType::Canuto_B) {
                 //
@@ -787,7 +789,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                              (gls_b2-gls_b4*gls_fac6*Gh);
                 Gm=std::min(Gm,shear2(i,j,k)*Ls_lmt*Ls_lmt/
                             (2.0_rt*tke(i,j,k,nnew)));
-                Gm=std::min(Gm,(gls_s1*gls_fac6*Gh-gls_s0)/(gls_s2*gls_fac6));
+                /////Gm=std::min(Gm,(gls_s1*gls_fac6*Gh-gls_s0)/(gls_s2*gls_fac6));
                 //
                 //  Compute stability functions
                 //
@@ -805,7 +807,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 Real gls_cmu0_cube = solverChoice.gls_cmu0 * solverChoice.gls_cmu0 * solverChoice.gls_cmu0;
                 Sm=Sm*sqrt2/(gls_cmu0_cube);
                 Sh=Sh*sqrt2/gls_cmu0_cube;
-            } else {
+            } else if (solverChoice.gls_stability_type == GLS_StabilityType::Galperin) {
                 Real cff_galperin = 1.0_rt - my_Sh2*Gh;
                 Sh = my_Sh1 / cff_galperin;
                 Sm = (my_Sm3+Sh*Gh*my_Sm4)/(1.0_rt-my_Sm2*Gh);
