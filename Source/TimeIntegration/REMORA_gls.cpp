@@ -366,10 +366,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             for (int k=1; k<=N; k++) {
                 Real cff = 1.0_rt / (2.0_rt * Hz(i,j,k) + Hz(i,j,k-1)*(2.0_rt - CF(i,j,k-1)));
                 CF(i,j,k) = cff * Hz(i,j,k);
-                dU(i,j,k)=cff*(3.0_rt*(u(i  ,j,k,nstp)-u(i,  j,k-1,nstp)+
-                                       u(i+1,j,k,nstp)-u(i+1,j,k-1,nstp))-Hz(i,j,k-1)*dU(i,j,k-1));
-                dV(i,j,k)=cff*(3.0_rt*(v(i,j  ,k,nstp)-v(i,j  ,k-1,nstp)+
-                                       v(i,j+1,k,nstp)-v(i,j+1,k-1,nstp))-Hz(i,j,k-1)*dV(i,j,k-1));
+                dU(i,j,k)=cff*(3.0_rt*(u(i  ,j,k)-u(i,  j,k-1)+
+                                       u(i+1,j,k)-u(i+1,j,k-1))-Hz(i,j,k-1)*dU(i,j,k-1));
+                dV(i,j,k)=cff*(3.0_rt*(v(i,j  ,k)-v(i,j  ,k-1)+
+                                       v(i,j+1,k)-v(i,j+1,k-1))-Hz(i,j,k-1)*dV(i,j,k-1));
             }
             dU(i,j,N+1) = 0.0_rt;
             dV(i,j,N+1) = 0.0_rt;
@@ -563,8 +563,8 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             FCK(i,j,0) = cff * (cff1 * tke(i,j,0,2)+cff2 * tke(i,j,1,2)-cff3 * tke(i,j,2,2));
             FCP(i,j,0) = cff * (cff1 * gls(i,j,0,2)+cff2 * gls(i,j,1,2)-cff3 * gls(i,j,2,2));
             cff = 0.5_rt * (W(i,j,N+1)+W(i,j,N));
-            FCK(i,j,N) = cff * (cff1 * tke(i,j,N+1,2)+cff2*tke(i,j,N,2)+cff3*tke(i,j,N-1,2));
-            FCP(i,j,N) = cff * (cff1 * gls(i,j,N+1,2)+cff2*gls(i,j,N,2)+cff3*gls(i,j,N-1,2));
+            FCK(i,j,N) = cff * (cff1 * tke(i,j,N+1,2)+cff2*tke(i,j,N,2)-cff3*tke(i,j,N-1,2));
+            FCP(i,j,N) = cff * (cff1 * gls(i,j,N+1,2)+cff2*gls(i,j,N,2)-cff3*gls(i,j,N-1,2));
         });
         ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -637,7 +637,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                           (Akt(i,j,k,Temp_comp)-solverChoice.Akt_bak)/
                           tke(i,j,k,nstp))-
                           FCK(i,j,k)-FCK(i,j,k-1);
-            if (i==0 and j==0 and k==0) printf("BCK %d %d %d  %15.15g\n",i,j,k,BCK(i,j,k));
             BCP(i,j,k)=cff_Hz*(1.0_rt+dt_lev*solverChoice.gls_c2*wall_fac*
                           std::pow(gls(i,j,k,nstp),-gls_exp1)*cmu_fac2*
                           std::pow(tke(i,j,k,nstp), tke_exp2)+
@@ -676,13 +675,13 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             // Might be N instead of N-1?
             Real tke_fluxt = 0.0_rt;
             Real tke_fluxb = 0.0_rt;
-            Real cff_BCK = 1.0_rt/BCK(i,j,N-1);
-            CF(i,j,N-1)=cff_BCK*FCK(i,j,N-1);
-            tke(i,j,N-1,nnew)=cff_BCK*(tke(i,j,N-1,nnew)+tke_fluxt);
+            Real cff_BCK = 1.0_rt/BCK(i,j,N);
+            CF(i,j,N)=cff_BCK*FCK(i,j,N-1);
+            tke(i,j,N,nnew)=cff_BCK*(tke(i,j,N,nnew)+tke_fluxt);
             for (int k=N-1;k>=1;k--) {
-                cff_BCK = 1.0_rt / (BCK(i,j,k)-CF(i,j,k+1)*FCK(i,j,k+1));
-                CF(i,j,k) = cff_BCK * FCK(i,j,k);
-                tke(i,j,k,nnew) = cff_BCK * (tke(i,j,k,nnew) - FCK(i,j,k+1) * tke(i,j,k+1,nnew));
+                cff_BCK = 1.0_rt / (BCK(i,j,k)-CF(i,j,k+1)*FCK(i,j,k));
+                CF(i,j,k) = cff_BCK * FCK(i,j,k-1);
+                tke(i,j,k,nnew) = cff_BCK * (tke(i,j,k,nnew) - FCK(i,j,k) * tke(i,j,k+1,nnew));
             }
             tke(i,j,1,nnew) = tke(i,j,1,nnew) - cff_BCK * tke_fluxb;
             tke(i,j,1,nnew) = std::max(tke(i,j,1,nnew),solverChoice.gls_Kmin);
@@ -701,16 +700,16 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Real gls_fluxb = dt_lev*gls_fac2*std::pow(cff_tke,solverChoice.gls_m)*
                               std::pow(0.5_rt*Hz(i,j,0)+Zob_min,solverChoice.gls_n-1.0_rt)*
                               0.5_rt*(Akp(i,j,0)+Akp(i,j,1));
-            Real cff_BCP = 1.0_rt / BCP(i,j,N-1);
-            CF(i,j,N-1) = cff * FCP(i,j,N-1);
-            gls(i,j,N-1,nnew)=cff*(gls(i,j,N-1,nnew)-gls_fluxt);
+            Real cff_BCP = 1.0_rt / BCP(i,j,N);
+            CF(i,j,N) = cff_BCP * FCP(i,j,N-1);
+            gls(i,j,N,nnew)=cff_BCP*(gls(i,j,N,nnew)-gls_fluxt);
             for (int k=N-1;k>=1;k--) {
-                cff_BCP = 1.0_rt / (BCP(i,j,k)-CF(i,j,k+1)*FCP(i,j,k+1));
-                CF(i,j,k) = cff_BCP * FCP(i,j,k);
-                gls(i,j,k,nnew) = cff_BCP * (gls(i,j,k,nnew) - FCP(i,j,k+1)*gls(i,j,k+1,nnew));
+                cff_BCP = 1.0_rt / (BCP(i,j,k)-CF(i,j,k+1)*FCP(i,j,k));
+                CF(i,j,k) = cff_BCP * FCP(i,j,k-1);
+                gls(i,j,k,nnew) = cff_BCP * (gls(i,j,k,nnew) - FCP(i,j,k)*gls(i,j,k+1,nnew));
             }
-            gls(i,j,0,nnew) = gls(i,j,0,nnew)-cff_BCP*gls_fluxb;
-            for (int k=1; k<=N-1; k++) {
+            gls(i,j,1,nnew) = gls(i,j,1,nnew)-cff_BCP*gls_fluxb;
+            for (int k=2; k<=N; k++) {
                 gls(i,j,k,nnew) = gls(i,j,k,nnew) - CF(i,j,k) * gls(i,j,k-1,nnew);
             }
         });

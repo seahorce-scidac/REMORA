@@ -33,7 +33,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     const DistributionMapping& dm = S_old.DistributionMap();
 
     const int nrhs  = 0;
-    const int nstp  = 0;
+    int nstp  = 0;
 
     // Place-holder for source array -- for now just set to 0
     MultiFab source(ba,dm,nvars,1);
@@ -320,10 +320,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     } // MFIter
 
-    int nnew = 0;
+    int nnew = (iic +1)% 2;
+    nstp = iic % 2;
     if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
         gls_prestep(lev, mf_gls, mf_tke, mf_W, nstp, nnew, iic, ntfirst, N, dt_lev);
     }
+    nstp = 0;
 
     FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
     FillPatch(lev, time, *cons_new[lev], cons_new, BdyVars::t);

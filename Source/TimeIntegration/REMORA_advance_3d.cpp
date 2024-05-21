@@ -29,7 +29,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                    const int N, Real dt_lev)
 {
     const int nrhs  = 0;
-    const int nnew  = 0;
+    int nnew  = 0;
 
     int iic = istep[lev];
     int ntfirst = 0;
@@ -292,11 +292,13 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         });
     }
 
-    const int nstp = 0;
+    const int nstp = (iic) % 2;
+    nnew = 1-nstp;
     if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
         gls_corrector(lev, vec_gls[lev].get(), vec_tke[lev].get(), mf_W, vec_Akv[lev].get(),
                   vec_Akt[lev].get(),vec_Akk[lev].get(), vec_Akp[lev].get(), nstp, nnew, N, dt_lev);
     }
+    nnew = 0;
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {

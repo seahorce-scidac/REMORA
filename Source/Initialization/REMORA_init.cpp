@@ -213,6 +213,8 @@ REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
     for (MFIter mfi(*vec_Akk[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& Akk = vec_Akk[lev]->array(mfi);
         Array4<Real> const& Akp = vec_Akp[lev]->array(mfi);
+        Array4<Real> const& Akt = vec_Akt[lev]->array(mfi);
+        Array4<Real> const& Akv = vec_Akv[lev]->array(mfi);
 
         ParallelFor(makeSlab(Box(Akk),2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -221,6 +223,12 @@ REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
 
             Akp(i,j, 0) = 0.0_rt;
             Akp(i,j, N+1) = 0.0_rt;
+
+            Akv(i,j, 0) = 0.0_rt;
+            Akv(i,j, N+1) = 0.0_rt;
+
+            Akt(i,j, 0) = 0.0_rt;
+            Akt(i,j, N+1) = 0.0_rt;
         });
     }
 }

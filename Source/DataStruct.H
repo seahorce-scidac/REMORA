@@ -105,6 +105,9 @@ struct SolverChoice {
 
         pp.query("ggrav",g);
 
+        pp.query("Akv_bak",Akv_bak);
+        pp.query("Akt_bak",Akt_bak);
+
         static std::string ic_bc_type_string = "custom";
         pp.query("ic_bc_type", ic_bc_type_string);
 
