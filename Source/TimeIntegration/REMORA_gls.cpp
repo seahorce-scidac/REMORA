@@ -20,8 +20,8 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Array4<Real> const& pn = vec_pn[lev]->array(mfi);
 
         Box bx = mfi.tilebox();
-        Box xbx = mfi.nodaltilebox(0);
-        Box ybx = mfi.nodaltilebox(1);
+        Box xbx = surroundingNodes(bx,0);
+        Box ybx = surroundingNodes(bx,1);
 
         Box xbx_hi = growHi(xbx,0,1);
 
@@ -318,13 +318,18 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     const DistributionMapping& dm = cons_old[lev]->DistributionMap();
     MultiFab mf_dU(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_dV(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0));
+
     MultiFab mf_CF(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0));
+
     MultiFab mf_shear2(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_shear2_cached(ba,dm,1,IntVect(NGROW,NGROW,0));
+
     MultiFab mf_buoy2(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_tmp_buoy(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_tmp_shear(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_curvK(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_curvP(ba,dm,1,IntVect(NGROW,NGROW,0));
+
     MultiFab mf_FXK(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_FXP(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_FEK(ba,dm,1,IntVect(NGROW,NGROW,0));
@@ -334,18 +339,16 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     MultiFab mf_BCK(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_BCP(ba,dm,1,IntVect(NGROW,NGROW,0));
 
+
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Box  bx = mfi.tilebox();
+        Box   bx = mfi.tilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
-        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
         Box bxD = bx;
         bxD.makeSlab(2,0);
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
-        Box gbx2D = gbx2;
-        gbx2D.makeSlab(2,0);
 
         Array4<Real> const& Hz = vec_Hz[lev]->array(mfi);
         Array4<Real> const& u = xvel_old[lev]->array(mfi);
@@ -355,8 +358,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         auto dU = mf_dU.array(mfi);
         auto dV = mf_dV.array(mfi);
         auto CF = mf_CF.array(mfi);
-        auto shear2 = mf_shear2.array(mfi);
-        auto buoy2 = mf_buoy2.array(mfi);
+        auto shear2_cached = mf_shear2_cached.array(mfi);
 
         ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -378,8 +380,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 dV(i,j,k) = dV(i,j,k) - CF(i,j,k) * dV(i,j,k+1);
             }
             for (int k=1; k<=N; k++) {
-                shear2(i,j,k) = dU(i,j,k) * dU(i,j,k) + dV(i,j,k) * dV(i,j,k);
-                buoy2(i,j,k) = bvf(i,j,k);
+                shear2_cached(i,j,k) = dU(i,j,k) * dU(i,j,k) + dV(i,j,k) * dV(i,j,k);
             }
         });
     }
@@ -390,19 +391,21 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Box  bx = mfi.tilebox();
-        Box xbx = mfi.nodaltilebox(0);
-        Box ybx = mfi.nodaltilebox(1);
-        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
-        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box xgbx1 = mfi.grownnodaltilebox(0, IntVect(NGROW-1,NGROW-1,0));
-        Box ygbx1 = mfi.grownnodaltilebox(1, IntVect(NGROW-1,NGROW-1,0));
+        Box xbx = surroundingNodes(bx,0);
+        Box ybx = surroundingNodes(bx,1);
+        Box gbx1 = grow(bx,IntVect(NGROW-1,NGROW-1,0));
+
+        Box bx_rho = bx;
+        bx_rho.convert(IntVect(0,0,0));
+
+        Box xbx_int = grow(xbx,IntVect(0,0,-1)); // interior points in w of xbx
+        Box ybx_int = grow(ybx,IntVect(0,0,-1)); // interior points in w of ybx
+        Box bx_growloxy = growLo(growLo(grow(bx,IntVect(0,0,-1)),0,1),1,1);
 
         Box bxD = bx;
         bxD.makeSlab(2,0);
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
-        Box gbx2D = gbx2;
-        gbx2D.makeSlab(2,0);
 
         const Box& domain = geom[0].Domain();
         const auto dlo = amrex::lbound(domain);
@@ -433,31 +436,50 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Array4<Real> const& bustr = vec_bustr[lev]->array(mfi);
         Array4<Real> const& bvstr = vec_bvstr[lev]->array(mfi);
 
+        FArrayBox fab_tmp_buoy(bx_growloxy,1, amrex::The_Async_Arena()); fab_tmp_buoy.template setVal<RunOn::Device>(0.);
+        FArrayBox fab_tmp_shear(bx_growloxy,1, amrex::The_Async_Arena()); fab_tmp_shear.template setVal<RunOn::Device>(0.);
+
+        FArrayBox fab_curvK(gbx1,1, amrex::The_Async_Arena()); fab_curvK.template setVal<RunOn::Device>(0.);
+        FArrayBox fab_curvP(gbx1,1, amrex::The_Async_Arena()); fab_curvP.template setVal<RunOn::Device>(0.);
+
+        FArrayBox fab_FXK(xbx_int,1,amrex::The_Async_Arena()); fab_FXK.template setVal<RunOn::Device>(0.);
+        FArrayBox fab_FXP(xbx_int,1,amrex::The_Async_Arena()); fab_FXP.template setVal<RunOn::Device>(0.);
+        FArrayBox fab_FEK(ybx_int,1,amrex::The_Async_Arena()); fab_FEK.template setVal<RunOn::Device>(0.);
+        FArrayBox fab_FEP(ybx_int,1,amrex::The_Async_Arena()); fab_FEP.template setVal<RunOn::Device>(0.);
+
+        FArrayBox fab_FCK(bx_rho,1,amrex::The_Async_Arena()); fab_FCK.template setVal<RunOn::Device>(0.);
+        FArrayBox fab_FCP(bx_rho,1,amrex::The_Async_Arena()); fab_FCP.template setVal<RunOn::Device>(0.);
+        FArrayBox fab_BCK(bx_rho,1,amrex::The_Async_Arena()); fab_BCK.template setVal<RunOn::Device>(0.);
+        FArrayBox fab_BCP(bx_rho,1,amrex::The_Async_Arena()); fab_BCP.template setVal<RunOn::Device>(0.);
+
         auto CF = mf_CF.array(mfi);
         auto shear2 = mf_shear2.array(mfi);
+        auto shear2_cached = mf_shear2_cached.array(mfi);
         auto buoy2 = mf_buoy2.array(mfi);
-        auto tmp_buoy = mf_tmp_buoy.array(mfi);
-        auto tmp_shear = mf_tmp_shear.array(mfi);
-        auto curvK = mf_curvK.array(mfi);
-        auto curvP = mf_curvP.array(mfi);
-        auto FXK = mf_FXK.array(mfi);
-        auto FXP = mf_FXP.array(mfi);
-        auto FEK = mf_FEK.array(mfi);
-        auto FEP = mf_FEP.array(mfi);
-        auto FCK = mf_FCK.array(mfi);
-        auto FCP = mf_FCP.array(mfi);
-        auto BCK = mf_BCK.array(mfi);
-        auto BCP = mf_BCP.array(mfi);
+        Array4<Real> const& bvf = vec_bvf[lev]->array(mfi);
+
+        auto tmp_buoy = fab_tmp_buoy.array();
+        auto tmp_shear = fab_tmp_shear.array();
+        auto curvK = fab_curvK.array();
+        auto curvP = fab_curvP.array();
+        auto FXK = fab_FXK.array();
+        auto FXP = fab_FXP.array();
+        auto FEK = fab_FEK.array();
+        auto FEP = fab_FEP.array();
+        auto FCK = fab_FCK.array();
+        auto FCP = fab_FCP.array();
+        auto BCK = fab_BCK.array();
+        auto BCP = fab_BCP.array();
 
         auto Akt = mf_Akt->array(mfi);
         auto Akv = mf_Akv->array(mfi);
         auto Akp = mf_Akp->array(mfi);
         auto Akk = mf_Akk->array(mfi);
 
-        ParallelFor(grow(bx,IntVect(0,0,-1)).growLo(0,1).growLo(1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(bx_growloxy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            tmp_buoy(i,j,k)=0.25_rt * (buoy2(i,j,k) + buoy2(i+1,j,k) + buoy2(i,j+1,k)+buoy2(i+1,j+1,k));
-            tmp_shear(i,j,k)=0.25_rt * (shear2(i,j,k) + shear2(i+1,j,k) + shear2(i,j+1,k)+shear2(i+1,j+1,k));
+            tmp_buoy(i,j,k)=0.25_rt * (bvf(i,j,k) + bvf(i+1,j,k) + bvf(i,j+1,k)+bvf(i+1,j+1,k));
+            tmp_shear(i,j,k)=0.25_rt * (shear2_cached(i,j,k) + shear2_cached(i+1,j,k) + shear2_cached(i,j+1,k)+shear2_cached(i+1,j+1,k));
         });
 
         ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -545,7 +567,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
 
         // Vertical advection
-        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             Real cff1 = 7.0_rt / 12.0_rt;
             Real cff2 = 1.0_rt / 12.0_rt;
