@@ -224,6 +224,30 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     Real gls_sigp_cb = solverChoice.gls_sigp;
     Real ogls_sigp = 1.0_rt/gls_sigp_cb;
 
+    Real gls_c3m = solverChoice.gls_c3m;
+    Real gls_c3p = solverChoice.gls_c3p;
+    Real gls_cmu0 = solverChoice.gls_cmu0;
+
+    Real gls_m = solverChoice.gls_m;
+    Real gls_n = solverChoice.gls_n;
+    Real gls_p = solverChoice.gls_p;
+
+    Real gls_Gh0 = solverChoice.gls_Gh0;
+    Real gls_Ghcri = solverChoice.gls_Ghcri;
+    Real gls_Ghmin = solverChoice.gls_Ghmin;
+
+    Real Akv_bak = solverChoice.Akv_bak;
+    Real Akt_bak = solverChoice.Akt_bak;
+    Real Akp_bak = solverChoice.Akp_bak;
+    Real Akk_bak = solverChoice.Akk_bak;
+
+    Real gls_c1 = solverChoice.gls_c1;
+    Real gls_c2 = solverChoice.gls_c2;
+    Real gls_E2 = solverChoice.gls_E2;
+    Real gls_sigk = solverChoice.gls_sigk;
+    Real vonKar = solverChoice.vonKar;
+    auto gls_stability_type = solverChoice.gls_stability_type;
+
     Real sqrt2 = std::sqrt(2.0_rt);
     Real cmu_fac1 = std::pow(solverChoice.gls_cmu0,(-solverChoice.gls_p/solverChoice.gls_n));
     Real cmu_fac2 = std::pow(solverChoice.gls_cmu0,(3.0_rt+solverChoice.gls_p/solverChoice.gls_n));
@@ -554,16 +578,18 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             FEP(i,j,k) = cff * 0.5_rt * (gls(i,j-1,k,2)+gls(i,j,k,2)-Gadv*cff2);
         });
 
+        Real gls_Kmin = solverChoice.gls_Kmin;
+        Real gls_Pmin = solverChoice.gls_Pmin;
         ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
             tke(i,j,k,nnew) = tke(i,j,k,nnew) - cff * (FXK(i+1,j  ,k)-FXK(i,j,k)+
                                                        FEK(i  ,j+1,k)-FEK(i,j,k));
-            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew), solverChoice.gls_Kmin);
+            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew), gls_Kmin);
 
             gls(i,j,k,nnew) = gls(i,j,k,nnew) - cff * (FXP(i+1,j  ,k)-FXP(i,j,k)+
                                                        FEP(i  ,j+1,k)-FEP(i,j,k));
-            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew), solverChoice.gls_Pmin);
+            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew), gls_Pmin);
         });
 
 
@@ -593,9 +619,9 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         {
             Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
             tke(i,j,k,nnew) = tke(i,j,k,nnew) - cff*(FCK(i,j,k  )-FCK(i,j,k-1));
-            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew),solverChoice.gls_Kmin);
+            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew),gls_Kmin);
             gls(i,j,k,nnew) = gls(i,j,k,nnew) - cff*(FCP(i,j,k  )-FCP(i,j,k-1));
-            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew),solverChoice.gls_Pmin);
+            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew),gls_Pmin);
         });
 
         // Compute vertical mixing, turbulent production and turbulent
@@ -618,37 +644,37 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             // Compute shear and bouyant production of turbulent energy (m3/s3)
             // at W-points (ignore small negative values of buoyancy).
             Real strat2 = buoy2(i,j,k);
-            Real gls_c3 = (strat2 > 0.0) ? solverChoice.gls_c3m : solverChoice.gls_c3p;
-            Real Kprod = shear2(i,j,k) * (Akv(i,j,k)-solverChoice.Akv_bak) -
-                         strat2 * (Akt(i,j,k,Temp_comp)-solverChoice.Akt_bak);
-            Real Pprod = solverChoice.gls_c1 * shear2(i,j,k) * (Akv(i,j,k)-solverChoice.Akv_bak) -
-                         gls_c3 * strat2 * (Akt(i,j,k,Temp_comp)-solverChoice.Akt_bak);
+            Real gls_c3 = (strat2 > 0.0) ? gls_c3m : gls_c3p;
+            Real Kprod = shear2(i,j,k) * (Akv(i,j,k)-Akv_bak) -
+                         strat2 * (Akt(i,j,k,Temp_comp)-Akt_bak);
+            Real Pprod = gls_c1 * shear2(i,j,k) * (Akv(i,j,k)-Akv_bak) -
+                         gls_c3 * strat2 * (Akt(i,j,k,Temp_comp)-Akt_bak);
 
             // If negative production terms, then add buoyancy to dissipation terms
             // (BCK and BCP) below, using "cff1" and "cff2" as the on/off switch.
             Real cff1 = (Kprod < 0.0_rt) ? 0.0_rt : 1.0_rt;
             Real cff2 = (Pprod < 0.0_rt) ? 0.0_rt : 1.0_rt;
             if (Kprod < 0.0_rt) {
-                Kprod = Kprod + strat2*(Akt(i,j,k,Temp_comp)-solverChoice.Akt_bak);
+                Kprod = Kprod + strat2*(Akt(i,j,k,Temp_comp)-Akt_bak);
             }
             if (Pprod < 0.0_rt) {
-                Pprod = Pprod + gls_c3*strat2*(Akt(i,j,k,Temp_comp)-solverChoice.Akt_bak);
+                Pprod = Pprod + gls_c3*strat2*(Akt(i,j,k,Temp_comp)-Akt_bak);
             }
             // Time-step shear and buoyancy production terms.
             Real cff_Hz = 0.5_rt * (Hz(i,j,k) + Hz(i,j,k-1));
             tke(i,j,k,nnew) = tke(i,j,k,nnew)+dt_lev * cff_Hz * Kprod;
             gls(i,j,k,nnew) = gls(i,j,k,nnew)+dt_lev
-                                *cff_Hz*Pprod*gls(i,j,k,nstp) / std::max(tke(i,j,k,nstp),solverChoice.gls_Kmin);
+                                *cff_Hz*Pprod*gls(i,j,k,nstp) / std::max(tke(i,j,k,nstp),gls_Kmin);
 
             // Compute dissipation of turbulent energy (m3/s3).
             Real wall_fac = 1.0_rt;
             if (Lmy25) {
                 // Parabolic wall function,  L = ds db / (ds + db).
-                wall_fac=1.0_rt+solverChoice.gls_E2/(solverChoice.vonKar*solverChoice.vonKar)*
+                wall_fac=1.0_rt+gls_E2/(vonKar*vonKar)*
                         std::pow(std::pow(gls(i,j,k,nstp),( gls_exp1))*cmu_fac1*
                          std::pow(tke(i,j,k,nstp),-tke_exp1)*
                          (1.0_rt/ (z_w(i,j,k)-z_w(i,j,0))),2)+
-                        0.25_rt/(solverChoice.vonKar*solverChoice.vonKar)*
+                        0.25_rt/(vonKar*vonKar)*
                         std::pow(std::pow(gls(i,j,k,nstp), gls_exp1)*cmu_fac1*
                          std::pow(tke(i,j,k,nstp),-tke_exp1)*
                          (1.0_rt/ (z_w(i,j,N+1)-z_w(i,j,k))),2);
@@ -657,14 +683,14 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                           std::pow(gls(i,j,k,nstp),(-gls_exp1))*cmu_fac2*
                           std::pow(tke(i,j,k,nstp), tke_exp2)+
                           dt_lev*(1.0_rt-cff1)*strat2*
-                          (Akt(i,j,k,Temp_comp)-solverChoice.Akt_bak)/
+                          (Akt(i,j,k,Temp_comp)-Akt_bak)/
                           tke(i,j,k,nstp))-
                           FCK(i,j,k)-FCK(i,j,k-1);
-            BCP(i,j,k)=cff_Hz*(1.0_rt+dt_lev*solverChoice.gls_c2*wall_fac*
+            BCP(i,j,k)=cff_Hz*(1.0_rt+dt_lev*gls_c2*wall_fac*
                           std::pow(gls(i,j,k,nstp),-gls_exp1)*cmu_fac2*
                           std::pow(tke(i,j,k,nstp), tke_exp2)+
                           dt_lev*(1.0_rt-cff2)*gls_c3*strat2*
-                          (Akt(i,j,k,Temp_comp)-solverChoice.Akt_bak)/
+                          (Akt(i,j,k,Temp_comp)-Akt_bak)/
                           tke(i,j,k,nstp))-
                           FCP(i,j,k)-FCP(i,j,k-1);
         });
@@ -683,16 +709,16 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             tke(i,j,N+1,nnew)=std::max(cmu_fac3*0.5_rt*
                                      std::sqrt((sustr(i,j,0)+sustr(i+1,j,0))*(sustr(i,j,0)+sustr(i+1,j,0))+
                                           (svstr(i,j,0)+svstr(i,j+1,0))*(svstr(i,j,0)+svstr(i,j+1,0))),
-                                     solverChoice.gls_Kmin);
+                                     gls_Kmin);
             tke(i,j,0,nnew)=std::max(cmu_fac3*0.5_rt*
                                  std::sqrt((bustr(i,j,0)+bustr(i+1,j,0))*(bustr(i,j,0)+bustr(i+1,j,0))+
                                       (bvstr(i,j,0)+bvstr(i,j+1,0))*(bvstr(i,j,0)+bvstr(i,j+1,0))),
-                                        solverChoice.gls_Kmin);
-            gls(i,j,N+1,nnew)=std::max(std::pow(solverChoice.gls_cmu0,solverChoice.gls_p)*
-                                    std::pow(tke(i,j,N+1,nnew),solverChoice.gls_m)*
-                                    std::pow(L_sft*Zos_eff,solverChoice.gls_n), solverChoice.gls_Pmin);
-            Real cff_gls = gls_fac4*std::pow(solverChoice.vonKar*Zob_min,solverChoice.gls_n);
-            gls(i,j,0,nnew)=std::max(cff_gls*std::pow(tke(i,j,0,nnew),(solverChoice.gls_m)), solverChoice.gls_Pmin);
+                                        gls_Kmin);
+            gls(i,j,N+1,nnew)=std::max(std::pow(gls_cmu0,gls_p)*
+                                    std::pow(tke(i,j,N+1,nnew),gls_m)*
+                                    std::pow(L_sft*Zos_eff,gls_n), gls_Pmin);
+            Real cff_gls = gls_fac4*std::pow(vonKar*Zob_min,gls_n);
+            gls(i,j,0,nnew)=std::max(cff_gls*std::pow(tke(i,j,0,nnew),(gls_m)), gls_Pmin);
 
             // Solve tri-diagonal system for turbulent kinetic energy.
             // Might be N instead of N-1?
@@ -707,21 +733,21 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 tke(i,j,k,nnew) = cff_BCK * (tke(i,j,k,nnew) - FCK(i,j,k) * tke(i,j,k+1,nnew));
             }
             tke(i,j,1,nnew) = tke(i,j,1,nnew) - cff_BCK * tke_fluxb;
-            tke(i,j,1,nnew) = std::max(tke(i,j,1,nnew),solverChoice.gls_Kmin);
+            tke(i,j,1,nnew) = std::max(tke(i,j,1,nnew),gls_Kmin);
             for (int k=2;k<=N;k++) {
                 tke(i,j,k,nnew) = tke(i,j,k,nnew) - CF(i,j,k) * tke(i,j,k-1,nnew);
-                tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew), solverChoice.gls_Kmin);
+                tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew), gls_Kmin);
             }
 
             // Solve tri-diagonal system for generic statistical field.
             Real cff_tke = 0.5_rt * (tke(i,j,N,nnew) + tke(i,j,N-1,nnew));
-            Real gls_fluxt = dt_lev*gls_fac3*std::pow(cff_tke,solverChoice.gls_m)*
-                             std::pow(L_sft,(solverChoice.gls_n))*
-                             std::pow(Zos_eff+0.5_rt*Hz(i,j,N),solverChoice.gls_n-1.0_rt)*
+            Real gls_fluxt = dt_lev*gls_fac3*std::pow(cff_tke,gls_m)*
+                             std::pow(L_sft,(gls_n))*
+                             std::pow(Zos_eff+0.5_rt*Hz(i,j,N),gls_n-1.0_rt)*
                              0.5_rt*(Akp(i,j,N+1)+Akp(i,j,N));
             cff_tke=0.5_rt*(tke(i,j,0,nnew)+tke(i,j,1,nnew));
-            Real gls_fluxb = dt_lev*gls_fac2*std::pow(cff_tke,solverChoice.gls_m)*
-                              std::pow(0.5_rt*Hz(i,j,0)+Zob_min,solverChoice.gls_n-1.0_rt)*
+            Real gls_fluxb = dt_lev*gls_fac2*std::pow(cff_tke,gls_m)*
+                              std::pow(0.5_rt*Hz(i,j,0)+Zob_min,gls_n-1.0_rt)*
                               0.5_rt*(Akp(i,j,0)+Akp(i,j,1));
             Real cff_BCP = 1.0_rt / BCP(i,j,N);
             CF(i,j,N) = cff_BCP * FCP(i,j,N-1);
@@ -740,18 +766,18 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         // Compute vertical mixing coefficients (m2/s).
         ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew),solverChoice.gls_Kmin);
-            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew),solverChoice.gls_Pmin);
-            if (solverChoice.gls_n >= 0.0_rt) {
+            tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew),gls_Kmin);
+            gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew),gls_Pmin);
+            if (gls_n >= 0.0_rt) {
                 gls(i,j,k,nnew)=std::min(gls(i,j,k,nnew),gls_fac5*
                                     std::pow(tke(i,j,k,nnew),tke_exp4)*
                                     std::pow(std::sqrt(std::max(0.0_rt,
-                                          buoy2(i,j,k)))+eps,-solverChoice.gls_n));
+                                          buoy2(i,j,k)))+eps,-gls_n));
             } else {
                 gls(i,j,k,nnew)=std::max(gls(i,j,k,nnew), gls_fac5*
                                  std::pow(tke(i,j,k,nnew),(tke_exp4))*
                                  std::pow((std::sqrt(std::max(0.0_rt,
-                                       buoy2(i,j,k)))+eps),(-solverChoice.gls_n)));
+                                       buoy2(i,j,k)))+eps),(-gls_n)));
             }
             Real Ls_lmt;
             Real Ls_unlmt=std::max(eps,
@@ -767,21 +793,21 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             //
             //  Recompute gls based on limited length scale
             //
-            gls(i,j,k,nnew)=std::max(std::pow(solverChoice.gls_cmu0,solverChoice.gls_p)*
-                                           std::pow(tke(i,j,k,nnew),solverChoice.gls_m)*
-                                           std::pow(Ls_lmt,solverChoice.gls_n), solverChoice.gls_Pmin);
+            gls(i,j,k,nnew)=std::max(std::pow(gls_cmu0,gls_p)*
+                                           std::pow(tke(i,j,k,nnew),gls_m)*
+                                           std::pow(Ls_lmt,gls_n), gls_Pmin);
 
             //   Compute nondimensional stability functions for tracers (Sh) and
             //   momentum (Sm).
             Real Sh, Sm;
-            Real Gh=std::min(solverChoice.gls_Gh0,-buoy2(i,j,k)*Ls_lmt*Ls_lmt/
+            Real Gh=std::min(gls_Gh0,-buoy2(i,j,k)*Ls_lmt*Ls_lmt/
                             (2.0_rt*tke(i,j,k,nnew)));
-            Gh=std::min(Gh,Gh-(Gh-solverChoice.gls_Ghcri)*(Gh-solverChoice.gls_Ghcri)/
-                       (Gh+solverChoice.gls_Gh0-2.0_rt*solverChoice.gls_Ghcri));
-            Gh=std::max(Gh,solverChoice.gls_Ghmin);
+            Gh=std::min(Gh,Gh-(Gh-gls_Ghcri)*(Gh-gls_Ghcri)/
+                       (Gh+gls_Gh0-2.0_rt*gls_Ghcri));
+            Gh=std::max(Gh,gls_Ghmin);
 
-            if (solverChoice.gls_stability_type == GLS_StabilityType::Canuto_A ||
-                solverChoice.gls_stability_type == GLS_StabilityType::Canuto_B) {
+            if (gls_stability_type == GLS_StabilityType::Canuto_A ||
+                gls_stability_type == GLS_StabilityType::Canuto_B) {
                 //
                 //   Canuto stability: Compute shear number.
                 //
@@ -804,10 +830,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 //
                 //  Relate Canuto stability to ROMS notation
                 //
-                Real gls_cmu0_cube = solverChoice.gls_cmu0 * solverChoice.gls_cmu0 * solverChoice.gls_cmu0;
+                Real gls_cmu0_cube = gls_cmu0 * gls_cmu0 * gls_cmu0;
                 Sm=Sm*sqrt2/(gls_cmu0_cube);
                 Sh=Sh*sqrt2/gls_cmu0_cube;
-            } else if (solverChoice.gls_stability_type == GLS_StabilityType::Galperin) {
+            } else if (gls_stability_type == GLS_StabilityType::Galperin) {
                 Real cff_galperin = 1.0_rt - my_Sh2*Gh;
                 Sh = my_Sh1 / cff_galperin;
                 Sm = (my_Sm3+Sh*Gh*my_Sm4)/(1.0_rt-my_Sm2*Gh);
@@ -819,35 +845,35 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
             Real ql=sqrt2*0.5_rt*(Ls_lmt*std::sqrt(tke(i,j,k,nnew))+
                                   Lscale(i,j,k)*std::sqrt(tke(i,j,k,nstp)));
-            Akv(i,j,k)=solverChoice.Akv_bak+Sm*ql;
+            Akv(i,j,k)=Akv_bak+Sm*ql;
             for (int n=0; n<NCONS; n++) {
-                Akt(i,j,k,n)=solverChoice.Akt_bak+Sh*ql;
+                Akt(i,j,k,n)=Akt_bak+Sh*ql;
             }
 
             //  Compute vertical mixing (m2/s) coefficents of turbulent kinetic
             //  energy and generic statistical field.
 
-            Akk(i,j,k)=solverChoice.Akk_bak+Sm*ql/solverChoice.gls_sigk;
-            Akp(i,j,k)=solverChoice.Akp_bak+Sm*ql*ogls_sigp;
+            Akk(i,j,k)=Akk_bak+Sm*ql/gls_sigk;
+            Akp(i,j,k)=Akp_bak+Sm*ql*ogls_sigp;
 
             //  Save limited length scale.
             Lscale(i,j,k)=Ls_lmt;
         });
         ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Akv(i,j,N+1)=solverChoice.Akv_bak+L_sft*Zos_eff*solverChoice.gls_cmu0*
+            Akv(i,j,N+1)=Akv_bak+L_sft*Zos_eff*gls_cmu0*
                           std::sqrt(tke(i,j,N+1,nnew));
-            Akv(i,j,0)=solverChoice.Akv_bak+solverChoice.vonKar*Zob_min*solverChoice.gls_cmu0*
+            Akv(i,j,0)=Akv_bak+vonKar*Zob_min*gls_cmu0*
                       std::sqrt(tke(i,j,0,nnew));
 
-            Akk(i,j,N+1)=solverChoice.Akk_bak+Akv(i,j,N+1)/solverChoice.gls_sigk;
-            Akk(i,j,0)=solverChoice.Akk_bak+Akv(i,j,0)/solverChoice.gls_sigk;
-            Akp(i,j,N+1)=solverChoice.Akp_bak+Akv(i,j,N+1)*ogls_sigp;
-            Akp(i,j,0)=solverChoice.Akp_bak+Akv(i,j,0)/solverChoice.gls_sigp;
+            Akk(i,j,N+1)=Akk_bak+Akv(i,j,N+1)/gls_sigk;
+            Akk(i,j,0)=Akk_bak+Akv(i,j,0)/gls_sigk;
+            Akp(i,j,N+1)=Akp_bak+Akv(i,j,N+1)*ogls_sigp;
+            Akp(i,j,0)=Akp_bak+Akv(i,j,0)/gls_sigp_cb;
 
             for (int n=0; n<NCONS; n++) {
-                Akt(i,j,N+1,n)  = solverChoice.Akt_bak;
-                Akt(i,j,0,n) = solverChoice.Akt_bak;
+                Akt(i,j,N+1,n)  = Akt_bak;
+                Akt(i,j,0,n) = Akt_bak;
             }
         });
     }
