@@ -63,7 +63,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     set_pm_pn(lev);
     stretch_transform(lev);
 
-    set_vmix(lev);
+    init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
@@ -166,7 +166,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     set_pm_pn(lev);
     stretch_transform(lev);
 
-    set_vmix(lev);
+    init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
@@ -298,13 +298,20 @@ void REMORA::resize_stuff(int lev)
 
     vec_rhoS.resize(lev+1);
     vec_rhoA.resize(lev+1);
+    vec_bvf.resize(lev+1);
 
     mapfac_m.resize(lev+1);
     mapfac_u.resize(lev+1);
     mapfac_v.resize(lev+1);
+
+    vec_tke.resize(lev+1);
+    vec_gls.resize(lev+1);
+    vec_Lscale.resize(lev+1);
+    vec_Akk.resize(lev+1);
+    vec_Akp.resize(lev+1);
 }
 
-void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& dm)
+void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping& dm)
 {
     // ********************************************************************************************
     // Initialize the boundary conditions
@@ -408,6 +415,13 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
 
     vec_rhoS[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
     vec_rhoA[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_bvf[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
+
+    vec_tke[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,3,IntVect(NGROW,NGROW,0)));
+    vec_gls[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,3,IntVect(NGROW,NGROW,0)));
+    vec_Lscale[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_Akk[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_Akp[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
 
     set_bathymetry(lev);
 

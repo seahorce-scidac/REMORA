@@ -5,12 +5,12 @@ inputs file: Advection_ML.i
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.000393772
+CPU time used since start of simulation (CPU-hours): 0.000399709
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Thu May  2 17:29:05 2024
+output data / time: Mon May 20 17:59:52 2024
 output dir:         /home/klion/software/REMORA/Exec/Advection
 
 
@@ -147,6 +147,7 @@ DistributionMapping.verbose_mapper = 0
 fab.initval = nan
 fab.do_initval = 1
 fabarray.maxcomp = 25
+amrex.mf.alloc_single_chunk = 0
 vismf.v = 0
 vismf.headerversion = 1
 vismf.groupsets = 0

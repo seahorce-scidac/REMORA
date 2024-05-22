@@ -195,3 +195,39 @@ REMORA::set_2darrays (int lev)
     FillPatch(lev, t_new[lev], *vec_msku[lev], GetVecOfPtrs(vec_ubar), BdyVars::null,0,true,false);
     FillPatch(lev, t_new[lev], *vec_mskv[lev], GetVecOfPtrs(vec_vbar), BdyVars::null,0,true,false);
 }
+
+void
+REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
+{
+    vec_tke[lev]->setVal(solver_choice.gls_Kmin);
+    vec_gls[lev]->setVal(solver_choice.gls_Pmin);
+    vec_Lscale[lev]->setVal(0.0_rt);
+    vec_Akk[lev]->setVal(solver_choice.Akk_bak);
+    vec_Akp[lev]->setVal(solver_choice.Akp_bak);
+    vec_Akv[lev]->setVal(solver_choice.Akv_bak);
+    vec_Akt[lev]->setVal(solver_choice.Akt_bak);
+
+    auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
+
+    for (MFIter mfi(*vec_Akk[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        Array4<Real> const& Akk = vec_Akk[lev]->array(mfi);
+        Array4<Real> const& Akp = vec_Akp[lev]->array(mfi);
+        Array4<Real> const& Akt = vec_Akt[lev]->array(mfi);
+        Array4<Real> const& Akv = vec_Akv[lev]->array(mfi);
+
+        ParallelFor(makeSlab(Box(Akk),2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            Akk(i,j, 0) = 0.0_rt;
+            Akk(i,j, N+1) = 0.0_rt;
+
+            Akp(i,j, 0) = 0.0_rt;
+            Akp(i,j, N+1) = 0.0_rt;
+
+            Akv(i,j, 0) = 0.0_rt;
+            Akv(i,j, N+1) = 0.0_rt;
+
+            Akt(i,j, 0) = 0.0_rt;
+            Akt(i,j, N+1) = 0.0_rt;
+        });
+    }
+}
