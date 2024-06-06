@@ -99,7 +99,9 @@ The example below adds two user-named criteria:
 The first will trigger up to AMR level 3 and the second to level 2.
 The second will be active only when the problem time is between 100 and 300 seconds.
 
-Note that ``temp`` and ``scalar`` are the names of state variables.
+Note that ``temp`` and ``scalar`` are the names of state variables and ``vorticity`` is a derived variable.
+Valid field options for refinement are: ``scalar``, ``temp``, ``salt``, ``x_velocity``, ``y_velocity``, ``z_velocity``,
+and ``vorticity``.
 
 .. , whereas ``vorticity`` is the name of a derived variable.
 
@@ -117,7 +119,7 @@ Note that ``temp`` and ``scalar`` are the names of state variables.
           remora.scalardiff.start_time = 100
           remora.scalardiff.end_time = 300
 
-..          remora.lo_vort.max_level = 1
+          remora.lo_vort.max_level = 1
           remora.lo_vort.value_less = 0
           remora.lo_vort.field_name = vorticity
           remora.lo_vort.in_box_lo = .25 .25

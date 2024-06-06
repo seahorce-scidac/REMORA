@@ -394,6 +394,17 @@ REMORA::WritePlotFile ()
                 g2[lev].define(d2,&(Geom()[lev].ProbDomain()),0,periodicity.data());
             }
 
+            // Make a vector of BCRec with default values so we can use it here -- note the values
+            //      aren't actually used because we do PCInterp
+            amrex::Vector<amrex::BCRec> null_dom_bcs;
+            null_dom_bcs.resize(mf2[0].nComp());
+            for (int n = 0; n < mf2[0].nComp(); n++) {
+                for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
+                    null_dom_bcs[n].setLo(dir, REMORABCType::int_dir);
+                    null_dom_bcs[n].setHi(dir, REMORABCType::int_dir);
+                }
+            }
+
             // Do piecewise interpolation of mf into mf2
             for (int lev = 1; lev <= finest_level; ++lev) {
                 Interpolater* mapper_c = &pc_interp;
@@ -401,7 +412,7 @@ REMORA::WritePlotFile ()
                                       0, 0, mf2[lev].nComp(),
                                       geom[lev], g2[lev],
                                       null_bc_for_fill, 0, null_bc_for_fill, 0,
-                                      r2[lev-1], mapper_c, domain_bcs_type, 0);
+                                      r2[lev-1], mapper_c, null_dom_bcs, 0);
             }
 
             // Define an effective ref_ratio which is isotropic to be passed into WriteMultiLevelPlotfile
