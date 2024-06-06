@@ -723,10 +723,10 @@ REMORA::advance_2d (int lev,
     // We may need to move the zeta FillPatch further up
     if (my_iif<nfast) {
         FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar,
-                  knew, false);
+                  knew, false,false);
         FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,
-                  knew, false);
+                  knew, false,false);
         FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), BdyVars::zeta,
-                  knew, false);
+                  knew, false,false);
     }
 }
