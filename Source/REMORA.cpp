@@ -229,6 +229,7 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
             // We need to do this before anything else because refluxing changes the
             // values of coarse cells underneath fine grids with the assumption they'll
             // be over-written by averaging down
+            //
             AverageDownTo(lev);
         }
     }
@@ -424,23 +425,28 @@ REMORA::set_zeta (int lev)
 void
 REMORA::set_bathymetry (int lev)
 {
-    if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
-        init_custom_bathymetry(geom[lev], *vec_hOfTheConfusingName[lev], solverChoice);
+    // Only set bathymetry on level 0, and interpolate for finer levels
+    if (lev==0) {
+        if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+            init_custom_bathymetry(geom[lev], *vec_hOfTheConfusingName[lev], solverChoice);
 
 #ifdef REMORA_USE_NETCDF
-    } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
-        amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
-        init_bathymetry_from_netcdf(lev);
-        amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+        } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+            amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
+            init_bathymetry_from_netcdf(lev);
+            amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
 #endif
+        } else {
+            Abort("Don't know this ic_bc_type!");
+        }
+        // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
+        // to make sure ghost cells in the domain corners are consistent.
+        vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+        vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
     } else {
-        Abort("Don't know this ic_bc_type!");
+        Real dummy_time = 0.0_rt;
+        FillCoarsePatch(lev,dummy_time,vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get());
     }
-
-    // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
-    // to make sure ghost cells in the domain corners are consistent.
-    vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
-    vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
 }
 
 void
@@ -504,7 +510,7 @@ REMORA::set_smflux(int lev, Real time)
 }
 
 void
-REMORA::init_only(int lev, Real time)
+REMORA::init_only (int lev, Real time)
 {
     t_new[lev] = time;
     t_old[lev] = time - 1.e200_rt;
@@ -514,25 +520,34 @@ REMORA::init_only(int lev, Real time)
     yvel_new[lev]->setVal(0.0_rt);
     zvel_new[lev]->setVal(0.0_rt);
 
+    set_bathymetry(lev);
     set_zeta(lev);
     stretch_transform(lev);
 
-    if (solverChoice.ic_bc_type == IC_BC_Type::Custom)
-    {
-        init_custom(lev);
+    if (lev==0) {
+        if (solverChoice.ic_bc_type == IC_BC_Type::Custom)
+        {
+            init_custom(lev);
 #ifdef REMORA_USE_NETCDF
-    } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+        } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
 
-        amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
-        init_data_from_netcdf(lev);
-        amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
+            amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
+            init_data_from_netcdf(lev);
+            amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
 
-        amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
-        init_bdry_from_netcdf();
-        amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
+            amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
+            init_bdry_from_netcdf();
+            amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
 #endif
+        } else {
+            Abort("Need to specify ic_bc_type");
+        }
     } else {
-        Abort("Need to specify ic_bc_type");
+        FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1]);
+        FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
+        FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1]);
+        FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1]);
+        set_pm_pn(lev);
     }
 
     set_2darrays(lev);
