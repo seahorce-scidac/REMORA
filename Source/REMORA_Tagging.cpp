@@ -27,20 +27,22 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             MultiFab::Copy(*mf,*cons_new[levc],Scalar_comp,0,1,0);
         } else if (ref_tags[j].Field() == "vorticity") {
             mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
-            MultiFab mf_cc_vel(grids[levc],dmap[levc],1,1);
+            MultiFab mf_cc_vel(grids[levc],dmap[levc],3,1);
             average_face_to_cellcenter(mf_cc_vel,0,
-                                       Array<const MultiFab*,3>{&xvel_new[levc],
-                                                                &yvel_new[levc],
-                                                                &zvel_new[levc]});
+                                       Array<const MultiFab*,3>{xvel_new[levc],
+                                                                yvel_new[levc],
+                                                                zvel_new[levc]});
             // Impose bc's at domain boundaries at all levels
-            FillBdyCCVels(mf_cc_vel);
+            FillBdyCCVels(levc, mf_cc_vel);
 
             for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
             {
                 const Box& bx = mfi.tilebox();
                 auto& dfab = (*mf)[mfi];
                 auto& sfab = mf_cc_vel[mfi];
-                derived::remora_dervort(bx, dfab, 0, 1, sfab, Geom(levc), time, nullptr, levc);
+                auto pm = vec_pm[levc]->const_array(mfi);
+                auto pn = vec_pn[levc]->const_array(mfi);
+                derived::remora_dervort(bx, dfab, 0, 1, sfab, pm, pn, Geom(levc), time, nullptr, levc);
             } // mfi
 
 #ifdef REMORA_USE_PARTICLES

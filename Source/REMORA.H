@@ -623,7 +623,7 @@ public:
     void set_weights (int lev);
 
     // Fill the physical boundary conditions for cell-centered velocity (diagnostic only)
-    void FillBdyCCVels (amrex::Vector<amrex::MultiFab>& mf_cc_vel);
+    void FillBdyCCVels (int lev, amrex::MultiFab& mf_cc_vel);
 
     // Fill a new MultiFab by copying in phi from valid region and filling ghost cells
     void FillPatch (int lev, amrex::Real time,
