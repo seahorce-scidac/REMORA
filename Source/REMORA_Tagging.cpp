@@ -25,6 +25,21 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         {
             mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab::Copy(*mf,*cons_new[levc],Scalar_comp,0,1,0);
+        } else if (ref_tags[j].Field() == "temp") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab::Copy(*mf,*cons_new[levc],Temp_comp,0,1,0);
+        } else if (ref_tags[j].Field() == "salt") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab::Copy(*mf,*cons_new[levc],Salt_comp,0,1,0);
+        } else if (ref_tags[j].Field() == "x_velocity") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,0);
+        } else if (ref_tags[j].Field() == "y_velocity") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab::Copy(*mf,*yvel_new[levc],0,0,1,0);
+        } else if (ref_tags[j].Field() == "z_velocity") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,0);
         } else if (ref_tags[j].Field() == "vorticity") {
             mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab mf_cc_vel(grids[levc],dmap[levc],3,1);
