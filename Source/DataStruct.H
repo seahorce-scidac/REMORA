@@ -38,6 +38,14 @@ enum class PlotfileType {
     amrex, netcdf, hdf5
 };
 
+enum class VertMixingType {
+    analytical, GLS
+};
+
+enum class GLS_StabilityType {
+    Canuto_A, Canuto_B, Galperin
+};
+
 struct SolverChoice {
   public:
     void init_params()
@@ -57,6 +65,8 @@ struct SolverChoice {
             amrex::Error("Advection scheme unknown.");
 
         pp.query("rdrag", rdrag);
+        pp.query("rdrag", Zos);
+        pp.query("rdrag", Zob);
 
         // Order of spatial discretization
         pp.query("spatial_order", spatial_order);
@@ -94,6 +104,9 @@ struct SolverChoice {
         pp.query("coriolis_beta",coriolis_beta);
 
         pp.query("ggrav",g);
+
+        pp.query("Akv_bak",Akv_bak);
+        pp.query("Akt_bak",Akt_bak);
 
         static std::string ic_bc_type_string = "custom";
         pp.query("ic_bc_type", ic_bc_type_string);
@@ -134,6 +147,74 @@ struct SolverChoice {
                 coriolis_type = Cor_Type::Real;
             } else {
                 amrex::Abort("Don't know this coriolis_type");
+            }
+        }
+
+        pp.query("Akk_bak", Akk_bak);
+        pp.query("Akp_bak", Akp_bak);
+        static std::string vert_mixing_type_string = "analytical";
+        static std::string gls_stability_type_string = "Canuto_A";
+        pp.query("vertical_mixing_type", vert_mixing_type_string);
+        pp.query("gls_stability_type", gls_stability_type_string);
+        if ( (vert_mixing_type_string == "analytical") || (vert_mixing_type_string == "Analytical") ) {
+            vert_mixing_type = VertMixingType::analytical;
+        } else if ((vert_mixing_type_string == "gls") || (vert_mixing_type_string == "GLS") ) {
+            vert_mixing_type = VertMixingType::GLS;
+            if ( (gls_stability_type_string == "Canuto_A") || (gls_stability_type_string == "canuto_a") || (gls_stability_type_string == "canuto_A") ) {
+                gls_stability_type = GLS_StabilityType::Canuto_A;
+            }
+            else if ( (gls_stability_type_string == "Canuto_B") || (gls_stability_type_string == "canuto_b") || (gls_stability_type_string == "canuto_B") ) {
+                gls_stability_type = GLS_StabilityType::Canuto_B;
+            }
+            else if ( (gls_stability_type_string == "galperin") || (gls_stability_type_string == "Galperin") ) {
+                gls_stability_type = GLS_StabilityType::Galperin;
+            }
+            else {
+                amrex::Abort("Don't know this GLS stability type");
+            }
+        } else {
+            amrex::Abort("Don't know this vertical mixing type");
+        }
+        // Read in GLS params
+        if (vert_mixing_type == VertMixingType::GLS) {
+            pp.query("gls_P", gls_p);
+            pp.query("gls_M", gls_m);
+            pp.query("gls_N", gls_n);
+            pp.query("gls_Kmin", gls_Kmin);
+            pp.query("gls_Pmin", gls_Pmin);
+
+            pp.query("gls_cmu0", gls_cmu0);
+            pp.query("gls_c1", gls_c1);
+            pp.query("gls_c2", gls_c2);
+            pp.query("gls_c3m", gls_c3m);
+            pp.query("gls_c3p", gls_c3p);
+            pp.query("gls_sigk", gls_sigk);
+            pp.query("gls_sigp", gls_sigp);
+            if (gls_stability_type == GLS_StabilityType::Canuto_A) {
+                gls_Gh0 = amrex::Real(0.0329); // 0.0329 GOTM, 0.0673 Burchard
+                gls_Ghcri = amrex::Real(0.03);
+                gls_L1 = amrex::Real(0.107);
+                gls_L2 = amrex::Real(0.0032);
+                gls_L3 = amrex::Real(0.0864);
+                gls_L4 = amrex::Real(0.12);
+                gls_L5 = amrex::Real(11.9);
+                gls_L6 = amrex::Real(0.4);
+                gls_L7 = amrex::Real(0.0);
+                gls_L8 = amrex::Real(0.48);
+            } else if (gls_stability_type == GLS_StabilityType::Canuto_B) {
+                gls_Gh0 = amrex::Real(0.0444); // 0.044 GOTM, 0.0673 Burchard
+                gls_Ghcri = amrex::Real(0.0414);
+                gls_L1 = amrex::Real(0.127);
+                gls_L2 = amrex::Real(0.00336);
+                gls_L3 = amrex::Real(0.0906);
+                gls_L4 = amrex::Real(0.101);
+                gls_L5 = amrex::Real(11.2);
+                gls_L6 = amrex::Real(0.4);
+                gls_L7 = amrex::Real(0.0);
+                gls_L8 = amrex::Real(0.318);
+            } else {
+                gls_Gh0 = amrex::Real(0.028);
+                gls_Ghcri = amrex::Real(0.02);
             }
         }
     }
@@ -210,6 +291,10 @@ struct SolverChoice {
     // Coriolis forcing type
     Cor_Type coriolis_type;
 
+    // Mixing type and parameters
+    VertMixingType vert_mixing_type;
+    GLS_StabilityType gls_stability_type;
+
     // Stretching and depth parameters which may need to be read from inputs
     amrex::Real theta_s = amrex::Real(3.0);
     amrex::Real theta_b = amrex::Real(0.0);
@@ -217,6 +302,10 @@ struct SolverChoice {
 
     // Linear drag coefficient
     amrex::Real rdrag = amrex::Real(3e-4);
+
+    // Momentum stress scales
+    amrex::Real Zob = amrex::Real(2e-2);
+    amrex::Real Zos = amrex::Real(2e-2);
 
     // Linear equation of state parameters
     amrex::Real R0 = amrex::Real(1028); // background density value (Kg/m3) used in Linear Equation of State
@@ -233,8 +322,62 @@ struct SolverChoice {
     // Gravity
     amrex::Real g = amrex::Real(9.81); // gravitational field strength [kg m/s^2]
 
+    amrex::Real vonKar = amrex::Real(0.41); // von Karman constant [non dimensional]
+
     // Spatial discretization
     int         spatial_order = 2;
+
+    // GLS params
+    amrex::Real gls_p = amrex::Real(3.0);
+    amrex::Real gls_m = amrex::Real(1.5);
+    amrex::Real gls_n = amrex::Real(-1.0);
+    amrex::Real gls_Kmin = amrex::Real(7.6e-6);
+    amrex::Real gls_Pmin = amrex::Real(1.0e-12);
+
+    amrex::Real gls_cmu0 = amrex::Real(0.5477);
+    amrex::Real gls_c1 = amrex::Real(1.44);
+    amrex::Real gls_c2 = amrex::Real(1.92);
+    amrex::Real gls_c3m = amrex::Real(-0.4);
+    amrex::Real gls_c3p = amrex::Real(1.0);
+    amrex::Real gls_sigk = amrex::Real(1.0);
+    amrex::Real gls_sigp = amrex::Real(1.3);
+
+    // Turbulence closure
+    amrex::Real Akk_bak = amrex::Real(5.0e-6);
+    amrex::Real Akp_bak = amrex::Real(5.0e-6);
+    amrex::Real Akv_bak = amrex::Real(5.0e-6);
+    amrex::Real Akt_bak = amrex::Real(1.0e-6); // Note: this is a vector with one component per tracer in ROMS
+
+    // Params for stability functions.
+    amrex::Real gls_Gh0;
+    amrex::Real gls_Ghcri;
+    amrex::Real gls_Ghmin = amrex::Real(-0.28);
+    amrex::Real gls_E2 = amrex::Real(1.33);
+    // Params only for Canuto stability
+    amrex::Real gls_L1;
+    amrex::Real gls_L2;
+    amrex::Real gls_L3;
+    amrex::Real gls_L4;
+    amrex::Real gls_L5;
+    amrex::Real gls_L6;
+    amrex::Real gls_L7;
+    amrex::Real gls_L8;
+
+    // Params for some GLS and also Mellor-Yamada
+    amrex::Real my_A1 = amrex::Real(0.92);
+    amrex::Real my_A2 = amrex::Real(0.74);
+    amrex::Real my_B1 = amrex::Real(16.6);
+    amrex::Real my_B2 = amrex::Real(10.1);
+    amrex::Real my_C1 = amrex::Real(0.08);
+    amrex::Real my_C2 = amrex::Real(0.7);
+    amrex::Real my_C3 = amrex::Real(0.2);
+    amrex::Real my_E1 = amrex::Real(1.8);
+    amrex::Real my_E2 = amrex::Real(1.33);
+    amrex::Real my_Gh0 = amrex::Real(0.0233);
+    amrex::Real my_Sq = amrex::Real(0.2);
+    amrex::Real my_dtfac = amrex::Real(0.05);
+    amrex::Real my_lmax = amrex::Real(0.53);
+    amrex::Real my_qmin = amrex::Real(1.0E-8);
 };
 
 #endif

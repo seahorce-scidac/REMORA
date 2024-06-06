@@ -63,7 +63,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     set_pm_pn(lev);
     stretch_transform(lev);
 
-    set_vmix(lev);
+    init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
@@ -166,7 +166,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     set_pm_pn(lev);
     stretch_transform(lev);
 
-    set_vmix(lev);
+    init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
@@ -264,7 +264,6 @@ void REMORA::resize_stuff(int lev)
     vec_Hvom.resize(lev+1);
     vec_Akv.resize(lev+1);
     vec_Akt.resize(lev+1);
-    vec_visc3d_r.resize(lev+1);
     vec_visc2_p.resize(lev+1);
     vec_visc2_r.resize(lev+1);
     vec_diff2.resize(lev+1);
@@ -299,13 +298,20 @@ void REMORA::resize_stuff(int lev)
 
     vec_rhoS.resize(lev+1);
     vec_rhoA.resize(lev+1);
+    vec_bvf.resize(lev+1);
 
     mapfac_m.resize(lev+1);
     mapfac_u.resize(lev+1);
     mapfac_v.resize(lev+1);
+
+    vec_tke.resize(lev+1);
+    vec_gls.resize(lev+1);
+    vec_Lscale.resize(lev+1);
+    vec_Akk.resize(lev+1);
+    vec_Akp.resize(lev+1);
 }
 
-void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& dm)
+void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping& dm)
 {
     // ********************************************************************************************
     // Initialize the boundary conditions
@@ -348,17 +354,15 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
 
     vec_s_r[lev].reset                (new MultiFab(ba1d,dm,1,IntVect(    0,    0,0))); // scaled vertical coordinate [0,1] , transforms to z
 
-    vec_z_w[lev].reset                (new MultiFab(ba_w,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at w points (cell faces)
-    vec_z_r[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at r points (cell center)
-    vec_Hz[lev].reset                 (new MultiFab(ba  ,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
+    vec_z_w[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at w points (cell faces)
+    vec_z_r[lev].reset                (new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at r points (cell center)
+    vec_Hz[lev].reset                 (new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,NGROW+1))); // like in ROMS, thickness of cell in z
 
     vec_Huon[lev].reset               (new MultiFab(convert(ba,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for u component
     vec_Hvom[lev].reset               (new MultiFab(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
 
-    vec_Akv[lev].reset                (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
-    vec_Akt[lev].reset                (new MultiFab(ba  ,dm,NCONS,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
-    vec_visc3d_r[lev].reset           (new MultiFab(ba  ,dm,1,IntVect(NGROW,NGROW,0))); // not used
-
+    vec_Akv[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
+    vec_Akt[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,NCONS,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
 
     // check dimensionality
     vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?
@@ -411,6 +415,13 @@ void REMORA::init_stuff(int lev, const BoxArray& ba, const DistributionMapping& 
 
     vec_rhoS[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
     vec_rhoA[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_bvf[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
+
+    vec_tke[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,3,IntVect(NGROW,NGROW,0)));
+    vec_gls[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,3,IntVect(NGROW,NGROW,0)));
+    vec_Lscale[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_Akk[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_Akp[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
 
     set_bathymetry(lev);
 
@@ -472,7 +483,6 @@ REMORA::set_zeta_to_Ztavg (int lev)
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     for ( MFIter mfi(*vec_zeta[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        int nstp = 0;
         Array4<const Real> const& Zt_avg1 = (mf_Zt_avg1)->const_array(mfi);
         Array4<Real> const& zeta = mf_zeta->array(mfi);
 

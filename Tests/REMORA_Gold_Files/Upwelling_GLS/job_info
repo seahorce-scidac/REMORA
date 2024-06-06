@@ -1,33 +1,33 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: Advection_ML.i
+inputs file: Upwelling_GLS.i
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.000399709
+CPU time used since start of simulation (CPU-hours): 0.000265226
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Mon May 20 17:59:52 2024
-output dir:         /home/klion/software/REMORA/Exec/Advection
+output data / time: Tue May 21 16:55:53 2024
+output dir:         /home/klion/software/REMORA/Exec/Upwelling
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    2024-03-15 10:02:48.932318
+build date:    2024-02-06 09:48:30.294898
 build machine: Linux varan 5.15.0-91-generic #101~20.04.1-Ubuntu SMP Thu Nov 16 14:22:28 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
-build dir:     /home/klion/software/REMORA/Exec/Advection
+build dir:     /home/klion/software/REMORA/Exec/Upwelling
 AMReX dir:     ../../Submodules/AMReX
 
 COMP:          gnu
 COMP version:  9.4.0
 
 
-REMORA       git hash: 4ef8dcf-dirty
-AMReX       git hash: 24.03-8-gae3af4339
+REMORA       git hash: d6367ef-dirty
+AMReX       git hash: 24.01-25-gd121723c7
 
 
 ===============================================================================
@@ -35,17 +35,13 @@ AMReX       git hash: 24.03-8-gae3af4339
 ===============================================================================
  level: 0
    number of boxes = 1
-   maximum zones   = 80 80 16 
-
- level: 1
-   number of boxes = 1
-   maximum zones   = 160 160 16 
+   maximum zones   = 41 80 16 
 
  Boundary conditions
    -x: Periodic
    +x: Periodic
-   -y: Periodic
-   +y: Periodic
+   -y: SlipWall
+   +y: SlipWall
    -z: SlipWall
    +z: SlipWall
 
@@ -54,53 +50,60 @@ AMReX       git hash: 24.03-8-gae3af4339
  Inputs File Parameters
 ===============================================================================
 max_step = 10
-stop_time = 300000.0
 amrex.fpe_trap_invalid = 1
 fabarray.mfiter_tile_size = 1024 1024 1024
 geometry.prob_lo = 0. 0. -150.
-geometry.prob_hi = 40000. 40000. 0.
-amr.n_cell = 80 80 16
-geometry.is_periodic = 1 1 0
+geometry.prob_hi = 41000. 80000. 0.
+amr.n_cell = 41 80 16
+geometry.is_periodic = 1 0 0
+ylo.type = SlipWall
+yhi.type = SlipWall
 zlo.type = SlipWall
 zhi.type = SlipWall
-remora.fixed_dt = 100.0
-remora.fixed_ndtfast_ratio = 10
-remora.sum_interval = 10
+remora.fixed_dt = 300.0
+remora.fixed_fast_dt = 10.0
+remora.fixed_ndtfast_ratio = 30
+remora.sum_interval = 1
 remora.v = 0
 amr.v = 1
-amr.max_level = 1
-amr.ref_ratio_vect = 2 2 1
+amr.max_level = 0
 remora.check_file = chk
 remora.check_int = -57600
 remora.plot_file = plt
 remora.plot_int = 100
-remora.plot_vars = salt temp scalar x_velocity y_velocity z_velocity
+remora.plot_vars = salt temp x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
-remora.use_coriolis = false
-remora.flat_bathymetry = true
-remora.use_barotropic = true
-remora.horizontal_advection_scheme = centered4
+remora.flat_bathymetry = false
+remora.horizontal_advection_scheme = upstream3
 remora.spatial_order = 2
 remora.R0 = 1027.0
 remora.S0 = 35.0
 remora.T0 = 14.0
-remora.Tcoef = 0.0
+remora.Tcoef = 1.7e-4
 remora.Scoef = 0.0
 remora.rho0 = 1025.0
-remora.coriolis_f0 = 0.0
+remora.tcline = 25.0
+remora.vertical_mixing_type = gls
+remora.gls_stability_type = galperin
+remora.gls_P = 3.0
+remora.gls_M = 1.5
+remora.gls_N = -1.0
+remora.gls_Kmin = 7.6e-6
+remora.gls_Pmin = 1.0e-12
+remora.gls_cmu0 = 0.5477
+remora.gls_c1 = 1.44
+remora.gls_c2 = 1.92
+remora.gls_c3m = -0.4
+remora.gls_c3p = 1.0
+remora.gls_sigk = 1.0
+remora.gls_sigp = 1.3
+remora.Akk_bak = 5.0e-6
+remora.Akp_bak = 5.0e-6
+remora.Akv_bak = 1.0e-5
+remora.use_coriolis = true
+remora.coriolis_type = beta_plane
+remora.coriolis_f0 = -8.26e-5
 remora.coriolis_beta = 0.0
-remora.rdrag = 0.0
-prob.u_0 = 1.0e-0
-prob.v_0 = -1.0e-0
-remora.refinement_indicators = scalar
-remora.scalar.max_level = 1
-remora.scalar.field_name = scalar
-remora.scalar.value_greater = 0.5
-remora.scalar.start_time = 200
-remora.coupling_type = TwoWay
-remora.do_substep = 0
-amr.n_error_buf = 3 3
-remora.regrid_int = 1
 amr.refine_grid_layout_x = 1
 amr.refine_grid_layout_y = 1
 amr.refine_grid_layout_z = 0

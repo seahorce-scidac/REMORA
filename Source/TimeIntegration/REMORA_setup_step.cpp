@@ -33,7 +33,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     const DistributionMapping& dm = S_old.DistributionMap();
 
     const int nrhs  = 0;
-    const int nstp  = 0;
+    int nstp  = 0;
 
     // Place-holder for source array -- for now just set to 0
     MultiFab source(ba,dm,nvars,1);
@@ -55,11 +55,15 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     MultiFab* mf_pn  =   vec_pn[lev].get();
     MultiFab* mf_fcor  = vec_fcor[lev].get();
 
+    MultiFab* mf_gls = vec_gls[lev].get();
+    MultiFab* mf_tke = vec_tke[lev].get();
+
     //Consider passing these into the advance function or renaming relevant things
 
     MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
     std::unique_ptr<MultiFab>& mf_rhoS = vec_rhoS[lev];
     std::unique_ptr<MultiFab>& mf_rhoA = vec_rhoA[lev];
+    std::unique_ptr<MultiFab>& mf_bvf = vec_bvf[lev];
     std::unique_ptr<MultiFab>& mf_ru = vec_ru[lev];
     std::unique_ptr<MultiFab>& mf_rv = vec_rv[lev];
     std::unique_ptr<MultiFab>& mf_rufrc = vec_rufrc[lev];
@@ -111,11 +115,13 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real      > const& Hvom  = vec_Hvom[lev]->array(mfi);
 
         Array4<Real const> const& z_w   = mf_z_w->const_array(mfi);
+        Array4<Real const> const& z_r   = mf_z_r->const_array(mfi);
         Array4<Real const> const& uold  = U_old.const_array(mfi);
         Array4<Real const> const& vold  = V_old.const_array(mfi);
         Array4<Real      > const& rho   = mf_rho.array(mfi);
         Array4<Real      > const& rhoA  = mf_rhoA->array(mfi);
         Array4<Real      > const& rhoS  = mf_rhoS->array(mfi);
+        Array4<Real      > const& bvf   = mf_bvf->array(mfi);
         Array4<Real const> const& rdrag = mf_rdrag->const_array(mfi);
         Array4<Real      > const& bustr = mf_bustr->array(mfi);
         Array4<Real      > const& bvstr = mf_bvstr->array(mfi);
@@ -165,10 +171,17 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         });
 
         Array4<Real const> const& state_old = S_old.const_array(mfi);
-        rho_eos(gbx2,state_old,rho,rhoA,rhoS,Hz,z_w,h,N);
+        rho_eos(gbx2,state_old,rho,rhoA,rhoS,bvf,Hz,z_w,z_r,h,N);
     }
 
-    MultiFab mf_W(ba,dm,1,IntVect(NGROW+1,NGROW+1,0));
+    if (solverChoice.vert_mixing_type == VertMixingType::analytical) {
+        // Update Akv if using analytical mixing
+        init_set_vmix(lev);
+    }
+
+    set_zeta_to_Ztavg(lev);
+
+    MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
     mf_W.setVal(0.0_rt);
 
     if (solverChoice.use_prestep) {
@@ -243,7 +256,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-        FArrayBox fab_FC(tbxp2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_FC(surroundingNodes(tbxp2,2),1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
@@ -305,17 +318,14 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             const int nnew = 0;
             uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, pm, pn, nrhs, nnew, dt_lev);
         }
-
-        // Set first two components of zeta to time-averaged values before barotropic update
-        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-            zeta(i,j,0,0) = Zt_avg1(i,j,0);
-            zeta(i,j,0,1) = Zt_avg1(i,j,0);
-        });
     } // MFIter
 
-    // Update Akv with new depth. NOTE: this happens before set_zeta in ROMS
-    set_vmix(lev);
+    int nnew = (iic +1)% 2;
+    nstp = iic % 2;
+    if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
+        gls_prestep(lev, mf_gls, mf_tke, mf_W, nstp, nnew, iic, ntfirst, N, dt_lev);
+    }
+    nstp = 0;
 
     FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
     FillPatch(lev, time, *cons_new[lev], cons_new, BdyVars::t);

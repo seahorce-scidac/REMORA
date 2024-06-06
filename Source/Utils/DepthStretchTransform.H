@@ -18,7 +18,7 @@ REMORA::stretch_transform (int lev)
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
-    auto N_loop = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
+    auto N_loop = Geom(lev).Domain().size()[2]; // Number of vertical "levs" aka, NZ
 
     for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -37,7 +37,8 @@ REMORA::stretch_transform (int lev)
       gbx2D.makeSlab(2,0);
       Box gbx3D = gbx3;
       gbx3D.makeSlab(2,0);
-      Box wgbx3 = gbx3.surroundingNodes(2);
+      Box wgbx3 = gbx3;
+      wgbx3.surroundingNodes(2);
 
       const auto & geomdata = Geom(lev).data();
 
@@ -59,7 +60,7 @@ REMORA::stretch_transform (int lev)
 
       amrex::ParallelFor(gbx3D, [=] AMREX_GPU_DEVICE (int i, int j, int )
       {
-          for (int k=-1; k<=N_loop; k++) {
+          for (int k=0; k<=N_loop; k++) {
               //        const Real z = prob_lo[2] + (k + 0.5) * dx[2];
               // const auto prob_lo         = geomdata.ProbLo();
               // const auto dx              = geomdata.CellSize();
@@ -162,19 +163,20 @@ REMORA::stretch_transform (int lev)
               cff2_r=(cff_r+cff1_r*hwater)*hinv;
               cff2_w=(cff_w+cff1_w*hwater)*hinv;
 
-              if(k==0) {
+              if(k==N) {
                   // HACK: should actually be the normal expression with coeffs evaluated at k=N-1
-                  z_w(i,j,N-1)=Zt_avg1(i,j,0);
+                  z_w(i,j,N)=Zt_avg1(i,j,0);
 
-              } else if (k==-1) {
+              } else if (k==0) {
                   h(i,j,0,1) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+                  z_w(i,j,0) = h(i,j,0,1);
 
               } else {
-                  z_w(i,j,k-1)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+                  z_w(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
 
               }
 
-              if(k!=-1) {
+              if(k!=N) {
                   z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
               }
           } // k
@@ -184,11 +186,7 @@ REMORA::stretch_transform (int lev)
 
       amrex::ParallelFor(gbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-          if (k==0) {
-              Hz(i,j,k)=z_w(i,j,k)+h(i,j,0);
-          } else {
-              Hz(i,j,k)=z_w(i,j,k)-z_w(i,j,k-1);
-          }
+            Hz(i,j,k)=z_w(i,j,k+1)-z_w(i,j,k);
       });
     } // mfi
 
@@ -208,8 +206,9 @@ REMORA::stretch_transform (int lev)
       auto const hi = amrex::ubound(z_w_box);
 
       //
-      // WARNING: z_w(i,j,k)       refers to the face on the HIGH side of cell (i,j,k)
-      // WARNING: z_phys_nd(i,j,k) refers to the node on the LOW  side of cell (i,j,k)
+      // NOTE: we assume that all boxes extend the full extent of the domain in the vertical direction
+      //
+      // NOTE: z_phys_nd(i,j,k) and z_w(i,j,k) both refer to the node on the LOW  side of cell (i,j,k)
       //
 
       // We shrink the box in the vertical since z_phys_nd has a ghost cell in the vertical
@@ -220,24 +219,23 @@ REMORA::stretch_transform (int lev)
       {
           // For now assume all boundaries are constant height --
           //     we will enforce periodicity below
-          int kk = (k == 0) ? hi.z : k-1;
           if ( i >= lo.x && i <= hi.x-1 && j >= lo.y && j <= hi.y-1 )
           {
-              z_phys_nd(i,j,k)=0.25_rt*( z_w(i,j  ,kk) + z_w(i+1,j  ,kk) +
-                                         z_w(i,j+1,kk) + z_w(i+1,j+1,kk) );
+              z_phys_nd(i,j,k)=0.25_rt*( z_w(i,j  ,k) + z_w(i+1,j  ,k) +
+                                         z_w(i,j+1,k) + z_w(i+1,j+1,k) );
           } else {
              int ii = std::min(std::max(i, lo.x), hi.x);
              int jj = std::min(std::max(j, lo.y), hi.y);
-             z_phys_nd(i,j,k) = z_w(ii,jj,kk);
+             z_phys_nd(i,j,k) = z_w(ii,jj,k);
           }
-          if (k == 0)  z_phys_nd(i,j,k) *= -1._rt;
       });
-      if (bx.smallEnd(2) == 0) {
-          ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
-          {
-              z_phys_nd(i,j,-1) = 2.0_rt * z_phys_nd(i,j,0) - z_phys_nd(i,j,1);
-          });
-      }
+
+      // Fill nodes below the surface (to avoid out of bounds errors in particle functions)
+      int klo = -1;
+      ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
+      {
+          z_phys_nd(i,j,klo) = 2.0_rt * z_phys_nd(i,j,klo+1) - z_phys_nd(i,j,klo+2);
+      });
     } // mf
 
     // Note that we do *not* want to do a multilevel fill here -- we have
