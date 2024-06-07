@@ -95,11 +95,11 @@ REMORA::timeStepML (Real time, int /*iteration*/)
     {
         int nfast_counter=nfast + 1;
 
-        for (int lev=0; lev <= finest_level; lev++)
-        {
+        for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
             //Compute fast timestep from dt[lev] and ratio
-            Real dtfast_lev=dt[lev]/Real(fixed_ndtfast_ratio);
-            for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
+            for (int lev=0; lev <= finest_level; lev++)
+            {
+                Real dtfast_lev=dt[lev]/Real(fixed_ndtfast_ratio);
                 advance_2d_onestep(lev, dt[lev], dtfast_lev, my_iif, nfast_counter);
             } // my_iif
         } // lev
