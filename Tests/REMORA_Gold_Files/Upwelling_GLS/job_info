@@ -5,12 +5,12 @@ inputs file: Upwelling_GLS.i
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.000265226
+CPU time used since start of simulation (CPU-hours): 0.000265555
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Tue May 21 16:55:53 2024
+output data / time: Fri Jun  7 14:23:16 2024
 output dir:         /home/klion/software/REMORA/Exec/Upwelling
 
 
