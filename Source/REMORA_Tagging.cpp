@@ -25,6 +25,41 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         {
             mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab::Copy(*mf,*cons_new[levc],Scalar_comp,0,1,0);
+        } else if (ref_tags[j].Field() == "temp") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab::Copy(*mf,*cons_new[levc],Temp_comp,0,1,0);
+        } else if (ref_tags[j].Field() == "salt") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab::Copy(*mf,*cons_new[levc],Salt_comp,0,1,0);
+        } else if (ref_tags[j].Field() == "x_velocity") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,0);
+        } else if (ref_tags[j].Field() == "y_velocity") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab::Copy(*mf,*yvel_new[levc],0,0,1,0);
+        } else if (ref_tags[j].Field() == "z_velocity") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,0);
+        } else if (ref_tags[j].Field() == "vorticity") {
+            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            MultiFab mf_cc_vel(grids[levc],dmap[levc],3,1);
+            average_face_to_cellcenter(mf_cc_vel,0,
+                                       Array<const MultiFab*,3>{xvel_new[levc],
+                                                                yvel_new[levc],
+                                                                zvel_new[levc]});
+            // Impose bc's at domain boundaries at all levels
+            FillBdyCCVels(levc, mf_cc_vel);
+
+            for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+                const Box& bx = mfi.tilebox();
+                auto& dfab = (*mf)[mfi];
+                auto& sfab = mf_cc_vel[mfi];
+                auto pm = vec_pm[levc]->const_array(mfi);
+                auto pn = vec_pn[levc]->const_array(mfi);
+                derived::remora_dervort(bx, dfab, 0, 1, sfab, pm, pn, Geom(levc), time, nullptr, levc);
+            } // mfi
+
 #ifdef REMORA_USE_PARTICLES
         } else {
             //
