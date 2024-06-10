@@ -37,8 +37,8 @@ void
 REMORA::advance_2d (int lev,
                    MultiFab const* mf_rhoS,
                    MultiFab const* mf_rhoA,
-                   MultiFab      * mf_ru,
-                   MultiFab      * mf_rv,
+                   MultiFab      * mf_ru2d,
+                   MultiFab      * mf_rv2d,
                    MultiFab      * mf_rufrc,
                    MultiFab      * mf_rvfrc,
                    MultiFab      * mf_Zt_avg1,
@@ -178,8 +178,8 @@ REMORA::advance_2d (int lev,
         Array4<Real      > const& DU_avg2 = (mf_DU_avg2)->array(mfi);
         Array4<Real      > const& DV_avg1 = (mf_DV_avg1)->array(mfi);
         Array4<Real      > const& DV_avg2 = (mf_DV_avg2)->array(mfi);
-        Array4<Real      > const& ru = (mf_ru)->array(mfi);
-        Array4<Real      > const& rv = (mf_rv)->array(mfi);
+        Array4<Real      > const& ru2d = (mf_ru2d)->array(mfi);
+        Array4<Real      > const& rv2d = (mf_rv2d)->array(mfi);
         Array4<Real      > const& rubar = (mf_rubar)->array(mfi);
         Array4<Real      > const& rvbar = (mf_rvbar)->array(mfi);
         Array4<Real      > const& rzeta = (mf_rzeta)->array(mfi);
@@ -535,14 +535,14 @@ REMORA::advance_2d (int lev,
                 {
                     rufrc(i,j,0)    -= rhs_ubar(i,j,0);
                     rhs_ubar(i,j,0) += rufrc(i,j,0);
-                    ru(i,j,-1,nstp)  = rufrc(i,j,0);
+                    ru2d(i,j,0,nstp)  = rufrc(i,j,0);
                 });
 
                 ParallelFor(ybxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     rvfrc(i,j,0)    -= rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0) += rvfrc(i,j,0);
-                    rv(i,j,-1,nstp)  = rvfrc(i,j,0);
+                    rv2d(i,j,0,nstp)  = rvfrc(i,j,0);
                 });
 
             } else if (iic==(ntfirst+1)) {
@@ -550,21 +550,21 @@ REMORA::advance_2d (int lev,
                 ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
-                    rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+1.5_rt*rufrc(i,j,0)-0.5_rt*ru(i,j,-1,0);
-                    ru(i,j,-1,1)=rufrc(i,j,0);
-                    Real r_swap= ru(i,j,-1,1);
-                    ru(i,j,-1,1) = ru(i,j,-1,0);
-                    ru(i,j,-1,0) = r_swap;
+                    rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+1.5_rt*rufrc(i,j,0)-0.5_rt*ru2d(i,j,0,0);
+                    ru2d(i,j,0,1)=rufrc(i,j,0);
+                    Real r_swap= ru2d(i,j,0,1);
+                    ru2d(i,j,0,1) = ru2d(i,j,0,0);
+                    ru2d(i,j,0,0) = r_swap;
                 });
 
                 ParallelFor(ybxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
-                    rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+1.5_rt*rvfrc(i,j,0)-0.5_rt*rv(i,j,-1,0);
-                    rv(i,j,-1,1)=rvfrc(i,j,0);
-                    Real r_swap= rv(i,j,-1,1);
-                    rv(i,j,-1,1) = rv(i,j,-1,0);
-                    rv(i,j,-1,0) = r_swap;
+                    rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+1.5_rt*rvfrc(i,j,0)-0.5_rt*rv2d(i,j,0,0);
+                    rv2d(i,j,0,1)=rvfrc(i,j,0);
+                    Real r_swap= rv2d(i,j,0,1);
+                    rv2d(i,j,0,1) = rv2d(i,j,0,0);
+                    rv2d(i,j,0,0) = r_swap;
                 });
 
             } else {
@@ -577,12 +577,12 @@ REMORA::advance_2d (int lev,
                     rufrc(i,j,0)=rufrc(i,j,0)-rhs_ubar(i,j,0);
                     rhs_ubar(i,j,0)=rhs_ubar(i,j,0)+
                         cff1*rufrc(i,j,0)-
-                        cff2*ru(i,j,-1,0)+
-                        cff3*ru(i,j,-1,1);
-                    ru(i,j,-1,1)=rufrc(i,j,0);
-                    Real r_swap= ru(i,j,-1,1);
-                    ru(i,j,-1,1) = ru(i,j,-1,0);
-                    ru(i,j,-1,0) = r_swap;
+                        cff2*ru2d(i,j,0,0)+
+                        cff3*ru2d(i,j,0,1);
+                    ru2d(i,j,0,1)=rufrc(i,j,0);
+                    Real r_swap= ru2d(i,j,0,1);
+                    ru2d(i,j,0,1) = ru2d(i,j,0,0);
+                    ru2d(i,j,0,0) = r_swap;
                 });
 
                 ParallelFor(ybxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -590,13 +590,13 @@ REMORA::advance_2d (int lev,
                     rvfrc(i,j,0)=rvfrc(i,j,0)-rhs_vbar(i,j,0);
                     rhs_vbar(i,j,0)=rhs_vbar(i,j,0)+
                           cff1*rvfrc(i,j,0)-
-                          cff2*rv(i,j,-1,0)+
-                          cff3*rv(i,j,-1,1);
-                    rv(i,j,-1,1)=rvfrc(i,j,0);
+                          cff2*rv2d(i,j,0,0)+
+                          cff3*rv2d(i,j,0,1);
+                    rv2d(i,j,0,1)=rvfrc(i,j,0);
 
-                    Real r_swap= rv(i,j,-1,1);
-                    rv(i,j,-1,1) = rv(i,j,-1,0);
-                    rv(i,j,-1,0) = r_swap;
+                    Real r_swap= rv2d(i,j,0,1);
+                    rv2d(i,j,0,1) = rv2d(i,j,0,0);
+                    rv2d(i,j,0,0) = r_swap;
                 });
             }
        } else {
