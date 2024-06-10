@@ -43,6 +43,11 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     vec_ubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
 
+    vec_ru[lev].reset(new MultiFab(convert(ba,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS u (incl horizontal and vertical advection)
+    vec_rv[lev].reset(new MultiFab(convert(ba,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS v
+
+    vec_ru2d[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS u for 2d
+    vec_rv2d[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS v for 2d
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200_rt;
@@ -59,6 +64,12 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     for (int icomp=0; icomp<3; icomp++) {
         FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(),icomp,false);
         FillCoarsePatch(lev, time, vec_vbar[lev].get(), vec_vbar[lev-1].get(),icomp,false);
+    }
+    for (int icomp=0; icomp<2; icomp++) {
+        FillCoarsePatch(lev, time, vec_ru[lev].get(), vec_ru[lev-1].get(),icomp,false);
+        FillCoarsePatch(lev, time, vec_rv[lev].get(), vec_rv[lev-1].get(),icomp,false);
+        FillCoarsePatch(lev, time, vec_ru2d[lev].get(), vec_ru2d[lev-1].get(),icomp,false);
+        FillCoarsePatch(lev, time, vec_rv2d[lev].get(), vec_rv2d[lev-1].get(),icomp,false);
     }
 
 
@@ -134,6 +145,12 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     MultiFab tmp_vbar_new(convert(ba2d, IntVect(0,1,0)), dm, 3, IntVect(ngrow_velbar,ngrow_velbar,0));
     MultiFab tmp_vbar_old(convert(ba2d, IntVect(0,1,0)), dm, 3, IntVect(ngrow_velbar,ngrow_velbar,0));
 
+    MultiFab tmp_ru_new(convert(ba, IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0));
+    MultiFab tmp_rv_new(convert(ba, IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0));
+
+    MultiFab tmp_ru2d_new(convert(ba2d, IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0));
+    MultiFab tmp_rv2d_new(convert(ba2d, IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0));
+
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
     FillPatch(lev, time, tmp_cons_new, cons_new, BdyVars::t,0,true,false);
     FillPatch(lev, time, tmp_xvel_new, xvel_new, BdyVars::u,0,true,false);
@@ -146,6 +163,12 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     for (int icomp=0; icomp<3; icomp++) {
         FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), BdyVars::ubar, icomp,false,false);
         FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), BdyVars::vbar, icomp,false,false);
+    }
+    for (int icomp=0; icomp<2; icomp++) {
+        FillPatch(lev, time, tmp_ru_new, GetVecOfPtrs(vec_ru), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_rv_new, GetVecOfPtrs(vec_rv), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_ru2d_new, GetVecOfPtrs(vec_ru2d), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_rv2d_new, GetVecOfPtrs(vec_rv2d), BdyVars::null, icomp,false,false);
     }
 
     MultiFab::Copy(tmp_cons_old,tmp_cons_new,0,0,NCONS,tmp_cons_new.nGrowVect());
@@ -165,6 +188,10 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     std::swap(tmp_h,           *vec_hOfTheConfusingName[lev]);
     std::swap(tmp_ubar_new,    *vec_ubar[lev]);
     std::swap(tmp_vbar_new,    *vec_vbar[lev]);
+    std::swap(tmp_ru_new,    *vec_ru[lev]);
+    std::swap(tmp_rv_new,    *vec_rv[lev]);
+    std::swap(tmp_ru2d_new,    *vec_ru2d[lev]);
+    std::swap(tmp_rv2d_new,    *vec_rv2d[lev]);
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200_rt;
@@ -242,6 +269,12 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     vec_ubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
 
+    vec_ru[lev].reset(new MultiFab(convert(ba,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS u (incl horizontal and vertical advection)
+    vec_rv[lev].reset(new MultiFab(convert(ba,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS v
+
+    vec_ru2d[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS u (incl horizontal and vertical advection)
+    vec_rv2d[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS v
+
     init_stuff(lev, ba, dm);
 
     init_only(lev, time);
@@ -278,6 +311,8 @@ void REMORA::resize_stuff(int lev)
     vec_diff2.resize(lev+1);
     vec_ru.resize(lev+1);
     vec_rv.resize(lev+1);
+    vec_ru2d.resize(lev+1);
+    vec_rv2d.resize(lev+1);
     vec_rufrc.resize(lev+1);
     vec_rvfrc.resize(lev+1);
     vec_sustr.resize(lev+1);
@@ -376,9 +411,6 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_visc2_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at rho points
     vec_diff2[lev].reset(new MultiFab(ba,dm,NCONS,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature/salt
 
-    vec_ru[lev].reset(new MultiFab(convert(ba,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS u (incl horizontal and vertical advection)
-    vec_rv[lev].reset(new MultiFab(convert(ba,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,NGROW))); // RHS v
-
     //2d, (incl advection terms and surface/bottom stresses, integral over the whole columnn, k=0)
     vec_rufrc[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0)));
     vec_rvfrc[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0))); //2d, same as above but v
@@ -431,10 +463,6 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_Akp[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
 
     set_weights(lev);
-
-    //consider tracking ru and rv indexes more specifically or more similarly to indx
-    vec_ru[lev]->setVal(0.0_rt);
-    vec_rv[lev]->setVal(0.0_rt);
 
     vec_DU_avg1[lev]->setVal(0.0_rt);
     vec_DU_avg2[lev]->setVal(0.0_rt);

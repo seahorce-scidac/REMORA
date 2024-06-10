@@ -209,6 +209,10 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ru;
     /** v velocity RHS (3D, includes horizontal and vertical advection) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rv;
+    /** u velocity RHS (2D, includes horizontal and vertical advection) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ru2d;
+    /** v velocity RHS (2D, includes horizontal and vertical advection) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rv2d;
     /** u velocity RHS, integrated, including advection and bottom/surface stresses (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rufrc;
     /** v velocity RHS, integrated, including advection and bottom/surface stresses (2D) */

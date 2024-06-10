@@ -12,7 +12,7 @@ void REMORA::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int 
     int next_indx1 = 0;
     advance_2d(lev,
                vec_rhoS[lev].get() , vec_rhoA[lev].get(),
-               vec_ru[lev].get()   , vec_rv[lev].get(),
+               vec_ru2d[lev].get()   , vec_rv2d[lev].get(),
                vec_rufrc[lev].get(), vec_rvfrc[lev].get(),
                vec_Zt_avg1[lev].get(),
                vec_DU_avg1[lev], vec_DU_avg2[lev],
@@ -33,7 +33,7 @@ void REMORA::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int 
 
         advance_2d(lev,
                    vec_rhoS[lev].get(), vec_rhoA[lev].get(),
-                   vec_ru[lev].get(), vec_rv[lev].get(),
+                   vec_ru2d[lev].get(), vec_rv2d[lev].get(),
                    vec_rufrc[lev].get(), vec_rvfrc[lev].get(),
                    vec_Zt_avg1[lev].get(),
                    vec_DU_avg1[lev], vec_DU_avg2[lev],

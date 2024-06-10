@@ -520,6 +520,12 @@ REMORA::init_only (int lev, Real time)
     yvel_new[lev]->setVal(0.0_rt);
     zvel_new[lev]->setVal(0.0_rt);
 
+    vec_ru[lev]->setVal(0.0_rt);
+    vec_rv[lev]->setVal(0.0_rt);
+
+    vec_ru2d[lev]->setVal(0.0_rt);
+    vec_rv2d[lev]->setVal(0.0_rt);
+
     set_bathymetry(lev);
     set_zeta(lev);
     stretch_transform(lev);
