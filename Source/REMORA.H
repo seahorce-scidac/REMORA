@@ -618,6 +618,9 @@ public:
                         const int nstp, const int nnew,
                         const int N, const amrex::Real dt_lev);
 
+    void scale_rhs_vars ();
+    void scale_rhs_vars_inv ();
+
     void set_smflux (int lev, amrex::Real time);
 
     void set_hmixcoef (int lev);
