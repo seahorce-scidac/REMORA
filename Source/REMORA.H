@@ -936,29 +936,29 @@ private:
     AMREX_FORCE_INLINE
     int
     ComputeGhostCells(const int& spatial_order) {
-      int nGhostCells = 0;
+        int nGhostCells = 0;
 
-      switch (spatial_order) {
-        case 2:
-          nGhostCells = 2; // We need this many to compute the eddy viscosity in the ghost cells
-          break;
-        case 3:
-          nGhostCells = 2;
-          break;
-        case 4:
-          nGhostCells = 2;
-          break;
-        case 5:
-          nGhostCells = 3;
-          break;
-        case 6:
-          nGhostCells = 3;
-          break;
-        default:
-          amrex::Error("Must specify spatial order to be 2,3,4,5 or 6");
-      }
+        switch (spatial_order) {
+            case 2:
+                nGhostCells = 2; // We need this many to compute the eddy viscosity in the ghost cells
+                break;
+            case 3:
+                nGhostCells = 2;
+                break;
+            case 4:
+                nGhostCells = 2;
+                break;
+            case 5:
+                nGhostCells = 3;
+                break;
+            case 6:
+                nGhostCells = 3;
+                break;
+            default:
+                amrex::Error("Must specify spatial order to be 2,3,4,5 or 6");
+        }
 
-      return nGhostCells;
+        return nGhostCells;
     }
 
     AMREX_FORCE_INLINE
@@ -987,16 +987,16 @@ private:
     amrex::Real
     getCPUTime() const
     {
-      int numCores = amrex::ParallelDescriptor::NProcs();
+        int numCores = amrex::ParallelDescriptor::NProcs();
 #ifdef _OPENMP
-      numCores = numCores * omp_get_max_threads();
+        numCores = numCores * omp_get_max_threads();
 #endif
 
-      amrex::Real T =
-          numCores * (amrex::Real(amrex::ParallelDescriptor::second()) - startCPUTime) +
-          previousCPUTimeUsed;
+        amrex::Real T =
+            numCores * (amrex::Real(amrex::ParallelDescriptor::second()) - startCPUTime) +
+            previousCPUTimeUsed;
 
-      return T;
+        return T;
     }
 
     void setRecordDataInfo (int i, const std::string& filename)

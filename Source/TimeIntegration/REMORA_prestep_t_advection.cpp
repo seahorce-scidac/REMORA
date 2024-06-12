@@ -264,34 +264,32 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
     //
     ParallelFor(convert(tbx,IntVect(0,0,1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-          //-----------------------------------------------------------------------
-          //  Add in vertical advection.
-          //-----------------------------------------------------------------------
+        //-----------------------------------------------------------------------
+        //  Add in vertical advection.
+        //-----------------------------------------------------------------------
 
-          Real c1=0.5_rt;
-          Real c2=7.0_rt/12.0_rt;
-          Real c3=1.0_rt/12.0_rt;
+        Real c1=0.5_rt;
+        Real c2=7.0_rt/12.0_rt;
+        Real c3=1.0_rt/12.0_rt;
 
-          if (k>=2 && k<=N-1)
-          {
-                  FC(i,j,k)=( c2*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k  ,nrhs))
+        if (k>=2 && k<=N-1)
+        {
+            FC(i,j,k)=( c2*(tempold(i  ,j,k-1,nrhs)+ tempold(i,j,k  ,nrhs))
                              -c3*(tempold(i  ,j,k-2 ,nrhs)+ tempold(i,j,k+1,nrhs)) )*
                                 ( W(i,j,k));
-          }
-          else if (k==N+1) // this needs to be split up so that the following can be concurrent
-          {
-              FC(i,j,N+1)=0.0_rt;
-          } else if (k==N) {
-
-              FC(i,j,N) = ( c2*tempold(i,j,N-1,nrhs)+ c1*tempold(i,j,N,nrhs)-c3*tempold(i,j,N-2,nrhs) )
-                          * W(i,j,N);
-          } else if (k==1) {
-
-              FC(i,j,  1) = ( c2*tempold(i,j,  1,nrhs)+ c1*tempold(i,j,0,nrhs)-c3*tempold(i,j,2,nrhs) )
-                          * W(i,j,1);
+        }
+        else if (k==N+1) // this needs to be split up so that the following can be concurrent
+        {
+            FC(i,j,N+1)=0.0_rt;
+        } else if (k==N) {
+            FC(i,j,N) = ( c2*tempold(i,j,N-1,nrhs)+ c1*tempold(i,j,N,nrhs)-c3*tempold(i,j,N-2,nrhs) )
+                      * W(i,j,N);
+        } else if (k==1) {
+            FC(i,j,  1) = ( c2*tempold(i,j,  1,nrhs)+ c1*tempold(i,j,0,nrhs)-c3*tempold(i,j,2,nrhs) )
+                        * W(i,j,1);
         } else if (k==0) {
-              FC(i,j,  0) = 0.0_rt;
-          }
+            FC(i,j,  0) = 0.0_rt;
+        }
     });
 
     ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)

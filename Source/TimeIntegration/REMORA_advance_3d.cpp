@@ -98,11 +98,11 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Real cff;
         if (iic==ntfirst) {
-          cff=0.25_rt*dt_lev;
+            cff=0.25_rt*dt_lev;
         } else if (iic==ntfirst+1) {
-          cff=0.25_rt*dt_lev*3.0_rt/2.0_rt;
+            cff=0.25_rt*dt_lev*3.0_rt/2.0_rt;
         } else {
-          cff=0.25_rt*dt_lev*23.0_rt/12.0_rt;
+            cff=0.25_rt*dt_lev*23.0_rt/12.0_rt;
         }
 
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
