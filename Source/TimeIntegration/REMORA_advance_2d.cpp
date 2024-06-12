@@ -155,7 +155,7 @@ REMORA::advance_2d (int lev,
             Real om_v = 2.0_rt / (pm(i,j,0)+pm(i,j-1,0));
             Real cff1= 0.5_rt * om_v * (Drhs(i,j,0)+Drhs(i,j-1,0));
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
-        });
+         });
     }
 
     // These are needed to pass the tests with bathymetry but I don't quite see why
@@ -257,12 +257,12 @@ REMORA::advance_2d (int lev,
         //From ana_grid.h and metrics.F
         ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-              rhs_ubar(i,j,0)=0.0_rt;
+            rhs_ubar(i,j,0)=0.0_rt;
         });
 
         ParallelFor(ybxD, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-              rhs_vbar(i,j,0)=0.0_rt;
+            rhs_vbar(i,j,0)=0.0_rt;
         });
 
         if (solverChoice.use_coriolis) {
@@ -467,15 +467,15 @@ REMORA::advance_2d (int lev,
         ParallelFor(xbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-          Real on_u = 2.0_rt / (pn(i,j,0)+pn(i-1,j,0));
-          rhs_ubar(i,j,0)=cff1 * on_u *
-                        ((    h(i-1,j,0) +     h(i,j,0))*
-                         (gzeta(i-1,j,0) - gzeta(i,j,0))+
-                         (    h(i-1,j,0) -     h(i,j,0))*
-                         (      gzetaSA(i-1,j,0) + gzetaSA(i,j,0)+
-                          cff2*(   rhoA(i-1,j,0) -    rhoA(i,j,0))*
-                               (   zwrk(i-1,j,0) -    zwrk(i,j,0)))+
-                         (gzeta2(i-1,j,0)- gzeta2(i  ,j,0)));
+            Real on_u = 2.0_rt / (pn(i,j,0)+pn(i-1,j,0));
+            rhs_ubar(i,j,0)=cff1 * on_u *
+                          ((    h(i-1,j,0) +     h(i,j,0))*
+                           (gzeta(i-1,j,0) - gzeta(i,j,0))+
+                           (    h(i-1,j,0) -     h(i,j,0))*
+                           (      gzetaSA(i-1,j,0) + gzetaSA(i,j,0)+
+                            cff2*(   rhoA(i-1,j,0) -    rhoA(i,j,0))*
+                                 (   zwrk(i-1,j,0) -    zwrk(i,j,0)))+
+                           (gzeta2(i-1,j,0)- gzeta2(i  ,j,0)));
         });
 
         ParallelFor(ybxD,
@@ -492,21 +492,21 @@ REMORA::advance_2d (int lev,
                            (gzeta2(i,j-1,0)- gzeta2(i,j  ,0)));
         });
 
-       // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
-       //
-       //-----------------------------------------------------------------------
-       // rhs_uv_2d
-       //-----------------------------------------------------------------------
-       //
-       Array4<Real const> const& ubar_const = mf_ubar->const_array(mfi);
-       Array4<Real const> const& vbar_const = mf_vbar->const_array(mfi);
+        // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
+        //
+        //-----------------------------------------------------------------------
+        // rhs_uv_2d
+        //-----------------------------------------------------------------------
+        //
+        Array4<Real const> const& ubar_const = mf_ubar->const_array(mfi);
+        Array4<Real const> const& vbar_const = mf_vbar->const_array(mfi);
 
-       rhs_uv_2d(xbxD, ybxD, ubar_const, vbar_const, rhs_ubar, rhs_vbar, DUon, DVom, krhs);
+        rhs_uv_2d(xbxD, ybxD, ubar_const, vbar_const, rhs_ubar, rhs_vbar, DUon, DVom, krhs);
 
-       //-----------------------------------------------------------------------
-       // Add Coriolis forcing
-       //-----------------------------------------------------------------------
-       if (solverChoice.use_coriolis) {
+        //-----------------------------------------------------------------------
+        // Add Coriolis forcing
+        //-----------------------------------------------------------------------
+        if (solverChoice.use_coriolis) {
             // Coriolis terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
             //
             //-----------------------------------------------------------------------
@@ -514,23 +514,22 @@ REMORA::advance_2d (int lev,
             //-----------------------------------------------------------------------
             //
             coriolis(xbxD, ybxD, ubar_const, vbar_const, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
-       }
+        }
 
-       //-----------------------------------------------------------------------
-       //Add in horizontal harmonic viscosity.
-       // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
-       //-----------------------------------------------------------------------
-       uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar,
-               visc2_p, visc2_r, Drhs_const,
-               pm, pn, krhs, nnew, 0.0_rt);
+        //-----------------------------------------------------------------------
+        //Add in horizontal harmonic viscosity.
+        // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
+        //-----------------------------------------------------------------------
+        uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar,
+                visc2_p, visc2_r, Drhs_const,
+                pm, pn, krhs, nnew, 0.0_rt);
 
-       //-----------------------------------------------------------------------
-       // Coupling from 3d to 2d
-       //-----------------------------------------------------------------------
-       if (first_2d_step&&predictor_2d_step)
-       {
+        //-----------------------------------------------------------------------
+        // Coupling from 3d to 2d
+        //-----------------------------------------------------------------------
+        if (first_2d_step&&predictor_2d_step)
+        {
             if (iic==ntfirst) {
-
                 ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
                     rufrc(i,j,0)    -= rhs_ubar(i,j,0);
@@ -599,8 +598,7 @@ REMORA::advance_2d (int lev,
                     rv2d(i,j,0,0) = r_swap;
                 });
             }
-       } else {
-
+        } else {
             ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 rhs_ubar(i,j,0) += rufrc(i,j,0);

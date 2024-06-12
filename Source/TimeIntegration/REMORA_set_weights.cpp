@@ -53,7 +53,7 @@ void REMORA::set_weights (int /*lev*/) {
 //  resulting in overall second-order temporal accuracy for time-averaged
 //  barotropic motions resolved by baroclinic time step.
 //
-      scale=(Falpha+1.0_rt)*(Falpha+Fbeta+1.0_rt) /
+    scale=(Falpha+1.0_rt)*(Falpha+Fbeta+1.0_rt) /
         ((Falpha+2.0_rt)*(Falpha+Fbeta+2.0_rt)*Real(ndtfast));
     //
     //  Find center of gravity of the primary weighting shape function and

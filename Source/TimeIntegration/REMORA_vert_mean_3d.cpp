@@ -20,15 +20,15 @@ REMORA::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
     ParallelFor(makeSlab(phi_bx,2,0),
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-      Real Hzk_on_face = 0.5_rt*(Hz(i-ioff,j-joff,0)+Hz(i,j,0));
-      CF(i,j,-1) =                 Hzk_on_face;
-      DC(i,j,-1) = phi(i,j,0,nnew)*Hzk_on_face;
+        Real Hzk_on_face = 0.5_rt*(Hz(i-ioff,j-joff,0)+Hz(i,j,0));
+        CF(i,j,-1) =                 Hzk_on_face;
+        DC(i,j,-1) = phi(i,j,0,nnew)*Hzk_on_face;
 
-      for (int k=1; k<=N; k++) {
-          Hzk_on_face = 0.5_rt*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
-          CF(i,j,-1) +=                 Hzk_on_face;
-          DC(i,j,-1) += phi(i,j,k,nnew)*Hzk_on_face;
-      }
+        for (int k=1; k<=N; k++) {
+            Hzk_on_face = 0.5_rt*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
+            CF(i,j,-1) +=                 Hzk_on_face;
+            DC(i,j,-1) += phi(i,j,k,nnew)*Hzk_on_face;
+        }
     });
 
     ParallelFor(makeSlab(phi_bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )

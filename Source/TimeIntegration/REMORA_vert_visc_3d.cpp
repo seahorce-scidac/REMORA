@@ -85,7 +85,7 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
             //
             //  Backward substitution.
             //
-                DC(i,j,k) -= CF(i,j,k)*DC(i,j,k+1);
+            DC(i,j,k) -= CF(i,j,k)*DC(i,j,k+1);
         }
     });
 
@@ -103,5 +103,5 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
         const Real oHz = 1.0_rt/ Hzk(i,j,k);
         Real cff = dt_lev*oHz*(DC(i,j,k+1)-DC(i,j,k));
         phi(i,j,k) += cff;
-     });
+    });
 }
