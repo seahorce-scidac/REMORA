@@ -351,7 +351,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             long unsigned local_start_z  = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             if (write_header) {
-                FArrayBox tmp_bathy(tmp_bx_2d,1);
+                FArrayBox tmp_bathy;
+                tmp_bathy.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
                 tmp_bathy.template copy<RunOn::Device>((*vec_hOfTheConfusingName[lev])[mfi.index()],0,0,1);
 
                 auto nc_plot_var = ncf.var("h");
@@ -367,7 +368,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             }
 
             {
-            FArrayBox tmp_temp(tmp_bx,1);
+            FArrayBox tmp_temp;
+            tmp_temp.resize(tmp_bx,1,amrex::The_Pinned_Arena());
             tmp_temp.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Temp_comp,0,1);
 
             auto nc_plot_var = ncf.var("temp");
@@ -377,7 +379,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             }
 
             {
-            FArrayBox tmp_salt(tmp_bx,1);
+            FArrayBox tmp_salt;
+            tmp_salt.resize(tmp_bx,1,amrex::The_Pinned_Arena());
             tmp_salt.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Salt_comp,0,1);
 
             auto nc_plot_var = ncf.var("salt");
@@ -387,7 +390,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             }
 
             {
-            FArrayBox tmp_zeta(tmp_bx_2d,1);
+            FArrayBox tmp_zeta;
+            tmp_zeta.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
             tmp_zeta.template copy<RunOn::Device>((*vec_Zt_avg1[lev])[mfi.index()],0,0,1);
 
             auto nc_plot_var = ncf.var("zeta");
@@ -437,7 +441,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             long unsigned local_start_z  = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             {
-            FArrayBox tmp(tmp_bx,1);
+            FArrayBox tmp;
+            tmp.resize(tmp_bx,1,amrex::The_Pinned_Arena());
             tmp.template copy<RunOn::Device>((*xvel_new[lev])[mfi.index()],0,0,1);
 
             auto nc_plot_var = ncf.var("u");
@@ -447,7 +452,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             }
 
             {
-            FArrayBox tmp(tmp_bx,1);
+            FArrayBox tmp;
+            tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
             tmp.template copy<RunOn::Device>((*vec_ubar[lev])[mfi.index()],0,0,1);
 
             auto nc_plot_var = ncf.var("ubar");
@@ -495,7 +501,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             long unsigned local_start_z  = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             {
-            FArrayBox tmp(tmp_bx,1);
+            FArrayBox tmp;
+            tmp.resize(tmp_bx,1,amrex::The_Pinned_Arena());
             tmp.template copy<RunOn::Device>((*yvel_new[lev])[mfi.index()],0,0,1);
 
             auto nc_plot_var = ncf.var("v");
@@ -505,7 +512,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             }
 
             {
-            FArrayBox tmp(tmp_bx_2d,1);
+            FArrayBox tmp;
+            tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
             tmp.template copy<RunOn::Device>((*vec_vbar[lev])[mfi.index()],0,0,1);
 
             auto nc_plot_var = ncf.var("vbar");
