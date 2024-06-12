@@ -42,6 +42,8 @@ REMORA::timeStepML (Real time, int /*iteration*/)
         }
     }
 
+    scale_rhs_vars();
+
     for (int lev=0; lev <= finest_level;lev++)
     {
         // Update what we call "old" and "new" time
@@ -143,6 +145,8 @@ REMORA::timeStepML (Real time, int /*iteration*/)
             }
         }
     }
+
+    scale_rhs_vars_inv();
 
     if (solverChoice.coupling_type == CouplingType::TwoWay) {
         for (int lev=0; lev <= finest_level-1; lev++) {
