@@ -8,6 +8,13 @@ using namespace amrex;
 void
 REMORA::timeStepML (Real time, int /*iteration*/)
 {
+    if (time == 0.0_rt && solverChoice.init_l1ad_T) {
+        average_down(*cons_new[1], *cons_new[0],
+                 0, cons_new[0]->nComp(), refRatio(0));
+        Print() << "extra average_down " << istep[0] << std::endl;
+        WritePlotFile();
+    }
+
     // HACK HACK so lev is defined and compiler won't complain, but always say regrid_int=-1
     for (int lev=0; lev <= finest_level;lev++) {
         if (regrid_int > 0)  // We may need to regrid
