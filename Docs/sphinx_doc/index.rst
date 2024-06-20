@@ -40,6 +40,7 @@ In addition to this documentation, there is API documentation for REMORA generat
 
    GettingStarted.rst
    Inputs.rst
+   BoundaryConditions.rst
    MeshRefinement.rst
    Checkpoint.rst
    Plotfiles.rst

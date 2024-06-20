@@ -93,7 +93,7 @@ Available tests include
 The example below adds two user-named criteria:
 
 - ``hi_temp``: cells with density greater than 10 on level 0, and greater than 20 on level 1 and higher;
-.. - ``lo_vort``: cells with relative vorticity less than 0 that are inside the region :math:`[0.25,0.25,\texttt{prob_lo_z}]\times[0.75,0.75,\texttt{prob_hi_z}]`;
+- ``lo_vort``: cells with relative vorticity less than 0 that are inside the region :math:`[0.25,0.25,\texttt{prob_lo_z}]\times[0.75,0.75,\texttt{prob_hi_z}]`;
 - ``scalardiff``: cells having a difference in the scalar of 0.01 or more from that of any immediate neighbor.
 
 The first will trigger up to AMR level 3 and the second to level 2.
@@ -102,8 +102,6 @@ The second will be active only when the problem time is between 100 and 300 seco
 Note that ``temp`` and ``scalar`` are the names of state variables and ``vorticity`` is a derived variable.
 Valid field options for refinement are: ``scalar``, ``temp``, ``salt``, ``x_velocity``, ``y_velocity``, ``z_velocity``,
 and ``vorticity``.
-
-.. , whereas ``vorticity`` is the name of a derived variable.
 
 ::
 
@@ -155,3 +153,39 @@ the fine level also communicates data back to the coarse level in two ways:
 Advected quantities which are advanced in conservation form will lose conservation with one-way coupling.
 Two-way coupling ensures conservation of the advective contribution to all scalar updates but
 does not account for loss of conservation due to diffusive or source terms.
+
+.. _sec:fillghost:
+
+Filling Ghost Values
+====================
+
+REMORA uses an operation called ``FillPatch`` to fill the ghost cells/faces for each grid of data.
+The data is filled outside the valid region with a combination of three operations: interpolation
+from coarser level, copy from same level, and enforcement of physical boundary conditions.
+
+Interpolation from Coarser level
+--------------------------------
+
+Interpolation is controlled by which interpolater we choose to use. The default is
+conservative interpolation for cell-centered quantities, and analogous for faces.
+These options are currently hard-coded in REMORA.
+The paradigm is that fine faces on a coarse-fine boundary are filled as Dirichlet
+boundary conditions from the coarser level; all faces outside the valid region are
+similarly filled, while fine faces inside the valid region are not over-written.
+
+Copy from other grids at same level (includes periodic boundaries)
+------------------------------------------------------------------
+
+This is part of the ``FillPatch`` operation, but can also be applied independently,
+e.g. by the call
+
+::
+
+    mf.FillBoundary(geom[lev].periodicity());
+
+would fill all the ghost cells/faces of the grids in MultiFab ``mf``, including those
+that occur at periodic boundaries.
+
+In the ``FillPatch`` operation, ``FillBoundary`` always overrides any interpolated values, i.e. if
+there is fine data available (except at coarse-fine boundary) we always use it.
+
