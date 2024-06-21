@@ -40,7 +40,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         if (cf_set_width > 0 &&
             mf_box.ixType() == IndexType(IntVect(0,0,0))) {
             FPr_c[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
-        } else if (fill_all && cf_set_width >= 0) {
+        } else if (cf_set_width >= 0) {
             if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
                 FPr_u[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
             } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {
