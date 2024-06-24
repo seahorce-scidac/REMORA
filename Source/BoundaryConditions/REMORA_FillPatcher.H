@@ -126,6 +126,7 @@ REMORAFillPatcher::Fill (amrex::MultiFab& mf, amrex::Real time,
 
     AMREX_ALWAYS_ASSERT((time >= m_crse_times[0]-eps) && (time <= m_crse_times[1]+eps));
 
+    amrex::Print() << "fill patcher  comp " << m_ncomp << std::endl;
     // Time interpolation factors
     amrex::Real fac_new = (time - m_crse_times[0]) / m_dt_crse;
     amrex::Real fac_old = 1.0 - fac_new;

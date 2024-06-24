@@ -28,6 +28,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
     amrex::Interpolater* mapper = nullptr;
 
     Box mf_box(mf_to_fill.boxArray()[0]);
+    bool is_2d = mf_box.length(2) == 1;
 
     //
     // ***************************************************************************
@@ -40,13 +41,21 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         if (cf_set_width > 0 &&
             mf_box.ixType() == IndexType(IntVect(0,0,0))) {
             FPr_c[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
-        } else if (fill_all && cf_set_width >= 0) {
-            if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
-                FPr_u[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
-            } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {
-                FPr_v[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
-            } else if (mf_box.ixType() == IndexType(IntVect(0,0,1))) {
-                FPr_w[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+        } else if (cf_set_width >= 0) {
+            if (!is_2d) {
+                if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
+                    FPr_u[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+                } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {
+                    FPr_v[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+                } else if (mf_box.ixType() == IndexType(IntVect(0,0,1))) {
+                    FPr_w[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+                }
+            } else {
+                if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
+                    FPr_ubar[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+                } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {
+                    FPr_vbar[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+                }
             }
         }
     }
@@ -162,6 +171,7 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
     amrex::Interpolater* mapper = nullptr;
 
     Box mf_box(mf_to_fill.boxArray()[0]);
+    bool is_2d = mf_box.length(2) == 1;
 
     //
     // ***************************************************************************
@@ -174,13 +184,22 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
         if (cf_set_width > 0 &&
             mf_box.ixType() == IndexType(IntVect(0,0,0))) {
             FPr_c[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
-        } else if (fill_all && cf_set_width >= 0) {
-            if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
-                FPr_u[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
-            } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {
-                FPr_v[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
-            } else if (mf_box.ixType() == IndexType(IntVect(0,0,1))) {
-                FPr_w[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+        } else if (cf_set_width >= 0) {
+            if (!is_2d) {
+                if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
+                    FPr_u[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+                } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {
+                    FPr_v[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+                } else if (mf_box.ixType() == IndexType(IntVect(0,0,1))) {
+                    FPr_w[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+                }
+            } else {
+                Print() << "fillpatch ubar vbar " << std::endl;
+                if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
+                    FPr_ubar[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+                } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {
+                    FPr_vbar[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
+                }
             }
         }
     }

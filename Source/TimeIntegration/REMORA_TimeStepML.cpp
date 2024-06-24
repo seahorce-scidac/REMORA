@@ -110,6 +110,21 @@ REMORA::timeStepML (Real time, int /*iteration*/)
             {
                 Real dtfast_lev=dt[lev]/Real(fixed_ndtfast_ratio);
                 advance_2d_onestep(lev, dt[lev], dtfast_lev, my_iif, nfast_counter);
+                // **************************************************************************************
+                // Register old and new coarse data if we are at a level less than the finest level
+                // **************************************************************************************
+                if (lev < finest_level)
+                {
+                    if (cf_width >= 0) {
+                        Print() << "cf width >= 0  " << dt[lev] << std::endl;
+                        // We must fill the ghost cells of these so that the parallel copy works correctly
+                        vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
+                        FPr_ubar[lev].RegisterCoarseData({vec_ubar[lev].get(), vec_ubar[lev].get()}, {time, time + dt[lev]});
+
+                        vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
+                        FPr_vbar[lev].RegisterCoarseData({vec_vbar[lev].get(), vec_vbar[lev].get()}, {time, time + dt[lev]});
+                    }
+                }
             } // my_iif
         } // lev
     } // use_barotropic
@@ -151,8 +166,16 @@ REMORA::timeStepML (Real time, int /*iteration*/)
                 FPr_w[lev].RegisterCoarseData({zvel_old[lev], zvel_new[lev]}, {time, time + dt[lev]});
             }
         }
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u,0,true,true);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v,0,true,true);
+        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,true);
     }
 
+    print_state(*xvel_new[0],IntVect(20,13,0));
+    print_state(*xvel_new[1],IntVect(60,42,0));
+    print_state(*xvel_new[1],IntVect(59,42,0));
+    print_state(*xvel_new[1],IntVect(58,42,0));
+    print_state(*xvel_new[1],IntVect(57,42,0));
     scale_rhs_vars_inv();
 
     if (solverChoice.coupling_type == CouplingType::TwoWay) {

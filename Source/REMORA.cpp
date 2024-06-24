@@ -352,6 +352,18 @@ REMORA::Construct_REMORAFillPatchers (int lev)
     auto& dm_fine  = cons_new[lev  ]->DistributionMap();
     auto& dm_crse  = cons_new[lev-1]->DistributionMap();
 
+    BoxList bl2d_fine = ba_fine.boxList();
+    for (auto& b : bl2d_fine) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d_fine(std::move(bl2d_fine));
+
+    BoxList bl2d_crse = ba_crse.boxList();
+    for (auto& b : bl2d_crse) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d_crse(std::move(bl2d_crse));
+
     int ncomp = cons_new[lev]->nComp();
 
     FPr_c.emplace_back(ba_fine, dm_fine, geom[lev]  ,
@@ -366,6 +378,13 @@ REMORA::Construct_REMORAFillPatchers (int lev)
     FPr_w.emplace_back(convert(ba_fine, IntVect(0,0,1)), dm_fine, geom[lev]  ,
                        convert(ba_crse, IntVect(0,0,1)), dm_crse, geom[lev-1],
                        -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+
+    FPr_ubar.emplace_back(convert(ba2d_fine, IntVect(1,0,0)), dm_fine, geom[lev]  ,
+                       convert(ba2d_crse, IntVect(1,0,0)), dm_crse, geom[lev-1],
+                       -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
+    FPr_vbar.emplace_back(convert(ba2d_fine, IntVect(0,1,0)), dm_fine, geom[lev]  ,
+                       convert(ba2d_crse, IntVect(0,1,0)), dm_crse, geom[lev-1],
+                       -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
 }
 
 void
@@ -377,6 +396,19 @@ REMORA::Define_REMORAFillPatchers (int lev)
     auto& ba_crse  = cons_new[lev-1]->boxArray();
     auto& dm_fine  = cons_new[lev  ]->DistributionMap();
     auto& dm_crse  = cons_new[lev-1]->DistributionMap();
+
+    BoxList bl2d_fine = ba_fine.boxList();
+    for (auto& b : bl2d_fine) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d_fine(std::move(bl2d_fine));
+
+    BoxList bl2d_crse = ba_crse.boxList();
+    for (auto& b : bl2d_crse) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d_crse(std::move(bl2d_crse));
+
 
     int ncomp = cons_new[lev]->nComp();
 
@@ -392,6 +424,13 @@ REMORA::Define_REMORAFillPatchers (int lev)
     FPr_w[lev-1].Define(convert(ba_fine, IntVect(0,0,1)), dm_fine, geom[lev]  ,
                         convert(ba_crse, IntVect(0,0,1)), dm_crse, geom[lev-1],
                         -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+
+    FPr_ubar[lev-1].Define(convert(ba2d_fine, IntVect(1,0,0)), dm_fine, geom[lev]  ,
+                        convert(ba2d_crse, IntVect(1,0,0)), dm_crse, geom[lev-1],
+                        -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
+    FPr_vbar[lev-1].Define(convert(ba2d_fine, IntVect(0,1,0)), dm_fine, geom[lev]  ,
+                        convert(ba2d_crse, IntVect(0,1,0)), dm_crse, geom[lev-1],
+                        -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
 }
 
 void
