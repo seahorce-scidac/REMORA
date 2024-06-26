@@ -141,7 +141,6 @@ REMORA::advance_2d (int lev,
         ParallelFor(makeSlab(tbxp3,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Drhs(i,j,0)=zeta(i,j,0,krhs)+h(i,j,0);
-            if (i>=55 and j==41) printf("Drhs   %d %d  %15.15g %15.15g %15.15g\n",i,j,Drhs(i,j,0),zeta(i,j,0,krhs),h(i,j,0));
         });
 
         ParallelFor(makeSlab(xgbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -149,7 +148,6 @@ REMORA::advance_2d (int lev,
             Real on_u = 2.0_rt / (pn(i,j,0)+pn(i-1,j,0));
             Real cff1= 0.5_rt * on_u *(Drhs(i,j,0)+Drhs(i-1,j,0));
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
-            if (i>=55 and j==41) printf("DUon   %d %d  %15.15g %15.15g %15.15g\n",i,j,DUon(i,j,0),ubar(i,j,0,krhs),cff1);
         });
 
         ParallelFor(makeSlab(ygbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -309,7 +307,6 @@ REMORA::advance_2d (int lev,
                 ParallelFor(makeSlab(gbx3,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
                     Zt_avg1(i,j,0) += cff1_wt1*zeta(i,j,0,krhs);
-                    if (i>=55 and j==41) printf("Zt_avg1 set  %d %d  %15.15g %15.15g\n",i,j,Zt_avg1(i,j,0),zeta(i,j,0,krhs));
                 });
 
                 ParallelFor(makeSlab(xgbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -376,7 +373,6 @@ REMORA::advance_2d (int lev,
                 rhs_zeta(i,j,0) = (DUon(i,j,0)-DUon(i+1,j,0))+
                                   (DVom(i,j,0)-DVom(i,j+1,0));
                 zeta_new(i,j,0) = zeta(i,j,0,kstp)+ pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
-                if (i>=55 and j==41) printf("zeta_new   %d %d  %15.15g %15.15g\n",i,j,zeta(i,j,0,kstp),rhs_zeta(i,j,0));
                 Dnew(i,j,0) = zeta_new(i,j,0)+h(i,j,0);
 
                 //Pressure gradient terms:
@@ -441,7 +437,6 @@ REMORA::advance_2d (int lev,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             zeta(i,j,0,knew) = zeta_new(i,j,0);
-            if (i>=55 and j==41) printf("zeta update  %d %d  %15.15g\n",i,j,zeta(i,j,0,knew));
         });
 
         //
@@ -537,8 +532,6 @@ REMORA::advance_2d (int lev,
             if (iic==ntfirst) {
                 ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
                 {
-                    if (i>=55 and j==41) printf("rhs_ubar  %d %d  %15.15g %15.15g %15.15g\n",i,j,rufrc(i,j,0),rhs_ubar(i,j,0),ru2d(i,j,0,nstp));
-                    if (i>=17 and i<=22 and j==16 and lev==0) printf("rhs_ubar  %d %d  %15.15g %15.15g %15.15g\n",i,j,rufrc(i,j,0),rhs_ubar(i,j,0),ru2d(i,j,0,nstp));
                     rufrc(i,j,0)    -= rhs_ubar(i,j,0);
                     rhs_ubar(i,j,0) += rufrc(i,j,0);
                     ru2d(i,j,0,nstp)  = rufrc(i,j,0);
@@ -644,8 +637,6 @@ REMORA::advance_2d (int lev,
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
                                   cff*cff1*rhs_ubar(i,j,0))*Dnew_avg;
-                if (i>=55 and j==41 and lev==1) printf("ubar set  %d %d  %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g\n",i,j,ubar(i,j,0,knew),ubar(i,j,0,kstp),Dstp(i,j,0),Dstp(i-1,j,0),rhs_ubar(i,j,0),Dnew_avg);
-                if (i>=17 and i<=22 and j==16 and lev==0) printf("ubar set  %d %d  %15.15g %15.15g %15.15g %15.15g %15.15g %15.15g\n",i,j,ubar(i,j,0,knew),ubar(i,j,0,kstp),Dstp(i,j,0),Dstp(i-1,j,0),rhs_ubar(i,j,0),Dnew_avg);
             });
             ParallelFor(ybxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -725,10 +716,7 @@ REMORA::advance_2d (int lev,
             });
         }
     }
-    if (lev==1)
-        print_state(*vec_ubar[lev], IntVect(60,41,0));
-    if (lev==0)
-        print_state(*vec_ubar[lev],IntVect(20,16,0));
+
     // Don't do the FillPatch at the last truncated predictor step.
     // We may need to move the zeta FillPatch further up
     if (my_iif<nfast) {
@@ -739,8 +727,4 @@ REMORA::advance_2d (int lev,
         FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), BdyVars::zeta,
                   knew, false,false);
     }
-    if (lev==1)
-        print_state(*vec_ubar[lev], IntVect(60,41,0));
-    if (lev==0)
-        print_state(*vec_ubar[lev],IntVect(20,16,0));
 }
