@@ -25,9 +25,11 @@ init_custom_prob (
   amrex::GeometryData const& geomdata,
   SolverChoice const& m_solverChoice);
 
-void init_custom_bathymetry (const amrex::Geometry& geom,
+void init_custom_bathymetry (int lev, const amrex::Geometry& geom,
                              amrex::MultiFab& mf_h,
-                             SolverChoice const& m_solverChoice);
+                             SolverChoice const& m_solverChoice,
+                             int rrx=1, int rry=1);
+
 
 void init_custom_zeta  (const amrex::Geometry& geom,
                              amrex::MultiFab& mf_zeta,

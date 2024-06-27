@@ -86,6 +86,15 @@ struct SolverChoice {
         //This accounts for the main 2d loop but may not include coupling and copying properly
         pp.query("use_barotropic", use_barotropic);
 
+        pp.query("init_l1ad_h", init_l1ad_h);
+        pp.query("init_l1ad_T", init_l1ad_T);
+
+        pp.query("init_ana_h", init_ana_h);
+        pp.query("init_ana_T", init_ana_T);
+
+        pp.query("init_l0int_h", init_l0int_h);
+        pp.query("init_l0int_T", init_l0int_T);
+
         //Read in linear eos parameters
         pp.query("R0",R0);
         pp.query("S0",S0);
@@ -279,6 +288,15 @@ struct SolverChoice {
     bool        use_uv3dmix           = true;
     bool        use_baroclinic        = true;
     bool        use_barotropic        = true;
+
+    bool init_l1ad_h = false;
+    bool init_l1ad_T = false;
+
+    bool init_ana_h = false;
+    bool init_ana_T = false;
+
+    bool init_l0int_h = true;
+    bool init_l0int_T = true;
 
     AdvectionScheme Hadv_scheme;
 

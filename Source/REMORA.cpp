@@ -352,6 +352,18 @@ REMORA::Construct_REMORAFillPatchers (int lev)
     auto& dm_fine  = cons_new[lev  ]->DistributionMap();
     auto& dm_crse  = cons_new[lev-1]->DistributionMap();
 
+    BoxList bl2d_fine = ba_fine.boxList();
+    for (auto& b : bl2d_fine) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d_fine(std::move(bl2d_fine));
+
+    BoxList bl2d_crse = ba_crse.boxList();
+    for (auto& b : bl2d_crse) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d_crse(std::move(bl2d_crse));
+
     int ncomp = cons_new[lev]->nComp();
 
     FPr_c.emplace_back(ba_fine, dm_fine, geom[lev]  ,
@@ -366,6 +378,13 @@ REMORA::Construct_REMORAFillPatchers (int lev)
     FPr_w.emplace_back(convert(ba_fine, IntVect(0,0,1)), dm_fine, geom[lev]  ,
                        convert(ba_crse, IntVect(0,0,1)), dm_crse, geom[lev-1],
                        -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+
+    FPr_ubar.emplace_back(convert(ba2d_fine, IntVect(1,0,0)), dm_fine, geom[lev]  ,
+                       convert(ba2d_crse, IntVect(1,0,0)), dm_crse, geom[lev-1],
+                       -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
+    FPr_vbar.emplace_back(convert(ba2d_fine, IntVect(0,1,0)), dm_fine, geom[lev]  ,
+                       convert(ba2d_crse, IntVect(0,1,0)), dm_crse, geom[lev-1],
+                       -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
 }
 
 void
@@ -377,6 +396,19 @@ REMORA::Define_REMORAFillPatchers (int lev)
     auto& ba_crse  = cons_new[lev-1]->boxArray();
     auto& dm_fine  = cons_new[lev  ]->DistributionMap();
     auto& dm_crse  = cons_new[lev-1]->DistributionMap();
+
+    BoxList bl2d_fine = ba_fine.boxList();
+    for (auto& b : bl2d_fine) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d_fine(std::move(bl2d_fine));
+
+    BoxList bl2d_crse = ba_crse.boxList();
+    for (auto& b : bl2d_crse) {
+        b.setRange(2,0);
+    }
+    BoxArray ba2d_crse(std::move(bl2d_crse));
+
 
     int ncomp = cons_new[lev]->nComp();
 
@@ -392,6 +424,13 @@ REMORA::Define_REMORAFillPatchers (int lev)
     FPr_w[lev-1].Define(convert(ba_fine, IntVect(0,0,1)), dm_fine, geom[lev]  ,
                         convert(ba_crse, IntVect(0,0,1)), dm_crse, geom[lev-1],
                         -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+
+    FPr_ubar[lev-1].Define(convert(ba2d_fine, IntVect(1,0,0)), dm_fine, geom[lev]  ,
+                        convert(ba2d_crse, IntVect(1,0,0)), dm_crse, geom[lev-1],
+                        -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
+    FPr_vbar[lev-1].Define(convert(ba2d_fine, IntVect(0,1,0)), dm_fine, geom[lev]  ,
+                        convert(ba2d_crse, IntVect(0,1,0)), dm_crse, geom[lev-1],
+                        -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
 }
 
 void
@@ -426,9 +465,48 @@ void
 REMORA::set_bathymetry (int lev)
 {
     // Only set bathymetry on level 0, and interpolate for finer levels
-    if (lev==0) {
+    if (solverChoice.init_l0int_h) {
+        if (lev==0) {
+            if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+                init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], solverChoice);
+
+#ifdef REMORA_USE_NETCDF
+            } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+                amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
+                init_bathymetry_from_netcdf(lev);
+                amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+#endif
+            } else {
+                Abort("Don't know this ic_bc_type!");
+            }
+            // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
+            // to make sure ghost cells in the domain corners are consistent.
+            vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+            vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
+        } else {
+            Real dummy_time = 0.0_rt;
+            FillCoarsePatch(lev,dummy_time,vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get());
+        }
+    } else if (solverChoice.init_ana_h) {
         if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
-            init_custom_bathymetry(geom[lev], *vec_hOfTheConfusingName[lev], solverChoice);
+            init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], solverChoice);
+
+#ifdef REMORA_USE_NETCDF
+        } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+            amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
+            init_bathymetry_from_netcdf(lev);
+            amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+#endif
+        } else {
+            Abort("Don't know this ic_bc_type!");
+        }
+        // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
+        // to make sure ghost cells in the domain corners are consistent.
+        vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+        vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
+    } else if (solverChoice.init_l1ad_h) {
+        if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+            init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], solverChoice, refRatio(0)[0],refRatio(0)[1]);
 
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
@@ -444,8 +522,7 @@ REMORA::set_bathymetry (int lev)
         vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
         vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
     } else {
-        Real dummy_time = 0.0_rt;
-        FillCoarsePatch(lev,dummy_time,vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get());
+        amrex::Abort("Don't know this h init type");
     }
 }
 
@@ -530,7 +607,33 @@ REMORA::init_only (int lev, Real time)
     set_zeta(lev);
     stretch_transform(lev);
 
-    if (lev==0) {
+    if (solverChoice.init_l0int_T) {
+        if (lev==0) {
+            if (solverChoice.ic_bc_type == IC_BC_Type::Custom)
+            {
+                init_custom(lev);
+#ifdef REMORA_USE_NETCDF
+            } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+
+                amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
+                init_data_from_netcdf(lev);
+                amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
+
+                amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
+                init_bdry_from_netcdf();
+                amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
+#endif
+            } else {
+                Abort("Need to specify ic_bc_type");
+            }
+        } else {
+            FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1]);
+            FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
+            FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1]);
+            FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1]);
+            set_pm_pn(lev);
+        }
+    } else if (solverChoice.init_ana_T || solverChoice.init_l1ad_T) {
         if (solverChoice.ic_bc_type == IC_BC_Type::Custom)
         {
             init_custom(lev);
@@ -549,11 +652,7 @@ REMORA::init_only (int lev, Real time)
             Abort("Need to specify ic_bc_type");
         }
     } else {
-        FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1]);
-        FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
-        FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1]);
-        FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1]);
-        set_pm_pn(lev);
+        amrex::Abort("Need to specify T init procedure");
     }
 
     set_2darrays(lev);

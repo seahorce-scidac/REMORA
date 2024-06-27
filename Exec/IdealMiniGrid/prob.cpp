@@ -24,9 +24,10 @@ amrex_probinit(
  * \brief Initializes bathymetry h and surface height Zeta
  */
 void
-init_custom_bathymetry (const Geometry& /*geom*/,
+init_custom_bathymetry (int /*lev*/, const Geometry& /*geom*/,
                         MultiFab& /*mf_h*/,
-                        const SolverChoice& /*m_solverChoice*/)
+                        const SolverChoice& /*m_solverChoice*/,
+                        int /*rrx*/, int /*rry*/)
 {
     Abort("Shouldn't be in init_custom_bathymetry!");
 }

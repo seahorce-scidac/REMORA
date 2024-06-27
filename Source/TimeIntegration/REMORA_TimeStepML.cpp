@@ -8,6 +8,12 @@ using namespace amrex;
 void
 REMORA::timeStepML (Real time, int /*iteration*/)
 {
+    if (time == 0.0_rt && solverChoice.init_l1ad_T) {
+        average_down(*cons_new[1], *cons_new[0],
+                 0, cons_new[0]->nComp(), refRatio(0));
+        WritePlotFile();
+    }
+
     // HACK HACK so lev is defined and compiler won't complain, but always say regrid_int=-1
     for (int lev=0; lev <= finest_level;lev++) {
         if (regrid_int > 0)  // We may need to regrid
@@ -103,6 +109,20 @@ REMORA::timeStepML (Real time, int /*iteration*/)
             {
                 Real dtfast_lev=dt[lev]/Real(fixed_ndtfast_ratio);
                 advance_2d_onestep(lev, dt[lev], dtfast_lev, my_iif, nfast_counter);
+                // **************************************************************************************
+                // Register old and new coarse data if we are at a level less than the finest level
+                // **************************************************************************************
+                if (lev < finest_level)
+                {
+                    if (cf_width >= 0) {
+                        // We must fill the ghost cells of these so that the parallel copy works correctly
+                        vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
+                        FPr_ubar[lev].RegisterCoarseData({vec_ubar[lev].get(), vec_ubar[lev].get()}, {time, time + dt[lev]});
+
+                        vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
+                        FPr_vbar[lev].RegisterCoarseData({vec_vbar[lev].get(), vec_vbar[lev].get()}, {time, time + dt[lev]});
+                    }
+                }
             } // my_iif
         } // lev
     } // use_barotropic
@@ -129,7 +149,6 @@ REMORA::timeStepML (Real time, int /*iteration*/)
             }
 
             if (cf_width >= 0) {
-                Print() << "cf width >= 0  " << dt[lev] << std::endl;
                 // We must fill the ghost cells of these so that the parallel copy works correctly
                 xvel_old[lev]->FillBoundary(geom[lev].periodicity());
                 xvel_new[lev]->FillBoundary(geom[lev].periodicity());
@@ -144,6 +163,9 @@ REMORA::timeStepML (Real time, int /*iteration*/)
                 FPr_w[lev].RegisterCoarseData({zvel_old[lev], zvel_new[lev]}, {time, time + dt[lev]});
             }
         }
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u,0,true,true);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v,0,true,true);
+        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,true);
     }
 
     scale_rhs_vars_inv();

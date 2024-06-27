@@ -1,0 +1,100 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+max_step = 10
+
+amrex.fpe_trap_invalid = 1
+
+fabarray.mfiter_tile_size = 1024 1024 1024
+
+# PROBLEM SIZE & GEOMETRY
+geometry.prob_lo     =      0.     0.    -150.
+geometry.prob_hi     =  41000. 80000.       0.
+
+amr.n_cell           =  41     80      16
+#amr.n_cell           =  41     80      16
+
+geometry.is_periodic = 1 1 0
+
+#ylo.type = "SlipWall"
+#yhi.type = "SlipWall"
+
+zlo.type = "SlipWall"
+zhi.type = "SlipWall"
+
+# TIME STEP CONTROL
+remora.fixed_dt       = 5 # Timestep size (seconds)
+
+#remora.fixed_fast_dt  = 10.0 # Baratropic timestep size (seconds)
+
+remora.fixed_ndtfast_ratio  = 1 # Ratio of baroclinic to barotropic time step
+
+# DIAGNOSTICS & VERBOSITY
+remora.sum_interval  = 1       # timesteps between computing mass
+remora.v             = 1       # verbosity in REMORA.cpp (0: none, 1: print boxes, etc, 2: print values)
+amr.v                = 1       # verbosity in Amr.cpp
+
+# REFINEMENT / REGRIDDING
+amr.max_level       = 1       # maximum level number allowed
+amr.ref_ratio_vect = 3 3  1
+
+# CHECKPOINT FILES
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
+
+# PLOTFILES
+remora.plot_file     = plt_     # prefix of plotfile name
+remora.plot_int      = 1        # number of timesteps between plotfiles
+remora.plot_vars     = salt temp x_velocity y_velocity z_velocity scalar
+remora.plotfile_type = amrex
+
+# SOLVER CHOICE
+remora.flat_bathymetry = false
+remora.horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+remora.spatial_order = 2
+
+# Linear EOS parameters
+remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+remora.S0    = 35.0    # background salinity (nondimensional) constant
+remora.T0    = 14.0    # background potential temperature (Celsius) constant
+remora.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celcius)
+remora.Scoef = 0.0     # linear equation of state parameter (nondimensional)
+remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
+
+#prob.velRef = 8.0e-3
+#prob.zRef  = 80.0e-3
+prob.u_0  = 80.0e-4
+
+remora.tcline = 25.0
+remora.rdrag=0.0
+
+remora.init_l1ad_h = false
+remora.init_l1ad_T = false
+
+remora.init_ana_h = true
+remora.init_ana_T = true
+
+remora.init_l0int_h =false
+remora.init_l0int_T =false
+
+# Coriolis params
+remora.use_coriolis = false
+remora.use_uv3dmix = true
+remora.coriolis_type = beta_plane
+remora.coriolis_f0 = -8.26e-5
+remora.coriolis_beta = 0.0
+
+remora.refinement_indicators = bx1
+remora.bx1.max_level = 1
+#remora.bx1.in_box_lo = 15000.   7000. -150.
+#remora.bx1.in_box_hi = 20000. 17000. 0.
+remora.bx1.in_box_lo = 10000 5000 -150
+remora.bx1.in_box_hi = 20000 20000 0
+#remora.scalar.start_time = 2
+remora.coupling_type = "TwoWay"
+
+#remora.refinement_indicators = scalar
+#remora.scalar.max_level = 1
+#remora.scalar.field_name = scalar
+#remora.scalar.value_greater = 0.5
+##remora.scalar.start_time = 2
+#remora.coupling_type = "TwoWay"
+

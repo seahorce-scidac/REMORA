@@ -763,6 +763,10 @@ private:
     amrex::Vector<REMORAFillPatcher> FPr_v;
     amrex::Vector<REMORAFillPatcher> FPr_w;
 
+    // Fillpatcher classes for 2d velocity variables
+    amrex::Vector<REMORAFillPatcher> FPr_ubar;
+    amrex::Vector<REMORAFillPatcher> FPr_vbar;
+
     // write checkpoint file to disk
     void WriteCheckpointFile () const;
 

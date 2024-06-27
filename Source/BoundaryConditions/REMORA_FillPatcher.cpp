@@ -211,7 +211,7 @@ void REMORAFillPatcher::InterpFace (MultiFab& fine,
                                  MultiFab const& crse,
                                  int mask_val)
 {
-    int ncomp = 1;
+    int ncomp = m_ncomp;
     IntVect ratio = m_ratio;
 
     FArrayBox slope;
