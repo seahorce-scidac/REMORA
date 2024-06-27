@@ -830,6 +830,8 @@ REMORA::AverageDownTo (int crse_lev)
 {
     average_down(*cons_new[crse_lev+1], *cons_new[crse_lev],
                  0, cons_new[crse_lev]->nComp(), refRatio(crse_lev));
+    average_down(*vec_zeta[crse_lev+1].get(), *vec_zeta[crse_lev].get(),
+                 0, vec_zeta[crse_lev]->nComp(), refRatio(crse_lev));
 
     Array<MultiFab*,AMREX_SPACEDIM>  faces_crse;
     Array<MultiFab*,AMREX_SPACEDIM>  faces_fine;

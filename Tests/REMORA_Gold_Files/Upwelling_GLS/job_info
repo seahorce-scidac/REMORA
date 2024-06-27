@@ -5,29 +5,29 @@ inputs file: Upwelling_GLS.i
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.000265555
+CPU time used since start of simulation (CPU-hours): 0.000262593
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Fri Jun  7 14:23:16 2024
-output dir:         /home/klion/software/REMORA/Exec/Upwelling
+output data / time: Thu Jun 27 10:09:29 2024
+output dir:         /home/klion/software/REMORA_clean/Exec/Upwelling
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    2024-02-06 09:48:30.294898
-build machine: Linux varan 5.15.0-91-generic #101~20.04.1-Ubuntu SMP Thu Nov 16 14:22:28 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
-build dir:     /home/klion/software/REMORA/Exec/Upwelling
+build date:    2023-12-06 12:27:48.645362
+build machine: Linux varan 5.15.0-79-generic #86~20.04.2-Ubuntu SMP Mon Jul 17 23:27:17 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
+build dir:     /home/klion/software/ROMSX_clean/Exec/Upwelling
 AMReX dir:     ../../Submodules/AMReX
 
 COMP:          gnu
 COMP version:  9.4.0
 
 
-REMORA       git hash: d6367ef-dirty
-AMReX       git hash: 24.01-25-gd121723c7
+REMORA       git hash: 41e399b-dirty
+AMReX       git hash: 23.09-22-gb2052f2d2
 
 
 ===============================================================================

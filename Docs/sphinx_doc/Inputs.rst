@@ -13,39 +13,48 @@ The REMORA executable reads run-time information from an “inputs” file whic
 This section describes the inputs which can be specified either in the inputs file or on the command line.
 If a value is specified on the command line, that value will override a value specified in the inputs file.
 
+.. _geometry-parameters:
+
 Problem Geometry
 ================
+
+The problem geometry can be specified either by a NetCDF grid file or in the inputs.
+Instructions for setting grid, initial, and Dirichelet boundary conditions from NetCDF file can be found
+:ref:`here<icbc-parameters>`. If one of these quantities is specified from a NetCDF file, they all must be. Even if the grid is specified in the NetCDF file, the geometry and boundary parameters below must still be set. ``geometry.prob_lo`` and ``geometry.prob_hi`` do not need to agree with the file in this case.
+
+The z-component of ``geometry.prob_lo`` should be more negative than the deepest bathymetry, and the z-compoonent of ``geometry.prob_hi`` should be 0.
 
 List of Parameters
 ------------------
 
-+--------------------------+-----------------+-----------------+-------------+
-| Parameter                | Definition      | Acceptable      | Default     |
-|                          |                 | Values          |             |
-+==========================+=================+=================+=============+
-| **geometry.prob_lo**     | physical        | Real            | must be set |
-|                          | location of low |                 |             |
-|                          | corner of the   |                 |             |
-|                          | domain          |                 |             |
-+--------------------------+-----------------+-----------------+-------------+
-| **geometry.prob_hi**     | physical        | Real            | must be set |
-|                          | location of     |                 |             |
-|                          | high corner of  |                 |             |
-|                          | the domain      |                 |             |
-+--------------------------+-----------------+-----------------+-------------+
-| **geometry.is_periodic** | is the domain   | 0 if false, 1   | 0 0 0       |
-|                          | periodic in     | if true         |             |
-|                          | this direction  |                 |             |
-+--------------------------+-----------------+-----------------+-------------+
++--------------------------+-----------------+-------------------+-------------+
+| Parameter                | Definition      | Acceptable        | Default     |
+|                          |                 | Values            |             |
++==========================+=================+===================+=============+
+| **geometry.prob_lo**     | physical        | [Real Real -Real] | must be set |
+|                          | location of low |                   |             |
+|                          | corner of the   |                   |             |
+|                          | domain          |                   |             |
++--------------------------+-----------------+-------------------+-------------+
+| **geometry.prob_hi**     | physical        | [Real Real 0]     | must be set |
+|                          | location of     |                   |             |
+|                          | high corner of  |                   |             |
+|                          | the domain      |                   |             |
++--------------------------+-----------------+-------------------+-------------+
+| **geometry.is_periodic** | is the domain   | 0 if false, 1     | 0 0 0       |
+|                          | periodic in     | if true.          |             |
+|                          | this direction  | Z-component must  |             |
+|                          |                 | be zero           |             |
++--------------------------+-----------------+-------------------+-------------+
 
 Examples of Usage
 -----------------
 
--  **geometry.prob_lo** = 0 0 0
-   defines the low corner of the domain at (0,0,0) in physical space.
+-  **geometry.prob_lo** = 0 0 -200
+   defines the low corner of the domain at (0 m,0 m,-200 m) in physical space.
 
--  **geometry.prob_hi** = 1.e8 2.e8 2.e8
-   defines the high corner of the domain at (1.e8,2.e8,2.e8) in
+-  **geometry.prob_hi** = 1.e8 2.e8 0
+   defines the high corner of the domain at (1.e8 m, 2.e8 m, 0 m) in
    physical space.
 
 -  **geometry.is_periodic** = 0 1 0
@@ -59,22 +68,63 @@ Domain Boundary Conditions
 List of Parameters
 ------------------
 
-+---------------+---------------------------------+-------------------+----------------------------+
-| Parameter     | Definition                      | Acceptable Values | Default                    |
-+===============+=================================+===================+============================+
-| **xlo.type**  | boundary type of xlo face       |                   | must be set if not periodic|
-+---------------+---------------------------------+-------------------+----------------------------+
-| **xhi.type**  | boundary type of xhi face       |                   | must be set if not periodic|
-+---------------+---------------------------------+-------------------+----------------------------+
-| **ylo.type**  | boundary type of ylo face       |                   | must be set if not periodic|
-+---------------+---------------------------------+-------------------+----------------------------+
-| **yhi.type**  | boundary type of yhi face       |                   | must be set if not periodic|
-+---------------+---------------------------------+-------------------+----------------------------+
-| **zlo.type**  | boundary type of zlo face       |                   | must be set if not periodic|
-+---------------+---------------------------------+-------------------+----------------------------+
-| **zhi.type**  | boundary type of zhi face       |                   | must be set if not periodic|
-+---------------+---------------------------------+-------------------+----------------------------+
++---------------+---------------------------------+-------------------+-----------------------------+
+| Parameter     | Definition                      | Acceptable Values | Default                     |
++===============+=================================+===================+=============================+
+| **xlo.type**  | boundary type of xlo face       | see below         | must be set if not periodic |
++---------------+---------------------------------+-------------------+-----------------------------+
+| **xhi.type**  | boundary type of xhi face       | see below         | must be set if not periodic |
++---------------+---------------------------------+-------------------+-----------------------------+
+| **ylo.type**  | boundary type of ylo face       | see below         | must be set if not periodic |
++---------------+---------------------------------+-------------------+-----------------------------+
+| **yhi.type**  | boundary type of yhi face       | see below         | must be set if not periodic |
++---------------+---------------------------------+-------------------+-----------------------------+
+| **zlo.type**  | boundary type of zlo face       | slipwall          | must be set                 |
++---------------+---------------------------------+-------------------+-----------------------------+
+| **zhi.type**  | boundary type of zhi face       | slipwall          | must be set                 |
++---------------+---------------------------------+-------------------+-----------------------------+
 
+Currently available type of boundary conditions are
+``inflow``, ``outflow``, ``slipwall``, ``noslipwall``, or ``symmetry``
+(Spelling of the type matters; capitalization does not.) Z-boundaries are always treated as the seafloor
+and surface, and boundary type selection here will not affect program behavior. Domain boundary types
+are specified on a per-side basis, rather than a per-variable basis. Inflow, outflow, etc
+
+Usage examples can be found :ref:`here<sec:domainBCs>`.
+
+.. _icbc-parameters:
+
+Imposing Boundary and Initial Conditions from NetCDF File
+=========================================================
+
+Grid, initial, and time-dependent boundary data can be specified using NetCDF files, as in ROMS. REMORA expects files in the same format as ROMS.
+Currently, if one of these are specified in a file, they all must be. Boundary conditions are currently applied as Dirichelet conditions, as in the ROMS ``clamped`` boundary type. More sophisticated boundary conditions like nudging are a work in progress.
+
+The ``outflow`` option must be selected for ``xlo.type``, ``xhi.type``, ``ylo.type``, and ``yhi.type`` to read the boundary data.
+
+List of Parameters
+------------------
+
++---------------------------+-------------------------------+-------------+--------------------------+
+| Parameter                 | Definition                    | Acceptable  | Default                  |
+|                           |                               | Values      |                          |
++===========================+===============================+=============+==========================+
+| **remora.ic_bc_type**     | read initial, grid, and       |             |                          |
+|                           | boundary data from NetCDF     | true/false  | false                    |
+|                           | files                         |             | is true                  |
++---------------------------+-------------------------------+-------------+--------------------------+
+| **remora.nc_init_file_0** | initial data NetCDF file name | string      | must be set              |
+|                           |                               |             | if ``remora.ic_bc_type`` |
+|                           |                               |             | is true                  |
++---------------------------+-------------------------------+-------------+--------------------------+
+| **remora.nc_grid_file_0** | grid data NetCDF file name    | string      | must be set              |
+|                           |                               |             | if ``remora.ic_bc_type`` |
+|                           |                               |             | is true                  |
++---------------------------+-------------------------------+-------------+--------------------------+
+| **remora.nc_bdry_file_0** | boundary data NetCDF file     | string      | must be set              |
+|                           | name                          |             | if ``remora.ic_bc_type`` |
+|                           |                               |             | is true                  |
++---------------------------+-------------------------------+-------------+--------------------------+
 
 Resolution
 ==========
@@ -532,6 +582,8 @@ List of Parameters
 | **remora.Akv_bak**               | Minimum/initial value of Akv         | Real number       | 5.0e-6         |
 +----------------------------------+--------------------------------------+-------------------+----------------+
 | **remora.Akt_bak**               | Minimum/initial value of Akt         | Real number       | 1.0e-6         |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.rdrag**                 | Bottom drag                          | Real number       | 3.0e-4         |
 +----------------------------------+--------------------------------------+-------------------+----------------+
 
 List of GLS-specific parameters
