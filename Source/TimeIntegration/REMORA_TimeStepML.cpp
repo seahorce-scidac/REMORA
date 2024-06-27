@@ -11,7 +11,6 @@ REMORA::timeStepML (Real time, int /*iteration*/)
     if (time == 0.0_rt && solverChoice.init_l1ad_T) {
         average_down(*cons_new[1], *cons_new[0],
                  0, cons_new[0]->nComp(), refRatio(0));
-        Print() << "extra average_down " << istep[0] << std::endl;
         WritePlotFile();
     }
 
@@ -116,7 +115,6 @@ REMORA::timeStepML (Real time, int /*iteration*/)
                 if (lev < finest_level)
                 {
                     if (cf_width >= 0) {
-                        Print() << "cf width >= 0  " << dt[lev] << std::endl;
                         // We must fill the ghost cells of these so that the parallel copy works correctly
                         vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
                         FPr_ubar[lev].RegisterCoarseData({vec_ubar[lev].get(), vec_ubar[lev].get()}, {time, time + dt[lev]});
@@ -151,7 +149,6 @@ REMORA::timeStepML (Real time, int /*iteration*/)
             }
 
             if (cf_width >= 0) {
-                Print() << "cf width >= 0  " << dt[lev] << std::endl;
                 // We must fill the ghost cells of these so that the parallel copy works correctly
                 xvel_old[lev]->FillBoundary(geom[lev].periodicity());
                 xvel_new[lev]->FillBoundary(geom[lev].periodicity());
@@ -171,11 +168,6 @@ REMORA::timeStepML (Real time, int /*iteration*/)
         FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,true);
     }
 
-    print_state(*xvel_new[0],IntVect(20,13,0));
-    print_state(*xvel_new[1],IntVect(60,42,0));
-    print_state(*xvel_new[1],IntVect(59,42,0));
-    print_state(*xvel_new[1],IntVect(58,42,0));
-    print_state(*xvel_new[1],IntVect(57,42,0));
     scale_rhs_vars_inv();
 
     if (solverChoice.coupling_type == CouplingType::TwoWay) {
