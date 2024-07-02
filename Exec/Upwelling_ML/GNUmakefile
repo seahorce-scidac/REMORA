@@ -1,0 +1,34 @@
+# AMReX
+COMP = gnu
+PRECISION = DOUBLE
+
+# Profiling
+PROFILE       = FALSE
+TINY_PROFILE  = FALSE
+COMM_PROFILE  = FALSE
+TRACE_PROFILE = FALSE
+MEM_PROFILE   = FALSE
+USE_GPROF     = FALSE
+
+# Performance
+USE_MPI   = TRUE
+USE_OMP   = FALSE
+USE_CUDA  = FALSE
+USE_HIP   = FALSE
+USE_SYCL  = FALSE
+
+# Debugging
+DEBUG = TRUE
+#DEBUG = FALSE
+
+TEST = TRUE
+USE_ASSERTION = TRUE
+
+USE_NETCDF = TRUE
+
+# GNU Make
+Bpack := ./Make.package
+Blocs := .
+REMORA_HOME := ../..
+REMORA_PROBLEM_DIR = $(REMORA_HOME)/Exec/Upwelling_ML
+include $(REMORA_HOME)/Exec/Make.REMORA
