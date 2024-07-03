@@ -23,7 +23,7 @@ enum class AdvectionDir {
 };
 
 enum class AdvectionScheme {
-    centered4, upstream3
+    centered2, centered4, upstream3
 };
 
 enum class IC_BC_Type {
@@ -54,7 +54,7 @@ struct SolverChoice {
 
         pp.query("flat_bathymetry", flat_bathymetry);
 
-        // Which horizontal advection scheme
+        // Which horizontal advection scheme for tracers
         static std::string hadv_string = "upstream3";
         pp.query("horizontal_advection_scheme",hadv_string);
         if (hadv_string == "centered4")
@@ -63,6 +63,16 @@ struct SolverChoice {
             Hadv_scheme = AdvectionScheme::upstream3;
         else
             amrex::Error("Advection scheme unknown.");
+
+        // Which horizontal advection scheme
+        static std::string uv_hadv_string = "upstream3";
+        pp.query("uv_horizontal_advection_scheme",uv_hadv_string);
+        if (uv_hadv_string == "upstream3")
+            uv_Hadv_scheme = AdvectionScheme::upstream3;
+        else if (uv_hadv_string == "centered2")
+            uv_Hadv_scheme = AdvectionScheme::centered2;
+        else
+            amrex::Error("UV advection scheme unknown.");
 
         pp.query("rdrag", rdrag);
         pp.query("rdrag", Zos);
@@ -299,6 +309,7 @@ struct SolverChoice {
     bool init_l0int_T = true;
 
     AdvectionScheme Hadv_scheme;
+    AdvectionScheme uv_Hadv_scheme;
 
     // Coupling options are "OneWay" or "TwoWay"
     CouplingType coupling_type;
