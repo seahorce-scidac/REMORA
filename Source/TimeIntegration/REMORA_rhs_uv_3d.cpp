@@ -73,80 +73,92 @@ REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
     auto VFe=fab_VFe.array();
 
     auto ic_bc_type = solverChoice.ic_bc_type;
+    auto uv_hadv_scheme = solverChoice.uv_Hadv_scheme;
 
     //check this////////////
     const Real Gadv = -0.25_rt;
 
-    // *************************************************************
-    // UPDATING U
-    // *************************************************************
+    if (uv_hadv_scheme == AdvectionScheme::upstream3) {
+        // *************************************************************
+        // UPDATING U
+        // *************************************************************
 
-    // Think of the cell-centered box as                              [ 0:nx-1, 0:ny-1] (0,0,0) cc
-    //
-    // xbx is the x-face-centered box on which we update u (with ru)  [ 0:nx  , 0:ny-1] (1,0,0) x-faces
-    //   to do so requires                                  UFx on    [-1:nx  , 0:ny-1] (0,0,0) cc
-    //      which requires                                  uold on   [-2:nx+2, 0:ny-1] (1,0,0) x-faces
-    //       and  requires                                  Huon on   [-2:nx+2, 0:ny-1] (0,0,0) x-faces
-    //   to do so requires                                  UFe on    [ 0:nx  , 0:ny  ] (1,1,0) xy-nodes
-    //      which requires                                  uold on   [ 0:nx  ,-2:ny+1] (1,0,0) x-faces
-    //       and  requires                                  Hvom on   [-2:nx+1, 0:ny-1] (0,1,0) y-faces
+        // Think of the cell-centered box as                              [ 0:nx-1, 0:ny-1] (0,0,0) cc
+        //
+        // xbx is the x-face-centered box on which we update u (with ru)  [ 0:nx  , 0:ny-1] (1,0,0) x-faces
+        //   to do so requires                                  UFx on    [-1:nx  , 0:ny-1] (0,0,0) cc
+        //      which requires                                  uold on   [-2:nx+2, 0:ny-1] (1,0,0) x-faces
+        //       and  requires                                  Huon on   [-2:nx+2, 0:ny-1] (0,0,0) x-faces
+        //   to do so requires                                  UFe on    [ 0:nx  , 0:ny  ] (1,1,0) xy-nodes
+        //      which requires                                  uold on   [ 0:nx  ,-2:ny+1] (1,0,0) x-faces
+        //       and  requires                                  Hvom on   [-2:nx+1, 0:ny-1] (0,1,0) y-faces
 
-    //
-    // Define UFx, the x-fluxes at cell centers for updating u
-    // (Note that grow arguments are (bx, dir, ng)
-    //
-    ParallelFor(growLo(xbx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        Real cff1 = uold(i,j,k,nrhs)+uold(i+1,j,k,nrhs);
+        //
+        // Define UFx, the x-fluxes at cell centers for updating u
+        // (Note that grow arguments are (bx, dir, ng)
+        //
+        ParallelFor(growLo(xbx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real cff1 = uold(i,j,k,nrhs)+uold(i+1,j,k,nrhs);
 
-        Real uxx_i   = uold(i-1,j,k,nrhs)-2.0_rt*uold(i  ,j,k,nrhs)+uold(i+1,j,k,nrhs);
-        Real uxx_ip1 = uold(i  ,j,k,nrhs)-2.0_rt*uold(i+1,j,k,nrhs)+uold(i+2,j,k,nrhs);
-        // Upwinding
+            Real uxx_i   = uold(i-1,j,k,nrhs)-2.0_rt*uold(i  ,j,k,nrhs)+uold(i+1,j,k,nrhs);
+            Real uxx_ip1 = uold(i  ,j,k,nrhs)-2.0_rt*uold(i+1,j,k,nrhs)+uold(i+2,j,k,nrhs);
+            // Upwinding
 
-        Real Huxx_i   = Huon(i-1,j,k)-2.0_rt*Huon(i  ,j,k)+Huon(i+1,j,k);
-        Real Huxx_ip1 = Huon(i  ,j,k)-2.0_rt*Huon(i+1,j,k)+Huon(i+2,j,k);
+            Real Huxx_i   = Huon(i-1,j,k)-2.0_rt*Huon(i  ,j,k)+Huon(i+1,j,k);
+            Real Huxx_ip1 = Huon(i  ,j,k)-2.0_rt*Huon(i+1,j,k)+Huon(i+2,j,k);
 
-        if (i == dlo.x && (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
-            uxx_i = uxx_ip1;
-            Huxx_i = Huxx_ip1;
-        }
-        else if (i == dhi.x && (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
-            uxx_ip1 = uxx_i;
-            Huxx_ip1 = Huxx_i;
-        }
+            if (i == dlo.x && (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+                uxx_i = uxx_ip1;
+                Huxx_i = Huxx_ip1;
+            }
+            else if (i == dhi.x && (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+                uxx_ip1 = uxx_i;
+                Huxx_ip1 = Huxx_i;
+            }
 
-        Real cff = (cff1 > 0.0_rt) ? uxx_i : uxx_ip1;
+            Real cff = (cff1 > 0.0_rt) ? uxx_i : uxx_ip1;
 
-        Real Huon_avg = (Huon(i,j,k) + Huon(i+1,j,k));
+            Real Huon_avg = (Huon(i,j,k) + Huon(i+1,j,k));
 
-        UFx(i,j,k) = 0.25_rt*(cff1+Gadv*cff) * ( Huon_avg + 0.5_rt*Gadv*(Huxx_i + Huxx_ip1) );
-    });
+            UFx(i,j,k) = 0.25_rt*(cff1+Gadv*cff) * ( Huon_avg + 0.5_rt*Gadv*(Huxx_i + Huxx_ip1) );
+        });
 
-    //
-    // Define UFe, the y-fluxes at nodes for updating u
-    //
-    ParallelFor(growHi(xbx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        Real cff1 = uold(i,j,k,nrhs) + uold(i  ,j-1,k,nrhs);
-        Real cff2 = Hvom(i,j,k)      + Hvom(i-1,j  ,k);
+        //
+        // Define UFe, the y-fluxes at nodes for updating u
+        //
+        ParallelFor(growHi(xbx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real cff1 = uold(i,j,k,nrhs) + uold(i  ,j-1,k,nrhs);
+            Real cff2 = Hvom(i,j,k)      + Hvom(i-1,j  ,k);
 
-        Real uee_jm1 = uold(i,j-2,k,nrhs) - 2.0_rt*uold(i,j-1,k,nrhs) + uold(i  ,j,k,nrhs);
-        Real uee_j   = uold(i,j-1,k,nrhs) - 2.0_rt*uold(i,j  ,k,nrhs) + uold(i,j+1,k,nrhs);
+            Real uee_jm1 = uold(i,j-2,k,nrhs) - 2.0_rt*uold(i,j-1,k,nrhs) + uold(i  ,j,k,nrhs);
+            Real uee_j   = uold(i,j-1,k,nrhs) - 2.0_rt*uold(i,j  ,k,nrhs) + uold(i,j+1,k,nrhs);
 
-        if (j == dlo.y and (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
-            uee_jm1 = uee_j;
-        } else if (j == dhi.y+1 and (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
-            uee_j = uee_jm1;
-        }
+            if (j == dlo.y and (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+                uee_jm1 = uee_j;
+            } else if (j == dhi.y+1 and (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+                uee_j = uee_jm1;
+            }
 
-        // Upwinding
-        Real cff = (cff2 > 0.0_rt) ?  uee_jm1 : uee_j;
+            // Upwinding
+            Real cff = (cff2 > 0.0_rt) ?  uee_jm1 : uee_j;
 
-        Real Hvxx_i   = Hvom(i-1,j,k)-2.0_rt*Hvom(i  ,j,k)+Hvom(i+1,j,k);
-        Real Hvxx_im1 = Hvom(i-2,j,k)-2.0_rt*Hvom(i-1,j,k)+Hvom(i  ,j,k);
+            Real Hvxx_i   = Hvom(i-1,j,k)-2.0_rt*Hvom(i  ,j,k)+Hvom(i+1,j,k);
+            Real Hvxx_im1 = Hvom(i-2,j,k)-2.0_rt*Hvom(i-1,j,k)+Hvom(i  ,j,k);
 
-        UFe(i,j,k) = 0.25_rt * (cff1+Gadv*cff)* (cff2+Gadv*0.5_rt*(Hvxx_i + Hvxx_im1));
-    });
+            UFe(i,j,k) = 0.25_rt * (cff1+Gadv*cff)* (cff2+Gadv*0.5_rt*(Hvxx_i + Hvxx_im1));
+        });
+    } else if (uv_hadv_scheme == AdvectionScheme::centered2) {
+        ParallelFor(growLo(xbx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            UFx(i,j,k) = 0.25_rt * (uold(i,j,k,nrhs) + uold(i+1,j,k,nrhs)) * (Huon(i,j,k)+Huon(i+1,j,k));
+        });
+        ParallelFor(growHi(xbx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            UFe(i,j,k) = 0.25_rt * (uold(i,j-1,k,nrhs) + uold(i,j,k,nrhs)) * (Hvom(i-1,j,k)+Hvom(i,j,k));
+        });
+    }
 
     //
     // Define the RHS for u by differencing fluxes
@@ -215,69 +227,80 @@ REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
        }
     });
 
-    // *************************************************************
-    // UPDATING V
-    // *************************************************************
+    if (uv_hadv_scheme == AdvectionScheme::upstream3) {
+        // *************************************************************
+        // UPDATING V
+        // *************************************************************
 
-    // Think of the cell-centered box as                              [ 0:nx-1, 0:ny-1] (0,0,0) cc
-    //
-    // ybx is the y-face-centered box on which we update v (with rv)  [ 0:nx-1, 0:ny  ] (1,0,0)  y-faces
-    //   to do so requires                                  VFe on    [ 0:nx-1,-1:ny  ] (1,1,0)  xy-nodes
-    //      which requires                                    vold on [ 0:nx-1,-2:ny+2] (1,0,0)  y-faces
-    //       and  requires                                    Hvom on [ 0:nx-1,-2:ny+2] (0,1,0)  x-faces
-    //   to do so requires                                  VFx on    [ 0:nx  , 0:ny  ] (0,0,0)  cc
-    //      which requires                                    vold on [-2:nx+1, -:ny  ] (1,0,0)  y-faces
-    //       and  requires                                    Hvom on [ 0:nx-1,-2:ny+1] (0,0,0)  y-faces
+        // Think of the cell-centered box as                              [ 0:nx-1, 0:ny-1] (0,0,0) cc
+        //
+        // ybx is the y-face-centered box on which we update v (with rv)  [ 0:nx-1, 0:ny  ] (1,0,0)  y-faces
+        //   to do so requires                                  VFe on    [ 0:nx-1,-1:ny  ] (1,1,0)  xy-nodes
+        //      which requires                                    vold on [ 0:nx-1,-2:ny+2] (1,0,0)  y-faces
+        //       and  requires                                    Hvom on [ 0:nx-1,-2:ny+2] (0,1,0)  x-faces
+        //   to do so requires                                  VFx on    [ 0:nx  , 0:ny  ] (0,0,0)  cc
+        //      which requires                                    vold on [-2:nx+1, -:ny  ] (1,0,0)  y-faces
+        //       and  requires                                    Hvom on [ 0:nx-1,-2:ny+1] (0,0,0)  y-faces
 
-    // Grow ybx by one in high x-direction
-    ParallelFor(growHi(ybx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        Real cff1 = vold(i,j,k,nrhs) + vold(i-1,j  ,k,nrhs);
-        Real cff2 = Huon(i,j,k)      + Huon(i  ,j-1,k);
+        // Grow ybx by one in high x-direction
+        ParallelFor(growHi(ybx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real cff1 = vold(i,j,k,nrhs) + vold(i-1,j  ,k,nrhs);
+            Real cff2 = Huon(i,j,k)      + Huon(i  ,j-1,k);
 
-        Real vxx_im1 = vold(i-2,j,k,nrhs)-2.0_rt*vold(i-1,j,k,nrhs)+vold(i  ,j,k,nrhs);
-        Real vxx_i   = vold(i-1,j,k,nrhs)-2.0_rt*vold(i  ,j,k,nrhs)+vold(i+1,j,k,nrhs);
+            Real vxx_im1 = vold(i-2,j,k,nrhs)-2.0_rt*vold(i-1,j,k,nrhs)+vold(i  ,j,k,nrhs);
+            Real vxx_i   = vold(i-1,j,k,nrhs)-2.0_rt*vold(i  ,j,k,nrhs)+vold(i+1,j,k,nrhs);
 
-        if (i == dlo.x and (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
-            vxx_im1 = vxx_i;
-        } else if (i == dhi.x+1 and (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
-            vxx_i = vxx_im1;
-        }
+            if (i == dlo.x and (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+                vxx_im1 = vxx_i;
+            } else if (i == dhi.x+1 and (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+                vxx_i = vxx_im1;
+            }
 
-        // Upwinding
-        Real cff = (cff2 > 0.0_rt) ? vxx_im1 : vxx_i;
+            // Upwinding
+            Real cff = (cff2 > 0.0_rt) ? vxx_im1 : vxx_i;
 
 
-        Real Huee_j   = Huon(i,j-1,k)-2.0_rt*Huon(i,j  ,k)+Huon(i,j+1,k);
-        Real Huee_jm1 = Huon(i,j-2,k)-2.0_rt*Huon(i,j-1,k)+Huon(i,j  ,k);
+            Real Huee_j   = Huon(i,j-1,k)-2.0_rt*Huon(i,j  ,k)+Huon(i,j+1,k);
+            Real Huee_jm1 = Huon(i,j-2,k)-2.0_rt*Huon(i,j-1,k)+Huon(i,j  ,k);
 
-        VFx(i,j,k) = 0.25_rt*(cff1+Gadv*cff)* (cff2+Gadv*0.5_rt*(Huee_j + Huee_jm1));
-    });
+            VFx(i,j,k) = 0.25_rt*(cff1+Gadv*cff)* (cff2+Gadv*0.5_rt*(Huee_j + Huee_jm1));
+        });
 
-    // Grow ybx by one in low y-direction
-    ParallelFor(growLo(ybx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        Real cff1=vold(i,j,k,nrhs)+vold(i,j+1,k,nrhs);
+        // Grow ybx by one in low y-direction
+        ParallelFor(growLo(ybx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real cff1=vold(i,j,k,nrhs)+vold(i,j+1,k,nrhs);
 
-        // Upwinding
-        Real vee_j    = vold(i,j-1,k,nrhs)-2.0_rt*vold(i,j  ,k,nrhs)+ vold(i,j+1,k,nrhs);
-        Real vee_jp1  = vold(i,j  ,k,nrhs)-2.0_rt*vold(i,j+1,k,nrhs)+ vold(i,j+2,k,nrhs);
+            // Upwinding
+            Real vee_j    = vold(i,j-1,k,nrhs)-2.0_rt*vold(i,j  ,k,nrhs)+ vold(i,j+1,k,nrhs);
+            Real vee_jp1  = vold(i,j  ,k,nrhs)-2.0_rt*vold(i,j+1,k,nrhs)+ vold(i,j+2,k,nrhs);
 
-        Real Hvee_j   = Hvom(i,j-1,k)-2.0_rt*Hvom(i,j  ,k)+Hvom(i,j+1,k);
-        Real Hvee_jp1 = Hvom(i,j  ,k)-2.0_rt*Hvom(i,j+1,k)+Hvom(i,j+2,k);
+            Real Hvee_j   = Hvom(i,j-1,k)-2.0_rt*Hvom(i,j  ,k)+Hvom(i,j+1,k);
+            Real Hvee_jp1 = Hvom(i,j  ,k)-2.0_rt*Hvom(i,j+1,k)+Hvom(i,j+2,k);
 
-        if (j == dlo.y and (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
-            vee_j = vee_jp1;
-            Hvee_j = Hvee_jp1;
-        }
-        else if (j == dhi.y and (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
-            vee_jp1 = vee_j;
-            Hvee_jp1 = Hvee_j;
-        }
-        Real cff = (cff1 > 0.0_rt) ? vee_j : vee_jp1;
+            if (j == dlo.y and (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+                vee_j = vee_jp1;
+                Hvee_j = Hvee_jp1;
+            }
+            else if (j == dhi.y and (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+                vee_jp1 = vee_j;
+                Hvee_jp1 = Hvee_j;
+            }
+            Real cff = (cff1 > 0.0_rt) ? vee_j : vee_jp1;
 
-        VFe(i,j,k) = 0.25_rt * (cff1+Gadv*cff) * ( Hvom(i,j  ,k)+ Hvom(i,j+1,k) + 0.5_rt * Gadv * (Hvee_j + Hvee_jp1) );
-    });
+            VFe(i,j,k) = 0.25_rt * (cff1+Gadv*cff) * ( Hvom(i,j  ,k)+ Hvom(i,j+1,k) + 0.5_rt * Gadv * (Hvee_j + Hvee_jp1) );
+        });
+    } else if (uv_hadv_scheme == AdvectionScheme::centered2) {
+        ParallelFor(growHi(ybx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            VFx(i,j,k) = 0.25_rt * (vold(i-1,j,k,nrhs) + vold(i,j,k,nrhs)) * (Huon(i,j-1,k)+Huon(i,j,k));
+        });
+        ParallelFor(growLo(ybx,1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            VFe(i,j,k) = 0.25_rt * (vold(i,j,k,nrhs) + vold(i,j+1,k,nrhs)) * (Hvom(i,j,k)+Hvom(i,j+1,k));
+        });
+    }
 
     ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {

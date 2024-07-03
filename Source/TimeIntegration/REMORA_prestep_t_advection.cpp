@@ -163,7 +163,7 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
 
         Real cffa=1.0_rt/6.0_rt;
         Real cffb=1.0_rt/3.0_rt;
-        if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3)
+        if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3)
         {
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -180,7 +180,7 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
 
-        } else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+        } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -197,7 +197,7 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
            Error("Not a valid horizontal advection scheme");
         }
 
-        if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3)
+        if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3)
         {
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -213,7 +213,7 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
             });
 
-        } else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+        } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
