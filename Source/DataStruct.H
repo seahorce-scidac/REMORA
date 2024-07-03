@@ -55,12 +55,12 @@ struct SolverChoice {
         pp.query("flat_bathymetry", flat_bathymetry);
 
         // Which horizontal advection scheme for tracers
-        static std::string hadv_string = "upstream3";
-        pp.query("horizontal_advection_scheme",hadv_string);
-        if (hadv_string == "centered4")
-            Hadv_scheme = AdvectionScheme::centered4;
-        else if (hadv_string == "upstream3")
-            Hadv_scheme = AdvectionScheme::upstream3;
+        static std::string tracer_hadv_string = "upstream3";
+        pp.query("tracer_horizontal_advection_scheme",tracer_hadv_string);
+        if (tracer_hadv_string == "centered4")
+            tracer_Hadv_scheme = AdvectionScheme::centered4;
+        else if (tracer_hadv_string == "upstream3")
+            tracer_Hadv_scheme = AdvectionScheme::upstream3;
         else
             amrex::Error("Advection scheme unknown.");
 
@@ -250,20 +250,30 @@ struct SolverChoice {
         amrex::Print() << "spatial_order         : " << spatial_order << std::endl;
 
         if (ic_bc_type == IC_BC_Type::Custom) {
-            amrex::Print() << "Using custom initial and boundary conditions (No mesoscale forcing!)" << std::endl;
+            amrex::Print() << "Using custom initial and boundary conditions" << std::endl;
         }
         else if (ic_bc_type == IC_BC_Type::Real) {
-            amrex::Print() << "Using REAL initial and boundary conditions (Mesoscale forcing!)" << std::endl;
+            amrex::Print() << "Using REAL initial and boundary conditions" << std::endl;
         }
 
-        if (Hadv_scheme == AdvectionScheme::centered4) {
-            amrex::Print() << "Horizontal advection scheme: " << "Centered 4" << std::endl;
+        if (tracer_Hadv_scheme == AdvectionScheme::centered4) {
+            amrex::Print() << "Horizontal advection scheme for tracers: " << "Centered 4" << std::endl;
         }
-        else if (Hadv_scheme == AdvectionScheme::upstream3) {
-            amrex::Print() << "Horizontal advection scheme: " << "Upstream 3" << std::endl;
+        else if (tracer_Hadv_scheme == AdvectionScheme::upstream3) {
+            amrex::Print() << "Horizontal advection scheme for tracers: " << "Upstream 3" << std::endl;
         }
         else {
-            amrex::Error("Invalid horizontal advection scheme.");
+            amrex::Error("Invalid horizontal advection scheme for tracers.");
+        }
+
+        if (uv_Hadv_scheme == AdvectionScheme::centered2) {
+            amrex::Print() << "Horizontal advection scheme for momenta: " << "Centered 2" << std::endl;
+        }
+        else if (uv_Hadv_scheme == AdvectionScheme::upstream3) {
+            amrex::Print() << "Horizontal advection scheme for momenta: " << "Upstream 3" << std::endl;
+        }
+        else {
+            amrex::Error("Invalid horizontal advection scheme for momenta.");
         }
 
         if (coupling_type == CouplingType::TwoWay) {
@@ -308,7 +318,7 @@ struct SolverChoice {
     bool init_l0int_h = true;
     bool init_l0int_T = true;
 
-    AdvectionScheme Hadv_scheme;
+    AdvectionScheme tracer_Hadv_scheme;
     AdvectionScheme uv_Hadv_scheme;
 
     // Coupling options are "OneWay" or "TwoWay"

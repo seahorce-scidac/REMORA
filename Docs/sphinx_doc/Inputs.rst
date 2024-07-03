@@ -646,16 +646,16 @@ Numerical Algorithms
 List of Parameters
 ------------------
 
-+-------------------------------------------+-----------------------------+-------------------+-------------+
-| Parameter                                 | Definition                  | Acceptable        | Default     |
-|                                           |                             | Values            |             |
-+===========================================+=============================+===================+=============+
-| **remora.horizontal_advection_scheme**    | Scheme for horizontal       | upstream3,        | upstream3   |
-|                                           | advection of tracers        | centered4         |             |
-+-------------------------------------------+-----------------------------+-------------------+-------------+
-| **remora.uv_horizontal_advection_scheme** | Scheme for horizontal       | upstream3,        | upstream3   |
-|                                           | advection of momenta        | centered2         |             |
-+-------------------------------------------+-----------------------------+-------------------+-------------+
++-----------------------------------------------+-----------------------------+-------------------+-------------+
+| Parameter                                     | Definition                  | Acceptable        | Default     |
+|                                               |                             | Values            |             |
++===============================================+=============================+===================+=============+
+| **remora.tracer_horizontal_advection_scheme** | Scheme for horizontal       | upstream3,        | upstream3   |
+|                                               | advection of tracers        | centered4         |             |
++-----------------------------------------------+-----------------------------+-------------------+-------------+
+| **remora.uv_horizontal_advection_scheme**     | Scheme for horizontal       | upstream3,        | upstream3   |
+|                                               | advection of momenta        | centered2         |             |
++-----------------------------------------------+-----------------------------+-------------------+-------------+
 
 Vertical Stretch prameters
 ==========================

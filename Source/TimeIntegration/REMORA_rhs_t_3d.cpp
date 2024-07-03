@@ -83,7 +83,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
     if(solverChoice.flat_bathymetry) {
 
-        if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
+        if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3) {
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -99,7 +99,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
 
-        } else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+        } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -119,7 +119,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
     } else {
 
-        if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
+        if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3) {
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -136,7 +136,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
 
-        } else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+        } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -165,7 +165,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
     cffb=1.0_rt/3.0_rt;
     if (solverChoice.flat_bathymetry) {
 
-        if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
+        if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3) {
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -181,7 +181,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
             });
 
-        } else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+        } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -200,7 +200,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
     } else {
 
-        if (solverChoice.Hadv_scheme == AdvectionScheme::upstream3) {
+        if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3) {
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
@@ -216,7 +216,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
             });
 
-        } else if (solverChoice.Hadv_scheme == AdvectionScheme::centered4) {
+        } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
