@@ -679,12 +679,15 @@ REMORA::ReadParameters ()
     }
 
     ParmParse pp(pp_prefix);
+    ParmParse pp_amr("amr");
     {
         pp.query("regrid_int", regrid_int);
         pp.query("check_file", check_file);
         pp.query("check_int", check_int);
+        pp_amr.query("check_int", check_int);
 
         pp.query("restart", restart_chkfile);
+        pp_amr.query("restart", restart_chkfile);
         pp.query("start_time",start_time);
 
         if (pp.contains("data_log"))
