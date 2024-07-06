@@ -391,6 +391,8 @@ REMORA::ReadCheckpointFile ()
 
        VisMF::Read(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "zeta"));
        VisMF::Read(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Zt_avg1"));
+
+       stretch_transform(lev);
     }
 
 #ifdef REMORA_USE_PARTICLES
