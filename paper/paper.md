@@ -77,7 +77,7 @@ and incorporates temperature, salinity, and an arbitrary scalar which can be adv
 ### Time and Space Discretization and Terrain
 
 The time discretization in REMORA is the ... model as described on ROMS web page.
-In each time step, the depth-averaged equations are first advanced to determine mean quanitities
+In each time step, the depth-averaged equations are first advanced to determine mean quantities
 and ocean height, then the full three-dimensional equations are evolved for velocity and scalars.
 
 The spatial discretization in REMORA uses the classic Arakawa C-grid with

@@ -221,9 +221,9 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akv;
     /** Vertical diffusion coefficient (3D), set in .in file */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akt;
-    /** Harmonic viscosity devined on the psi points (corners of horizontal grid cells) */
+    /** Harmonic viscosity defined on the psi points (corners of horizontal grid cells) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_p;
-    /** Harmonic viscosity devined on the rho points (centers) */
+    /** Harmonic viscosity defined on the rho points (centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_r;
     /** Harmonic diffusivity for temperature / salinity */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_diff2;

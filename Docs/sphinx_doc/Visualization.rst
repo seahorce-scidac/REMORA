@@ -31,7 +31,7 @@ To open a plotfile
 
 #. If you have run the REMORA executable with terrain, then the mapped grid information will
    be stored as nodal data.  Choose the "point data" called "nu", then click on "Warp by Vector"
-   which can be found via Filters-->Alphabetical.  This wil then plot data onto the mapped grid
+   which can be found via Filters-->Alphabetical.  This will then plot data onto the mapped grid
    locations.
 
 #. Under the "Cell Arrays" field, select a variable (e.g., "x_velocity") and click

@@ -852,7 +852,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 Akt(i,j,k,n)=Akt_bak+Sh*ql;
             }
 
-            //  Compute vertical mixing (m2/s) coefficents of turbulent kinetic
+            //  Compute vertical mixing (m2/s) coefficients of turbulent kinetic
             //  energy and generic statistical field.
 
             Akk(i,j,k)=Akk_bak+Sm*ql/gls_sigk;
