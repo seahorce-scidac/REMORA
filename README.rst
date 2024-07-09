@@ -10,7 +10,7 @@ Getting Started
 ~~~~~~~~~~~~~~~
 
 See `Getting Started <https://remora-ocean.readthedocs.io/en/latest/GettingStarted.html>`_ for instructions as to how to clone the REMORA
-and AMReX codes, and for how to build and run a REMORA example.  Mimimum requirements for system software are also given there.
+and AMReX codes, and for how to build and run a REMORA example.  Minimum requirements for system software are also given there.
 
 Documentation
 ~~~~~~~~~~~~~~~~~

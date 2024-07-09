@@ -39,7 +39,7 @@ List of Parameters
 Initialization
 ==============
 
-REMORA can be initialzed in different ways. These are listed below:
+REMORA can be initialized in different ways. These are listed below:
 
 - Custom initialization:
     Several problems under **Exec** are initialized in a custom manner. The state and velocity components are specific to the problem. These problems are meant for demonstration and do not include any terrain or map scale factors.

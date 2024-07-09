@@ -350,7 +350,7 @@ struct SolverChoice {
     amrex::Real R0 = amrex::Real(1028); // background density value (Kg/m3) used in Linear Equation of State
     amrex::Real S0 = amrex::Real(35.0); // background salinity (nondimensional) constant
     amrex::Real T0 = amrex::Real(5.0); // background potential temperature (Celsius) constant
-    amrex::Real Tcoef = amrex::Real(1.7e-4); // linear equation of state parameter (1/Celcius)
+    amrex::Real Tcoef = amrex::Real(1.7e-4); // linear equation of state parameter (1/Celsius)
     amrex::Real Scoef = amrex::Real(0.0); // linear equation of state parameter (nondimensional)
     amrex::Real rho0 = amrex::Real(1025.0); // Mean density (Kg/m3) used when Boussinesq approx is inferred
 
