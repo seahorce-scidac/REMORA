@@ -35,7 +35,7 @@ To open a plotfile
    locations.
 
 #. Under the "Cell Arrays" field, select a variable (e.g., "x_velocity") and click
-   "Apply". Note that the default number of refinement levels loaded and vizualized is 1.
+   "Apply". Note that the default number of refinement levels loaded and visualized is 1.
    Change to the required number of AMR level before clicking "Apply".
 
 #. For "Representation" select "Surface".

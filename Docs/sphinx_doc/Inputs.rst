@@ -482,7 +482,7 @@ Examples of Usage
      coarse time steps. The print statements have the form
    | ``TIME= 1.91717746 MASS= 1.792410279e+34``
    | for example. If this line is commented out or if **remora.v** :math:`<= 0`
-     then it will not compute and print these quanitities.
+     then it will not compute and print these quantities.
 
 Included terms
 ==============
@@ -657,8 +657,8 @@ List of Parameters
 |                                               | advection of momenta        | centered2         |             |
 +-----------------------------------------------+-----------------------------+-------------------+-------------+
 
-Vertical Stretch prameters
-==========================
+Vertical Stretch parameters
+===========================
 
 .. _list-of-parameters-17:
 

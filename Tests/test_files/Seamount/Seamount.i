@@ -62,6 +62,6 @@ remora.tcline = 100.
 remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
 remora.S0    = 32.0    # background salinity (nondimensional) constant
 remora.T0    = 10.0    # background potential temperature (Celsius) constant
-remora.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celcius)
+remora.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celsius)
 remora.Scoef = 0.0     # linear equation of state parameter (nondimensional)
 remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred

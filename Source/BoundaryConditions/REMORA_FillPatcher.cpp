@@ -65,7 +65,7 @@ void REMORAFillPatcher::Define (BoxArray const& fba, DistributionMapping const& 
     AMREX_ALWAYS_ASSERT(nghost_set <= 0);
     AMREX_ALWAYS_ASSERT(nghost <= nghost_set);
 
-    // Set data memebers
+    // Set data members
     m_fba = fba; m_cba = cba;
     m_fdm = fdm; m_cdm = cdm;
     m_fgeom  = fgeom;  m_cgeom = cgeom;

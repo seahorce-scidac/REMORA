@@ -210,7 +210,7 @@ class ParticleData
             return m_namelist_unalloc;
         }
 
-        /*! queries if containe has species of a certain name */
+        /*! queries if container has species of a certain name */
         inline bool contains ( const std::string& a_name ) const
         {
             BL_PROFILE("ParticleData::contains()");
