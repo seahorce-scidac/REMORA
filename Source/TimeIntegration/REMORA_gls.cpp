@@ -643,7 +643,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         // Compute production and dissipation terms.
         ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            // Compute shear and bouyant production of turbulent energy (m3/s3)
+            // Compute shear and buoyant production of turbulent energy (m3/s3)
             // at W-points (ignore small negative values of buoyancy).
             Real strat2 = buoy2(i,j,k);
             Real gls_c3 = (strat2 > 0.0) ? gls_c3m : gls_c3p;
