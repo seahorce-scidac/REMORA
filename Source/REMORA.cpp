@@ -617,6 +617,7 @@ REMORA::init_only (int lev, Real time)
 
                 amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
                 init_data_from_netcdf(lev);
+                set_zeta_to_Ztavg(lev);
                 amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
 
                 amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
@@ -642,6 +643,7 @@ REMORA::init_only (int lev, Real time)
 
             amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
             init_data_from_netcdf(lev);
+            set_zeta_to_Ztavg(lev);
             amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
 
             amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
