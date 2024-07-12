@@ -295,15 +295,15 @@ REMORA::InitData ()
         FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v, 0, true, false);
         FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null, 0, true, false);
 
-        //
-        // Copy from new into old just in case
-        //
-        int ngs   = cons_new[lev]->nGrow();
-        int ngvel = xvel_new[lev]->nGrow();
-        MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,NCONS,ngs);
-        MultiFab::Copy(*xvel_old[lev],*xvel_new[lev],0,0,1,ngvel);
-        MultiFab::Copy(*yvel_old[lev],*yvel_new[lev],0,0,1,ngvel);
-        MultiFab::Copy(*zvel_old[lev],*zvel_new[lev],0,0,1,IntVect(ngvel,ngvel,0));
+        if (restart_chkfile == "") {
+            // Copy from new into old just in case when initializing from scratch
+            int ngs   = cons_new[lev]->nGrow();
+            int ngvel = xvel_new[lev]->nGrow();
+            MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,NCONS,ngs);
+            MultiFab::Copy(*xvel_old[lev],*xvel_new[lev],0,0,1,ngvel);
+            MultiFab::Copy(*yvel_old[lev],*yvel_new[lev],0,0,1,ngvel);
+            MultiFab::Copy(*zvel_old[lev],*zvel_new[lev],0,0,1,IntVect(ngvel,ngvel,0));
+        }
     } // lev
 
     // Check for additional plotting variables that are available after
