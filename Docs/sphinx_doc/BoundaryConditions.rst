@@ -84,7 +84,7 @@ As an example,
     xlo.temp                =   15.
     xlo.scalar              =   2.
 
-sets the boundary condtion type at the low x face to be an inflow with xlo.type = “Inflow”.
+sets the boundary condition type at the low x face to be an inflow with xlo.type = “Inflow”.
 
 We note that ``noslipwall`` allows for non-zero tangential velocities to be specified, such as
 

@@ -6,7 +6,7 @@ using namespace amrex;
 /**
  * Function to tag cells for refinement -- this overrides the pure virtual function in AmrCore
  *
- * @param[in]  levc level of refinement (0 is coarsest leve)
+ * @param[in]  levc level of refinement (0 is coarsest level)
  * @param[out] tags array of tagged cells
  * @param[in]  time current time
 */
