@@ -189,6 +189,8 @@ REMORA::WriteCheckpointFile () const
 
        VisMF::Write(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "zeta"));
        VisMF::Write(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Zt_avg1"));
+
+       VisMF::Write(*(vec_hOfTheConfusingName[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "h"));
    }
 
 #ifdef REMORA_USE_PARTICLES
@@ -431,6 +433,8 @@ REMORA::ReadCheckpointFile ()
 
        VisMF::Read(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "zeta"));
        VisMF::Read(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Zt_avg1"));
+
+       VisMF::Read(*(vec_hOfTheConfusingName[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "h"));
 
        stretch_transform(lev);
     }
