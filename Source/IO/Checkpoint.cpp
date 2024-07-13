@@ -160,6 +160,14 @@ REMORA::WriteCheckpointFile () const
        MultiFab::Copy(mf_vbar,*(vec_vbar[lev]),0,0,3,(vec_vbar[lev])->nGrowVect());
        VisMF::Write(mf_vbar, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "YBar"));
 
+       MultiFab mf_ru2d(convert(ba2d,IntVect(1,0,0)),dmap[lev],2,(vec_ru2d[lev])->nGrowVect());
+       MultiFab::Copy(mf_ru2d,*(vec_ru2d[lev]),0,0,2,(vec_ru2d[lev])->nGrowVect());
+       VisMF::Write(mf_ru2d, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "XRHS2d"));
+
+       MultiFab mf_rv2d(convert(ba2d,IntVect(0,1,0)),dmap[lev],2,(vec_rv2d[lev])->nGrowVect());
+       MultiFab::Copy(mf_rv2d,*(vec_rv2d[lev]),0,0,2,(vec_rv2d[lev])->nGrowVect());
+       VisMF::Write(mf_rv2d, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "YRHS2d"));
+
        MultiFab mf_mskr(ba2d,dmap[lev],1,(vec_mskr[lev])->nGrowVect());
        MultiFab::Copy(mf_mskr,*(vec_mskr[lev]),0,0,1,(vec_mskr[lev])->nGrowVect());
        VisMF::Write(mf_mskr, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Mskr"));
@@ -393,6 +401,14 @@ REMORA::ReadCheckpointFile ()
        MultiFab mf_vbar(convert(ba2d,IntVect(0,1,0)),dmap[lev],3,(vec_vbar[lev])->nGrowVect());
        VisMF::Read(mf_vbar, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YBar"));
        MultiFab::Copy(*(vec_vbar[lev]),mf_vbar,0,0,3,(vec_vbar[lev])->nGrowVect());
+
+       MultiFab mf_ru2d(convert(ba2d,IntVect(1,0,0)),dmap[lev],2,(vec_ru2d[lev])->nGrowVect());
+       VisMF::Read(mf_ru2d, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "XRHS2d"));
+       MultiFab::Copy(*(vec_ru2d[lev]),mf_ru2d,0,0,2,(vec_ru2d[lev])->nGrowVect());
+
+       MultiFab mf_rv2d(convert(ba2d,IntVect(0,1,0)),dmap[lev],2,(vec_rv2d[lev])->nGrowVect());
+       VisMF::Read(mf_rv2d, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YRHS2d"));
+       MultiFab::Copy(*(vec_rv2d[lev]),mf_rv2d,0,0,2,(vec_rv2d[lev])->nGrowVect());
 
        MultiFab mf_mskr(ba2d,dmap[lev],1,(vec_mskr[lev])->nGrowVect());
        VisMF::Read(mf_mskr, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Mskr"));
