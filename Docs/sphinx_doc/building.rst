@@ -135,7 +135,7 @@ An example CMake configure command to build REMORA with MPI and particles is lis
 Note that CMake is able to generate makefiles for the Ninja build system as well which will allow for faster building of the executable(s).
 
 Perlmutter (NERSC)
-~~~~~~~~~~~~~~~~~~
+------------------
 
 Recall the GNU Make system is best for use on large computing facility machines and production runs. With the GNU Make implementation, the build system will inspect the machine and use known compiler optimizations explicit to that machine if possible. These explicit settings are kept up-to-date by the AMReX project.
 
@@ -151,7 +151,8 @@ Then follow the general instructions for building REMORA using GNU Make.
    When building, GNU Make may complain that it cannot find NetCDF. This is fine.
 
 
-##### Building for and running on GPU nodes
+Building for and running on GPU nodes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Then build REMORA as, for example (specify your own path to the AMReX submodule in `REMORA/Submodules/AMReX`):
 
@@ -200,7 +201,8 @@ Finally, you can prepare your SLURM job script, using the following as a guide:
 
 To submit your job script, do `sbatch [your job script]` and you can check its status by doing `squeue -u [your username]`.
 
-##### Building for and running on CPU nodes
+Building for and running on CPU nodes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Then build REMORA as, for example (specify your own path to the AMReX submodule in `REMORA/Submodules/AMReX`):
 
