@@ -200,6 +200,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         ncf.def_var("zeta", NC_FLOAT, {nt_name, ny_s_name, nx_s_name});
         ncf.def_var("ubar", NC_FLOAT, {nt_name, ny_u_name, nx_u_name});
         ncf.def_var("vbar", NC_FLOAT, {nt_name, ny_v_name, nx_v_name});
+        ncf.def_var("sustr", NC_FLOAT, {nt_name, ny_u_name, nx_u_name});
+        ncf.def_var("svstr", NC_FLOAT, {nt_name, ny_v_name, nx_v_name});
 
         // We are doing single-level writes but it doesn't have to be level 0
         //
@@ -461,6 +463,16 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
                                            {local_nt, local_ny, local_nx});
             }
+            {
+            FArrayBox tmp;
+            tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
+            tmp.template copy<RunOn::Device>((*vec_sustr[lev])[mfi.index()],0,0,1);
+
+            auto nc_plot_var = ncf.var("sustr");
+            nc_plot_var.par_access(NC_COLLECTIVE);
+            nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+                                           {local_nt, local_ny, local_nx});
+            }
         } // in subdomain
     } // mfi
 
@@ -517,6 +529,16 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             tmp.template copy<RunOn::Device>((*vec_vbar[lev])[mfi.index()],0,0,1);
 
             auto nc_plot_var = ncf.var("vbar");
+            nc_plot_var.par_access(NC_COLLECTIVE);
+            nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+                                           {local_nt, local_ny, local_nx});
+            }
+            {
+            FArrayBox tmp;
+            tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
+            tmp.template copy<RunOn::Device>((*vec_svstr[lev])[mfi.index()],0,0,1);
+
+            auto nc_plot_var = ncf.var("svstr");
             nc_plot_var.par_access(NC_COLLECTIVE);
             nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
                                            {local_nt, local_ny, local_nx});

@@ -662,6 +662,7 @@ REMORA::init_only (int lev, Real time)
     init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
+    init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
 
     // Ensure that the face-based data are the same on both sides of a periodic domain.
     // The data associated with the lower grid ID is considered the correct value.
