@@ -12,8 +12,18 @@ REMORA::GotoNextLine (std::istream& is)
 }
 
 void
-REMORA::WriteCheckpointFile () const
+REMORA::WriteCheckpointFile ()
 {
+    // We fillpatch here because otherwise the restart is wrong. Not 100% clear if this
+    // should be necessary and could instead be replaced by a FillPatch in a more natural
+    // location
+    for (int lev = 0; lev <= finest_level; ++lev) {
+        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t,0,true,false);
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u,0,true,false);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v,0,true,false);
+        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,false);
+    }
+
     // chk00010            write a checkpoint file with this root directory
     // chk00010/Header     this contains information you need to save (e.g., finest_level, t_new, etc.) and also
     //                     the BoxArrays at each level

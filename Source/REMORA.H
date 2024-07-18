@@ -768,7 +768,7 @@ private:
     amrex::Vector<REMORAFillPatcher> FPr_vbar;
 
     // write checkpoint file to disk
-    void WriteCheckpointFile () const;
+    void WriteCheckpointFile ();
 
     // read checkpoint file from disk
     void ReadCheckpointFile ();
