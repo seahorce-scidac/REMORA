@@ -80,6 +80,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     set_hmixcoef(lev);
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
+    init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
 
     // ********************************************************************************************
     // If we are making a new level then the FillPatcher for this level hasn't been allocated yet
@@ -205,6 +206,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     set_hmixcoef(lev);
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
+    init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
 
     // We need to re-define the FillPatcher if the grids have changed
     if (lev > 0 && cf_width >= 0) {
