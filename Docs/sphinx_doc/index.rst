@@ -39,6 +39,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    :hidden:
 
    GettingStarted.rst
+   perlmutter.rst
    Inputs.rst
    BoundaryConditions.rst
    MeshRefinement.rst
