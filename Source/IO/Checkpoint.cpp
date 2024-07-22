@@ -201,6 +201,14 @@ REMORA::WriteCheckpointFile ()
        VisMF::Write(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Zt_avg1"));
 
        VisMF::Write(*(vec_hOfTheConfusingName[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "h"));
+
+       VisMF::Write(*(vec_tke[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "tke"));
+       VisMF::Write(*(vec_gls[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "gls"));
+       VisMF::Write(*(vec_Lscale[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Lscale"));
+       VisMF::Write(*(vec_Akk[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akk"));
+       VisMF::Write(*(vec_Akp[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akp"));
+       VisMF::Write(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akv"));
+       VisMF::Write(*(vec_Akt[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akt"));
    }
 
 #ifdef REMORA_USE_PARTICLES
@@ -445,6 +453,14 @@ REMORA::ReadCheckpointFile ()
        VisMF::Read(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Zt_avg1"));
 
        VisMF::Read(*(vec_hOfTheConfusingName[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "h"));
+
+       VisMF::Read(*(vec_tke[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "tke"));
+       VisMF::Read(*(vec_gls[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "gls"));
+       VisMF::Read(*(vec_Lscale[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Lscale"));
+       VisMF::Read(*(vec_Akk[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akk"));
+       VisMF::Read(*(vec_Akp[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akp"));
+       VisMF::Read(*(vec_Akt[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akt"));
+       VisMF::Read(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akv"));
 
        stretch_transform(lev);
     }
