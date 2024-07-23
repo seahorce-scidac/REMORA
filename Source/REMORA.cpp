@@ -258,9 +258,6 @@ REMORA::InitData ()
 
         InitFromScratch(start_time);
 
-        for (int lev = 0; lev <= finest_level; lev++)
-            init_only(lev, start_time);
-
         if (solverChoice.coupling_type == CouplingType::TwoWay) {
             AverageDown();
         }
