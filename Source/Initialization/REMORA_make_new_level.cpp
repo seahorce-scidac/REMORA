@@ -478,6 +478,14 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_msku[lev]->setVal(1.0_rt);
     vec_mskv[lev]->setVal(1.0_rt);
 
+    // Initialize these vars even if we aren't using GLS to
+    // avoid issues on e.g. checkpoint
+    vec_tke[lev]->setVal(solverChoice.gls_Kmin);
+    vec_gls[lev]->setVal(solverChoice.gls_Pmin);
+    vec_Lscale[lev]->setVal(0.0_rt);
+    vec_Akk[lev]->setVal(solverChoice.Akk_bak);
+    vec_Akp[lev]->setVal(solverChoice.Akp_bak);
+
     // NOTE: Used to set vec_pm and vec_pn to 1e34 here to make foextrap work
     // when init_type = real. However, this does not appear to be necessary so removing
 
