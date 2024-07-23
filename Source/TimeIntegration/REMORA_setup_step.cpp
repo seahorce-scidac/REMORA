@@ -176,7 +176,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     if (solverChoice.vert_mixing_type == VertMixingType::analytical) {
         // Update Akv if using analytical mixing
-        init_set_vmix(lev);
+        set_analytical_vmix(lev);
     }
 
     set_zeta_to_Ztavg(lev);

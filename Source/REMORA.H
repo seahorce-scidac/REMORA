@@ -607,6 +607,7 @@ public:
     void stretch_transform (int lev);
 
     void init_set_vmix (int lev);
+    void set_analytical_vmix (int lev);
     void init_gls_vmix (int lev, SolverChoice solver_choice);
     void gls_prestep (int lev, amrex::MultiFab* mf_gls, amrex::MultiFab* mf_tke,
                       amrex::MultiFab& mf_W,
