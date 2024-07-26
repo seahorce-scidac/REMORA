@@ -32,6 +32,8 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
     auto VFx=fab_VFx.array();
     auto VFe=fab_VFe.array();
 
+    auto N = xbx.hiVect()[2] - ybx.loVect()[2];
+
     // Think of the cell-centered box as                              [ 0:nx-1, 0:ny-1] (0,0,0) cc
     //
     // xbx is the x-face-centered box on which we update u  [ 0:nx  , 0:ny-1] (1,0,0) x-faces
@@ -73,14 +75,16 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
         UFe(i,j,k) = om_p*om_p*visc2_p(i,j,0)*cff;
     });
 
-    ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real cff=dt_lev*0.25_rt*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
-        const Real cff1=0.5_rt*(pn(i-1,j,0)+pn(i,j,0))*(UFx(i,j  ,k)-UFx(i-1,j,k));
-        const Real cff2=0.5_rt*(pm(i-1,j,0)+pm(i,j,0))*(UFe(i,j+1,k)-UFe(i  ,j,k));
-        const Real cff3=cff*(cff1+cff2);
-        amrex::Gpu::Atomic::Add(&(rufrc(i,j,0)), cff1+cff2);
-        u(i,j,k,nnew)=u(i,j,k,nnew)+cff3;
+        for (int k=0; k<=N; k++) {
+            const Real cff=dt_lev*0.25_rt*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
+            const Real cff1=0.5_rt*(pn(i-1,j,0)+pn(i,j,0))*(UFx(i,j  ,k)-UFx(i-1,j,k));
+            const Real cff2=0.5_rt*(pm(i-1,j,0)+pm(i,j,0))*(UFe(i,j+1,k)-UFe(i  ,j,k));
+            const Real cff3=cff*(cff1+cff2);
+            u(i,j,k,nnew)=u(i,j,k,nnew)+cff3;
+            rufrc(i,j,0) += cff1+cff2;
+        }
     });
 
 
@@ -127,14 +131,16 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
         VFx(i,j,k) = on_p*on_p*visc2_p(i,j,0)*cff;
     });
 
-    ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        const Real cff=dt_lev*0.25_rt*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
-        const Real cff1=0.5_rt*(pn(i,j-1,0)+pn(i,j,0))*(VFx(i+1,j,k)-VFx(i,j  ,k));
-        const Real cff2=0.5_rt*(pm(i,j-1,0)+pm(i,j,0))*(VFe(i  ,j,k)-VFe(i,j-1,k));
-        const Real cff3=cff*(cff1-cff2);
-        amrex::Gpu::Atomic::Add(&(rvfrc(i,j,0)), cff1-cff2);
-        v(i,j,k,nnew)=v(i,j,k,nnew)+cff3;
+        for (int k=0; k<=N; k++) {
+            const Real cff=dt_lev*0.25_rt*(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+            const Real cff1=0.5_rt*(pn(i,j-1,0)+pn(i,j,0))*(VFx(i+1,j,k)-VFx(i,j  ,k));
+            const Real cff2=0.5_rt*(pm(i,j-1,0)+pm(i,j,0))*(VFe(i  ,j,k)-VFe(i,j-1,k));
+            const Real cff3=cff*(cff1-cff2);
+            v(i,j,k,nnew)=v(i,j,k,nnew)+cff3;
+            rvfrc(i,j,0) += cff1-cff2;
+        }
     });
 
 }
