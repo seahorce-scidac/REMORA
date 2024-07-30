@@ -23,6 +23,8 @@ void REMORA::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int 
                vec_pm[lev].get(), vec_pn[lev].get(),
                vec_fcor[lev].get(),
                vec_visc2_p[lev].get(), vec_visc2_r[lev].get(),
+               vec_mskr[lev].get(), vec_msku[lev].get(), vec_mskv[lev].get(),
+               vec_mskp[lev].get(),
                dtfast_lev, predictor_2d_step, first_2d_step, my_iif, next_indx1);
 
     //Corrector. Skip it on last fast step
@@ -44,6 +46,8 @@ void REMORA::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int 
                    vec_pm[lev].get(), vec_pn[lev].get(),
                     vec_fcor[lev].get(),
                    vec_visc2_p[lev].get(), vec_visc2_r[lev].get(),
+                   vec_mskr[lev].get(), vec_msku[lev].get(), vec_mskv[lev].get(),
+                   vec_mskp[lev].get(),
                    dtfast_lev, predictor_2d_step, first_2d_step, my_iif, next_indx1);
     }
 }

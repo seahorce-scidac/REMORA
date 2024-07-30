@@ -15,6 +15,8 @@ using namespace amrex;
  * @param[in   ] pm
  * @param[in   ] W
  * @param[inout] FC
+ * @param[in   ] msku
+ * @param[in   ] mskv
  * @param[in   ] nrhs
  * @param[in   ] nnew
  * @param[in   ] N
@@ -32,6 +34,8 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
                  const Array4<Real const>& pm,
                  const Array4<Real const>& W ,
                  const Array4<Real      >& FC,
+                 const Array4<Real const>& msku,
+                 const Array4<Real const>& mskv,
                  int nrhs, int nnew, int N, Real dt_lev)
 {
     //copy the tilebox
@@ -75,7 +79,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
     ParallelFor(utbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
-        FX(i,j,k)=sstore(i,j,k,nrhs)-sstore(i-1,j,k,nrhs);
+        FX(i,j,k)=(sstore(i,j,k,nrhs)-sstore(i-1,j,k,nrhs)) * msku(i,j,0);
     });
 
     Real cffa=1.0_rt/6.0_rt;
@@ -158,7 +162,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
     ParallelFor(vtbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //should be t index 3
-        FE(i,j,k)=sstore(i,j,k,nrhs)-sstore(i,j-1,k,nrhs);
+        FE(i,j,k)=(sstore(i,j,k,nrhs)-sstore(i,j-1,k,nrhs)) * mskv(i,j,0);
     });
 
     cffa=1.0_rt/6.0_rt;

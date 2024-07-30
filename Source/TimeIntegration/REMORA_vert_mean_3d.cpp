@@ -14,6 +14,7 @@ REMORA::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
                      const Array4<Real      >& DC,
                      const Array4<Real      >& CF,
                      const Array4<Real const>& dxlen,
+                     const Array4<Real const>& msk,
                      const int nnew, const int N)
 {
 
@@ -41,5 +42,6 @@ REMORA::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
     ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         phi(i,j,k) -= DC(i,j,-1);
+        phi(i,j,k) *= msk(i,j,0);
     });
 }

@@ -21,6 +21,8 @@ using namespace amrex;
  * @param[in   ] mf_svstr
  * @param[in   ] mf_bustr
  * @param[in   ] mf_bvstr
+ * @param[in   ] mf_msku
+ * @param[in   ] mf_mskv
  * @param[in   ] iic
  * @param[in   ] ntfirst
  * @param[in   ] nnew
@@ -47,6 +49,8 @@ REMORA::prestep (int lev,
                 const MultiFab* mf_svstr,
                 const MultiFab* mf_bustr,
                 const MultiFab* mf_bvstr,
+                const MultiFab* mf_msku,
+                const MultiFab* mf_mskv,
                 const int iic, const int ntfirst,
                 const int nnew, int nstp, int nrhs,
                 int N, const Real dt_lev)
@@ -91,6 +95,8 @@ REMORA::prestep (int lev,
         Array4<Real const> const& svstr = mf_svstr->const_array(mfi);
         Array4<Real const> const& bustr = mf_bustr->const_array(mfi);
         Array4<Real const> const& bvstr = mf_bvstr->const_array(mfi);
+        Array4<Real const> const& msku  = mf_msku->const_array(mfi);
+        Array4<Real const> const& mskv  = mf_mskv->const_array(mfi);
 
         Real lambda = 1.0_rt;
 
@@ -152,7 +158,7 @@ REMORA::prestep (int lev,
             Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
             prestep_t_advection(bx, gbx, S_old.array(mfi,i_comp),
                                 mf_scalarcache.array(mfi,i_comp), Hz, Huon, Hvom,
-                                W, DC, FC, sstore, z_w, h, pm, pn, iic, ntfirst,
+                                W, DC, FC, sstore, z_w, h, pm, pn, msku, mskv, iic, ntfirst,
                                 nrhs, N, dt_lev);
         }
 

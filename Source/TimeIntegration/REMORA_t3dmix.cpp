@@ -10,6 +10,8 @@ REMORA::t3dmix  (const Box& bx,
                 const Array4<Real const>& Hz,
                 const Array4<Real const>& pm,
                 const Array4<Real const>& pn,
+                const Array4<Real const>& msku,
+                const Array4<Real const>& mskv,
                 const Real dt_lev, const int ncomp)
 {
     //-----------------------------------------------------------------------
@@ -31,6 +33,7 @@ REMORA::t3dmix  (const Box& bx,
 
         const Real cff = 0.25_rt * (diff2(i,j,n) + diff2(i-1,j,n)) * pmon_u;
         FX(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i-1,j,k)) * (state_rhs(i,j,k,n)-state_rhs(i-1,j,k,n));
+        FX(i,j,k,n) *= msku(i,j,0);
     });
 
     ParallelFor(ybx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
@@ -39,6 +42,7 @@ REMORA::t3dmix  (const Box& bx,
 
         const Real cff = 0.25_rt*(diff2(i,j,n)+diff2(i,j-1,n)) * pnom_v;
         FE(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i,j-1,k)) * (state_rhs(i,j,k,n) - state_rhs(i,j-1,k,n));
+        FE(i,j,k,n) *= mskv(i,j,0);
     });
 
     /*

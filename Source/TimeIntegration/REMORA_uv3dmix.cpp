@@ -15,6 +15,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
                  const Array4<Real const>& Hz,
                  const Array4<Real const>& pm,
                  const Array4<Real const>& pn,
+                 const Array4<Real const>& mskp,
                  int nrhs, int nnew,
                  const Real dt_lev)
 {
@@ -63,7 +64,8 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
                             (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0));
         const Real pnom_p = (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0)) /
                             (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0));
-        const Real cff = 0.125_rt * (Hz(i-1,j  ,k) + Hz(i,j ,k)+ Hz(i-1,j-1,k) + Hz(i,j-1,k))*
+        const Real cff = mskp(i,j,0) * 0.125_rt *
+                    (Hz(i-1,j  ,k) + Hz(i,j ,k)+ Hz(i-1,j-1,k) + Hz(i,j-1,k))*
                     (pmon_p*
                      ((pn(i  ,j-1,0)+pn(i  ,j,0))*vold(i  ,j,k,nrhs)-
                       (pn(i-1,j-1,0)+pn(i-1,j,0))*vold(i-1,j,k,nrhs))+
@@ -118,7 +120,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
                             (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0));
         const Real pnom_p = (pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0)) /
                             (pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0));
-        const Real cff = 0.125_rt * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
+        const Real cff = mskp(i,j,0) * 0.125_rt * (Hz(i-1,j  ,k)+Hz(i,j ,k)+
                               Hz(i-1,j-1,k)+Hz(i,j-1,k))*
                     (pmon_p*
                      ((pn(i  ,j-1,0)+pn(i  ,j,0))*vold(i  ,j,k,nrhs)-

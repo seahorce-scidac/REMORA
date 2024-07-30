@@ -26,6 +26,10 @@ using namespace amrex;
  * @param[in   ] mf_h
  * @param[inout] mf_visc2_p
  * @param[inout] mf_visc2_f
+ * @param[in   ] mf_mskr
+ * @param[in   ] mf_msku
+ * @param[in   ] mf_mskv
+ * @param[in   ] mf_mskp
  * @param[in   ] dtfast_lev
  * @param[in   ] predictor_2d_step
  * @param[in   ] first_2d_step
@@ -58,6 +62,10 @@ REMORA::advance_2d (int lev,
                    MultiFab const* mf_fcor,
                    MultiFab const* mf_visc2_p,
                    MultiFab const* mf_visc2_r,
+                   MultiFab const* mf_mskr,
+                   MultiFab const* mf_msku,
+                   MultiFab const* mf_mskv,
+                   MultiFab const* mf_mskp,
                    Real dtfast_lev,
                    bool predictor_2d_step,
                    bool first_2d_step, int my_iif,
@@ -189,6 +197,11 @@ REMORA::advance_2d (int lev,
         Array4<Real const> const& pm   = mf_pm->const_array(mfi);
         Array4<Real const> const& pn   = mf_pn->const_array(mfi);
         Array4<Real const> const& fcor = mf_fcor->const_array(mfi);
+
+        Array4<Real const> const& mskr = mf_mskr->const_array(mfi);
+        Array4<Real const> const& msku = mf_msku->const_array(mfi);
+        Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
+        Array4<Real const> const& mskp = mf_mskp->const_array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -372,7 +385,7 @@ REMORA::advance_2d (int lev,
             {
                 rhs_zeta(i,j,0) = (DUon(i,j,0)-DUon(i+1,j,0))+
                                   (DVom(i,j,0)-DVom(i,j+1,0));
-                zeta_new(i,j,0) = zeta(i,j,0,kstp)+ pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
+                zeta_new(i,j,0) = (zeta(i,j,0,kstp)+ pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0)) * mskr(i,j,0);
                 Dnew(i,j,0) = zeta_new(i,j,0)+h(i,j,0);
 
                 //Pressure gradient terms:
@@ -392,8 +405,8 @@ REMORA::advance_2d (int lev,
             {
                 rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
                                 (DVom(i,j,0)-DVom(i,j+1,0));
-                zeta_new(i,j,0)=zeta(i,j,0,kstp)+
-                                pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0);
+                zeta_new(i,j,0)=(zeta(i,j,0,kstp)+
+                                pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0)) * mskr(i,j,0);
                 Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
                 //Pressure gradient terms
                 zwrk(i,j,0)=cff5*zeta(i,j,0,krhs)+
@@ -419,6 +432,7 @@ REMORA::advance_2d (int lev,
                     pm(i,j,0)*pn(i,j,0)*(cff+
                                          cff2*rzeta(i,j,0,kstp)-
                                          cff3*rzeta(i,j,0,ptsk));
+                zeta_new(i,j,0) *= mskr(i,j,0);
                 Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
                 //Pressure gradient terms
                 zwrk(i,j,0)=cff5*zeta_new(i,j,0)+cff4*zeta(i,j,0,krhs);
@@ -515,14 +529,13 @@ REMORA::advance_2d (int lev,
             //
             coriolis(xbxD, ybxD, ubar_const, vbar_const, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
         }
-
         //-----------------------------------------------------------------------
         //Add in horizontal harmonic viscosity.
         // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms
         //-----------------------------------------------------------------------
         uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar,
                 visc2_p, visc2_r, Drhs_const,
-                pm, pn, krhs, nnew, 0.0_rt);
+                pm, pn, mskp, krhs, nnew, 0.0_rt);
 
         //-----------------------------------------------------------------------
         // Coupling from 3d to 2d
@@ -636,7 +649,7 @@ REMORA::advance_2d (int lev,
                 Real Dnew_avg =1.0_rt/(Dnew(i,j,0)+Dnew(i-1,j,0));
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
-                                  cff*cff1*rhs_ubar(i,j,0))*Dnew_avg;
+                                  cff*cff1*rhs_ubar(i,j,0))*Dnew_avg * msku(i,j,0);
             });
             ParallelFor(ybxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -645,7 +658,7 @@ REMORA::advance_2d (int lev,
                 Real Dnew_avg=1.0_rt/(Dnew(i,j,0)+Dnew(i,j-1,0));
                 vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i,j-1,0))+
-                                  cff*cff1*rhs_vbar(i,j,0))*Dnew_avg;
+                                  cff*cff1*rhs_vbar(i,j,0))*Dnew_avg * mskv(i,j,0);
             });
 
         } else if (predictor_2d_step) {
@@ -658,7 +671,7 @@ REMORA::advance_2d (int lev,
                 Real Dnew_avg=1.0_rt/(Dnew(i,j,0)+Dnew(i-1,j,0));
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
-                                  cff*cff1*rhs_ubar(i,j,0))*Dnew_avg;
+                                  cff*cff1*rhs_ubar(i,j,0))*Dnew_avg * msku(i,j,0);
             });
             ParallelFor(ybxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -667,7 +680,7 @@ REMORA::advance_2d (int lev,
                 Real Dnew_avg=1.0_rt/(Dnew(i,j,0)+Dnew(i,j-1,0));
                 vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i,j-1,0))+
-                                  cff*cff1*rhs_vbar(i,j,0))*Dnew_avg;
+                                  cff*cff1*rhs_vbar(i,j,0))*Dnew_avg * mskv(i,j,0);
             });
 
         } else if ((!predictor_2d_step)) {
@@ -684,7 +697,7 @@ REMORA::advance_2d (int lev,
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
                                  cff*(cff1*rhs_ubar(i,j,0)+
                                       cff2*rubar(i,j,0,kstp)-
-                                      cff3*rubar(i,j,0,ptsk)))*Dnew_avg;
+                                      cff3*rubar(i,j,0,ptsk)))*Dnew_avg * msku(i,j,0);
             });
             ParallelFor(ybxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -695,7 +708,7 @@ REMORA::advance_2d (int lev,
                                  (Dstp(i,j,0)+Dstp(i,j-1,0))+
                                  cff*(cff1*rhs_vbar(i,j,0)+
                                       cff2*rvbar(i,j,0,kstp)-
-                                      cff3*rvbar(i,j,0,ptsk)))*Dnew_avg;
+                                      cff3*rvbar(i,j,0,ptsk)))*Dnew_avg * mskv(i,j,0);
             });
         }
 

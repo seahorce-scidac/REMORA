@@ -189,11 +189,13 @@ REMORA::set_2darrays (int lev)
         });
     }
 
+    print_state(*vec_mskv[lev].get(), IntVect(10,0,0));
     FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar,0,false,false);
     FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,0,false,false);
 
-    FillPatch(lev, t_new[lev], *vec_msku[lev], GetVecOfPtrs(vec_ubar), BdyVars::null,0,true,false);
-    FillPatch(lev, t_new[lev], *vec_mskv[lev], GetVecOfPtrs(vec_vbar), BdyVars::null,0,true,false);
+    FillPatchNoBC(lev, t_new[lev], *vec_msku[lev], GetVecOfPtrs(vec_msku), BdyVars::null,0,true,false);
+    FillPatchNoBC(lev, t_new[lev], *vec_mskv[lev], GetVecOfPtrs(vec_mskv), BdyVars::null,0,true,false);
+    print_state(*vec_mskv[lev].get(), IntVect(10,0,0));
 }
 
 void

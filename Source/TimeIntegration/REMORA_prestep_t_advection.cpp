@@ -21,6 +21,8 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
                             const Array4<Real const>& h,
                             const Array4<Real const>& pm,
                             const Array4<Real const>& pn,
+                            const Array4<Real const>& msku,
+                            const Array4<Real const>& mskv,
                             int iic, int ntfirst, int nrhs, int N,
                             Real dt_lev)
 {
@@ -152,13 +154,13 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
         ParallelFor(utbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             //should be t index 3
-            FX(i,j,k)=tempold(i,j,k,nrhs)-tempold(i-1,j,k,nrhs);
+            FX(i,j,k)=(tempold(i,j,k,nrhs)-tempold(i-1,j,k,nrhs)) * msku(i,j,0);
         });
 
         ParallelFor(vtbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             //should be t index 3
-            FE(i,j,k)=tempold(i,j,k,nrhs)-tempold(i,j-1,k,nrhs);
+            FE(i,j,k)=(tempold(i,j,k,nrhs)-tempold(i,j-1,k,nrhs)) * mskv(i,j,0);
         });
 
         Real cffa=1.0_rt/6.0_rt;

@@ -26,6 +26,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                    MultiFab const* mf_h,
                    MultiFab const* mf_pm,
                    MultiFab const* mf_pn,
+                   MultiFab const* mf_msku,
+                   MultiFab const* mf_mskv,
                    const int N, Real dt_lev)
 {
     const int nrhs  = 0;
@@ -69,6 +71,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Array4<Real const> const& pm  = mf_pm->const_array(mfi);
         Array4<Real const> const& pn  = mf_pn->const_array(mfi);
+
+        Array4<Real const> const& msku  = mf_msku->const_array(mfi);
+        Array4<Real const> const& mskv  = mf_mskv->const_array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
@@ -136,13 +141,13 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         mf_DC[mfi].template setVal<RunOn::Device>(0.,xbx);
         fab_CF.template     setVal<RunOn::Device>(0.,xbx);
 
-        vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,pn,nnew,N);
+        vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,pn,msku,nnew,N);
 
         // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,ybx);
         fab_CF.template     setVal<RunOn::Device>(0.,ybx);
 
-        vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,pm,nnew,N);
+        vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,pm,mskv,nnew,N);
     }
 
     // Apply physical boundary conditions to u and v
@@ -179,8 +184,10 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real> const& Huon = mf_Huon->array(mfi);
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
 
-        Array4<Real const> const& pm  = mf_pm->const_array(mfi);
-        Array4<Real const> const& pn  = mf_pn->const_array(mfi);
+        Array4<Real const> const& pm   = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn   = mf_pn->const_array(mfi);
+        Array4<Real const> const& msku = mf_msku->const_array(mfi);
+        Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
 
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
@@ -203,12 +210,12 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         // Reset to zero on the box on which they'll be used
         fab_FC.template setVal<RunOn::Device>(0.,gbx2);
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(gbx2,1,0,u,ubar,Huon,Hz,pn,DU_avg1,DU_avg2,DC,FC,nnew);
+        update_massflux_3d(gbx2,1,0,u,ubar,Huon,Hz,pn,DU_avg1,DU_avg2,DC,FC,msku,nnew);
 
         // Reset to zero on the box on which they'll be used
         fab_FC.template     setVal<RunOn::Device>(0.,gbx2);
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(gbx2,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,nnew);
+        update_massflux_3d(gbx2,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,mskv,nnew);
 #endif
     }
 
@@ -296,7 +303,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     nnew = 1-nstp;
     if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
         gls_corrector(lev, vec_gls[lev].get(), vec_tke[lev].get(), mf_W, vec_Akv[lev].get(),
-                  vec_Akt[lev].get(),vec_Akk[lev].get(), vec_Akp[lev].get(), nstp, nnew, N, dt_lev);
+                  vec_Akt[lev].get(),vec_Akk[lev].get(), vec_Akp[lev].get(),
+                  vec_msku[lev].get(), vec_mskv[lev].get(),
+                  nstp, nnew, N, dt_lev);
     }
     nnew = 0;
 
@@ -311,6 +320,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real const> const& h   = mf_h->const_array(mfi);
         Array4<Real const> const& pm  = mf_pm->const_array(mfi);
         Array4<Real const> const& pn  = mf_pn->const_array(mfi);
+        Array4<Real const> const& msku  = mf_msku->const_array(mfi);
+        Array4<Real const> const& mskv  = mf_mskv->const_array(mfi);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -340,7 +351,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         {
             Array4<Real> const& sstore = mf_sstore->array(mfi, i_comp);
             rhs_t_3d(bx, gbx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
-                     Hz, pn, pm, W, FC, nrhs, nnew, N,dt_lev);
+                     Hz, pn, pm, W, FC, msku, mskv, nrhs, nnew, N,dt_lev);
         }
 
     } // mfi
@@ -354,6 +365,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Array4<Real> const& Hzk = mf_Hzk.array(mfi);
         Array4<Real const> const& Hz  = mf_Hz->const_array(mfi);
+        Array4<Real      > const& cons = mf_cons.array(mfi);
 
         Box bx = mfi.tilebox();
 
