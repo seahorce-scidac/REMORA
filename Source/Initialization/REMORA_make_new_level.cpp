@@ -52,6 +52,8 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     t_new[lev] = time;
     t_old[lev] = time - 1.e200_rt;
 
+    init_masks(lev, ba, dm);
+
     FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1]);
     FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
     FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1]);
@@ -151,6 +153,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     MultiFab tmp_ru2d_new(convert(ba2d, IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0));
     MultiFab tmp_rv2d_new(convert(ba2d, IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0));
+
+    init_masks(lev, ba, dm);
 
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
     FillPatch(lev, time, tmp_cons_new, cons_new, BdyVars::t,0,true,false);
@@ -277,6 +281,7 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     vec_ru2d[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS u (incl horizontal and vertical advection)
     vec_rv2d[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS v
 
+    init_masks(lev, ba, dm);
     init_stuff(lev, ba, dm);
 
     init_only(lev, time);
@@ -356,6 +361,24 @@ void REMORA::resize_stuff(int lev)
     vec_Lscale.resize(lev+1);
     vec_Akk.resize(lev+1);
     vec_Akp.resize(lev+1);
+}
+void REMORA::init_masks (int lev, const BoxArray& ba, const DistributionMapping& dm)
+{
+    BoxList bl2d = ba.boxList();
+    for (auto& b : bl2d) {
+        b.setRange(2,0);
+    }
+
+    BoxArray ba2d(std::move(bl2d));
+    vec_mskr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_msku[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_mskv[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_mskp[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
+
+    vec_mskr[lev]->setVal(1.0_rt);
+    vec_msku[lev]->setVal(1.0_rt);
+    vec_mskv[lev]->setVal(1.0_rt);
+    vec_mskp[lev]->setVal(1.0_rt);
 }
 
 void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping& dm)
@@ -444,11 +467,6 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     // starts off kind of like a depth-averaged u, but exists at more points and more timesteps (b/c fast 2D update) than full u
     vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW+1,NGROW+1,0)));  // 2d free surface
 
-    vec_mskr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_msku[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_mskv[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_mskp[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
-
     vec_pm[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+2,0)));
     vec_pn[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+2,NGROW+1,0)));
     vec_fcor[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
@@ -475,11 +493,6 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_rubar[lev]->setVal(0.0_rt);
     vec_rvbar[lev]->setVal(0.0_rt);
     vec_rzeta[lev]->setVal(0.0_rt);
-
-    vec_mskr[lev]->setVal(1.0_rt);
-    vec_msku[lev]->setVal(1.0_rt);
-    vec_mskv[lev]->setVal(1.0_rt);
-    vec_mskp[lev]->setVal(1.0_rt);
 
     // Initialize these vars even if we aren't using GLS to
     // avoid issues on e.g. checkpoint
