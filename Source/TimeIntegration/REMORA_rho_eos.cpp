@@ -14,6 +14,7 @@ using namespace amrex;
  * @param[in ] z_w
  * @param[in ] z_r
  * @param[in ] h
+ * @param[in ] mskr
  * @param[in ] N
  */
 
@@ -28,6 +29,7 @@ REMORA::rho_eos (const Box& bx,
                 const Array4<Real const>& z_w,
                 const Array4<Real const>& z_r,
                 const Array4<Real const>& h,
+                const Array4<Real const>& mskr,
                 const int N)
 {
 //
@@ -51,9 +53,9 @@ REMORA::rho_eos (const Box& bx,
 
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        rho(i,j,k)  = R0 - R0*Tcoef*(state(i,j,k,Temp_comp)-T0)
+        rho(i,j,k)  = (R0 - R0*Tcoef*(state(i,j,k,Temp_comp)-T0)
                          + R0*Scoef*(state(i,j,k,Salt_comp)-S0)
-                         - 1000.0_rt;
+                         - 1000.0_rt) * mskr(i,j,0);
     });
 
 //

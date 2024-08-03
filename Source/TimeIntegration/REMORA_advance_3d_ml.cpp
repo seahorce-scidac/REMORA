@@ -25,6 +25,7 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
                vec_Akv[lev], vec_Akt[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev],
                vec_z_w[lev], vec_hOfTheConfusingName[lev].get(),
                vec_pm[lev].get(), vec_pn[lev].get(),
+               vec_msku[lev].get(), vec_mskv[lev].get(),
                N, dt_lev);
 
     // Ideally can roll all of these into a single call
@@ -36,6 +37,7 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,2,false,false);
     FillPatch(lev, t_old[lev], *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BdyVars::t);
 
+
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     // Note that we need the fine-fine and physical bc's in order to correctly move the particles
@@ -43,6 +45,20 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     xvel_new[lev]->FillBoundary(geom[lev].periodicity());
     yvel_new[lev]->FillBoundary(geom[lev].periodicity());
     FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, BdyVars::null);
+
+    // Apply land/sea mask to tracers
+    for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& cons = cons_new[lev]->array(mfi);
+        Array4<Real> const& mskr = vec_mskr[lev]->array(mfi);
+
+        Box bx = mfi.tilebox();
+
+        ParallelFor(bx, NCONS, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            cons(i,j,k,n) *= mskr(i,j,0);
+        });
+    }
 
 #ifdef REMORA_USE_PARTICLES
     // **************************************************************************************

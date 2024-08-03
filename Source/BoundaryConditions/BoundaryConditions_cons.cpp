@@ -13,10 +13,13 @@ using namespace amrex;
 // time is the time at which the data should be filled
 // bccomp is the index into both domain_bcs_type_bcr and bc_extdir_vals for icomp = 0  --
 //     so this follows the BCVars enum
+// n_not_fill perimeter of cells in x and y where BCs are not applied for conditions other than ext_dir.
+//     Foextrap is done based on the values at dom_lo-n_not_fill and dom_hi+n_not_fill. Reflecting conditions
+//     are untested.
 //
 void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
-                                        const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/,
-                                        int icomp, int ncomp, Real /*time*/, int bccomp)
+                                        const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/, const Array4<const Real>& mskr,
+                                        int icomp, int ncomp, Real /*time*/, int bccomp, int n_not_fill)
 {
     BL_PROFILE_VAR("impose_cons_bcs()",impose_cons_bcs);
     const auto& dom_lo = amrex::lbound(domain);
@@ -64,12 +67,12 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
         ParallelFor(
             bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][0];
+                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][0] * mskr(i,j,0);
                 }
             },
             bx_xhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][3];
+                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][3] * mskr(i,j,0);
                 }
             }
         );
@@ -82,12 +85,12 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
         ParallelFor(
             bx_ylo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].lo(1) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][1];
+                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][1] * mskr(i,j,0);
                 }
             },
             bx_yhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].hi(1) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][4];
+                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][4] * mskr(i,j,0);
                 }
             }
         );
@@ -99,12 +102,12 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
         ParallelFor(
             bx_zlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].lo(2) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][2];
+                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][2] * mskr(i,j,0);
                 }
             },
             bx_zhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].hi(2) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][5];
+                    dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][5] * mskr(i,j,0);
                 }
             }
         );
@@ -115,16 +118,16 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     if (!is_periodic_in_x)
     {
         // Populate ghost cells on lo-x and hi-x domain boundaries
-        Box bx_xlo(bx);  bx_xlo.setBig  (0,dom_lo.x-1);
+        Box bx_xlo(bx);  bx_xlo.setBig  (0,dom_lo.x-1-n_not_fill);
                          bx_xlo.setSmall(2,std::max(dom_lo.z,bx.smallEnd(2)));
                          bx_xlo.setBig  (2,std::min(dom_hi.z,bx.bigEnd(2)));
-        Box bx_xhi(bx);  bx_xhi.setSmall(0,dom_hi.x+1);
+        Box bx_xhi(bx);  bx_xhi.setSmall(0,dom_hi.x+1+n_not_fill);
                          bx_xhi.setSmall(2,std::max(dom_lo.z,bx.smallEnd(2)));
                          bx_xhi.setBig  (2,std::min(dom_hi.z,bx.bigEnd(2)));
         ParallelFor(bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip = dom_lo.x - 1 - i;
                 if (bc_ptr[n].lo(0) == REMORABCType::foextrap) {
-                    dest_arr(i,j,k,icomp+n) =  dest_arr(dom_lo.x,j,k,icomp+n);
+                    dest_arr(i,j,k,icomp+n) =  dest_arr(dom_lo.x-n_not_fill,j,k,icomp+n);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(iflip,j,k,icomp+n);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_odd) {
@@ -134,7 +137,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             bx_xhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip =  2*dom_hi.x + 1 - i;
                 if (bc_ptr[n].hi(0) == REMORABCType::foextrap) {
-                    dest_arr(i,j,k,icomp+n) =  dest_arr(dom_hi.x,j,k,icomp+n);
+                    dest_arr(i,j,k,icomp+n) =  dest_arr(dom_hi.x+n_not_fill,j,k,icomp+n);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(iflip,j,k,icomp+n);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_odd) {
@@ -147,17 +150,17 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     if (!is_periodic_in_y)
     {
         // Populate ghost cells on lo-y and hi-y domain boundaries
-        Box bx_ylo(bx);  bx_ylo.setBig  (1,dom_lo.y-1);
+        Box bx_ylo(bx);  bx_ylo.setBig  (1,dom_lo.y-1-n_not_fill);
                          bx_ylo.setSmall(2,std::max(dom_lo.z,bx.smallEnd(2)));
                          bx_ylo.setBig  (2,std::min(dom_hi.z,bx.bigEnd(2)));
-        Box bx_yhi(bx);  bx_yhi.setSmall(1,dom_hi.y+1);
+        Box bx_yhi(bx);  bx_yhi.setSmall(1,dom_hi.y+1+n_not_fill);
                          bx_yhi.setSmall(2,std::max(dom_lo.z,bx.smallEnd(2)));
                          bx_yhi.setBig  (2,std::min(dom_hi.z,bx.bigEnd(2)));
         ParallelFor(
             bx_ylo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int jflip = dom_lo.y - 1 - j;
                 if (bc_ptr[n].lo(1) == REMORABCType::foextrap) {
-                    dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_lo.y,k,icomp+n);
+                    dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_lo.y-n_not_fill,k,icomp+n);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,jflip,k,icomp+n);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_odd) {
@@ -167,7 +170,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             bx_yhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int jflip =  2*dom_hi.y + 1 - j;
                 if (bc_ptr[n].hi(1) == REMORABCType::foextrap) {
-                    dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_hi.y,k,icomp+n);
+                    dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_hi.y+n_not_fill,k,icomp+n);
                 } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,jflip,k,icomp+n);
                 } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_odd) {

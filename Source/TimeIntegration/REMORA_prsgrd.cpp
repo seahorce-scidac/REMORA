@@ -14,6 +14,8 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
                const Array4<Real const>& Hz,
                const Array4<Real const>& z_r,
                const Array4<Real const>& z_w,
+               const Array4<Real const>& msku,
+               const Array4<Real const>& mskv,
                const int nrhs, const int N)
 {
     auto phi_bxD=phi_bx;
@@ -101,8 +103,8 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     ParallelFor(phi_ubx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        FC(i,j,k)=rho(i,j,k)-rho(i-1,j,k);
-        aux(i,j,k)=z_r(i,j,k)-z_r(i-1,j,k);
+        FC(i,j,k)=(rho(i,j,k)-rho(i-1,j,k)) * msku(i,j,0);
+        aux(i,j,k)=(z_r(i,j,k)-z_r(i-1,j,k)) * msku(i,j,0);
     });
 
     //This should be nodal aux and FC need wider boxes above
@@ -149,8 +151,8 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     //This should be nodal
     ParallelFor(phi_vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        FC(i,j,k)= rho(i,j,k)-rho(i,j-1,k);
-        aux(i,j,k)= z_r(i,j,k)-z_r(i,j-1,k);
+        FC(i,j,k)= (rho(i,j,k)-rho(i,j-1,k)) * mskv(i,j,0);
+        aux(i,j,k)= (z_r(i,j,k)-z_r(i,j-1,k)) * mskv(i,j,0);
     });
 
     //This should be nodal aux and FC need wider boxes above

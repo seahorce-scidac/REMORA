@@ -16,9 +16,12 @@ void
 read_data_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
                        FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
                        FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
-                       FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab,
-                       FArrayBox& NC_mskr_fab,
-                       FArrayBox& NC_msku_fab, FArrayBox& NC_mskv_fab);
+                       FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab);
+
+void
+read_masks_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
+                       FArrayBox& NC_mskr_fab, FArrayBox& NC_msku_fab,
+                       FArrayBox& NC_mskv_fab, FArrayBox& NC_mskp_fab);
 
 Real
 read_bdry_from_netcdf (const Box& domain, const std::string& fname,
@@ -33,17 +36,12 @@ init_state_from_netcdf (int lev,
                         FArrayBox&  temp_fab, FArrayBox&  salt_fab,
                         FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
                         FArrayBox&  ubar_fab, FArrayBox&  vbar_fab,
-                        FArrayBox&  mskr_fab,
-                        FArrayBox&  msku_fab, FArrayBox&  mskv_fab,
                         const Vector<FArrayBox>& NC_temp_fab,
                         const Vector<FArrayBox>& NC_salt_fab,
                         const Vector<FArrayBox>& NC_xvel_fab,
                         const Vector<FArrayBox>& NC_yvel_fab,
                         const Vector<FArrayBox>& NC_ubar_fab,
-                        const Vector<FArrayBox>& NC_vbar_fab,
-                        const Vector<FArrayBox>& NC_mskr_fab,
-                        const Vector<FArrayBox>& NC_msku_fab,
-                        const Vector<FArrayBox>& NC_mskv_fab);
+                        const Vector<FArrayBox>& NC_vbar_fab);
 
 void
 read_bathymetry_from_netcdf (int lev, const Box& domain, const std::string& fname,
@@ -81,18 +79,13 @@ REMORA::init_data_from_netcdf (int lev)
     Vector<FArrayBox> NC_yvel_fab ; NC_yvel_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_ubar_fab ; NC_ubar_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_vbar_fab ; NC_vbar_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_mskr_fab ; NC_mskr_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_msku_fab ; NC_msku_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_mskv_fab ; NC_mskv_fab.resize(num_boxes_at_level[lev]);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         read_data_from_netcdf(lev, boxes_at_level[lev][idx], nc_init_file[lev][idx],
                               NC_temp_fab[idx], NC_salt_fab[idx],
                               NC_xvel_fab[idx], NC_yvel_fab[idx],
-                              NC_ubar_fab[idx], NC_vbar_fab[idx],
-                              NC_mskr_fab[idx], NC_msku_fab[idx],
-                              NC_mskv_fab[idx]);
+                              NC_ubar_fab[idx], NC_vbar_fab[idx]);
     }
 
 
@@ -113,20 +106,13 @@ REMORA::init_data_from_netcdf (int lev)
         FArrayBox &yvel_fab = (*yvel_new[lev])[mfi];
         FArrayBox &ubar_fab = (*vec_ubar[lev])[mfi];
         FArrayBox &vbar_fab = (*vec_vbar[lev])[mfi];
-        FArrayBox &mskr_fab = (*vec_mskr[lev])[mfi];
-        FArrayBox &msku_fab = (*vec_msku[lev])[mfi];
-        FArrayBox &mskv_fab = (*vec_mskv[lev])[mfi];
 
         init_state_from_netcdf(lev, temp_fab, salt_fab,
                                xvel_fab, yvel_fab,
                                ubar_fab, vbar_fab,
-                               mskr_fab,
-                               msku_fab, mskv_fab,
                                NC_temp_fab, NC_salt_fab,
                                NC_xvel_fab, NC_yvel_fab,
-                               NC_ubar_fab, NC_vbar_fab,
-                               NC_mskr_fab,
-                               NC_msku_fab, NC_mskv_fab);
+                               NC_ubar_fab, NC_vbar_fab);
     } // mf
     } // omp
 }
@@ -166,7 +152,7 @@ REMORA::init_zeta_from_netcdf (int lev)
         } // omp
     } // idx
     vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
-    (*physbcs[lev])(*vec_zeta[lev],0,3,vec_zeta[lev]->nGrowVect(),t_old[lev],BCVars::cons_bc);
+    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,3,vec_zeta[lev]->nGrowVect(),t_old[lev],BCVars::cons_bc);
 }
 /**
  * REMORA function that initializes bathymetry from a netcdf file
@@ -214,7 +200,8 @@ REMORA::init_bathymetry_from_netcdf (int lev)
     } // idx
 
     const double dummy_time = 0.0_rt;
-    FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName));
+    FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName),
+            BdyVars::null,0,true,true,1);
 
     int ng = vec_pm[lev]->nGrow();
 
@@ -319,6 +306,58 @@ REMORA::init_coriolis_from_netcdf (int lev)
 }
 
 /**
+ * REMORA function that initializes land/sea masks from netcdf file
+ *
+ * @param lev Integer specifying the current level
+ */
+void
+REMORA::init_masks_from_netcdf (int lev)
+{
+    // *** FArrayBox's at this level for holding the INITIAL data
+    Vector<FArrayBox> NC_mskr_fab     ; NC_mskr_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_msku_fab     ; NC_msku_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_mskv_fab     ; NC_mskv_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_mskp_fab     ; NC_mskp_fab.resize(num_boxes_at_level[lev]);
+
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
+    {
+        read_masks_from_netcdf(lev,boxes_at_level[lev][idx], nc_grid_file[lev][idx],
+                                    NC_mskr_fab[idx],NC_msku_fab[idx],
+                                    NC_mskv_fab[idx],NC_mskp_fab[idx]);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        {
+        // Don't tile this since we are operating on full FABs in this routine
+        for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
+        {
+            FArrayBox &mskr_fab  = (*vec_mskr[lev])[mfi];
+            FArrayBox &msku_fab  = (*vec_msku[lev])[mfi];
+            FArrayBox &mskv_fab  = (*vec_mskv[lev])[mfi];
+            FArrayBox &mskp_fab  = (*vec_mskp[lev])[mfi];
+
+            //
+            // FArrayBox to FArrayBox copy does "copy on intersection"
+            // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
+            //
+
+            mskr_fab.template    copy<RunOn::Device>(NC_mskr_fab[idx]);
+            msku_fab.template    copy<RunOn::Device>(NC_msku_fab[idx]);
+            mskv_fab.template    copy<RunOn::Device>(NC_mskv_fab[idx]);
+            mskp_fab.template    copy<RunOn::Device>(NC_mskp_fab[idx]);
+        } // mf
+        } // omp
+    } // idx
+
+    update_mskp(lev);
+    vec_mskr[lev]->FillBoundary(geom[lev].periodicity());
+    vec_msku[lev]->FillBoundary(geom[lev].periodicity());
+    vec_mskv[lev]->FillBoundary(geom[lev].periodicity());
+    vec_mskp[lev]->FillBoundary(geom[lev].periodicity());
+}
+
+/**
  * REMORA function that initializes time series of boundary data from a netcdf file
  *
  * @param lev Integer specifying the current level
@@ -369,17 +408,12 @@ init_state_from_netcdf (int /*lev*/,
                         FArrayBox&  temp_fab, FArrayBox&  salt_fab,
                         FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
                         FArrayBox&  ubar_fab, FArrayBox&  vbar_fab,
-                        FArrayBox&  mskr_fab,
-                        FArrayBox& msku_fab,  FArrayBox&  mskv_fab,
                         const Vector<FArrayBox>& NC_temp_fab,
                         const Vector<FArrayBox>& NC_salt_fab,
                         const Vector<FArrayBox>& NC_xvel_fab,
                         const Vector<FArrayBox>& NC_yvel_fab,
                         const Vector<FArrayBox>& NC_ubar_fab,
-                        const Vector<FArrayBox>& NC_vbar_fab,
-                        const Vector<FArrayBox>& NC_mskr_fab,
-                        const Vector<FArrayBox>& NC_msku_fab,
-                        const Vector<FArrayBox>& NC_mskv_fab)
+                        const Vector<FArrayBox>& NC_vbar_fab)
 {
     int nboxes = NC_xvel_fab.size();
     for (int idx = 0; idx < nboxes; idx++)
@@ -394,10 +428,6 @@ init_state_from_netcdf (int /*lev*/,
         y_vel_fab.template copy<RunOn::Device>(NC_yvel_fab[idx]);
         ubar_fab.template copy<RunOn::Device>(NC_ubar_fab[idx],0,0,1);
         vbar_fab.template copy<RunOn::Device>(NC_vbar_fab[idx],0,0,1);
-        mskr_fab.template copy<RunOn::Device>(NC_mskr_fab[idx],0,0,1);
-        msku_fab.template copy<RunOn::Device>(NC_msku_fab[idx],0,0,1);
-        mskv_fab.template copy<RunOn::Device>(NC_mskv_fab[idx],0,0,1);
-
     } // idx
 }
 

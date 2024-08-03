@@ -336,6 +336,7 @@ void REMORA::resize_stuff(int lev)
     vec_mskr.resize(lev+1);
     vec_msku.resize(lev+1);
     vec_mskv.resize(lev+1);
+    vec_mskp.resize(lev+1);
     vec_sstore.resize(lev+1);
 
     vec_pm.resize(lev+1);
@@ -444,8 +445,9 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_zeta[lev].reset(new MultiFab(ba2d,dm,3,IntVect(NGROW+1,NGROW+1,0)));  // 2d free surface
 
     vec_mskr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_msku[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
-    vec_mskv[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_msku[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_mskv[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_mskp[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
     vec_pm[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+2,0)));
     vec_pn[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+2,NGROW+1,0)));
@@ -477,6 +479,7 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_mskr[lev]->setVal(1.0_rt);
     vec_msku[lev]->setVal(1.0_rt);
     vec_mskv[lev]->setVal(1.0_rt);
+    vec_mskp[lev]->setVal(1.0_rt);
 
     // Initialize these vars even if we aren't using GLS to
     // avoid issues on e.g. checkpoint
@@ -536,5 +539,46 @@ REMORA::set_zeta_to_Ztavg (int lev)
             zeta(i,j,0,n) = Zt_avg1(i,j,0);
         });
 
+    }
+}
+
+void
+REMORA::update_mskp (int lev)
+{
+    for ( MFIter mfi(*vec_mskr[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<const Real> const& mskr = vec_mskr[lev]->const_array(mfi);
+        Array4<      Real> const& mskp = vec_mskp[lev]->array(mfi);
+
+        Box bx = mfi.tilebox(); bx.grow(IntVect(1,1,0)); bx.makeSlab(2,0);
+
+        Real cff1 = 1.0_rt;
+        Real cff2 = 2.0_rt;
+
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) > 0.5)) {
+                mskp(i,j,0) = 1.0_rt;
+            } else if ((mskr(i-1,j,0) < 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) > 0.5)) {
+                mskp(i,j,0) = cff1;
+            } else if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) < 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) > 0.5)) {
+                mskp(i,j,0) = cff1;
+            } else if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) < 0.5) and (mskr(i,j-1,0) > 0.5)) {
+                mskp(i,j,0) = cff1;
+            } else if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) < 0.5)) {
+                mskp(i,j,0) = cff1;
+            } else if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) < 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) < 0.5)) {
+                mskp(i,j,0) = cff2;
+            } else if ((mskr(i-1,j,0) < 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) < 0.5) and (mskr(i,j-1,0) > 0.5)) {
+                mskp(i,j,0) = cff2;
+            } else if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) < 0.5) and (mskr(i,j-1,0) < 0.5)) {
+                mskp(i,j,0) = cff2;
+            } else if ((mskr(i-1,j,0) < 0.5) and (mskr(i,j,0) < 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) > 0.5)) {
+                mskp(i,j,0) = cff2;
+            } else {
+                mskp(i,j,0) = 0.0_rt;
+            }
+
+        });
     }
 }

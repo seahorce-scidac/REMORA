@@ -118,7 +118,6 @@ REMORA::set_2darrays (int lev)
 
         x_r(i,j,0) = prob_lo[0] + (i + 0.5_rt) * dx[0];
         y_r(i,j,0) = prob_lo[1] + (j + 0.5_rt) * dx[1];
-        //        const Real z = prob_lo[2] + (k + 0.5_rt) * dx[2];
 
       });
     }
@@ -130,9 +129,6 @@ REMORA::set_2darrays (int lev)
     MultiFab* V_old = yvel_new[lev];
     std::unique_ptr<MultiFab>& mf_ubar = vec_ubar[lev];
     std::unique_ptr<MultiFab>& mf_vbar = vec_vbar[lev];
-    std::unique_ptr<MultiFab>& mf_mskr = vec_mskr[lev];
-    std::unique_ptr<MultiFab>& mf_msku = vec_msku[lev];
-    std::unique_ptr<MultiFab>& mf_mskv = vec_mskv[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     int nstp = 0;
 
@@ -141,10 +137,6 @@ REMORA::set_2darrays (int lev)
         Array4<Real> const& ubar = (mf_ubar)->array(mfi);
         Array4<Real> const& vbar = (mf_vbar)->array(mfi);
 
-        Array4<Real> const& mskr = (mf_mskr)->array(mfi);
-        Array4<Real> const& msku = (mf_msku)->array(mfi);
-        Array4<Real> const& mskv = (mf_mskv)->array(mfi);
-
         Array4<const Real> const& Hz       = mf_Hz->const_array(mfi);
         Array4<const Real> const& u        = U_old->const_array(mfi);
         Array4<const Real> const& v        = V_old->const_array(mfi);
@@ -152,11 +144,6 @@ REMORA::set_2darrays (int lev)
         Box  bx2 = mfi.tilebox()      ;  bx2.grow(IntVect(NGROW  ,NGROW  ,0)); //   cell-centered, grown by 2
         Box ubx2 = mfi.nodaltilebox(0); ubx2.grow(IntVect(NGROW  ,NGROW  ,0)); // x-face-centered, grown by 2
         Box vbx2 = mfi.nodaltilebox(1); vbx2.grow(IntVect(NGROW  ,NGROW  ,0)); // y-face-centered, grown by 2
-
-        ParallelFor(makeSlab(bx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
-        {
-            mskr(i,j,0,0) = 1.0_rt;
-        });
 
         ParallelFor(makeSlab(ubx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -169,8 +156,6 @@ REMORA::set_2darrays (int lev)
                 CF += avg_hz*u(i,j,k,nstp);
             }
             ubar(i,j,0,0) = CF / sum_of_hz;
-
-            msku(i,j,0,0) = 1.0_rt;
         });
 
         ParallelFor(makeSlab(vbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -184,16 +169,11 @@ REMORA::set_2darrays (int lev)
                 CF += avg_hz*v(i,j,k,nstp);
             }
             vbar(i,j,0,0) = CF / sum_of_hz;
-
-            mskv(i,j,0,0) = 1.0_rt;
         });
     }
 
     FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar,0,false,false);
     FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,0,false,false);
-
-    FillPatch(lev, t_new[lev], *vec_msku[lev], GetVecOfPtrs(vec_ubar), BdyVars::null,0,true,false);
-    FillPatch(lev, t_new[lev], *vec_mskv[lev], GetVecOfPtrs(vec_vbar), BdyVars::null,0,true,false);
 }
 
 void

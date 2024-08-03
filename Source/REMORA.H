@@ -140,6 +140,9 @@ public:
     /** Set zeta components to be equal to time-averaged Zt_avg1 */
     void set_zeta_to_Ztavg (int lev);
 
+    /** Set psi-point mask to be consistent with rho-point mask */
+    void update_mskp (int lev);
+
     /** compute dt from CFL considerations */
     amrex::Real estTimeStep (int lev) const;
 
@@ -294,6 +297,9 @@ public:
     /** land/sea mask at y-faces (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskv;
 
+    /** land/sea mask at cell corners (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskp;
+
     /** map factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm;
 
@@ -357,6 +363,10 @@ public:
                      amrex::MultiFab const* mf_fcor,
                      amrex::MultiFab const* mf_visc2_p,
                      amrex::MultiFab const* mf_visc2_r,
+                     amrex::MultiFab const* mf_mskr,
+                     amrex::MultiFab const* mf_msku,
+                     amrex::MultiFab const* mf_mskv,
+                     amrex::MultiFab const* mf_mskp,
                      const amrex::Real dtfast_lev,
                      const bool predictor_2d_step,
                      const bool first_2d_step, int my_iif,
@@ -383,6 +393,8 @@ public:
                      amrex::MultiFab const* mf_h,
                      amrex::MultiFab const* mf_pm,
                      amrex::MultiFab const* mf_pn,
+                     amrex::MultiFab const* mf_msku,
+                     amrex::MultiFab const* mf_mskv,
                      const int N,
                      const amrex::Real dt_lev);
 
@@ -405,6 +417,8 @@ public:
                   const amrex::MultiFab* mf_svstr,
                   const amrex::MultiFab* mf_bustr,
                   const amrex::MultiFab* mf_bvstr,
+                  const amrex::MultiFab* mf_msku,
+                  const amrex::MultiFab* mf_mskv,
                   const int iic, const int nfirst,
                   const int nnew, int nstp, int nrhs,
                   int N, const amrex::Real dt_lev);
@@ -425,6 +439,8 @@ public:
                         const amrex::Array4<amrex::Real const>& h,
                         const amrex::Array4<amrex::Real const>& pm,
                         const amrex::Array4<amrex::Real const>& pn,
+                        const amrex::Array4<amrex::Real const>& msku,
+                        const amrex::Array4<amrex::Real const>& mskv,
                         int iic, int ntfirst, int nrhs, int N,
                         const amrex::Real dt_lev);
 
@@ -439,6 +455,8 @@ public:
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& W,
                    const amrex::Array4<amrex::Real      >& FC,
+                   const amrex::Array4<amrex::Real const>& msku,
+                   const amrex::Array4<amrex::Real const>& mskv,
                    int nrhs, int nnew, int N, const amrex::Real dt_lev);
 
     /** Calculation of the RHS */
@@ -482,6 +500,7 @@ public:
                   const amrex::Array4<amrex::Real const>& z_w,
                   const amrex::Array4<amrex::Real const>& z_r,
                   const amrex::Array4<amrex::Real const>& h,
+                  const amrex::Array4<amrex::Real const>& mskr,
                   const int N);
 
     void prsgrd (const amrex::Box& bx,
@@ -497,6 +516,8 @@ public:
                  const amrex::Array4<amrex::Real const>& Hz,
                  const amrex::Array4<amrex::Real const>& z_r,
                  const amrex::Array4<amrex::Real const>& z_w,
+                 const amrex::Array4<amrex::Real const>& msku,
+                 const amrex::Array4<amrex::Real const>& mskv,
                  const int nrhs, const int N);
 
     /** Update velocities or tracers with diffusion/viscosity
@@ -544,6 +565,7 @@ public:
                              const amrex::Array4<amrex::Real const>& Dphi2,
                              const amrex::Array4<amrex::Real      >& DC,
                              const amrex::Array4<amrex::Real      >& FC,
+                             const amrex::Array4<amrex::Real const>& msk,
                              const int nnew);
 
     void vert_mean_3d (const amrex::Box& bx,
@@ -554,6 +576,7 @@ public:
                        const amrex::Array4<amrex::Real      >& DC,
                        const amrex::Array4<amrex::Real      >& CF,
                        const amrex::Array4<amrex::Real const>& dxlen,
+                       const amrex::Array4<amrex::Real const>& msk,
                        const int nnew, const int N);
 
     /** Harmonic viscosity */
@@ -570,6 +593,7 @@ public:
                    const amrex::Array4<amrex::Real const>& Hz,
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& mskp,
                    int nrhs, int nnew,
                    const amrex::Real dt_lev);
 
@@ -581,6 +605,8 @@ public:
                   const amrex::Array4<amrex::Real const>& Hz,
                   const amrex::Array4<amrex::Real const>& pm,
                   const amrex::Array4<amrex::Real const>& pn,
+                  const amrex::Array4<amrex::Real const>& msku,
+                  const amrex::Array4<amrex::Real const>& mskv,
                   const amrex::Real dt_lev,
                   const int ncomp);
 
@@ -611,11 +637,14 @@ public:
     void init_gls_vmix (int lev, SolverChoice solver_choice);
     void gls_prestep (int lev, amrex::MultiFab* mf_gls, amrex::MultiFab* mf_tke,
                       amrex::MultiFab& mf_W,
+                      amrex::MultiFab* mf_msku, amrex::MultiFab* mf_mskv,
                       const int nstp, const int nnew, const int iic, const int ntfirst,
                       const int N, const amrex::Real dt_lev);
     void gls_corrector (int lev, amrex::MultiFab* mf_gls, amrex::MultiFab* mf_tke,
                         amrex::MultiFab& mf_W, amrex::MultiFab* mf_Akv, amrex::MultiFab* mf_Akt,
                         amrex::MultiFab* mf_Akk, amrex::MultiFab* mf_Akp,
+                        amrex::MultiFab* mf_mskr,
+                        amrex::MultiFab* mf_msku, amrex::MultiFab* mf_mskv,
                         const int nstp, const int nnew,
                         const int N, const amrex::Real dt_lev);
 
@@ -640,7 +669,8 @@ public:
                     const int bdy_var_type = BdyVars::null,
                     const int icomp=0,
                     const bool fill_all=true,
-                    const bool fill_set=true);
+                    const bool fill_set=true,
+                    const int  n_not_fill=0);
 
     void FillPatchNoBC (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,
@@ -651,6 +681,7 @@ public:
                     const bool fill_set=true);
 
    void fill_from_bdyfiles (amrex::MultiFab& mf_to_fill,
+                            const amrex::MultiFab& mf_mask,
                             const amrex::Real time,
                             const int bdy_var_type,
                             const int icomp_to_fill);
@@ -659,6 +690,7 @@ public:
 
     void init_data_from_netcdf (int lev);
     void init_bdry_from_netcdf ();
+    void init_masks_from_netcdf (int lev);
     void init_bathymetry_from_netcdf (int lev);
     void init_zeta_from_netcdf (int lev);
     void init_coriolis_from_netcdf (int lev);

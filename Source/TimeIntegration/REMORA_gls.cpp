@@ -4,7 +4,8 @@ using namespace amrex;
 
 void
 REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
-                     MultiFab& mf_W, const int nstp, const int nnew,
+                     MultiFab& mf_W, MultiFab* mf_msku, MultiFab* mf_mskv,
+                     const int nstp, const int nnew,
                      const int iic, const int ntfirst, const int N, const Real dt_lev)
 {
     // temps: grad, gradL, XF, FX, FXL, EF, FE, FEL
@@ -18,6 +19,8 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Array4<Real> const& Hz = vec_Hz[lev]->array(mfi);
         Array4<Real> const& pm = vec_pm[lev]->array(mfi);
         Array4<Real> const& pn = vec_pn[lev]->array(mfi);
+        Array4<Real> const& msku = vec_msku[lev]->array(mfi);
+        Array4<Real> const& mskv = vec_mskv[lev]->array(mfi);
 
         Box bx = mfi.tilebox();
         Box xbx = surroundingNodes(bx,0);
@@ -66,11 +69,11 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         // need XF/FX/FXL from  [xlo to xhi] by [ylo to yhi  ] on u points
         ParallelFor(grow(xbx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real grad_im1 = tke(i-1,j,k,nstp) - tke(i-2,j,k,nstp);
-            Real grad_ip1 = tke(i+1,j,k,nstp) - tke(i  ,j,k,nstp);
+            Real grad_im1 = (tke(i-1,j,k,nstp) - tke(i-2,j,k,nstp)) * msku(i-1,j,0);
+            Real grad_ip1 = (tke(i+1,j,k,nstp) - tke(i  ,j,k,nstp)) * msku(i+1,j,0);
 
-            Real gradL_im1 = gls(i-1,j,k,nstp) - gls(i-2,j,k,nstp);
-            Real gradL_ip1 = gls(i+1,j,k,nstp) - gls(i  ,j,k,nstp);
+            Real gradL_im1 = (gls(i-1,j,k,nstp) - gls(i-2,j,k,nstp)) * msku(i-1,j,0);
+            Real gradL_ip1 = (gls(i+1,j,k,nstp) - gls(i  ,j,k,nstp)) * msku(i+1,j,0);
 
             // Adjust boundaries
             // TODO: Make sure indices match with what ROMS does
@@ -93,11 +96,11 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         // need EF/FE/FEL from  [xlo to xhi  ] by [ylo to yhi+1]
         ParallelFor(grow(ybx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real grad_jm1 = tke(i,j-1,k,nstp) - tke(i,j-2,k,nstp);
-            Real grad_jp1 = tke(i,j+1,k,nstp) - tke(i,j  ,k,nstp);
+            Real grad_jm1 = (tke(i,j-1,k,nstp) - tke(i,j-2,k,nstp)) * mskv(i,j-1,0);
+            Real grad_jp1 = (tke(i,j+1,k,nstp) - tke(i,j  ,k,nstp)) * mskv(i,j+1,0);
 
-            Real gradL_jm1 = gls(i,j-1,k,nstp) - gls(i,j-2,k,nstp);
-            Real gradL_jp1 = gls(i,j+1,k,nstp) - gls(i,j  ,k,nstp);
+            Real gradL_jm1 = (gls(i,j-1,k,nstp) - gls(i,j-2,k,nstp)) * mskv(i,j-1,0);
+            Real gradL_jp1 = (gls(i,j+1,k,nstp) - gls(i,j  ,k,nstp)) * mskv(i,j+1,0);
 
             // Adjust boundaries
             // TODO: Make sure indices match with what ROMS does
@@ -212,6 +215,8 @@ void
 REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                        MultiFab& mf_W, MultiFab* mf_Akv, MultiFab* mf_Akt,
                        MultiFab* mf_Akk, MultiFab* mf_Akp,
+                       MultiFab* mf_mskr,
+                       MultiFab* mf_msku, MultiFab* mf_mskv,
                        const int nstp, const int nnew,
                        const int N, const Real dt_lev)
 {
@@ -412,7 +417,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
     }
 
-    (*physbcs[lev])(mf_shear2,0,1,mf_shear2.nGrowVect(),t_new[lev],BCVars::cons_bc);
+    (*physbcs[lev])(mf_shear2,*mf_mskr,0,1,mf_shear2.nGrowVect(),t_new[lev],BCVars::cons_bc);
     mf_CF.setVal(0.0_rt);
 
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -462,6 +467,8 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Array4<Real> const& svstr = vec_svstr[lev]->array(mfi);
         Array4<Real> const& bustr = vec_bustr[lev]->array(mfi);
         Array4<Real> const& bvstr = vec_bvstr[lev]->array(mfi);
+        Array4<Real> const& msku = vec_msku[lev]->array(mfi);
+        Array4<Real> const& mskv = vec_mskv[lev]->array(mfi);
 
         FArrayBox fab_tmp_buoy(bx_growloxy,1, amrex::The_Async_Arena()); fab_tmp_buoy.template setVal<RunOn::Device>(0.);
         FArrayBox fab_tmp_shear(bx_growloxy,1, amrex::The_Async_Arena()); fab_tmp_shear.template setVal<RunOn::Device>(0.);
@@ -531,10 +538,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 gradP = gls(i  ,j,k,2)-gls(i-1,j,k,2);
                 gradP_ip1 = gradP;
             } else {
-                gradK     = tke(i  ,j,k,2)-tke(i-1,j,k,2);
-                gradK_ip1 = tke(i+1,j,k,2)-tke(i  ,j,k,2);
-                gradP     = gls(i  ,j,k,2)-gls(i-1,j,k,2);
-                gradP_ip1 = gls(i+1,j,k,2)-gls(i  ,j,k,2);
+                gradK     = (tke(i  ,j,k,2)-tke(i-1,j,k,2)) * msku(i  ,j,0);
+                gradK_ip1 = (tke(i+1,j,k,2)-tke(i  ,j,k,2)) * msku(i+1,j,0);
+                gradP     = (gls(i  ,j,k,2)-gls(i-1,j,k,2)) * msku(i  ,j,0);
+                gradP_ip1 = (gls(i+1,j,k,2)-gls(i  ,j,k,2)) * msku(i+1,j,0);
             }
 
             curvK(i,j,k) = gradK_ip1 - gradK;
@@ -553,10 +560,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         //Time step advective terms
         ParallelFor(growLo(grow(ybx,IntVect(0,0,-1)),1,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real gradK     = tke(i,j  ,k,2)-tke(i,j-1,k,2);
-            Real gradK_jp1 = tke(i,j+1,k,2)-tke(i,j  ,k,2);
-            Real gradP     = gls(i,j  ,k,2)-gls(i,j-1,k,2);
-            Real gradP_jp1 = gls(i,j+1,k,2)-gls(i,j  ,k,2);
+            Real gradK     = (tke(i,j  ,k,2)-tke(i,j-1,k,2)) * mskv(i,j  ,0);
+            Real gradK_jp1 = (tke(i,j+1,k,2)-tke(i,j  ,k,2)) * mskv(i,j+1,0);
+            Real gradP     = (gls(i,j  ,k,2)-gls(i,j-1,k,2)) * mskv(i,j  ,0);
+            Real gradP_jp1 = (gls(i,j+1,k,2)-gls(i,j  ,k,2)) * mskv(i,j+1,0);
 
             if (j == dlo.y-1 && (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
                 gradK = gradK_jp1;

@@ -623,6 +623,10 @@ REMORA::init_only (int lev, Real time)
                 set_zeta_to_Ztavg(lev);
                 amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
 
+                amrex::Print() << "Calling init_masks_from_netcdf " << std::endl;
+                init_masks_from_netcdf(lev);
+                amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
+
                 amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
                 init_bdry_from_netcdf();
                 amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
@@ -648,6 +652,10 @@ REMORA::init_only (int lev, Real time)
             init_data_from_netcdf(lev);
             set_zeta_to_Ztavg(lev);
             amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
+
+            amrex::Print() << "Calling init_masks_from_netcdf " << std::endl;
+            init_masks_from_netcdf(lev);
+            amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
 
             amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
             init_bdry_from_netcdf();

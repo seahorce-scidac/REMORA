@@ -74,6 +74,11 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     std::unique_ptr<MultiFab>& mf_bustr = vec_bustr[lev];
     std::unique_ptr<MultiFab>& mf_bvstr = vec_bvstr[lev];
 
+    std::unique_ptr<MultiFab>& mf_mskr = vec_mskr[lev];
+    std::unique_ptr<MultiFab>& mf_msku = vec_msku[lev];
+    std::unique_ptr<MultiFab>& mf_mskv = vec_mskv[lev];
+    std::unique_ptr<MultiFab>& mf_mskp = vec_mskp[lev];
+
     MultiFab mf_rw(ba,dm,1,IntVect(NGROW,NGROW,0));
 
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
@@ -129,6 +134,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real const> const& pm = mf_pm->const_array(mfi);
         Array4<Real const> const& pn = mf_pn->const_array(mfi);
 
+        Array4<Real const> const& mskr = mf_mskr->const_array(mfi);
+
         Box  bx = mfi.tilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
@@ -171,7 +178,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         });
 
         Array4<Real const> const& state_old = S_old.const_array(mfi);
-        rho_eos(gbx2,state_old,rho,rhoA,rhoS,bvf,Hz,z_w,z_r,h,N);
+        rho_eos(gbx2,state_old,rho,rhoA,rhoS,bvf,Hz,z_w,z_r,h,mskr,N);
     }
 
     if (solverChoice.vert_mixing_type == VertMixingType::analytical) {
@@ -184,6 +191,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
     mf_W.setVal(0.0_rt);
 
+
     if (solverChoice.use_prestep) {
         const int nnew  = 0;
         prestep(lev, U_old, V_old, U_new, V_new,
@@ -191,12 +199,13 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
                 S_old, S_new, mf_W,
                 mf_DC, mf_z_r, mf_z_w, mf_h, mf_pm, mf_pn,
                 mf_sustr.get(), mf_svstr.get(), mf_bustr.get(), mf_bvstr.get(),
+                mf_msku.get(), mf_mskv.get(),
                 iic, ntfirst, nnew, nstp, nrhs, N, dt_lev);
     }
 
     // We use FillBoundary not FillPatch here since mf_W is single-level scratch space
     mf_W.FillBoundary(geom[lev].periodicity());
-    (*physbcs[lev])(mf_W,0,1,mf_W.nGrowVect(),t_new[lev],BCVars::zvel_bc);
+    (*physbcs[lev])(mf_W,*mf_mskr.get(),0,1,mf_W.nGrowVect(),t_new[lev],BCVars::zvel_bc);
 
     for ( MFIter mfi(S_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -228,6 +237,10 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real const> const& pm = mf_pm->const_array(mfi);
         Array4<Real const> const& pn = mf_pn->const_array(mfi);
         Array4<Real const> const& fcor = mf_fcor->const_array(mfi);
+
+        Array4<Real const> const& msku = mf_msku->const_array(mfi);
+        Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
+        Array4<Real const> const& mskp = mf_mskp->const_array(mfi);
 
         Box bx = mfi.tilebox();
 
@@ -280,7 +293,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             FC(i,j,k)=0.0_rt;
         });
 
-        prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,pn,pm,rho,FC,Hz,z_r,z_w,nrhs,N);
+        prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,pn,pm,rho,FC,Hz,z_r,z_w,msku,mskv,nrhs,N);
 
         // Apply mixing to temperature and, if use_salt, salt
         int ncomp = solverChoice.use_salt ? 2 : 1;
@@ -288,10 +301,10 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real> const& s_arr_rhs = S_old.array(mfi);
         Array4<Real> const& diff2_arr = vec_diff2[lev]->array(mfi);
 
-        t3dmix(bx, s_arr, s_arr_rhs, diff2_arr, Hz, pm, pn, dt_lev, ncomp);
+        t3dmix(bx, s_arr, s_arr_rhs, diff2_arr, Hz, pm, pn, msku, mskv, dt_lev, ncomp);
 
         Array4<Real> const& diff2_arr_scalar = vec_diff2[lev]->array(mfi,Scalar_comp);
-        t3dmix(bx, S_new.array(mfi,Scalar_comp), S_old.array(mfi,Scalar_comp), diff2_arr_scalar, Hz, pm, pn, dt_lev, 1);
+        t3dmix(bx, S_new.array(mfi,Scalar_comp), S_old.array(mfi,Scalar_comp), diff2_arr_scalar, Hz, pm, pn, msku, mskv, dt_lev, 1);
 
         if (solverChoice.use_coriolis) {
             //-----------------------------------------------------------------------
@@ -316,14 +329,15 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
         if(solverChoice.use_uv3dmix) {
             const int nnew = 0;
-            uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, pm, pn, nrhs, nnew, dt_lev);
+            uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, pm, pn, mskp, nrhs, nnew, dt_lev);
         }
     } // MFIter
 
     int nnew = (iic +1)% 2;
     nstp = iic % 2;
     if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
-        gls_prestep(lev, mf_gls, mf_tke, mf_W, nstp, nnew, iic, ntfirst, N, dt_lev);
+        gls_prestep(lev, mf_gls, mf_tke, mf_W, mf_msku.get(), mf_mskv.get(),
+                nstp, nnew, iic, ntfirst, N, dt_lev);
     }
     nstp = 0;
 

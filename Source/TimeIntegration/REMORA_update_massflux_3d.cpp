@@ -16,6 +16,7 @@ using namespace amrex;
  * @param[in   ] Dphi_avg2
  * @param[inout] DC
  * @param[inout] FC
+ * @param[in   ] msk
  * @param[in   ] nnew component of velocity
  */
 
@@ -31,6 +32,7 @@ REMORA::update_massflux_3d (const Box& bx,
                            const Array4<Real const>& Dphi_avg2,
                            const Array4<Real      >& DC,
                            const Array4<Real      >& FC,
+                           const Array4<Real const>& msk,
                            const int nnew)
 {
     const Box& domain = geom[0].Domain();
@@ -85,14 +87,18 @@ REMORA::update_massflux_3d (const Box& bx,
         for (int k=0; k<=N; k++) {
             if (i == dlo.x-joff && (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
+                phi(i,j,k,nnew) *= msk(i,j,0);
             } else if (i == dhi.x+1 && (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
+                phi(i,j,k,nnew) *= msk(i,j,0);
             }
 
             if (j == dlo.y-ioff && (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
+                phi(i,j,k,nnew) *= msk(i,j,0);
             } else if (j == dhi.y+1 && (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
+                phi(i,j,k,nnew) *= msk(i,j,0);
             }
         }
 

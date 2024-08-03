@@ -16,8 +16,8 @@ using namespace amrex;
 // bccomp is the index into both domain_bcs_type_bcr and bc_extdir_vals for icomp = 0  --
 //     so this follows the BCVars enum
 //
-void REMORAPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect const& nghost,
-                                   Real time, int bccomp)
+void REMORAPhysBCFunct::operator() (MultiFab& mf, const MultiFab& msk, int icomp, int ncomp, IntVect const& nghost,
+                                   Real time, int bccomp,int n_not_fill)
 {
     if (m_geom.isAllPeriodic()) return;
 
@@ -44,10 +44,11 @@ void REMORAPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect 
                 for (MFIter mfi(mf); mfi.isValid(); ++mfi)
                 {
                     const Array4<Real>& dest_arr = mf.array(mfi);
+                    const Array4<const Real>& msk_arr = msk.array(mfi);
                     Box bx = mfi.validbox(); bx.grow(nghost);
 
                     if (!gdomain.contains(bx)) {
-                        impose_cons_bcs(dest_arr,bx,domain,dxInv,icomp,ncomp,time,bccomp);
+                        impose_cons_bcs(dest_arr,bx,domain,dxInv,msk_arr,icomp,ncomp,time,bccomp,n_not_fill);
                     }
                 } // mfi
 
@@ -57,16 +58,17 @@ void REMORAPhysBCFunct::operator() (MultiFab& mf, int icomp, int ncomp, IntVect 
                 for (MFIter mfi(mf); mfi.isValid(); ++mfi)
                 {
                     Box bx = mfi.validbox(); bx.grow(nghost);
+                    const Array4<const Real>& msk_arr = msk.array(mfi);
                     if (!gdomain.contains(bx)) {
                         if(bx.ixType() == IndexType(IntVect(1,0,0))) {
                             const Array4<Real>& dest_arr = mf.array(mfi,icomp);
-                            impose_xvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
+                            impose_xvel_bcs(dest_arr,bx,domain,dxInv,msk_arr,time,bccomp);
                         } else if (bx.ixType() == IndexType(IntVect(0,1,0))) {
                             const Array4<Real>& dest_arr = mf.array(mfi,icomp);
-                            impose_yvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
+                            impose_yvel_bcs(dest_arr,bx,domain,dxInv,msk_arr,time,bccomp);
                         } else if (bx.ixType() == IndexType(IntVect(0,0,1))) {
                             const Array4<Real>& dest_arr = mf.array(mfi,icomp);
-                            impose_zvel_bcs(dest_arr,bx,domain,dxInv,time,bccomp);
+                            impose_zvel_bcs(dest_arr,bx,domain,dxInv,msk_arr,time,bccomp);
                         }
                     }
                 } // mfi
