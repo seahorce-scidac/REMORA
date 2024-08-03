@@ -717,6 +717,8 @@ private:
 
     void init_stuff (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
 
+    void init_masks (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
+
     void resize_stuff (int lev);
 
     /** more flexible version of AverageDown() that lets you average down across multiple levels */
