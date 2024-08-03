@@ -21,7 +21,8 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
 #endif
                   const int  icomp,
                   const bool fill_all,
-                  const bool fill_set)
+                  const bool fill_set,
+                  const int n_not_fill)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
     int bccomp;
@@ -29,6 +30,8 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
 
     Box mf_box(mf_to_fill.boxArray()[0]);
     bool is_2d = mf_box.length(2) == 1;
+
+    MultiFab* mask;
 
     //
     // ***************************************************************************
@@ -71,20 +74,24 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
     {
         bccomp = 0;
         mapper = &cell_cons_interp;
+        mask   = vec_mskr[lev].get();
     }
     else if (mf_box.ixType() == IndexType(IntVect(1,0,0)))
     {
         bccomp = BCVars::xvel_bc;
         mapper = &face_linear_interp;
+        mask   = vec_msku[lev].get();
     }
     else if (mf_box.ixType() == IndexType(IntVect(0,1,0)))
     {
         bccomp = BCVars::yvel_bc;
         mapper = &face_linear_interp;
+        mask   = vec_mskv[lev].get();
     }
     else {
         bccomp = BCVars::zvel_bc;
         mapper = &face_linear_interp;
+        mask   = vec_mskr[lev].get();
     }
 
     if (lev == 0)
@@ -115,14 +122,14 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         // ***************************************************************************
 
         // Enforce physical boundary conditions
-        (*physbcs[lev])(mf_to_fill,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp);
+        (*physbcs[lev])(mf_to_fill,*mask,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp,n_not_fill);
 
 #ifdef REMORA_USE_NETCDF
         // Fill the data which is stored in the boundary data read from netcdf files
         if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) &&
              (bdy_var_type != BdyVars::null) )
         {
-            fill_from_bdyfiles (mf_to_fill,time,bdy_var_type, icomp);
+            fill_from_bdyfiles (mf_to_fill,*mask,time,bdy_var_type, icomp);
         }
 #endif
 
@@ -194,7 +201,6 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
                     FPr_w[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
                 }
             } else {
-                Print() << "fillpatch ubar vbar " << std::endl;
                 if (mf_box.ixType() == IndexType(IntVect(1,0,0))) {
                     FPr_ubar[lev-1].FillSet(mf_to_fill, time, null_bc, domain_bcs_type);
                 } else if (mf_box.ixType() == IndexType(IntVect(0,1,0))) {

@@ -205,7 +205,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // We use FillBoundary not FillPatch here since mf_W is single-level scratch space
     mf_W.FillBoundary(geom[lev].periodicity());
-    (*physbcs[lev])(mf_W,0,1,mf_W.nGrowVect(),t_new[lev],BCVars::zvel_bc);
+    (*physbcs[lev])(mf_W,*mf_mskr.get(),0,1,mf_W.nGrowVect(),t_new[lev],BCVars::zvel_bc);
 
     for ( MFIter mfi(S_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {

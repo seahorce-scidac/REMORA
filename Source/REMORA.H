@@ -140,6 +140,9 @@ public:
     /** Set zeta components to be equal to time-averaged Zt_avg1 */
     void set_zeta_to_Ztavg (int lev);
 
+    /** Set psi-point mask to be consistent with rho-point mask */
+    void update_mskp (int lev);
+
     /** compute dt from CFL considerations */
     amrex::Real estTimeStep (int lev) const;
 
@@ -640,6 +643,7 @@ public:
     void gls_corrector (int lev, amrex::MultiFab* mf_gls, amrex::MultiFab* mf_tke,
                         amrex::MultiFab& mf_W, amrex::MultiFab* mf_Akv, amrex::MultiFab* mf_Akt,
                         amrex::MultiFab* mf_Akk, amrex::MultiFab* mf_Akp,
+                        amrex::MultiFab* mf_mskr,
                         amrex::MultiFab* mf_msku, amrex::MultiFab* mf_mskv,
                         const int nstp, const int nnew,
                         const int N, const amrex::Real dt_lev);
@@ -665,7 +669,8 @@ public:
                     const int bdy_var_type = BdyVars::null,
                     const int icomp=0,
                     const bool fill_all=true,
-                    const bool fill_set=true);
+                    const bool fill_set=true,
+                    const int  n_not_fill=0);
 
     void FillPatchNoBC (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,
@@ -676,6 +681,7 @@ public:
                     const bool fill_set=true);
 
    void fill_from_bdyfiles (amrex::MultiFab& mf_to_fill,
+                            const amrex::MultiFab& mf_mask,
                             const amrex::Real time,
                             const int bdy_var_type,
                             const int icomp_to_fill);

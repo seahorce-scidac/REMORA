@@ -152,7 +152,7 @@ REMORA::init_zeta_from_netcdf (int lev)
         } // omp
     } // idx
     vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
-    (*physbcs[lev])(*vec_zeta[lev],0,3,vec_zeta[lev]->nGrowVect(),t_old[lev],BCVars::cons_bc);
+    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,3,vec_zeta[lev]->nGrowVect(),t_old[lev],BCVars::cons_bc);
 }
 /**
  * REMORA function that initializes bathymetry from a netcdf file
@@ -200,7 +200,8 @@ REMORA::init_bathymetry_from_netcdf (int lev)
     } // idx
 
     const double dummy_time = 0.0_rt;
-    FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName));
+    FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName),
+            BdyVars::null,0,true,true,1);
 
     int ng = vec_pm[lev]->nGrow();
 
@@ -348,6 +349,8 @@ REMORA::init_masks_from_netcdf (int lev)
         } // mf
         } // omp
     } // idx
+
+    update_mskp(lev);
     vec_mskr[lev]->FillBoundary(geom[lev].periodicity());
     vec_msku[lev]->FillBoundary(geom[lev].periodicity());
     vec_mskv[lev]->FillBoundary(geom[lev].periodicity());

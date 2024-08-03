@@ -151,15 +151,15 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     }
 
     // Apply physical boundary conditions to u and v
-    (*physbcs[lev])(mf_u,0,1,mf_u.nGrowVect(),t_old[lev],BCVars::xvel_bc);
-    (*physbcs[lev])(mf_v,0,1,mf_v.nGrowVect(),t_old[lev],BCVars::yvel_bc);
+    (*physbcs[lev])(mf_u,*mf_msku,0,1,mf_u.nGrowVect(),t_old[lev],BCVars::xvel_bc);
+    (*physbcs[lev])(mf_v,*mf_mskv,0,1,mf_v.nGrowVect(),t_old[lev],BCVars::yvel_bc);
 
 #ifdef REMORA_USE_NETCDF
         // Fill the data which is stored in the boundary data read from netcdf files
         if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) )
         {
-            fill_from_bdyfiles (mf_u,t_old[lev],BdyVars::u,0);
-            fill_from_bdyfiles (mf_v,t_old[lev],BdyVars::v,0);
+            fill_from_bdyfiles (mf_u,*mf_msku,t_old[lev],BdyVars::u,0);
+            fill_from_bdyfiles (mf_v,*mf_mskv,t_old[lev],BdyVars::v,0);
         }
 #endif
 
@@ -303,7 +303,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     nnew = 1-nstp;
     if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
         gls_corrector(lev, vec_gls[lev].get(), vec_tke[lev].get(), mf_W, vec_Akv[lev].get(),
-                  vec_Akt[lev].get(),vec_Akk[lev].get(), vec_Akp[lev].get(),
+                  vec_Akt[lev].get(),vec_Akk[lev].get(), vec_Akp[lev].get(), vec_mskr[lev].get(),
                   vec_msku[lev].get(), vec_mskv[lev].get(),
                   nstp, nnew, N, dt_lev);
     }

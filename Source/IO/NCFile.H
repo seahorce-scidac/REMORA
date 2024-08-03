@@ -219,6 +219,12 @@ fill_fab_from_arrays (int iv,
         my_box.setBig(amrex::IntVect(nsx-2,nsy-1,nsz-1));
         my_box.setType(amrex::IndexType(amrex::IntVect(0,1,0)));
     }
+    else if (var_name == "mask_psi")
+    {
+        my_box.setSmall(amrex::IntVect(0,0,0));
+        my_box.setBig(amrex::IntVect(nsx-1,nsy-1,nsz-1));
+        my_box.setType(amrex::IndexType(amrex::IntVect(1,1,0)));
+    }
     else  // everything cell-centered -- these have one ghost cell
     {
         my_box.setSmall(amrex::IntVect(-1,-1,0));

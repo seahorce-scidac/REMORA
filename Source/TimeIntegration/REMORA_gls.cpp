@@ -215,6 +215,7 @@ void
 REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                        MultiFab& mf_W, MultiFab* mf_Akv, MultiFab* mf_Akt,
                        MultiFab* mf_Akk, MultiFab* mf_Akp,
+                       MultiFab* mf_mskr,
                        MultiFab* mf_msku, MultiFab* mf_mskv,
                        const int nstp, const int nnew,
                        const int N, const Real dt_lev)
@@ -416,7 +417,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
     }
 
-    (*physbcs[lev])(mf_shear2,0,1,mf_shear2.nGrowVect(),t_new[lev],BCVars::cons_bc);
+    (*physbcs[lev])(mf_shear2,*mf_mskr,0,1,mf_shear2.nGrowVect(),t_new[lev],BCVars::cons_bc);
     mf_CF.setVal(0.0_rt);
 
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
