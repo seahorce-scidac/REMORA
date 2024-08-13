@@ -178,30 +178,30 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         ncf.def_dim(ny_name,   n_cells[1]);
         ncf.def_dim(nz_name,   n_cells[2]);
 
-        ncf.def_var("probLo"  ,   NC_FLOAT,  {ndim_name});
-        ncf.def_var("probHi"  ,   NC_FLOAT,  {ndim_name});
+        ncf.def_var("probLo"  ,   NC_DOUBLE,  {ndim_name});
+        ncf.def_var("probHi"  ,   NC_DOUBLE,  {ndim_name});
 
         ncf.def_var("Geom.smallend", NC_INT, {flev_name, ndim_name});
         ncf.def_var("Geom.bigend"  , NC_INT, {flev_name, ndim_name});
-        ncf.def_var("CellSize"     , NC_FLOAT, {flev_name, ndim_name});
+        ncf.def_var("CellSize"     , NC_DOUBLE, {flev_name, ndim_name});
 
-        ncf.def_var("x_grid", NC_FLOAT, {np_name});
-        ncf.def_var("y_grid", NC_FLOAT, {np_name});
-        ncf.def_var("z_grid", NC_FLOAT, {np_name});
-        ncf.def_var("ocean_time", NC_FLOAT, {nt_name});
-        ncf.def_var("h", NC_FLOAT, {ny_s_name, nx_s_name});
+        ncf.def_var("x_grid", NC_DOUBLE, {np_name});
+        ncf.def_var("y_grid", NC_DOUBLE, {np_name});
+        ncf.def_var("z_grid", NC_DOUBLE, {np_name});
+        ncf.def_var("ocean_time", NC_DOUBLE, {nt_name});
+        ncf.def_var("h", NC_DOUBLE, {ny_s_name, nx_s_name});
 
         ncf.exit_def_mode();
 
-        ncf.def_var("temp", NC_FLOAT, {nt_name, nz_s_name, ny_s_name, nx_s_name});
-        ncf.def_var("salt", NC_FLOAT, {nt_name, nz_s_name, ny_s_name, nx_s_name});
-        ncf.def_var("u"   , NC_FLOAT, {nt_name, nz_s_name, ny_u_name, nx_u_name});
-        ncf.def_var("v"   , NC_FLOAT, {nt_name, nz_s_name, ny_v_name, nx_v_name});
-        ncf.def_var("zeta", NC_FLOAT, {nt_name, ny_s_name, nx_s_name});
-        ncf.def_var("ubar", NC_FLOAT, {nt_name, ny_u_name, nx_u_name});
-        ncf.def_var("vbar", NC_FLOAT, {nt_name, ny_v_name, nx_v_name});
-        ncf.def_var("sustr", NC_FLOAT, {nt_name, ny_u_name, nx_u_name});
-        ncf.def_var("svstr", NC_FLOAT, {nt_name, ny_v_name, nx_v_name});
+        ncf.def_var("temp", NC_DOUBLE, {nt_name, nz_s_name, ny_s_name, nx_s_name});
+        ncf.def_var("salt", NC_DOUBLE, {nt_name, nz_s_name, ny_s_name, nx_s_name});
+        ncf.def_var("u"   , NC_DOUBLE, {nt_name, nz_s_name, ny_u_name, nx_u_name});
+        ncf.def_var("v"   , NC_DOUBLE, {nt_name, nz_s_name, ny_v_name, nx_v_name});
+        ncf.def_var("zeta", NC_DOUBLE, {nt_name, ny_s_name, nx_s_name});
+        ncf.def_var("ubar", NC_DOUBLE, {nt_name, ny_u_name, nx_u_name});
+        ncf.def_var("vbar", NC_DOUBLE, {nt_name, ny_v_name, nx_v_name});
+        ncf.def_var("sustr", NC_DOUBLE, {nt_name, ny_u_name, nx_u_name});
+        ncf.def_var("svstr", NC_DOUBLE, {nt_name, ny_v_name, nx_v_name});
 
         // We are doing single-level writes but it doesn't have to be level 0
         //
