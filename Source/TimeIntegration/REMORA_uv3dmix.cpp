@@ -77,7 +77,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
         UFe(i,j,k) = om_p*om_p*visc2_p(i,j,0)*cff;
     });
 
-    ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
         for (int k=0; k<=N; k++) {
             const Real cff=dt_lev*0.25_rt*(pm(i-1,j,0)+pm(i,j,0))*(pn(i-1,j,0)+pn(i,j,0));
