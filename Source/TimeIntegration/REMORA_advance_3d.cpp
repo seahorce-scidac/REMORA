@@ -231,18 +231,13 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     mf_W.setVal(0.0_rt);
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real> const& Hz  = mf_Hz->array(mfi);
-
         Array4<Real> const& Huon = mf_Huon->array(mfi);
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
 
         Array4<Real const> const& z_w = mf_z_w->const_array(mfi);
         Array4<Real const> const& h   = mf_h->const_array(mfi);
-        Array4<Real const> const& pm  = mf_pm->const_array(mfi);
-        Array4<Real const> const& pn  = mf_pn->const_array(mfi);
 
         Box bx = mfi.tilebox();
-        Box gbx = mfi.growntilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
@@ -258,7 +253,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx21,1,amrex::The_Async_Arena());
 
-        auto FC  = fab_FC.array();
         auto W   = mf_W.array(mfi);
 
         //
@@ -316,8 +310,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real> const& Huon = mf_Huon->array(mfi);
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
 
-        Array4<Real const> const& z_w = mf_z_w->const_array(mfi);
-        Array4<Real const> const& h   = mf_h->const_array(mfi);
         Array4<Real const> const& pm  = mf_pm->const_array(mfi);
         Array4<Real const> const& pn  = mf_pn->const_array(mfi);
         Array4<Real const> const& msku  = mf_msku->const_array(mfi);
@@ -325,7 +317,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
-        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
 
@@ -365,7 +356,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Array4<Real> const& Hzk = mf_Hzk.array(mfi);
         Array4<Real const> const& Hz  = mf_Hz->const_array(mfi);
-        Array4<Real      > const& cons = mf_cons.array(mfi);
 
         Box bx = mfi.tilebox();
 
