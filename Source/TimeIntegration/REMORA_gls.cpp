@@ -385,7 +385,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Array4<Real> const& Hz = vec_Hz[lev]->array(mfi);
         Array4<Real> const& u = xvel_old[lev]->array(mfi);
         Array4<Real> const& v = yvel_old[lev]->array(mfi);
-        Array4<Real> const& bvf = vec_bvf[lev]->array(mfi);
 
         auto dU = mf_dU.array(mfi);
         auto dV = mf_dV.array(mfi);

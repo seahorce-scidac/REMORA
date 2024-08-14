@@ -231,9 +231,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real> const& visc2_p = (mf_visc2_p)->array(mfi);
         Array4<Real> const& visc2_r = (mf_visc2_r)->array(mfi);
 
-        Array4<Real> const& zeta = (vec_zeta[lev])->array(mfi);
-        Array4<Real> const& Zt_avg1 = (vec_Zt_avg1[lev])->array(mfi);
-
         Array4<Real const> const& pm = mf_pm->const_array(mfi);
         Array4<Real const> const& pn = mf_pn->const_array(mfi);
         Array4<Real const> const& fcor = mf_fcor->const_array(mfi);
