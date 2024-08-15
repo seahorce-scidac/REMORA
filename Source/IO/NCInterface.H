@@ -238,6 +238,13 @@ public:
         const nc_type dtype,
         const std::vector<std::string>&) const;
 
+    //! Define an array with a fill value
+    NCVar def_array_fill(
+        const std::string& name,
+        const nc_type dtype,
+        const std::vector<std::string>&,
+        const void* fill_val) const;
+
     //! Define a variable (wrapper for def_array)
     NCVar def_var(
         const std::string& name,
@@ -245,6 +252,16 @@ public:
         const std::vector<std::string>& dnames) const
     {
         return def_array(name, dtype, dnames);
+    }
+
+    //! Define a variable (wrapper for def_array)
+    NCVar def_var_fill(
+        const std::string& name,
+        const nc_type dtype,
+        const std::vector<std::string>& dnames,
+        const void* fill_val) const
+    {
+        return def_array_fill(name, dtype, dnames, fill_val);
     }
 
     void put_attr(const std::string& name, const std::string& value) const;

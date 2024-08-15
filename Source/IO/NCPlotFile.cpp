@@ -155,6 +155,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
     const std::string nx_v_name   = "xi_v";
     const std::string ny_v_name   = "eta_v";
 
+    const Real fill_value = 1.0e37_rt;
+
     if (write_header)
     {
         ncf.enter_def_mode();
@@ -183,28 +185,28 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         ncf.def_dim(ny_name,   n_cells[1]);
         ncf.def_dim(nz_name,   n_cells[2]);
 
-        ncf.def_var("probLo"  ,   NC_DOUBLE,  {ndim_name});
-        ncf.def_var("probHi"  ,   NC_DOUBLE,  {ndim_name});
+        ncf.def_var("probLo"  ,   ncutils::NCDType::Real,  {ndim_name});
+        ncf.def_var("probHi"  ,   ncutils::NCDType::Real,  {ndim_name});
 
         ncf.def_var("Geom.smallend", NC_INT, {flev_name, ndim_name});
         ncf.def_var("Geom.bigend"  , NC_INT, {flev_name, ndim_name});
-        ncf.def_var("CellSize"     , NC_DOUBLE, {flev_name, ndim_name});
+        ncf.def_var("CellSize"     , ncutils::NCDType::Real, {flev_name, ndim_name});
 
-        ncf.def_var("x_grid", NC_DOUBLE, {np_name});
-        ncf.def_var("y_grid", NC_DOUBLE, {np_name});
-        ncf.def_var("z_grid", NC_DOUBLE, {np_name});
-        ncf.def_var("ocean_time", NC_DOUBLE, {nt_name});
+        ncf.def_var("x_grid", ncutils::NCDType::Real, {np_name});
+        ncf.def_var("y_grid", ncutils::NCDType::Real, {np_name});
+        ncf.def_var("z_grid", ncutils::NCDType::Real, {np_name});
+        ncf.def_var("ocean_time", ncutils::NCDType::Real, {nt_name});
 
-        ncf.def_var("h"   , NC_DOUBLE, {         ny_s_name, nx_s_name});
-        ncf.def_var("zeta", NC_DOUBLE, {nt_name, ny_s_name, nx_s_name});
-        ncf.def_var("temp", NC_DOUBLE, {nt_name, nz_s_name, ny_s_name, nx_s_name});
-        ncf.def_var("salt", NC_DOUBLE, {nt_name, nz_s_name, ny_s_name, nx_s_name});
-        ncf.def_var("u"   , NC_DOUBLE, {nt_name, nz_s_name, ny_u_name, nx_u_name});
-        ncf.def_var("v"   , NC_DOUBLE, {nt_name, nz_s_name, ny_v_name, nx_v_name});
-        ncf.def_var("ubar", NC_DOUBLE, {nt_name, ny_u_name, nx_u_name});
-        ncf.def_var("vbar", NC_DOUBLE, {nt_name, ny_v_name, nx_v_name});
-        ncf.def_var("sustr", NC_DOUBLE, {nt_name, ny_u_name, nx_u_name});
-        ncf.def_var("svstr", NC_DOUBLE, {nt_name, ny_v_name, nx_v_name});
+        ncf.def_var("h"   , ncutils::NCDType::Real, {         ny_s_name, nx_s_name});
+        ncf.def_var_fill("zeta", ncutils::NCDType::Real, {nt_name, ny_s_name, nx_s_name}, &fill_value);
+        ncf.def_var_fill("temp", ncutils::NCDType::Real, {nt_name, nz_s_name, ny_s_name, nx_s_name}, &fill_value);
+        ncf.def_var_fill("salt", ncutils::NCDType::Real, {nt_name, nz_s_name, ny_s_name, nx_s_name}, &fill_value);
+        ncf.def_var_fill("u"   , ncutils::NCDType::Real, {nt_name, nz_s_name, ny_u_name, nx_u_name}, &fill_value);
+        ncf.def_var_fill("v"   , ncutils::NCDType::Real, {nt_name, nz_s_name, ny_v_name, nx_v_name}, &fill_value);
+        ncf.def_var_fill("ubar", ncutils::NCDType::Real, {nt_name, ny_u_name, nx_u_name}, &fill_value);
+        ncf.def_var_fill("vbar", ncutils::NCDType::Real, {nt_name, ny_v_name, nx_v_name}, &fill_value);
+        ncf.def_var("sustr", ncutils::NCDType::Real, {nt_name, ny_u_name, nx_u_name});
+        ncf.def_var("svstr", ncutils::NCDType::Real, {nt_name, ny_v_name, nx_v_name});
 
         ncf.exit_def_mode();
 
