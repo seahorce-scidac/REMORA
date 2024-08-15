@@ -19,7 +19,7 @@
 using namespace amrex;
 
 void
-REMORA::WriteNCPlotFile(int which_step) const
+REMORA::WriteNCPlotFile(int which_step)
 {
     AMREX_ASSERT(max_level==0);
     // For right now we assume single level -- we will generalize this later to multilevel
@@ -98,7 +98,7 @@ REMORA::WriteNCPlotFile(int which_step) const
 void
 REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
                               bool write_header, ncutils::NCFile& ncf,
-                              bool is_history) const
+                              bool is_history)
 {
     // Number of cells in this "domain" at this level
     std::vector<int> n_cells;
@@ -331,6 +331,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
     cons_new[lev]->FillBoundary(geom[lev].periodicity());
 
+    mask_arrays_for_write(lev, (Real) fill_value);
+
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
         auto bx = mfi.validbox();
@@ -365,6 +367,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             if (write_header) {
                 FArrayBox tmp_bathy;
                 tmp_bathy.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
+
                 tmp_bathy.template copy<RunOn::Device>((*vec_hOfTheConfusingName[lev])[mfi.index()],0,0,1);
                 Gpu::streamSynchronize();
 
@@ -546,8 +549,73 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         } // in subdomain
     } // mfi
 
+    mask_arrays_for_write(lev, 0.0_rt);
+
     ncf.close();
 
     REMORA::total_nc_plot_file_step += 1;
+}
+
+void
+REMORA::mask_arrays_for_write(int lev, Real fill_value) {
+    for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
+        Box bx = mfi.tilebox();
+        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+        Box ubx = mfi.nodaltilebox(0);
+        ubx.grow(IntVect(0,1,0));
+        Box vbx = mfi.nodaltilebox(1);
+        vbx.grow(IntVect(1,0,0));
+
+        Array4<Real> const& Zt_avg1 = vec_Zt_avg1[lev]->array(mfi);
+        Array4<Real> const& ubar = vec_ubar[lev]->array(mfi);
+        Array4<Real> const& vbar = vec_vbar[lev]->array(mfi);
+        Array4<Real> const& xvel = xvel_new[lev]->array(mfi);
+        Array4<Real> const& yvel = yvel_new[lev]->array(mfi);
+        Array4<Real> const& temp = cons_new[lev]->array(mfi,Temp_comp);
+        Array4<Real> const& salt = cons_new[lev]->array(mfi,Salt_comp);
+
+        Array4<Real const> const& mskr = vec_mskr[lev]->array(mfi);
+        Array4<Real const> const& msku = vec_msku[lev]->array(mfi);
+        Array4<Real const> const& mskv = vec_mskv[lev]->array(mfi);
+
+        ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            if (!mskr(i,j,0)) {
+                Zt_avg1(i,j,0) = fill_value;
+            }
+        });
+        ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (!mskr(i,j,0)) {
+                temp(i,j,k) = fill_value;
+                salt(i,j,k) = fill_value;
+            }
+        });
+        ParallelFor(makeSlab(ubx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            if (!msku(i,j,0)) {
+                ubar(i,j,0,n) = fill_value;
+            }
+        });
+        ParallelFor(makeSlab(vbx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            if (!mskv(i,j,0)) {
+                vbar(i,j,0,n) = fill_value;
+            }
+        });
+        ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (!msku(i,j,0)) {
+                xvel(i,j,k) = fill_value;
+            }
+        });
+        ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (!mskv(i,j,0)) {
+                yvel(i,j,k) = fill_value;
+            }
+        });
+    }
+    Gpu::streamSynchronize();
 }
 
