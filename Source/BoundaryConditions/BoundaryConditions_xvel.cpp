@@ -50,7 +50,7 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
     // First do all ext_dir bcs
-    if (!is_periodic_in_x)
+    if (!is_periodic_in_x or bccomp==BCVars::foextrap_bc)
     {
         Box bx_xlo(bx);  bx_xlo.setBig  (0,dom_lo.x-1);
         Box bx_xhi(bx);  bx_xhi.setSmall(0,dom_hi.x+2);
@@ -96,7 +96,7 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
         );
     } // not periodic in x
 
-    if (!is_periodic_in_y)
+    if (!is_periodic_in_y or bccomp==BCVars::foextrap_bc)
     {
         // Populate ghost cells on lo-y and hi-y domain boundaries
         Box bx_ylo(bx);  bx_ylo.setBig  (1,dom_lo.y-1);

@@ -75,8 +75,8 @@ struct SolverChoice {
             amrex::Error("UV advection scheme unknown.");
 
         pp.query("rdrag", rdrag);
-        pp.query("rdrag", Zos);
-        pp.query("rdrag", Zob);
+        pp.query("Zos", Zos);
+        pp.query("Zob", Zob);
 
         // Order of spatial discretization
         pp.query("spatial_order", spatial_order);

@@ -116,8 +116,8 @@ void REMORA::init_bcs ()
     //
     // *****************************************************************************
     {
-        domain_bcs_type.resize(AMREX_SPACEDIM+NCONS);
-        domain_bcs_type_d.resize(AMREX_SPACEDIM+NCONS);
+        domain_bcs_type.resize(AMREX_SPACEDIM+NCONS+1);
+        domain_bcs_type_d.resize(AMREX_SPACEDIM+NCONS+1);
 
         for (OrientationIter oit; oit; ++oit) {
             Orientation ori = oit();
@@ -269,6 +269,25 @@ void REMORA::init_bcs ()
                     for (int i = 0; i < NCONS; i++)
                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::int_dir);
                 }
+            }
+        }
+    }
+
+    // *****************************************************************************
+    //
+    // Here we define a boundary condition that will unconditionally foextrap
+    //
+    // *****************************************************************************
+    {
+        for (OrientationIter oit; oit; ++oit) {
+            Orientation ori = oit();
+            int dir = ori.coordDir();
+            Orientation::Side side = ori.faceDir();
+            auto const bct = phys_bc_type[ori];
+            if (side == Orientation::low) {
+                domain_bcs_type[BCVars::foextrap_bc].setLo(dir, REMORABCType::foextrap);
+            } else {
+                domain_bcs_type[BCVars::foextrap_bc].setHi(dir, REMORABCType::foextrap);
             }
         }
     }

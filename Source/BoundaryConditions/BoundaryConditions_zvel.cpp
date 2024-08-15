@@ -55,7 +55,7 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
     // First do all ext_dir bcs
-    if (!is_periodic_in_x)
+    if (!is_periodic_in_x or bccomp==BCVars::foextrap_bc)
     {
         Box bx_xlo(bx);  bx_xlo.setBig  (0,dom_lo.x-1);
         Box bx_xhi(bx);  bx_xhi.setSmall(0,dom_hi.x+1);
@@ -88,7 +88,7 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
     }
 
     // First do all ext_dir bcs
-    if (!is_periodic_in_y)
+    if (!is_periodic_in_y or bccomp==BCVars::foextrap_bc)
     {
         Box bx_ylo(bx);  bx_ylo.setBig  (1,dom_lo.y-1);
         Box bx_yhi(bx);  bx_yhi.setSmall(1,dom_hi.y+1);
@@ -118,56 +118,7 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
         });
     }
 
-    {
-        Box bx_zlo(bx);  bx_zlo.setBig  (2,dom_lo.z-1);
-        Box bx_zhi(bx);  bx_zhi.setSmall(2,dom_hi.z+2);
-
-        // Populate face values on z-boundaries themselves only if EXT_DIR
-        Box bx_zlo_face(bx); bx_zlo_face.setSmall(2,dom_lo.z  ); bx_zlo_face.setBig(2,dom_lo.z  );
-        Box bx_zhi_face(bx); bx_zhi_face.setSmall(2,dom_hi.z+1); bx_zhi_face.setBig(2,dom_hi.z+1);
-
-        ParallelFor(bx_zlo, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-            int n = 0;
-            int kflip = dom_lo.z - k;
-            if (bc_ptr[n].lo(2) == REMORABCType::ext_dir) {
-                dest_arr(i,j,k) = l_bc_extdir_vals_d[n][2]*mskr(i,j,0);
-            } else if (bc_ptr[n].lo(2) == REMORABCType::foextrap) {
-                dest_arr(i,j,k) =  dest_arr(i,j,dom_lo.z);
-            } else if (bc_ptr[n].lo(2) == REMORABCType::reflect_even) {
-                dest_arr(i,j,k) =  dest_arr(i,j,kflip);
-            } else if (bc_ptr[n].lo(2) == REMORABCType::reflect_odd) {
-                dest_arr(i,j,k) = -dest_arr(i,j,kflip);
-            }
-        });
-
-        ParallelFor(bx_zlo_face, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-              if (bc_ptr[n].lo(2) == REMORABCType::ext_dir) {
-                  dest_arr(i,j,k) = l_bc_extdir_vals_d[n][2]*mskr(i,j,0);
-              }
-          }
-        );
-
-        ParallelFor(
-          bx_zhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-            int kflip =  2*(dom_hi.z + 1) - k;
-            if (bc_ptr[n].hi(5) == REMORABCType::ext_dir) {
-                dest_arr(i,j,k) = l_bc_extdir_vals_d[n][5]*mskr(i,j,0);
-            } else if (bc_ptr[n].hi(5) == REMORABCType::foextrap) {
-                dest_arr(i,j,k) =  dest_arr(i,j,dom_hi.z+1);
-            } else if (bc_ptr[n].hi(5) == REMORABCType::reflect_even) {
-                dest_arr(i,j,k) =  dest_arr(i,j,kflip);
-            } else if (bc_ptr[n].hi(5) == REMORABCType::reflect_odd) {
-                dest_arr(i,j,k) = -dest_arr(i,j,kflip);
-            }
-
-          },
-          bx_zhi_face, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-            if (bc_ptr[n].hi(2) == REMORABCType::ext_dir) {
-                dest_arr(i,j,k) = l_bc_extdir_vals_d[n][5]*mskr(i,j,0);
-            }
-          }
-        );
-    }
+    // Never need to apply a boundary condition to the top
 
     Gpu::streamSynchronize();
 }

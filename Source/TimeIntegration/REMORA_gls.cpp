@@ -133,7 +133,7 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             cff1 = 0.5_rt + gamma;
             cff2 = 0.5_rt - gamma;
             cff3 = (1.0_rt - gamma) * dt_lev;
-            indx = 2 - nstp;
+            indx = 1 - nstp;
         }
 
         // update tke, gls from [xlo to xhi  ] by [ylo to yhi  ]
@@ -391,6 +391,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         auto CF = mf_CF.array(mfi);
         auto shear2_cached = mf_shear2_cached.array(mfi);
 
+        const Box& domain = geom[0].Domain();
+        const auto dlo = amrex::lbound(domain);
+        const auto dhi = amrex::ubound(domain);
+
         ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             CF(i,j,0) = 0.0_rt;
@@ -416,7 +420,9 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
     }
 
-    (*physbcs[lev])(mf_shear2,*mf_mskr,0,1,mf_shear2.nGrowVect(),t_new[lev],BCVars::cons_bc);
+    // While potentially counterintuitive, this is what ROMS does for handling shear2 at all boundaries, even
+    // periodic
+    (*physbcs[lev])(mf_shear2_cached,*mf_mskr,0,1,mf_shear2_cached.nGrowVect(),t_new[lev],BCVars::foextrap_bc);
     mf_CF.setVal(0.0_rt);
 
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -748,7 +754,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             }
 
             // Solve tri-diagonal system for generic statistical field.
-            Real cff_tke = 0.5_rt * (tke(i,j,N,nnew) + tke(i,j,N-1,nnew));
+            Real cff_tke = 0.5_rt * (tke(i,j,N+1,nnew) + tke(i,j,N,nnew));
             Real gls_fluxt = dt_lev*gls_fac3*std::pow(cff_tke,gls_m)*
                              std::pow(L_sft,(gls_n))*
                              std::pow(Zos_eff+0.5_rt*Hz(i,j,N),gls_n-1.0_rt)*
@@ -893,7 +899,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     for (int icomp=0; icomp<NCONS; icomp++) {
         FillPatch(lev, t_old[lev], *mf_Akt, GetVecOfPtrs(vec_Akt), BdyVars::null, icomp, false, false);
     }
-    FillPatch(lev, t_old[lev], *mf_Akv, GetVecOfPtrs(vec_Akv), BdyVars::null);
-    FillPatch(lev, t_old[lev], *mf_Akp, GetVecOfPtrs(vec_Akp), BdyVars::null);
-    FillPatch(lev, t_old[lev], *mf_Akk, GetVecOfPtrs(vec_Akk), BdyVars::null);
+    FillPatchNoBC(lev, t_old[lev], *mf_Akv, GetVecOfPtrs(vec_Akv), BdyVars::null);
+    FillPatchNoBC(lev, t_old[lev], *mf_Akp, GetVecOfPtrs(vec_Akp), BdyVars::null);
+    FillPatchNoBC(lev, t_old[lev], *mf_Akk, GetVecOfPtrs(vec_Akk), BdyVars::null);
 }

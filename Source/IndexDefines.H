@@ -21,6 +21,7 @@ namespace BCVars {
         xvel_bc = NCONS,
         yvel_bc,
         zvel_bc,
+        foextrap_bc,
         NumTypes
     };
 }
