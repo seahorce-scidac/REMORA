@@ -758,10 +758,10 @@ private:
 
 #ifdef REMORA_USE_NETCDF
     //! Write plotfile using NETCDF
-    void WriteNCPlotFile       (int istep) const;
+    void WriteNCPlotFile       (int istep);
     void WriteNCPlotFile_which (int lev, int which_subdomain,
                                 bool write_header, ncutils::NCFile& ncf,
-                                bool is_history) const;
+                                bool is_history);
 
     //! Write MultiFab in NetCDF format
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
@@ -773,6 +773,8 @@ private:
                          const std::string &name,
                          int coordinatorProc = amrex::ParallelDescriptor::IOProcessorNumber(),
                          int allow_empty_mf = 0);
+
+    void mask_arrays_for_write (int lev, amrex::Real fill_value);
 
     // Vectors (over time) of Vector (over variables) of FArrayBoxs for holding the data read from the wrfbdy NetCDF file
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_xlo;

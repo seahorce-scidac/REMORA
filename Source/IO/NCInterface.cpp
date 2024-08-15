@@ -391,6 +391,26 @@ NCVar NCGroup::def_array(
     return NCVar{ncid, newid};
 }
 
+NCVar NCGroup::def_array_fill(
+    const std::string& name,
+    const nc_type dtype,
+    const std::vector<std::string>& dnames,
+    const void* fill_val) const
+{
+    int newid;
+    int ndims = dnames.size();
+    std::vector<int> dimids(ndims);
+    for (int i = 0; i < ndims; ++i) {
+        dimids[i] = dim(dnames[i]).dimid;
+    }
+
+    check_nc_error(
+        nc_def_var(ncid, name.data(), dtype, ndims, dimids.data(), &newid));
+    check_nc_error(
+        nc_def_var_fill(ncid, newid, NC_FILL, fill_val));
+    return NCVar{ncid, newid};
+}
+
 NCVar NCGroup::var(const std::string& name) const
 {
     int varid;

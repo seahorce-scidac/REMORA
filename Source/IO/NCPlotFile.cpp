@@ -19,7 +19,7 @@
 using namespace amrex;
 
 void
-REMORA::WriteNCPlotFile(int which_step) const
+REMORA::WriteNCPlotFile(int which_step)
 {
     AMREX_ASSERT(max_level==0);
     // For right now we assume single level -- we will generalize this later to multilevel
@@ -98,7 +98,7 @@ REMORA::WriteNCPlotFile(int which_step) const
 void
 REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
                               bool write_header, ncutils::NCFile& ncf,
-                              bool is_history) const
+                              bool is_history)
 {
     // Number of cells in this "domain" at this level
     std::vector<int> n_cells;
@@ -155,6 +155,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
     const std::string nx_v_name   = "xi_v";
     const std::string ny_v_name   = "eta_v";
 
+    const Real fill_value = 1.0e37_rt;
+
     if (write_header)
     {
         ncf.enter_def_mode();
@@ -183,28 +185,28 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         ncf.def_dim(ny_name,   n_cells[1]);
         ncf.def_dim(nz_name,   n_cells[2]);
 
-        ncf.def_var("probLo"  ,   NC_DOUBLE,  {ndim_name});
-        ncf.def_var("probHi"  ,   NC_DOUBLE,  {ndim_name});
+        ncf.def_var("probLo"  ,   ncutils::NCDType::Real,  {ndim_name});
+        ncf.def_var("probHi"  ,   ncutils::NCDType::Real,  {ndim_name});
 
         ncf.def_var("Geom.smallend", NC_INT, {flev_name, ndim_name});
         ncf.def_var("Geom.bigend"  , NC_INT, {flev_name, ndim_name});
-        ncf.def_var("CellSize"     , NC_DOUBLE, {flev_name, ndim_name});
+        ncf.def_var("CellSize"     , ncutils::NCDType::Real, {flev_name, ndim_name});
 
-        ncf.def_var("x_grid", NC_DOUBLE, {np_name});
-        ncf.def_var("y_grid", NC_DOUBLE, {np_name});
-        ncf.def_var("z_grid", NC_DOUBLE, {np_name});
-        ncf.def_var("ocean_time", NC_DOUBLE, {nt_name});
+        ncf.def_var("x_grid", ncutils::NCDType::Real, {np_name});
+        ncf.def_var("y_grid", ncutils::NCDType::Real, {np_name});
+        ncf.def_var("z_grid", ncutils::NCDType::Real, {np_name});
+        ncf.def_var("ocean_time", ncutils::NCDType::Real, {nt_name});
 
-        ncf.def_var("h"   , NC_DOUBLE, {         ny_s_name, nx_s_name});
-        ncf.def_var("zeta", NC_DOUBLE, {nt_name, ny_s_name, nx_s_name});
-        ncf.def_var("temp", NC_DOUBLE, {nt_name, nz_s_name, ny_s_name, nx_s_name});
-        ncf.def_var("salt", NC_DOUBLE, {nt_name, nz_s_name, ny_s_name, nx_s_name});
-        ncf.def_var("u"   , NC_DOUBLE, {nt_name, nz_s_name, ny_u_name, nx_u_name});
-        ncf.def_var("v"   , NC_DOUBLE, {nt_name, nz_s_name, ny_v_name, nx_v_name});
-        ncf.def_var("ubar", NC_DOUBLE, {nt_name, ny_u_name, nx_u_name});
-        ncf.def_var("vbar", NC_DOUBLE, {nt_name, ny_v_name, nx_v_name});
-        ncf.def_var("sustr", NC_DOUBLE, {nt_name, ny_u_name, nx_u_name});
-        ncf.def_var("svstr", NC_DOUBLE, {nt_name, ny_v_name, nx_v_name});
+        ncf.def_var("h"   , ncutils::NCDType::Real, {         ny_s_name, nx_s_name});
+        ncf.def_var_fill("zeta", ncutils::NCDType::Real, {nt_name, ny_s_name, nx_s_name}, &fill_value);
+        ncf.def_var_fill("temp", ncutils::NCDType::Real, {nt_name, nz_s_name, ny_s_name, nx_s_name}, &fill_value);
+        ncf.def_var_fill("salt", ncutils::NCDType::Real, {nt_name, nz_s_name, ny_s_name, nx_s_name}, &fill_value);
+        ncf.def_var_fill("u"   , ncutils::NCDType::Real, {nt_name, nz_s_name, ny_u_name, nx_u_name}, &fill_value);
+        ncf.def_var_fill("v"   , ncutils::NCDType::Real, {nt_name, nz_s_name, ny_v_name, nx_v_name}, &fill_value);
+        ncf.def_var_fill("ubar", ncutils::NCDType::Real, {nt_name, ny_u_name, nx_u_name}, &fill_value);
+        ncf.def_var_fill("vbar", ncutils::NCDType::Real, {nt_name, ny_v_name, nx_v_name}, &fill_value);
+        ncf.def_var("sustr", ncutils::NCDType::Real, {nt_name, ny_u_name, nx_u_name});
+        ncf.def_var("svstr", ncutils::NCDType::Real, {nt_name, ny_v_name, nx_v_name});
 
         ncf.exit_def_mode();
 
@@ -329,6 +331,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
     cons_new[lev]->FillBoundary(geom[lev].periodicity());
 
+    mask_arrays_for_write(lev, (Real) fill_value);
+
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
         auto bx = mfi.validbox();
@@ -363,6 +367,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             if (write_header) {
                 FArrayBox tmp_bathy;
                 tmp_bathy.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
+
                 tmp_bathy.template copy<RunOn::Device>((*vec_hOfTheConfusingName[lev])[mfi.index()],0,0,1);
                 Gpu::streamSynchronize();
 
@@ -544,8 +549,73 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         } // in subdomain
     } // mfi
 
+    mask_arrays_for_write(lev, 0.0_rt);
+
     ncf.close();
 
     REMORA::total_nc_plot_file_step += 1;
+}
+
+void
+REMORA::mask_arrays_for_write(int lev, Real fill_value) {
+    for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
+        Box bx = mfi.tilebox();
+        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+        Box ubx = mfi.nodaltilebox(0);
+        ubx.grow(IntVect(0,1,0));
+        Box vbx = mfi.nodaltilebox(1);
+        vbx.grow(IntVect(1,0,0));
+
+        Array4<Real> const& Zt_avg1 = vec_Zt_avg1[lev]->array(mfi);
+        Array4<Real> const& ubar = vec_ubar[lev]->array(mfi);
+        Array4<Real> const& vbar = vec_vbar[lev]->array(mfi);
+        Array4<Real> const& xvel = xvel_new[lev]->array(mfi);
+        Array4<Real> const& yvel = yvel_new[lev]->array(mfi);
+        Array4<Real> const& temp = cons_new[lev]->array(mfi,Temp_comp);
+        Array4<Real> const& salt = cons_new[lev]->array(mfi,Salt_comp);
+
+        Array4<Real const> const& mskr = vec_mskr[lev]->array(mfi);
+        Array4<Real const> const& msku = vec_msku[lev]->array(mfi);
+        Array4<Real const> const& mskv = vec_mskv[lev]->array(mfi);
+
+        ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            if (!mskr(i,j,0)) {
+                Zt_avg1(i,j,0) = fill_value;
+            }
+        });
+        ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (!mskr(i,j,0)) {
+                temp(i,j,k) = fill_value;
+                salt(i,j,k) = fill_value;
+            }
+        });
+        ParallelFor(makeSlab(ubx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            if (!msku(i,j,0)) {
+                ubar(i,j,0,n) = fill_value;
+            }
+        });
+        ParallelFor(makeSlab(vbx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            if (!mskv(i,j,0)) {
+                vbar(i,j,0,n) = fill_value;
+            }
+        });
+        ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (!msku(i,j,0)) {
+                xvel(i,j,k) = fill_value;
+            }
+        });
+        ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (!mskv(i,j,0)) {
+                yvel(i,j,k) = fill_value;
+            }
+        });
+    }
+    Gpu::streamSynchronize();
 }
 
