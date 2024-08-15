@@ -239,7 +239,7 @@ init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, Mu
         mf_sustr.setVal(0.0_rt);
     }
     else if (EWPeriodic) {
-	windamp=userval*std::sin(0.9_rt*mf_fcor*86400.0_rt*(tdays-dstart))/m_solverChoice.rho0;
+        windamp=userval*std::sin(0.9_rt*mf_fcor*86400.0_rt*(tdays-dstart))/m_solverChoice.rho0;
         mf_sustr.setVal(windamp);
     }
 
