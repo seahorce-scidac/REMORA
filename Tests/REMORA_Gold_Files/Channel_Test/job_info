@@ -1,0 +1,177 @@
+===============================================================================
+ REMORA Job Information
+===============================================================================
+inputs file: Channel_Test.i
+
+number of MPI processes: 1
+number of threads:       8
+
+CPU time used since start of simulation (CPU-hours): 0.00267918
+
+===============================================================================
+ Plotfile Information
+===============================================================================
+output data / time: Wed Aug 14 17:42:12 2024
+output dir:         /home/klion/software/REMORA/Exec/Channel_Test
+
+
+===============================================================================
+ Build Information
+===============================================================================
+build date:    2024-04-18 10:45:40.713399
+build machine: Linux varan 5.15.0-91-generic #101~20.04.1-Ubuntu SMP Thu Nov 16 14:22:28 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
+build dir:     /home/klion/software/REMORA/Exec/Channel_Test
+AMReX dir:     ../../Submodules/AMReX
+
+COMP:          gnu
+COMP version:  9.4.0
+
+
+REMORA       git hash: fdae6c0-dirty
+AMReX       git hash: v2024-8-gae3af4339
+
+
+===============================================================================
+ Grid Information
+===============================================================================
+ level: 0
+   number of boxes = 1
+   maximum zones   = 20 60 50 
+
+ Boundary conditions
+   -x: Periodic
+   +x: Periodic
+   -y: SlipWall
+   +y: SlipWall
+   -z: SlipWall
+   +z: SlipWall
+
+
+===============================================================================
+ Inputs File Parameters
+===============================================================================
+DistributionMapping.efficiency = 0.90000000000000002
+DistributionMapping.node_size = 0
+DistributionMapping.sfc_threshold = 0
+DistributionMapping.v = 0
+DistributionMapping.verbose = 0
+DistributionMapping.verbose_mapper = 0
+amr.blocking_factor = 1
+amr.check_input = 1
+amr.grid_eff = 0.69999999999999996
+amr.max_grid_size = 2048
+amr.max_level = 0
+amr.n_cell = 20 60 50
+amr.n_error_buf = 0
+amr.n_proper = 2
+amr.refine_grid_layout = 1
+amr.refine_grid_layout_x = 1
+amr.refine_grid_layout_y = 1
+amr.refine_grid_layout_z = 0
+amr.v = 1
+amrex.abort_on_out_of_gpu_memory = 0
+amrex.abort_on_unused_inputs = 0
+amrex.async_out = 0
+amrex.async_out_nfiles = 64
+amrex.call_addr2line = 1
+amrex.fpe_trap_invalid = 1
+amrex.fpe_trap_overflow = 0
+amrex.fpe_trap_zero = 0
+amrex.handle_sigabrt = 1
+amrex.handle_sigfpe = 1
+amrex.handle_sigill = 1
+amrex.handle_sigint = 1
+amrex.handle_sigsegv = 1
+amrex.handle_sigterm = 0
+amrex.init_snan = 1
+amrex.mf.alloc_single_chunk = 0
+amrex.omp_threads = system
+amrex.regtest_reduction = 0
+amrex.signal_handling = 1
+amrex.the_arena_init_size = 0
+amrex.the_arena_is_managed = 0
+amrex.the_arena_release_threshold = 9223372036854775807
+amrex.the_async_arena_release_threshold = 9223372036854775807
+amrex.the_comms_arena_init_size = 8388608
+amrex.the_comms_arena_release_threshold = 9223372036854775807
+amrex.the_device_arena_init_size = 8388608
+amrex.the_device_arena_release_threshold = 9223372036854775807
+amrex.the_managed_arena_init_size = 8388608
+amrex.the_managed_arena_release_threshold = 9223372036854775807
+amrex.the_pinned_arena_init_size = 8388608
+amrex.the_pinned_arena_release_threshold = 9223372036854775807
+amrex.throw_exception = 0
+amrex.use_gpu_aware_mpi = 0
+amrex.v = 1
+amrex.vector_growth_factor = 1.5
+amrex.verbose = 1
+fab.do_initval = 1
+fab.init_snan = 1
+fab.initval = nan
+fabarray.maxcomp = 25
+fabarray.mfiter_tile_size = 1024 1024 1024
+geometry.coord_sys = 0
+geometry.is_periodic = 1 0 0
+geometry.prob_hi = 100000. 300000. 0.
+geometry.prob_lo = 0. 0. -50.
+machine.verbose = 0
+machine.very_verbose = 0
+max_step = 10
+remora.Akk_bak = 5.0e-6
+remora.Akp_bak = 5.0e-6
+remora.Akv_bak = 1.0e-5
+remora.R0 = 1027.0
+remora.S0 = 15.0
+remora.Scoef = 7.6e-4
+remora.T0 = 10.0
+remora.Tcoef = 1.7e-4
+remora.Zob = 0.002
+remora.Zos = 0.002
+remora.check_file = chk
+remora.check_int = -57600
+remora.coriolis_beta = 0.0
+remora.coriolis_f0 = 1.0e-4
+remora.coriolis_type = beta_plane
+remora.fixed_dt = 400.0
+remora.fixed_ndtfast_ratio = 10
+remora.flat_bathymetry = false
+remora.gls_Kmin = 7.6e-6
+remora.gls_M = 1.5
+remora.gls_N = -1.0
+remora.gls_P = 3.0
+remora.gls_Pmin = 1.0e-12
+remora.gls_c1 = 1.44
+remora.gls_c2 = 1.92
+remora.gls_c3m = -0.4
+remora.gls_c3p = 1.0
+remora.gls_cmu0 = 0.5477
+remora.gls_sigk = 1.0
+remora.gls_sigp = 1.3
+remora.plot_file = plt
+remora.plot_int = 10
+remora.plot_vars = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+remora.rho0 = 1025.0
+remora.spatial_order = 2
+remora.sum_interval = 1
+remora.tcline = 25.0
+remora.tracer_horizontal_advection_scheme = upstream3
+remora.use_coriolis = true
+remora.v = 0
+remora.vertical_mixing_type = gls
+vismf.allowsparsewrites = 1
+vismf.checkfilepositions = 0
+vismf.groupsets = 0
+vismf.headerversion = 1
+vismf.iobuffersize = 2097152
+vismf.setbuf = 1
+vismf.usedynamicsetselection = 1
+vismf.usepersistentifstreams = 0
+vismf.usesingleread = 0
+vismf.usesinglewrite = 0
+vismf.usesynchronousreads = 0
+vismf.v = 0
+yhi.type = SlipWall
+ylo.type = SlipWall
+zhi.type = SlipWall
+zlo.type = SlipWall
