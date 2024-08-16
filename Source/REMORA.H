@@ -695,6 +695,9 @@ public:
     void init_zeta_from_netcdf (int lev);
     void init_coriolis_from_netcdf (int lev);
 
+    void mask_arrays_for_write (int lev, amrex::Real fill_value);
+
+
 #ifdef REMORA_USE_NETCDF
     static int total_nc_plot_file_step;
 #endif
@@ -773,8 +776,6 @@ private:
                          const std::string &name,
                          int coordinatorProc = amrex::ParallelDescriptor::IOProcessorNumber(),
                          int allow_empty_mf = 0);
-
-    void mask_arrays_for_write (int lev, amrex::Real fill_value);
 
     // Vectors (over time) of Vector (over variables) of FArrayBoxs for holding the data read from the wrfbdy NetCDF file
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_xlo;

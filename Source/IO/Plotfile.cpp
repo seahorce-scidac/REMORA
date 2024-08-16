@@ -603,3 +603,66 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
             HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_nodal_prefix) << '\n';
         }
 }
+
+void
+REMORA::mask_arrays_for_write(int lev, Real fill_value) {
+    for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
+        Box bx = mfi.tilebox();
+        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+        Box ubx = mfi.nodaltilebox(0);
+        ubx.grow(IntVect(0,1,0));
+        Box vbx = mfi.nodaltilebox(1);
+        vbx.grow(IntVect(1,0,0));
+
+        Array4<Real> const& Zt_avg1 = vec_Zt_avg1[lev]->array(mfi);
+        Array4<Real> const& ubar = vec_ubar[lev]->array(mfi);
+        Array4<Real> const& vbar = vec_vbar[lev]->array(mfi);
+        Array4<Real> const& xvel = xvel_new[lev]->array(mfi);
+        Array4<Real> const& yvel = yvel_new[lev]->array(mfi);
+        Array4<Real> const& temp = cons_new[lev]->array(mfi,Temp_comp);
+        Array4<Real> const& salt = cons_new[lev]->array(mfi,Salt_comp);
+
+        Array4<Real const> const& mskr = vec_mskr[lev]->array(mfi);
+        Array4<Real const> const& msku = vec_msku[lev]->array(mfi);
+        Array4<Real const> const& mskv = vec_mskv[lev]->array(mfi);
+
+        ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            if (!mskr(i,j,0)) {
+                Zt_avg1(i,j,0) = 0.0_rt; //fill_value;
+            }
+        });
+        ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (!mskr(i,j,0)) {
+                temp(i,j,k) = fill_value;
+                salt(i,j,k) = fill_value;
+            }
+        });
+        ParallelFor(makeSlab(ubx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            if (!msku(i,j,0)) {
+                ubar(i,j,0,n) = fill_value;
+            }
+        });
+        ParallelFor(makeSlab(vbx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            if (!mskv(i,j,0)) {
+                vbar(i,j,0,n) = fill_value;
+            }
+        });
+        ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (!msku(i,j,0)) {
+                xvel(i,j,k) = fill_value;
+            }
+        });
+        ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (!mskv(i,j,0)) {
+                yvel(i,j,k) = fill_value;
+            }
+        });
+    }
+    Gpu::streamSynchronize();
+}
