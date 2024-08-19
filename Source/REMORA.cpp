@@ -668,6 +668,12 @@ REMORA::init_only (int lev, Real time)
         amrex::Abort("Need to specify T init procedure");
     }
 
+    // Ensure that the face-based data are the same on both sides of a periodic domain.
+    // The data associated with the lower grid ID is considered the correct value.
+    xvel_new[lev]->OverrideSync(geom[lev].periodicity());
+    yvel_new[lev]->OverrideSync(geom[lev].periodicity());
+    zvel_new[lev]->OverrideSync(geom[lev].periodicity());
+
     set_2darrays(lev);
 
     init_set_vmix(lev);
@@ -675,11 +681,6 @@ REMORA::init_only (int lev, Real time)
     set_coriolis(lev);
     init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
 
-    // Ensure that the face-based data are the same on both sides of a periodic domain.
-    // The data associated with the lower grid ID is considered the correct value.
-    xvel_new[lev]->OverrideSync(geom[lev].periodicity());
-    yvel_new[lev]->OverrideSync(geom[lev].periodicity());
-    zvel_new[lev]->OverrideSync(geom[lev].periodicity());
 }
 
 // read in some parameters from inputs file
