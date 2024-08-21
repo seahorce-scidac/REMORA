@@ -29,7 +29,7 @@ void REMORAPhysBCFunct::operator() (MultiFab& mf, const MultiFab& msk, int icomp
     // Create a grown domain box containing valid + periodic cells
     Box gdomain = amrex::convert(domain, mf.boxArray().ixType());
     for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-        if (m_geom.isPeriodic(i)) {
+        if (m_geom.isPeriodic(i) and bccomp != BCVars::foextrap_bc) {
             gdomain.grow(i, nghost[i]);
         }
     }
