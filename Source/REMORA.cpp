@@ -679,7 +679,10 @@ REMORA::init_only (int lev, Real time)
     init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
+
     init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
+    vec_sustr[lev]->OverrideSync(geom[lev].periodicity());
+    vec_svstr[lev]->OverrideSync(geom[lev].periodicity());
 
 }
 
