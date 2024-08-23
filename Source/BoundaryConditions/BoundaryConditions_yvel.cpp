@@ -163,5 +163,33 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
         );
     }
 
+    if ((!is_periodic_in_x or bccomp==BCVars::foextrap_bc) and
+        (!is_periodic_in_y or bccomp==BCVars::foextrap_bc)) {
+        Box xlo(bx);  xlo.setBig  (0,dom_lo.x-1);
+        Box xhi(bx);  xhi.setSmall(0,dom_hi.x+1);
+        Box ylo(bx);  ylo.setBig  (1,dom_lo.y  );
+        Box yhi(bx);  yhi.setSmall(1,dom_hi.y+1);
+        Box xlo_ylo = xlo & ylo;
+        Box xlo_yhi = xlo & yhi;
+        Box xhi_ylo = xhi & ylo;
+        Box xhi_yhi = xhi & yhi;
+        ParallelFor(xlo_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_lo.y+1,k) + dest_arr(dom_lo.x,j,k));
+        });
+        ParallelFor(xlo_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_lo.x,j,k));
+        });
+        ParallelFor(xhi_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_lo.y+1,k) + dest_arr(dom_hi.x,j,k));
+        });
+        ParallelFor(xhi_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_hi.x,j,k));
+        });
+    }
+
     Gpu::streamSynchronize();
 }
