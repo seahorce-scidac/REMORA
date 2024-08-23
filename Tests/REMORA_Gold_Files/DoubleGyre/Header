@@ -1,0 +1,30 @@
+HyperCLaw-V1.1
+5
+temp
+salt
+x_velocity
+y_velocity
+z_velocity
+3
+36000
+0
+0 0 -500 
+1000000 2000000 0 
+
+((0,0,0) (53,107,3) (0,0,0)) 
+10 
+18518.518518518518 18518.518518518518 125 
+0
+0
+0 1 36000
+10
+0 1000000
+0 2000000
+-500 0
+Level_0/Cell
+1
+3
+amrexvec_nu_x
+amrexvec_nu_y
+amrexvec_nu_z
+Level_0/Nu_nd

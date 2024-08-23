@@ -1,0 +1,33 @@
+# AMReX
+COMP = gnu
+PRECISION = DOUBLE
+
+# Profiling
+PROFILE       = FALSE
+TINY_PROFILE  = FALSE
+COMM_PROFILE  = FALSE
+TRACE_PROFILE = FALSE
+MEM_PROFILE   = FALSE
+USE_GPROF     = FALSE
+
+# Performance
+USE_MPI   = TRUE
+USE_OMP   = TRUE
+USE_CUDA  = FALSE
+USE_HIP   = FALSE
+USE_SYCL  = FALSE
+
+# Debugging
+DEBUG = FALSE
+
+TEST = TRUE
+USE_ASSERTION = TRUE
+
+USE_NETCDF = FALSE
+
+# GNU Make
+Bpack := ./Make.package
+Blocs := .
+REMORA_HOME := ../..
+REMORA_PROBLEM_DIR = $(REMORA_HOME)/Exec/DoubleGyre
+include $(REMORA_HOME)/Exec/Make.REMORA
