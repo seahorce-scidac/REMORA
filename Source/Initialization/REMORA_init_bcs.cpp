@@ -8,9 +8,127 @@ using namespace amrex;
 
 void REMORA::init_bcs ()
 {
-    auto f = [this] (std::string const& bcid, Orientation ori)
+    auto f_set_var_bc = [this] (ParmParse& pp, int bcvar_type, Orientation ori, std::string bc_type_string) {
+        if (bc_type_string == "symmetry")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::symmetry;
+            domain_bc_type[ori] = "Symmetry";
+        }
+        else if (bc_type_string == "outflow")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::outflow;
+            domain_bc_type[ori] = "Outflow";
+        }
+        else if (bc_type_string == "inflow")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::inflow;
+            domain_bc_type[ori] = "Inflow";
+
+            if (bcvar_type == BCVars::xvel_bc || bcvar_type == BCVars::yvel_bc ||
+                bcvar_type == BCVars::zvel_bc) {
+                std::vector<Real> v;
+                pp.getarr("velocity", v, 0, AMREX_SPACEDIM);
+                m_bc_extdir_vals[bcvar_type][ori] = v[bcvar_type - BCVars::xvel_bc];
+            } else if (bcvar_type == BCVars::Scalar_bc_comp) {
+                Real scalar_in = 0.;
+                if (pp.query("scalar", scalar_in))
+                m_bc_extdir_vals[BCVars::Scalar_bc_comp][ori] = scalar_in;
+            }
+        }
+        else if (bc_type_string == "noslipwall")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::no_slip_wall;
+            domain_bc_type[ori] = "NoSlipWall";
+
+            if (bcvar_type == BCVars::xvel_bc || bcvar_type == BCVars::yvel_bc ||
+                bcvar_type == BCVars::zvel_bc) {
+                std::vector<Real> v;
+
+                // The values of m_bc_extdir_vals default to 0.
+                // But if we find "velocity" in the inputs file, use those values instead.
+                if (pp.queryarr("velocity", v, 0, AMREX_SPACEDIM))
+                {
+                    v[ori.coordDir()] = 0.0_rt;
+                    m_bc_extdir_vals[bcvar_type][ori] = v[bcvar_type - BCVars::xvel_bc];
+                }
+            }
+        }
+        else if (bc_type_string == "slipwall")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::slip_wall;
+            domain_bc_type[ori] = "SlipWall";
+        }
+        else if (bc_type_string == "clamped")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::clamped;
+            domain_bc_type[ori] = "Clamped";
+        }
+        else if (bc_type_string == "periodic")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::periodic;
+            domain_bc_type[ori] = "Periodic";
+        }
+        else
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::undefined;
+        }
+
+        if (geom[0].isPeriodic(ori.coordDir()))
+        {
+            domain_bc_type[ori] = "Periodic";
+            if (phys_bc_type[bcvar_type][ori] == REMORA_BC::undefined)
+            {
+                phys_bc_type[bcvar_type][ori] = REMORA_BC::periodic;
+            } else if (phys_bc_type[bcvar_type][ori] != REMORA_BC::periodic) {
+                amrex::Abort("Wrong BC type for periodic boundary");
+            }
+        }
+
+        if (phys_bc_type[bcvar_type][ori] == REMORA_BC::undefined)
+        {
+             amrex::Print() << "BC Type specified for fac is " << bc_type_string << std::endl;
+             amrex::Abort("This BC type is unknown");
+        }
+
+        if ((ori == Orientation(Direction::x,Orientation::low)  || ori == Orientation(Direction::y,Orientation::low) ||
+             ori == Orientation(Direction::x,Orientation::high) || ori == Orientation(Direction::y,Orientation::high)) &&
+            solverChoice.ic_bc_type == IC_BC_Type::Real &&
+            phys_bc_type[bcvar_type][ori] != REMORA_BC::clamped)
+        {
+            amrex::Abort("BC type must be outflow in x and y when reading BCs from file");
+        }
+    };
+
+    auto f_by_side = [this, &f_set_var_bc] (std::string const& bcid, Orientation ori)
     {
-        // These are simply defaults for Dirichlet faces -- they should be over-written below
+        ParmParse pp(bcid);
+        std::string bc_type_in = "null";
+        pp.query("type", bc_type_in);
+        std::string bc_type = amrex::toLower(bc_type_in);
+
+        for (int icomp=0; icomp<BCVars::NumTypes; icomp++) {
+            f_set_var_bc(pp, icomp, ori, bc_type);
+        }
+    };
+
+    auto f_by_var = [this, &f_set_var_bc] (std::string const& varname, int bcvar_type)
+    {
+        amrex::Vector<Orientation> orientations = {Orientation(Direction::x,Orientation::low), Orientation(Direction::y,Orientation::high),Orientation(Direction::x,Orientation::high),Orientation(Direction::y,Orientation::low)}; // west, south, east, north [matches ROMS]
+        std::vector<std::string> bc_types;
+        ParmParse pp(varname);
+        std::string bc_type_in = "null";
+        pp.queryarr("type", bc_types);
+        AMREX_ASSERT(bc_types.size() == 4);
+        for (int i=0; i<4; i++) {
+            std::string bc_type = amrex::toLower(bc_types[i]);
+            auto ori = orientations[i];
+            f_set_var_bc(pp, bcvar_type, ori, bc_type);
+        }
+    };
+
+    for (OrientationIter oit; oit; ++oit) {
+        Orientation ori = oit();
+        // These are simply defaults for Dirichlet faces -- they should be over-written below if needed
         m_bc_extdir_vals[BCVars::Temp_bc_comp  ][ori] = 1.e19_rt;
         m_bc_extdir_vals[BCVars::Salt_bc_comp  ][ori] = 1.e20_rt;
         m_bc_extdir_vals[BCVars::Scalar_bc_comp][ori] = 1.e21_rt;
@@ -18,96 +136,35 @@ void REMORA::init_bcs ()
         m_bc_extdir_vals[BCVars::xvel_bc][ori] = 0.0_rt; // default
         m_bc_extdir_vals[BCVars::yvel_bc][ori] = 0.0_rt;
         m_bc_extdir_vals[BCVars::zvel_bc][ori] = 0.0_rt;
+    }
 
-        ParmParse pp(bcid);
-        std::string bc_type_in = "null";
-        pp.query("type", bc_type_in);
-        std::string bc_type = amrex::toLower(bc_type_in);
+    // Whether to specify boundary conditions by variable (then side).
+    // Alternative is to do it by side by indicating keywords that indicate multiple variables
+    set_bcs_by_var = false;
 
-        if (bc_type == "symmetry")
-        {
-            phys_bc_type[ori] = REMORA_BC::symmetry;
-            domain_bc_type[ori] = "Symmetry";
-        }
-        else if (bc_type == "outflow")
-        {
-            phys_bc_type[ori] = REMORA_BC::outflow;
-            domain_bc_type[ori] = "Outflow";
-        }
-        else if (bc_type == "inflow")
-        {
-            phys_bc_type[ori] = REMORA_BC::inflow;
-            domain_bc_type[ori] = "Inflow";
+    ParmParse pp("remora");
+    pp.query("boundary_per_side", set_bcs_by_var);
+    if (!set_bcs_by_var) {
+        f_by_side("xlo", Orientation(Direction::x,Orientation::low));
+        f_by_side("xhi", Orientation(Direction::x,Orientation::high));
+        f_by_side("ylo", Orientation(Direction::y,Orientation::low));
+        f_by_side("yhi", Orientation(Direction::y,Orientation::high));
+    } else {
+        f_by_var("temp", BCVars::Temp_bc_comp);
+        f_by_var("salt", BCVars::Salt_bc_comp);
+        f_by_var("scalar", BCVars::Scalar_bc_comp);
+        f_by_var("u", BCVars::xvel_bc);
+        f_by_var("v", BCVars::yvel_bc);
+        f_by_var("w", BCVars::zvel_bc);
+        f_by_var("ubar", BCVars::ubar_bc);
+        f_by_var("vbar", BCVars::vbar_bc);
+        f_by_var("zeta", BCVars::zeta_bc);
+        f_by_var("tke", BCVars::tke_bc);
+    }
 
-            std::vector<Real> v;
-            pp.getarr("velocity", v, 0, AMREX_SPACEDIM);
-            m_bc_extdir_vals[BCVars::xvel_bc][ori] = v[0];
-            m_bc_extdir_vals[BCVars::yvel_bc][ori] = v[1];
-            m_bc_extdir_vals[BCVars::zvel_bc][ori] = v[2];
-
-            Real scalar_in = 0.;
-            if (pp.query("scalar", scalar_in))
-            m_bc_extdir_vals[BCVars::Scalar_bc_comp][ori] = scalar_in;
-        }
-        else if (bc_type == "noslipwall")
-        {
-            phys_bc_type[ori] = REMORA_BC::no_slip_wall;
-            domain_bc_type[ori] = "NoSlipWall";
-
-            std::vector<Real> v;
-
-            // The values of m_bc_extdir_vals default to 0.
-            // But if we find "velocity" in the inputs file, use those values instead.
-            if (pp.queryarr("velocity", v, 0, AMREX_SPACEDIM))
-            {
-                v[ori.coordDir()] = 0.0_rt;
-                m_bc_extdir_vals[BCVars::xvel_bc][ori] = v[0];
-                m_bc_extdir_vals[BCVars::yvel_bc][ori] = v[1];
-                m_bc_extdir_vals[BCVars::zvel_bc][ori] = v[2];
-            }
-        }
-        else if (bc_type == "slipwall")
-        {
-            phys_bc_type[ori] = REMORA_BC::slip_wall;
-            domain_bc_type[ori] = "SlipWall";
-        }
-        else
-        {
-            phys_bc_type[ori] = REMORA_BC::undefined;
-        }
-
-        if (geom[0].isPeriodic(ori.coordDir()))
-        {
-            domain_bc_type[ori] = "Periodic";
-            if (phys_bc_type[ori] == REMORA_BC::undefined)
-            {
-                phys_bc_type[ori] = REMORA_BC::periodic;
-            } else {
-                amrex::Abort("Wrong BC type for periodic boundary");
-            }
-        }
-
-        if (phys_bc_type[ori] == REMORA_BC::undefined)
-        {
-             amrex::Print() << "BC Type specified for face " << bcid << " is " << bc_type_in << std::endl;
-             amrex::Abort("This BC type is unknown");
-        }
-
-        if ((bcid == "xlo" || bcid == "xhi" ||
-             bcid == "ylo" || bcid == "yhi") &&
-            solverChoice.ic_bc_type == IC_BC_Type::Real &&
-            phys_bc_type[ori] != REMORA_BC::outflow)
-        {
-            amrex::Abort("BC type must be outflow in x and y when reading BCs from file");
-        }
-    };
-
-    f("xlo", Orientation(Direction::x,Orientation::low));
-    f("xhi", Orientation(Direction::x,Orientation::high));
-    f("ylo", Orientation(Direction::y,Orientation::low));
-    f("yhi", Orientation(Direction::y,Orientation::high));
-    f("zlo", Orientation(Direction::z,Orientation::low));
-    f("zhi", Orientation(Direction::z,Orientation::high));
+    // Always specify z direction by side keyword
+    f_by_side("zlo", Orientation(Direction::z,Orientation::low));
+    f_by_side("zhi", Orientation(Direction::z,Orientation::high));
 
     // *****************************************************************************
     //
@@ -116,81 +173,75 @@ void REMORA::init_bcs ()
     //
     // *****************************************************************************
     {
-        domain_bcs_type.resize(AMREX_SPACEDIM+NCONS+1);
-        domain_bcs_type_d.resize(AMREX_SPACEDIM+NCONS+1);
+        domain_bcs_type.resize(AMREX_SPACEDIM+NCONS+5);
+        domain_bcs_type_d.resize(AMREX_SPACEDIM+NCONS+5);
 
         for (OrientationIter oit; oit; ++oit) {
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            auto const bct = phys_bc_type[ori];
-            if ( bct == REMORA_BC::symmetry )
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++)
+            for (int i = 0; i < AMREX_SPACEDIM; i++) {
+                auto const bct = phys_bc_type[BCVars::xvel_bc+i][ori];
+                if ( bct == REMORA_BC::symmetry )
+                {
+                    if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::reflect_even);
-                    domain_bcs_type[BCVars::xvel_bc+dir].setLo(dir, REMORABCType::reflect_odd);
-                } else {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++)
+                        if (i==2)
+                            domain_bcs_type[BCVars::xvel_bc+dir].setLo(dir, REMORABCType::reflect_odd);
+                    } else {
                         domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::reflect_even);
-                    domain_bcs_type[BCVars::xvel_bc+dir].setHi(dir, REMORABCType::reflect_odd);
+                        if (i==2)
+                            domain_bcs_type[BCVars::xvel_bc+dir].setHi(dir, REMORABCType::reflect_odd);
+                    }
                 }
-            }
-            else if (bct == REMORA_BC::outflow)
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++)
+                else if (bct == REMORA_BC::outflow || bct == REMORA_BC::clamped)
+                {
+                    if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::foextrap);
-                } else {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++)
+                    } else {
                         domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::foextrap);
-                }
-            }
-            else if (bct == REMORA_BC::inflow)
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++) {
-                        domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::ext_dir);
                     }
-                } else {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++) {
+                }
+                else if (bct == REMORA_BC::inflow)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::ext_dir);
+                    } else {
                         domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::ext_dir);
                     }
                 }
-            }
-            else if (bct == REMORA_BC::no_slip_wall)
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++)
+                else if (bct == REMORA_BC::no_slip_wall)
+                {
+                    if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::ext_dir);
-                } else {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++)
+                    } else {
                         domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::ext_dir);
+                    }
                 }
-            }
-            else if (bct == REMORA_BC::slip_wall)
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++)
+                else if (bct == REMORA_BC::slip_wall)
+                {
+                    if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::foextrap);
-                    // Only normal direction has ext_dir
-                    domain_bcs_type[BCVars::xvel_bc+dir].setLo(dir, REMORABCType::ext_dir);
+                        if (i==2) {
+                            // Only normal direction has ext_dir
+                            domain_bcs_type[BCVars::xvel_bc+dir].setLo(dir, REMORABCType::ext_dir);
+                        }
 
-                } else {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++)
+                    } else {
                         domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::foextrap);
-                    // Only normal direction has ext_dir
-                    domain_bcs_type[BCVars::xvel_bc+dir].setHi(dir, REMORABCType::ext_dir);
+                        if (i==2) {
+                            // Only normal direction has ext_dir
+                            domain_bcs_type[BCVars::xvel_bc+dir].setHi(dir, REMORABCType::ext_dir);
+                        }
+                    }
                 }
-            }
-            else if (bct == REMORA_BC::periodic)
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++)
+                else if (bct == REMORA_BC::periodic)
+                {
+                    if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::int_dir);
-                } else {
-                    for (int i = 0; i < AMREX_SPACEDIM; i++)
+                    } else {
                         domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::int_dir);
+                    }
                 }
             }
         }
@@ -207,67 +258,206 @@ void REMORA::init_bcs ()
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            auto const bct = phys_bc_type[ori];
-            if ( bct == REMORA_BC::symmetry )
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < NCONS; i++)
+            for (int i = 0; i < NCONS; i++) {
+                auto const bct = phys_bc_type[BCVars::cons_bc+i][ori];
+                if ( bct == REMORA_BC::symmetry )
+                {
+                    if (side == Orientation::low) {
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::reflect_even);
-                } else {
-                    for (int i = 0; i < NCONS; i++)
+                    } else {
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::reflect_even);
-                }
-            }
-            else if ( bct == REMORA_BC::outflow )
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < NCONS; i++)
-                        domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::foextrap);
-                } else {
-                    for (int i = 0; i < NCONS; i++)
-                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::foextrap);
-                }
-            }
-            else if ( bct == REMORA_BC::no_slip_wall)
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < NCONS; i++)
-                        domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::foextrap);
-                } else {
-                    for (int i = 0; i < NCONS; i++)
-                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::foextrap);
-                }
-            }
-            else if (bct == REMORA_BC::slip_wall)
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < NCONS; i++)
-                        domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::foextrap);
-                } else {
-                    for (int i = 0; i < NCONS; i++)
-                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::foextrap);
-                }
-            }
-            else if (bct == REMORA_BC::inflow)
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < NCONS; i++) {
-                        domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::ext_dir);
                     }
-                } else {
-                    for (int i = 0; i < NCONS; i++) {
+                }
+                else if ( bct == REMORA_BC::outflow )
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::foextrap);
+                    } else {
+                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::foextrap);
+                    }
+                }
+                else if ( bct == REMORA_BC::no_slip_wall)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::foextrap);
+                    } else {
+                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::foextrap);
+                    }
+                }
+                else if (bct == REMORA_BC::slip_wall)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::foextrap);
+                    } else {
+                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::foextrap);
+                    }
+                }
+                else if (bct == REMORA_BC::inflow)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::ext_dir);
+                    } else {
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::ext_dir);
                     }
                 }
-            }
-            else if (bct == REMORA_BC::periodic)
-            {
-                if (side == Orientation::low) {
-                    for (int i = 0; i < NCONS; i++)
+                else if (bct == REMORA_BC::periodic)
+                {
+                    if (side == Orientation::low) {
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::int_dir);
-                } else {
-                    for (int i = 0; i < NCONS; i++)
-                       domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::int_dir);
+                    } else {
+                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::int_dir);
+                    }
+                }
+            }
+        }
+    }
+
+    // *****************************************************************************
+    //
+    // Here we translate the physical boundary conditions -- one type per face --
+    //     into logical boundary conditions for ubar and vbar
+    //
+    // *****************************************************************************
+    {
+        for (OrientationIter oit; oit; ++oit) {
+            Orientation ori = oit();
+            int dir = ori.coordDir();
+            Orientation::Side side = ori.faceDir();
+            for (int i = 0; i < 2; i++) {
+                auto const bct = phys_bc_type[BCVars::ubar_bc+i][ori];
+                if ( bct == REMORA_BC::symmetry )
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::reflect_even);
+                        if (i==1)
+                            domain_bcs_type[BCVars::ubar_bc+dir].setLo(dir, REMORABCType::reflect_odd);
+                    } else {
+                        domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::reflect_even);
+                        if (i==1)
+                            domain_bcs_type[BCVars::ubar_bc+dir].setHi(dir, REMORABCType::reflect_odd);
+                    }
+                }
+                else if (bct == REMORA_BC::outflow || bct == REMORA_BC::clamped)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::foextrap);
+                    } else {
+                        domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::foextrap);
+                    }
+                }
+                else if (bct == REMORA_BC::inflow)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::ext_dir);
+                    } else {
+                        domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::ext_dir);
+                    }
+                }
+                else if (bct == REMORA_BC::no_slip_wall)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::ext_dir);
+                    } else {
+                        domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::ext_dir);
+                    }
+                }
+                else if (bct == REMORA_BC::slip_wall)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::foextrap);
+                        if (i==1) {
+                            // Only normal direction has ext_dir
+                            domain_bcs_type[BCVars::ubar_bc+dir].setLo(dir, REMORABCType::ext_dir);
+                        }
+
+                    } else {
+                        domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::foextrap);
+                        if (i==1) {
+                            // Only normal direction has ext_dir
+                            domain_bcs_type[BCVars::ubar_bc+dir].setHi(dir, REMORABCType::ext_dir);
+                        }
+                    }
+                }
+                else if (bct == REMORA_BC::periodic)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::int_dir);
+                    } else {
+                        domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::int_dir);
+                    }
+                }
+            }
+        }
+    }
+
+    // *****************************************************************************
+    //
+    // Here we translate the physical boundary conditions -- one type per face --
+    //     into logical boundary conditions for zeta and tke
+    //
+    // *****************************************************************************
+    {
+        for (OrientationIter oit; oit; ++oit) {
+            Orientation ori = oit();
+            int dir = ori.coordDir();
+            Orientation::Side side = ori.faceDir();
+            for (int i = 0; i < 2; i++) {
+                auto const bct = phys_bc_type[BCVars::zeta_bc+i][ori];
+                if ( bct == REMORA_BC::symmetry )
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::reflect_even);
+                    } else {
+                        domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::reflect_even);
+                    }
+                }
+                else if ( bct == REMORA_BC::outflow )
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::foextrap);
+                    } else {
+                        domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::foextrap);
+                    }
+                }
+                else if ( bct == REMORA_BC::no_slip_wall)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::foextrap);
+                    } else {
+                        domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::foextrap);
+                    }
+                }
+                else if (bct == REMORA_BC::slip_wall)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::foextrap);
+                    } else {
+                        domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::foextrap);
+                    }
+                }
+                else if (bct == REMORA_BC::inflow)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::ext_dir);
+                    } else {
+                        domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::ext_dir);
+                    }
+                }
+                else if (bct == REMORA_BC::periodic)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::int_dir);
+                    } else {
+                        domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::int_dir);
+                    }
+                }
+                else if (bct == REMORA_BC::chapman)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::chapman);
+                    } else {
+                        domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::chapman);
+                    }
                 }
             }
         }

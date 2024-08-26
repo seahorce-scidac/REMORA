@@ -841,6 +841,9 @@ private:
     amrex::Vector<amrex::Real> t_old;
     amrex::Vector<amrex::Real> dt;
 
+    // whether to set boundary conditions by variable rather than just by side
+    bool set_bcs_by_var;
+
     amrex::Vector<std::unique_ptr<REMORAPhysBCFunct>> physbcs;
     // array of multifabs to store the solution at each level of refinement
     // after advancing a level we use "swap".
@@ -867,7 +870,7 @@ private:
     amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS> m_bc_extdir_vals;
 
     // These are the "physical" boundary condition types (e.g. "inflow")
-    amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2> phys_bc_type;
+    amrex::GpuArray<amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2>,BCVars::NumTypes> phys_bc_type;
 
     int last_plot_file_step;
 
