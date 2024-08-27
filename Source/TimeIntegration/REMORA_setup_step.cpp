@@ -338,10 +338,10 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
     nstp = 0;
 
-    FillPatch(lev, time, *cons_old[lev], cons_old, BdyVars::t);
-    FillPatch(lev, time, *cons_new[lev], cons_new, BdyVars::t);
+    FillPatch(lev, time, *cons_old[lev], cons_old, BCVars::cons_bc, BdyVars::t);
+    FillPatch(lev, time, *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t);
 
-    FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BdyVars::t);
+    FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t);
 
     // Don't actually want to apply boundary conditions here
     vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
