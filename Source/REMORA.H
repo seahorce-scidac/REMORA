@@ -666,6 +666,7 @@ public:
     void FillPatch (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,
                     amrex::Vector<amrex::MultiFab*> const& mfs,
+                    const int bccomp,
                     const int bdy_var_type = BdyVars::null,
                     const int icomp=0,
                     const bool fill_all=true,

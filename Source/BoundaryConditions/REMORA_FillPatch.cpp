@@ -14,6 +14,7 @@ PhysBCFunctNoOp null_bc;
 //
 void
 REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs,
+                  const int  bccomp,
 #ifdef REMORA_USE_NETCDF
                   const int bdy_var_type,
 #else
@@ -25,7 +26,6 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                   const int n_not_fill)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
-    int bccomp;
     amrex::Interpolater* mapper = nullptr;
 
     Box mf_box(mf_to_fill.boxArray()[0]);
@@ -72,24 +72,20 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
 
     if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
     {
-        bccomp = 0;
         mapper = &cell_cons_interp;
         mask   = vec_mskr[lev].get();
     }
     else if (mf_box.ixType() == IndexType(IntVect(1,0,0)))
     {
-        bccomp = BCVars::xvel_bc;
         mapper = &face_linear_interp;
         mask   = vec_msku[lev].get();
     }
     else if (mf_box.ixType() == IndexType(IntVect(0,1,0)))
     {
-        bccomp = BCVars::yvel_bc;
         mapper = &face_linear_interp;
         mask   = vec_mskv[lev].get();
     }
     else {
-        bccomp = BCVars::zvel_bc;
         mapper = &face_linear_interp;
         mask   = vec_mskr[lev].get();
     }
