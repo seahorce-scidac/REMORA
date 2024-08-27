@@ -157,23 +157,24 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     init_masks(lev, ba, dm);
 
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
-    FillPatch(lev, time, tmp_cons_new, cons_new, BdyVars::t,0,true,false);
-    FillPatch(lev, time, tmp_xvel_new, xvel_new, BdyVars::u,0,true,false);
-    FillPatch(lev, time, tmp_yvel_new, yvel_new, BdyVars::v,0,true,false);
-    FillPatch(lev, time, tmp_zvel_new, zvel_new, BdyVars::null,0,true,false);
+    FillPatch(lev, time, tmp_cons_new, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false);
+    FillPatch(lev, time, tmp_xvel_new, xvel_new, BCVars::xvel_bc, BdyVars::u,0,true,false);
+    FillPatch(lev, time, tmp_yvel_new, yvel_new, BCVars::yvel_bc, BdyVars::v,0,true,false);
+    FillPatch(lev, time, tmp_zvel_new, zvel_new, BCVars::zvel_bc, BdyVars::null,0,true,false);
 
-    FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_hOfTheConfusingName), BdyVars::null,0,false,false);
-    FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_hOfTheConfusingName), BdyVars::null,1,false,false);
-    FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), BdyVars::null,0,true,false);
+    FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_hOfTheConfusingName), BCVars::cons_bc, BdyVars::null,0,false,false);
+    FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_hOfTheConfusingName), BCVars::cons_bc, BdyVars::null,1,false,false);
+    FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), BCVars::cons_bc, BdyVars::null,0,true,false);
     for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), BdyVars::ubar, icomp,false,false);
-        FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), BdyVars::vbar, icomp,false,false);
+        FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), BCVars::ubar_bc, BdyVars::ubar, icomp,false,false);
+        FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), BCVars::vbar_bc, BdyVars::vbar, icomp,false,false);
     }
     for (int icomp=0; icomp<2; icomp++) {
-        FillPatch(lev, time, tmp_ru_new, GetVecOfPtrs(vec_ru), BdyVars::null, icomp,false,false);
-        FillPatch(lev, time, tmp_rv_new, GetVecOfPtrs(vec_rv), BdyVars::null, icomp,false,false);
-        FillPatch(lev, time, tmp_ru2d_new, GetVecOfPtrs(vec_ru2d), BdyVars::null, icomp,false,false);
-        FillPatch(lev, time, tmp_rv2d_new, GetVecOfPtrs(vec_rv2d), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_ru_new, GetVecOfPtrs(vec_ru),BCVars::xvel_bc, BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_rv_new, GetVecOfPtrs(vec_rv),BCVars::yvel_bc, BdyVars::null, icomp,false,false);
+        // These might want to have BCVars::ubar_bc and vbar_bc
+        FillPatch(lev, time, tmp_ru2d_new, GetVecOfPtrs(vec_ru2d),BCVars::xvel_bc, BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_rv2d_new, GetVecOfPtrs(vec_rv2d),BCVars::yvel_bc, BdyVars::null, icomp,false,false);
     }
 
     MultiFab::Copy(tmp_cons_old,tmp_cons_new,0,0,NCONS,tmp_cons_new.nGrowVect());

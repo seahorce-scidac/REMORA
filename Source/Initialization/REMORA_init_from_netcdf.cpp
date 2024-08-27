@@ -201,6 +201,7 @@ REMORA::init_bathymetry_from_netcdf (int lev)
 
     const double dummy_time = 0.0_rt;
     FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName),
+            BCVars::cons_bc,
             BdyVars::null,0,true,true,1);
 
     int ng = vec_pm[lev]->nGrow();

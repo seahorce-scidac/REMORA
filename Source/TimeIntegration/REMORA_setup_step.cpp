@@ -25,7 +25,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t);
     FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
     FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
-    FillPatch(lev, time, *zvel_old[lev], zvel_old, BdyVars::null);
+    FillPatch(lev, time, *zvel_old[lev], zvel_old, BCVars::zvel_bc, BdyVars::null);
 
     //////////    //pre_step3d corrections to boundaries
 

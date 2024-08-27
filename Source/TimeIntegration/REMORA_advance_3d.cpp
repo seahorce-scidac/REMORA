@@ -347,7 +347,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
     } // mfi
 
-    FillPatch(lev, t_old[lev], mf_cons, cons_new, BdyVars::t);
+    FillPatch(lev, t_old[lev], mf_cons, cons_new, BCVars::cons_bc, BdyVars::t);
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {

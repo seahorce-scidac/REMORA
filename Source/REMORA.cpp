@@ -287,10 +287,10 @@ REMORA::InitData ()
             Construct_REMORAFillPatchers(lev);
         }
 
-        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BdyVars::t, 0, true, false);
-        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u, 0, true, false);
-        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v, 0, true, false);
-        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null, 0, true, false);
+        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false);
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BCVars::xvel_bc, BdyVars::u, 0, true, false);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BCVars::yvel_bc, BdyVars::v, 0, true, false);
+        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null, 0, true, false);
 
         if (restart_chkfile == "") {
             // Copy from new into old just in case when initializing from scratch
@@ -541,7 +541,7 @@ REMORA::set_coriolis(int lev) {
         }
 
         Real time = 0.0_rt;
-        FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor));
+        FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor),BCVars::cons_bc);
     }
 }
 
@@ -563,9 +563,9 @@ void
 REMORA::set_analytical_vmix(int lev) {
     Real time = 0.0_rt;
     init_custom_vmix(geom[lev], *vec_Akv[lev], *vec_Akt[lev], *vec_z_w[lev], solverChoice);
-    FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv),BdyVars::null,0,true,false);
+    FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv),BCVars::zvel_bc,BdyVars::null,0,true,false);
     for (int n=0; n<NCONS;n++) {
-        FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt),BdyVars::null,0,false,false);
+        FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt),BCVars::zvel_bc,BdyVars::null,0,false,false);
     }
 }
 
@@ -575,9 +575,9 @@ REMORA::set_hmixcoef(int lev)
     init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev], solverChoice);
 
     Real time = 0.0_rt;
-    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p));
-    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r));
-    FillPatch(lev, time, *vec_diff2[lev]  , GetVecOfPtrs(vec_diff2));
+    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p),BCVars::cons_bc);
+    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r),BCVars::cons_bc);
+    FillPatch(lev, time, *vec_diff2[lev]  , GetVecOfPtrs(vec_diff2),BCVars::cons_bc);
 }
 
 void

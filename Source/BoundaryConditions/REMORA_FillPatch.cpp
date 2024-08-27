@@ -14,6 +14,7 @@ PhysBCFunctNoOp null_bc;
 //
 void
 REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs,
+                  const int  bccomp,
 #ifdef REMORA_USE_NETCDF
                   const int bdy_var_type,
 #else
@@ -25,7 +26,6 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                   const int n_not_fill)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
-    int bccomp;
     amrex::Interpolater* mapper = nullptr;
 
     Box mf_box(mf_to_fill.boxArray()[0]);
@@ -72,24 +72,20 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
 
     if (mf_box.ixType() == IndexType(IntVect(0,0,0)))
     {
-        bccomp = 0;
         mapper = &cell_cons_interp;
         mask   = vec_mskr[lev].get();
     }
     else if (mf_box.ixType() == IndexType(IntVect(1,0,0)))
     {
-        bccomp = BCVars::xvel_bc;
         mapper = &face_linear_interp;
         mask   = vec_msku[lev].get();
     }
     else if (mf_box.ixType() == IndexType(IntVect(0,1,0)))
     {
-        bccomp = BCVars::yvel_bc;
         mapper = &face_linear_interp;
         mask   = vec_mskv[lev].get();
     }
     else {
-        bccomp = BCVars::zvel_bc;
         mapper = &face_linear_interp;
         mask   = vec_mskr[lev].get();
     }
@@ -425,7 +421,7 @@ REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
         if (!Geom(lev).isPeriodic(0)) {
             // Low-x side
             if (bx.smallEnd(0) <= domain.smallEnd(0)) {
-                Real mult = (phys_bc_type[0] == REMORA_BC::no_slip_wall) ? -1. : 1.;
+                Real mult = (phys_bc_type[BCVars::xvel_bc][0] == REMORA_BC::no_slip_wall) ? -1. : 1.;
                 ParallelFor(makeSlab(bx,0,0), [=] AMREX_GPU_DEVICE(int , int j, int k) noexcept
                 {
                     vel_arr(-1,j,k,1) = mult*vel_arr(0,j,k,1); // v
@@ -435,7 +431,7 @@ REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
 
             // High-x side
             if (bx.bigEnd(0) >= domain.bigEnd(0)) {
-                Real mult = (phys_bc_type[3] == REMORA_BC::no_slip_wall) ? -1. : 1.;
+                Real mult = (phys_bc_type[BCVars::xvel_bc][3] == REMORA_BC::no_slip_wall) ? -1. : 1.;
                 ParallelFor(makeSlab(bx,0,0), [=] AMREX_GPU_DEVICE(int , int j, int k) noexcept
                 {
                     vel_arr(ihi+1,j,k,1) = mult*vel_arr(ihi,j,k,1); // v
@@ -447,7 +443,7 @@ REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
         if (!Geom(lev).isPeriodic(1)) {
             // Low-y side
             if (bx.smallEnd(1) <= domain.smallEnd(1)) {
-                Real mult = (phys_bc_type[1] == REMORA_BC::no_slip_wall) ? -1. : 1.;
+                Real mult = (phys_bc_type[BCVars::yvel_bc][1] == REMORA_BC::no_slip_wall) ? -1. : 1.;
                 ParallelFor(makeSlab(bx,1,0), [=] AMREX_GPU_DEVICE(int i, int  , int k) noexcept
                 {
                     vel_arr(i,-1,k,0) = mult*vel_arr(i,0,k,0); // u
@@ -457,7 +453,7 @@ REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
 
             // High-y side
             if (bx.bigEnd(1) >= domain.bigEnd(1)) {
-                Real mult = (phys_bc_type[4] == REMORA_BC::no_slip_wall) ? -1. : 1.;
+                Real mult = (phys_bc_type[BCVars::yvel_bc][4] == REMORA_BC::no_slip_wall) ? -1. : 1.;
                 ParallelFor(makeSlab(bx,1,0), [=] AMREX_GPU_DEVICE(int i, int , int k) noexcept
                 {
                     vel_arr(i,jhi+1,k,0) = mult*vel_arr(i,jhi,k,0); // u
@@ -469,7 +465,7 @@ REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
         if (!Geom(lev).isPeriodic(2)) {
             // Low-z side
             if (bx.smallEnd(2) <= domain.smallEnd(2)) {
-                Real mult = (phys_bc_type[2] == REMORA_BC::no_slip_wall) ? -1. : 1.;
+                Real mult = (phys_bc_type[BCVars::zvel_bc][2] == REMORA_BC::no_slip_wall) ? -1. : 1.;
                 ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE(int i, int j, int) noexcept
                 {
                     vel_arr(i,j,-1,0) = mult*vel_arr(i,j,0,0); // u
@@ -479,7 +475,7 @@ REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
 
             // High-z side
             if (bx.bigEnd(2) >= domain.bigEnd(2)) {
-                Real mult = (phys_bc_type[5] == REMORA_BC::no_slip_wall) ? -1. : 1.;
+                Real mult = (phys_bc_type[BCVars::zvel_bc][5] == REMORA_BC::no_slip_wall) ? -1. : 1.;
                 ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE(int i, int j, int) noexcept
                 {
                     vel_arr(i,j,khi+1,0) = mult*vel_arr(i,j,khi,0); // u
