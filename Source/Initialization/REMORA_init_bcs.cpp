@@ -95,7 +95,7 @@ void REMORA::init_bcs ()
             solverChoice.ic_bc_type == IC_BC_Type::Real &&
             phys_bc_type[bcvar_type][ori] != REMORA_BC::clamped)
         {
-            amrex::Abort("BC type must be outflow in x and y when reading BCs from file");
+            amrex::Abort("BC type must be clamped in x and y when reading BCs from file");
         }
     };
 
@@ -268,7 +268,7 @@ void REMORA::init_bcs ()
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::reflect_even);
                     }
                 }
-                else if ( bct == REMORA_BC::outflow )
+                else if ( bct == REMORA_BC::outflow || bct == REMORA_BC::clamped)
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::foextrap);
@@ -411,7 +411,7 @@ void REMORA::init_bcs ()
                         domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::reflect_even);
                     }
                 }
-                else if ( bct == REMORA_BC::outflow )
+                else if ( bct == REMORA_BC::outflow || bct == REMORA_BC::clamped)
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::foextrap);
