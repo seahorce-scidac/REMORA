@@ -172,8 +172,8 @@ REMORA::set_2darrays (int lev)
         });
     }
 
-    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar,0,false,false);
-    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,0,false,false);
+    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BCVars::ubar_bc, BdyVars::ubar,0,false,false);
+    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BCVars::vbar_bc, BdyVars::vbar,0,false,false);
 }
 
 void
