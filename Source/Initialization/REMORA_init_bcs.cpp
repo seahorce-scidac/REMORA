@@ -136,6 +136,9 @@ void REMORA::init_bcs ()
         m_bc_extdir_vals[BCVars::xvel_bc][ori] = 0.0_rt; // default
         m_bc_extdir_vals[BCVars::yvel_bc][ori] = 0.0_rt;
         m_bc_extdir_vals[BCVars::zvel_bc][ori] = 0.0_rt;
+
+        m_bc_extdir_vals[BCVars::ubar_bc][ori] = 0.0_rt; // default
+        m_bc_extdir_vals[BCVars::vbar_bc][ori] = 0.0_rt;
     }
 
     // Whether to specify boundary conditions by variable (then side).
@@ -485,11 +488,11 @@ void REMORA::init_bcs ()
 #ifdef AMREX_USE_GPU
     Gpu::htod_memcpy
         (domain_bcs_type_d.data(), domain_bcs_type.data(),
-         sizeof(amrex::BCRec)*(NCONS+AMREX_SPACEDIM));
+         sizeof(amrex::BCRec)*(NCONS+AMREX_SPACEDIM+5));
 #else
     std::memcpy
         (domain_bcs_type_d.data(), domain_bcs_type.data(),
-         sizeof(amrex::BCRec)*(NCONS+AMREX_SPACEDIM));
+         sizeof(amrex::BCRec)*(NCONS+AMREX_SPACEDIM+5));
 #endif
 }
 
