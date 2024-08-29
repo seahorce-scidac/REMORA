@@ -684,6 +684,7 @@ public:
    void fill_from_bdyfiles (amrex::MultiFab& mf_to_fill,
                             const amrex::MultiFab& mf_mask,
                             const amrex::Real time,
+                            const int bccomp,
                             const int bdy_var_type,
                             const int icomp_to_fill);
 
