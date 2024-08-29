@@ -152,7 +152,7 @@ REMORA::init_zeta_from_netcdf (int lev)
         } // omp
     } // idx
     vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
-    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,3,vec_zeta[lev]->nGrowVect(),t_old[lev],BCVars::cons_bc);
+    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,3,vec_zeta[lev]->nGrowVect(),t_old[lev],BCVars::zeta_bc);
 }
 /**
  * REMORA function that initializes bathymetry from a netcdf file

@@ -60,7 +60,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 int iflip = dom_lo.x - 1- i;
                 if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][0]*mskv(i,j,0);
-                } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap) {
+                } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped) {
                     dest_arr(i,j,k) =  dest_arr(dom_lo.x,j,k);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(iflip,j,k);
@@ -72,7 +72,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 int iflip =  2*dom_hi.x + 1 - i;
                 if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3]*mskv(i,j,0);
-                } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap) {
+                } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped) {
                     dest_arr(i,j,k) =  dest_arr(dom_hi.x,j,k);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(iflip,j,k);
@@ -96,7 +96,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 int jflip = dom_lo.y-j;
                 if (bc_ptr[n].lo(1) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][1]*mskv(i,j,0);
-                } else if (bc_ptr[n].lo(1) == REMORABCType::foextrap) {
+                } else if (bc_ptr[n].lo(1) == REMORABCType::foextrap || bc_ptr[n].lo(1) == REMORABCType::clamped) {
                     dest_arr(i,j,k) =  dest_arr(i,dom_lo.y,k);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(i,jflip,k);
@@ -115,7 +115,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                  int jflip =  2*(dom_hi.y + 1) - j;
                  if (bc_ptr[n].hi(1) == REMORABCType::ext_dir) {
                      dest_arr(i,j,k) = l_bc_extdir_vals_d[n][4]*mskv(i,j,0);
-                 } else if (bc_ptr[n].hi(1) == REMORABCType::foextrap) {
+                 } else if (bc_ptr[n].hi(1) == REMORABCType::foextrap || bc_ptr[n].hi(1) == REMORABCType::clamped) {
                      dest_arr(i,j,k) =  dest_arr(i,dom_hi.y+1,k);
                  } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_even) {
                      dest_arr(i,j,k) =  dest_arr(i,jflip,k);

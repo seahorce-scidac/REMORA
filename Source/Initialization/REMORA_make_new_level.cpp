@@ -164,7 +164,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_hOfTheConfusingName), BCVars::cons_bc, BdyVars::null,0,false,false);
     FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_hOfTheConfusingName), BCVars::cons_bc, BdyVars::null,1,false,false);
-    FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), BCVars::cons_bc, BdyVars::null,0,true,false);
+    FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), BCVars::zeta_bc, BdyVars::null,0,true,false);
     for (int icomp=0; icomp<3; icomp++) {
         FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), BCVars::ubar_bc, BdyVars::ubar, icomp,false,false);
         FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), BCVars::vbar_bc, BdyVars::vbar, icomp,false,false);

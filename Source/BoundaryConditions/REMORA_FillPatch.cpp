@@ -125,7 +125,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) &&
              (bdy_var_type != BdyVars::null) )
         {
-            fill_from_bdyfiles (mf_to_fill,*mask,time,bdy_var_type, icomp);
+            fill_from_bdyfiles(mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp);
         }
 #endif
 
