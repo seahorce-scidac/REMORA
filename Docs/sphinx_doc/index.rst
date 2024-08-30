@@ -71,10 +71,10 @@ In addition to this documentation, there is API documentation for REMORA generat
 ..   Discretizations.rst
 ..   BoundaryConditions.rst
 
-..
-  toctree::
+.. toctree::
    :caption: TESTING
    :maxdepth: 1
-   :hidden:
 
-   /*RegressionTests.rst*/
+   Verification.rst
+   Performance.rst
+   RegressionTests.rst
