@@ -171,22 +171,36 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
         Box xlo_yhi = xlo & yhi;
         Box xhi_ylo = xhi & ylo;
         Box xhi_yhi = xhi & yhi;
-        ParallelFor(xlo_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_lo.x+1,j,k));
-        });
-        ParallelFor(xlo_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_lo.x+1,j,k));
-        });
-        ParallelFor(xhi_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_hi.x,j,k));
-        });
-        ParallelFor(xhi_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_hi.x,j,k));
-        });
+
+        const bool clamp_east = m_domain_bcs_type[bccomp].lo(0) == REMORABCType::clamped;
+        const bool clamp_west = m_domain_bcs_type[bccomp].hi(0) == REMORABCType::clamped;
+        const bool clamp_south = m_domain_bcs_type[bccomp].lo(1) == REMORABCType::clamped;
+        const bool clamp_north = m_domain_bcs_type[bccomp].hi(1) == REMORABCType::clamped;
+
+        if (!clamp_east && !clamp_south) {
+            ParallelFor(xlo_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_lo.x+1,j,k));
+            });
+        }
+        if (!clamp_east && !clamp_north) {
+            ParallelFor(xlo_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_lo.x+1,j,k));
+            });
+        }
+        if (!clamp_west && !clamp_south) {
+            ParallelFor(xhi_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_hi.x,j,k));
+            });
+        }
+        if (!clamp_west && !clamp_north) {
+            ParallelFor(xhi_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_hi.x,j,k));
+            });
+        }
     }
 
 

@@ -34,6 +34,10 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         const auto dlo = amrex::lbound(domain);
         const auto dhi = amrex::ubound(domain);
 
+        GeometryData const& geomdata = geom[0].data();
+        bool is_periodic_in_x = geomdata.isPeriodic(0);
+        bool is_periodic_in_y = geomdata.isPeriodic(1);
+
         int ncomp = 1;
         Vector<BCRec> bcrs_x(ncomp);
         Vector<BCRec> bcrs_y(ncomp);
@@ -77,11 +81,11 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
             // Adjust boundaries
             // TODO: Make sure indices match with what ROMS does
-            if (i == dlo.x-1 && (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            if (i == dlo.x-1 && !is_periodic_in_x) {
                 grad_im1  = tke(i,j,k,nstp) - tke(i-1,j,k,nstp);
                 gradL_im1 = gls(i,j,k,nstp) - gls(i-1,j,k,nstp);
             }
-            else if (i == dhi.x+1 && (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            else if (i == dhi.x+1 && !is_periodic_in_x) {
                 grad_ip1  = tke(i,j,k,nstp) - tke(i-1,j,k,nstp);
                 gradL_ip1 = gls(i,j,k,nstp) - gls(i-1,j,k,nstp);
             }
@@ -104,11 +108,11 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
             // Adjust boundaries
             // TODO: Make sure indices match with what ROMS does
-            if (j == dlo.y-1 && (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            if (j == dlo.y-1 && !is_periodic_in_y) {
                 grad_jm1  = tke(i,j,k,nstp) - tke(i,j-1,k,nstp);
                 gradL_jm1 = gls(i,j,k,nstp) - gls(i,j-1,k,nstp);
             }
-            else if (j == dhi.y+1 && (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            else if (j == dhi.y+1 && !is_periodic_in_y) {
                 grad_jp1  = tke(i,j,k,nstp) - tke(i,j-1,k,nstp);
                 gradL_jp1 = gls(i,j,k,nstp) - gls(i,j-1,k,nstp);
             }
@@ -371,6 +375,14 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     MultiFab mf_BCK(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_BCP(ba,dm,1,IntVect(NGROW,NGROW,0));
 
+    const Box& domain = geom[0].Domain();
+    const auto dlo = amrex::lbound(domain);
+    const auto dhi = amrex::ubound(domain);
+
+    GeometryData const& geomdata = geom[0].data();
+    bool is_periodic_in_x = geomdata.isPeriodic(0);
+    bool is_periodic_in_y = geomdata.isPeriodic(1);
+
 
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -390,10 +402,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         auto dV = mf_dV.array(mfi);
         auto CF = mf_CF.array(mfi);
         auto shear2_cached = mf_shear2_cached.array(mfi);
-
-        const Box& domain = geom[0].Domain();
-        const auto dlo = amrex::lbound(domain);
-        const auto dhi = amrex::ubound(domain);
 
         ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -532,12 +540,12 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         {
             Real gradK, gradK_ip1, gradP, gradP_ip1;
 
-            if (i == dlo.x-1 && (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            if (i == dlo.x-1 && !is_periodic_in_x) {
                 gradK_ip1 = tke(i+1,j,k,2)-tke(i  ,j,k,2);
                 gradK = gradK_ip1;
                 gradP_ip1 = gls(i+1,j,k,2)-gls(i  ,j,k,2);
                 gradP = gradP_ip1;
-            } else if (i == dhi.x+1 && (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            } else if (i == dhi.x+1 && !is_periodic_in_x) {
                 gradK = tke(i  ,j,k,2)-tke(i-1,j,k,2);
                 gradK_ip1 = gradK;
                 gradP = gls(i  ,j,k,2)-gls(i-1,j,k,2);
@@ -570,11 +578,11 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Real gradP     = (gls(i,j  ,k,2)-gls(i,j-1,k,2)) * mskv(i,j  ,0);
             Real gradP_jp1 = (gls(i,j+1,k,2)-gls(i,j  ,k,2)) * mskv(i,j+1,0);
 
-            if (j == dlo.y-1 && (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            if (j == dlo.y-1 && !is_periodic_in_y) {
                 gradK = gradK_jp1;
                 gradP = gradP_jp1;
             }
-            else if (j == dhi.y+1 && (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            else if (j == dhi.y+1 && !is_periodic_in_y) {
                 gradK_jp1 = gradK;
                 gradP_jp1 = gradP;
             }

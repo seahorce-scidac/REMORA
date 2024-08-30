@@ -39,6 +39,10 @@ REMORA::update_massflux_3d (const Box& bx,
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
 
+    GeometryData const& geomdata = geom[0].data();
+    bool is_periodic_in_x = geomdata.isPeriodic(0);
+    bool is_periodic_in_y = geomdata.isPeriodic(1);
+
     auto ic_bc_type = solverChoice.ic_bc_type;
 
     int ncomp = 1;
@@ -58,10 +62,6 @@ REMORA::update_massflux_3d (const Box& bx,
 
     FArrayBox fab_CF(bxD,1,amrex::The_Async_Arena()); fab_CF.template setVal<RunOn::Device>(0.);
     auto CF=fab_CF.array();
-
-    // auto geomdata = Geom(0).data();
-    // bool NSPeriodic = geomdata.isPeriodic(1);
-    // bool EWPeriodic = geomdata.isPeriodic(0);
 
     //Copied depth of water column calculation from DepthStretchTransform
     //Compute thicknesses of U-boxes DC(i,j,0:N-1), total depth of the water column DC(i,j,-1)
@@ -84,19 +84,22 @@ REMORA::update_massflux_3d (const Box& bx,
         DC(i,j,-1) = 1.0_rt / DC(i,j,-1);
         CF(i,j,0)  = DC(i,j,-1) * (CF(i,j,0) - Dphi_avg1(i,j,0));
 
+        // In order to agree with ROMS on the boundaries, the corner points shouldn't actually
+        // be updated with CF for clamped E/W, wall N/S boundaries. This doesn't seem to affect
+        // the interior valid points, though
         for (int k=0; k<=N; k++) {
-            if (i == dlo.x-joff && (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            if (i == dlo.x-joff && !is_periodic_in_x) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
                 phi(i,j,k,nnew) *= msk(i,j,0);
-            } else if (i == dhi.x+1 && (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            } else if (i == dhi.x+1 && !is_periodic_in_x) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
                 phi(i,j,k,nnew) *= msk(i,j,0);
             }
 
-            if (j == dlo.y-ioff && (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            if (j == dlo.y-ioff && !is_periodic_in_y) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
                 phi(i,j,k,nnew) *= msk(i,j,0);
-            } else if (j == dhi.y+1 && (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            } else if (j == dhi.y+1 && !is_periodic_in_y) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
                 phi(i,j,k,nnew) *= msk(i,j,0);
             }

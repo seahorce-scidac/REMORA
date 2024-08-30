@@ -79,7 +79,6 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
         const bool apply_south = domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::clamped;
         const bool apply_north = domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::clamped;
 
-
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -139,25 +138,26 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                 });
             }
 
-            if (!xlo_ylo.isEmpty() && apply_east && apply_south) {
+            // If we've applied boundary conditions to either side, update the corner
+            if (!xlo_ylo.isEmpty() && (apply_east || apply_south)) {
                 ParallelFor(xlo_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill) + dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill));
                 });
             }
-            if (!xlo_yhi.isEmpty() && apply_east && apply_north) {
+            if (!xlo_yhi.isEmpty() && (apply_east || apply_north)) {
                 ParallelFor(xlo_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill) + dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill));
                 });
             }
-            if (!xhi_ylo.isEmpty() && apply_west && apply_south) {
+            if (!xhi_ylo.isEmpty() && (apply_west || apply_south)) {
                 ParallelFor(xhi_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill) + dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill));
                 });
             }
-            if (!xhi_yhi.isEmpty() && apply_west && apply_north) {
+            if (!xhi_yhi.isEmpty() && (apply_west || apply_north)) {
                 ParallelFor(xhi_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill) + dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill));
