@@ -30,6 +30,10 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
 
+    GeometryData const& geomdata = geom[0].data();
+    bool is_periodic_in_x = geomdata.isPeriodic(0);
+    bool is_periodic_in_y = geomdata.isPeriodic(1);
+
     int ncomp = 1;
     Vector<BCRec> bcrs_x(ncomp);
     Vector<BCRec> bcrs_y(ncomp);
@@ -82,11 +86,11 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
             Real Huxx_i   = DUon(i-1,j,0)-2.0_rt*DUon(i  ,j,0)+DUon(i+1,j,0);
             Real Huxx_ip1 = DUon(i  ,j,0)-2.0_rt*DUon(i+1,j,0)+DUon(i+2,j,0);
 
-            if (i == dlo.x && (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            if (i == dlo.x && !is_periodic_in_x) {
                 uxx_i = uxx_ip1;
                 Huxx_i = Huxx_ip1;
             }
-            else if (i == dhi.x && (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            else if (i == dhi.x && !is_periodic_in_x) {
                 uxx_ip1 = uxx_i;
                 Huxx_ip1 = Huxx_i;
             }
@@ -110,9 +114,9 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
             Real Hvxx_i   = DVom(i-1,j,0)-2.0_rt*DVom(i  ,j,0)+DVom(i+1,j,0);
             Real Hvxx_im1 = DVom(i-2,j,0)-2.0_rt*DVom(i-1,j,0)+DVom(i  ,j,0);
 
-            if (j == dlo.y and (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            if (j == dlo.y and !is_periodic_in_y) {
                 uee_jm1 = uee_j;
-            } else if (j == dhi.y+1 and (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            } else if (j == dhi.y+1 and !is_periodic_in_y) {
                 uee_j = uee_jm1;
             }
 
@@ -174,9 +178,9 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
             Real Huee_j   = DUon(i,j-1,0)-2.0_rt*DUon(i,j  ,0)+DUon(i,j+1,0);
             Real Huee_jm1 = DUon(i,j-2,0)-2.0_rt*DUon(i,j-1,0)+DUon(i,j  ,0);
 
-            if (i == dlo.x and (bcr_x.lo(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            if (i == dlo.x and !is_periodic_in_x) {
                 vxx_im1 = vxx_i;
-            } else if (i == dhi.x + 1 and (bcr_x.hi(0) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            } else if (i == dhi.x + 1 and !is_periodic_in_x) {
                 vxx_i = vxx_im1;
             }
 
@@ -195,11 +199,11 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
             Real Hvee_j   = DVom(i,j-1,0)-2.0_rt*DVom(i,j  ,0)+DVom(i,j+1,0);
             Real Hvee_jp1 = DVom(i,j  ,0)-2.0_rt*DVom(i,j+1,0)+DVom(i,j+2,0);
 
-            if (j == dlo.y and (bcr_y.lo(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            if (j == dlo.y and !is_periodic_in_y) {
                 vee_j = vee_jp1;
                 Hvee_j = Hvee_jp1;
             }
-            else if (j == dhi.y and (bcr_y.hi(1) == REMORABCType::ext_dir or ic_bc_type==IC_BC_Type::Real)) {
+            else if (j == dhi.y and !is_periodic_in_y) {
                 vee_jp1 = vee_j;
                 Hvee_jp1 = Hvee_j;
             }
