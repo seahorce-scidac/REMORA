@@ -606,6 +606,12 @@ REMORA::init_only (int lev, Real time)
     vec_ru2d[lev]->setVal(0.0_rt);
     vec_rv2d[lev]->setVal(0.0_rt);
 
+#ifdef REMORA_USE_NETCDF
+    amrex::Print() << "Calling init_masks_from_netcdf " << std::endl;
+    init_masks_from_netcdf(lev);
+    amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
+#endif
+
     set_bathymetry(lev);
     set_zeta(lev);
     stretch_transform(lev);
@@ -617,15 +623,10 @@ REMORA::init_only (int lev, Real time)
                 init_custom(lev);
 #ifdef REMORA_USE_NETCDF
             } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
-
                 amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
                 init_data_from_netcdf(lev);
                 set_zeta_to_Ztavg(lev);
                 amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
-
-                amrex::Print() << "Calling init_masks_from_netcdf " << std::endl;
-                init_masks_from_netcdf(lev);
-                amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
 
                 amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
                 init_bdry_from_netcdf();
@@ -652,10 +653,6 @@ REMORA::init_only (int lev, Real time)
             init_data_from_netcdf(lev);
             set_zeta_to_Ztavg(lev);
             amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
-
-            amrex::Print() << "Calling init_masks_from_netcdf " << std::endl;
-            init_masks_from_netcdf(lev);
-            amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
 
             amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
             init_bdry_from_netcdf();

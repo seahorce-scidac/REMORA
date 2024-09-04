@@ -61,11 +61,11 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][0]*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped) {
-                    dest_arr(i,j,k) =  dest_arr(dom_lo.x,j,k);
+                    dest_arr(i,j,k) =  dest_arr(dom_lo.x,j,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
-                    dest_arr(i,j,k) =  dest_arr(iflip,j,k);
+                    dest_arr(i,j,k) =  dest_arr(iflip,j,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_odd) {
-                    dest_arr(i,j,k) = -dest_arr(iflip,j,k);
+                    dest_arr(i,j,k) = -dest_arr(iflip,j,k)*mskv(i,j,0);
                 }
             },
             bx_xhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
@@ -73,11 +73,11 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3]*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped) {
-                    dest_arr(i,j,k) =  dest_arr(dom_hi.x,j,k);
+                    dest_arr(i,j,k) =  dest_arr(dom_hi.x,j,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
-                    dest_arr(i,j,k) =  dest_arr(iflip,j,k);
+                    dest_arr(i,j,k) =  dest_arr(iflip,j,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_odd) {
-                    dest_arr(i,j,k) = -dest_arr(iflip,j,k);
+                    dest_arr(i,j,k) = -dest_arr(iflip,j,k)*mskv(i,j,0);
                 }
             }
         );
@@ -97,11 +97,11 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 if (bc_ptr[n].lo(1) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][1]*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::foextrap || bc_ptr[n].lo(1) == REMORABCType::clamped) {
-                    dest_arr(i,j,k) =  dest_arr(i,dom_lo.y,k);
+                    dest_arr(i,j,k) =  dest_arr(i,dom_lo.y,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_even) {
-                    dest_arr(i,j,k) =  dest_arr(i,jflip,k);
+                    dest_arr(i,j,k) =  dest_arr(i,jflip,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_odd) {
-                    dest_arr(i,j,k) = -dest_arr(i,jflip,k);
+                    dest_arr(i,j,k) = -dest_arr(i,jflip,k)*mskv(i,j,0);
                 }
             },
             // We only set the values on the domain faces themselves if EXT_DIR
@@ -116,11 +116,11 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                  if (bc_ptr[n].hi(1) == REMORABCType::ext_dir) {
                      dest_arr(i,j,k) = l_bc_extdir_vals_d[n][4]*mskv(i,j,0);
                  } else if (bc_ptr[n].hi(1) == REMORABCType::foextrap || bc_ptr[n].hi(1) == REMORABCType::clamped) {
-                     dest_arr(i,j,k) =  dest_arr(i,dom_hi.y+1,k);
+                     dest_arr(i,j,k) =  dest_arr(i,dom_hi.y+1,k)*mskv(i,j,0);
                  } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_even) {
-                     dest_arr(i,j,k) =  dest_arr(i,jflip,k);
+                     dest_arr(i,j,k) =  dest_arr(i,jflip,k)*mskv(i,j,0);
                  } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_odd) {
-                     dest_arr(i,j,k) = -dest_arr(i,jflip,k);
+                     dest_arr(i,j,k) = -dest_arr(i,jflip,k)*mskv(i,j,0);
                 }
             },
             // We only set the values on the domain faces themselves if EXT_DIR
@@ -141,11 +141,11 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 if (bc_ptr[n].lo(2) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][2]*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(2) == REMORABCType::foextrap) {
-                    dest_arr(i,j,k) =  dest_arr(i,j,dom_lo.z);
+                    dest_arr(i,j,k) =  dest_arr(i,j,dom_lo.z)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(2) == REMORABCType::reflect_even) {
-                    dest_arr(i,j,k) =  dest_arr(i,j,kflip);
+                    dest_arr(i,j,k) =  dest_arr(i,j,kflip)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(2) == REMORABCType::reflect_odd) {
-                    dest_arr(i,j,k) = -dest_arr(i,j,kflip);
+                    dest_arr(i,j,k) = -dest_arr(i,j,kflip)*mskv(i,j,0);
                 }
             },
             bx_zhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
@@ -153,11 +153,11 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 if (bc_ptr[n].hi(2) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][5]*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(2) == REMORABCType::foextrap) {
-                    dest_arr(i,j,k) =  dest_arr(i,j,dom_hi.z);
+                    dest_arr(i,j,k) =  dest_arr(i,j,dom_hi.z)*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(2) == REMORABCType::reflect_even) {
-                    dest_arr(i,j,k) =  dest_arr(i,j,kflip);
+                    dest_arr(i,j,k) =  dest_arr(i,j,kflip)*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(2) == REMORABCType::reflect_odd) {
-                    dest_arr(i,j,k) = -dest_arr(i,j,kflip);
+                    dest_arr(i,j,k) = -dest_arr(i,j,kflip)*mskv(i,j,0);
                 }
             }
         );
@@ -173,30 +173,30 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
         Box xlo_yhi = xlo & yhi;
         Box xhi_ylo = xhi & ylo;
         Box xhi_yhi = xhi & yhi;
-        const bool clamp_east = m_domain_bcs_type[bccomp].lo(0) == REMORABCType::clamped;
-        const bool clamp_west = m_domain_bcs_type[bccomp].hi(0) == REMORABCType::clamped;
+        const bool clamp_west = m_domain_bcs_type[bccomp].lo(0) == REMORABCType::clamped;
+        const bool clamp_east = m_domain_bcs_type[bccomp].hi(0) == REMORABCType::clamped;
         const bool clamp_south = m_domain_bcs_type[bccomp].lo(1) == REMORABCType::clamped;
         const bool clamp_north = m_domain_bcs_type[bccomp].hi(1) == REMORABCType::clamped;
 
-        if (!clamp_east && !clamp_south) {
+        if (!clamp_west && !clamp_south) {
             ParallelFor(xlo_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_lo.y+1,k) + dest_arr(dom_lo.x,j,k));
             });
         }
-        if (!clamp_east && !clamp_north) {
+        if (!clamp_west && !clamp_north) {
             ParallelFor(xlo_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_lo.x,j,k));
             });
         }
-        if (!clamp_west && !clamp_south) {
+        if (!clamp_east && !clamp_south) {
             ParallelFor(xhi_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_lo.y+1,k) + dest_arr(dom_hi.x,j,k));
             });
         }
-        if (!clamp_west && !clamp_north) {
+        if (!clamp_east && !clamp_north) {
             ParallelFor(xhi_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_hi.x,j,k));
