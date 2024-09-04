@@ -74,8 +74,8 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
         const auto& bdatyhi_n   = bdy_data_yhi[n_time  ][ivar+icomp].const_array();
         const auto& bdatyhi_np1 = bdy_data_yhi[n_time+1][ivar+icomp].const_array();
 
-        const bool apply_east = domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::clamped;
-        const bool apply_west = domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::clamped;
+        const bool apply_west = domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::clamped;
+        const bool apply_east = domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::clamped;
         const bool apply_south = domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::clamped;
         const bool apply_north = domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::clamped;
 
@@ -106,7 +106,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             const Array4<Real>& dest_arr = mf_to_fill.array(mfi);
             const Array4<const Real>& mask_arr = mf_mask.array(mfi);
 
-            if (!xlo.isEmpty() && apply_east) {
+            if (!xlo.isEmpty() && apply_west) {
                 ParallelFor(xlo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     dest_arr(i,j,k,icomp+icomp_to_fill) = (oma   * bdatxlo_n  (ubound(xlo).x,j,k,0)
@@ -114,7 +114,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                 });
             }
 
-            if (!xhi.isEmpty() && apply_west) {
+            if (!xhi.isEmpty() && apply_east) {
                 ParallelFor(xhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     dest_arr(i,j,k,icomp+icomp_to_fill) = (oma   * bdatxhi_n  (lbound(xhi).x,j,k,0)
@@ -139,25 +139,25 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             }
 
             // If we've applied boundary conditions to either side, update the corner
-            if (!xlo_ylo.isEmpty() && (apply_east || apply_south)) {
+            if (!xlo_ylo.isEmpty() && (apply_west || apply_south)) {
                 ParallelFor(xlo_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill) + dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill));
                 });
             }
-            if (!xlo_yhi.isEmpty() && (apply_east || apply_north)) {
+            if (!xlo_yhi.isEmpty() && (apply_west || apply_north)) {
                 ParallelFor(xlo_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill) + dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill));
                 });
             }
-            if (!xhi_ylo.isEmpty() && (apply_west || apply_south)) {
+            if (!xhi_ylo.isEmpty() && (apply_east || apply_south)) {
                 ParallelFor(xhi_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill) + dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill));
                 });
             }
-            if (!xhi_yhi.isEmpty() && (apply_west || apply_north)) {
+            if (!xhi_yhi.isEmpty() && (apply_east || apply_north)) {
                 ParallelFor(xhi_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill) + dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill));
