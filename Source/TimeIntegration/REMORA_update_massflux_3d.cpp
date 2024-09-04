@@ -84,9 +84,6 @@ REMORA::update_massflux_3d (const Box& bx,
         DC(i,j,-1) = 1.0_rt / DC(i,j,-1);
         CF(i,j,0)  = DC(i,j,-1) * (CF(i,j,0) - Dphi_avg1(i,j,0));
 
-        // In order to agree with ROMS on the boundaries, the corner points shouldn't actually
-        // be updated with CF for clamped E/W, wall N/S boundaries. This doesn't seem to affect
-        // the interior valid points, though
         for (int k=0; k<=N; k++) {
             if (i == dlo.x-joff && !is_periodic_in_x) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
@@ -94,9 +91,7 @@ REMORA::update_massflux_3d (const Box& bx,
             } else if (i == dhi.x+1 && !is_periodic_in_x) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
                 phi(i,j,k,nnew) *= msk(i,j,0);
-            }
-
-            if (j == dlo.y-ioff && !is_periodic_in_y) {
+            } else if (j == dlo.y-ioff && !is_periodic_in_y) {
                 phi(i,j,k,nnew) -= CF(i,j,0);
                 phi(i,j,k,nnew) *= msk(i,j,0);
             } else if (j == dhi.y+1 && !is_periodic_in_y) {
