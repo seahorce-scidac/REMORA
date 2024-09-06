@@ -600,6 +600,10 @@ REMORA::init_only (int lev, Real time)
     yvel_new[lev]->setVal(0.0_rt);
     zvel_new[lev]->setVal(0.0_rt);
 
+    xvel_old[lev]->setVal(0.0_rt);
+    yvel_old[lev]->setVal(0.0_rt);
+    zvel_old[lev]->setVal(0.0_rt);
+
     vec_ru[lev]->setVal(0.0_rt);
     vec_rv[lev]->setVal(0.0_rt);
 
