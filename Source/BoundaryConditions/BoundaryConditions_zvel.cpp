@@ -63,25 +63,25 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
             bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip = dom_lo.x - 1 - i;
                 if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][0]*mskr(i,j,0);
+                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][0];
                 } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped) {
-                    dest_arr(i,j,k) =  dest_arr(dom_lo.x,j,k)*mskr(i,j,0);
+                    dest_arr(i,j,k) =  dest_arr(dom_lo.x,j,k);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
-                    dest_arr(i,j,k) =  dest_arr(iflip,j,k)*mskr(i,j,0);
+                    dest_arr(i,j,k) =  dest_arr(iflip,j,k);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_odd) {
-                    dest_arr(i,j,k) = -dest_arr(iflip,j,k)*mskr(i,j,0);
+                    dest_arr(i,j,k) = -dest_arr(iflip,j,k);
                 }
             },
             bx_xhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip = 2*dom_hi.x + 1 - i;
                 if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3]*mskr(i,j,0);
+                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3];
                 } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped) {
-                    dest_arr(i,j,k) =  dest_arr(dom_hi.x,j,k)*mskr(i,j,0);
+                    dest_arr(i,j,k) =  dest_arr(dom_hi.x,j,k);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
-                    dest_arr(i,j,k) =  dest_arr(iflip,j,k)*mskr(i,j,0);
+                    dest_arr(i,j,k) =  dest_arr(iflip,j,k);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_odd) {
-                    dest_arr(i,j,k) = -dest_arr(iflip,j,k)*mskr(i,j,0);
+                    dest_arr(i,j,k) = -dest_arr(iflip,j,k);
                 }
             }
         );
@@ -95,25 +95,25 @@ void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box
         ParallelFor(bx_ylo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
             int jflip = dom_lo.y - 1 - j;
             if (bc_ptr[n].lo(1) == REMORABCType::ext_dir) {
-                dest_arr(i,j,k) = l_bc_extdir_vals_d[n][1]*mskr(i,j,0);
+                dest_arr(i,j,k) = l_bc_extdir_vals_d[n][1];
             } else if (bc_ptr[n].lo(1) == REMORABCType::foextrap || bc_ptr[n].lo(1) == REMORABCType::clamped) {
-                dest_arr(i,j,k) =  dest_arr(i,dom_lo.y,k)*mskr(i,j,0);
+                dest_arr(i,j,k) =  dest_arr(i,dom_lo.y,k);
             } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_even) {
-                dest_arr(i,j,k) =  dest_arr(i,jflip,k)*mskr(i,j,0);
+                dest_arr(i,j,k) =  dest_arr(i,jflip,k);
             } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_odd) {
-                dest_arr(i,j,k) = -dest_arr(i,jflip,k)*mskr(i,j,0);
+                dest_arr(i,j,k) = -dest_arr(i,jflip,k);
             }
         },
         bx_yhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
             int jflip =  2*dom_hi.y + 1 - j;
             if (bc_ptr[n].hi(1) == REMORABCType::ext_dir) {
-                dest_arr(i,j,k) = l_bc_extdir_vals_d[n][4]*mskr(i,j,0);
+                dest_arr(i,j,k) = l_bc_extdir_vals_d[n][4];
             } else if (bc_ptr[n].hi(1) == REMORABCType::foextrap || bc_ptr[n].hi(1) == REMORABCType::clamped) {
-                dest_arr(i,j,k) =  dest_arr(i,dom_hi.y,k)*mskr(i,j,0);
+                dest_arr(i,j,k) =  dest_arr(i,dom_hi.y,k);
             } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_even) {
-                dest_arr(i,j,k) =  dest_arr(i,jflip,k)*mskr(i,j,0);
+                dest_arr(i,j,k) =  dest_arr(i,jflip,k);
             } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_odd) {
-                dest_arr(i,j,k) = -dest_arr(i,jflip,k)*mskr(i,j,0);
+                dest_arr(i,j,k) = -dest_arr(i,jflip,k);
             }
         });
     }
