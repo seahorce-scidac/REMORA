@@ -49,6 +49,7 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
+
     // First do all ext_dir bcs
     if (!is_periodic_in_x or bccomp==BCVars::foextrap_bc)
     {
@@ -58,40 +59,48 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
         Box bx_xhi_face(bx); bx_xhi_face.setSmall(0,dom_hi.x+1); bx_xhi_face.setBig(0,dom_hi.x+1);
         ParallelFor(
             bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
+                int inner = (bc_ptr[n].lo(0) == REMORABCType::foextrap) ? 1 : 0;
                 int iflip = dom_lo.x - i;
                 if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][0]*msku(i,j,0);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped) {
-                    dest_arr(i,j,k) =  dest_arr(dom_lo.x,j,k)*msku(i,j,0);
+                    dest_arr(i,j,k) =  dest_arr(dom_lo.x+inner,j,k)*msku(i,j,0);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(iflip,j,k)*msku(i,j,0);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_odd) {
                     dest_arr(i,j,k) = -dest_arr(iflip,j,k)*msku(i,j,0);
                 }
             },
-            // We only set the values on the domain faces themselves if EXT_DIR
+            // We only set the values on the domain faces themselves if EXT_DIR or actual outflow
             bx_xlo_face, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-                if (bc_ptr[n].lo(0) == REMORABCType::ext_dir)
+                if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][0]*msku(i,j,0);
+                } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap) {
+                    dest_arr(i,j,k) =  dest_arr(dom_lo.x+1,j,k)*msku(i,j,0);
+                }
             }
         );
         ParallelFor(
             bx_xhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip =  2*(dom_hi.x + 1) - i;
+                int inner = (bc_ptr[n].hi(0) == REMORABCType::foextrap) ? 1 : 0;
                 if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3]*msku(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped) {
-                    dest_arr(i,j,k) =  dest_arr(dom_hi.x+1,j,k)*msku(i,j,0);
+                    dest_arr(i,j,k) =  dest_arr(dom_hi.x+1-inner,j,k)*msku(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(iflip,j,k)*msku(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_odd) {
                     dest_arr(i,j,k) = -dest_arr(iflip,j,k)*msku(i,j,0);
                 }
             },
-            // We only set the values on the domain faces themselves if EXT_DIR
+            // We only set the values on the domain faces themselves if EXT_DIR or actual outflow
             bx_xhi_face, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-                if (bc_ptr[n].lo(3) == REMORABCType::ext_dir)
+                if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3]*msku(i,j,0);
+                } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap) {
+                    dest_arr(i,j,k) = dest_arr(dom_hi.x,j,k)*msku(i,j,0);
+                }
             }
         );
     } // not periodic in x
