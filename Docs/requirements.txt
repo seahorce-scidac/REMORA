@@ -6,4 +6,4 @@ pygments
 recommonmark
 sphinx>=2.0
 sphinx-design
-sphinx_rtd_theme>=0.3.1
+sphinx_rtd_theme>=1.0.0
