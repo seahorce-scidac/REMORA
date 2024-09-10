@@ -5,6 +5,31 @@ Building
 
 REMORA can be built using either GNU Make or CMake. The following instructions apply to building on any system. We also provide instructions for building on :ref:`Perlmutter<Perlmutter (NERSC)>`.
 
+Minimum Requirements
+~~~~~~~~~~~~~~~~~~~~
+
+ERF requires a C++ compiler that supports the C++17 standard and a C compiler that supports the C99 standard.
+Building with GPU support may be done with CUDA, HIP, or SYCL.
+For CUDA, REMORA requires versions >= 11.0. For HIP and SYCL, only the latest compilers are supported.
+Prerequisites for building with GNU Make include Python (>= 2.7, including 3) and standard tools available
+in any Unix-like environments (e.g., Perl and sed). For building with CMake, the minimal requirement is version 3.18.
+
+   .. note::
+      **While REMORA is designed to work with SYCL, we do not make any guarantees that it will build and run on your Intel platform.**
+
+Paradigm
+~~~~~~~~~~
+
+REMORA uses the paradigm that different executables are built in different subdirectories within the ``Exec`` directory.  When
+using gmake (see below), the user/developer should build in the directory of the selected problem.  When using
+cmake (see below), separate executables are built for all of the problem directories listed in ``Exec/CMakeLists.txt``.
+The problem directories within ``Exec`` include ``Upwelling`` a test case demonstrating a periodic channel with shelves on each side.
+#1) science-relevant setups, such as ``ABL`` for modeling the atmospheric
+#boundary layer or ``DensityCurrent`` for running the standard density current test case, etc, 2) regression tests in
+#``Exec/RegTests`` that are used for testing specific known aspects of the code functionality, such as boundary conditions or
+#Rayleigh damping, and 3) tests for features under development in ``Exec/DevTests``, such as moving terrain.  There is a
+#README in each problem directory that describes the purpose/role of that problem.
+
 GNU Make
 ~~~~~~~~
 
@@ -52,6 +77,10 @@ or if using tcsh,
    | USE_OMP         | Whether to enable OpenMP         | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
    | USE_CUDA        | Whether to enable CUDA           | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
+   | USE_HIP         | Whether to enable HIP            | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
+   | USE_SYCL        | Whether to enable SYCL           | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
    | DEBUG           | Whether to use DEBUG mode        | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
