@@ -733,11 +733,24 @@ REMORA::advance_2d (int lev,
     // Don't do the FillPatch at the last truncated predictor step.
     // We may need to move the zeta FillPatch further up
     if (my_iif<nfast) {
+        int know;
+        Real dt2d;
+        if (my_iif==0) {
+            know = krhs;
+            dt2d = dtfast_lev;
+        } else if (predictor_2d_step) {
+            know = krhs;
+            dt2d = 2.0_rt * dtfast_lev;
+        } else {
+            know = kstp;
+            dt2d = dtfast_lev;
+        }
+
         FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BCVars::ubar_bc, BdyVars::ubar,
-                  knew, false,true);
+                  knew, false,true, 0,know, dt2d);
         FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BCVars::vbar_bc, BdyVars::vbar,
-                  knew, false,true);
+                  knew, false,true, 0,know, dt2d);
         FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), BCVars::zeta_bc, BdyVars::zeta,
-                  knew, false,false);
+                  knew, false,false, 0,know, dt2d);
     }
 }
