@@ -63,6 +63,24 @@ void REMORA::init_bcs ()
             phys_bc_type[bcvar_type][ori] = REMORA_BC::clamped;
             domain_bc_type[ori] = "Clamped";
         }
+        else if (bc_type_string == "chapman")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::chapman;
+            domain_bc_type[ori] = "Chapman";
+
+            if (bcvar_type != BCVars::zeta_bc) {
+                amrex::Abort("Chapman BC can only be applied to zeta");
+            }
+        }
+        else if (bc_type_string == "flather")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::flather;
+            domain_bc_type[ori] = "Flather";
+
+            if (!(bcvar_type == BCVars::ubar_bc || bcvar_type == BCVars::vbar_bc)) {
+                amrex::Abort("Flather BC can only be applied to ubar or vbar");
+            }
+        }
         else if (bc_type_string == "periodic")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::periodic;
@@ -403,6 +421,23 @@ void REMORA::init_bcs ()
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::clamped);
                     } else {
                         domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::clamped);
+                    }
+                }
+                else if (bct == REMORA_BC::flather)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::chapman);
+                        if (i==1) {
+                            // Only normal direction has Flather
+                            domain_bcs_type[BCVars::ubar_bc+dir].setLo(dir, REMORABCType::flather);
+                        }
+
+                    } else {
+                        domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::chapman);
+                        if (i==1) {
+                            // Only normal direction has Flather
+                            domain_bcs_type[BCVars::ubar_bc+dir].setHi(dir, REMORABCType::flather);
+                        }
                     }
                 }
             }

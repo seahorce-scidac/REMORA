@@ -126,7 +126,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                          bx_xhi.setBig  (2,std::min(dom_hi.z,bx.bigEnd(2)));
         ParallelFor(bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip = dom_lo.x - 1 - i;
-                if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped) {
+                if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped || bc_ptr[n].lo(0) == REMORABCType::chapman) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(dom_lo.x-n_not_fill,j,k,icomp+n);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(iflip,j,k,icomp+n);
@@ -136,7 +136,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             },
             bx_xhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip =  2*dom_hi.x + 1 - i;
-                if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped) {
+                if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped || bc_ptr[n].hi(0) == REMORABCType::chapman) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(dom_hi.x+n_not_fill,j,k,icomp+n);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(iflip,j,k,icomp+n);
@@ -159,7 +159,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
         ParallelFor(
             bx_ylo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int jflip = dom_lo.y - 1 - j;
-                if (bc_ptr[n].lo(1) == REMORABCType::foextrap || bc_ptr[n].lo(1) == REMORABCType::clamped) {
+                if (bc_ptr[n].lo(1) == REMORABCType::foextrap || bc_ptr[n].lo(1) == REMORABCType::clamped || bc_ptr[n].lo(1) == REMORABCType::chapman) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_lo.y-n_not_fill,k,icomp+n);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,jflip,k,icomp+n);
@@ -169,7 +169,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             },
             bx_yhi, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int jflip =  2*dom_hi.y + 1 - j;
-                if (bc_ptr[n].hi(1) == REMORABCType::foextrap || bc_ptr[n].hi(1) == REMORABCType::clamped) {
+                if (bc_ptr[n].hi(1) == REMORABCType::foextrap || bc_ptr[n].hi(1) == REMORABCType::clamped || bc_ptr[n].hi(1) == REMORABCType::chapman) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_hi.y+n_not_fill,k,icomp+n);
                 } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,jflip,k,icomp+n);

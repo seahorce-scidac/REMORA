@@ -23,7 +23,9 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                   const int  icomp,
                   const bool fill_all,
                   const bool fill_set,
-                  const int n_not_fill)
+                  const int  n_not_fill,
+                  const int  icomp_calc,
+                  const Real dt)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
     amrex::Interpolater* mapper = nullptr;
@@ -125,7 +127,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) &&
              (bdy_var_type != BdyVars::null) )
         {
-            fill_from_bdyfiles(mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp);
+            fill_from_bdyfiles(mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,dt);
         }
 #endif
 

@@ -671,7 +671,9 @@ public:
                     const int icomp=0,
                     const bool fill_all=true,
                     const bool fill_set=true,
-                    const int  n_not_fill=0);
+                    const int  n_not_fill=0,
+                    const int icomp_calc=0,
+                    const amrex::Real = amrex::Real(0.0));
 
     void FillPatchNoBC (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,
@@ -686,7 +688,9 @@ public:
                             const amrex::Real time,
                             const int bccomp,
                             const int bdy_var_type,
-                            const int icomp_to_fill);
+                            const int icomp_to_fill,
+                            const int icomp_calc = 0,
+                            const amrex::Real = amrex::Real(0.0));
 
     void init_beta_plane_coriolis (int lev);
 
