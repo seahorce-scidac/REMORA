@@ -156,7 +156,7 @@ void REMORA::init_bcs ()
     set_bcs_by_var = false;
 
     ParmParse pp("remora");
-    pp.query("boundary_per_side", set_bcs_by_var);
+    pp.query("boundary_per_variable", set_bcs_by_var);
     if (!set_bcs_by_var) {
         f_by_side("xlo", Orientation(Direction::x,Orientation::low));
         f_by_side("xhi", Orientation(Direction::x,Orientation::high));
