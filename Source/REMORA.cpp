@@ -611,9 +611,11 @@ REMORA::init_only (int lev, Real time)
     vec_rv2d[lev]->setVal(0.0_rt);
 
 #ifdef REMORA_USE_NETCDF
-    amrex::Print() << "Calling init_masks_from_netcdf " << std::endl;
-    init_masks_from_netcdf(lev);
-    amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
+    if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+        amrex::Print() << "Calling init_masks_from_netcdf " << std::endl;
+        init_masks_from_netcdf(lev);
+        amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
+    }
 #endif
 
     set_bathymetry(lev);
