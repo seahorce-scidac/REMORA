@@ -673,7 +673,8 @@ public:
                     const bool fill_set=true,
                     const int  n_not_fill=0,
                     const int icomp_calc=0,
-                    const amrex::Real = amrex::Real(0.0));
+                    const amrex::Real dt = amrex::Real(0.0),
+                    const amrex::MultiFab& mf_calc = amrex::MultiFab());
 
     void FillPatchNoBC (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,

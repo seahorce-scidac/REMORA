@@ -59,15 +59,18 @@ public:
     //     so this follows the BCVars enum
     //
     void operator() (amrex::MultiFab& mf, const amrex::MultiFab& mask, int icomp, int ncomp, amrex::IntVect const& nghost,
-                     amrex::Real time, int bccomp, int n_not_fill=0);
+                     amrex::Real time, int bccomp, int n_not_fill=0,
+                     const amrex::MultiFab& mf_calc = amrex::MultiFab(),
+                     const amrex::MultiFab& mf_msku = amrex::MultiFab(),
+                     const amrex::MultiFab& mf_mskv = amrex::MultiFab());
 
     void impose_xvel_bcs (const amrex::Array4<amrex::Real>& dest_arr, const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& msku,
-                          amrex::Real time, int bccomp);
+                          const amrex::Array4<const amrex::Real>& calc_arr, amrex::Real time, int bccomp);
 
     void impose_yvel_bcs (const amrex::Array4<amrex::Real>& dest_arr, const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& mskv,
-                          amrex::Real time, int bccomp);
+                          const amrex::Array4<const amrex::Real>& calc_arr, amrex::Real time, int bccomp);
 
 
     void impose_zvel_bcs (const amrex::Array4<amrex::Real>& dest_arr,
@@ -77,7 +80,9 @@ public:
 
     void impose_cons_bcs (const amrex::Array4<amrex::Real>& mf, const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& mskr,
-                          int icomp, int ncomp, amrex::Real time, int bccomp, int n_not_fill);
+                          const amrex::Array4<const amrex::Real>& msku, const amrex::Array4<const amrex::Real>& mskv,
+                          const amrex::Array4<const amrex::Real>& calc_arr,int icomp, int ncomp, amrex::Real time, int bccomp, int n_not_fill);
+
 
     // For backward compatibility
     // void FillBoundary (amrex::MultiFab& mf, int dcomp, int ncomp, amrex::IntVect const& nghost,

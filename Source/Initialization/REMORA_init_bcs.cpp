@@ -81,6 +81,11 @@ void REMORA::init_bcs ()
                 amrex::Abort("Flather BC can only be applied to ubar or vbar");
             }
         }
+        else if (bc_type_string == "orlanski_rad")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::orlanski_rad;
+            domain_bc_type[ori] = "Orlanski Radiation";
+        }
         else if (bc_type_string == "periodic")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::periodic;
@@ -262,6 +267,14 @@ void REMORA::init_bcs ()
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::clamped);
                     } else {
                         domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::clamped);
+                    }
+                }
+                else if (bct == REMORA_BC::orlanski_rad)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::orlanski_rad);
+                    } else {
+                        domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::orlanski_rad);
                     }
                 }
             }

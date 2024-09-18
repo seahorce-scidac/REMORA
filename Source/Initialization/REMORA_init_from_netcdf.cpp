@@ -200,9 +200,14 @@ REMORA::init_bathymetry_from_netcdf (int lev)
     } // idx
 
     const double dummy_time = 0.0_rt;
+    // Unconditional foextrap will overwrite periodicity, but EnforcePeriodicity will
+    // be called on h afterwards
     FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName),
-            BCVars::cons_bc,
-            BdyVars::null,0,true,true,1);
+            BCVars::foextrap_bc,
+            BdyVars::null,0,false,true,1);
+    FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName),
+            BCVars::foextrap_bc,
+            BdyVars::null,1,false,true,1);
 
     int ng = vec_pm[lev]->nGrow();
 

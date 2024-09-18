@@ -19,6 +19,8 @@ using namespace amrex;
 //
 void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
                                         const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/, const Array4<const Real>& mskr,
+                                        const Array4<const Real>& msku, const Array4<const Real>& mskv,
+                                        const Array4<const Real>& calc_arr,
                                         int icomp, int ncomp, Real /*time*/, int bccomp, int n_not_fill)
 {
     BL_PROFILE_VAR("impose_cons_bcs()",impose_cons_bcs);
@@ -57,7 +59,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     GeometryData const& geomdata = m_geom.data();
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
-
+    const Real eps= 1.0e-20_rt;
 
     // First do all ext_dir bcs
     if (!is_periodic_in_x)
@@ -128,6 +130,18 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                 int iflip = dom_lo.x - 1 - i;
                 if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped || bc_ptr[n].lo(0) == REMORABCType::chapman) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(dom_lo.x-n_not_fill,j,k,icomp+n);
+                } else if (bc_ptr[n].lo(0) == REMORABCType::orlanski_rad) {
+                    Real grad_lo_im1   = (calc_arr(dom_lo.x-1,j  ,k,icomp+n) - calc_arr(dom_lo.x-1,j-1,k,icomp+n)) * mskv(i,j,0);
+                    Real grad_lo       = (calc_arr(dom_lo.x  ,j  ,k,icomp+n) - calc_arr(dom_lo.x  ,j-1,k,icomp+n)) * mskv(i,j,0);
+                    Real grad_lo_imjp1 = (calc_arr(dom_lo.x-1,j+1,k,icomp+n) - calc_arr(dom_lo.x-1,j  ,k,icomp+n)) * mskv(i,j,0);
+                    Real grad_lo_jp1   = (calc_arr(dom_lo.x  ,j+1,k,icomp+n) - calc_arr(dom_lo.x  ,j  ,k,icomp+n)) * mskv(i,j,0);
+                    Real dTdt = calc_arr(dom_lo.x,j,k,icomp+n) - dest_arr(dom_lo.x  ,j,k,icomp+n);
+                    Real dTdx = dest_arr(dom_lo.x,j,k,icomp+n) - dest_arr(dom_lo.x+1,j,k,icomp+n);
+                    if (dTdt*dTdx < 0.0_rt) dTdt = 0.0_rt;
+                    Real dTde = (dTdt * (grad_lo+grad_lo_jp1) > 0.0_rt) ? grad_lo : grad_lo_jp1;
+                    Real cff = std::max(dTdx*dTdx+dTde*dTde,eps);
+                    Real Cx = dTdt * dTdx;
+                    dest_arr(i,j,k,icomp+n) = (cff * calc_arr(dom_lo.x-1,j,k,icomp+n) + Cx * dest_arr(dom_lo.x,j,k,icomp+n)) * mskr(i,j,0) / (cff+Cx);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(iflip,j,k,icomp+n);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_odd) {
@@ -138,6 +152,18 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                 int iflip =  2*dom_hi.x + 1 - i;
                 if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped || bc_ptr[n].hi(0) == REMORABCType::chapman) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(dom_hi.x+n_not_fill,j,k,icomp+n);
+                } else if (bc_ptr[n].hi(0) == REMORABCType::orlanski_rad) {
+                    Real grad_hi      = (calc_arr(dom_hi.x  ,j  ,k,icomp+n) - calc_arr(dom_hi.x  ,j-1,k,icomp+n)) * mskv(i,j,0);
+                    Real grad_hi_ip1  = (calc_arr(dom_hi.x+1,j  ,k,icomp+n) - calc_arr(dom_hi.x+1,j-1,k,icomp+n)) * mskv(i,j,0);
+                    Real grad_hi_jp1  = (calc_arr(dom_hi.x  ,j+1,k,icomp+n) - calc_arr(dom_hi.x  ,j  ,k,icomp+n)) * mskv(i,j,0);
+                    Real grad_hi_ijp1 = (calc_arr(dom_hi.x+1,j+1,k,icomp+n) - calc_arr(dom_hi.x+1,j  ,k,icomp+n)) * mskv(i,j,0);
+                    Real dTdt = calc_arr(dom_hi.x,j,k,icomp+n) - dest_arr(dom_hi.x  ,j,k,icomp+n);
+                    Real dTdx = dest_arr(dom_hi.x,j,k,icomp+n) - dest_arr(dom_hi.x-1,j,k,icomp+n);
+                    if (dTdt * dTdx < 0.0_rt) dTdt = 0.0_rt;
+                    Real dTde = (dTdt * (grad_hi + grad_hi_jp1) > 0.0_rt) ? grad_hi : grad_hi_jp1;
+                    Real cff = std::max(dTdx*dTdx + dTde*dTde,eps);
+                    Real Cx = dTdt * dTdx;
+                    dest_arr(i,j,k,icomp+n) = (cff * calc_arr(dom_hi.x+1,j,k,icomp+n) + Cx * dest_arr(dom_hi.x,j,k,icomp+n)) * mskr(i,j,0) / (cff+Cx);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(iflip,j,k,icomp+n);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_odd) {
@@ -161,6 +187,18 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                 int jflip = dom_lo.y - 1 - j;
                 if (bc_ptr[n].lo(1) == REMORABCType::foextrap || bc_ptr[n].lo(1) == REMORABCType::clamped || bc_ptr[n].lo(1) == REMORABCType::chapman) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_lo.y-n_not_fill,k,icomp+n);
+                } else if (bc_ptr[n].lo(1) == REMORABCType::orlanski_rad) {
+                    Real grad_lo       = (calc_arr(i  ,dom_lo.y,  k,icomp+n) - calc_arr(i-1,dom_lo.y  ,k,icomp+n)) * msku(i,j,0);
+                    Real grad_lo_jm1   = (calc_arr(i  ,dom_lo.y-1,k,icomp+n) - calc_arr(i-1,dom_lo.y-1,k,icomp+n)) * msku(i,j,0);
+                    Real grad_lo_ip1   = (calc_arr(i+1,dom_lo.y  ,k,icomp+n) - calc_arr(i  ,dom_lo.y  ,k,icomp+n)) * msku(i,j,0);
+                    Real grad_lo_ipjm1 = (calc_arr(i+1,dom_lo.y-1,k,icomp+n) - calc_arr(i  ,dom_lo.y-1,k,icomp+n)) * msku(i,j,0);
+                    Real dTdt = calc_arr(i,dom_lo.y,k,icomp+n) - dest_arr(i,dom_lo.y  ,k,icomp+n);
+                    Real dTde = dest_arr(i,dom_lo.y,k,icomp+n) - dest_arr(i,dom_lo.y+1,k,icomp+n);
+                    if (dTdt * dTde < 0.0_rt) dTdt = 0.0_rt;
+                    Real dTdx = (dTdt * (grad_lo + grad_lo_ip1) > 0.0_rt) ? grad_lo : grad_lo_ip1;
+                    Real cff = std::max(dTdx*dTdx + dTde*dTde, eps);
+                    Real Ce = dTdt*dTde;
+                    dest_arr(i,j,k,icomp+n) = (cff * calc_arr(i,dom_lo.y-1,k,icomp+n) + Ce * dest_arr(i,dom_lo.y,k,icomp+n)) * mskr(i,j,0) / (cff+Ce);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,jflip,k,icomp+n);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::reflect_odd) {
@@ -171,6 +209,18 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                 int jflip =  2*dom_hi.y + 1 - j;
                 if (bc_ptr[n].hi(1) == REMORABCType::foextrap || bc_ptr[n].hi(1) == REMORABCType::clamped || bc_ptr[n].hi(1) == REMORABCType::chapman) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_hi.y+n_not_fill,k,icomp+n);
+                } else if (bc_ptr[n].hi(1) == REMORABCType::orlanski_rad) {
+                    Real grad_hi      = (calc_arr(i  ,dom_hi.y  ,k,icomp+n) - calc_arr(i-1,dom_hi.y  ,k,icomp+n)) * msku(i,j,0);
+                    Real grad_hi_jp1  = (calc_arr(i  ,dom_hi.y+1,k,icomp+n) - calc_arr(i-1,dom_hi.y+1,k,icomp+n)) * msku(i,j,0);
+                    Real grad_hi_ip1  = (calc_arr(i+1,dom_hi.y  ,k,icomp+n) - calc_arr(i  ,dom_hi.y  ,k,icomp+n)) * msku(i,j,0);
+                    Real grad_hi_ijp1 = (calc_arr(i+1,dom_hi.y+1,k,icomp+n) - calc_arr(i  ,dom_hi.y+1,k,icomp+n)) * msku(i,j,0);
+                    Real dTdt = calc_arr(i,dom_hi.y,k,icomp+n) - dest_arr(i,dom_hi.y  ,k,icomp+n);
+                    Real dTde = dest_arr(i,dom_hi.y,k,icomp+n) - dest_arr(i,dom_hi.y-1,k,icomp+n);
+                    if (dTdt * dTde < 0.0_rt) dTdt = 0.0_rt;
+                    Real dTdx = (dTdt * (grad_hi + grad_hi_ip1) > 0.0_rt) ? grad_hi : grad_hi_ip1;
+                    Real cff = std::max(dTdx*dTdx + dTde*dTde, eps);
+                    Real Ce = dTdt*dTde;
+                    dest_arr(i,j,k,icomp+n) = (cff*calc_arr(i,dom_hi.y+1,k,icomp+n) + Ce*dest_arr(i,dom_hi.y,k,icomp+n)) * mskr(i,j,0) / (cff+Ce);
                 } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,jflip,k,icomp+n);
                 } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_odd) {

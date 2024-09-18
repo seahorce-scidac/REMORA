@@ -288,8 +288,8 @@ REMORA::InitData ()
         }
 
         FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false);
-        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BCVars::xvel_bc, BdyVars::u, 0, true, false);
-        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BCVars::yvel_bc, BdyVars::v, 0, true, false);
+        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BCVars::xvel_bc, BdyVars::u, 0, true, false,0,0,0.0,*xvel_new[lev]);
+        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BCVars::yvel_bc, BdyVars::v, 0, true, false,0,0,0.0,*yvel_new[lev]);
         FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null, 0, true, false);
 
         if (restart_chkfile == "") {
@@ -541,7 +541,8 @@ REMORA::set_coriolis(int lev) {
         }
 
         Real time = 0.0_rt;
-        FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor),BCVars::cons_bc);
+        FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor),BCVars::foextrap_bc);
+        vec_fcor[lev]->EnforcePeriodicity(geom[lev].periodicity());
     }
 }
 

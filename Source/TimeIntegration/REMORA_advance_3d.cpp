@@ -151,8 +151,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     }
 
     // Apply physical boundary conditions to u and v
-    (*physbcs[lev])(mf_u,*mf_msku,0,1,mf_u.nGrowVect(),t_old[lev],BCVars::xvel_bc);
-    (*physbcs[lev])(mf_v,*mf_mskv,0,1,mf_v.nGrowVect(),t_old[lev],BCVars::yvel_bc);
+    (*physbcs[lev])(mf_u,*mf_msku,0,1,mf_u.nGrowVect(),t_old[lev],BCVars::xvel_bc,0,*xvel_old[lev]);
+    (*physbcs[lev])(mf_v,*mf_mskv,0,1,mf_v.nGrowVect(),t_old[lev],BCVars::yvel_bc,0,*yvel_old[lev]);
 
 #ifdef REMORA_USE_NETCDF
         // Fill the data which is stored in the boundary data read from netcdf files
