@@ -8,8 +8,8 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     //FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t);
-    //xvel_new[lev]->FillBoundary(geom[lev].periodicity());
-    //yvel_new[lev]->FillBoundary(geom[lev].periodicity());
+    xvel_new[lev]->FillBoundary(geom[lev].periodicity());
+    yvel_new[lev]->FillBoundary(geom[lev].periodicity());
     //FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null);
 
     //FillPatch(lev, t_old[lev], *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t);
