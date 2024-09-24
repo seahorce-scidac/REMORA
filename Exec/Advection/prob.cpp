@@ -114,12 +114,18 @@ init_custom_prob(
         const Real r2 = x*x + y*y;
         const Real rad = 0.1 * (prob_hi[0]-prob_lo[0]);
         const Real radsq = rad*rad;
+        const Real rad_inner = 0.05 * (prob_hi[0]-prob_lo[0]);
+        const Real rad_inner_sq = rad_inner*rad_inner;
 
         if (l_use_salt) {
             state(i,j,k,Salt_comp)= S0;
         }
 
+        // Single circle of scalar (default)
         state(i, j, k, Scalar_comp) = std::exp(-r2/(2.*radsq));
+
+        // Donut of scalar
+        //state(i, j, k, Scalar_comp) = 1.25 * (std::exp(-r2/(2.*radsq)) - std::exp(-r2/(2*rad_inner_sq)));
     });
 
   // Construct a box that is on x-faces
