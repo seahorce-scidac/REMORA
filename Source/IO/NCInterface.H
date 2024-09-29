@@ -174,33 +174,43 @@ struct NCVar
     void par_access(const int cmode) const; //Uncomment for parallel NetCDF
 };
 
-//! Representation of a NetCDF group
-class NCGroup
+
+/** Representation of a NetCDF file
+ *
+ *  Provide wrappes to create and open file
+ */
+class NCFile
 {
 public:
-    //! Identifier used with NetCDF API calls
-    const int ncid;
+    static NCFile
+    create(const std::string& name, const int cmode = NC_CLOBBER | NC_NETCDF4);
 
-    //! Name of this group
-    std::string name() const;
+    static NCFile open(const std::string& name, const int cmode = NC_NOWRITE);
 
-    //! Full name for this group
-    std::string full_name() const;
+    static NCFile create_par(
+        const std::string& name,
+        const int cmode = NC_CLOBBER | NC_NETCDF4 | NC_MPIIO,
+        MPI_Comm comm = MPI_COMM_WORLD,
+        MPI_Info info = MPI_INFO_NULL);
 
-    //! Number of sub-groups within this group
-    int num_groups() const;
+    static NCFile open_par(
+        const std::string& name,
+        const int cmode = NC_NOWRITE,
+        MPI_Comm comm = MPI_COMM_WORLD,
+        MPI_Info info = MPI_INFO_NULL);
 
-    //! Number of dimensions in this group
+    ~NCFile();
+
+    void close();
+
+    //! Number of dimensions
     int num_dimensions() const;
 
-    //! Number of variables within this group
+    //! Number of variables
     int num_variables() const;
 
-    //! Number of attributes within this group
+    //! Number of attributes
     int num_attributes() const;
-
-    //! Check if a group exists
-    bool has_group(const std::string&) const;
 
     //! Check if a dimension exists by name
     bool has_dim(const std::string&) const;
@@ -211,20 +221,11 @@ public:
     //! Check if an attribute exists
     bool has_attr(const std::string&) const;
 
-    /** Get the group by name
-     *
-     *  Throws error if the group doesn't exist, use `has_group` to check
-     */
-    NCGroup group(const std::string&) const;
-
     //! Get the dimension instance by name
     NCDim dim(const std::string&) const;
 
     //! Get the variable instance by name
     NCVar var(const std::string&) const;
-
-    //! Define new group
-    NCGroup def_group(const std::string&) const;
 
     //! Define new dimension
     NCDim def_dim(const std::string&, const size_t len) const;
@@ -274,9 +275,6 @@ public:
     void get_attr(const std::string& name, std::vector<float>& value) const;
     void get_attr(const std::string& name, std::vector<int>& value) const;
 
-    //! Return a list of all groups defined in this group
-    std::vector<NCGroup> all_groups() const;
-
     //! Return a list of all dimensions defined in this group
     std::vector<NCDim> all_dims() const;
 
@@ -289,48 +287,16 @@ public:
     //! Exit definition mode
     void exit_def_mode() const;
 
-protected:
-    NCGroup(const int id) : ncid(id) {}
-    NCGroup(const int id, const NCGroup* /*par*/) : ncid(id) {}
-};
+    NCFile(const int id) : ncid(id), is_open{true} {}
 
-/** Representation of a NetCDF file
- *
- *  Provide wrappes to create and open file
- */
-class NCFile : public NCGroup
-{
-public:
-    static NCFile
-    create(const std::string& name, const int cmode = NC_CLOBBER | NC_NETCDF4);
-
-    static NCFile open(const std::string& name, const int cmode = NC_NOWRITE);
-
-    static NCFile create_par(
-        const std::string& name,
-        const int cmode = NC_CLOBBER | NC_NETCDF4 | NC_MPIIO,
-        MPI_Comm comm = MPI_COMM_WORLD,
-        MPI_Info info = MPI_INFO_NULL);
-
-    static NCFile open_par(
-        const std::string& name,
-        const int cmode = NC_NOWRITE,
-        MPI_Comm comm = MPI_COMM_WORLD,
-        MPI_Info info = MPI_INFO_NULL);
-
-    ~NCFile();
-
-    void close();
-
-protected:
-    NCFile(const int id) : NCGroup(id), is_open{true} {}
-
+    const int ncid{-1};
     bool is_open{false};
 };
 
 } // namespace ncutils
 
 #else
+// why do we need this if netcdf is not defined ?
 
 namespace ncutils {
 
@@ -346,14 +312,11 @@ struct NCVar
     const int varid{-1};
 };
 
-class NCGroup
+class NCFile
 {
 public:
     const int ncid{-1};
 };
-
-class NCFile : public NCGroup
-{};
 
 } // namespace ncutils
 
