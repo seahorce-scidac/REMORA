@@ -71,14 +71,12 @@ VPATH_LOCATIONS   += $(REMORA_PARTICLES_DIR)
 INCLUDE_LOCATIONS += $(REMORA_PARTICLES_DIR)
 endif
 
-#turn on NetCDF macro define
-ifeq ($(USE_NETCDF), TRUE)
-  USERSuffix = .NC
+#turn on PNetCDF macro define
+ifeq ($(USE_PNETCDF), TRUE)
+  USERSuffix = .PNC
   DEFINES += -DREMORA_USE_NETCDF
-  includes += $(shell pkg-config --cflags netcdf)
-  LIBRARIES += $(shell pkg-config --libs netcdf)
-#  includes += $(shell pkg-config --cflags netcdf-cxx4_parallel)
-#  LIBRARIES += $(shell pkg-config --libs netcdf-cxx4_parallel)
+  includes += $(shell pkg-config --cflags pnetcdf)
+  LIBRARIES += $(shell pkg-config --libs pnetcdf)
 endif
 
 ifeq ($(USE_HDF5), TRUE)

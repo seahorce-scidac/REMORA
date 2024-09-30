@@ -3,7 +3,7 @@ CEXE_sources += BoundaryConditions_yvel.cpp
 CEXE_sources += BoundaryConditions_zvel.cpp
 CEXE_sources += BoundaryConditions_cons.cpp
 
-ifeq ($(USE_NETCDF), TRUE)
+ifeq ($(USE_PNETCDF), TRUE)
 CEXE_sources += BoundaryConditions_netcdf.cpp
 endif
 
