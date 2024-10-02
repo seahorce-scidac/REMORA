@@ -208,23 +208,22 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         ncf.def_var("sustr", ncutils::NCDType::Real, {nt_name, ny_u_name, nx_u_name});
         ncf.def_var("svstr", ncutils::NCDType::Real, {nt_name, ny_v_name, nx_v_name});
 
+        Real time = 0.;
+
+        // Right now this is hard-wired to {temp, salt, u, v}
+        int n_data_items = 4;
+        ncf.put_attr("number_variables", std::vector<int>{n_data_items});
+        ncf.put_attr("space_dimension", std::vector<int>{AMREX_SPACEDIM});
+        ncf.put_attr("current_time", std::vector<double>{time});
+        ncf.put_attr("start_time", std::vector<double>{start_bdy_time});
+        ncf.put_attr("CurrentLevel", std::vector<int>{flev});
+
         ncf.exit_def_mode();
 
         // We are doing single-level writes but it doesn't have to be level 0
         //
         // Write out the header information.
         //
-
-        Real time = 0.;
-
-        // Right now this is hard-wired to {temp, salt, u, v}
-        int n_data_items = 4;
-
-        ncf.put_attr("number_variables", std::vector<int>{n_data_items});
-        ncf.put_attr("space_dimension", std::vector<int>{AMREX_SPACEDIM});
-        ncf.put_attr("current_time", std::vector<double>{time});
-        ncf.put_attr("start_time", std::vector<double>{start_bdy_time});
-        ncf.put_attr("CurrentLevel", std::vector<int>{flev});
 
         Real dx[AMREX_SPACEDIM];
         for (int i = 0; i < AMREX_SPACEDIM; i++) {
