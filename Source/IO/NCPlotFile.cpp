@@ -217,6 +217,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         ncf.put_attr("current_time", std::vector<double>{time});
         ncf.put_attr("start_time", std::vector<double>{start_bdy_time});
         ncf.put_attr("CurrentLevel", std::vector<int>{flev});
+        ncf.put_attr("DefaultGeometry", std::vector<int>{amrex::DefaultGeometry().Coord()});
 
         ncf.exit_def_mode();
 
@@ -239,43 +240,50 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             probHi.push_back(rb.hi(i));
         }
 
-        auto nc_probLo = ncf.var("probLo");
+
         //nc_probLo.par_access(NC_COLLECTIVE);
-        nc_probLo.put(probLo.data(), {0}, {AMREX_SPACEDIM});
+        // small variable data written by just the master proc
+        ncmpi_begin_indep_data(ncf.ncid);
+        if (amrex::ParallelDescriptor::IOProcessor()) // only master proc
+        {
+            auto nc_probLo = ncf.var("probLo");
 
-        auto nc_probHi = ncf.var("probHi");
+           nc_probLo.put(probLo.data(), {0}, {AMREX_SPACEDIM});
+
+           auto nc_probHi = ncf.var("probHi");
         //nc_probHi.par_access(NC_COLLECTIVE);
-        nc_probHi.put(probHi.data(), {0}, {AMREX_SPACEDIM});
+           nc_probHi.put(probHi.data(), {0}, {AMREX_SPACEDIM});
 
-        amrex::Vector<int> smallend;
-        amrex::Vector<int> bigend;
-        for (int i = lev; i < flev; i++) {
-            smallend.clear(); bigend.clear();
-            for (int j = 0; j < AMREX_SPACEDIM; j++) {
-                smallend.push_back(subdomain.smallEnd(j));
-                bigend.push_back(subdomain.bigEnd(j));
+            amrex::Vector<int> smallend;
+            amrex::Vector<int> bigend;
+            for (int i = lev; i < flev; i++) {
+                smallend.clear(); bigend.clear();
+                for (int j = 0; j < AMREX_SPACEDIM; j++) {
+                    smallend.push_back(subdomain.smallEnd(j));
+                    bigend.push_back(subdomain.bigEnd(j));
+                }
+                auto nc_Geom_smallend = ncf.var("Geom.smallend");
+                //nc_Geom_smallend.par_access(NC_COLLECTIVE);
+                nc_Geom_smallend.put(smallend.data(), {static_cast<long unsigned int>(i-lev), 0}, {1, AMREX_SPACEDIM});
+
+                auto nc_Geom_bigend = ncf.var("Geom.bigend");
+                //nc_Geom_bigend.par_access(NC_COLLECTIVE);
+                nc_Geom_bigend.put(bigend.data(), {static_cast<long unsigned int>(i-lev), 0}, {1, AMREX_SPACEDIM});
             }
-            auto nc_Geom_smallend = ncf.var("Geom.smallend");
-            //nc_Geom_smallend.par_access(NC_COLLECTIVE);
-            nc_Geom_smallend.put(smallend.data(), {static_cast<long unsigned int>(i-lev), 0}, {1, AMREX_SPACEDIM});
 
-            auto nc_Geom_bigend = ncf.var("Geom.bigend");
-            //nc_Geom_bigend.par_access(NC_COLLECTIVE);
-            nc_Geom_bigend.put(bigend.data(), {static_cast<long unsigned int>(i-lev), 0}, {1, AMREX_SPACEDIM});
-        }
-
-        amrex::Vector<Real> CellSize;
-        for (int i = lev; i < flev; i++) {
-            CellSize.clear();
-            for (Real & j : dx) {
-                CellSize.push_back(amrex::Real(j));
+            amrex::Vector<Real> CellSize;
+            for (int i = lev; i < flev; i++) {
+                CellSize.clear();
+                for (Real & j : dx) {
+                    CellSize.push_back(amrex::Real(j));
+                }
+                auto nc_CellSize = ncf.var("CellSize");
+                //nc_CellSize.par_access(NC_COLLECTIVE);
+                nc_CellSize.put(CellSize.data(), {static_cast<long unsigned int>(i-lev), 0}, {1, AMREX_SPACEDIM});
             }
-            auto nc_CellSize = ncf.var("CellSize");
-            //nc_CellSize.par_access(NC_COLLECTIVE);
-            nc_CellSize.put(CellSize.data(), {static_cast<long unsigned int>(i-lev), 0}, {1, AMREX_SPACEDIM});
-        }
 
-        ncf.put_attr("DefaultGeometry", std::vector<int>{amrex::DefaultGeometry().Coord()});
+        }
+        ncmpi_end_indep_data(ncf.ncid);
 
         std::vector<Real> x_grid;
         std::vector<Real> y_grid;
@@ -309,13 +317,15 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
                 //nc_y_grid.par_access(NC_INDEPENDENT);
                 //nc_z_grid.par_access(NC_INDEPENDENT);
 
-                nc_x_grid.put(x_grid.data(), {goffset}, {glen});
-                nc_y_grid.put(y_grid.data(), {goffset}, {glen});
-                nc_z_grid.put(z_grid.data(), {goffset}, {glen});
+                nc_x_grid.put_all(x_grid.data(), {goffset}, {glen});
+                nc_y_grid.put_all(y_grid.data(), {goffset}, {glen});
+                nc_z_grid.put_all(z_grid.data(), {goffset}, {glen});
             }
         }
+
     } // end if write_header
 
+    ncmpi_begin_indep_data(ncf.ncid);
     //
     // We compute the offsets based on location of the box within the domain
     //
@@ -327,6 +337,10 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
     //nc_plot_var.par_access(NC_COLLECTIVE);
     nc_plot_var.put(&t_new[lev], {local_start_nt}, {local_nt});
     }
+    ncmpi_end_indep_data(ncf.ncid);
+
+    // temporary
+    //ncf.close();
 
     cons_new[lev]->FillBoundary(geom[lev].periodicity());
 
@@ -372,7 +386,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
                 auto nc_plot_var = ncf.var("h");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
-                nc_plot_var.put(tmp_bathy.dataPtr(), {local_start_y,local_start_x},
+                nc_plot_var.put_all(tmp_bathy.dataPtr(), {local_start_y,local_start_x},
                                                      {local_ny, local_nx});
             }
 
@@ -384,7 +398,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("zeta");
             //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp_zeta.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+            nc_plot_var.put_all(tmp_zeta.dataPtr(), {local_start_nt,local_start_y,local_start_x},
                                                 {local_nt, local_ny, local_nx});
             }
 
@@ -396,7 +410,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("temp");
             //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp_temp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+            nc_plot_var.put_all(tmp_temp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
                                                 {local_nt, local_nz, local_ny, local_nx});
             }
 
@@ -408,7 +422,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("salt");
             //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp_salt.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+            nc_plot_var.put_all(tmp_salt.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
                                                 {local_nt, local_nz, local_ny, local_nx});
             }
         } // subdomain
@@ -450,7 +464,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("u");
             //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+            nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
                                            {local_nt, local_nz, local_ny, local_nx});
             }
 
@@ -462,7 +476,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("ubar");
             //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+            nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
                                            {local_nt, local_ny, local_nx});
             }
             {
@@ -473,7 +487,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("sustr");
             //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+            nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
                                            {local_nt, local_ny, local_nx});
             }
         } // in subdomain
@@ -518,7 +532,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("v");
             //nc_plot_var.par_access(NC_INDEPENDENT);
-             nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+             nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
                                             {local_nt, local_nz, local_ny, local_nx});
             }
 
@@ -530,7 +544,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("vbar");
             //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+            nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
                                            {local_nt, local_ny, local_nx});
             }
             {
@@ -541,7 +555,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
             auto nc_plot_var = ncf.var("svstr");
             //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+            nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
                                            {local_nt, local_ny, local_nx});
             }
 

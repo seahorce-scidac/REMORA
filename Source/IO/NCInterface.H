@@ -76,6 +76,11 @@ struct NCVar
         const std::vector<MPI_Offset>&,
         const std::vector<MPI_Offset>&) const;
 
+    //! Write out a slice of data, collective
+    void
+    put_all(const double*,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
     //! Write out a slice of data with with strides (see hyperslab definition in
     //! NetCDF)
     void

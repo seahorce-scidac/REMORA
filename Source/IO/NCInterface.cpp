@@ -88,6 +88,16 @@ void NCVar::put(
         ncmpi_put_vara_double(ncid, varid, start.data(), count.data(), dptr));
 }
 
+//! Write out a slice of data, collective
+void NCVar::put_all(
+        const double* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count) const
+{
+    check_ncmpi_error(
+        ncmpi_put_vara_double_all(ncid, varid, start.data(), count.data(), dptr));
+}
+
 void NCVar::put(
     const double* dptr,
     const std::vector<MPI_Offset>& start,
