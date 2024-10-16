@@ -440,7 +440,7 @@ struct SolverChoice {
     // Nudging time scales in 1/s
     amrex::Vector<amrex::Real> nudg_coeff;
 
-    // Factor between passive (outflow) and active (inflow) open boudnary
+    // Factor between passive (outflow) and active (inflow) open boundary
     // conditions.
     amrex::Real obcfac = amrex::Real(0.0);
 };
