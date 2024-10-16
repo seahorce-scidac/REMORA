@@ -691,6 +691,7 @@ public:
                             const int bdy_var_type,
                             const int icomp_to_fill,
                             const int icomp_calc = 0,
+                            const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                             const amrex::Real = amrex::Real(0.0));
 
     void init_beta_plane_coriolis (int lev);
@@ -874,7 +875,7 @@ private:
     amrex::Array<std::string,2*AMREX_SPACEDIM> domain_bc_type;
 
     // These hold the Dirichlet values at walls which need them ...
-    amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS+5> m_bc_extdir_vals;
+    amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS+8> m_bc_extdir_vals;
 
     // These are the "physical" boundary condition types (e.g. "inflow")
     amrex::GpuArray<amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2>,BCVars::NumTypes> phys_bc_type;

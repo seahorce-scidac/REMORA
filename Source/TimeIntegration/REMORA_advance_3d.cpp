@@ -158,8 +158,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         // Fill the data which is stored in the boundary data read from netcdf files
         if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) )
         {
-            fill_from_bdyfiles(mf_u,*mf_msku,t_old[lev],BCVars::xvel_bc,BdyVars::u,0);
-            fill_from_bdyfiles(mf_v,*mf_mskv,t_old[lev],BCVars::yvel_bc,BdyVars::v,0);
+            fill_from_bdyfiles(mf_u,*mf_msku,t_old[lev],BCVars::xvel_bc,BdyVars::u,0,0,*xvel_old[lev],dt_lev);
+            fill_from_bdyfiles(mf_v,*mf_mskv,t_old[lev],BCVars::yvel_bc,BdyVars::v,0,0,*yvel_old[lev],dt_lev);
         }
 #endif
 
@@ -347,7 +347,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
     } // mfi
 
-    FillPatch(lev, t_old[lev], mf_cons, cons_new, BCVars::cons_bc, BdyVars::t);
+    FillPatch(lev, t_old[lev], mf_cons, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {

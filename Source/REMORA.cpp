@@ -287,7 +287,7 @@ REMORA::InitData ()
             Construct_REMORAFillPatchers(lev);
         }
 
-        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false);
+        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,0.0,*cons_new[lev]);
         FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BCVars::xvel_bc, BdyVars::u, 0, true, false,0,0,0.0,*xvel_new[lev]);
         FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BCVars::yvel_bc, BdyVars::v, 0, true, false,0,0,0.0,*yvel_new[lev]);
         FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null, 0, true, false);
@@ -576,9 +576,11 @@ REMORA::set_hmixcoef(int lev)
     init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev], solverChoice);
 
     Real time = 0.0_rt;
-    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p),BCVars::cons_bc);
-    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r),BCVars::cons_bc);
-    FillPatch(lev, time, *vec_diff2[lev]  , GetVecOfPtrs(vec_diff2),BCVars::cons_bc);
+    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p),BCVars::foextrap_periodic_bc);
+    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r),BCVars::foextrap_periodic_bc);
+    for (int n=0; n<NCONS; n++) {
+        FillPatch(lev, time, *vec_diff2[lev]  , GetVecOfPtrs(vec_diff2),BCVars::foextrap_periodic_bc,BdyVars::null,n,false);
+    }
 }
 
 void
@@ -616,6 +618,10 @@ REMORA::init_only (int lev, Real time)
         amrex::Print() << "Calling init_masks_from_netcdf " << std::endl;
         init_masks_from_netcdf(lev);
         amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
+
+        amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
+        init_bdry_from_netcdf();
+        amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
     }
 #endif
 
@@ -635,9 +641,6 @@ REMORA::init_only (int lev, Real time)
                 set_zeta_to_Ztavg(lev);
                 amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
 
-                amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
-                init_bdry_from_netcdf();
-                amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
 #endif
             } else {
                 Abort("Need to specify ic_bc_type");
@@ -655,15 +658,11 @@ REMORA::init_only (int lev, Real time)
             init_custom(lev);
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
-
             amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
             init_data_from_netcdf(lev);
             set_zeta_to_Ztavg(lev);
             amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
 
-            amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
-            init_bdry_from_netcdf();
-            amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
 #endif
         } else {
             Abort("Need to specify ic_bc_type");

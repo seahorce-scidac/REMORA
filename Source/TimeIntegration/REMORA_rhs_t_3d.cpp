@@ -38,6 +38,14 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
                  const Array4<Real const>& mskv,
                  int nrhs, int nnew, int N, Real dt_lev)
 {
+    const Box& domain = geom[0].Domain();
+    const auto dlo = amrex::lbound(domain);
+    const auto dhi = amrex::ubound(domain);
+
+    GeometryData const& geomdata = geom[0].data();
+    bool is_periodic_in_x = geomdata.isPeriodic(0);
+    bool is_periodic_in_y = geomdata.isPeriodic(1);
+
     //copy the tilebox
     Box tbxp1 = bx;
     Box tbxp2 = bx;
@@ -78,9 +86,23 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
     ParallelFor(utbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        //should be t index 3
         FX(i,j,k)=(sstore(i,j,k,nrhs)-sstore(i-1,j,k,nrhs)) * msku(i,j,0);
     });
+
+    Box utbxp1_slab_lo = makeSlab(utbxp1,0,dlo.x-1) & utbxp1;
+    Box utbxp1_slab_hi = makeSlab(utbxp1,0,dhi.x+1) & utbxp1;
+    if (!utbxp1_slab_lo.isEmpty() && !is_periodic_in_x) {
+        ParallelFor(utbxp1_slab_lo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FX(i,j,k) = FX(i+1,j,k);
+        });
+    }
+    if (!utbxp1_slab_hi.isEmpty() && !is_periodic_in_x) {
+        ParallelFor(utbxp1_slab_hi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FX(i+1,j,k) = FX(i,j,k);
+        });
+    }
 
     Real cffa=1.0_rt/6.0_rt;
     Real cffb=1.0_rt/3.0_rt;
@@ -161,9 +183,24 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
     ParallelFor(vtbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        //should be t index 3
         FE(i,j,k)=(sstore(i,j,k,nrhs)-sstore(i,j-1,k,nrhs)) * mskv(i,j,0);
     });
+
+    Box vtbxp1_slab_lo = makeSlab(vtbxp1,1,dlo.y-1) & vtbxp1;
+    Box vtbxp1_slab_hi = makeSlab(vtbxp1,1,dhi.y+1) & vtbxp1;
+    if (!vtbxp1_slab_lo.isEmpty() && !is_periodic_in_y) {
+        ParallelFor(vtbxp1_slab_lo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FE(i,j,k) = FE(i,j+1,k);
+        });
+    }
+    if (!vtbxp1_slab_hi.isEmpty() && !is_periodic_in_y) {
+        ParallelFor(vtbxp1_slab_hi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FE(i,j+1,k) = FE(i,j,k);
+        });
+    }
+
 
     cffa=1.0_rt/6.0_rt;
     cffb=1.0_rt/3.0_rt;

@@ -56,9 +56,10 @@ void REMORAPhysBCFunct::operator() (MultiFab& mf, const MultiFab& msk, int icomp
                     const Array4<const Real>& msku_arr = (!null_mf_msku) ? mf_msku.const_array(mfi) : Array4<const Real>();
                     const Array4<const Real>& mskv_arr = (!null_mf_mskv) ? mf_mskv.const_array(mfi) : Array4<const Real>();
                     Box bx = mfi.validbox(); bx.grow(nghost);
+                    Box valid_bx = mfi.validbox();
 
                     if (!gdomain.contains(bx)) {
-                        impose_cons_bcs(dest_arr,bx,domain,dxInv,msk_arr,
+                        impose_cons_bcs(dest_arr,bx,valid_bx,domain,dxInv,msk_arr,
                                 msku_arr,mskv_arr,calc_arr,icomp,ncomp,time,bccomp,n_not_fill);
                     }
                 } // mfi

@@ -11,7 +11,7 @@ using namespace amrex;
  */
 
 void
-REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const Real time, const int bccomp, const int bdy_var_type, const int icomp_to_fill, const int icomp_calc, const Real dt_calc)
+REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const Real time, const int bccomp, const int bdy_var_type, const int icomp_to_fill, const int icomp_calc, const MultiFab& mf_calc, const Real dt_calc)
 {
     int lev = 0;
 
@@ -40,6 +40,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
     const auto& mf_index_type = mf_to_fill.boxArray().ixType();
     domain.convert(mf_index_type);
 
+
     const auto& dom_lo = amrex::lbound(domain);
     const auto& dom_hi = amrex::ubound(domain);
 
@@ -60,6 +61,9 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
 
     // Make sure we can interpolate in time
     AMREX_ALWAYS_ASSERT(n_time + 1 < bdy_data_xlo.size());
+
+    const Real eps= 1.0e-20_rt;
+    const bool null_mf_calc = (!mf_calc.ok());
 
     for (int icomp = 0; icomp < ncomp; icomp++) // This is to do both temp and salt if doing scalars
     {
@@ -87,16 +91,25 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
 
         const bool apply_west  = (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::clamped) ||
                                  (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather) ||
-                                 (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::chapman);
+                                 (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::chapman) ||
+                                 (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::orlanski_rad_nudge);
         const bool apply_east  = (domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::clamped) ||
                                  (domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather) ||
-                                 (domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::chapman);
+                                 (domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::chapman) ||
+                                 (domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::orlanski_rad_nudge);
         const bool apply_north = (domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::clamped) ||
                                  (domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::flather) ||
-                                 (domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::chapman);
+                                 (domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::chapman) ||
+                                 (domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::orlanski_rad_nudge);
         const bool apply_south = (domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::clamped) ||
                                  (domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::flather) ||
-                                 (domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::chapman);
+                                 (domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::chapman) ||
+                                 (domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::orlanski_rad_nudge);
+
+        const bool cell_centered = (mf_index_type[0] == 0 and mf_index_type[1] == 0);
+
+        const Real nudg_coeff_out = solverChoice.nudg_coeff[bdy_var_type];
+        const Real nudg_coeff_in  = solverChoice.nudg_coeff[bdy_var_type] * solverChoice.obcfac;
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -107,10 +120,11 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             Box mf_box(mf_to_fill[mfi.index()].box());
 
             // Compute intersections of the FAB to be filled and the bdry data boxes
-            Box xlo = bdy_data_xlo[n_time][ivar].box() & mf_box;
-            Box xhi = bdy_data_xhi[n_time][ivar].box() & mf_box;
-            Box ylo = bdy_data_ylo[n_time][ivar].box() & mf_box;
-            Box yhi = bdy_data_yhi[n_time][ivar].box() & mf_box;
+            Box xlo_tmp(bdy_data_xlo[n_time][ivar].box());
+            Box xlo = xlo_tmp & mf_box;
+            Box xhi_tmp(bdy_data_xhi[n_time][ivar].box()); Box xhi = xhi_tmp & mf_box;
+            Box ylo_tmp(bdy_data_ylo[n_time][ivar].box()); Box ylo = ylo_tmp & mf_box;
+            Box yhi_tmp(bdy_data_yhi[n_time][ivar].box()); Box yhi = yhi_tmp & mf_box;
 
             xlo.setSmall(0,lbound(mf_box).x);
             xhi.setBig  (0,ubound(mf_box).x);
@@ -124,13 +138,18 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
 
             const Array4<Real>& dest_arr = mf_to_fill.array(mfi);
             const Array4<const Real>& mask_arr = mf_mask.array(mfi);
+            const Array4<const Real>& calc_arr = (!null_mf_calc) ? mf_calc.array(mfi) : Array4<amrex::Real>();
             const Array4<const Real>& h_arr = vec_hOfTheConfusingName[lev]->const_array(mfi);
             const Array4<const Real>& zeta_arr = vec_zeta[lev]->const_array(mfi);
             const Array4<const Real>& pm = vec_pm[lev]->const_array(mfi);
             const Array4<const Real>& pn = vec_pn[lev]->const_array(mfi);
 
+            const Array4<const Real>& msku = vec_msku[lev]->const_array(mfi);
+            const Array4<const Real>& mskv = vec_mskv[lev]->const_array(mfi);
+
             Vector<BCRec> bcrs(ncomp);
             amrex::setBC(mf_box, domain, bccomp, 0, ncomp, domain_bcs_type, bcrs);
+
 
             // xlo: ori = 0
             // ylo: ori = 1
@@ -171,6 +190,31 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                         Real cff2 = 1.0_rt / (1.0_rt + Cx);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = cff2 * (dest_arr(dom_lo.x-1,j,k,icomp_calc)
                                 + Cx * dest_arr(dom_lo.x,j,k,icomp+icomp_to_fill)) * mask_arr(i,j,0);
+                    } else if (bc_ptr[icomp].lo(0) == REMORABCType::orlanski_rad_nudge) {
+                        Real grad_lo_im1   = (calc_arr(dom_lo.x+mf_index_type[0]-1,j  ,k,icomp+icomp_to_fill) - calc_arr(dom_lo.x-1+mf_index_type[0],j-1,k,icomp+icomp_to_fill));
+                        Real grad_lo       = (calc_arr(dom_lo.x+mf_index_type[0]  ,j  ,k,icomp+icomp_to_fill) - calc_arr(dom_lo.x  +mf_index_type[0],j-1,k,icomp+icomp_to_fill));
+                        Real grad_lo_imjp1 = (calc_arr(dom_lo.x+mf_index_type[0]-1,j+1,k,icomp+icomp_to_fill) - calc_arr(dom_lo.x-1+mf_index_type[0],j  ,k,icomp+icomp_to_fill));
+                        Real grad_lo_jp1   = (calc_arr(dom_lo.x+mf_index_type[0]  ,j+1,k,icomp+icomp_to_fill) - calc_arr(dom_lo.x  +mf_index_type[0],j  ,k,icomp+icomp_to_fill));
+                        if (cell_centered) {
+                                grad_lo_im1   *= mskv(i,j,0);
+                                grad_lo       *= mskv(i,j,0);
+                                grad_lo_imjp1 *= mskv(i,j,0);
+                                grad_lo_jp1   *= mskv(i,j,0);
+                        }
+                        Real dTdt = calc_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_lo.x+mf_index_type[0]  ,j,k,icomp+icomp_to_fill);
+                        Real dTdx = dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_lo.x+mf_index_type[0]+1,j,k,icomp+icomp_to_fill);
+                        Real tau;
+                        if (dTdt*dTdx < 0.0_rt) {
+                            tau = nudg_coeff_in * dt_calc;
+                            dTdt = 0.0_rt;
+                        } else {
+                            tau = nudg_coeff_out * dt_calc;
+                        }
+                        Real dTde = (dTdt * (grad_lo+grad_lo_jp1) > 0.0_rt) ? grad_lo : grad_lo_jp1;
+                        Real cff = std::max(dTdx*dTdx+dTde*dTde,eps);
+                        Real Cx = dTdt * dTdx;
+                        dest_arr(i,j,k,icomp+icomp_to_fill) = (cff * calc_arr(dom_lo.x-1+mf_index_type[0],j,k,icomp+icomp_to_fill) + Cx * dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill)) / (cff+Cx);
+                        dest_arr(i,j,k,icomp+icomp_to_fill) = mask_arr(i,j,0) * (dest_arr(dom_lo.x-1+mf_index_type[0],j,k,icomp+icomp_to_fill) + tau * (bry_val - calc_arr(dom_lo.x-1+mf_index_type[0],j,k,icomp+icomp_to_fill)));
                     }
                 });
             }
@@ -199,6 +243,32 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                         Real cff2 = 1.0_rt / (1.0_rt + Cx);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = cff2 * (dest_arr(dom_hi.x+1,j,k,icomp_calc)
                                 + Cx * dest_arr(dom_hi.x,j,k,icomp+icomp_to_fill)) * mask_arr(i,j,0);
+                    } else if (bc_ptr[icomp].hi(0) == REMORABCType::orlanski_rad_nudge) {
+                        Real grad_hi      = (calc_arr(dom_hi.x-mf_index_type[0]  ,j  ,k,icomp+icomp_to_fill) - calc_arr(dom_hi.x-mf_index_type[0]  ,j-1,k,icomp+icomp_to_fill));
+                        Real grad_hi_ip1  = (calc_arr(dom_hi.x-mf_index_type[0]+1,j  ,k,icomp+icomp_to_fill) - calc_arr(dom_hi.x-mf_index_type[0]+1,j-1,k,icomp+icomp_to_fill));
+                        Real grad_hi_jp1  = (calc_arr(dom_hi.x-mf_index_type[0]  ,j+1,k,icomp+icomp_to_fill) - calc_arr(dom_hi.x-mf_index_type[0]  ,j  ,k,icomp+icomp_to_fill));
+                        Real grad_hi_ijp1 = (calc_arr(dom_hi.x-mf_index_type[0]+1,j+1,k,icomp+icomp_to_fill) - calc_arr(dom_hi.x-mf_index_type[0]+1,j  ,k,icomp+icomp_to_fill));
+                        if (cell_centered) {
+                            grad_hi      * mskv(i,j,0);
+                            grad_hi_ip1  * mskv(i,j,0);
+                            grad_hi_jp1  * mskv(i,j,0);
+                            grad_hi_ijp1 * mskv(i,j,0);
+                        }
+                        Real dTdt = calc_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_hi.x-mf_index_type[0]  ,j,k,icomp+icomp_to_fill);
+                        Real dTdx = dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_hi.x-mf_index_type[0]-1,j,k,icomp+icomp_to_fill);
+                        Real tau;
+                        if (dTdt*dTdx < 0.0_rt) {
+                            tau = nudg_coeff_in * dt_calc;
+                            dTdt = 0.0_rt;
+                        } else {
+                            tau = nudg_coeff_out * dt_calc;
+                        }
+                        if (dTdt * dTdx < 0.0_rt) dTdt = 0.0_rt;
+                        Real dTde = (dTdt * (grad_hi + grad_hi_jp1) > 0.0_rt) ? grad_hi : grad_hi_jp1;
+                        Real cff = std::max(dTdx*dTdx + dTde*dTde,eps);
+                        Real Cx = dTdt * dTdx;
+                        dest_arr(i,j,k,icomp+icomp_to_fill) = (cff * calc_arr(dom_hi.x+1-mf_index_type[0],j,k,icomp+icomp_to_fill) + Cx * dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill)) * mask_arr(i,j,0) / (cff+Cx);
+                        dest_arr(i,j,k,icomp+icomp_to_fill) = mask_arr(i,j,0) * (dest_arr(dom_hi.x+1-mf_index_type[0],j,k,icomp+icomp_to_fill) + tau * (bry_val - calc_arr(dom_hi.x+1-mf_index_type[0],j,k,icomp+icomp_to_fill)));
                     }
                 });
             }
@@ -228,6 +298,32 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                         Real cff2 = 1.0_rt / (1.0_rt + Ce);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = cff2 * (dest_arr(i,dom_lo.y-1,k,icomp_calc)
                                 + Ce * dest_arr(i,dom_lo.y,k,icomp+icomp_to_fill)) * mask_arr(i,j,0);
+                    } else if (bc_ptr[icomp].lo(1) == REMORABCType::orlanski_rad_nudge) {
+                        Real grad_lo       = (calc_arr(i  ,dom_lo.y+mf_index_type[1],  k,icomp+icomp_to_fill) - calc_arr(i-1,dom_lo.y+mf_index_type[1]  ,k,icomp+icomp_to_fill));
+                        Real grad_lo_jm1   = (calc_arr(i  ,dom_lo.y+mf_index_type[1]-1,k,icomp+icomp_to_fill) - calc_arr(i-1,dom_lo.y+mf_index_type[1]-1,k,icomp+icomp_to_fill));
+                        Real grad_lo_ip1   = (calc_arr(i+1,dom_lo.y+mf_index_type[1]  ,k,icomp+icomp_to_fill) - calc_arr(i  ,dom_lo.y+mf_index_type[1]  ,k,icomp+icomp_to_fill));
+                        Real grad_lo_ipjm1 = (calc_arr(i+1,dom_lo.y+mf_index_type[1]-1,k,icomp+icomp_to_fill) - calc_arr(i  ,dom_lo.y+mf_index_type[1]-1,k,icomp+icomp_to_fill));
+                        if (cell_centered) {
+                            grad_lo       *= msku(i,j,0);
+                            grad_lo_jm1   *= msku(i,j,0);
+                            grad_lo_ip1   *= msku(i,j,0);
+                            grad_lo_ipjm1 *= msku(i,j,0);
+                        }
+                        Real dTdt = calc_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_lo.y  +mf_index_type[1],k,icomp+icomp_to_fill);
+                        Real dTde = dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_lo.y+1+mf_index_type[1],k,icomp+icomp_to_fill);
+                        Real tau;
+                        if (dTdt*dTde < 0.0_rt) {
+                            tau = nudg_coeff_in * dt_calc;
+                            dTdt = 0.0_rt;
+                        } else {
+                            tau = nudg_coeff_out * dt_calc;
+                        }
+                        if (dTdt * dTde < 0.0_rt) dTdt = 0.0_rt;
+                        Real dTdx = (dTdt * (grad_lo + grad_lo_ip1) > 0.0_rt) ? grad_lo : grad_lo_ip1;
+                        Real cff = std::max(dTdx*dTdx + dTde*dTde, eps);
+                        Real Ce = dTdt*dTde;
+                        dest_arr(i,j,k,icomp+icomp_to_fill) = (cff * calc_arr(i,dom_lo.y-1+mf_index_type[1],k,icomp+icomp_to_fill) + Ce * dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill)) / (cff+Ce);
+                        dest_arr(i,j,k,icomp+icomp_to_fill) = mask_arr(i,j,0) * (dest_arr(i,dom_lo.y-1+mf_index_type[1],k,icomp+icomp_to_fill) + tau * (bry_val - calc_arr(i,dom_lo.y-1+mf_index_type[1],k,icomp+icomp_to_fill)));
                     }
                 });
             }
@@ -257,10 +353,36 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                         Real cff2 = 1.0_rt / (1.0_rt + Ce);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = cff2 * (dest_arr(i,dom_hi.y+1,k,icomp_calc)
                                 + Ce * dest_arr(i,dom_hi.y,k,icomp+icomp_to_fill)) * mask_arr(i,j,0);
+                    } else if (bc_ptr[icomp].hi(1) == REMORABCType::orlanski_rad_nudge) {
+                        Real grad_hi      = calc_arr(i  ,dom_hi.y-mf_index_type[1]  ,k,icomp+icomp_to_fill) - calc_arr(i-1,dom_hi.y-mf_index_type[1]  ,k,icomp+icomp_to_fill);
+                        Real grad_hi_jp1  = calc_arr(i  ,dom_hi.y-mf_index_type[1]+1,k,icomp+icomp_to_fill) - calc_arr(i-1,dom_hi.y-mf_index_type[1]+1,k,icomp+icomp_to_fill);
+                        Real grad_hi_ip1  = calc_arr(i+1,dom_hi.y-mf_index_type[1]  ,k,icomp+icomp_to_fill) - calc_arr(i  ,dom_hi.y-mf_index_type[1]  ,k,icomp+icomp_to_fill);
+                        Real grad_hi_ijp1 = calc_arr(i+1,dom_hi.y-mf_index_type[1]+1,k,icomp+icomp_to_fill) - calc_arr(i  ,dom_hi.y-mf_index_type[1]+1,k,icomp+icomp_to_fill);
+                        if (cell_centered) {
+                            grad_hi      *= msku(i,j,0);
+                            grad_hi_jp1  *= msku(i,j,0);
+                            grad_hi_ip1  *= msku(i,j,0);
+                            grad_hi_ijp1 *= msku(i,j,0);
+                        }
+                        Real dTdt = calc_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_hi.y  -mf_index_type[1],k,icomp+icomp_to_fill);
+                        Real dTde = dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_hi.y-1-mf_index_type[1],k,icomp+icomp_to_fill);
+                        Real tau;
+                        if (dTdt*dTde < 0.0_rt) {
+                            tau = nudg_coeff_in * dt_calc;
+                            dTdt = 0.0_rt;
+                        } else {
+                            tau = nudg_coeff_out * dt_calc;
+                        }
+                        if (dTdt * dTde < 0.0_rt) dTdt = 0.0_rt;
+                        Real dTdx = (dTdt * (grad_hi + grad_hi_ip1) > 0.0_rt) ? grad_hi : grad_hi_ip1;
+                        Real cff = std::max(dTdx*dTdx + dTde*dTde, eps);
+                        Real Ce = dTdt*dTde;
+                        dest_arr(i,j,k,icomp+icomp_to_fill) = (cff*calc_arr(i,dom_hi.y+1-mf_index_type[1],k,icomp+icomp_to_fill) + Ce*dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill)) * mask_arr(i,j,0) / (cff+Ce);
+                        dest_arr(i,j,k,icomp+icomp_to_fill) = mask_arr(i,j,0) * (dest_arr(i,dom_hi.y+1-mf_index_type[1],k,icomp+icomp_to_fill) + tau * (bry_val - calc_arr(i,dom_hi.y+1-mf_index_type[1],k,icomp+icomp_to_fill)));
                     }
                 });
-            }
 
+            }
             // If we've applied boundary conditions to either side, update the corner
             if (!xlo_ylo.isEmpty() && (apply_west || apply_south)) {
                 ParallelFor(xlo_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)

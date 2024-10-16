@@ -86,6 +86,11 @@ void REMORA::init_bcs ()
             phys_bc_type[bcvar_type][ori] = REMORA_BC::orlanski_rad;
             domain_bc_type[ori] = "Orlanski Radiation";
         }
+        else if (bc_type_string == "orlanski_rad_nudg")
+        {
+            phys_bc_type[bcvar_type][ori] = REMORA_BC::orlanski_rad_nudge;
+            domain_bc_type[ori] = "Orlanski Radiation with nudging";
+        }
         else if (bc_type_string == "periodic")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::periodic;
@@ -191,8 +196,8 @@ void REMORA::init_bcs ()
     //
     // *****************************************************************************
     {
-        domain_bcs_type.resize(AMREX_SPACEDIM+NCONS+5);
-        domain_bcs_type_d.resize(AMREX_SPACEDIM+NCONS+5);
+        domain_bcs_type.resize(AMREX_SPACEDIM+NCONS+8);
+        domain_bcs_type_d.resize(AMREX_SPACEDIM+NCONS+8);
 
         for (OrientationIter oit; oit; ++oit) {
             Orientation ori = oit();
@@ -277,6 +282,18 @@ void REMORA::init_bcs ()
                         domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::orlanski_rad);
                     }
                 }
+                else if (bct == REMORA_BC::orlanski_rad_nudge)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::orlanski_rad_nudge);
+                    } else {
+                        domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::orlanski_rad_nudge);
+                    }
+                }
+                else
+                {
+                    amrex::Abort("Velocity boundary condition not validly specified");
+                }
             }
         }
     }
@@ -350,6 +367,26 @@ void REMORA::init_bcs ()
                         domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::clamped);
                     }
                 }
+                else if ( bct == REMORA_BC::orlanski_rad)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::orlanski_rad);
+                    } else {
+                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::orlanski_rad);
+                    }
+                }
+                else if ( bct == REMORA_BC::orlanski_rad_nudge)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::cons_bc+i].setLo(dir, REMORABCType::orlanski_rad_nudge);
+                    } else {
+                        domain_bcs_type[BCVars::cons_bc+i].setHi(dir, REMORABCType::orlanski_rad_nudge);
+                    }
+                }
+                else
+                {
+                    amrex::Abort("Scalar/tracer boundary condition not validly specified");
+                }
             }
         }
     }
@@ -357,7 +394,8 @@ void REMORA::init_bcs ()
     // *****************************************************************************
     //
     // Here we translate the physical boundary conditions -- one type per face --
-    //     into logical boundary conditions for ubar and vbar
+    //     into logical boundary conditions for ubar and vbar. Also add simplified
+    //     2d boundary condition (corresponding to BCs in bc_2d.F
     //
     // *****************************************************************************
     {
@@ -371,52 +409,67 @@ void REMORA::init_bcs ()
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::reflect_even);
-                        if (i==1)
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::reflect_even);
+                        if (i==1 and dir!=2)
                             domain_bcs_type[BCVars::ubar_bc+dir].setLo(dir, REMORABCType::reflect_odd);
+                            domain_bcs_type[BCVars::u2d_simple_bc+dir].setLo(dir, REMORABCType::reflect_odd);
                     } else {
                         domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::reflect_even);
-                        if (i==1)
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::reflect_even);
+                        if (i==1 and dir!=2)
                             domain_bcs_type[BCVars::ubar_bc+dir].setHi(dir, REMORABCType::reflect_odd);
+                            domain_bcs_type[BCVars::u2d_simple_bc+dir].setHi(dir, REMORABCType::reflect_odd);
                     }
                 }
                 else if (bct == REMORA_BC::outflow)
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::foextrap);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::foextrap);
                     } else {
                         domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::foextrap);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::foextrap);
                     }
                 }
                 else if (bct == REMORA_BC::inflow)
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::ext_dir);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::ext_dir);
                     } else {
                         domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::ext_dir);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::ext_dir);
                     }
                 }
                 else if (bct == REMORA_BC::no_slip_wall)
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::ext_dir);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::ext_dir);
                     } else {
                         domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::ext_dir);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::ext_dir);
                     }
                 }
                 else if (bct == REMORA_BC::slip_wall)
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::foextrap);
-                        if (i==1) {
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::foextrap);
+                        if (i==1 and dir!=2) {
+                            Print() << domain_bcs_type.size() << " u2dsimple " << BCVars::u2d_simple_bc << " "  << dir << std::endl;
                             // Only normal direction has ext_dir
                             domain_bcs_type[BCVars::ubar_bc+dir].setLo(dir, REMORABCType::ext_dir);
+                            domain_bcs_type[BCVars::u2d_simple_bc+dir].setLo(dir, REMORABCType::ext_dir);
                         }
 
                     } else {
                         domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::foextrap);
-                        if (i==1) {
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::foextrap);
+                        if (i==1 and dir!=2) {
                             // Only normal direction has ext_dir
                             domain_bcs_type[BCVars::ubar_bc+dir].setHi(dir, REMORABCType::ext_dir);
+                            domain_bcs_type[BCVars::u2d_simple_bc+dir].setHi(dir, REMORABCType::ext_dir);
                         }
                     }
                 }
@@ -424,34 +477,46 @@ void REMORA::init_bcs ()
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::int_dir);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::int_dir);
                     } else {
                         domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::int_dir);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::int_dir);
                     }
                 }
                 else if (bct == REMORA_BC::clamped)
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::clamped);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::foextrap);
                     } else {
                         domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::clamped);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::foextrap);
                     }
                 }
                 else if (bct == REMORA_BC::flather)
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::chapman);
-                        if (i==1) {
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::foextrap);
+                        if (i==1 and dir!=2) {
                             // Only normal direction has Flather
                             domain_bcs_type[BCVars::ubar_bc+dir].setLo(dir, REMORABCType::flather);
+                            domain_bcs_type[BCVars::u2d_simple_bc+dir].setLo(dir, REMORABCType::foextrap);
                         }
 
                     } else {
                         domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::chapman);
-                        if (i==1) {
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::foextrap);
+                        if (i==1 and dir!=2) {
                             // Only normal direction has Flather
                             domain_bcs_type[BCVars::ubar_bc+dir].setHi(dir, REMORABCType::flather);
+                            domain_bcs_type[BCVars::u2d_simple_bc+dir].setHi(dir, REMORABCType::foextrap);
                         }
                     }
+                }
+                else
+                {
+                    amrex::Abort("ubar or vbar boundary condition not validly specified");
                 }
             }
         }
@@ -520,6 +585,7 @@ void REMORA::init_bcs ()
                 }
                 else if (bct == REMORA_BC::chapman)
                 {
+                    Print() << "in chapman " << BCVars::zeta_bc+i << std::endl;
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::chapman);
                     } else {
@@ -534,6 +600,30 @@ void REMORA::init_bcs ()
                         domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::clamped);
                     }
                 }
+                else
+                {
+                    amrex::Abort("Free surface (zeta) boundary condition not validly specified");
+                }
+            }
+        }
+    }
+
+    // *****************************************************************************
+    //
+    // Here we define a boundary condition that will foextrap while respecting periodicity
+    // This is used as a "null BC"
+    //
+    // *****************************************************************************
+    {
+        for (OrientationIter oit; oit; ++oit) {
+            Orientation ori = oit();
+            int dir = ori.coordDir();
+            Orientation::Side side = ori.faceDir();
+            auto const bct = phys_bc_type[ori];
+            if (side == Orientation::low) {
+                domain_bcs_type[BCVars::foextrap_periodic_bc].setLo(dir, REMORABCType::foextrap);
+            } else {
+                domain_bcs_type[BCVars::foextrap_periodic_bc].setHi(dir, REMORABCType::foextrap);
             }
         }
     }
@@ -557,14 +647,15 @@ void REMORA::init_bcs ()
         }
     }
 
+
 #ifdef AMREX_USE_GPU
     Gpu::htod_memcpy
         (domain_bcs_type_d.data(), domain_bcs_type.data(),
-         sizeof(amrex::BCRec)*(NCONS+AMREX_SPACEDIM+5));
+         sizeof(amrex::BCRec)*(NCONS+AMREX_SPACEDIM+8));
 #else
     std::memcpy
         (domain_bcs_type_d.data(), domain_bcs_type.data(),
-         sizeof(amrex::BCRec)*(NCONS+AMREX_SPACEDIM+5));
+         sizeof(amrex::BCRec)*(NCONS+AMREX_SPACEDIM+8));
 #endif
 }
 
