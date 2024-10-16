@@ -422,6 +422,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 dU(i,j,k) = dU(i,j,k) - CF(i,j,k) * dU(i,j,k+1);
                 dV(i,j,k) = dV(i,j,k) - CF(i,j,k) * dV(i,j,k+1);
             }
+            shear2_cached(i,j,0) = 0.0_rt;
             for (int k=1; k<=N; k++) {
                 shear2_cached(i,j,k) = dU(i,j,k) * dU(i,j,k) + dV(i,j,k) * dV(i,j,k);
             }
@@ -736,6 +737,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                                  std::sqrt((bustr(i,j,0)+bustr(i+1,j,0))*(bustr(i,j,0)+bustr(i+1,j,0))+
                                       (bvstr(i,j,0)+bvstr(i,j+1,0))*(bvstr(i,j,0)+bvstr(i,j+1,0))),
                                         gls_Kmin);
+
             gls(i,j,N+1,nnew)=std::max(std::pow(gls_cmu0,gls_p)*
                                     std::pow(tke(i,j,N+1,nnew),gls_m)*
                                     std::pow(L_sft*Zos_eff,gls_n), gls_Pmin);

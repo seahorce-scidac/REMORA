@@ -55,14 +55,6 @@ REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
-    int ncomp = 1;
-    Vector<BCRec> bcrs_x(ncomp);
-    Vector<BCRec> bcrs_y(ncomp);
-    amrex::setBC(xbx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
-    amrex::setBC(ybx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
-    auto bcr_x = bcrs_x[0];
-    auto bcr_y = bcrs_y[0];
-
     //
     // Scratch space
     //

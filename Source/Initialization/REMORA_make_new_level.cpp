@@ -158,8 +158,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
     FillPatch(lev, time, tmp_cons_new, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false);
-    FillPatch(lev, time, tmp_xvel_new, xvel_new, BCVars::xvel_bc, BdyVars::u,0,true,false);
-    FillPatch(lev, time, tmp_yvel_new, yvel_new, BCVars::yvel_bc, BdyVars::v,0,true,false);
+    FillPatch(lev, time, tmp_xvel_new, xvel_new, BCVars::xvel_bc, BdyVars::u,0,true,false,0,0,0.0,tmp_xvel_new);
+    FillPatch(lev, time, tmp_yvel_new, yvel_new, BCVars::yvel_bc, BdyVars::v,0,true,false,0,0,0.0,tmp_yvel_new);
     FillPatch(lev, time, tmp_zvel_new, zvel_new, BCVars::zvel_bc, BdyVars::null,0,true,false);
 
     FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_hOfTheConfusingName), BCVars::cons_bc, BdyVars::null,0,false,false);

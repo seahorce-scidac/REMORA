@@ -114,6 +114,33 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
+        Array4<Real const> const& rdrag = mf_rdrag->const_array(mfi);
+        Array4<Real      > const& bustr = mf_bustr->array(mfi);
+        Array4<Real      > const& bvstr = mf_bvstr->array(mfi);
+        Array4<Real const> const& uold  = U_old.const_array(mfi);
+        Array4<Real const> const& vold  = V_old.const_array(mfi);
+
+        Box ubx1 = mfi.grownnodaltilebox(0,IntVect(NGROW-1,NGROW-1,0));
+        Box ubx1D = ubx1;
+        ubx1D.makeSlab(2,0);
+        Box vbx1 = mfi.grownnodaltilebox(1,IntVect(NGROW-1,NGROW-1,0));
+        Box vbx1D = vbx1;
+        vbx1D.makeSlab(2,0);
+        // Set bottom stress as defined in set_vbx.F
+        ParallelFor(ubx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            bustr(i,j,0) = 0.5_rt * (rdrag(i-1,j,0)+rdrag(i,j,0))*(uold(i,j,0));
+        });
+        ParallelFor(vbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            bvstr(i,j,0) = 0.5_rt * (rdrag(i,j-1,0)+rdrag(i,j,0))*(vold(i,j,0));
+        });
+    }
+    FillPatch(lev, time, *vec_bustr[lev].get(), GetVecOfPtrs(vec_bustr), BCVars::u2d_simple_bc, BdyVars::null,0,true,false);
+    FillPatch(lev, time, *vec_bvstr[lev].get(), GetVecOfPtrs(vec_bvstr), BCVars::v2d_simple_bc, BdyVars::null,0,true,false);
+
+    for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
         Array4<Real const> const& h     = vec_hOfTheConfusingName[lev]->const_array(mfi);
         Array4<Real const> const& Hz    = vec_Hz[lev]->const_array(mfi);
         Array4<Real      > const& Huon  = vec_Huon[lev]->array(mfi);
@@ -127,7 +154,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real      > const& rhoA  = mf_rhoA->array(mfi);
         Array4<Real      > const& rhoS  = mf_rhoS->array(mfi);
         Array4<Real      > const& bvf   = mf_bvf->array(mfi);
-        Array4<Real const> const& rdrag = mf_rdrag->const_array(mfi);
         Array4<Real      > const& bustr = mf_bustr->array(mfi);
         Array4<Real      > const& bvstr = mf_bvstr->array(mfi);
 
@@ -152,13 +178,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
         FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
         FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
-
-        // Set bottom stress as defined in set_vbx.F
-        ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
-        {
-            bustr(i,j,0) = 0.5_rt * (rdrag(i-1,j,0)+rdrag(i,j,0))*(uold(i,j,0));
-            bvstr(i,j,0) = 0.5_rt * (rdrag(i,j-1,0)+rdrag(i,j,0))*(vold(i,j,0));
-        });
 
         //
         //-----------------------------------------------------------------------
@@ -338,10 +357,11 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
     nstp = 0;
 
-    FillPatch(lev, time, *cons_old[lev], cons_old, BCVars::cons_bc, BdyVars::t);
-    FillPatch(lev, time, *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t);
-
-    FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t);
+    // Commenting out for now, but not sure it's necessary
+    //FillPatch(lev, time, *cons_old[lev], cons_old, BCVars::cons_bc, BdyVars::t);
+    //FillPatch(lev, time, *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t);
+    FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t,0,true,true,0,0,dt_lev,*cons_old[lev]);
+//    print_state(*vec_sstore[lev].get(),IntVect(-1,5,0),-1,IntVect(2,2,0));
 
     // Don't actually want to apply boundary conditions here
     vec_Huon[lev]->FillBoundary(geom[lev].periodicity());

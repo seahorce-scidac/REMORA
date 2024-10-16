@@ -9,6 +9,7 @@
 #include <AMReX_Gpu.H>
 
 #include <REMORA_Constants.H>
+#include "IndexDefines.H"
 
 enum struct CouplingType {
     OneWay, TwoWay
@@ -236,6 +237,24 @@ struct SolverChoice {
                 gls_Ghcri = amrex::Real(0.02);
             }
         }
+
+        // Read and compute inverse nudging coeffs from inputs given in days,
+        // and store in a vector corresponding to BdyVars enum
+        amrex::Real tnudg, znudg, m2nudg, m3nudg;
+        pp.query("tnudg",tnudg);
+        pp.query("znudg",znudg);
+        pp.query("m2nudg",m2nudg);
+        pp.query("m3nudg",m3nudg);
+        pp.query("obcfac",obcfac);
+
+        nudg_coeff.resize(BdyVars::NumTypes);
+        nudg_coeff[BdyVars::u    ] = (m3nudg > 0.0) ? amrex::Real(1.0) / (m3nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::u
+        nudg_coeff[BdyVars::v    ] = (m3nudg > 0.0) ? amrex::Real(1.0) / (m3nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::v
+        nudg_coeff[BdyVars::t    ] = ( tnudg > 0.0) ? amrex::Real(1.0) / ( tnudg * amrex::Real(86400.0)) : 0.0;//BdyVars::t
+        nudg_coeff[BdyVars::s    ] = ( tnudg > 0.0) ? amrex::Real(1.0) / ( tnudg * amrex::Real(86400.0)) : 0.0;//BdyVars::s
+        nudg_coeff[BdyVars::ubar ] = (m2nudg > 0.0) ? amrex::Real(1.0) / (m2nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::ubar
+        nudg_coeff[BdyVars::vbar ] = (m2nudg > 0.0) ? amrex::Real(1.0) / (m2nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::vbar
+        nudg_coeff[BdyVars::zeta ] = ( znudg > 0.0) ? amrex::Real(1.0) / ( znudg * amrex::Real(86400.0)) : 0.0;//BdyVars::zeta
     }
 
     void display()
@@ -417,6 +436,13 @@ struct SolverChoice {
     amrex::Real my_dtfac = amrex::Real(0.05);
     amrex::Real my_lmax = amrex::Real(0.53);
     amrex::Real my_qmin = amrex::Real(1.0E-8);
+
+    // Nudging time scales in 1/s
+    amrex::Vector<amrex::Real> nudg_coeff;
+
+    // Factor between passive (outflow) and active (inflow) open boundary
+    // conditions.
+    amrex::Real obcfac = amrex::Real(0.0);
 };
 
 #endif

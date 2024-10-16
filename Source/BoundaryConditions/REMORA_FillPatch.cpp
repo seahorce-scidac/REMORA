@@ -25,7 +25,8 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                   const bool fill_set,
                   const int  n_not_fill,
                   const int  icomp_calc,
-                  const Real dt)
+                  const Real dt,
+                  const MultiFab& mf_calc)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
     amrex::Interpolater* mapper = nullptr;
@@ -120,14 +121,15 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         // ***************************************************************************
 
         // Enforce physical boundary conditions
-        (*physbcs[lev])(mf_to_fill,*mask,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp,n_not_fill);
+        (*physbcs[lev])(mf_to_fill,*mask,icomp,ncomp,mf_to_fill.nGrowVect(),time,bccomp,n_not_fill,mf_calc,
+                *vec_msku[lev].get(), *vec_mskv[lev].get());
 
 #ifdef REMORA_USE_NETCDF
         // Fill the data which is stored in the boundary data read from netcdf files
         if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) &&
              (bdy_var_type != BdyVars::null) )
         {
-            fill_from_bdyfiles(mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,dt);
+            fill_from_bdyfiles(mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt);
         }
 #endif
 

@@ -37,7 +37,7 @@ public:
     REMORAPhysBCFunct (const int lev,
                       const amrex::Geometry& geom, const amrex::Vector<amrex::BCRec>& domain_bcs_type,
                       const amrex::Gpu::DeviceVector<amrex::BCRec>& domain_bcs_type_d,
-                      amrex::Array<amrex::Array<amrex::Real,AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS+5> bc_extdir_vals
+                      amrex::Array<amrex::Array<amrex::Real,AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS+8> bc_extdir_vals
                     )
         : m_lev(lev), m_geom(geom), m_domain_bcs_type(domain_bcs_type),
           m_domain_bcs_type_d(domain_bcs_type_d),
@@ -59,15 +59,18 @@ public:
     //     so this follows the BCVars enum
     //
     void operator() (amrex::MultiFab& mf, const amrex::MultiFab& mask, int icomp, int ncomp, amrex::IntVect const& nghost,
-                     amrex::Real time, int bccomp, int n_not_fill=0);
+                     amrex::Real time, int bccomp, int n_not_fill=0,
+                     const amrex::MultiFab& mf_calc = amrex::MultiFab(),
+                     const amrex::MultiFab& mf_msku = amrex::MultiFab(),
+                     const amrex::MultiFab& mf_mskv = amrex::MultiFab());
 
     void impose_xvel_bcs (const amrex::Array4<amrex::Real>& dest_arr, const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& msku,
-                          amrex::Real time, int bccomp);
+                          const amrex::Array4<const amrex::Real>& calc_arr, amrex::Real time, int bccomp);
 
     void impose_yvel_bcs (const amrex::Array4<amrex::Real>& dest_arr, const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& mskv,
-                          amrex::Real time, int bccomp);
+                          const amrex::Array4<const amrex::Real>& calc_arr, amrex::Real time, int bccomp);
 
 
     void impose_zvel_bcs (const amrex::Array4<amrex::Real>& dest_arr,
@@ -75,9 +78,12 @@ public:
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& mskr,
                           amrex::Real time, int bccomp);
 
-    void impose_cons_bcs (const amrex::Array4<amrex::Real>& mf, const amrex::Box& bx, const amrex::Box& domain,
+    void impose_cons_bcs (const amrex::Array4<amrex::Real>& mf, const amrex::Box& bx, const amrex::Box& valid_bx,
+                          const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& mskr,
-                          int icomp, int ncomp, amrex::Real time, int bccomp, int n_not_fill);
+                          const amrex::Array4<const amrex::Real>& msku, const amrex::Array4<const amrex::Real>& mskv,
+                          const amrex::Array4<const amrex::Real>& calc_arr,int icomp, int ncomp, amrex::Real time, int bccomp, int n_not_fill);
+
 
     // For backward compatibility
     // void FillBoundary (amrex::MultiFab& mf, int dcomp, int ncomp, amrex::IntVect const& nghost,
@@ -90,7 +96,7 @@ private:
     amrex::Geometry      m_geom;
     amrex::Vector<amrex::BCRec>            m_domain_bcs_type;
     amrex::Gpu::DeviceVector<amrex::BCRec> m_domain_bcs_type_d;
-    amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS+5> m_bc_extdir_vals;
+    amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS+8> m_bc_extdir_vals;
 };
 
 #endif

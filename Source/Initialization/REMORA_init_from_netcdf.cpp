@@ -152,7 +152,14 @@ REMORA::init_zeta_from_netcdf (int lev)
         } // omp
     } // idx
     vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
-    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,3,vec_zeta[lev]->nGrowVect(),t_old[lev],BCVars::zeta_bc);
+    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
+//    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),1,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
+//    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),2,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
+
+    Real told = t_new[lev];
+    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,0,0);
+//    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
+//    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
 }
 /**
  * REMORA function that initializes bathymetry from a netcdf file
@@ -200,9 +207,14 @@ REMORA::init_bathymetry_from_netcdf (int lev)
     } // idx
 
     const double dummy_time = 0.0_rt;
+    // Unconditional foextrap will overwrite periodicity, but EnforcePeriodicity will
+    // be called on h afterwards
     FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName),
-            BCVars::cons_bc,
-            BdyVars::null,0,true,true,1);
+            BCVars::foextrap_periodic_bc,
+            BdyVars::null,0,false,true,1);
+    FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName),
+            BCVars::foextrap_periodic_bc,
+            BdyVars::null,1,false,true,1);
 
     int ng = vec_pm[lev]->nGrow();
 

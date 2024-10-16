@@ -25,7 +25,10 @@ namespace BCVars {
         vbar_bc,
         zeta_bc,
         tke_bc,
+        foextrap_periodic_bc,
         foextrap_bc,
+        u2d_simple_bc,
+        v2d_simple_bc,
         NumTypes
     };
 }
@@ -49,7 +52,7 @@ namespace BdyVars {
 
 enum struct REMORA_BC {
     symmetry, inflow, outflow, no_slip_wall, slip_wall, periodic,
-    clamped, chapman, flather, orlanski_rad, undefined
+    clamped, chapman, flather, orlanski_rad, orlanski_rad_nudge, undefined
 };
 
 // NOTE: the first of these must match up with the BCType enum
@@ -57,15 +60,16 @@ enum struct REMORA_BC {
 //     the end to use locally
 namespace REMORABCType {
 enum mathematicalBndryTypes : int { bogus        = -666,
-    reflect_odd  = -1,
-    int_dir      =  0,
-    reflect_even =  1,
-    foextrap     =  2,
-    ext_dir      =  3,
-    clamped      =  4,
-    chapman      =  5,
-    flather      =  6,
-    orlanski_rad =  7
+    reflect_odd        = -1,
+    int_dir            =  0,
+    reflect_even       =  1,
+    foextrap           =  2,
+    ext_dir            =  3,
+    clamped            =  4,
+    chapman            =  5,
+    flather            =  6,
+    orlanski_rad       =  7,
+    orlanski_rad_nudge =  8
 };
 }
 #endif
