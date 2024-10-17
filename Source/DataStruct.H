@@ -240,7 +240,10 @@ struct SolverChoice {
 
         // Read and compute inverse nudging coeffs from inputs given in days,
         // and store in a vector corresponding to BdyVars enum
-        amrex::Real tnudg, znudg, m2nudg, m3nudg;
+        amrex::Real tnudg =  amrex::Real(0.0);
+        amrex::Real znudg =  amrex::Real(0.0);
+        amrex::Real m2nudg = amrex::Real(0.0);
+        amrex::Real m3nudg = amrex::Real(0.0);
         pp.query("tnudg",tnudg);
         pp.query("znudg",znudg);
         pp.query("m2nudg",m2nudg);
