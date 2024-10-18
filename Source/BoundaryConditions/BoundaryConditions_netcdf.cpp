@@ -167,7 +167,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             const amrex::BCRec* bc_ptr = bcrs_d.data();
 
             if (!xlo.isEmpty()) {
-                ParallelFor(xlo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                ParallelFor(grow(xlo,IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma   * bdatxlo_n  (ubound(xlo).x,j,k,0)
                                + alpha * bdatxlo_np1(ubound(xlo).x,j,k,0));
@@ -220,7 +220,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             }
 
             if (!xhi.isEmpty()) {
-                ParallelFor(xhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                ParallelFor(grow(xhi,IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma   * bdatxhi_n  (lbound(xhi).x,j,k,0)
                                     + alpha * bdatxhi_np1(lbound(xhi).x,j,k,0));
@@ -274,7 +274,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             }
 
             if (!ylo.isEmpty()) {
-                ParallelFor(ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                ParallelFor(grow(ylo,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                      Real bry_val = (oma   * bdatylo_n  (i,ubound(ylo).y,k,0)
                                     + alpha * bdatylo_np1(i,ubound(ylo).y,k,0));
@@ -329,7 +329,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             }
 
             if (!yhi.isEmpty()) {
-                ParallelFor(yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                ParallelFor(grow(yhi,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma    * bdatyhi_n  (i,lbound(yhi).y,k,0)
                                            + alpha * bdatyhi_np1(i,lbound(yhi).y,k,0)) * mask_arr(i,j,0);
