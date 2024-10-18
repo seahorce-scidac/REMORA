@@ -410,15 +410,17 @@ void REMORA::init_bcs ()
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::reflect_even);
                         domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::reflect_even);
-                        if (i==1 and dir!=2)
+                        if (i==1 and dir!=2) {
                             domain_bcs_type[BCVars::ubar_bc+dir].setLo(dir, REMORABCType::reflect_odd);
                             domain_bcs_type[BCVars::u2d_simple_bc+dir].setLo(dir, REMORABCType::reflect_odd);
+                        }
                     } else {
                         domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::reflect_even);
                         domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::reflect_even);
-                        if (i==1 and dir!=2)
+                        if (i==1 and dir!=2) {
                             domain_bcs_type[BCVars::ubar_bc+dir].setHi(dir, REMORABCType::reflect_odd);
                             domain_bcs_type[BCVars::u2d_simple_bc+dir].setHi(dir, REMORABCType::reflect_odd);
+                        }
                     }
                 }
                 else if (bct == REMORA_BC::outflow)
