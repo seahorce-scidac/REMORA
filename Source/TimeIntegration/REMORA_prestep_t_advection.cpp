@@ -166,13 +166,13 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
 
         Box utbxp1_slab_lo = makeSlab(utbxp1,0,dlo.x-1) & utbxp1;
         Box utbxp1_slab_hi = makeSlab(utbxp1,0,dhi.x+1) & utbxp1;
-        if (!utbxp1_slab_lo.isEmpty() && !is_periodic_in_x) {
+        if (!utbxp1_slab_lo.ok() && !is_periodic_in_x) {
             ParallelFor(utbxp1_slab_lo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FX(i,j,k) = FX(i+1,j,k);
             });
         }
-        if (!utbxp1_slab_hi.isEmpty() && !is_periodic_in_x) {
+        if (!utbxp1_slab_hi.ok() && !is_periodic_in_x) {
             ParallelFor(utbxp1_slab_hi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FX(i+1,j,k) = FX(i,j,k);
@@ -187,13 +187,13 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
 
         Box vtbxp1_slab_lo = makeSlab(vtbxp1,1,dlo.y-1) & vtbxp1;
         Box vtbxp1_slab_hi = makeSlab(vtbxp1,1,dhi.y+1) & vtbxp1;
-        if (!vtbxp1_slab_lo.isEmpty() && !is_periodic_in_y) {
+        if (!vtbxp1_slab_lo.ok() && !is_periodic_in_y) {
             ParallelFor(vtbxp1_slab_lo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FE(i,j,k) = FE(i,j+1,k);
             });
         }
-        if (!vtbxp1_slab_hi.isEmpty() && !is_periodic_in_y) {
+        if (!vtbxp1_slab_hi.ok() && !is_periodic_in_y) {
             ParallelFor(vtbxp1_slab_hi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 FE(i,j+1,k) = FE(i,j,k);
