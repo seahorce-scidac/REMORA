@@ -457,7 +457,6 @@ void REMORA::init_bcs ()
                         domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::foextrap);
                         domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::foextrap);
                         if (i==1 and dir!=2) {
-                            Print() << domain_bcs_type.size() << " u2dsimple " << BCVars::u2d_simple_bc << " "  << dir << std::endl;
                             // Only normal direction has ext_dir
                             domain_bcs_type[BCVars::ubar_bc+dir].setLo(dir, REMORABCType::ext_dir);
                             domain_bcs_type[BCVars::u2d_simple_bc+dir].setLo(dir, REMORABCType::ext_dir);
@@ -585,7 +584,6 @@ void REMORA::init_bcs ()
                 }
                 else if (bct == REMORA_BC::chapman)
                 {
-                    Print() << "in chapman " << BCVars::zeta_bc+i << std::endl;
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::chapman);
                     } else {
