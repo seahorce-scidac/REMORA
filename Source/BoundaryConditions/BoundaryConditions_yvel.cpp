@@ -88,7 +88,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3]*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped) {
                     dest_arr(i,j,k) =  dest_arr(dom_hi.x,j,k)*mskv(i,j,0);
-                } else if (bc_ptr[n].lo(0) == REMORABCType::orlanski_rad) {
+                } else if (bc_ptr[n].hi(0) == REMORABCType::orlanski_rad) {
                     Real grad_hi        = calc_arr(dom_hi.x  ,j+1,k) - calc_arr(dom_hi.x  ,j  ,k);
                     Real grad_hi_ip1    = calc_arr(dom_hi.x+1,j+1,k) - calc_arr(dom_hi.x+1,j  ,k);
                     Real grad_hi_jm1    = calc_arr(dom_hi.x  ,j  ,k) - calc_arr(dom_hi.x  ,j-1,k);
