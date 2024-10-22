@@ -47,21 +47,21 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
     //copy the tilebox
-    Box tbxp1 = bx;
+    Box tbxp1x = bx;
+    Box tbxp1y = bx;
     Box tbxp2 = bx;
 
     //make only gbx be grown to match multifabs
     tbxp2.grow(IntVect(NGROW,NGROW,0));
-    tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
+    tbxp1x.grow(IntVect(NGROW-1,0,0));
+    tbxp1y.grow(IntVect(0,NGROW-1,0));
 
     // Because grad, curv, FX, FE, are all local, do surroundinNodes
-    Box utbxp1 = surroundingNodes(tbxp1, 0);
-    Box vtbxp1 = surroundingNodes(tbxp1, 1);
+    Box utbxp1 = surroundingNodes(tbxp1x, 0);
+    Box vtbxp1 = surroundingNodes(tbxp1y, 1);
     Box ubx = surroundingNodes(bx, 0);
     Box vbx = surroundingNodes(bx, 1);
 
-    BoxArray ba_gbx1 = intersect(BoxArray(tbxp1),gbx);
-    AMREX_ASSERT((ba_gbx1.size() == 1));
 
     //
     // Scratch space
@@ -111,7 +111,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
         if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3) {
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(tbxp1x, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Upstream3
                 curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
@@ -127,7 +127,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
         } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(tbxp1x, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Centered4
                 grad(i,j,k)=0.5_rt*(FX(i,j,k)+FX(i+1,j,k));
@@ -147,7 +147,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
         if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3) {
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(tbxp1x, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Upstream3
                 curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
@@ -164,7 +164,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
         } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(tbxp1x, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Centered4
                 grad(i,j,k)=0.5_rt*(FX(i,j,k)+FX(i+1,j,k));
@@ -208,7 +208,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
         if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3) {
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(tbxp1y, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
             });
@@ -224,7 +224,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
         } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(tbxp1y, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 grad(i,j,k)=0.5_rt*(FE(i,j,k)+FE(i,j+1,k));
             });
@@ -242,7 +242,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
     } else {
 
         if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3) {
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(tbxp1y, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
             });
@@ -259,7 +259,7 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
 
         } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(tbxp1y, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 grad(i,j,k)=0.5_rt*(FE(i,j,k)+FE(i,j+1,k));
             });

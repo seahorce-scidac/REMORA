@@ -65,9 +65,9 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     if (!is_periodic_in_x)
     {
         Box bx_xlo(bx);  bx_xlo.setBig  (0,dom_lo.x-1);
-        bx_xlo.setSmall(1,valid_bx.smallEnd(1));  bx_xlo.setBig(1,valid_bx.bigEnd(1));
+        bx_xlo.setSmall(1,valid_bx.smallEnd(1)-1);  bx_xlo.setBig(1,valid_bx.bigEnd(1)+1);
         Box bx_xhi(bx);  bx_xhi.setSmall(0,dom_hi.x+1);
-        bx_xhi.setSmall(1,valid_bx.smallEnd(1));  bx_xhi.setBig(1,valid_bx.bigEnd(1));
+        bx_xhi.setSmall(1,valid_bx.smallEnd(1)-1);  bx_xhi.setBig(1,valid_bx.bigEnd(1)+1);
         ParallelFor(
             bx_xlo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
@@ -109,9 +109,9 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     if (!is_periodic_in_y)
     {
         Box bx_ylo(bx);  bx_ylo.setBig  (1,dom_lo.y-1);
-        bx_ylo.setSmall(0,valid_bx.smallEnd(0)); bx_ylo.setBig(0,valid_bx.bigEnd(0));
+        bx_ylo.setSmall(0,valid_bx.smallEnd(0)-1); bx_ylo.setBig(0,valid_bx.bigEnd(0)+1);
         Box bx_yhi(bx);  bx_yhi.setSmall(1,dom_hi.y+1);
-        bx_yhi.setSmall(0,valid_bx.smallEnd(0)); bx_yhi.setBig(0,valid_bx.bigEnd(0));
+        bx_yhi.setSmall(0,valid_bx.smallEnd(0)-1); bx_yhi.setBig(0,valid_bx.bigEnd(0)+1);
         ParallelFor(
             bx_ylo, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].lo(1) == REMORABCType::ext_dir) {

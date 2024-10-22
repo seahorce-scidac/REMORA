@@ -38,16 +38,16 @@ init_custom_bathymetry (int /*lev*/, const Geometry& geom,
 
     for ( MFIter mfi(mf_h, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-      Array4<Real> const& h  = (mf_h).array(mfi);
+        Array4<Real> const& h  = (mf_h).array(mfi);
 
-      Box bx = mfi.tilebox();
+        Box bx = mfi.tilebox();
 
-      Box bxD = bx;
-      bxD.makeSlab(2,0);
+        Box bxD = bx;
+        bxD.makeSlab(2,0);
 
-      Gpu::streamSynchronize();
+        Gpu::streamSynchronize();
 
-      ParallelForRNG(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int , auto engine)
+        ParallelForRNG(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int , auto engine)
         {
             h(i,j,0) = 50.0_rt;
         });
@@ -100,7 +100,7 @@ init_custom_prob(
 
     auto T0 = m_solverChoice.T0;
     auto S0 = m_solverChoice.S0;
-    ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    ParallelFor(grow(grow(bx,0,1),1,1), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
         const auto prob_lo         = geomdata.ProbLo();
         const auto prob_hi         = geomdata.ProbHi();
@@ -124,42 +124,42 @@ init_custom_prob(
         state(i, j, k, Scalar_comp) = 0.0_rt;
     });
 
-  const Box& xbx = surroundingNodes(bx,0);
-  const Box& ybx = surroundingNodes(bx,1);
-  const Box& zbx = surroundingNodes(bx,2);
+    const Box& xbx = surroundingNodes(bx,0);
+    const Box& ybx = surroundingNodes(bx,1);
+    const Box& zbx = surroundingNodes(bx,2);
 
-  ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-  {
-      // Create bounding box for x and y to make spatially-dependent T and S
-      const auto prob_lo         = geomdata.ProbLo();
-      const auto prob_hi         = geomdata.ProbHi();
-      const auto dx              = geomdata.CellSize();
+    ParallelFor(grow(grow(xbx,1,1),0,1), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    {
+        // Create bounding box for x and y to make spatially-dependent T and S
+        const auto prob_lo         = geomdata.ProbLo();
+        const auto prob_hi         = geomdata.ProbHi();
+        const auto dx              = geomdata.CellSize();
 
-      const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
-      const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
+        const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
+        const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
 
-      const Real z = z_r(i,j,k);
-      // h(i,j,0) = -geomdata.ProbLo(2);
-      const Real depth = 50.0_rt;
+        const Real z = z_r(i,j,k);
+        // h(i,j,0) = -geomdata.ProbLo(2);
+        const Real depth = 50.0_rt;
 
-      const Real x  = prob_lo[0] + (i + 0.5) * dx[0];// - xcent;
-      const Real y  = prob_lo[1] + (j + 0.5) * dx[1];// - ycent;
+        const Real x  = prob_lo[0] + (i + 0.5) * dx[0];// - xcent;
+        const Real y  = prob_lo[1] + (j + 0.5) * dx[1];// - ycent;
 
-      const Real val1  = x * 6.28318530718_rt * 1.0e-5_rt;
-      const Real val2  = y * 6.28318530718_rt * 1.0e-5_rt;
-      x_vel(i, j, k) = (depth + z) * 0.01_rt + 0.05_rt * std::sin(val1) * std::sin(val2);
-  });
-  ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-  {
-      y_vel(i, j, k) = 0.0_rt;
-  });
+        const Real val1  = x * 6.28318530718_rt * 1.0e-5_rt;
+        const Real val2  = y * 6.28318530718_rt * 1.0e-5_rt;
+        x_vel(i, j, k) = (depth + z) * 0.01_rt + 0.05_rt * std::sin(val1) * std::sin(val2);
+    });
+    ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    {
+        y_vel(i, j, k) = 0.0_rt;
+    });
 
-  ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-  {
-      z_vel(i, j, k) = 0.0_rt;
-  });
+    ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    {
+        z_vel(i, j, k) = 0.0_rt;
+    });
 
-  Gpu::streamSynchronize();
+    Gpu::streamSynchronize();
 }
 
 void
@@ -168,21 +168,21 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
 {
     for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-      Array4<Real> const& Akv = (mf_Akv).array(mfi);
-      Array4<Real> const& Akt = (mf_Akt).array(mfi);
-      Array4<Real> const& z_w = (mf_z_w).array(mfi);
-      Box bx = mfi.tilebox();
-      bx.grow(IntVect(NGROW,NGROW,0));
-      Gpu::streamSynchronize();
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k)
-      {
-        Akv(i,j,k) = 2.0e-03_rt+8.0e-03_rt*std::exp(z_w(i,j,k)/150.0_rt);
+        Array4<Real> const& Akv = (mf_Akv).array(mfi);
+        Array4<Real> const& Akt = (mf_Akt).array(mfi);
+        Array4<Real> const& z_w = (mf_z_w).array(mfi);
+        Box bx = mfi.tilebox();
+        bx.grow(IntVect(NGROW,NGROW,0));
+        Gpu::streamSynchronize();
+        amrex::ParallelFor(bx,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Akv(i,j,k) = 2.0e-03_rt+8.0e-03_rt*std::exp(z_w(i,j,k)/150.0_rt);
 
-        Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
-        Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
-        Akt(i,j,k,Scalar_comp) = 0.0_rt;
-      });
+            Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
+            Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
+            Akt(i,j,k,Scalar_comp) = 0.0_rt;
+        });
     }
 }
 
@@ -203,11 +203,11 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
 
       amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-        visc2_p(i,j,k) = 2.0_rt;
-        visc2_r(i,j,k) = 2.0_rt;
+          visc2_p(i,j,k) = 2.0_rt;
+          visc2_r(i,j,k) = 2.0_rt;
 
-        for (int n = 0; n < ncomp; n++) {
-            diff2(i,j,k,n) = 0.0_rt;
+          for (int n = 0; n < ncomp; n++) {
+              diff2(i,j,k,n) = 0.0_rt;
         }
       });
     }
