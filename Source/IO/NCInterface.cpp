@@ -108,6 +108,16 @@ void NCVar::put(
         ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
+void NCVar::put_all(
+    const double* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count,
+    const std::vector<MPI_Offset>& stride) const
+{
+    check_ncmpi_error(ncmpi_put_vars_double_all(
+        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
 void NCVar::put(
     const float* dptr,
     const std::vector<MPI_Offset>& start,
@@ -115,6 +125,15 @@ void NCVar::put(
 {
     check_ncmpi_error(
         ncmpi_put_vara_float(ncid, varid, start.data(), count.data(), dptr));
+}
+
+void NCVar::put_all(
+    const float* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count) const
+{
+    check_ncmpi_error(
+        ncmpi_put_vara_float_all(ncid, varid, start.data(), count.data(), dptr));
 }
 
 void NCVar::put(
@@ -127,6 +146,16 @@ void NCVar::put(
         ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
+void NCVar::put_all(
+    const float* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count,
+    const std::vector<MPI_Offset>& stride) const
+{
+    check_ncmpi_error(ncmpi_put_vars_float_all(
+        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
 void NCVar::put(
     const int* dptr,
     const std::vector<MPI_Offset>& start,
@@ -136,6 +165,15 @@ void NCVar::put(
         ncmpi_put_vara_int(ncid, varid, start.data(), count.data(), dptr));
 }
 
+void NCVar::put_all(
+    const int* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count) const
+{
+    check_ncmpi_error(
+        ncmpi_put_vara_int_all(ncid, varid, start.data(), count.data(), dptr));
+}
+
 void NCVar::put(
     const int* dptr,
     const std::vector<MPI_Offset>& start,
@@ -143,6 +181,16 @@ void NCVar::put(
     const std::vector<MPI_Offset>& stride) const
 {
     check_ncmpi_error(ncmpi_put_vars_int(
+        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
+void NCVar::put_all(
+    const int* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count,
+    const std::vector<MPI_Offset>& stride) const
+{
+    check_ncmpi_error(ncmpi_put_vars_int_all(
         ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
@@ -189,6 +237,15 @@ void NCVar::get(
         ncmpi_get_vara_double(ncid, varid, start.data(), count.data(), dptr));
 }
 
+void NCVar::get_all(
+    double* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count) const
+{
+    check_ncmpi_error(
+        ncmpi_get_vara_double_all(ncid, varid, start.data(), count.data(), dptr));
+}
+
 void NCVar::get(
     double* dptr,
     const std::vector<MPI_Offset>& start,
@@ -196,6 +253,16 @@ void NCVar::get(
     const std::vector<MPI_Offset>& stride) const
 {
     check_ncmpi_error(ncmpi_get_vars_double(
+        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
+void NCVar::get_all(
+    double* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count,
+    const std::vector<MPI_Offset>& stride) const
+{
+    check_ncmpi_error(ncmpi_get_vars_double_all(
         ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
@@ -208,6 +275,15 @@ void NCVar::get(
         ncmpi_get_vara_float(ncid, varid, start.data(), count.data(), dptr));
 }
 
+void NCVar::get_all(
+    float* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count) const
+{
+    check_ncmpi_error(
+        ncmpi_get_vara_float_all(ncid, varid, start.data(), count.data(), dptr));
+}
+
 void NCVar::get(
     float* dptr,
     const std::vector<MPI_Offset>& start,
@@ -218,7 +294,26 @@ void NCVar::get(
         ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
+void NCVar::get_all(
+    float* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count,
+    const std::vector<MPI_Offset>& stride) const
+{
+    check_ncmpi_error(ncmpi_get_vars_float_all(
+        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
 void NCVar::get(
+    int* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count) const
+{
+    check_ncmpi_error(
+        ncmpi_get_vara_int(ncid, varid, start.data(), count.data(), dptr));
+}
+
+void NCVar::get_all(
     int* dptr,
     const std::vector<MPI_Offset>& start,
     const std::vector<MPI_Offset>& count) const
@@ -234,6 +329,16 @@ void NCVar::get(
     const std::vector<MPI_Offset>& stride) const
 {
     check_ncmpi_error(ncmpi_get_vars_int(
+        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
+void NCVar::get_all(
+    int* dptr,
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count,
+    const std::vector<MPI_Offset>& stride) const
+{
+    check_ncmpi_error(ncmpi_get_vars_int_all(
         ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
