@@ -1,7 +1,7 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 10
 
-amrex.fpe_trap_invalid = 0
+amrex.fpe_trap_invalid = 1
 
 fabarray.mfiter_tile_size = 1024 1024 1024
 
@@ -33,7 +33,7 @@ zeta.type   =  outflow outflow outflow outflow
 tke.type    =  outflow outflow outflow outflow
 
 # TIME STEP CONTROL
-remora.fixed_dt       = 800.0 # Timestep size (seconds)
+remora.fixed_dt       = 400.0 # Timestep size (seconds)
 
 remora.fixed_ndtfast_ratio = 10
 

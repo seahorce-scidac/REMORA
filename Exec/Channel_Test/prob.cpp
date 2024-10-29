@@ -222,36 +222,15 @@ init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, Mu
     bool NSPeriodic = geomdata.isPeriodic(1);
 
     //If we had wind stress and bottom stress we would need to set these:
-    Real pi = 3.14159265359_rt;
     Real tdays=time/Real(24.0*60.0*60.0);
     Real dstart=0.0_rt;
-    Real windamp;
     Real userval=0.01_rt;
     Real mf_fcor=1.0e-4_rt;
-    Real air_rho=1.0_rt;
     //It's possible these should be set to be nonzero only at the boundaries they affect
 
     // Don't allow doubly periodic in this case
-    AMREX_ALWAYS_ASSERT( !NSPeriodic || !EWPeriodic);
 
-    // Flow in x-direction (EW):
-    if (NSPeriodic) {
-        mf_sustr.setVal(0.0_rt);
-    }
-    else if (EWPeriodic) {
-        windamp=userval*std::sin(0.9_rt*mf_fcor*86400.0_rt*(tdays-dstart))/m_solverChoice.rho0;
-        mf_sustr.setVal(windamp);
-    }
-
-    // Flow in y-direction (NS):
-    if (NSPeriodic) {
-        if ((tdays-dstart)<=2.0)
-            windamp=-0.1_rt*Real(sin(pi*(tdays-dstart)/4.0_rt))/Real(m_solverChoice.rho0);
-        else
-            windamp=-0.1_rt/m_solverChoice.rho0;
-        mf_svstr.setVal(windamp);
-    }
-    else if(EWPeriodic) {
-        mf_svstr.setVal(0.0_rt);
-    }
+    Real windamp_u = userval*std::sin(0.9_rt*mf_fcor*86400.0_rt*(tdays-dstart))/m_solverChoice.rho0;
+    mf_sustr.setVal(windamp_u);
+    mf_svstr.setVal(0.0_rt);
 }
