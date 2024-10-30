@@ -121,7 +121,7 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
     // unsigned long int nt= NC_UNLIMITED;
     if (is_history && max_step < 0) amrex::Abort("Need to know max_step if writing history file");
-    unsigned long int nt = is_history ? static_cast<unsigned long int>(max_step / plot_int)+1 : 1;
+    unsigned long int nt = is_history ? static_cast<unsigned long int>(max_step / std::min(plot_int,max_step))+1 : 1;
 
     n_cells.push_back(nx);
     n_cells.push_back(ny);
