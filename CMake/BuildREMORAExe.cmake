@@ -109,11 +109,11 @@ function(build_remora_lib remora_lib_name)
   generate_buildinfo(${remora_lib_name} ${CMAKE_SOURCE_DIR})
   target_include_directories(${remora_lib_name} PUBLIC ${AMREX_SUBMOD_LOCATION}/Tools/C_scripts)
 
-  if(REMORA_ENABLE_NETCDF)
-    if(NETCDF_FOUND)
-      #Link our executable to the NETCDF libraries, etc
-      target_link_libraries(${remora_lib_name} PUBLIC ${NETCDF_LINK_LIBRARIES})
-      target_include_directories(${remora_lib_name} PUBLIC ${NETCDF_INCLUDE_DIRS})
+  if(REMORA_ENABLE_PNETCDF)
+    if(PNETCDF_FOUND)
+      #Link our executable to the PNETCDF libraries, etc
+      target_link_libraries(${remora_lib_name} PUBLIC ${PNETCDF_LINK_LIBRARIES})
+      target_include_directories(${remora_lib_name} PUBLIC ${PNETCDF_INCLUDE_DIRS})
     endif()
   endif()
 
