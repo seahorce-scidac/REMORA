@@ -12,8 +12,7 @@ set(REMORA_DIM "3" CACHE STRING "Number of physical dimensions")
 option(REMORA_ENABLE_DOCUMENTATION "Build documentation" OFF)
 option(REMORA_ENABLE_ALL_WARNINGS  "Enable all compiler warnings" OFF)
 option(REMORA_ENABLE_TESTS         "Enable regression and unit tests" OFF)
-option(REMORA_ENABLE_NETCDF        "Enable NetCDF IO" OFF)
-option(REMORA_ENABLE_HDF5          "Enable HDF5 IO" ${REMORA_ENABLE_NETCDF})
+option(REMORA_ENABLE_PNETCDF        "Enable PNetCDF IO" OFF)
 option(REMORA_ENABLE_FCOMPARE "Enable building fcompare when not testing" OFF)
 set(REMORA_PRECISION "DOUBLE" CACHE STRING "Floating point precision SINGLE or DOUBLE")
 
@@ -66,14 +65,13 @@ list(APPEND CMAKE_MODULE_PATH "${AMREX_SUBMOD_LOCATION}/Tools/CMake")
 
 add_subdirectory(${AMREX_SUBMOD_LOCATION})
 
-########################## NETCDF ##################################
+########################## PNETCDF ##################################
 
-if(REMORA_ENABLE_NETCDF)
-  set(CMAKE_PREFIX_PATH ${NETCDF_DIR} ${CMAKE_PREFIX_PATH})
-##  set(NETCDF_CXX "YES")
-  find_package (NetCDF REQUIRED)
-  if(NETCDF_FOUND)
-     message(STATUS "Found NetCDF, NETCDF_DIR = ${NETCDF_DIR}")
+if(REMORA_ENABLE_PNETCDF)
+  set(CMAKE_PREFIX_PATH ${PNETCDF_DIR} ${CMAKE_PREFIX_PATH})
+  find_package (PNetCDF REQUIRED)
+  if(PNETCDF_FOUND)
+     message(STATUS "Found PNetCDF, PNETCDF_DIR = ${PNETCDF_DIR}")
   endif()
 endif()
 
