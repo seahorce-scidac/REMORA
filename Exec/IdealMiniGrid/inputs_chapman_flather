@@ -74,6 +74,7 @@ remora.Tcoef = 0.0  # linear equation of state parameter (1/Celsius)
 remora.Scoef = 0.0     # linear equation of state parameter (nondimensional)
 remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
 
+# These files can be found at https://github.com/seahorce-scidac/REMORA-data
 remora.ic_bc_type       = "real"
 remora.nc_init_file_0   = "idmini_ini_v1.nc"
 remora.nc_grid_file_0   = "idmini_grd_v1.nc"
