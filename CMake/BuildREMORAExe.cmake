@@ -30,7 +30,7 @@ function(build_remora_lib remora_lib_name)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_PARTICLES)
   endif()
 
-  if(REMORA_ENABLE_NETCDF)
+  if(REMORA_ENABLE_PNETCDF)
     target_sources(${remora_lib_name} PRIVATE
                    ${SRC_DIR}/IO/NCInterface.H
                    ${SRC_DIR}/IO/NCPlotFile.H

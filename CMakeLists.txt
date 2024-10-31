@@ -68,10 +68,13 @@ add_subdirectory(${AMREX_SUBMOD_LOCATION})
 ########################## PNETCDF ##################################
 
 if(REMORA_ENABLE_PNETCDF)
-  set(CMAKE_PREFIX_PATH ${PNETCDF_DIR} ${CMAKE_PREFIX_PATH})
   find_package (PNetCDF REQUIRED)
   if(PNETCDF_FOUND)
      message(STATUS "Found PNetCDF, PNETCDF_DIR = ${PNETCDF_DIR}")
+     message(STATUS " PNETCDF_INCLUDE_DIRS = ${PNETCDF_INCLUDE_DIRS}")
+     message(STATUS " PNETCDF_VERSION = ${PNETCDF_VERSION}")
+     message(STATUS " PNETCDF_LIBRARY_DIRS = ${PNETCDF_LIBRARY_DIRS}")
+     message(STATUS " PNETCDF_ROOT_DIR = ${PNETCDF_ROOT_DIR}")
   endif()
 endif()
 
