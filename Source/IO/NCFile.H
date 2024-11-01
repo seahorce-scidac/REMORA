@@ -111,7 +111,8 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
 
     if (amrex::ParallelDescriptor::IOProcessor())
     {
-        auto ncf = ncutils::NCFile::open(fname, NC_CLOBBER | NC_NETCDF4);
+        auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER );
+        ncmpi_begin_indep_data(ncf.ncid);
 
         /*
         // get the dimension information

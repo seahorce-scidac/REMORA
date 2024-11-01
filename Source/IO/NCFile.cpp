@@ -11,7 +11,8 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
     std::string attr_val;
     if (amrex::ParallelDescriptor::IOProcessor())
     {
-        auto ncf = ncutils::NCFile::open(fname, NC_CLOBBER);
+        auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
+        ncmpi_begin_indep_data(ncf.ncid);
         attr_val = ncf.var(var_name).get_attr(attr_name);
         ncf.close();
     }

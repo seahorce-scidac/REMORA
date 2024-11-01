@@ -53,8 +53,8 @@ std::vector<MPI_Offset> NCVar::shape() const
     std::vector<int> dimids(ndims);
     std::vector<MPI_Offset> vshape(ndims);
 
-    for (int i = 0; i < ndims; ++i)
-        check_ncmpi_error(ncmpi_inq_vardimid(ncid, varid, &dimids[i]));
+
+    check_ncmpi_error(ncmpi_inq_vardimid(ncid, varid, dimids.data()));
 
     for (int i = 0; i < ndims; ++i)
     {
