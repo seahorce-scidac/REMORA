@@ -1,0 +1,86 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+max_step = 100
+
+amrex.fpe_trap_invalid = 1
+
+fabarray.mfiter_tile_size = 1024 1024 1024
+
+# PROBLEM SIZE & GEOMETRY
+# dims come from ROMS ana_grid, and must match vals in prob.cpp right now
+geometry.prob_lo     =   0.       0.  -5000.
+geometry.prob_hi     =   320000.  320000.       0.
+
+amr.n_cell           =  10 16 20
+
+geometry.is_periodic = 0 0 0
+zlo.type = "SlipWall"
+zhi.type = "SlipWall"
+
+remora.boundary_per_variable = 1
+##             WEST              SOUTH             EAST              NORTH
+temp.type   =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+salt.type   =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+scalar.type =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+u.type      =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+v.type      =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+w.type      =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+ubar.type   =  flather           flather           flather          flather
+vbar.type   =  flather           flather           flather          flather
+zeta.type   =  chapman           chapman           chapman          chapman
+tke.type    =  clamped           clamped           clamped          clamped
+
+# TIME STEP CONTROL
+remora.fixed_dt            = 200.0 # Timestep size (seconds)
+remora.fixed_ndtfast_ratio = 20 # Baratropic timestep size (seconds)
+
+remora.flat_bathymetry=0
+
+# DIAGNOSTICS & VERBOSITY
+remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
+remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
+amr.v                = 1       # verbosity in Amr.cpp
+
+# REFINEMENT / REGRIDDING
+amr.max_level        = 0       # maximum level number allowed
+#amr.max_grid_size    = 600     # maximum level number allowed
+
+# CHECKPOINT FILES
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
+
+# PLOTFILES
+remora.plot_file     = plt        # prefix of plotfile name
+remora.plot_int      = 100          # number of timesteps between plotfiles
+remora.plot_vars     = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+
+# SOLVER CHOICE
+remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+remora.spatial_order = 2
+
+remora.use_coriolis  = true
+remora.coriolis_type = real
+remora.coriolis_f0   = 1.0e-4
+
+remora.theta_s = 5.0
+remora.theta_b = 0.5
+remora.tcline = 100.
+
+# PROBLEM PARAMETERS (optional)
+remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+remora.S0    = 32.0    # background salinity (nondimensional) constant
+remora.T0    = 10.0    # background potential temperature (Celsius) constant
+remora.Tcoef = 0.0  # linear equation of state parameter (1/Celsius)
+remora.Scoef = 0.0     # linear equation of state parameter (nondimensional)
+remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
+
+# These files can be found at https://github.com/seahorce-scidac/REMORA-data
+remora.ic_bc_type       = "real"
+remora.nc_init_file_0   = "idmini_ini_v1.nc"
+remora.nc_grid_file_0   = "idmini_grd_v1.nc"
+remora.nc_bdry_file     = "idmini_bry_Uvel.nc"
+
+#nudging timescales, given in days
+remora.tnudg = 0.05
+remora.m3nudg = 0.05
+remora.obcfac = 1.0
