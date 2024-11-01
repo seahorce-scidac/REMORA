@@ -109,10 +109,10 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
 {
     AMREX_ASSERT(arrays.size() == names.size());
 
+    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER );
+    ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
-        auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER );
-        ncmpi_begin_indep_data(ncf.ncid);
 
         /*
         // get the dimension information
@@ -153,8 +153,9 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
 
             ncf.var(vname_to_read).get(dataPtr, start, shape);
         }
-        ncf.close();
+
     }
+    ncf.close();
 }
 
 /**
@@ -281,10 +282,8 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
 
     amrex::Vector<NDArray<amrex::Real>> nc_arrays(nc_var_names.size());
 
-    if (amrex::ParallelDescriptor::IOProcessor())
-    {
-        ReadNetCDFFile(fname, nc_var_names, nc_arrays);
-    }
+
+    ReadNetCDFFile(fname, nc_var_names, nc_arrays); // this is filled only on proc 0
 
     for (int iv = 0; iv < nc_var_names.size(); iv++)
     {

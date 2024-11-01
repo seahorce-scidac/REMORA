@@ -9,12 +9,12 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
                                   const std::string& attr_name)
 {
     std::string attr_val;
+    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
+    ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
-        auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
-        ncmpi_begin_indep_data(ncf.ncid);
         attr_val = ncf.var(var_name).get_attr(attr_name);
-        ncf.close();
     }
+    ncf.close();
     return attr_val;
 }
