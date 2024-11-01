@@ -14,15 +14,6 @@ REMORA::GotoNextLine (std::istream& is)
 void
 REMORA::WriteCheckpointFile ()
 {
-    // We fillpatch here because otherwise the restart is wrong. Not 100% clear if this
-    // should be necessary and could instead be replaced by a FillPatch in a more natural
-    // location
-    for (int lev = 0; lev <= finest_level; ++lev) {
-        FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t,   0,true,false);
-        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BCVars::xvel_bc, BdyVars::u,   0,true,false);
-        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BCVars::yvel_bc, BdyVars::v,   0,true,false);
-        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null,0,true,false);
-    }
 
     // chk00010            write a checkpoint file with this root directory
     // chk00010/Header     this contains information you need to save (e.g., finest_level, t_new, etc.) and also
@@ -126,32 +117,32 @@ REMORA::WriteCheckpointFile ()
        }
        BoxArray ba2d(std::move(bl2d));
 
-       MultiFab cons(grids[lev],dmap[lev],NCONS,0);
-       MultiFab::Copy(cons,*cons_new[lev],0,0,NCONS,0);
+       MultiFab cons(grids[lev],dmap[lev],NCONS,cons_new[lev]->nGrowVect());
+       MultiFab::Copy(cons,*cons_new[lev],0,0,NCONS,cons_new[lev]->nGrowVect());
        VisMF::Write(cons, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Cell"));
 
-       MultiFab::Copy(cons,*cons_old[lev],0,0,NCONS,0);
+       MultiFab::Copy(cons,*cons_old[lev],0,0,NCONS,cons_old[lev]->nGrowVect());
        VisMF::Write(cons, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Cell_old"));
 
-       MultiFab xvel(convert(grids[lev],IntVect(1,0,0)),dmap[lev],1,0);
-       MultiFab::Copy(xvel,*xvel_new[lev],0,0,1,0);
+       MultiFab xvel(convert(grids[lev],IntVect(1,0,0)),dmap[lev],1,xvel_new[lev]->nGrowVect());
+       MultiFab::Copy(xvel,*xvel_new[lev],0,0,1,xvel_new[lev]->nGrowVect());
        VisMF::Write(xvel, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "XFace"));
 
-       MultiFab::Copy(xvel,*xvel_old[lev],0,0,1,0);
+       MultiFab::Copy(xvel,*xvel_old[lev],0,0,1,xvel_old[lev]->nGrowVect());
        VisMF::Write(xvel, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "XFace_old"));
 
-       MultiFab yvel(convert(grids[lev],IntVect(0,1,0)),dmap[lev],1,0);
-       MultiFab::Copy(yvel,*yvel_new[lev],0,0,1,0);
+       MultiFab yvel(convert(grids[lev],IntVect(0,1,0)),dmap[lev],1,yvel_new[lev]->nGrowVect());
+       MultiFab::Copy(yvel,*yvel_new[lev],0,0,1,yvel_new[lev]->nGrowVect());
        VisMF::Write(yvel, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "YFace"));
 
-       MultiFab::Copy(yvel,*yvel_old[lev],0,0,1,0);
+       MultiFab::Copy(yvel,*yvel_old[lev],0,0,1,yvel_old[lev]->nGrowVect());
        VisMF::Write(yvel, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "YFace_old"));
 
-       MultiFab zvel(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,0);
-       MultiFab::Copy(zvel,*zvel_new[lev],0,0,1,0);
+       MultiFab zvel(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,zvel_new[lev]->nGrowVect());
+       MultiFab::Copy(zvel,*zvel_new[lev],0,0,1,zvel_new[lev]->nGrowVect());
        VisMF::Write(zvel, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "ZFace"));
 
-       MultiFab::Copy(zvel,*zvel_old[lev],0,0,1,0);
+       MultiFab::Copy(zvel,*zvel_old[lev],0,0,1,zvel_old[lev]->nGrowVect());
        VisMF::Write(zvel, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "ZFace_old"));
 
        MultiFab mf_ru(convert(grids[lev],IntVect(1,0,0)),dmap[lev],2,(vec_ru[lev])->nGrowVect());
@@ -378,33 +369,33 @@ REMORA::ReadCheckpointFile ()
         }
         BoxArray ba2d(std::move(bl2d));
 
-        MultiFab cons(grids[lev],dmap[lev],NCONS,0);
+        MultiFab cons(grids[lev],dmap[lev],NCONS,cons_new[lev]->nGrowVect());
         VisMF::Read(cons, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Cell"));
-        MultiFab::Copy(*cons_new[lev],cons,0,0,NCONS,0);
+        MultiFab::Copy(*cons_new[lev],cons,0,0,NCONS,cons_new[lev]->nGrowVect());
 
         VisMF::Read(cons, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Cell_old"));
-        MultiFab::Copy(*cons_old[lev],cons,0,0,NCONS,0);
+        MultiFab::Copy(*cons_old[lev],cons,0,0,NCONS,cons_old[lev]->nGrowVect());
 
-        MultiFab xvel(convert(grids[lev],IntVect(1,0,0)),dmap[lev],1,0);
+        MultiFab xvel(convert(grids[lev],IntVect(1,0,0)),dmap[lev],1,xvel_new[lev]->nGrowVect());
         VisMF::Read(xvel, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "XFace"));
-        MultiFab::Copy(*xvel_new[lev],xvel,0,0,1,0);
+        MultiFab::Copy(*xvel_new[lev],xvel,0,0,1,xvel_new[lev]->nGrowVect());
 
         VisMF::Read(xvel, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "XFace_old"));
-        MultiFab::Copy(*xvel_old[lev],xvel,0,0,1,0);
+        MultiFab::Copy(*xvel_old[lev],xvel,0,0,1,xvel_old[lev]->nGrowVect());
 
-        MultiFab yvel(convert(grids[lev],IntVect(0,1,0)),dmap[lev],1,0);
+        MultiFab yvel(convert(grids[lev],IntVect(0,1,0)),dmap[lev],1,yvel_new[lev]->nGrowVect());
         VisMF::Read(yvel, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YFace"));
-        MultiFab::Copy(*yvel_new[lev],yvel,0,0,1,0);
+        MultiFab::Copy(*yvel_new[lev],yvel,0,0,1,yvel_new[lev]->nGrowVect());
 
         VisMF::Read(yvel, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "YFace_old"));
-        MultiFab::Copy(*yvel_old[lev],yvel,0,0,1,0);
+        MultiFab::Copy(*yvel_old[lev],yvel,0,0,1,yvel_old[lev]->nGrowVect());
 
-        MultiFab zvel(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,0);
+        MultiFab zvel(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,zvel_new[lev]->nGrowVect());
         VisMF::Read(zvel, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "ZFace"));
-        MultiFab::Copy(*zvel_new[lev],zvel,0,0,1,0);
+        MultiFab::Copy(*zvel_new[lev],zvel,0,0,1,zvel_new[lev]->nGrowVect());
 
         VisMF::Read(zvel, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "ZFace_old"));
-        MultiFab::Copy(*zvel_old[lev],zvel,0,0,1,0);
+        MultiFab::Copy(*zvel_old[lev],zvel,0,0,1,zvel_old[lev]->nGrowVect());
 
        MultiFab mf_ru(convert(grids[lev],IntVect(1,0,0)),dmap[lev],2,(vec_ru[lev])->nGrowVect());
        VisMF::Read(mf_ru, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "XRHS"));
@@ -463,6 +454,7 @@ REMORA::ReadCheckpointFile ()
        VisMF::Read(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akv"));
 
        stretch_transform(lev);
+
     }
 
 #ifdef REMORA_USE_PARTICLES
