@@ -159,6 +159,8 @@ void REMORA::init_bcs ()
 
         m_bc_extdir_vals[BCVars::ubar_bc][ori] = 0.0_rt; // default
         m_bc_extdir_vals[BCVars::vbar_bc][ori] = 0.0_rt;
+        m_bc_extdir_vals[BCVars::u2d_simple_bc][ori] = 0.0_rt;
+        m_bc_extdir_vals[BCVars::v2d_simple_bc][ori] = 0.0_rt;
     }
 
     // Whether to specify boundary conditions by variable (then side).
