@@ -60,31 +60,6 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
         Box bx_xlo_face(bx); bx_xlo_face.setSmall(0,dom_lo.x  ); bx_xlo_face.setBig(0,dom_lo.x  );
         Box bx_xhi_face(bx); bx_xhi_face.setSmall(0,dom_hi.x+1); bx_xhi_face.setBig(0,dom_hi.x+1);
         ParallelFor(
-            grow(bx_xlo,IntVect(0,-1,0)), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-                int inner = (bc_ptr[n].lo(0) == REMORABCType::foextrap) ? 1 : 0;
-                int iflip = dom_lo.x - i;
-                if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][0]*msku(i,j,0);
-                } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped) {
-                    dest_arr(i,j,k) =  dest_arr(dom_lo.x+inner,j,k)*msku(i,j,0);
-                } else if (bc_ptr[n].lo(0) == REMORABCType::orlanski_rad) {
-                    Real grad_lo      = calc_arr(dom_lo.x  ,j  ,k) - calc_arr(dom_lo.x  ,j-1,k);
-                    Real grad_lo_ip1  = calc_arr(dom_lo.x+1,j  ,k) - calc_arr(dom_lo.x+1,j-1,k);
-                    Real grad_lo_jp1  = calc_arr(dom_lo.x  ,j+1,k) - calc_arr(dom_lo.x  ,j  ,k);
-                    Real grad_lo_ijp1 = calc_arr(dom_lo.x+1,j+1,k) - calc_arr(dom_lo.x+1,j  ,k);
-                    Real dUdt = calc_arr(dom_lo.x+1,j,k) - dest_arr(dom_lo.x+1,j,k);
-                    Real dUdx = dest_arr(dom_lo.x+1,j,k) - dest_arr(dom_lo.x+2,j,k);
-                    if (dUdt * dUdx < 0.0_rt) dUdt = 0.0_rt;
-                    Real dUde = (dUdt * (grad_lo_ip1 + grad_lo_ijp1) > 0.0_rt) ? grad_lo_ip1 : grad_lo_ijp1;
-                    Real cff = std::max(dUdx*dUdx+dUde*dUde,eps);
-                    Real Cx = dUdt*dUdx;
-                    dest_arr(i,j,k) = (cff * calc_arr(i,j,k) + Cx * dest_arr(dom_lo.x+1,j,k)) * msku(i,j,0) / (cff+Cx);
-                } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
-                    dest_arr(i,j,k) =  dest_arr(iflip,j,k)*msku(i,j,0);
-                } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_odd) {
-                    dest_arr(i,j,k) = -dest_arr(iflip,j,k)*msku(i,j,0);
-                }
-            },
             // We only set the values on the domain faces themselves if EXT_DIR or actual outflow
             grow(bx_xlo_face,IntVect(0,-1,0)), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
@@ -104,35 +79,24 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
                     Real Cx = dUdt*dUdx;
                     dest_arr(i,j,k) = (cff * calc_arr(i,j,k) + Cx * dest_arr(dom_lo.x+1,j,k)) * msku(i,j,0) / (cff+Cx);
                 }
-            }
-        );
+            });
         ParallelFor(
-            grow(bx_xhi,IntVect(0,-1,0)), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
-                int iflip =  2*(dom_hi.x + 1) - i;
-                int inner = (bc_ptr[n].hi(0) == REMORABCType::foextrap) ? 1 : 0;
-                if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3]*msku(i,j,0);
-                } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped) {
-                    dest_arr(i,j,k) =  dest_arr(dom_hi.x+1-inner,j,k)*msku(i,j,0);
-                } else if (bc_ptr[n].hi(0) == REMORABCType::orlanski_rad) {
-                    Real grad_hi      = calc_arr(dom_hi.x  ,j  ,k) - calc_arr(dom_hi.x  ,j-1,k);
-                    Real grad_hi_ip1  = calc_arr(dom_hi.x+1,j  ,k) - calc_arr(dom_hi.x+1,j-1,k);
-                    Real grad_hi_jp1  = calc_arr(dom_hi.x  ,j+1,k) - calc_arr(dom_hi.x  ,j  ,k);
-                    Real grad_hi_ijp1 = calc_arr(dom_hi.x+1,j+1,k) - calc_arr(dom_hi.x+1,j  ,k);
-                    Real dUdt = calc_arr(dom_hi.x,j,k) - dest_arr(dom_hi.x  ,j,k);
-                    Real dUdx = dest_arr(dom_hi.x,j,k) - dest_arr(dom_hi.x-1,j,k);
-                    if (dUdt * dUdx < 0.0_rt) dUdt = 0.0_rt;
-                    Real dUde = (dUdt * (grad_hi + grad_hi_jp1) > 0.0_rt) ? grad_hi : grad_hi_jp1;
-                    Real cff = std::max(dUdx*dUdx+dUde*dUde,eps);
-                    Real Cx = dUdt * dUdx;
-                    dest_arr(i,j,k) = (cff * calc_arr(dom_hi.x+1,j,k) + Cx * dest_arr(dom_hi.x,j,k)) * msku(i,j,0) / (cff + Cx);
-                } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
+            grow(bx_xlo,IntVect(0,-1,0)), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
+                int inner = (bc_ptr[n].lo(0) == REMORABCType::foextrap) ? 1 : 0;
+                int iflip = dom_lo.x - i;
+                if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
+                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][0]*msku(i,j,0);
+                } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped ||
+                        bc_ptr[n].lo(0) == REMORABCType::orlanski_rad) {
+                    dest_arr(i,j,k) =  dest_arr(dom_lo.x+inner,j,k)*msku(i,j,0);
+                } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_even) {
                     dest_arr(i,j,k) =  dest_arr(iflip,j,k)*msku(i,j,0);
-                } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_odd) {
+                } else if (bc_ptr[n].lo(0) == REMORABCType::reflect_odd) {
                     dest_arr(i,j,k) = -dest_arr(iflip,j,k)*msku(i,j,0);
                 }
-            },
+            });
             // We only set the values on the domain faces themselves if EXT_DIR or actual outflow
+        ParallelFor(
             grow(bx_xhi_face,IntVect(0,-1,0)), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3]*msku(i,j,0);
@@ -151,8 +115,22 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
                     Real Cx = dUdt * dUdx;
                     dest_arr(i,j,k) = (cff * calc_arr(dom_hi.x+1,j,k) + Cx * dest_arr(dom_hi.x,j,k)) * msku(i,j,0) / (cff + Cx);
                 }
-            }
-        );
+            });
+        ParallelFor(
+            grow(bx_xhi,IntVect(0,-1,0)), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
+                int iflip =  2*(dom_hi.x + 1) - i;
+                int inner = (bc_ptr[n].hi(0) == REMORABCType::foextrap) ? 1 : 0;
+                if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
+                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3]*msku(i,j,0);
+                } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped ||
+                        bc_ptr[n].hi(0) == REMORABCType::orlanski_rad) {
+                    dest_arr(i,j,k) =  dest_arr(dom_hi.x+1-inner,j,k)*msku(i,j,0);
+                } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_even) {
+                    dest_arr(i,j,k) =  dest_arr(iflip,j,k)*msku(i,j,0);
+                } else if (bc_ptr[n].hi(0) == REMORABCType::reflect_odd) {
+                    dest_arr(i,j,k) = -dest_arr(iflip,j,k)*msku(i,j,0);
+                }
+            });
     } // not periodic in x
 
     if (!is_periodic_in_y or bccomp==BCVars::foextrap_bc)
