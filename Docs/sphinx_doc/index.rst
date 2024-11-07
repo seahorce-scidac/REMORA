@@ -67,7 +67,6 @@ In addition to this documentation, there is API documentation for REMORA generat
    Numerical_Solution_Technique.rst
    Time_Stepping.rst
    VerticalSCoord.rst
-..   TimeAdvance.rst
 ..   Discretizations.rst
 ..   BoundaryConditions.rst
 
