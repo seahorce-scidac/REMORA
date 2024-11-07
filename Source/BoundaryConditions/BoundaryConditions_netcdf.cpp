@@ -143,12 +143,12 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             Box xlo_edge = xlo; xlo_edge.setSmall(0,ubound(xlo).x); xlo_edge.setBig(0,ubound(xlo).x);
             Box xhi_edge = xhi; xhi_edge.setSmall(0,lbound(xhi).x); xhi_edge.setBig(0,lbound(xhi).x);
             Box ylo_edge = ylo; ylo_edge.setSmall(1,ubound(ylo).y); ylo_edge.setBig(1,ubound(ylo).y);
-            Box yhi_edge = yhi; yhi_edge.setSmall(1,lbound(ylo).y); yhi_edge.setBig(1,lbound(ylo).y);
+            Box yhi_edge = yhi; yhi_edge.setSmall(1,lbound(yhi).y); yhi_edge.setBig(1,lbound(yhi).y);
 
             Box xlo_ghost = xlo; xlo_ghost.setBig(0,ubound(xlo).x-1);
             Box xhi_ghost = xhi; xhi_ghost.setSmall(0,lbound(xhi).x+1);
             Box ylo_ghost = ylo; ylo_ghost.setBig(1,ubound(ylo).y-1);
-            Box yhi_ghost = yhi; yhi_ghost.setSmall(1,lbound(ylo).y+1);
+            Box yhi_ghost = yhi; yhi_ghost.setSmall(1,lbound(yhi).y+1);
 
             const Array4<Real>& dest_arr = mf_to_fill.array(mfi);
             const Array4<const Real>& mask_arr = mf_mask.array(mfi);
@@ -233,7 +233,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                 });
                 ParallelFor(grow(xlo_ghost,IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    dest_arr(i,j,k,icomp+icomp_to_fill) = dest_arr(dom_lo.x+mf_index_type[0]-1,j,k,icomp+icomp_to_fill);
+                    dest_arr(i,j,k,icomp+icomp_to_fill) = dest_arr(ubound(xlo).x,j,k,icomp+icomp_to_fill);
                 });
             }
 
@@ -291,7 +291,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                 });
                 ParallelFor(grow(xhi_ghost,IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    dest_arr(i,j,k,icomp+icomp_to_fill) = dest_arr(dom_hi.x-mf_index_type[0]+1,j,k,icomp+icomp_to_fill);
+                    dest_arr(i,j,k,icomp+icomp_to_fill) = dest_arr(lbound(xhi).x,j,k,icomp+icomp_to_fill);
                 });
             }
 
@@ -350,7 +350,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                 });
                 ParallelFor(grow(ylo_ghost,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    dest_arr(i,j,k,icomp+icomp_to_fill) = dest_arr(i,dom_lo.y+mf_index_type[1]-1,k,icomp+icomp_to_fill);
+                    dest_arr(i,j,k,icomp+icomp_to_fill) = dest_arr(i,ubound(ylo).y,k,icomp+icomp_to_fill);
                 });
             }
 
@@ -409,7 +409,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                 });
                 ParallelFor(grow(yhi_ghost,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    dest_arr(i,j,k,icomp+icomp_to_fill) = dest_arr(i,dom_hi.y-mf_index_type[1]+1,k,icomp+icomp_to_fill);
+                    dest_arr(i,j,k,icomp+icomp_to_fill) = dest_arr(i,lbound(ylo).y,k,icomp+icomp_to_fill);
                 });
 
             }
