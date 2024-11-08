@@ -23,11 +23,10 @@ salt.type   =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_ra
 scalar.type =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
 u.type      =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
 v.type      =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
-w.type      =  orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
 ubar.type   =  flather           flather           flather          flather
 vbar.type   =  flather           flather           flather          flather
 zeta.type   =  chapman           chapman           chapman          chapman
-tke.type    =  clamped           clamped           clamped          clamped
+tke.type    =  outflow           outflow           outflow          outflow
 
 # TIME STEP CONTROL
 remora.fixed_dt            = 200.0 # Timestep size (seconds)

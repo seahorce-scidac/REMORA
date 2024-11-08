@@ -134,9 +134,13 @@ void REMORA::init_bcs ()
     auto f_by_var = [this, &f_set_var_bc] (std::string const& varname, int bcvar_type)
     {
         amrex::Vector<Orientation> orientations = {Orientation(Direction::x,Orientation::low), Orientation(Direction::y,Orientation::high),Orientation(Direction::x,Orientation::high),Orientation(Direction::y,Orientation::low)}; // west, south, east, north [matches ROMS]
-        std::vector<std::string> bc_types;
+        std::vector<std::string> bc_types = {"null","null","null","null"};
         ParmParse pp(varname);
         std::string bc_type_in = "null";
+        // default zvel to outflow
+        if (bcvar_type == BCVars::zvel_bc) {
+            bc_types = {"outflow","outflow","outflow","outflow"};
+        }
         pp.queryarr("type", bc_types);
         AMREX_ASSERT(bc_types.size() == 4);
         for (int i=0; i<4; i++) {
@@ -202,6 +206,7 @@ void REMORA::init_bcs ()
         domain_bcs_type_d.resize(AMREX_SPACEDIM+NCONS+8);
 
         for (OrientationIter oit; oit; ++oit) {
+            bool not_valid_for_zvel = false;
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
@@ -262,6 +267,7 @@ void REMORA::init_bcs ()
                 }
                 else if (bct == REMORA_BC::periodic)
                 {
+                    if (i==2) not_valid_for_zvel = true;
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::int_dir);
                     } else {
@@ -270,6 +276,7 @@ void REMORA::init_bcs ()
                 }
                 else if (bct == REMORA_BC::clamped)
                 {
+                    if (i==2) not_valid_for_zvel = true;
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::clamped);
                     } else {
@@ -278,6 +285,7 @@ void REMORA::init_bcs ()
                 }
                 else if (bct == REMORA_BC::orlanski_rad)
                 {
+                    if (i==2) not_valid_for_zvel = true;
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::orlanski_rad);
                     } else {
@@ -286,6 +294,7 @@ void REMORA::init_bcs ()
                 }
                 else if (bct == REMORA_BC::orlanski_rad_nudge)
                 {
+                    if (i==2) not_valid_for_zvel = true;
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::orlanski_rad_nudge);
                     } else {
@@ -295,6 +304,9 @@ void REMORA::init_bcs ()
                 else
                 {
                     amrex::Abort("Velocity boundary condition not validly specified");
+                }
+                if (not_valid_for_zvel) {
+                    amrex::Abort("Z-velocity boundary condition not validly specified");
                 }
             }
         }

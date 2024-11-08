@@ -23,11 +23,10 @@ salt.type   =  clamped  clamped  clamped  clamped
 scalar.type =  clamped  clamped  clamped  clamped
 u.type      =  clamped  clamped  clamped  clamped
 v.type      =  clamped  clamped  clamped  clamped
-w.type      =  clamped  clamped  clamped  clamped
 ubar.type   =  flather  flather  flather  flather
 vbar.type   =  flather  flather  flather  flather
 zeta.type   =  chapman  chapman  chapman  chapman
-tke.type    =  clamped  clamped  clamped  clamped
+tke.type    =  outflow  outflow  outflow  outflow
 
 # TIME STEP CONTROL
 remora.fixed_dt            = 200.0 # Timestep size (seconds)
