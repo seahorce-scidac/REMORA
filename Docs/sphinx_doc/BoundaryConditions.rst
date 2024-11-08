@@ -11,6 +11,51 @@ There are two primary types of physical/domain boundary conditions: those which 
 data in the valid regions, and those which rely on externally specified values.
 
 REMORA allows users to specify types of boundary condition with keywords in the inputs file.
+The option ``remora.boundary_per_variable`` controls whether conditions are specified on a
+per-side or per-variable basis. The options are:
+
+- inflow
+
+- outflow
+
+- slipwall
+
+- noslipwall
+
+- symmetry
+
+
+
+
+Boundary per side
+-----------------
+
+To set boundary conditions per domain side for all variables, set
+``remora.boundary_per_variable = false``. This is the default behavior.
+
+The information for each face is preceded by
+``xlo``, ``xhi``, ``ylo``, ``yhi``, ``zlo``, or ``zhi``.
+
++----------------------------------+-----------------+-------------------+-------------+
+| Parameter                        | Definition      | Acceptable        | Default     |
+|                                  |                 | Values            |             |
++==================================+=================+===================+=============+
+| **remora.boundary_per_variable** | physical        | [Real Real -Real] | must be set |
+|                                  | location of low |                   |             |
+|                                  | corner of the   |                   |             |
+|                                  | domain          |                   |             |
++----------------------------------+-----------------+-------------------+-------------+
+| **geometry.prob_hi**             | physical        | [Real Real 0]     | must be set |
+|                                  | location of     |                   |             |
+|                                  | high corner of  |                   |             |
+|                                  | the domain      |                   |             |
++----------------------------------+-----------------+-------------------+-------------+
+| **geometry.is_periodic**         | is the domain   | 0 if false, 1     | 0 0 0       |
+|                                  | periodic in     | if true.          |             |
+|                                  | this direction  | Z-component must  |             |
+|                                  |                 | be zero           |             |
++----------------------------------+-----------------+-------------------+-------------+
+
 The information for each face is preceded by
 ``xlo``, ``xhi``, ``ylo``, ``yhi``, ``zlo``, or ``zhi``.
 
@@ -47,19 +92,29 @@ REMORA provides the ability to specify constant Dirichlet BCs in the inputs fil
 preceded by
 ``xlo``, ``xhi``, ``ylo``, ``yhi``, ``zlo``, and ``zhi``:
 
-+------------+--------------+----------------+------------------+
-| Type       | Normal vel   | Tangential vel | T, S, etc.       |
-+============+==============+================+==================+
-| inflow     | ext_dir      | ext_dir        | ext_dir          |
-+------------+--------------+----------------+------------------+
-| outflow    | foextrap     | foextrap       | foextrap         |
-+------------+--------------+----------------+------------------+
-| slipwall   | ext_dir      | foextrap       | ext_dir/foextrap |
-+------------+--------------+----------------+------------------+
-| noslipwall | ext_dir      | ext_dir        | ext_dir/foextrap |
-+------------+--------------+----------------+------------------+
-| symmetry   | reflect_odd  | reflect_even   | reflect_even     |
-+------------+--------------+----------------+------------------+
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
+| Type          | Normal vel (3D)    | Tangential vel (3D) | Normal vel (2D)    | Tangential vel (2D) | T, S, etc.       | sea surface height |
++===============+====================+=====================+====================+=====================+==================+====================+
+| inflow        | ext_dir            | ext_dir             | ext_dir            | ext_dir             | ext_dir          | ext_dir            |
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
+| outflow       | foextrap           | foextrap            | foextrap           | foextrap            | foextrap         | foextrap           |
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
+| slipwall      | ext_dir            | foextrap            | ext_dir            | foextrap            | ext_dir/foextrap | ext_dir/foextrap   |
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
+| noslipwall    | ext_dir            | ext_dir             | ext_dir            | ext_dir             | ext_dir/foextrap | ext_dir/foextrap   |
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
+| symmetry      | reflect_odd        | reflect_even        | reflect_odd        | reflect_even        | reflect_even     | reflect_even       |
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
+| clamped       | clamped            | clamped             | clamped            | clamped             | clamped          | clamped            |
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
+| chapman       | N/A                | N/A                 | N/A                | N/A                 | N/A              | chapman            |
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
+| flather       | N/A                | N/A                 | flather            | flather             | N/A              | N/A                |
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
+| orlanski      | orlanski           | orlanski            | N/A                | N/A                 | orlanski         | N/A                |
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
+| orlanski_nudg | orlanski           | orlanski            | N/A                | N/A                 | orlanski         | N/A                |
++---------------+--------------------+---------------------+--------------------+---------------------+------------------+--------------------+
 
 Periodic boundary conditions are specified by the ``geometry.is_periodic`` flag as described in :ref:`Problem Geometry`<geometry-parameters>`.
 
