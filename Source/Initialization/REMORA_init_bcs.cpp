@@ -206,21 +206,21 @@ void REMORA::init_bcs ()
         domain_bcs_type_d.resize(AMREX_SPACEDIM+NCONS+8);
 
         for (OrientationIter oit; oit; ++oit) {
-            bool not_valid_for_zvel = false;
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            for (int i = 0; i < AMREX_SPACEDIM; i++) {
+            // only do this for xvel and yvel
+            for (int i = 0; i < 2; i++) {
                 auto const bct = phys_bc_type[BCVars::xvel_bc+i][ori];
                 if ( bct == REMORA_BC::symmetry )
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::reflect_even);
-                        if (i==2)
+                        if (i==1)
                             domain_bcs_type[BCVars::xvel_bc+dir].setLo(dir, REMORABCType::reflect_odd);
                     } else {
                         domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::reflect_even);
-                        if (i==2)
+                        if (i==1)
                             domain_bcs_type[BCVars::xvel_bc+dir].setHi(dir, REMORABCType::reflect_odd);
                     }
                 }
@@ -252,14 +252,14 @@ void REMORA::init_bcs ()
                 {
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::foextrap);
-                        if (i==2) {
+                        if (i==1) {
                             // Only normal direction has ext_dir
                             domain_bcs_type[BCVars::xvel_bc+dir].setLo(dir, REMORABCType::ext_dir);
                         }
 
                     } else {
                         domain_bcs_type[BCVars::xvel_bc+i].setHi(dir, REMORABCType::foextrap);
-                        if (i==2) {
+                        if (i==1) {
                             // Only normal direction has ext_dir
                             domain_bcs_type[BCVars::xvel_bc+dir].setHi(dir, REMORABCType::ext_dir);
                         }
@@ -267,7 +267,6 @@ void REMORA::init_bcs ()
                 }
                 else if (bct == REMORA_BC::periodic)
                 {
-                    if (i==2) not_valid_for_zvel = true;
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::int_dir);
                     } else {
@@ -276,7 +275,6 @@ void REMORA::init_bcs ()
                 }
                 else if (bct == REMORA_BC::clamped)
                 {
-                    if (i==2) not_valid_for_zvel = true;
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::clamped);
                     } else {
@@ -285,7 +283,6 @@ void REMORA::init_bcs ()
                 }
                 else if (bct == REMORA_BC::orlanski_rad)
                 {
-                    if (i==2) not_valid_for_zvel = true;
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::orlanski_rad);
                     } else {
@@ -294,7 +291,6 @@ void REMORA::init_bcs ()
                 }
                 else if (bct == REMORA_BC::orlanski_rad_nudge)
                 {
-                    if (i==2) not_valid_for_zvel = true;
                     if (side == Orientation::low) {
                         domain_bcs_type[BCVars::xvel_bc+i].setLo(dir, REMORABCType::orlanski_rad_nudge);
                     } else {
@@ -305,9 +301,13 @@ void REMORA::init_bcs ()
                 {
                     amrex::Abort("Velocity boundary condition not validly specified");
                 }
-                if (not_valid_for_zvel) {
-                    amrex::Abort("Z-velocity boundary condition not validly specified");
-                }
+            }
+
+            // Always set zvel_bc to foextrap
+            if (side == Orientation::low) {
+                domain_bcs_type[BCVars::zvel_bc].setLo(dir, REMORABCType::foextrap);
+            } else {
+                domain_bcs_type[BCVars::zvel_bc].setHi(dir, REMORABCType::foextrap);
             }
         }
     }
