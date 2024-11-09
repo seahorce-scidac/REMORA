@@ -26,7 +26,6 @@ salt.type   =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
 scalar.type =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
 u.type      =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
 v.type      =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
-w.type      =  outflow outflow outflow outflow
 ubar.type   =  outflow outflow outflow outflow
 vbar.type   =  outflow outflow outflow outflow
 zeta.type   =  outflow outflow outflow outflow
