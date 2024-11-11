@@ -83,6 +83,12 @@ struct NCVar
         const std::vector<MPI_Offset>&) const;
     //! Write out a slice of data with with strides (see hyperslab definition in
     //! NetCDF)
+    void iput(
+            const double* dptr,
+            const std::vector<MPI_Offset>& start,
+            const std::vector<MPI_Offset>& count,
+    		int * request) const ;
+
     void
     put(const double*,
         const std::vector<MPI_Offset>&,
@@ -328,6 +334,9 @@ public:
     void get_attr(const std::string& name, std::vector<double>& value) const;
     void get_attr(const std::string& name, std::vector<float>& value) const;
     void get_attr(const std::string& name, std::vector<int>& value) const;
+
+    // for non-blocking calls
+    void wait_all( int num_requests, int * requests);
 
     //! Return a list of all dimensions defined in this group
     std::vector<NCDim> all_dims() const;

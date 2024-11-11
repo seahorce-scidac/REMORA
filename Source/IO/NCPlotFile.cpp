@@ -346,6 +346,8 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
     mask_arrays_for_write(lev, (Real) fill_value);
 
+    std::vector<int> requests;
+    int irq=0;
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
         auto bx = mfi.validbox();
@@ -386,48 +388,55 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
                 auto nc_plot_var = ncf.var("h");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
-                nc_plot_var.put_all(tmp_bathy.dataPtr(), {local_start_y,local_start_x},
-                                                     {local_ny, local_nx});
+                requests.push_back(0);
+                nc_plot_var.iput(tmp_bathy.dataPtr(), {local_start_y,local_start_x},
+                                                     {local_ny, local_nx}, &requests[irq++]);
             }
 
             {
-            FArrayBox tmp_zeta;
-            tmp_zeta.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
-            tmp_zeta.template copy<RunOn::Device>((*vec_Zt_avg1[lev])[mfi.index()],0,0,1);
-            Gpu::streamSynchronize();
+				FArrayBox tmp_zeta;
+				tmp_zeta.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
+				tmp_zeta.template copy<RunOn::Device>((*vec_Zt_avg1[lev])[mfi.index()],0,0,1);
+				Gpu::streamSynchronize();
 
-            auto nc_plot_var = ncf.var("zeta");
-            //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put_all(tmp_zeta.dataPtr(), {local_start_nt,local_start_y,local_start_x},
-                                                {local_nt, local_ny, local_nx});
+				auto nc_plot_var = ncf.var("zeta");
+				//nc_plot_var.par_access(NC_INDEPENDENT);
+				requests.push_back(0);
+				nc_plot_var.iput(tmp_zeta.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+                                                {local_nt, local_ny, local_nx}, &requests[irq++]);
             }
 
             {
-            FArrayBox tmp_temp;
-            tmp_temp.resize(tmp_bx,1,amrex::The_Pinned_Arena());
-            tmp_temp.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Temp_comp,0,1);
-            Gpu::streamSynchronize();
+				FArrayBox tmp_temp;
+				tmp_temp.resize(tmp_bx,1,amrex::The_Pinned_Arena());
+				tmp_temp.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Temp_comp,0,1);
+				Gpu::streamSynchronize();
 
-            auto nc_plot_var = ncf.var("temp");
-            //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put_all(tmp_temp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
-                                                {local_nt, local_nz, local_ny, local_nx});
+				auto nc_plot_var = ncf.var("temp");
+				//nc_plot_var.par_access(NC_INDEPENDENT);
+				requests.push_back(0);
+				nc_plot_var.iput(tmp_temp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+													{local_nt, local_nz, local_ny, local_nx}, &requests[irq++]);
             }
 
             {
-            FArrayBox tmp_salt;
-            tmp_salt.resize(tmp_bx,1,amrex::The_Pinned_Arena());
-            tmp_salt.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Salt_comp,0,1);
-            Gpu::streamSynchronize();
+				FArrayBox tmp_salt;
+				tmp_salt.resize(tmp_bx,1,amrex::The_Pinned_Arena());
+				tmp_salt.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()],Salt_comp,0,1);
+				Gpu::streamSynchronize();
 
-            auto nc_plot_var = ncf.var("salt");
-            //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put_all(tmp_salt.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
-                                                {local_nt, local_nz, local_ny, local_nx});
+				auto nc_plot_var = ncf.var("salt");
+				//nc_plot_var.par_access(NC_INDEPENDENT);
+				requests.push_back(0);
+				nc_plot_var.iput(tmp_salt.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+													{local_nt, local_nz, local_ny, local_nx}, &requests[irq++]);
             }
         } // subdomain
     } // mfi
 
+    ncf.wait_all(irq, &requests[0]);
+    requests.resize(0);
+    irq = 0;
     // Writing u (we loop over cons to get cell-centered box)
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
@@ -457,42 +466,50 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             long unsigned local_start_z  = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             {
-            FArrayBox tmp;
-            tmp.resize(tmp_bx,1,amrex::The_Pinned_Arena());
-            tmp.template copy<RunOn::Device>((*xvel_new[lev])[mfi.index()],0,0,1);
-            Gpu::streamSynchronize();
+				FArrayBox tmp;
+				tmp.resize(tmp_bx,1,amrex::The_Pinned_Arena());
+				tmp.template copy<RunOn::Device>((*xvel_new[lev])[mfi.index()],0,0,1);
+				Gpu::streamSynchronize();
 
-            auto nc_plot_var = ncf.var("u");
-            //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
-                                           {local_nt, local_nz, local_ny, local_nx});
+				auto nc_plot_var = ncf.var("u");
+				//nc_plot_var.par_access(NC_INDEPENDENT);
+				std::cout << " local start nt, z:" << local_start_nt << " " << local_start_z << "\n";
+				requests.push_back(0);
+				nc_plot_var.iput(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+											   {local_nt, local_nz, local_ny, local_nx}, &requests[irq++]);
             }
 
             {
-            FArrayBox tmp;
-            tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
-            tmp.template copy<RunOn::Device>((*vec_ubar[lev])[mfi.index()],0,0,1);
-            Gpu::streamSynchronize();
+				FArrayBox tmp;
+				tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
+				tmp.template copy<RunOn::Device>((*vec_ubar[lev])[mfi.index()],0,0,1);
+				Gpu::streamSynchronize();
 
-            auto nc_plot_var = ncf.var("ubar");
-            //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
-                                           {local_nt, local_ny, local_nx});
+				auto nc_plot_var = ncf.var("ubar");
+				std::cout << " write ubar \n";
+				//nc_plot_var.par_access(NC_INDEPENDENT);
+				requests.push_back(0);
+				nc_plot_var.iput(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+											   {local_nt, local_ny, local_nx}, &requests[irq++]);
             }
             {
-            FArrayBox tmp;
-            tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
-            tmp.template copy<RunOn::Device>((*vec_sustr[lev])[mfi.index()],0,0,1);
-            Gpu::streamSynchronize();
+				FArrayBox tmp;
+				tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
+				tmp.template copy<RunOn::Device>((*vec_sustr[lev])[mfi.index()],0,0,1);
+				Gpu::streamSynchronize();
 
-            auto nc_plot_var = ncf.var("sustr");
-            //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
-                                           {local_nt, local_ny, local_nx});
+				auto nc_plot_var = ncf.var("sustr");
+				std::cout << " write sustr \n";
+				//nc_plot_var.par_access(NC_INDEPENDENT);
+				requests.push_back(0);
+				nc_plot_var.iput(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+											   {local_nt, local_ny, local_nx}, &requests[irq++]);
             }
         } // in subdomain
     } // mfi
-
+    ncf.wait_all(irq, &requests[0]);
+	requests.resize(0);
+	irq = 0;
     // Writing v (we loop over cons to get cell-centered box)
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi)
     {
@@ -525,42 +542,48 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             long unsigned local_start_z  = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             {
-            FArrayBox tmp;
-            tmp.resize(tmp_bx,1,amrex::The_Pinned_Arena());
-            tmp.template copy<RunOn::Device>((*yvel_new[lev])[mfi.index()],0,0,1);
-            Gpu::streamSynchronize();
+				FArrayBox tmp;
+				tmp.resize(tmp_bx,1,amrex::The_Pinned_Arena());
+				tmp.template copy<RunOn::Device>((*yvel_new[lev])[mfi.index()],0,0,1);
+				Gpu::streamSynchronize();
 
-            auto nc_plot_var = ncf.var("v");
-            //nc_plot_var.par_access(NC_INDEPENDENT);
-             nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
-                                            {local_nt, local_nz, local_ny, local_nx});
+				auto nc_plot_var = ncf.var("v");
+				//nc_plot_var.par_access(NC_INDEPENDENT);
+				requests.push_back(0);
+				nc_plot_var.iput(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
+												{local_nt, local_nz, local_ny, local_nx}, &requests[irq++]);
             }
 
             {
-            FArrayBox tmp;
-            tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
-            tmp.template copy<RunOn::Device>((*vec_vbar[lev])[mfi.index()],0,0,1);
-            Gpu::streamSynchronize();
+				FArrayBox tmp;
+				tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
+				tmp.template copy<RunOn::Device>((*vec_vbar[lev])[mfi.index()],0,0,1);
+				Gpu::streamSynchronize();
 
-            auto nc_plot_var = ncf.var("vbar");
-            //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
-                                           {local_nt, local_ny, local_nx});
+				auto nc_plot_var = ncf.var("vbar");
+				//nc_plot_var.par_access(NC_INDEPENDENT);
+				requests.push_back(0);
+				nc_plot_var.iput(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+											   {local_nt, local_ny, local_nx}, &requests[irq++]);
             }
             {
-            FArrayBox tmp;
-            tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
-            tmp.template copy<RunOn::Device>((*vec_svstr[lev])[mfi.index()],0,0,1);
-            Gpu::streamSynchronize();
+				FArrayBox tmp;
+				tmp.resize(tmp_bx_2d,1,amrex::The_Pinned_Arena());
+				tmp.template copy<RunOn::Device>((*vec_svstr[lev])[mfi.index()],0,0,1);
+				Gpu::streamSynchronize();
 
-            auto nc_plot_var = ncf.var("svstr");
-            //nc_plot_var.par_access(NC_INDEPENDENT);
-            nc_plot_var.put_all(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
-                                           {local_nt, local_ny, local_nx});
+				auto nc_plot_var = ncf.var("svstr");
+				//nc_plot_var.par_access(NC_INDEPENDENT);
+				nc_plot_var.iput(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
+											   {local_nt, local_ny, local_nx}, &requests[irq++]);
             }
 
         } // in subdomain
     } // mfi
+
+    ncf.wait_all(irq, &requests[0]);
+	requests.resize(0);
+	irq = 0;
 
     mask_arrays_for_write(lev, 0.0_rt);
 
