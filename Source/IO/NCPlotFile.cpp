@@ -473,7 +473,6 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
 				auto nc_plot_var = ncf.var("u");
 				//nc_plot_var.par_access(NC_INDEPENDENT);
-				std::cout << " local start nt, z:" << local_start_nt << " " << local_start_z << "\n";
 				requests.push_back(0);
 				nc_plot_var.iput(tmp.dataPtr(), {local_start_nt,local_start_z,local_start_y,local_start_x},
 											   {local_nt, local_nz, local_ny, local_nx}, &requests[irq++]);
@@ -486,7 +485,6 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 				Gpu::streamSynchronize();
 
 				auto nc_plot_var = ncf.var("ubar");
-				std::cout << " write ubar \n";
 				//nc_plot_var.par_access(NC_INDEPENDENT);
 				requests.push_back(0);
 				nc_plot_var.iput(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
@@ -499,7 +497,6 @@ REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 				Gpu::streamSynchronize();
 
 				auto nc_plot_var = ncf.var("sustr");
-				std::cout << " write sustr \n";
 				//nc_plot_var.par_access(NC_INDEPENDENT);
 				requests.push_back(0);
 				nc_plot_var.iput(tmp.dataPtr(), {local_start_nt,local_start_y,local_start_x},
