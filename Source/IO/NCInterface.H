@@ -363,22 +363,19 @@ public:
 
 namespace ncutils {
 
-struct NCDim
-{
-    const int ncid{-1};
-    const int dimid{-1};
+struct NCDim {
+    const int ncid { -1 };
+    const int dimid { -1 };
 };
 
-struct NCVar
-{
-    const int ncid{-1};
-    const int varid{-1};
+struct NCVar {
+    const int ncid { -1 };
+    const int varid { -1 };
 };
 
-class NCFile
-{
+class NCFile {
 public:
-    const int ncid{-1};
+    const int ncid { -1 };
 };
 
 } // namespace ncutils
