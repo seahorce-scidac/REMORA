@@ -39,8 +39,7 @@ void REMORA::WriteNCPlotFile(int which_step) {
         const std::string &extension = amrex::Concatenate("_d", lev + 1, 2);
         FullPath += extension + ".nc";
     } else {
-        const std::string &extension = amrex::Concatenate("_d",
-                lev + 1 + which_subdomain, 2);
+        const std::string &extension = amrex::Concatenate("_d", lev + 1 + which_subdomain, 2);
         FullPath += extension + ".nc";
     }
 
@@ -52,11 +51,8 @@ void REMORA::WriteNCPlotFile(int which_step) {
     if ((!REMORA::write_history_file) || (which_step == 0)) {
         if (amrex::ParallelDescriptor::IOProcessor()) {
             if (amrex::FileExists(FullPath)) {
-                std::string newoldname(
-                        FullPath + ".old." + amrex::UniqueString());
-                amrex::Print() << "WriteNCPlotFile:  " << FullPath
-                        << " exists.  Renaming to:  " << newoldname
-                        << std::endl;
+                std::string newoldname(FullPath + ".old." + amrex::UniqueString());
+                amrex::Print() << "WriteNCPlotFile:  " << FullPath << " exists.  Renaming to:  " << newoldname << std::endl;
                 if (std::rename(FullPath.c_str(), newoldname.c_str())) {
                     amrex::Abort("WriteNCPlotfile:: std::rename failed");
                 }
@@ -73,18 +69,12 @@ void REMORA::WriteNCPlotFile(int which_step) {
 
         auto ncf =
                 write_header ?
-                        ncutils::NCFile::create(FullPath, NC_CLOBBER,
-                                amrex::ParallelContext::CommunicatorSub(),
-                                MPI_INFO_NULL) :
-                        ncutils::NCFile::open(FullPath, NC_WRITE,
-                                amrex::ParallelContext::CommunicatorSub(),
-                                MPI_INFO_NULL);
+                        ncutils::NCFile::create(FullPath, NC_CLOBBER, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
+                        ncutils::NCFile::open(FullPath, NC_WRITE, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
 
-        amrex::Print() << "Writing into level " << lev
-                << " NetCDF history file " << FullPath << std::endl;
+        amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
 
-        WriteNCPlotFile_which(lev, which_subdomain, write_header, ncf,
-                is_history);
+        WriteNCPlotFile_which(lev, which_subdomain, write_header, ncf, is_history);
 
     } else {
 
@@ -92,18 +82,14 @@ void REMORA::WriteNCPlotFile(int which_step) {
         bool write_header = true;
 
         // Open new netcdf file to write data
-        auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER,
-                amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
-        amrex::Print() << "Writing level " << lev << " NetCDF plot file "
-                << FullPath << std::endl;
+        auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+        amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
 
-        WriteNCPlotFile_which(lev, which_subdomain, write_header, ncf,
-                is_history);
+        WriteNCPlotFile_which(lev, which_subdomain, write_header, ncf, is_history);
     }
 }
 
-void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
-        bool write_header, ncutils::NCFile &ncf, bool is_history) {
+void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_header, ncutils::NCFile &ncf, bool is_history) {
     // Number of cells in this "domain" at this level
     std::vector<int> n_cells;
 
@@ -126,11 +112,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
     // unsigned long int nt= NC_UNLIMITED;
     if (is_history && max_step < 0)
         amrex::Abort("Need to know max_step if writing history file");
-    unsigned long int nt =
-            is_history ?
-                    static_cast<unsigned long int>(max_step
-                            / std::min(plot_int, max_step)) + 1 :
-                    1;
+    unsigned long int nt = is_history ? static_cast<unsigned long int>(max_step / std::min(plot_int, max_step)) + 1 : 1;
 
     n_cells.push_back(nx);
     n_cells.push_back(ny);
@@ -198,8 +180,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
 
         ncf.def_var("Geom.smallend", NC_INT, { flev_name, ndim_name });
         ncf.def_var("Geom.bigend", NC_INT, { flev_name, ndim_name });
-        ncf.def_var("CellSize", ncutils::NCDType::Real,
-                { flev_name, ndim_name });
+        ncf.def_var("CellSize", ncutils::NCDType::Real, { flev_name, ndim_name });
 
         ncf.def_var("x_grid", ncutils::NCDType::Real, { np_name });
         ncf.def_var("y_grid", ncutils::NCDType::Real, { np_name });
@@ -207,24 +188,15 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         ncf.def_var("ocean_time", ncutils::NCDType::Real, { nt_name });
 
         ncf.def_var("h", ncutils::NCDType::Real, { ny_s_name, nx_s_name });
-        ncf.def_var_fill("zeta", ncutils::NCDType::Real, { nt_name, ny_s_name,
-                nx_s_name }, &fill_value);
-        ncf.def_var_fill("temp", ncutils::NCDType::Real, { nt_name, nz_s_name,
-                ny_s_name, nx_s_name }, &fill_value);
-        ncf.def_var_fill("salt", ncutils::NCDType::Real, { nt_name, nz_s_name,
-                ny_s_name, nx_s_name }, &fill_value);
-        ncf.def_var_fill("u", ncutils::NCDType::Real, { nt_name, nz_s_name,
-                ny_u_name, nx_u_name }, &fill_value);
-        ncf.def_var_fill("v", ncutils::NCDType::Real, { nt_name, nz_s_name,
-                ny_v_name, nx_v_name }, &fill_value);
-        ncf.def_var_fill("ubar", ncutils::NCDType::Real, { nt_name, ny_u_name,
-                nx_u_name }, &fill_value);
-        ncf.def_var_fill("vbar", ncutils::NCDType::Real, { nt_name, ny_v_name,
-                nx_v_name }, &fill_value);
-        ncf.def_var("sustr", ncutils::NCDType::Real, { nt_name, ny_u_name,
-                nx_u_name });
-        ncf.def_var("svstr", ncutils::NCDType::Real, { nt_name, ny_v_name,
-                nx_v_name });
+        ncf.def_var_fill("zeta", ncutils::NCDType::Real, { nt_name, ny_s_name, nx_s_name }, &fill_value);
+        ncf.def_var_fill("temp", ncutils::NCDType::Real, { nt_name, nz_s_name, ny_s_name, nx_s_name }, &fill_value);
+        ncf.def_var_fill("salt", ncutils::NCDType::Real, { nt_name, nz_s_name, ny_s_name, nx_s_name }, &fill_value);
+        ncf.def_var_fill("u", ncutils::NCDType::Real, { nt_name, nz_s_name, ny_u_name, nx_u_name }, &fill_value);
+        ncf.def_var_fill("v", ncutils::NCDType::Real, { nt_name, nz_s_name, ny_v_name, nx_v_name }, &fill_value);
+        ncf.def_var_fill("ubar", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name }, &fill_value);
+        ncf.def_var_fill("vbar", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name }, &fill_value);
+        ncf.def_var("sustr", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
+        ncf.def_var("svstr", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
 
         Real time = 0.;
 
@@ -235,8 +207,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         ncf.put_attr("current_time", std::vector<double> { time });
         ncf.put_attr("start_time", std::vector<double> { start_bdy_time });
         ncf.put_attr("CurrentLevel", std::vector<int> { flev });
-        ncf.put_attr("DefaultGeometry", std::vector<int> {
-                amrex::DefaultGeometry().Coord() });
+        ncf.put_attr("DefaultGeometry", std::vector<int> { amrex::DefaultGeometry().Coord() });
 
         ncf.exit_def_mode();
 
@@ -283,15 +254,13 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
                 }
                 auto nc_Geom_smallend = ncf.var("Geom.smallend");
                 //nc_Geom_smallend.par_access(NC_COLLECTIVE);
-                nc_Geom_smallend.put(smallend.data(), {
-                        static_cast<long unsigned int>(i - lev), 0 }, { 1,
-                        AMREX_SPACEDIM });
+                nc_Geom_smallend.put(smallend.data(), { static_cast<long unsigned int>(i - lev), 0 }, { 1,
+                AMREX_SPACEDIM });
 
                 auto nc_Geom_bigend = ncf.var("Geom.bigend");
                 //nc_Geom_bigend.par_access(NC_COLLECTIVE);
-                nc_Geom_bigend.put(bigend.data(), {
-                        static_cast<long unsigned int>(i - lev), 0 }, { 1,
-                        AMREX_SPACEDIM });
+                nc_Geom_bigend.put(bigend.data(), { static_cast<long unsigned int>(i - lev), 0 }, { 1,
+                AMREX_SPACEDIM });
             }
 
             amrex::Vector<Real> CellSize;
@@ -302,9 +271,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
                 }
                 auto nc_CellSize = ncf.var("CellSize");
                 //nc_CellSize.par_access(NC_COLLECTIVE);
-                nc_CellSize.put(CellSize.data(), {
-                        static_cast<long unsigned int>(i - lev), 0 }, { 1,
-                        AMREX_SPACEDIM });
+                nc_CellSize.put(CellSize.data(), { static_cast<long unsigned int>(i - lev), 0 }, { 1,
+                AMREX_SPACEDIM });
             }
 
         }
@@ -318,8 +286,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
         for (int i = 0; i < grids[lev].size(); ++i) {
             auto box = grids[lev][i];
             if (subdomain.contains(box)) {
-                RealBox gridloc = RealBox(grids[lev][i], geom[lev].CellSize(),
-                        geom[lev].ProbLo());
+                RealBox gridloc = RealBox(grids[lev][i], geom[lev].CellSize(), geom[lev].ProbLo());
 
                 x_grid.clear();
                 y_grid.clear();
@@ -327,25 +294,15 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
                 for (auto k1 = 0; k1 < grids[lev][i].length(0); ++k1) {
                     for (auto k2 = 0; k2 < grids[lev][i].length(1); ++k2) {
                         for (auto k3 = 0; k3 < grids[lev][i].length(2); ++k3) {
-                            x_grid.push_back(
-                                    gridloc.lo(0)
-                                            + geom[lev].CellSize(0)
-                                                    * static_cast<Real>(k1));
-                            y_grid.push_back(
-                                    gridloc.lo(1)
-                                            + geom[lev].CellSize(1)
-                                                    * static_cast<Real>(k2));
-                            z_grid.push_back(
-                                    gridloc.lo(2)
-                                            + geom[lev].CellSize(2)
-                                                    * static_cast<Real>(k3));
+                            x_grid.push_back(gridloc.lo(0) + geom[lev].CellSize(0) * static_cast<Real>(k1));
+                            y_grid.push_back(gridloc.lo(1) + geom[lev].CellSize(1) * static_cast<Real>(k2));
+                            z_grid.push_back(gridloc.lo(2) + geom[lev].CellSize(2) * static_cast<Real>(k3));
                         }
                     }
                 }
 
                 goffset += glen;
-                glen = grids[lev][i].length(0) * grids[lev][i].length(1)
-                        * grids[lev][i].length(2);
+                glen = grids[lev][i].length(0) * grids[lev][i].length(1) * grids[lev][i].length(2);
 
                 auto nc_x_grid = ncf.var("x_grid");
                 auto nc_y_grid = ncf.var("y_grid");
@@ -367,10 +324,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
     //
     // We compute the offsets based on location of the box within the domain
     //
-    long unsigned local_start_nt = (
-            is_history ?
-                    static_cast<long unsigned>(history_count) :
-                    static_cast<long unsigned>(0));
+    long unsigned local_start_nt = (is_history ? static_cast<long unsigned>(history_count) : static_cast<long unsigned>(0));
     long unsigned local_nt = 1; // We write data for only one time
 
     {
@@ -418,74 +372,60 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             long unsigned local_nz = tmp_bx.length()[2];
 
             // We do the "+1" because the offset needs to start at 0
-            long unsigned local_start_x =
-                    static_cast<long unsigned>(tmp_bx.smallEnd()[0] + 1);
-            long unsigned local_start_y =
-                    static_cast<long unsigned>(tmp_bx.smallEnd()[1] + 1);
-            long unsigned local_start_z =
-                    static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
+            long unsigned local_start_x = static_cast<long unsigned>(tmp_bx.smallEnd()[0] + 1);
+            long unsigned local_start_y = static_cast<long unsigned>(tmp_bx.smallEnd()[1] + 1);
+            long unsigned local_start_z = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             if (write_header) {
                 FArrayBox tmp_bathy;
                 tmp_bathy.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
 
-                tmp_bathy.template copy<RunOn::Device>(
-                        (*vec_hOfTheConfusingName[lev])[mfi.index()], 0, 0, 1);
+                tmp_bathy.template copy<RunOn::Device>((*vec_hOfTheConfusingName[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("h");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 requests.push_back(0);
-                nc_plot_var.iput(tmp_bathy.dataPtr(), { local_start_y,
-                        local_start_x }, { local_ny, local_nx },
-                        &requests[irq++]);
+                nc_plot_var.iput(tmp_bathy.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx }, &requests[irq++]);
             }
 
             {
                 FArrayBox tmp_zeta;
                 tmp_zeta.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
-                tmp_zeta.template copy<RunOn::Device>(
-                        (*vec_Zt_avg1[lev])[mfi.index()], 0, 0, 1);
+                tmp_zeta.template copy<RunOn::Device>((*vec_Zt_avg1[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("zeta");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 requests.push_back(0);
-                nc_plot_var.iput(tmp_zeta.dataPtr(), { local_start_nt,
-                        local_start_y, local_start_x }, { local_nt, local_ny,
+                nc_plot_var.iput(tmp_zeta.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
                         local_nx }, &requests[irq++]);
             }
 
             {
                 FArrayBox tmp_temp;
                 tmp_temp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp_temp.template copy<RunOn::Device>(
-                        (*cons_new[lev])[mfi.index()], Temp_comp, 0, 1);
+                tmp_temp.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()], Temp_comp, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("temp");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 requests.push_back(0);
-                nc_plot_var.iput(tmp_temp.dataPtr(), { local_start_nt,
-                        local_start_z, local_start_y, local_start_x }, {
-                        local_nt, local_nz, local_ny, local_nx },
-                        &requests[irq++]);
+                nc_plot_var.iput(tmp_temp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                        local_nz, local_ny, local_nx }, &requests[irq++]);
             }
 
             {
                 FArrayBox tmp_salt;
                 tmp_salt.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp_salt.template copy<RunOn::Device>(
-                        (*cons_new[lev])[mfi.index()], Salt_comp, 0, 1);
+                tmp_salt.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()], Salt_comp, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("salt");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 requests.push_back(0);
-                nc_plot_var.iput(tmp_salt.dataPtr(), { local_start_nt,
-                        local_start_z, local_start_y, local_start_x }, {
-                        local_nt, local_nz, local_ny, local_nx },
-                        &requests[irq++]);
+                nc_plot_var.iput(tmp_salt.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                        local_nz, local_ny, local_nx }, &requests[irq++]);
             }
         } // subdomain
     } // mfi
@@ -518,54 +458,45 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             long unsigned local_nz = tmp_bx.length()[2];
 
             // We do the "+1" because the offset needs to start at 0
-            long unsigned local_start_x =
-                    static_cast<long unsigned>(tmp_bx.smallEnd()[0]);
-            long unsigned local_start_y =
-                    static_cast<long unsigned>(tmp_bx.smallEnd()[1] + 1);
-            long unsigned local_start_z =
-                    static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
+            long unsigned local_start_x = static_cast<long unsigned>(tmp_bx.smallEnd()[0]);
+            long unsigned local_start_y = static_cast<long unsigned>(tmp_bx.smallEnd()[1] + 1);
+            long unsigned local_start_z = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp.template copy<RunOn::Device>((*xvel_new[lev])[mfi.index()],
-                        0, 0, 1);
+                tmp.template copy<RunOn::Device>((*xvel_new[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("u");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 requests.push_back(0);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_z,
-                        local_start_y, local_start_x }, { local_nt, local_nz,
-                        local_ny, local_nx }, &requests[irq++]);
+                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                        local_nz, local_ny, local_nx }, &requests[irq++]);
             }
 
             {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
-                tmp.template copy<RunOn::Device>((*vec_ubar[lev])[mfi.index()],
-                        0, 0, 1);
+                tmp.template copy<RunOn::Device>((*vec_ubar[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("ubar");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 requests.push_back(0);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y,
-                        local_start_x }, { local_nt, local_ny, local_nx },
+                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx },
                         &requests[irq++]);
             }
             {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
-                tmp.template copy<RunOn::Device>((*vec_sustr[lev])[mfi.index()],
-                        0, 0, 1);
+                tmp.template copy<RunOn::Device>((*vec_sustr[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("sustr");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 requests.push_back(0);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y,
-                        local_start_x }, { local_nt, local_ny, local_nx },
+                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx },
                         &requests[irq++]);
             }
         } // in subdomain
@@ -601,53 +532,44 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain,
             long unsigned local_nz = tmp_bx.length()[2];
 
             // We do the "+1" because the offset needs to start at 0
-            long unsigned local_start_x =
-                    static_cast<long unsigned>(tmp_bx.smallEnd()[0] + 1);
-            long unsigned local_start_y =
-                    static_cast<long unsigned>(tmp_bx.smallEnd()[1]);
-            long unsigned local_start_z =
-                    static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
+            long unsigned local_start_x = static_cast<long unsigned>(tmp_bx.smallEnd()[0] + 1);
+            long unsigned local_start_y = static_cast<long unsigned>(tmp_bx.smallEnd()[1]);
+            long unsigned local_start_z = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
 
             {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp.template copy<RunOn::Device>((*yvel_new[lev])[mfi.index()],
-                        0, 0, 1);
+                tmp.template copy<RunOn::Device>((*yvel_new[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("v");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 requests.push_back(0);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_z,
-                        local_start_y, local_start_x }, { local_nt, local_nz,
-                        local_ny, local_nx }, &requests[irq++]);
+                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                        local_nz, local_ny, local_nx }, &requests[irq++]);
             }
 
             {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
-                tmp.template copy<RunOn::Device>((*vec_vbar[lev])[mfi.index()],
-                        0, 0, 1);
+                tmp.template copy<RunOn::Device>((*vec_vbar[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("vbar");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 requests.push_back(0);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y,
-                        local_start_x }, { local_nt, local_ny, local_nx },
+                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx },
                         &requests[irq++]);
             }
             {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
-                tmp.template copy<RunOn::Device>((*vec_svstr[lev])[mfi.index()],
-                        0, 0, 1);
+                tmp.template copy<RunOn::Device>((*vec_svstr[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("svstr");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y,
-                        local_start_x }, { local_nt, local_ny, local_nx },
+                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx },
                         &requests[irq++]);
             }
 
