@@ -46,7 +46,7 @@ At run-time, you may need to add PnetCDF to the link path, e.g.:
 
              LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PNETCDF_DIR/lib
 
-See sections below for compiler-specific instructions for how to enable netCDF support.
+See sections below for compiler-specific instructions for how to enable NetCDF support.
 
 GNU Make
 ~~~~~~~~
