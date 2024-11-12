@@ -8,6 +8,7 @@
 
 #include "AMReX_FArrayBox.H"
 #include "AMReX_IArrayBox.H"
+// this includes pnetcdf.h, and mpi.h
 #include "NCInterface.H"
 
 using PlaneVector = amrex::Vector<amrex::FArrayBox>;
@@ -32,7 +33,7 @@ struct NDArray
    using DType = typename std::remove_const<DataType>::type;
 
    // constructor
-   explicit NDArray (const std::string vname, const std::vector<size_t>& vshape)
+   explicit NDArray (const std::string vname, const std::vector<MPI_Offset>& vshape)
                     : name{vname}, shape{vshape}, ref_counted{1}, owned{true} {
       data = new DType [this->ndim()];
    }
@@ -77,7 +78,7 @@ struct NDArray
    }
 
    // get the variable data shape
-   std::vector<size_t> get_vshape () {
+   std::vector<MPI_Offset> get_vshape () {
      return shape;
    }
 
@@ -90,13 +91,13 @@ struct NDArray
    }
 
    // set the data shape information
-   void set_vshape (std::vector<size_t> vshape) {
+   void set_vshape (std::vector<MPI_Offset> vshape) {
      shape = vshape;
     }
 
  private:
    std::string name;
-   std::vector<size_t> shape;
+   std::vector<MPI_Offset> shape;
    mutable std::atomic<size_t> ref_counted;
    bool owned;
    DType* data;
@@ -108,9 +109,10 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
 {
     AMREX_ASSERT(arrays.size() == names.size());
 
+    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER );
+    ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
-        auto ncf = ncutils::NCFile::open(fname, NC_CLOBBER | NC_NETCDF4);
 
         /*
         // get the dimension information
@@ -135,11 +137,11 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
             // amrex::AllPrint() << "About to read " << vname_to_read
             //                   << " while filling the array for " << vname_to_write << std::endl;
 
-            std::vector<size_t> shape = ncf.var(vname_to_read).shape();
+            std::vector<MPI_Offset> shape = ncf.var(vname_to_read).shape();
             arrays[n]                 = NDArray<DType>(vname_to_read,shape);
             DType* dataPtr            = arrays[n].get_data();
 
-            std::vector<size_t> start(shape.size(), 0);
+            std::vector<MPI_Offset> start(shape.size(), 0);
 
             // auto numPts               = arrays[n].ndim();
             // amrex::Print() << "NetCDF Variable name = " << vname_to_read << std::endl;
@@ -151,8 +153,9 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
 
             ncf.var(vname_to_read).get(dataPtr, start, shape);
         }
-        ncf.close();
+
     }
+    ncf.close();
 }
 
 /**
@@ -279,10 +282,8 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
 
     amrex::Vector<NDArray<amrex::Real>> nc_arrays(nc_var_names.size());
 
-    if (amrex::ParallelDescriptor::IOProcessor())
-    {
-        ReadNetCDFFile(fname, nc_var_names, nc_arrays);
-    }
+
+    ReadNetCDFFile(fname, nc_var_names, nc_arrays); // this is filled only on proc 0
 
     for (int iv = 0; iv < nc_var_names.size(); iv++)
     {

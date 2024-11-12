@@ -12,373 +12,279 @@ namespace {
 
 char recname[NC_MAX_NAME + 1];
 
-void check_nc_error(int ierr)
-{
+void check_ncmpi_error(int ierr) {
     if (ierr != NC_NOERR) {
-        printf("\n%s\n\n", nc_strerror(ierr));
+        printf("\n%s\n\n", ncmpi_strerror(ierr));
         abort_func("Encountered NetCDF error; aborting");
     }
 }
 } // namespace
 
-std::string NCDim::name() const
-{
-    check_nc_error(nc_inq_dimname(ncid, dimid, recname));
+std::string NCDim::name() const {
+    check_ncmpi_error(ncmpi_inq_dimname(ncid, dimid, recname));
     return std::string(recname);
 }
 
-size_t NCDim::len() const
-{
-    size_t dlen;
-    check_nc_error(nc_inq_dimlen(ncid, dimid, &dlen));
+MPI_Offset NCDim::len() const {
+    MPI_Offset dlen;
+    check_ncmpi_error(ncmpi_inq_dimlen(ncid, dimid, &dlen));
     return dlen;
 }
 
-std::string NCVar::name() const
-{
-    check_nc_error(nc_inq_varname(ncid, varid, recname));
+std::string NCVar::name() const {
+    check_ncmpi_error(ncmpi_inq_varname(ncid, varid, recname));
     return std::string(recname);
 }
 
-int NCVar::ndim() const
-{
+int NCVar::ndim() const {
     int ndims;
-    check_nc_error(nc_inq_varndims(ncid, varid, &ndims));
+    check_ncmpi_error(ncmpi_inq_varndims(ncid, varid, &ndims));
     return ndims;
 }
 
-std::vector<size_t> NCVar::shape() const
-{
+std::vector<MPI_Offset> NCVar::shape() const {
     int ndims = ndim();
     std::vector<int> dimids(ndims);
-    std::vector<size_t> vshape(ndims);
+    std::vector<MPI_Offset> vshape(ndims);
 
-    for (int i = 0; i < ndims; ++i)
-        check_nc_error(nc_inq_vardimid(ncid, varid, dimids.data()));
+    check_ncmpi_error(ncmpi_inq_vardimid(ncid, varid, dimids.data()));
 
-    for (int i = 0; i < ndims; ++i)
-        check_nc_error(nc_inq_dimlen(ncid, dimids[i], &vshape[i]));
+    for (int i = 0; i < ndims; ++i) {
+        check_ncmpi_error(ncmpi_inq_dimlen(ncid, dimids[i], &vshape[i]));
+    }
 
     return vshape;
 }
 
-void NCVar::put(const double* ptr) const
-{
-    check_nc_error(nc_put_var_double(ncid, varid, ptr));
+void NCVar::put(const double *ptr) const {
+    check_ncmpi_error(ncmpi_put_var_double(ncid, varid, ptr));
 }
 
-void NCVar::put(const float* ptr) const
-{
-    check_nc_error(nc_put_var_float(ncid, varid, ptr));
+void NCVar::put(const float *ptr) const {
+    check_ncmpi_error(ncmpi_put_var_float(ncid, varid, ptr));
 }
 
-void NCVar::put(const int* ptr) const
-{
-    check_nc_error(nc_put_var_int(ncid, varid, ptr));
+void NCVar::put(const int *ptr) const {
+    check_ncmpi_error(ncmpi_put_var_int(ncid, varid, ptr));
 }
 
-void NCVar::put(
-    const double* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count) const
-{
-    check_nc_error(
-        nc_put_vara_double(ncid, varid, start.data(), count.data(), dptr));
+void NCVar::put(const double *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_put_vara_double(ncid, varid, start.data(), count.data(), dptr));
 }
 
-void NCVar::put(
-    const double* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count,
-    const std::vector<ptrdiff_t>& stride) const
-{
-    check_nc_error(nc_put_vars_double(
-        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+//! Write out a slice of data, collective
+void NCVar::put_all(const double *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_put_vara_double_all(ncid, varid, start.data(), count.data(), dptr));
 }
 
-void NCVar::put(
-    const float* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count) const
-{
-    check_nc_error(
-        nc_put_vara_float(ncid, varid, start.data(), count.data(), dptr));
+//! Write out a slice of data, non-blocking
+void NCVar::iput(const double *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        int *request) const {
+    check_ncmpi_error(ncmpi_iput_vara_double(ncid, varid, start.data(), count.data(), dptr, request));
 }
 
-void NCVar::put(
-    const float* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count,
-    const std::vector<ptrdiff_t>& stride) const
-{
-    check_nc_error(nc_put_vars_float(
-        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+void NCVar::put(const double *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_put_vars_double(ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
-void NCVar::put(
-    const int* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count) const
-{
-    check_nc_error(
-        nc_put_vara_int(ncid, varid, start.data(), count.data(), dptr));
+void NCVar::put_all(const double *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_put_vars_double_all(ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
-void NCVar::put(
-    const int* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count,
-    const std::vector<ptrdiff_t>& stride) const
-{
-    check_nc_error(nc_put_vars_int(
-        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+void NCVar::put(const float *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_put_vara_float(ncid, varid, start.data(), count.data(), dptr));
 }
 
-void NCVar::put(
-    const char** dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count) const
-{
-    check_nc_error(
-        nc_put_vara_string(ncid, varid, start.data(), count.data(), dptr));
+void NCVar::put_all(const float *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_put_vara_float_all(ncid, varid, start.data(), count.data(), dptr));
 }
 
-void NCVar::put(
-    const char** dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count,
-    const std::vector<ptrdiff_t>& stride) const
-{
-    check_nc_error(nc_put_vars_string(
-        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+void NCVar::put(const float *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_put_vars_float(ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
-void NCVar::get(double* ptr) const
-{
-    check_nc_error(nc_get_var_double(ncid, varid, ptr));
+void NCVar::put_all(const float *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_put_vars_float_all(ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
-void NCVar::get(float* ptr) const
-{
-    check_nc_error(nc_get_var_float(ncid, varid, ptr));
+void NCVar::put(const int *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_put_vara_int(ncid, varid, start.data(), count.data(), dptr));
 }
 
-void NCVar::get(int* ptr) const
-{
-    check_nc_error(nc_get_var_int(ncid, varid, ptr));
+void NCVar::put_all(const int *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_put_vara_int_all(ncid, varid, start.data(), count.data(), dptr));
 }
 
-void NCVar::get(
-    double* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count) const
-{
-    check_nc_error(
-        nc_get_vara_double(ncid, varid, start.data(), count.data(), dptr));
+void NCVar::put(const int *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_put_vars_int(ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
-void NCVar::get(
-    double* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count,
-    const std::vector<ptrdiff_t>& stride) const
-{
-    check_nc_error(nc_get_vars_double(
-        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+void NCVar::put_all(const int *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_put_vars_int_all(ncid, varid, start.data(), count.data(), stride.data(), dptr));
 }
 
-void NCVar::get(
-    float* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count) const
-{
-    check_nc_error(
-        nc_get_vara_float(ncid, varid, start.data(), count.data(), dptr));
+void NCVar::put(const char **dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_put_vara_text(ncid, varid, start.data(), count.data(), *dptr));
 }
 
-void NCVar::get(
-    float* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count,
-    const std::vector<ptrdiff_t>& stride) const
-{
-    check_nc_error(nc_get_vars_float(
-        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+void NCVar::put(const char **dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_put_vars_text(ncid, varid, start.data(), count.data(), stride.data(), *dptr));
 }
 
-void NCVar::get(
-    int* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count) const
-{
-    check_nc_error(
-        nc_get_vara_int(ncid, varid, start.data(), count.data(), dptr));
+void NCVar::get(double *ptr) const {
+    check_ncmpi_error(ncmpi_get_var_double(ncid, varid, ptr));
 }
 
-void NCVar::get(
-    int* dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count,
-    const std::vector<ptrdiff_t>& stride) const
-{
-    check_nc_error(nc_get_vars_int(
-        ncid, varid, start.data(), count.data(), stride.data(), dptr));
+void NCVar::get(float *ptr) const {
+    check_ncmpi_error(ncmpi_get_var_float(ncid, varid, ptr));
 }
 
-void NCVar::get(
-        char* dptr,
-        const std::vector<size_t>& start,
-        const std::vector<size_t>& count) const
-{
-    check_nc_error(
-            nc_get_vara_text(ncid, varid, start.data(), count.data(), dptr));
+void NCVar::get(int *ptr) const {
+    check_ncmpi_error(ncmpi_get_var_int(ncid, varid, ptr));
 }
 
-void NCVar::get(
-        char* dptr,
-        const std::vector<size_t>& start,
-        const std::vector<size_t>& count,
-        const std::vector<ptrdiff_t>& stride) const
-{
-    check_nc_error(nc_get_vars_text(
-            ncid, varid, start.data(), count.data(), stride.data(), dptr));
+void NCVar::get(double *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_get_vara_double(ncid, varid, start.data(), count.data(), dptr));
 }
 
-bool NCVar::has_attr(const std::string& name) const
-{
+void NCVar::get_all(double *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_get_vara_double_all(ncid, varid, start.data(), count.data(), dptr));
+}
+
+void NCVar::get(double *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_get_vars_double(ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
+void NCVar::get_all(double *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_get_vars_double_all(ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
+void NCVar::get(float *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_get_vara_float(ncid, varid, start.data(), count.data(), dptr));
+}
+
+void NCVar::get_all(float *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_get_vara_float_all(ncid, varid, start.data(), count.data(), dptr));
+}
+
+void NCVar::get(float *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_get_vars_float(ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
+void NCVar::get_all(float *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_get_vars_float_all(ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
+void NCVar::get(int *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_get_vara_int(ncid, varid, start.data(), count.data(), dptr));
+}
+
+void NCVar::get_all(int *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_get_vara_int(ncid, varid, start.data(), count.data(), dptr));
+}
+
+void NCVar::get(int *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_get_vars_int(ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
+void NCVar::get_all(int *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_get_vars_int_all(ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
+void NCVar::get(char *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count) const {
+    check_ncmpi_error(ncmpi_get_vara_text(ncid, varid, start.data(), count.data(), dptr));
+}
+
+void NCVar::get(char *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
+        const std::vector<MPI_Offset> &stride) const {
+    check_ncmpi_error(ncmpi_get_vars_text(ncid, varid, start.data(), count.data(), stride.data(), dptr));
+}
+
+bool NCVar::has_attr(const std::string &name) const {
     int ierr;
-    size_t lenp;
-    ierr = nc_inq_att(ncid, varid, name.data(), NULL, &lenp);
+    MPI_Offset lenp;
+    ierr = ncmpi_inq_att(ncid, varid, name.data(), NULL, &lenp);
     return (ierr == NC_NOERR);
 }
 
-void NCVar::put_attr(const std::string& name, const std::string& value) const
-{
-    check_nc_error(
-        nc_put_att_text(ncid, varid, name.data(), value.size(), value.data()));
+void NCVar::put_attr(const std::string &name, const std::string &value) const {
+    check_ncmpi_error(ncmpi_put_att_text(ncid, varid, name.data(), value.size(), value.data()));
 }
 
-void NCVar::put_attr(
-    const std::string& name, const std::vector<double>& value) const
-{
-    check_nc_error(nc_put_att_double(
-        ncid, varid, name.data(), NC_DOUBLE, value.size(), value.data()));
+void NCVar::put_attr(const std::string &name, const std::vector<double> &value) const {
+    check_ncmpi_error(ncmpi_put_att_double(ncid, varid, name.data(), NC_DOUBLE, value.size(), value.data()));
 }
 
-void NCVar::put_attr(
-    const std::string& name, const std::vector<float>& value) const
-{
-    check_nc_error(nc_put_att_float(
-        ncid, varid, name.data(), NC_FLOAT, value.size(), value.data()));
+void NCVar::put_attr(const std::string &name, const std::vector<float> &value) const {
+    check_ncmpi_error(ncmpi_put_att_float(ncid, varid, name.data(), NC_FLOAT, value.size(), value.data()));
 }
 
-void NCVar::put_attr(
-    const std::string& name, const std::vector<int>& value) const
-{
-    check_nc_error(nc_put_att_int(
-        ncid, varid, name.data(), NC_INT, value.size(), value.data()));
+void NCVar::put_attr(const std::string &name, const std::vector<int> &value) const {
+    check_ncmpi_error(ncmpi_put_att_int(ncid, varid, name.data(), NC_INT, value.size(), value.data()));
 }
 
-std::string NCVar::get_attr(const std::string& name) const
-{
-    size_t lenp;
+std::string NCVar::get_attr(const std::string &name) const {
+    MPI_Offset lenp;
     std::vector<char> aval;
-    check_nc_error(nc_inq_attlen(ncid, varid, name.data(), &lenp));
+    check_ncmpi_error(ncmpi_inq_attlen(ncid, varid, name.data(), &lenp));
     aval.resize(lenp);
-    check_nc_error(nc_get_att_text(ncid, varid, name.data(), aval.data()));
-    return std::string{aval.begin(), aval.end()};
+    check_ncmpi_error(ncmpi_get_att_text(ncid, varid, name.data(), aval.data()));
+    return std::string { aval.begin(), aval.end() };
 }
 
-void NCVar::get_attr(const std::string& name, std::vector<double>& values) const
-{
-    size_t lenp;
-    check_nc_error(nc_inq_attlen(ncid, varid, name.data(), &lenp));
+void NCVar::get_attr(const std::string &name, std::vector<double> &values) const {
+    MPI_Offset lenp;
+    check_ncmpi_error(ncmpi_inq_attlen(ncid, varid, name.data(), &lenp));
     values.resize(lenp);
-    check_nc_error(nc_get_att_double(ncid, varid, name.data(), values.data()));
+    check_ncmpi_error(ncmpi_get_att_double(ncid, varid, name.data(), values.data()));
 }
 
-void NCVar::get_attr(const std::string& name, std::vector<float>& values) const
-{
-    size_t lenp;
-    check_nc_error(nc_inq_attlen(ncid, varid, name.data(), &lenp));
+void NCVar::get_attr(const std::string &name, std::vector<float> &values) const {
+    MPI_Offset lenp;
+    check_ncmpi_error(ncmpi_inq_attlen(ncid, varid, name.data(), &lenp));
     values.resize(lenp);
-    check_nc_error(nc_get_att_float(ncid, varid, name.data(), values.data()));
+    check_ncmpi_error(ncmpi_get_att_float(ncid, varid, name.data(), values.data()));
 }
 
-void NCVar::get_attr(const std::string& name, std::vector<int>& values) const
-{
-    size_t lenp;
-    check_nc_error(nc_inq_attlen(ncid, varid, name.data(), &lenp));
+void NCVar::get_attr(const std::string &name, std::vector<int> &values) const {
+    MPI_Offset lenp;
+    check_ncmpi_error(ncmpi_inq_attlen(ncid, varid, name.data(), &lenp));
     values.resize(lenp);
-    check_nc_error(nc_get_att_int(ncid, varid, name.data(), values.data()));
+    check_ncmpi_error(ncmpi_get_att_int(ncid, varid, name.data(), values.data()));
 }
 
-//Uncomment for parallel NetCDF
-void NCVar::par_access(const int cmode) const
-{
-    check_nc_error(nc_var_par_access(ncid, varid, cmode));
-}
-
-std::string NCGroup::name() const
-{
-    size_t nlen;
-    std::vector<char> grpname;
-    check_nc_error(nc_inq_grpname_len(ncid, &nlen));
-    grpname.resize(nlen + 1);
-    check_nc_error(nc_inq_grpname(ncid, grpname.data()));
-    return std::string{grpname.begin(), grpname.end()};
-}
-
-std::string NCGroup::full_name() const
-{
-    size_t nlen;
-    std::vector<char> grpname;
-    check_nc_error(nc_inq_grpname_full(ncid, &nlen, NULL));
-    grpname.resize(nlen);
-    check_nc_error(nc_inq_grpname_full(ncid, &nlen, grpname.data()));
-    return std::string{grpname.begin(), grpname.end()};
-}
-
-NCGroup NCGroup::def_group(const std::string& name) const
-{
+NCDim NCFile::dim(const std::string &name) const {
     int newid;
-    check_nc_error(nc_def_grp(ncid, name.data(), &newid));
-    return NCGroup(newid, this);
+    check_ncmpi_error(ncmpi_inq_dimid(ncid, name.data(), &newid));
+    return NCDim { ncid, newid };
 }
 
-NCGroup NCGroup::group(const std::string& name) const
-{
+NCDim NCFile::def_dim(const std::string &name, const size_t len) const {
     int newid;
-    check_nc_error(nc_inq_ncid(ncid, name.data(), &newid));
-    return NCGroup(newid, this);
+    check_ncmpi_error(ncmpi_def_dim(ncid, name.data(), (MPI_Offset) len, &newid));
+    return NCDim { ncid, newid };
 }
 
-NCDim NCGroup::dim(const std::string& name) const
-{
+NCVar NCFile::def_scalar(const std::string &name, const nc_type dtype) const {
     int newid;
-    check_nc_error(nc_inq_dimid(ncid, name.data(), &newid));
-    return NCDim{ncid, newid};
+    check_ncmpi_error(ncmpi_def_var(ncid, name.data(), dtype, 0, NULL, &newid));
+    return NCVar { ncid, newid };
 }
 
-NCDim NCGroup::def_dim(const std::string& name, const size_t len) const
-{
-    int newid;
-    check_nc_error(nc_def_dim(ncid, name.data(), len, &newid));
-    return NCDim{ncid, newid};
-}
-
-NCVar NCGroup::def_scalar(const std::string& name, const nc_type dtype) const
-{
-    int newid;
-    check_nc_error(nc_def_var(ncid, name.data(), dtype, 0, NULL, &newid));
-    return NCVar{ncid, newid};
-}
-
-NCVar NCGroup::def_array(
-    const std::string& name,
-    const nc_type dtype,
-    const std::vector<std::string>& dnames) const
-{
+NCVar NCFile::def_array(const std::string &name, const nc_type dtype, const std::vector<std::string> &dnames) const {
     int newid;
     int ndims = dnames.size();
     std::vector<int> dimids(ndims);
@@ -386,17 +292,12 @@ NCVar NCGroup::def_array(
         dimids[i] = dim(dnames[i]).dimid;
     }
 
-    check_nc_error(
-        nc_def_var(ncid, name.data(), dtype, ndims, dimids.data(), &newid));
-    return NCVar{ncid, newid};
+    check_ncmpi_error(ncmpi_def_var(ncid, name.data(), dtype, ndims, dimids.data(), &newid));
+    return NCVar { ncid, newid };
 }
 
-NCVar NCGroup::def_array_fill(
-    const std::string& name,
-    const nc_type dtype,
-    const std::vector<std::string>& dnames,
-    const void* fill_val) const
-{
+NCVar NCFile::def_array_fill(const std::string &name, const nc_type dtype, const std::vector<std::string> &dnames,
+        const void *fill_val) const {
     int newid;
     int ndims = dnames.size();
     std::vector<int> dimids(ndims);
@@ -404,228 +305,159 @@ NCVar NCGroup::def_array_fill(
         dimids[i] = dim(dnames[i]).dimid;
     }
 
-    check_nc_error(
-        nc_def_var(ncid, name.data(), dtype, ndims, dimids.data(), &newid));
-    check_nc_error(
-        nc_def_var_fill(ncid, newid, NC_FILL, fill_val));
-    return NCVar{ncid, newid};
+    check_ncmpi_error(ncmpi_def_var(ncid, name.data(), dtype, ndims, dimids.data(), &newid));
+    check_ncmpi_error(ncmpi_def_var_fill(ncid, newid, NC_FILL, fill_val));
+    return NCVar { ncid, newid };
 }
 
-NCVar NCGroup::var(const std::string& name) const
-{
+NCVar NCFile::var(const std::string &name) const {
     int varid;
-    check_nc_error(nc_inq_varid(ncid, name.data(), &varid));
-    return NCVar{ncid, varid};
+    check_ncmpi_error(ncmpi_inq_varid(ncid, name.data(), &varid));
+    return NCVar { ncid, varid };
 }
 
-int NCGroup::num_groups() const
-{
-    int ngrps;
-    check_nc_error(nc_inq_grps(ncid, &ngrps, NULL));
-    return ngrps;
-}
-
-int NCGroup::num_dimensions() const
-{
+int NCFile::num_dimensions() const {
     int ndims;
-    check_nc_error(nc_inq(ncid, &ndims, NULL, NULL, NULL));
+    check_ncmpi_error(ncmpi_inq(ncid, &ndims, NULL, NULL, NULL));
     return ndims;
 }
 
-int NCGroup::num_attributes() const
-{
+int NCFile::num_attributes() const {
     int nattrs;
-    check_nc_error(nc_inq(ncid, NULL, NULL, &nattrs, NULL));
+    check_ncmpi_error(ncmpi_inq(ncid, NULL, NULL, &nattrs, NULL));
     return nattrs;
 }
 
-int NCGroup::num_variables() const
-{
+int NCFile::num_variables() const {
     int nvars;
-    check_nc_error(nc_inq(ncid, NULL, &nvars, NULL, NULL));
+    check_ncmpi_error(ncmpi_inq(ncid, NULL, &nvars, NULL, NULL));
     return nvars;
 }
 
-bool NCGroup::has_group(const std::string& name) const
-{
-    int ierr = nc_inq_ncid(ncid, name.data(), NULL);
+bool NCFile::has_dim(const std::string &name) const {
+    int ierr = ncmpi_inq_dimid(ncid, name.data(), NULL);
     return (ierr == NC_NOERR);
 }
 
-bool NCGroup::has_dim(const std::string& name) const
-{
-    int ierr = nc_inq_dimid(ncid, name.data(), NULL);
+bool NCFile::has_var(const std::string &name) const {
+    int ierr = ncmpi_inq_varid(ncid, name.data(), NULL);
     return (ierr == NC_NOERR);
 }
 
-bool NCGroup::has_var(const std::string& name) const
-{
-    int ierr = nc_inq_varid(ncid, name.data(), NULL);
-    return (ierr == NC_NOERR);
-}
-
-bool NCGroup::has_attr(const std::string& name) const
-{
+bool NCFile::has_attr(const std::string &name) const {
     int ierr;
-    size_t lenp;
-    ierr = nc_inq_att(ncid, NC_GLOBAL, name.data(), NULL, &lenp);
+    MPI_Offset lenp;
+    ierr = ncmpi_inq_att(ncid, NC_GLOBAL, name.data(), NULL, &lenp);
     return (ierr == NC_NOERR);
 }
 
-void NCGroup::put_attr(const std::string& name, const std::string& value) const
-{
-    check_nc_error(nc_put_att_text(
-        ncid, NC_GLOBAL, name.data(), value.size(), value.data()));
+void NCFile::put_attr(const std::string &name, const std::string &value) const {
+    check_ncmpi_error(ncmpi_put_att_text(ncid, NC_GLOBAL, name.data(), value.size(), value.data()));
 }
 
-void NCGroup::put_attr(
-    const std::string& name, const std::vector<double>& value) const
-{
-    check_nc_error(nc_put_att_double(
-        ncid, NC_GLOBAL, name.data(), NC_DOUBLE, value.size(), value.data()));
+void NCFile::put_attr(const std::string &name, const std::vector<double> &value) const {
+    check_ncmpi_error(ncmpi_put_att_double(ncid, NC_GLOBAL, name.data(), NC_DOUBLE, value.size(), value.data()));
 }
 
-void NCGroup::put_attr(
-    const std::string& name, const std::vector<float>& value) const
-{
-    check_nc_error(nc_put_att_float(
-        ncid, NC_GLOBAL, name.data(), NC_FLOAT, value.size(), value.data()));
+void NCFile::put_attr(const std::string &name, const std::vector<float> &value) const {
+    check_ncmpi_error(ncmpi_put_att_float(ncid, NC_GLOBAL, name.data(), NC_FLOAT, value.size(), value.data()));
 }
 
-void NCGroup::put_attr(
-    const std::string& name, const std::vector<int>& value) const
-{
-    check_nc_error(nc_put_att_int(
-        ncid, NC_GLOBAL, name.data(), NC_INT, value.size(), value.data()));
+void NCFile::put_attr(const std::string &name, const std::vector<int> &value) const {
+    check_ncmpi_error(ncmpi_put_att_int(ncid, NC_GLOBAL, name.data(), NC_INT, value.size(), value.data()));
 }
 
-std::string NCGroup::get_attr(const std::string& name) const
-{
-    size_t lenp;
+std::string NCFile::get_attr(const std::string &name) const {
+    MPI_Offset lenp;
     std::vector<char> aval;
-    check_nc_error(nc_inq_attlen(ncid, NC_GLOBAL, name.data(), &lenp));
+    check_ncmpi_error(ncmpi_inq_attlen(ncid, NC_GLOBAL, name.data(), &lenp));
     aval.resize(lenp);
-    check_nc_error(nc_get_att_text(ncid, NC_GLOBAL, name.data(), aval.data()));
-    return std::string{aval.begin(), aval.end()};
+    check_ncmpi_error(ncmpi_get_att_text(ncid, NC_GLOBAL, name.data(), aval.data()));
+    return std::string { aval.begin(), aval.end() };
 }
 
-void NCGroup::get_attr(
-    const std::string& name, std::vector<double>& values) const
-{
-    size_t lenp;
-    check_nc_error(nc_inq_attlen(ncid, NC_GLOBAL, name.data(), &lenp));
+void NCFile::get_attr(const std::string &name, std::vector<double> &values) const {
+    MPI_Offset lenp;
+    check_ncmpi_error(ncmpi_inq_attlen(ncid, NC_GLOBAL, name.data(), &lenp));
     values.resize(lenp);
-    check_nc_error(
-        nc_get_att_double(ncid, NC_GLOBAL, name.data(), values.data()));
+    check_ncmpi_error(ncmpi_get_att_double(ncid, NC_GLOBAL, name.data(), values.data()));
 }
 
-void NCGroup::get_attr(
-    const std::string& name, std::vector<float>& values) const
-{
-    size_t lenp;
-    check_nc_error(nc_inq_attlen(ncid, NC_GLOBAL, name.data(), &lenp));
+void NCFile::get_attr(const std::string &name, std::vector<float> &values) const {
+    MPI_Offset lenp;
+    check_ncmpi_error(ncmpi_inq_attlen(ncid, NC_GLOBAL, name.data(), &lenp));
     values.resize(lenp);
-    check_nc_error(
-        nc_get_att_float(ncid, NC_GLOBAL, name.data(), values.data()));
+    check_ncmpi_error(ncmpi_get_att_float(ncid, NC_GLOBAL, name.data(), values.data()));
 }
 
-void NCGroup::get_attr(const std::string& name, std::vector<int>& values) const
-{
-    size_t lenp;
-    check_nc_error(nc_inq_attlen(ncid, NC_GLOBAL, name.data(), &lenp));
+void NCFile::get_attr(const std::string &name, std::vector<int> &values) const {
+    MPI_Offset lenp;
+    check_ncmpi_error(ncmpi_inq_attlen(ncid, NC_GLOBAL, name.data(), &lenp));
     values.resize(lenp);
-    check_nc_error(nc_get_att_int(ncid, NC_GLOBAL, name.data(), values.data()));
+    check_ncmpi_error(ncmpi_get_att_int(ncid, NC_GLOBAL, name.data(), values.data()));
 }
 
-std::vector<NCGroup> NCGroup::all_groups() const
-{
-    std::vector<NCGroup> grps;
-    int ngrps = num_groups();
-
-    // Empty list of groups return early without error
-    if (ngrps < 1) return grps;
-
-    std::vector<int> gids(ngrps);
-    check_nc_error(nc_inq_grps(ncid, &ngrps, gids.data()));
-    grps.reserve(ngrps);
-    for (int i = 0; i < ngrps; ++i) grps.emplace_back(NCGroup(gids[i], this));
-    return grps;
-}
-
-std::vector<NCDim> NCGroup::all_dims() const
-{
+std::vector<NCDim> NCFile::all_dims() const {
     std::vector<NCDim> adims;
     int ndims = num_dimensions();
     adims.reserve(ndims);
     for (int i = 0; i < ndims; ++i) {
-        adims.emplace_back(NCDim{ncid, i});
+        adims.emplace_back(NCDim { ncid, i });
     }
     return adims;
 }
 
-std::vector<NCVar> NCGroup::all_vars() const
-{
+std::vector<NCVar> NCFile::all_vars() const {
     std::vector<NCVar> avars;
     int nvars = num_variables();
     avars.reserve(nvars);
     for (int i = 0; i < nvars; ++i) {
-        avars.emplace_back(NCVar{ncid, i});
+        avars.emplace_back(NCVar { ncid, i });
     }
     return avars;
 }
 
-void NCGroup::enter_def_mode() const
-{
+void NCFile::enter_def_mode() const {
     int ierr;
-    ierr = nc_redef(ncid);
+    ierr = ncmpi_redef(ncid);
 
     // Ignore already in define mode error
-    if (ierr == NC_EINDEFINE) return;
+    if (ierr == NC_EINDEFINE)
+        return;
     // Handle all other errors
-    check_nc_error(ierr);
+    check_ncmpi_error(ierr);
 }
 
-void NCGroup::exit_def_mode() const { check_nc_error(nc_enddef(ncid)); }
-
-NCFile NCFile::create(const std::string& name, const int cmode)
-{
-    int ncid;
-    check_nc_error(nc_create(name.data(), cmode, &ncid));
-    return NCFile(ncid);
+void NCFile::exit_def_mode() const {
+    check_ncmpi_error(ncmpi_enddef(ncid));
 }
 
-NCFile NCFile::open(const std::string& name, const int cmode)
-{
-    int ncid;
-    check_nc_error(nc_open(name.data(), cmode, &ncid));
-    return NCFile(ncid);
-}
 //Uncomment for parallel NetCDF
-NCFile NCFile::create_par(
-    const std::string& name, const int cmode, MPI_Comm comm, MPI_Info info)
-{
+NCFile NCFile::create(const std::string &name, const int cmode, MPI_Comm comm, MPI_Info info) {
     int ncid;
-    check_nc_error(nc_create_par(name.data(), cmode, comm, info, &ncid));
+    check_ncmpi_error(ncmpi_create(comm, name.data(), cmode, info, &ncid));
     return NCFile(ncid);
 }
 
 //Uncomment for parallel NetCDF
-NCFile NCFile::open_par(
-    const std::string& name, const int cmode, MPI_Comm comm, MPI_Info info)
-{
+NCFile NCFile::open(const std::string &name, const int cmode, MPI_Comm comm, MPI_Info info) {
     int ncid;
-    check_nc_error(nc_open_par(name.data(), cmode, comm, info, &ncid));
+    check_ncmpi_error(ncmpi_open(comm, name.data(), cmode, info, &ncid));
     return NCFile(ncid);
 }
 
-NCFile::~NCFile()
-{
-    if (is_open) check_nc_error(nc_close(ncid));
+void NCFile::wait_all(int num_requests, int *requests) {
+    std::vector<int> statuses(num_requests);
+    ncmpi_wait_all(ncid, num_requests, requests, &statuses[0]);
 }
 
-void NCFile::close()
-{
+NCFile::~NCFile() {
+    if (is_open)
+        check_ncmpi_error(ncmpi_close(ncid));
+}
+
+void NCFile::close() {
     is_open = false;
-    check_nc_error(nc_close(ncid));
+    check_ncmpi_error(ncmpi_close(ncid));
 }
 } // namespace ncutils

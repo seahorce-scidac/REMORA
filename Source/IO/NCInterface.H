@@ -14,8 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include <netcdf.h>
-#include <netcdf_par.h>
+#include <pnetcdf.h>
 
 namespace ncutils {
 
@@ -45,7 +44,7 @@ struct NCDim
     std::string name() const;
 
     //! Length of this dimension
-    size_t len() const;
+    MPI_Offset len() const;
 };
 
 //! Representation of a NetCDF variable
@@ -64,7 +63,7 @@ struct NCVar
     int ndim() const;
 
     //! Shape of the array (size in each array dimension)
-    std::vector<size_t> shape() const;
+    std::vector<MPI_Offset> shape() const;
 
     //! Write out the entire variable
     void put(const double*) const;
@@ -74,44 +73,80 @@ struct NCVar
     //! Write out a slice of data
     void
     put(const double*,
-        const std::vector<size_t>&,
-        const std::vector<size_t>&) const;
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
 
+    //! Write out a slice of data, collective
+    void
+    put_all(const double*,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
     //! Write out a slice of data with with strides (see hyperslab definition in
     //! NetCDF)
+    void iput(
+            const double* dptr,
+            const std::vector<MPI_Offset>& start,
+            const std::vector<MPI_Offset>& count,
+            int * request) const ;
+
     void
     put(const double*,
-        const std::vector<size_t>&,
-        const std::vector<size_t>&,
-        const std::vector<ptrdiff_t>&) const;
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
+    //! Write out a slice of data with with strides , collective
+     void
+     put_all(const double*,
+         const std::vector<MPI_Offset>&,
+         const std::vector<MPI_Offset>&,
+         const std::vector<MPI_Offset>&) const;
     //! Write out a slice of data
     void
     put(const float*,
-        const std::vector<size_t>&,
-        const std::vector<size_t>&) const;
-
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
+    //! Write out a slice of data, collective
+    void
+    put_all(const float*,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
     //! Write out a slice of data with with strides (see hyperslab definition in
     //! NetCDF)
     void
     put(const float*,
-        const std::vector<size_t>&,
-        const std::vector<size_t>&,
-        const std::vector<ptrdiff_t>&) const;
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
+    //! Write out a slice of data with with strides, collective
+    void
+    put_all(const float*,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
 
-    void put(const int*, const std::vector<size_t>&, const std::vector<size_t>&) const;
+
+    void put(const int*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    void put_all(const int*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+
     void
     put(const int*,
-        const std::vector<size_t>&,
-        const std::vector<size_t>&,
-        const std::vector<ptrdiff_t>&) const;
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
+    void
+    put_all(const int*,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
 
-    void put(const char**, const std::vector<size_t>&, const std::vector<size_t>&) const;
+
+    void put(const char**, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
     void
     put(
     const char** dptr,
-    const std::vector<size_t>& start,
-    const std::vector<size_t>& count,
-    const std::vector<ptrdiff_t>& stride) const;
+    const std::vector<MPI_Offset>& start,
+    const std::vector<MPI_Offset>& count,
+    const std::vector<MPI_Offset>& stride) const;
 
     //! Read the entire variable from file
     void get(double*) const;
@@ -120,44 +155,74 @@ struct NCVar
 
     //! Read a chunk of data from the file
     void
-    get(double*, const std::vector<size_t>&, const std::vector<size_t>&) const;
+    get(double*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+
+    //! Read a chunk of data from the file, collective
+    void
+    get_all(double*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
 
     //! Read a chunk of data with strides
     void
     get(double*,
-        const std::vector<size_t>&,
-        const std::vector<size_t>&,
-        const std::vector<ptrdiff_t>&) const;
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
+
+    //! Read a chunk of data with strides, collective
+    void
+    get_all(double*,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
 
     //! Read a chunk of data from the file
     void
-    get(float*, const std::vector<size_t>&, const std::vector<size_t>&) const;
+    get(float*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    // collective
+    void get_all(float*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
 
     //! Read a chunk of data with strides
     void
     get(float*,
-        const std::vector<size_t>&,
-        const std::vector<size_t>&,
-        const std::vector<ptrdiff_t>&) const;
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
+
+    //! Read a chunk of data with strides, collective
+    void
+    get_all(float*,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
 
     void
-    get(int*, const std::vector<size_t>&, const std::vector<size_t>&) const;
+    get(int*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    void
+    get_all(int*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+
     void
     get(int*,
-        const std::vector<size_t>&,
-        const std::vector<size_t>&,
-        const std::vector<ptrdiff_t>&) const;
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
+   // collective
+    void
+    get_all(int*,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
+
 
     //! Read a chunk of data from the file
     void
-    get(char*, const std::vector<size_t>&, const std::vector<size_t>&) const;
+    get(char*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
 
     //! Read a chunk of data with strides
     void
     get(char*,
-        const std::vector<size_t>&,
-        const std::vector<size_t>&,
-        const std::vector<ptrdiff_t>&) const;
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&,
+        const std::vector<MPI_Offset>&) const;
 
     bool has_attr(const std::string& name) const;
     void put_attr(const std::string& name, const std::string& value) const;
@@ -171,36 +236,41 @@ struct NCVar
     void get_attr(const std::string& name, std::vector<double>& value) const;
     void get_attr(const std::string& name, std::vector<float>& value) const;
     void get_attr(const std::string& name, std::vector<int>& value) const;
-    void par_access(const int cmode) const; //Uncomment for parallel NetCDF
 };
 
-//! Representation of a NetCDF group
-class NCGroup
+
+/** Representation of a NetCDF file
+ *
+ *  Provide wrappes to create and open file
+ */
+class NCFile
 {
 public:
-    //! Identifier used with NetCDF API calls
-    const int ncid;
 
-    //! Name of this group
-    std::string name() const;
+    static NCFile create(
+        const std::string& name,
+        const int cmode = NC_CLOBBER | NC_MPIIO,
+        MPI_Comm comm = MPI_COMM_WORLD,
+        MPI_Info info = MPI_INFO_NULL);
 
-    //! Full name for this group
-    std::string full_name() const;
+    static NCFile open(
+        const std::string& name,
+        const int cmode = NC_NOWRITE,
+        MPI_Comm comm = MPI_COMM_WORLD,
+        MPI_Info info = MPI_INFO_NULL);
 
-    //! Number of sub-groups within this group
-    int num_groups() const;
+    ~NCFile();
 
-    //! Number of dimensions in this group
+    void close();
+
+    //! Number of dimensions
     int num_dimensions() const;
 
-    //! Number of variables within this group
+    //! Number of variables
     int num_variables() const;
 
-    //! Number of attributes within this group
+    //! Number of attributes
     int num_attributes() const;
-
-    //! Check if a group exists
-    bool has_group(const std::string&) const;
 
     //! Check if a dimension exists by name
     bool has_dim(const std::string&) const;
@@ -211,20 +281,11 @@ public:
     //! Check if an attribute exists
     bool has_attr(const std::string&) const;
 
-    /** Get the group by name
-     *
-     *  Throws error if the group doesn't exist, use `has_group` to check
-     */
-    NCGroup group(const std::string&) const;
-
     //! Get the dimension instance by name
     NCDim dim(const std::string&) const;
 
     //! Get the variable instance by name
     NCVar var(const std::string&) const;
-
-    //! Define new group
-    NCGroup def_group(const std::string&) const;
 
     //! Define new dimension
     NCDim def_dim(const std::string&, const size_t len) const;
@@ -274,8 +335,8 @@ public:
     void get_attr(const std::string& name, std::vector<float>& value) const;
     void get_attr(const std::string& name, std::vector<int>& value) const;
 
-    //! Return a list of all groups defined in this group
-    std::vector<NCGroup> all_groups() const;
+    // for non-blocking calls
+    void wait_all( int num_requests, int * requests);
 
     //! Return a list of all dimensions defined in this group
     std::vector<NCDim> all_dims() const;
@@ -289,71 +350,33 @@ public:
     //! Exit definition mode
     void exit_def_mode() const;
 
-protected:
-    NCGroup(const int id) : ncid(id) {}
-    NCGroup(const int id, const NCGroup* /*par*/) : ncid(id) {}
-};
+    NCFile(const int id) : ncid(id), is_open{true} {}
 
-/** Representation of a NetCDF file
- *
- *  Provide wrappes to create and open file
- */
-class NCFile : public NCGroup
-{
-public:
-    static NCFile
-    create(const std::string& name, const int cmode = NC_CLOBBER | NC_NETCDF4);
-
-    static NCFile open(const std::string& name, const int cmode = NC_NOWRITE);
-
-    static NCFile create_par(
-        const std::string& name,
-        const int cmode = NC_CLOBBER | NC_NETCDF4 | NC_MPIIO,
-        MPI_Comm comm = MPI_COMM_WORLD,
-        MPI_Info info = MPI_INFO_NULL);
-
-    static NCFile open_par(
-        const std::string& name,
-        const int cmode = NC_NOWRITE,
-        MPI_Comm comm = MPI_COMM_WORLD,
-        MPI_Info info = MPI_INFO_NULL);
-
-    ~NCFile();
-
-    void close();
-
-protected:
-    NCFile(const int id) : NCGroup(id), is_open{true} {}
-
+    const int ncid{-1};
     bool is_open{false};
 };
 
 } // namespace ncutils
 
 #else
+// why do we need this if netcdf is not defined ?
 
 namespace ncutils {
 
-struct NCDim
-{
-    const int ncid{-1};
-    const int dimid{-1};
+struct NCDim {
+    const int ncid { -1 };
+    const int dimid { -1 };
 };
 
-struct NCVar
-{
-    const int ncid{-1};
-    const int varid{-1};
+struct NCVar {
+    const int ncid { -1 };
+    const int varid { -1 };
 };
 
-class NCGroup
-{
+class NCFile {
 public:
-    const int ncid{-1};
+    const int ncid { -1 };
 };
-
-class NCFile : public NCGroup
-{};
 
 } // namespace ncutils
 
