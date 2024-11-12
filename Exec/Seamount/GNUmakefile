@@ -23,7 +23,7 @@ USE_ASSERTION = TRUE
 # Debugging
 DEBUG = FALSE
 
-USE_NETCDF = FALSE
+USE_PNETCDF = FALSE
 
 # GNU Make
 Bpack := ./Make.package
