@@ -112,7 +112,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
     // unsigned long int nt= NC_UNLIMITED;
     if (is_history && max_step < 0)
         amrex::Abort("Need to know max_step if writing history file");
-    unsigned long int nt = is_history ? static_cast<unsigned long int>(max_step / std::min(plot_int, max_step)) + 1 : 1;
+    long long int nt = is_history ? static_cast<long long int>(max_step / std::min(plot_int, max_step)) + 1 : 1;
 
     n_cells.push_back(nx);
     n_cells.push_back(ny);
@@ -254,12 +254,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 }
                 auto nc_Geom_smallend = ncf.var("Geom.smallend");
                 //nc_Geom_smallend.par_access(NC_COLLECTIVE);
-                nc_Geom_smallend.put(smallend.data(), { static_cast<long unsigned int>(i - lev), 0 }, { 1,
+                nc_Geom_smallend.put(smallend.data(), { static_cast<long long int>(i - lev), 0 }, { 1,
                 AMREX_SPACEDIM });
 
                 auto nc_Geom_bigend = ncf.var("Geom.bigend");
                 //nc_Geom_bigend.par_access(NC_COLLECTIVE);
-                nc_Geom_bigend.put(bigend.data(), { static_cast<long unsigned int>(i - lev), 0 }, { 1,
+                nc_Geom_bigend.put(bigend.data(), { static_cast<long long int>(i - lev), 0 }, { 1,
                 AMREX_SPACEDIM });
             }
 
@@ -271,7 +271,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 }
                 auto nc_CellSize = ncf.var("CellSize");
                 //nc_CellSize.par_access(NC_COLLECTIVE);
-                nc_CellSize.put(CellSize.data(), { static_cast<long unsigned int>(i - lev), 0 }, { 1,
+                nc_CellSize.put(CellSize.data(), { static_cast<long long int>(i - lev), 0 }, { 1,
                 AMREX_SPACEDIM });
             }
 
@@ -281,8 +281,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         std::vector<Real> x_grid;
         std::vector<Real> y_grid;
         std::vector<Real> z_grid;
-        long unsigned goffset = 0;
-        long unsigned glen = 0;
+        long long goffset = 0;
+        long long glen = 0;
         for (int i = 0; i < grids[lev].size(); ++i) {
             auto box = grids[lev][i];
             if (subdomain.contains(box)) {
@@ -324,8 +324,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
     //
     // We compute the offsets based on location of the box within the domain
     //
-    long unsigned local_start_nt = (is_history ? static_cast<long unsigned>(history_count) : static_cast<long unsigned>(0));
-    long unsigned local_nt = 1; // We write data for only one time
+    long long local_start_nt = (is_history ? static_cast<long long>(history_count) : static_cast<long long>(0));
+    long long local_nt = 1; // We write data for only one time
 
     {
         auto nc_plot_var = ncf.var("ocean_time");
@@ -367,14 +367,14 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             //
             // These are the dimensions of the data we write for only this box
             //
-            long unsigned local_nx = tmp_bx.length()[0];
-            long unsigned local_ny = tmp_bx.length()[1];
-            long unsigned local_nz = tmp_bx.length()[2];
+            long long local_nx = tmp_bx.length()[0];
+            long long local_ny = tmp_bx.length()[1];
+            long long local_nz = tmp_bx.length()[2];
 
             // We do the "+1" because the offset needs to start at 0
-            long unsigned local_start_x = static_cast<long unsigned>(tmp_bx.smallEnd()[0] + 1);
-            long unsigned local_start_y = static_cast<long unsigned>(tmp_bx.smallEnd()[1] + 1);
-            long unsigned local_start_z = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
+            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] + 1);
+            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] + 1);
+            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2]);
 
             if (write_header) {
                 FArrayBox tmp_bathy;
@@ -453,14 +453,14 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             //
             // These are the dimensions of the data we write for only this box
             //
-            long unsigned local_nx = tmp_bx.length()[0];
-            long unsigned local_ny = tmp_bx.length()[1];
-            long unsigned local_nz = tmp_bx.length()[2];
+            long long local_nx = tmp_bx.length()[0];
+            long long local_ny = tmp_bx.length()[1];
+            long long local_nz = tmp_bx.length()[2];
 
             // We do the "+1" because the offset needs to start at 0
-            long unsigned local_start_x = static_cast<long unsigned>(tmp_bx.smallEnd()[0]);
-            long unsigned local_start_y = static_cast<long unsigned>(tmp_bx.smallEnd()[1] + 1);
-            long unsigned local_start_z = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
+            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0]);
+            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] + 1);
+            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2]);
 
             {
                 FArrayBox tmp;
@@ -527,14 +527,14 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             //
             // These are the dimensions of the data we write for only this box
             //
-            long unsigned local_nx = tmp_bx.length()[0];
-            long unsigned local_ny = tmp_bx.length()[1];
-            long unsigned local_nz = tmp_bx.length()[2];
+            long long local_nx = tmp_bx.length()[0];
+            long long local_ny = tmp_bx.length()[1];
+            long long local_nz = tmp_bx.length()[2];
 
             // We do the "+1" because the offset needs to start at 0
-            long unsigned local_start_x = static_cast<long unsigned>(tmp_bx.smallEnd()[0] + 1);
-            long unsigned local_start_y = static_cast<long unsigned>(tmp_bx.smallEnd()[1]);
-            long unsigned local_start_z = static_cast<long unsigned>(tmp_bx.smallEnd()[2]);
+            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] + 1);
+            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1]);
+            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2]);
 
             {
                 FArrayBox tmp;
