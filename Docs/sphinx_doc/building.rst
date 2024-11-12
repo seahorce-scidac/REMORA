@@ -8,7 +8,7 @@ REMORA can be built using either GNU Make or CMake. The following instructions a
 Minimum Requirements
 ~~~~~~~~~~~~~~~~~~~~
 
-ERF requires a C++ compiler that supports the C++17 standard and a C compiler that supports the C99 standard.
+REMORA requires a C++ compiler that supports the C++17 standard and a C compiler that supports the C99 standard.
 Building with GPU support may be done with CUDA, HIP, or SYCL.
 For CUDA, REMORA requires versions >= 11.0. For HIP and SYCL, only the latest compilers are supported.
 Prerequisites for building with GNU Make include Python (>= 2.7, including 3) and standard tools available
@@ -18,7 +18,7 @@ in any Unix-like environments (e.g., Perl and sed). For building with CMake, the
       **While REMORA is designed to work with SYCL, we do not make any guarantees that it will build and run on your Intel platform.**
 
 Paradigm
-~~~~~~~~~~
+~~~~~~~~
 
 REMORA uses the paradigm that different executables are built in different subdirectories within the ``Exec`` directory.  When
 using gmake (see below), the user/developer should build in the directory of the selected problem.  When using
@@ -29,6 +29,24 @@ The problem directories within ``Exec`` include ``Upwelling`` a test case demons
 #``Exec/RegTests`` that are used for testing specific known aspects of the code functionality, such as boundary conditions or
 #Rayleigh damping, and 3) tests for features under development in ``Exec/DevTests``, such as moving terrain.  There is a
 #README in each problem directory that describes the purpose/role of that problem.
+
+
+NetCDF (Optional)
+~~~~~~~~~~~~~~~~~
+
+REMORA uses `PnetCDF <https://parallel-netcdf.github.io/>`_ for optional NetCDF support. To build REMORA with PnetCDF, first install PnetCDF as per the instructions. Make a note of the directory where the library is installed, which we will call ``PNETCDF_DIR``. When compiling, add the PnetCDF ``pkgconfig`` directory to the environment variable ``PKG_CONFIG_PATH``, e.g.:
+
+   .. code:: shell
+
+             PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PNETCDF_DIR/lib/pkgconfig
+
+At run-time, you may need to add PnetCDF to the link path, e.g.:
+
+   .. code:: shell
+
+             LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PNETCDF_DIR/lib
+
+See sections below for compiler-specific instructions for how to enable netCDF support.
 
 GNU Make
 ~~~~~~~~
@@ -84,7 +102,7 @@ or if using tcsh,
    +-----------------+----------------------------------+------------------+-------------+
    | DEBUG           | Whether to use DEBUG mode        | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
-   | USE_NETCDF      | Whether to compile with NETCDF   | TRUE / FALSE     | FALSE       |
+   | USE_PNETCDF     | Whether to compile with PnetCDF  | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
    | USE_PARTICLES   | Whether to compile with particle | TRUE / FALSE     | FALSE       |
    |                 | functionality enabled            |                  |             |
@@ -115,6 +133,7 @@ or if using tcsh,
    For example, the default build in ``REMORA/Exec/Upwelling`` will look
    like ``REMORA3d.gnu.MPI.ex``, indicating that this is a 3-d version of the code, made with
    ``COMP=gnu``, and ``USE_MPI=TRUE``.
+
 
 Job info
 ~~~~~~~~
@@ -148,7 +167,7 @@ An example CMake configure command to build REMORA with MPI is listed below:
           -DCMAKE_Fortran_COMPILER:STRING=mpifort \
           .. && make
 
-An example CMake configure command to build REMORA with MPI and particles is listed below:
+An example CMake configure command to build REMORA with MPI, PnetCDF, and particles is listed below:
 
 ::
 
@@ -158,6 +177,7 @@ An example CMake configure command to build REMORA with MPI and particles is lis
           -DCMAKE_C_COMPILER:STRING=mpicc \
           -DCMAKE_Fortran_COMPILER:STRING=mpifort \
           -DREMORA_ENABLE_PARTICLES:BOOL=ON \
+          -DREMORA_ENABLE_PNETCDF:BOOL=ON \
           .. && make
 
 
