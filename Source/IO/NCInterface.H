@@ -87,7 +87,7 @@ struct NCVar
             const double* dptr,
             const std::vector<MPI_Offset>& start,
             const std::vector<MPI_Offset>& count,
-    		int * request) const ;
+            int * request) const ;
 
     void
     put(const double*,
