@@ -14,7 +14,7 @@ For Perlmutter at NERSC, initialize your environment by sourcing the `saul-env.s
 Then follow the general instructions for building REMORA using GNU Make.
 
    .. note::
-      When building, GNU Make may complain that it cannot find NetCDF. This is fine.
+      When building, GNU Make may complain that it cannot find NetCDF or MPICH. This is fine.
 
 
 Building for and running on GPU nodes
