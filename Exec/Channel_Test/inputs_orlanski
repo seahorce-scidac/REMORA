@@ -14,22 +14,16 @@ amr.n_cell           =   20     60      50
 
 geometry.is_periodic = 0 0 0
 
-#ylo.type = "SlipWall"
-#yhi.type = "SlipWall"
-
-zlo.type = "SlipWall"
-zhi.type = "SlipWall"
-
 remora.boundary_per_variable = 1
-temp.type   =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
-salt.type   =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
-scalar.type =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
-u.type      =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
-v.type      =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
-ubar.type   =  outflow outflow outflow outflow
-vbar.type   =  outflow outflow outflow outflow
-zeta.type   =  outflow outflow outflow outflow
-tke.type    =  outflow outflow outflow outflow
+bc.temp.type   =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
+bc.salt.type   =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
+bc.scalar.type =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
+bc.u.type      =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
+bc.v.type      =  orlanski_rad orlanski_rad orlanski_rad orlanski_rad
+bc.ubar.type   =  outflow outflow outflow outflow
+bc.vbar.type   =  outflow outflow outflow outflow
+bc.zeta.type   =  outflow outflow outflow outflow
+bc.tke.type    =  outflow outflow outflow outflow
 
 # TIME STEP CONTROL
 remora.fixed_dt       = 400.0 # Timestep size (seconds)

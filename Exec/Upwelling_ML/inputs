@@ -14,12 +14,6 @@ amr.n_cell           =  41     80      16
 
 geometry.is_periodic = 1 1 0
 
-#ylo.type = "SlipWall"
-#yhi.type = "SlipWall"
-
-zlo.type = "SlipWall"
-zhi.type = "SlipWall"
-
 # TIME STEP CONTROL
 remora.fixed_dt       = 5 # Timestep size (seconds)
 

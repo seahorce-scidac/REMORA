@@ -13,20 +13,18 @@ geometry.prob_hi     =   320000.  320000.       0.
 amr.n_cell           =  10 16 20
 
 geometry.is_periodic = 0 0 0
-zlo.type = "SlipWall"
-zhi.type = "SlipWall"
 
 remora.boundary_per_variable = 1
 ##             WEST     SOUTH    EAST     NORTH
-temp.type   =  clamped  clamped  clamped  clamped
-salt.type   =  clamped  clamped  clamped  clamped
-scalar.type =  clamped  clamped  clamped  clamped
-u.type      =  clamped  clamped  clamped  clamped
-v.type      =  clamped  clamped  clamped  clamped
-ubar.type   =  flather  flather  flather  flather
-vbar.type   =  flather  flather  flather  flather
-zeta.type   =  chapman  chapman  chapman  chapman
-tke.type    =  outflow  outflow  outflow  outflow
+bc.temp.type   =  clamped  clamped  clamped  clamped
+bc.salt.type   =  clamped  clamped  clamped  clamped
+bc.scalar.type =  clamped  clamped  clamped  clamped
+bc.u.type      =  clamped  clamped  clamped  clamped
+bc.v.type      =  clamped  clamped  clamped  clamped
+bc.ubar.type   =  flather  flather  flather  flather
+bc.vbar.type   =  flather  flather  flather  flather
+bc.zeta.type   =  chapman  chapman  chapman  chapman
+bc.tke.type    =  outflow  outflow  outflow  outflow
 
 # TIME STEP CONTROL
 remora.fixed_dt            = 200.0 # Timestep size (seconds)

@@ -93,6 +93,9 @@ void REMORA::init_bcs ()
         }
         else if (bc_type_string == "periodic")
         {
+            if (!geom[0].isPeriodic(ori.coordDir())) {
+                amrex::Abort("Periodic boundary specified in a non-periodic direction");
+            }
             phys_bc_type[bcvar_type][ori] = REMORA_BC::periodic;
             domain_bc_type[ori] = "Periodic";
         }
@@ -121,8 +124,10 @@ void REMORA::init_bcs ()
 
     auto f_by_side = [this, &f_set_var_bc] (std::string const& bcid, Orientation ori)
     {
-        ParmParse pp(bcid);
+        ParmParse pp("bc."+bcid);
         std::string bc_type_in = "null";
+        // Default z directions to slipwall
+        if (bcid=="zlo" or bcid=="zhi") bc_type_in = "slipwall";
         pp.query("type", bc_type_in);
         std::string bc_type = amrex::toLower(bc_type_in);
 
@@ -135,7 +140,7 @@ void REMORA::init_bcs ()
     {
         amrex::Vector<Orientation> orientations = {Orientation(Direction::x,Orientation::low), Orientation(Direction::y,Orientation::high),Orientation(Direction::x,Orientation::high),Orientation(Direction::y,Orientation::low)}; // west, south, east, north [matches ROMS]
         std::vector<std::string> bc_types = {"null","null","null","null"};
-        ParmParse pp(varname);
+        ParmParse pp("bc."+varname);
         std::string bc_type_in = "null";
         // default zvel to outflow
         if (bcvar_type == BCVars::zvel_bc) {

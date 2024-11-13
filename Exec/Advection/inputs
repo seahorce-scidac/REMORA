@@ -12,12 +12,7 @@ geometry.prob_hi     =  41000. 41000.       0.
 
 amr.n_cell           = 81     81      16
 
-# periodic in x to match WRF setup
 geometry.is_periodic = 1 1 0
-#ylo.type = "SlipWall"
-#yhi.type = "SlipWall"
-zlo.type = "SlipWall"
-zhi.type = "SlipWall"
 
 # TIME STEP CONTROL
 remora.fixed_dt       = 300.0 # Timestep size (seconds)

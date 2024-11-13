@@ -13,13 +13,11 @@ geometry.prob_hi     =   320000.  320000.       0.
 amr.n_cell           =  10 16 20
 
 geometry.is_periodic = 0 0 0
-zlo.type = "SlipWall"
-zhi.type = "SlipWall"
 
-xlo.type = "clamped"
-xhi.type = "clamped"
-ylo.type = "clamped"
-yhi.type = "clamped"
+bc.xlo.type = "clamped"
+bc.xhi.type = "clamped"
+bc.ylo.type = "clamped"
+bc.yhi.type = "clamped"
 
 # TIME STEP CONTROL
 remora.fixed_dt            = 200.0 # Timestep size (seconds)
