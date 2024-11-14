@@ -6,7 +6,6 @@
 
 #ifdef REMORA_USE_NETCDF
 #include "NCInterface.H"
-#include "netcdf_meta.h"
 #endif
 
 namespace amrex {
@@ -147,7 +146,7 @@ void REMORA::print_tpls(std::ostream& out)
     amrex::Vector<std::string> tpls;
 
 #ifdef REMORA_USE_NETCDF
-    tpls.push_back(std::string("NetCDF    ") + NC_VERSION);
+    tpls.push_back(std::string("NetCDF    ") + PNETCDF_VERSION);
 #endif
 
     if (!tpls.empty()) {
