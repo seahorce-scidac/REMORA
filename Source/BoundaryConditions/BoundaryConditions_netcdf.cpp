@@ -164,7 +164,6 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             Vector<BCRec> bcrs(ncomp);
             amrex::setBC(mf_box, domain, bccomp, 0, ncomp, domain_bcs_type, bcrs);
 
-
             // xlo: ori = 0
             // ylo: ori = 1
             // zlo: ori = 2
@@ -409,7 +408,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                 });
                 ParallelFor(grow(yhi_ghost,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    dest_arr(i,j,k,icomp+icomp_to_fill) = dest_arr(i,lbound(ylo).y,k,icomp+icomp_to_fill);
+                    dest_arr(i,j,k,icomp+icomp_to_fill) = dest_arr(i,lbound(yhi).y,k,icomp+icomp_to_fill);
                 });
 
             }
