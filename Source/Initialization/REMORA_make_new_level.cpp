@@ -349,6 +349,15 @@ void REMORA::resize_stuff(int lev)
     vec_pn.resize(lev+1);
     vec_fcor.resize(lev+1);
 
+    vec_xr.resize(lev+1);
+    vec_yr.resize(lev+1);
+    vec_xu.resize(lev+1);
+    vec_yu.resize(lev+1);
+    vec_xv.resize(lev+1);
+    vec_yv.resize(lev+1);
+    vec_xp.resize(lev+1);
+    vec_yp.resize(lev+1);
+
     vec_rhoS.resize(lev+1);
     vec_rhoA.resize(lev+1);
     vec_bvf.resize(lev+1);
@@ -472,6 +481,17 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_pn[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+2,NGROW+1,0)));
     vec_fcor[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
+    vec_xr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_yr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+
+    vec_xu[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_yu[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_xv[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_yv[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_xp[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_yp[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+
+
     // tempstore, saltstore, etc
     vec_sstore[lev].reset(new MultiFab(ba,dm,NCONS,IntVect(NGROW,NGROW,0)));
 
@@ -534,6 +554,44 @@ REMORA::set_pm_pn (int lev)
     const auto dxi = Geom(lev).InvCellSize();
     vec_pm[lev]->setVal(dxi[0]); vec_pm[lev]->FillBoundary(geom[lev].periodicity());
     vec_pn[lev]->setVal(dxi[1]); vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+
+    for ( MFIter mfi(*vec_xr[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& xr = vec_xr[lev]->array(mfi);
+        Array4<Real> const& yr = vec_yr[lev]->array(mfi);
+        Array4<Real> const& xu = vec_xu[lev]->array(mfi);
+        Array4<Real> const& yu = vec_yu[lev]->array(mfi);
+        Array4<Real> const& xv = vec_xv[lev]->array(mfi);
+        Array4<Real> const& yv = vec_yv[lev]->array(mfi);
+        Array4<Real> const& xp = vec_xp[lev]->array(mfi);
+        Array4<Real> const& yp = vec_yp[lev]->array(mfi);
+
+        Box bx = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            xr(i,j,0) = (i + 0.5_rt) / dxi[0];
+            yr(i,j,0) = (j + 0.5_rt) / dxi[1];
+        });
+
+        ParallelFor(convert(bx,IntVect(1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            xu(i,j,0) = i / dxi[0];
+            yu(i,j,0) = (j + 0.5_rt) / dxi[1];
+        });
+
+        ParallelFor(convert(bx,IntVect(0,1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            xv(i,j,0) = (i + 0.5_rt) / dxi[0];
+            yv(i,j,0) = j / dxi[1];
+        });
+
+        ParallelFor(convert(bx,IntVect(1,1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            xp(i,j,0) = i / dxi[0];
+            yp(i,j,0) = j / dxi[1];
+        });
+    }
 }
 
 void

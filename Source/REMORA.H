@@ -309,6 +309,30 @@ public:
     /** coriolis factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_fcor;
 
+    /** x_grid on rho points (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xr;
+
+    /** y_grid on rho points (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yr;
+
+    /** x_grid on u-points (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xu;
+
+    /** y_grid on u-points (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yu;
+
+    /** x_grid on v-points (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xv;
+
+    /** y_grid on v-points (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yv;
+
+    /** x_grid on psi-points (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xp;
+
+    /** y_grid on psi-points (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yp;
+
     /** saltstore, tempstore, etc*/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sstore;
 
