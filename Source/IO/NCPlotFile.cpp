@@ -332,17 +332,13 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         //nc_plot_var.par_access(NC_COLLECTIVE);
         nc_plot_var.put(&t_new[lev], { local_start_nt }, { local_nt });
     }
-    ncmpi_end_indep_data(ncf.ncid);
-
-    // temporary
-    //ncf.close();
+    // do all independent writes
+    //ncmpi_end_indep_data(ncf.ncid);
 
     cons_new[lev]->FillBoundary(geom[lev].periodicity());
 
     mask_arrays_for_write(lev, (Real) fill_value);
 
-    std::vector<int> requests;
-    int irq = 0;
     for (MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi) {
         auto bx = mfi.validbox();
         if (subdomain.contains(bx)) {
@@ -384,9 +380,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("h");
-                //nc_plot_var.par_access(NC_INDEPENDENT);
-                requests.push_back(0);
-                nc_plot_var.iput(tmp_bathy.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx }, &requests[irq++]);
+                nc_plot_var.put(tmp_bathy.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
             }
 
             {
@@ -396,10 +390,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("zeta");
-                //nc_plot_var.par_access(NC_INDEPENDENT);
-                requests.push_back(0);
-                nc_plot_var.iput(tmp_zeta.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
-                        local_nx }, &requests[irq++]);
+                nc_plot_var.put(tmp_zeta.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
+                        local_nx });
             }
 
             {
@@ -409,10 +401,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("temp");
-                //nc_plot_var.par_access(NC_INDEPENDENT);
-                requests.push_back(0);
-                nc_plot_var.iput(tmp_temp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
-                        local_nz, local_ny, local_nx }, &requests[irq++]);
+                nc_plot_var.put(tmp_temp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                        local_nz, local_ny, local_nx });
             }
 
             {
@@ -422,17 +412,15 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("salt");
-                //nc_plot_var.par_access(NC_INDEPENDENT);
-                requests.push_back(0);
-                nc_plot_var.iput(tmp_salt.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
-                        local_nz, local_ny, local_nx }, &requests[irq++]);
+                nc_plot_var.put(tmp_salt.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                        local_nz, local_ny, local_nx });
             }
         } // subdomain
     } // mfi
 
-    ncf.wait_all(irq, &requests[0]);
-    requests.resize(0);
-    irq = 0;
+    //ncf.wait_all(irq, &requests[0]);
+    //requests.resize(0);
+    //irq = 0;
     // Writing u (we loop over cons to get cell-centered box)
     for (MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi) {
         Box bx = mfi.validbox();
@@ -469,10 +457,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("u");
-                //nc_plot_var.par_access(NC_INDEPENDENT);
-                requests.push_back(0);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
-                        local_nz, local_ny, local_nx }, &requests[irq++]);
+                nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                        local_nz, local_ny, local_nx });
             }
 
             {
@@ -482,10 +468,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("ubar");
-                //nc_plot_var.par_access(NC_INDEPENDENT);
-                requests.push_back(0);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx },
-                        &requests[irq++]);
+                nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
             {
                 FArrayBox tmp;
@@ -494,16 +477,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("sustr");
-                //nc_plot_var.par_access(NC_INDEPENDENT);
-                requests.push_back(0);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx },
-                        &requests[irq++]);
+                nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
         } // in subdomain
     } // mfi
-    ncf.wait_all(irq, &requests[0]);
-    requests.resize(0);
-    irq = 0;
+
     // Writing v (we loop over cons to get cell-centered box)
     for (MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi) {
         Box bx = mfi.validbox();
@@ -543,10 +521,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("v");
-                //nc_plot_var.par_access(NC_INDEPENDENT);
-                requests.push_back(0);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
-                        local_nz, local_ny, local_nx }, &requests[irq++]);
+                nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                        local_nz, local_ny, local_nx });
             }
 
             {
@@ -556,10 +532,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("vbar");
-                //nc_plot_var.par_access(NC_INDEPENDENT);
-                requests.push_back(0);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx },
-                        &requests[irq++]);
+                nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
             {
                 FArrayBox tmp;
@@ -568,17 +541,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("svstr");
-                //nc_plot_var.par_access(NC_INDEPENDENT);
-                nc_plot_var.iput(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx },
-                        &requests[irq++]);
+                nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
 
         } // in subdomain
     } // mfi
-
-    ncf.wait_all(irq, &requests[0]);
-    requests.resize(0);
-    irq = 0;
 
     mask_arrays_for_write(lev, 0.0_rt);
 
