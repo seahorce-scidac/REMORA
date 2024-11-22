@@ -567,29 +567,31 @@ REMORA::set_pm_pn (int lev)
         Array4<Real> const& yp = vec_yp[lev]->array(mfi);
 
         Box bx = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+        Real dx = 1.0_rt / dxi[0];
+        Real dy = 1.0_rt / dxi[1];
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xr(i,j,0) = (i + 0.5_rt) / dxi[0];
-            yr(i,j,0) = (j + 0.5_rt) / dxi[1];
+            xr(i,j,0) = (i + 0.5_rt) * dx;
+            yr(i,j,0) = (j + 0.5_rt) * dy;
         });
 
         ParallelFor(convert(bx,IntVect(1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xu(i,j,0) = i / dxi[0];
-            yu(i,j,0) = (j + 0.5_rt) / dxi[1];
+            xu(i,j,0) = i * dx;
+            yu(i,j,0) = (j + 0.5_rt) * dy;
         });
 
         ParallelFor(convert(bx,IntVect(0,1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xv(i,j,0) = (i + 0.5_rt) / dxi[0];
-            yv(i,j,0) = j / dxi[1];
+            xv(i,j,0) = (i + 0.5_rt) * dx;
+            yv(i,j,0) = j * dy;
         });
 
         ParallelFor(convert(bx,IntVect(1,1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xp(i,j,0) = i / dxi[0];
-            yp(i,j,0) = j / dxi[1];
+            xp(i,j,0) = i * dx;
+            yp(i,j,0) = j * dy;
         });
     }
 }
