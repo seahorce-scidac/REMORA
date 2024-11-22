@@ -46,7 +46,11 @@ init_state_from_netcdf (int lev,
 void
 read_bathymetry_from_netcdf (int lev, const Box& domain, const std::string& fname,
                              FArrayBox& NC_h_fab,
-                             FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab);
+                             FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab,
+                             FArrayBox& NC_xr_fab, FArrayBox& NC_yr_fab,
+                             FArrayBox& NC_xu_fab, FArrayBox& NC_yu_fab,
+                             FArrayBox& NC_xv_fab, FArrayBox& NC_yv_fab,
+                             FArrayBox& NC_xp_fab, FArrayBox& NC_yp_fab);
 
 void
 init_bathymetry_from_netcdf (int lev);
@@ -174,11 +178,24 @@ REMORA::init_bathymetry_from_netcdf (int lev)
     Vector<FArrayBox> NC_pm_fab    ; NC_pm_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_pn_fab    ; NC_pn_fab.resize(num_boxes_at_level[lev]);
 
+    Vector<FArrayBox> NC_xr_fab    ; NC_xr_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_yr_fab    ; NC_yr_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_xu_fab    ; NC_xu_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_yu_fab    ; NC_yu_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_xv_fab    ; NC_xv_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_yv_fab    ; NC_yv_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_xp_fab    ; NC_xp_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_yp_fab    ; NC_yp_fab.resize(num_boxes_at_level[lev]);
+
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         read_bathymetry_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
                                     NC_h_fab[idx],
-                                    NC_pm_fab[idx], NC_pn_fab[idx]);
+                                    NC_pm_fab[idx], NC_pn_fab[idx],
+                                    NC_xr_fab[idx], NC_yr_fab[idx],
+                                    NC_xu_fab[idx], NC_yu_fab[idx],
+                                    NC_xv_fab[idx], NC_yv_fab[idx],
+                                    NC_xp_fab[idx], NC_yp_fab[idx]);
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -190,6 +207,14 @@ REMORA::init_bathymetry_from_netcdf (int lev)
             FArrayBox &h_fab     = (*vec_hOfTheConfusingName[lev])[mfi];
             FArrayBox &pm_fab    = (*vec_pm[lev])[mfi];
             FArrayBox &pn_fab    = (*vec_pn[lev])[mfi];
+            FArrayBox &xr_fab    = (*vec_xr[lev])[mfi];
+            FArrayBox &yr_fab    = (*vec_yr[lev])[mfi];
+            FArrayBox &xu_fab    = (*vec_xu[lev])[mfi];
+            FArrayBox &yu_fab    = (*vec_yu[lev])[mfi];
+            FArrayBox &xv_fab    = (*vec_xv[lev])[mfi];
+            FArrayBox &yv_fab    = (*vec_yv[lev])[mfi];
+            FArrayBox &xp_fab    = (*vec_xp[lev])[mfi];
+            FArrayBox &yp_fab    = (*vec_yp[lev])[mfi];
 
             //
             // FArrayBox to FArrayBox copy does "copy on intersection"
@@ -202,6 +227,15 @@ REMORA::init_bathymetry_from_netcdf (int lev)
 
             pm_fab.template    copy<RunOn::Device>(NC_pm_fab[idx]);
             pn_fab.template    copy<RunOn::Device>(NC_pn_fab[idx]);
+
+            xr_fab.template    copy<RunOn::Device>(NC_xr_fab[idx]);
+            yr_fab.template    copy<RunOn::Device>(NC_yr_fab[idx]);
+            xu_fab.template    copy<RunOn::Device>(NC_xu_fab[idx]);
+            yu_fab.template    copy<RunOn::Device>(NC_yu_fab[idx]);
+            xv_fab.template    copy<RunOn::Device>(NC_xv_fab[idx]);
+            yv_fab.template    copy<RunOn::Device>(NC_yv_fab[idx]);
+            xp_fab.template    copy<RunOn::Device>(NC_xp_fab[idx]);
+            yp_fab.template    copy<RunOn::Device>(NC_yp_fab[idx]);
         } // mf
         } // omp
     } // idx
@@ -230,6 +264,15 @@ REMORA::init_bathymetry_from_netcdf (int lev)
     //
     vec_pm[lev]->FillBoundary(geom[lev].periodicity());
     vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+
+    vec_xr[lev]->FillBoundary(geom[lev].periodicity());
+    vec_yr[lev]->FillBoundary(geom[lev].periodicity());
+    vec_xu[lev]->FillBoundary(geom[lev].periodicity());
+    vec_yu[lev]->FillBoundary(geom[lev].periodicity());
+    vec_xv[lev]->FillBoundary(geom[lev].periodicity());
+    vec_yv[lev]->FillBoundary(geom[lev].periodicity());
+    vec_xp[lev]->FillBoundary(geom[lev].periodicity());
+    vec_yp[lev]->FillBoundary(geom[lev].periodicity());
 
     for ( MFIter mfi(*vec_pm[lev]); mfi.isValid(); ++mfi )
     {

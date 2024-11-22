@@ -53,7 +53,11 @@ read_bathymetry_from_netcdf (int /*lev*/,
                              const Box& domain,
                              const std::string& fname,
                              FArrayBox& NC_h_fab,
-                             FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab)
+                             FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab,
+                             FArrayBox& NC_xr_fab, FArrayBox& NC_yr_fab,
+                             FArrayBox& NC_xu_fab, FArrayBox& NC_yu_fab,
+                             FArrayBox& NC_xv_fab, FArrayBox& NC_yv_fab,
+                             FArrayBox& NC_xp_fab, FArrayBox& NC_yp_fab)
 {
     amrex::Print() << "Loading initial bathymetry from NetCDF file " << fname << std::endl;
 
@@ -61,9 +65,17 @@ read_bathymetry_from_netcdf (int /*lev*/,
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
-    NC_fabs.push_back(&NC_h_fab )   ; NC_names.push_back("h")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
-    NC_fabs.push_back(&NC_pm_fab)   ; NC_names.push_back("pm")   ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 1
-    NC_fabs.push_back(&NC_pn_fab)   ; NC_names.push_back("pn")   ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 2
+    NC_fabs.push_back(&NC_h_fab )   ; NC_names.push_back("h")     ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
+    NC_fabs.push_back(&NC_pm_fab)   ; NC_names.push_back("pm")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 1
+    NC_fabs.push_back(&NC_pn_fab)   ; NC_names.push_back("pn")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 2
+    NC_fabs.push_back(&NC_xr_fab)   ; NC_names.push_back("x_rho") ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 3
+    NC_fabs.push_back(&NC_yr_fab)   ; NC_names.push_back("y_rho") ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 4
+    NC_fabs.push_back(&NC_xu_fab)   ; NC_names.push_back("x_u")   ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 5
+    NC_fabs.push_back(&NC_yu_fab)   ; NC_names.push_back("y_u")   ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 6
+    NC_fabs.push_back(&NC_xv_fab)   ; NC_names.push_back("x_v")   ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 7
+    NC_fabs.push_back(&NC_yv_fab)   ; NC_names.push_back("y_v")   ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 8
+    NC_fabs.push_back(&NC_xp_fab)   ; NC_names.push_back("x_psi") ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 9
+    NC_fabs.push_back(&NC_yp_fab)   ; NC_names.push_back("y_psi") ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 10
 
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
