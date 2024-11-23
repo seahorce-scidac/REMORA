@@ -93,8 +93,6 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
     // Number of cells in this "domain" at this level
     std::vector<int> n_cells;
 
-    int nblocks = grids[lev].size();
-
     // We only do single-level writes when using NetCDF format
     int flev = 1; //max_level;
 
@@ -119,26 +117,19 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
     n_cells.push_back(nz);
 
     int num_pts = nx * ny * nz;
-    int num_u_pts = (nx + 1) * (ny + 2) * nz;
-    int num_v_pts = (nx + 2) * (ny + 1) * nz;
 
     const std::string nt_name = "ocean_time";
     const std::string ndim_name = "num_geo_dimensions";
 
-    const std::string np_name = "num_points_per_block";
-    const std::string np_u_name = "num_points_per_block_u";
-    const std::string np_v_name = "num_points_per_block_v";
-
-    const std::string nb_name = "num_blocks";
     const std::string flev_name = "FINEST_LEVEL";
 
     const std::string nx_name = "NX";
     const std::string ny_name = "NY";
     const std::string nz_name = "NZ";
 
-    const std::string nx_s_name = "xi_rho";
-    const std::string ny_s_name = "eta_rho";
-    const std::string nz_s_name = "s_rho";
+    const std::string nx_r_name = "xi_rho";
+    const std::string ny_r_name = "eta_rho";
+    const std::string nz_r_name = "s_rho";
 
     const std::string nx_u_name = "xi_u";
     const std::string ny_u_name = "eta_u";
@@ -148,6 +139,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
 
     const std::string nx_p_name = "xi_psi";
     const std::string ny_p_name = "eta_psi";
+    const std::string nz_w_name = "s_w";
 
     const Real fill_value = 1.0e37_rt;
 
@@ -157,9 +149,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         ncf.def_dim(nt_name, nt);
         ncf.def_dim(ndim_name, AMREX_SPACEDIM);
 
-        ncf.def_dim(nx_s_name, nx + 2);
-        ncf.def_dim(ny_s_name, ny + 2);
-        ncf.def_dim(nz_s_name, nz);
+        ncf.def_dim(nx_r_name, nx + 2);
+        ncf.def_dim(ny_r_name, ny + 2);
+        ncf.def_dim(nz_r_name, nz);
 
         ncf.def_dim(nx_u_name, nx + 1);
         ncf.def_dim(ny_u_name, ny + 2);
@@ -170,11 +162,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         ncf.def_dim(nx_p_name, nx + 1);
         ncf.def_dim(ny_p_name, ny + 1);
 
-        ncf.def_dim(np_name, num_pts);
-        ncf.def_dim(np_u_name, num_u_pts);
-        ncf.def_dim(np_v_name, num_v_pts);
+        ncf.def_dim(nz_w_name, nz + 1);
 
-        ncf.def_dim(nb_name, nblocks);
         ncf.def_dim(flev_name, flev);
 
         ncf.def_dim(nx_name, n_cells[0]);
@@ -182,46 +171,213 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         ncf.def_dim(nz_name, n_cells[2]);
 
         ncf.def_var("probLo", ncutils::NCDType::Real, { ndim_name });
+        ncf.var("probLo").put_attr("long_name","Low side of problem domain in internal AMReX grid");
+        ncf.var("probLo").put_attr("units","meter");
         ncf.def_var("probHi", ncutils::NCDType::Real, { ndim_name });
+        ncf.var("probHi").put_attr("long_name","High side of problem domain in internal AMReX grid");
+        ncf.var("probHi").put_attr("units","meter");
 
         ncf.def_var("Geom.smallend", NC_INT, { flev_name, ndim_name });
+        ncf.var("Geom.smallend").put_attr("long_name","Low side of problem domain in index space");
         ncf.def_var("Geom.bigend", NC_INT, { flev_name, ndim_name });
+        ncf.var("Geom.bigend").put_attr("long_name","High side of problem domain in index space");
         ncf.def_var("CellSize", ncutils::NCDType::Real, { flev_name, ndim_name });
+        ncf.var("CellSize").put_attr("long_name","Cell size on internal AMReX grid");
+        ncf.var("CellSize").put_attr("units","meter");
 
-        ncf.def_var("pm",ncutils::NCDType::Real, {ny_s_name, nx_s_name});
-        ncf.def_var("pn",ncutils::NCDType::Real, {ny_s_name, nx_s_name});
-        ncf.def_var("x_rho",ncutils::NCDType::Real, {ny_s_name, nx_s_name});
-        ncf.def_var("y_rho",ncutils::NCDType::Real, {ny_s_name, nx_s_name});
+        ncf.def_var("theta_s",ncutils::NCDType::Real,{});
+        ncf.var("theta_s").put_attr("long_name","S-coordinate surface control parameter");
+        ncf.def_var("theta_b",ncutils::NCDType::Real,{});
+        ncf.var("theta_b").put_attr("long_name","S-coordinate bottom control parameter");
+        ncf.def_var("hc",ncutils::NCDType::Real,{});
+        ncf.var("hc").put_attr("long_name","S-coordinate parameter, critical depth");
+        ncf.var("hc").put_attr("units","meter");
+
+        ncf.def_var("grid",NC_INT, {});
+        ncf.var("grid").put_attr("cf_role","grid_topology");
+        ncf.var("grid").put_attr("topology_dimension","2");
+        ncf.var("grid").put_attr("node_dimensions", "xi_psi eta_psi");
+        ncf.var("grid").put_attr("face_dimensions", "xi_rho: xi_psi (padding: both) eta_rho: eta_psi (padding: both)");
+        ncf.var("grid").put_attr("edge1_dimensions", "xi_u: xi_psi eta_u: eta_psi (padding: both)");
+        ncf.var("grid").put_attr("edge2_dimensions", "xi_v: xi_psi (padding: both) eta_v: eta_psi");
+        ncf.var("grid").put_attr("node_coordinates", "x_psi y_psi");
+        ncf.var("grid").put_attr("face_coordinates", "x_rho y_rho");
+        ncf.var("grid").put_attr("edge1_coordinates", "x_u y_u");
+        ncf.var("grid").put_attr("edge2_coordinates", "x_v y_v");
+        ncf.var("grid").put_attr("vertical_dimensions", "s_rho: s_w (padding: none)");
+
+        ncf.def_var("s_rho",ncutils::NCDType::Real, {nz_r_name});
+        ncf.var("s_rho").put_attr("long_name","S-coordinate at RHO-points");
+        ncf.var("s_rho").put_attr("field","s_rho, scalar");
+
+        ncf.def_var("s_w",ncutils::NCDType::Real, {nz_w_name});
+        ncf.var("s_w").put_attr("long_name","S-coordinate at W-points");
+        ncf.var("s_w").put_attr("field","s_w, scalar");
+
+        ncf.def_var("pm",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        ncf.var("pm").put_attr("long_name","curvilinear coordinate metric in XI");
+        ncf.var("pm").put_attr("units","meter-1");
+        ncf.var("pm").put_attr("grid","grid");
+        ncf.var("pm").put_attr("location","face");
+        ncf.var("pm").put_attr("coordinates","x_rho y_rho");
+        ncf.var("pm").put_attr("field","pm, scalar");
+
+        ncf.def_var("pn",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        ncf.var("pn").put_attr("long_name","curvilinear coordinate metric in ETA");
+        ncf.var("pn").put_attr("units","meter-1");
+        ncf.var("pn").put_attr("grid","grid");
+        ncf.var("pn").put_attr("location","face");
+        ncf.var("pn").put_attr("coordinates","x_rho y_rho");
+        ncf.var("pn").put_attr("field","pn, scalar");
+
+        ncf.def_var("f",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        ncf.var("f").put_attr("long_name","Coriolis parameter at RHO-points");
+        ncf.var("f").put_attr("units","second-1");
+        ncf.var("f").put_attr("grid","grid");
+        ncf.var("f").put_attr("location","face");
+        ncf.var("f").put_attr("coordinates","x_rho y_rho");
+        ncf.var("f").put_attr("field","coriolis, scalar");
+
+        ncf.def_var("x_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        ncf.var("x_rho").put_attr("long_name","x-locations of RHO-points");
+        ncf.var("x_rho").put_attr("units","meter");
+        ncf.var("x_rho").put_attr("field","x_rho, scalar");
+
+        ncf.def_var("y_rho",ncutils::NCDType::Real, {ny_r_name, nx_r_name});
+        ncf.var("y_rho").put_attr("long_name","y-locations of RHO-points");
+        ncf.var("y_rho").put_attr("units","meter");
+        ncf.var("y_rho").put_attr("field","y_rho, scalar");
+
         ncf.def_var("x_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
+        ncf.var("x_u").put_attr("long_name","x-locations of U-points");
+        ncf.var("x_u").put_attr("units","meter");
+        ncf.var("x_u").put_attr("field","x_u, scalar");
+
         ncf.def_var("y_u",ncutils::NCDType::Real, {ny_u_name, nx_u_name});
+        ncf.var("y_u").put_attr("long_name","y-locations of U-points");
+        ncf.var("y_u").put_attr("units","meter");
+        ncf.var("y_u").put_attr("field","y_u, scalar");
+
         ncf.def_var("x_v",ncutils::NCDType::Real, {ny_v_name, nx_v_name});
+        ncf.var("x_v").put_attr("long_name","x-locations of V-points");
+        ncf.var("x_v").put_attr("units","meter");
+        ncf.var("x_v").put_attr("field","x_v, scalar");
+
         ncf.def_var("y_v",ncutils::NCDType::Real, {ny_v_name, nx_v_name});
+        ncf.var("y_v").put_attr("long_name","y-locations of V-points");
+        ncf.var("y_v").put_attr("units","meter");
+        ncf.var("y_v").put_attr("field","y_v, scalar");
+
         ncf.def_var("x_psi",ncutils::NCDType::Real, {ny_p_name, nx_p_name});
+        ncf.var("x_psi").put_attr("long_name","x-locations of PSI-points");
+        ncf.var("x_psi").put_attr("units","meter");
+        ncf.var("x_psi").put_attr("field","x_psi, scalar");
+
         ncf.def_var("y_psi",ncutils::NCDType::Real, {ny_p_name, nx_p_name});
+        ncf.var("y_psi").put_attr("long_name","y-locations of PSI-points");
+        ncf.var("y_psi").put_attr("units","meter");
+        ncf.var("y_psi").put_attr("field","y_psi, scalar");
 
-        ncf.def_var("x_grid", ncutils::NCDType::Real, { np_name });
-        ncf.def_var("y_grid", ncutils::NCDType::Real, { np_name });
-        ncf.def_var("z_grid", ncutils::NCDType::Real, { np_name });
         ncf.def_var("ocean_time", ncutils::NCDType::Real, { nt_name });
+        ncf.var("ocean_time").put_attr("long_name","time since initialization");
+        ncf.var("ocean_time").put_attr("units","seconds since 0001-01-01 00:00:00");
+        ncf.var("ocean_time").put_attr("field","time, scalar, series");
 
-        ncf.def_var("h", ncutils::NCDType::Real, { ny_s_name, nx_s_name });
-        ncf.def_var_fill("zeta", ncutils::NCDType::Real, { nt_name, ny_s_name, nx_s_name }, &fill_value);
-        ncf.def_var_fill("temp", ncutils::NCDType::Real, { nt_name, nz_s_name, ny_s_name, nx_s_name }, &fill_value);
-        ncf.def_var_fill("salt", ncutils::NCDType::Real, { nt_name, nz_s_name, ny_s_name, nx_s_name }, &fill_value);
-        ncf.def_var_fill("u", ncutils::NCDType::Real, { nt_name, nz_s_name, ny_u_name, nx_u_name }, &fill_value);
-        ncf.def_var_fill("v", ncutils::NCDType::Real, { nt_name, nz_s_name, ny_v_name, nx_v_name }, &fill_value);
+        ncf.def_var("h", ncutils::NCDType::Real, { ny_r_name, nx_r_name });
+        ncf.var("h").put_attr("long_name","bathymetry at RHO-points");
+        ncf.var("h").put_attr("units","meter");
+        ncf.var("h").put_attr("grid","grid");
+        ncf.var("h").put_attr("location","face");
+        ncf.var("h").put_attr("coordinates","x_rho y_rho");
+        ncf.var("h").put_attr("field","bath, scalar");
+
+        ncf.def_var_fill("zeta", ncutils::NCDType::Real, { nt_name, ny_r_name, nx_r_name }, &fill_value);
+        ncf.var("zeta").put_attr("long_name","free-surface");
+        ncf.var("zeta").put_attr("units","meter");
+        ncf.var("zeta").put_attr("time","ocean_time");
+        ncf.var("zeta").put_attr("grid","grid");
+        ncf.var("zeta").put_attr("location","face");
+        ncf.var("zeta").put_attr("coordinates","x_rho y_rho ocean_time");
+        ncf.var("zeta").put_attr("field","free-surface, scalar, series");
+
+        ncf.def_var_fill("temp", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+        ncf.var("temp").put_attr("long_name","potential temperature");
+        ncf.var("temp").put_attr("units","Celsius");
+        ncf.var("temp").put_attr("time","ocean_time");
+        ncf.var("temp").put_attr("grid","grid");
+        ncf.var("temp").put_attr("location","face");
+        ncf.var("temp").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
+        ncf.var("temp").put_attr("field","temperature, scalar, series");
+
+        ncf.def_var_fill("salt", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+        ncf.var("salt").put_attr("long_name","salinity");
+        ncf.var("salt").put_attr("time","ocean_time");
+        ncf.var("salt").put_attr("grid","grid");
+        ncf.var("salt").put_attr("location","face");
+        ncf.var("salt").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
+        ncf.var("salt").put_attr("field","salinity, scalar, series");
+
+        ncf.def_var_fill("u", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_u_name, nx_u_name }, &fill_value);
+        ncf.var("u").put_attr("long_name","u-momentum component");
+        ncf.var("u").put_attr("units","meter second-1");
+        ncf.var("u").put_attr("time","ocean_time");
+        ncf.var("u").put_attr("grid","grid");
+        ncf.var("u").put_attr("location","edge1");
+        ncf.var("u").put_attr("coordinates","x_u y_u s_rho ocean_time");
+        ncf.var("u").put_attr("field","u-velocity, scalar, series");
+
+        ncf.def_var_fill("v", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_v_name, nx_v_name }, &fill_value);
+        ncf.var("v").put_attr("long_name","v-momentum component");
+        ncf.var("v").put_attr("units","meter second-1");
+        ncf.var("v").put_attr("time","ocean_time");
+        ncf.var("v").put_attr("grid","grid");
+        ncf.var("v").put_attr("location","edge2");
+        ncf.var("v").put_attr("coordinates","x_v y_v s_rho ocean_time");
+        ncf.var("v").put_attr("field","v-velocity, scalar, series");
+
         ncf.def_var_fill("ubar", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name }, &fill_value);
+        ncf.var("ubar").put_attr("long_name","vertically integrated u-momentum component");
+        ncf.var("ubar").put_attr("units","meter second-1");
+        ncf.var("ubar").put_attr("time","ocean_time");
+        ncf.var("ubar").put_attr("grid","grid");
+        ncf.var("ubar").put_attr("location","edge1");
+        ncf.var("ubar").put_attr("coordinates","x_u y_u ocean_time");
+        ncf.var("ubar").put_attr("field","ubar-velocity, scalar, series");
+
         ncf.def_var_fill("vbar", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name }, &fill_value);
+        ncf.var("vbar").put_attr("long_name","vertically integrated v-momentum component");
+        ncf.var("vbar").put_attr("units","meter second-1");
+        ncf.var("vbar").put_attr("time","ocean_time");
+        ncf.var("vbar").put_attr("grid","grid");
+        ncf.var("vbar").put_attr("location","edge2");
+        ncf.var("vbar").put_attr("coordinates","x_v y_v ocean_time");
+        ncf.var("vbar").put_attr("field","vbar-velocity, scalar, series");
+
         ncf.def_var("sustr", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
+        ncf.var("sustr").put_attr("long_name","surface u-momentum stress");
+        ncf.var("sustr").put_attr("units","newton meter-2");
+        ncf.var("sustr").put_attr("time","ocean_time");
+        ncf.var("sustr").put_attr("grid","grid");
+        ncf.var("sustr").put_attr("location","edge1");
+        ncf.var("sustr").put_attr("coordinates","x_u y_u ocean_time");
+        ncf.var("sustr").put_attr("field","surface u-momentum stress, scalar, series");
+
         ncf.def_var("svstr", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
+        ncf.var("svstr").put_attr("long_name","surface v-momentum stress");
+        ncf.var("svstr").put_attr("units","newton meter-2");
+        ncf.var("svstr").put_attr("time","ocean_time");
+        ncf.var("svstr").put_attr("grid","grid");
+        ncf.var("svstr").put_attr("location","edge2");
+        ncf.var("svstr").put_attr("coordinates","x_v y_v ocean_time");
+        ncf.var("svstr").put_attr("field","surface v-momentum stress, scalar, series");
 
         Real time = 0.;
 
         // Right now this is hard-wired to {temp, salt, u, v}
         int n_data_items = 4;
-        ncf.put_attr("number_variables", std::vector<int> { n_data_items });
+//        ncf.put_attr("number_variables", std::vector<int> { n_data_items });
         ncf.put_attr("space_dimension", std::vector<int> { AMREX_SPACEDIM });
-        ncf.put_attr("current_time", std::vector<double> { time });
+//        ncf.put_attr("current_time", std::vector<double> { time });
         ncf.put_attr("start_time", std::vector<double> { start_bdy_time });
         ncf.put_attr("CurrentLevel", std::vector<int> { flev });
         ncf.put_attr("DefaultGeometry", std::vector<int> { amrex::DefaultGeometry().Coord() });
@@ -291,6 +447,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 nc_CellSize.put(CellSize.data(), { static_cast<long long int>(i - lev), 0 }, { 1,
                 AMREX_SPACEDIM });
             }
+            Real hc = solverChoice.tcline;
+            Real theta_s = solverChoice.theta_s;
+            Real theta_b = solverChoice.theta_b;
+            ncf.var("hc").put(&hc);
+            ncf.var("theta_s").put(&theta_s);
+            ncf.var("theta_b").put(&theta_b);
 
         }
         ncmpi_end_indep_data(ncf.ncid);
@@ -337,6 +499,10 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             Box tmp_bx_2d(tmp_bx);
             tmp_bx_2d.makeSlab(2, 0);
 
+            Box tmp_bx_1d(tmp_bx);
+            tmp_bx_1d.makeSlab(0, 0);
+            tmp_bx_1d.makeSlab(1, 0);
+
             //
             // These are the dimensions of the data we write for only this box
             //
@@ -350,6 +516,33 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2]);
 
             if (write_header) {
+                // Only write out s_rho and s_w at x=0,y=0 to avoid NaNs
+                if (bx.contains(IntVect(0,0,0)))
+                {
+                    {
+                        FArrayBox tmp_srho;
+                        tmp_srho.resize(tmp_bx_1d, 1, amrex::The_Pinned_Arena());
+
+                        tmp_srho.template copy<RunOn::Device>((*vec_s_r[lev])[mfi.index()], 0, 0, 1);
+                        Gpu::streamSynchronize();
+
+                        auto nc_plot_var = ncf.var("s_rho");
+                        //nc_plot_var.par_access(NC_INDEPENDENT);
+                        nc_plot_var.put(tmp_srho.dataPtr(), { local_start_z }, { local_nz });
+                    }
+                    {
+                        FArrayBox tmp_sw;
+                        tmp_sw.resize(convert(tmp_bx_1d,IntVect(0,0,1)), 1, amrex::The_Pinned_Arena());
+
+                        tmp_sw.template copy<RunOn::Device>((*vec_s_w[lev])[mfi.index()], 0, 0, 1);
+                        Gpu::streamSynchronize();
+
+                        auto nc_plot_var = ncf.var("s_w");
+                        //nc_plot_var.par_access(NC_INDEPENDENT);
+                        nc_plot_var.put(tmp_sw.dataPtr(), { local_start_z }, { local_nz + 1});
+                    }
+                }
+
                 {
                     FArrayBox tmp_bathy;
                     tmp_bathy.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
@@ -385,6 +578,18 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                     auto nc_plot_var = ncf.var("pn");
                     //nc_plot_var.par_access(NC_INDEPENDENT);
                     nc_plot_var.put(tmp_pn.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
+                }
+
+                {
+                    FArrayBox tmp_f;
+                    tmp_f.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+
+                    tmp_f.template copy<RunOn::Device>((*vec_fcor[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_plot_var = ncf.var("f");
+                    //nc_plot_var.par_access(NC_INDEPENDENT);
+                    nc_plot_var.put(tmp_f.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
 
                 {

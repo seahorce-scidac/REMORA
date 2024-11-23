@@ -98,29 +98,7 @@ REMORA::set_zeta_average (int lev)
 void
 REMORA::set_2darrays (int lev)
 {
-    std::unique_ptr<MultiFab>& mf_x_r = vec_x_r[lev];
-    std::unique_ptr<MultiFab>& mf_y_r = vec_y_r[lev];
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
-
-    for ( MFIter mfi(*(mf_x_r), TilingIfNotGPU()); mfi.isValid(); ++mfi )
-    {
-
-      Array4<Real> const& x_r = (mf_x_r)->array(mfi);
-      Array4<Real> const& y_r = (mf_y_r)->array(mfi);
-      const Box& bx = mfi.growntilebox();
-      const auto & geomdata = Geom(lev).data();
-      Gpu::synchronize();
-      ParallelFor(amrex::makeSlab(bx,2,0),
-      [=] AMREX_GPU_DEVICE (int i, int j, int  )
-      {
-        const auto prob_lo         = geomdata.ProbLo();
-        const auto dx              = geomdata.CellSize();
-
-        x_r(i,j,0) = prob_lo[0] + (i + 0.5_rt) * dx[0];
-        y_r(i,j,0) = prob_lo[1] + (j + 0.5_rt) * dx[1];
-
-      });
-    }
 
     vec_ubar[lev]->setVal(0.0_rt);
     vec_vbar[lev]->setVal(0.0_rt);

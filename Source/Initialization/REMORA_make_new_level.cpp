@@ -305,10 +305,9 @@ void REMORA::resize_stuff(int lev)
     vec_hOfTheConfusingName.resize(lev+1);
     vec_Zt_avg1.resize(lev+1);
     vec_s_r.resize(lev+1);
+    vec_s_w.resize(lev+1);
     vec_z_w.resize(lev+1);
     vec_z_r.resize(lev+1);
-    vec_y_r.resize(lev+1);
-    vec_x_r.resize(lev+1);
     vec_Hz.resize(lev+1);
     vec_Huon.resize(lev+1);
     vec_Hvom.resize(lev+1);
@@ -427,10 +426,9 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 
     vec_z_phys_nd[lev].reset          (new MultiFab(ba_nd,dm,1,IntVect(NGROW,NGROW,1))); // z at psi points (nodes) MIGHT NEED NGROW+1
 
-    vec_x_r[lev].reset                (new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0))); // x at r points (cell center)
-    vec_y_r[lev].reset                (new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0))); // y at r points (cell center)
-
     vec_s_r[lev].reset                (new MultiFab(ba1d,dm,1,IntVect(    0,    0,0))); // scaled vertical coordinate [0,1] , transforms to z
+
+    vec_s_w[lev].reset                (new MultiFab(convert(ba1d,IntVect(0,0,1)),dm,1,IntVect(    0,    0,0))); // scaled vertical coordinate at w-points [0,1] , transforms to z
 
     vec_z_w[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at w points (cell faces)
     vec_z_r[lev].reset                (new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at r points (cell center)
