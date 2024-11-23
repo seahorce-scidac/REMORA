@@ -246,6 +246,9 @@ public:
     /** Scaled vertical coordinate (range [0,1]) that transforms to z, defined at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_r;
 
+    /** Scaled vertical coordinate (range [0,1]) that transforms to z, defined at w-points (cell faces) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_w;
+
     /** z coordinates at psi points (cell nodes) **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_phys_nd;
 

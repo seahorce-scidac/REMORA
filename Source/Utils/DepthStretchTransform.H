@@ -14,6 +14,7 @@ REMORA::stretch_transform (int lev)
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_s_r = vec_s_r[lev];
+    std::unique_ptr<MultiFab>& mf_s_w = vec_s_w[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
@@ -25,6 +26,7 @@ REMORA::stretch_transform (int lev)
       Array4<Real> const& z_w = (mf_z_w)->array(mfi);
       Array4<Real> const& z_r = (mf_z_r)->array(mfi);
       Array4<Real> const& s_r = (mf_s_r)->array(mfi);
+      Array4<Real> const& s_w = (mf_s_w)->array(mfi);
       Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
       Array4<Real> const& h  = (mf_h)->array(mfi);
       Array4<Real> const& Zt_avg1  = (mf_Zt_avg1)->array(mfi);
@@ -138,6 +140,9 @@ REMORA::stretch_transform (int lev)
 
               if (i==0&&j==0&&k<N&&k>=0) {
                   s_r(0,0,k) = sc_r;
+              }
+              if (i==0&&j==0&&k<=N&&k>=0) {
+                  s_w(0,0,k) = sc_w;
               }
 
               cff_r=hc*sc_r;
