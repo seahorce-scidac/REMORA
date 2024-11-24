@@ -136,7 +136,7 @@ Boundary types for per-side or per-variable specification
 +-------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
 | symmetry    | N/A       | reflect_odd        | reflect_even        | reflect_odd        | reflect_even        | reflect_even       | reflect_even       |
 +-------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
-| clamped*    | N/A       | clamped            | clamped             | clamped            | clamped             | clamped            | clamped            |
+| clamped*    | Cla       | clamped            | clamped             | clamped            | clamped             | clamped            | clamped            |
 +-------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
 
 Boundary types for per-variable specification ONLY
@@ -190,4 +190,27 @@ We note that ``noslipwall`` allows for non-zero tangential velocities to be spec
 It is important to note that external Dirichlet boundary data should be specified
 as the value on the face of the cell bounding the domain, even for cell-centered
 state data.
+
+.. _sec:nudging-options:
+
+Nudging options
+---------------
+
+When using ``orlanski_nudg``, the nudging strength is specified by input parameters. Climatology nudging
+has not yet been implemented.
+
++-------------------+-------------------------+-------------------+---------------+
+| Parameter         | Definition              | Acceptable Values | Default       |
++===================+=========================+===================+===============+
+| **remora.tnudg**  | Nudging timescale for   | Positive real     | 0.0           |
+|                   | tracers in days         |                   |               |
++-------------------+-------------------------+-------------------+---------------+
+| **remora.m3nudg** | Nudging timescale for   | Positive real     | 0.0           |
+|                   | 3D momentum in days     |                   |               |
++-------------------+-------------------------+-------------------+---------------+
+| **remora.obcfac** | Ratio between inflow    | Positive real     | 0.0           |
+|                   | and outflow             |                   |               |
+|                   | boundary conditions     |                   |               |
++-------------------+-------------------------+-------------------+---------------+
+
 
