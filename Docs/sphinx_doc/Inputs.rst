@@ -63,44 +63,15 @@ Examples of Usage
 Domain Boundary Conditions
 ==========================
 
-.. _list-of-parameters-1:
-
-List of Parameters
-------------------
-
-+---------------+---------------------------------+-------------------+-----------------------------+
-| Parameter     | Definition                      | Acceptable Values | Default                     |
-+===============+=================================+===================+=============================+
-| **xlo.type**  | boundary type of xlo face       | see below         | must be set if not periodic |
-+---------------+---------------------------------+-------------------+-----------------------------+
-| **xhi.type**  | boundary type of xhi face       | see below         | must be set if not periodic |
-+---------------+---------------------------------+-------------------+-----------------------------+
-| **ylo.type**  | boundary type of ylo face       | see below         | must be set if not periodic |
-+---------------+---------------------------------+-------------------+-----------------------------+
-| **yhi.type**  | boundary type of yhi face       | see below         | must be set if not periodic |
-+---------------+---------------------------------+-------------------+-----------------------------+
-| **zlo.type**  | boundary type of zlo face       | slipwall          | must be set                 |
-+---------------+---------------------------------+-------------------+-----------------------------+
-| **zhi.type**  | boundary type of zhi face       | slipwall          | must be set                 |
-+---------------+---------------------------------+-------------------+-----------------------------+
-
-Currently available type of boundary conditions are
-``inflow``, ``outflow``, ``slipwall``, ``noslipwall``, or ``symmetry``
-(Spelling of the type matters; capitalization does not.) Z-boundaries are always treated as the seafloor
-and surface, and boundary type selection here will not affect program behavior. Domain boundary types
-are specified on a per-side basis, rather than a per-variable basis. Inflow, outflow, etc
-
-Usage examples can be found :ref:`here<sec:domainBCs>`.
+Instructions for how to specify domain boundary conditions, with usage examples can be found in :ref:`Domain Boundary Conditions`<sec:domainBCs>`.
 
 .. _icbc-parameters:
 
 Imposing Boundary and Initial Conditions from NetCDF File
 =========================================================
 
-Grid, initial, and time-dependent boundary data can be specified using NetCDF files, as in ROMS. REMORA expects files in the same format as ROMS.
-Currently, if one of these are specified in a file, they all must be. Boundary conditions are currently applied as Dirichelet conditions, as in the ROMS ``clamped`` boundary type. More sophisticated boundary conditions like nudging are a work in progress.
-
-The ``outflow`` option must be selected for ``xlo.type``, ``xhi.type``, ``ylo.type``, and ``yhi.type`` to read the boundary data.
+Grid, initial, and time-dependent boundary data can be specified using NetCDF files, as in ROMS. REMORA expects files in the same format as ROMS, in NetCDF classic format (32- or 64-bit).
+Currently, if one of these are specified in a file, they all must be. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions`<sec:domainBCs>`.
 
 List of Parameters
 ------------------
@@ -111,7 +82,7 @@ List of Parameters
 +===========================+===============================+=============+==========================+
 | **remora.ic_bc_type**     | read initial, grid, and       |             |                          |
 |                           | boundary data from NetCDF     | true/false  | false                    |
-|                           | files                         |             | is true                  |
+|                           | files                         |             |                          |
 +---------------------------+-------------------------------+-------------+--------------------------+
 | **remora.nc_init_file_0** | initial data NetCDF file name | string      | must be set              |
 |                           |                               |             | if ``remora.ic_bc_type`` |
