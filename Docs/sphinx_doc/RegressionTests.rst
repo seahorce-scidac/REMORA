@@ -4,11 +4,12 @@
 Regression Tests
 ================
 
-There are currently 8 tests which are run as part of every PR.
+There are currently 9 accuracy tests which are run as part of every PR.
 The CI tests use cmake and are based on the version
-of AMReX in the REMORA submodule.
+of AMReX in the REMORA submodule. This suite can be run following the
+instructions in :ref:`Testing`<Testing>`.
 
-In addition there are nightly tests that use GNUMake and use the current
+In addition there is a suite of more extensive nightly tests that use GNUMake and use the current
 development branch of AMReX.
 
 Results from the nightly CPU tests can be found here: `CPU tests`_
@@ -19,7 +20,10 @@ Results from the nightly GPU tests can be found here: `GPU tests`_
 
 .. _`GPU tests`: https://ccse.lbl.gov/pub/GpuRegressionTesting/REMORA
 
-The following problems are currently tested in the CI. More details about the CI tests are given below.
+Continuous Integration (CI) Tests
+---------------------------------
+
+The following problems are currently tested in the CI. More details about the problems underlying these tests are given in :ref:`sec:verification`.
 
 +----------------------+----------+----------+----------+-----------------------+
 | Test                 | nx ny nz | xbc      | ybc      | Other                 |
@@ -55,7 +59,11 @@ The following problems are currently tested in the CI. More details about the CI
 |                      |          |          |          | GLS mixing scheme     |
 +----------------------+----------+----------+----------+-----------------------+
 
-And the following are currently tested nighly on CPU
+Nightly Regression Tests on CPU
+-------------------------------
+And the following are currently tested nighly on CPU.
+
+Based on :ref:`Advection<advection>`:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
@@ -86,211 +94,125 @@ And the following are currently tested nighly on CPU
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | advection: upstream 3rd order    |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Channel Test<channeltest>`, which always includes Coriois, GLS mixing scheme, and non-flat bathymetry:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
 | ChannelTest                            | 20 60 50     | Periodic         | SlipWall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | ChannelTest-OMP                        | 20 60 50     | Periodic         | SlipWall          | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | ChannelTest-OMP-1grid-xy               | 20 60 50     | Periodic         | SlipWall          | OpenMP                           |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | ChannelTest-xy-restart                 | 20 60 50     | Periodic         | SlipWall          | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | ChannelTestOrlanski                    | 20 60 50     | Radiation        | Radiation         | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | ChannelTestOrlanski-OMP                | 20 60 50     | Radiation        | Radiation         | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | ChannelTestOrlanski-OMP-1grid-xy       | 20 60 50     | Radiation        | Radiation         | OpenMP                           |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | ChannelTestOrlanski-xy-restart         | 20 60 50     | Radiation        | Radiation         | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Double Gyre<doublegyre>`, which always includes Coriolis:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
 | DoubleGyre                             | 54 108 4     | SlipWall         | SlipWall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoubleGyre-OMP                         | 54 108 4     | SlipWall         | SlipWall          | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoubleGyre-OMP-1grid-xy                | 54 108 4     | SlipWall         | SlipWall          | OpenMP                           |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoubleGyre-OMP-xy-restart              | 54 108 4     | SlipWall         | SlipWall          | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| DoublyPeriodic-1grid-xy                | 41 80 16     | Periodic         | Periodic          | Coriolis                         |
+
+Based on :ref:`Doubly Periodic<doublyperiodic>`, which always includes Coriolis:
+
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| DoublyPeriodic-1grid-xy-bathy          | 41 80 16     | Periodic         | Periodic          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| DoublyPeriodic-1grid-xy                | 41 80 16     | Periodic         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| DoublyPeriodic-NETCDF-build            | 41 80 16     | N/A              | N/A               | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Build w/PnetCDF                  |
+| DoublyPeriodic-1grid-xy-bathy          | 41 80 16     | Periodic         | Periodic          | non-flat bathyemtry              |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DoublyPeriodic-NETCDF-build            | 41 80 16     | N/A              | N/A               | Build w/PnetCDF                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic-OMP-1grid-xy            | 41 80 16     | Periodic         | Periodic          | OpenMP                           |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic-OMP-xy                  | 41 80 16     | Periodic         | Periodic          | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic-OMP-xy-bathy            | 41 80 16     | Periodic         | Periodic          | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic-xy                      | 41 80 16     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic-xy-bathy                | 41 80 16     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic-xy-restart              | 41 80 16     | Periodic         | Periodic          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic64-OMP-xy                | 328 320 64   | Periodic         | Periodic          | MPI + OpenMP, large problem      |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic64-OMP-xy-bathy          | 328 320 64   | Periodic         | Periodic          | MPI + OpenMP, large problem      |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic64-xy                    | 328 320 64   | Periodic         | Periodic          | MPI, large problem               |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodicC4-xy                    | 41 80 16     | Periodic         | Periodic          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | advection: centered 4th order    |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Ideal Mini Grid<idealminigrid>`, which always includes Coriolis and PnetCDF:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
 | IdealMiniGrid                          | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| IdealMiniGrid-1grid                    | 10 16 20     | Clamped          | Clamped           | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying salt at boundary         |
+| IdealMiniGrid-1grid                    | 10 16 20     | Clamped          | Clamped           | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-CF-Uvel-OMP              | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-CFO-Salt-OMP             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiation         | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying salt at boundary         |
+|                                        |              | Radiation        | Radiation         | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-CFO-Temp-OMP             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiation         | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying temperature at boundary  |
+|                                        |              | Radiation        | Radiation         | Varying temperature at boundary  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-CFO-Uvel-OMP             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiation         | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying velocity at boundary     |
+|                                        |              | Radiation        | Radiation         | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-EWWall-OMP               | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-EWWall-restart           | 10 16 20     | SlipWall         | Clamped           | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
@@ -298,17 +220,9 @@ And the following are currently tested nighly on CPU
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-NSWall-OMP               | 10 16 20     | Clamped          | SlipWall          | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-NSWall-restart           | 10 16 20     | Clamped          | Slipwall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
@@ -316,79 +230,39 @@ And the following are currently tested nighly on CPU
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-OMP                      | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-OMP-1grid                | 10 16 20     | Clamped          | Clamped           | OpenMP                           |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-Temp                     | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying temperature at boundary  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-Uvel                     | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| IdealMiniGrid-Uvel-1grid               | 10 16 20     | Clamped          | Clamped           | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying velocity at boundary     |
+| IdealMiniGrid-Uvel-1grid               | 10 16 20     | Clamped          | Clamped           | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-Uvel-EWWall-OMP          | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-Uvel-NSWall-OMP          | 10 16 20     | Clamped          | SlipWall          | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-Uvel-OMP                 | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-Uvel-OMP-1grid           | 10 16 20     | Clamped          | Clamped           | OpenMP                           |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-restart                  | 10 16 20     | Clamped          | Clamped           | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
@@ -396,27 +270,15 @@ And the following are currently tested nighly on CPU
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask                      | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-1grid                | 10 16 20     | Clamped          | Clamped           | Coriolis                         |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying salt at boundary         |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-CF-Uvel-OMP          | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
@@ -424,39 +286,23 @@ And the following are currently tested nighly on CPU
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-CFO-Salt-OMP         | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiaion          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying salt at boundary         |
+|                                        |              | Radiation        | Radiaion          | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-CFO-Temp-OMP         | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiaion          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying temperature at boundary  |
+|                                        |              | Radiation        | Radiaion          | Varying temperature at boundary  |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-CFO-Uvel-OMP         | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiaion          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying velocity at boundary     |
+|                                        |              | Radiation        | Radiaion          | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-EWWall-OMP           | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
@@ -464,19 +310,11 @@ And the following are currently tested nighly on CPU
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-OMP                  | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-OMP-1grid            | 10 16 20     | Clamped          | Clamped           | OpenMP                           |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
@@ -484,37 +322,21 @@ And the following are currently tested nighly on CPU
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-Temp                 | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying temperature at boundary  |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-Uvel                 | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| IdealMiniGridMask-Uvel-1grid           | 10 16 20     | Clamped          | Clamped           | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying velocity at boundary     |
+| IdealMiniGridMask-Uvel-1grid           | 10 16 20     | Clamped          | Clamped           | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-Uvel-EWWall-OMP      | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
@@ -522,19 +344,11 @@ And the following are currently tested nighly on CPU
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-Uvel-NSWall-OMP      | 10 16 20     | Clamped          | SlipWall          | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-Uvel-OMP             | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
@@ -542,19 +356,11 @@ And the following are currently tested nighly on CPU
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-Uvel-OMP-1grid       | 10 16 20     | Clamped          | Clamped           | OpenMP                           |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-restart              | 10 16 20     | Clamped          | Clamped           | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
@@ -562,131 +368,73 @@ And the following are currently tested nighly on CPU
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ParticlesOverSeamount                  | 41 80 16     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Tracer particles                 |
+
+Based on :ref:`Particles Over Seamount<particlesseamount>`, which always include MPI, Coriolis, and tracer particles:
+
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ParticlesOverSeamount-restart          | 41 80 16     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Tracer particles                 |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | restart                          |
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| ParticlesOverSeamount                  | 41 80 16     | Periodic         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| Seamount-1grid-xy                      | 49 48 13     | Periodic         | Periodic          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
+| ParticlesOverSeamount-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Seamount<seamount>`, which always includes Coriolis and non-flat bathymetry:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| Seamount-1grid-xy                      | 49 48 13     | Periodic         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Seamount-OMP-xy                        | 49 48 13     | Periodic         | Periodic          | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Seamount-xy                            | 49 48 13     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Seamount-xy-restart                    | 49 48 13     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Seamount64-OMP-xy                      | 320 320 64   | Periodic         | Periodic          | MPI + OpenMP, large problem      |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Upwelling<upwelling>`, which always includes Coriolis and non-flat bathymetry:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
 | Upwelling                              | 41 80 16     | Periodic         | SlipWall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling-1grid                        | 41 80 16     | Periodic         | SlipWall          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling-OMP                          | 41 80 16     | Periodic         | SlipWall          | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling-OMP-1grid                    | 41 80 16     | Periodic         | SlipWall          | OpenMP                           |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling-restart                      | 41 80 16     | Periodic         | SlipWall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling-x                            | 41 80 16     | SlipWall         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| Upwelling-x-1grid                      | 41 80 16     | SlipWall         | Periodic          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
+| Upwelling-x-1grid                      | 41 80 16     | SlipWall         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling-x-OMP                        | 41 80 16     | SlipWall         | Periodic          | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling64-OMP                        | 328 320 64   | SlipWall         | Periodic          | MPI + OpenMP, large problem      |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling64-OMP                        | 328 320 64   | SlipWall         | Periodic          | MPI + OpenMP, large problem      |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | UpwellingC4                            | 41 80 16     | Periodic         | SlipWall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | advection: centered 4th order    |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling_GLS                          | 41 80 16     | Periodic         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling_GLS-restart                  | 41 80 16     | Periodic         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
@@ -694,24 +442,21 @@ And the following are currently tested nighly on CPU
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | GLS mixing scheme                |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Canuto A stability               |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling_GLS_Canuto_B                 | 41 80 16     | Periodic         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | GLS mixing scheme                |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Canuto B stability               |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
-And the following are currently tested nighly on GPU. All are compiled and run with CUDA
+Nightly Regression Tests on GPU
+-------------------------------
+
+And the following are currently tested nighly on GPU. All are compiled and run with CUDA.
+
+Based on :ref:`Advection`<advection>`:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
@@ -738,181 +483,115 @@ And the following are currently tested nighly on GPU. All are compiled and run w
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | advection: upstream 3rd order    |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ChannelTest-1grid-xy                   | 20 60 50     | Periodic         | SlipWall          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
+
+Based on :ref:`Channel Test<channeltest>`, which always includes Coriolis, GLS mixing scheme, and non-flat bathymetry:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| ChannelTest-1grid-xy                   | 20 60 50     | Periodic         | SlipWall          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | ChannelTest-xy                         | 20 60 50     | Periodic         | SlipWall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | ChannelTest-xy-restart                 | 20 60 50     | Periodic         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| DoubleGyre-1grid-xy                    | 54 108 4     | SlipWall         | SlipWall          | Coriolis                         |
+
+Based on :ref:`Double Gyre<doublegyre>`, which always includes Coriolis:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| DoubleGyre-1grid-xy                    | 54 108 4     | SlipWall         | SlipWall          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoubleGyre-xy                          | 54 108 4     | SlipWall         | SlipWall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoubleGyre-xy-restart                  | 54 108 4     | SlipWall         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| DoublyPeriodic-1grid-xy                | 41 80 16     | Periodic         | Periodic          | Coriolis                         |
+
+Based on :ref:`Doubly Periodic<doublyperiodic>`, which always includes Coriolis:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| DoublyPeriodic-1grid-xy                | 41 80 16     | Periodic         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic-xy                      | 41 80 16     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic-xy-bathy                | 41 80 16     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic-xy-restart              | 41 80 16     | Periodic         | Periodic          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic64-xy                    | 328 320 64   | Periodic         | Periodic          | MPI, large problem               |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodic64-xy-bathy              | 328 320 64   | Periodic         | Periodic          | MPI, large problem               |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodicC4-xy                    | 41 80 16     | Periodic         | Periodic          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | advection: centered 4th order    |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Ideal Mini Grid<idealminigrid>`, which always includes Coriolis and PnetCDF:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
 | IdealMiniGrid                          | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| IdealMiniGrid-1grid                    | 10 16 20     | Clamped          | Clamped           | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying salt at boundary         |
+| IdealMiniGrid-1grid                    | 10 16 20     | Clamped          | Clamped           | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-CF-Uvel                  | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-CFO-Salt                 | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiation         | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying salt at boundary         |
+|                                        |              | Radiation        | Radiation         | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-CFO-Temp                 | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiation         | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying temperature at boundary  |
+|                                        |              | Radiation        | Radiation         | Varying temperature at boundary  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-CFO-Uvel                 | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiation         | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying velocity at boundary     |
+|                                        |              | Radiation        | Radiation         | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-EWWall                   | 10 16 20     | SlipWall         | Clamped           | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-NSWall                   | 10 16 20     | Clamped          | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-Temp                     | 10 16 20     | Clamped          | Clamped           | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying temperature at boundary  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-Uvel                     | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| IdealMiniGrid-Uvel-1grid               | 10 16 20     | Clamped          | Clamped           | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying velocity at boundary     |
+| IdealMiniGrid-Uvel-1grid               | 10 16 20     | Clamped          | Clamped           | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| IdealMiniGrid-Uvel-EWWall              | 10 16 20     | SlipWall         | Clamped           | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying velocity at boundary     |
+| IdealMiniGrid-Uvel-EWWall              | 10 16 20     | SlipWall         | Clamped           | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-Uvel-NSWall              | 10 16 20     | Clamped          | SlipWall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGrid-restart                  | 10 16 20     | Clamped          | Clamped           | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
@@ -920,27 +599,15 @@ And the following are currently tested nighly on GPU. All are compiled and run w
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask                      | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| IdealMiniGridMask-1grid                | 10 16 20     | Clamped          | Clamped           | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying salt at boundary         |
+| IdealMiniGridMask-1grid                | 10 16 20     | Clamped          | Clamped           | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-CF-Uvel              | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
@@ -948,49 +615,29 @@ And the following are currently tested nighly on GPU. All are compiled and run w
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-CFO-Salt             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiaion          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying salt at boundary         |
+|                                        |              | Radiation        | Radiaion          | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-CFO-Temp             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiaion          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying temperature at boundary  |
+|                                        |              | Radiation        | Radiaion          | Varying temperature at boundary  |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-CFO-Uvel             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              | Radiation        | Radiaion          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying velocity at boundary     |
+|                                        |              | Radiation        | Radiaion          | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-EWWall               | 10 16 20     | SlipWall         | Clamped           | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-EWWall-restart       | 10 16 20     | SlipWall         | Clamped           | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
@@ -1000,19 +647,11 @@ And the following are currently tested nighly on GPU. All are compiled and run w
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-NSWall               | 10 16 20     | Clamped          | Slipwall          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-NSWall-restart       | 10 16 20     | Clamped          | Slipwall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
@@ -1022,37 +661,21 @@ And the following are currently tested nighly on GPU. All are compiled and run w
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-Temp                 | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying temperature at boundary  |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-Uvel                 | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| IdealMiniGridMask-Uvel-1grid           | 10 16 20     | Clamped          | Clamped           | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Varying velocity at boundary     |
+| IdealMiniGridMask-Uvel-1grid           | 10 16 20     | Clamped          | Clamped           | Varying velocity at boundary     |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-Uvel-EWWall          | 10 16 20     | SlipWall         | Clamped           | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
@@ -1060,105 +683,67 @@ And the following are currently tested nighly on GPU. All are compiled and run w
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-Uvel-NSWall          | 10 16 20     | Clamped          | Periodic          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | IdealMiniGridMask-restart              | 10 16 20     | Clamped          | Clamped           | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | PnetCDF                          |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Varying salt at boundary         |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | land-sea masking                 |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ParticlesOverSeamount                  | 41 80 16     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Tracer particles                 |
+
+Based on :ref:`Particles Over Seamount<particlesseamount>`, which always includes MPI, Coriolis, and tracer particles:
+
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ParticlesOverSeamount-restart          | 41 80 16     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Tracer particles                 |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | restart                          |
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| ParticlesOverSeamount                  | 41 80 16     | Periodic         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| Seamount-1grid-xy                      | 49 48 13     | Periodic         | Periodic          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
+| ParticlesOverSeamount-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Seamount<seamount>`, which always includes Coriolis and non-flat bathymetry:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| Seamount-1grid-xy                      | 49 48 13     | Periodic         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Seamount-xy                            | 49 48 13     | Periodic         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Seamount64-xy                          | 320 320 64   | Periodic         | Periodic          | MPI, large problem               |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Upwelling<upwelling>`, which always includes Coriolis and non-flat bathymetry:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
 | Upwelling                              | 41 80 16     | Periodic         | SlipWall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| Upwelling-1grid                        | 41 80 16     | Periodic         | SlipWall          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
+| Upwelling-1grid                        | 41 80 16     | Periodic         | SlipWall          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling-x                            | 41 80 16     | SlipWall         | Periodic          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| Upwelling-x-1grid                      | 41 80 16     | SlipWall         | Periodic          | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
+| Upwelling-x-1grid                      | 41 80 16     | SlipWall         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling64                            | 328 320 64   | SlipWall         | Periodic          | MPI, large problem               |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | UpwellingC4                            | 41 80 16     | Periodic         | SlipWall          | MPI                              |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | advection: centered 4th order    |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling_GLS                          | 41 80 16     | Periodic         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling_GLS-restart                  | 41 80 16     | Periodic         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
@@ -1166,19 +751,11 @@ And the following are currently tested nighly on GPU. All are compiled and run w
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | GLS mixing scheme                |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
-|                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Canuto A stability               |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling_GLS_Canuto_B                 | 41 80 16     | Periodic         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | GLS mixing scheme                |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | Coriolis                         |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | non-flat bathymetry              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Canuto B stability               |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+

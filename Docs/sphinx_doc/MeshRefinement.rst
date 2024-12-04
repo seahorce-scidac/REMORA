@@ -157,14 +157,14 @@ does not account for loss of conservation due to diffusive or source terms.
 .. _sec:fillghost:
 
 Filling Ghost Values
-====================
+--------------------
 
 REMORA uses an operation called ``FillPatch`` to fill the ghost cells/faces for each grid of data.
 The data is filled outside the valid region with a combination of three operations: interpolation
 from coarser level, copy from same level, and enforcement of physical boundary conditions.
 
 Interpolation from Coarser level
---------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Interpolation is controlled by which interpolater we choose to use. The default is
 conservative interpolation for cell-centered quantities, and analogous for faces.
@@ -174,7 +174,7 @@ boundary conditions from the coarser level; all faces outside the valid region a
 similarly filled, while fine faces inside the valid region are not over-written.
 
 Copy from other grids at same level (includes periodic boundaries)
-------------------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This is part of the ``FillPatch`` operation, but can also be applied independently,
 e.g. by the call
