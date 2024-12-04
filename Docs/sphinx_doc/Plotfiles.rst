@@ -12,8 +12,7 @@ Plotfiles
 Controlling PlotFile Generation
 ===============================
 
-"Plotfiles" can be written very efficiently in parallel in a native AMReX format
-or in HDF5.  They can also be written in NetCDF.
+"Plotfiles" can be written very efficiently in parallel in a native AMReX format or NetCDF (via PnetCDF).
 
 The following options in the inputs file control the generation of plotfiles.
 
@@ -35,7 +34,7 @@ List of Parameters
 |                                | or one file for  |                       |            |
 |                                | all timesteps?   |                       |            |
 +--------------------------------+------------------+-----------------------+------------+
-| **remora.plot_file**           | prefix for       | String                | “*plt_*”   |
+| **remora.plot_file**           | prefix for       | String                | “*plt”     |
 |                                | plotfiles        |                       |            |
 +--------------------------------+------------------+-----------------------+------------+
 | **remora.plot_int**            | how often (by    | Integer               | -1         |

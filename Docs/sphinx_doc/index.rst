@@ -25,7 +25,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    div#userguide.section,
    div#theory.section,
    div#implementation.section,
-   div#goals.section,
+   div#testing.section,
    </style>
 
 .. toctree::
@@ -39,13 +39,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    :hidden:
 
    GettingStarted.rst
-   perlmutter.rst
    Inputs.rst
-   BoundaryConditions.rst
-   MeshRefinement.rst
-   Checkpoint.rst
-   Plotfiles.rst
-   Visualization.rst
    ProblemSetup.rst
 
 .. toctree::
@@ -56,7 +50,6 @@ In addition to this documentation, there is API documentation for REMORA generat
    theory/Variables.rst
    theory/Equations.rst
    theory/VerticalMixing.rst
-   Particles.rst
 
 .. toctree::
    :caption: IMPLEMENTATION
@@ -64,16 +57,21 @@ In addition to this documentation, there is API documentation for REMORA generat
    :hidden:
 
    ArakawaCGrid.rst
+   BoundaryConditions.rst
+   Checkpoint.rst
+   MeshRefinement.rst
    Numerical_Solution_Technique.rst
+   Particles.rst
+   Plotfiles.rst
    Time_Stepping.rst
    VerticalSCoord.rst
-..   Discretizations.rst
-..   BoundaryConditions.rst
+   Visualization.rst
 
 .. toctree::
    :caption: TESTING
    :maxdepth: 1
+   :hidden:
 
-   Verification.rst
    Performance.rst
    RegressionTests.rst
+   Verification.rst

@@ -23,13 +23,7 @@ Paradigm
 REMORA uses the paradigm that different executables are built in different subdirectories within the ``Exec`` directory.  When
 using gmake (see below), the user/developer should build in the directory of the selected problem.  When using
 cmake (see below), separate executables are built for all of the problem directories listed in ``Exec/CMakeLists.txt``.
-The problem directories within ``Exec`` include ``Upwelling`` a test case demonstrating a periodic channel with shelves on each side.
-#1) science-relevant setups, such as ``ABL`` for modeling the atmospheric
-#boundary layer or ``DensityCurrent`` for running the standard density current test case, etc, 2) regression tests in
-#``Exec/RegTests`` that are used for testing specific known aspects of the code functionality, such as boundary conditions or
-#Rayleigh damping, and 3) tests for features under development in ``Exec/DevTests``, such as moving terrain.  There is a
-#README in each problem directory that describes the purpose/role of that problem.
-
+The problem directories within ``Exec`` include a number of problems, which are also used for ::.
 
 NetCDF (Optional)
 ~~~~~~~~~~~~~~~~~
@@ -183,3 +177,4 @@ An example CMake configure command to build REMORA with MPI, PnetCDF, and partic
 
 Note that CMake is able to generate makefiles for the Ninja build system as well which will allow for faster building of the executable(s).
 
+.. include:: perlmutter.rst
