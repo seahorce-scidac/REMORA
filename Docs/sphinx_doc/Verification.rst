@@ -45,9 +45,9 @@ The basic version of this test simulates a flow with a depth-dependent horizonta
 Ideal Mini Grid
 ---------------
 
-This small idealized grid is used to test netCDF-provided initial and boundary conditions. The ocean is initializaed with zero velocity and a constant temperature and salinity. Time-varying boundary conditions are then applied for velocity, temperature, or salinity (provided by netCDF file). The default is to used a clamped boundary condition for all quantities, but options for Chapman-Flather and radiation conditions are available. This test also verifies correct behavior with land-sea masking when using the ``_masked`` grid file.
+This small idealized grid is used to test netCDF-provided initial and boundary conditions. The ocean is initialized with zero velocity and a constant temperature and salinity. Time-varying boundary conditions are then applied for velocity, temperature, or salinity (provided by netCDF file). The default is to used a clamped boundary condition for all quantities, but options for Chapman-Flather and radiation conditions are available. This test also verifies correct behavior with land-sea masking when using the ``_masked`` grid file.
 
-The netCDF files needed to run these tests can be found in the `remora-data`<https://github.com/seahorce-scidac/remora-data` repository under the ``IdealMiniGrid`` directory.
+The netCDF files needed to run these tests can be found in the `remora-data <https://github.com/seahorce-scidac/remora-data`_ repository under the ``IdealMiniGrid`` directory.
 
 .. _particlesseamount:
 
@@ -61,7 +61,7 @@ This problem tests advection of tracer particles on a flat domain.
 Seamount
 --------
 
-The `Seamount<https://www.myroms.org/wiki/SEAMOUNT_CASE>` problem involves an (analytically) stably stratified fluid at rest over a seamount. In the absence of numerical errors, the fluid will remain at rest. However, this may not occur due to numerical errors in the calculation of the horizontal pressure gradient when the vertical coordinates are misaligned with the geopotential surfaces, as is the case in problems with spatially-varying bathymetry in ROMS/REMORA.
+The `Seamount <https://www.myroms.org/wiki/SEAMOUNT_CASE>`_ problem involves an (analytically) stably stratified fluid at rest over a seamount. In the absence of numerical errors, the fluid will remain at rest. However, this may not occur due to numerical errors in the calculation of the horizontal pressure gradient when the vertical coordinates are misaligned with the geopotential surfaces, as is the case in problems with spatially-varying bathymetry in ROMS/REMORA.
 
 
 .. _upwelling:
@@ -69,4 +69,4 @@ The `Seamount<https://www.myroms.org/wiki/SEAMOUNT_CASE>` problem involves an (a
 Upwelling
 ---------
 
-The `Upwelling<https://www.myroms.org/wiki/UPWELLING_CASE>` demonstrates wind-driven upwelling over a perioidc channel. It closely matches the test problem by the same name in ROMS.
+The `Upwelling <https://www.myroms.org/wiki/UPWELLING_CASE>`_ demonstrates wind-driven upwelling over a perioidc channel. It closely matches the test problem by the same name in ROMS.

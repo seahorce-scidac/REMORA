@@ -34,7 +34,7 @@ List of Parameters
 |                                | or one file for  |                       |            |
 |                                | all timesteps?   |                       |            |
 +--------------------------------+------------------+-----------------------+------------+
-| **remora.plot_file**           | prefix for       | String                | “*plt”     |
+| **remora.plot_file**           | prefix for       | String                | “plt”      |
 |                                | plotfiles        |                       |            |
 +--------------------------------+------------------+-----------------------+------------+
 | **remora.plot_int**            | how often (by    | Integer               | -1         |

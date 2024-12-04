@@ -99,9 +99,9 @@ Grid Variables
 +-------------------------------------------------+-----------------------------+------------------------------------------------------------------+-------------------+-------------------+
 | :math:`h`                                       | ``vec_hOfTheConfusingName`` | bathymetry (always positive)                                     |                   |                   |
 +-------------------------------------------------+-----------------------------+------------------------------------------------------------------+-------------------+-------------------+
-| :math:`z_{r\left(i,j,k\right)}`                 |                             | depth (negative below sea level)                                 | center            |                   |
+| :math:`z_{r}`                                   |                             | depth (negative below sea level)                                 | center            |                   |
 +-------------------------------------------------+-----------------------------+------------------------------------------------------------------+-------------------+-------------------+
-| :math:`z_{w\left(i,j,k\right)}`                 |                             | depth (negative below sea level)                                 | bottom/top faces  |                   |
+| :math:`z_{w}`                                   |                             | depth (negative below sea level)                                 | bottom/top faces  |                   |
 +-------------------------------------------------+-----------------------------+------------------------------------------------------------------+-------------------+-------------------+
 | :math:`T`                                       | ``vec_t3``                  | temperature                                                      |                   |                   |
 +-------------------------------------------------+-----------------------------+------------------------------------------------------------------+-------------------+-------------------+
@@ -334,6 +334,18 @@ where we have introduced the advective fluxes:
    F^{\eta}&=\frac{H_zvC}{m}\\
    F^{\sigma}&=\frac{H_z\Omega C}{mn}.
 
+Third-order upwinding is available for both momentum and tracer advection. The second-order centered scheme is available for momentum advection. Fourth-order centered advection is available for tracer advection.
+
+Second-order Centered
+~~~~~~~~~~~~~~~~~~~~~
+In the second-order centered scheme, fluxes are calculated as:
+
+.. math::
+   F^{\xi}&=\frac{\overline{H_z}^{\xi}u\overline{C}^{\xi}}{\overline{n}^{\xi}}\\
+   F^{\eta}&=\frac{\overline{H_z}^{\eta}v\overline{C}^{\eta}}{\overline{m}^{\eta}}\\
+   F^{\sigma}&=\frac{\overline{H_z}^{\sigma} \Omega \overline{C}^{\sigma}}{mn}.
+
+
 Fourth-order Centered
 ~~~~~~~~~~~~~~~~~~~~~
 The barotropic advection is centered fourth-order. Create gradient terms:
@@ -407,6 +419,9 @@ The integral is actually computed as a sum from the bottom upwards and also as a
 
 Equation of State
 -----------------
-The density is obtained from temperature and salinity via an equation of state. REMORA provides a choice of a nonlinear equation of state :math:`\rho=\rho\left(T,S,z\right)` or a linear equation of state :math:`\rho=\rho\left(T\right)`. The nonlinear equation of state has been modified and now corresponds to the UNESCO equation of state as derived by ``Jackett and McDougall (1995)``. It computes `in situ` density as a function of potential temperature, salinity and pressure.
+The density is obtained from temperature :math:`\left(T\right)` and salinity :math:`\left(S\right)` via a linear equation of state:
 
-Warning: although we have used it quite extensively in the past, McDougall (personal communication) claims that the single-variable :math:`\left(\rho=\rho\left(T\right)\right)` equation of state is not dynamically appropriate as is. He has worked out the extra source and sink terms required, arising from vertical motions and the compressibility of water. They are quite complicated and we have not implemented them to see if they alter the flow.
+.. math::
+   \rho\left(T,S\right) = R_0 - R_0 T_{\mathrm{coef}} (T - T_0) + R_0 S_{\mathrm{coef}} (S-S_0).
+
+The constants :math:`R_0`, :math:`T_0`, :math:`S_0`, :math:`T_{\mathrm{coef}}`, and :math:`S_{\mathrm{coef}}` are specified in the :ref:`inputs`<list-of-parameters-15>` file.
