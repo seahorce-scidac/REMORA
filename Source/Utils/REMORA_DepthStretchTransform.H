@@ -1,10 +1,10 @@
-#ifndef STRETCH_H_
-#define STRETCH_H_
+#ifndef _REMORA_STRETCH_H_
+#define _REMORA_STRETCH_H_
 
 #include <cmath>
-#include <DataStruct.H>
+#include <REMORA_DataStruct.H>
 #include <REMORA.H>
-#include <prob_common.H>
+#include <REMORA_prob_common.H>
 
 using namespace amrex;
 

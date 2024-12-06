@@ -6,8 +6,8 @@
  *  OOP-like manner.
  */
 
-#ifndef NC_INTREMORAACE_H
-#define NC_INTREMORAACE_H
+#ifndef REMORA_NC_INTERFACE_H
+#define REMORA_NC_INTERFACE_H
 
 #ifdef REMORA_USE_NETCDF
 #include <string>
@@ -382,4 +382,4 @@ public:
 
 #endif
 
-#endif /* NC_INTREMORAACE_H */
+#endif /* NC_INTERFACE_H */

@@ -1,5 +1,5 @@
-#ifndef _NCFILE_H_
-#define _NCFILE_H_
+#ifndef _REMORA_NCFILE_H_
+#define _REMORA_NCFILE_H_
 
 #include <sstream>
 #include <string>
@@ -9,7 +9,7 @@
 #include "AMReX_FArrayBox.H"
 #include "AMReX_IArrayBox.H"
 // this includes pnetcdf.h, and mpi.h
-#include "NCInterface.H"
+#include "REMORA_NCInterface.H"
 
 using PlaneVector = amrex::Vector<amrex::FArrayBox>;
 

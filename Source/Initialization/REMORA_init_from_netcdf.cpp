@@ -3,10 +3,9 @@
  */
 
 #include <REMORA.H>
-#include <EOS.H>
 #include <REMORA_Constants.H>
-#include <prob_common.H>
-#include <DataStruct.H>
+#include <REMORA_prob_common.H>
+#include <REMORA_DataStruct.H>
 
 using namespace amrex;
 

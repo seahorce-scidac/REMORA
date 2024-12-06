@@ -1,6 +1,6 @@
 #include <cstdio>
 
-#include "NCInterface.H"
+#include "REMORA_NCInterface.H"
 #include <AMReX.H>
 #include <AMReX_Print.H>
 

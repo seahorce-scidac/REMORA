@@ -1,4 +1,3 @@
-#include <EOS.H>
 #include <REMORA.H>
 #include "AMReX_Interp_3D_C.H"
 #include "AMReX_PlotFileUtil.H"

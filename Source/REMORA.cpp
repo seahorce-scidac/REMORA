@@ -2,8 +2,7 @@
  * \file REMORA.cpp
  */
 
-#include <prob_common.H>
-#include <EOS.H>
+#include <REMORA_prob_common.H>
 #include <REMORA.H>
 
 #include <AMReX_buildInfo.H>
