@@ -379,7 +379,7 @@ Based on :ref:`Particles Over Seamount<particlesseamount>`, which always include
 | ParticlesOverSeamount-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
-Based on :ref:`Seamount<seamount>`, which always includes Coriolis and non-flat bathymetry:
+Based on :ref:`Seamount<seamount-desc>`, which always includes Coriolis and non-flat bathymetry:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
@@ -397,7 +397,7 @@ Based on :ref:`Seamount<seamount>`, which always includes Coriolis and non-flat 
 | Seamount64-OMP-xy                      | 320 320 64   | Periodic         | Periodic          | MPI + OpenMP, large problem      |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
-Based on :ref:`Upwelling<upwelling>`, which always includes Coriolis and non-flat bathymetry:
+Based on :ref:`Upwelling<upwelling-desc>`, which always includes Coriolis and non-flat bathymetry:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
@@ -706,7 +706,7 @@ Based on :ref:`Particles Over Seamount<particlesseamount>`, which always include
 | ParticlesOverSeamount-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
-Based on :ref:`Seamount<seamount>`, which always includes Coriolis and non-flat bathymetry:
+Based on :ref:`Seamount<seamount-desc>`, which always includes Coriolis and non-flat bathymetry:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
@@ -718,7 +718,7 @@ Based on :ref:`Seamount<seamount>`, which always includes Coriolis and non-flat 
 | Seamount64-xy                          | 320 320 64   | Periodic         | Periodic          | MPI, large problem               |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
-Based on :ref:`Upwelling<upwelling>`, which always includes Coriolis and non-flat bathymetry:
+Based on :ref:`Upwelling<upwelling-desc>`, which always includes Coriolis and non-flat bathymetry:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |

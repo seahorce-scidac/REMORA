@@ -56,7 +56,7 @@ Particles Over Seamount
 
 This problem tests advection of tracer particles on a flat domain.
 
-.. _seamount:
+.. _seamount-desc:
 
 Seamount
 --------
@@ -64,7 +64,7 @@ Seamount
 The `Seamount <https://www.myroms.org/wiki/SEAMOUNT_CASE>`_ problem involves an (analytically) stably stratified fluid at rest over a seamount. In the absence of numerical errors, the fluid will remain at rest. However, this may not occur due to numerical errors in the calculation of the horizontal pressure gradient when the vertical coordinates are misaligned with the geopotential surfaces, as is the case in problems with spatially-varying bathymetry in ROMS/REMORA.
 
 
-.. _upwelling:
+.. _upwelling-desc:
 
 Upwelling
 ---------

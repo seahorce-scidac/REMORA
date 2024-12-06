@@ -557,6 +557,8 @@ List of Parameters
 | **remora.rdrag**                 | Bottom drag                          | Real number       | 3.0e-4         |
 +----------------------------------+--------------------------------------+-------------------+----------------+
 
+.. _list-of-parameters-gls:
+
 List of GLS-specific parameters
 -------------------------------
 
