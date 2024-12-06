@@ -1,17 +1,17 @@
 
-CEXE_sources += Plotfile.cpp
-CEXE_sources += Checkpoint.cpp
-CEXE_sources += writeJobInfo.cpp
+CEXE_sources += REMORA_Plotfile.cpp
+CEXE_sources += REMORA_Checkpoint.cpp
+CEXE_sources += REMORA_writeJobInfo.cpp
 
-CEXE_sources += console_io.cpp
+CEXE_sources += REMORA_console_io.cpp
 
 ifeq ($(USE_PNETCDF), TRUE)
-  CEXE_sources += ReadFromInitNetcdf.cpp
-  CEXE_sources += ReadFromBdryNetcdf.cpp
-  CEXE_sources += NCInterface.cpp
-  CEXE_sources += NCPlotFile.cpp
-  CEXE_sources += NCFile.cpp
-  CEXE_headers += NCInterface.H
-  CEXE_headers += NCPlotFile.H
-  CEXE_headers += NCFile.H
+  CEXE_sources += REMORA_ReadFromInitNetcdf.cpp
+  CEXE_sources += REMORA_ReadFromBdryNetcdf.cpp
+  CEXE_sources += REMORA_NCInterface.cpp
+  CEXE_sources += REMORA_NCPlotFile.cpp
+  CEXE_sources += REMORA_NCFile.cpp
+  CEXE_headers += REMORA_NCInterface.H
+  CEXE_headers += REMORA_NCPlotFile.H
+  CEXE_headers += REMORA_NCFile.H
 endif

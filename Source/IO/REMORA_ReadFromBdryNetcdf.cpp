@@ -1,7 +1,7 @@
-#include "NCFile.H"
+#include "REMORA_NCFile.H"
 #include "AMReX_FArrayBox.H"
-#include "DataStruct.H"
-#include "IndexDefines.H"
+#include "REMORA_DataStruct.H"
+#include "REMORA_IndexDefines.H"
 
 using namespace amrex;
 

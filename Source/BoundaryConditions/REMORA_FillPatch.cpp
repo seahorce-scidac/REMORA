@@ -1,7 +1,7 @@
 #include <REMORA.H>
 #include <REMORA_PhysBCFunct.H>
-#include <IndexDefines.H>
-#include <TimeInterpolatedData.H>
+#include <REMORA_IndexDefines.H>
+#include <REMORA_TimeInterpolatedData.H>
 
 using namespace amrex;
 

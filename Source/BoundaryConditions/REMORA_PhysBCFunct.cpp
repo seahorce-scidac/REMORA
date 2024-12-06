@@ -1,5 +1,5 @@
 #include "AMReX_PhysBCFunct.H"
-#include "IndexDefines.H"
+#include "REMORA_IndexDefines.H"
 #include <REMORA_PhysBCFunct.H>
 
 using namespace amrex;

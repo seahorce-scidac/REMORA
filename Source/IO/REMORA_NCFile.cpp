@@ -1,7 +1,7 @@
 #include <string>
 
-#include "NCFile.H"
-#include "NCInterface.H"
+#include "REMORA_NCFile.H"
+#include "REMORA_NCInterface.H"
 
 
 std::string ReadNetCDFVarAttrStr (const std::string& fname,

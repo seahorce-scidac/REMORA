@@ -5,7 +5,7 @@
 #include "AMReX_Vector.H"
 
 #ifdef REMORA_USE_NETCDF
-#include "NCInterface.H"
+#include "REMORA_NCInterface.H"
 #endif
 
 namespace amrex {

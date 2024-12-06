@@ -1,11 +1,10 @@
 #include "prob.H"
-#include "prob_common.H"
+#include "REMORA_prob_common.H"
 
-#include "EOS.H"
 #include "AMReX_ParmParse.H"
 #include "AMReX_MultiFab.H"
-#include "IndexDefines.H"
-#include "DepthStretchTransform.H"
+#include "REMORA_IndexDefines.H"
+#include "REMORA_DepthStretchTransform.H"
 
 using namespace amrex;
 

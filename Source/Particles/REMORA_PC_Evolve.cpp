@@ -1,7 +1,7 @@
 #ifdef REMORA_USE_PARTICLES
 
 #include <REMORA_PC.H>
-#include <IndexDefines.H>
+#include <REMORA_IndexDefines.H>
 #include <REMORA_Constants.H>
 #include <AMReX_TracerParticle_mod_K.H>
 

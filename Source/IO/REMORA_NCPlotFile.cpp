@@ -12,9 +12,9 @@
 #include <AMReX_ParmParse.H>
 
 #include "REMORA.H"
-#include "NCInterface.H"
-#include "NCPlotFile.H"
-#include "IndexDefines.H"
+#include "REMORA_NCInterface.H"
+#include "REMORA_NCPlotFile.H"
+#include "REMORA_IndexDefines.H"
 
 using namespace amrex;
 

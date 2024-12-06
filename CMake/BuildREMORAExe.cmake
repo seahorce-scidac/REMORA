@@ -15,11 +15,6 @@ function(build_remora_lib remora_lib_name)
   include(${CMAKE_SOURCE_DIR}/CMake/SetREMORACompileFlags.cmake)
   set_remora_compile_flags(${remora_lib_name})
 
-  set(REMORA_EOS_DIR "${CMAKE_SOURCE_DIR}/Source")
-  target_sources(${remora_lib_name} PRIVATE
-                 ${REMORA_EOS_DIR}/EOS.H)
-  target_include_directories(${remora_lib_name} SYSTEM PUBLIC ${REMORA_EOS_DIR})
-
   if(REMORA_ENABLE_PARTICLES)
     target_sources(${remora_lib_name} PRIVATE
                    ${SRC_DIR}/Particles/REMORA_PC_Evolve.cpp
@@ -32,15 +27,15 @@ function(build_remora_lib remora_lib_name)
 
   if(REMORA_ENABLE_PNETCDF)
     target_sources(${remora_lib_name} PRIVATE
-                   ${SRC_DIR}/IO/NCInterface.H
-                   ${SRC_DIR}/IO/NCPlotFile.H
-                   ${SRC_DIR}/IO/NCFile.H
-                   ${SRC_DIR}/IO/NCInterface.cpp
-                   ${SRC_DIR}/IO/NCPlotFile.cpp
-                   ${SRC_DIR}/IO/NCFile.cpp
-                   ${SRC_DIR}/IO/ReadFromInitNetcdf.cpp
-                   ${SRC_DIR}/IO/ReadFromBdryNetcdf.cpp
-                   ${SRC_DIR}/BoundaryConditions/BoundaryConditions_netcdf.cpp
+                   ${SRC_DIR}/IO/REMORA_NCInterface.H
+                   ${SRC_DIR}/IO/REMORA_NCPlotFile.H
+                   ${SRC_DIR}/IO/REMORA_NCFile.H
+                   ${SRC_DIR}/IO/REMORA_NCInterface.cpp
+                   ${SRC_DIR}/IO/REMORA_NCPlotFile.cpp
+                   ${SRC_DIR}/IO/REMORA_NCFile.cpp
+                   ${SRC_DIR}/IO/REMORA_ReadFromInitNetcdf.cpp
+                   ${SRC_DIR}/IO/REMORA_ReadFromBdryNetcdf.cpp
+                   ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_netcdf.cpp
                    ${SRC_DIR}/Initialization/REMORA_init_from_netcdf.cpp)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_NETCDF)
   endif()
@@ -51,14 +46,14 @@ function(build_remora_lib remora_lib_name)
 
   target_sources(${remora_lib_name}
      PRIVATE
-       ${SRC_DIR}/Derive.cpp
+       ${SRC_DIR}/REMORA_Derive.cpp
        ${SRC_DIR}/REMORA.cpp
        ${SRC_DIR}/REMORA_SumIQ.cpp
        ${SRC_DIR}/REMORA_Tagging.cpp
-       ${SRC_DIR}/BoundaryConditions/BoundaryConditions_cons.cpp
-       ${SRC_DIR}/BoundaryConditions/BoundaryConditions_xvel.cpp
-       ${SRC_DIR}/BoundaryConditions/BoundaryConditions_yvel.cpp
-       ${SRC_DIR}/BoundaryConditions/BoundaryConditions_zvel.cpp
+       ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_cons.cpp
+       ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_xvel.cpp
+       ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_yvel.cpp
+       ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_zvel.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_FillPatch.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_FillPatcher.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_PhysBCFunct.cpp
@@ -66,10 +61,10 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/Initialization/REMORA_init1d.cpp
        ${SRC_DIR}/Initialization/REMORA_init_bcs.cpp
        ${SRC_DIR}/Initialization/REMORA_make_new_level.cpp
-       ${SRC_DIR}/IO/Checkpoint.cpp
-       ${SRC_DIR}/IO/Plotfile.cpp
-       ${SRC_DIR}/IO/writeJobInfo.cpp
-       ${SRC_DIR}/IO/console_io.cpp
+       ${SRC_DIR}/IO/REMORA_Checkpoint.cpp
+       ${SRC_DIR}/IO/REMORA_Plotfile.cpp
+       ${SRC_DIR}/IO/REMORA_writeJobInfo.cpp
+       ${SRC_DIR}/IO/REMORA_console_io.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_Advance.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_advance_2d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_advance_2d_onestep.cpp
