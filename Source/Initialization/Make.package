@@ -1,5 +1,5 @@
 CEXE_sources += REMORA_init.cpp
-CEXE_headers += prob_common.H
+CEXE_headers += REMORA_prob_common.H
 
 CEXE_sources += REMORA_init_bcs.cpp
 CEXE_sources += REMORA_init1d.cpp

@@ -3,5 +3,5 @@ CEXE_sources += REMORA_PC_Init.cpp
 CEXE_sources += REMORA_PC_Evolve.cpp
 CEXE_sources += REMORA_PC_Utils.cpp
 
-CEXE_headers += ParticleData.H
+CEXE_headers += REMORA_ParticleData.H
 CEXE_headers += REMORA_PC.H

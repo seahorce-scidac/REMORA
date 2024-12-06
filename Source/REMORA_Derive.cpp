@@ -1,6 +1,5 @@
-#include "Derive.H"
-#include "EOS.H"
-#include "IndexDefines.H"
+#include "REMORA_Derive.H"
+#include "REMORA_IndexDefines.H"
 
 using namespace amrex;
 

@@ -2,9 +2,8 @@
  * \file REMORA_make_new_level.cpp
  */
 
-#include <prob_common.H>
-#include <EOS.H>
 #include <REMORA.H>
+#include <REMORA_prob_common.H>
 
 #include <AMReX_buildInfo.H>
 

@@ -1,7 +1,7 @@
-#ifndef _PROBCOMMON_H_
-#define _PROBCOMMON_H_
+#ifndef _REMORA_PROBCOMMON_H_
+#define _REMORA_PROBCOMMON_H_
 
-#include <DataStruct.H>
+#include <REMORA_DataStruct.H>
 
 #include <AMReX_Geometry.H>
 #include <AMReX_FArrayBox.H>

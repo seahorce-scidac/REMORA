@@ -1,4 +1,3 @@
-#include <EOS.H>
 #include <REMORA.H>
 
 using namespace amrex;

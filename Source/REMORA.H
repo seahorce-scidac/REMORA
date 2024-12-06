@@ -30,17 +30,17 @@
 #include <REMORA_PhysBCFunct.H>
 #include <REMORA_FillPatcher.H>
 
-#include <IndexDefines.H>
-#include <TimeInterpolatedData.H>
-#include <DataStruct.H>
-#include <Derive.H>
+#include <REMORA_IndexDefines.H>
+#include <REMORA_TimeInterpolatedData.H>
+#include <REMORA_DataStruct.H>
+#include <REMORA_Derive.H>
 
 #ifdef REMORA_USE_PARTICLES
-#include "ParticleData.H"
+#include "REMORA_ParticleData.H"
 #endif
 
 #ifdef REMORA_USE_NETCDF
-#include "NCInterface.H"
+#include "REMORA_NCInterface.H"
 #endif
 
 #include <iostream>

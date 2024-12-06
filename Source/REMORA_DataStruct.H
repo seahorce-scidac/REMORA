@@ -1,5 +1,5 @@
-#ifndef _DATA_STRUCT_H_
-#define _DATA_STRUCT_H_
+#ifndef _REMORA_DATA_STRUCT_H_
+#define _REMORA_DATA_STRUCT_H_
 
 #include <string>
 #include <iostream>
@@ -9,7 +9,7 @@
 #include <AMReX_Gpu.H>
 
 #include <REMORA_Constants.H>
-#include "IndexDefines.H"
+#include "REMORA_IndexDefines.H"
 
 enum struct CouplingType {
     OneWay, TwoWay
