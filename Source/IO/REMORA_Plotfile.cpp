@@ -330,7 +330,7 @@ REMORA::WritePlotFile ()
 
     } // lev
 
-    std::string plotfilename = Concatenate(plot_file_name, istep[0], 5);
+    std::string plotfilename = Concatenate(plot_file_name, istep[0], file_min_digits);
 
     if (finest_level == 0)
     {

@@ -23,7 +23,7 @@ REMORA::WriteCheckpointFile ()
     // etc.                these subdirectories will hold the MultiFab data at each level of refinement
 
     // checkpoint file name, e.g., chk00010
-    const std::string& checkpointname = amrex::Concatenate(check_file,istep[0],5);
+    const std::string& checkpointname = amrex::Concatenate(check_file,istep[0],file_min_digits);
 
     amrex::Print() << "Writing checkpoint " << checkpointname << "\n";
 
