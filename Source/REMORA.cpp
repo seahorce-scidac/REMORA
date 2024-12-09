@@ -732,7 +732,7 @@ REMORA::ReadParameters ()
         pp.query("file_min_digits", file_min_digits);
 
         if (file_min_digits < 0) {
-            amrex::Abort("remora.file_min_digits must be non-negative")
+            amrex::Abort("remora.file_min_digits must be non-negative");
         }
 
         // Time step controls
