@@ -9,7 +9,7 @@ Vertical Mixing Parametrizations
 
 These equations are as given in the `ROMS documentation`_
 
-.. _`ROMS documentation`: https://www.myroms.org/wiki/Vertical_Mixing_Parametrizations
+.. _`ROMS documentation`: https://www.myroms.org/wiki/Vertical_Mixing_Parameterizations
 
 The type of vertical mixing parametrization can be chosen in the :ref:`inputs file`<list-of-parameters-15>` with the ``remora.vertical_mixing_type`` option.
 
