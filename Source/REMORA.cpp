@@ -32,6 +32,9 @@ int         REMORA::verbose       = 0;
 int         REMORA::sum_interval  = -1;
 amrex::Real REMORA::sum_per       = -1.0_rt;
 
+// Minimum number of digits in plotfile name
+int         REMORA::file_min_digits = 5;
+
 // Native AMReX vs NetCDF
 PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
 
@@ -726,6 +729,11 @@ REMORA::ReadParameters ()
         // Frequency of diagnostic output
         pp.query("sum_interval", sum_interval);
         pp.query("sum_period"  , sum_per);
+        pp.query("file_min_digits", file_min_digits);
+
+        if (file_min_digits < 0) {
+            amrex::Abort("remora.file_min_digits must be non-negative")
+        }
 
         // Time step controls
         pp.query("cfl", cfl);

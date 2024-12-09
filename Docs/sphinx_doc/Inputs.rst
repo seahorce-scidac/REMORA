@@ -401,6 +401,18 @@ Examples of Usage
      **remora.init_shrink** :math:`\neq 1` then the first time step will in
      fact be **remora.init_shrink** \* **remora.fixed_dt**.
 
+File Output
+===========
+
++-------------------------------+-----------------------------------+----------------+----------------------------+
+| Parameter                     | Definition                        | Acceptable     | Default                    |
+|                               |                                   | Values         |                            |
++===============================+===================================+================+============================+
+| **remora.file_min_digits**    | Minimum number of digits          | Integer >= 0   | 5                          |
+|                               | in iteration number appended to   |                |                            |
+|                               | plotfile and checkpoint files     |                |                            |
++-------------------------------+-----------------------------------+----------------+----------------------------+
+
 Restart Capability
 ==================
 

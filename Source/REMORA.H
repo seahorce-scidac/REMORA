@@ -990,6 +990,9 @@ private:
     static int sum_interval;
     static amrex::Real sum_per;
 
+    // Minimum number of digits in plotfile name
+    static int file_min_digits;
+
     // Native or NetCDF
     static PlotfileType plotfile_type;
 
