@@ -43,6 +43,10 @@ enum class VertMixingType {
     analytical, GLS
 };
 
+enum class HorizMixingType {
+    analytical, constant
+};
+
 enum class GLS_StabilityType {
     Canuto_A, Canuto_B, Galperin
 };
@@ -168,6 +172,32 @@ struct SolverChoice {
             } else {
                 amrex::Abort("Don't know this coriolis_type");
             }
+        }
+
+        amrex::Real tnu2_salt = amrex::Real(0.0);
+        amrex::Real tnu2_temp = amrex::Real(0.0);
+        amrex::Real tnu2_scalar = amrex::Real(0.0);
+        static std::string horiz_mixing_type_string = "analytical";
+        pp.query("horizontal_mixing_type", horiz_mixing_type_string);
+        if ((horiz_mixing_type_string == "analytical") || (horiz_mixing_type_string == "Analytical")) {
+            horiz_mixing_type = HorizMixingType::analytical;
+        } else if ((horiz_mixing_type_string == "constant") || (horiz_mixing_type_string == "Constant")) {
+            horiz_mixing_type = HorizMixingType::constant;
+        } else {
+            amrex::Abort("Don't know this horizontal mixing type");
+        }
+        pp.query("visc2",visc2);
+        pp.query("tnu2_salt",tnu2_salt);
+        pp.query("tnu2_temp",tnu2_temp);
+        pp.query("tnu2_scalar",tnu2_scalar);
+        tnu2.resize(NCONS);
+        if (use_salt) {
+            tnu2[0] = tnu2_temp;
+            tnu2[1] = tnu2_salt;
+            tnu2[2] = tnu2_scalar;
+        } else {
+            tnu2[0] = tnu2_temp;
+            tnu2[1] = tnu2_scalar;
         }
 
         pp.query("Akk_bak", Akk_bak);
@@ -354,6 +384,7 @@ struct SolverChoice {
 
     // Mixing type and parameters
     VertMixingType vert_mixing_type;
+    HorizMixingType horiz_mixing_type;
     GLS_StabilityType gls_stability_type;
 
     // Stretching and depth parameters which may need to be read from inputs
@@ -387,6 +418,10 @@ struct SolverChoice {
 
     // Spatial discretization
     int         spatial_order = 2;
+
+    // Horizontal mixing parameters
+    amrex::Real visc2 = amrex::Real(0.0);
+    amrex::Vector<amrex::Real> tnu2;
 
     // GLS params
     amrex::Real gls_p = amrex::Real(3.0);

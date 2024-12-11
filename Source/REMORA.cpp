@@ -575,8 +575,18 @@ REMORA::set_analytical_vmix(int lev) {
 void
 REMORA::set_hmixcoef(int lev)
 {
-    init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev], solverChoice);
+    if (solverChoice.horiz_mixing_type == HorizMixingType::analytical) {
+        init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev], solverChoice);
 
+    } else if (solverChoice.horiz_mixing_type == HorizMixingType::constant) {
+        vec_visc2_p[lev]->setVal(solverChoice.visc2);
+        vec_visc2_r[lev]->setVal(solverChoice.visc2);
+        for (int n=0; n<NCONS; n++) {
+            vec_diff2[lev]->setVal(solverChoice.tnu2[n],n,1);
+        }
+    } else {
+        Abort("Don't know this horizontal mixing type");
+    }
     Real time = 0.0_rt;
     FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p),BCVars::foextrap_periodic_bc);
     FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r),BCVars::foextrap_periodic_bc);
