@@ -28,7 +28,7 @@ List of Parameters
 | **remora.plotfile_type**       | AMReX or NETCDF  | "amrex" or            | "amrex"    |
 |                                |                  | "netcdf / "NetCDF"    |            |
 +--------------------------------+------------------+-----------------------+------------+
-| **remora.write_history_file**  | do we write      | false or true         | false      |
+| **remora.write_history_file**  | do we write      | false or true         | true       |
 |                                | netcdf files at  |                       |            |
 |                                | each timestep    |                       |            |
 |                                | or one file for  |                       |            |
