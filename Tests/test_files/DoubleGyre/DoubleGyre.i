@@ -62,6 +62,12 @@ remora.theta_s = 0.0
 remora.theta_b = 0.0
 remora.tcline = 1e16
 
+remora.horizontal_mixing_type = constant
+remora.visc2 = 1280.0
+remora.tnu2_salt = 1280.0
+remora.tnu2_temp = 1280.0
+remora.tnu2_scalar = 1280.0
+
 
 # Linear EOS parameters
 remora.R0    = 1028.0  # background density value (Kg/m3) used in Linear Equation of State

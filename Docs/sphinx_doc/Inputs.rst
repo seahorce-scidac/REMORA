@@ -501,73 +501,97 @@ Physics Parameters
 List of Parameters
 ------------------
 
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| Parameter                        | Definition                           | Acceptable        | Default        |
-|                                  |                                      | Values            |                |
-+==================================+======================================+===================+================+
-| **remora.ggrav**                 | Gravitational field strength         | Real number       | 9.81           |
-|                                  | [kg m/s^2]                           |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.R0**                    | Background density [kg/m^3]          | Real number       | 1028           |
-|                                  | used in Linear Equation of           |                   |                |
-|                                  | State. May be used in setup          |                   |                |
-|                                  | of some problems.                    |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.S0**                    | Background salinity                  | Real number       | 35             |
-|                                  | (nondimensional) used in             |                   |                |
-|                                  | Linear Equation of State             |                   |                |
-|                                  | State. May be used in setup          |                   |                |
-|                                  | of some problems.                    |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.T0**                    | Background temperature               | Real number       | 5              |
-|                                  | (Celsius) used in                    |                   |                |
-|                                  | Linear Equation of State             |                   |                |
-|                                  | State. May be used in setup          |                   |                |
-|                                  | of some problems.                    |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.Tcoef**                 | Linear EOS parameter                 | Real number       | 1.7e-4         |
-|                                  | (1/Celsius)                          |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.Scoef**                 | Linear EOS parameter                 | Real number       | 0.0            |
-|                                  | (nondimensional)                     |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.rho0**                  | Mean density (kg/m^3) used           | Real number       | 1025           |
-|                                  | when Boussinesq approx is            |                   |                |
-|                                  | inferred                             |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.coriolis_type**         | Type of Coriolis forcing.            | ``beta_plane`` /  | ``beta_plane`` |
-|                                  | ``beta_plane`` uses a linear         | ``custom`` /      |                |
-|                                  | approximation. ``custom`` is         | ``real``          |                |
-|                                  | calculated from a function in        |                   |                |
-|                                  | ``prob.cpp``, and ``real`` is        |                   |                |
-|                                  | read from the netcdf grid file       |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.coriolis_f0**           | f-plane constant for                 | Real number       | 0.0            |
-|                                  | Coriolis param                       |                   |                |
-|                                  | :math:`f = f_0 + \beta y`            |                   |                |
-|                                  | when using beta plane                |                   |                |
-|                                  | Coriolis type                        |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.coriolis_beta**         | beta-plane constant for              | Real number       | 0.0            |
-|                                  | Coriolis param                       |                   |                |
-|                                  | :math:`f = f_0 + \beta y`            |                   |                |
-|                                  | when using beta plane                |                   |                |
-|                                  | Coriolis type                        |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.vertical_mixing_type**  | Vertical mixing type. ``analytical`` | ``analytical`` /  | ``analytical`` |
-|                                  | function is specified in             | ``GLS``           |                |
-|                                  | ``prob.cpp``.                        |                   |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.gls_stability_type**    | Stability function to use for GLS    | ``Canuto_A`` /    | ``Canuto_A``   |
-|                                  |                                      | ``Canuto_B`` /    |                |
-|                                  |                                      | ``Galperin``      |                |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.Akv_bak**               | Minimum/initial value of Akv         | Real number       | 5.0e-6         |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.Akt_bak**               | Minimum/initial value of Akt         | Real number       | 1.0e-6         |
-+----------------------------------+--------------------------------------+-------------------+----------------+
-| **remora.rdrag**                 | Bottom drag                          | Real number       | 3.0e-4         |
-+----------------------------------+--------------------------------------+-------------------+----------------+
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| Parameter                         | Definition                             | Acceptable        | Default        |
+|                                   |                                        | Values            |                |
++===================================+========================================+===================+================+
+| **remora.ggrav**                  | Gravitational field strength           | Real number       | 9.81           |
+|                                   | [kg m/s^2]                             |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.R0**                     | Background density [kg/m^3]            | Real number       | 1028           |
+|                                   | used in Linear Equation of             |                   |                |
+|                                   | State. May be used in setup            |                   |                |
+|                                   | of some problems.                      |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.S0**                     | Background salinity                    | Real number       | 35             |
+|                                   | (nondimensional) used in               |                   |                |
+|                                   | Linear Equation of State               |                   |                |
+|                                   | State. May be used in setup            |                   |                |
+|                                   | of some problems.                      |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.T0**                     | Background temperature                 | Real number       | 5              |
+|                                   | (Celsius) used in                      |                   |                |
+|                                   | Linear Equation of State               |                   |                |
+|                                   | State. May be used in setup            |                   |                |
+|                                   | of some problems.                      |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.Tcoef**                  | Linear EOS parameter                   | Real number       | 1.7e-4         |
+|                                   | (1/Celsius)                            |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.Scoef**                  | Linear EOS parameter                   | Real number       | 0.0            |
+|                                   | (nondimensional)                       |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.rho0**                   | Mean density (kg/m^3) used             | Real number       | 1025           |
+|                                   | when Boussinesq approx is              |                   |                |
+|                                   | inferred                               |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.coriolis_type**          | Type of Coriolis forcing.              | ``beta_plane`` /  | ``beta_plane`` |
+|                                   | ``beta_plane`` uses a linear           | ``custom`` /      |                |
+|                                   | approximation. ``custom`` is           | ``real``          |                |
+|                                   | calculated from a function in          |                   |                |
+|                                   | ``prob.cpp``, and ``real`` is          |                   |                |
+|                                   | read from the netcdf grid file         |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.coriolis_f0**            | f-plane constant for                   | Real number       | 0.0            |
+|                                   | Coriolis param                         |                   |                |
+|                                   | :math:`f = f_0 + \beta y`              |                   |                |
+|                                   | when using beta plane                  |                   |                |
+|                                   | Coriolis type                          |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.coriolis_beta**          | beta-plane constant for                | Real number       | 0.0            |
+|                                   | Coriolis param                         |                   |                |
+|                                   | :math:`f = f_0 + \beta y`              |                   |                |
+|                                   | when using beta plane                  |                   |                |
+|                                   | Coriolis type                          |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.horizontal_mixing_type** | Horizontal mixing type. ``analytical`` | ``analytical`` /  | ``analytical`` |
+|                                   | function is specified in               | ``constant``      |                |
+|                                   | ``prob.cpp``.                          |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.visc2**                  | Constant horizontal viscosity,         | Real number       | 0.0            |
+|                                   | everywhere. Needed when                |                   |                |
+|                                   | ``horizontal_mixing_type`` is          |                   |                |
+|                                   | ``constant``.                          |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.tnu2_salt**              | Constant horizontal diffusivity,       | Real number       | 0.0            |
+|                                   | everywhere for salt. Needed when       |                   |                |
+|                                   | ``horizontal_mixing_type`` is          |                   |                |
+|                                   | ``constant``.                          |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.tnu2_temp**              | Constant horizontal diffusivity,       | Real number       | 0.0            |
+|                                   | everywhere for temperature. Needed     |                   |                |
+|                                   | when ``horizontal_mixing_type`` is     |                   |                |
+|                                   | ``constant``.                          |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.tnu2_scalar**            | Constant horizontal diffusivity,       | Real number       | 0.0            |
+|                                   | everywhere for passive scalar. Needed  |                   |                |
+|                                   | when ``horizontal_mixing_type`` is     |                   |                |
+|                                   | ``constant``.                          |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.vertical_mixing_type**   | Vertical mixing type. ``analytical``   | ``analytical`` /  | ``analytical`` |
+|                                   | function is specified in               | ``GLS``           |                |
+|                                   | ``prob.cpp``.                          |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.gls_stability_type**     | Stability function to use for GLS      | ``Canuto_A`` /    | ``Canuto_A``   |
+|                                   |                                        | ``Canuto_B`` /    |                |
+|                                   |                                        | ``Galperin``      |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.Akv_bak**                | Minimum/initial value of Akv           | Real number       | 5.0e-6         |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.Akt_bak**                | Minimum/initial value of Akt           | Real number       | 1.0e-6         |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.rdrag**                  | Bottom drag                            | Real number       | 3.0e-4         |
++-----------------------------------+----------------------------------------+-------------------+----------------+
 
 .. _list-of-parameters-gls:
 
