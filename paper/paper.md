@@ -44,7 +44,7 @@ affiliations:
  - name: Argonne National Laboratory
    index: 3
 
-date: March 2024
+date: January 2025
 
 bibliography: paper.bib
 ---
@@ -67,41 +67,44 @@ through the Science Discovery through Advanced Computing (SciDAC) partnership pr
 
 # REMORA Features
 
-### Evolution Equations
+### Hydrodynamic Evolution
 
-REMORA solves the ...
-and incorporates temperature, salinity, and an arbitrary scalar which can be advected and diffused.
-
-### Turbulence/Mixing Schemes
+REMORA solves the incompressible time-dependent Navier-Stokes equation with the Boussinesq and hydrostatic approximations.
+Temperature, salinity, and a passive scalar are also advected and diffused.
+The density is calculated from a linear equation of state. The strength of vertical diffusion and viscosity is parametrized either by a spatially-varying analytical function or a Generic Length Scale (GLS) model.
 
 ### Time and Space Discretization and Terrain
 
-The time discretization in REMORA is the ... model as described on ROMS web page.
-In each time step, the depth-averaged equations are first advanced to determine mean quantities
-and ocean height, then the full three-dimensional equations are evolved for velocity and scalars.
+Like ROMS, REMORA uses a split-explicit time-stepping scheme, where several fast barotropic (2D) steps take place within each baroclinic (3D) update.
+In the barotropic steps, the code solves depth-averaged versions of the 3D evolution equations.
+These vertically-averaged solutions are used to calculate the sea surface height and vertical-mean velocity.
+Full 3D equations are then evolved for for velocities and scalars. 
+Specifically, REMORA uses the same time integration as Rutgers ROMS.
+That is, each barotropic step consists of a leapfrog predictor followed by a three-time Adams-Moulton corrector.
+The 3D momenta are updated with a third-order Adams-Bashforth scheme, and scalars are advanced with a leapfrog step with a trapezoidal correction.
 
 The spatial discretization in REMORA uses the classic Arakawa C-grid with
 scalar quantities at cell centers and normal velocities at cell faces.
-Bathymetry is included in the discretizations as described here.
-
-For simulations over complex bathymetry ...
-The model includes capability for application
-of some common map projections (e.g., Lambert Conformal, Mercator).
-The advection terms may be calculated using second- through sixth-order accurate
+Bathymetry and sea-surface height are defined at the centers of the cells of the 2D grid.
+Horizontally, the evolution equations are discretized over a boundary-following, orthogonal curvilinear grid, specified by metric terms.
+This formulation allows for grids that, for example, conform to coastlines.
+Land areas can be included in the domain and are represented by masks on cell centers and edges.
+Fluxes, velocities, and tracer values are set to zero where the land mask is true.
+The advection terms may be calculated using second- through fourth-order accurate
 spatial discretizations, including both centered difference and upwind
 schemes.
 
-### Dynamic and Static Mesh Refinement
-
-REMORA supports both static and dynamic (adaptive) mesh refinement,
-with subcycling in time at finer levels of refinement.
+Vertically, the domain is discretized using a stretched, terrain-following vertical coordinate.
+There are the same number of vertical levels everywhere; a spatially-varying water column depth (bathymetry and sea-surface height) is captured by cells of different thickness.
+Cell thicknesses are determined by a non-linear transformation function that has parameters to control the distribution of levels.
 
 ### Physical Forcings and Boundary Conditions
 
-Physical forcings include Coriolis and wind stress forcing.
+Physical forcings include Coriolis, wind stress forcing, and bottom drag.
 Lateral boundary conditions can be specified as periodic, inflow/outflow,
-or time-varying values read in from external files in netcdf format.
-The initial data can be specified by the user or read in from netcdf files.
+or time-varying values read in from external files in NetCDF format.
+The solution at the boundary can either be clamped to the value specified from file or incorporated by a nudging scheme.
+The initial data can be specified by the user analytically or read in from NetCDF files.
 
 # Statement of need
 
@@ -121,12 +124,14 @@ evolve.
 # Acknowledgements
 
 Funding for this work was provided by the U.S. Department of Energy
-Office of Energy Efficiency and Renewable Energy Wind Energy Technologies Office.
+Office of Science.
 We acknowledge the help of the AMReX team
-in developing and supporting new AMReX features needed by ERF.
+in developing and supporting new AMReX features needed by REMORA.
 The work at LBNL was supported by the U.S. Department of Energy
 under contract No. DE-AC02-05CH11231.
 The work at PNNL was supported by the U.S. Department of Energy
+under contract No.
+The work at ANL was supported by the U.S. Department of Energy
 under contract No.
 
 # References
