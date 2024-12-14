@@ -71,7 +71,7 @@ through the Science Discovery through Advanced Computing (SciDAC) partnership pr
 
 REMORA solves the incompressible time-dependent Navier-Stokes equation with the Boussinesq and hydrostatic approximations.
 Temperature, salinity, and a passive scalar are also advected and diffused.
-The density is calculated from a linear equation of state. The strength of vertical diffusion and viscosity is parametrized either by a spatially-varying analytical function or a Generic Length Scale (GLS) model.
+The density is calculated from a linear equation of state. The strength of vertical diffusion and viscosity is parametrized either by a spatially-varying analytical function or a Generic Length Scale (GLS) model [@umlauf:03].
 
 ### Time and Space Discretization and Terrain
 
@@ -101,10 +101,14 @@ Cell thicknesses are determined by a non-linear transformation function that has
 ### Physical Forcings and Boundary Conditions
 
 Physical forcings include Coriolis, wind stress forcing, and bottom drag.
-Lateral boundary conditions can be specified as periodic, inflow/outflow,
+Lateral boundary conditions can be specified as periodic, inflow/outflow, radiation (following @orlanski:76), 
 or time-varying values read in from external files in NetCDF format.
-The solution at the boundary can either be clamped to the value specified from file or incorporated by a nudging scheme.
-The initial data can be specified by the user analytically or read in from NetCDF files.
+The solution at the boundary can either be clamped to the value specified from file, or deviations from the specified value can be radiated out.
+For the barotropic variables in REMORA, this radiation occurs at the speed of external gravity waves, using the schemes of @flather:76 and @chapman:85 for momenta and sea-sea surface height, respectively.
+The Orlanski radiation boundary condition radiates deviations in the 3D momenta and tracers at the local normal phase velocity.
+REMORA uses the mixed radiation-nudging boundary condition of @marchesiello:01, where the Orlanski radiation condition is used for cells
+where there is outflow, and nudging to a known exterior value is used where there is inflow.
+The initial data can be specified by the user analytically or read from NetCDF files.
 
 # Statement of need
 
