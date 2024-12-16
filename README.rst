@@ -45,4 +45,4 @@ its behalf a paid-up, nonexclusive, irrevocable, worldwide license in the
 Software to reproduce, distribute copies to the public, prepare derivative
 works, and perform publicly and display publicly, and to permit others to do so.
 
-The license for REMORAcan be found in the LICENSE.md file.
+The license for REMORA can be found in the LICENSE.md file.
