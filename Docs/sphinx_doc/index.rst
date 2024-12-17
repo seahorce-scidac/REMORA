@@ -32,6 +32,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    :hidden:
 
    coc
+   Doxygen.rst
 
 .. toctree::
    :caption: USER GUIDE
@@ -41,6 +42,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    GettingStarted.rst
    Inputs.rst
    ProblemSetup.rst
+   testing.rst
 
 .. toctree::
    :caption: THEORY
@@ -56,6 +58,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    :maxdepth: 1
    :hidden:
 
+   AMReX.rst
    ArakawaCGrid.rst
    BoundaryConditions.rst
    Checkpoint.rst

@@ -43,9 +43,10 @@ List of Parameters
 |                                | plot files       |                       |            |
 +--------------------------------+------------------+-----------------------+------------+
 | **remora.plot_vars**           | name of          | list of names         | None       |
-|                                | variables to     |                       |            |
+|                                | variables to     | (see table below)     |            |
 |                                | include in       |                       |            |
-|                                | plotfiles        |                       |            |
+|                                | plotfiles. Not   |                       |            |
+|                                | used for netCDF  |                       |            |
 +--------------------------------+------------------+-----------------------+------------+
 
 .. _notes-5:
@@ -53,7 +54,7 @@ List of Parameters
 Notes
 -----
 
--  The NeTCDF option is only available if REMORA has been built with USE_NETCDF enabled.
+-  The NeTCDF option is only available if REMORA has been built with USE_PNETCDF enabled.
 
 -  The write_history_file option is only available if **plotfile_type = netcdf**
 
@@ -65,6 +66,28 @@ Notes
    NetCDF files.
 
 -  File prefixes can include directories.
+
+Plotfile Field Options
+----------------------
+
++--------------------------------+---------------------------+
+| Field                          | Definition                |
+|                                |                           |
++================================+===========================+
+| **salt**                       | salinity                  |
++--------------------------------+---------------------------+
+| **temp**                       | temperature               |
++--------------------------------+---------------------------+
+| **scalar**                     | passive scalar            |
++--------------------------------+---------------------------+
+| **x_velocity**                 | velocity in x-direction   |
++--------------------------------+---------------------------+
+| **y_velocity**                 | velocity in y-direction   |
++--------------------------------+---------------------------+
+| **z_velocity**                 | velocity in z-direction   |
++--------------------------------+---------------------------+
+| **vorticity**                  | vorticity                 |
++--------------------------------+---------------------------+
 
 .. _examples-of-usage-8:
 
