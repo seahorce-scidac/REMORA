@@ -7,6 +7,9 @@
 Mesh Refinement
 ===============
 
+.. warning::
+    Mesh refinement in REMORA is currently in beta and an active area of development. Static and dynamic mesh refinement has been verified for scalar advection with flat bathymetry. Other problems are in progress.
+
 REMORA allows both static and dynamic mesh refinement, as well as the choice of one-way or two-way coupling.
 
 Note that any tagged region will be covered by one or more boxes.  The user may
