@@ -51,27 +51,27 @@ bibliography: paper.bib
 
 # Summary
 
-The REMORA code is a new model that simulates the mesoscale and microscale
-dynamics of the ocean using the latest high-performance computing architectures.
-It employs hierarchical parallelism using an MPI+X model, where X may be OpenMP on
+The Regional Model of the Ocean Refined Adaptively (REMORA) is a new implimentation 
+of an existing community standard ocean model, 
+the Regional Ocean Modeling System 
+(ROMS, [@shchepetkin.mcwilliams:05], [@haidvogel.ea:08]) that simulates esutuarine and oceanic 
+dynamics using the latest high-performance computing architectures.
+REMORA employs hierarchical parallelism using an MPI+X model, where X may be OpenMP on
 multicore CPU-only systems, or CUDA, HIP, or SYCL on GPU-accelerated systems.
 It is able to be built and run in both single and double precision.
 REMORA is built on AMReX [@AMReX:JOSS; @AMReX:IJHPCA],
 a block-structured adaptive mesh refinement (AMR) software framework that
 provides the underlying performance-portable software infrastructure for block-structured mesh operations.
-REMORA, like ROMS, is a regional model, meaning that it simulates the ocean dynamics on
-a less-than-global scale, and as such requires boundary conditions derived from data
-or from larger-scale models.
-The REMORA development is funded by the US Department of Energy's Office of Science
-through the Science Discovery through Advanced Computing (SciDAC) partnership program.
+REMORA, like ROMS, is a regional model, meaning that it is generally used for limited domains, 
+and as such requires boundary conditions derived analytically, or from larger-scale models.
 
 # REMORA Features
 
 ### Hydrodynamic Evolution
 
-REMORA solves the incompressible time-dependent Navier-Stokes equation with the Boussinesq and hydrostatic approximations.
-Temperature, salinity, and a passive scalar are also advected and diffused.
-The density is calculated from a linear equation of state. The strength of vertical diffusion and viscosity is parametrized either by a spatially-varying analytical function or a Generic Length Scale (GLS) model [@umlauf:03].
+Like ROMS, REMORA solves the incompressible time-dependent Navier-Stokes equation with the Boussinesq and hydrostatic approximations.
+Temperature, salinity, and other scalars, such as dyes or biogeochemical constituents, are also advected and diffused.
+The density is calculated from a linear equation of state. The strength of vertical diffusion and viscosity is parametrized either by a spatially-varying analytical function or a Generic Length Scale (GLS) model ([@umlauf:03], [@warner.ea:05]).
 
 ### Time and Space Discretization and Terrain
 
@@ -126,15 +126,15 @@ evolve.
 
 # Acknowledgements
 
-Funding for this work was provided by the U.S. Department of Energy
-Office of Science.
+REMORA development is a component of the Study for Exascale Advances in a High-resolution Ocean using ROMS Coupled to E3SM (SEAHORÇE) project funded through the U.S. Department of Energy, Office of Science and Office of Advanced Scientific Computing Research Scientific Discovery through Advanced Computing (SciDAC) program.
+
 We acknowledge the help of the AMReX team
 in developing and supporting new AMReX features needed by REMORA.
 The work at LBNL was supported by the U.S. Department of Energy
 under contract No. DE-AC02-05CH11231.
 The work at PNNL was supported by the U.S. Department of Energy
-under contract No.
+under contract No. DE-AC05-76RL01830
 The work at ANL was supported by the U.S. Department of Energy
-under contract No.
+under contract No. DE-AC02-06CH11357
 
 # References
