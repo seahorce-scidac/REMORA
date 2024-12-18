@@ -51,7 +51,7 @@ bibliography: paper.bib
 
 # Summary
 
-The Regional Model of the Ocean Refined Adaptively (REMORA) is a new implimentation 
+The Regional Model of the Ocean Refined Adaptively (REMORA) is a new implementation 
 of an existing community standard ocean model, 
 the Regional Ocean Modeling System 
 (ROMS, [@shchepetkin.mcwilliams:05], [@haidvogel.ea:08]) that simulates esutuarine and oceanic 
