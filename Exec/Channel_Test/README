@@ -1,0 +1,3 @@
+This problem reproduces the reentrant channel test case from []. It tests
+the development of turbulence and the GLS mixing scheme. The mean surface
+kinetic energy agrees with that from ROMS.

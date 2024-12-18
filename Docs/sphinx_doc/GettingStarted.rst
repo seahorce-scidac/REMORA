@@ -29,5 +29,3 @@ type:
 .. include:: building.rst
 
 .. include:: InputFiles.rst
-
-.. include:: testing.rst

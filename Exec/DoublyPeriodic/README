@@ -1,0 +1,6 @@
+The basic version of the DoublyPerioidic test simulates a flow with a
+depth-dependent horizontal velocity and temperature profile in a
+doubly-periodic domain with flat bathymetry. When non-flat bathymetry
+is used, the depth profile is the same as in the ROMS (and REMORA)
+Upwelling problem.
+

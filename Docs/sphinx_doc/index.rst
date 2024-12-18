@@ -3,7 +3,7 @@
 REMORA
 ------
 
-REMORA is currently under development as a next-generation version of the Regional Ocean Modeling System (ROMS).
+REMORA is currently under development as a next-generation version of the Regional Ocean Modeling System (ROMS). The source code repository is hosted on `Github <https://github.com/seahorce-scidac/REMORA>`_. Questions and issues with the code can be directed to the developers by opening an Issue on the Github page. See our `Contributing <https://github.com/seahorce-scidac/REMORA/blob/development/CONTRIBUTING.md>`_ page for how to contribute code to the repository.
 
 REMORA is built on `AMReX <https://github.com/AMReX-Codes/amrex>`_,
 an adaptive mesh refinement software framework, which provides the underlying software infrastructure for
