@@ -6,15 +6,14 @@
 Verification
 ============
 
-The following test are used to verify the correct behavior of REMORA. Every problem below has a script ``test.sh``
+The following test are used to verify the correct behavior of REMORA. Each problem below has a subdirectory in ``Exec``, which contains a sample ``inputs`` file and a ``README``, the contents of which are reproduced below:
 
 .. _advection:
 
 Advection
 ---------
 
-The ``Advection`` problem tests scalar advection on a doubly-periodic domain with
-flat bathymetry.
+.. include:: ../../Exec/Advection/README
 
 
 .. _channeltest:
@@ -22,51 +21,46 @@ flat bathymetry.
 Channel Test
 ------------
 
-The reentrant channel test of [paper] is reproduced. This problem tests the development of turbulence and GLS mixing scheme. The [quantity] agrees with that from ROMS.
-
+.. include:: ../../Exec/Channel_Test/README
 
 .. _doublegyre:
 
 Double Gyre
 -----------
 
-This reproduces the classic wind-driven double gyre problem, similar to the ROMS test problem by the same name.
-
+.. include:: ../../Exec/DoubleGyre/README
 
 .. _doublyperiodic:
 
 Doubly Periodic
 ---------------
 
-The basic version of this test simulates a flow with a depth-dependent horizontal velocity and temperature profile in a doubly-periodic domain with flat bathymetry. When non-flat bathymetry is used, the depth profile is the same as in the ROMS (and REMORA) Upwelling problem.
+.. include:: ../../Exec/DoublyPeriodic/README
 
 .. _idealminigrid:
 
 Ideal Mini Grid
 ---------------
 
-This small idealized grid is used to test netCDF-provided initial and boundary conditions. The ocean is initialized with zero velocity and a constant temperature and salinity. Time-varying boundary conditions are then applied for velocity, temperature, or salinity (provided by netCDF file). The default is to used a clamped boundary condition for all quantities, but options for Chapman-Flather and radiation conditions are available. This test also verifies correct behavior with land-sea masking when using the ``_masked`` grid file.
-
-The netCDF files needed to run these tests can be found in the `remora-data <https://github.com/seahorce-scidac/remora-data>`_ repository under the ``IdealMiniGrid`` directory.
+.. include:: ../../Exec/IdealMiniGrid/README.rst
 
 .. _particlesseamount:
 
 Particles Over Seamount
 -----------------------
 
-This problem tests advection of tracer particles on a flat domain.
+.. include:: ../../Exec/ParticlesOverSeaMount/README
 
 .. _seamount-desc:
 
 Seamount
 --------
 
-The `Seamount <https://www.myroms.org/wiki/SEAMOUNT_CASE>`_ problem involves an (analytically) stably stratified fluid at rest over a seamount. In the absence of numerical errors, the fluid will remain at rest. However, this may not occur due to numerical errors in the calculation of the horizontal pressure gradient when the vertical coordinates are misaligned with the geopotential surfaces, as is the case in problems with spatially-varying bathymetry in ROMS/REMORA.
-
+.. include:: ../../Exec/Seamount/README.rst
 
 .. _upwelling-desc:
 
 Upwelling
 ---------
 
-The `Upwelling <https://www.myroms.org/wiki/UPWELLING_CASE>`_ demonstrates wind-driven upwelling over a perioidc channel. It closely matches the test problem by the same name in ROMS.
+.. include:: ../../Exec/Upwelling/README.rst
