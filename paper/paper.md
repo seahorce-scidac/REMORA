@@ -67,56 +67,42 @@ and as such requires boundary conditions derived analytically, or from larger-sc
 
 # REMORA Features
 
-### Hydrodynamic Evolution
+Like ROMS, REMORA:
+ - solves the incompressible time-dependent Navier-Stokes equation with the Boussinesq and hydrostatic approximations (see [@shchepetkin.mcwilliams:05], [@haidvogel.ea:08])
+ - uses a curvilinear Arakawa C-grid
+ - uses a streched, terrain-following vertical s-coordinate
+ - uses a split-explicit time-stepping scheme, where several fast barotropic (2D) steps take place within each baroclinic (3D) update (see [@shchepetkin.mcwilliams:05])
+ - baroclinic steps use a third-order Adams-Bashforth scheme
+ - barotropic steps use a leapfrog predictor followed by a three-time Adams-Moulton corrector
+ - scalars are advanced with a leapfrog step with a trapezoidal correction
+ - uses a nonlinear equation of state based on [@jackett.macdougall:97]
+ - uses a third-order (U3) upwind momentum advection scheme
+ - uses U3 or center-difference, fourth-order (C4) tracer advection
+ - uses analytical vertical diffusivity or viscosity, or uses the Generic Length Scale (GLS) turbulence closure model ([@umlauf:03], [@warner.ea:05]).
+ - specified land masking, Coriolis force, and ealistic wind stress
+ - uses quadratic or log-layer bottom drag
+ - uses periodic, radiation (e.g., @orlanski:76), or clamped time-varying baroclinic lateral boundary conditions
+ - uses radiation, chapman/flather (@flather:76, @chapman:85), or clamped barotropic lateral boundary conditions
+ - uses optional boundary nudging based on @marchesiello:01
+ - uses parallel I/O with netcdf (using the pnetcdf library), or plotfiles (based on yt)
 
-Like ROMS, REMORA solves the incompressible time-dependent Navier-Stokes equation with the Boussinesq and hydrostatic approximations.
-Temperature, salinity, and other scalars, such as dyes or biogeochemical constituents, are also advected and diffused.
-The density is calculated from a linear equation of state. The strength of vertical diffusion and viscosity is parametrized either by a spatially-varying analytical function or a Generic Length Scale (GLS) model ([@umlauf:03], [@warner.ea:05]).
+### Next development steps
+ - Surface heat flux parameterizations
+ - Rivers
+ - Evaporation-Precipitation fluxes
+ - Nudging to climatology
+ - Adaptive mesh refinement
 
-### Time and Space Discretization and Terrain
-
-Like ROMS, REMORA uses a split-explicit time-stepping scheme, where several fast barotropic (2D) steps take place within each baroclinic (3D) update.
-In the barotropic steps, the code solves depth-averaged versions of the 3D evolution equations.
-These vertically-averaged solutions are used to calculate the sea surface height and vertical-mean velocity.
-Full 3D equations are then advanced to calculate depth-dependent velocities and scalars (temperature, salinity, etc.). 
-Specifically, REMORA uses the same time integration as Rutgers ROMS.
-That is, each barotropic step consists of a leapfrog predictor followed by a three-time Adams-Moulton corrector.
-The 3D velocities are updated with a third-order Adams-Bashforth scheme, and scalars are advanced with a leapfrog step with a trapezoidal correction.
-
-The spatial discretization in REMORA uses the classic Arakawa C-grid with
-scalar quantities at cell centers and normal velocities at cell faces.
-Bathymetry and sea-surface height are defined at the centers of the cells of the 2D grid.
-Horizontally, the evolution equations are discretized over a boundary-following, orthogonal curvilinear grid, which is specified by metric terms.
-This formulation allows for grids that, for example, conform to coastlines.
-Land areas can be included in the domain and are represented by masks on cell centers and faces; fluxes, velocities, and tracer values are set to zero on land.
-The advection terms may be calculated using second- through fourth-order accurate
-spatial discretizations, including both centered difference and upwind
-schemes.
-
-Vertically, the domain is discretized using a stretched, terrain-following vertical coordinate.
-There are the same number of vertical levels everywhere in the domain; a spatially-varying water column depth (bathymetry and sea-surface height) is captured by cells of different thickness.
-Cell thicknesses are determined by non-linear transformation and stretching functions that has parameters to control the distribution of levels.
-
-### Physical Forcings and Boundary Conditions
-
-Physical forcings include Coriolis, wind stress forcing, and bottom drag.
-Lateral boundary conditions can be specified as periodic, inflow/outflow, radiation (following @orlanski:76), 
-or time-varying values read in from external files in NetCDF format.
-The solution at the boundary can either be clamped to the value specified from file, or deviations from the specified value can be radiated out.
-For the barotropic variables in REMORA, this radiation occurs at the speed of external gravity waves, using the schemes of @flather:76 and @chapman:85 for momenta and sea-sea surface height, respectively.
-The Orlanski radiation boundary condition radiates deviations in the 3D momenta and tracers at the local normal phase velocity.
-REMORA uses the mixed radiation-nudging boundary condition of @marchesiello:01, where the Orlanski radiation condition is used for cells
-where there is outflow, and nudging to a known exterior value is used where there is inflow.
-The initial data can be specified by the user analytically or read from NetCDF files.
 
 # Statement of need
 
 Most widely used ocean modeling codes today do not have the
 ability to use GPU acceleration, which limits their ability to
 efficiently utilize current and next-generation high performance computing
-architectures.  REMORA provides an ocean modeling capability that runs on the latest high-performance
-computing architectures, from laptops to supercomputers,
-whether CPU-only or GPU-accelerated.  In addition, REMORA is based on AMReX,
+architectures.  REMORA provides an ocean modeling capability, based on a proven FORTRAN code
+that runs efficiently on CPUs, that is able to run on all of the latest high-performance
+computing architectures, from laptops to supercomputers, CPU-only or GPU-accelerated.  
+In addition, REMORA is based on AMReX,
 a modern, well-supported adaptive mesh refinement (AMR) library,
 which provides a performance portable interface that shields REMORA
 from most of the detailed changes needed to adapt to new systems.
