@@ -5,7 +5,7 @@ Testing and Verification
 
 Testing and verification of REMORA can be performed using CTest, which is included in the CMake build system. If one builds REMORA with CMake, the testing suite, and the verification suite, can be enabled during the CMake configure step.
 
-An example ``cmake`` configure command performed in the ``Build`` directory in REMORA is shown below with options relevant to the testing suite:
+An example ``cmake`` configure/build command performed in the ``Build`` directory in REMORA is shown below with options relevant to the testing suite:
 
 ::
 
@@ -16,7 +16,7 @@ An example ``cmake`` configure command performed in the ``Build`` directory in R
         -DREMORA_ENABLE_FCOMPARE:BOOL=ON \
         -DREMORA_ENABLE_TESTS:BOOL=ON \
         -DREMORA_USE_CPP:BOOL=ON \
-        ..
+        .. && make
 
 While performing a ``cmake -LAH ..`` command will give descriptions of every option for the CMake project. Descriptions of particular options regarding the testing suite are listed below:
 
@@ -31,7 +31,11 @@ Building the Tests
 Once the user has performed the CMake configure step, the ``make`` command will build
 every executable required for each test.
 In this step, it is highly beneficial for the user to use the ``-j`` option for ``make``
-to build source files in parallel.
+to build source files in parallel. For example:
+
+   .. code:: shell
+
+        make -j8
 
 Running the Tests
 ~~~~~~~~~~~~~~~~~
@@ -43,8 +47,7 @@ To run the test suite, run ``ctest`` in the ``Build`` directory. CTest will run 
 Useful options for CTest are ``-VV`` which runs in a verbose mode where the output of each test can be seen. ``-R``
 where a regex string can be used to run specific sets of tests. ``-j`` where CTest will bin pack and run tests in
 parallel based on how many processes each test is specified to use and fit them into the amount of cores available
-on the machine. ``-L`` where the subset of tests containing a particular label will be run.
-(We note that using ``-L 'regression'`` will run all the tests that do not use SUNDIALS.)
+on the machine.
 Output for the last set of tests run is available in the ``Build`` directory in ``Testing/Temporary/LastTest.log``.
 
 Adding Tests

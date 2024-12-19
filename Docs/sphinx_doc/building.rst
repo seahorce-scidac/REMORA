@@ -161,7 +161,7 @@ Using CMake involves an additional configure step before using the ``make`` comm
 
 To build with CMake, a user typically creates a ``build`` directory in the project directory and in that directory the ``cmake <options> ..`` command is used to configure the project before building it. REMORA provides an example build directory called ``Build`` with example scripts for performing the CMake configure. Once the CMake configure step is done, then the ``make`` command will build the executable.
 
-An example CMake configure command to build REMORA without MPI. Replace the compilers with those installed on your system:
+An example CMake configure/build command to build REMORA without MPI. Replace the compilers with those installed on your system:
 
 ::
 
@@ -170,7 +170,7 @@ An example CMake configure command to build REMORA without MPI. Replace the comp
           -DCMAKE_CXX_COMPILER:STRING=g++ \
           .. && make
 
-An example CMake configure command to build REMORA with MPI is listed below:
+An example CMake configure/build command to build REMORA with MPI is listed below:
 
 ::
 
@@ -180,7 +180,7 @@ An example CMake configure command to build REMORA with MPI is listed below:
           .. && make
 
 
-An example CMake configure command to build REMORA with MPI, PnetCDF, and particles is listed below:
+An example CMake configure/build command to build REMORA with MPI, PnetCDF, and particles is listed below:
 
 ::
 
