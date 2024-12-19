@@ -13,8 +13,6 @@ An example ``cmake`` configure command performed in the ``Build`` directory in R
         -DCMAKE_BUILD_TYPE:STRING=Release \
         -DREMORA_ENABLE_MPI:BOOL=ON \
         -DCMAKE_CXX_COMPILER:STRING=mpicxx \
-        -DCMAKE_C_COMPILER:STRING=mpicc \
-        -DCMAKE_Fortran_COMPILER:STRING=mpifort \
         -DREMORA_ENABLE_FCOMPARE:BOOL=ON \
         -DREMORA_ENABLE_TESTS:BOOL=ON \
         -DREMORA_USE_CPP:BOOL=ON \

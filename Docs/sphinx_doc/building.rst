@@ -47,7 +47,18 @@ GNU Make
 
 The GNU Make system is best for use on large computing facility machines and production runs. With the GNU Make implementation, the build system will inspect the machine and use known compiler optimizations explicit to that machine if possible. These explicit settings are kept up-to-date by the AMReX project.
 
-Using the GNU Make build system involves first setting environment variables for the directories of the dependencies of REMORA which is the repository of AMReX. AMReX is provided as a git submodule in REMORA and can be populated by using ``git submodule init; git submodule update`` in the REMORA repo, or before cloning by using ``git clone --recursive <remora_repo>``. Although submodules of these projects are provided, they can be placed externally as long as the ``<REPO_HOME>`` environment variables for each dependency is set correctly. An example of setting the ``<REPO_HOME>`` environment variables in the user's ``.bashrc`` is shown below:
+Using the GNU Make build system involves first setting environment variables for the directories of the dependencies of REMORA which is the repository of AMReX. AMReX is provided as a git submodule in REMORA and can be populated by using
+
+   .. code:: shell
+
+         git submodule init; git submodule update
+
+in the REMORA repo, or before cloning by using
+   .. code:: shell
+
+         git clone --recursive <remora_repo>
+
+Although submodules of these projects are provided, they can be placed externally as long as the ``<REPO_HOME>`` environment variables for each dependency is set correctly. An example of setting the ``<REPO_HOME>`` environment variables in the user's ``.bashrc`` is shown below:
 
 ::
 
@@ -150,6 +161,15 @@ Using CMake involves an additional configure step before using the ``make`` comm
 
 To build with CMake, a user typically creates a ``build`` directory in the project directory and in that directory the ``cmake <options> ..`` command is used to configure the project before building it. REMORA provides an example build directory called ``Build`` with example scripts for performing the CMake configure. Once the CMake configure step is done, then the ``make`` command will build the executable.
 
+An example CMake configure command to build REMORA without MPI. Replace the compilers with those installed on your system:
+
+::
+
+    cmake -DCMAKE_BUILD_TYPE:STRING=Release \
+          -DREMORA_ENABLE_MPI:BOOL=OFF \
+          -DCMAKE_CXX_COMPILER:STRING=g++ \
+          .. && make
+
 An example CMake configure command to build REMORA with MPI is listed below:
 
 ::
@@ -157,9 +177,8 @@ An example CMake configure command to build REMORA with MPI is listed below:
     cmake -DCMAKE_BUILD_TYPE:STRING=Release \
           -DREMORA_ENABLE_MPI:BOOL=ON \
           -DCMAKE_CXX_COMPILER:STRING=mpicxx \
-          -DCMAKE_C_COMPILER:STRING=mpicc \
-          -DCMAKE_Fortran_COMPILER:STRING=mpifort \
           .. && make
+
 
 An example CMake configure command to build REMORA with MPI, PnetCDF, and particles is listed below:
 
@@ -168,8 +187,6 @@ An example CMake configure command to build REMORA with MPI, PnetCDF, and partic
     cmake -DCMAKE_BUILD_TYPE:STRING=Release \
           -DREMORA_ENABLE_MPI:BOOL=ON \
           -DCMAKE_CXX_COMPILER:STRING=mpicxx \
-          -DCMAKE_C_COMPILER:STRING=mpicc \
-          -DCMAKE_Fortran_COMPILER:STRING=mpifort \
           -DREMORA_ENABLE_PARTICLES:BOOL=ON \
           -DREMORA_ENABLE_PNETCDF:BOOL=ON \
           .. && make
