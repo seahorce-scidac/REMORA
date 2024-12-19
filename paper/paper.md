@@ -70,7 +70,7 @@ and as such requires boundary conditions derived analytically, or from larger-sc
 Like ROMS, REMORA:
  - solves the incompressible time-dependent Navier-Stokes equation with the Boussinesq and hydrostatic approximations (see [@shchepetkin.mcwilliams:05], [@haidvogel.ea:08])
  - uses a curvilinear Arakawa C-grid
- - uses a streched, terrain-following vertical s-coordinate
+ - uses a stretched, terrain-following vertical s-coordinate
  - uses a split-explicit time-stepping scheme, where several fast barotropic (2D) steps take place within each baroclinic (3D) update (see [@shchepetkin.mcwilliams:05])
  - baroclinic steps use a third-order Adams-Bashforth scheme
  - barotropic steps use a leapfrog predictor followed by a three-time Adams-Moulton corrector
