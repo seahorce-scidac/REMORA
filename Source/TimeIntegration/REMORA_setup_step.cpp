@@ -111,13 +111,122 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         MultiFab::Copy(V_new,V_old,0,0,V_new.nComp(),V_new.nGrowVect());
         MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
     }
-    set_smflux(lev,t_old[lev]);
+
+    if (!solverChoice.bulk_fluxes) {
+        set_smflux(lev,t_old[lev]);
+    } else if (solverChoice.surface_momentum_type == SurfaceMomentumType::wind) {
+        set_wind(lev,t_old[lev]);
+    }
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
-    const Real vonKar = solverChoice.vonKar;
+    for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real const> const& h     = vec_hOfTheConfusingName[lev]->const_array(mfi);
+        Array4<Real const> const& Hz    = vec_Hz[lev]->const_array(mfi);
+        Array4<Real      > const& Huon  = vec_Huon[lev]->array(mfi);
+        Array4<Real      > const& Hvom  = vec_Hvom[lev]->array(mfi);
+
+        Array4<Real const> const& z_w   = mf_z_w->const_array(mfi);
+        Array4<Real const> const& z_r   = mf_z_r->const_array(mfi);
+        Array4<Real const> const& uold  = U_old.const_array(mfi);
+        Array4<Real const> const& vold  = V_old.const_array(mfi);
+        Array4<Real      > const& rho   = mf_rho.array(mfi);
+        Array4<Real      > const& rhoA  = mf_rhoA->array(mfi);
+        Array4<Real      > const& rhoS  = mf_rhoS->array(mfi);
+        Array4<Real      > const& bvf   = mf_bvf->array(mfi);
+        Array4<Real      > const& alpha = (solverChoice.bulk_fluxes) ? vec_alpha[lev]->array(mfi) : Array4<Real>();
+        Array4<Real      > const& beta  = (solverChoice.bulk_fluxes) ? vec_beta[lev]->array(mfi)  : Array4<Real>();
+        Array4<Real      > const& bustr = mf_bustr->array(mfi);
+        Array4<Real      > const& bvstr = mf_bvstr->array(mfi);
+
+        Array4<Real const> const& pm = mf_pm->const_array(mfi);
+        Array4<Real const> const& pn = mf_pn->const_array(mfi);
+
+        Array4<Real const> const& mskr = mf_mskr->const_array(mfi);
+
+        Box  bx = mfi.tilebox();
+        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+
+        Box bxD = bx;
+        bxD.makeSlab(2,0);
+        Box gbx1D = gbx1;
+        gbx1D.makeSlab(2,0);
+        Box gbx2D = gbx2;
+        gbx2D.makeSlab(2,0);
+
+        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
+        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
+        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
+
+        //
+        //-----------------------------------------------------------------------
+        //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m (set_massflux_3d)
+        //-----------------------------------------------------------------------
+        //
+        ParallelFor(Box(Huon), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real on_u = 2.0_rt / (pn(i-1,j,0)+pn(i,j,0));
+            Huon(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k)* on_u;
+        });
+
+        ParallelFor(Box(Hvom), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real om_v= 2.0_rt / (pm(i,j-1,0)+pm(i,j,0));
+            Hvom(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k)* om_v;
+        });
+
+        Array4<Real const> const& state_old = S_old.const_array(mfi);
+        rho_eos(gbx2,state_old,rho,rhoA,rhoS,bvf,alpha,beta,Hz,z_w,z_r,h,mskr,N);
+    }
+
     const Real Cdb_min = solverChoice.Cdb_min;
     const Real Cdb_max = solverChoice.Cdb_max;
+
+    if (solverChoice.bulk_fluxes) {
+        bulk_fluxes(lev, cons_old[lev],vec_uwind[lev].get(),vec_vwind[lev].get(),
+                    vec_sustr[lev].get(),vec_svstr[lev].get(),vec_stflux[lev].get(),
+                    vec_lrflx[lev].get(),vec_lhflx[lev].get(),vec_shflx[lev].get(),N);
+    }
+
+    if (solverChoice.do_temp_flux) {
+        for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
+            Array4<Real      > const& btflx =  vec_btflx[lev]->array(mfi);
+            Array4<Real const> const& stflux = vec_stflux[lev]->array(mfi);
+            Array4<Real const> const& btflux = vec_btflux[lev]->array(mfi);
+            Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+            Box gbx2D = gbx2;
+            gbx2D.makeSlab(2,0);
+            ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+                stflx(i,j,0,Temp_comp) = stflux(i,j,0,Temp_comp);
+                btflx(i,j,0,Temp_comp) = btflux(i,j,0,Temp_comp);
+            });
+        }
+    }
+    if (solverChoice.do_salt_flux) {
+        for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
+            Array4<Real      > const& btflx =  vec_btflx[lev]->array(mfi);
+            Array4<Real const> const& stflux = vec_stflx[lev]->const_array(mfi);
+            Array4<Real const> const& salt_old = S_old.const_array(mfi,Salt_comp);
+            Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+            Box gbx2D = gbx2;
+            gbx2D.makeSlab(2,0);
+            ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+                stflx(i,j,0,Salt_comp) = stflux(i,j,0,Salt_comp) * salt_old(i,j,N);
+                // The fact that this is btflx on the RHS matches what's in ROMS even though
+                // it's weird -- if it's non-zero, does that mean that it will run away since
+                // it's always getting multiplied by salt?
+                btflx(i,j,0,Salt_comp) = btflx(i,j,0,Salt_comp) * salt_old(i,j,0);
+            });
+        }
+    }
 
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -187,67 +296,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
     FillPatch(lev, time, *vec_bustr[lev].get(), GetVecOfPtrs(vec_bustr), BCVars::u2d_simple_bc, BdyVars::null,0,true,false);
     FillPatch(lev, time, *vec_bvstr[lev].get(), GetVecOfPtrs(vec_bvstr), BCVars::v2d_simple_bc, BdyVars::null,0,true,false);
-
-    for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
-    {
-        Array4<Real const> const& h     = vec_hOfTheConfusingName[lev]->const_array(mfi);
-        Array4<Real const> const& Hz    = vec_Hz[lev]->const_array(mfi);
-        Array4<Real      > const& Huon  = vec_Huon[lev]->array(mfi);
-        Array4<Real      > const& Hvom  = vec_Hvom[lev]->array(mfi);
-
-        Array4<Real const> const& z_w   = mf_z_w->const_array(mfi);
-        Array4<Real const> const& z_r   = mf_z_r->const_array(mfi);
-        Array4<Real const> const& uold  = U_old.const_array(mfi);
-        Array4<Real const> const& vold  = V_old.const_array(mfi);
-        Array4<Real      > const& rho   = mf_rho.array(mfi);
-        Array4<Real      > const& rhoA  = mf_rhoA->array(mfi);
-        Array4<Real      > const& rhoS  = mf_rhoS->array(mfi);
-        Array4<Real      > const& bvf   = mf_bvf->array(mfi);
-        Array4<Real      > const& bustr = mf_bustr->array(mfi);
-        Array4<Real      > const& bvstr = mf_bvstr->array(mfi);
-
-        Array4<Real const> const& pm = mf_pm->const_array(mfi);
-        Array4<Real const> const& pn = mf_pn->const_array(mfi);
-
-        Array4<Real const> const& mskr = mf_mskr->const_array(mfi);
-
-        Box  bx = mfi.tilebox();
-        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
-        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-
-        Box bxD = bx;
-        bxD.makeSlab(2,0);
-        Box gbx1D = gbx1;
-        gbx1D.makeSlab(2,0);
-        Box gbx2D = gbx2;
-        gbx2D.makeSlab(2,0);
-
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
-
-        //
-        //-----------------------------------------------------------------------
-        //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m (set_massflux_3d)
-        //-----------------------------------------------------------------------
-        //
-        ParallelFor(Box(Huon), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real on_u = 2.0_rt / (pn(i-1,j,0)+pn(i,j,0));
-            Huon(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k)* on_u;
-        });
-
-        ParallelFor(Box(Hvom), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            Real om_v= 2.0_rt / (pm(i,j-1,0)+pm(i,j,0));
-            Hvom(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k)* om_v;
-        });
-
-        Array4<Real const> const& state_old = S_old.const_array(mfi);
-        rho_eos(gbx2,state_old,rho,rhoA,rhoS,bvf,Hz,z_w,z_r,h,mskr,N);
-    }
 
     if (solverChoice.vert_mixing_type == VertMixingType::analytical) {
         // Update Akv if using analytical mixing

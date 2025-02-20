@@ -3,6 +3,7 @@ CEXE_sources += REMORA_advance_2d.cpp
 CEXE_sources += REMORA_advance_2d_onestep.cpp
 CEXE_sources += REMORA_advance_3d.cpp
 CEXE_sources += REMORA_advance_3d_ml.cpp
+CEXE_sources += REMORA_bulk_flux.cpp
 CEXE_sources += REMORA_setup_step.cpp
 CEXE_sources += REMORA_rho_eos.cpp
 CEXE_sources += REMORA_prsgrd.cpp

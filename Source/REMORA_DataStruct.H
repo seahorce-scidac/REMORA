@@ -59,6 +59,14 @@ enum class BottomStressType {
     linear, quadratic, logarithmic
 };
 
+enum class GridScaleType {
+    Constant, Custom
+};
+
+enum class SurfaceMomentumType {
+    flux, wind
+};
+
 struct SolverChoice {
   public:
     void init_params()
@@ -137,6 +145,21 @@ struct SolverChoice {
         pp.query("T0",T0);
         pp.query("rho0", rho0);
 
+        pp.query("bulk_fluxes",bulk_fluxes);
+        if (bulk_fluxes) {
+            do_salt_flux = true;
+            do_temp_flux = true;
+        }
+        pp.query("Pair",Pair);
+        pp.query("Tair",Tair);
+        pp.query("Hair",Hair);
+        pp.query("srflux",srflux);
+        pp.query("cloud",cloud);
+        pp.query("rain",rain);
+        pp.query("blk_ZQ",blk_ZQ);
+        pp.query("blk_ZT",blk_ZT);
+        pp.query("blk_ZW",blk_ZW);
+
         //Read in linear eos parameters
         //Grid stretching
         pp.query("theta_s",theta_s);
@@ -147,10 +170,20 @@ struct SolverChoice {
         pp.query("coriolis_f0",coriolis_f0);
         pp.query("coriolis_beta",coriolis_beta);
 
-        pp.query("ggrav",g);
-
         pp.query("Akv_bak",Akv_bak);
         pp.query("Akt_bak",Akt_bak);
+
+
+        static std::string grid_scale_type_string = "constant";
+        pp.query("grid_scale_type",grid_scale_type_string);
+
+        if (amrex::toLower(grid_scale_type_string) == "constant") {
+            grid_scale_type = GridScaleType::Constant;
+        } else if (amrex::toLower(grid_scale_type_string) == "custom") {
+            grid_scale_type = GridScaleType::Custom;
+        } else {
+            amrex::Error("Don't know this grid_scale_type");
+        }
 
         static std::string ic_bc_type_string = "custom";
         pp.query("ic_bc_type", ic_bc_type_string);
@@ -204,6 +237,14 @@ struct SolverChoice {
             bottom_stress_type = BottomStressType::logarithmic;
         } else {
             amrex::Abort("Don't know this bottom_stress_type");
+        }
+
+        std::string surface_momentum_type_string = "flux";
+        pp.query("surface_momentum_type",surface_momentum_type_string);
+        if (amrex::toLower(surface_momentum_type_string) == "flux") {
+            surface_momentum_type = SurfaceMomentumType::flux;
+        } else if (amrex::toLower(surface_momentum_type_string) == "wind") {
+            surface_momentum_type = SurfaceMomentumType::wind;
         }
 
         amrex::Real tnu2_salt = amrex::Real(0.0);
@@ -393,6 +434,10 @@ struct SolverChoice {
     bool        use_baroclinic        = true;
     bool        use_barotropic        = true;
 
+    bool        bulk_fluxes           = false;
+    bool        do_temp_flux        = false;
+    bool        do_salt_flux        = false;
+
     bool init_l1ad_h = false;
     bool init_l1ad_T = false;
 
@@ -419,11 +464,16 @@ struct SolverChoice {
 
     // Bottom stress type
     BottomStressType bottom_stress_type;
+    // Surface momentum type
+    SurfaceMomentumType surface_momentum_type;
 
     // Mixing type and parameters
     VertMixingType vert_mixing_type;
     HorizMixingType horiz_mixing_type;
     GLS_StabilityType gls_stability_type;
+
+    // Type for grid scale (pm and pn)
+    GridScaleType grid_scale_type;
 
     // Stretching and depth parameters which may need to be read from inputs
     amrex::Real theta_s = amrex::Real(3.0);
@@ -454,10 +504,23 @@ struct SolverChoice {
     amrex::Real coriolis_f0 = amrex::Real(0.0); // f-plane constant (1/s)
     amrex::Real coriolis_beta = amrex::Real(0.0); // beta-plane constant (1/s/m)
 
-    // Gravity
-    amrex::Real g = amrex::Real(9.81); // gravitational field strength [kg m/s^2]
+    // Air pressure
+    amrex::Real Pair = amrex::Real(1013.48);
+    // Air temperature
+    amrex::Real Tair = amrex::Real(23.567);
+    // Relative humidity (air)
+    amrex::Real Hair = amrex::Real(0.776);
+    // Cloud cover fraction (0=clear sky, 1=overcast)
+    amrex::Real cloud = amrex::Real(0.0);
+    // Precipitation rate (kg/m2/s)
+    amrex::Real rain = amrex::Real(0.0);
+    // Height (m) of atmospheric measurements for Bulk fluxes parametrization
+    amrex::Real blk_ZQ = amrex::Real(10.0); // air humidity
+    amrex::Real blk_ZT = amrex::Real(10.0); // air temperature
+    amrex::Real blk_ZW = amrex::Real(10.0); // winds
 
-    amrex::Real vonKar = amrex::Real(0.41); // von Karman constant [non dimensional]
+    // Surface radiation flux
+    amrex::Real srflux = amrex::Real(0.0);
 
     // Spatial discretization
     int         spatial_order = 2;

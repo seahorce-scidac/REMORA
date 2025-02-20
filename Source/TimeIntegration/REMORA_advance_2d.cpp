@@ -476,7 +476,7 @@ REMORA::advance_2d (int lev,
 !
 */
 
-        Real cff1 = 0.5_rt * solverChoice.g; // Should be the variable gravitational field strength
+        Real cff1 = 0.5_rt * g;
         Real cff2 = 1.0_rt / 3.0_rt;
         ParallelFor(xbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )

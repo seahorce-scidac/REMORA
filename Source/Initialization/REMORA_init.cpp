@@ -41,7 +41,7 @@ REMORA::init_custom(int lev)
     } //mfi
 
     // Initialize the "pm" and "pn" arrays
-    set_pm_pn(lev);
+    set_grid_scale(lev);
 
 }
 

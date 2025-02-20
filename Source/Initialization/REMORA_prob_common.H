@@ -1,6 +1,7 @@
 #ifndef _REMORA_PROBCOMMON_H_
 #define _REMORA_PROBCOMMON_H_
 
+#include <REMORA.H>
 #include <REMORA_DataStruct.H>
 
 #include <AMReX_Geometry.H>
@@ -27,8 +28,12 @@ init_custom_prob (
 
 void init_custom_bathymetry (int lev, const amrex::Geometry& geom,
                              amrex::MultiFab& mf_h,
+                             REMORA const& remora,
                              SolverChoice const& m_solverChoice,
                              int rrx=1, int rry=1);
+
+void init_custom_grid_scale (int lev, const amrex::Geometry& geom,
+                        amrex::MultiFab& mf_pm, amrex::MultiFab& mf_pn);
 
 
 void init_custom_zeta  (const amrex::Geometry& geom,
@@ -55,6 +60,12 @@ void init_custom_smflux (const amrex::Geometry& geom,
                          amrex::Real time,
                          amrex::MultiFab& mf_sustr,
                          amrex::MultiFab& mf_svstr,
+                         SolverChoice const& m_solverChoice);
+
+void init_custom_wind (const amrex::Geometry& geom,
+                         amrex::Real time,
+                         amrex::MultiFab& mf_uwind,
+                         amrex::MultiFab& mf_vwind,
                          SolverChoice const& m_solverChoice);
 
 #endif

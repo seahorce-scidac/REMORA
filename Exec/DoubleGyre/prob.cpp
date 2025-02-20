@@ -20,12 +20,16 @@ amrex_probinit(
  */
 void
 init_custom_bathymetry (int /*lev*/, const Geometry& /*geom*/,
-                        MultiFab& mf_h,
+                        MultiFab& mf_h, REMORA const& /*remora*/,
                         const SolverChoice& /*m_solverChoice*/,
                         int /*rrx*/, int /*rry*/)
 {
     mf_h.setVal(500.0_rt);
 }
+
+void
+init_custom_grid_scale (int /*lev*/, const Geometry& /*geom*/,
+                   MultiFab& /*mf_pm*/, MultiFab& /*mf_pn*/) {}
 
 /**
  * \brief Initializes coriolis factor
@@ -69,7 +73,7 @@ init_custom_prob(
 
     auto T0 = m_solverChoice.T0;
     Real val1 = (44.69_rt / 39.382_rt) * (44.69_rt / 39.382_rt);
-    Real val2 = val1 * (m_solverChoice.rho0 * 100.0_rt/m_solverChoice.g) * (5.0e-5_rt/((42.689_rt/44.69_rt) * (42.689_rt/44.69_rt)));
+    Real val2 = val1 * (m_solverChoice.rho0 * 100.0_rt/g) * (5.0e-5_rt/((42.689_rt/44.69_rt) * (42.689_rt/44.69_rt)));
     ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
         const auto prob_lo         = geomdata.ProbLo();
@@ -163,6 +167,11 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
       });
     }
 }
+
+void
+init_custom_wind(const Geometry& geom, const Real time, MultiFab& mf_Uwind, MultiFab& mf_Vwind,
+                 const SolverChoice& m_solverChoice)
+{}
 
 void
 init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, MultiFab& mf_svstr,

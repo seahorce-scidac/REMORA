@@ -19,8 +19,8 @@ amrex_probinit(
  * \brief Initializes bathymetry h and surface height Zeta
  */
 void
-init_custom_bathymetry (int /*lev*/, const Geometry& geom,
-                        MultiFab& mf_h, REMORA const& /*remora*/,
+init_custom_bathymetry (int lev, const Geometry& geom,
+                        MultiFab& mf_h, REMORA const& remora,
                         const SolverChoice& m_solverChoice,
                         int /*rrx*/, int /*rry*/)
 {
@@ -34,12 +34,14 @@ init_custom_bathymetry (int /*lev*/, const Geometry& geom,
 
     mf_h.setVal(geomdata.ProbHi(2));
 
-    const int Lm = geom.Domain().size()[0];
-    const int Mm = geom.Domain().size()[1];
+    const int Lm = geomdata.Domain().size()[0];
+    const int Mm = geomdata.Domain().size()[1];
 
     for ( MFIter mfi(mf_h, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
       Array4<Real> const& h  = (mf_h).array(mfi);
+      Array4<const Real> const& xr  = remora.vec_xr[lev]->array(mfi);
+      Array4<const Real> const& yr  = remora.vec_yr[lev]->array(mfi);
 
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
@@ -50,38 +52,42 @@ init_custom_bathymetry (int /*lev*/, const Geometry& geom,
 
       Gpu::streamSynchronize();
 
-      if (NSPeriodic) {
+      ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+      {
+          Real val1 = (xr(i,j,0) + 500.0_rt) / 15000.0_rt;
+          h(i,j,0) = 14.0_rt + 25.0_rt * (1.0_rt - std::exp(-PI * xr(i,j,0) * 1.0e-5_rt)) - 8.0_rt * std::exp(-val1 * val1);
+      });
 
-          ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
-          {
-              int iFort = i+1; // (+1 is to match the Fortran indexing in ROMS)
-
-              Real val1 = (iFort <= Lm/2.0) ? iFort : Lm+1-iFort;
-              val1 -= 0.5;
-              Real adj = geomdata.CellSize()[1]/1000.0_rt;
-
-              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1*adj-10.0_rt)/7.0_rt)));
-          });
-
-      } else if (EWPeriodic) {
-
-          ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
-          {
-              int jFort = j+1; // (+1 is to match the Fortran indexing in ROMS)
-
-              Real val1 = (jFort<=Mm/2.0) ? jFort : Mm+1-jFort;
-              val1 -= 0.5;
-              Real adj = geomdata.CellSize()[0]/1000.0_rt;
-
-              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1*adj-10.0_rt)/7.0_rt)));
-          });
-      }
     } // mfi
 }
 
 void
-init_custom_grid_scale (int /*lev*/, const Geometry& /*geom*/,
-                   MultiFab& /*mf_pm*/, MultiFab& /*mf_pn*/) {}
+init_custom_grid_scale (int /*lev*/, const Geometry& geom,
+                   MultiFab& mf_pm, MultiFab& mf_pn)
+{
+    auto geomdata = geom.data();
+    const int Lm = geomdata.Domain().size()[0];
+    const auto dxi = geom.InvCellSize();
+    for ( MFIter mfi(mf_pm, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& pm = (mf_pm).array(mfi);
+
+        Box bx = mfi.tilebox();
+        Box gbx2 = bx;
+        gbx2.grow(IntVect(NGROW+1,NGROW+1,0));
+
+        Box gbx2D = gbx2;
+        gbx2D.makeSlab(2,0);
+
+        Gpu::streamSynchronize();
+        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            Real dx = 0.5_rt * (4000.0_rt / (Lm + 1)) * (i+1) + 675.0_rt;
+            pm(i,j,0) = 1.0_rt / dx;
+        });
+    }
+    mf_pn.setVal(dxi[1]);
+}
 
 /**
  * \brief Initializes coriolis factor
@@ -128,18 +134,13 @@ init_custom_prob(
 
     auto T0 = m_solverChoice.T0;
     auto S0 = m_solverChoice.S0;
-    ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    ParallelFor(grow(bx,IntVect(1,1,0)), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
         const Real z = z_r(i,j,k);
+        Real val1 = std::tanh(1.1_rt * z + 11.0_rt);
+        state(i,j,k,Temp_comp)=T0+6.25_rt*val1;
+        state(i,j,k,Salt_comp)=S0-0.75_rt*val1;
 
-        state(i, j, k, Temp_comp) = 1.;
-
-        state(i,j,k,Temp_comp)=T0+8.0_rt*std::exp(z/50.0_rt);
-        if (l_use_salt) {
-            state(i,j,k,Salt_comp)=S0;
-        }
-
-        // Set scalar = 0 everywhere
         state(i, j, k, Scalar_comp) = 0.0_rt;
     });
 
@@ -218,47 +219,20 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
 void
 init_custom_wind(const Geometry& geom, const Real time, MultiFab& mf_Uwind, MultiFab& mf_Vwind,
                  const SolverChoice& m_solverChoice)
-{}
+{
+    Real tdays=time/Real(24.0*60.0*60.0);
+    Real dstart=0.0_rt;
+
+    mf_Uwind.setVal(0.0_rt);
+    if (tdays - dstart <= 6.0_rt) {
+        mf_Vwind.setVal(10.0_rt);
+    } else {
+        mf_Vwind.setVal(0.0_rt);
+    }
+}
 
 void
 init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, MultiFab& mf_svstr,
                    const SolverChoice& m_solverChoice)
 {
-    auto geomdata = geom.data();
-    bool EWPeriodic = geomdata.isPeriodic(0);
-    bool NSPeriodic = geomdata.isPeriodic(1);
-
-    //If we had wind stress and bottom stress we would need to set these:
-    Real pi = 3.14159265359_rt;
-    Real tdays=time/Real(24.0*60.0*60.0);
-    Real dstart=0.0_rt;
-    Real windamp;
-    //It's possible these should be set to be nonzero only at the boundaries they affect
-
-    // Don't allow doubly periodic in this case
-    AMREX_ALWAYS_ASSERT( !NSPeriodic || !EWPeriodic);
-
-    // Flow in x-direction (EW):
-    if (NSPeriodic) {
-        mf_sustr.setVal(0.0_rt);
-    }
-    else if (EWPeriodic) {
-        if ((tdays-dstart)<=2.0)
-            windamp=-0.1_rt*Real(sin(pi*(tdays-dstart)/4.0_rt))/Real(m_solverChoice.rho0);
-        else
-            windamp=-0.1_rt/m_solverChoice.rho0;
-        mf_sustr.setVal(windamp);
-    }
-
-    // Flow in y-direction (NS):
-    if (NSPeriodic) {
-        if ((tdays-dstart)<=2.0)
-            windamp=-0.1_rt*Real(sin(pi*(tdays-dstart)/4.0_rt))/Real(m_solverChoice.rho0);
-        else
-            windamp=-0.1_rt/m_solverChoice.rho0;
-        mf_svstr.setVal(windamp);
-    }
-    else if(EWPeriodic) {
-        mf_svstr.setVal(0.0_rt);
-    }
 }

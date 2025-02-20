@@ -25,6 +25,8 @@ REMORA::rho_eos (const Box& bx,
                 const Array4<Real      >& rhoA,
                 const Array4<Real      >& rhoS,
                 const Array4<Real      >& bvf,
+                const Array4<Real      >& alpha,
+                const Array4<Real      >& beta,
                 const Array4<Real const>& Hz,
                 const Array4<Real const>& z_w,
                 const Array4<Real const>& z_r,
@@ -35,7 +37,7 @@ REMORA::rho_eos (const Box& bx,
     if (solverChoice.eos_type == EOSType::linear) {
         lin_eos(bx, state, rho, rhoA, rhoS, bvf, Hz, z_w, z_r, h, mskr, N);
     } else if (solverChoice.eos_type == EOSType::nonlinear) {
-        nonlin_eos(bx, state, rho, rhoA, rhoS, bvf, Hz, z_w, z_r, h, mskr, N);
+        nonlin_eos(bx, state, rho, rhoA, rhoS, bvf, alpha, beta, Hz, z_w, z_r, h, mskr, N);
     } else {
         Abort("Unknown EOS type in rho_eos");
     }
@@ -125,7 +127,7 @@ REMORA::lin_eos (const Box& bx,
     });
 
     // Compute Brunt-Vaisala frequency (1/s2)
-    Real gorho0 = solverChoice.g / solverChoice.rho0;
+    Real gorho0 = g / solverChoice.rho0;
     // Really want enclosed nodes or something similar
     Box box_w = bx;
     box_w.surroundingNodes(2);
@@ -160,6 +162,8 @@ REMORA::nonlin_eos (const Box& bx,
                 const Array4<Real      >& rhoA,
                 const Array4<Real      >& rhoS,
                 const Array4<Real      >& bvf,
+                const Array4<Real      >& alpha,
+                const Array4<Real      >& beta,
                 const Array4<Real const>& Hz,
                 const Array4<Real const>& z_w,
                 const Array4<Real const>& z_r,
@@ -176,6 +180,12 @@ REMORA::nonlin_eos (const Box& bx,
     FArrayBox fab_bulk0(bx,1,amrex::The_Async_Arena()); auto bulk0 = fab_bulk0.array();
     FArrayBox fab_bulk1(bx,1,amrex::The_Async_Arena()); auto bulk1 = fab_bulk1.array();
     FArrayBox fab_bulk2(bx,1,amrex::The_Async_Arena()); auto bulk2 = fab_bulk2.array();
+    FArrayBox fab_DbulkDT(bx,1,amrex::The_Async_Arena()); auto DbulkDT = fab_DbulkDT.array();
+    FArrayBox fab_Dden1DT(bx,1,amrex::The_Async_Arena()); auto Dden1DT = fab_Dden1DT.array();
+    FArrayBox fab_DbulkDS(bx,1,amrex::The_Async_Arena()); auto DbulkDS = fab_DbulkDS.array();
+    FArrayBox fab_Dden1DS(bx,1,amrex::The_Async_Arena()); auto Dden1DS = fab_Dden1DS.array();
+
+    bool bulk_fluxes = solverChoice.bulk_fluxes;
 //
 //=======================================================================
 //  Non-linear equation of state.
@@ -195,21 +205,20 @@ REMORA::nonlin_eos (const Box& bx,
         Real C1 = U00+Tt*(U01+Tt*(U02+Tt*(U03+Tt*U04)));
         Real C2 = V00+Tt*(V01+Tt*V02);
 
-//        if (eos_tderivative) {
-//            Real dCdT0=Q01+Tt*(2.0_rt*Q02+Tt*(3.0_rt*Q03+Tt*(4.0_rt*Q04+
-//                         Tt*5.0_rt*Q05)));
-//            Real dCdT1=U01+Tt*(2.0_rt*U02+Tt*(3.0_rt*U03+Tt*4.0_rt*U04));
-//            Real dCdT2=V01+Tt*2.0_rt*V02;
-//        }
+        if (bulk_fluxes) {
+            Real dCdT0=Q01+Tt*(2.0_rt*Q02+Tt*(3.0_rt*Q03+Tt*(4.0_rt*Q04+
+                         Tt*5.0_rt*Q05)));
+            Real dCdT1=U01+Tt*(2.0_rt*U02+Tt*(3.0_rt*U03+Tt*4.0_rt*U04));
+            Real dCdT2=V01+Tt*2.0_rt*V02;
+            //  Compute d(den1)/d(S) and d(den1)/d(T) derivatives used in the
+            //  computation of thermal expansion and saline contraction
+            //  coefficients.
+
+            Dden1DS(i,j,k)=C1+1.5_rt*C2*sqrtTs+2.0_rt*W00*Ts;
+            Dden1DT(i,j,k)=dCdT0+Ts*(dCdT1+sqrtTs*dCdT2);
+        }
+
         den1(i,j,k) = C0 + Ts*(C1+sqrtTs*C2+Ts*W00);
-//        if (eos_tderivative) {
-//            //  Compute d(den1)/d(S) and d(den1)/d(T) derivatives used in the
-//            //  computation of thermal expansion and saline contraction
-//            //  coefficients.
-//
-//            Dden1DS(i,j,k)=C1+1.5_rt*C2*sqrtTs+2.0_rt*W00*Ts;
-//            Dden1DT(i,j,k)=dCdT0+Ts*(dCdT1+sqrtTs*dCdT2);
-//        }
 
         //-----------------------------------------------------------------------
         //  Compute secant bulk modulus.
@@ -222,15 +231,6 @@ REMORA::nonlin_eos (const Box& bx,
         Real C8=G01+Tt*(G02+Tt*G03);
         Real C9=H00+Tt*(H01+Tt*H02);
 
-//        if (eos_tderivative) {
-//            Real dCdT3=A01+Tt*(2.0_rt*A02+Tt*(3.0_rt*A03+Tt*4.0_rt*A04));
-//            Real dCdT4=B01+Tt*(2.0_rt*B02+Tt*3.0_rt*B03);
-//            Real dCdT5=D01+Tt*2.0_rt*D02;
-//            Real dCdT6=E01+Tt*(2.0_rt*E02+Tt*3.0_rt*E03);
-//            Real dCdT7=F01+Tt*2.0_rt*F02;
-//            Real dCdT8=G02+Tt*2.0_rt*G03;
-//            Real dCdT9=H01+Tt*2.0_rt*H02;
-//        }
         bulk0(i,j,k)=C3+Ts*(C4+sqrtTs*C5);
         bulk1(i,j,k)=C6+Ts*(C7+sqrtTs*G00);
         bulk2(i,j,k)=C8+Ts*C9;
@@ -240,6 +240,22 @@ REMORA::nonlin_eos (const Box& bx,
         den(i,j,k) = (den1(i,j,k)*bulk(i,j,k)*cff - 1000.0_rt) * mskr(i,j,0);
         // This line may need to move once bluk fluxes are added
         rho(i,j,k) = den(i,j,k);
+
+        if (bulk_fluxes) {
+            Real dCdT3=A01+Tt*(2.0_rt*A02+Tt*(3.0_rt*A03+Tt*4.0_rt*A04));
+            Real dCdT4=B01+Tt*(2.0_rt*B02+Tt*3.0_rt*B03);
+            Real dCdT5=D01+Tt*2.0_rt*D02;
+            Real dCdT6=E01+Tt*(2.0_rt*E02+Tt*3.0_rt*E03);
+            Real dCdT7=F01+Tt*2.0_rt*F02;
+            Real dCdT8=G02+Tt*2.0_rt*G03;
+            Real dCdT9=H01+Tt*2.0_rt*H02;
+
+            DbulkDS(i,j,k)=C4+sqrtTs*1.5_rt*C5-
+                        Tp*(C7+sqrtTs*1.5_rt*G00-Tp*C9);
+            DbulkDT(i,j,k)=dCdT3+Ts*(dCdT4+sqrtTs*dCdT5)-
+                        Tp*(dCdT6+Ts*dCdT7-
+                            Tp*(dCdT8+Ts*dCdT9));
+        }
     });
 
 //
@@ -267,7 +283,6 @@ REMORA::nonlin_eos (const Box& bx,
     });
 
     // Compute Brunt-Vaisala frequency (1/s2)
-    Real g = solverChoice.g;
     Box bxD = bx; bxD.makeSlab(2,0);
 
     ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -284,4 +299,22 @@ REMORA::nonlin_eos (const Box& bx,
             bvf(i,j,k+1) = -g * (den_up - den_dn) / (0.5_rt * (den_up+den_dn) * (z_r(i,j,k+1) - z_r(i,j,k)));
         }
     });
+
+    if (solverChoice.bulk_fluxes) {
+        ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            Real Tp = z_r(i,j,N);
+            Real Tpr10 = 0.1_rt*Tp;
+
+            // Compute thermal expansion and saline contraction coefficients
+            Real cff = bulk(i,j,N) + Tpr10;
+            Real cff1 = Tpr10 * den1(i,j,N);
+            Real cff2 = bulk(i,j,N) * cff;
+            Real wrk = (den(i,j,N) + 1000.0_rt) * cff * cff;
+            Real Tcof = -(DbulkDT(i,j,N) * cff1 + Dden1DT(i,j,N) * cff2);
+            Real Scof = (DbulkDS(i,j,N) * cff1 + Dden1DS(i,j,N) * cff2);
+            alpha(i,j,0) = Tcof / wrk;
+            beta(i,j,0)  = Scof / wrk;
+        });
+    }
 }

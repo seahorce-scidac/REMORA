@@ -1,0 +1,104 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+max_step = 2
+
+amrex.fpe_trap_invalid = 1
+
+fabarray.mfiter_tile_size = 1024 1024 1024
+
+# PROBLEM SIZE & GEOMETRY
+geometry.prob_lo     =      0.     0.    -47.5
+geometry.prob_hi     =  100000. 5000.       0.
+
+amr.n_cell           =  39     4      30
+
+remora.is_periodic = 0 1 0
+
+remora.boundary_per_variable = 1
+##                      WEST              SOUTH             EAST              NORTH
+remora.bc.temp.type   =  slipwall         periodic          orlanski_rad      periodic
+remora.bc.salt.type   =  slipwall         periodic          orlanski_rad      periodic
+remora.bc.scalar.type =  slipwall         periodic          orlanski_rad      periodic
+remora.bc.u.type      =  slipwall         periodic          orlanski_rad      periodic
+remora.bc.v.type      =  slipwall         periodic          orlanski_rad      periodic
+remora.bc.ubar.type   =  slipwall         periodic          outflow           periodic
+remora.bc.vbar.type   =  slipwall         periodic          outflow           periodic
+remora.bc.zeta.type   =  slipwall         periodic          outflow           periodic
+remora.bc.tke.type    =  slipwall         periodic          outflow           periodic
+
+
+# TIME STEP CONTROL
+remora.fixed_dt       = 5.0 # Timestep size (seconds)
+remora.fixed_ndtfast_ratio = 1
+#remora.fixed_dt       = 150.0 # Timestep size (seconds)
+#remora.fixed_ndtfast_ratio = 30
+#remora.fixed_fast_dt  = 30.0 # Baratropic timestep size (seconds)
+
+#remora.fixed_ndtfast_ratio  = 30 # Ratio of baroclinic to barotropic time step
+
+# DIAGNOSTICS & VERBOSITY
+remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
+remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
+amr.v                = 1       # verbosity in Amr.cpp
+
+# REFINEMENT / REGRIDDING
+amr.max_level       = 0       # maximum level number allowed
+
+remora.bottom_stress_type = "quadratic"
+
+# CHECKPOINT FILES
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
+
+# PLOTFILES
+remora.plot_file     = plt        # prefix of plotfile name
+remora.plot_int      = 1        # number of timesteps between plotfiles
+remora.plot_vars     = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = netcdf
+remora.write_history_file=true
+
+# SOLVER CHOICE
+remora.flat_bathymetry = false
+remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+remora.spatial_order = 2
+
+remora.horizontal_mixing_type = "constant"
+remora.tnu2 = 0.0
+remora.visc2 = 5.0
+
+remora.grid_scale_type = "custom"
+
+remora.eos_type = "nonlinear"
+
+remora.air_temp_type = "constant"
+remora.air_temp = 23.567
+remora.air_humidity_type = "constant"
+remora.air_humidity = 0.776
+remora.air_pressure_type = "constant"
+remora.air_pressure = 1013.48
+
+remora.surface_momentum_type = wind
+
+remora.bulk_fluxes = true
+
+# Linear EOS parameters
+remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+remora.S0    = 31.0    # background salinity (nondimensional) constant
+remora.T0    = 17.25    # background potential temperature (Celsius) constant
+remora.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celsius)
+remora.Scoef = 1.7e-4     # linear equation of state parameter (nondimensional)
+remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
+
+remora.theta_s = 5.0
+remora.theta_b = 1.5
+remora.tcline = 20.0
+
+remora.vertical_mixing_type="gls"
+remora.Akt_bak = 1.0e-6
+remora.Akv_bak = 1.0e-5
+
+# Coriolis params
+remora.use_coriolis = true
+remora.coriolis_type = beta_plane
+remora.coriolis_f0 = 9.25e-4
+remora.coriolis_beta = 0.0
+

@@ -24,12 +24,16 @@ amrex_probinit(
  */
 void
 init_custom_bathymetry (int /*lev*/, const Geometry& /*geom*/,
-                        MultiFab& /*mf_h*/,
+                        MultiFab& /*mf_h*/, REMORA const& /*remora*/,
                         const SolverChoice& /*m_solverChoice*/,
                         int /*rrx*/, int /*rry*/)
 {
     Abort("Shouldn't be in init_custom_bathymetry!");
 }
+
+void
+init_custom_grid_scale (int /*lev*/, const Geometry& /*geom*/,
+                   MultiFab& /*mf_pm*/, MultiFab& /*mf_pn*/) {}
 
 /**
  * \brief Initializes coriolis forcing
@@ -117,6 +121,11 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
       });
     } // mfi
 }
+
+void
+init_custom_wind(const Geometry& geom, const Real time, MultiFab& mf_Uwind, MultiFab& mf_Vwind,
+                 const SolverChoice& m_solverChoice)
+{}
 
 void
 init_custom_smflux(const Geometry& /*geom*/, const Real /*time*/,

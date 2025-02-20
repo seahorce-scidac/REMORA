@@ -467,7 +467,7 @@ REMORA::set_bathymetry (int lev)
     if (solverChoice.init_l0int_h) {
         if (lev==0) {
             if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
-                init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], solverChoice);
+                init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], *this, solverChoice);
 
 #ifdef REMORA_USE_NETCDF
             } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
@@ -488,7 +488,7 @@ REMORA::set_bathymetry (int lev)
         }
     } else if (solverChoice.init_ana_h) {
         if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
-            init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], solverChoice);
+            init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], *this, solverChoice);
 
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
@@ -505,7 +505,7 @@ REMORA::set_bathymetry (int lev)
         vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
     } else if (solverChoice.init_l1ad_h) {
         if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
-            init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], solverChoice, refRatio(0)[0],refRatio(0)[1]);
+            init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], *this, solverChoice, refRatio(0)[0],refRatio(0)[1]);
 
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
@@ -605,6 +605,13 @@ REMORA::set_smflux(int lev, Real time)
 }
 
 void
+REMORA::set_wind(int lev, Real time)
+{
+    init_custom_wind(geom[lev], time, *vec_uwind[lev], *vec_vwind[lev], solverChoice);
+
+}
+
+void
 REMORA::init_only (int lev, Real time)
 {
     t_new[lev] = time;
@@ -638,7 +645,7 @@ REMORA::init_only (int lev, Real time)
 #endif
 
     if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
-        set_pm_pn(lev);
+        set_grid_scale(lev);
     }
     set_bathymetry(lev);
     set_zeta(lev);

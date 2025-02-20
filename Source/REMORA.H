@@ -135,7 +135,7 @@ public:
                       const amrex::DistributionMapping& dm) override;
 
     /** Set pm and pn arrays on level lev. Only works if using Custom initialization */
-    void set_pm_pn (int lev);
+    void set_grid_scale (int lev);
 
     /** Set zeta components to be equal to time-averaged Zt_avg1 */
     void set_zeta_to_Ztavg (int lev);
@@ -257,9 +257,29 @@ public:
 
     /** Surface stress in the u direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sustr;
-
     /** Surface stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr;
+
+    /** Wind in the u direction */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_uwind;
+    /** Wind in the v direction */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_vwind;
+
+    /** longwave radiation */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lrflx;
+    /** latent heat flux */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lhflx;
+    /** sensible heat flux */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_shflx;
+
+    /** Surface tracer flux; working arrays */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_stflx;
+    /** Surface tracer flux; input arrays */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_stflux;
+    /** Bottom tracer flux; working arrays */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_btflx;
+    /** Bottom tracer flux; input arrays */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_btflux;
 
     /** Linear drag coefficient [m/s], defined at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;
@@ -346,6 +366,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoS;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoA;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvf;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_alpha;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_beta;
 
     amrex::Vector<amrex::Real> vec_weight1;
     amrex::Vector<amrex::Real> vec_weight2;
@@ -428,6 +450,21 @@ public:
                      amrex::MultiFab const* mf_mskv,
                      const int N,
                      const amrex::Real dt_lev);
+
+    void bulk_fluxes (int lev,
+                      amrex::MultiFab* mf_cons,
+                      amrex::MultiFab* mf_uwind,
+                      amrex::MultiFab* mf_vwind,
+                      amrex::MultiFab* mf_sustr,
+                      amrex::MultiFab* mf_svstr,
+                      amrex::MultiFab* mf_stflux,
+                      amrex::MultiFab* mf_lrflx,
+                      amrex::MultiFab* mf_lhflx,
+                      amrex::MultiFab* mf_shflx,
+                      const int N);
+
+    static amrex::Real bulk_psiu (amrex::Real ZoL);
+    static amrex::Real bulk_psit (amrex::Real ZoL);
 
     /** Wrapper function for prestep */
     void prestep (int lev,
@@ -527,6 +564,8 @@ public:
                   const amrex::Array4<amrex::Real      >& rhoA,
                   const amrex::Array4<amrex::Real      >& rhoS,
                   const amrex::Array4<amrex::Real      >& bvf,
+                  const amrex::Array4<amrex::Real      >& alpha,
+                  const amrex::Array4<amrex::Real      >& beta,
                   const amrex::Array4<amrex::Real const>& Hz,
                   const amrex::Array4<amrex::Real const>& z_w,
                   const amrex::Array4<amrex::Real const>& z_r,
@@ -553,6 +592,8 @@ public:
                   const amrex::Array4<amrex::Real      >& rhoA,
                   const amrex::Array4<amrex::Real      >& rhoS,
                   const amrex::Array4<amrex::Real      >& bvf,
+                  const amrex::Array4<amrex::Real      >& alpha,
+                  const amrex::Array4<amrex::Real      >& beta,
                   const amrex::Array4<amrex::Real const>& Hz,
                   const amrex::Array4<amrex::Real const>& z_w,
                   const amrex::Array4<amrex::Real const>& z_r,
@@ -710,6 +751,8 @@ public:
     void scale_rhs_vars_inv ();
 
     void set_smflux (int lev, amrex::Real time);
+
+    void set_wind (int lev, amrex::Real time);
 
     void set_hmixcoef (int lev);
 
