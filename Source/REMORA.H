@@ -281,6 +281,11 @@ public:
     /** Bottom tracer flux; input arrays */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_btflux;
 
+    /** precipitation rate [kg/m^2/s] */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rain;
+    /** evaporation rate [kg/m^2/s] */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_evap;
+
     /** Linear drag coefficient [m/s], defined at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;
     /** Quadratic drag coefficient [unitless], defined at rho points */
@@ -455,6 +460,7 @@ public:
                       amrex::MultiFab* mf_cons,
                       amrex::MultiFab* mf_uwind,
                       amrex::MultiFab* mf_vwind,
+                      amrex::MultiFab* mf_evap,
                       amrex::MultiFab* mf_sustr,
                       amrex::MultiFab* mf_svstr,
                       amrex::MultiFab* mf_stflux,

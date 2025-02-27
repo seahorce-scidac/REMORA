@@ -112,9 +112,11 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
     }
 
+    // If we're not doing bulk fluxes, set surface momentum fluxes directly.
+    // Otherwise, calculate them from winds, so those need to be set
     if (!solverChoice.bulk_fluxes) {
         set_smflux(lev,t_old[lev]);
-    } else if (solverChoice.surface_momentum_type == SurfaceMomentumType::wind) {
+    } else {
         set_wind(lev,t_old[lev]);
     }
 
@@ -188,6 +190,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     if (solverChoice.bulk_fluxes) {
         bulk_fluxes(lev, cons_old[lev],vec_uwind[lev].get(),vec_vwind[lev].get(),
+                    vec_evap[lev].get(),
                     vec_sustr[lev].get(),vec_svstr[lev].get(),vec_stflux[lev].get(),
                     vec_lrflx[lev].get(),vec_lhflx[lev].get(),vec_shflx[lev].get(),N);
     }
@@ -213,7 +216,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         {
             Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
             Array4<Real      > const& btflx =  vec_btflx[lev]->array(mfi);
-            Array4<Real const> const& stflux = vec_stflx[lev]->const_array(mfi);
+            Array4<Real const> const& stflux = vec_stflux[lev]->const_array(mfi);
             Array4<Real const> const& salt_old = S_old.const_array(mfi,Salt_comp);
             Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
             Box gbx2D = gbx2;

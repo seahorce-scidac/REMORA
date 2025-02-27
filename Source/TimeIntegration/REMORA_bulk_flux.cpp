@@ -4,7 +4,7 @@ using namespace amrex;
 
 void
 REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* mf_vwind,
-                     MultiFab* mf_sustr, MultiFab* mf_svstr,
+                     MultiFab* mf_evap, MultiFab* mf_sustr, MultiFab* mf_svstr,
                      MultiFab* mf_stflux, MultiFab* mf_lrflx, MultiFab* mf_lhflx,
                      MultiFab* mf_shflx,
                      const int N)
@@ -25,6 +25,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<Real> const& lrflx = mf_lrflx->array(mfi);
         Array4<Real> const& lhflx = mf_lhflx->array(mfi);
         Array4<Real> const& shflx = mf_shflx->array(mfi);
+        Array4<Real> const& evap  = mf_evap->array(mfi);
         Array4<Real> const& Taux = mf_Taux.array(mfi);
         Array4<Real> const& Tauy = mf_Tauy.array(mfi);
 
@@ -33,6 +34,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<const Real> const& mskr = vec_mskr[lev]->const_array(mfi);
         Array4<const Real> const& msku  = vec_msku[lev]->const_array(mfi);
         Array4<const Real> const& mskv  = vec_mskv[lev]->const_array(mfi);
+        Array4<const Real> const& rain  = vec_rain[lev]->const_array(mfi);
 
         Real Hscale = solverChoice.rho0 * Cp;
         Real Hscale2 = 1.0_rt / (solverChoice.rho0 * Cp);
@@ -42,7 +44,6 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Real TairK = solverChoice.Tair + 273.16_rt;
         Real Hair = solverChoice.Hair;
         Real cloud = solverChoice.cloud;
-        Real rain = solverChoice.rain;
         Real blk_ZQ = solverChoice.blk_ZQ;
         Real blk_ZT = solverChoice.blk_ZT;
         Real blk_ZW = solverChoice.blk_ZW;
@@ -276,7 +277,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             cff=Qair*Hlv/(blk_Rgas*TairK*TairK);
             Real wet_bulb=1.0_rt/(1.0_rt+0.622_rt*(cff*Hlv*diffw)/
                                                   (blk_Cpa*diffh));
-            Real Hsr=rain*wet_bulb*blk_Cpw*
+            Real Hsr=rain(i,j,0)*wet_bulb*blk_Cpw*
                               ((cons(i,j,N,Temp_comp)-TairC)+(Qsea-Q)*Hlv/blk_Cpa);
             SHeat=(Hs+Hsr) * mskr(i,j,0);
 
@@ -291,7 +292,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             LHeat=(Hl+Hlw) * mskr(i,j,0);
 
             // Compute momentum flux (N/m2) due to rainfall (kg/m2/s).
-            Taur=0.85_rt*rain*wind_mag;
+            Taur=0.85_rt*rain(i,j,0)*wind_mag;
 
             // Compute wind stress components (N/m2), Tau.
             cff=rhoAir*Cd*Wspeed;
@@ -333,6 +334,8 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             lhflx(i,j,0) = -LHeat*Hscale2;
             shflx(i,j,0) = -SHeat*Hscale2;
             stflux(i,j,0,Temp_comp)=(srflux + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
+            evap(i,j,0) = (LHeat / Hlv+eps) * mskr(i,j,0);
+            stflux(i,j,0,Salt_comp) = mskr(i,j,0) * (evap(i,j,0)-rain(i,j,0)) / rhow;
         });
 
         Real cff_rho = 0.5_rt / solverChoice.rho0;

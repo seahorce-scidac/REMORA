@@ -330,6 +330,8 @@ void REMORA::resize_stuff(int lev)
     vec_lrflx.resize(lev+1);
     vec_lhflx.resize(lev+1);
     vec_shflx.resize(lev+1);
+    vec_rain.resize(lev+1);
+    vec_evap.resize(lev+1);
     vec_rdrag.resize(lev+1);
     vec_rdrag2.resize(lev+1);
     vec_ZoBot.resize(lev+1);
@@ -476,11 +478,6 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_ZoBot[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
     }
 
-    if (solverChoice.surface_momentum_type == SurfaceMomentumType::wind) {
-        vec_uwind[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d, surface stress
-        vec_vwind[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d
-    }
-
     vec_bustr[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d, bottom stress
     vec_bvstr[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
@@ -537,14 +534,18 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_btflux[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0)));
 
     if (solverChoice.bulk_fluxes) {
+        vec_uwind[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind u
+        vec_vwind[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind v
         vec_alpha[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_beta[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
-        vec_stflux[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_lrflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_lhflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_shflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_rain[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_evap[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_lhflx[lev]->setVal(0.0_rt);
         vec_shflx[lev]->setVal(0.0_rt);
+        vec_rain[lev]->setVal(solverChoice.rain);
     }
 
     set_weights(lev);
@@ -671,10 +672,22 @@ REMORA::set_zeta_to_Ztavg (int lev)
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     for ( MFIter mfi(*vec_zeta[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<const Real> const& Zt_avg1 = (mf_Zt_avg1)->const_array(mfi);
+        Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
         Array4<Real> const& zeta = mf_zeta->array(mfi);
-
         Box  bx3 = mfi.tilebox(); bx3.grow(IntVect(NGROW+1,NGROW+1,0));
+        Box  bx2 = mfi.tilebox(); bx2.grow(IntVect(NGROW,NGROW,0));
+
+        Real cff = dt[lev] / rhow;
+
+        if (solverChoice.eminusp_correct_ssh) {
+            Array4<const Real> const& evap = vec_evap[lev]->const_array(mfi);
+            Array4<const Real> const& rain = vec_rain[lev]->const_array(mfi);
+
+            ParallelFor(bx2, [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                Zt_avg1(i,j,0) = Zt_avg1(i,j,0) - (evap(i,j,0) - rain(i,j,0)) * cff;
+            });
+        }
 
         ParallelFor(bx3, 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {

@@ -63,10 +63,6 @@ enum class GridScaleType {
     Constant, Custom
 };
 
-enum class SurfaceMomentumType {
-    flux, wind
-};
-
 struct SolverChoice {
   public:
     void init_params()
@@ -150,15 +146,24 @@ struct SolverChoice {
             do_salt_flux = true;
             do_temp_flux = true;
         }
-        pp.query("Pair",Pair);
-        pp.query("Tair",Tair);
-        pp.query("Hair",Hair);
-        pp.query("srflux",srflux);
+        pp.query("air_pressure",Pair);
+        pp.query("air_temperature",Tair);
+        pp.query("air_humidity",Hair);
+        pp.query("surface_radiation_flux",srflux);
         pp.query("cloud",cloud);
         pp.query("rain",rain);
         pp.query("blk_ZQ",blk_ZQ);
         pp.query("blk_ZT",blk_ZT);
         pp.query("blk_ZW",blk_ZW);
+        pp.query("eminusp",eminusp);
+        pp.query("eminusp_correct_ssh",eminusp_correct_ssh);
+
+        if (eminusp_correct_ssh and !eminusp) {
+            amrex::Abort("If evaporation minus precipitation (E-P) sea surface heigh correct in is on, E-P must be on as well (remora.eminusp=true)");
+        }
+        if (eminusp and !bulk_fluxes) {
+            amrex::Abort("Evaporation minus precipitation (E-P) requires bulk flux parametrizations (remora.bulk_fluxes=true)");
+        }
 
         //Read in linear eos parameters
         //Grid stretching
@@ -237,14 +242,6 @@ struct SolverChoice {
             bottom_stress_type = BottomStressType::logarithmic;
         } else {
             amrex::Abort("Don't know this bottom_stress_type");
-        }
-
-        std::string surface_momentum_type_string = "flux";
-        pp.query("surface_momentum_type",surface_momentum_type_string);
-        if (amrex::toLower(surface_momentum_type_string) == "flux") {
-            surface_momentum_type = SurfaceMomentumType::flux;
-        } else if (amrex::toLower(surface_momentum_type_string) == "wind") {
-            surface_momentum_type = SurfaceMomentumType::wind;
         }
 
         amrex::Real tnu2_salt = amrex::Real(0.0);
@@ -464,8 +461,6 @@ struct SolverChoice {
 
     // Bottom stress type
     BottomStressType bottom_stress_type;
-    // Surface momentum type
-    SurfaceMomentumType surface_momentum_type;
 
     // Mixing type and parameters
     VertMixingType vert_mixing_type;
@@ -518,6 +513,9 @@ struct SolverChoice {
     amrex::Real blk_ZQ = amrex::Real(10.0); // air humidity
     amrex::Real blk_ZT = amrex::Real(10.0); // air temperature
     amrex::Real blk_ZW = amrex::Real(10.0); // winds
+
+    bool eminusp = false;
+    bool eminusp_correct_ssh = false;
 
     // Surface radiation flux
     amrex::Real srflux = amrex::Real(0.0);
