@@ -670,30 +670,37 @@ REMORA::set_zeta_to_Ztavg (int lev)
 {
     std::unique_ptr<MultiFab>& mf_zeta = vec_zeta[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
-    for ( MFIter mfi(*vec_zeta[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
-    {
-        Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
-        Array4<Real> const& zeta = mf_zeta->array(mfi);
-        Box  bx3 = mfi.tilebox(); bx3.grow(IntVect(NGROW+1,NGROW+1,0));
-        Box  bx2 = mfi.tilebox(); bx2.grow(IntVect(NGROW,NGROW,0));
-
-        Real cff = dt[lev] / rhow;
-
-        if (solverChoice.eminusp_correct_ssh) {
+    if (solverChoice.eminusp_correct_ssh) {
+        for ( MFIter mfi(*vec_zeta[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
             Array4<const Real> const& evap = vec_evap[lev]->const_array(mfi);
             Array4<const Real> const& rain = vec_rain[lev]->const_array(mfi);
+
+            Box  bx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));// bx2.grow(IntVect(NGROW,NGROW,0));
+
+            Real cff = dt[lev] / rhow;
 
             ParallelFor(bx2, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
                 Zt_avg1(i,j,0) = Zt_avg1(i,j,0) - (evap(i,j,0) - rain(i,j,0)) * cff;
             });
         }
+    }
+    Gpu::streamSynchronize();
+
+    vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
+
+    for ( MFIter mfi(*vec_zeta[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Box  bx3 = mfi.tilebox(); bx3.grow(IntVect(NGROW+1,NGROW+1,0));
+        Array4<Real> const& zeta = mf_zeta->array(mfi);
+        Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
 
         ParallelFor(bx3, 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {
             zeta(i,j,0,n) = Zt_avg1(i,j,0);
         });
-
     }
 }
 

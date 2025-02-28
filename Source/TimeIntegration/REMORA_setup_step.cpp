@@ -193,6 +193,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
                     vec_evap[lev].get(),
                     vec_sustr[lev].get(),vec_svstr[lev].get(),vec_stflux[lev].get(),
                     vec_lrflx[lev].get(),vec_lhflx[lev].get(),vec_shflx[lev].get(),N);
+        vec_evap[lev]->FillBoundary(geom[lev].periodicity());
     }
 
     if (solverChoice.do_temp_flux) {
