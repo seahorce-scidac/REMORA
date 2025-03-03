@@ -22,6 +22,7 @@ option(REMORA_ENABLE_OPENMP "Enable OpenMP" OFF)
 option(REMORA_ENABLE_CUDA   "Enable CUDA"   OFF)
 option(REMORA_ENABLE_HIP    "Enable HIP"    OFF)
 option(REMORA_ENABLE_SYCL   "Enable SYCL"   OFF)
+option(REMORA_ENABLE_MOAB   "Enable MOAB"   OFF)
 
 #Options for C++
 set(CMAKE_CXX_STANDARD 14)
@@ -77,6 +78,15 @@ if(REMORA_ENABLE_PNETCDF)
      message(STATUS " PNETCDF_ROOT_DIR = ${PNETCDF_ROOT_DIR}")
   endif()
 endif()
+
+if ( REMORA_ENABLE_MOAB )
+  find_package( MOAB REQUIRED )
+  # set(REMORA_USE_MOAB ON)
+  set( REMORA_DEFINES " -DREMORA_USE_MOAB ${REMORA_DEFINES}" )
+  message(STATUS "MOAB cmake found at  ${MOAB_DIR} ")
+  message(STATUS "MOAB_LIBRARIES:   ${MOAB_LIBRARIES} ")
+  message(STATUS "MOAB_INCLUDE_DIRS:   ${MOAB_INCLUDE_DIRS} ")
+endif( REMORA_ENABLE_MOAB )
 
 ########################### REMORA #####################################
 

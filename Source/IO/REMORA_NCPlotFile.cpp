@@ -76,7 +76,7 @@ void REMORA::WriteNCPlotFile(int which_step) {
 
         auto ncf =
                 write_header ?
-                        ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_OFFSET, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
+                        ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
                         ncutils::NCFile::open(FullPath, NC_WRITE, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
 
         amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
@@ -89,7 +89,7 @@ void REMORA::WriteNCPlotFile(int which_step) {
         bool write_header = true;
 
         // Open new netcdf file to write data
-        auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_OFFSET, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+        auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
         amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
 
         WriteNCPlotFile_which(lev, which_subdomain, write_header, ncf, is_history);

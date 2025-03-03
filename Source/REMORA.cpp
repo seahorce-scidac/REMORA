@@ -269,7 +269,9 @@ REMORA::InitData ()
         restart();
 
     }
-
+#ifdef REMORA_USE_MOAB
+    InitMOABMesh();
+#endif
     // Initialize flux registers (whether we start from scratch or restart)
     if (solverChoice.coupling_type == CouplingType::TwoWay) {
         advflux_reg[0] = nullptr;

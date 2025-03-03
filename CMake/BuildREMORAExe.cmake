@@ -44,6 +44,13 @@ function(build_remora_lib remora_lib_name)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_HDF5)
   endif()
 
+  if(REMORA_ENABLE_MOAB)
+    target_sources(${remora_lib_name} PRIVATE
+                   ${SRC_DIR}/REMORA_MOAB.cpp
+                   ${SRC_DIR}/REMORA_MOAB.H)
+    target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_MOAB)
+  endif()
+  
   target_sources(${remora_lib_name}
      PRIVATE
        ${SRC_DIR}/REMORA_Derive.cpp
@@ -114,6 +121,14 @@ function(build_remora_lib remora_lib_name)
 
   if(REMORA_ENABLE_MPI)
     target_link_libraries(${remora_lib_name} PUBLIC $<$<BOOL:${MPI_CXX_FOUND}>:MPI::MPI_CXX>)
+  endif()
+
+  if(REMORA_ENABLE_MOAB)
+    if(MOAB_FOUND)
+      #Link our executable to the MOAB libraries, etc
+      target_link_libraries(${remora_lib_name} PUBLIC ${MOAB_LIBRARIES})
+      target_include_directories(${remora_lib_name} PUBLIC ${MOAB_INCLUDE_DIRS})
+    endif()
   endif()
 
   #REMORA include directories

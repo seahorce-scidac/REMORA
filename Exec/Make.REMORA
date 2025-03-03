@@ -79,6 +79,19 @@ ifeq ($(USE_PNETCDF), TRUE)
   LIBRARIES += $(shell pkg-config --libs pnetcdf)
 endif
 
+#turn on MOAB macro define
+ifeq ($(USE_MOAB), TRUE)
+  ifeq ($(USE_NETCDF), TRUE)
+    USERSuffix = .MB.NC
+  else
+    USERSuffix = .MB
+  endif
+  DEFINES += -DREMORA_USE_MOAB
+  PKG_CONFIG_PATH  := $(PKG_CONFIG_PATH):$(MOAB_DIR)/lib/pkgconfig
+  includes += $(shell pkg-config --cflags MOAB)
+  LIBRARIES += $(shell pkg-config --libs MOAB)
+endif
+
 ifeq ($(USE_HDF5), TRUE)
   DEFINES += -DREMORA_USE_HDF5
   DEFINES += -DAMREX_USE_HDF5
