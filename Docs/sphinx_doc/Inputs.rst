@@ -602,6 +602,9 @@ List of Parameters
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.Akt_bak**                | Minimum/initial value of Akt           | Real number       | 1.0e-6         |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.bulk_fluxes**            | Whether to use bulk fluxes             | true / false      | false          |
+|                                   | parametrization                        |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
 
 .. _list-of-parameters-drag:
 
@@ -689,7 +692,46 @@ List of GLS-specific parameters
 |                                  |                                      |                   |                |
 +----------------------------------+--------------------------------------+-------------------+----------------+
 
+.. _list-of-parameters-bulk-fluxes:
 
+List of Bulk Fluxes parameters
+------------------------------
+
++----------------------------------+----------------------------------------+-------------------+----------------+
+| Parameter                        | Definition                             | Acceptable        | Default        |
+|                                  |                                        | Values            |                |
++==================================+========================================+===================+================+
+| **remora.air_temperature**       | Air temperature [C]                    | Real number       | 23.567         |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.air_humidity**          | Relative humidity of air               | Real number from  | 0.776          |
+|                                  |                                        | 0 to 1            |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.air_pressure**          | Air pressure [hPa]                     | Real number       | 1013.48        |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.blk_ZQ**                | Height [m] of atmospheric humidity     | Real number       | 10.0           |
+|                                  | memasurements for bulk fluxes          |                   |                |
+|                                  | parametrization                        |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.blk_ZT**                | Height [m] of atmospheric temperature  | Real number       | 10.0           |
+|                                  | memasurements for bulk fluxes          |                   |                |
+|                                  | parametrization                        |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.blk_ZW**                | Height [m] of atmospheric wind         | Real number       | 10.0           |
+|                                  | memasurements for bulk fluxes          |                   |                |
+|                                  | parametrization                        |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.cloud**                 | Cloud cover fraction (0=clear sky,     | Real number from  | 0.0            |
+|                                  | 1=overcast)                            | 0 to 1            |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.rain**                  | Precipitation rate [kg/m^2/s]          | Real number       | 0.0            |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.eminusp**               | Whether to do E-P prescription for     | true / false      | false          |
+|                                  | evaporation/precipiation               |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.eminusp_correct_ssh**   | Whether to adjust sea surface          | true / false      | false          |
+|                                  | height for amount of evaporation       |                   |                |
+|                                  | and precipitation                      |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
 
 Numerical Algorithms
 ====================
