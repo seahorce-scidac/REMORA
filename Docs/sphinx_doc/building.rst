@@ -199,7 +199,7 @@ The options are described in the table below. Standard CMake options like ``CMAK
    | REMORA_ENABLE_FCOMPARE       | Whether to build the AMReX       | ON / OFF         | OFF         |
    |                              | utility fcompare                 |                  |             |
    +------------------------------+----------------------------------+------------------+-------------+
-   | REMORA_ENABLE_DOCUMENTAITON  | Whether to build documentation   | ON / OFF         | OFF         |
+   | REMORA_ENABLE_DOCUMENTATION  | Whether to build documentation   | ON / OFF         | OFF         |
    +------------------------------+----------------------------------+------------------+-------------+
 
 An example CMake configure/build command to build REMORA without MPI. Replace the compilers with those installed on your system:
