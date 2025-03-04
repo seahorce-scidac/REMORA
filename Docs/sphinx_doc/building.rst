@@ -117,6 +117,8 @@ or if using tcsh,
    | USE_PARTICLES   | Whether to compile with particle | TRUE / FALSE     | FALSE       |
    |                 | functionality enabled            |                  |             |
    +-----------------+----------------------------------+------------------+-------------+
+   | USE_MOAB        | Whether to compile with MOAB     | TRUE / FALSE     | FALSE       |
+   +-----------------+----------------------------------+------------------+-------------+
    | PROFILE         | Include profiling info           | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
    | TINY_PROFILE    | Include tiny profiling info      | TRUE / FALSE     | FALSE       |
@@ -165,6 +167,40 @@ CMake is often preferred by developers of REMORA; CMake allows for building as w
 Using CMake involves an additional configure step before using the ``make`` command. It is also expected that the user has cloned the REMORA repo with the ``--recursive`` option or performed ``git submodule init; git submodule update`` in the REMORA repo to populate its submodules.
 
 To build with CMake, a user typically creates a ``build`` directory in the project directory and in that directory the ``cmake <options> ..`` command is used to configure the project before building it. REMORA provides an example build directory called ``Build`` with example scripts for performing the CMake configure. Once the CMake configure step is done, then the ``make`` command will build the executable.
+
+The options are described in the table below. Standard CMake options like ``CMAKE_INSTALL_PREFIX`` are also available.
+
+   +------------------------------+----------------------------------+------------------+-------------+
+   | Option name                  | Description                      | Possible values  | Default     |
+   |                              |                                  |                  | value       |
+   +==============================+==================================+==================+=============+
+   | CMAKE_BUILD_TYPE             | Build type                       | RelWithDebInfo / | Release     |
+   |                              |                                  | Release / Debug  |             |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_MPI            | Whether to enable MPI            | ON / OFF         | OFF         |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_OMP            | Whether to enable OpenMP         | ON / OFF         | OFF         |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_CUDA           | Whether to enable CUDA           | ON / OFF         | OFF         |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_HIP            | Whether to enable HIP            | ON / OFF         | OFF         |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_SYCL           | Whether to enable SYCL           | ON / OFF         | OFF         |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_PNETCDF        | Whether to compile with PnetCDF  | ON / OFF         | OFF         |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_PARTICLES      | Whether to compile with particle | ON / OFF         | OFF         |
+   |                              | functionality enabled            |                  |             |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_MOAB           | Whether to compile with MOAB     | ON / OFF         | OFF         |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_TESTS          | Whether to build tests           | ON / OFF         | OFF         |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_FCOMPARE       | Whether to build the AMReX       | ON / OFF         | OFF         |
+   |                              | utility fcompare                 |                  |             |
+   +------------------------------+----------------------------------+------------------+-------------+
+   | REMORA_ENABLE_DOCUMENTAITON  | Whether to build documentation   | ON / OFF         | OFF         |
+   +------------------------------+----------------------------------+------------------+-------------+
 
 An example CMake configure/build command to build REMORA without MPI. Replace the compilers with those installed on your system:
 
