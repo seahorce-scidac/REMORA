@@ -800,6 +800,9 @@ REMORA::ReadParameters ()
         boxes_at_level[0].resize(1);
         boxes_at_level[0][0] = geom[0].Domain();
 
+        // Plotfile name and frequency
+        pp.query("plot_file", plot_file_name);
+        pp.query("plot_int", plot_int);
         // Output format
         std::string plotfile_type_str = "amrex";
         pp.query("plotfile_type", plotfile_type_str);
@@ -826,6 +829,13 @@ REMORA::ReadParameters ()
                 if (steps_per_history_file == 0) {
                     amrex::Warning("NetCDF output for a single timestep appears to exceed 2GB. NetCDF output may not work. See Documentation for information about tested MPICH versions.");
                     steps_per_history_file = 1;
+                }
+            } else if (write_history_file and !chunk_history_file) {
+                // Estimate number of output steps we'll need
+                int nt_out = int((max_step) / plot_int) + 1;
+                Real est_hist_file_size = NCH2D * nx * ny * 64.0_rt + nt_out * nx * ny * 64.0_rt * (NC3D*nz + NC2D);
+                if (est_hist_file_size > 1.6e10) {
+                    amrex::Warning("WARNING: NetCDF history file may be larger than 2GB limit. Consider setting remora.chunk_history_file=true");
                 }
             }
             if (write_history_file and chunk_history_file) {
@@ -881,8 +891,6 @@ REMORA::ReadParameters ()
         AMREX_ALWAYS_ASSERT(bdy_set_width >= 0);
         AMREX_ALWAYS_ASSERT(bdy_width >= bdy_set_width);
 #endif
-        pp.query("plot_file", plot_file_name);
-        pp.query("plot_int", plot_int);
 
 #ifdef REMORA_USE_PARTICLES
         readTracersParams();
