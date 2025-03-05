@@ -1,0 +1,157 @@
+===============================================================================
+ REMORA Job Information
+===============================================================================
+inputs file: BoundaryLayer.i
+
+number of MPI processes: 1
+number of threads:       2
+
+CPU time used since start of simulation (CPU-hours): 7.67882e-05
+
+===============================================================================
+ Plotfile Information
+===============================================================================
+output data / time: Tue Mar  4 17:29:33 2025
+output dir:         /home/klion/software/REMORA/Exec/BoundaryLayer
+
+
+===============================================================================
+ Build Information
+===============================================================================
+build date:    2025-02-20 15:20:09.840377
+build machine: Linux varan 6.8.0-53-generic #55-Ubuntu SMP PREEMPT_DYNAMIC Fri Jan 17 15:37:52 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+build dir:     /home/klion/software/REMORA/Exec/BoundaryLayer
+AMReX dir:     ../../Submodules/AMReX
+
+COMP:          gnu
+COMP version:  13.3.0
+
+
+REMORA       git hash: v1.0.1-14-g5cfd6cd-dirty
+AMReX       git hash: 24.10-11-g62c2a81ea
+
+
+===============================================================================
+ Grid Information
+===============================================================================
+ level: 0
+   number of boxes = 1
+   maximum zones   = 39 4 30 
+
+ Boundary conditions
+   -x: SlipWall
+   +x: Outflow
+   -y: Periodic
+   +y: Periodic
+   -z: SlipWall
+   +z: SlipWall
+
+
+===============================================================================
+ Inputs File Parameters
+===============================================================================
+DistributionMapping.verbose = 0
+amr.blocking_factor = 1
+amr.check_input = 1
+amr.grid_eff = 0.69999999999999996
+amr.max_grid_size = 2048
+amr.max_level = 0
+amr.n_cell = 39 4 30
+amr.n_error_buf = 0
+amr.n_proper = 2
+amr.refine_grid_layout = 1
+amr.refine_grid_layout_x = 1
+amr.refine_grid_layout_y = 1
+amr.refine_grid_layout_z = 0
+amr.v = 0
+amrex.abort_on_out_of_gpu_memory = 0
+amrex.abort_on_unused_inputs = 0
+amrex.async_out = 0
+amrex.async_out_nfiles = 64
+amrex.fpe_trap_invalid = 0
+amrex.fpe_trap_overflow = 0
+amrex.fpe_trap_zero = 0
+amrex.handle_sigabrt = 1
+amrex.handle_sigfpe = 1
+amrex.handle_sigill = 1
+amrex.handle_sigint = 1
+amrex.handle_sigsegv = 1
+amrex.handle_sigterm = 0
+amrex.init_snan = 1
+amrex.mf.alloc_single_chunk = 0
+amrex.omp_threads = system
+amrex.signal_handling = 1
+amrex.the_arena_init_size = 0
+amrex.the_arena_is_managed = 0
+amrex.the_arena_release_threshold = 9223372036854775807
+amrex.the_async_arena_release_threshold = 9223372036854775807
+amrex.the_comms_arena_init_size = 8388608
+amrex.the_comms_arena_release_threshold = 9223372036854775807
+amrex.the_device_arena_init_size = 8388608
+amrex.the_device_arena_release_threshold = 9223372036854775807
+amrex.the_managed_arena_init_size = 8388608
+amrex.the_managed_arena_release_threshold = 9223372036854775807
+amrex.the_pinned_arena_init_size = 8388608
+amrex.the_pinned_arena_release_threshold = 9223372036854775807
+amrex.throw_exception = 0
+amrex.use_gpu_aware_mpi = 0
+amrex.vector_growth_factor = 1.5
+amrex.verbose = 1
+fabarray.comm_tile_size = 1024000 8 8
+fabarray.mfiter_tile_size = 1024 1024 1024
+geometry.coord_sys = 0
+geometry.is_periodic = 0 1 0
+geometry.prob_hi = 100000. 5000. 0.
+geometry.prob_lo = 0. 0. -47.5
+max_step = 10
+remora.Akt_bak = 1.0e-6
+remora.Akv_bak = 1.0e-5
+remora.R0 = 1027.0
+remora.S0 = 31.0
+remora.T0 = 17.25
+remora.air_humidity = 0.776
+remora.air_pressure = 1013.48
+remora.air_temperature = 23.567
+remora.bc.salt.type = slipwall periodic orlanski_rad periodic
+remora.bc.scalar.type = slipwall periodic orlanski_rad periodic
+remora.bc.temp.type = slipwall periodic orlanski_rad periodic
+remora.bc.tke.type = slipwall periodic outflow periodic
+remora.bc.u.type = slipwall periodic orlanski_rad periodic
+remora.bc.ubar.type = slipwall periodic outflow periodic
+remora.bc.v.type = slipwall periodic orlanski_rad periodic
+remora.bc.vbar.type = slipwall periodic outflow periodic
+remora.bc.zeta.type = slipwall periodic outflow periodic
+remora.bottom_stress_type = quadratic
+remora.boundary_per_variable = 1
+remora.bulk_fluxes = true
+remora.check_file = chk
+remora.check_int = -57600
+remora.cloud = 0.5
+remora.coriolis_beta = 0.0
+remora.coriolis_f0 = 9.25e-4
+remora.coriolis_type = beta_plane
+remora.eminusp = true
+remora.eminusp_correct_ssh = true
+remora.eos_type = nonlinear
+remora.fixed_dt = 50.0
+remora.fixed_ndtfast_ratio = 30
+remora.flat_bathymetry = false
+remora.grid_scale_type = custom
+remora.horizontal_mixing_type = constant
+remora.is_periodic = 0 1 0
+remora.omp_tile_size = 1024 1024 1024
+remora.plot_file = plt
+remora.plot_int = 10
+remora.plot_vars = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+remora.rain = 0.002
+remora.rho0 = 1025.0
+remora.sum_interval = 1
+remora.tcline = 20.0
+remora.theta_b = 1.5
+remora.theta_s = 5.0
+remora.tracer_horizontal_advection_scheme = upstream3
+remora.use_coriolis = true
+remora.v = 0
+remora.vertical_mixing_type = gls
+remora.visc2 = 0.0

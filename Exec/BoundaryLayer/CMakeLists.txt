@@ -1,4 +1,4 @@
-set(remora_exe_name boundary_layer)
+set(remora_exe_name boundarylayer)
 
 add_executable(${remora_exe_name} "")
 target_sources(${remora_exe_name}
