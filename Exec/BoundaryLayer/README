@@ -1,0 +1,2 @@
+This problem reproduces the BL_TEST boundary layer test from ROMS, but with additional
+cloud cover, rainfall, and evaporation-precipitation.
