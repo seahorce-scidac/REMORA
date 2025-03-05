@@ -137,7 +137,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             //  Compute specific humidity, Q (kg/kg).
             Real Q;
             if (RH < 2.0) {
-                Real cff_Q = cff_saturation_air*RH;                  //Vapor pres (mb)
+                Real cff_Q = cff_saturation_air*RH;                  //Vapor pressure (mb)
                 Q=0.62197_rt*(cff_Q/(PairM-0.378_rt*cff_Q+eps)); //Spec hum (kg/kg)
             } else { // RH input was actually specific humidity in g/kg
                 Q=RH/1000.0_rt;                          //!Spec Hum (kg/kg)

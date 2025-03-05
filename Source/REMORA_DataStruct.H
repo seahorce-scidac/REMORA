@@ -159,7 +159,7 @@ struct SolverChoice {
         pp.query("eminusp_correct_ssh",eminusp_correct_ssh);
 
         if (eminusp_correct_ssh and !eminusp) {
-            amrex::Abort("If evaporation minus precipitation (E-P) sea surface heigh correct in is on, E-P must be on as well (remora.eminusp=true)");
+            amrex::Abort("If evaporation minus precipitation (E-P) sea surface height correct in is on, E-P must be on as well (remora.eminusp=true)");
         }
         if (eminusp and !bulk_fluxes) {
             amrex::Abort("Evaporation minus precipitation (E-P) requires bulk flux parametrizations (remora.bulk_fluxes=true)");
