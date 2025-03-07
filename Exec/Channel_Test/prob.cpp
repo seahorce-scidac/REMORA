@@ -8,21 +8,22 @@
 
 using namespace amrex;
 
-void
-amrex_probinit(
-  const amrex_real* /*problo*/,
-  const amrex_real* /*probhi*/)
+ProbParm parms;
+
+std::unique_ptr<ProblemBase>
+amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
 {
+    return std::make_unique<Problem>(problo, probhi);
 }
 
 /**
  * \brief Initializes bathymetry h and surface height Zeta
  */
-void
-init_custom_bathymetry (int /*lev*/, const Geometry& geom,
-                        MultiFab& mf_h, REMORA const& /*remora*/,
-                        const SolverChoice& m_solverChoice,
-                        int /*rrx*/, int /*rry*/)
+void Problem::init_analytic_bathymetry (
+        int lev, const amrex::Geometry& geom,
+        SolverChoice const& m_solverChoice,
+        REMORA const& remora,
+        amrex::MultiFab& mf_h)
 {
     auto geomdata = geom.data();
     bool EWPeriodic = geomdata.isPeriodic(0);
@@ -54,126 +55,124 @@ init_custom_bathymetry (int /*lev*/, const Geometry& geom,
     } // mfi
 }
 
-void
-init_custom_grid_scale (int /*lev*/, const Geometry& /*geom*/,
-                   MultiFab& /*mf_pm*/, MultiFab& /*mf_pn*/) {}
-
-/**
- * \brief Initializes coriolis factor
- */
-void
-init_custom_coriolis    (const Geometry& /*geom*/,
-                         MultiFab& /*mf_fcor*/,
-                         const SolverChoice& /*m_solverChoice*/) {}
-
 /**
  * \brief Initializes custom sea surface height
  */
-void
-init_custom_zeta (const Geometry& geom,
-                      MultiFab& mf_zeta,
-                      const SolverChoice& m_solverChoice)
+void Problem::init_analytic_zeta (
+        int /*lev*/, const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
+        MultiFab& mf_zeta)
 {
     mf_zeta.setVal(0.0_rt);
 }
 
-void
-init_custom_prob(
-        const Box& bx,
-        Array4<Real      > const& state,
-        Array4<Real      > const& x_vel,
-        Array4<Real      > const& y_vel,
-        Array4<Real      > const& z_vel,
-        Array4<Real const> const& /*z_w*/,
-        Array4<Real const> const& z_r,
-        Array4<Real const> const& /*Hz*/,
-        Array4<Real const> const& h,
-        Array4<Real const> const& /*Zt_avg1*/,
-        GeometryData const& geomdata,
-        const SolverChoice& m_solverChoice)
+void Problem::init_analytic_prob(
+        int lev,
+        const amrex::Geometry& geom,
+        SolverChoice const& m_solverChoice,
+        REMORA const& remora,
+        amrex::MultiFab& mf_cons,
+        amrex::MultiFab& mf_xvel,
+        amrex::MultiFab& mf_yvel,
+        amrex::MultiFab& mf_zvel)
 {
     bool l_use_salt = m_solverChoice.use_salt;
 
+    auto geomdata = geom.data();
     const int khi = geomdata.Domain().bigEnd()[2];
-
-    AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
 
     bool EWPeriodic = geomdata.isPeriodic(1);
     bool NSPeriodic = geomdata.isPeriodic(0);
 
     auto T0 = m_solverChoice.T0;
     auto S0 = m_solverChoice.S0;
-    ParallelFor(grow(grow(bx,0,1),1,1), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    for (MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-        const auto prob_lo         = geomdata.ProbLo();
-        const auto prob_hi         = geomdata.ProbHi();
-        const auto dx              = geomdata.CellSize();
+        const Box &bx = mfi.tilebox();
+        AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
 
-        const Real z = z_r(i,j,k);
+        Array4<      Real> const& state = mf_cons.array(mfi);
+        Array4<      Real> const& x_vel = mf_xvel.array(mfi);
+        Array4<      Real> const& y_vel = mf_yvel.array(mfi);
+        Array4<      Real> const& z_vel = mf_zvel.array(mfi);
 
-        // Create bounding box for x and y to make spatially-dependent T and S
-        const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
-        const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
+        Array4<const Real> const& z_r = remora.vec_z_r[lev]->const_array(mfi);
 
-        const Real x  = prob_lo[0] + (i + 0.5) * dx[0] - xcent;
-        const Real y  = prob_lo[1] + (j + 0.5) * dx[1];
+        ParallelFor(grow(grow(bx,0,1),1,1), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+            const auto prob_lo         = geomdata.ProbLo();
+            const auto prob_hi         = geomdata.ProbHi();
+            const auto dx              = geomdata.CellSize();
 
-        state(i,j,k,Temp_comp)=T0 + z / (9.8_rt * 1.7_rt);
-        if (l_use_salt) {
-            state(i,j,k,Salt_comp)=S0 + y / (9.8_rt * 760.0_rt);
-        }
+            const Real z = z_r(i,j,k);
 
-        // Set scalar = 0 everywhere
-        state(i, j, k, Scalar_comp) = 0.0_rt;
-    });
+            // Create bounding box for x and y to make spatially-dependent T and S
+            const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
+            const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
 
-    const Box& xbx = surroundingNodes(bx,0);
-    const Box& ybx = surroundingNodes(bx,1);
-    const Box& zbx = surroundingNodes(bx,2);
+            const Real x  = prob_lo[0] + (i + 0.5) * dx[0] - xcent;
+            const Real y  = prob_lo[1] + (j + 0.5) * dx[1];
 
-    ParallelFor(grow(grow(xbx,1,1),0,1), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-    {
-        // Create bounding box for x and y to make spatially-dependent T and S
-        const auto prob_lo         = geomdata.ProbLo();
-        const auto prob_hi         = geomdata.ProbHi();
-        const auto dx              = geomdata.CellSize();
+            state(i,j,k,Temp_comp)=T0 + z / (9.8_rt * 1.7_rt);
+            if (l_use_salt) {
+                state(i,j,k,Salt_comp)=S0 + y / (9.8_rt * 760.0_rt);
+            }
 
-        const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
-        const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
+            // Set scalar = 0 everywhere
+            state(i, j, k, Scalar_comp) = 0.0_rt;
+        });
 
-        const Real z = z_r(i,j,k);
-        // h(i,j,0) = -geomdata.ProbLo(2);
-        const Real depth = 50.0_rt;
+        const Box& xbx = surroundingNodes(bx,0);
+        const Box& ybx = surroundingNodes(bx,1);
+        const Box& zbx = surroundingNodes(bx,2);
 
-        const Real x  = prob_lo[0] + (i + 0.5) * dx[0];// - xcent;
-        const Real y  = prob_lo[1] + (j + 0.5) * dx[1];// - ycent;
+        ParallelFor(grow(grow(xbx,1,1),0,1), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+            // Create bounding box for x and y to make spatially-dependent T and S
+            const auto prob_lo         = geomdata.ProbLo();
+            const auto prob_hi         = geomdata.ProbHi();
+            const auto dx              = geomdata.CellSize();
 
-        const Real val1  = x * 6.28318530718_rt * 1.0e-5_rt;
-        const Real val2  = y * 6.28318530718_rt * 1.0e-5_rt;
-        x_vel(i, j, k) = (depth + z) * 0.01_rt + 0.05_rt * std::sin(val1) * std::sin(val2);
-    });
-    ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-    {
-        y_vel(i, j, k) = 0.0_rt;
-    });
+            const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
+            const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
 
-    ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-    {
-        z_vel(i, j, k) = 0.0_rt;
-    });
+            const Real z = z_r(i,j,k);
+            // h(i,j,0) = -geomdata.ProbLo(2);
+            const Real depth = 50.0_rt;
 
+            const Real x  = prob_lo[0] + (i + 0.5) * dx[0];// - xcent;
+            const Real y  = prob_lo[1] + (j + 0.5) * dx[1];// - ycent;
+
+            const Real val1  = x * 6.28318530718_rt * 1.0e-5_rt;
+            const Real val2  = y * 6.28318530718_rt * 1.0e-5_rt;
+            x_vel(i, j, k) = (depth + z) * 0.01_rt + 0.05_rt * std::sin(val1) * std::sin(val2);
+        });
+        ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+            y_vel(i, j, k) = 0.0_rt;
+        });
+
+        ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+            z_vel(i, j, k) = 0.0_rt;
+        });
+    }
     Gpu::streamSynchronize();
 }
 
-void
-init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
-                 MultiFab& mf_z_w, const SolverChoice& /*m_solverChoice*/)
+void Problem::init_analytic_vmix(
+        int lev,
+        const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& remora,
+        MultiFab& mf_Akv, MultiFab& mf_Akt)
 {
     for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& Akv = (mf_Akv).array(mfi);
         Array4<Real> const& Akt = (mf_Akt).array(mfi);
-        Array4<Real> const& z_w = (mf_z_w).array(mfi);
+        Array4<const Real> const& z_w = remora.vec_z_w[lev]->array(mfi);
         Box bx = mfi.tilebox();
         bx.grow(IntVect(NGROW,NGROW,0));
         Gpu::streamSynchronize();
@@ -189,9 +188,14 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
     }
 }
 
-void
-init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_visc2_r,
-                 MultiFab& mf_diff2, const SolverChoice& /*m_solverChoice*/)
+void Problem::init_analytic_hmix(
+        int /*lev*/,
+        const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
+        MultiFab& mf_visc2_p,
+        MultiFab& mf_visc2_r,
+        MultiFab& mf_diff2)
 {
     for ( MFIter mfi((mf_visc2_p), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -216,18 +220,18 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
     }
 }
 
-void
-init_custom_wind(const Geometry& geom, const Real time, MultiFab& mf_Uwind, MultiFab& mf_Vwind,
-                 const SolverChoice& m_solverChoice)
-{}
-
-void
-init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, MultiFab& mf_svstr,
-                   const SolverChoice& m_solverChoice)
+void Problem::init_analytic_smflux(
+        int lev,
+        const amrex::Geometry& geom,
+        SolverChoice const& m_solverChoice,
+        REMORA const& remora,
+        MultiFab& mf_sustr, MultiFab& mf_svstr)
 {
     auto geomdata = geom.data();
     bool EWPeriodic = geomdata.isPeriodic(0);
     bool NSPeriodic = geomdata.isPeriodic(1);
+
+    Real time = remora.get_t_old(lev);
 
     //If we had wind stress and bottom stress we would need to set these:
     Real tdays=time/Real(24.0*60.0*60.0);

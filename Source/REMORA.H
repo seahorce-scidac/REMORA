@@ -34,6 +34,7 @@
 #include <REMORA_TimeInterpolatedData.H>
 #include <REMORA_DataStruct.H>
 #include <REMORA_Derive.H>
+#include "REMORA_prob_common.H"
 
 #ifdef REMORA_USE_PARTICLES
 #include "REMORA_ParticleData.H"
@@ -60,6 +61,9 @@ namespace InterpType {
         CellConservativeQuartic
     };
 }
+
+// Forward declaration to resolve circular dependency
+class ProblemBase;
 
 class REMORA
     : public amrex::AmrCore
@@ -756,9 +760,9 @@ public:
     void scale_rhs_vars ();
     void scale_rhs_vars_inv ();
 
-    void set_smflux (int lev, amrex::Real time);
+    void set_smflux (int lev);
 
-    void set_wind (int lev, amrex::Real time);
+    void set_wind (int lev);
 
     void set_hmixcoef (int lev);
 
@@ -943,6 +947,8 @@ private:
 
     ////////////////
     // private data members
+
+    std::unique_ptr<ProblemBase> prob = nullptr;
 
     amrex::Vector<int> num_boxes_at_level;                   // how many boxes specified at each level by tagging criteria
     amrex::Vector<int> num_files_at_level;                   // how many wrfinput files specified at each level
@@ -1201,6 +1207,8 @@ public:
     static void print_error(MPI_Comm /*comm*/, const std::string& msg);
     static void print_summary(std::ostream&);
     static void print_tpls(std::ostream& /*out*/);
+
+    amrex::Real get_t_old(int lev) const;
 };
 
 #endif

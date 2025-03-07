@@ -81,7 +81,7 @@ REMORA::REMORA ()
     ReadParameters();
     const std::string& pv1 = "plot_vars"; setPlotVariables(pv1);
 
-    amrex_probinit(geom[0].ProbLo(),geom[0].ProbHi());
+    prob = amrex_probinit(geom[0].ProbLo(),geom[0].ProbHi());
 
     // Geometry on all levels has been defined already.
 
@@ -445,7 +445,7 @@ void
 REMORA::set_zeta (int lev)
 {
     if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
-        init_custom_zeta(geom[lev], *vec_zeta[lev], solverChoice);
+        prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, *vec_zeta[lev]);
 
 #ifdef REMORA_USE_NETCDF
     } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
@@ -467,7 +467,7 @@ REMORA::set_bathymetry (int lev)
     if (solverChoice.init_l0int_h) {
         if (lev==0) {
             if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
-                init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], *this, solverChoice);
+                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_hOfTheConfusingName[lev]);
 
 #ifdef REMORA_USE_NETCDF
             } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
@@ -488,7 +488,7 @@ REMORA::set_bathymetry (int lev)
         }
     } else if (solverChoice.init_ana_h) {
         if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
-            init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], *this, solverChoice);
+            prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this,*vec_hOfTheConfusingName[lev]);
 
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
@@ -505,7 +505,7 @@ REMORA::set_bathymetry (int lev)
         vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
     } else if (solverChoice.init_l1ad_h) {
         if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
-            init_custom_bathymetry(lev, geom[lev], *vec_hOfTheConfusingName[lev], *this, solverChoice, refRatio(0)[0],refRatio(0)[1]);
+            prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_hOfTheConfusingName[lev]);
 
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
@@ -529,7 +529,7 @@ void
 REMORA::set_coriolis(int lev) {
     if (solverChoice.use_coriolis) {
         if (solverChoice.coriolis_type == Cor_Type::Custom) {
-            init_custom_coriolis(geom[lev], *vec_fcor[lev], solverChoice);
+            prob->init_analytic_coriolis(lev, geom[lev], solverChoice, *this, *vec_fcor[lev]);
         } else if (solverChoice.coriolis_type == Cor_Type::Beta_Plane) {
             init_beta_plane_coriolis(lev);
 #ifdef REMORA_USE_NETCDF
@@ -550,7 +550,6 @@ REMORA::set_coriolis(int lev) {
 
 void
 REMORA::init_set_vmix(int lev) {
-    Real time = 0.0_rt;
     if (solverChoice.vert_mixing_type == VertMixingType::analytical) {
         set_analytical_vmix(lev);
     } else if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
@@ -565,7 +564,7 @@ REMORA::init_set_vmix(int lev) {
 void
 REMORA::set_analytical_vmix(int lev) {
     Real time = 0.0_rt;
-    init_custom_vmix(geom[lev], *vec_Akv[lev], *vec_Akt[lev], *vec_z_w[lev], solverChoice);
+    prob->init_analytic_vmix(lev, geom[lev], solverChoice, *this,*vec_Akv[lev], *vec_Akt[lev]);
     FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv),BCVars::zvel_bc,BdyVars::null,0,true,false);
     for (int n=0; n<NCONS;n++) {
         FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt),BCVars::zvel_bc,BdyVars::null,0,false,false);
@@ -576,8 +575,7 @@ void
 REMORA::set_hmixcoef(int lev)
 {
     if (solverChoice.horiz_mixing_type == HorizMixingType::analytical) {
-        init_custom_hmix(geom[lev], *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev], solverChoice);
-
+        prob->init_analytic_hmix(lev, geom[lev], solverChoice, *this, *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev]);
     } else if (solverChoice.horiz_mixing_type == HorizMixingType::constant) {
         vec_visc2_p[lev]->setVal(solverChoice.visc2);
         vec_visc2_r[lev]->setVal(solverChoice.visc2);
@@ -596,19 +594,15 @@ REMORA::set_hmixcoef(int lev)
 }
 
 void
-REMORA::set_smflux(int lev, Real time)
+REMORA::set_smflux(int lev)
 {
-    init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
-
-    // FillPatch(lev, time, *vec_sustr[lev], GetVecOfPtrs(vec_sustr));
-    // FillPatch(lev, time, *vec_svstr[lev], GetVecOfPtrs(vec_svstr));
+    prob->init_analytic_smflux(lev, geom[lev], solverChoice, *this,*vec_sustr[lev], *vec_svstr[lev]);
 }
 
 void
-REMORA::set_wind(int lev, Real time)
+REMORA::set_wind(int lev)
 {
-    init_custom_wind(geom[lev], time, *vec_uwind[lev], *vec_vwind[lev], solverChoice);
-
+    prob->init_analytic_wind(lev,geom[lev], solverChoice, *this, *vec_uwind[lev], *vec_vwind[lev]);
 }
 
 void
@@ -704,9 +698,11 @@ REMORA::init_only (int lev, Real time)
     set_hmixcoef(lev);
     set_coriolis(lev);
 
-    init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
-    vec_sustr[lev]->OverrideSync(geom[lev].periodicity());
-    vec_svstr[lev]->OverrideSync(geom[lev].periodicity());
+    // Previously set smflux here with OverrideSync:
+//    set_smflux(lev);
+//    prob->init_analytic_smflux(lev, geom[lev], solverChoice, *this, *vec_sustr[lev], *vec_svstr[lev]);
+//    vec_sustr[lev]->OverrideSync(geom[lev].periodicity());
+//    vec_svstr[lev]->OverrideSync(geom[lev].periodicity());
 
 }
 
@@ -928,4 +924,9 @@ REMORA::AverageDownTo (int crse_lev)
 
     average_down_faces(GetArrOfConstPtrs(faces_fine), faces_crse,
                        refRatio(crse_lev),geom[crse_lev]);
+}
+
+amrex::Real REMORA::get_t_old(int lev) const
+{
+    return t_old[lev];
 }

@@ -81,7 +81,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     set_hmixcoef(lev);
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
-    init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
+    // Previously set smflux
 
     // ********************************************************************************************
     // If we are making a new level then the FillPatcher for this level hasn't been allocated yet
@@ -210,7 +210,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     set_hmixcoef(lev);
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
-    init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
+    // Previously set smflux here
 
     // We need to re-define the FillPatcher if the grids have changed
     if (lev > 0 && cf_width >= 0) {
@@ -614,7 +614,7 @@ REMORA::set_grid_scale (int lev)
         vec_pm[lev]->setVal(dxi[0]); vec_pm[lev]->FillBoundary(geom[lev].periodicity());
         vec_pn[lev]->setVal(dxi[1]); vec_pn[lev]->FillBoundary(geom[lev].periodicity());
     } else if (solverChoice.grid_scale_type == GridScaleType::Custom) {
-        init_custom_grid_scale(lev, Geom(lev), *vec_pm[lev].get(), *vec_pn[lev].get());
+        prob->init_analytic_grid_scale(lev, Geom(lev), solverChoice, *this, *vec_pm[lev].get(), *vec_pn[lev].get());
         vec_pm[lev]->FillBoundary(geom[lev].periodicity());
         vec_pn[lev]->FillBoundary(geom[lev].periodicity());
     }

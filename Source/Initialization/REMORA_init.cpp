@@ -17,30 +17,8 @@ REMORA::init_custom(int lev)
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
 
-#ifdef _OPENMP
-#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
-#endif
-    for (MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
-    {
-        const Box &bx = mfi.tilebox();
-        const auto &cons_arr = cons_new[lev]->array(mfi);
-        const auto &xvel_arr = xvel_new[lev]->array(mfi);
-        const auto &yvel_arr = yvel_new[lev]->array(mfi);
-        const auto &zvel_arr = zvel_new[lev]->array(mfi);
+    prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, *cons_new[lev], *xvel_new[lev], *yvel_new[lev], *zvel_new[lev]);
 
-        Array4<const Real> const& z_w_arr = (mf_z_w)->array(mfi);
-        Array4<const Real> const& z_r_arr = (mf_z_r)->array(mfi);
-        Array4<const Real> const& Hz_arr  = (mf_Hz)->array(mfi);
-        Array4<const Real> const& h_arr  = (mf_h)->array(mfi);
-        Array4<const Real> const& Zt_avg1_arr  = mf_Zt_avg1->const_array(mfi);
-
-        init_custom_prob(bx, cons_arr, xvel_arr, yvel_arr, zvel_arr,
-                         z_w_arr, z_r_arr, Hz_arr, h_arr, Zt_avg1_arr, geom[lev].data(),
-                         solverChoice);
-
-    } //mfi
-
-    // Initialize the "pm" and "pn" arrays
     set_grid_scale(lev);
 
 }

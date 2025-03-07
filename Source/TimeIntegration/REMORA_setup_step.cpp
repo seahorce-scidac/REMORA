@@ -115,9 +115,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     // If we're not doing bulk fluxes, set surface momentum fluxes directly.
     // Otherwise, calculate them from winds, so those need to be set
     if (!solverChoice.bulk_fluxes) {
-        set_smflux(lev,t_old[lev]);
+        set_smflux(lev);
     } else {
-        set_wind(lev,t_old[lev]);
+        set_wind(lev);
     }
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ

@@ -10,30 +10,32 @@ using namespace amrex;
 
 ProbParm parms;
 
-void
-amrex_probinit(
-  const amrex_real* /*problo*/,
-  const amrex_real* /*probhi*/)
+std::unique_ptr<ProblemBase>
+amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
 {
-  // Parse params
-  ParmParse pp("remora.prob");
+    return std::make_unique<Problem>(problo, probhi);
+}
 
-  pp.query("u_0", parms.u_0);
-  pp.query("v_0", parms.v_0);
-  pp.query("z0", parms.z0);
-  pp.query("zRef", parms.zRef);
-  pp.query("uRef", parms.uRef);
+Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
+{
+    // Parse params
+    ParmParse pp("remora.prob");
 
+    pp.query("u_0", parms.u_0);
+    pp.query("v_0", parms.v_0);
+    pp.query("z0", parms.z0);
+    pp.query("zRef", parms.zRef);
+    pp.query("uRef", parms.uRef);
 }
 
 /**
  * \brief Initializes bathymetry h and surface height Zeta
  */
-void
-init_custom_bathymetry (int /*lev*/, const Geometry& geom,
-                        MultiFab& mf_h, REMORA const& /*remora*/,
-                        const SolverChoice& m_solverChoice,
-                        int /*rrx*/, int /*rry*/)
+void Problem::init_analytic_bathymetry (
+        int lev, const amrex::Geometry& geom,
+        SolverChoice const& m_solverChoice,
+        REMORA const& remora,
+        amrex::MultiFab& mf_h)
 {
     mf_h.setVal(geom.ProbHi(2));
     const int Lm = geom.Domain().size()[0];
@@ -90,125 +92,123 @@ init_custom_bathymetry (int /*lev*/, const Geometry& geom,
     } // mfi
 }
 
-void
-init_custom_grid_scale (int /*lev*/, const Geometry& /*geom*/,
-                   MultiFab& /*mf_pm*/, MultiFab& /*mf_pn*/) {}
-
-/**
- * \brief Initializes custom coriolis forcing
- */
-void
-init_custom_coriolis    (const Geometry& /*geom*/,
-                         MultiFab& /*mf_fcor*/,
-                         const SolverChoice& /*m_solverChoice*/) {}
-
 /**
  * \brief Initializes custom sea surface height
  */
-void
-init_custom_zeta (const Geometry& geom,
-                      MultiFab& mf_zeta,
-                      const SolverChoice& m_solverChoice)
+void Problem::init_analytic_zeta (
+        int /*lev*/, const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
+        MultiFab& mf_zeta)
 {
     mf_zeta.setVal(0.0_rt);
 }
 
-void
-init_custom_prob(
-        const Box& bx,
-        Array4<Real      > const& state,
-        Array4<Real      > const& x_vel,
-        Array4<Real      > const& y_vel,
-        Array4<Real      > const& z_vel,
-        Array4<Real const> const& /*z_w*/,
-        Array4<Real const> const& z_r,
-        Array4<Real const> const& /*Hz*/,
-        Array4<Real const> const& /*h*/,
-        Array4<Real const> const& /*Zt_avg1*/,
-        GeometryData const& geomdata,
-        const SolverChoice& m_solverChoice)
+void Problem::init_analytic_prob(
+        int lev,
+        const amrex::Geometry& geom,
+        SolverChoice const& m_solverChoice,
+        REMORA const& remora,
+        amrex::MultiFab& mf_cons,
+        amrex::MultiFab& mf_xvel,
+        amrex::MultiFab& mf_yvel,
+        amrex::MultiFab& mf_zvel)
 {
+    auto geomdata = geom.data();
     const int khi = geomdata.Domain().bigEnd()[2];
 
     bool l_use_salt = m_solverChoice.use_salt;
 
-    AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
-
-    ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    for (MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-        // Geometry (note we must include these here to get the data on device)
-        // const auto prob_lo         = geomdata.ProbLo();
-        // const auto dx              = geomdata.CellSize();
+        const Box &bx = mfi.tilebox();
+        AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
 
-        // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
-        // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-        const Real z = z_r(i,j,k);
+        Array4<      Real> const& state = mf_cons.array(mfi);
+        Array4<      Real> const& x_vel = mf_xvel.array(mfi);
+        Array4<      Real> const& y_vel = mf_yvel.array(mfi);
+        Array4<      Real> const& z_vel = mf_zvel.array(mfi);
 
-        state(i, j, k, Temp_comp) = 1.;
+        Array4<const Real> const& z_r = remora.vec_z_r[lev]->const_array(mfi);
 
-        state(i,j,k,Temp_comp)=m_solverChoice.T0+8.0_rt*std::exp(z/50.0_rt);
-        if (l_use_salt) {
-            state(i,j,k,Salt_comp)=m_solverChoice.S0;
-        }
+        ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+            // Geometry (note we must include these here to get the data on device)
+            // const auto prob_lo         = geomdata.ProbLo();
+            // const auto dx              = geomdata.CellSize();
 
-        // Set scalar = 0 everywhere
-        state(i, j, k, Scalar_comp) = 0.0_rt;
-    });
+            // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
+            // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
+            const Real z = z_r(i,j,k);
 
-  // Construct a box that is on x-faces
-  const Box& xbx = surroundingNodes(bx,0);
-  // Set the x-velocity
-  ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-  {
-        // const auto prob_lo         = geomdata.ProbLo();
-        // const auto dx              = geomdata.CellSize();
+            state(i, j, k, Temp_comp) = 1.;
 
-        // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
-        // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-        const Real z = -z_r(i,j,k);
+            state(i,j,k,Temp_comp)=m_solverChoice.T0+8.0_rt*std::exp(z/50.0_rt);
+            if (l_use_salt) {
+                state(i,j,k,Salt_comp)=m_solverChoice.S0;
+            }
 
+            // Set scalar = 0 everywhere
+            state(i, j, k, Scalar_comp) = 0.0_rt;
+        });
+
+        // Construct a box that is on x-faces
+        const Box& xbx = surroundingNodes(bx,0);
         // Set the x-velocity
-        x_vel(i, j, k) = parms.u_0 + parms.uRef *
-                         std::log((z + parms.z0)/parms.z0)/
-                         std::log((parms.zRef +parms.z0)/parms.z0);
-        //x_vel(i, j, k) = 0.0;
-  });
+        ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+              // const auto prob_lo         = geomdata.ProbLo();
+              // const auto dx              = geomdata.CellSize();
 
-  // Construct a box that is on y-faces
-  const Box& ybx = surroundingNodes(bx,1);
+              // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
+              // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
+              const Real z = -z_r(i,j,k);
 
-  // Set the y-velocity
-  ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-  {
-        // const auto prob_lo         = geomdata.ProbLo();
-        // const auto dx              = geomdata.CellSize();
+              // Set the x-velocity
+              x_vel(i, j, k) = parms.u_0 + parms.uRef *
+                               std::log((z + parms.z0)/parms.z0)/
+                               std::log((parms.zRef +parms.z0)/parms.z0);
+              //x_vel(i, j, k) = 0.0;
+        });
 
-        // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
-        // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-        y_vel(i, j, k) = 0.0_rt;
-  });
+        // Construct a box that is on y-faces
+        const Box& ybx = surroundingNodes(bx,1);
 
-  // Construct a box that is on z-faces
-  const Box& zbx = surroundingNodes(bx,2);
+        // Set the y-velocity
+        ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+              // const auto prob_lo         = geomdata.ProbLo();
+              // const auto dx              = geomdata.CellSize();
 
-  // Set the z-velocity
-  ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-  {
-      z_vel(i, j, k) = 0.0_rt;
-  });
+              // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
+              // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
+              y_vel(i, j, k) = 0.0_rt;
+        });
 
-  Gpu::streamSynchronize();
+        // Construct a box that is on z-faces
+        const Box& zbx = surroundingNodes(bx,2);
+
+        // Set the z-velocity
+        ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        {
+            z_vel(i, j, k) = 0.0_rt;
+        });
+    }
+    Gpu::streamSynchronize();
 }
 
-void
-init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt, MultiFab& mf_z_w,
-                 const SolverChoice& /*m_solverChoice*/)
+void Problem::init_analytic_vmix(
+        int lev,
+        const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& remora,
+        MultiFab& mf_Akv, MultiFab& mf_Akt)
 {
     for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
       Array4<Real> const& Akv = (mf_Akv).array(mfi);
       Array4<Real> const& Akt = (mf_Akt).array(mfi);
-      Array4<Real> const& z_w = (mf_z_w).array(mfi);
+      Array4<const Real> const& z_w = remora.vec_z_w[lev]->const_array(mfi);
       Box bx = mfi.tilebox();
       bx.grow(IntVect(NGROW,NGROW,0));
 
@@ -216,7 +216,7 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt, M
 
       ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-        Akv(i,j,k) = 2.0e-03_rt+8.0e-03_rt*std::exp(z_w(i,j,k)/150.0_rt);
+          Akv(i,j,k) = 2.0e-03_rt+8.0e-03_rt*std::exp(z_w(i,j,k)/150.0_rt);
 
           Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
           Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
@@ -225,9 +225,14 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt, M
     }
 }
 
-void
-init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_visc2_r,
-                 MultiFab& mf_diff2, const SolverChoice& /*m_solverChoice*/)
+void Problem::init_analytic_hmix(
+        int /*lev*/,
+        const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
+        MultiFab& mf_visc2_p,
+        MultiFab& mf_visc2_r,
+        MultiFab& mf_diff2)
 {
     for ( MFIter mfi((mf_visc2_p), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -252,27 +257,23 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
     }
 }
 
-void
-init_custom_wind(const Geometry& geom, const Real time, MultiFab& mf_Uwind, MultiFab& mf_Vwind,
-                 const SolverChoice& m_solverChoice)
-{}
-
-void
-init_custom_smflux(const Geometry& geom, const Real time, MultiFab& mf_sustr, MultiFab& mf_svstr,
-                   const SolverChoice& m_solverChoice)
+void Problem::init_analytic_smflux(
+        int lev,
+        const amrex::Geometry& geom,
+        SolverChoice const& m_solverChoice,
+        REMORA const& remora,
+        MultiFab& mf_sustr, MultiFab& mf_svstr)
 {
     auto geomdata = geom.data();
     bool NSPeriodic = geomdata.isPeriodic(1);
     bool EWPeriodic = geomdata.isPeriodic(0);
     //If we had wind stress and bottom stress we would need to set these:
     Real pi = 3.14159265359;
-    Real tdays=time/(24.0*60.0*60.0);
-    amrex::Print()<<"Hacking in time offset for fixed dt=300"<<std::endl;
+    Real tdays=remora.get_t_old(lev)/(24.0*60.0*60.0);
     //this is a hack because time is off by dt. this needs to be fixed for non-fixed dt
-    Real dstart=0.0;//-300.0/(24.0*60.0*60.0);
     Real rho0=m_solverChoice.rho0;
     Real windamp;
-    amrex::Print()<<tdays<<" "<<dstart<<" "<<rho0<<std::endl;
+    Real dstart = 0.0;
     //It's possible these should be set to be nonzero only at the boundaries they affect
     if(NSPeriodic) {
         mf_sustr.setVal(0.0);
