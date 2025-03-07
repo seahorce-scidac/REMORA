@@ -473,9 +473,6 @@ public:
                       amrex::MultiFab* mf_shflx,
                       const int N);
 
-    static amrex::Real bulk_psiu (amrex::Real ZoL);
-    static amrex::Real bulk_psit (amrex::Real ZoL);
-
     /** Wrapper function for prestep */
     void prestep (int lev,
                   amrex::MultiFab& mf_uold, amrex::MultiFab& mf_vold,
@@ -1209,6 +1206,66 @@ public:
     static void print_tpls(std::ostream& /*out*/);
 
     amrex::Real get_t_old(int lev) const;
+
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    static amrex::Real bulk_psiu(amrex::Real ZoL) {
+        // Compute stability function, psi
+        using namespace amrex;
+
+        Real psiu;
+        if (ZoL < 0.0_rt) {
+            // Unstable conditions.
+            Real x    = std::pow(1.0_rt-15.0_rt*ZoL,0.25_rt);
+            Real psik = 2.0_rt*std::log(0.5_rt*(1.0_rt+x))+
+                        std::log(0.5_rt*(1.0_rt+x*x))-
+                        2.0_rt*std::atan(x)+0.5_rt*PI;
+            //  For very unstable conditions, use free-convection (Fairall).
+            Real sqrt3 = std::sqrt(3.0_rt);
+            Real y = std::pow(1.0_rt-10.15_rt*ZoL,1.0_rt/3.0_rt);
+            Real psic = 1.5_rt*std::log(1.0_rt/3.0_rt*(1.0_rt+y+y*y))-
+                   sqrt3*std::atan((1.0_rt+2.0_rt*y)/sqrt3)+PI/sqrt3;
+            //  Match Kansas and free-convection forms with weighting Fw.
+            Real Zol2 = ZoL*ZoL;
+            Real Fw = Zol2/(1.0_rt+Zol2);
+
+            psiu =  (1.0_rt-Fw)*psik+Fw*psic;
+        } else {
+            // Stable conditions
+            Real cff=std::min(50.0_rt,0.35_rt*ZoL);
+            psiu = -((1.0_rt+ZoL)+0.6667_rt*(ZoL-14.28_rt)/
+                     std::exp(cff)+8.525_rt);
+        }
+        return psiu;
+    }
+
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    static amrex::Real bulk_psit(amrex::Real ZoL) {
+        // Compute stability function, psi
+        using namespace amrex;
+
+        Real psit;
+        if (ZoL < 0.0_rt) {
+            // Unstable conditions.
+            Real x = std::pow(1.0_rt-15.0_rt*ZoL,0.5_rt);
+            Real psik = 2.0_rt*std::log(0.5_rt*(1.0_rt+x));
+            //  For very unstable conditions, use free-convection (Fairall).
+            Real sqrt3=std::sqrt(3.0_rt);
+            Real y=std::pow(1.0_rt-34.15_rt*ZoL,1.0_rt/3.0_rt);
+            Real psic=1.5_rt*std::log(1.0_rt/3.0_rt*(1.0_rt+y+y*y))-
+                sqrt3*std::atan((1.0_rt+2.0_rt*y)/sqrt3)+PI/sqrt3;
+
+            // Match Kansas and free-convection forms with weighting Fw.
+            Real ZoL2=ZoL*ZoL;
+            Real Fw=ZoL2/(1.0_rt+ZoL2);
+            psit = (1.0_rt-Fw)*psik+Fw*psic;
+        } else {
+            //  Stable conditions.
+            Real cff=std::min(50.0_rt,0.35_rt*ZoL);
+            psit=-(std::pow(1.0_rt+2.0_rt*ZoL,1.5_rt)+
+                    0.6667_rt*(ZoL-14.28_rt)/std::exp(cff)+8.525_rt);
+        }
+        return psit;
+    }
 };
 
 #endif
