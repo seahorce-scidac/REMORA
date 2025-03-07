@@ -9,7 +9,7 @@
 using namespace amrex;
 
 void
-REMORA::init_custom(int lev)
+REMORA::init_analytic(int lev)
 {
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];

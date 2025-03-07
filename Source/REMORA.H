@@ -138,7 +138,7 @@ public:
     virtual void MakeNewLevelFromScratch (int lev, amrex::Real time, const amrex::BoxArray& ba,
                       const amrex::DistributionMapping& dm) override;
 
-    /** Set pm and pn arrays on level lev. Only works if using Custom initialization */
+    /** Set pm and pn arrays on level lev. Only works if using analytic initialization */
     void set_grid_scale (int lev);
 
     /** Set zeta components to be equal to time-averaged Zt_avg1 */
@@ -739,7 +739,7 @@ public:
     void stretch_transform (int lev);
 
     void init_set_vmix (int lev);
-    void set_analytical_vmix (int lev);
+    void set_analytic_vmix (int lev);
     void init_gls_vmix (int lev, SolverChoice solver_choice);
     void gls_prestep (int lev, amrex::MultiFab* mf_gls, amrex::MultiFab* mf_tke,
                       amrex::MultiFab& mf_W,
@@ -832,7 +832,7 @@ private:
 
     void init_bcs();
 
-    void init_custom(int lev);
+    void init_analytic(int lev);
 
     void init_stuff (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
 

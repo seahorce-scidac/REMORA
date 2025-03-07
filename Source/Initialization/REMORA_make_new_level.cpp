@@ -608,12 +608,12 @@ REMORA::ClearLevel (int lev)
 void
 REMORA::set_grid_scale (int lev)
 {
-    AMREX_ASSERT(solverChoice.ic_bc_type == IC_BC_Type::Custom);
-    if (solverChoice.grid_scale_type == GridScaleType::Constant) {
+    AMREX_ASSERT(solverChoice.ic_bc_type == IC_BC_Type::analytic);
+    if (solverChoice.grid_scale_type == GridScaleType::constant) {
         const auto dxi = Geom(lev).InvCellSize();
         vec_pm[lev]->setVal(dxi[0]); vec_pm[lev]->FillBoundary(geom[lev].periodicity());
         vec_pn[lev]->setVal(dxi[1]); vec_pn[lev]->FillBoundary(geom[lev].periodicity());
-    } else if (solverChoice.grid_scale_type == GridScaleType::Custom) {
+    } else if (solverChoice.grid_scale_type == GridScaleType::analytic) {
         prob->init_analytic_grid_scale(lev, Geom(lev), solverChoice, *this, *vec_pm[lev].get(), *vec_pn[lev].get());
         vec_pm[lev]->FillBoundary(geom[lev].periodicity());
         vec_pn[lev]->FillBoundary(geom[lev].periodicity());

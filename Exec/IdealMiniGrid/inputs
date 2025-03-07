@@ -1,5 +1,5 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-remora.max_step = 100
+remora.max_step = 10
 
 # PROBLEM SIZE & GEOMETRY
 # dims come from ROMS ana_grid, and must match vals in prob.cpp right now
@@ -39,7 +39,7 @@ remora.plotfile_type = amrex
 remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 
 remora.use_coriolis  = true
-remora.coriolis_type = real
+remora.coriolis_type = netcdf
 remora.coriolis_f0   = 1.0e-4 #-8.26e-5
 
 remora.theta_s = 5.0
@@ -55,7 +55,7 @@ remora.Scoef = 0.0     # linear equation of state parameter (nondimensional)
 remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
 
 # These files can be found at https://github.com/seahorce-scidac/REMORA-data
-remora.ic_bc_type       = "real"
+remora.ic_bc_type       = "netcdf"
 remora.nc_init_file_0   = "idmini_ini_v1_classic64.nc"
 remora.nc_grid_file_0   = "idmini_grd_v1_classic64.nc"
 remora.nc_bdry_file     = "idmini_bry_Salt_classic64.nc"

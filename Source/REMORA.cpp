@@ -221,7 +221,7 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
     particleData.Redistribute();
 #endif
 
-    if (solverChoice.coupling_type == CouplingType::TwoWay)
+    if (solverChoice.coupling_type == CouplingType::two_way)
     {
         for (int lev = finest_level-1; lev >= 0; lev--)
         {
@@ -260,7 +260,7 @@ REMORA::InitData ()
 
         InitFromScratch(start_time);
 
-        if (solverChoice.coupling_type == CouplingType::TwoWay) {
+        if (solverChoice.coupling_type == CouplingType::two_way) {
             AverageDown();
         }
 
@@ -271,7 +271,7 @@ REMORA::InitData ()
     }
 
     // Initialize flux registers (whether we start from scratch or restart)
-    if (solverChoice.coupling_type == CouplingType::TwoWay) {
+    if (solverChoice.coupling_type == CouplingType::two_way) {
         advflux_reg[0] = nullptr;
         for (int lev = 1; lev <= finest_level; lev++)
         {
@@ -444,11 +444,11 @@ REMORA::restart ()
 void
 REMORA::set_zeta (int lev)
 {
-    if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+    if (solverChoice.ic_bc_type == IC_BC_Type::analytic) {
         prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, *vec_zeta[lev]);
 
 #ifdef REMORA_USE_NETCDF
-    } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+    } else if (solverChoice.ic_bc_type == IC_BC_Type::netcdf) {
         amrex::Print() << "Calling init_zeta_from_netcdf " << std::endl;
         init_zeta_from_netcdf(lev);
         amrex::Print() << "Sea surface height loaded from netcdf file \n " << std::endl;
@@ -466,11 +466,11 @@ REMORA::set_bathymetry (int lev)
     // Only set bathymetry on level 0, and interpolate for finer levels
     if (solverChoice.init_l0int_h) {
         if (lev==0) {
-            if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+            if (solverChoice.ic_bc_type == IC_BC_Type::analytic) {
                 prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_hOfTheConfusingName[lev]);
 
 #ifdef REMORA_USE_NETCDF
-            } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+            } else if (solverChoice.ic_bc_type == IC_BC_Type::netcdf) {
                 amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
                 init_bathymetry_from_netcdf(lev);
                 amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
@@ -487,11 +487,11 @@ REMORA::set_bathymetry (int lev)
             FillCoarsePatch(lev,dummy_time,vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get());
         }
     } else if (solverChoice.init_ana_h) {
-        if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+        if (solverChoice.ic_bc_type == IC_BC_Type::analytic) {
             prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this,*vec_hOfTheConfusingName[lev]);
 
 #ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+        } else if (solverChoice.ic_bc_type == IC_BC_Type::netcdf) {
             amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
             init_bathymetry_from_netcdf(lev);
             amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
@@ -504,11 +504,11 @@ REMORA::set_bathymetry (int lev)
         vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
         vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
     } else if (solverChoice.init_l1ad_h) {
-        if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+        if (solverChoice.ic_bc_type == IC_BC_Type::analytic) {
             prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_hOfTheConfusingName[lev]);
 
 #ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+        } else if (solverChoice.ic_bc_type == IC_BC_Type::netcdf) {
             amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
             init_bathymetry_from_netcdf(lev);
             amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
@@ -528,12 +528,12 @@ REMORA::set_bathymetry (int lev)
 void
 REMORA::set_coriolis(int lev) {
     if (solverChoice.use_coriolis) {
-        if (solverChoice.coriolis_type == Cor_Type::Custom) {
+        if (solverChoice.coriolis_type == Cor_Type::analytic) {
             prob->init_analytic_coriolis(lev, geom[lev], solverChoice, *this, *vec_fcor[lev]);
-        } else if (solverChoice.coriolis_type == Cor_Type::Beta_Plane) {
+        } else if (solverChoice.coriolis_type == Cor_Type::beta_plane) {
             init_beta_plane_coriolis(lev);
 #ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.coriolis_type == Cor_Type::Real) {
+        } else if (solverChoice.coriolis_type == Cor_Type::netcdf) {
             amrex::Print() << "Calling init_coriolis_from_netcdf " << std::endl;
             init_coriolis_from_netcdf(lev);
             amrex::Print() << "Coriolis loaded from netcdf file \n" << std::endl;
@@ -550,8 +550,8 @@ REMORA::set_coriolis(int lev) {
 
 void
 REMORA::init_set_vmix(int lev) {
-    if (solverChoice.vert_mixing_type == VertMixingType::analytical) {
-        set_analytical_vmix(lev);
+    if (solverChoice.vert_mixing_type == VertMixingType::analytic) {
+        set_analytic_vmix(lev);
     } else if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
         init_gls_vmix(lev, solverChoice);
         // The GLS initialization just sets the multifab to a value, so there's
@@ -562,7 +562,7 @@ REMORA::init_set_vmix(int lev) {
 }
 
 void
-REMORA::set_analytical_vmix(int lev) {
+REMORA::set_analytic_vmix(int lev) {
     Real time = 0.0_rt;
     prob->init_analytic_vmix(lev, geom[lev], solverChoice, *this,*vec_Akv[lev], *vec_Akt[lev]);
     FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv),BCVars::zvel_bc,BdyVars::null,0,true,false);
@@ -574,7 +574,7 @@ REMORA::set_analytical_vmix(int lev) {
 void
 REMORA::set_hmixcoef(int lev)
 {
-    if (solverChoice.horiz_mixing_type == HorizMixingType::analytical) {
+    if (solverChoice.horiz_mixing_type == HorizMixingType::analytic) {
         prob->init_analytic_hmix(lev, geom[lev], solverChoice, *this, *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev]);
     } else if (solverChoice.horiz_mixing_type == HorizMixingType::constant) {
         vec_visc2_p[lev]->setVal(solverChoice.visc2);
@@ -627,7 +627,7 @@ REMORA::init_only (int lev, Real time)
     vec_rv2d[lev]->setVal(0.0_rt);
 
 #ifdef REMORA_USE_NETCDF
-    if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+    if (solverChoice.ic_bc_type == IC_BC_Type::netcdf) {
         amrex::Print() << "Calling init_masks_from_netcdf " << std::endl;
         init_masks_from_netcdf(lev);
         amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
@@ -638,7 +638,7 @@ REMORA::init_only (int lev, Real time)
     }
 #endif
 
-    if (solverChoice.ic_bc_type == IC_BC_Type::Custom) {
+    if (solverChoice.ic_bc_type == IC_BC_Type::analytic) {
         set_grid_scale(lev);
     }
     set_bathymetry(lev);
@@ -647,11 +647,11 @@ REMORA::init_only (int lev, Real time)
 
     if (solverChoice.init_l0int_T) {
         if (lev==0) {
-            if (solverChoice.ic_bc_type == IC_BC_Type::Custom)
+            if (solverChoice.ic_bc_type == IC_BC_Type::analytic)
             {
-                init_custom(lev);
+                init_analytic(lev);
 #ifdef REMORA_USE_NETCDF
-            } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+            } else if (solverChoice.ic_bc_type == IC_BC_Type::netcdf) {
                 amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
                 init_data_from_netcdf(lev);
                 set_zeta_to_Ztavg(lev);
@@ -668,11 +668,11 @@ REMORA::init_only (int lev, Real time)
             FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1]);
         }
     } else if (solverChoice.init_ana_T || solverChoice.init_l1ad_T) {
-        if (solverChoice.ic_bc_type == IC_BC_Type::Custom)
+        if (solverChoice.ic_bc_type == IC_BC_Type::analytic)
         {
-            init_custom(lev);
+            init_analytic(lev);
 #ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.ic_bc_type == IC_BC_Type::Real) {
+        } else if (solverChoice.ic_bc_type == IC_BC_Type::netcdf) {
             amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
             init_data_from_netcdf(lev);
             set_zeta_to_Ztavg(lev);
