@@ -51,7 +51,7 @@ remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 remora.horizontal_mixing_type = "constant"
 remora.visc2 = 0.0
 
-remora.grid_scale_type = "custom"
+remora.grid_scale_type = "analytic"
 
 remora.eos_type = "nonlinear"
 
