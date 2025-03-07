@@ -548,10 +548,10 @@ List of Parameters
 |                                   | inferred                               |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.coriolis_type**          | Type of Coriolis forcing.              | ``beta_plane`` /  | ``beta_plane`` |
-|                                   | ``beta_plane`` uses a linear           | ``custom`` /      |                |
-|                                   | approximation. ``custom`` is           | ``real``          |                |
+|                                   | ``beta_plane`` uses a linear           | ``analytic`` /    |                |
+|                                   | approximation. ``analytic`` is         | ``netcdf``        |                |
 |                                   | calculated from a function in          |                   |                |
-|                                   | ``prob.cpp``, and ``real`` is          |                   |                |
+|                                   | ``prob.cpp``, and ``netcdf`` is        |                   |                |
 |                                   | read from the netcdf grid file         |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.coriolis_f0**            | f-plane constant for                   | Real number       | 0.0            |
@@ -566,7 +566,7 @@ List of Parameters
 |                                   | when using beta plane                  |                   |                |
 |                                   | Coriolis type                          |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.horizontal_mixing_type** | Horizontal mixing type. ``analytical`` | ``analytical`` /  | ``analytical`` |
+| **remora.horizontal_mixing_type** | Horizontal mixing type. ``analytic``   | ``analytic`` /    | ``analytic``   |
 |                                   | function is specified in               | ``constant``      |                |
 |                                   | ``prob.cpp``.                          |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
@@ -590,7 +590,7 @@ List of Parameters
 |                                   | when ``horizontal_mixing_type`` is     |                   |                |
 |                                   | ``constant``.                          |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.vertical_mixing_type**   | Vertical mixing type. ``analytical``   | ``analytical`` /  | ``analytical`` |
+| **remora.vertical_mixing_type**   | Vertical mixing type. ``analytic``     | ``analytic`` /    | ``analytic``   |
 |                                   | function is specified in               | ``GLS``           |                |
 |                                   | ``prob.cpp``.                          |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+

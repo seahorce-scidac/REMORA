@@ -13,11 +13,11 @@ These equations are as given in the `ROMS documentation`_
 
 The type of vertical mixing parametrization can be chosen in the :ref:`inputs file`<list-of-parameters-15>` with the ``remora.vertical_mixing_type`` option.
 
-Custom Mixing
--------------
+Analytic Mixing
+---------------
 
 By default, the vertical mixing coefficients :math:`K_v` and :math:`K_t` (``vec_Akv`` and ``vec_Akt`` in the code)
-are defined as a custom function in ``init_custom_vmix`` in the problem's ``prob.cpp`` file. This function can be defined to be a function of simulation variables, most commonly depth :math:`z_w`. It is re-evaluated at every time step.
+are defined as a custom function in ``init_analytic_vmix`` in the problem's ``prob.cpp`` file. This function can be defined to be a function of simulation variables, most commonly depth :math:`z_w`. It is re-evaluated at every time step.
 
 Generic Length Scale (GLS)
 --------------------------

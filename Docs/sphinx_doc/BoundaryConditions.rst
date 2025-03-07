@@ -15,7 +15,7 @@ The option ``remora.boundary_per_variable`` controls whether conditions are spec
 per-side (false) or per-variable (true) basis. Conditions are only set on the x- and y-faces.
 Boundaries in the z-direction always correspond to the sea floor and surface. Bottom drag is specified with
 ``remora.rdrag`` (see :ref:`Physics Parameters<list-of-parameters-15>`), and surface wind
-stress is specified by the function ``init_custom_smflux`` in ``prob.cpp``.
+stress is specified by the function ``init_analytic_smflux`` in ``prob.cpp``.
 
 REMORA also implements the ROMS bulk fluxes parameterization with optional evaporation-precipitation. The
 parametrization can be turned on with ``remora.bulk_fluxes``. Further options can be found in the

@@ -302,7 +302,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     FillPatch(lev, time, *vec_bvstr[lev].get(), GetVecOfPtrs(vec_bvstr), BCVars::v2d_simple_bc, BdyVars::null,0,true,false);
 
     if (solverChoice.vert_mixing_type == VertMixingType::analytic) {
-        // Update Akv if using analytical mixing
+        // Update Akv if using analytic mixing
         set_analytic_vmix(lev);
     }
 
