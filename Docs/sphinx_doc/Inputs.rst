@@ -63,7 +63,7 @@ Examples of Usage
 Domain Boundary Conditions
 ==========================
 
-Instructions for how to specify domain boundary conditions, with usage examples can be found in :ref:`Domain Boundary Conditions`<sec:domainBCs>`.
+Instructions for how to specify domain boundary conditions, with usage examples can be found in :ref:`Domain Boundary Conditions <sec:domainBCs>`.
 
 .. _icbc-parameters:
 
@@ -78,8 +78,8 @@ Grid, initial, and time-dependent boundary data can be specified using NetCDF fi
 
 The utility ``ncks`` is part of the `NCO <https://nco.sourceforge.net>`_ suite.
 
-Currently, if one of these are specified in a file, they all must be. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions`<sec:domainBCs>`.
-                                    --
+Currently, if one of these are specified in a file, they all must be. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
+
 List of Parameters
 ------------------
 
