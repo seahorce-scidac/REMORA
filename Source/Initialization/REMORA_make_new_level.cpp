@@ -74,14 +74,14 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     }
 
 
-    set_pm_pn(lev);
+    set_grid_scale(lev);
     stretch_transform(lev);
 
     init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
-    init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
+    // Previously set smflux
 
     // ********************************************************************************************
     // If we are making a new level then the FillPatcher for this level hasn't been allocated yet
@@ -203,14 +203,14 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     init_stuff(lev, ba, dm);
 
-    set_pm_pn(lev);
+    set_grid_scale(lev);
     stretch_transform(lev);
 
     init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
-    init_custom_smflux(geom[lev], time, *vec_sustr[lev], *vec_svstr[lev], solverChoice);
+    // Previously set smflux here
 
     // We need to re-define the FillPatcher if the grids have changed
     if (lev > 0 && cf_width >= 0) {
@@ -323,11 +323,24 @@ void REMORA::resize_stuff(int lev)
     vec_rvfrc.resize(lev+1);
     vec_sustr.resize(lev+1);
     vec_svstr.resize(lev+1);
+    vec_btflx.resize(lev+1);
+    vec_stflx.resize(lev+1);
+    vec_btflux.resize(lev+1);
+    vec_stflux.resize(lev+1);
+    vec_lrflx.resize(lev+1);
+    vec_lhflx.resize(lev+1);
+    vec_shflx.resize(lev+1);
+    vec_rain.resize(lev+1);
+    vec_evap.resize(lev+1);
     vec_rdrag.resize(lev+1);
     vec_rdrag2.resize(lev+1);
     vec_ZoBot.resize(lev+1);
     vec_bustr.resize(lev+1);
     vec_bvstr.resize(lev+1);
+    vec_uwind.resize(lev+1);
+    vec_vwind.resize(lev+1);
+    vec_alpha.resize(lev+1);
+    vec_beta.resize(lev+1);
 
     vec_DU_avg1.resize(lev+1);
     vec_DU_avg2.resize(lev+1);
@@ -513,6 +526,28 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_Akk[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
     vec_Akp[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
 
+    // surface/bottom tracer fluxes for update
+    vec_stflx[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0)));
+    vec_btflx[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0)));
+    // surface/bottom tracer fluxes to be filled by inputs
+    vec_stflux[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0)));
+    vec_btflux[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0)));
+
+    if (solverChoice.bulk_fluxes) {
+        vec_uwind[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind u
+        vec_vwind[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind v
+        vec_alpha[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_beta[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_lrflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_lhflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_shflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_rain[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_evap[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_lhflx[lev]->setVal(0.0_rt);
+        vec_shflx[lev]->setVal(0.0_rt);
+        vec_rain[lev]->setVal(solverChoice.rain);
+    }
+
     set_weights(lev);
 
     vec_DU_avg1[lev]->setVal(0.0_rt);
@@ -530,6 +565,11 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_Lscale[lev]->setVal(0.0_rt);
     vec_Akk[lev]->setVal(solverChoice.Akk_bak);
     vec_Akp[lev]->setVal(solverChoice.Akp_bak);
+
+    vec_stflx[lev]->setVal(0.0_rt);
+    vec_btflx[lev]->setVal(0.0_rt);
+    vec_stflux[lev]->setVal(0.0_rt);
+    vec_btflux[lev]->setVal(0.0_rt);
 
     // NOTE: Used to set vec_pm and vec_pn to 1e34 here to make foextrap work
     // when init_type = real. However, this does not appear to be necessary so removing
@@ -566,15 +606,23 @@ REMORA::ClearLevel (int lev)
 }
 
 void
-REMORA::set_pm_pn (int lev)
+REMORA::set_grid_scale (int lev)
 {
-    AMREX_ASSERT(solverChoice.ic_bc_type == IC_BC_Type::Custom);
-    const auto dxi = Geom(lev).InvCellSize();
-    vec_pm[lev]->setVal(dxi[0]); vec_pm[lev]->FillBoundary(geom[lev].periodicity());
-    vec_pn[lev]->setVal(dxi[1]); vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+    AMREX_ASSERT(solverChoice.ic_bc_type == IC_BC_Type::analytic);
+    if (solverChoice.grid_scale_type == GridScaleType::constant) {
+        const auto dxi = Geom(lev).InvCellSize();
+        vec_pm[lev]->setVal(dxi[0]); vec_pm[lev]->FillBoundary(geom[lev].periodicity());
+        vec_pn[lev]->setVal(dxi[1]); vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+    } else if (solverChoice.grid_scale_type == GridScaleType::analytic) {
+        prob->init_analytic_grid_scale(lev, Geom(lev), solverChoice, *this, *vec_pm[lev].get(), *vec_pn[lev].get());
+        vec_pm[lev]->FillBoundary(geom[lev].periodicity());
+        vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+    }
 
     for ( MFIter mfi(*vec_xr[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
+        Array4<const Real> const& pm = vec_pm[lev]->const_array(mfi);
+        Array4<const Real> const& pn = vec_pn[lev]->const_array(mfi);
         Array4<Real> const& xr = vec_xr[lev]->array(mfi);
         Array4<Real> const& yr = vec_yr[lev]->array(mfi);
         Array4<Real> const& xu = vec_xu[lev]->array(mfi);
@@ -584,32 +632,35 @@ REMORA::set_pm_pn (int lev)
         Array4<Real> const& xp = vec_xp[lev]->array(mfi);
         Array4<Real> const& yp = vec_yp[lev]->array(mfi);
 
-        Box bx = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
-        Real dx = 1.0_rt / dxi[0];
-        Real dy = 1.0_rt / dxi[1];
+        Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            Real dx = 1.0_rt / pm(i,j,0);
+            Real dy = 1.0_rt / pn(i,j,0);
+        });
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xr(i,j,0) = (i + 0.5_rt) * dx;
-            yr(i,j,0) = (j + 0.5_rt) * dy;
+            xr(i,j,0) = (i + 0.5_rt) / pm(i,j,0);
+            yr(i,j,0) = (j + 0.5_rt) / pn(i,j,0);
         });
 
-        ParallelFor(convert(bx,IntVect(1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(grow(convert(bx,IntVect(1,0,0)),IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xu(i,j,0) = i * dx;
-            yu(i,j,0) = (j + 0.5_rt) * dy;
+            xu(i,j,0) = i / pm(i,j,0);
+            yu(i,j,0) = (j + 0.5_rt) / pn(i,j,0);
         });
 
-        ParallelFor(convert(bx,IntVect(0,1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(grow(convert(bx,IntVect(0,1,0)),IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xv(i,j,0) = (i + 0.5_rt) * dx;
-            yv(i,j,0) = j * dy;
+            xv(i,j,0) = (i + 0.5_rt) / pm(i,j,0);
+            yv(i,j,0) = j / pn(i,j,0);
         });
 
-        ParallelFor(convert(bx,IntVect(1,1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(grow(convert(bx,IntVect(1,1,0)),IntVect(-1,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xp(i,j,0) = i * dx;
-            yp(i,j,0) = j * dy;
+            xp(i,j,0) = i / pm(i,j,0);
+            yp(i,j,0) = j / pn(i,j,0);
         });
     }
 }
@@ -619,18 +670,37 @@ REMORA::set_zeta_to_Ztavg (int lev)
 {
     std::unique_ptr<MultiFab>& mf_zeta = vec_zeta[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
+    if (solverChoice.eminusp_correct_ssh) {
+        for ( MFIter mfi(*vec_zeta[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
+            Array4<const Real> const& evap = vec_evap[lev]->const_array(mfi);
+            Array4<const Real> const& rain = vec_rain[lev]->const_array(mfi);
+
+            Box  bx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));// bx2.grow(IntVect(NGROW,NGROW,0));
+
+            Real cff = dt[lev] / rhow;
+
+            ParallelFor(bx2, [=] AMREX_GPU_DEVICE (int i, int j, int )
+            {
+                Zt_avg1(i,j,0) = Zt_avg1(i,j,0) - (evap(i,j,0) - rain(i,j,0)) * cff;
+            });
+        }
+    }
+    Gpu::streamSynchronize();
+
+    vec_Zt_avg1[lev]->FillBoundary(geom[lev].periodicity());
+
     for ( MFIter mfi(*vec_zeta[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<const Real> const& Zt_avg1 = (mf_Zt_avg1)->const_array(mfi);
-        Array4<Real> const& zeta = mf_zeta->array(mfi);
-
         Box  bx3 = mfi.tilebox(); bx3.grow(IntVect(NGROW+1,NGROW+1,0));
+        Array4<Real> const& zeta = mf_zeta->array(mfi);
+        Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
 
         ParallelFor(bx3, 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {
             zeta(i,j,0,n) = Zt_avg1(i,j,0);
         });
-
     }
 }
 

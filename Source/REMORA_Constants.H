@@ -6,19 +6,42 @@
 constexpr amrex::Real PI = amrex::Real(3.14159265358979323846264338327950288);
 //Note that amrex source code uses fewer digits of pi:
 //     constexpr Real pi = Real(3.1415926535897932);
-//TODO: Change these types of macros to 'const'
-constexpr amrex::Real R_d      = amrex::Real(287.0);   // gas constant for dry air [J/(kg-K)]
-constexpr amrex::Real R_v      = amrex::Real(461.6);   // gas constant for dry air [J/(kg-K)]
-constexpr amrex::Real c_p      = amrex::Real(1004.5);   // specific heat at constant pressure for dry air [J/(kg-K)]
-constexpr amrex::Real p_0        = amrex::Real(1.0e5); // reference surface pressure [Pa]
-constexpr amrex::Real Gamma      = amrex::Real(1.4);   // C_p/C_v [-]
-constexpr amrex::Real KAPPA      = amrex::Real(0.41);  // von Karman constant
+//
+constexpr amrex::Real Cp           = amrex::Real(3985.0);       // Specific heat of seawater [Joules/kg/degC]
+constexpr amrex::Real Csolar       = amrex::Real(1353.0);       // Solar irradiation constant [1360-1380 W/m2]
+constexpr amrex::Real Eradius      = amrex::Real(6371315.0);    // Earth equatorial radius [m]
+constexpr amrex::Real StefBo       = amrex::Real(5.67E-8);      // Stefan-Boltzmann constant [Watts/m2/K4]
+constexpr amrex::Real emmiss       = amrex::Real(0.97);         // Infrared emissivity [non_dimensional]
+constexpr amrex::Real rhow         = amrex::Real(1000.0);       // fresh water density [kg/m3]
+constexpr amrex::Real g            = amrex::Real(9.81);         // acceleration due to gravity [m/s2]
+constexpr amrex::Real vonKar       = amrex::Real(0.41);         // von Karman constant
 
-// Derived Constants
-constexpr amrex::Real ip_0    = amrex::Real(1./p_0);
-constexpr amrex::Real iR_d    = amrex::Real(1./R_d);
-constexpr amrex::Real iGamma  = amrex::Real(1./Gamma);
-constexpr amrex::Real rdOcp   = amrex::Real(R_d/c_p);
+//-----------------------------------------------------------------------
+// Constants used in surface fluxes bulk parameterization.
+//-----------------------------------------------------------------------
+//
+//    blk_Cpa       Specific heat capacity for dry air (J/kg/K).
+//    blk_Cpw       Specific heat capacity for seawater (J/kg/K).
+//    blk_Rgas      Gas constant for dry air (J/kg/K).
+//    blk_Zabl      Height (m) of atmospheric boundary layer.
+//    blk_ZQ        Height (m) of surface air humidity measurement.
+//    blk_ZT        Height (m) of surface air temperature measurement.
+//    blk_ZW        Height (m) of surface winds measurement.
+//    blk_beta      Beta parameter evaluated from Fairall low windspeed
+//                    turbulence data.
+//    blk_dter      Temperature change.
+//    blk_tcw       Thermal conductivity of water (W/m/K).
+//    blk_visw      Kinematic viscosity water (m2/s).
+
+constexpr amrex::Real blk_Cpa  = amrex::Real(1004.67);    // (J/kg/K), Businger 1982
+constexpr amrex::Real blk_Cpw  = amrex::Real(4000.0);     // (J/kg/K)
+constexpr amrex::Real blk_Rgas = amrex::Real(287.1);      // (J/kg/K)
+constexpr amrex::Real blk_Zabl = amrex::Real(600.0);      // (m)
+constexpr amrex::Real blk_beta = amrex::Real(1.2);        // non-dimensional
+constexpr amrex::Real blk_dter = amrex::Real(0.3);        // (K)
+constexpr amrex::Real blk_tcw  = amrex::Real(0.6);        // (W/m/K)
+constexpr amrex::Real blk_visw = amrex::Real(0.000001);   // (m2/s)
+
 
 //  Polynomial  expansion  coefficients for the computation of
 //  "in situ" density  and other associated quantities via the

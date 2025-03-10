@@ -34,6 +34,7 @@
 #include <REMORA_TimeInterpolatedData.H>
 #include <REMORA_DataStruct.H>
 #include <REMORA_Derive.H>
+#include "REMORA_prob_common.H"
 
 #ifdef REMORA_USE_PARTICLES
 #include "REMORA_ParticleData.H"
@@ -64,6 +65,9 @@ namespace InterpType {
         CellConservativeQuartic
     };
 }
+
+// Forward declaration to resolve circular dependency
+class ProblemBase;
 
 class REMORA
     : public amrex::AmrCore
@@ -138,8 +142,8 @@ public:
     virtual void MakeNewLevelFromScratch (int lev, amrex::Real time, const amrex::BoxArray& ba,
                       const amrex::DistributionMapping& dm) override;
 
-    /** Set pm and pn arrays on level lev. Only works if using Custom initialization */
-    void set_pm_pn (int lev);
+    /** Set pm and pn arrays on level lev. Only works if using analytic initialization */
+    void set_grid_scale (int lev);
 
     /** Set zeta components to be equal to time-averaged Zt_avg1 */
     void set_zeta_to_Ztavg (int lev);
@@ -261,9 +265,34 @@ public:
 
     /** Surface stress in the u direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sustr;
-
     /** Surface stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr;
+
+    /** Wind in the u direction */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_uwind;
+    /** Wind in the v direction */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_vwind;
+
+    /** longwave radiation */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lrflx;
+    /** latent heat flux */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lhflx;
+    /** sensible heat flux */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_shflx;
+
+    /** Surface tracer flux; working arrays */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_stflx;
+    /** Surface tracer flux; input arrays */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_stflux;
+    /** Bottom tracer flux; working arrays */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_btflx;
+    /** Bottom tracer flux; input arrays */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_btflux;
+
+    /** precipitation rate [kg/m^2/s] */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rain;
+    /** evaporation rate [kg/m^2/s] */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_evap;
 
     /** Linear drag coefficient [m/s], defined at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;
@@ -350,6 +379,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoS;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoA;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvf;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_alpha;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_beta;
 
     amrex::Vector<amrex::Real> vec_weight1;
     amrex::Vector<amrex::Real> vec_weight2;
@@ -432,6 +463,19 @@ public:
                      amrex::MultiFab const* mf_mskv,
                      const int N,
                      const amrex::Real dt_lev);
+
+    void bulk_fluxes (int lev,
+                      amrex::MultiFab* mf_cons,
+                      amrex::MultiFab* mf_uwind,
+                      amrex::MultiFab* mf_vwind,
+                      amrex::MultiFab* mf_evap,
+                      amrex::MultiFab* mf_sustr,
+                      amrex::MultiFab* mf_svstr,
+                      amrex::MultiFab* mf_stflux,
+                      amrex::MultiFab* mf_lrflx,
+                      amrex::MultiFab* mf_lhflx,
+                      amrex::MultiFab* mf_shflx,
+                      const int N);
 
     /** Wrapper function for prestep */
     void prestep (int lev,
@@ -531,6 +575,8 @@ public:
                   const amrex::Array4<amrex::Real      >& rhoA,
                   const amrex::Array4<amrex::Real      >& rhoS,
                   const amrex::Array4<amrex::Real      >& bvf,
+                  const amrex::Array4<amrex::Real      >& alpha,
+                  const amrex::Array4<amrex::Real      >& beta,
                   const amrex::Array4<amrex::Real const>& Hz,
                   const amrex::Array4<amrex::Real const>& z_w,
                   const amrex::Array4<amrex::Real const>& z_r,
@@ -557,6 +603,8 @@ public:
                   const amrex::Array4<amrex::Real      >& rhoA,
                   const amrex::Array4<amrex::Real      >& rhoS,
                   const amrex::Array4<amrex::Real      >& bvf,
+                  const amrex::Array4<amrex::Real      >& alpha,
+                  const amrex::Array4<amrex::Real      >& beta,
                   const amrex::Array4<amrex::Real const>& Hz,
                   const amrex::Array4<amrex::Real const>& z_w,
                   const amrex::Array4<amrex::Real const>& z_r,
@@ -695,7 +743,7 @@ public:
     void stretch_transform (int lev);
 
     void init_set_vmix (int lev);
-    void set_analytical_vmix (int lev);
+    void set_analytic_vmix (int lev);
     void init_gls_vmix (int lev, SolverChoice solver_choice);
     void gls_prestep (int lev, amrex::MultiFab* mf_gls, amrex::MultiFab* mf_tke,
                       amrex::MultiFab& mf_W,
@@ -713,7 +761,9 @@ public:
     void scale_rhs_vars ();
     void scale_rhs_vars_inv ();
 
-    void set_smflux (int lev, amrex::Real time);
+    void set_smflux (int lev);
+
+    void set_wind (int lev);
 
     void set_hmixcoef (int lev);
 
@@ -786,7 +836,7 @@ private:
 
     void init_bcs();
 
-    void init_custom(int lev);
+    void init_analytic(int lev);
 
     void init_stuff (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
 
@@ -901,6 +951,8 @@ private:
 
     ////////////////
     // private data members
+
+    std::unique_ptr<ProblemBase> prob = nullptr;
 
     amrex::Vector<int> num_boxes_at_level;                   // how many boxes specified at each level by tagging criteria
     amrex::Vector<int> num_files_at_level;                   // how many wrfinput files specified at each level
@@ -1159,6 +1211,68 @@ public:
     static void print_error(MPI_Comm /*comm*/, const std::string& msg);
     static void print_summary(std::ostream&);
     static void print_tpls(std::ostream& /*out*/);
+
+    amrex::Real get_t_old(int lev) const;
+
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    static amrex::Real bulk_psiu(amrex::Real ZoL) {
+        // Compute stability function, psi
+        using namespace amrex;
+
+        Real psiu;
+        if (ZoL < 0.0_rt) {
+            // Unstable conditions.
+            Real x    = std::pow(1.0_rt-15.0_rt*ZoL,0.25_rt);
+            Real psik = 2.0_rt*std::log(0.5_rt*(1.0_rt+x))+
+                        std::log(0.5_rt*(1.0_rt+x*x))-
+                        2.0_rt*std::atan(x)+0.5_rt*PI;
+            //  For very unstable conditions, use free-convection (Fairall).
+            Real sqrt3 = std::sqrt(3.0_rt);
+            Real y = std::pow(1.0_rt-10.15_rt*ZoL,1.0_rt/3.0_rt);
+            Real psic = 1.5_rt*std::log(1.0_rt/3.0_rt*(1.0_rt+y+y*y))-
+                   sqrt3*std::atan((1.0_rt+2.0_rt*y)/sqrt3)+PI/sqrt3;
+            //  Match Kansas and free-convection forms with weighting Fw.
+            Real Zol2 = ZoL*ZoL;
+            Real Fw = Zol2/(1.0_rt+Zol2);
+
+            psiu =  (1.0_rt-Fw)*psik+Fw*psic;
+        } else {
+            // Stable conditions
+            Real cff=std::min(50.0_rt,0.35_rt*ZoL);
+            psiu = -((1.0_rt+ZoL)+0.6667_rt*(ZoL-14.28_rt)/
+                     std::exp(cff)+8.525_rt);
+        }
+        return psiu;
+    }
+
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    static amrex::Real bulk_psit(amrex::Real ZoL) {
+        // Compute stability function, psi
+        using namespace amrex;
+
+        Real psit;
+        if (ZoL < 0.0_rt) {
+            // Unstable conditions.
+            Real x = std::pow(1.0_rt-15.0_rt*ZoL,0.5_rt);
+            Real psik = 2.0_rt*std::log(0.5_rt*(1.0_rt+x));
+            //  For very unstable conditions, use free-convection (Fairall).
+            Real sqrt3=std::sqrt(3.0_rt);
+            Real y=std::pow(1.0_rt-34.15_rt*ZoL,1.0_rt/3.0_rt);
+            Real psic=1.5_rt*std::log(1.0_rt/3.0_rt*(1.0_rt+y+y*y))-
+                sqrt3*std::atan((1.0_rt+2.0_rt*y)/sqrt3)+PI/sqrt3;
+
+            // Match Kansas and free-convection forms with weighting Fw.
+            Real ZoL2=ZoL*ZoL;
+            Real Fw=ZoL2/(1.0_rt+ZoL2);
+            psit = (1.0_rt-Fw)*psik+Fw*psic;
+        } else {
+            //  Stable conditions.
+            Real cff=std::min(50.0_rt,0.35_rt*ZoL);
+            psit=-(std::pow(1.0_rt+2.0_rt*ZoL,1.5_rt)+
+                    0.6667_rt*(ZoL-14.28_rt)/std::exp(cff)+8.525_rt);
+        }
+        return psit;
+    }
 };
 
 #endif

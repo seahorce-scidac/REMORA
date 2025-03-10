@@ -126,12 +126,16 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
 
 #ifdef REMORA_USE_NETCDF
         // Fill the data which is stored in the boundary data read from netcdf files
-        if ( (solverChoice.ic_bc_type == IC_BC_Type::Real) && (lev==0) &&
+        if ( (solverChoice.ic_bc_type == IC_BC_Type::netcdf) && (lev==0) &&
              (bdy_var_type != BdyVars::null) )
         {
             fill_from_bdyfiles(mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt);
         }
 #endif
+        // Fill corners of the domain with periodic data
+        if  ( mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
+            mf_to_fill.EnforcePeriodicity(geom[lev].periodicity());
+        }
 
         // Also enforce free-slip at top boundary (on xvel or yvel)
         if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||

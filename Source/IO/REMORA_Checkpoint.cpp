@@ -208,7 +208,7 @@ REMORA::WriteCheckpointFile ()
 
 #ifdef REMORA_USE_NETCDF
    // Write bdy_data files
-   if ( ParallelDescriptor::IOProcessor() && (solverChoice.ic_bc_type == IC_BC_Type::Real) )
+   if ( ParallelDescriptor::IOProcessor() && (solverChoice.ic_bc_type == IC_BC_Type::netcdf) )
    {
 
      // Vector dimensions
@@ -463,7 +463,7 @@ REMORA::ReadCheckpointFile ()
 
 #ifdef REMORA_USE_NETCDF
     // Read bdy_data files
-    if ( solverChoice.ic_bc_type == IC_BC_Type::Real)
+    if ( solverChoice.ic_bc_type == IC_BC_Type::netcdf)
     {
         int ioproc = ParallelDescriptor::IOProcessorNumber();  // I/O rank
         int num_time;

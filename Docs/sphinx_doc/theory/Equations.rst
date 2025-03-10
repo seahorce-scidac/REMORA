@@ -52,3 +52,32 @@ variables and vertical turbulent eddy viscosity and eddy diffusivity coefficient
 An overbar represents a time average and a prime represents a fluctuation about the mean.
 
 See :ref:`sec:VerticalMixing` for how :math:`K_m` (:math:`K_v`) and :math:`K_C` (:math:`K_t`) are computed in REMORA.
+
+Vertical Boundary Conditions
+----------------------------
+
+The vertical boundary conditions can be presribed as follows.
+
+At the top:
+
+.. math::
+   K_m \frac{\partial{u}}{\partial{z}} &= \tau_s^x(x,y,t)
+
+   K_m \frac{\partial{v}}{\partial{z}} &= \tau_s^y(x,y,t)
+
+   K_C \frac{\partial{C}}{\partial{z}} &= \frac{Q_C}{\rho_{o} c_{P}}
+
+   w &= \frac{\partial{\zeta}}{\partial{t}}
+
+At the bottom:
+
+.. math::
+   K_m \frac{\partial{u}}{\partial{z}} &= \tau_b^x(x,y,t)
+
+   K_m \frac{\partial{v}}{\partial{z}} &= \tau_b^y(x,y,t)
+
+   K_C \frac{\partial{C}}{\partial{z}} &= 0
+
+   -w + \vec{v} \cdot \nabla h &= 0
+
+where :math:`Q_C` is the surface concentration flux of temperature or salinity, :math:`\tau_s^x` and :math:`\tau_s^y` are the surface wind stresses, and :math:`\tau_b^x` and :math:`\tau_b^y` are the bottom stresses. The bottom stress can have a linear, quadratic, or log layer form. The surface stresses are set either set explicitly or calculated from prescribed winds based on the bulk flux parameterization (optional). The temperature flux is also set with the parametrization, which accounts for atmospheric conditions and solar irradiation. Calculated net evaporation/precipitation determines the salt flux.

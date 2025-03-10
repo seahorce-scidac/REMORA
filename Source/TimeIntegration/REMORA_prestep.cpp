@@ -137,23 +137,6 @@ REMORA::prestep (int lev,
 
         auto FC=fab_FC.array();
 
-        //From ini_fields and .in file
-        //fab_Akt.setVal(1e-6);
-        FArrayBox fab_stflux(tbxp2,1,amrex::The_Async_Arena());
-        auto stflux= fab_stflux.array();
-        FArrayBox fab_btflux(tbxp2,1,amrex::The_Async_Arena());
-        auto btflux= fab_btflux.array();
-
-        //From ini_fields and .in file
-        //fab_stflux.setVal(0.0_rt);
-        //also set btflux=0 (as in ana_btflux.H)
-        ParallelFor(tbxp2,
-        [=] AMREX_GPU_DEVICE (int i, int j, int k)
-        {
-            stflux(i,j,k)=0.0_rt;
-            btflux(i,j,k)=0.0_rt;
-        });
-
         for (int i_comp=0; i_comp < NCONS; i_comp++) {
             Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
             prestep_t_advection(bx, gbx, S_old.array(mfi,i_comp),
@@ -164,8 +147,10 @@ REMORA::prestep (int lev,
 
         // Only do diffusion for salt and temperature, not other tracer(s)
         for (int i_comp=0; i_comp < NCONS; i_comp++) {
+            const Array4<Real const>& stflx = vec_stflx[lev]->const_array(mfi,i_comp);
+            const Array4<Real const>& btflx = vec_btflx[lev]->const_array(mfi,i_comp);
             prestep_diffusion(bx,gbx,0,0,S_new.array(mfi,i_comp), S_old.array(mfi,i_comp), ru,
-                              Hz, Akt, DC, FC, stflux, btflux, z_r, pm, pn, iic, iic, nnew, nstp,
+                              Hz, Akt, DC, FC, stflx, btflx, z_r, pm, pn, iic, iic, nnew, nstp,
                               nrhs, N, lambda, dt_lev);
         }
 

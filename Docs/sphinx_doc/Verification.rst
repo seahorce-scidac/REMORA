@@ -15,6 +15,12 @@ Advection
 
 .. include:: ../../Exec/Advection/README
 
+.. _boundarylayer:
+
+Boundary Layer
+--------------
+
+.. include:: ../../Exec/BoundaryLayer/README
 
 .. _channeltest:
 

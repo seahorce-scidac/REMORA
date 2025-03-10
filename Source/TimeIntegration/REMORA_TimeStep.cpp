@@ -79,7 +79,7 @@ REMORA::timeStep (int lev, Real time, int iteration)
             timeStep(lev+1, time+(i-1)*dt[lev+1], i);
         }
 
-        if (solverChoice.coupling_type == CouplingType::TwoWay) {
+        if (solverChoice.coupling_type == CouplingType::two_way) {
             AverageDownTo(lev); // average lev+1 down to lev
         }
     }

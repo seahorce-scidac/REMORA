@@ -32,7 +32,7 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     const Real OneFifth = 0.2_rt;
     const Real OneTwelfth = 1.0_rt/12.0_rt;
     const Real eps = 1.0E-10_rt;
-    Real GRho     = solverChoice.g/solverChoice.rho0;
+    Real GRho     = g/solverChoice.rho0;
     Real GRho0    = 1000.0_rt * GRho;
     Real HalfGRho = 0.5_rt    * GRho;
 

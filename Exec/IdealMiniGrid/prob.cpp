@@ -10,64 +10,21 @@ using namespace amrex;
 
 ProbParm parms;
 
-void
-amrex_probinit(
-  const amrex_real* /*problo*/,
-  const amrex_real* /*probhi*/)
+std::unique_ptr<ProblemBase>
+amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
 {
-  // Parse params
-  ParmParse pp("remora.prob");
+    return std::make_unique<Problem>(problo, probhi);
 }
 
-/**
- * \brief Initializes bathymetry h and surface height Zeta
- */
-void
-init_custom_bathymetry (int /*lev*/, const Geometry& /*geom*/,
-                        MultiFab& /*mf_h*/,
-                        const SolverChoice& /*m_solverChoice*/,
-                        int /*rrx*/, int /*rry*/)
-{
-    Abort("Shouldn't be in init_custom_bathymetry!");
-}
+Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
+{}
 
-/**
- * \brief Initializes coriolis forcing
- */
-void
-init_custom_coriolis (const Geometry& /*geom*/,
-                      MultiFab& /*mf_fcor*/,
-                      const SolverChoice& /*m_solverChoice*/) {}
-
-/**
- * \brief Initializes custom sea surface height
- */
-void
-init_custom_zeta (const Geometry& geom,
-                      MultiFab& mf_zeta,
-                      const SolverChoice& m_solverChoice) {}
-
-void
-init_custom_prob(
-        const Box& /*bx*/,
-        Array4<Real      > const& /*state*/,
-        Array4<Real      > const& /*x_vel*/,
-        Array4<Real      > const& /*y_vel*/,
-        Array4<Real      > const& /*z_vel*/,
-        Array4<Real const> const& /*z_w*/,
-        Array4<Real const> const& /*z_r*/,
-        Array4<Real const> const& /*Hz*/,
-        Array4<Real const> const& /*h*/,
-        Array4<Real const> const& /*Zt_avg1*/,
-        GeometryData const& /*geomdata*/,
-        const SolverChoice& /*m_solverChoice*/)
-{
-    Abort("Shouldn't be in init_custom_prob!");
-}
-
-void
-init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
-                 MultiFab& /*mf_z_w*/, const SolverChoice& /*m_solverChoice*/)
+void Problem::init_analytic_vmix(
+        int lev,
+        const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& remora,
+        MultiFab& mf_Akv, MultiFab& mf_Akt)
 {
     for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -90,9 +47,14 @@ init_custom_vmix(const Geometry& /*geom*/, MultiFab& mf_Akv, MultiFab& mf_Akt,
     }
 }
 
-void
-init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_visc2_r,
-                 MultiFab& mf_diff2, const SolverChoice& /*m_solverChoice*/)
+void Problem::init_analytic_hmix(
+        int /*lev*/,
+        const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
+        MultiFab& mf_visc2_p,
+        MultiFab& mf_visc2_r,
+        MultiFab& mf_diff2)
 {
     for ( MFIter mfi((mf_visc2_p), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -118,9 +80,12 @@ init_custom_hmix(const Geometry& /*geom*/, MultiFab& mf_visc2_p, MultiFab& mf_vi
     } // mfi
 }
 
-void
-init_custom_smflux(const Geometry& /*geom*/, const Real /*time*/,
-                   MultiFab& mf_sustr, MultiFab& mf_svstr, const SolverChoice& /*m_solverChoice*/)
+void Problem::init_analytic_smflux(
+        int /*lev*/,
+        const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
+        MultiFab& mf_sustr, MultiFab& mf_svstr)
 {
     mf_sustr.setVal(0.0);
     mf_svstr.setVal(0.0);

@@ -12,7 +12,7 @@
 #include "REMORA_IndexDefines.H"
 
 enum struct CouplingType {
-    OneWay, TwoWay
+    one_way, two_way
 };
 
 enum class Coord {
@@ -28,11 +28,11 @@ enum class AdvectionScheme {
 };
 
 enum class IC_BC_Type {
-    Custom, Real
+    analytic, netcdf
 };
 
 enum class Cor_Type {
-    Custom, Beta_Plane, Real
+    analytic, beta_plane, netcdf
 };
 
 enum class PlotfileType {
@@ -40,11 +40,11 @@ enum class PlotfileType {
 };
 
 enum class VertMixingType {
-    analytical, GLS
+    analytic, GLS
 };
 
 enum class HorizMixingType {
-    analytical, constant
+    analytic, constant
 };
 
 enum class GLS_StabilityType {
@@ -57,6 +57,10 @@ enum class EOSType {
 
 enum class BottomStressType {
     linear, quadratic, logarithmic
+};
+
+enum class GridScaleType {
+    constant, analytic
 };
 
 struct SolverChoice {
@@ -137,6 +141,30 @@ struct SolverChoice {
         pp.query("T0",T0);
         pp.query("rho0", rho0);
 
+        pp.query("bulk_fluxes",bulk_fluxes);
+        if (bulk_fluxes) {
+            do_salt_flux = true;
+            do_temp_flux = true;
+        }
+        pp.query("air_pressure",Pair);
+        pp.query("air_temperature",Tair);
+        pp.query("air_humidity",Hair);
+        pp.query("surface_radiation_flux",srflux);
+        pp.query("cloud",cloud);
+        pp.query("rain",rain);
+        pp.query("blk_ZQ",blk_ZQ);
+        pp.query("blk_ZT",blk_ZT);
+        pp.query("blk_ZW",blk_ZW);
+        pp.query("eminusp",eminusp);
+        pp.query("eminusp_correct_ssh",eminusp_correct_ssh);
+
+        if (eminusp_correct_ssh and !eminusp) {
+            amrex::Abort("If evaporation minus precipitation (E-P) sea surface height correct in is on, E-P must be on as well (remora.eminusp=true)");
+        }
+        if (eminusp and !bulk_fluxes) {
+            amrex::Abort("Evaporation minus precipitation (E-P) requires bulk flux parametrizations (remora.bulk_fluxes=true)");
+        }
+
         //Read in linear eos parameters
         //Grid stretching
         pp.query("theta_s",theta_s);
@@ -147,20 +175,37 @@ struct SolverChoice {
         pp.query("coriolis_f0",coriolis_f0);
         pp.query("coriolis_beta",coriolis_beta);
 
-        pp.query("ggrav",g);
-
         pp.query("Akv_bak",Akv_bak);
         pp.query("Akt_bak",Akt_bak);
 
-        static std::string ic_bc_type_string = "custom";
+
+        static std::string grid_scale_type_string = "constant";
+        pp.query("grid_scale_type",grid_scale_type_string);
+
+        if (amrex::toLower(grid_scale_type_string) == "constant") {
+            grid_scale_type = GridScaleType::constant;
+        } else if (amrex::toLower(grid_scale_type_string) == "custom") {
+            amrex::Warning("Initialization of grid scale from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            grid_scale_type = GridScaleType::analytic;
+        } else if (amrex::toLower(grid_scale_type_string) == "analytic") {
+            grid_scale_type = GridScaleType::analytic;
+        } else {
+            amrex::Error("Don't know this grid_scale_type");
+        }
+
+        static std::string ic_bc_type_string = "analytic";
         pp.query("ic_bc_type", ic_bc_type_string);
 
-        if ( !ic_bc_type_string.compare("Custom") ||
-             !ic_bc_type_string.compare("custom") ) {
-            ic_bc_type = IC_BC_Type::Custom;
-        } else if ( !ic_bc_type_string.compare("Real") ||
-                    !ic_bc_type_string.compare("real") ) {
-            ic_bc_type = IC_BC_Type::Real;
+        if ( amrex::toLower(ic_bc_type_string) == "custom") {
+            amrex::Warning("Problem initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            ic_bc_type = IC_BC_Type::analytic;
+        } else if ( amrex::toLower(ic_bc_type_string) == "analytic") {
+            ic_bc_type = IC_BC_Type::analytic;
+        } else if ( amrex::toLower(ic_bc_type_string) == "netcdf") {
+            ic_bc_type = IC_BC_Type::netcdf;
+        } else if ( amrex::toLower(ic_bc_type_string) == "real") {
+            amrex::Warning("Problem initialization from NetCDF (remora.ic_bc_type) is now called 'netcdf'. 'real' will be deprecated");
+            ic_bc_type = IC_BC_Type::netcdf;
         } else {
             amrex::Error("Don't know this ic_bc_type");
         }
@@ -168,10 +213,12 @@ struct SolverChoice {
         // Which type of refinement
         static std::string coupling_type_string = "TwoWay";
         pp.query("coupling_type",coupling_type_string);
-        if (coupling_type_string == "TwoWay") {
-            coupling_type = CouplingType::TwoWay;
-        } else if (coupling_type_string == "OneWay") {
-            coupling_type = CouplingType::OneWay;
+        if (amrex::toLower(coupling_type_string) == "twoway" ||
+            amrex::toLower(coupling_type_string) == "two_way") {
+            coupling_type = CouplingType::two_way;
+        } else if (amrex::toLower(coupling_type_string) == "oneway" ||
+            amrex::toLower(coupling_type_string) == "one_way") {
+            coupling_type = CouplingType::one_way;
         } else {
             amrex::Abort("Dont know this coupling_type");
         }
@@ -180,15 +227,19 @@ struct SolverChoice {
         if (use_coriolis) {
             static std::string coriolis_type_string = "beta_plane";
             pp.query("coriolis_type",coriolis_type_string);
-            if ( (coriolis_type_string == "Custom") || (coriolis_type_string == "custom") ) {
-                coriolis_type = Cor_Type::Custom;
-            } else if ((coriolis_type_string == "Beta_Plane") ||
-                       (coriolis_type_string == "beta_Plane") ||
-                       (coriolis_type_string == "beta_plane") ||
-                       (coriolis_type_string == "Beta_plane")) {
-                coriolis_type = Cor_Type::Beta_Plane;
-            } else if ( (coriolis_type_string == "Real") || (coriolis_type_string == "real") ) {
-                coriolis_type = Cor_Type::Real;
+            if ( amrex::toLower(coriolis_type_string) == "custom") {
+                amrex::Warning("Coriolis initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+                coriolis_type = Cor_Type::analytic;
+            } else if ( amrex::toLower(coriolis_type_string) == "analytic") {
+                coriolis_type = Cor_Type::analytic;
+            } else if ((amrex::toLower(coriolis_type_string) == "beta_plane") ||
+                       (amrex::toLower(coriolis_type_string) == "betaplane")) {
+                coriolis_type = Cor_Type::beta_plane;
+            } else if ( (amrex::toLower(coriolis_type_string) == "netcdf")) {
+                coriolis_type = Cor_Type::netcdf;
+            } else if ( (amrex::toLower(coriolis_type_string) == "real")) {
+                amrex::Warning("Coriolis initialization from NetCDF is now called 'netcdf'. 'real' will be deprecated");
+                coriolis_type = Cor_Type::netcdf;
             } else {
                 amrex::Abort("Don't know this coriolis_type");
             }
@@ -209,11 +260,12 @@ struct SolverChoice {
         amrex::Real tnu2_salt = amrex::Real(0.0);
         amrex::Real tnu2_temp = amrex::Real(0.0);
         amrex::Real tnu2_scalar = amrex::Real(0.0);
-        static std::string horiz_mixing_type_string = "analytical";
+        static std::string horiz_mixing_type_string = "analytic";
         pp.query("horizontal_mixing_type", horiz_mixing_type_string);
-        if ((horiz_mixing_type_string == "analytical") || (horiz_mixing_type_string == "Analytical")) {
-            horiz_mixing_type = HorizMixingType::analytical;
-        } else if ((horiz_mixing_type_string == "constant") || (horiz_mixing_type_string == "Constant")) {
+        if (amrex::toLower(horiz_mixing_type_string) == "analytical" ||
+            amrex::toLower(horiz_mixing_type_string) == "analytic") {
+            horiz_mixing_type = HorizMixingType::analytic;
+        } else if (amrex::toLower(horiz_mixing_type_string) == "constant") {
             horiz_mixing_type = HorizMixingType::constant;
         } else {
             amrex::Abort("Don't know this horizontal mixing type");
@@ -234,21 +286,22 @@ struct SolverChoice {
 
         pp.query("Akk_bak", Akk_bak);
         pp.query("Akp_bak", Akp_bak);
-        static std::string vert_mixing_type_string = "analytical";
+        static std::string vert_mixing_type_string = "analytic";
         static std::string gls_stability_type_string = "Canuto_A";
         pp.query("vertical_mixing_type", vert_mixing_type_string);
         pp.query("gls_stability_type", gls_stability_type_string);
-        if ( (vert_mixing_type_string == "analytical") || (vert_mixing_type_string == "Analytical") ) {
-            vert_mixing_type = VertMixingType::analytical;
-        } else if ((vert_mixing_type_string == "gls") || (vert_mixing_type_string == "GLS") ) {
+        if (amrex::toLower(vert_mixing_type_string) == "analytical" ||
+            amrex::toLower(vert_mixing_type_string) == "analytic") {
+            vert_mixing_type = VertMixingType::analytic;
+        } else if (amrex::toLower(vert_mixing_type_string) == "gls") {
             vert_mixing_type = VertMixingType::GLS;
-            if ( (gls_stability_type_string == "Canuto_A") || (gls_stability_type_string == "canuto_a") || (gls_stability_type_string == "canuto_A") ) {
+            if (amrex::toLower(gls_stability_type_string) == "canuto_a") {
                 gls_stability_type = GLS_StabilityType::Canuto_A;
             }
-            else if ( (gls_stability_type_string == "Canuto_B") || (gls_stability_type_string == "canuto_b") || (gls_stability_type_string == "canuto_B") ) {
+            else if (amrex::toLower(gls_stability_type_string) == "canuto_b") {
                 gls_stability_type = GLS_StabilityType::Canuto_B;
             }
-            else if ( (gls_stability_type_string == "galperin") || (gls_stability_type_string == "Galperin") ) {
+            else if (amrex::toLower(gls_stability_type_string) == "galperin") {
                 gls_stability_type = GLS_StabilityType::Galperin;
             }
             else {
@@ -333,11 +386,11 @@ struct SolverChoice {
         amrex::Print() << "flat_bathymetry       : " << flat_bathymetry << std::endl;
         amrex::Print() << "spatial_order         : " << spatial_order << std::endl;
 
-        if (ic_bc_type == IC_BC_Type::Custom) {
-            amrex::Print() << "Using custom initial and boundary conditions" << std::endl;
+        if (ic_bc_type == IC_BC_Type::analytic) {
+            amrex::Print() << "Using analytic initial and boundary conditions" << std::endl;
         }
-        else if (ic_bc_type == IC_BC_Type::Real) {
-            amrex::Print() << "Using REAL initial and boundary conditions" << std::endl;
+        else if (ic_bc_type == IC_BC_Type::netcdf) {
+            amrex::Print() << "Using NetCDF initial and boundary conditions" << std::endl;
         }
 
         if (tracer_Hadv_scheme == AdvectionScheme::centered4) {
@@ -360,18 +413,18 @@ struct SolverChoice {
             amrex::Error("Invalid horizontal advection scheme for momenta.");
         }
 
-        if (coupling_type == CouplingType::TwoWay) {
+        if (coupling_type == CouplingType::two_way) {
             amrex::Print() << "Using two-way coupling " << std::endl;
-        } else if (coupling_type == CouplingType::OneWay) {
+        } else if (coupling_type == CouplingType::one_way) {
             amrex::Print() << "Using one-way coupling " << std::endl;
         }
 
         if (use_coriolis) {
-            if (coriolis_type == Cor_Type::Custom) {
-                amrex::Print() << "Using custom coriolis forcing " << std::endl;
-            } else if (coriolis_type == Cor_Type::Beta_Plane) {
+            if (coriolis_type == Cor_Type::analytic) {
+                amrex::Print() << "Using analytic coriolis forcing " << std::endl;
+            } else if (coriolis_type == Cor_Type::beta_plane) {
                 amrex::Print() << "Using beta plane coriolis forcing " << std::endl;
-            } else if (coriolis_type == Cor_Type::Real) {
+            } else if (coriolis_type == Cor_Type::netcdf) {
                 amrex::Print() << "Using coriolis forcing loaded from file " << std::endl;
             }
         }
@@ -393,6 +446,10 @@ struct SolverChoice {
     bool        use_baroclinic        = true;
     bool        use_barotropic        = true;
 
+    bool        bulk_fluxes           = false;
+    bool        do_temp_flux        = false;
+    bool        do_salt_flux        = false;
+
     bool init_l1ad_h = false;
     bool init_l1ad_T = false;
 
@@ -408,7 +465,7 @@ struct SolverChoice {
     // Coupling options are "OneWay" or "TwoWay"
     CouplingType coupling_type;
 
-    // IC and BC Type: "Custom" or "Real"
+    // IC and BC Type: "analytic" or "netcdf"
     IC_BC_Type ic_bc_type;
 
     // Coriolis forcing type
@@ -424,6 +481,9 @@ struct SolverChoice {
     VertMixingType vert_mixing_type;
     HorizMixingType horiz_mixing_type;
     GLS_StabilityType gls_stability_type;
+
+    // Type for grid scale (pm and pn)
+    GridScaleType grid_scale_type;
 
     // Stretching and depth parameters which may need to be read from inputs
     amrex::Real theta_s = amrex::Real(3.0);
@@ -454,10 +514,26 @@ struct SolverChoice {
     amrex::Real coriolis_f0 = amrex::Real(0.0); // f-plane constant (1/s)
     amrex::Real coriolis_beta = amrex::Real(0.0); // beta-plane constant (1/s/m)
 
-    // Gravity
-    amrex::Real g = amrex::Real(9.81); // gravitational field strength [kg m/s^2]
+    // Air pressure
+    amrex::Real Pair = amrex::Real(1013.48);
+    // Air temperature
+    amrex::Real Tair = amrex::Real(23.567);
+    // Relative humidity (air)
+    amrex::Real Hair = amrex::Real(0.776);
+    // Cloud cover fraction (0=clear sky, 1=overcast)
+    amrex::Real cloud = amrex::Real(0.0);
+    // Precipitation rate (kg/m2/s)
+    amrex::Real rain = amrex::Real(0.0);
+    // Height (m) of atmospheric measurements for Bulk fluxes parametrization
+    amrex::Real blk_ZQ = amrex::Real(10.0); // air humidity
+    amrex::Real blk_ZT = amrex::Real(10.0); // air temperature
+    amrex::Real blk_ZW = amrex::Real(10.0); // winds
 
-    amrex::Real vonKar = amrex::Real(0.41); // von Karman constant [non dimensional]
+    bool eminusp = false;
+    bool eminusp_correct_ssh = false;
+
+    // Surface radiation flux
+    amrex::Real srflux = amrex::Real(0.0);
 
     // Spatial discretization
     int         spatial_order = 2;

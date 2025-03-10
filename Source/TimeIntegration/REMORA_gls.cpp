@@ -231,7 +231,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                   (solverChoice.gls_n == 1.0) &&
                   (solverChoice.gls_m == 1.0)) ? true : false;
 
-    Real L_sft = solverChoice.vonKar;
+    Real L_sft = vonKar;
     Real gls_sigp_cb = solverChoice.gls_sigp;
     Real ogls_sigp = 1.0_rt/gls_sigp_cb;
 
@@ -256,7 +256,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     Real gls_c2 = solverChoice.gls_c2;
     Real gls_E2 = solverChoice.gls_E2;
     Real gls_sigk = solverChoice.gls_sigk;
-    Real vonKar = solverChoice.vonKar;
     auto gls_stability_type = solverChoice.gls_stability_type;
 
     Real sqrt2 = std::sqrt(2.0_rt);
@@ -266,7 +265,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     //Real cmu_fac4 = std::pow(1.5_rt*solverChoice.gls_sigk,(1.0_rt/3.0_rt))/std::pow(solverChoice.gls_cmu0,4.0_rt/3.0_rt);
 
     //Real gls_fac1 = solverChoice.gls_n*std::pow(solverChoice.gls_cmu0,solverChoice.gls_p+1.0_rt);
-    Real gls_fac2 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p)*solverChoice.gls_n*std::pow(solverChoice.vonKar,solverChoice.gls_n);
+    Real gls_fac2 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p)*solverChoice.gls_n*std::pow(vonKar,solverChoice.gls_n);
     Real gls_fac3 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p)*solverChoice.gls_n;
     Real gls_fac4 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p);
     Real gls_fac5 = std::pow(0.56_rt,0.5_rt*solverChoice.gls_n)*std::pow(solverChoice.gls_cmu0,solverChoice.gls_p);

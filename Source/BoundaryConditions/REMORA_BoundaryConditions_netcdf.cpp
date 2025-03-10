@@ -52,8 +52,6 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
         ncomp = 1;
     }
 
-    Real g = solverChoice.g;
-
     // This must be true for the logic below to work
     AMREX_ALWAYS_ASSERT(Temp_comp == 0);
     AMREX_ALWAYS_ASSERT(Salt_comp == 1);

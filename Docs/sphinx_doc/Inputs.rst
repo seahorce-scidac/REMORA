@@ -63,7 +63,7 @@ Examples of Usage
 Domain Boundary Conditions
 ==========================
 
-Instructions for how to specify domain boundary conditions, with usage examples can be found in :ref:`Domain Boundary Conditions`<sec:domainBCs>`.
+Instructions for how to specify domain boundary conditions, with usage examples can be found in :ref:`Domain Boundary Conditions <sec:domainBCs>`.
 
 .. _icbc-parameters:
 
@@ -78,8 +78,8 @@ Grid, initial, and time-dependent boundary data can be specified using NetCDF fi
 
 The utility ``ncks`` is part of the `NCO <https://nco.sourceforge.net>`_ suite.
 
-Currently, if one of these are specified in a file, they all must be. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions`<sec:domainBCs>`.
-                                    --
+Currently, if one of these are specified in a file, they all must be. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
+
 List of Parameters
 ------------------
 
@@ -548,10 +548,10 @@ List of Parameters
 |                                   | inferred                               |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.coriolis_type**          | Type of Coriolis forcing.              | ``beta_plane`` /  | ``beta_plane`` |
-|                                   | ``beta_plane`` uses a linear           | ``custom`` /      |                |
-|                                   | approximation. ``custom`` is           | ``real``          |                |
+|                                   | ``beta_plane`` uses a linear           | ``analytic`` /    |                |
+|                                   | approximation. ``analytic`` is         | ``netcdf``        |                |
 |                                   | calculated from a function in          |                   |                |
-|                                   | ``prob.cpp``, and ``real`` is          |                   |                |
+|                                   | ``prob.cpp``, and ``netcdf`` is        |                   |                |
 |                                   | read from the netcdf grid file         |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.coriolis_f0**            | f-plane constant for                   | Real number       | 0.0            |
@@ -566,7 +566,7 @@ List of Parameters
 |                                   | when using beta plane                  |                   |                |
 |                                   | Coriolis type                          |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.horizontal_mixing_type** | Horizontal mixing type. ``analytical`` | ``analytical`` /  | ``analytical`` |
+| **remora.horizontal_mixing_type** | Horizontal mixing type. ``analytic``   | ``analytic`` /    | ``analytic``   |
 |                                   | function is specified in               | ``constant``      |                |
 |                                   | ``prob.cpp``.                          |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
@@ -590,7 +590,7 @@ List of Parameters
 |                                   | when ``horizontal_mixing_type`` is     |                   |                |
 |                                   | ``constant``.                          |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.vertical_mixing_type**   | Vertical mixing type. ``analytical``   | ``analytical`` /  | ``analytical`` |
+| **remora.vertical_mixing_type**   | Vertical mixing type. ``analytic``     | ``analytic`` /    | ``analytic``   |
 |                                   | function is specified in               | ``GLS``           |                |
 |                                   | ``prob.cpp``.                          |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
@@ -601,6 +601,9 @@ List of Parameters
 | **remora.Akv_bak**                | Minimum/initial value of Akv           | Real number       | 5.0e-6         |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.Akt_bak**                | Minimum/initial value of Akt           | Real number       | 1.0e-6         |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.bulk_fluxes**            | Whether to use bulk fluxes             | true / false      | false          |
+|                                   | parametrization                        |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 
 .. _list-of-parameters-drag:
@@ -689,7 +692,46 @@ List of GLS-specific parameters
 |                                  |                                      |                   |                |
 +----------------------------------+--------------------------------------+-------------------+----------------+
 
+.. _list-of-parameters-bulk-fluxes:
 
+List of Bulk Fluxes parameters
+------------------------------
+
++----------------------------------+----------------------------------------+-------------------+----------------+
+| Parameter                        | Definition                             | Acceptable        | Default        |
+|                                  |                                        | Values            |                |
++==================================+========================================+===================+================+
+| **remora.air_temperature**       | Air temperature [C]                    | Real number       | 23.567         |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.air_humidity**          | Relative humidity of air               | Real number from  | 0.776          |
+|                                  |                                        | 0 to 1            |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.air_pressure**          | Air pressure [hPa]                     | Real number       | 1013.48        |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.blk_ZQ**                | Height [m] of atmospheric humidity     | Real number       | 10.0           |
+|                                  | memasurements for bulk fluxes          |                   |                |
+|                                  | parametrization                        |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.blk_ZT**                | Height [m] of atmospheric temperature  | Real number       | 10.0           |
+|                                  | memasurements for bulk fluxes          |                   |                |
+|                                  | parametrization                        |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.blk_ZW**                | Height [m] of atmospheric wind         | Real number       | 10.0           |
+|                                  | memasurements for bulk fluxes          |                   |                |
+|                                  | parametrization                        |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.cloud**                 | Cloud cover fraction (0=clear sky,     | Real number from  | 0.0            |
+|                                  | 1=overcast)                            | 0 to 1            |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.rain**                  | Precipitation rate [kg/m^2/s]          | Real number       | 0.0            |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.eminusp**               | Whether to do E-P prescription for     | true / false      | false          |
+|                                  | evaporation/precipiation               |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.eminusp_correct_ssh**   | Whether to adjust sea surface          | true / false      | false          |
+|                                  | height for amount of evaporation       |                   |                |
+|                                  | and precipitation                      |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
 
 Numerical Algorithms
 ====================

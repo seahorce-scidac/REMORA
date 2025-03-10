@@ -145,6 +145,12 @@ void REMORA::init_bcs ()
         // default zvel to outflow
         if (bcvar_type == BCVars::zvel_bc) {
             bc_types = {"outflow","outflow","outflow","outflow"};
+            for (int i=0; i<4; i++) {
+                auto ori = orientations[i];
+                if (geom[0].isPeriodic(ori.coordDir())) {
+                    bc_types[i] = "periodic";
+                }
+            }
         }
         pp.queryarr("type", bc_types);
         AMREX_ASSERT(bc_types.size() == 4);
