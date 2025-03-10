@@ -1,8 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 100
 
-remora.omp_tile_size = 1024 1024 1024
-
 # PROBLEM SIZE & GEOMETRY
 geometry.prob_lo     =      0.     0.    -47.5
 geometry.prob_hi     =  100000. 5000.       0.
@@ -40,7 +38,7 @@ remora.check_int       = -57600      # number of timesteps between checkpoints
 
 # PLOTFILES
 remora.plot_file     = plt        # prefix of plotfile name
-remora.plot_int      = 1        # number of timesteps between plotfiles
+remora.plot_int      = 100        # number of timesteps between plotfiles
 remora.plot_vars     = salt temp x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
 
