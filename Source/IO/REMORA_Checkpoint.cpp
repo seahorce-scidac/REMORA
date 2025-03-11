@@ -181,7 +181,16 @@ REMORA::WriteCheckpointFile ()
        MultiFab::Copy(mf_mskv,*(vec_mskv[lev]),0,0,1,(vec_mskv[lev])->nGrowVect());
        VisMF::Write(mf_mskv, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Mskv"));
 
-       VisMF::Write(*(vec_rdrag[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rdrag"));
+       if (solverChoice.bottom_stress_type == BottomStressType::linear) {
+         VisMF::Write(*(vec_rdrag[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rdrag"));
+       } else if (solverChoice.bottom_stress_type == BottomStressType::quadratic) {
+         VisMF::Write(*(vec_rdrag2[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "rdrag2"));
+       }
+
+       if (solverChoice.bottom_stress_type == BottomStressType::logarithmic ||
+         solverChoice.vert_mixing_type == VertMixingType::GLS) {
+            VisMF::Write(*(vec_ZoBot[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "ZoBot"));
+       }
 
        VisMF::Write(*(vec_DU_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "DU_avg1"));
        VisMF::Write(*(vec_DU_avg2[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "DU_avg2"));
@@ -433,7 +442,16 @@ REMORA::ReadCheckpointFile ()
        VisMF::Read(mf_mskv, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Mskv"));
        MultiFab::Copy(*(vec_mskv[lev]),mf_mskv,0,0,1,(vec_mskv[lev])->nGrowVect());
 
-       VisMF::Read(*(vec_rdrag[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rdrag"));
+       if (solverChoice.bottom_stress_type == BottomStressType::linear) {
+         VisMF::Read(*(vec_rdrag[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rdrag"));
+       } else if (solverChoice.bottom_stress_type == BottomStressType::quadratic) {
+         VisMF::Read(*(vec_rdrag2[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "rdrag2"));
+       }
+
+       if (solverChoice.bottom_stress_type == BottomStressType::logarithmic ||
+         solverChoice.vert_mixing_type == VertMixingType::GLS) {
+         VisMF::Read(*(vec_ZoBot[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "ZoBot"));
+       }
 
        VisMF::Read(*(vec_DU_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "DU_avg1"));
        VisMF::Read(*(vec_DU_avg2[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "DU_avg2"));
