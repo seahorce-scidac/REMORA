@@ -1,11 +1,11 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-max_step = 100
+remora.max_step = 100
 
 # PROBLEM SIZE & GEOMETRY
-geometry.prob_lo     =      0.     0.    -47.5
-geometry.prob_hi     =  100000. 5000.       0.
+remora.prob_lo     =      0.     0.    -47.5
+remora.prob_hi     =  100000. 5000.       0.
 
-amr.n_cell           =  39     4      30
+remora.n_cell           =  39     4      30
 
 remora.is_periodic = 0 1 0
 
