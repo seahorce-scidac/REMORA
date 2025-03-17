@@ -808,6 +808,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Real Ls_unlmt=std::max(eps,
                                    std::pow(gls(i,j,k,nnew),( gls_exp1))*cmu_fac1*
                                    std::pow(tke(i,j,k,nnew),(-tke_exp1)));
+            // This is 1e-14 instead of 0 so it's less sensitive to the sign
             if (buoy2(i,j,k) > 1e-14_rt) {
                 Ls_lmt=std::min(Ls_unlmt,
                                 std::sqrt(0.56_rt*tke(i,j,k,nnew)/
