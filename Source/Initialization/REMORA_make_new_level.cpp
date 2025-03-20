@@ -534,8 +534,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_btflux[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0)));
 
     if (solverChoice.bulk_fluxes) {
-        vec_uwind[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind u
-        vec_vwind[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind v
+        vec_uwind[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind u
+        vec_vwind[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind v
         vec_alpha[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_beta[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_lrflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
