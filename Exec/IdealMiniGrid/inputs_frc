@@ -1,5 +1,5 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-remora.max_step = 1
+remora.max_step = 10
 
 # PROBLEM SIZE & GEOMETRY
 # dims come from ROMS ana_grid, and must match vals in prob.cpp right now
