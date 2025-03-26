@@ -69,7 +69,10 @@ namespace InterpType {
 
 // Forward declaration to resolve circular dependency
 class ProblemBase;
+
+#ifdef REMORA_USE_NETCDF
 class NCTimeSeries;
+#endif
 
 class REMORA
     : public amrex::AmrCore

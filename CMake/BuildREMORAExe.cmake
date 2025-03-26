@@ -33,6 +33,7 @@ function(build_remora_lib remora_lib_name)
                    ${SRC_DIR}/IO/REMORA_NCInterface.cpp
                    ${SRC_DIR}/IO/REMORA_NCPlotFile.cpp
                    ${SRC_DIR}/IO/REMORA_NCFile.cpp
+                   ${SRC_DIR}/IO/REMORA_NCTimeSeries.cpp
                    ${SRC_DIR}/IO/REMORA_ReadFromInitNetcdf.cpp
                    ${SRC_DIR}/IO/REMORA_ReadFromBdryNetcdf.cpp
                    ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_netcdf.cpp
@@ -50,7 +51,7 @@ function(build_remora_lib remora_lib_name)
                    ${SRC_DIR}/REMORA_MOAB.H)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_MOAB)
   endif()
-  
+
   target_sources(${remora_lib_name}
      PRIVATE
        ${SRC_DIR}/REMORA_Derive.cpp

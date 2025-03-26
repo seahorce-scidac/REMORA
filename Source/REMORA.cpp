@@ -601,10 +601,12 @@ REMORA::set_smflux(int lev)
     if (solverChoice.smflux_type == SMFluxType::analytic) {
         prob->init_analytic_smflux(lev, geom[lev], solverChoice, *this,*vec_sustr[lev], *vec_svstr[lev]);
     } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
+#ifdef REMORA_USE_NETCDF
         sustr_data_from_file->update_interpolated_to_time(t_old[lev]);
         svstr_data_from_file->update_interpolated_to_time(t_old[lev]);
         FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
         FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+#endif
     }
 }
 
@@ -614,10 +616,12 @@ REMORA::set_wind(int lev)
     if (solverChoice.wind_type == WindType::analytic) {
         prob->init_analytic_wind(lev,geom[lev], solverChoice, *this, *vec_uwind[lev], *vec_vwind[lev]);
     } else if (solverChoice.wind_type == WindType::netcdf) {
+#ifdef REMORA_USE_NETCDF
         Uwind_data_from_file->update_interpolated_to_time(t_old[lev]);
         Vwind_data_from_file->update_interpolated_to_time(t_old[lev]);
         FillPatch(lev, t_old[lev], *vec_uwind[lev], GetVecOfPtrs(vec_uwind),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
         FillPatch(lev, t_old[lev], *vec_vwind[lev], GetVecOfPtrs(vec_vwind),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+#endif
     }
 }
 
