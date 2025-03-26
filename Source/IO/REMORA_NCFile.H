@@ -105,7 +105,7 @@ struct NDArray
 
 template<typename DType>
 void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
-                     amrex::Vector<NDArray<DType> >& arrays)
+                     amrex::Vector<NDArray<DType> >& arrays, bool one_time=false, int fill_time=0)
 {
     AMREX_ASSERT(arrays.size() == names.size());
 
@@ -142,6 +142,11 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
             DType* dataPtr            = arrays[n].get_data();
 
             std::vector<MPI_Offset> start(shape.size(), 0);
+            // If only reading one time step, adjust start and shape accordingly
+            if (one_time) {
+                start[0] = fill_time;
+                shape[0] = 1;
+            }
 
             // auto numPts               = arrays[n].ndim();
             // amrex::Print() << "NetCDF Variable name = " << vname_to_read << std::endl;
@@ -153,7 +158,6 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
 
             ncf.var(vname_to_read).get(dataPtr, start, shape);
         }
-
     }
     ncf.close();
 }
@@ -211,14 +215,14 @@ fill_fab_from_arrays (int iv,
     amrex::Box my_box;
 
     if (var_name == "u" || var_name == "ubar" || var_name == "mask_u" || var_name == "x_u" ||
-          var_name == "y_u")
+          var_name == "y_u" || var_name == "sustr")
     {
         my_box.setSmall(amrex::IntVect(0,-1,0));
         my_box.setBig(amrex::IntVect(nsx-1,nsy-2,nsz-1));
         my_box.setType(amrex::IndexType(amrex::IntVect(1,0,0)));
     }
     else if (var_name == "v" || var_name == "vbar" || var_name == "mask_v" || var_name == "x_v" ||
-          var_name == "y_v")
+          var_name == "y_v" || var_name == "svstr")
     {
         my_box.setSmall(amrex::IntVect(-1,0,0));
         my_box.setBig(amrex::IntVect(nsx-2,nsy-1,nsz-1));
@@ -278,14 +282,15 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
                          const std::string &fname,
                          amrex::Vector<std::string> nc_var_names,
                          amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types,
-                         amrex::Vector<FAB*> fab_vars)
+                         amrex::Vector<FAB*> fab_vars,
+                         bool one_time=false, int fill_time=0)
 {
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();  // I/O rank
 
     amrex::Vector<NDArray<amrex::Real>> nc_arrays(nc_var_names.size());
 
 
-    ReadNetCDFFile(fname, nc_var_names, nc_arrays); // this is filled only on proc 0
+    ReadNetCDFFile(fname, nc_var_names, nc_arrays, one_time, fill_time); // this is filled only on proc 0
 
     for (int iv = 0; iv < nc_var_names.size(); iv++)
     {

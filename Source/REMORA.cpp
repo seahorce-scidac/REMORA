@@ -598,13 +598,27 @@ REMORA::set_hmixcoef(int lev)
 void
 REMORA::set_smflux(int lev)
 {
-    prob->init_analytic_smflux(lev, geom[lev], solverChoice, *this,*vec_sustr[lev], *vec_svstr[lev]);
+    if (solverChoice.smflux_type == SMFluxType::analytic) {
+        prob->init_analytic_smflux(lev, geom[lev], solverChoice, *this,*vec_sustr[lev], *vec_svstr[lev]);
+    } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
+        sustr_data_from_file->update_interpolated_to_time(t_old[lev]);
+        svstr_data_from_file->update_interpolated_to_time(t_old[lev]);
+        FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+    }
 }
 
 void
 REMORA::set_wind(int lev)
 {
-    prob->init_analytic_wind(lev,geom[lev], solverChoice, *this, *vec_uwind[lev], *vec_vwind[lev]);
+    if (solverChoice.wind_type == WindType::analytic) {
+        prob->init_analytic_wind(lev,geom[lev], solverChoice, *this, *vec_uwind[lev], *vec_vwind[lev]);
+    } else if (solverChoice.wind_type == WindType::netcdf) {
+        Uwind_data_from_file->update_interpolated_to_time(t_old[lev]);
+        Vwind_data_from_file->update_interpolated_to_time(t_old[lev]);
+        FillPatch(lev, t_old[lev], *vec_uwind[lev], GetVecOfPtrs(vec_uwind),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        FillPatch(lev, t_old[lev], *vec_vwind[lev], GetVecOfPtrs(vec_vwind),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+    }
 }
 
 void
@@ -637,6 +651,25 @@ REMORA::init_only (int lev, Real time)
         amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
         init_bdry_from_netcdf();
         amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
+
+    }
+    // This will be a non-op if forcings specified analytically
+    if (solverChoice.wind_type == WindType::netcdf) {
+        if (nc_frc_file.empty()) {
+            amrex::Error("NetCDF forcing file name must be provided via input for winds");
+        }
+        Uwind_data_from_file = new NCTimeSeries(nc_frc_file, "Uwind", geom[lev].Domain(),vec_uwind[lev].get(), true, false);
+        Vwind_data_from_file = new NCTimeSeries(nc_frc_file, "Vwind", geom[lev].Domain(),vec_vwind[lev].get(), true, false);
+        Uwind_data_from_file->Initialize();
+        Vwind_data_from_file->Initialize();
+    } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
+        if (nc_frc_file.empty()) {
+            amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
+        }
+        sustr_data_from_file = new NCTimeSeries(nc_frc_file, "sustr", geom[lev].Domain(),vec_sustr[lev].get(), true, false);
+        svstr_data_from_file = new NCTimeSeries(nc_frc_file, "svstr", geom[lev].Domain(),vec_svstr[lev].get(), true, false);
+        sustr_data_from_file->Initialize();
+        svstr_data_from_file->Initialize();
     }
 #endif
 
@@ -886,6 +919,9 @@ REMORA::ReadParameters ()
         }
         // We only read boundary data at level 0
         pp.query("nc_bdry_file", nc_bdry_file);
+
+        // Also only read forcings at level 0 (for now)
+        pp.query("nc_frc_file", nc_frc_file);
 
         // Query the set and total widths for bdy interior ghost cells
         pp.query("bdy_width", bdy_width);

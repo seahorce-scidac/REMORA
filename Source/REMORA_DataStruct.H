@@ -63,6 +63,14 @@ enum class GridScaleType {
     constant, analytic
 };
 
+enum class SMFluxType {
+    analytic, netcdf
+};
+
+enum class WindType {
+    analytic, netcdf
+};
+
 struct SolverChoice {
   public:
     void init_params()
@@ -243,6 +251,36 @@ struct SolverChoice {
             } else {
                 amrex::Abort("Don't know this coriolis_type");
             }
+        }
+
+        static std::string smflux_type_string = "analytic";
+        int smflux_specified = pp.query("smflux_type",smflux_type_string);
+        if ( amrex::toLower(smflux_type_string) == "custom") {
+            amrex::Warning("Surface momentum flux initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            smflux_type = SMFluxType::analytic;
+        } else if ( amrex::toLower(smflux_type_string) == "analytic") {
+            smflux_type = SMFluxType::analytic;
+        } else if ( amrex::toLower(smflux_type_string) == "netcdf") {
+            smflux_type = SMFluxType::netcdf;
+        } else {
+            amrex::Abort("Don't know this smflux_type");
+        }
+
+        static std::string wind_type_string = "analytic";
+        int wind_specified = pp.query("wind_type",wind_type_string);
+        if ( amrex::toLower(wind_type_string) == "custom") {
+            amrex::Warning("Surface wind initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
+            wind_type = WindType::analytic;
+        } else if ( amrex::toLower(wind_type_string) == "analytic") {
+            wind_type = WindType::analytic;
+        } else if ( amrex::toLower(wind_type_string) == "netcdf") {
+            wind_type = WindType::netcdf;
+        } else {
+            amrex::Abort("Don't know this smflux_type");
+        }
+
+        if (wind_specified && smflux_specified) {
+            amrex::Abort("Cannot specify both wind and surface momentum flux");
         }
 
         static std::string bottom_stress_type_string = "linear";
@@ -470,6 +508,12 @@ struct SolverChoice {
 
     // Coriolis forcing type
     Cor_Type coriolis_type;
+
+    // Surface momentum flux type
+    SMFluxType smflux_type;
+
+    // Surface wind speed type
+    WindType wind_type;
 
     // EOS type
     EOSType eos_type;

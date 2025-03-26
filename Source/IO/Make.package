@@ -5,6 +5,8 @@ CEXE_sources += REMORA_writeJobInfo.cpp
 
 CEXE_sources += REMORA_console_io.cpp
 
+CEXE_sources += REMORA_NCTimeSeries.cpp
+
 ifeq ($(USE_PNETCDF), TRUE)
   CEXE_sources += REMORA_ReadFromInitNetcdf.cpp
   CEXE_sources += REMORA_ReadFromBdryNetcdf.cpp
