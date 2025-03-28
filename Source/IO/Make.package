@@ -14,4 +14,5 @@ ifeq ($(USE_PNETCDF), TRUE)
   CEXE_headers += REMORA_NCInterface.H
   CEXE_headers += REMORA_NCPlotFile.H
   CEXE_headers += REMORA_NCFile.H
+  CEXE_sources += REMORA_NCTimeSeries.cpp
 endif

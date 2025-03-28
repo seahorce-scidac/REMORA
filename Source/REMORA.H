@@ -42,6 +42,7 @@
 
 #ifdef REMORA_USE_NETCDF
 #include "REMORA_NCInterface.H"
+#include "REMORA_NCTimeSeries.H"
 #endif
 
 #ifdef REMORA_USE_MOAB
@@ -68,6 +69,10 @@ namespace InterpType {
 
 // Forward declaration to resolve circular dependency
 class ProblemBase;
+
+#ifdef REMORA_USE_NETCDF
+class NCTimeSeries;
+#endif
 
 class REMORA
     : public amrex::AmrCore
@@ -906,10 +911,22 @@ private:
     amrex::Real start_bdy_time;
     amrex::Real bdy_time_interval;
 
-    static bool write_history_file;
-
     int bdy_width{0};
     int bdy_set_width{0};
+
+    // Vectors (over time) of FArrayBoxes for holding smflux data read from NetCDF
+    amrex::Vector<amrex::FArrayBox> smflux_data;
+    amrex::Real start_smflux_time;
+    amrex::Real smflux_time_interval;
+
+    static bool write_history_file;
+
+#ifdef REMORA_USE_NETCDF
+    NCTimeSeries* sustr_data_from_file;
+    NCTimeSeries* svstr_data_from_file;
+    NCTimeSeries* Uwind_data_from_file;
+    NCTimeSeries* Vwind_data_from_file;
+#endif
 
 #endif // REMORA_USE_NETCDF
 
@@ -1097,6 +1114,8 @@ private:
     // NetCDF initialization files for solution and grid
     static amrex::Vector<amrex::Vector<std::string>> nc_init_file;
     static amrex::Vector<amrex::Vector<std::string>> nc_grid_file;
+
+    std::string nc_frc_file;
 
     // NetCDF file of time series of boundary data
     static std::string nc_bdry_file;
