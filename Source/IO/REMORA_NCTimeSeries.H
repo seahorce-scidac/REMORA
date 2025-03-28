@@ -20,8 +20,10 @@ class NCTimeSeries
 
         void Initialize ();
 
+        /// Calculate
         void update_interpolated_to_time (amrex::Real time);
 
+        /// Container for interpolated data; Only used if save_interpolated == true
         amrex::MultiFab* mf_interpolated;
     private:
         /**

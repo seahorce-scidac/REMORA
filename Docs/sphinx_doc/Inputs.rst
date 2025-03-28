@@ -78,31 +78,36 @@ Grid, initial, and time-dependent boundary data can be specified using NetCDF fi
 
 The utility ``ncks`` is part of the `NCO <https://nco.sourceforge.net>`_ suite.
 
-Currently, if one of these are specified in a file, they all must be. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
+Currently, if one initial, grid, or boundary files are specified, they all must be. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
 
 List of Parameters
 ------------------
 
-+---------------------------+-------------------------------+-------------+--------------------------+
-| Parameter                 | Definition                    | Acceptable  | Default                  |
-|                           |                               | Values      |                          |
-+===========================+===============================+=============+==========================+
-| **remora.ic_bc_type**     | read initial, grid, and       |             |                          |
-|                           | boundary data from NetCDF     | true/false  | false                    |
-|                           | files                         |             |                          |
-+---------------------------+-------------------------------+-------------+--------------------------+
-| **remora.nc_init_file_0** | initial data NetCDF file name | string      | must be set              |
-|                           |                               |             | if ``remora.ic_bc_type`` |
-|                           |                               |             | is true                  |
-+---------------------------+-------------------------------+-------------+--------------------------+
-| **remora.nc_grid_file_0** | grid data NetCDF file name    | string      | must be set              |
-|                           |                               |             | if ``remora.ic_bc_type`` |
-|                           |                               |             | is true                  |
-+---------------------------+-------------------------------+-------------+--------------------------+
-| **remora.nc_bdry_file_0** | boundary data NetCDF file     | string      | must be set              |
-|                           | name                          |             | if ``remora.ic_bc_type`` |
-|                           |                               |             | is true                  |
-+---------------------------+-------------------------------+-------------+--------------------------+
++---------------------------+-------------------------------+-------------+---------------------------+
+| Parameter                 | Definition                    | Acceptable  | Default                   |
+|                           |                               | Values      |                           |
++===========================+===============================+=============+===========================+
+| **remora.ic_bc_type**     | read initial, grid, and       |             |                           |
+|                           | boundary data from NetCDF     | true/false  | false                     |
+|                           | files                         |             |                           |
++---------------------------+-------------------------------+-------------+---------------------------+
+| **remora.nc_init_file_0** | initial data NetCDF file name | string      | must be set               |
+|                           |                               |             | if ``remora.ic_bc_type``  |
+|                           |                               |             | is true                   |
++---------------------------+-------------------------------+-------------+---------------------------+
+| **remora.nc_grid_file_0** | grid data NetCDF file name    | string      | must be set               |
+|                           |                               |             | if ``remora.ic_bc_type``  |
+|                           |                               |             | is true                   |
++---------------------------+-------------------------------+-------------+---------------------------+
+| **remora.nc_bdry_file_0** | boundary data NetCDF file     | string      | must be set               |
+|                           | name                          |             | if ``remora.ic_bc_type``  |
+|                           |                               |             | is true                   |
++---------------------------+-------------------------------+-------------+---------------------------+
+| **remora.nc_frc_file**    | forcing data NetCDF file name | string      | must be set               |
+|                           |                               |             | if ``remora.wind_type``   |
+|                           |                               |             | or ``remora.smflux_type`` |
+|                           |                               |             | equal ``netcdf``          |
++---------------------------+-------------------------------+-------------+---------------------------+
 
 Resolution and Tiling
 =====================
@@ -691,6 +696,24 @@ List of GLS-specific parameters
 | **remora.Akp_bak**               | Initial/minimum value of Akp         | Real number       | 5.0e-6         |
 |                                  |                                      |                   |                |
 +----------------------------------+--------------------------------------+-------------------+----------------+
+
+.. _list-of-parameters surface-forcing:
+
+List of surface forcing parameters
+----------------------------------
+
++----------------------------------+-----------------------------------------+-------------------+----------------+
+| Parameter                        | Definition                              | Acceptable        | Default        |
+|                                  |                                         | Values            |                |
++==================================+=========================================+===================+================+
+| **remora.smflux_type**           | Input format for surface momentum flux, | ``analytic`` or   | ``analytic``   |
+|                                  | if using. ``analytic`` specified in     | ``netcdf``        |                |
+|                                  | ``prob.cpp``; ``netcdf`` from file.     |                   |                |
++----------------------------------+-----------------------------------------+-------------------+----------------+
+| **remora.wind_type**             | Input format for surface wind speed,    | ``analytic`` or   | ``analytic``   |
+|                                  | if using. ``analytic`` specified in     | ``netcdf``        |                |
+|                                  | ``prob.cpp``; ``netcdf`` from file.     |                   |                |
++----------------------------------+-----------------------------------------+-------------------+----------------+
 
 .. _list-of-parameters-bulk-fluxes:
 

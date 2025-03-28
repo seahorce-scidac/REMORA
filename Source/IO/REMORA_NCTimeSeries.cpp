@@ -21,8 +21,24 @@ void NCTimeSeries::Initialize() {
     // open file
     amrex::Print() << "Loading " << field_name << " from NetCDF file " << file_name << std::endl;
 
+    // The time field can have any number of names, depending on the field.
+    // This is a hack for now; ideally would be specified by something like varinfo.dat like in ROMS
+    // or just passed into the constructor
+    std::string time_name;
+    if (field_name.find("wind") != std::string::npos) {
+        time_name = "wind_time";
+    } else if ((field_name.find("str") != std::string::npos) and (field_name[0] == 's')) {
+        time_name = "sms_time";
+    } else if ((field_name.find("str") != std::string::npos) and (field_name[0] == 'b')) {
+        time_name = "bms_time";
+    } else {
+        time_name = "ocean_time";
+    }
+
+    amrex::Print() << time_name << std::endl;
+
     // Check units of time stamps; should be days
-    std::string unit_str = ReadNetCDFVarAttrStr(file_name, "ocean_time", "units"); // works on proc 0
+    std::string unit_str = ReadNetCDFVarAttrStr(file_name, time_name, "units"); // works on proc 0
     if (amrex::ParallelDescriptor::IOProcessor())
     {
         if (unit_str.find("days") == std::string::npos) {
@@ -33,7 +49,7 @@ void NCTimeSeries::Initialize() {
     // get times and put in array
     using RARRAY = NDArray<amrex::Real>;
     amrex::Vector<RARRAY> array_ts(1);
-    ReadNetCDFFile(file_name, {"ocean_time"}, array_ts); // filled only on proc 0
+    ReadNetCDFFile(file_name, {time_name}, array_ts); // filled only on proc 0
     if (amrex::ParallelDescriptor::IOProcessor())
     {
         int ntimes_io = array_ts[0].get_vshape()[0];
