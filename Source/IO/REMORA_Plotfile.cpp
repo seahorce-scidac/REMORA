@@ -215,6 +215,9 @@ REMORA::WritePlotFile ()
         AMREX_ALWAYS_ASSERT(cons_names.size() == NCONS);
         for (int i = 0; i < NCONS; ++i) {
             if (containerHasElement(plot_var_names, cons_names[i])) {
+              if (cons_new[lev]->contains_nan() || cons_new[lev]->contains_inf()) {
+                  amrex::Abort("Found while writing output: Cons (salt, temp, or scalar, etc) contains nan or inf");
+              }
               MultiFab::Copy(mf[lev],*cons_new[lev],i,mf_comp,1,ngrow_vars);
                 mf_comp++;
             }
@@ -222,14 +225,23 @@ REMORA::WritePlotFile ()
 
         // Next, check for velocities
         if (containerHasElement(plot_var_names, "x_velocity")) {
+            if (mf_cc_vel[lev].contains_nan(0,1) || mf_cc_vel[lev].contains_inf(0,1)) {
+                amrex::Abort("Found while writing output: u velocity contains nan or inf");
+            }
             MultiFab::Copy(mf[lev], mf_cc_vel[lev], 0, mf_comp, 1, 0);
             mf_comp += 1;
         }
         if (containerHasElement(plot_var_names, "y_velocity")) {
+            if (mf_cc_vel[lev].contains_nan(1,1) || mf_cc_vel[lev].contains_inf(1,1)) {
+                amrex::Abort("Found while writing output: v velocity contains nan or inf");
+            }
             MultiFab::Copy(mf[lev], mf_cc_vel[lev], 1, mf_comp, 1, 0);
             mf_comp += 1;
         }
         if (containerHasElement(plot_var_names, "z_velocity")) {
+            if (mf_cc_vel[lev].contains_nan(2,1) || mf_cc_vel[lev].contains_inf(2,1)) {
+                amrex::Abort("Found while writing output: z velocity contains nan or inf");
+            }
             MultiFab::Copy(mf[lev], mf_cc_vel[lev], 2, mf_comp, 1, 0);
             mf_comp += 1;
         }

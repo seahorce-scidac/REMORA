@@ -503,6 +503,32 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
 
     mask_arrays_for_write(lev, (Real) fill_value);
 
+    // Check whether there are any nans or infs in varaibles that we will write out
+    if (vec_Zt_avg1[lev]->contains_nan() || vec_Zt_avg1[lev]->contains_inf()) {
+        amrex::Abort("Found while writing output: zeta contains nan or inf");
+    }
+    if (cons_new[lev]->contains_nan(Temp_comp,1) || cons_new[lev]->contains_inf(Temp_comp,1)) {
+        amrex::Abort("Found while writing outpu: Temperature contains nan or inf");
+    }
+    if (cons_new[lev]->contains_nan(Salt_comp,1) || cons_new[lev]->contains_inf(Salt_comp,1)) {
+        amrex::Abort("Found while writing output: Salinity contains nan or inf");
+    }
+    if (cons_new[lev]->contains_nan(Scalar_comp,1) || cons_new[lev]->contains_inf(Scalar_comp,1)) {
+        amrex::Abort("Found while writing output: Passive tracer contains nan or inf");
+    }
+    if (xvel_new[lev]->contains_nan() || xvel_new[lev]->contains_inf()) {
+        amrex::Abort("Found while writing output: velocity u contains nan or inf");
+    }
+    if (vec_ubar[lev]->contains_nan(0,1) || vec_ubar[lev]->contains_inf(0,1)) {
+        amrex::Abort("Found while writing output: velocity ubar contains nan or inf");
+    }
+    if (yvel_new[lev]->contains_nan() || yvel_new[lev]->contains_inf()) {
+        amrex::Abort("Found while writing output: velocity v contains nan or inf");
+    }
+    if (vec_vbar[lev]->contains_nan(0,1) || vec_vbar[lev]->contains_inf(0,1)) {
+        amrex::Abort("Found while writing output: velocity vbar contains nan or inf");
+    }
+
     for (MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi) {
         auto bx = mfi.validbox();
         if (subdomain.contains(bx)) {
