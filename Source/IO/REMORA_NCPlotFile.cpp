@@ -503,12 +503,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
 
     mask_arrays_for_write(lev, (Real) fill_value);
 
-    // Check whether there are any nans or infs in varaibles that we will write out
+    // Check whether there are any nans or infs in variables that we will write out
     if (vec_Zt_avg1[lev]->contains_nan() || vec_Zt_avg1[lev]->contains_inf()) {
         amrex::Abort("Found while writing output: zeta contains nan or inf");
     }
     if (cons_new[lev]->contains_nan(Temp_comp,1) || cons_new[lev]->contains_inf(Temp_comp,1)) {
-        amrex::Abort("Found while writing outpu: Temperature contains nan or inf");
+        amrex::Abort("Found while writing output: Temperature contains nan or inf");
     }
     if (cons_new[lev]->contains_nan(Salt_comp,1) || cons_new[lev]->contains_inf(Salt_comp,1)) {
         amrex::Abort("Found while writing output: Salinity contains nan or inf");
