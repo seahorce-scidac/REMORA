@@ -384,4 +384,5 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                     AK,mf_Akt->array(mfi,i_comp),BC,DC,FC,CF,nnew,N,dt_lev);
         }
     } // MFiter
+    FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
 }
