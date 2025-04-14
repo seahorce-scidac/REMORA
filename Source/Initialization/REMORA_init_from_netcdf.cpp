@@ -67,6 +67,20 @@ read_zeta_from_netcdf (int lev, const Box& domain, const std::string& fname,
 void
 init_zeta_from_netcdf (int lev);
 
+void
+read_clim_nudg_coeff_from_netcdf (int lev, const Box& domain, const std::string& fname,
+                                  bool do_m2_clim_nudg,
+                                  bool do_m3_clim_nudg,
+                                  bool do_temp_clim_nudg,
+                                  bool do_salt_clim_nudg,
+                                  FArrayBox& NC_M2NC_fab,
+                                  FArrayBox& NC_M3NC_fab,
+                                  FArrayBox& NC_TempNC_fab,
+                                  FArrayBox& NC_SaltNC_fab);
+
+void
+init_clim_nudg_coeff_from_netcdf (int lev);
+
 /**
  * REMORA function that initializes solution data from a netcdf file
  *
@@ -484,6 +498,94 @@ init_state_from_netcdf (int /*lev*/,
         ubar_fab.template copy<RunOn::Device>(NC_ubar_fab[idx],0,0,1);
         vbar_fab.template copy<RunOn::Device>(NC_vbar_fab[idx],0,0,1);
     } // idx
+}
+
+void
+REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
+{
+    // *** FArrayBox's at this level for holding the INITIAL data
+    Vector<FArrayBox> NC_M2NC_fab     ; NC_M2NC_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_M3NC_fab     ; NC_M3NC_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_TempNC_fab   ; NC_TempNC_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_SaltNC_fab   ; NC_SaltNC_fab.resize(num_boxes_at_level[lev]);
+
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
+    {
+        read_clim_nudg_coeff_from_netcdf(lev,boxes_at_level[lev][idx], nc_clim_coeff_file,
+                                         solverChoice.do_m2_clim_nudg,
+                                         solverChoice.do_m3_clim_nudg,
+                                         solverChoice.do_temp_clim_nudg,
+                                         solverChoice.do_salt_clim_nudg,
+                                         NC_M2NC_fab[idx],NC_M3NC_fab[idx],
+                                         NC_TempNC_fab[idx],NC_SaltNC_fab[idx]);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        {
+        // Don't tile this since we are operating on full FABs in this routine
+        for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
+        {
+            if (solverChoice.do_m2_clim_nudg) {
+                FArrayBox &ubarNC_fab  = (*vec_nudg_coeff[BdyVars::ubar][lev])[mfi];
+                ubarNC_fab.template    copy<RunOn::Device>(NC_M2NC_fab[idx]);
+                FArrayBox &vbarNC_fab  = (*vec_nudg_coeff[BdyVars::vbar][lev])[mfi];
+                vbarNC_fab.template    copy<RunOn::Device>(NC_M2NC_fab[idx]);
+            }
+            if (solverChoice.do_m3_clim_nudg) {
+                FArrayBox &uNC_fab  = (*vec_nudg_coeff[BdyVars::u][lev])[mfi];
+                uNC_fab.template    copy<RunOn::Device>(NC_M3NC_fab[idx]);
+                FArrayBox &vNC_fab  = (*vec_nudg_coeff[BdyVars::v][lev])[mfi];
+                vNC_fab.template    copy<RunOn::Device>(NC_M3NC_fab[idx]);
+            }
+            if (solverChoice.do_temp_clim_nudg) {
+                FArrayBox &TempNC_fab  = (*vec_nudg_coeff[BdyVars::t][lev])[mfi];
+                TempNC_fab.template    copy<RunOn::Device>(NC_TempNC_fab[idx]);
+            }
+            if (solverChoice.do_salt_clim_nudg) {
+                FArrayBox &SaltNC_fab  = (*vec_nudg_coeff[BdyVars::s][lev])[mfi];
+                SaltNC_fab.template    copy<RunOn::Device>(NC_SaltNC_fab[idx]);
+            }
+
+        } // mf
+        } // omp
+    } // idx
+
+    if (solverChoice.do_m2_clim_nudg) {
+        vec_nudg_coeff[BdyVars::ubar][lev]->FillBoundary(geom[lev].periodicity());
+        vec_nudg_coeff[BdyVars::vbar][lev]->FillBoundary(geom[lev].periodicity());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::ubar][lev].get());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::vbar][lev].get());
+    }
+    if (solverChoice.do_m3_clim_nudg) {
+        vec_nudg_coeff[BdyVars::u][lev]->FillBoundary(geom[lev].periodicity());
+        vec_nudg_coeff[BdyVars::v][lev]->FillBoundary(geom[lev].periodicity());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::u][lev].get());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::v][lev].get());
+    }
+    if (solverChoice.do_temp_clim_nudg) {
+        vec_nudg_coeff[BdyVars::t][lev]->FillBoundary(geom[lev].periodicity());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::t][lev].get());
+    }
+    if (solverChoice.do_salt_clim_nudg) {
+        vec_nudg_coeff[BdyVars::s][lev]->FillBoundary(geom[lev].periodicity());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::s][lev].get());
+    }
+}
+
+void
+REMORA::convert_inv_days_to_inv_s (MultiFab* mf) {
+    Real inv_days_to_inv_s = 1.0_rt / (3600._rt * 24._rt);
+
+    for ( MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real> const& arr = mf->array(mfi);
+        Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+            arr(i,j,k) *= inv_days_to_inv_s;
+        });
+    }
+
 }
 
 #endif // REMORA_USE_NETCDF

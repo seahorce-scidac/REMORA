@@ -122,6 +122,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
+    const auto dlo = amrex::lbound(Geom(lev).Domain());
+    const auto dhi = amrex::ubound(Geom(lev).Domain());
+
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& h     = vec_hOfTheConfusingName[lev]->const_array(mfi);
@@ -327,6 +330,14 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     mf_W.FillBoundary(geom[lev].periodicity());
     (*physbcs[lev])(mf_W,*mf_mskr.get(),0,1,mf_W.nGrowVect(),t_new[lev],BCVars::zvel_bc);
 
+#ifdef REMORA_USE_NETCDF
+    // Get u and v climatology if we're going to do nudging
+    if (solverChoice.do_m3_clim_nudg) {
+        u_clim_data_from_file->update_interpolated_to_time(t_new[lev]);
+        v_clim_data_from_file->update_interpolated_to_time(t_new[lev]);
+    }
+#endif
+
     for ( MFIter mfi(S_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& Hz    = vec_Hz[lev]->const_array(mfi);
@@ -365,6 +376,26 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Box tbxp2 = bx;
         Box xbx = mfi.nodaltilebox(0);
         Box ybx = mfi.nodaltilebox(1);
+        Box xbx_adj = mfi.nodaltilebox(0);
+        Box ybx_adj = mfi.nodaltilebox(1);
+
+        auto xbx_lo = lbound(xbx_adj);
+        auto xbx_hi = ubound(xbx_adj);
+        auto ybx_lo = lbound(ybx_adj);
+        auto ybx_hi = ubound(ybx_adj);
+
+        if (xbx_lo.x == dlo.x) {
+            xbx_adj.growLo(0,-1);
+        } else if (xbx_hi.x == dhi.x) {
+            xbx_adj.growHi(0,-1);
+        }
+
+        if (ybx_lo.y == dlo.y) {
+            ybx_adj.growLo(1,-1);
+        } else if (ybx_hi.y == dhi.y) {
+            ybx_adj.growHi(1,-1);
+        }
+
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
@@ -433,9 +464,17 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             coriolis(xbx, ybx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
         }
 
-        //
-        //-----------------------------------------------------------------------
-        //
+#ifdef REMORA_USE_NETCDF
+        if (solverChoice.do_m3_clim_nudg) {
+            Array4<const Real> const& uclim = u_clim_data_from_file->mf_interpolated->const_array(mfi);
+            Array4<const Real> const& vclim = v_clim_data_from_file->mf_interpolated->const_array(mfi);
+            Array4<const Real> const& u_nudg_coeff = vec_nudg_coeff[BdyVars::u][lev]->const_array(mfi);
+            Array4<const Real> const& v_nudg_coeff = vec_nudg_coeff[BdyVars::v][lev]->const_array(mfi);
+            // These boxes are set to match ROMS
+            apply_clim_nudg(xbx_adj, 1, 0, ru, uold, uclim, u_nudg_coeff, Hz, pm, pn);
+            apply_clim_nudg(ybx_adj, 0, 1, rv, vold, vclim, v_nudg_coeff, Hz, pm, pn);
+        }
+#endif
 
         ////rufrc from 3d is set to ru, then the wind stress (and bottom stress) is added, then the mixing is added
         //rufrc=ru+sustr*om_u*on_u
@@ -462,7 +501,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     //FillPatch(lev, time, *cons_old[lev], cons_old, BCVars::cons_bc, BdyVars::t);
     //FillPatch(lev, time, *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t);
     FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t,0,true,true,0,0,dt_lev,*cons_old[lev]);
-//    print_state(*vec_sstore[lev].get(),IntVect(-1,5,0),-1,IntVect(2,2,0));
 
     // Don't actually want to apply boundary conditions here
     vec_Huon[lev]->FillBoundary(geom[lev].periodicity());

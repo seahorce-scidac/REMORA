@@ -385,4 +385,39 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         }
     } // MFiter
     FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
+
+#ifdef REMORA_USE_NETCDF
+    if (solverChoice.do_temp_clim_nudg) {
+        temp_clim_data_from_file->update_interpolated_to_time(t_old[lev]);
+
+        for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            Box bx = mfi.growntilebox(IntVect(1,1,0));
+            Array4<const Real> const& temp_nudg_coeff = vec_nudg_coeff[BdyVars::t][lev]->const_array(mfi);
+            Array4<const Real> const& temp_clim = temp_clim_data_from_file->mf_interpolated->const_array(mfi);
+            Array4<      Real> const& temp = cons_new[lev]->array(mfi, Temp_comp);
+            Array4<const Real> const& Hz   = vec_Hz[lev]->const_array(mfi);
+            Array4<const Real> const& pm   = vec_pm[lev]->const_array(mfi);
+            Array4<const Real> const& pn   = vec_pn[lev]->const_array(mfi);
+
+            apply_clim_nudg(bx, 0, 0, temp, temp, temp_clim, temp_nudg_coeff, Hz, pm, pn, dt_lev);
+        }
+    }
+    if (solverChoice.do_salt_clim_nudg) {
+        salt_clim_data_from_file->update_interpolated_to_time(t_old[lev]);
+
+        for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            Box bx = mfi.growntilebox(IntVect(1,1,0));
+            Array4<const Real> const& salt_nudg_coeff = vec_nudg_coeff[BdyVars::s][lev]->const_array(mfi);
+            Array4<const Real> const& salt_clim = salt_clim_data_from_file->mf_interpolated->const_array(mfi);
+            Array4<      Real> const& salt = cons_new[lev]->array(mfi, Salt_comp);
+            Array4<const Real> const& Hz   = vec_Hz[lev]->const_array(mfi);
+            Array4<const Real> const& pm   = vec_pm[lev]->const_array(mfi);
+            Array4<const Real> const& pn   = vec_pn[lev]->const_array(mfi);
+
+            apply_clim_nudg(bx, 0, 0, salt, salt, salt_clim, salt_nudg_coeff, Hz, pm, pn, dt_lev);
+        }
+    }
+#endif
 }

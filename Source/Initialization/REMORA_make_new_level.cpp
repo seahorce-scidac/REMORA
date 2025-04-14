@@ -384,6 +384,16 @@ void REMORA::resize_stuff(int lev)
     vec_Lscale.resize(lev+1);
     vec_Akk.resize(lev+1);
     vec_Akp.resize(lev+1);
+
+    if (lev==0) vec_nudg_coeff.resize(BdyVars::NumTypes);
+
+    vec_nudg_coeff[BdyVars::u].resize(lev+1);
+    vec_nudg_coeff[BdyVars::v].resize(lev+1);
+    vec_nudg_coeff[BdyVars::t].resize(lev+1);
+    vec_nudg_coeff[BdyVars::s].resize(lev+1);
+    vec_nudg_coeff[BdyVars::ubar].resize(lev+1);
+    vec_nudg_coeff[BdyVars::vbar].resize(lev+1);
+    vec_nudg_coeff[BdyVars::zeta].resize(lev+1);
 }
 void REMORA::init_masks (int lev, const BoxArray& ba, const DistributionMapping& dm)
 {
@@ -547,6 +557,14 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_shflx[lev]->setVal(0.0_rt);
         vec_rain[lev]->setVal(solverChoice.rain);
     }
+
+    vec_nudg_coeff[BdyVars::u][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_nudg_coeff[BdyVars::v][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_nudg_coeff[BdyVars::t][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_nudg_coeff[BdyVars::s][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_nudg_coeff[BdyVars::ubar][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_nudg_coeff[BdyVars::vbar][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_nudg_coeff[BdyVars::zeta][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
 
     set_weights(lev);
 

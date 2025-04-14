@@ -397,6 +397,9 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akk;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akp;
 
+    // Climatology nudging coefficients
+    amrex::Vector<amrex::Vector<std::unique_ptr<amrex::MultiFab>>> vec_nudg_coeff;
+
     /** advance a single level for a single time step */
     void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
 
@@ -735,6 +738,17 @@ public:
                    const amrex::Array4<amrex::Real const>& fomn,
                    int nrhs, int nr);
 
+    void apply_clim_nudg (const amrex::Box& bx,
+                   int ioff, int joff,
+                   const amrex::Array4<amrex::Real      >& var,
+                   const amrex::Array4<amrex::Real const>& var_old,
+                   const amrex::Array4<amrex::Real const>& var_clim,
+                   const amrex::Array4<amrex::Real const>& clim_coeff,
+                   const amrex::Array4<amrex::Real const>& Hz,
+                   const amrex::Array4<amrex::Real const>& pm,
+                   const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Real dt = amrex::Real(0.0));
+
     void set_2darrays (int lev);
 
     void set_zeta_average (int lev);
@@ -819,6 +833,10 @@ public:
     void init_bathymetry_from_netcdf (int lev);
     void init_zeta_from_netcdf (int lev);
     void init_coriolis_from_netcdf (int lev);
+    void init_clim_nudg_coeff_from_netcdf (int lev);
+    void init_clim_nudg_coeff (int lev);
+
+    void convert_inv_days_to_inv_s (amrex::MultiFab*);
 
     void mask_arrays_for_write (int lev, amrex::Real fill_value);
 
@@ -926,6 +944,13 @@ private:
     NCTimeSeries* svstr_data_from_file;
     NCTimeSeries* Uwind_data_from_file;
     NCTimeSeries* Vwind_data_from_file;
+
+    NCTimeSeries* ubar_clim_data_from_file;
+    NCTimeSeries* vbar_clim_data_from_file;
+    NCTimeSeries* u_clim_data_from_file;
+    NCTimeSeries* v_clim_data_from_file;
+    NCTimeSeries* temp_clim_data_from_file;
+    NCTimeSeries* salt_clim_data_from_file;
 #endif
 
 #endif // REMORA_USE_NETCDF
@@ -1116,6 +1141,9 @@ private:
     static amrex::Vector<amrex::Vector<std::string>> nc_grid_file;
 
     std::string nc_frc_file;
+
+    std::string nc_clim_his_file;
+    std::string nc_clim_coeff_file;
 
     // NetCDF file of time series of boundary data
     static std::string nc_bdry_file;

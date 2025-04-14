@@ -123,7 +123,7 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time) {
         amrex::Array4<const amrex::Real> after  = mf_after->const_array(mfi);
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            to_fill(i,j,k) = before(i,j,k) + time * (after(i,j,k) - before(i,j,k)) / dt;
+            to_fill(i,j,k) = before(i,j,k) + (time - time_before) * (after(i,j,k) - before(i,j,k)) / dt;
         });
     }
 }
@@ -134,6 +134,8 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
     amrex::Vector<amrex::FArrayBox*> NC_fabs;
     amrex::Vector<std::string> NC_names;
     amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    amrex::Print() << "Reading in " << field_name << " at  time index " << itime << " from " << file_name << std::endl;
 
     NC_fabs.push_back(&NC_fab) ; NC_names.push_back(field_name);
 

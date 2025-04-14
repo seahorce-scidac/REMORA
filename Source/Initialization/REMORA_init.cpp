@@ -169,3 +169,23 @@ REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
         });
     }
 }
+
+void
+REMORA::init_clim_nudg_coeff (int lev) {
+    // Fill nudging coefficients from constant values, then overwrite
+    // with coeffs read from file if using
+    vec_nudg_coeff[BdyVars::u][lev]->setVal(solverChoice.nudg_coeff[BdyVars::u]);
+    vec_nudg_coeff[BdyVars::v][lev]->setVal(solverChoice.nudg_coeff[BdyVars::v]);
+    vec_nudg_coeff[BdyVars::t][lev]->setVal(solverChoice.nudg_coeff[BdyVars::t]);
+    vec_nudg_coeff[BdyVars::s][lev]->setVal(solverChoice.nudg_coeff[BdyVars::s]);
+    vec_nudg_coeff[BdyVars::ubar][lev]->setVal(solverChoice.nudg_coeff[BdyVars::ubar]);
+    vec_nudg_coeff[BdyVars::vbar][lev]->setVal(solverChoice.nudg_coeff[BdyVars::vbar]);
+    vec_nudg_coeff[BdyVars::zeta][lev]->setVal(solverChoice.nudg_coeff[BdyVars::zeta]);
+#ifdef REMORA_USE_NETCDF
+    if (solverChoice.do_any_clim_nudg) {
+        amrex::Print() << "Calling init_clim_nudg_coeff_from_netcdf \n " << std::endl;
+        init_clim_nudg_coeff_from_netcdf(lev);
+        amrex::Print() << "Climatology weights loaded from netcdf file \n " << std::endl;
+    }
+#endif
+}

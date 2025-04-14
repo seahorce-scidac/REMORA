@@ -105,8 +105,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
 
         const bool cell_centered = (mf_index_type[0] == 0 and mf_index_type[1] == 0);
 
-        const Real nudg_coeff_out = solverChoice.nudg_coeff[bdy_var_type];
-        const Real nudg_coeff_in  = solverChoice.nudg_coeff[bdy_var_type] * solverChoice.obcfac;
+        const Real obcfac = solverChoice.obcfac;
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -157,6 +156,8 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
 
             const Array4<const Real>& msku = vec_msku[lev]->const_array(mfi);
             const Array4<const Real>& mskv = vec_mskv[lev]->const_array(mfi);
+
+            const Array4<const Real> nudg_coeff_out = vec_nudg_coeff[bdy_var_type][lev]->const_array(mfi);
 
             //
             // We are inside a loop over components so we do one at a time here
@@ -213,11 +214,13 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                         Real dTdt = calc_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_lo.x+mf_index_type[0]  ,j,k,icomp+icomp_to_fill);
                         Real dTdx = dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_lo.x+mf_index_type[0]+1,j,k,icomp+icomp_to_fill);
                         Real tau;
+                        Real nudg_coeff_out_local = (nudg_coeff_out(i-mf_index_type[0],j-mf_index_type[1],k) +
+                                                     nudg_coeff_out(i,j,k)) * 0.5_rt;
                         if (dTdt*dTdx < 0.0_rt) {
-                            tau = nudg_coeff_in * dt_calc;
+                            tau = nudg_coeff_out_local * obcfac * dt_calc;
                             dTdt = 0.0_rt;
                         } else {
-                            tau = nudg_coeff_out * dt_calc;
+                            tau = nudg_coeff_out_local * dt_calc;
                         }
                         Real dTde = (dTdt * (grad_lo+grad_lo_jp1) > 0.0_rt) ? grad_lo : grad_lo_jp1;
                         Real cff = std::max(dTdx*dTdx+dTde*dTde,eps);
@@ -271,11 +274,13 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                         Real dTdt = calc_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_hi.x-mf_index_type[0]  ,j,k,icomp+icomp_to_fill);
                         Real dTdx = dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_hi.x-mf_index_type[0]-1,j,k,icomp+icomp_to_fill);
                         Real tau;
+                        Real nudg_coeff_out_local = (nudg_coeff_out(i-mf_index_type[0],j-mf_index_type[1],k) +
+                                                     nudg_coeff_out(i,j,k)) * 0.5_rt;
                         if (dTdt*dTdx < 0.0_rt) {
-                            tau = nudg_coeff_in * dt_calc;
+                            tau = nudg_coeff_out_local * obcfac * dt_calc;
                             dTdt = 0.0_rt;
                         } else {
-                            tau = nudg_coeff_out * dt_calc;
+                            tau = nudg_coeff_out_local * dt_calc;
                         }
                         if (dTdt * dTdx < 0.0_rt) dTdt = 0.0_rt;
                         Real dTde = (dTdt * (grad_hi + grad_hi_jp1) > 0.0_rt) ? grad_hi : grad_hi_jp1;
@@ -331,11 +336,13 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                         Real dTdt = calc_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_lo.y  +mf_index_type[1],k,icomp+icomp_to_fill);
                         Real dTde = dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_lo.y+1+mf_index_type[1],k,icomp+icomp_to_fill);
                         Real tau;
+                        Real nudg_coeff_out_local = (nudg_coeff_out(i-mf_index_type[0],j-mf_index_type[1],k) +
+                                                     nudg_coeff_out(i,j,k)) * 0.5_rt;
                         if (dTdt*dTde < 0.0_rt) {
-                            tau = nudg_coeff_in * dt_calc;
+                            tau = nudg_coeff_out_local * obcfac * dt_calc;
                             dTdt = 0.0_rt;
                         } else {
-                            tau = nudg_coeff_out * dt_calc;
+                            tau = nudg_coeff_out_local * dt_calc;
                         }
                         if (dTdt * dTde < 0.0_rt) dTdt = 0.0_rt;
                         Real dTdx = (dTdt * (grad_lo + grad_lo_ip1) > 0.0_rt) ? grad_lo : grad_lo_ip1;
@@ -391,11 +398,13 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                         Real dTdt = calc_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_hi.y  -mf_index_type[1],k,icomp+icomp_to_fill);
                         Real dTde = dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_hi.y-1-mf_index_type[1],k,icomp+icomp_to_fill);
                         Real tau;
+                        Real nudg_coeff_out_local = (nudg_coeff_out(i-mf_index_type[0],j-mf_index_type[1],k) +
+                                                     nudg_coeff_out(i,j,k)) * 0.5_rt;
                         if (dTdt*dTde < 0.0_rt) {
-                            tau = nudg_coeff_in * dt_calc;
+                            tau = nudg_coeff_out_local * obcfac * dt_calc;
                             dTdt = 0.0_rt;
                         } else {
-                            tau = nudg_coeff_out * dt_calc;
+                            tau = nudg_coeff_out_local * dt_calc;
                         }
                         if (dTdt * dTde < 0.0_rt) dTdt = 0.0_rt;
                         Real dTdx = (dTdt * (grad_hi + grad_hi_ip1) > 0.0_rt) ? grad_hi : grad_hi_ip1;
