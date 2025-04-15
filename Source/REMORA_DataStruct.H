@@ -411,6 +411,20 @@ struct SolverChoice {
         nudg_coeff[BdyVars::ubar ] = (m2nudg > 0.0) ? amrex::Real(1.0) / (m2nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::ubar
         nudg_coeff[BdyVars::vbar ] = (m2nudg > 0.0) ? amrex::Real(1.0) / (m2nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::vbar
         nudg_coeff[BdyVars::zeta ] = ( znudg > 0.0) ? amrex::Real(1.0) / ( znudg * amrex::Real(86400.0)) : 0.0;//BdyVars::zeta
+
+        pp.query("do_m3_clim_nudg", do_m3_clim_nudg);
+        pp.query("do_m2_clim_nudg", do_m2_clim_nudg);
+        pp.query("do_temp_clim_nudg", do_temp_clim_nudg);
+        pp.query("do_salt_clim_nudg", do_salt_clim_nudg);
+
+        if (do_m3_clim_nudg || do_m2_clim_nudg || do_temp_clim_nudg || do_salt_clim_nudg) {
+            do_any_clim_nudg = true;
+        }
+#ifndef REMORA_USE_NETCDF
+        if (do_any_clim_nudg) {
+            amrex::Abort("Climatology nudging requires building with NetCDF");
+        }
+#endif
     }
 
     void display()
@@ -644,6 +658,13 @@ struct SolverChoice {
     // Factor between passive (outflow) and active (inflow) open boundary
     // conditions.
     amrex::Real obcfac = amrex::Real(0.0);
+
+    // Whether to do climatoogy nudging
+    bool do_m2_clim_nudg = false;
+    bool do_m3_clim_nudg = false;
+    bool do_temp_clim_nudg = false;
+    bool do_salt_clim_nudg = false;
+    bool do_any_clim_nudg = false;
 };
 
 #endif

@@ -122,4 +122,39 @@ read_masks_from_netcdf (int /*lev*/,
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
+
+void
+read_clim_nudg_coeff_from_netcdf (int /*lev*/,
+                        const Box& domain,
+                        const std::string& fname,
+                        bool do_m2_clim_nudg,
+                        bool do_m3_clim_nudg,
+                        bool do_temp_clim_nudg,
+                        bool do_salt_clim_nudg,
+                        FArrayBox& NC_M2NC_fab,
+                        FArrayBox& NC_M3NC_fab,
+                        FArrayBox& NC_TempNC_fab,
+                        FArrayBox& NC_SaltNC_fab)
+{
+    amrex::Print() << "Loading nudging coefficients from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    if (do_m3_clim_nudg) {
+        NC_fabs.push_back(&NC_M3NC_fab ); NC_names.push_back("M3_NudgeCoef"); NC_dim_types.push_back(NC_Data_Dims_Type::BT_SN_WE);
+    }
+    if (do_m2_clim_nudg) {
+        NC_fabs.push_back(&NC_M2NC_fab ); NC_names.push_back("M2_NudgeCoef"); NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
+    }
+    if (do_temp_clim_nudg) {
+        NC_fabs.push_back(&NC_TempNC_fab ); NC_names.push_back("temp_NudgeCoef"); NC_dim_types.push_back(NC_Data_Dims_Type::BT_SN_WE);
+    }
+    if (do_salt_clim_nudg) {
+        NC_fabs.push_back(&NC_SaltNC_fab ); NC_names.push_back("salt_NudgeCoef"); NC_dim_types.push_back(NC_Data_Dims_Type::BT_SN_WE);
+    }
+    // Read the netcdf file and fill these FABs
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+}
 #endif // ROMSX_USE_NETCDF

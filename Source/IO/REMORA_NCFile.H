@@ -16,6 +16,7 @@ using PlaneVector = amrex::Vector<amrex::FArrayBox>;
 enum class NC_Data_Dims_Type {
     Time_BT_SN_WE,
     Time_SN_WE,
+    BT_SN_WE,
     SN_WE,
 };
 
@@ -127,7 +128,7 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
         int bdy_width          = static_cast<int>(ncf.dim("bdy_width").len());
         */
 
-        amrex::Print() << "Reading the dimensions from the netcdf file " << "\n";
+//        amrex::Print() << "Reading the dimensions from the netcdf file " << "\n";
 
         for (auto n=0; n<arrays.size(); ++n) {
             // read the data from NetCDF file
@@ -198,6 +199,11 @@ fill_fab_from_arrays (int iv,
         nsy = nc_arrays[iv].get_vshape()[0];
         nsx = nc_arrays[iv].get_vshape()[1];
         // amrex::Print() << "TYPE SN WE " << nsy << " " << nsx << std::endl;
+    } else if (NC_dim_type == NC_Data_Dims_Type::BT_SN_WE) {
+        nsz = nc_arrays[iv].get_vshape()[0];
+        nsy = nc_arrays[iv].get_vshape()[1];
+        nsx = nc_arrays[iv].get_vshape()[2];
+        // amrex::Print() << "TYPE BT SN WE " << nz << " " << nsy << " " << nsx << std::endl;
     } else if (NC_dim_type == NC_Data_Dims_Type::Time_SN_WE) {
         nsz = 1;
         nsy = nc_arrays[iv].get_vshape()[1];

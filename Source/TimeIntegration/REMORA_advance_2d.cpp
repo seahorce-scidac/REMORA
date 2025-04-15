@@ -105,6 +105,9 @@ REMORA::advance_2d (int lev,
     MultiFab mf_DUon(convert(ba,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_DVom(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0));
 
+    const auto dlo = amrex::lbound(Geom(lev).Domain());
+    const auto dhi = amrex::ubound(Geom(lev).Domain());
+
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& ubar = mf_ubar->array(mfi);
@@ -170,6 +173,13 @@ REMORA::advance_2d (int lev,
     mf_DUon.FillBoundary(geom[lev].periodicity());
     mf_DVom.FillBoundary(geom[lev].periodicity());
 
+#ifdef REMORA_USE_NETCDF
+    if (solverChoice.do_m2_clim_nudg) {
+        ubar_clim_data_from_file->update_interpolated_to_time(t_new[lev]);
+        vbar_clim_data_from_file->update_interpolated_to_time(t_new[lev]);
+    }
+#endif
+
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& rhoS = mf_rhoS->const_array(mfi);
@@ -181,6 +191,8 @@ REMORA::advance_2d (int lev,
         Array4<Real      > const& Zt_avg1 = mf_Zt_avg1->array(mfi);
         Array4<Real      > const& ubar    = mf_ubar->array(mfi);
         Array4<Real      > const& vbar    = mf_vbar->array(mfi);
+        Array4<Real      > const& ubar_krhs    = mf_ubar->array(mfi, krhs);
+        Array4<Real      > const& vbar_krhs    = mf_vbar->array(mfi, krhs);
         Array4<Real      > const& zeta = mf_zeta->array(mfi);
         Array4<Real      > const& DU_avg1 = (mf_DU_avg1)->array(mfi);
         Array4<Real      > const& DU_avg2 = (mf_DU_avg2)->array(mfi);
@@ -216,6 +228,28 @@ REMORA::advance_2d (int lev,
 
         Box ybxD = mfi.nodaltilebox(1);
         ybxD.makeSlab(2,0);
+
+        Box xbxD_adj = mfi.nodaltilebox(0);
+        xbxD_adj.makeSlab(2,0);
+        Box ybxD_adj = mfi.nodaltilebox(1);
+        ybxD_adj.makeSlab(2,0);
+
+        auto xbxD_lo = lbound(xbxD_adj);
+        auto xbxD_hi = ubound(xbxD_adj);
+        auto ybxD_lo = lbound(ybxD_adj);
+        auto ybxD_hi = ubound(ybxD_adj);
+
+        if (xbxD_lo.x == dlo.x) {
+            xbxD_adj.growLo(0,-1);
+        } else if (xbxD_hi.x == dhi.x) {
+            xbxD_adj.growHi(0,-1);
+        }
+
+        if (ybxD_lo.y == dlo.y) {
+            ybxD_adj.growLo(1,-1);
+        } else if (ybxD_hi.y == dhi.y) {
+            ybxD_adj.growHi(1,-1);
+        }
 
         Box tbxp1  = bx;  tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
         Box tbxp11 = bx; tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
@@ -536,6 +570,18 @@ REMORA::advance_2d (int lev,
         uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar,
                 visc2_p, visc2_r, Drhs_const,
                 pm, pn, mskp, krhs, nnew, 0.0_rt);
+
+#ifdef REMORA_USE_NETCDF
+        if (solverChoice.do_m2_clim_nudg) {
+            Array4<const Real> const& ubar_clim = ubar_clim_data_from_file->mf_interpolated->const_array(mfi);
+            Array4<const Real> const& vbar_clim = vbar_clim_data_from_file->mf_interpolated->const_array(mfi);
+            Array4<const Real> const& ubar_nudg_coeff = vec_nudg_coeff[BdyVars::ubar][lev]->const_array(mfi);
+            Array4<const Real> const& vbar_nudg_coeff = vec_nudg_coeff[BdyVars::vbar][lev]->const_array(mfi);
+            // Boxes are like this to match ROMS
+            apply_clim_nudg(xbxD_adj, 1, 0, rhs_ubar, ubar_krhs, ubar_clim, ubar_nudg_coeff, Drhs_const, pm, pn);
+            apply_clim_nudg(ybxD_adj, 0, 1, rhs_vbar, vbar_krhs, vbar_clim, vbar_nudg_coeff, Drhs_const, pm, pn);
+        }
+#endif
 
         //-----------------------------------------------------------------------
         // Coupling from 3d to 2d

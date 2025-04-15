@@ -656,6 +656,35 @@ REMORA::init_only (int lev, Real time)
         init_bdry_from_netcdf();
         amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
 
+        init_clim_nudg_coeff(lev);
+
+        if (solverChoice.do_any_clim_nudg) {
+            if (nc_clim_his_file.empty()) {
+                amrex::Error("NetCDF climatology file name must be provided via input");
+            }
+            if (solverChoice.do_m2_clim_nudg) {
+                ubar_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "ubar", geom[lev].Domain(),vec_ubar[lev].get(),true,true);
+                vbar_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "vbar", geom[lev].Domain(),vec_vbar[lev].get(),true,true);
+                ubar_clim_data_from_file->Initialize();
+                vbar_clim_data_from_file->Initialize();
+            }
+            if (solverChoice.do_m3_clim_nudg) {
+                u_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "u", geom[lev].Domain(),xvel_new[lev],false,true);
+                v_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "v", geom[lev].Domain(),yvel_new[lev],false,true);
+                u_clim_data_from_file->Initialize();
+                v_clim_data_from_file->Initialize();
+            }
+            // Since the NCTimeSeries object isn't filling the cons_new MultiFab directly, we don't have to specify a component.
+            // It just needs to know the shape of the MultiFab
+            if (solverChoice.do_temp_clim_nudg) {
+                temp_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "temp", geom[lev].Domain(),cons_new[lev],false,true);
+                temp_clim_data_from_file->Initialize();
+            }
+            if (solverChoice.do_salt_clim_nudg) {
+                salt_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "salt", geom[lev].Domain(),cons_new[lev],false,true);
+                salt_clim_data_from_file->Initialize();
+            }
+        }
     }
     // This will be a non-op if forcings specified analytically
     if (solverChoice.wind_type == WindType::netcdf) {
@@ -926,6 +955,10 @@ REMORA::ReadParameters ()
 
         // Also only read forcings at level 0 (for now)
         pp.query("nc_frc_file", nc_frc_file);
+
+        // Read in file names for climatology history and nudging weights
+        pp.query("nc_clim_his_file", nc_clim_his_file);
+        pp.query("nc_clim_coeff_file", nc_clim_coeff_file);
 
         // Query the set and total widths for bdy interior ghost cells
         pp.query("bdy_width", bdy_width);
