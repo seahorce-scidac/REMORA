@@ -115,6 +115,8 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time) {
         // Adjust box to match ROMS grid
         amrex::Box bx = mfi.growntilebox(amrex::IntVect(1-nodality[0],1-nodality[1],0));
 
+        amrex::Real time_before_copy = time_before;
+
         // If we're saving the interpolated values, we fill mf_interpolated; otherwise, directly fill
         // the multifab from the REMORA class
         amrex::MultiFab* mf_to_fill = save_interpolated ? mf_interpolated : mf_var;
@@ -123,7 +125,7 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time) {
         amrex::Array4<const amrex::Real> after  = mf_after->const_array(mfi);
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            to_fill(i,j,k) = before(i,j,k) + (time - time_before) * (after(i,j,k) - before(i,j,k)) / dt;
+            to_fill(i,j,k) = before(i,j,k) + (time - time_before_copy) * (after(i,j,k) - before(i,j,k)) / dt;
         });
     }
 }
