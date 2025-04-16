@@ -62,6 +62,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    ArakawaCGrid.rst
    BoundaryConditions.rst
    Checkpoint.rst
+   Climatology.rst
    MeshRefinement.rst
    Numerical_Solution_Technique.rst
    Particles.rst

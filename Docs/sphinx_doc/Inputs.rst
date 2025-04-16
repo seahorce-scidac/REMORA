@@ -83,31 +83,31 @@ Currently, if one initial, grid, or boundary files are specified, they all must 
 List of Parameters
 ------------------
 
-+---------------------------+-------------------------------+-------------+---------------------------+
-| Parameter                 | Definition                    | Acceptable  | Default                   |
-|                           |                               | Values      |                           |
-+===========================+===============================+=============+===========================+
-| **remora.ic_bc_type**     | read initial, grid, and       |             |                           |
-|                           | boundary data from NetCDF     | true/false  | false                     |
-|                           | files                         |             |                           |
-+---------------------------+-------------------------------+-------------+---------------------------+
-| **remora.nc_init_file_0** | initial data NetCDF file name | string      | must be set               |
-|                           |                               |             | if ``remora.ic_bc_type``  |
-|                           |                               |             | is true                   |
-+---------------------------+-------------------------------+-------------+---------------------------+
-| **remora.nc_grid_file_0** | grid data NetCDF file name    | string      | must be set               |
-|                           |                               |             | if ``remora.ic_bc_type``  |
-|                           |                               |             | is true                   |
-+---------------------------+-------------------------------+-------------+---------------------------+
-| **remora.nc_bdry_file_0** | boundary data NetCDF file     | string      | must be set               |
-|                           | name                          |             | if ``remora.ic_bc_type``  |
-|                           |                               |             | is true                   |
-+---------------------------+-------------------------------+-------------+---------------------------+
-| **remora.nc_frc_file**    | forcing data NetCDF file name | string      | must be set               |
-|                           |                               |             | if ``remora.wind_type``   |
-|                           |                               |             | or ``remora.smflux_type`` |
-|                           |                               |             | equal ``netcdf``          |
-+---------------------------+-------------------------------+-------------+---------------------------+
++-------------------------------+-----------------------------------+-------------+---------------------------+
+| Parameter                     | Definition                        | Acceptable  | Default                   |
+|                               |                                   | Values      |                           |
++===============================+===================================+=============+===========================+
+| **remora.ic_bc_type**         | read initial, grid, and           |             |                           |
+|                               | boundary data from NetCDF         | true/false  | false                     |
+|                               | files                             |             |                           |
++-------------------------------+-----------------------------------+-------------+---------------------------+
+| **remora.nc_init_file_0**     | initial data NetCDF file name     | string      | must be set               |
+|                               |                                   |             | if ``remora.ic_bc_type``  |
+|                               |                                   |             | is true                   |
++-------------------------------+-----------------------------------+-------------+---------------------------+
+| **remora.nc_grid_file_0**     | grid data NetCDF file name        | string      | must be set               |
+|                               |                                   |             | if ``remora.ic_bc_type``  |
+|                               |                                   |             | is true                   |
++-------------------------------+-----------------------------------+-------------+---------------------------+
+| **remora.nc_bdry_file_0**     | boundary data NetCDF file         | string      | must be set               |
+|                               | name                              |             | if ``remora.ic_bc_type``  |
+|                               |                                   |             | is true                   |
++-------------------------------+-----------------------------------+-------------+---------------------------+
+| **remora.nc_frc_file**        | forcing data NetCDF file name     | string      | must be set               |
+|                               |                                   |             | if ``remora.wind_type``   |
+|                               |                                   |             | or ``remora.smflux_type`` |
+|                               |                                   |             | equal ``netcdf``          |
++-------------------------------+-----------------------------------+-------------+---------------------------+
 
 Resolution and Tiling
 =====================
@@ -801,6 +801,43 @@ List of Parameters
 
 These parameters are used to calculate the vertical S-grid stretch/transform functions detailed in
 :ref:`Vertical S-Coordinate<VerticalSCoord>`.
+
+Climatology parameters
+======================
+
+.. _climatology-parameters:
+
+List of Parameters
+------------------
+
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| Parameter                             | Definition                  | Acceptable   | Default                   |
+|                                       |                             | Values       |                           |
++=======================================+=============================+==============+===========================+
+| **remora.do_m3_clim_nudg**            | Whether to nudge 3D         | true / false | false                     |
+|                                       | momentum variables          |              |                           |
+|                                       | (u and v) to climatology    |              |                           |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.do_m2_clim_nudg**            | Whether to nudge 2D         | true / false | false                     |
+|                                       | momentum variables (ubar    |              |                           |
+|                                       | and vbar) to climatology    |              |                           |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.do_temp_clim_nudg**          | Whether to nudge            | true / false | false                     |
+|                                       | temperature                 |              |                           |
+|                                       | to climatology              |              |                           |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.do_salt_clim_nudg**          | Whether to nudge            | true / false | false                     |
+|                                       | salinity                    |              |                           |
+|                                       | to climatology              |              |                           |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.nc_clim_his_file**           | NetCDF file name for        | string       | must be set if one of the |
+|                                       | climatology data            |              | ``remora.do_*_clim_nudg`` |
+|                                       |                             |              | flags is true             |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.nc_clim_coeff_file**         | NetCDF file name for        | string       | must be set if one of the |
+|                                       | climatology nudging         |              | ``remora.do_*_clim_nudg`` |
+|                                       | coefficients                |              | flags is true             |
++---------------------------------------+-----------------------------+--------------+---------------------------+
 
 ..
   include:: InputsPhysics.rst

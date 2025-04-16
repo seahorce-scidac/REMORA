@@ -200,8 +200,7 @@ state data.
 Nudging options
 ---------------
 
-When using ``orlanski_nudg``, the nudging strength is specified by input parameters. Climatology nudging
-has not yet been implemented.
+When using ``orlanski_nudg``, the nudging strength is specified by input parameters. When climatology nudging is turned on, timescales will instead be read from the file specified in ``remora.nc_clim_coeff_file``. ``remora.obcfac`` will still be used.
 
 +-------------------+-------------------------+-------------------+---------------+
 | Parameter         | Definition              | Acceptable Values | Default       |
