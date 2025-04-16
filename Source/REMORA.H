@@ -262,6 +262,9 @@ public:
     /** Scaled vertical coordinate (range [0,1]) that transforms to z, defined at w-points (cell faces) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_w;
 
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Cs_r;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Cs_w;
+
     /** z coordinates at psi points (cell nodes) **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_phys_nd;
 

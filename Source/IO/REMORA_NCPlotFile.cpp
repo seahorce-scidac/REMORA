@@ -211,7 +211,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
 
         ncf.def_var("grid",NC_INT, {});
         ncf.var("grid").put_attr("cf_role","grid_topology");
-        ncf.var("grid").put_attr("topology_dimension","2");
+        ncf.var("grid").put_attr("topology_dimension",std::vector({2}));
         ncf.var("grid").put_attr("node_dimensions", "xi_psi eta_psi");
         ncf.var("grid").put_attr("face_dimensions", "xi_rho: xi_psi (padding: both) eta_rho: eta_psi (padding: both)");
         ncf.var("grid").put_attr("edge1_dimensions", "xi_u: xi_psi eta_u: eta_psi (padding: both)");
@@ -298,6 +298,18 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         ncf.var("ocean_time").put_attr("long_name","time since initialization");
         ncf.var("ocean_time").put_attr("units","seconds since 0001-01-01 00:00:00");
         ncf.var("ocean_time").put_attr("field","time, scalar, series");
+
+        ncf.def_var("Cs_r", ncutils::NCDType::Real, {nz_r_name});
+        ncf.var("Cs_r").put_attr("long_name", "S-coordinate stretching curves at RHO points");
+        ncf.var("Cs_r").put_attr("valid_min",std::vector({-1.}));
+        ncf.var("Cs_r").put_attr("valid_max",std::vector({0.}));
+        ncf.var("Cs_r").put_attr("field","Cs_r, scalar");
+
+        ncf.def_var("Cs_w", ncutils::NCDType::Real, {nz_w_name});
+        ncf.var("Cs_w").put_attr("long_name", "S-coordinate stretching curves at W points");
+        ncf.var("Cs_w").put_attr("valid_min",std::vector({-1.}));
+        ncf.var("Cs_w").put_attr("valid_max",std::vector({0.}));
+        ncf.var("Cs_w").put_attr("field","Cs_w, scalar");
 
         ncf.def_var("h", ncutils::NCDType::Real, { ny_r_name, nx_r_name });
         ncf.var("h").put_attr("long_name","bathymetry at RHO-points");
@@ -591,6 +603,28 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                         auto nc_plot_var = ncf.var("s_w");
                         //nc_plot_var.par_access(NC_INDEPENDENT);
                         nc_plot_var.put(tmp_sw.dataPtr(), { local_start_z }, { local_nz + 1});
+                    }
+                    {
+                        FArrayBox tmp_Csrho;
+                        tmp_Csrho.resize(tmp_bx_1d, 1, amrex::The_Pinned_Arena());
+
+                        tmp_Csrho.template copy<RunOn::Device>((*vec_Cs_r[lev])[mfi.index()], 0, 0, 1);
+                        Gpu::streamSynchronize();
+
+                        auto nc_plot_var = ncf.var("Cs_r");
+                        //nc_plot_var.par_access(NC_INDEPENDENT);
+                        nc_plot_var.put(tmp_Csrho.dataPtr(), { local_start_z }, { local_nz });
+                    }
+                    {
+                        FArrayBox tmp_Csw;
+                        tmp_Csw.resize(convert(tmp_bx_1d,IntVect(0,0,1)), 1, amrex::The_Pinned_Arena());
+
+                        tmp_Csw.template copy<RunOn::Device>((*vec_Cs_w[lev])[mfi.index()], 0, 0, 1);
+                        Gpu::streamSynchronize();
+
+                        auto nc_plot_var = ncf.var("Cs_w");
+                        //nc_plot_var.par_access(NC_INDEPENDENT);
+                        nc_plot_var.put(tmp_Csw.dataPtr(), { local_start_z }, { local_nz + 1});
                     }
                 }
 

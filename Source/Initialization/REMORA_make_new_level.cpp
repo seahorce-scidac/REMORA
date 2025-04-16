@@ -305,6 +305,8 @@ void REMORA::resize_stuff(int lev)
     vec_Zt_avg1.resize(lev+1);
     vec_s_r.resize(lev+1);
     vec_s_w.resize(lev+1);
+    vec_Cs_r.resize(lev+1);
+    vec_Cs_w.resize(lev+1);
     vec_z_w.resize(lev+1);
     vec_z_r.resize(lev+1);
     vec_Hz.resize(lev+1);
@@ -453,6 +455,9 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_s_r[lev].reset                (new MultiFab(ba1d,dm,1,IntVect(    0,    0,0))); // scaled vertical coordinate [0,1] , transforms to z
 
     vec_s_w[lev].reset                (new MultiFab(convert(ba1d,IntVect(0,0,1)),dm,1,IntVect(    0,    0,0))); // scaled vertical coordinate at w-points [0,1] , transforms to z
+                                                                                                                //
+    vec_Cs_r[lev].reset                (new MultiFab(ba1d,dm,1,IntVect(    0,    0,0)));
+    vec_Cs_w[lev].reset                (new MultiFab(convert(ba1d,IntVect(0,0,1)),dm,1,IntVect(    0,    0,0)));
 
     vec_z_w[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at w points (cell faces)
     vec_z_r[lev].reset                (new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0))); // z at r points (cell center)
