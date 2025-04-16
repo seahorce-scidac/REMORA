@@ -25,7 +25,7 @@ where :math:`S_{mathrm{clim}}` is the value given in the climatology and :math:`
 Nudging for 2D velocity
 -----------------------
 
-The 2D velocity components are udpated in the right-hand side term ``rhs_ubar`` according to:
+The 2D velocity components are updated in the right-hand side term ``rhs_ubar`` according to:
 
 .. math::
    \mathrm{RHS}_{\overline{u}} = \mathrm{RHS}_{\overline{u}} + C_{\mathrm{M2}} \frac{D}{mn} \left(\overline{u}_{\mathrm{clim}} - \overline{u}_{\mathrm{krhs}}\right)
@@ -35,7 +35,7 @@ or similar for v. :math:`C_{\mathrm{M2}}` is the nudging coefficient, :math:`D` 
 Nudging for 3D velocity
 -----------------------
 
-The 3D velocity components are udpated in the right-hand side term ``ru`` according to:
+The 3D velocity components are updated in the right-hand side term ``ru`` according to:
 
 .. math::
    \mathrm{RHS}_{u} = \mathrm{RHS}_{u} + C_{\mathrm{M3}} \frac{H_{z}}{mn} \left(u_{\mathrm{clim}} - u_{\mathrm{old}}\right)
