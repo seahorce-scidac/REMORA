@@ -1,7 +1,11 @@
 ############################ BASE ######################################
 
 cmake_minimum_required (VERSION 3.14 FATAL_ERROR)
-project(REMORA CXX C)
+if(REMORA_ENABLE_FUNWAVE_FORT)
+  project(REMORA CXX C Fortran)
+else()
+  project(REMORA CXX C)
+endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
 include(CMakePackageConfigHelpers)
 
