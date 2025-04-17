@@ -52,6 +52,14 @@ function(build_remora_lib remora_lib_name)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_MOAB)
   endif()
 
+  if(REMORA_ENABLE_FUNWAVE_FORT)
+  target_sources(${remora_lib_name}
+     PRIVATE
+#      ${SRC_DIR}/FunWave/REMORA_funwave.F90
+       )
+  target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_FUNWAVE_FORT)
+  endif()
+
   target_sources(${remora_lib_name}
      PRIVATE
        ${SRC_DIR}/REMORA_Derive.cpp

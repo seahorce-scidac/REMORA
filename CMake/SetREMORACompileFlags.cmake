@@ -20,6 +20,9 @@ endif()
 separate_arguments(REMORA_CXX_FLAGS)
 target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${REMORA_CXX_FLAGS}>)
 
+separate_arguments(REMORA_Fortran_FLAGS)
+target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:Fortran>:${REMORA_Fortran_FLAGS}>)
+
 if(REMORA_ENABLE_CUDA)
   list(APPEND REMORA_CUDA_FLAGS "--expt-relaxed-constexpr")
   list(APPEND REMORA_CUDA_FLAGS "--expt-extended-lambda")
