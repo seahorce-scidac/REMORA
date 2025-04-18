@@ -70,7 +70,13 @@ Instructions for how to specify domain boundary conditions, with usage examples 
 Imposing Boundary and Initial Conditions from NetCDF File
 =========================================================
 
-Grid, initial, and time-dependent boundary data can be specified using NetCDF files, as in ROMS. REMORA expects files in the same format as ROMS, in NetCDF classic format (32- or 64-bit). Other versions of NetCDF files can be converted to 64-bit NetCDF classic by running the command:
+Grid, initial, and time-dependent boundary data can be specified using NetCDF files, as in ROMS. REMORA expects files in the same format as ROMS, in NetCDF classic format (32- or 64-bit). If the file format is incorrect, REMORA will exit with the error:
+
+.. code:: shell
+
+   NetCDF: Attempt to use feature that was not turned on when netCDF was built.
+
+Other versions of NetCDF files can be converted to 64-bit NetCDF classic by running the command:
 
 .. code:: shell
 
