@@ -117,7 +117,6 @@ read_masks_from_netcdf (int /*lev*/,
     NC_fabs.push_back(&NC_mskr_fab )   ; NC_names.push_back("mask_rho")  ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
     NC_fabs.push_back(&NC_msku_fab )   ; NC_names.push_back("mask_u")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 1
     NC_fabs.push_back(&NC_mskv_fab )   ; NC_names.push_back("mask_v")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 2
-    NC_fabs.push_back(&NC_mskp_fab )   ; NC_names.push_back("mask_psi")  ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 3
 
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);

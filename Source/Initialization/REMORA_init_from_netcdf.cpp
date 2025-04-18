@@ -414,7 +414,6 @@ REMORA::init_masks_from_netcdf (int lev)
             mskr_fab.template    copy<RunOn::Device>(NC_mskr_fab[idx]);
             msku_fab.template    copy<RunOn::Device>(NC_msku_fab[idx]);
             mskv_fab.template    copy<RunOn::Device>(NC_mskv_fab[idx]);
-            mskp_fab.template    copy<RunOn::Device>(NC_mskp_fab[idx]);
         } // mf
         } // omp
     } // idx
