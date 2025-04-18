@@ -1,0 +1,5 @@
+ifeq ($(USE_FUNWAVE_FORT),TRUE)
+     CEXE_headers += REMORA_funwave_Fortran_Interface.H
+     F90EXE_sources += REMORA_funwave_advance.F90
+     F90EXE_sources += REMORA_funwave_isohelper.F90
+endif

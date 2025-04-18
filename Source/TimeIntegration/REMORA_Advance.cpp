@@ -2,6 +2,10 @@
 
 using namespace amrex;
 
+#ifdef REMORA_USE_FUNWAVE_FORT
+#include <REMORA_funwave_Fortran_Interface.H>
+#endif
+
 // advance a single level for a single time step
  void
 REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle*/)
@@ -26,6 +30,24 @@ REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycl
             advance_2d_onestep(lev, dt_lev, dtfast_lev, my_iif, nfast_counter);
         }
     }
+
+#ifdef REMORA_USE_FUNWAVE_FORT
+    MultiFab* mf_rhoS = vec_rhoS[lev].get();
+    for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Box bx = mfi.validbox();
+        int ims = bx.smallEnd(0);
+        int jms = bx.smallEnd(1);
+        int kms = bx.smallEnd(2);
+        int ime = bx.bigEnd(0);
+        int jme = bx.bigEnd(1);
+        int kme = bx.bigEnd(2);
+
+        Array4<Real> const& rho_salt = mf_rhoS->array(mfi);
+
+        funwave_advance_c(rho_salt.dataPtr(), ims, ime, jms, jme, kms, kme);
+    }
+#endif
 
     //***************************************************
     //Advance one step of the 3d integrator
