@@ -7,9 +7,11 @@
 
 #ifdef REMORA_USE_NETCDF
 NCTimeSeries::NCTimeSeries (const std::string a_file_name, const std::string a_field_name,
+                            const std::string a_time_name,
                             const amrex::Box& a_domain,
                             amrex::MultiFab* a_mf_var, bool a_is2d, bool a_save_interpolated) {
     file_name = a_file_name;
+    time_name = a_time_name;
     field_name = a_field_name;
     domain = a_domain;
     mf_var = a_mf_var;
@@ -22,17 +24,18 @@ void NCTimeSeries::Initialize() {
     amrex::Print() << "Loading " << field_name << " from NetCDF file " << file_name << std::endl;
 
     // The time field can have any number of names, depending on the field.
-    // This is a hack for now; ideally would be specified by something like varinfo.dat like in ROMS
-    // or just passed into the constructor
-    std::string time_name;
-    if (field_name.find("wind") != std::string::npos) {
-        time_name = "wind_time";
-    } else if ((field_name.find("str") != std::string::npos) and (field_name[0] == 's')) {
-        time_name = "sms_time";
-    } else if ((field_name.find("str") != std::string::npos) and (field_name[0] == 'b')) {
-        time_name = "bms_time";
-    } else {
-        time_name = "ocean_time";
+    // If not specified in input file (time_name.empty()) then set it by default
+    if (time_name.empty())
+    {
+        if (field_name.find("wind") != std::string::npos) {
+            time_name = "wind_time";
+        } else if ((field_name.find("str") != std::string::npos) and (field_name[0] == 's')) {
+            time_name = "sms_time";
+        } else if ((field_name.find("str") != std::string::npos) and (field_name[0] == 'b')) {
+            time_name = "bms_time";
+        } else {
+            time_name = "ocean_time";
+        }
     }
 
     amrex::Print() << time_name << std::endl;

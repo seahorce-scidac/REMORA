@@ -114,6 +114,13 @@ List of Parameters
 |                               |                                   |             | or ``remora.smflux_type`` |
 |                               |                                   |             | equal ``netcdf``          |
 +-------------------------------+-----------------------------------+-------------+---------------------------+
+| **remora.bdy_time_varname**   | name of time variable in boundary | string      | ``ocean_time``            |
+|                               | file                              |             |                           |
++-------------------------------+-----------------------------------+-------------+---------------------------+
+| **remora.frc_time_varname**   | name of time variable in forcing  | string      | ``wind_time`` for wind,   |
+|                               | file                              |             | ``sms_time`` for surface  |
+|                               |                                   |             | momentum stress           |
++-------------------------------+-----------------------------------+-------------+---------------------------+
 
 Resolution and Tiling
 =====================
@@ -843,6 +850,24 @@ List of Parameters
 | **remora.nc_clim_coeff_file**         | NetCDF file name for        | string       | must be set if one of the |
 |                                       | climatology nudging         |              | ``remora.do_*_clim_nudg`` |
 |                                       | coefficients                |              | flags is true             |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.clim_ubar_time_varname**     | name of time variable for   | string       | ``ocean_time``            |
+|                                       | ubar climatology            |              |                           |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.clim_vbar_time_varname**     | name of time variable for   | string       | ``ocean_time``            |
+|                                       | vbar climatology            |              |                           |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.clim_u_time_varname**        | name of time variable for   | string       | ``ocean_time``            |
+|                                       | u climatology               |              |                           |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.clim_v_time_varname**        | name of time variable for   | string       | ``ocean_time``            |
+|                                       | v climatology               |              |                           |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.clim_temp_time_varname**     | name of time variable for   | string       | ``ocean_time``            |
+|                                       | temperature climatology     |              |                           |
++---------------------------------------+-----------------------------+--------------+---------------------------+
+| **remora.clim_salt_time_varname**     | name of time variable for   | string       | ``ocean_time``            |
+|                                       | salinity climatology        |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
 
 ..

@@ -47,7 +47,8 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                        Vector<Vector<FArrayBox>>& bdy_data_xhi,
                        Vector<Vector<FArrayBox>>& bdy_data_ylo,
                        Vector<Vector<FArrayBox>>& bdy_data_yhi,
-                       int& width, Real& start_bdy_time)
+                       int& width, Real& start_bdy_time,
+                       std::string bdry_time_varname)
 {
     amrex::Print() << "Loading boundary data from NetCDF file " << nc_bdry_file << std::endl;
 
@@ -65,18 +66,18 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     Real ocean_times[31];
     // Check units of time stamps. Should be days.
     std::string unit_str;
-    unit_str = ReadNetCDFVarAttrStr(nc_bdry_file, "ocean_time", "units"); // works on proc 0
+    unit_str = ReadNetCDFVarAttrStr(nc_bdry_file, bdry_time_varname, "units"); // works on proc 0
     if (ParallelDescriptor::IOProcessor())
     {
         if (unit_str.find("days") == std::string::npos) {
-            amrex::Print() << "Units of ocean_time given as: " << unit_str << std::endl;
+            amrex::Print() << "Units of " << bdry_time_varname << " given as: " << unit_str << std::endl;
             amrex::Abort("Units must be in days.");
         }
     }
     // Read the time stamps
     using RARRAY = NDArray<Real>;
     amrex::Vector<RARRAY> array_ts(1);
-    ReadNetCDFFile(nc_bdry_file, {"ocean_time"}, array_ts); // filled only on proc 0
+    ReadNetCDFFile(nc_bdry_file, {bdry_time_varname}, array_ts); // filled only on proc 0
     if (ParallelDescriptor::IOProcessor())
     {
         ntimes = array_ts[0].get_vshape()[0];
