@@ -105,8 +105,7 @@ read_masks_from_netcdf (int /*lev*/,
                         const std::string& fname,
                         FArrayBox& NC_mskr_fab,
                         FArrayBox& NC_msku_fab,
-                        FArrayBox& NC_mskv_fab,
-                        FArrayBox& NC_mskp_fab)
+                        FArrayBox& NC_mskv_fab)
 {
     amrex::Print() << "Loading masks from NetCDF file " << fname << std::endl;
 
