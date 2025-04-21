@@ -14,6 +14,7 @@ class NCTimeSeries
     public:
         NCTimeSeries (const std::string a_file_name,
                       const std::string a_field_name,
+                      const std::string a_time_name,
                       const amrex::Box& a_domain,
                       amrex::MultiFab* a_mf_var,
                       bool a_is2d, bool a_save_interpolated);
@@ -35,6 +36,8 @@ class NCTimeSeries
         std::string file_name;
         /// Field name in netcdf file
         std::string field_name;
+        /// Field name for time series in netcdf file
+        std::string time_name;
         /// Domain
         amrex::Box domain;
 

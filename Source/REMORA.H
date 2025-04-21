@@ -1148,6 +1148,17 @@ private:
     std::string nc_clim_his_file;
     std::string nc_clim_coeff_file;
 
+    std::string bdry_time_varname = "ocean_time";
+
+    std::string clim_ubar_time_varname = "ocean_time";
+    std::string clim_vbar_time_varname = "ocean_time";
+    std::string clim_u_time_varname = "ocean_time";
+    std::string clim_v_time_varname = "ocean_time";
+    std::string clim_salt_time_varname = "ocean_time";
+    std::string clim_temp_time_varname = "ocean_time";
+
+    std::string frc_time_varname = "";
+
     // NetCDF file of time series of boundary data
     static std::string nc_bdry_file;
 
