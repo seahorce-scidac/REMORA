@@ -48,7 +48,8 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                        Vector<Vector<FArrayBox>>& bdy_data_ylo,
                        Vector<Vector<FArrayBox>>& bdy_data_yhi,
                        int& width, Real& start_bdy_time,
-                       std::string bdry_time_varname)
+                       std::string bdry_time_varname,
+                       amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1>& phys_bc_need_data)
 {
     amrex::Print() << "Loading boundary data from NetCDF file " << nc_bdry_file << std::endl;
 
@@ -95,7 +96,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
         for (int nt(1); nt < ntimes; nt++)
         {
-            AMREX_ALWAYS_ASSERT(ocean_times[nt] - ocean_times[nt-1] == timeInterval);
+            AMREX_ALWAYS_ASSERT(std::abs(ocean_times[nt] - ocean_times[nt-1] - timeInterval) / timeInterval <= 1e-8_rt);
         }
     }
 
@@ -104,7 +105,6 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     ParallelDescriptor::Bcast(&timeInterval,1,ioproc);
 
     // Even though we may not read in all the variables, we need to make the arrays big enough for them (for now)
-    int nvars = BdyVars::NumTypes*4; // 4 = xlo, xhi, ylo, yhi
 
     // Our outermost loop is time
     bdy_data_xlo.resize(ntimes);
@@ -125,11 +125,20 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
     for (int ip = 0; ip < nc_var_prefix.size(); ++ip)
     {
-       nc_var_names.push_back(nc_var_prefix[ip] + "_west");
-       nc_var_names.push_back(nc_var_prefix[ip] + "_east");
-       nc_var_names.push_back(nc_var_prefix[ip] + "_south");
-       nc_var_names.push_back(nc_var_prefix[ip] + "_north");
+        if (phys_bc_need_data[ip][Orientation(Direction::x,Orientation::low)] == true) {
+            nc_var_names.push_back(nc_var_prefix[ip] + "_west");
+        }
+        if (phys_bc_need_data[ip][Orientation(Direction::x,Orientation::high)] == true) {
+            nc_var_names.push_back(nc_var_prefix[ip] + "_east");
+        }
+        if (phys_bc_need_data[ip][Orientation(Direction::y,Orientation::low)] == true) {
+            nc_var_names.push_back(nc_var_prefix[ip] + "_south");
+        }
+        if (phys_bc_need_data[ip][Orientation(Direction::y,Orientation::high)] == true) {
+            nc_var_names.push_back(nc_var_prefix[ip] + "_north");
+        }
     }
+      int nvars = nc_var_names.size(); // 4 = xlo, xhi, ylo, yhi
 
     using RARRAY = NDArray<Real>;
     amrex::Vector<RARRAY> arrays(nc_var_names.size());
@@ -498,16 +507,39 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     //    filled the data in these FABs on the IOProcessor.  So here we broadcast
     //    the data to every rank.
     int n_per_time = nc_var_prefix.size();
-    for (int nt = 0; nt < ntimes; nt++)
+    for (int nt = 0; nt < bdy_data_xlo.size(); nt++)
     {
-        for (int i = 0; i < n_per_time; i++)
+        for (int i = 0; i < bdy_data_xlo[nt].size(); i++)
         {
             ParallelDescriptor::Bcast(bdy_data_xlo[nt][i].dataPtr(),bdy_data_xlo[nt][i].box().numPts(),ioproc);
-            ParallelDescriptor::Bcast(bdy_data_xhi[nt][i].dataPtr(),bdy_data_xhi[nt][i].box().numPts(),ioproc);
+        }
+    }
+    for (int nt = 0; nt < bdy_data_ylo.size(); nt++)
+    {
+        for (int i = 0; i < bdy_data_ylo[nt].size(); i++)
+        {
             ParallelDescriptor::Bcast(bdy_data_ylo[nt][i].dataPtr(),bdy_data_ylo[nt][i].box().numPts(),ioproc);
+        }
+    }
+    for (int nt = 0; nt < bdy_data_xhi.size(); nt++)
+    {
+        for (int i = 0; i < bdy_data_xhi[nt].size(); i++)
+        {
+            ParallelDescriptor::Bcast(bdy_data_xhi[nt][i].dataPtr(),bdy_data_xhi[nt][i].box().numPts(),ioproc);
+        }
+    }
+    for (int nt = 0; nt < bdy_data_yhi.size(); nt++)
+    {
+        for (int i = 0; i < bdy_data_yhi[nt].size(); i++)
+        {
             ParallelDescriptor::Bcast(bdy_data_yhi[nt][i].dataPtr(),bdy_data_yhi[nt][i].box().numPts(),ioproc);
         }
     }
+//            ParallelDescriptor::Bcast(bdy_data_xhi[nt][i].dataPtr(),bdy_data_xhi[nt][i].box().numPts(),ioproc);
+//            ParallelDescriptor::Bcast(bdy_data_ylo[nt][i].dataPtr(),bdy_data_ylo[nt][i].box().numPts(),ioproc);
+//            ParallelDescriptor::Bcast(bdy_data_yhi[nt][i].dataPtr(),bdy_data_yhi[nt][i].box().numPts(),ioproc);
+//        }
+//    }
 
     // Make sure all processors know how timeInterval
     ParallelDescriptor::Bcast(&timeInterval,1,ioproc);

@@ -1042,6 +1042,11 @@ private:
     // These are the "physical" boundary condition types (e.g. "inflow")
     amrex::GpuArray<amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2>,BCVars::NumTypes> phys_bc_type;
 
+    // These are flags that indicate whether we need to read in boundary data from file
+    amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1> phys_bc_need_data;
+
+    amrex::Vector<int> bdy_index;
+
     int last_plot_file_step;
 
     int last_check_file_step;

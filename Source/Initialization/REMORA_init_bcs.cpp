@@ -12,16 +12,19 @@ void REMORA::init_bcs ()
         if (bc_type_string == "symmetry")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::symmetry;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = false;
             domain_bc_type[ori] = "Symmetry";
         }
         else if (bc_type_string == "outflow")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::outflow;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = false;
             domain_bc_type[ori] = "Outflow";
         }
         else if (bc_type_string == "inflow")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::inflow;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = false;
             domain_bc_type[ori] = "Inflow";
 
             if (bcvar_type == BCVars::xvel_bc || bcvar_type == BCVars::yvel_bc ||
@@ -38,6 +41,7 @@ void REMORA::init_bcs ()
         else if (bc_type_string == "noslipwall")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::no_slip_wall;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = false;
             domain_bc_type[ori] = "NoSlipWall";
 
             if (bcvar_type == BCVars::xvel_bc || bcvar_type == BCVars::yvel_bc ||
@@ -56,16 +60,19 @@ void REMORA::init_bcs ()
         else if (bc_type_string == "slipwall")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::slip_wall;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = false;
             domain_bc_type[ori] = "SlipWall";
         }
         else if (bc_type_string == "clamped")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::clamped;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = true;
             domain_bc_type[ori] = "Clamped";
         }
         else if (bc_type_string == "chapman")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::chapman;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = true;
             domain_bc_type[ori] = "Chapman";
 
             if (bcvar_type != BCVars::zeta_bc) {
@@ -75,6 +82,7 @@ void REMORA::init_bcs ()
         else if (bc_type_string == "flather")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::flather;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = true;
             domain_bc_type[ori] = "Flather";
 
             if (!(bcvar_type == BCVars::ubar_bc || bcvar_type == BCVars::vbar_bc)) {
@@ -84,11 +92,13 @@ void REMORA::init_bcs ()
         else if (bc_type_string == "orlanski_rad")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::orlanski_rad;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = false;
             domain_bc_type[ori] = "Orlanski Radiation";
         }
         else if (bc_type_string == "orlanski_rad_nudg")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::orlanski_rad_nudge;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = true;
             domain_bc_type[ori] = "Orlanski Radiation with nudging";
         }
         else if (bc_type_string == "periodic")
@@ -97,11 +107,13 @@ void REMORA::init_bcs ()
                 amrex::Abort("Periodic boundary specified in a non-periodic direction");
             }
             phys_bc_type[bcvar_type][ori] = REMORA_BC::periodic;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = false;
             domain_bc_type[ori] = "Periodic";
         }
         else
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::undefined;
+            phys_bc_need_data[bdy_index[bcvar_type]][ori] = false;
         }
 
         if (geom[0].isPeriodic(ori.coordDir()))
@@ -110,6 +122,7 @@ void REMORA::init_bcs ()
             if (phys_bc_type[bcvar_type][ori] == REMORA_BC::undefined)
             {
                 phys_bc_type[bcvar_type][ori] = REMORA_BC::periodic;
+                phys_bc_need_data[bdy_index[bcvar_type]][ori] = false;
             } else if (phys_bc_type[bcvar_type][ori] != REMORA_BC::periodic) {
                 amrex::Abort("Wrong BC type for periodic boundary");
             }
@@ -160,6 +173,15 @@ void REMORA::init_bcs ()
             f_set_var_bc(pp, bcvar_type, ori, bc_type);
         }
     };
+
+    bdy_index.assign(BCVars::NumTypes, BdyVars::NumTypes);
+    bdy_index[BCVars::Temp_bc_comp] = BdyVars::t;
+    bdy_index[BCVars::Salt_bc_comp] = BdyVars::s;
+    bdy_index[BCVars::xvel_bc] = BdyVars::u;
+    bdy_index[BCVars::yvel_bc] = BdyVars::v;
+    bdy_index[BCVars::ubar_bc] = BdyVars::ubar;
+    bdy_index[BCVars::vbar_bc] = BdyVars::vbar;
+    bdy_index[BCVars::zeta_bc] = BdyVars::zeta;
 
     for (OrientationIter oit; oit; ++oit) {
         Orientation ori = oit();
