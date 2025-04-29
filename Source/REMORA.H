@@ -67,25 +67,20 @@ namespace InterpType {
     };
 }
 
-// Forward declaration to resolve circular dependency
+// Forward declarations to resolve circular dependency
 class ProblemBase;
-
 #ifdef REMORA_USE_NETCDF
 class NCTimeSeries;
 #endif
 
+/*!
+ * Class that stores all relevant simulation state data with methods for time stepping
+ */
 class REMORA
     : public amrex::AmrCore
 {
 public:
 
-    ////////////////
-    // public member functions
-
-    /**
-     * constructor - reads in parameters from inputs file
-     *             - sizes multilevel arrays and data structures
-     */
     REMORA ();
     virtual ~REMORA();
 
@@ -112,12 +107,12 @@ public:
     /** Integrate conserved quantities for diagnostics */
     void sum_integrated_quantities(amrex::Real time);
 
-    /* Perform the volume-weighted sum */
+    /** Perform the volume-weighted sum */
     amrex::Real
     volWgtSumMF(int lev,
       const amrex::MultiFab& mf, int comp, bool local, bool finemask);
 
-    /* Decide if it is time to take an action */
+    /** Decide if it is time to take an action */
     bool is_it_time_for_action(int nstep, amrex::Real time, amrex::Real dt,
                                int action_interval, amrex::Real action_per);
 
@@ -171,9 +166,10 @@ public:
     /** Make mask to zero out covered cells*/
     amrex::MultiFab& build_fine_mask(int lev);
 
-    /** write plotfile */
+    /** main driver for writing AMReX plotfiles */
     void WritePlotFile ();
 
+    /** write out particular data to an AMReX plotfile */
     void WriteMultiLevelPlotfileWithBathymetry (const std::string &plotfilename,
                                                 int nlevels,
                                                 const amrex::Vector<const amrex::MultiFab*> &mf,
@@ -187,6 +183,7 @@ public:
                                                 const amrex::Vector<std::string>& extra_dirs = amrex::Vector<std::string>()) const;
 
 
+    /** write out header data for an AMReX plotfile */
     void WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                    int nlevels,
                                                    const amrex::Vector<amrex::BoxArray> &bArray,
@@ -197,16 +194,25 @@ public:
                                                    const std::string &levelPrefix,
                                                    const std::string &mfPrefix) const;
 
+    /** default prefix for input file parameters */
     std::string pp_prefix {"remora"};
 
+    /** multilevel data container for last step's scalar data: temperature, salinity, passive scalar  */
     amrex::Vector<amrex::MultiFab*> cons_old;
+    /** multilevel data container for last step's x velocities (u in ROMS) */
     amrex::Vector<amrex::MultiFab*> xvel_old;
+    /** multilevel data container for last step's y velocities (v in ROMS) */
     amrex::Vector<amrex::MultiFab*> yvel_old;
+    /** multilevel data container for last step's z velocities (largely unused; W stored separately) */
     amrex::Vector<amrex::MultiFab*> zvel_old;
 
+    /** multilevel data container for current step's scalar data: temperature, salinity, passive scalar  */
     amrex::Vector<amrex::MultiFab*> cons_new;
+    /** multilevel data container for current step's x velocities (u in ROMS) */
     amrex::Vector<amrex::MultiFab*> xvel_new;
+    /** multilevel data container for current step's y velocities (v in ROMS) */
     amrex::Vector<amrex::MultiFab*> yvel_new;
+    /** multilevel data container for current step's z velocities (largely unused; W stored separately) */
     amrex::Vector<amrex::MultiFab*> zvel_new;
 
     // Program state data is represented by vectors of pointers to AMReX Multifabs.
@@ -233,9 +239,9 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rufrc;
     /** v velocity RHS, integrated, including advection and bottom/surface stresses (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rvfrc;
-    /** Vertical viscosity coefficient (3D), set in .in file */
+    /** Vertical viscosity coefficient (3D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akv;
-    /** Vertical diffusion coefficient (3D), set in .in file */
+    /** Vertical diffusion coefficient (3D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akt;
     /** Harmonic viscosity defined on the psi points (corners of horizontal grid cells) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_visc2_p;
@@ -244,25 +250,19 @@ public:
     /** Harmonic diffusivity for temperature / salinity */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_diff2;
 
-    /** x coordinates at rho points (cell centers) */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_x_r;
-
-    /** y coordinates at rho points (cell centers) */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_y_r;
-
     /** z coordinates at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_r;
 
     /** z coordinates at w points (faces between z-cells) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_w;
-
     /** Scaled vertical coordinate (range [0,1]) that transforms to z, defined at rho points (cell centers) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_r;
-
     /** Scaled vertical coordinate (range [0,1]) that transforms to z, defined at w-points (cell faces) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_w;
 
+    /** Stretching coefficients at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Cs_r;
+    /** Stretching coefficients at w points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Cs_w;
 
     /** z coordinates at psi points (cell nodes) **/
@@ -276,9 +276,9 @@ public:
     /** Surface stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_svstr;
 
-    /** Wind in the u direction */
+    /** Wind in the u direction, defined at rho-points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_uwind;
-    /** Wind in the v direction */
+    /** Wind in the v direction, defined at rho-points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_vwind;
 
     /** longwave radiation */
@@ -311,7 +311,6 @@ public:
 
     /** Bottom stress in the u direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bustr;
-
     /** Bottom stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvstr;
 
@@ -338,20 +337,16 @@ public:
 
     /** land/sea mask at cell centers (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskr;
-
     /** land/sea mask at x-faces (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_msku;
-
     /** land/sea mask at y-faces (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskv;
-
     /** land/sea mask at cell corners (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskp;
 
-    /** map factor (2D) */
+    /** horizontal scaling factor: 1 / dx (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm;
-
-    /** map factor (2D) */
+    /** horizontal scaling factor: 1 / dy (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn;
 
     /** coriolis factor (2D) */
@@ -359,45 +354,53 @@ public:
 
     /** x_grid on rho points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xr;
-
     /** y_grid on rho points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yr;
 
     /** x_grid on u-points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xu;
-
     /** y_grid on u-points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yu;
 
     /** x_grid on v-points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xv;
-
     /** y_grid on v-points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yv;
 
     /** x_grid on psi-points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xp;
-
     /** y_grid on psi-points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yp;
 
-    /** saltstore, tempstore, etc*/
+    /** additional scratch space for calculations on temp, salt, etc */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sstore;
 
+    /** density perturbation */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoS;
+    /** vertically-averaged density */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rhoA;
+    /** Brunt-Vaisala frequency (3D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvf;
+    /** Thermal expansion coefficient (3D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_alpha;
+    /** Saline contraction coefficient (3D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_beta;
 
+    /** Weights for calculating avg1 in 2D advance */
     amrex::Vector<amrex::Real> vec_weight1;
+    /** Weights for calculating avg2 in 2D advance */
     amrex::Vector<amrex::Real> vec_weight2;
 
     // GLS
+    /** Turbulent kinetic energy */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_tke;
+    /** Turbulent generic length scale */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_gls;
+    /** Vertical mixing turbulent length scale */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Lscale;
+    /** Turbulent kinetic energy vertical diffusion coefficient */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akk;
+    /** Turbulent length scale vertical diffusion coefficient */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Akp;
 
     // Climatology nudging coefficients
