@@ -125,7 +125,6 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
         int bottom_top_stag    = static_cast<int>(ncf.dim("bottom_top_stag").len());
         int west_east_stag     = static_cast<int>(ncf.dim("west_east_stag").len());
         int south_north_stag   = static_cast<int>(ncf.dim("south_north_stag").len());
-        int bdy_width          = static_cast<int>(ncf.dim("bdy_width").len());
         */
 
 //        amrex::Print() << "Reading the dimensions from the netcdf file " << "\n";

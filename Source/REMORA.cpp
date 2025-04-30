@@ -20,7 +20,6 @@ SolverChoice REMORA::solverChoice;
 amrex::Real REMORA::cfl           =  0.8_rt;
 amrex::Real REMORA::fixed_dt      = -1.0_rt;
 amrex::Real REMORA::fixed_fast_dt = -1.0_rt;
-amrex::Real REMORA::init_shrink   =  1.0_rt;
 amrex::Real REMORA::change_max    =  1.1_rt;
 
 int   REMORA::fixed_ndtfast_ratio = 0;
@@ -828,7 +827,6 @@ REMORA::ReadParameters ()
 
         // Time step controls
         pp.query("cfl", cfl);
-        pp.query("init_shrink", init_shrink);
         pp.query("change_max", change_max);
 
         pp.query("fixed_dt", fixed_dt);
@@ -969,12 +967,6 @@ REMORA::ReadParameters ()
         pp.query("clim_salt_time_varname",clim_salt_time_varname);
         pp.query("clim_temp_time_varname",clim_temp_time_varname);
 
-        // Query the set and total widths for bdy interior ghost cells
-        pp.query("bdy_width", bdy_width);
-        pp.query("bdy_set_width", bdy_set_width);
-        AMREX_ALWAYS_ASSERT(bdy_width >= 0);
-        AMREX_ALWAYS_ASSERT(bdy_set_width >= 0);
-        AMREX_ALWAYS_ASSERT(bdy_width >= bdy_set_width);
 #endif
 
 #ifdef REMORA_USE_PARTICLES

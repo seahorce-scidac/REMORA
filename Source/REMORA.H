@@ -82,7 +82,7 @@ class REMORA
 public:
 
     REMORA ();
-    virtual ~REMORA();
+    virtual ~REMORA ();
 
     /** Advance solution to final time */
     void Evolve ();
@@ -105,15 +105,15 @@ public:
     // Diagnostics
 
     /** Integrate conserved quantities for diagnostics */
-    void sum_integrated_quantities(amrex::Real time);
+    void sum_integrated_quantities (amrex::Real time);
 
     /** Perform the volume-weighted sum */
     amrex::Real
-    volWgtSumMF(int lev,
+    volWgtSumMF (int lev,
       const amrex::MultiFab& mf, int comp, bool local, bool finemask);
 
     /** Decide if it is time to take an action */
-    bool is_it_time_for_action(int nstep, amrex::Real time, amrex::Real dt,
+    bool is_it_time_for_action (int nstep, amrex::Real time, amrex::Real dt,
                                int action_interval, amrex::Real action_per);
 
     /** Make a new level using provided BoxArray and DistributionMapping and
@@ -163,7 +163,7 @@ public:
                         const amrex::Geometry fine_geom,
                         const amrex::Real dt, const amrex::Real time);
 
-    /** Make mask to zero out covered cells*/
+    /** Make mask to zero out covered cells (for mesh refinement) */
     amrex::MultiFab& build_fine_mask(int lev);
 
     /** main driver for writing AMReX plotfiles */
@@ -478,6 +478,7 @@ public:
                      const int N,
                      const amrex::Real dt_lev);
 
+    /** Calculate bulk temperature, salinity, wind fluxes */
     void bulk_fluxes (int lev,
                       amrex::MultiFab* mf_cons,
                       amrex::MultiFab* mf_uwind,
@@ -516,7 +517,7 @@ public:
                   const int nnew, int nstp, int nrhs,
                   int N, const amrex::Real dt_lev);
 
-    /** Prestep calculations for the tracers */
+    /** Prestep advection calculations for the tracers */
     void prestep_t_advection (const amrex::Box& tbx,
                         const amrex::Box& gbx,
                         const amrex::Array4<amrex::Real      >& tempold,
@@ -537,6 +538,7 @@ public:
                         int iic, int ntfirst, int nrhs, int N,
                         const amrex::Real dt_lev);
 
+    /** RHS terms for tracer */
     void rhs_t_3d (const amrex::Box& bx,
                    const amrex::Box& gbx,
                    const amrex::Array4<amrex::Real      >& t,
@@ -552,7 +554,7 @@ public:
                    const amrex::Array4<amrex::Real const>& mskv,
                    int nrhs, int nnew, int N, const amrex::Real dt_lev);
 
-    /** Calculation of the RHS */
+    /** RHS terms for 3D momentum */
     void rhs_uv_3d (const amrex::Box& xbx,
                     const amrex::Box& ybx,
                     const amrex::Array4<amrex::Real const>& uold,
@@ -573,6 +575,7 @@ public:
                     const amrex::Array4<amrex::Real      >& FC,
                     int nrhs, int N);
 
+    /** RHS terms for 2D momentum */
     void rhs_uv_2d (const amrex::Box& xbx,
                     const amrex::Box& ybx,
                     const amrex::Array4<amrex::Real const>& uold,
@@ -583,6 +586,7 @@ public:
                     const amrex::Array4<amrex::Real const>& Dvom,
                     const int nrhs);
 
+    /** Wrapper around equation of state calculation */
     void rho_eos (const amrex::Box& bx,
                   const amrex::Array4<amrex::Real const>& state,
                   const amrex::Array4<amrex::Real      >& rho,
@@ -598,6 +602,7 @@ public:
                   const amrex::Array4<amrex::Real const>& mskr,
                   const int N);
 
+    /** Calculate density and related quantities from linear equation of state */
     void lin_eos (const amrex::Box& bx,
                   const amrex::Array4<amrex::Real const>& state,
                   const amrex::Array4<amrex::Real      >& rho,
@@ -611,6 +616,7 @@ public:
                   const amrex::Array4<amrex::Real const>& mskr,
                   const int N);
 
+    /** Calculate density and related quantities from nonlinear equation of state */
     void nonlin_eos (const amrex::Box& bx,
                   const amrex::Array4<amrex::Real const>& state,
                   const amrex::Array4<amrex::Real      >& rho,
@@ -626,7 +632,7 @@ public:
                   const amrex::Array4<amrex::Real const>& mskr,
                   const int N);
 
-
+    /** Calculate pressure gradient */
     void prsgrd (const amrex::Box& bx,
                  const amrex::Box& gbx,
                  const amrex::Box& utbx,
@@ -664,6 +670,7 @@ public:
                         const int iic, const int ntfirst, const int nnew, int nstp, int nrhs, int N,
                         const amrex::Real lambda, const amrex::Real dt_lev);
 
+    /** Calculate effects of vertical viscosity or diffusivity */
     void vert_visc_3d (const amrex::Box& bx,
                        const int ioff, const int joff,
                        const amrex::Array4<amrex::Real      >& phi,
@@ -678,6 +685,7 @@ public:
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
 
+    /** Correct mass flux */
     void update_massflux_3d (const amrex::Box& bx,
                              const int ioff, const int joff,
                              const amrex::Array4<amrex::Real      >& phi,
@@ -692,6 +700,7 @@ public:
                              const amrex::Array4<amrex::Real const>& msk,
                              const int nnew);
 
+    /** Adjust 3D momentum variables based on vertical mean momentum */
     void vert_mean_3d (const amrex::Box& bx,
                        const int ioff, const int joff,
                        const amrex::Array4<amrex::Real      >& phi,
@@ -734,6 +743,7 @@ public:
                   const amrex::Real dt_lev,
                   const int ncomp);
 
+    /** Calculate Coriolis terms */
     void coriolis (const amrex::Box& xbx,
                    const amrex::Box& ybx,
                    const amrex::Array4<amrex::Real const>& uold,
@@ -744,6 +754,7 @@ public:
                    const amrex::Array4<amrex::Real const>& fomn,
                    int nrhs, int nr);
 
+    /** Apply climatology nudging */
     void apply_clim_nudg (const amrex::Box& bx,
                    int ioff, int joff,
                    const amrex::Array4<amrex::Real      >& var,
@@ -755,26 +766,37 @@ public:
                    const amrex::Array4<amrex::Real const>& pn,
                    const amrex::Real dt = amrex::Real(0.0));
 
+    /** Set 2D momentum arrays from 3D momentum */
     void set_2darrays (int lev);
 
+    /** Set Zt_avg1 to zeta */
     void set_zeta_average (int lev);
 
+    /** Initialize zeta from file or analytic */
     void set_zeta (int lev);
 
+    /** Initialize bathymetry from file or analytic */
     void set_bathymetry (int lev);
 
+    /** Initialize Coriolis factor from file or analytic */
     void set_coriolis (int lev);
 
+    /** Calculate vertical stretched coordinates */
     void stretch_transform (int lev);
 
+    /** Initialize vertical mixing coefficients from file or analytic */
     void init_set_vmix (int lev);
+    /** Set vertical mixing coefficients from analytic */
     void set_analytic_vmix (int lev);
+    /** Initialize GLS variables */
     void init_gls_vmix (int lev, SolverChoice solver_choice);
+    /** Prestep for GLS calculation */
     void gls_prestep (int lev, amrex::MultiFab* mf_gls, amrex::MultiFab* mf_tke,
                       amrex::MultiFab& mf_W,
                       amrex::MultiFab* mf_msku, amrex::MultiFab* mf_mskv,
                       const int nstp, const int nnew, const int iic, const int ntfirst,
                       const int N, const amrex::Real dt_lev);
+    /** Corrector step for GLS calculation */
     void gls_corrector (int lev, amrex::MultiFab* mf_gls, amrex::MultiFab* mf_tke,
                         amrex::MultiFab& mf_W, amrex::MultiFab* mf_Akv, amrex::MultiFab* mf_Akt,
                         amrex::MultiFab* mf_Akk, amrex::MultiFab* mf_Akp,
@@ -783,23 +805,30 @@ public:
                         const int nstp, const int nnew,
                         const int N, const amrex::Real dt_lev);
 
+    /** Scale RHS momentum variables by 1/cell area, needed before FillPatch to different levels*/
     void scale_rhs_vars ();
+    /** Scale RHS momentum variables by cell area, needed after FillPatch to different levels*/
     void scale_rhs_vars_inv ();
 
+    /** Initialize or calculate surface momentum flux from file or analytic */
     void set_smflux (int lev);
 
+    /** Initialize or calculate wind speed from file or analytic */
     void set_wind (int lev);
 
+    /** Initialize horizontal mixing coefficients */
     void set_hmixcoef (int lev);
 
+    /** Initialize or calculate bottom drag */
     void set_drag (int lev);
 
+    /** Set weights for averaging 3D variables to 2D */
     void set_weights (int lev);
 
-    // Fill the physical boundary conditions for cell-centered velocity (diagnostic only)
+    /** Fill the physical boundary conditions for cell-centered velocity (diagnostic only) */
     void FillBdyCCVels (int lev, amrex::MultiFab& mf_cc_vel);
 
-    // Fill a new MultiFab by copying in phi from valid region and filling ghost cells
+    /** Fill a new MultiFab by copying in phi from valid region and filling ghost cells */
     void FillPatch (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,
                     amrex::Vector<amrex::MultiFab*> const& mfs,
@@ -813,6 +842,7 @@ public:
                     const amrex::Real dt = amrex::Real(0.0),
                     const amrex::MultiFab& mf_calc = amrex::MultiFab());
 
+    /** Fill a new MultiFab by copying in phi from valid region and filling ghost cells without applying boundary conditions */
     void FillPatchNoBC (int lev, amrex::Real time,
                     amrex::MultiFab& mf_to_be_filled,
                     amrex::Vector<amrex::MultiFab*> const& mfs,
@@ -820,8 +850,8 @@ public:
                     const int icomp=0,
                     const bool fill_all=true,
                     const bool fill_set=true);
-
-   void fill_from_bdyfiles (amrex::MultiFab& mf_to_fill,
+    /** Fill boundary data from netcdf file */
+    void fill_from_bdyfiles (amrex::MultiFab& mf_to_fill,
                             const amrex::MultiFab& mf_mask,
                             const amrex::Real time,
                             const int bccomp,
@@ -831,19 +861,30 @@ public:
                             const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                             const amrex::Real = amrex::Real(0.0));
 
+    /** Calculate Coriolis parameters from beta plane parametrization */
     void init_beta_plane_coriolis (int lev);
 
+    /** Problem initialization from NetCDF file */
     void init_data_from_netcdf (int lev);
+    /** Boundary data initialization from NetCDF file */
     void init_bdry_from_netcdf ();
+    /** Mask data initialization from NetCDF file */
     void init_masks_from_netcdf (int lev);
+    /** Bathymetry data initialization from NetCDF file */
     void init_bathymetry_from_netcdf (int lev);
+    /** Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);
+    /** Coriolis parameter data initialization from NetCDF file */
     void init_coriolis_from_netcdf (int lev);
+    /** Climatology nudging coefficient initialization from NetCDF file */
     void init_clim_nudg_coeff_from_netcdf (int lev);
+    /** Wrapper to initialize climatology nudging coefficient */
     void init_clim_nudg_coeff (int lev);
 
+    /** Convert data in a multifab from inverse days to inverse seconds */
     void convert_inv_days_to_inv_s (amrex::MultiFab*);
 
+    /** Mask data arrays before writing output */
     void mask_arrays_for_write (int lev, amrex::Real fill_value);
 
 
@@ -863,26 +904,31 @@ private:
     /** set covered coarse cells to be the average of overlying fine cells */
     void AverageDown ();
 
+    /** Read in boundary parameters from input file and set up data structures */
     void init_bcs();
 
+    /** Initialize initial problem data from analytic functions */
     void init_analytic(int lev);
 
+    /** Allocate MultiFabs for state and evolution variables */
     void init_stuff (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
 
+    /** Allocate MultiFabs for masks */
     void init_masks (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
 
+    /** Resize variable containers to accomodate data on levels 0 to max_lev */
     void resize_stuff (int lev);
 
     /** more flexible version of AverageDown() that lets you average down across multiple levels */
     void AverageDownTo (int crse_lev);
 
+    /** Construct FillPatchers */
     void Construct_REMORAFillPatchers (int lev);
 
+    /** Define FillPatchers */
     void Define_REMORAFillPatchers (int lev);
 
-    /** fill an entire multifab by interpolating from the coarser level
-     * this comes into play when a new level of refinement appears
-     */
+    /** fill an entire multifab by interpolating from the coarser level */
     void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine, amrex::MultiFab* mf_crse,
           const int  icomp = 0,
           const bool fill_all = true);
@@ -902,227 +948,230 @@ private:
     /** get plotfile name */
     std::string PlotFileName (int lev) const;
 
-    // set which variables and derived quantities go into plotfiles
+    /* set which variables and derived quantities go into plotfiles */
     void setPlotVariables (const std::string& pp_plot_var_names);
 
-    // append variables to plot
+    /* append variables to plot */
     void appendPlotVariables (const std::string& pp_plot_var_names);
 
 #ifdef REMORA_USE_NETCDF
-    //! Write plotfile using NETCDF
+    /** Write plotfile using NetCDF (wrapper) */
     void WriteNCPlotFile       (int istep);
+    /** Write a particular NetCDF plotfile */
     void WriteNCPlotFile_which (int lev, int which_subdomain,
                                 bool write_header, ncutils::NCFile& ncf,
                                 bool is_history);
 
-    //! Write MultiFab in NetCDF format
+    /** Write MultiFab in NetCDF format */
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
                           const std::string& name,
                           bool set_ghost = false) const;
 
-    //! Read MultiFab in NetCDF format
+    /** Read MultiFab in NetCDF format */
     void ReadNCMultiFab (amrex::FabArray<amrex::FArrayBox> &fab,
                          const std::string &name,
                          int coordinatorProc = amrex::ParallelDescriptor::IOProcessorNumber(),
                          int allow_empty_mf = 0);
 
-    // Vectors (over time) of Vector (over variables) of FArrayBoxs for holding the data read from the wrfbdy NetCDF file
+    /** Vectors (over time) of Vector (over variables) of FArrayBoxs for holding Western boundary data from file */
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_xlo;
+    /** Vectors (over time) of Vector (over variables) of FArrayBoxs for holding Eastern boundary data from file */
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_xhi;
+    /** Vectors (over time) of Vector (over variables) of FArrayBoxs for holding Southern boundary data from file */
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_ylo;
+    /** Vectors (over time) of Vector (over variables) of FArrayBoxs for holding Northern boundary data from file */
     amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_yhi;
 
+    /** Start time in the time series of boundary data */
     amrex::Real start_bdy_time;
+    /** Interval between boundary data times */
     amrex::Real bdy_time_interval;
 
-    int bdy_width{0};
-    int bdy_set_width{0};
-
-    // Vectors (over time) of FArrayBoxes for holding smflux data read from NetCDF
-    amrex::Vector<amrex::FArrayBox> smflux_data;
-    amrex::Real start_smflux_time;
-    amrex::Real smflux_time_interval;
-
+    /** Whether to output NetCDF files as a single history file with several time steps */
     static bool write_history_file;
 
 #ifdef REMORA_USE_NETCDF
+    /** Data container for u-component surface momentum flux read from file */
     NCTimeSeries* sustr_data_from_file;
+    /** Data container for v-component surface momentum flux read from file */
     NCTimeSeries* svstr_data_from_file;
+    /** Data container for u-direction wind read from file */
     NCTimeSeries* Uwind_data_from_file;
+    /** Data container for v-direction wind read from file */
     NCTimeSeries* Vwind_data_from_file;
 
+    /** Data container for ubar climatology data read from file */
     NCTimeSeries* ubar_clim_data_from_file;
+    /** Data container for vbar climatology data read from file */
     NCTimeSeries* vbar_clim_data_from_file;
+    /** Data container for u-velocity climatology data read from file */
     NCTimeSeries* u_clim_data_from_file;
+    /** Data container for v-velocity climatology data read from file */
     NCTimeSeries* v_clim_data_from_file;
+    /** Data container for temperature climatology data read from file */
     NCTimeSeries* temp_clim_data_from_file;
+    /** Data container for salinity climatology data read from file */
     NCTimeSeries* salt_clim_data_from_file;
 #endif
 
 #endif // REMORA_USE_NETCDF
 
 #ifdef REMORA_USE_MOAB
+    /** Initialize connection to MOAB */
     void InitMOABMesh();
 #endif
-    // Fillpatcher classes for coarse-fine boundaries
+    /** Nudging width at coarse-fine interface */
     int cf_width{0};
+    /** Width for fixing values at coarse-fine interface */
     int cf_set_width{0};
+    // Fillpatcher classes for coarse-fine boundaries
+    /** Vector over levels of FillPatchers for scalars */
     amrex::Vector<REMORAFillPatcher> FPr_c;
+    /** Vector over levels of FillPatchers for u (3D) */
     amrex::Vector<REMORAFillPatcher> FPr_u;
+    /** Vector over levels of FillPatchers for v (3D) */
     amrex::Vector<REMORAFillPatcher> FPr_v;
+    /** Vector over levels of FillPatchers for w */
     amrex::Vector<REMORAFillPatcher> FPr_w;
 
     // Fillpatcher classes for 2d velocity variables
+    /** Vector over levels of FillPatchers for ubar (2D) */
     amrex::Vector<REMORAFillPatcher> FPr_ubar;
+    /** Vector over levels of FillPatchers for vbar (2D) */
     amrex::Vector<REMORAFillPatcher> FPr_vbar;
 
-    // write checkpoint file to disk
+    /** write checkpoint file to disk */
     void WriteCheckpointFile ();
 
-    // read checkpoint file from disk
+    /** read checkpoint file from disk */
     void ReadCheckpointFile ();
 
-    // Read the file passed to amr.restart and use it as an initial condition for
-    // the current simulation. Supports a different number of components and
-    // ghost cells.
+    /** Read the file passed to remora.restart and use it as an initial condition for the current simulation */
     void InitializeFromFile ();
 
-    // Initialize the new-time data at a level from the initial_data MultiFab
+    /** Initialize the new-time data at a level from the initial_data MultiFab */
     void InitializeLevelFromData (int lev, const amrex::MultiFab& initial_data);
 
-    // utility to skip to next line in Header
+    /** utility to skip to next line in Header */
     static void GotoNextLine (std::istream& is);
-
-    // Single level functions called by advance()
-    void post_update (amrex::MultiFab& state_mf, const amrex::Real time, const amrex::Geometry& geom);
-    void fill_rhs (amrex::MultiFab& rhs_mf, const amrex::MultiFab& state_mf, const amrex::Real time, const amrex::Geometry& geom);
 
     ////////////////
     // private data members
 
+    /** Pointer to conatiner of analytical functions for problem definition */
     std::unique_ptr<ProblemBase> prob = nullptr;
 
-    amrex::Vector<int> num_boxes_at_level;                   // how many boxes specified at each level by tagging criteria
-    amrex::Vector<int> num_files_at_level;                   // how many wrfinput files specified at each level
-    amrex::Vector<amrex::Vector<amrex::Box>> boxes_at_level; //      the boxes specified at each level by tagging criteria
+    amrex::Vector<int> num_boxes_at_level;                   /** how many boxes specified at each level by tagging criteria */
+    amrex::Vector<int> num_files_at_level;                   /** how many wrfinput files specified at each level */
+    amrex::Vector<amrex::Vector<amrex::Box>> boxes_at_level; /** the boxes specified at each level by tagging criteria */
 
-    amrex::Vector<int> istep;      // which step?
-    amrex::Vector<int> nsubsteps;  // how many substeps on each level?
+    amrex::Vector<int> istep;      /** which step? */
+    amrex::Vector<int> nsubsteps;  /** how many substeps on each level? */
 
-    // keep track of old time, new time, and time step at each level
-    amrex::Vector<amrex::Real> t_new;
-    amrex::Vector<amrex::Real> t_old;
-    amrex::Vector<amrex::Real> dt;
+    amrex::Vector<amrex::Real> t_new; /** new time at each level */
+    amrex::Vector<amrex::Real> t_old; /** old time at each level */
+    amrex::Vector<amrex::Real> dt;    /** time step at each level */
 
-    // whether to set boundary conditions by variable rather than just by side
+    /** whether to set boundary conditions by variable rather than just by side */
     bool set_bcs_by_var;
 
+    /** Vector (over level) of functors to apply physical boundary conditions */
     amrex::Vector<std::unique_ptr<REMORAPhysBCFunct>> physbcs;
-    // array of multifabs to store the solution at each level of refinement
-    // after advancing a level we use "swap".
 
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_m;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_u;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> mapfac_v;
-
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> sst;
-
-    // array of flux registers
+    /** array of flux registers for refluxing in multilevel */
     amrex::Vector<amrex::YAFluxRegister*> advflux_reg;
+
+    ////////////////
+    // boundary data members
 
     // A BCRec is essentially a 2*DIM integer array storing the boundary
     // condition type at each lo/hi walls in each direction. We have one BCRec
     // for each component of the cell-centered variables and each velocity component.
-    amrex::Vector           <amrex::BCRec> domain_bcs_type;
-    amrex::Gpu::DeviceVector<amrex::BCRec> domain_bcs_type_d;
+    amrex::Vector           <amrex::BCRec> domain_bcs_type;   /** vector (over BCVars) of BCRecs */
+    amrex::Gpu::DeviceVector<amrex::BCRec> domain_bcs_type_d; /** GPU vector (over BCVars) of BCRecs */
 
-    // We store these so that we can print them out in the job_info file
+    /** Array of strings describing domain boundary conditions */
     amrex::Array<std::string,2*AMREX_SPACEDIM> domain_bc_type;
 
-    // These hold the Dirichlet values at walls which need them ...
+    /** Array holding the Dirichlet values at walls which need them */
     amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS+8> m_bc_extdir_vals;
 
-    // These are the "physical" boundary condition types (e.g. "inflow")
+    /** Array holding the "physical" boundary condition types (e.g. "inflow") */
     amrex::GpuArray<amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2>,BCVars::NumTypes> phys_bc_type;
 
+    /** Step when we last output a plotfile */
     int last_plot_file_step;
 
+    /** Step when we last output a checkpoint file */
     int last_check_file_step;
+    /** Whether to output a plotfile on restart from checkpoint */
     int plot_file_on_restart = 1;
 
     ////////////////
     // runtime parameters
 
-    // maximum number of steps and stop time
+    /** maximum number of steps */
     int max_step = std::numeric_limits<int>::max();
+    /** Time to stop */
     amrex::Real stop_time = std::numeric_limits<amrex::Real>::max();
 
-    // Time of the start of the simulation, in seconds
+    /** Time of the start of the simulation, in seconds */
     amrex::Real start_time = 0.0;
 
-    // if >= 0 we restart from a checkpoint
+    /** If set, restart from this checkpoint file */
     std::string restart_chkfile = "";
 
     // Time step controls
-    static amrex::Real cfl;
-    static amrex::Real init_shrink;
-    static amrex::Real change_max;
+    static amrex::Real cfl;           /** CFL condition */
+    static amrex::Real change_max;    /** Fraction maximum change in subsequent time steps */
+    static amrex::Real fixed_dt;      /** User specified fixed baroclinic time step */
+    static amrex::Real fixed_fast_dt; /** User specified fixed barotropic time step */
+    static int fixed_ndtfast_ratio;   /** User specified, number of barotropic steps per baroclinic step */
+    int nfast;                        /** Number of fast steps to take */
 
-    // Fixed dt for level 0 timesteps (only used if positive)
-    static amrex::Real fixed_dt;
-    static amrex::Real fixed_fast_dt;
-    static int fixed_ndtfast_ratio;
-    int nfast;
-
-    // Whether to substep fine levels in time
+    /** Whether to substep fine levels in time */
     int do_substep = 0;
 
-    // how often each level regrids the higher levels of refinement
-    // (after a level advances that many time steps)
+    /** how often each level regrids the higher levels of refinement (after a level advances that many time steps) */
     int regrid_int = 2;
 
-    // plotfile prefix and frequency
-    std::string plot_file_name {"plt_"};
-    int plot_int = -1;
+    // I/O controls
+    std::string plot_file_name {"plt_"};  /** Plotfile prefix */
+    int plot_int = -1;                    /** Plotfile output interval */
+    std::string check_file {"chk"};       /** Checkpoint file prefix */
+    int check_int = -1;                   /** Checkpoint output interval */
 
-    // Checkpoint type, prefix and frequency
-    std::string check_file {"chk"};
-    int check_int = -1;
-
-    // Whether to chunk netcdf history file
-    bool chunk_history_file = false;
-
-    // Number of time steps per netcdf history file.
-    // -1 is the default and means code will automatically compute
-    // number of steps per file based on grid size to keep files < 2 GB
+    bool chunk_history_file = false;      /** Whether to chunk netcdf history file */
+    /** Number of time steps per netcdf history file.
+        -1 is the default and means code will automatically compute
+         number of steps per file based on grid size to keep files < 2 GB */
     int steps_per_history_file = -1;
+    /** Counter for which time index we are writing to in the netcdf history file */
+    int history_count = 0;
 
-    amrex::Vector<std::string> plot_var_names;
-    const amrex::Vector<std::string>     cons_names {"temp", "salt", "scalar"};
-
+    amrex::Vector<std::string> plot_var_names; /** Names of variables to output to AMReX plotfile */
+    const amrex::Vector<std::string>     cons_names {"temp", "salt", "scalar"}; /** Names of scalars for plotfile output */
     // Note that the order of variable names here must match the order in PlotFile.cpp
-    const amrex::Vector<std::string> derived_names {"vorticity"};
+    const amrex::Vector<std::string> derived_names {"vorticity"}; /** Names of derived fields for plotfiles */
 
-
-    // algorithm choices
-    static SolverChoice solverChoice;
+    static SolverChoice solverChoice; /** Container for algorithmic choices */
 
 #ifdef REMORA_USE_PARTICLES
-    // Particle container with all particle species
+    /** Particle container with all particle species */
     ParticleData particleData;
 
     // variables and functions for tracers particles
-    bool  m_use_tracer_particles; /*!< tracer particles that advect with flow */
-    bool  m_use_hydro_particles;  /*!< tracer particles that fall with gravity */
+    bool  m_use_tracer_particles; /** tracer particles that advect with flow */
+    bool  m_use_hydro_particles;  /** tracer particles that fall with gravity */
 
-    /*! Read tracer and hydro particles parameters */
+    /** Read tracer and hydro particles parameters */
     void readTracersParams();
 
-    /*! Initialize tracer and hydro particles */
+    /** Initialize tracer and hydro particles */
     void initializeTracers ( amrex::ParGDBBase*,
                              const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& );
 
-    /*! Evolve tracers and hydro particles */
+    /** Evolve tracers and hydro particles */
     void evolveTracers( int lev,
                         amrex::Real dt,
                         amrex::Vector<amrex::MultiFab const*>& flow_vel,
@@ -1130,62 +1179,52 @@ private:
 
 #endif
 
-    static int verbose;
+    static int verbose; /** Verbosity level of output */
 
-    // Diagnostic output interval
-    static int sum_interval;
-    static amrex::Real sum_per;
+    static int sum_interval;     /** Diagnostic sum output interval in number of steps */
+    static amrex::Real sum_per;  /** Diagnostic sum output interval in time */
 
-    // Minimum number of digits in plotfile name or chunked history file
+    /** Minimum number of digits in plotfile name or chunked history file */
     static int file_min_digits;
 
-    // Native or NetCDF
+    /** Native or NetCDF plotfile output */
     static PlotfileType plotfile_type;
 
-    // NetCDF initialization files for solution and grid
-    static amrex::Vector<amrex::Vector<std::string>> nc_init_file;
-    static amrex::Vector<amrex::Vector<std::string>> nc_grid_file;
+    static amrex::Vector<amrex::Vector<std::string>> nc_init_file; /** NetCDF initialization file */
+    static amrex::Vector<amrex::Vector<std::string>> nc_grid_file; /** NetCDF grid file */
+    static std::string nc_bdry_file;  /** NetCDF boundary data */
 
-    std::string nc_frc_file;
+    std::string nc_frc_file; /** NetCDF forcing file */
 
-    std::string nc_clim_his_file;
-    std::string nc_clim_coeff_file;
+    std::string nc_clim_his_file;  /** NetCDF climatology history file */
+    std::string nc_clim_coeff_file; /** NetCDF climatology coefficient file */
 
-    std::string bdry_time_varname = "ocean_time";
+    std::string bdry_time_varname = "ocean_time";        /** Name of time field for boundary data */
 
-    std::string clim_ubar_time_varname = "ocean_time";
-    std::string clim_vbar_time_varname = "ocean_time";
-    std::string clim_u_time_varname = "ocean_time";
-    std::string clim_v_time_varname = "ocean_time";
-    std::string clim_salt_time_varname = "ocean_time";
-    std::string clim_temp_time_varname = "ocean_time";
+    std::string clim_ubar_time_varname = "ocean_time";  /** Name of time field for ubar climatology data */
+    std::string clim_vbar_time_varname = "ocean_time";  /** Name of time field for vbar climatology data */
+    std::string clim_u_time_varname = "ocean_time";     /** Name of time field for u climatology data */
+    std::string clim_v_time_varname = "ocean_time";     /** Name of time field for v climatology data */
+    std::string clim_salt_time_varname = "ocean_time";  /** Name of time field for salinity climatology data */
+    std::string clim_temp_time_varname = "ocean_time";  /** Name of time field for temperature climatology data */
 
-    std::string frc_time_varname = "";
+    std::string frc_time_varname = ""; /** Name of time field for forcing data */
 
-    // NetCDF file of time series of boundary data
-    static std::string nc_bdry_file;
 
-    // Counter for which time index we are writing to in the netcdf history file
-    int history_count = 0;
-
+    /** Set refinement criteria */
     void refinement_criteria_setup();
 
-    //
-    // Holds info for dynamically generated tagging criteria
-    //
+    /** Holds info for dynamically generated tagging criteria */
     static amrex::Vector<amrex::AMRErrorTag> ref_tags;
 
-    //
-    // Build a mask that zeroes out values on a coarse level underlying
-    //     grids on the next finest level
-    //
+    /** Mask that zeroes out values on a coarse level underlying grids on the next finest level */
     amrex::MultiFab fine_mask;
 
+    /** Helper function to determine number of ghost cells */
     AMREX_FORCE_INLINE
     int
     ComputeGhostCells(const int& spatial_order) {
         int nGhostCells = 0;
-
         switch (spatial_order) {
             case 2:
                 nGhostCells = 2; // We need this many to compute the eddy viscosity in the ghost cells
@@ -1209,12 +1248,14 @@ private:
         return nGhostCells;
     }
 
+    /** Get flux register */
     AMREX_FORCE_INLINE
     amrex::YAFluxRegister* getAdvFluxReg (int lev)
     {
         return advflux_reg[lev];
     }
 
+    /** Helper function for IO stream */
     AMREX_FORCE_INLINE
     std::ostream&
     DataLog (int i)
@@ -1229,9 +1270,12 @@ private:
         return datalog.size();
     }
 
+    /** Variable for CPU timing */
     static amrex::Real startCPUTime;
+    /** Accumulator variable for CPU time used thusfar */
     static amrex::Real previousCPUTimeUsed;
 
+    /** Get CPU time used */
     amrex::Real
     getCPUTime() const
     {
@@ -1263,11 +1307,13 @@ private:
     amrex::Vector<std::unique_ptr<std::fstream> > datalog;
     amrex::Vector<std::string> datalogname;
 
-    //! The filename of the ith datalog file.
+    /** The filename of the ith datalog file. */
     const std::string DataLogName (int i) const noexcept { return datalogname[i]; }
 
 public:
+    /** Write job info to stdout */
     void writeJobInfo (const std::string& dir) const;
+    /** Write build info to os */
     static void writeBuildInfo (std::ostream& os);
 
     static void print_banner(MPI_Comm /*comm*/, std::ostream& /*out*/);
@@ -1276,8 +1322,10 @@ public:
     static void print_summary(std::ostream&);
     static void print_tpls(std::ostream& /*out*/);
 
+    /** Accessor method for t_old to expose to outside classes */
     amrex::Real get_t_old(int lev) const;
 
+    /** Calculate psiu in bulk fluxes */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     static amrex::Real bulk_psiu(amrex::Real ZoL) {
         // Compute stability function, psi
@@ -1309,6 +1357,7 @@ public:
         return psiu;
     }
 
+    /** Calculate psit in bulk fluxes */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
     static amrex::Real bulk_psit(amrex::Real ZoL) {
         // Compute stability function, psi

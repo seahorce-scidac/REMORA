@@ -436,19 +436,13 @@ REMORA::init_bdry_from_netcdf ()
         amrex::Error("NetCDF boundary file name must be provided via input");
     }
 
+    int width = 1;
     bdy_time_interval = read_bdry_from_netcdf(geom[0].Domain(), nc_bdry_file,
                                               bdy_data_xlo,bdy_data_xhi,bdy_data_ylo,bdy_data_yhi,
-                                              bdy_width, start_bdy_time,
+                                              width, start_bdy_time,
                                               bdry_time_varname);
 
-    if (bdy_width-1 <= bdy_set_width) bdy_set_width = bdy_width;
-    amrex::Print() << "Read in boundary data with width "  << bdy_width << std::endl;
-    amrex::Print() << "Running with specification width: " << bdy_set_width
-                   << " and relaxation width: " << bdy_width - bdy_set_width << std::endl;
-
-    // NOTE: Last bdy cell is a ghost cell for Laplacian relaxation.
-    //       Without relaxation zones, we must augment this value by 1.
-    if (bdy_width == bdy_set_width) bdy_width += 1;
+    amrex::Print() << "Read in boundary data with width " << width;
 }
 
 /**

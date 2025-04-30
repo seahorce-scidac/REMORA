@@ -377,10 +377,6 @@ void REMORA::resize_stuff(int lev)
     vec_rhoA.resize(lev+1);
     vec_bvf.resize(lev+1);
 
-    mapfac_m.resize(lev+1);
-    mapfac_u.resize(lev+1);
-    mapfac_v.resize(lev+1);
-
     vec_tke.resize(lev+1);
     vec_gls.resize(lev+1);
     vec_Lscale.resize(lev+1);
@@ -436,14 +432,6 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         b.setRange(1,0);
     }
     BoxArray ba1d(std::move(bl1d));
-
-    // Map factors
-    mapfac_m[lev].reset(new MultiFab(ba2d,dm,1,0));
-    mapfac_u[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,0));
-    mapfac_v[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,0));
-    mapfac_m[lev]->setVal(1.);
-    mapfac_u[lev]->setVal(1.);
-    mapfac_v[lev]->setVal(1.);
 
     BoxArray ba_nd(ba);
     ba_nd.surroundingNodes();
