@@ -18,6 +18,20 @@ An example ``cmake`` configure/build command performed in the ``Build`` director
         -DREMORA_USE_CPP:BOOL=ON \
         .. && make
 
+To run CTest on GPU, add one of the options: ``REMORA_ENABLE_CUDA``, ``REMORA_ENABLE_HIP``, or ``REMORA_ENABLE_SYCL``, depending on the type of GPU on your system. For example:
+
+::
+
+  cmake -DCMAKE_INSTALL_PREFIX:PATH=./install \
+        -DCMAKE_BUILD_TYPE:STRING=Release \
+        -DREMORA_ENABLE_MPI:BOOL=ON \
+        -DREMORA_ENABLE_CUDA:BOOL=ON \
+        -DCMAKE_CXX_COMPILER:STRING=mpicxx \
+        -DREMORA_ENABLE_FCOMPARE:BOOL=ON \
+        -DREMORA_ENABLE_TESTS:BOOL=ON \
+        -DREMORA_USE_CPP:BOOL=ON \
+        .. && make
+
 While performing a ``cmake -LAH ..`` command will give descriptions of every option for the CMake project. Descriptions of particular options regarding the testing suite are listed below:
 
 **REMORA_ENABLE_FCOMPARE** -- builds the ``fcompare`` utility from AMReX as well as the executable(s), to allow for testing differences between plot files
