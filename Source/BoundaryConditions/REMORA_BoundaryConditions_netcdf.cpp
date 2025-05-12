@@ -181,7 +181,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
 
             // Even though we don't loop over xlo itself, this is the right condition to check, since xlo_edge will always be the same for each grid,
             // but if the grid doesn't include the low x-boundary, the xlo box will be invalid and the execution will be skipped.
-            if (!xlo.isEmpty()) {
+            if (!xlo.isEmpty() && apply_west) {
                 ParallelFor(grow(xlo_edge,IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma   * bdatxlo_n  (ubound(xlo).x,j,k,0)
@@ -241,7 +241,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             }
 
             // See comment on xlo
-            if (!xhi.isEmpty()) {
+            if (!xhi.isEmpty() && apply_east) {
                 ParallelFor(grow(xhi_edge,IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma   * bdatxhi_n  (lbound(xhi).x,j,k,0)
@@ -302,7 +302,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             }
 
             // See comment on xlo
-            if (!ylo.isEmpty()) {
+            if (!ylo.isEmpty() && apply_south) {
                 ParallelFor(grow(ylo_edge,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma   * bdatylo_n  (i,ubound(ylo).y,k,0)
@@ -364,7 +364,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             }
 
             // See comment on xlo
-            if (!yhi.isEmpty()) {
+            if (!yhi.isEmpty() && apply_north) {
                 ParallelFor(grow(yhi_edge,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma    * bdatyhi_n  (i,lbound(yhi).y,k,0)

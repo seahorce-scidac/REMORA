@@ -1107,6 +1107,15 @@ private:
     /** \brief Array holding the "physical" boundary condition types (e.g. "inflow") */
     amrex::GpuArray<amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2>,BCVars::NumTypes> phys_bc_type;
 
+    /** \brief These are flags that indicate whether we need to read in boundary data from file */
+    amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1> phys_bc_need_data;
+
+    /** \brief Container to connect boundary data being read in boundary condition containers.
+     *
+     * Needed for phys_bc_need_data to work correctly
+     */
+    amrex::Vector<int> bdy_index;
+
     /** \brief Step when we last output a plotfile */
     int last_plot_file_step;
 

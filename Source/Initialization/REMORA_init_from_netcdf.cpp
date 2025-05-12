@@ -32,7 +32,8 @@ read_bdry_from_netcdf (const Box& domain, const std::string& fname,
                        Vector<Vector<FArrayBox>>& bdy_data_ylo,
                        Vector<Vector<FArrayBox>>& bdy_data_yhi,
                        int& width, amrex::Real& start_bdy_time,
-                       std::string bdry_time_varname);
+                       std::string bdry_time_varname,
+                       amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1>&);
 
 /** \brief helper function to initialize state from netcdf */
 void
@@ -424,7 +425,8 @@ REMORA::init_bdry_from_netcdf ()
     bdy_time_interval = read_bdry_from_netcdf(geom[0].Domain(), nc_bdry_file,
                                               bdy_data_xlo,bdy_data_xhi,bdy_data_ylo,bdy_data_yhi,
                                               width, start_bdy_time,
-                                              bdry_time_varname);
+                                              bdry_time_varname,
+                                              phys_bc_need_data);
 
     amrex::Print() << "Read in boundary data with width " << width;
 }

@@ -47,8 +47,6 @@ void NCTimeSeries::Initialize() {
         }
     }
 
-    amrex::Print() << time_name << std::endl;
-
     // Check units of time stamps; should be days
     std::string unit_str = ReadNetCDFVarAttrStr(file_name, time_name, "units"); // works on proc 0
     if (amrex::ParallelDescriptor::IOProcessor())
