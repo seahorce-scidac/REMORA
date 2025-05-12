@@ -915,7 +915,7 @@ private:
     /** \brief Allocate MultiFabs for masks */
     void init_masks (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
 
-    /** \brief Resize variable containers to accomodate data on levels 0 to max_lev */
+    /** \brief Resize variable containers to accommodate data on levels 0 to max_lev */
     void resize_stuff (int lev);
 
     /** \brief more flexible version of AverageDown() that lets you average down across multiple levels */
@@ -1057,7 +1057,7 @@ private:
     ////////////////
     // private data members
 
-    /** \brief Pointer to conatiner of analytical functions for problem definition */
+    /** \brief Pointer to container of analytical functions for problem definition */
     std::unique_ptr<ProblemBase> prob = nullptr;
 
     /** \brief how many boxes specified at each level by tagging criteria */

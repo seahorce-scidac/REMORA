@@ -118,7 +118,7 @@ read_bathymetry_from_netcdf (int /*lev*/,
  * @param lev             level of data to read
  * @param domain          simulation domain
  * @param fname           file name to read from
- * @param NC_fcor_fab     contianer for Coriolis parameter data
+ * @param NC_fcor_fab     container for Coriolis parameter data
  */
 void
 read_coriolis_from_netcdf (int /*lev*/,
