@@ -8,6 +8,9 @@
 
 using namespace amrex;
 
+/**
+ * @param[in] lev    level to operate on
+ */
 void
 REMORA::stretch_transform (int lev)
 {

@@ -5,7 +5,6 @@
 
 using namespace amrex;
 
-/*! Read inputs from file */
 void REMORAPC::readInputs ()
 {
     BL_PROFILE("REMORAPC::readInputs");

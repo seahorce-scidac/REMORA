@@ -11,6 +11,9 @@ bool containerHasElement(const V& iterable, const T& query) {
     return std::find(iterable.begin(), iterable.end(), query) != iterable.end();
 }
 
+/**
+ * @param pp_plot_var_names   list of variable names to plot read in from parameter file
+ */
 void
 REMORA::setPlotVariables (const std::string& pp_plot_var_names)
 {
@@ -92,6 +95,9 @@ REMORA::setPlotVariables (const std::string& pp_plot_var_names)
     plot_var_names = tmp_plot_names;
 }
 
+/**
+ * @param pp_plot_var_names     variables to add to plot list
+ */
 void
 REMORA::appendPlotVariables (const std::string& pp_plot_var_names)
 {
@@ -451,11 +457,24 @@ REMORA::WritePlotFile ()
     } // end multi-level
 }
 
-void
-REMORA::WriteMultiLevelPlotfileWithBathymetry (const std::string& plotfilename, int nlevels,
-                                              const Vector<const MultiFab*>& mf,
-                                              const Vector<const MultiFab*>& mf_nd,
-                                              const Vector<std::string>& varnames,
+/**
+ * @param plotfilename    name of plotfile to write to
+ * @param nlevels         number of levels to write out
+ * @param mf              MultiFab of data to write out
+ * @param mf_nd           Multifab of nodal data to write out
+ * @param varnames        variable names to write out
+ * @param time            time at which to output
+ * @param level_steps     vector over level of iterations
+ * @param versionName     version string for VisIt
+ * @param levelPrefix     string to prepend to level number
+ * @param mfPrefix        subdirectory for multifab data
+ * @param extra_dirs      additional subdirectories within plotfile
+ */
+ void
+ REMORA::WriteMultiLevelPlotfileWithBathymetry (const std::string& plotfilename, int nlevels,
+                                               const Vector<const MultiFab*>& mf,
+                                               const Vector<const MultiFab*>& mf_nd,
+                                               const Vector<std::string>& varnames,
                                               Real time,
                                               const Vector<int>& level_steps,
                                               const std::string &versionName,
@@ -536,6 +555,17 @@ REMORA::WriteMultiLevelPlotfileWithBathymetry (const std::string& plotfilename, 
     }
 }
 
+/**
+ * @param HeaderFile      output stream for header
+ * @param nlevels         number of levels to write out
+ * @param bArray          vector over levels of BoxArrays
+ * @param varnames        variable names to write out
+ * @param time            time at which to output
+ * @param level_steps     vector over level of iterations
+ * @param versionName     version string for VisIt
+ * @param levelPrefix     string to prepend to level number
+ * @param mfPrefix        subdirectory for multifab data
+ */
 void
 REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                  int nlevels,
@@ -623,10 +653,13 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
         }
 }
 
+/**
+ * @param lev          level to mask
+ * @param fill_value   fill value to mask with
+ */
 void
 REMORA::mask_arrays_for_write(int lev, Real fill_value) {
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
-        Box bx = mfi.tilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0));
         Box ubx = mfi.grownnodaltilebox(0,IntVect(NGROW,NGROW,0));
         Box vbx = mfi.grownnodaltilebox(1,IntVect(NGROW,NGROW,0));

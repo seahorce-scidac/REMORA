@@ -6,6 +6,11 @@
 
 using namespace amrex;
 
+/**
+ * @param a_mf     Multifab to calculate over
+ * @param a_lev    level to calculate on
+ * @param a_comp   component to calculate
+ */
 void REMORAPC::massDensity ( MultiFab&  a_mf,
                           const int& a_lev,
                           const int& a_comp ) const

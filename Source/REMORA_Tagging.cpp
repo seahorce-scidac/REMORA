@@ -6,11 +6,11 @@ using namespace amrex;
 /**
  * Function to tag cells for refinement -- this overrides the pure virtual function in AmrCore
  *
- * @param[in]  levc level of refinement (0 is coarsest level)
- * @param[out] tags array of tagged cells
- * @param[in]  time current time
+ * @param[in]  levc    level of refinement (0 is coarsest level)
+ * @param[out] tags    array of tagged cells
+ * @param[in]  time    current time
+ * @param[in]  ngrow   number of grow cells
 */
-
 void
 REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 {
@@ -111,7 +111,6 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 /**
  * Function to define the refinement criteria based on user input
 */
-
 void
 REMORA::refinement_criteria_setup ()
 {

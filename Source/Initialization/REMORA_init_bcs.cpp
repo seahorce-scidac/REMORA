@@ -644,7 +644,6 @@ void REMORA::init_bcs ()
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            auto const bct = phys_bc_type[ori];
             if (side == Orientation::low) {
                 domain_bcs_type[BCVars::foextrap_periodic_bc].setLo(dir, REMORABCType::foextrap);
             } else {
@@ -663,7 +662,6 @@ void REMORA::init_bcs ()
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            auto const bct = phys_bc_type[ori];
             if (side == Orientation::low) {
                 domain_bcs_type[BCVars::foextrap_bc].setLo(dir, REMORABCType::foextrap);
             } else {

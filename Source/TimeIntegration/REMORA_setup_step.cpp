@@ -2,7 +2,11 @@
 
 using namespace amrex;
 
-// set up a time step for a single level
+/**
+ * @param[in   ] lev     level to operate on
+ * @param[in   ] time    time at start of step
+ * @param[in   ] dt_lev  time step at level
+ */
 void
 REMORA::setup_step (int lev, Real time, Real dt_lev)
 {
@@ -142,8 +146,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real      > const& bvf   = mf_bvf->array(mfi);
         Array4<Real      > const& alpha = (solverChoice.bulk_fluxes) ? vec_alpha[lev]->array(mfi) : Array4<Real>();
         Array4<Real      > const& beta  = (solverChoice.bulk_fluxes) ? vec_beta[lev]->array(mfi)  : Array4<Real>();
-        Array4<Real      > const& bustr = mf_bustr->array(mfi);
-        Array4<Real      > const& bvstr = mf_bvstr->array(mfi);
 
         Array4<Real const> const& pm = mf_pm->const_array(mfi);
         Array4<Real const> const& pn = mf_pn->const_array(mfi);

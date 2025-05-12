@@ -3,28 +3,25 @@
 using namespace amrex;
 
 /**
- * rhs_t_3d
- *
- * @param[in   ] gbx
- * @param[inout] t
- * @param[in   ] sstore
- * @param[in   ] Huon
- * @param[in   ] Hvom
- * @param[in   ] Hz
- * @param[in   ] pn
- * @param[in   ] pm
- * @param[in   ] W
- * @param[inout] FC
- * @param[in   ] msku
- * @param[in   ] mskv
- * @param[in   ] nrhs
- * @param[in   ] nnew
- * @param[in   ] N
- * @param[in   ] dt_lev
+ * @param[in   ] bx       tilebox
+ * @param[inout] t        tracer data
+ * @param[in   ] sstore   scratch space for tracer calculations
+ * @param[in   ] Huon     u-volume flux
+ * @param[in   ] Hvom     v-volume flux
+ * @param[in   ] Hz       vertical cell height
+ * @param[in   ] pn       1/dx
+ * @param[in   ] pm       1/dy
+ * @param[in   ] W        vertical velocity
+ * @param[none ] FC       temporary
+ * @param[in   ] msku     land-sea mask on u-points
+ * @param[in   ] mskv     land-sea mask on v-points
+ * @param[in   ] nrhs     index of RHS component
+ * @param[in   ] nnew     index of current time step
+ * @param[in   ] N        number of vertical levels
+ * @param[in   ] dt_lev   time step at this level
  */
-
 void
-REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
+REMORA::rhs_t_3d (const Box& bx,
                  const Array4<Real      >& t,
                  const Array4<Real const>& sstore,
                  const Array4<Real const>& Huon,
@@ -51,7 +48,6 @@ REMORA::rhs_t_3d (const Box& bx, const Box& gbx,
     Box tbxp1y = bx;
     Box tbxp2 = bx;
 
-    //make only gbx be grown to match multifabs
     tbxp2.grow(IntVect(NGROW,NGROW,0));
     tbxp1x.grow(IntVect(NGROW-1,0,0));
     tbxp1y.grow(IntVect(0,NGROW-1,0));

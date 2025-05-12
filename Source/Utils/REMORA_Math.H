@@ -2,14 +2,15 @@
 #define REMORA_Math_H
 #include <AMReX_REAL.H>
 
+/** \brief interpolate 1D arrays
+ *
+ * Interpolates 1D array beta at the location alpha_interp in the array alpha
+ * requiring 1D arrays alpha and beta to be the same size alpha_size.
+ */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 amrex::Real interpolate_1d(const amrex::Real* alpha, const amrex::Real* beta,
                            const amrex::Real alpha_interp, const int alpha_size)
 {
-    /*
-    Interpolates 1D array beta at the location alpha_interp in the array alpha
-    requiring 1D arrays alpha and beta to be the same size alpha_size.
-    */
 
     amrex::Real beta_interp;
 

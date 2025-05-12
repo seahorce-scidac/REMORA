@@ -4,7 +4,9 @@
 #include "AMReX_MultiFab.H"
 
 using namespace amrex;
-
+/**
+ * @param[in   ] time    current time
+ */
 void
 REMORA::sum_integrated_quantities(Real time)
 {
@@ -108,6 +110,13 @@ REMORA::sum_integrated_quantities(Real time)
     }
 }
 
+/**
+ * @param[in   ] lev      level to calculate on
+ * @param[in   ] mf       data to sum over
+ * @param[in   ] comp     component on which to calculate sum
+ * @param[in   ] local    whether to do the sum locally
+ * @param[in   ] finemask whether to mask fine level
+ */
 Real
 REMORA::volWgtSumMF(int lev, const MultiFab& mf, int comp, bool local, bool finemask)
 {
@@ -146,6 +155,9 @@ REMORA::volWgtSumMF(int lev, const MultiFab& mf, int comp, bool local, bool fine
     return sum;
 }
 
+/**
+ * @param[in   ] lev      level to calculate on
+ */
 MultiFab&
 REMORA::build_fine_mask(int level)
 {
@@ -174,6 +186,13 @@ REMORA::build_fine_mask(int level)
     return fine_mask;
 }
 
+/**
+ * @param[in   ] nstep              what step we're on
+ * @param[in   ] lev                level to calculate on
+ * @param[in   ] dtlev              time step for this level
+ * @param[in   ] action_interval    number of time steps between actions
+ * @param[in   ] action_per         time interval between actions
+ */
 bool
 REMORA::is_it_time_for_action(int nstep, Real time, Real dtlev, int action_interval, Real action_per)
 {

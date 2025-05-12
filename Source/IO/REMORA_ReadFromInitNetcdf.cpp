@@ -5,6 +5,17 @@
 using namespace amrex;
 
 #ifdef REMORA_USE_NETCDF
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param NC_temp_fab     container for temperature data
+ * @param NC_salt_fab     container for salinity data
+ * @param NC_u_fab        container for u velocity data
+ * @param NC_v_fab        container for v velocity data
+ * @param NC_ubar_fab     container for u_bar velocity data
+ * @param NC_vbar_fab     container for v_bar velocity data
+ */
 void
 read_data_from_netcdf (int /*lev*/,
                        const Box& domain,
@@ -30,6 +41,12 @@ read_data_from_netcdf (int /*lev*/,
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param NC_zeta_fab     container for sea surface height data
+ */
 void
 read_zeta_from_netcdf (int /*lev*/,
                       const Box& domain,
@@ -48,6 +65,22 @@ read_zeta_from_netcdf (int /*lev*/,
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param NC_h_fab        container for bathymetry data
+ * @param NC_pm_fab       container for pm data
+ * @param NC_pn_fab       container for pn data
+ * @param NC_xr_fab       container for x_rho data
+ * @param NC_yr_fab       container for y_rho data
+ * @param NC_xu_fab       container for x_u data
+ * @param NC_yu_fab       container for y_u data
+ * @param NC_xv_fab       container for x_v data
+ * @param NC_yv_fab       container for y_v data
+ * @param NC_xp_fab       container for x_p data
+ * @param NC_yp_fab       container for y_p data
+ */
 void
 read_bathymetry_from_netcdf (int /*lev*/,
                              const Box& domain,
@@ -81,6 +114,12 @@ read_bathymetry_from_netcdf (int /*lev*/,
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param NC_fcor_fab     contianer for Coriolis parameter data
+ */
 void
 read_coriolis_from_netcdf (int /*lev*/,
                            const Box& domain,
@@ -99,6 +138,14 @@ read_coriolis_from_netcdf (int /*lev*/,
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param NC_mskr_fab     container for rho-point land/sea mask data
+ * @param NC_msku_fab     container for u-point land/sea mask data
+ * @param NC_mskv_fab     container for v-point land/sea mask data
+ */
 void
 read_masks_from_netcdf (int /*lev*/,
                         const Box& domain,
@@ -121,6 +168,19 @@ read_masks_from_netcdf (int /*lev*/,
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
+/**
+ * @param lev                 level of data to read
+ * @param domain              simulation domain
+ * @param fname               file name to read from
+ * @param do_m2_clim_nudg     whether to do 2d momentum climatology nudging
+ * @param do_m3_clim_nudg     whether to do 3d momentum climatology nudging
+ * @param do_temp_clim_nudg   whether to do temperature climatology nudging
+ * @param do_salt_clim_nudg   whether to do salinity climatology nudging
+ * @param NC_M2NC_fab         container for 2d momentum climatology data
+ * @param NC_M3NC_fab         container for 3d momentum climatology data
+ * @param NC_TempNC_fab       container for temperature climatology data
+ * @param NC_SaltNC_fab       container for salinity climatology data
+ */
 void
 read_clim_nudg_coeff_from_netcdf (int /*lev*/,
                         const Box& domain,

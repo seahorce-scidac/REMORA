@@ -2,10 +2,35 @@
 
 using namespace amrex;
 
-//
-// Start 3d step
-//
-
+/** Corresponds to step3d_uv.F and step3d_t.F in ROMS
+ *
+ * @param[in   ] lev        level of refinement (coarsest level is 0)
+ * @param[inout] mf_cons    scalar variables (temp, salt, scalar, etc)
+ * @param[inout] mf_u       u-velocity
+ * @param[inout] mf_v       v-velocity
+ * @param[inout] mf_sstore  intermediate-step scalar variables
+ * @param[inout] mf_ru      RHS of total u-velocity
+ * @param[inout] mf_rv      RHS of total v-velocity
+ * @param[in   ] mf_DU_avg1 time-averaged u-flux for 2D equations
+ * @param[in   ] mf_DU_avg2 time-averaged u-flux for 3D equation coupling
+ * @param[in   ] mf_DV_avg1 time-averaged v-flux for 2D equations
+ * @param[in   ] mf_DV_avg2 time-averaged v-flux for 3D equation coupling
+ * @param[inout] mf_ubar    vertically integrated u-momentum
+ * @param[inout] mf_vbar    vertically integrated v-momentum
+ * @param[inout] mf_Akv     vertical viscosity coefficient
+ * @param[inout] mf_Akt     vertical diffusivity coefficient
+ * @param[inout] mf_Hz      vertical height of cells
+ * @param[inout] mf_Huon    u-volume flux
+ * @param[inout] mf_Huon    v-volume flux
+ * @param[inout] mf_z_w     vertical coordinates on w points
+ * @param[in   ] mf_h       bathymetry
+ * @param[in   ] mf_pm      1 / dx
+ * @param[in   ] mf_pn      1 / dy
+ * @param[in   ] mf_msku    land-sea mask at u-points
+ * @param[in   ] mf_mskv    land-sea mask at v-points
+ * @param[in   ] N          number of vertical levels
+ * @param[in   ] dt_lev     time step at this refinement level
+ */
 void
 REMORA::advance_3d (int lev, MultiFab& mf_cons,
                    MultiFab& mf_u        , MultiFab& mf_v ,
@@ -175,8 +200,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real const> const& DU_avg1  = mf_DU_avg1->const_array(mfi);
         Array4<Real const> const& DV_avg1  = mf_DV_avg1->const_array(mfi);
 
-        Array4<Real> const& DU_avg2  = mf_DU_avg2->array(mfi);
-        Array4<Real> const& DV_avg2  = mf_DV_avg2->array(mfi);
+        Array4<Real const> const& DU_avg2  = mf_DU_avg2->const_array(mfi);
+        Array4<Real const> const& DV_avg2  = mf_DV_avg2->const_array(mfi);
 
         Array4<Real> const& ubar = mf_ubar->array(mfi);
         Array4<Real> const& vbar = mf_vbar->array(mfi);
@@ -316,7 +341,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real const> const& mskv  = mf_mskv->const_array(mfi);
 
         Box bx = mfi.tilebox();
-        Box gbx = mfi.growntilebox();
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         Box gbx21 = mfi.growntilebox(IntVect(NGROW,NGROW,NGROW-1));
 
@@ -341,7 +365,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         for (int i_comp=0; i_comp < NCONS; i_comp++)
         {
             Array4<Real> const& sstore = mf_sstore->array(mfi, i_comp);
-            rhs_t_3d(bx, gbx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
+            rhs_t_3d(bx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
                      Hz, pn, pm, W, FC, msku, mskv, nrhs, nnew, N,dt_lev);
         }
 

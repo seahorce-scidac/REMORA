@@ -18,22 +18,10 @@
 
 using PlaneVector = amrex::Vector<amrex::FArrayBox>;
 
-struct NullFill
-{
-    AMREX_GPU_DEVICE
-    void operator() (amrex::Array4<amrex::Real> const& /*dest*/,
-                     amrex::Array4<amrex::Real> const& /*mask*/,
-                     const int /*dcomp*/, const int /*numcomp*/,
-                     amrex::GeometryData const& /*geom*/, const amrex::Real /*time*/,
-                     const amrex::BCRec* /*bcr*/, const int /*bcomp*/,
-                     const int /*orig_comp*/) const
-        {
-        }
-};
-
 class REMORAPhysBCFunct
 {
 public:
+    /** \brief Constructor for physical boundary condition functor */
     REMORAPhysBCFunct (const int lev,
                       const amrex::Geometry& geom, const amrex::Vector<amrex::BCRec>& domain_bcs_type,
                       const amrex::Gpu::DeviceVector<amrex::BCRec>& domain_bcs_type_d,
@@ -46,50 +34,37 @@ public:
 
     ~REMORAPhysBCFunct () {}
 
-    //
-    // mf is the multifab to be filled
-    // icomp is the index into the MultiFab -- if cell-centered this can be any value
-    //       from 0 to NCONS-1, if face-centered this must be 0
-    // ncomp is the number of components -- if cell-centered this can be any value
-    //       from 1 to NCONS as long as icomp+ncomp <= NCONS-1.  If face-centered this
-    //       must be 1
-    // nghost is how many ghost cells to be filled
-    // time is the time at which the data should be filled
-    // bccomp is the index into both domain_bcs_type_bcr and bc_extdir_vals for icomp = 0  --
-    //     so this follows the BCVars enum
-    //
+    /** \brief apply boundary condition to mf */
     void operator() (amrex::MultiFab& mf, const amrex::MultiFab& mask, int icomp, int ncomp, amrex::IntVect const& nghost,
                      amrex::Real time, int bccomp, int n_not_fill=0,
                      const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                      const amrex::MultiFab& mf_msku = amrex::MultiFab(),
                      const amrex::MultiFab& mf_mskv = amrex::MultiFab());
 
+    /** \brief apply x-velocity type boundary conditions */
     void impose_xvel_bcs (const amrex::Array4<amrex::Real>& dest_arr, const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& msku,
                           const amrex::Array4<const amrex::Real>& calc_arr, amrex::Real time, int bccomp);
 
+    /** \brief apply y-velocity type boundary conditions */
     void impose_yvel_bcs (const amrex::Array4<amrex::Real>& dest_arr, const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& mskv,
                           const amrex::Array4<const amrex::Real>& calc_arr, amrex::Real time, int bccomp);
 
 
+    /** \brief apply z-velocity type boundary conditions */
     void impose_zvel_bcs (const amrex::Array4<amrex::Real>& dest_arr,
                           const amrex::Box& bx, const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& mskr,
                           amrex::Real time, int bccomp);
 
+    /** \brief apply scalar type boundary conditions */
     void impose_cons_bcs (const amrex::Array4<amrex::Real>& mf, const amrex::Box& bx, const amrex::Box& valid_bx,
                           const amrex::Box& domain,
                           const amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> dxInv, const amrex::Array4<const amrex::Real>& mskr,
                           const amrex::Array4<const amrex::Real>& msku, const amrex::Array4<const amrex::Real>& mskv,
                           const amrex::Array4<const amrex::Real>& calc_arr,int icomp, int ncomp, amrex::Real time, int bccomp, int n_not_fill);
 
-
-    // For backward compatibility
-    // void FillBoundary (amrex::MultiFab& mf, int dcomp, int ncomp, amrex::IntVect const& nghost,
-    //                    amrex::Real time, int bccomp) {
-    //     this->operator()(mf,dcomp,ncomp,nghost,time,bccomp);
-    // }
 
 private:
     int                  m_lev;

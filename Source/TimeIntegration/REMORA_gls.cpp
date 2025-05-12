@@ -2,6 +2,20 @@
 
 using namespace amrex;
 
+/**
+ * @param[in   ] lev            level to operate on
+ * @param[inout] mf_gls         turbulent generic length scale
+ * @param[inout] mf_tke         turbulent kinetic energy
+ * @param[in   ] mf_W           vertical velocity
+ * @param[in   ] mf_msku        land-sea mask on u points
+ * @param[in   ] mf_mskv        land-sea mask on v points
+ * @param[in   ] nstp           index of last time step in gls and tke MultiFabs
+ * @param[in   ] nnew           index of time step to update in gls and tke MultiFabs
+ * @param[in   ] iic            which time step we're on
+ * @param[in   ] ntfirst        what is the first time step?
+ * @param[in   ] N              number of vertical levels
+ * @param[in   ] dt_lev         time step at this level
+ */
 void
 REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                      MultiFab& mf_W, MultiFab* mf_msku, MultiFab* mf_mskv,
@@ -12,15 +26,15 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& gls = mf_gls->array(mfi);
         Array4<Real> const& tke = mf_tke->array(mfi);
-        Array4<Real> const& W = mf_W.array(mfi);
+        Array4<Real const> const& W = mf_W.const_array(mfi);
 
-        Array4<Real> const& Huon = vec_Huon[lev]->array(mfi);
-        Array4<Real> const& Hvom = vec_Hvom[lev]->array(mfi);
-        Array4<Real> const& Hz = vec_Hz[lev]->array(mfi);
-        Array4<Real> const& pm = vec_pm[lev]->array(mfi);
-        Array4<Real> const& pn = vec_pn[lev]->array(mfi);
-        Array4<Real> const& msku = vec_msku[lev]->array(mfi);
-        Array4<Real> const& mskv = vec_mskv[lev]->array(mfi);
+        Array4<Real const> const& Huon = vec_Huon[lev]->const_array(mfi);
+        Array4<Real const> const& Hvom = vec_Hvom[lev]->const_array(mfi);
+        Array4<Real const> const& Hz = vec_Hz[lev]->const_array(mfi);
+        Array4<Real const> const& pm = vec_pm[lev]->const_array(mfi);
+        Array4<Real const> const& pn = vec_pn[lev]->const_array(mfi);
+        Array4<Real const> const& msku = mf_msku->const_array(mfi);
+        Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
 
         Box bx = mfi.tilebox();
         Box xbx = surroundingNodes(bx,0);
@@ -43,8 +57,6 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Vector<BCRec> bcrs_y(ncomp);
         amrex::setBC(xbx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
         amrex::setBC(ybx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
-        auto bcr_x = bcrs_x[0];
-        auto bcr_y = bcrs_y[0];
 
         FArrayBox fab_XF(xbx_hi, 1, amrex::The_Async_Arena()); fab_XF.template setVal<RunOn::Device>(0.);
         FArrayBox fab_FX(xbx_hi, 1, amrex::The_Async_Arena()); fab_FX.template setVal<RunOn::Device>(0.);
@@ -67,8 +79,6 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         auto CF  = fab_CF.array();
         auto FC  = fab_FC.array();
         auto FCL = fab_FCL.array();
-
-        auto ic_bc_type = solverChoice.ic_bc_type;
 
         // need XF/FX/FXL from  [xlo to xhi] by [ylo to yhi  ] on u points
         ParallelFor(grow(xbx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -215,6 +225,23 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     }
 }
 
+/**
+ * @param[in   ] lev            level to operate on
+ * @param[inout] mf_gls         turbulent generic length scale
+ * @param[inout] mf_tke         turbulent kinetic energy
+ * @param[in   ] mf_W           vertical velocity
+ * @param[inout] mf_Akv         vertical viscosity coefficient
+ * @param[inout] mf_Akt         vertical diffusivity coefficients
+ * @param[inout] mf_Akk         turbulent kinetic energy vertical diffusion coefficient
+ * @param[inout] mf_Akp         turbulent length scale vertical diffusion coefficient
+ * @param[in   ] mf_mskr        land-sea mask on rho points
+ * @param[in   ] mf_msku        land-sea mask on u points
+ * @param[in   ] mf_mskv        land-sea mask on v points
+ * @param[in   ] nstp           index of last time step in gls and tke MultiFabs
+ * @param[in   ] nnew           index of time step to update in gls and tke MultiFabs
+ * @param[in   ] N              number of vertical levels
+ * @param[in   ] dt_lev         time step at this level
+ */
 void
 REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                        MultiFab& mf_W, MultiFab* mf_Akv, MultiFab* mf_Akt,
@@ -346,8 +373,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     Real Gadv = 1.0_rt/3.0_rt;
     Real eps = 1.0e-10_rt;
 
-    auto ic_bc_type = solverChoice.ic_bc_type;
-
     const BoxArray&            ba = cons_old[lev]->boxArray();
     const DistributionMapping& dm = cons_old[lev]->DistributionMap();
     MultiFab mf_dU(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0));
@@ -451,18 +476,13 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
 
-        const Box& domain = geom[0].Domain();
-        const auto dlo = amrex::lbound(domain);
-        const auto dhi = amrex::ubound(domain);
         int ncomp = 1;
         Vector<BCRec> bcrs_x(ncomp);
         Vector<BCRec> bcrs_y(ncomp);
         amrex::setBC(xbx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
         amrex::setBC(ybx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
-        auto bcr_x = bcrs_x[0];
-        auto bcr_y = bcrs_y[0];
 
-        Array4<Real> const& W = mf_W.array(mfi);
+        Array4<Real const> const& W = mf_W.const_array(mfi);
         Array4<Real> const& Hz = vec_Hz[lev]->array(mfi);
         Array4<Real> const& pm = vec_pm[lev]->array(mfi);
         Array4<Real> const& pn = vec_pn[lev]->array(mfi);
@@ -475,12 +495,12 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Array4<Real> const& tke = mf_tke->array(mfi);
         Array4<Real> const& gls = mf_gls->array(mfi);
 
-        Array4<Real> const& sustr = vec_sustr[lev]->array(mfi);
-        Array4<Real> const& svstr = vec_svstr[lev]->array(mfi);
-        Array4<Real> const& bustr = vec_bustr[lev]->array(mfi);
-        Array4<Real> const& bvstr = vec_bvstr[lev]->array(mfi);
-        Array4<Real> const& msku = vec_msku[lev]->array(mfi);
-        Array4<Real> const& mskv = vec_mskv[lev]->array(mfi);
+        Array4<Real const> const& sustr = vec_sustr[lev]->const_array(mfi);
+        Array4<Real const> const& svstr = vec_svstr[lev]->const_array(mfi);
+        Array4<Real const> const& bustr = vec_bustr[lev]->const_array(mfi);
+        Array4<Real const> const& bvstr = vec_bvstr[lev]->const_array(mfi);
+        Array4<Real const> const& msku = mf_msku->const_array(mfi);
+        Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
 
         Array4<Real> const& ZoBot = vec_ZoBot[lev]->array(mfi);
 

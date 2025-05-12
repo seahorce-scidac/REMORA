@@ -2,6 +2,19 @@
 
 using namespace amrex;
 
+/**
+ * @param[in   ] bx         box to operate on
+ * @param[inout] state      scalar data
+ * @param[  out] state_rhs  scalar data RHS
+ * @param[in   ] diff2      diffusivity
+ * @param[in   ] Hz         vertical cell height
+ * @param[in   ] pm         1/dx
+ * @param[in   ] pn         1/dy
+ * @param[in   ] msku       land-sea mask on u-points
+ * @param[in   ] mskv       land-sea mask on v-points
+ * @param[in   ] dt_lev     time step at level
+ * @param[in   ] ncomp      number of components to do this calculation on
+ */
 void
 REMORA::t3dmix  (const Box& bx,
                 const Array4<Real      >& state,

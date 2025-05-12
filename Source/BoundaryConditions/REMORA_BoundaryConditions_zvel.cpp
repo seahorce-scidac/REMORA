@@ -4,14 +4,18 @@
 
 using namespace amrex;
 
-//
-// dest_arr is the Array4 to be filled
-// time is the time at which the data should be filled
-// bccomp is the index into both domain_bcs_type_bcr and bc_extdir_vals
-//     so this follows the BCVars enum
-//
+/**
+ * @param[inout] dest_arr      data on which to apply BCs
+ * @param[in   ] bx            box to update on
+ * @param[in   ] domain        domain box
+ * @param[in   ] dxInv         pm or pn
+ * @param[in   ] mskr          land-sea mask on rho-points
+ * @param[in   ] calc_arr      data to use in the RHS of calculations
+ * @param[in   ] time          current time
+ * @param[in   ] bccomp        index into both domain_bcs_type_bcr and bc_extdir_vals for icomp=0
+ */
 void REMORAPhysBCFunct::impose_zvel_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
-                                        const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/,const Array4<const Real>& mskr,
+                                        const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/,const Array4<const Real>& /*mskr*/,
                                         Real /*time*/, int bccomp)
 {
     const auto& dom_lo = amrex::lbound(domain);

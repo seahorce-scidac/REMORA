@@ -18,6 +18,9 @@
 // Number of 2D variables in a netcdf file's header
 #define NCH2D          12
 
+/**
+ * \brief Boundary fill types
+ */
 namespace BCVars {
     enum {
         cons_bc = 0,
@@ -39,9 +42,12 @@ namespace BCVars {
     };
 }
 
-// These are only for the variables read in from netcdf boundary condition files
-// Note that the salt component must be one greater than the temp component for the
-//      logic in fill_from_bdyfiles to work
+/**
+ * \brief These are only for the variables read in from netcdf boundary condition files
+ *
+ * Note that the salt component must be one greater than the temp component for the
+ * logic in fill_from_bdyfiles to work
+ */
 namespace BdyVars {
     enum {
        null  = -1,
@@ -61,9 +67,11 @@ enum struct REMORA_BC {
     clamped, chapman, flather, orlanski_rad, orlanski_rad_nudge, undefined
 };
 
-// NOTE: the first of these must match up with the BCType enum
-//     in amrex/Src/Base/AMReX_BC_TYPES.H.  We had extras at
-//     the end to use locally
+/**
+ * NOTE: the first of these must match up with the BCType enum
+ * in amrex/Src/Base/AMReX_BC_TYPES.H.  We had extras at
+ * the end to use locally
+ */
 namespace REMORABCType {
 enum mathematicalBndryTypes : int { bogus        = -666,
     reflect_odd        = -1,

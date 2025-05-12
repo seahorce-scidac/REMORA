@@ -3,12 +3,16 @@
 
 using namespace amrex;
 
-//
-// dest_arr is the Array4 to be filled
-// time is the time at which the data should be filled
-// bccomp is the index into both domain_bcs_type_bcr and bc_extdir_vals
-//     so this follows the BCVars enum
-//
+/**
+ * @param[inout] dest_arr      data on which to apply BCs
+ * @param[in   ] bx            box to update on
+ * @param[in   ] domain        domain box
+ * @param[in   ] dxInv         pm or pn
+ * @param[in   ] mskv          land-sea mask on v-points
+ * @param[in   ] calc_arr      data to use in the RHS of calculations
+ * @param[in   ] time          current time
+ * @param[in   ] bccomp        index into both domain_bcs_type_bcr and bc_extdir_vals for icomp=0
+ */
 void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
                                         const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/, const Array4<const Real>& mskv,
                                         const Array4<const Real>& calc_arr,
@@ -65,9 +69,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped) {
                     dest_arr(i,j,k) =  dest_arr(dom_lo.x,j,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::orlanski_rad) {
-                    Real grad_lo_im1  = calc_arr(dom_lo.x-1,j+1,k) - calc_arr(dom_lo.x-1,j  ,k);
                     Real grad_lo      = calc_arr(dom_lo.x  ,j+1,k) - calc_arr(dom_lo.x  ,j  ,k);
-                    Real grad_lo_ijm1 = calc_arr(dom_lo.x-1,j  ,k) - calc_arr(dom_lo.x-1,j-1,k);
                     Real grad_lo_jm1  = calc_arr(dom_lo.x  ,j  ,k) - calc_arr(dom_lo.x  ,j-1,k);
                     Real dVdt = calc_arr(dom_lo.x,j,k) - dest_arr(dom_lo.x  ,j,k);
                     Real dVdx = dest_arr(dom_lo.x,j,k) - dest_arr(dom_lo.x+1,j,k);
@@ -90,9 +92,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                     dest_arr(i,j,k) =  dest_arr(dom_hi.x,j,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::orlanski_rad) {
                     Real grad_hi        = calc_arr(dom_hi.x  ,j+1,k) - calc_arr(dom_hi.x  ,j  ,k);
-                    Real grad_hi_ip1    = calc_arr(dom_hi.x+1,j+1,k) - calc_arr(dom_hi.x+1,j  ,k);
                     Real grad_hi_jm1    = calc_arr(dom_hi.x  ,j  ,k) - calc_arr(dom_hi.x  ,j-1,k);
-                    Real grad_hi_ipjm1  = calc_arr(dom_hi.x+1,j  ,k) - calc_arr(dom_hi.x+1,j-1,k);
                     Real dVdt = calc_arr(dom_hi.x,j,k) - dest_arr(dom_hi.x  ,j,k);
                     Real dVdx = dest_arr(dom_hi.x,j,k) - dest_arr(dom_hi.x-1,j,k);
                     if (dVdt*dVdx < 0.0_rt) dVdt = 0.0_rt;
@@ -125,9 +125,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 } else if (bc_ptr[n].lo(1) == REMORABCType::foextrap) {
                     dest_arr(i,j,k) =  dest_arr(i,dom_lo.y+1,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::orlanski_rad) {
-                    Real grad_lo      = calc_arr(i  ,dom_lo.y  ,k) - calc_arr(i-1,dom_lo.y  ,k);
                     Real grad_lo_jp1  = calc_arr(i  ,dom_lo.y+1,k) - calc_arr(i-1,dom_lo.y+1,k);
-                    Real grad_lo_ip1  = calc_arr(i+1,dom_lo.y  ,k) - calc_arr(i  ,dom_lo.y  ,k);
                     Real grad_lo_ijp1 = calc_arr(i+1,dom_lo.y+1,k) - calc_arr(i  ,dom_lo.y+1,k);
                     Real dVdt = calc_arr(i,dom_lo.y+1,k) - dest_arr(i,dom_lo.y+1,k);
                     Real dVde = dest_arr(i,dom_lo.y+1,k) - dest_arr(i,dom_lo.y+2,k);
@@ -162,9 +160,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                     dest_arr(i,j,k) =  dest_arr(i,dom_hi.y,k)*mskv(i,j,0);
                  } else if (bc_ptr[n].hi(1) == REMORABCType::orlanski_rad) {
                     Real grad_hi      = calc_arr(i  ,dom_hi.y  ,k) - calc_arr(i-1,dom_hi.y  ,k);
-                    Real grad_hi_jp1  = calc_arr(i  ,dom_hi.y+1,k) - calc_arr(i-1,dom_hi.y+1,k);
                     Real grad_hi_ip1  = calc_arr(i+1,dom_hi.y  ,k) - calc_arr(i  ,dom_hi.y  ,k);
-                    Real grad_hi_ijp1 = calc_arr(i+1,dom_hi.y+1,k) - calc_arr(i  ,dom_hi.y+1,k);
                     Real dVdt = calc_arr(i,dom_hi.y,k) - dest_arr(i,dom_hi.y  ,k);
                     Real dVde = dest_arr(i,dom_hi.y,k) - dest_arr(i,dom_hi.y-1,k);
                     if (dVdt*dVde < 0.0_rt) dVdt = 0.0_rt;

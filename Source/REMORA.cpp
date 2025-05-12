@@ -52,9 +52,12 @@ amrex::Vector<amrex::Vector<std::string>> REMORA::nc_grid_file = {{""}}; // Must
 
 amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 
-// constructor - reads in parameters from inputs file
-//             - sizes multilevel arrays and data structures
-//             - initializes BCRec boundary condition object
+/**
+ * constructor:
+ * - reads in parameters from inputs file
+ * - sizes multilevel arrays and data structures
+ * - initializes BCRec boundary condition object
+ */
 REMORA::REMORA ()
 {
     if (ParallelDescriptor::IOProcessor()) {
@@ -133,7 +136,6 @@ REMORA::~REMORA ()
 {
 }
 
-// advance solution to final time
 void
 REMORA::Evolve ()
 {
@@ -210,7 +212,11 @@ REMORA::Evolve ()
     }
 }
 
-// Called after every coarse timestep
+/**
+ * @param[in   ] nstep    which step we're on
+ * @param[in   ] time     current time
+ * @param[in   ] dt_lev0  time step on level 0
+ */
 void
 REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
 {
@@ -240,7 +246,9 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
     }
 }
 
-// This is called from main.cpp and handles all initialization, whether from start or restart
+/**
+ * This is called from main.cpp and handles all initialization, whether from start or restart
+ */
 void
 REMORA::InitData ()
 {
@@ -342,6 +350,9 @@ REMORA::InitData ()
 
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::Construct_REMORAFillPatchers (int lev)
 {
@@ -387,6 +398,9 @@ REMORA::Construct_REMORAFillPatchers (int lev)
                        -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::Define_REMORAFillPatchers (int lev)
 {
@@ -442,6 +456,9 @@ REMORA::restart ()
     last_check_file_step = istep[0];
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_zeta (int lev)
 {
@@ -461,6 +478,9 @@ REMORA::set_zeta (int lev)
     set_zeta_average(lev);
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_bathymetry (int lev)
 {
@@ -526,6 +546,9 @@ REMORA::set_bathymetry (int lev)
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_coriolis(int lev) {
     if (solverChoice.use_coriolis) {
@@ -562,6 +585,9 @@ REMORA::init_set_vmix(int lev) {
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_analytic_vmix(int lev) {
     Real time = 0.0_rt;
@@ -572,6 +598,9 @@ REMORA::set_analytic_vmix(int lev) {
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_hmixcoef(int lev)
 {
@@ -594,6 +623,9 @@ REMORA::set_hmixcoef(int lev)
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_smflux(int lev)
 {
@@ -609,6 +641,9 @@ REMORA::set_smflux(int lev)
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_wind(int lev)
 {
@@ -624,6 +659,10 @@ REMORA::set_wind(int lev)
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ * @param[in   ] time   current time for initialization
+ */
 void
 REMORA::init_only (int lev, Real time)
 {
@@ -773,7 +812,6 @@ REMORA::init_only (int lev, Real time)
 
 }
 
-// read in some parameters from inputs file
 void
 REMORA::ReadParameters ()
 {
@@ -977,7 +1015,6 @@ REMORA::ReadParameters ()
     solverChoice.init_params();
 }
 
-// Set covered coarse cells to be the average of overlying fine cells for all levels
 void
 REMORA::AverageDown ()
 {
@@ -987,7 +1024,9 @@ REMORA::AverageDown ()
     }
 }
 
-// Set covered coarse cells to be the average of overlying fine cells at level crse_lev
+/**
+ * @param[in   ] crse_lev  level to average down to
+ */
 void
 REMORA::AverageDownTo (int crse_lev)
 {
@@ -1010,6 +1049,9 @@ REMORA::AverageDownTo (int crse_lev)
                        refRatio(crse_lev),geom[crse_lev]);
 }
 
+/**
+ * @param[in   ] lev    level at which to get time
+ */
 amrex::Real REMORA::get_t_old(int lev) const
 {
     return t_old[lev];

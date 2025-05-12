@@ -22,6 +22,21 @@ remora_dernull(
   // This routine does nothing -- we use it as a placeholder.
 }
 
+/*
+ * \brief Function to calculate vorticity for derived field output
+ *
+ * @param[in   ] bx         box to calculate on
+ * @param[  out] derfab     derived field output
+ * @param[in   ] dcomp      component to store derived field
+ * @param[in   ] ncomp      number of components
+ * @param[in   ] datfab     velocity to be used to calculate derived field
+ * @param[in   ] pm         1/dx
+ * @param[in   ] pn         1/dy
+ * @param[in   ] geomdata   geometry data
+ * @param[in   ] time       current time
+ * @param[in   ] bcrec      BC info
+ * @param[in   ] level      current level
+ */
 void
 remora_dervort(
   const amrex::Box& bx,
@@ -31,10 +46,10 @@ remora_dervort(
   const amrex::FArrayBox& datfab,
   const amrex::Array4<const amrex::Real>& pm,
   const amrex::Array4<const amrex::Real>& pn,
-  const amrex::Geometry& geomdata,
+  const amrex::Geometry& /*geomdata*/,
   amrex::Real /*time*/,
   const int* /*bcrec*/,
-  const int level)
+  const int /*level*/)
 {
     AMREX_ALWAYS_ASSERT(ncomp == 1);
 
