@@ -2,7 +2,10 @@
 
 using namespace amrex;
 
-// Advance a single 3D level for a single time step
+/**
+ * @param[in] lev     refinement level
+ * @param[in] dt_lev  time step at refinement level
+ */
 void REMORA::advance_3d_ml (int lev, Real dt_lev)
 {
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;

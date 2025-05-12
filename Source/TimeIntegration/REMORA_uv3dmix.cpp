@@ -2,6 +2,25 @@
 
 using namespace amrex;
 
+/**
+ * @param[in   ] xbx       x-nodal tile box
+ * @param[in   ] ybx       y-nodal tile box
+ * @param[inout] u         u-direction velocity
+ * @param[inout] v         v-direction velocity
+ * @param[in   ] uold      u-direction velocity at last step
+ * @param[in   ] vold      v-direction velocity at last step
+ * @param[inout] rufrc     forcing term for u-velocity RHS
+ * @param[inout] rvfrc     forcing term for v-velocity RHS
+ * @param[in   ] visc2_p   harmonic viscosity on psi points
+ * @param[in   ] visc2_r   harmonic viscosity on rho points
+ * @param[in   ] Hz        vertical cell height
+ * @param[in   ] pm        1/dx
+ * @param[in   ] pn        1/dy
+ * @param[in   ] mskp      land-sea mask on psi-points
+ * @param[in   ] nrhs      index of RHS component
+ * @param[in   ] nnew      index of time step to update
+ * @param[in   ] dt_lev    time step at this level
+ */
 void
 REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
                  const Array4<Real      >& u,

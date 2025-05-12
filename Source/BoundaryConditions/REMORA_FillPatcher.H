@@ -9,12 +9,14 @@ class REMORAFillPatcher
 {
 public:
 
+    /** \brief Fill valid and ghost data with the "state data" at the given time */
     REMORAFillPatcher (amrex::BoxArray const& fba, amrex::DistributionMapping const& fdm,
                     amrex::Geometry const& fgeom,
                     amrex::BoxArray const& cba, amrex::DistributionMapping const& cdm,
                     amrex::Geometry const& cgeom,
                     int nghost, int nghost_set, int ncomp, amrex::InterpBase* interp);
 
+    /** \brief Redefine the coarse and fine patch MultiFabs. */
     void Define (amrex::BoxArray const& fba, amrex::DistributionMapping const& fdm,
                  amrex::Geometry const& fgeom,
                  amrex::BoxArray const& cba, amrex::DistributionMapping const& cdm,
@@ -22,15 +24,19 @@ public:
                  int nghost, int nghost_set, int ncomp,
                  amrex::InterpBase* interp);
 
+    /** \brief Generate masking array */
     void BuildMask (amrex::BoxArray const& fba, int nghost, int nghost_set);
 
+    /** \brief Register the coarse data to be used by the REMORAFillPatcher */
     void RegisterCoarseData (amrex::Vector<amrex::MultiFab const*> const& crse_data,
                              amrex::Vector<amrex::Real> const& crse_time);
 
+    /** \brief Interpolate to cell faces */
     void InterpFace (amrex::MultiFab& fine,
                      amrex::MultiFab const& crse,
                      int mask_val);
 
+    /** \brief Interpolate to cell centers */
     void InterpCell (amrex::MultiFab& fine,
                      amrex::MultiFab const& crse,
                      amrex::Vector<amrex::BCRec> const& bcr,
@@ -42,14 +48,16 @@ public:
 
     amrex::iMultiFab* GetMask () { return m_cf_mask.get(); }
 
+    /** \brief Fill fine data in the set region */
     template <typename BC>
     void FillSet (amrex::MultiFab& mf, amrex::Real time,
                   BC& cbc, amrex::Vector<amrex::BCRec> const& bcs);
 
+    /** \brief Fill fine data in the relax region */
     template <typename BC>
     void FillRelax (amrex::MultiFab& mf, amrex::Real time,
                     BC& cbc, amrex::Vector<amrex::BCRec> const& bcs);
-
+    /** \brief Fill fine data in the relax region */
     template <typename BC>
     void Fill (amrex::MultiFab& mf, amrex::Real time,
                BC& cbc, amrex::Vector<amrex::BCRec> const& bcs, int mask_val);
@@ -76,9 +84,7 @@ private:
     int m_relax_mask{1};
 };
 
-/*
- * Fill fine data in the set region
- *
+/**
  * @param[out] mf    MultiFab to be filled
  * @param[in]  time  Time at which to fill data
  * @param[in]  cbc   Coarse boundary condition
@@ -92,9 +98,7 @@ REMORAFillPatcher::FillSet (amrex::MultiFab& mf, amrex::Real time,
     Fill(mf,time,cbc,bcs,m_set_mask);
 }
 
-/*
- * Fill fine data in the relax region
- *
+/**
  * @param[out] mf    MultiFab to be filled
  * @param[in]  time  Time at which to fill data
  * @param[in]  cbc   Coarse boundary condition
@@ -108,9 +112,7 @@ REMORAFillPatcher::FillRelax (amrex::MultiFab& mf, amrex::Real time,
     Fill(mf,time,cbc,bcs,m_relax_mask);
 }
 
-/*
- * Fill fine data in the relax region
- *
+/**
  * @param[out] mf    MultiFab to be filled
  * @param[in]  time  Time at which to fill data
  * @param[in]  cbc   Coarse boundary condition

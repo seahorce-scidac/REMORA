@@ -2,9 +2,18 @@
 
 using namespace amrex;
 
-//
-// Start 3d step
-//
+/**
+ * @param[in   ] xbx      nodal box in x-direction
+ * @param[in   ] ybx      nodal box in y-direction
+ * @param[in   ] uold     u-direction velocity
+ * @param[in   ] vold     v-direction velocity
+ * @param[inout] ru       u-direction velocity RHS
+ * @param[inout] rv       v-direction velocity RHS
+ * @param[in   ] Hz       vertical cell height
+ * @param[in   ] fomn     scaled coriolis factor
+ * @param[in   ] nrhs     which velocity component to use
+ * @param[in   ] nr       which RHS component to update
+ */
 
 void
 REMORA::coriolis (const Box& xbx, const Box& ybx,

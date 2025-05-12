@@ -8,21 +8,20 @@
 
 using namespace amrex;
 
+/**
+ * @param[in   ] lev     level to initialize on
+ */
 void
 REMORA::init_analytic(int lev)
 {
-    std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
-    std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
-    std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
-    std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
-    std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
-
     prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, *cons_new[lev], *xvel_new[lev], *yvel_new[lev], *zvel_new[lev]);
 
     set_grid_scale(lev);
-
 }
 
+/**
+ * @param[in   ] lev     level to initialize on
+ */
 void
 REMORA::init_beta_plane_coriolis (int lev)
 {
@@ -51,6 +50,9 @@ REMORA::init_beta_plane_coriolis (int lev)
     vec_fcor[lev]->FillBoundary(geom[lev].periodicity());
 }
 
+/**
+ * @param[in   ] lev     level to operate on
+ */
 void
 REMORA::set_zeta_average (int lev)
 {
@@ -72,6 +74,9 @@ REMORA::set_zeta_average (int lev)
     }
 }
 
+/**
+ * @param[in   ] lev     level to operate on
+ */
 void
 REMORA::set_2darrays (int lev)
 {
@@ -131,6 +136,10 @@ REMORA::set_2darrays (int lev)
     FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BCVars::vbar_bc, BdyVars::vbar,0,false,false);
 }
 
+/**
+ * @param[in   ] lev            level to operate on
+ * @param[in   ] solver_choice  algorithmic choices
+ */
 void
 REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
 {
@@ -170,6 +179,9 @@ REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
     }
 }
 
+/**
+ * @param[in   ] lev     level to operate on
+ */
 void
 REMORA::init_clim_nudg_coeff (int lev) {
     // Fill nudging coefficients from constant values, then overwrite

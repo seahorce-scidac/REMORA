@@ -2,6 +2,20 @@
 
 using namespace amrex;
 
+/**
+ * @param[in   ] lev            level to operate on
+ * @param[in   ] mf_cons        scalar data: temperature, salinity, passsive scalar, etc
+ * @param[in   ] mf_uwind       u-direction wind dvelocity
+ * @param[in   ] mf_vwind       v-direction wind dvelocity
+ * @param[inout] mf_evap        evaporation rate
+ * @param[  out] mf_sustr       u-direction surface momentum stress
+ * @param[  out] mf_svstr       v-direction surface momentum stress
+ * @param[  out] mf_stflux      surface scalar flux (temperature, salinity)
+ * @param[  out] mf_lrflx       longwave radiation flux
+ * @param[inout] mf_lhflx       latent heat flux
+ * @param[inout] mf_shflx       sensible heat flux
+ * @param[in   ] N              number of vertical levels
+ */
 void
 REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* mf_vwind,
                      MultiFab* mf_evap, MultiFab* mf_sustr, MultiFab* mf_svstr,
@@ -16,9 +30,9 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
     MultiFab mf_Tauy(ba, dm, 1, IntVect(NGROW,NGROW,0));
     // temps: Taux, Tauy,
     for ( MFIter mfi(*mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        Array4<Real> const& uwind = mf_uwind->array(mfi);
-        Array4<Real> const& vwind = mf_vwind->array(mfi);
-        Array4<Real> const& cons = mf_cons->array(mfi);
+        Array4<Real const> const& uwind = mf_uwind->const_array(mfi);
+        Array4<Real const> const& vwind = mf_vwind->const_array(mfi);
+        Array4<Real const> const& cons = mf_cons->const_array(mfi);
         Array4<Real> const& sustr = mf_sustr->array(mfi);
         Array4<Real> const& svstr = mf_svstr->array(mfi);
         Array4<Real> const& stflux = mf_stflux->array(mfi);
@@ -29,8 +43,6 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<Real> const& Taux = mf_Taux.array(mfi);
         Array4<Real> const& Tauy = mf_Tauy.array(mfi);
 
-        Array4<const Real> const& alpha = vec_alpha[lev]->const_array(mfi);
-        Array4<const Real> const& beta  = vec_beta[lev]->const_array(mfi);
         Array4<const Real> const& mskr = vec_mskr[lev]->const_array(mfi);
         Array4<const Real> const& msku  = vec_msku[lev]->const_array(mfi);
         Array4<const Real> const& mskv  = vec_mskv[lev]->const_array(mfi);

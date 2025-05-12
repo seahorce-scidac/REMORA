@@ -11,17 +11,20 @@ using namespace amrex;
 
 #ifdef REMORA_USE_NETCDF
 
+/** \brief helper function for reading in initial state data from netcdf */
 void
 read_data_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
                        FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
                        FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
                        FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab);
 
+/** \brief helper function for reading in land-sea masks from netcdf */
 void
 read_masks_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
                        FArrayBox& NC_mskr_fab, FArrayBox& NC_msku_fab,
                        FArrayBox& NC_mskv_fab);
 
+/** \brief helper function for reading boundary data from netcdf */
 Real
 read_bdry_from_netcdf (const Box& domain, const std::string& fname,
                        Vector<Vector<FArrayBox>>& bdy_data_xlo,
@@ -32,6 +35,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& fname,
                        std::string bdry_time_varname,
                        amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1>&);
 
+/** \brief helper function to initialize state from netcdf */
 void
 init_state_from_netcdf (int lev,
                         FArrayBox&  temp_fab, FArrayBox&  salt_fab,
@@ -44,6 +48,7 @@ init_state_from_netcdf (int lev,
                         const Vector<FArrayBox>& NC_ubar_fab,
                         const Vector<FArrayBox>& NC_vbar_fab);
 
+/** \brief helper function to read bathymetry from netcdf */
 void
 read_bathymetry_from_netcdf (int lev, const Box& domain, const std::string& fname,
                              FArrayBox& NC_h_fab,
@@ -53,22 +58,16 @@ read_bathymetry_from_netcdf (int lev, const Box& domain, const std::string& fnam
                              FArrayBox& NC_xv_fab, FArrayBox& NC_yv_fab,
                              FArrayBox& NC_xp_fab, FArrayBox& NC_yp_fab);
 
-void
-init_bathymetry_from_netcdf (int lev);
-
+/** \brief helper function to read coriolis factor from netcdf */
 void
 read_coriolis_from_netcdf (int lev, const Box& domain, const std::string& fname, FArrayBox& NC_fcor_fab);
 
-void
-init_coriolis_from_netcdf (int lev);
-
+/** \brief helper function to read sea surface height from netcdf */
 void
 read_zeta_from_netcdf (int lev, const Box& domain, const std::string& fname,
                              FArrayBox& NC_zeta_fab);
 
-void
-init_zeta_from_netcdf (int lev);
-
+/** \brief helper function to read climatology nudging from netcdf */
 void
 read_clim_nudg_coeff_from_netcdf (int lev, const Box& domain, const std::string& fname,
                                   bool do_m2_clim_nudg,
@@ -80,12 +79,7 @@ read_clim_nudg_coeff_from_netcdf (int lev, const Box& domain, const std::string&
                                   FArrayBox& NC_TempNC_fab,
                                   FArrayBox& NC_SaltNC_fab);
 
-void
-init_clim_nudg_coeff_from_netcdf (int lev);
-
 /**
- * REMORA function that initializes solution data from a netcdf file
- *
  * @param lev Integer specifying the current level
  */
 void
@@ -137,8 +131,6 @@ REMORA::init_data_from_netcdf (int lev)
 }
 
 /**
- * REMORA function that initializes sea surface height zeta from a netcdf file
- *
  * @param lev Integer specifying the current level
  */
 void
@@ -181,8 +173,6 @@ REMORA::init_zeta_from_netcdf (int lev)
 //    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
 }
 /**
- * REMORA function that initializes bathymetry from a netcdf file
- *
  * @param lev Integer specifying the current level
  */
 void
@@ -340,8 +330,6 @@ REMORA::init_bathymetry_from_netcdf (int lev)
 }
 
 /**
- * REMORA function that initializes coriolis parameter f from a netcdf file
- *
  * @param lev Integer specifying the current level
  */
 void
@@ -377,8 +365,6 @@ REMORA::init_coriolis_from_netcdf (int lev)
 }
 
 /**
- * REMORA function that initializes land/sea masks from netcdf file
- *
  * @param lev Integer specifying the current level
  */
 void
@@ -426,8 +412,6 @@ REMORA::init_masks_from_netcdf (int lev)
 }
 
 /**
- * REMORA function that initializes time series of boundary data from a netcdf file
- *
  * @param lev Integer specifying the current level
  */
 void
@@ -437,24 +421,18 @@ REMORA::init_bdry_from_netcdf ()
         amrex::Error("NetCDF boundary file name must be provided via input");
     }
 
+    int width = 1;
     bdy_time_interval = read_bdry_from_netcdf(geom[0].Domain(), nc_bdry_file,
                                               bdy_data_xlo,bdy_data_xhi,bdy_data_ylo,bdy_data_yhi,
-                                              bdy_width, start_bdy_time,
+                                              width, start_bdy_time,
                                               bdry_time_varname,
                                               phys_bc_need_data);
 
-    if (bdy_width-1 <= bdy_set_width) bdy_set_width = bdy_width;
-    amrex::Print() << "Read in boundary data with width "  << bdy_width << std::endl;
-    amrex::Print() << "Running with specification width: " << bdy_set_width
-                   << " and relaxation width: " << bdy_width - bdy_set_width << std::endl;
-
-    // NOTE: Last bdy cell is a ghost cell for Laplacian relaxation.
-    //       Without relaxation zones, we must augment this value by 1.
-    if (bdy_width == bdy_set_width) bdy_width += 1;
+    amrex::Print() << "Read in boundary data with width " << width;
 }
 
 /**
- * Helper function to initialize state and velocity data in a Fab from a REMORAdataset.
+ * \brief Helper function to initialize state and velocity data in a Fab from a REMORAdataset.
  *
  * @param lev Integer specifying current level
  * @param state_fab FArrayBox object holding the state data we initialize
@@ -501,6 +479,9 @@ init_state_from_netcdf (int /*lev*/,
     } // idx
 }
 
+/**
+ * @param lev Integer specifying the current level
+ */
 void
 REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
 {
@@ -574,6 +555,9 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
     }
 }
 
+/**
+ * @param[inout] mf    multifab of data to convert
+ */
 void
 REMORA::convert_inv_days_to_inv_s (MultiFab* mf) {
     Real inv_days_to_inv_s = 1.0_rt / (3600._rt * 24._rt);

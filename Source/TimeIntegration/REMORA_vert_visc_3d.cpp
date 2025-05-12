@@ -2,17 +2,30 @@
 
 using namespace amrex;
 
-//
-// vert_visc_3d
-//
-
+/**
+ * @param[in   ] phi_bx     box to update on
+ * @param[in   ] ioff       x-direction offset
+ * @param[in   ] joff       y-direction offset
+ * @param[inout] phi        velocity (u or v)
+ * @param[in   ] Hz         vertical height of cells
+ * @param[none ] Hzk        temporary
+ * @param[none ] AK         temporary
+ * @param[in   ] Akv        vertical viscosity coefficient
+ * @param[none ] BC         temporary
+ * @param[none ] DC         temporary
+ * @param[none ] FC         temporary
+ * @param[none ] CF         temporary
+ * @param[in   ] nnew       index of time step to update
+ * @param[in   ] N          number of vertical levels
+ * @param[in   ] dt_lev     time step at this refinement level
+ */
 void
 REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
                      const Array4<Real      >& phi,
                      const Array4<Real const>& Hz,
-                     const Array4<Real      >& Hzk, /*temp var */
+                     const Array4<Real      >& Hzk,
                      const Array4<Real      >& AK,
-                     const Array4<Real      >& Akv,
+                     const Array4<Real const>& Akv,
                      const Array4<Real      >& BC,
                      const Array4<Real      >& DC,
                      const Array4<Real      >& FC,

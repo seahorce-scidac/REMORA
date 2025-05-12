@@ -231,7 +231,6 @@ REMORA::WriteCheckpointFile ()
      bdy_h_file << num_var  << "\n";
      bdy_h_file << start_bdy_time << "\n";
      bdy_h_file << bdy_time_interval << "\n";
-     bdy_h_file << bdy_width << "\n";
      for (int ivar(0); ivar<num_var; ++ivar) {
        bdy_h_file << bdy_data_xlo[0][ivar].box() << "\n";
        bdy_h_file << bdy_data_xhi[0][ivar].box() << "\n";
@@ -494,7 +493,6 @@ REMORA::ReadCheckpointFile ()
             bdy_h_file >> num_var;
             bdy_h_file >> start_bdy_time;
             bdy_h_file >> bdy_time_interval;
-            bdy_h_file >> bdy_width;
             bx_v.resize(4*num_var);
             for (int ivar(0); ivar<num_var; ++ivar) {
                 bdy_h_file >> bx_v[4*ivar  ];
@@ -537,7 +535,6 @@ REMORA::ReadCheckpointFile ()
         ParallelDescriptor::Barrier();
         ParallelDescriptor::Bcast(&start_bdy_time,1,ioproc);
         ParallelDescriptor::Bcast(&bdy_time_interval,1,ioproc);
-        ParallelDescriptor::Bcast(&bdy_width,1,ioproc);
         ParallelDescriptor::Bcast(&num_time,1,ioproc);
         ParallelDescriptor::Bcast(&num_var,1,ioproc);
 

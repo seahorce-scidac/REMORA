@@ -4,20 +4,19 @@
 
 using namespace amrex;
 
-//
-// mf is the multifab to be filled
-// msk is the land/sea mask for the variable
-// icomp is the index into the MultiFab -- if cell-centered this can be any value
-//       from 0 to NCONS-1, if face-centered can be any value from 0 to 2 (inclusive)
-// ncomp is the number of components -- if cell-centered this can be any value
-//       from 1 to NCONS as long as icomp+ncomp <= NCONS-1.  If face-centered this
-//       must be 1
-// nghost is how many ghost cells to be filled
-// time is the time at which the data should be filled
-// bccomp is the index into both domain_bcs_type_bcr and bc_extdir_vals for icomp = 0  --
-//     so this follows the BCVars enum
-// mf_calc is the multifab for the variable used in calculations of boundary, if needed
-//
+/**
+ * @param[inout] mf          multifab to be filled
+ * @param[in   ] msk         land/sea mask for the variable
+ * @param[in   ] icomp       index into the MultiFab -- if cell-centered this can be any value from 0 to NCONS-1, if face-centered can be any value from 0 to 2 (inclusive)
+ * @param[in   ] ncomp       number of components -- if cell-centered this can be any value from 1 to NCONS as long as icomp+ncomp <= NCONS-1.  If face-centered this must be 1
+ * @param[in   ] nghost      how many ghost cells to be filled
+ * @param[in   ] time        time at which the data should be filled
+ * @param[in   ] bccomp      index into both domain_bcs_type_bcr and bc_extdir_vals for icomp = 0 so this follows the BCVars enum
+ * @param[in   ] n_not_fill  halo size to not fill
+ * @param[in   ] mf_calc     data to use in calculation of RHS
+ * @param[in   ] mf_msku     land-sea mask at u-points
+ * @param[in   ] mf_mskv     land-sea mask at v-points
+*/
 void REMORAPhysBCFunct::operator() (MultiFab& mf, const MultiFab& msk, int icomp, int ncomp, IntVect const& nghost,
                                    Real time, int bccomp,int n_not_fill, const MultiFab& mf_calc,
                                    const MultiFab& mf_msku, const MultiFab& mf_mskv)

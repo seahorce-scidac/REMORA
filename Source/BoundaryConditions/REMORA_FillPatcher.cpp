@@ -4,9 +4,7 @@
 
 using namespace amrex;
 
-/*
- * Fill valid and ghost data with the "state data" at the given time
- *
+/**
  * @param[in] fba    BoxArray of data to be filled at fine level
  * @param[in] fdm    DistributionMapping of data to be filled at fine level
  * @param[in] fgeom  container of geometry information at fine level
@@ -41,9 +39,7 @@ REMORAFillPatcher::REMORAFillPatcher (BoxArray const& fba, DistributionMapping c
 }
 
 
-/*
- * Redefine the coarse and fine patch MultiFabs.
- *
+/**
  * @param[in] fba    BoxArray of data to be filled at fine level
  * @param[in] fdm    DistributionMapping of data to be filled at fine level
  * @param[in] fgeom  container of geometry information at fine level
@@ -177,8 +173,6 @@ void REMORAFillPatcher::BuildMask (BoxArray const& fba,
 }
 
 /*
- * Register the coarse data to be used by the REMORAFillPatcher
- *
  * @param[in] crse_data data at old and new time at coarse level
  * @param[in] crse_time times at which crse_data is defined
  */
@@ -207,6 +201,11 @@ void REMORAFillPatcher::RegisterCoarseData (Vector<MultiFab const*> const& crse_
     m_dt_crse = crse_time[1] - crse_time[0];
 }
 
+/**
+ * @param[inout] fine     fine level data
+ * @param[in   ] crse     coarse level data
+ * @param[in   ] mask_val masked value
+ */
 void REMORAFillPatcher::InterpFace (MultiFab& fine,
                                  MultiFab const& crse,
                                  int mask_val)
@@ -325,6 +324,12 @@ void REMORAFillPatcher::InterpFace (MultiFab& fine,
     } // MFiter
 }
 
+/**
+ * @param[inout] fine     fine level data
+ * @param[in   ] crse     coarse level data
+ * @param[in   ] bcr      boundary condition type
+ * @param[in   ] mask_val masked value
+ */
 void REMORAFillPatcher::InterpCell (MultiFab& fine,
                                  MultiFab const& crse,
                                  Vector<BCRec> const& bcr,

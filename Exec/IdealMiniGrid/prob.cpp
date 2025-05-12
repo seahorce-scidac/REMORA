@@ -20,10 +20,10 @@ Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
 {}
 
 void Problem::init_analytic_vmix(
-        int lev,
+        int /*lev*/,
         const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
-        REMORA const& remora,
+        REMORA const& /*remora*/,
         MultiFab& mf_Akv, MultiFab& mf_Akt)
 {
     for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )

@@ -2,7 +2,6 @@
 
 using namespace amrex;
 
-// a wrapper for estTimeStep
 void
 REMORA::ComputeDt ()
 {
@@ -35,6 +34,9 @@ REMORA::ComputeDt ()
     }
 }
 
+/**
+ * @param[in] level    level of refinement
+ */
 Real
 REMORA::estTimeStep(int level) const
 {

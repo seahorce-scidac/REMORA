@@ -6,6 +6,15 @@
 #include <string>
 
 #ifdef REMORA_USE_NETCDF
+/**
+ * @param[in   ] a_file_name          file name to read from
+ * @param[in   ] a_field_name         name of field to read in
+ * @param[in   ] a_time_name          name of time variable in NetCDF file
+ * @param[in   ] a_domain             simulation domain
+ * @param[inout] a_mf_var             MultiFab of data to either store into or reference for dimensions
+ * @param[in   ] a_is2d               Whether the variable we're working with is 2D
+ * @param[in   ] a_save_interpolated  Whether the interpolated value should be saved internally
+ */
 NCTimeSeries::NCTimeSeries (const std::string a_file_name, const std::string a_field_name,
                             const std::string a_time_name,
                             const amrex::Box& a_domain,
@@ -81,6 +90,9 @@ void NCTimeSeries::Initialize() {
     i_time_before = -100;
 }
 
+/**
+ * @param time   time to interpolate to
+ */
 void NCTimeSeries::update_interpolated_to_time (amrex::Real time) {
     // Figure out time index:
     AMREX_ASSERT(time >= ocean_times[0]);
@@ -131,6 +143,10 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time) {
     }
 }
 
+/**
+ * @param[inout] mf        multifab to store time step data into
+ * @param[in   ] itime     index of time step to read from file
+ */
 void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
     // This all assumes that we're on level 0 with only one boxes_at_level
     amrex::FArrayBox NC_fab;

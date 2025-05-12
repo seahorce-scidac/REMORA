@@ -16,31 +16,18 @@ namespace REMORABdyTypes {
     };
 }
 
-AMREX_FORCE_INLINE
-std::time_t
-getEpochTime (const std::string& dateTime, const std::string& dateTimeFormat)
-{
-    // Create a stream which we will use to parse the string,
-    // which we provide to constructor of stream to fill the buffer.
-    std::istringstream ss{ dateTime };
-
-    // Create a tm object to store the parsed date and time.
-    std::tm tmTime;
-    memset(&tmTime, 0, sizeof(tmTime));
-
-    // Now we read from buffer using get_time manipulator
-    // and formatting the input appropriately.
-    strptime(dateTime.c_str(), dateTimeFormat.c_str(), &tmTime);
-
-    // Convert the tm structure to time_t value and return.
-    // Here we use timegm since the output should be relative to UTC.
-    auto epoch = timegm(&tmTime);
-    // Print() << "Time Stamp: "<< std::put_time(&tmTime, "%c")
-    //         << " , Epoch: " << epoch << std::endl;
-
-    return epoch;
-}
-
+/**
+ * @param domain              computational domain
+ * @param nc_bdry_file        name of file with boundary data
+ * @param bdy_data_xlo        container for xlo boundary data
+ * @param bdy_data_xhi        container for xhi boundary data
+ * @param bdy_data_ylo        container for ylo boundary data
+ * @param bdy_data_yhi        container for yhi boundary data
+ * @param width               number of cells to read in boundary region
+ * @param start_bdy_time      time when boundary data starts
+ * @param bdry_time_varname   name of time variable
+ * @param phys_bc_need_data   whether physical boundary condition data is needed for a given side and variable
+ */
 Real
 read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                        Vector<Vector<FArrayBox>>& bdy_data_xlo,

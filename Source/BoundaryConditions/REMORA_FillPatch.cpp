@@ -7,11 +7,25 @@ using namespace amrex;
 
 PhysBCFunctNoOp null_bc;
 
-//
-// Fill valid and ghost data in the MultiFab "mf"
-// This version fills the MultiFab mf in valid regions with the "state data" at the given time;
-// values in mf when it is passed in are *not* used.
-//
+/**
+ * Fill valid and ghost data in the MultiFab "mf"
+ * This version fills the MultiFab mf_to_fill in valid regions with
+ * the "state data" at the given time;
+ * values in mf when it is passed in are *not* used.
+ *
+ * @param[in   ] lev            level to FillPatch on
+ * @param[in   ] time           current time
+ * @param[inout] mf_to_fill     MultiFab to fill
+ * @param[in   ] mfs            vector over levels of multifabs associated with mf_to_fill
+ * @param[in   ] bccomp         index into domain_bcs_type
+ * @param[in   ] bdy_var_type   when filling from NetCDF, which boundary data
+ * @param[in   ] icomp          component to fill
+ * @param[in   ] fill_all       whether to fill all components
+ * @param[in   ] fill_set       whether to use FillPatchers
+ * @param[in   ] icomp_calc     component to use in RHS boundary calculation
+ * @param[in   ] dt_lev         time step at this level
+ * @param[in   ] mf_calc        data to use in RHS boundary calculation
+ */
 void
 REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs,
                   const int  bccomp,
@@ -25,7 +39,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                   const bool fill_set,
                   const int  n_not_fill,
                   const int  icomp_calc,
-                  const Real dt,
+                  const Real dt_lev,
                   const MultiFab& mf_calc)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
@@ -129,7 +143,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         if ( (solverChoice.ic_bc_type == IC_BC_Type::netcdf) && (lev==0) &&
              (bdy_var_type != BdyVars::null) )
         {
-            fill_from_bdyfiles(mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt);
+            fill_from_bdyfiles(mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
         }
 #endif
         // Fill corners of the domain with periodic data
@@ -157,16 +171,27 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         }
     }
 }
-//
-// Fill valid and ghost data in the MultiFab "mf"
-// This version fills the MultiFab mf in valid regions with the "state data" at the given time;
-// values in mf when it is passed in are *not* used.
-// Unlike FillPatch, FillPatchNoBC does not apply boundary conditions.
-//
+
+/**
+ * Fill valid and ghost data in the MultiFab "mf"
+ * This version fills the MultiFab mf_to_fill in valid regions with
+ * the "state data" at the given time;
+ * values in mf when it is passed in are *not* used.
+ * Unlike FillPatch, FillPatchNoBC does not apply boundary conditions
+ *
+ * @param[in   ] lev            level to FillPatch on
+ * @param[in   ] time           current time
+ * @param[inout] mf_to_fill     MultiFab to fill
+ * @param[in   ] mfs            vector over levels of multifabs associated with mf_to_fill
+ * @param[in   ] bdy_var_type   when filling from NetCDF, which boundary data
+ * @param[in   ] icomp          component to fill
+ * @param[in   ] fill_all       whether to fill all components
+ * @param[in   ] fill_set       whether to use FillPatchers
+ */
 void
 REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> const& mfs,
 #ifdef REMORA_USE_NETCDF
-                  const int bdy_var_type,
+                  const int /*bdy_var_type*/,
 #else
                   const int /*bdy_var_type*/,
 #endif
@@ -322,9 +347,19 @@ REMORA::GetDataAtTime (int /*lev*/, Real /*time*/)
     return data;
 }
 
-// Fill an entire multifab by interpolating from the coarser level -- this is used
-//     only when a new level of refinement is being created during a run (i.e not at initialization)
-//     This will never be used with static refinement.
+/**
+ * Fill an entire multifab by interpolating from the coarser level --
+ * this is used only when a new level of refinement is being created
+ * during a run (i.e not at initialization)
+ * This will never be used with static refinement.
+ *
+ * @param[in   ] lev            level to FillPatch on
+ * @param[in   ] time           current time
+ * @param[inout] mf_to_fill     MultiFab to fill
+ * @param[inout] mf_crse        MultiFab of coarse data
+ * @param[in   ] icomp          component to fill
+ * @param[in   ] fill_all       whether to fill all components
+ */
 void
 REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_crse,
                          const int  icomp,
@@ -404,6 +439,10 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
                                  mapper, domain_bcs_type, bccomp);
 }
 
+/**
+ * @param[in   ] lev    level to fill at
+ * @param[in   ] lev    MultiFab of cell-centered velocities
+ */
 void
 REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
 {

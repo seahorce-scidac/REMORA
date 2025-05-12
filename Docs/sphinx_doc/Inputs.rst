@@ -436,9 +436,7 @@ Examples of Usage
 
 -  | **remora.fixed_dt** = 1.e-4
    | sets the level-0 time step to be 1.e-4 for the entire simulation,
-     ignoring the other timestep controls. Note that if
-     **remora.init_shrink** :math:`\neq 1` then the first time step will in
-     fact be **remora.init_shrink** \* **remora.fixed_dt**.
+     ignoring the other timestep controls.
 
 Restart Capability
 ==================
