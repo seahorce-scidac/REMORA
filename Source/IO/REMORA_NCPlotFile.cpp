@@ -580,7 +580,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             // We do the "+1" because the offset needs to start at 0
             long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] + 1);
             long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] + 1);
-            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] + 1);
+            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2]);
 
             if (write_header) {
                 // Only write out s_rho and s_w at x=0,y=0 to avoid NaNs
