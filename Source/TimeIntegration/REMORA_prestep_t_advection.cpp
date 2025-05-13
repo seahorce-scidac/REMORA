@@ -11,10 +11,10 @@ using namespace amrex;
  * @param[in   ] Huon       u-volume flux
  * @param[in   ] Hvom       v-volume flux
  * @param[in   ] Akv        vertical viscosity coefficient
- * @param[in   ] W          vertical velocity
- * @param[none ] DC         temporary
- * @param[none ] FC         temporary
- * @param[in   ] tempstore  scratch space for calculations on scalars
+ * @param[inout] W          vertical velocity
+ * @param        DC         temporary
+ * @param        FC         temporary
+ * @param[  out] tempstore  scratch space for calculations on scalars
  * @param[in   ] z_w        z coordinates at w points
  * @param[in   ] h          bathymetry
  * @param[in   ] pm         1/dx

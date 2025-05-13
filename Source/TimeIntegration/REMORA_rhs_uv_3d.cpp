@@ -20,7 +20,7 @@ using namespace amrex;
  * @param[in   ] pm      1/dx
  * @param[in   ] pn      1/dy
  * @param[in   ] W       vertical velocity
- * @param[none ] FC      temporary
+ * @param        FC      temporary
  * @param[in   ] nrhs    index of component for RHS
  * @param[in   ] N       number of vertical levels
  */
