@@ -12,7 +12,7 @@ using namespace amrex;
  * @param[in   ] pm       1/dx
  * @param[in   ] pn       1/dy
  * @param[in   ] rho      density
- * @param[none ] FC       temporary
+ * @param        FC       temporary
  * @param[in   ] Hz       vertical cell height
  * @param[in   ] z_r      z coordinates at rho points
  * @param[in   ] z_w      z coordinates at w points

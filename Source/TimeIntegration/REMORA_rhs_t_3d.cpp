@@ -12,7 +12,7 @@ using namespace amrex;
  * @param[in   ] pn       1/dx
  * @param[in   ] pm       1/dy
  * @param[in   ] W        vertical velocity
- * @param[none ] FC       temporary
+ * @param        FC       temporary
  * @param[in   ] msku     land-sea mask on u-points
  * @param[in   ] mskv     land-sea mask on v-points
  * @param[in   ] nrhs     index of RHS component

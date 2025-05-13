@@ -18,8 +18,8 @@ using namespace amrex;
  * @param[inout] rvel     velocity or scalar RHS
  * @param[in   ] Hz       vertical cell height
  * @param[in   ] Akv      vertical viscosity coefficient
- * @param[none ] DC       temporary
- * @param[none ] FC       temporary
+ * @param        DC       temporary
+ * @param        FC       temporary
  * @param[in   ] sstr     surface flux
  * @param[in   ] bstr     bottom flux
  * @param[in   ] z_r      z coordinates at rho points

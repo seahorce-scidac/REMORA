@@ -13,7 +13,7 @@ using namespace amrex;
  * @param[in   ] S_old          scalar variables at last time step
  * @param[inout] S_new          scalar variables at current time step
  * @param[in   ] mf_W           vertical velocity
- * @param[none ] mf_DC          temporary variable container
+ * @param        mf_DC          temporary variable container
  * @param[in   ] mf_z_r         z coordinates at rho points (cell centers)
  * @param[in   ] mf_z_w         z coordinates at w points
  * @param[in   ] mf_h           bathymetry

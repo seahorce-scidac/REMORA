@@ -8,13 +8,13 @@ using namespace amrex;
  * @param[in   ] joff       y-direction offset
  * @param[inout] phi        velocity (u or v)
  * @param[in   ] Hz         vertical height of cells
- * @param[none ] Hzk        temporary
- * @param[none ] AK         temporary
+ * @param        Hzk        temporary
+ * @param        AK         temporary
  * @param[in   ] Akv        vertical viscosity coefficient
- * @param[none ] BC         temporary
- * @param[none ] DC         temporary
- * @param[none ] FC         temporary
- * @param[none ] CF         temporary
+ * @param        BC         temporary
+ * @param        DC         temporary
+ * @param        FC         temporary
+ * @param        CF         temporary
  * @param[in   ] nnew       index of time step to update
  * @param[in   ] N          number of vertical levels
  * @param[in   ] dt_lev     time step at this refinement level

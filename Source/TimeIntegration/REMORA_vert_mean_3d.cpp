@@ -8,8 +8,8 @@ using namespace amrex;
  * @param[in   ] joff       y-direction offset
  * @param[inout] phi        velocity (u or v)
  * @param[in   ] Dphi_avg1  time average of barotropic velocity
- * @param[none ] DC         temporary
- * @param[none ] CF         temporary
+ * @param        DC         temporary
+ * @param        CF         temporary
  * @param[in   ] pm_or_pn   1/dx or 1/dy
  * @param[in   ] msk        land-sea mask
  * @param[in   ] nnew       index of time step to update

@@ -13,8 +13,8 @@ using namespace amrex;
  * @param[in   ] pm_or_pn       pm or pn
  * @param[in   ] Dphi_avg1      DU_avg1 or DV_avg1
  * @param[in   ] Dphi_avg2      DU_avg2 or DV_avg2
- * @param[none ] DC             temporary
- * @param[none ] FC             temporary
+ * @param        DC             temporary
+ * @param        FC             temporary
  * @param[in   ] msk            land-sea mask
  * @param[in   ] nnew           component of velocity
  */
