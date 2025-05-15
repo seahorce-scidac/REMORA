@@ -22,6 +22,7 @@ const std::string dbl_line = std::string(78, '=') + "\n";
 const std::string dash_line = "\n" + std::string(78, '-') + "\n";
 } // namespace
 
+
 void REMORA::print_usage(MPI_Comm comm, std::ostream& out)
 {
 #ifdef AMREX_USE_MPI

@@ -55,6 +55,11 @@
 #include <AMReX_Lazy.H>
 #endif
 
+#ifndef AMREX_USE_MPI
+using amrex::MPI_COMM_WORLD;
+using amrex::MPI_Comm;
+#endif
+
 namespace InterpType {
     enum {
         PCInterp = 0,
