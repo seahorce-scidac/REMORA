@@ -55,6 +55,11 @@
 #include <AMReX_Lazy.H>
 #endif
 
+#ifndef AMREX_USE_MPI
+using amrex::MPI_COMM_WORLD;
+using amrex::MPI_Comm;
+#endif
+
 namespace InterpType {
     enum {
         PCInterp = 0,
@@ -1366,9 +1371,9 @@ public:
     /** \brief Write build info to os */
     static void writeBuildInfo (std::ostream& os);
 
-    static void print_banner(amrex::MPI_Comm /*comm*/, std::ostream& /*out*/);
-    static void print_usage(amrex::MPI_Comm /*comm*/, std::ostream& /*out*/);
-    static void print_error(amrex::MPI_Comm /*comm*/, const std::string& msg);
+    static void print_banner(MPI_Comm /*comm*/, std::ostream& /*out*/);
+    static void print_usage(MPI_Comm /*comm*/, std::ostream& /*out*/);
+    static void print_error(MPI_Comm /*comm*/, const std::string& msg);
     static void print_summary(std::ostream&);
     static void print_tpls(std::ostream& /*out*/);
 
