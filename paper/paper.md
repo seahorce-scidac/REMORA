@@ -99,7 +99,7 @@ Tracer advection either uses U3 or a center-difference, fourth-order (C4) scheme
 
 We have implemented the nonlinear equation of state based on @jackett.macdougall:97.
 The user is also provided the option of specifying vertical diffusivity and viscosity analytically, or using the Generic Length Scale (GLS) turbulence closure model [@umlauf:03; @warner:05].
-A bulk flux parametrization [@fairall:96; @fairall:03] can optionaly be used to calculate surface momentum stress from winds, as well as surface heat flux and effects of evaporation-precipitation.
+A bulk flux parametrization [@fairall:96; @fairall:03] can optionally be used to calculate surface momentum stress from winds, as well as surface heat flux and effects of evaporation-precipitation.
 Bottom drag can be calculated using linear, quadratic, or log-layer prescriptions.
 We also provide options for specifying land masking and Coriolis forcing.
 
