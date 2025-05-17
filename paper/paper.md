@@ -70,7 +70,7 @@ and as such requires boundary conditions derived analytically, or from larger-sc
 Most widely used ocean modeling codes today do not have the
 ability to use GPU acceleration, which limits their ability to
 efficiently utilize current and next-generation high performance computing
-architectures. Oceananigans (Julia-based) [@oceananigans] and Veros (Python-based) [@veros] have both been developed as flexible,
+architectures. Oceananigans [Julia-based; @oceananigans] and Veros [Python-based; @veros] have both been developed as flexible,
 GPU-enabled models that can be used to simulate regional and global applications.
 REMORA is a C++-based alternative. Its ocean modeling capability is directly based on ROMS (a proven FORTRAN code
 that runs efficiently on CPUs), and is able to run on all of the latest high-performance
