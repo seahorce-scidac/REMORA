@@ -51,7 +51,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     Real timeInterval;
     const std::string dateTimeFormat ="%Y-%m-%d_%H:%M:%S";
 
-    Real ocean_times[31];
+    Vector<Real> ocean_times;
     // Check units of time stamps. Should be days.
     std::string unit_str;
     unit_str = ReadNetCDFVarAttrStr(nc_bdry_file, bdry_time_varname, "units"); // works on proc 0
@@ -69,6 +69,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     if (ParallelDescriptor::IOProcessor())
     {
         ntimes = array_ts[0].get_vshape()[0];
+        ocean_times.resize(ntimes);
 
         // amrex::Print() << " NTIMES " << ntimes << std::endl;
         for (int nt(0); nt < ntimes; nt++)
