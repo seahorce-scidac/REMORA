@@ -23,7 +23,9 @@ Paradigm
 REMORA uses the paradigm that different executables are built in different subdirectories within the ``Exec`` directory.  When
 using gmake (see below), the user/developer should build in the directory of the selected problem.  When using
 cmake (see below), separate executables are built for all of the problem directories listed in ``Exec/CMakeLists.txt``.
-The problem directories within ``Exec`` include a number of problems, which are also used for ::.
+The problem directories within ``Exec`` include a number of problems, which are also used for testing.
+
+.. _netcdf:
 
 NetCDF (Optional)
 ~~~~~~~~~~~~~~~~~
