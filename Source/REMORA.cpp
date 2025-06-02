@@ -164,7 +164,8 @@ REMORA::Evolve ()
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
                        << " DT = " << dt[0]  << std::endl;
 
-        if (plot_int > 0 && (step+1) % plot_int == 0) {
+        if ((plot_int > 0 && (step+1) % plot_int == 0)
+                || (plot_int_time > 0 && cur_time >= (last_plot_time + plot_int_time)) {
             last_plot_file_step = step+1;
             if (plotfile_type == PlotfileType::amrex) {
                 WritePlotFile();
@@ -177,7 +178,8 @@ REMORA::Evolve ()
 #endif
         }
 
-        if (check_int > 0 && (step+1) % check_int == 0) {
+        if ((check_int > 0 && (step+1) % check_int == 0)
+                || (check_int_time > 0 && cur_time >= (last_check_time + check_int_time))) {
             last_check_file_step = step+1;
             WriteCheckpointFile();
         }
@@ -195,7 +197,7 @@ REMORA::Evolve ()
         if (cur_time >= stop_time - 1.e-6*dt[0]) break;
     }
 
-    if (plot_int > 0 && istep[0] > last_plot_file_step) {
+    if ((plot_int > 0 && istep[0] > last_plot_file_step) || (cur_time > )) {
         if (plotfile_type == PlotfileType::amrex) {
             WritePlotFile();
         }
