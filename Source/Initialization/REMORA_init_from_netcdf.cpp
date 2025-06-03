@@ -422,11 +422,18 @@ REMORA::init_bdry_from_netcdf ()
     }
 
     int width = 1;
-    bdy_time_interval = read_bdry_from_netcdf(geom[0].Domain(), nc_bdry_file,
+    for (int ifile = 0; ifile < nc_bdry_file.size(); ifile++) {
+        amrex::Real bdy_time_interval_this = read_bdry_from_netcdf(geom[0].Domain(), nc_bdry_file[ifile],
                                               bdy_data_xlo,bdy_data_xhi,bdy_data_ylo,bdy_data_yhi,
                                               width, start_bdy_time,
                                               bdry_time_varname,
                                               phys_bc_need_data);
+        if (ifile == 0) {
+            bdy_time_interval = bdy_time_interval_this;
+        } else {
+            AMREX_ALWAYS_ASSERT(bdy_time_interval == bdy_time_interval_this);
+        }
+    }
 
     amrex::Print() << "Read in boundary data with width " << width;
 }

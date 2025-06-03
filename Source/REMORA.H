@@ -1237,7 +1237,7 @@ private:
     /** \brief NetCDF grid file */
     static amrex::Vector<amrex::Vector<std::string>> nc_grid_file;
     /** \brief NetCDF boundary data */
-    static std::string nc_bdry_file;
+    static amrex::Vector<std::string> nc_bdry_file;
 
     /** \brief NetCDF forcing file */
     std::string nc_frc_file;

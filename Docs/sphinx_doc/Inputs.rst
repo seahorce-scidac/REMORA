@@ -89,38 +89,43 @@ Currently, if one initial, grid, or boundary files are specified, they all must 
 List of Parameters
 ------------------
 
-+-------------------------------+-----------------------------------+-------------+---------------------------+
-| Parameter                     | Definition                        | Acceptable  | Default                   |
-|                               |                                   | Values      |                           |
-+===============================+===================================+=============+===========================+
-| **remora.ic_bc_type**         | read initial, grid, and           |             |                           |
-|                               | boundary data from NetCDF         | true/false  | false                     |
-|                               | files                             |             |                           |
-+-------------------------------+-----------------------------------+-------------+---------------------------+
-| **remora.nc_init_file_0**     | initial data NetCDF file name     | string      | must be set               |
-|                               |                                   |             | if ``remora.ic_bc_type``  |
-|                               |                                   |             | is true                   |
-+-------------------------------+-----------------------------------+-------------+---------------------------+
-| **remora.nc_grid_file_0**     | grid data NetCDF file name        | string      | must be set               |
-|                               |                                   |             | if ``remora.ic_bc_type``  |
-|                               |                                   |             | is true                   |
-+-------------------------------+-----------------------------------+-------------+---------------------------+
-| **remora.nc_bdry_file_0**     | boundary data NetCDF file         | string      | must be set               |
-|                               | name                              |             | if ``remora.ic_bc_type``  |
-|                               |                                   |             | is true                   |
-+-------------------------------+-----------------------------------+-------------+---------------------------+
-| **remora.nc_frc_file**        | forcing data NetCDF file name     | string      | must be set               |
-|                               |                                   |             | if ``remora.wind_type``   |
-|                               |                                   |             | or ``remora.smflux_type`` |
-|                               |                                   |             | equal ``netcdf``          |
-+-------------------------------+-----------------------------------+-------------+---------------------------+
-| **remora.bdy_time_varname**   | name of time variable in boundary | string      | ``ocean_time``            |
-|                               | file                              |             |                           |
-+-------------------------------+-----------------------------------+-------------+---------------------------+
-| **remora.frc_time_varname**   | name of time variable in forcing  | string      | ``wind_time`` for wind,   |
-|                               | file                              |             | ``sms_time`` for surface  |
-|                               |                                   |             | momentum stress           |
-+-------------------------------+-----------------------------------+-------------+---------------------------+
++-------------------------------+-----------------------------------+-----------------+---------------------------+
+| Parameter                     | Definition                        | Acceptable      | Default                   |
+|                               |                                   | Values          |                           |
++===============================+===================================+=================+===========================+
+| **remora.ic_bc_type**         | read initial, grid, and           |                 |                           |
+|                               | boundary data from NetCDF         | true/false      | false                     |
+|                               | files                             |                 |                           |
++-------------------------------+-----------------------------------+-----------------+---------------------------+
+| **remora.nc_init_file_0**     | initial data NetCDF file name     | string          | must be set               |
+|                               |                                   |                 | if ``remora.ic_bc_type``  |
+|                               |                                   |                 | is true                   |
++-------------------------------+-----------------------------------+-----------------+---------------------------+
+| **remora.nc_grid_file_0**     | grid data NetCDF file name        | string          | must be set               |
+|                               |                                   |                 | if ``remora.ic_bc_type``  |
+|                               |                                   |                 | is true                   |
++-------------------------------+-----------------------------------+-----------------+---------------------------+
+| **remora.nc_bdry_file**       | boundary data NetCDF file         | string;         | must be set               |
+|                               | name(s)                           | list of strings | if ``remora.ic_bc_type``  |
+|                               |                                   |                 | is true                   |
++-------------------------------+-----------------------------------+-----------------+---------------------------+
+| **remora.nc_frc_file**        | forcing data NetCDF file name     | string          | must be set               |
+|                               |                                   |                 | if ``remora.wind_type``   |
+|                               |                                   |                 | or ``remora.smflux_type`` |
+|                               |                                   |                 | equal ``netcdf``          |
++-------------------------------+-----------------------------------+-----------------+---------------------------+
+| **remora.bdy_time_varname**   | name of time variable in boundary | string          | ``ocean_time``            |
+|                               | file                              |                 |                           |
++-------------------------------+-----------------------------------+-----------------+---------------------------+
+| **remora.frc_time_varname**   | name of time variable in forcing  | string          | ``wind_time`` for wind,   |
+|                               | file                              |                 | ``sms_time`` for surface  |
+|                               |                                   |                 | momentum stress           |
++-------------------------------+-----------------------------------+-----------------+---------------------------+
+
+Notes
+-----
+
+``nc_bdry_file`` must either be a string or a space-separated list of strings of boundary data files. They must be in time series order.
 
 Resolution and Tiling
 =====================
