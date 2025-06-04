@@ -57,6 +57,11 @@ List of Parameters
 |                                    | steps) to write                   |                       |            |
 |                                    | plot files                        |                       |            |
 +------------------------------------+-----------------------------------+-----------------------+------------+
+| **remora.plot_int_time**           | how often (in simulation time     | Real                  | -1.0       |
+|                                    | seconds)                          | :math:`> 0`           |            |
+|                                    | to write                          |                       |            |
+|                                    | plot files                        |                       |            |
++------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.plot_vars**               | name of                           | list of names         | None       |
 |                                    | variables to                      | (see table below)     |            |
 |                                    | include in                        |                       |            |
@@ -82,6 +87,9 @@ Notes
    NetCDF files.
 
 -  File prefixes can include directories.
+
+-  If both ``remora.plot_int`` and ``remora.plot_int_time`` have been set, plotfile output will occur
+  ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
 
 Plotfile Field Options
 ----------------------

@@ -1123,9 +1123,13 @@ private:
 
     /** \brief Step when we last output a plotfile */
     int last_plot_file_step;
+    /** \brief Simulation time when we last output a plotfile */
+    amrex::Real last_plot_file_time;
 
     /** \brief Step when we last output a checkpoint file */
     int last_check_file_step;
+    /** \brief Simulation time when we last output a checkpoint file */
+    amrex::Real last_check_file_time;
     /** \brief Whether to output a plotfile on restart from checkpoint */
     int plot_file_on_restart = 1;
 
@@ -1166,12 +1170,16 @@ private:
     // I/O controls
     /** \brief Plotfile prefix */
     std::string plot_file_name {"plt_"};
-    /** \brief Plotfile output interval */
+    /** \brief Plotfile output interval in iterations */
     int plot_int = -1;
+    /** \brief Plotfile output interval in seconds */
+    amrex::Real plot_int_time = amrex::Real(-1.0);
     /** \brief Checkpoint file prefix */
     std::string check_file {"chk"};
-    /** \brief Checkpoint output interval */
+    /** \brief Checkpoint output interval in iterations */
     int check_int = -1;
+    /** \brief Checkpoint output interval in seconds */
+    amrex::Real check_int_time = amrex::Real(-1.0);
 
     /** \brief Whether to chunk netcdf history file */
     bool chunk_history_file = false;

@@ -35,10 +35,18 @@ List of Parameters
 |                                  | write restart                     |                |                |
 |                                  | files                             |                |                |
 +----------------------------------+-----------------------------------+----------------+----------------+
+| **remora.check_int_time**        | how often (in simulation time     | Real           | -1.0           |
+|                                  | in seconds) to                    | :math:`> 0`    |                |
+|                                  | write restart                     |                |                |
+|                                  | files                             |                |                |
++----------------------------------+-----------------------------------+----------------+----------------+
 | **remora.file_min_digits**       | Minimum number of digits          | Integer >= 0   | 5              |
 |                                  | in iteration number appended to   |                |                |
 |                                  | plotfile and checkpoint files     |                |                |
 +----------------------------------+-----------------------------------+----------------+----------------+
+
+Note: If both ``check_int`` and ``check_int_time`` are set, plotfile output will occur ``check_int`` steps or
+``check_int_time`` simulation seconds after the last plotfile, whichever happens first.
 
 Restarting
 ==========
