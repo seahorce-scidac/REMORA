@@ -164,10 +164,12 @@ REMORA::Evolve ()
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
                        << " DT = " << dt[0]  << std::endl;
 
-        if ((plot_int > 0 && (step+1) % plot_int == 0)
-                || (plot_int_time > 0 && cur_time >= (last_plot_time + plot_int_time)) {
+        if ((plot_int > 0 && (step+1 - last_plot_file_step) == plot_int)
+                || (plot_int_time > 0 && cur_time >= (last_plot_file_time + plot_int_time))) {
             last_plot_file_step = step+1;
+            last_plot_file_time = cur_time;
             if (plotfile_type == PlotfileType::amrex) {
+
                 WritePlotFile();
             }
 #ifdef REMORA_USE_NETCDF
@@ -178,9 +180,10 @@ REMORA::Evolve ()
 #endif
         }
 
-        if ((check_int > 0 && (step+1) % check_int == 0)
-                || (check_int_time > 0 && cur_time >= (last_check_time + check_int_time))) {
+        if ((check_int > 0 && (step+1 - last_check_file_step) == check_int)
+                || (check_int_time > 0 && cur_time >= (last_check_file_time + check_int_time))) {
             last_check_file_step = step+1;
+            last_check_file_time = cur_time;
             WriteCheckpointFile();
         }
 
@@ -197,7 +200,7 @@ REMORA::Evolve ()
         if (cur_time >= stop_time - 1.e-6*dt[0]) break;
     }
 
-    if ((plot_int > 0 && istep[0] > last_plot_file_step) || (cur_time > )) {
+    if ((plot_int > 0 || plot_int_time > 0.0) && istep[0] > last_plot_file_step) {
         if (plotfile_type == PlotfileType::amrex) {
             WritePlotFile();
         }
@@ -209,7 +212,7 @@ REMORA::Evolve ()
 #endif
     }
 
-    if (check_int > 0 && istep[0] > last_check_file_step) {
+    if ((check_int > 0 || check_int_time > 0.0) && istep[0] > last_check_file_step) {
         WriteCheckpointFile();
     }
 }
@@ -263,6 +266,8 @@ REMORA::InitData ()
 
     last_plot_file_step = -1;
     last_check_file_step = -1;
+    last_plot_file_time = -1.0_rt;
+    last_check_file_time = -1.0_rt;
 
     if (restart_chkfile == "") {
         // start simulation from the beginning
@@ -320,7 +325,7 @@ REMORA::InitData ()
     // particle containers are setup.
     const std::string& pv1 = "plot_vars"; appendPlotVariables(pv1);
 
-    if (restart_chkfile == "" && check_int > 0)
+    if (restart_chkfile == "" && (check_int > 0 || check_int_time > 0.0_rt))
     {
         WriteCheckpointFile();
         last_check_file_step = 0;
@@ -329,7 +334,7 @@ REMORA::InitData ()
     if ( (restart_chkfile == "") ||
          (restart_chkfile != "" && plot_file_on_restart) )
     {
-        if (plot_int > 0)
+        if (plot_int > 0 || plot_int_time > 0.0)
         {
             if (plotfile_type == PlotfileType::amrex)
                 WritePlotFile();
@@ -838,6 +843,8 @@ REMORA::ReadParameters ()
         pp.query("check_file", check_file);
         pp.query("check_int", check_int);
         pp_amr.query("check_int", check_int);
+        pp.query("check_int_time", check_int_time);
+        pp_amr.query("check_int_time", check_int_time);
 
         pp.query("restart", restart_chkfile);
         pp_amr.query("restart", restart_chkfile);
@@ -910,6 +917,7 @@ REMORA::ReadParameters ()
         // Plotfile name and frequency
         pp.query("plot_file", plot_file_name);
         pp.query("plot_int", plot_int);
+        pp.query("plot_int_time", plot_int_time);
         // Output format
         std::string plotfile_type_str = "amrex";
         pp.query("plotfile_type", plotfile_type_str);
