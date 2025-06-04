@@ -45,7 +45,7 @@ int   REMORA::total_nc_plot_file_step = 1;
 bool  REMORA::write_history_file      = true;
 
 // NetCDF initialization file
-std::string REMORA::nc_bdry_file = ""; // Must provide via input
+amrex::Vector<std::string> REMORA::nc_bdry_file = {""}; // Must provide via input
 amrex::Vector<amrex::Vector<std::string>> REMORA::nc_init_file = {{""}}; // Must provide via input
 amrex::Vector<amrex::Vector<std::string>> REMORA::nc_grid_file = {{""}}; // Must provide via input
 #endif
@@ -987,7 +987,7 @@ REMORA::ReadParameters ()
             }
         }
         // We only read boundary data at level 0
-        pp.query("nc_bdry_file", nc_bdry_file);
+        pp.queryarr("nc_bdry_file", nc_bdry_file);
 
         // Also only read forcings at level 0 (for now)
         pp.query("nc_frc_file", nc_frc_file);
