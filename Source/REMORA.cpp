@@ -704,6 +704,13 @@ REMORA::init_only (int lev, Real time)
         sustr_data_from_file->Initialize();
         svstr_data_from_file->Initialize();
     }
+
+    if (solverChoice.do_rivers == true) {
+        auto dom = geom[0].Domain();
+        int nz = dom.length(2);
+        river_salt = new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz);
+        river_temp = new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz);
+    }
 #endif
 
     if (solverChoice.ic_bc_type == IC_BC_Type::analytic) {
@@ -956,12 +963,16 @@ REMORA::ReadParameters ()
         // Also only read forcings at level 0 (for now)
         pp.query("nc_frc_file", nc_frc_file);
 
+        // Get river file
+        pp.query("nc_riv_file", nc_riv_file);
+
         // Read in file names for climatology history and nudging weights
         pp.query("nc_clim_his_file", nc_clim_his_file);
         pp.query("nc_clim_coeff_file", nc_clim_coeff_file);
 
         pp.query("bdy_time_varname",bdry_time_varname);
         pp.query("frc_time_varname",frc_time_varname);
+        pp.query("riv_time_varname",riv_time_varname);
         pp.query("clim_ubar_time_varname",clim_ubar_time_varname);
         pp.query("clim_vbar_time_varname",clim_vbar_time_varname);
         pp.query("clim_u_time_varname",clim_u_time_varname);

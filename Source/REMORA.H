@@ -43,6 +43,7 @@
 #ifdef REMORA_USE_NETCDF
 #include "REMORA_NCInterface.H"
 #include "REMORA_NCTimeSeries.H"
+#include "REMORA_NCTimeSeriesRiver.H"
 #endif
 
 #ifdef REMORA_USE_MOAB
@@ -72,6 +73,7 @@ class ProblemBase;
 
 #ifdef REMORA_USE_NETCDF
 class NCTimeSeries;
+class NCTimeSeriesRiver;
 #endif
 
 class REMORA
@@ -838,6 +840,7 @@ public:
     void init_coriolis_from_netcdf (int lev);
     void init_clim_nudg_coeff_from_netcdf (int lev);
     void init_clim_nudg_coeff (int lev);
+    void init_riv_pos_from_netcdf (int lev);
 
     void convert_inv_days_to_inv_s (amrex::MultiFab*);
 
@@ -954,6 +957,11 @@ private:
     NCTimeSeries* v_clim_data_from_file;
     NCTimeSeries* temp_clim_data_from_file;
     NCTimeSeries* salt_clim_data_from_file;
+
+    NCTimeSeriesRiver* river_salt;
+    NCTimeSeriesRiver* river_temp;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_river_position;
+    amrex::Vector<int> river_direction;
 #endif
 
 #endif // REMORA_USE_NETCDF
@@ -1144,6 +1152,7 @@ private:
     static amrex::Vector<amrex::Vector<std::string>> nc_grid_file;
 
     std::string nc_frc_file;
+    std::string nc_riv_file;
 
     std::string nc_clim_his_file;
     std::string nc_clim_coeff_file;
@@ -1156,6 +1165,8 @@ private:
     std::string clim_v_time_varname = "ocean_time";
     std::string clim_salt_time_varname = "ocean_time";
     std::string clim_temp_time_varname = "ocean_time";
+
+    std::string riv_time_varname = "river_time";
 
     std::string frc_time_varname = "";
 

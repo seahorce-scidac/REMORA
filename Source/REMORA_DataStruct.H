@@ -121,6 +121,9 @@ struct SolverChoice {
         //This accounts for the main 2d loop but may not include coupling and copying properly
         pp.query("use_barotropic", use_barotropic);
 
+        // Whether to do rivers
+        pp.query("do_rivers", do_rivers);
+
         pp.query("init_l1ad_h", init_l1ad_h);
         pp.query("init_l1ad_T", init_l1ad_T);
 
@@ -501,6 +504,8 @@ struct SolverChoice {
     bool        bulk_fluxes           = false;
     bool        do_temp_flux        = false;
     bool        do_salt_flux        = false;
+
+    bool        do_rivers             = false;
 
     bool init_l1ad_h = false;
     bool init_l1ad_T = false;
