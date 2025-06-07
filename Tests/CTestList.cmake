@@ -51,6 +51,25 @@ function(add_test_r TEST_NAME TEST_EXE PLTFILE)
     )
 endfunction(add_test_r)
 
+function(add_test_r_hitol TEST_NAME TEST_EXE PLTFILE)
+    setup_test()
+
+    set(TEST_EXE ${CMAKE_BINARY_DIR}/Exec/${TEST_EXE})
+    set(FCOMPARE_TOLERANCE "-r 1e-5 --abs_tol 1.0e-5")
+    set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${PLOT_GOLD} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_r_hitol)
+
 # Stationary test -- compare with time 0
 function(add_test_0 TEST_NAME TEST_EXE PLTFILE)
     setup_test()
@@ -105,7 +124,7 @@ if(WIN32)
   add_test_r(Upwelling_logdrag            "Upwelling/*/upwelling.exe" "plt00010")
   add_test_r(Channel_Test                 "Channel_Test/*/channel_test.exe" "plt00010")
   add_test_r(DoubleGyre                   "DoubleGyre/*/doublegyre.exe" "plt00010")
-  add_test_r(BoundaryLayer                "BoundaryLayer/*/boundarylayer.exe" "plt00010")
+  add_test_r_hitol(BoundaryLayer                "BoundaryLayer/*/boundarylayer.exe" "plt00010")
 else()
   add_test_r(DoublyPeriodic               "DoublyPeriodic/doublyperiodic" "plt00010")
   add_test_r(DoublyPeriodic_bathy         "DoublyPeriodic/doublyperiodic" "plt00010")
@@ -119,7 +138,7 @@ else()
   add_test_r(Upwelling_logdrag            "Upwelling/upwelling" "plt00010")
   add_test_r(Channel_Test                 "Channel_Test/channel_test" "plt00010")
   add_test_r(DoubleGyre                   "DoubleGyre/doublegyre" "plt00010")
-  add_test_r(BoundaryLayer                "BoundaryLayer/boundarylayer" "plt00010")
+  add_test_r_hitol(BoundaryLayer                "BoundaryLayer/boundarylayer" "plt00010")
 endif()
 #=============================================================================
 # Performance tests

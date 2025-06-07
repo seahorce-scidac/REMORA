@@ -7,7 +7,12 @@
 
 using namespace amrex;
 
-/*! Evolve particles for one time step */
+/**
+ * @param a_lev         level at which to evolve particles
+ * @param a_dt_lev      time step
+ * @param a_flow_vel    flow velocities
+ * @param a_z_phys_nd   z nodal positions of grid
+ */
 void REMORAPC::EvolveParticles ( int                                        a_lev,
                                  Real                                       a_dt_lev,
                                  Vector<MultiFab const*>&                   a_flow_vel,
@@ -23,7 +28,12 @@ void REMORAPC::EvolveParticles ( int                                        a_le
     return;
 }
 
-/*! Uses midpoint method to advance particles using flow velocity. */
+/**
+ * @param a_lev         level at which to evolve particles
+ * @param a_dt          time step
+ * @param a_umac        flow velocities
+ * @param a_z_height    z nodal positions of grid
+ */
 void REMORAPC::AdvectWithFlow ( int                                 a_lev,
                                 Real                                a_dt,
                                 Vector<MultiFab const*>&            a_umac,

@@ -18,6 +18,9 @@
 
 using namespace amrex;
 
+/**
+ * @param which_step   current step for output
+ */
 void REMORA::WriteNCPlotFile(int which_step) {
     AMREX_ASSERT(max_level == 0);
     // For right now we assume single level -- we will generalize this later to multilevel
@@ -96,6 +99,13 @@ void REMORA::WriteNCPlotFile(int which_step) {
     }
 }
 
+/**
+ * @param lev               level of data to output
+ * @param which_subdomain   index of subdomain if lev != 0
+ * @param write_header      whether to write a header
+ * @param ncf               netcdf file object
+ * @param is_history        whether the file being written is a history file
+ */
 void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_header, ncutils::NCFile &ncf, bool is_history) {
     // Number of cells in this "domain" at this level
     std::vector<int> n_cells;
@@ -131,8 +141,6 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
     n_cells.push_back(nx);
     n_cells.push_back(ny);
     n_cells.push_back(nz);
-
-    int num_pts = nx * ny * nz;
 
     const std::string nt_name = "ocean_time";
     const std::string ndim_name = "num_geo_dimensions";
@@ -407,11 +415,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         ncf.var("svstr").put_attr("coordinates","x_v y_v ocean_time");
         ncf.var("svstr").put_attr("field","surface v-momentum stress, scalar, series");
 
-        Real time = 0.;
-
         // Right now this is hard-wired to {temp, salt, tracer, u, v}
-        int n_data_items = 5;
-//        ncf.put_attr("number_variables", std::vector<int> { n_data_items });
         ncf.put_attr("space_dimension", std::vector<int> { AMREX_SPACEDIM });
 //        ncf.put_attr("current_time", std::vector<double> { time });
         ncf.put_attr("start_time", std::vector<double> { start_bdy_time });
@@ -943,12 +947,10 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             //
             long long local_nx = tmp_bx.length()[0];
             long long local_ny = tmp_bx.length()[1];
-            long long local_nz = tmp_bx.length()[2];
 
             // We do the "+1" because the offset needs to start at 0
             long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0]);
             long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1]);
-            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2]);
 
             if (write_header) {
             {

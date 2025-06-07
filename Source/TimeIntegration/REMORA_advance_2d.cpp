@@ -1,40 +1,43 @@
 #include <REMORA.H>
 
 using namespace amrex;
-//
-// Start 2d step
-//
-/**
- * Function that coordinates the evolution across levels -- this calls Advance to do the
- * actual advance at this level,  then recursively calls itself at finer levels
+/** Nonlinear shallow-water rpimitive equations predictor (Leap-frog) and
+ * corrector (Adams-Moulton) time-stepping engine. Corresponds to Nonlinear/step2d_LF_AM3.h
+ * in ROMS.
  *
- * @param[in] lev level of refinement (coarsest level is 0)
- * @param[in] mf_rhoS
- * @param[in] mf_rhoA
- * @param[in] mf_ru
- * @param[in] mf_rv
- * @param[inout] mf_rufrc
- * @param[inout] mf_rvfrc
- * @param[inout] mf_Zt_avg1
- * @param[inout] mf_DU_avg1
- * @param[inout] mf_DU_avg2
- * @param[inout] mf_DV_avg1
- * @param[inout] mf_DV_avg2
- * @param[inout] mf_rubar
- * @param[inout] mf_rvbar
- * @param[inout] mf_zeta
- * @param[in   ] mf_h
- * @param[inout] mf_visc2_p
- * @param[inout] mf_visc2_f
- * @param[in   ] mf_mskr
- * @param[in   ] mf_msku
- * @param[in   ] mf_mskv
- * @param[in   ] mf_mskp
- * @param[in   ] dtfast_lev
- * @param[in   ] predictor_2d_step
- * @param[in   ] first_2d_step
- * @param[in   ] my_iif
- * @param[in   ] next_indx1
+ * @param[in   ] lev        level of refinement (coarsest level is 0)
+ * @param[in   ] mf_rhoS    density perturbation
+ * @param[in   ] mf_rhoA    vertically-averaged density
+ * @param[inout] mf_ru2d    RHS contributions to 2D u-momentum
+ * @param[inout] mf_rv2d    RHS contribtuions to 2D v-momentum
+ * @param[inout] mf_rufrc   before first predictor, vertical integral of 3D RHS for uvel, converted to forcing terms
+ * @param[inout] mf_rvfrc   before first predictor, vertical integral of 3D RHS for vvel, converted to forcing term
+ * @param[inout] mf_Zt_avg1 average of sea surface height over all fast steps
+ * @param[inout] mf_DU_avg1 time-averaged u-flux for 2D equations
+ * @param[inout] mf_DU_avg2 time-averaged u-flux for 3D equation coupling
+ * @param[inout] mf_DV_avg1 time-averaged v-flux for 2D equations
+ * @param[inout] mf_DV_avg2 time-averaged v-flux for 3D equation coupling
+ * @param[inout] mf_rubar   RHS of vertically integrated u-momentum
+ * @param[inout] mf_rvbar   RHS of vertically integrated v-momentum
+ * @param[inout] mf_rzeta   RHS of sea surface height
+ * @param[inout] mf_ubar    vertically integrated u-momentum
+ * @param[inout] mf_vbar    vertically integrated v-momentum
+ * @param[inout] mf_zeta    Sea-surface height
+ * @param[in   ] mf_h       Bathymetry
+ * @param[in   ] mf_pm      1 / dx
+ * @param[in   ] mf_pn      1 / dy
+ * @param[in   ] mf_fcor    Coriolis factor
+ * @param[inout] mf_visc2_p Harmonic viscosity at psi points
+ * @param[inout] mf_visc2_r Harmoic viscosity at rho points
+ * @param[in   ] mf_mskr    Land-sea mask at rho-points
+ * @param[in   ] mf_msku    Land-sea mask at u-points
+ * @param[in   ] mf_mskv    Land-sea mask at v-points
+ * @param[in   ] mf_mskp    Land-sea mask at psi-points
+ * @param[in   ] dtfast_lev Length of current barotropic step
+ * @param[in   ] predictor_2d_step Is this a predictor step?
+ * @param[in   ] first_2d_step Is this the first barotropic step?
+ * @param[in   ] my_iif     Which barotropic predictor-corrector pair?
+ * @param[inout] next_indx1 Cached index for
  */
 
 void

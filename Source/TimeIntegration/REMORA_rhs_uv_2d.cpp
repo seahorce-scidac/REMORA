@@ -3,19 +3,16 @@
 using namespace amrex;
 
 /**
- * rhs_uv_2d
- *
- * @param[in   ] xbx Box for operations on x-velocity
- * @param[in   ] ybx Box for operations on y-velocity
- * @param[in   ] ubar
- * @param[in   ] vbar
- * @param[  out] rhs_ubar
- * @param[  out] rhs_vbar
- * @param[in   ] DUon
- * @param[in   ] DVom
- * @param[in   ] krhs
+ * @param[in   ] xbx        Box for operations on x-velocity
+ * @param[in   ] ybx        Box for operations on y-velocity
+ * @param[in   ] ubar       barotropic x-velocity
+ * @param[in   ] vbar       barotropic y-velocity
+ * @param[inout] rhs_ubar   RHS for barotropic x-velocity
+ * @param[inout] rhs_vbar   RHS for barotropic y-velocity
+ * @param[in   ] DUon       u-volume flux (barotropic)
+ * @param[in   ] DVom       v-volume flux (barotropic)
+ * @param[in   ] krhs       index of rhs component
  */
-
 void
 REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
                   const Array4<Real const>& ubar,
@@ -39,8 +36,6 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
     Vector<BCRec> bcrs_y(ncomp);
     amrex::setBC(xbx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
     amrex::setBC(ybx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
-    auto bcr_x = bcrs_x[0];
-    auto bcr_y = bcrs_y[0];
 
     //
     // Scratch space
@@ -55,7 +50,6 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
     auto VFx=fab_VFx.array();
     auto VFe=fab_VFe.array();
 
-    auto ic_bc_type = solverChoice.ic_bc_type;
     auto uv_hadv_scheme = solverChoice.uv_Hadv_scheme;
 
     if (uv_hadv_scheme == AdvectionScheme::upstream3) {

@@ -3,6 +3,8 @@ REMORA
 
 REMORA (Regional Model of the Ocean Refined Adaptively) is a new GPU-enabled code designed to replicate the functionality of the ROMS code but with the ability to exploit GPU architectures.
 
+Like ROMS, REMORA solves the incompressible time-dependent Navier-Stokes equation with the Boussinesq and hydrostatic approximations. These equations are solved on a curvilinear grid with a stretched, terrain-following vertical coordinate. We use a split-explicit time-stepping shceme, where several fast barotropic (2D) steps take place within each baroclinic (3D) update. There are a number of user-specified options, including advection schemes, boundary conditions, mixing parametrizations, and surface flux parametrizations.
+
 `REMORA` is built upon the `AMReX <https://amrex-codes.github.io/amrex/>`_ software framework
 for massively parallel block-structured applications. The AMReX software framework provides performance portability across multiple architectures.
 

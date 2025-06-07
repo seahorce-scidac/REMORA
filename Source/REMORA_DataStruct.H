@@ -11,68 +11,79 @@
 #include <REMORA_Constants.H>
 #include "REMORA_IndexDefines.H"
 
+/** \brief Type of coupling between levels in AMR */
 enum struct CouplingType {
     one_way, two_way
 };
 
+/** \brief Coordinates */
 enum class Coord {
     x, y, z
 };
 
-enum class AdvectionDir {
-    x, y, z
-};
-
+/** \brief Horizontal advection schemes */
 enum class AdvectionScheme {
     centered2, centered4, upstream3
 };
 
+/** \brief Type of initial/boundary condition type. Analytic reads from prob.cpp. Netcdf is from file */
 enum class IC_BC_Type {
     analytic, netcdf
 };
 
+/** \brief Coriolis factor */
 enum class Cor_Type {
     analytic, beta_plane, netcdf
 };
 
+/** \brief plotfile format */
 enum class PlotfileType {
     amrex, netcdf, hdf5
 };
 
+/** \brief vertical mixing type */
 enum class VertMixingType {
     analytic, GLS
 };
 
+/** \brief horizontal viscosity/diffusion type */
 enum class HorizMixingType {
     analytic, constant
 };
 
+/** \brief stability function for GLS */
 enum class GLS_StabilityType {
     Canuto_A, Canuto_B, Galperin
 };
 
+/** \brief equation of state */
 enum class EOSType {
     linear, nonlinear
 };
 
+/** \brief bottom stress formulation */
 enum class BottomStressType {
     linear, quadratic, logarithmic
 };
 
+/** \brief initialization for pm and pn */
 enum class GridScaleType {
     constant, analytic
 };
 
+/** \brief surface momentum flux */
 enum class SMFluxType {
     analytic, netcdf
 };
 
+/** \brief surface wind */
 enum class WindType {
     analytic, netcdf
 };
 
 struct SolverChoice {
   public:
+    /** \brief read in and initialize parameters */
     void init_params()
     {
         amrex::ParmParse pp(pp_prefix);

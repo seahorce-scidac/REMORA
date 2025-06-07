@@ -23,29 +23,29 @@ enum class NC_Data_Dims_Type {
     BT_Riv,
 };
 
-//
-// NDArray is the datatype designed to hold any data, including scalars, multidimensional
-// arrays, that read from the NetCDF file.
-//
-// The data read from NetCDF file are stored in a continuous memory, and the data layout is described
-// by using a vector (shape). AMRex Box can be constructed using the data shape information, and MultiFab
-// data array can be setup using the data that stored in the NDArray.
-//
+/**
+ * \brief NDArray is the datatype designed to hold any data, including scalars, multidimensional
+ * arrays, that read from the NetCDF file.
+ *
+ * The data read from NetCDF file are stored in a continuous memory, and the data layout is described
+ * by using a vector (shape). AMRex Box can be constructed using the data shape information, and MultiFab
+ * data array can be setup using the data that stored in the NDArray.
+ */
 template <typename DataType>
 struct NDArray
 {
    using DType = typename std::remove_const<DataType>::type;
 
-   // constructor
+   /** \brief constructor */
    explicit NDArray (const std::string vname, const std::vector<MPI_Offset>& vshape)
                     : name{vname}, shape{vshape}, ref_counted{1}, owned{true} {
       data = new DType [this->ndim()];
    }
 
-   // default constructor
+   /** \brief default constructor */
    NDArray () : name{"null"}, ref_counted{1}, owned{false}, data{nullptr} {}
 
-   // copy constructor
+   /** \brief copy constructor */
    NDArray (const NDArray& array) {
      name  = array.name;
      shape = array.shape;
@@ -54,7 +54,7 @@ struct NDArray
      ref_counted.fetch_add(1, std::memory_order_relaxed);
    }
 
-   // copy assignment
+   /** \brief copy assignment */
    NDArray& operator=(const NDArray& array) {
       name  = array.name;
       shape = array.shape;
@@ -64,29 +64,29 @@ struct NDArray
       return *this;
     }
 
-   // destructor
+   /** \brief destructor */
    ~NDArray () {
      ref_counted.fetch_sub(1, std::memory_order_acq_rel);
      if (ref_counted == 1 && owned) delete[] data;
    }
 
-   // get the data pointer
+   /** \brief get the data pointer */
    decltype(auto) get_data () {
      ref_counted.fetch_add(1, std::memory_order_relaxed);
      return data;
    }
 
-   // get the variable name
+   /** \brief get the variable name */
    std::string get_vname () {
      return name;
    }
 
-   // get the variable data shape
+   /** \brief get the variable data shape */
    std::vector<MPI_Offset> get_vshape () {
      return shape;
    }
 
-   // return the total number of data
+   /** \brief return the total number of data */
    size_t ndim () {
      size_t num = 1;
      int isize = static_cast<int>(shape.size());
@@ -94,7 +94,7 @@ struct NDArray
      return num;
    }
 
-   // set the data shape information
+   /** \brief set the data shape information */
    void set_vshape (std::vector<MPI_Offset> vshape) {
      shape = vshape;
     }
@@ -107,6 +107,14 @@ struct NDArray
    DType* data;
 };
 
+/** \brief Read in data from netcdf file and save to data arrays
+ *
+ * @param[in   ] fname       file name to read from
+ * @param[in   ] names       field names to read
+ * @param[inout] arrays      vector of data arrays to fill
+ * @param[in   ] one_time    whether to read in a single time step of data
+ * @param[in   ] fill_time   if reading a single time, what time step to read from the file?
+ */
 template<typename DType>
 void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
                      amrex::Vector<NDArray<DType> >& arrays, bool one_time=false, int fill_time=0)
@@ -128,7 +136,6 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
         int bottom_top_stag    = static_cast<int>(ncf.dim("bottom_top_stag").len());
         int west_east_stag     = static_cast<int>(ncf.dim("west_east_stag").len());
         int south_north_stag   = static_cast<int>(ncf.dim("south_north_stag").len());
-        int bdy_width          = static_cast<int>(ncf.dim("bdy_width").len());
         */
 
 //        amrex::Print() << "Reading the dimensions from the netcdf file " << "\n";
@@ -167,19 +174,14 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
 }
 
 /**
- * Helper function for reading a single variable attribute
- *
- * @param fname Name of NetCDF file
- * @param var_name Name of variable
- * @param attr_name Name of attribute to read
- * @returns attribute value
+ * \brief Helper function for reading a single variable attribute
  */
 std::string ReadNetCDFVarAttrStr (const std::string& fname,
                                   const std::string& var_name,
                                   const std::string& attr_name);
 
 /**
- * Helper function for reading data from NetCDF file into a
+ * \brief Helper function for reading data from NetCDF file into a
  * provided FAB.
  *
  * @param iv Index for which variable we are going to fill
@@ -296,12 +298,14 @@ fill_fab_from_arrays (int iv,
 }
 
 /**
- * Function to read NetCDF variables and fill the corresponding Array4's
+ * \brief Function to read NetCDF variables and fill the corresponding Array4's
  *
  * @param fname Name of the NetCDF file to be read
  * @param nc_var_names Variable names in the NetCDF file
  * @param NC_dim_types NetCDF data dimension types
  * @param fab_vars Fab data we are to fill
+ * @param one_time Whether to read in a single time step from file
+ * @param fill_time What time step to read from file, if only reading one step
  */
 template<class FAB,typename DType>
 void

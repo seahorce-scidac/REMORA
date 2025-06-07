@@ -16,31 +16,18 @@ namespace REMORABdyTypes {
     };
 }
 
-AMREX_FORCE_INLINE
-std::time_t
-getEpochTime (const std::string& dateTime, const std::string& dateTimeFormat)
-{
-    // Create a stream which we will use to parse the string,
-    // which we provide to constructor of stream to fill the buffer.
-    std::istringstream ss{ dateTime };
-
-    // Create a tm object to store the parsed date and time.
-    std::tm tmTime;
-    memset(&tmTime, 0, sizeof(tmTime));
-
-    // Now we read from buffer using get_time manipulator
-    // and formatting the input appropriately.
-    strptime(dateTime.c_str(), dateTimeFormat.c_str(), &tmTime);
-
-    // Convert the tm structure to time_t value and return.
-    // Here we use timegm since the output should be relative to UTC.
-    auto epoch = timegm(&tmTime);
-    // Print() << "Time Stamp: "<< std::put_time(&tmTime, "%c")
-    //         << " , Epoch: " << epoch << std::endl;
-
-    return epoch;
-}
-
+/**
+ * @param domain              computational domain
+ * @param nc_bdry_file        name of file with boundary data
+ * @param bdy_data_xlo        container for xlo boundary data
+ * @param bdy_data_xhi        container for xhi boundary data
+ * @param bdy_data_ylo        container for ylo boundary data
+ * @param bdy_data_yhi        container for yhi boundary data
+ * @param width               number of cells to read in boundary region
+ * @param start_bdy_time      time when boundary data starts
+ * @param bdry_time_varname   name of time variable
+ * @param phys_bc_need_data   whether physical boundary condition data is needed for a given side and variable
+ */
 Real
 read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                        Vector<Vector<FArrayBox>>& bdy_data_xlo,
@@ -48,7 +35,8 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                        Vector<Vector<FArrayBox>>& bdy_data_ylo,
                        Vector<Vector<FArrayBox>>& bdy_data_yhi,
                        int& width, Real& start_bdy_time,
-                       std::string bdry_time_varname)
+                       std::string bdry_time_varname,
+                       amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1>& phys_bc_need_data)
 {
     amrex::Print() << "Loading boundary data from NetCDF file " << nc_bdry_file << std::endl;
 
@@ -63,7 +51,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     Real timeInterval;
     const std::string dateTimeFormat ="%Y-%m-%d_%H:%M:%S";
 
-    Real ocean_times[31];
+    Vector<Real> ocean_times;
     // Check units of time stamps. Should be days.
     std::string unit_str;
     unit_str = ReadNetCDFVarAttrStr(nc_bdry_file, bdry_time_varname, "units"); // works on proc 0
@@ -81,6 +69,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     if (ParallelDescriptor::IOProcessor())
     {
         ntimes = array_ts[0].get_vshape()[0];
+        ocean_times.resize(ntimes);
 
         // amrex::Print() << " NTIMES " << ntimes << std::endl;
         for (int nt(0); nt < ntimes; nt++)
@@ -95,7 +84,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
         for (int nt(1); nt < ntimes; nt++)
         {
-            AMREX_ALWAYS_ASSERT(ocean_times[nt] - ocean_times[nt-1] == timeInterval);
+            AMREX_ALWAYS_ASSERT(std::abs(ocean_times[nt] - ocean_times[nt-1] - timeInterval) / timeInterval <= 1e-8_rt);
         }
     }
 
@@ -104,13 +93,13 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     ParallelDescriptor::Bcast(&timeInterval,1,ioproc);
 
     // Even though we may not read in all the variables, we need to make the arrays big enough for them (for now)
-    int nvars = BdyVars::NumTypes*4; // 4 = xlo, xhi, ylo, yhi
 
+    int nt_prior = bdy_data_xlo.size();
     // Our outermost loop is time
-    bdy_data_xlo.resize(ntimes);
-    bdy_data_xhi.resize(ntimes);
-    bdy_data_ylo.resize(ntimes);
-    bdy_data_yhi.resize(ntimes);
+    bdy_data_xlo.resize(ntimes + nt_prior);
+    bdy_data_xhi.resize(ntimes + nt_prior);
+    bdy_data_ylo.resize(ntimes + nt_prior);
+    bdy_data_yhi.resize(ntimes + nt_prior);
 
     amrex::IntVect plo(lo);
     amrex::IntVect phi(hi);
@@ -121,15 +110,29 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     // BdyVars:  U, V, R, T, QV, MU, PC
     // ******************************************************************
     Vector<std::string> nc_var_names;
+    Vector<std::string> nc_var_names_full; // All possible NC variable names for boundary, both used and unused
     Vector<std::string> nc_var_prefix = {"u","v","temp","salt","ubar","vbar","zeta"};
 
     for (int ip = 0; ip < nc_var_prefix.size(); ++ip)
     {
-       nc_var_names.push_back(nc_var_prefix[ip] + "_west");
-       nc_var_names.push_back(nc_var_prefix[ip] + "_east");
-       nc_var_names.push_back(nc_var_prefix[ip] + "_south");
-       nc_var_names.push_back(nc_var_prefix[ip] + "_north");
+        if (phys_bc_need_data[ip][Orientation(Direction::x,Orientation::low)] == true) {
+            nc_var_names.push_back(nc_var_prefix[ip] + "_west");
+        }
+        if (phys_bc_need_data[ip][Orientation(Direction::x,Orientation::high)] == true) {
+            nc_var_names.push_back(nc_var_prefix[ip] + "_east");
+        }
+        if (phys_bc_need_data[ip][Orientation(Direction::y,Orientation::low)] == true) {
+            nc_var_names.push_back(nc_var_prefix[ip] + "_south");
+        }
+        if (phys_bc_need_data[ip][Orientation(Direction::y,Orientation::high)] == true) {
+            nc_var_names.push_back(nc_var_prefix[ip] + "_north");
+        }
+        nc_var_names_full.push_back(nc_var_prefix[ip] + "_west");
+        nc_var_names_full.push_back(nc_var_prefix[ip] + "_east");
+        nc_var_names_full.push_back(nc_var_prefix[ip] + "_south");
+        nc_var_names_full.push_back(nc_var_prefix[ip] + "_north");
     }
+    int nvars_full = nc_var_names_full.size();
 
     using RARRAY = NDArray<Real>;
     amrex::Vector<RARRAY> arrays(nc_var_names.size());
@@ -152,15 +155,16 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     }
     ParallelDescriptor::Bcast(&width,1,ioproc);
 
+    int iv_read = 0; // counter to loop through the variables that have been read, which have different indexing than the theroetical full variable list
     // This loops over every variable on every face, so nvars should be 4 * number of "ivartype" below
-    for (int iv = 0; iv < nvars; iv++)
+    for (int iv = 0; iv < nvars_full; iv++)
     {
         // amrex::Print() << "Building FAB for the NetCDF variable : " << nc_var_names[iv] << std::endl;
 
         int bdyVarType;
 
-        std::string first1 = nc_var_names[iv].substr(0,1);
-        std::string first4 = nc_var_names[iv].substr(0,4);
+        std::string first1 = nc_var_names_full[iv].substr(0,1);
+        std::string first4 = nc_var_names_full[iv].substr(0,4);
 
         if        (first4 == "salt") {
             bdyVarType = BdyVars::s;
@@ -181,8 +185,8 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
             amrex::Abort("dont know this variable");
         }
 
-        std::string  last4 = nc_var_names[iv].substr(nc_var_names[iv].size()-4, 4);
-        std::string  last5 = nc_var_names[iv].substr(nc_var_names[iv].size()-5, 5);
+        std::string  last4 = nc_var_names_full[iv].substr(nc_var_names_full[iv].size()-4, 4);
+        std::string  last5 = nc_var_names_full[iv].substr(nc_var_names_full[iv].size()-5, 5);
         int bdyType;
 
         if        (last4 == "west") {
@@ -204,6 +208,8 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
         Arena_Used = The_Pinned_Arena();
 #endif
 
+        // Push back boxes for all variables, even if they will not be used. This ensures that
+        // fill_from_bdyfiles can figure out where to look for the data
         if (bdyType == REMORABdyTypes::x_lo) {
 
                 // *******************************************************************************
@@ -220,38 +226,38 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
                 if        (bdyVarType == BdyVars::u) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_u, 1, Arena_Used)); // u
+                        bdy_data_xlo[nt + nt_prior].push_back(FArrayBox(bx_for_u, 1, Arena_Used)); // u
                     }
                 } else if (bdyVarType == BdyVars::v) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_v , 1, Arena_Used)); // v
+                        bdy_data_xlo[nt + nt_prior].push_back(FArrayBox(bx_for_v , 1, Arena_Used)); // v
                     }
                 } else if (bdyVarType == BdyVars::t) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
+                        bdy_data_xlo[nt + nt_prior].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
                     }
                 } else if (bdyVarType == BdyVars::s) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
+                        bdy_data_xlo[nt + nt_prior].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
                     }
                 } else if (bdyVarType == BdyVars::ubar) {
                     Box xlo_ubar(makeSlab(bx_for_u,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(xlo_ubar, 1, Arena_Used)); // ubar
+                        bdy_data_xlo[nt + nt_prior].push_back(FArrayBox(xlo_ubar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::vbar) {
                     Box xlo_vbar(makeSlab(bx_for_v,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(xlo_vbar, 1, Arena_Used)); // ubar
+                        bdy_data_xlo[nt + nt_prior].push_back(FArrayBox(xlo_vbar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::zeta) {
                     Box xlo_zeta(makeSlab(bx_for_t,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xlo[nt].push_back(FArrayBox(xlo_zeta, 1, Arena_Used)); // ubar
+                        bdy_data_xlo[nt + nt_prior].push_back(FArrayBox(xlo_zeta, 1, Arena_Used)); // ubar
                     }
                 }
 
-            } else if (bdyType == REMORABdyTypes::x_hi) {
+        } else if (bdyType == REMORABdyTypes::x_hi) {
 
                 // *******************************************************************************
                 // xhi bdy
@@ -268,34 +274,34 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
                 if        (bdyVarType == BdyVars::u) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_u, 1, Arena_Used)); // u
+                        bdy_data_xhi[nt + nt_prior].push_back(FArrayBox(bx_for_u, 1, Arena_Used)); // u
                     }
                 } else if (bdyVarType == BdyVars::v) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_v , 1, Arena_Used)); // v
+                        bdy_data_xhi[nt + nt_prior].push_back(FArrayBox(bx_for_v , 1, Arena_Used)); // v
                     }
                 } else if (bdyVarType == BdyVars::t) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
+                        bdy_data_xhi[nt + nt_prior].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
                     }
                 } else if (bdyVarType == BdyVars::s) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
+                        bdy_data_xhi[nt + nt_prior].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
                     }
                 } else if (bdyVarType == BdyVars::ubar) {
                     Box xhi_ubar(makeSlab(bx_for_u,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(xhi_ubar, 1, Arena_Used)); // ubar
+                        bdy_data_xhi[nt + nt_prior].push_back(FArrayBox(xhi_ubar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::vbar) {
                     Box xhi_vbar(makeSlab(bx_for_v,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(xhi_vbar, 1, Arena_Used)); // ubar
+                        bdy_data_xhi[nt + nt_prior].push_back(FArrayBox(xhi_vbar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::zeta) {
                     Box xhi_zeta(makeSlab(bx_for_t,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_xhi[nt].push_back(FArrayBox(xhi_zeta, 1, Arena_Used)); // ubar
+                        bdy_data_xhi[nt + nt_prior].push_back(FArrayBox(xhi_zeta, 1, Arena_Used)); // ubar
                     }
                 }
 
@@ -316,34 +322,34 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
                 if        (bdyVarType == BdyVars::u) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_u , 1, Arena_Used)); // u
+                        bdy_data_ylo[nt + nt_prior].push_back(FArrayBox(bx_for_u , 1, Arena_Used)); // u
                     }
                 } else if (bdyVarType == BdyVars::v) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_v, 1, Arena_Used)); // v
+                        bdy_data_ylo[nt + nt_prior].push_back(FArrayBox(bx_for_v, 1, Arena_Used)); // v
                     }
                 } else if (bdyVarType == BdyVars::t) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
+                        bdy_data_ylo[nt + nt_prior].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
                     }
                 } else if (bdyVarType == BdyVars::s) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
+                        bdy_data_ylo[nt + nt_prior].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
                     }
                 } else if (bdyVarType == BdyVars::ubar) {
                     Box ylo_ubar(makeSlab(bx_for_u,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(ylo_ubar, 1, Arena_Used)); // ubar
+                        bdy_data_ylo[nt + nt_prior].push_back(FArrayBox(ylo_ubar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::vbar) {
                     Box ylo_vbar(makeSlab(bx_for_v,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(ylo_vbar, 1, Arena_Used)); // ubar
+                        bdy_data_ylo[nt + nt_prior].push_back(FArrayBox(ylo_vbar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::zeta) {
                     Box ylo_zeta(makeSlab(bx_for_t,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_ylo[nt].push_back(FArrayBox(ylo_zeta, 1, Arena_Used)); // ubar
+                        bdy_data_ylo[nt + nt_prior].push_back(FArrayBox(ylo_zeta, 1, Arena_Used)); // ubar
                     }
                 }
 
@@ -364,131 +370,134 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
 
                 if        (bdyVarType == BdyVars::u) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_u , 1, Arena_Used)); // u
+                        bdy_data_yhi[nt + nt_prior].push_back(FArrayBox(bx_for_u , 1, Arena_Used)); // u
                     }
                 } else if (bdyVarType == BdyVars::v) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_v, 1, Arena_Used)); // v
+                        bdy_data_yhi[nt + nt_prior].push_back(FArrayBox(bx_for_v, 1, Arena_Used)); // v
                     }
                 } else if (bdyVarType == BdyVars::t) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
+                        bdy_data_yhi[nt + nt_prior].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // temp
                     }
                 } else if (bdyVarType == BdyVars::s) {
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
+                        bdy_data_yhi[nt + nt_prior].push_back(FArrayBox(bx_for_t, 1, Arena_Used)); // salt
                     }
                 } else if (bdyVarType == BdyVars::ubar) {
                     Box yhi_ubar(makeSlab(bx_for_u,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(yhi_ubar, 1, Arena_Used)); // ubar
+                        bdy_data_yhi[nt + nt_prior].push_back(FArrayBox(yhi_ubar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::vbar) {
                     Box yhi_vbar(makeSlab(bx_for_v,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(yhi_vbar, 1, Arena_Used)); // ubar
+                        bdy_data_yhi[nt + nt_prior].push_back(FArrayBox(yhi_vbar, 1, Arena_Used)); // ubar
                     }
                 } else if (bdyVarType == BdyVars::zeta) {
                     Box yhi_zeta(makeSlab(bx_for_t,2,0));
                     for (int nt(0); nt < ntimes; ++nt) {
-                        bdy_data_yhi[nt].push_back(FArrayBox(yhi_zeta, 1, Arena_Used)); // ubar
+                        bdy_data_yhi[nt + nt_prior].push_back(FArrayBox(yhi_zeta, 1, Arena_Used)); // ubar
                     }
                 }
         }
 
-        long n_plane;
-
-        // Now fill the data
-        if (ParallelDescriptor::IOProcessor())
-        {
-            // amrex::Print() << "SHAPE0 " << arrays[iv].get_vshape()[0] << std::endl;
-            // amrex::Print() << "SHAPE1 " << arrays[iv].get_vshape()[1] << std::endl;
-            // amrex::Print() << "SHAPE2 " << arrays[iv].get_vshape()[2] << std::endl;
-            // amrex::Print() << "SHAPE3 " << arrays[iv].get_vshape()[3] << std::endl;
-
-            int nx, ny, nz;
-
-            Array4<Real> fab_arr;
-            Box my_box;
-
-            if (bdyType == REMORABdyTypes::x_lo) {
-                my_box = bdy_data_xlo[0][bdyVarType].box();
-            } else if (bdyType == REMORABdyTypes::x_hi) {
-                my_box = bdy_data_xhi[0][bdyVarType].box();
-            } else if (bdyType == REMORABdyTypes::y_lo) {
-                my_box = bdy_data_ylo[0][bdyVarType].box();
-            } else if (bdyType == REMORABdyTypes::y_hi) {
-                my_box = bdy_data_yhi[0][bdyVarType].box();
-            }
-
+        // Only fill data if the variable we're looking at was read in.
+        if (count(nc_var_names.begin(), nc_var_names.end(), nc_var_names_full[iv])) {
+            long n_plane;
+            // Now fill the data
+            if (ParallelDescriptor::IOProcessor())
             {
-                if ( (bdyType == REMORABdyTypes::x_lo) || (bdyType == REMORABdyTypes::x_hi) ) {
+                // amrex::Print() << "SHAPE0 " << arrays[iv].get_vshape()[0] << std::endl;
+                // amrex::Print() << "SHAPE1 " << arrays[iv].get_vshape()[1] << std::endl;
+                // amrex::Print() << "SHAPE2 " << arrays[iv].get_vshape()[2] << std::endl;
+                // amrex::Print() << "SHAPE3 " << arrays[iv].get_vshape()[3] << std::endl;
 
-                    if (my_box.length()[2] == 1) {
-                        nz = 1;
-                        ny = arrays[iv].get_vshape()[1];
-                    } else {
-                        nz = arrays[iv].get_vshape()[1];
-                        ny = arrays[iv].get_vshape()[2];
-                    }
-                    n_plane = ny * nz;
+                int nx, ny, nz;
 
-                    AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
+                Array4<Real> fab_arr;
+                Box my_box;
 
-                    int i    = my_box.smallEnd()[0];
-                    int joff = my_box.smallEnd()[1];
+                if (bdyType == REMORABdyTypes::x_lo) {
+                    my_box = bdy_data_xlo[0][bdyVarType].box();
+                } else if (bdyType == REMORABdyTypes::x_hi) {
+                    my_box = bdy_data_xhi[0][bdyVarType].box();
+                } else if (bdyType == REMORABdyTypes::y_lo) {
+                    my_box = bdy_data_ylo[0][bdyVarType].box();
+                } else if (bdyType == REMORABdyTypes::y_hi) {
+                    my_box = bdy_data_yhi[0][bdyVarType].box();
+                }
 
-                    for (int nt(0); nt < ntimes; ++nt)
-                    {
-                        if (bdyType == REMORABdyTypes::x_lo) {
-                            fab_arr  = bdy_data_xlo[nt][bdyVarType].array();
-                        } else if (bdyType == REMORABdyTypes::x_hi) {
-                            fab_arr  = bdy_data_xhi[nt][bdyVarType].array();
+                {
+                    if ( (bdyType == REMORABdyTypes::x_lo) || (bdyType == REMORABdyTypes::x_hi) ) {
+
+                        if (my_box.length()[2] == 1) {
+                            nz = 1;
+                            ny = arrays[iv_read].get_vshape()[1];
+                        } else {
+                            nz = arrays[iv_read].get_vshape()[1];
+                            ny = arrays[iv_read].get_vshape()[2];
                         }
-                        int n_off = nt * n_plane;
+                        n_plane = ny * nz;
 
-                        for (int n(0); n < n_plane; ++n) {
-                            int k = n / ny;
-                            int j = n - (k * ny);
-                            fab_arr(i, j+joff, k, 0) = static_cast<Real>(*(arrays[iv].get_data() + n + n_off));
+                        AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
+
+                        int i    = my_box.smallEnd()[0];
+                        int joff = my_box.smallEnd()[1];
+
+                        for (int nt(0); nt < ntimes; ++nt)
+                        {
+                            if (bdyType == REMORABdyTypes::x_lo) {
+                                fab_arr  = bdy_data_xlo[nt + nt_prior][bdyVarType].array();
+                            } else if (bdyType == REMORABdyTypes::x_hi) {
+                                fab_arr  = bdy_data_xhi[nt + nt_prior][bdyVarType].array();
+                            }
+                            int n_off = nt * n_plane;
+
+                            for (int n(0); n < n_plane; ++n) {
+                                int k = n / ny;
+                                int j = n - (k * ny);
+                                fab_arr(i, j+joff, k, 0) = static_cast<Real>(*(arrays[iv_read].get_data() + n + n_off));
+                            }
                         }
-                    }
 
-                } else if ( (bdyType == REMORABdyTypes::y_lo) || (bdyType == REMORABdyTypes::y_hi) ) {
+                    } else if ( (bdyType == REMORABdyTypes::y_lo) || (bdyType == REMORABdyTypes::y_hi) ) {
 
-                    if (my_box.length()[2] == 1) {
-                        nz = 1;
-                        nx = arrays[iv].get_vshape()[1];
-                    } else {
-                        nz = arrays[iv].get_vshape()[1];
-                        nx = arrays[iv].get_vshape()[2];
-                    }
-                    n_plane = nx * nz;
-
-                    AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
-
-                    int j    = my_box.smallEnd()[1];
-                    int ioff = my_box.smallEnd()[0];
-
-                    for (int nt(0); nt < ntimes; ++nt)
-                    {
-                        if (bdyType == REMORABdyTypes::y_lo) {
-                            fab_arr  = bdy_data_ylo[nt][bdyVarType].array();
-                        } else if (bdyType == REMORABdyTypes::y_hi) {
-                            fab_arr  = bdy_data_yhi[nt][bdyVarType].array();
+                        if (my_box.length()[2] == 1) {
+                            nz = 1;
+                            nx = arrays[iv_read].get_vshape()[1];
+                        } else {
+                            nz = arrays[iv_read].get_vshape()[1];
+                            nx = arrays[iv_read].get_vshape()[2];
                         }
-                        int n_off = nt * n_plane;
+                        n_plane = nx * nz;
 
-                        for (int n(0); n < n_plane; ++n) {
-                            int k = n / nx;
-                            int i = n - (k * nx);
+                        AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
 
-                            fab_arr(i+ioff, j, k, 0) = static_cast<Real>(*(arrays[iv].get_data() + n + n_off));
+                        int j    = my_box.smallEnd()[1];
+                        int ioff = my_box.smallEnd()[0];
+
+                        for (int nt(0); nt < ntimes; ++nt)
+                        {
+                            if (bdyType == REMORABdyTypes::y_lo) {
+                                fab_arr  = bdy_data_ylo[nt + nt_prior][bdyVarType].array();
+                            } else if (bdyType == REMORABdyTypes::y_hi) {
+                                fab_arr  = bdy_data_yhi[nt + nt_prior][bdyVarType].array();
+                            }
+                            int n_off = nt * n_plane;
+
+                            for (int n(0); n < n_plane; ++n) {
+                                int k = n / nx;
+                                int i = n - (k * nx);
+
+                                fab_arr(i+ioff, j, k, 0) = static_cast<Real>(*(arrays[iv_read].get_data() + n + n_off));
+                            }
                         }
-                    }
-                } // bdyType
-            } // bdyVarType
-        } // if ParalleDescriptor::IOProcessor()
+                    } // bdyType
+                } // bdyVarType
+            } // if ParalleDescriptor::IOProcessor()
+            iv_read += 1;
+        } // count
     } // nc_var_names
 
     // We put a barrier here so the rest of the processors wait to do anything until they have the data
@@ -497,14 +506,31 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     // When an FArrayBox is built, space is allocated on every rank.  However, we only
     //    filled the data in these FABs on the IOProcessor.  So here we broadcast
     //    the data to every rank.
-    int n_per_time = nc_var_prefix.size();
-    for (int nt = 0; nt < ntimes; nt++)
+    for (int nt = nt_prior; nt < bdy_data_xlo.size(); nt++)
     {
-        for (int i = 0; i < n_per_time; i++)
+        for (int i = 0; i < bdy_data_xlo[nt].size(); i++)
         {
             ParallelDescriptor::Bcast(bdy_data_xlo[nt][i].dataPtr(),bdy_data_xlo[nt][i].box().numPts(),ioproc);
-            ParallelDescriptor::Bcast(bdy_data_xhi[nt][i].dataPtr(),bdy_data_xhi[nt][i].box().numPts(),ioproc);
+        }
+    }
+    for (int nt = nt_prior; nt < bdy_data_ylo.size(); nt++)
+    {
+        for (int i = 0; i < bdy_data_ylo[nt].size(); i++)
+        {
             ParallelDescriptor::Bcast(bdy_data_ylo[nt][i].dataPtr(),bdy_data_ylo[nt][i].box().numPts(),ioproc);
+        }
+    }
+    for (int nt = nt_prior; nt < bdy_data_xhi.size(); nt++)
+    {
+        for (int i = 0; i < bdy_data_xhi[nt].size(); i++)
+        {
+            ParallelDescriptor::Bcast(bdy_data_xhi[nt][i].dataPtr(),bdy_data_xhi[nt][i].box().numPts(),ioproc);
+        }
+    }
+    for (int nt = nt_prior; nt < bdy_data_yhi.size(); nt++)
+    {
+        for (int i = 0; i < bdy_data_yhi[nt].size(); i++)
+        {
             ParallelDescriptor::Bcast(bdy_data_yhi[nt][i].dataPtr(),bdy_data_yhi[nt][i].box().numPts(),ioproc);
         }
     }
@@ -512,8 +538,9 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
     // Make sure all processors know how timeInterval
     ParallelDescriptor::Bcast(&timeInterval,1,ioproc);
 
+    int total_times = nt_prior + ntimes;
     // Make sure all processors know how many times are stored
-    ParallelDescriptor::Bcast(&ntimes,1,ioproc);
+    ParallelDescriptor::Bcast(&total_times,1,ioproc);
 
     // Return the number of seconds between the boundary plane data
     return timeInterval;

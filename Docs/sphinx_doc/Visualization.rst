@@ -13,11 +13,27 @@ analysis tool. The files contain the attributes necessary to, e.g. calculate the
 stretched vertical grid as one would from a ROMS NetCDF file.
 
 There are several visualization tools that can be used for AMReX plotfiles, specifically
-ParaView, VisIt and yt. The plotfile output does not currently explicitly include
+Amrvis, ParaView, VisIt and yt. The plotfile output does not currently explicitly include
 the sea surface height. We instead output the transformation from the logical z-grid
 (similar to the S-grid). We also do not yet include bathymetry or other 2D variables.
 These will be included in a later release. If you need these, we encourage you to use
 the NetCDF output.
+
+
+Amrvis
+------
+
+Amrvis is a tool often used by developers to quickly visualize AMReX plotfiles. Its functionality
+is similar to that of ncview for NetCDF files. Instructions for downloading and building the tool
+can be found within the `AMReX documentation`_.
+
+.. _`AMReX documentation`: https://github.com/AMReX-Codes/amrex-tutorials/tree/main/GuidedTutorials/HeatEquation
+
+The utility can be invoked on a plotfile named ``plt00010`` by running
+
+   .. code:: shell
+
+      amrvis3d.gnu.ex plt00010
 
 .. _section-1:
 

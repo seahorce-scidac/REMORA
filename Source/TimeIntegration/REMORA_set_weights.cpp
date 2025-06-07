@@ -5,8 +5,9 @@
 
 using namespace amrex;
 
-//  This routine sets the weight functions for the time averaging of
-//  2D fields over all short time-steps.
+/**
+ * @param[in   ] lev     level to operate on
+ */
 void REMORA::set_weights (int /*lev*/) {
 
     Real gamma, scale;

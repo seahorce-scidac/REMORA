@@ -6,7 +6,13 @@ using namespace amrex;
 #include <REMORA_funwave_Fortran_Interface.H>
 #endif
 
-// advance a single level for a single time step
+/**
+ * @param[in] lev            level of refinement
+ * @param[in] time           simulation time at start of step
+ * @param[in] dt_lev         baroclinic time step at level
+ * @param[in] iteration      iteration in subcycling, if using
+ * @param[in] ncycle         total number of subcycles, if using
+ */
  void
 REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycle*/)
 {

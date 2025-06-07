@@ -2,7 +2,13 @@
 
 using namespace amrex;
 
-// advance a single level one 2D step
+/**
+ * @param[in] lev            level of refinement
+ * @param[in] dt_lev         baroclinic time step at level
+ * @param[in] dtfast_lev     barotropic time step at level
+ * @param[in] my_iif         current barotropic time step
+ * @param[in] nfast_counter  how many bartropicc time steps to do per baroclinic step
+ */
 void REMORA::advance_2d_onestep (int lev, Real /*dt_lev*/, Real dtfast_lev, int my_iif, int nfast_counter)
 {
     bool first_2d_step=(my_iif==0);

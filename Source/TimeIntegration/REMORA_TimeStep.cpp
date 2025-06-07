@@ -2,9 +2,11 @@
 
 using namespace amrex;
 
-//
-// Advance a level by dt, and finer levels by dt / nsubsteps
-//
+/**
+ * @param[in] lev            level of refinement
+ * @param[in] time           simulation time at start of step
+ * @param[in] iteration      iteration in subcycling, if using
+ */
 void
 REMORA::timeStep (int lev, Real time, int iteration)
 {

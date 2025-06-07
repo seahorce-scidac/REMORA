@@ -13,12 +13,11 @@ class REMORA;
 /**
  * Class to hold problem-specific routines
  */
-
 class ProblemBase
 {
 public:
     /**
-     * Virtual destructor to avoid data leakage with derived class
+     * \brief Virtual destructor to avoid data leakage with derived class
      */
     virtual ~ProblemBase () = default;
 
@@ -114,8 +113,7 @@ public:
 };
 
 /**
- * Function to init the physical bounds of the domain
- * and instantiate a Problem derived from ProblemBase
+ * \brief Function to init the physical bounds of the domain and instantiate a Problem derived from ProblemBase
 */
 extern std::unique_ptr<ProblemBase> amrex_probinit (
   const amrex_real* problo,

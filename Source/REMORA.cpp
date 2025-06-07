@@ -20,7 +20,6 @@ SolverChoice REMORA::solverChoice;
 amrex::Real REMORA::cfl           =  0.8_rt;
 amrex::Real REMORA::fixed_dt      = -1.0_rt;
 amrex::Real REMORA::fixed_fast_dt = -1.0_rt;
-amrex::Real REMORA::init_shrink   =  1.0_rt;
 amrex::Real REMORA::change_max    =  1.1_rt;
 
 int   REMORA::fixed_ndtfast_ratio = 0;
@@ -46,16 +45,19 @@ int   REMORA::total_nc_plot_file_step = 1;
 bool  REMORA::write_history_file      = true;
 
 // NetCDF initialization file
-std::string REMORA::nc_bdry_file = ""; // Must provide via input
+amrex::Vector<std::string> REMORA::nc_bdry_file = {""}; // Must provide via input
 amrex::Vector<amrex::Vector<std::string>> REMORA::nc_init_file = {{""}}; // Must provide via input
 amrex::Vector<amrex::Vector<std::string>> REMORA::nc_grid_file = {{""}}; // Must provide via input
 #endif
 
 amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 
-// constructor - reads in parameters from inputs file
-//             - sizes multilevel arrays and data structures
-//             - initializes BCRec boundary condition object
+/**
+ * constructor:
+ * - reads in parameters from inputs file
+ * - sizes multilevel arrays and data structures
+ * - initializes BCRec boundary condition object
+ */
 REMORA::REMORA ()
 {
     if (ParallelDescriptor::IOProcessor()) {
@@ -134,7 +136,6 @@ REMORA::~REMORA ()
 {
 }
 
-// advance solution to final time
 void
 REMORA::Evolve ()
 {
@@ -163,9 +164,12 @@ REMORA::Evolve ()
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
                        << " DT = " << dt[0]  << std::endl;
 
-        if (plot_int > 0 && (step+1) % plot_int == 0) {
+        if ((plot_int > 0 && (step+1 - last_plot_file_step) == plot_int)
+                || (plot_int_time > 0 && cur_time >= (last_plot_file_time + plot_int_time))) {
             last_plot_file_step = step+1;
+            last_plot_file_time = cur_time;
             if (plotfile_type == PlotfileType::amrex) {
+
                 WritePlotFile();
             }
 #ifdef REMORA_USE_NETCDF
@@ -176,8 +180,10 @@ REMORA::Evolve ()
 #endif
         }
 
-        if (check_int > 0 && (step+1) % check_int == 0) {
+        if ((check_int > 0 && (step+1 - last_check_file_step) == check_int)
+                || (check_int_time > 0 && cur_time >= (last_check_file_time + check_int_time))) {
             last_check_file_step = step+1;
+            last_check_file_time = cur_time;
             WriteCheckpointFile();
         }
 
@@ -194,7 +200,7 @@ REMORA::Evolve ()
         if (cur_time >= stop_time - 1.e-6*dt[0]) break;
     }
 
-    if (plot_int > 0 && istep[0] > last_plot_file_step) {
+    if ((plot_int > 0 || plot_int_time > 0.0) && istep[0] > last_plot_file_step) {
         if (plotfile_type == PlotfileType::amrex) {
             WritePlotFile();
         }
@@ -206,12 +212,16 @@ REMORA::Evolve ()
 #endif
     }
 
-    if (check_int > 0 && istep[0] > last_check_file_step) {
+    if ((check_int > 0 || check_int_time > 0.0) && istep[0] > last_check_file_step) {
         WriteCheckpointFile();
     }
 }
 
-// Called after every coarse timestep
+/**
+ * @param[in   ] nstep    which step we're on
+ * @param[in   ] time     current time
+ * @param[in   ] dt_lev0  time step on level 0
+ */
 void
 REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
 {
@@ -241,7 +251,9 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
     }
 }
 
-// This is called from main.cpp and handles all initialization, whether from start or restart
+/**
+ * This is called from main.cpp and handles all initialization, whether from start or restart
+ */
 void
 REMORA::InitData ()
 {
@@ -254,6 +266,8 @@ REMORA::InitData ()
 
     last_plot_file_step = -1;
     last_check_file_step = -1;
+    last_plot_file_time = -1.0_rt;
+    last_check_file_time = -1.0_rt;
 
     if (restart_chkfile == "") {
         // start simulation from the beginning
@@ -311,7 +325,7 @@ REMORA::InitData ()
     // particle containers are setup.
     const std::string& pv1 = "plot_vars"; appendPlotVariables(pv1);
 
-    if (restart_chkfile == "" && check_int > 0)
+    if (restart_chkfile == "" && (check_int > 0 || check_int_time > 0.0_rt))
     {
         WriteCheckpointFile();
         last_check_file_step = 0;
@@ -320,7 +334,7 @@ REMORA::InitData ()
     if ( (restart_chkfile == "") ||
          (restart_chkfile != "" && plot_file_on_restart) )
     {
-        if (plot_int > 0)
+        if (plot_int > 0 || plot_int_time > 0.0)
         {
             if (plotfile_type == PlotfileType::amrex)
                 WritePlotFile();
@@ -343,6 +357,9 @@ REMORA::InitData ()
 
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::Construct_REMORAFillPatchers (int lev)
 {
@@ -388,6 +405,9 @@ REMORA::Construct_REMORAFillPatchers (int lev)
                        -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::Define_REMORAFillPatchers (int lev)
 {
@@ -443,6 +463,9 @@ REMORA::restart ()
     last_check_file_step = istep[0];
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_zeta (int lev)
 {
@@ -462,6 +485,9 @@ REMORA::set_zeta (int lev)
     set_zeta_average(lev);
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_bathymetry (int lev)
 {
@@ -527,6 +553,9 @@ REMORA::set_bathymetry (int lev)
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_coriolis(int lev) {
     if (solverChoice.use_coriolis) {
@@ -563,6 +592,9 @@ REMORA::init_set_vmix(int lev) {
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_analytic_vmix(int lev) {
     Real time = 0.0_rt;
@@ -573,6 +605,9 @@ REMORA::set_analytic_vmix(int lev) {
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_hmixcoef(int lev)
 {
@@ -595,6 +630,9 @@ REMORA::set_hmixcoef(int lev)
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_smflux(int lev)
 {
@@ -610,6 +648,9 @@ REMORA::set_smflux(int lev)
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_wind(int lev)
 {
@@ -625,6 +666,10 @@ REMORA::set_wind(int lev)
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ * @param[in   ] time   current time for initialization
+ */
 void
 REMORA::init_only (int lev, Real time)
 {
@@ -781,7 +826,6 @@ REMORA::init_only (int lev, Real time)
 
 }
 
-// read in some parameters from inputs file
 void
 REMORA::ReadParameters ()
 {
@@ -806,6 +850,8 @@ REMORA::ReadParameters ()
         pp.query("check_file", check_file);
         pp.query("check_int", check_int);
         pp_amr.query("check_int", check_int);
+        pp.query("check_int_time", check_int_time);
+        pp_amr.query("check_int_time", check_int_time);
 
         pp.query("restart", restart_chkfile);
         pp_amr.query("restart", restart_chkfile);
@@ -835,7 +881,6 @@ REMORA::ReadParameters ()
 
         // Time step controls
         pp.query("cfl", cfl);
-        pp.query("init_shrink", init_shrink);
         pp.query("change_max", change_max);
 
         pp.query("fixed_dt", fixed_dt);
@@ -879,6 +924,7 @@ REMORA::ReadParameters ()
         // Plotfile name and frequency
         pp.query("plot_file", plot_file_name);
         pp.query("plot_int", plot_int);
+        pp.query("plot_int_time", plot_int_time);
         // Output format
         std::string plotfile_type_str = "amrex";
         pp.query("plotfile_type", plotfile_type_str);
@@ -958,7 +1004,7 @@ REMORA::ReadParameters ()
             }
         }
         // We only read boundary data at level 0
-        pp.query("nc_bdry_file", nc_bdry_file);
+        pp.queryarr("nc_bdry_file", nc_bdry_file);
 
         // Also only read forcings at level 0 (for now)
         pp.query("nc_frc_file", nc_frc_file);
@@ -980,12 +1026,6 @@ REMORA::ReadParameters ()
         pp.query("clim_salt_time_varname",clim_salt_time_varname);
         pp.query("clim_temp_time_varname",clim_temp_time_varname);
 
-        // Query the set and total widths for bdy interior ghost cells
-        pp.query("bdy_width", bdy_width);
-        pp.query("bdy_set_width", bdy_set_width);
-        AMREX_ALWAYS_ASSERT(bdy_width >= 0);
-        AMREX_ALWAYS_ASSERT(bdy_set_width >= 0);
-        AMREX_ALWAYS_ASSERT(bdy_width >= bdy_set_width);
 #endif
 
 #ifdef REMORA_USE_PARTICLES
@@ -996,7 +1036,6 @@ REMORA::ReadParameters ()
     solverChoice.init_params();
 }
 
-// Set covered coarse cells to be the average of overlying fine cells for all levels
 void
 REMORA::AverageDown ()
 {
@@ -1006,7 +1045,9 @@ REMORA::AverageDown ()
     }
 }
 
-// Set covered coarse cells to be the average of overlying fine cells at level crse_lev
+/**
+ * @param[in   ] crse_lev  level to average down to
+ */
 void
 REMORA::AverageDownTo (int crse_lev)
 {
@@ -1029,6 +1070,9 @@ REMORA::AverageDownTo (int crse_lev)
                        refRatio(crse_lev),geom[crse_lev]);
 }
 
+/**
+ * @param[in   ] lev    level at which to get time
+ */
 amrex::Real REMORA::get_t_old(int lev) const
 {
     return t_old[lev];

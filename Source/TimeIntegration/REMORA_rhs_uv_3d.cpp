@@ -3,30 +3,27 @@
 using namespace amrex;
 
 /**
- * rhs_uv_2d
- *
- * @param[in   ] xbx Box for operations on x-velocity
- * @param[in   ] ybx Box for operations on y-velocity
- * @param[in   ] uold
- * @param[in   ] vold
- * @param[  out] ru
- * @param[  out] rv
- * @param[  out] rufrc
- * @param[  out] rvfrc
- * @param[in   ] sustr
- * @param[in   ] svstr
- * @param[in   ] bustr
- * @param[in   ] bvstr
- * @param[in   ] Huon
- * @param[in   ] Hvom
- * @param[in   ] pm
- * @param[in   ] pn
- * @param[in   ] W
- * @param[inout] FC
- * @param[in   ] nrhs
- * @param[in   ] N
+ * @param[in   ] xbx     Box for operations on x-velocity
+ * @param[in   ] ybx     Box for operations on y-velocity
+ * @param[in   ] uold    u-velocity at last time step
+ * @param[in   ] vold    v-velocity at last time step
+ * @param[inout] ru      u-velocity RHS
+ * @param[inout] rv      v-velocity RHS
+ * @param[inout] rufrc   forcing for u-velocity RHS
+ * @param[inout] rvfrc   forcing for v-velocity RHS
+ * @param[in   ] sustr   u-direction surface momentum flux
+ * @param[in   ] svstr   v-direction surface momentum flux
+ * @param[in   ] bustr   u-direction bottom stress
+ * @param[in   ] bvstr   v-direction bottom stress
+ * @param[in   ] Huon    u-volume flux
+ * @param[in   ] Hvom    v-volume flux
+ * @param[in   ] pm      1/dx
+ * @param[in   ] pn      1/dy
+ * @param[in   ] W       vertical velocity
+ * @param        FC      temporary
+ * @param[in   ] nrhs    index of component for RHS
+ * @param[in   ] N       number of vertical levels
  */
-
 void
 REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
                   const Array4<Real const>& uold  ,
@@ -68,7 +65,6 @@ REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
     auto VFx=fab_VFx.array();
     auto VFe=fab_VFe.array();
 
-    auto ic_bc_type = solverChoice.ic_bc_type;
     auto uv_hadv_scheme = solverChoice.uv_Hadv_scheme;
 
     //check this////////////

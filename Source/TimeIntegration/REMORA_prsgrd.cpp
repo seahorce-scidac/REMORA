@@ -2,6 +2,25 @@
 
 using namespace amrex;
 
+/**
+ * @param[in   ] phi_bx   tilebox
+ * @param[in   ] phi_gbx  grownbox
+ * @param[in   ] utbx     u-nodal tilebox
+ * @param[in   ] vtbx     v-nodal tilebox
+ * @param[  out] ru       u-velocity RHS
+ * @param[  out] rv       v-velocity RHS
+ * @param[in   ] pm       1/dx
+ * @param[in   ] pn       1/dy
+ * @param[in   ] rho      density
+ * @param        FC       temporary
+ * @param[in   ] Hz       vertical cell height
+ * @param[in   ] z_r      z coordinates at rho points
+ * @param[in   ] z_w      z coordinates at w points
+ * @param[in   ] msku     land-sea mask on u-points
+ * @param[in   ] mskv     land-sea mask on v-points
+ * @param[in   ] nrhs     index of RHS component
+ * @param[in   ] N        number of vertical levels
+ */
 void
 REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
                const Box& utbx, const Box& vtbx,

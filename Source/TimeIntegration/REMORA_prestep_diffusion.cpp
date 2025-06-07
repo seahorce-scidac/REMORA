@@ -2,18 +2,38 @@
 
 using namespace amrex;
 
-//
-// prestep_diffusion -- called from prestep
-// NOTE: "vel" here represents either u, v, or a tracer
-// When updating u, ioff=1, joff=0
-// When updating v, ioff=0, joff=1
-// When updating tracer, ioff=0, joff=0
-// The tracer update is a bit different from the u,v updates so we test
-// for it, but checking if ioff=0 and joff=0. In some cases, though, we
-// can recover the tracer update from the generic one by setting those indices.
-// Setting icc and ntfirst identically for the tracers should be equivalent
-// to setting ioff=0 and joff=0
-//
+/**
+ * Called from prestep. The tracer update is a bit different from the u,v updates so we test
+ * for it, but checking if ioff=0 and joff=0. In some cases, though, we
+ * can recover the tracer update from the generic one by setting those indices.
+ * Setting icc and ntfirst identically for the tracers should be equivalent
+ * to setting ioff=0 and joff=0
+ *
+ * @param[in   ] vel_bx   tile box
+ * @param[in   ] gbx      grown tile box
+ * @param[in   ] ioff     offset in x direction
+ * @param[in   ] joff     offset in y direction
+ * @param[  out] vel      velocity or scalar to update
+ * @param[in   ] vel_old  velocity or scalar at last time
+ * @param[inout] rvel     velocity or scalar RHS
+ * @param[in   ] Hz       vertical cell height
+ * @param[in   ] Akv      vertical viscosity coefficient
+ * @param        DC       temporary
+ * @param        FC       temporary
+ * @param[in   ] sstr     surface flux
+ * @param[in   ] bstr     bottom flux
+ * @param[in   ] z_r      z coordinates at rho points
+ * @param[in   ] pm       1/dx
+ * @param[in   ] pn       1/dy
+ * @param[in   ] iic      which time step we're on
+ * @param[in   ] ntfirst  what is the first time step?
+ * @param[in   ] nnew     index of time step to update
+ * @param[in   ] nstp     index of last time step
+ * @param[in   ] nrhs     index of RHS component
+ * @param[in   ] N        number of vertical levels
+ * @param[in   ] lambda   weighting coefficient for the newest (implicit) time step derivatives
+ * @param[in   ] dt_lev   time step at this level
+ */
 
 void
 REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,

@@ -4,10 +4,15 @@ using namespace amrex;
 
 #ifdef REMORA_USE_NETCDF
 /*
- * Impose boundary conditions using data read in from netcdf boundary files
- *
- * @param[out] mfs  Vector of MultiFabs to be filled
- * @param[in] time  time at which the data should be filled
+ * @param[inout] mf_to_fill    data on which to apply BCs
+ * @param[in   ] mf_mask       land-sea mask
+ * @param[in   ] time          current time
+ * @param[in   ] bccomp        index into both domain_bcs_type_bcr and bc_extdir_vals for icomp=0
+ * @param[in   ] bdy_var_type  which netcdf boundary data to fill from
+ * @param[in   ] icomp_to_fill component to update
+ * @param[in   ] icomp_calc    component to reference from on RHS
+ * @param[in   ] mf_calc       data for RHS of calculation
+ * @param[in   ] dt_calc       time step for the calculation
  */
 
 void
@@ -176,7 +181,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
 
             // Even though we don't loop over xlo itself, this is the right condition to check, since xlo_edge will always be the same for each grid,
             // but if the grid doesn't include the low x-boundary, the xlo box will be invalid and the execution will be skipped.
-            if (!xlo.isEmpty()) {
+            if (!xlo.isEmpty() && apply_west) {
                 ParallelFor(grow(xlo_edge,IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma   * bdatxlo_n  (ubound(xlo).x,j,k,0)
@@ -236,7 +241,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             }
 
             // See comment on xlo
-            if (!xhi.isEmpty()) {
+            if (!xhi.isEmpty() && apply_east) {
                 ParallelFor(grow(xhi_edge,IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma   * bdatxhi_n  (lbound(xhi).x,j,k,0)
@@ -266,10 +271,10 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
                         Real grad_hi_jp1  = (calc_arr(dom_hi.x-mf_index_type[0]  ,j+1,k,icomp+icomp_to_fill) - calc_arr(dom_hi.x-mf_index_type[0]  ,j  ,k,icomp+icomp_to_fill));
                         Real grad_hi_ijp1 = (calc_arr(dom_hi.x-mf_index_type[0]+1,j+1,k,icomp+icomp_to_fill) - calc_arr(dom_hi.x-mf_index_type[0]+1,j  ,k,icomp+icomp_to_fill));
                         if (cell_centered) {
-                            grad_hi      * mskv(i,j,0);
-                            grad_hi_ip1  * mskv(i,j,0);
-                            grad_hi_jp1  * mskv(i,j,0);
-                            grad_hi_ijp1 * mskv(i,j,0);
+                            grad_hi      *= mskv(i,j,0);
+                            grad_hi_ip1  *= mskv(i,j,0);
+                            grad_hi_jp1  *= mskv(i,j,0);
+                            grad_hi_ijp1 *= mskv(i,j,0);
                         }
                         Real dTdt = calc_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_hi.x-mf_index_type[0]  ,j,k,icomp+icomp_to_fill);
                         Real dTdx = dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_hi.x-mf_index_type[0]-1,j,k,icomp+icomp_to_fill);
@@ -297,7 +302,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             }
 
             // See comment on xlo
-            if (!ylo.isEmpty()) {
+            if (!ylo.isEmpty() && apply_south) {
                 ParallelFor(grow(ylo_edge,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma   * bdatylo_n  (i,ubound(ylo).y,k,0)
@@ -359,7 +364,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             }
 
             // See comment on xlo
-            if (!yhi.isEmpty()) {
+            if (!yhi.isEmpty() && apply_north) {
                 ParallelFor(grow(yhi_edge,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
                     Real bry_val = (oma    * bdatyhi_n  (i,lbound(yhi).y,k,0)

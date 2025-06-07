@@ -3,23 +3,21 @@
 using namespace amrex;
 
 /**
- * update_massflux_3d
- *
- * @param[in   ] bx box on which to update
- * @param[in   ] ioff offset in x-direction
- * @param[in   ] joff offset in y-direction
- * @param[in   ] phi  u or v
- * @param[  out] Hphi H-weighted u or v
- * @param[in   ] Hz   weighting
- * @param[in   ] om_v_or_on_u
- * @param[in   ] Dphi_avg1
- * @param[in   ] Dphi_avg2
- * @param[inout] DC
- * @param[inout] FC
- * @param[in   ] msk
- * @param[in   ] nnew component of velocity
+ * @param[in   ] bx             box on which to update
+ * @param[in   ] ioff           offset in x-direction
+ * @param[in   ] joff           offset in y-direction
+ * @param[inout] phi            u or v
+ * @param[inout] phibar         ubar or vbar
+ * @param[inout] Hphi           phi-volume flux
+ * @param[in   ] Hz             vertical cell height
+ * @param[in   ] pm_or_pn       pm or pn
+ * @param[in   ] Dphi_avg1      DU_avg1 or DV_avg1
+ * @param[in   ] Dphi_avg2      DU_avg2 or DV_avg2
+ * @param        DC             temporary
+ * @param        FC             temporary
+ * @param[in   ] msk            land-sea mask
+ * @param[in   ] nnew           component of velocity
  */
-
 void
 REMORA::update_massflux_3d (const Box& bx,
                            const int ioff, const int joff,
@@ -43,15 +41,11 @@ REMORA::update_massflux_3d (const Box& bx,
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
 
-    auto ic_bc_type = solverChoice.ic_bc_type;
-
     int ncomp = 1;
     Vector<BCRec> bcrs_x(ncomp);
     Vector<BCRec> bcrs_y(ncomp);
     amrex::setBC(bx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
     amrex::setBC(bx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
-    auto bcr_x = bcrs_x[0];
-    auto bcr_y = bcrs_y[0];
 
     auto N = Geom(0).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 

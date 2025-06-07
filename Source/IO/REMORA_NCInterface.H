@@ -65,82 +65,89 @@ struct NCVar
     //! Shape of the array (size in each array dimension)
     std::vector<MPI_Offset> shape() const;
 
-    //! Write out the entire variable
-    void put(const double*) const;
-    void put(const float*) const;
-    void put(const int*) const;
+    //! Write out the entire double variable
+    void put(const double* ptr) const;
+    //! Write out the entire float variable
+    void put(const float* ptr) const;
+    //! Write out the entire int variable
+    void put(const int* ptr) const;
 
     //! Write out a slice of data
     void
-    put(const double*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    put(const double* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count) const;
 
     //! Write out a slice of data, collective
     void
-    put_all(const double*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
-    //! Write out a slice of data with with strides (see hyperslab definition in
-    //! NetCDF)
+    put_all(const double* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count) const;
+    //! Write out a slice of data with with strides (see hyperslab definition in NetCDF)
     void iput(
             const double* dptr,
             const std::vector<MPI_Offset>& start,
             const std::vector<MPI_Offset>& count,
             int * request) const ;
 
+    //! Write out a slice of data with with strides
     void
-    put(const double*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    put(const double* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
     //! Write out a slice of data with with strides , collective
      void
-     put_all(const double*,
-         const std::vector<MPI_Offset>&,
-         const std::vector<MPI_Offset>&,
-         const std::vector<MPI_Offset>&) const;
+     put_all(const double* dptr,
+         const std::vector<MPI_Offset>& start,
+         const std::vector<MPI_Offset>& count,
+         const std::vector<MPI_Offset>& stride) const;
     //! Write out a slice of data
     void
-    put(const float*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    put(const float* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count) const;
     //! Write out a slice of data, collective
     void
-    put_all(const float*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
-    //! Write out a slice of data with with strides (see hyperslab definition in
-    //! NetCDF)
+    put_all(const float* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count) const;
+    //! Write out a slice of data with with strides (see hyperslab definition in NetCDF)
     void
-    put(const float*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    put(const float* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
     //! Write out a slice of data with with strides, collective
     void
-    put_all(const float*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    put_all(const float* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
 
 
-    void put(const int*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
-    void put_all(const int*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    //! Write out a slice of data
+    void put(const int* dptr, const std::vector<MPI_Offset>& start, const std::vector<MPI_Offset>& count) const;
+    //! Write out a slice of data, collective
+    void put_all(const int* dptr, const std::vector<MPI_Offset>& start, const std::vector<MPI_Offset>& count) const;
 
+    //! Write out a slice of data with with strides (see hyperslab definition in NetCDF)
     void
-    put(const int*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    put(const int* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
+    //! Write out a slice of data with with strides, collective
     void
-    put_all(const int*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    put_all(const int* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
 
 
-    void put(const char**, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    //! Write out a slice of string data
+    void put(const char** dptr, const std::vector<MPI_Offset>& start, const std::vector<MPI_Offset>& count) const;
+    //! Write out a slice of string data with stride
     void
     put(
     const char** dptr,
@@ -149,110 +156,126 @@ struct NCVar
     const std::vector<MPI_Offset>& stride) const;
 
     //! Read the entire variable from file
-    void get(double*) const;
-    void get(float*) const;
-    void get(int*) const;
+    void get(double* ptr) const;
+    //! Read the entire variable from file
+    void get(float* ptr) const;
+    //! Read the entire variable from file
+    void get(int* ptr) const;
 
     //! Read a chunk of data from the file
     void
-    get(double*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    get(double* dptr, const std::vector<MPI_Offset>& start, const std::vector<MPI_Offset>& count) const;
 
     //! Read a chunk of data from the file, collective
     void
-    get_all(double*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    get_all(double* dptr, const std::vector<MPI_Offset>& start, const std::vector<MPI_Offset>& count) const;
 
     //! Read a chunk of data with strides
     void
-    get(double*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    get(double* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
 
     //! Read a chunk of data with strides, collective
     void
-    get_all(double*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    get_all(double* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
 
     //! Read a chunk of data from the file
     void
-    get(float*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
-    // collective
-    void get_all(float*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    get(float* dptr, const std::vector<MPI_Offset>& start, const std::vector<MPI_Offset>& count) const;
+    //! Read a chunk of data from file, collective
+    void get_all(float* dptr, const std::vector<MPI_Offset>& start, const std::vector<MPI_Offset>& count) const;
 
     //! Read a chunk of data with strides
     void
-    get(float*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    get(float* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
 
     //! Read a chunk of data with strides, collective
     void
-    get_all(float*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    get_all(float* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
 
+    //! Read a chunk of data from the file
     void
-    get(int*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    get(int* dptr, const std::vector<MPI_Offset>& start, const std::vector<MPI_Offset>& count) const;
+    //! Read a chunk of data from the file, collective
     void
-    get_all(int*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    get_all(int* dptr, const std::vector<MPI_Offset>& start, const std::vector<MPI_Offset>& count) const;
 
+    //! Read a chunk of data with strides
     void
-    get(int*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
-   // collective
+    get(int* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
+    //! Read a chunk of data with strides, collective
     void
-    get_all(int*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    get_all(int* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
 
 
     //! Read a chunk of data from the file
     void
-    get(char*, const std::vector<MPI_Offset>&, const std::vector<MPI_Offset>&) const;
+    get(char* dptr, const std::vector<MPI_Offset>& start, const std::vector<MPI_Offset>& count) const;
 
     //! Read a chunk of data with strides
     void
-    get(char*,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&,
-        const std::vector<MPI_Offset>&) const;
+    get(char* dptr,
+        const std::vector<MPI_Offset>& start,
+        const std::vector<MPI_Offset>& count,
+        const std::vector<MPI_Offset>& stride) const;
 
+    //! Whether a variable has an attribute with name
     bool has_attr(const std::string& name) const;
+    //! Set attribute "name" to "value"
     void put_attr(const std::string& name, const std::string& value) const;
+    //! Set attribute "name" to "value"
     void
     put_attr(const std::string& name, const std::vector<double>& value) const;
+    //! Set attribute "name" to "value"
     void
     put_attr(const std::string& name, const std::vector<float>& value) const;
+    //! Set attribute "name" to "value"
     void put_attr(const std::string& name, const std::vector<int>& value) const;
 
+    //! Read attribute from file
     std::string get_attr(const std::string& name) const;
+    //! Read attribute from file
     void get_attr(const std::string& name, std::vector<double>& value) const;
+    //! Read attribute from file
     void get_attr(const std::string& name, std::vector<float>& value) const;
+    //! Read attribute from file
     void get_attr(const std::string& name, std::vector<int>& value) const;
 };
 
 
 /** Representation of a NetCDF file
  *
- *  Provide wrappes to create and open file
+ *  Provide wrappers to create and open file
  */
 class NCFile
 {
 public:
 
+    //! Create a file
     static NCFile create(
         const std::string& name,
         const int cmode = NC_CLOBBER | NC_MPIIO,
         MPI_Comm comm = MPI_COMM_WORLD,
         MPI_Info info = MPI_INFO_NULL);
 
+    //! Open an existing file
     static NCFile open(
         const std::string& name,
         const int cmode = NC_NOWRITE,
@@ -261,6 +284,7 @@ public:
 
     ~NCFile();
 
+    //! Close file object
     void close();
 
     //! Number of dimensions
@@ -303,7 +327,7 @@ public:
     NCVar def_array_fill(
         const std::string& name,
         const nc_type dtype,
-        const std::vector<std::string>&,
+        const std::vector<std::string>& dnames,
         const void* fill_val) const;
 
     //! Define a variable (wrapper for def_array)
@@ -325,17 +349,25 @@ public:
         return def_array_fill(name, dtype, dnames, fill_val);
     }
 
+    //! Set file attribute to value
     void put_attr(const std::string& name, const std::string& value) const;
+    //! Set file attribute to value
     void put_attr(const std::string& name, const std::vector<double>& value) const;
+    //! Set file attribute to value
     void put_attr(const std::string& name, const std::vector<float>& value) const;
+    //! Set file attribute to value
     void put_attr(const std::string& name, const std::vector<int>& value) const;
 
+    //! Read file attribute from file
     std::string get_attr(const std::string& name) const;
+    //! Read file attribute from file
     void get_attr(const std::string& name, std::vector<double>& value) const;
+    //! Read file attribute from file
     void get_attr(const std::string& name, std::vector<float>& value) const;
+    //! Read file attribute from file
     void get_attr(const std::string& name, std::vector<int>& value) const;
 
-    // for non-blocking calls
+    //! wait for non-blocking calls to finish
     void wait_all( int num_requests, int * requests);
 
     //! Return a list of all dimensions defined in this group

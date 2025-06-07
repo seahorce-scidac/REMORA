@@ -432,14 +432,12 @@ void NCFile::exit_def_mode() const {
     check_ncmpi_error(ncmpi_enddef(ncid));
 }
 
-//Uncomment for parallel NetCDF
 NCFile NCFile::create(const std::string &name, const int cmode, MPI_Comm comm, MPI_Info info) {
     int ncid;
     check_ncmpi_error(ncmpi_create(comm, name.data(), cmode, info, &ncid));
     return NCFile(ncid);
 }
 
-//Uncomment for parallel NetCDF
 NCFile NCFile::open(const std::string &name, const int cmode, MPI_Comm comm, MPI_Info info) {
     int ncid;
     check_ncmpi_error(ncmpi_open(comm, name.data(), cmode, info, &ncid));

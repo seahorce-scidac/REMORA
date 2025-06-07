@@ -3,33 +3,35 @@
 using namespace amrex;
 
 /**
- * prestep
- *
- * @param[in   ] mf_vold
- * @param[inout] mf_u (looks like reset in update_vel <- prestep_uv_3d, so maybe just out
- * @param[inout] mf_v maybe just out
- * @param[inout] mf_ru
- * @param[inout] mf_rv
- * @param[in   ] S_old
- * @param[inout] S_new
- * @param[out  ] mf_W
- * @param[none ] mf_DC (temp)
- * @param[in   ] mf_z_r
- * @param[in   ] mf_z_w
- * @param[in   ] mf_h
- * @param[in   ] mf_sustr
- * @param[in   ] mf_svstr
- * @param[in   ] mf_bustr
- * @param[in   ] mf_bvstr
- * @param[in   ] mf_msku
- * @param[in   ] mf_mskv
- * @param[in   ] iic
- * @param[in   ] ntfirst
- * @param[in   ] nnew
- * @param[in   ] nstp
- * @param[in   ] nrhs
- * @param[in   ] N
- * @param[in   ] dt_lev
+ * @param[in   ] lev            level to operate on
+ * @param[in   ] mf_uold        u-velocity from last time step
+ * @param[in   ] mf_vold        v-velocity from last time step
+ * @param[  out] mf_u           u-velocity at current time step
+ * @param[  out] mf_v           v-velocity at current time step
+ * @param[inout] mf_ru          u-velocity RHS at current time step
+ * @param[inout] mf_rv          v-velocity RHS at current time step
+ * @param[in   ] S_old          scalar variables at last time step
+ * @param[inout] S_new          scalar variables at current time step
+ * @param[in   ] mf_W           vertical velocity
+ * @param        mf_DC          temporary variable container
+ * @param[in   ] mf_z_r         z coordinates at rho points (cell centers)
+ * @param[in   ] mf_z_w         z coordinates at w points
+ * @param[in   ] mf_h           bathymetry
+ * @param[in   ] mf_pm          1/dx
+ * @param[in   ] mf_pn          1/dy
+ * @param[in   ] mf_sustr       u-direction surface momentum flux
+ * @param[in   ] mf_svstr       v-direction surface momentum flux
+ * @param[in   ] mf_bustr       u-direction bottom stress
+ * @param[in   ] mf_bvstr       v-direction bottom stress
+ * @param[in   ] mf_msku        land-sea mask on u-points
+ * @param[in   ] mf_mskv        land-sea mask on v-points
+ * @param[in   ] iic            which time step we're on
+ * @param[in   ] ntfirst        what is the first time step?
+ * @param[in   ] nnew           index of time step to update
+ * @param[in   ] nstp           index of last time step
+ * @param[in   ] nrhs           index of RHS component
+ * @param[in   ] N              number of vertical levels
+ * @param[in   ] dt_lev         time step at this level
  */
 
 void

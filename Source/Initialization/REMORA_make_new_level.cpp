@@ -9,10 +9,17 @@
 
 using namespace amrex;
 
-// Make a new level using provided BoxArray and DistributionMapping and
-// fill with interpolated coarse level data (overrides the pure virtual function in AmrCore)
-// regrid  --> RemakeLevel            (if level already existed)
-// regrid  --> MakeNewLevelFromCoarse (if adding new level)
+/**
+ * Make a new level using provided BoxArray and DistributionMapping and
+ * fill with interpolated coarse level data (overrides the pure virtual function in AmrCore)
+ * regrid  --> RemakeLevel            (if level already existed)
+ * regrid  --> MakeNewLevelFromCoarse (if adding new level)
+ *
+ * @param[in   ] lev     level to make
+ * @param[in   ] time    current time
+ * @param[in   ] ba      BoxArray for the level
+ * @param[in   ] dm      DistributionMapping for the level
+ */
 void
 REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
                                const DistributionMapping& dm)
@@ -96,9 +103,15 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 #endif
 }
 
-// Remake an existing level using provided BoxArray and DistributionMapping and
-// fill with existing fine and coarse data.
-// overrides the pure virtual function in AmrCore
+/**
+ * Remake an existing level using provided BoxArray and DistributionMapping and
+ * fill with existing fine and coarse data.
+ * overrides the pure virtual function in AmrCore
+ * @param[in   ] lev     level to make
+ * @param[in   ] time    current time
+ * @param[in   ] ba      BoxArray for the level
+ * @param[in   ] dm      DistributionMapping for the level
+ */
 void
 REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMapping& dm)
 {
@@ -226,11 +239,18 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 #endif
 }
 
-// Make a new level from scratch using provided BoxArray and DistributionMapping.
-// This is called both for initialization and for restart
-// (overrides the pure virtual function in AmrCore)
-// main.cpp --> REMORA::InitData --> InitFromScratch --> MakeNewGrids --> MakeNewLevelFromScratch
-//                                         restart  --> MakeNewGrids --> MakeNewLevelFromScratch
+/**
+ * Make a new level from scratch using provided BoxArray and DistributionMapping.
+ * This is called both for initialization and for restart
+ * (overrides the pure virtual function in AmrCore)
+ * main.cpp --> REMORA::InitData --> InitFromScratch --> MakeNewGrids --> MakeNewLevelFromScratch
+ *                                        restart  --> MakeNewGrids --> MakeNewLevelFromScratch
+ *
+ * @param[in   ] lev     level to make
+ * @param[in   ] time    current time
+ * @param[in   ] ba      BoxArray for the level
+ * @param[in   ] dm      DistributionMapping for the level
+ */
 void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
                                      const DistributionMapping& dm)
 {
@@ -297,6 +317,9 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 #endif
 }
 
+/**
+ * @param[in   ] lev    level do operate on
+ */
 void REMORA::resize_stuff(int lev)
 {
     vec_z_phys_nd.resize(lev+1);
@@ -377,10 +400,6 @@ void REMORA::resize_stuff(int lev)
     vec_rhoA.resize(lev+1);
     vec_bvf.resize(lev+1);
 
-    mapfac_m.resize(lev+1);
-    mapfac_u.resize(lev+1);
-    mapfac_v.resize(lev+1);
-
     vec_tke.resize(lev+1);
     vec_gls.resize(lev+1);
     vec_Lscale.resize(lev+1);
@@ -397,6 +416,12 @@ void REMORA::resize_stuff(int lev)
     vec_nudg_coeff[BdyVars::vbar].resize(lev+1);
     vec_nudg_coeff[BdyVars::zeta].resize(lev+1);
 }
+
+/**
+ * @param[in   ] lev    level to operate on
+ * @param[in   ] ba     BoxArray for the level
+ * @param[in   ] dm     DistributionMapping for the level
+ */
 void REMORA::init_masks (int lev, const BoxArray& ba, const DistributionMapping& dm)
 {
     BoxList bl2d = ba.boxList();
@@ -416,6 +441,11 @@ void REMORA::init_masks (int lev, const BoxArray& ba, const DistributionMapping&
     vec_mskp[lev]->setVal(1.0_rt);
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ * @param[in   ] ba     BoxArray for the level
+ * @param[in   ] dm     DistributionMapping for the level
+ */
 void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping& dm)
 {
     // ********************************************************************************************
@@ -436,14 +466,6 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         b.setRange(1,0);
     }
     BoxArray ba1d(std::move(bl1d));
-
-    // Map factors
-    mapfac_m[lev].reset(new MultiFab(ba2d,dm,1,0));
-    mapfac_u[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,0));
-    mapfac_v[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,0));
-    mapfac_m[lev]->setVal(1.);
-    mapfac_u[lev]->setVal(1.);
-    mapfac_v[lev]->setVal(1.);
 
     BoxArray ba_nd(ba);
     ba_nd.surroundingNodes();
@@ -619,8 +641,11 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     }
 }
 
-// Delete level data
-// overrides the pure virtual function in AmrCore
+/**
+ * Delete level data. Overrides the pure virtual function in AmrCore
+ *
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::ClearLevel (int lev)
 {
@@ -628,6 +653,9 @@ REMORA::ClearLevel (int lev)
     delete cons_old[lev]; delete xvel_old[lev];  delete yvel_old[lev];  delete zvel_old[lev];
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_grid_scale (int lev)
 {
@@ -658,12 +686,6 @@ REMORA::set_grid_scale (int lev)
         Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            Real dx = 1.0_rt / pm(i,j,0);
-            Real dy = 1.0_rt / pn(i,j,0);
-        });
-
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
             xr(i,j,0) = (i + 0.5_rt) / pm(i,j,0);
             yr(i,j,0) = (j + 0.5_rt) / pn(i,j,0);
         });
@@ -688,6 +710,9 @@ REMORA::set_grid_scale (int lev)
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::set_zeta_to_Ztavg (int lev)
 {
@@ -727,6 +752,9 @@ REMORA::set_zeta_to_Ztavg (int lev)
     }
 }
 
+/**
+ * @param[in   ] lev    level to operate on
+ */
 void
 REMORA::update_mskp (int lev)
 {

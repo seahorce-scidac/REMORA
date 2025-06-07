@@ -3,21 +3,21 @@
 using namespace amrex;
 
 /**
- * lin_eos
- *
- * @param[in ] bx    box for calculation
- * @param[in ] state state holds temp, salt
- * @param[out] rho   density
- * @param[out] rhoA  vertically-averaged density
- * @param[out] rhoS  density perturbation
- * @param[in ] Hz
- * @param[in ] z_w
- * @param[in ] z_r
- * @param[in ] h
- * @param[in ] mskr
- * @param[in ] N
+ * @param[in   ] bx       box for calculation
+ * @param[in   ] state    state holds temp, salt
+ * @param[  out] rho      density
+ * @param[  out] rhoA     vertically-averaged density
+ * @param[  out] rhoS     density perturbation
+ * @param[  out] bvf      Brunt-Vaisala frequency
+ * @param[  out] alpha    thermal expansion coefficient
+ * @param[  out] beta     saline contraction coefficient
+ * @param[in   ] Hz       vertical cell height
+ * @param[in   ] z_r      z coordinates at rho points
+ * @param[in   ] z_w      z coordinates at w points
+ * @param[in   ] h        bathymetry
+ * @param[in   ] mskr     land-sea mask on rho points
+ * @param[in   ] N        number of vertical levels
  */
-
 void
 REMORA::rho_eos (const Box& bx,
                 const Array4<Real const>& state,
@@ -44,21 +44,19 @@ REMORA::rho_eos (const Box& bx,
 }
 
 /**
- * lin_eos
- *
- * @param[in ] bx    box for calculation
- * @param[in ] state state holds temp, salt
- * @param[out] rho   density
- * @param[out] rhoA  vertically-averaged density
- * @param[out] rhoS  density perturbation
- * @param[in ] Hz
- * @param[in ] z_w
- * @param[in ] z_r
- * @param[in ] h
- * @param[in ] mskr
- * @param[in ] N
+ * @param[in   ] bx       box for calculation
+ * @param[in   ] state    state holds temp, salt
+ * @param[  out] rho      density
+ * @param[  out] rhoA     vertically-averaged density
+ * @param[  out] rhoS     density perturbation
+ * @param[  out] bvf      Brunt-Vaisala frequency
+ * @param[in   ] Hz       vertical cell height
+ * @param[in   ] z_r      z coordinates at rho points
+ * @param[in   ] z_w      z coordinates at w points
+ * @param[in   ] h        bathymetry
+ * @param[in   ] mskr     land-sea mask on rho points
+ * @param[in   ] N        number of vertical levels
  */
-
 void
 REMORA::lin_eos (const Box& bx,
                 const Array4<Real const>& state,
@@ -140,21 +138,21 @@ REMORA::lin_eos (const Box& bx,
 }
 
 /**
- * nonlin_eos
- *
- * @param[in ] bx    box for calculation
- * @param[in ] state state holds temp, salt
- * @param[out] rho   density
- * @param[out] rhoA  vertically-averaged density
- * @param[out] rhoS  density perturbation
- * @param[in ] Hz
- * @param[in ] z_w
- * @param[in ] z_r
- * @param[in ] h
- * @param[in ] mskr
- * @param[in ] N
+ * @param[in   ] bx       box for calculation
+ * @param[in   ] state    state holds temp, salt
+ * @param[  out] rho      density
+ * @param[  out] rhoA     vertically-averaged density
+ * @param[  out] rhoS     density perturbation
+ * @param[  out] bvf      Brunt-Vaisala frequency
+ * @param[  out] alpha    thermal expansion coefficient
+ * @param[  out] beta     saline contraction coefficient
+ * @param[in   ] Hz       vertical cell height
+ * @param[in   ] z_r      z coordinates at rho points
+ * @param[in   ] z_w      z coordinates at w points
+ * @param[in   ] h        bathymetry
+ * @param[in   ] mskr     land-sea mask on rho points
+ * @param[in   ] N        number of vertical levels
  */
-
 void
 REMORA::nonlin_eos (const Box& bx,
                 const Array4<Real const>& state,

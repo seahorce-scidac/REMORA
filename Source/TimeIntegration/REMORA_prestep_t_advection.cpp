@@ -2,9 +2,31 @@
 
 using namespace amrex;
 
-//
-// prestep_t_advection
-//
+/**
+ * @param[in   ] tbx        tile box
+ * @param[in   ] gbx        grown tile box
+ * @param[in   ] tempold    scalar at last time
+ * @param[in   ] tempcache  cached current time step's scalar value
+ * @param[in   ] Hz         vertical cell height
+ * @param[in   ] Huon       u-volume flux
+ * @param[in   ] Hvom       v-volume flux
+ * @param[in   ] Akv        vertical viscosity coefficient
+ * @param[inout] W          vertical velocity
+ * @param        DC         temporary
+ * @param        FC         temporary
+ * @param[  out] tempstore  scratch space for calculations on scalars
+ * @param[in   ] z_w        z coordinates at w points
+ * @param[in   ] h          bathymetry
+ * @param[in   ] pm         1/dx
+ * @param[in   ] pn         1/dy
+ * @param[in   ] msku       land-sea mask on u-points
+ * @param[in   ] mskv       land-sea mask on v-points
+ * @param[in   ] iic        which time step we're on
+ * @param[in   ] ntfirst    what is the first time step?
+ * @param[in   ] nrhs       index of RHS component
+ * @param[in   ] N          number of vertical levels
+ * @param[in   ] dt_lev     time step at this level
+ */
 
 void
 REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,

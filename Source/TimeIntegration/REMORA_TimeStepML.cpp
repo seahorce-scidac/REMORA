@@ -2,9 +2,10 @@
 
 using namespace amrex;
 
-//
-// Advance all levels by dt
-//
+/**
+ * @param[in] time           simulation time at start of step
+ * @param[in] iteration      iteration in subcycling, if using
+ */
 void
 REMORA::timeStepML (Real time, int /*iteration*/)
 {

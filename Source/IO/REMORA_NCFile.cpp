@@ -4,6 +4,12 @@
 #include "REMORA_NCInterface.H"
 
 
+/**
+ * @param fname Name of NetCDF file
+ * @param var_name Name of variable
+ * @param attr_name Name of attribute to read
+ * @returns attribute value
+ */
 std::string ReadNetCDFVarAttrStr (const std::string& fname,
                                   const std::string& var_name,
                                   const std::string& attr_name)
