@@ -111,7 +111,7 @@ The solution may also be nudged towards climatology data in an interior sponge r
 
 Additionally, REMORA provides support for serial I/O with PnetCDF and parallel I/O with AMReX plotfiles (unique to REMORA).
 
-### Next development steps
+### Future development
 
 Subsequent releases of REMORA will include parallel I/O with PnetCDF and point sources and sinks to simulate, e.g. rivers. We will also implement full AMR. Currently, AMR is tested in REMORA for simple problems such as scalar advection over flat bathymetry. This functionality for more complex problems is a work in progress.
 
