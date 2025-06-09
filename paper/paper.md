@@ -70,9 +70,10 @@ and as such requires boundary conditions derived analytically, or from larger-sc
 Most widely used ocean modeling codes today do not have the
 ability to use GPU acceleration, which limits their ability to
 efficiently utilize current and next-generation high performance computing
-architectures. Oceananigans (Julia-based; @oceananigans) and Veros (Python-based; @veros) have both been developed as flexible,
+architectures. Oceananigans (Julia-based; @oceananigans:JOSS; @oceananigans) and
+Veros (Python-based; @veros) have both been developed as flexible,
 GPU-enabled models that can be used to simulate regional and global applications.
-REMORA is a C++-based alternative. Its ocean modeling capability is directly based on ROMS (a proven FORTRAN code
+REMORA is a C++-based alternative. Its ocean modeling capability is directly based on ROMS (a proven Fortran code
 that runs efficiently on CPUs), and is able to run on all of the latest high-performance
 computing architectures, from laptops to supercomputers, CPU-only or GPU-accelerated.
 REMORA is based on AMReX,
@@ -105,15 +106,15 @@ We also provide options for specifying land masking and Coriolis forcing.
 
 REMORA implements many of the ROMS boundary conditions, including periodic and zero-gradient.
 Baroclinic variables have the additional option of a radiation boundary condition (e.g. @orlanski:76).
-Boundary data provided by file can be used to clamp the solution on the boundaries, or be incorporated using a Chapman/Flather [@flather:76; @chapman:85] condition (in the case of barotropic variables).
+Boundary data provided by file can be used to clamp the solution on the boundaries, or be incorporated using a Chapman/Flather [@flather:76; @chapman:85] condition in the case of barotropic variables.
 Boundary data can also be used for nudging, based on @marchesiello:01.
 The solution may also be nudged towards climatology data in an interior sponge region.
 
 Additionally, REMORA provides support for serial I/O with PnetCDF and parallel I/O with AMReX plotfiles (unique to REMORA).
 
-### Next development steps
+### Future development
 
-Subsequent releases of REMORA will include parallel I/O with PnetCDF and point sources and sinks to simulate, e.g. rivers. We will also implement full adaptive mesh refinement. Currently, AMR is tested in REMORA for simple problems such as scalar advection over flat bathymetry. This functionality for more complex problems is a work in progress.
+Subsequent releases of REMORA will include parallel I/O with PnetCDF and point sources and sinks to simulate, e.g. rivers. We will also implement full AMR. Currently, AMR is tested in REMORA for simple problems such as scalar advection over flat bathymetry. This functionality for more complex problems is a work in progress.
 
 # Acknowledgements
 
