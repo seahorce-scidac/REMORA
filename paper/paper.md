@@ -105,7 +105,7 @@ We also provide options for specifying land masking and Coriolis forcing.
 
 REMORA implements many of the ROMS boundary conditions, including periodic and zero-gradient.
 Baroclinic variables have the additional option of a radiation boundary condition (e.g. @orlanski:76).
-Boundary data provided by file can be used to clamp the solution on the boundaries, or be incorporated using a Chapman/Flather [@flather:76; @chapman:85] condition (in the case of barotropic variables).
+Boundary data provided by file can be used to clamp the solution on the boundaries, or be incorporated using a Chapman/Flather [@flather:76; @chapman:85] condition in the case of barotropic variables.
 Boundary data can also be used for nudging, based on @marchesiello:01.
 The solution may also be nudged towards climatology data in an interior sponge region.
 
