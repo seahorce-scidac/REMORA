@@ -72,7 +72,7 @@ ability to use GPU acceleration, which limits their ability to
 efficiently utilize current and next-generation high performance computing
 architectures. Oceananigans (Julia-based; @oceananigans) and Veros (Python-based; @veros) have both been developed as flexible,
 GPU-enabled models that can be used to simulate regional and global applications.
-REMORA is a C++-based alternative. Its ocean modeling capability is directly based on ROMS (a proven FORTRAN code
+REMORA is a C++-based alternative. Its ocean modeling capability is directly based on ROMS (a proven Fortran code
 that runs efficiently on CPUs), and is able to run on all of the latest high-performance
 computing architectures, from laptops to supercomputers, CPU-only or GPU-accelerated.
 REMORA is based on AMReX,
