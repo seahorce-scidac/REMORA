@@ -113,7 +113,7 @@ Additionally, REMORA provides support for serial I/O with PnetCDF and parallel I
 
 ### Next development steps
 
-Subsequent releases of REMORA will include parallel I/O with PnetCDF and point sources and sinks to simulate, e.g. rivers. We will also implement full adaptive mesh refinement. Currently, AMR is tested in REMORA for simple problems such as scalar advection over flat bathymetry. This functionality for more complex problems is a work in progress.
+Subsequent releases of REMORA will include parallel I/O with PnetCDF and point sources and sinks to simulate, e.g. rivers. We will also implement full AMR. Currently, AMR is tested in REMORA for simple problems such as scalar advection over flat bathymetry. This functionality for more complex problems is a work in progress.
 
 # Acknowledgements
 
