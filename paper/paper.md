@@ -39,12 +39,12 @@ authors:
 affiliations:
  - name: Lawrence Berkeley National Laboratory
    index: 1
- - name: Pacific Northwest Energy Laboratory
+ - name: Pacific Northwest National Laboratory
    index: 2
  - name: Argonne National Laboratory
    index: 3
 
-date: May 2025
+date: June 2025
 
 bibliography: paper.bib
 ---
