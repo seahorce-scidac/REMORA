@@ -48,3 +48,26 @@ Software to reproduce, distribute copies to the public, prepare derivative
 works, and perform publicly and display publicly, and to permit others to do so.
 
 The license for REMORA can be found in the LICENSE.md file.
+
+Citation
+~~~~~~~~~
+
+To cite REMORA, please use the following reference:
+
+.. image:: https://joss.theoj.org/papers/10.21105/joss.07958/status.svg
+   :target: https://doi.org/10.21105/joss.07958
+
+::
+
+  @article{REMORA_JOSS,
+      doi = {10.21105/joss.07958},
+      url = {https://doi.org/10.21105/joss.07958},
+      year = {2025},
+      publisher = {The Open Journal},
+      volume = {10},
+      number = {110},
+      pages = {7958},
+      author = {Hannah Klion and Robert Hetland and Jean Sexton and Ann Almgren and Iulian Grindeanu and Kyle Hinson and Vijay Mahadevan},
+      title = {REMORA: Regional Modeling of Oceans Refined Adaptively (built on AMReX)},
+      journal = {Journal of Open Source Software}
+  }
