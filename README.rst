@@ -1,5 +1,7 @@
 REMORA
 ------
+.. image:: https://joss.theoj.org/papers/10.21105/joss.07958/status.svg
+   :target: https://doi.org/10.21105/joss.07958
 
 REMORA (Regional Model of the Ocean Refined Adaptively) is a new GPU-enabled code designed to replicate the functionality of the ROMS code but with the ability to exploit GPU architectures.
 
