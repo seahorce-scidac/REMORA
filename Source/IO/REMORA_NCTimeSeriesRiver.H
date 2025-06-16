@@ -15,7 +15,7 @@ class NCTimeSeriesRiver
         NCTimeSeriesRiver (const std::string a_file_name,
                            const std::string a_field_name,
                            const std::string a_time_name,
-                           const int a_nz);
+                           const int a_nz, const int a_use_vert_integ=0);
 
         void Initialize ();
 
@@ -23,7 +23,7 @@ class NCTimeSeriesRiver
         void update_interpolated_to_time (amrex::Real time);
 
         /// Container for interpolated data; Only used if save_interpolated == true
-        amrex::MultiFab* mf_interpolated;
+        amrex::FArrayBox* fab_interp;
     private:
         /**
          * Read in data from file at time index itime and fill into FAB
@@ -43,6 +43,11 @@ class NCTimeSeriesRiver
         int nz;
         /// Whether the field is specified in the z-dimension
         int has_z;
+        /// Whether to use the depth-integrated value read from file; Used
+        /// when !has_z
+        int use_vert_integ;
+        /// How many vertical cells there are in the data fabs
+        int nzbox;
 
         /// Time points in netcdf file
         amrex::Vector<amrex::Real> river_times;
@@ -56,7 +61,6 @@ class NCTimeSeriesRiver
         /// FABs to pointers of river data
         amrex::FArrayBox* fab_before;
         amrex::FArrayBox* fab_after;
-        amrex::FArrayBox* fab_interp;
         /// Vshape data if needed
         amrex::FArrayBox* fab_vshape;
 };

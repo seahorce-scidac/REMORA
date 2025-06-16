@@ -750,11 +750,28 @@ REMORA::init_only (int lev, Real time)
         svstr_data_from_file->Initialize();
     }
 
-    if (solverChoice.do_rivers == true) {
+    if (solverChoice.do_rivers) {
         auto dom = geom[0].Domain();
         int nz = dom.length(2);
-        river_salt = new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz);
-        river_temp = new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz);
+        river_source_cons.resize(NCONS);
+        Print() << solverChoice.do_rivers_cons[0] << std::endl;
+        if ((bool) solverChoice.do_rivers_cons[Salt_comp]) {
+            river_source_cons[Salt_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz);
+            river_source_cons[Salt_comp]->Initialize();
+        }
+        if (solverChoice.do_rivers_cons[Temp_comp]) {
+            river_source_cons[Temp_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz);
+            river_source_cons[Temp_comp]->Initialize();
+        }
+        if (solverChoice.do_rivers_cons[Scalar_comp]) {
+            river_source_cons[Scalar_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz);
+            river_source_cons[Scalar_comp]->Initialize();
+        }
+        river_source_transport = new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz);
+        river_source_transport->Initialize();
+        river_source_transportbar = new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz, 1);
+        river_source_transportbar->Initialize();
+        init_riv_pos_from_netcdf(lev);
     }
 #endif
 
@@ -1010,7 +1027,7 @@ REMORA::ReadParameters ()
         pp.query("nc_frc_file", nc_frc_file);
 
         // Get river file
-        pp.query("nc_riv_file", nc_riv_file);
+        pp.query("nc_river_file", nc_riv_file);
 
         // Read in file names for climatology history and nudging weights
         pp.query("nc_clim_his_file", nc_clim_his_file);

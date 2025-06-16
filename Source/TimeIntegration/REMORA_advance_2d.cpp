@@ -779,7 +779,7 @@ REMORA::advance_2d (int lev,
         }
     }
 
-    // Don't do the FillPatch at the last truncated predictor step.
+    // Don't do the FillPatch or rivers at the last truncated predictor step.
     // We may need to move the zeta FillPatch further up
     if (my_iif<nfast) {
         int know;
@@ -801,5 +801,47 @@ REMORA::advance_2d (int lev,
                   knew, false,true, 0,know, dt2d);
         FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), BCVars::zeta_bc, BdyVars::zeta,
                   knew, false,false, 0,know, dt2d);
+
+#ifdef REMORA_USE_NETCDF
+        if (solverChoice.do_rivers) {
+            river_source_transportbar->update_interpolated_to_time(t_old[lev]);
+            for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+            {
+                Array4<const int > const& river_pos = vec_river_position[lev]->const_array(mfi);
+                Array4<const Real> const& river_transportbar = river_source_transportbar->fab_interp->array();
+                Array4<Real      > const& ubar    = mf_ubar->array(mfi);
+                Array4<Real      > const& vbar    = mf_vbar->array(mfi);
+                Array4<Real const> const& zeta    = mf_zeta->const_array(mfi);
+                Array4<Real const> const& h       = mf_h->const_array(mfi);
+                Array4<Real const> const& pm      = mf_pm->const_array(mfi);
+                Array4<Real const> const& pn      = mf_pn->const_array(mfi);
+
+                Box gbx1D = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+                gbx1D.makeSlab(2,0);
+
+                ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+                {
+                    int iriver = river_pos(i,j,0);
+                    if (iriver >= 0) {
+                        if (river_direction[iriver] == 0) {
+                            Real on_u = 2.0_rt / (pn(i,j,0)+pn(i-1,j,0));
+                            Real cff = 1.0_rt / (on_u * 0.5_rt * (zeta(i-1,j,0,knew) + h(i-1,j,0) +
+                                        zeta(i,j,0,knew) + h(i,j,0)));
+                            ubar(i,j,0,knew) = river_transportbar(iriver,0,0) * cff;
+                        } else {
+                            Real om_v = 2.0_rt / (pm(i,j,0)+pm(i,j-1,0));
+                            Real cff = 1.0_rt / (om_v * 0.5_rt * (zeta(i,j-1,0,knew) + h(i,j-1,0) +
+                                        zeta(i,j,0,knew) + h(i,j,0)));
+                            vbar(i,j,0,knew) = river_transportbar(iriver,0,0) * cff;
+                        }
+                    }
+                });
+            }
+        }
+        FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar,
+                  knew, false,false);
+        FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,
+                  knew, false,false);
+#endif
     }
 }

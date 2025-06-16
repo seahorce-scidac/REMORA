@@ -79,6 +79,10 @@ read_clim_nudg_coeff_from_netcdf (int lev, const Box& domain, const std::string&
                                   FArrayBox& NC_TempNC_fab,
                                   FArrayBox& NC_SaltNC_fab);
 
+/** \brief helper function to read in vector of data from netcdf */
+//template <typename DType>
+void read_vec_from_netcdf (int lev, const std::string& fname, const std::string& field_name, amrex::Vector<int>& vec_dat);
+
 /**
  * @param lev Integer specifying the current level
  */
@@ -563,38 +567,45 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
 }
 
 /**
- * @param[inout] mf    multifab of data to convert
+ * @param[in   ] lev     level to read in river data
  */
 void
 REMORA::init_riv_pos_from_netcdf (int lev)
 {
     amrex::Vector<int> river_pos_x;
     amrex::Vector<int> river_pos_y;
+    amrex::Vector<int> river_direction_tmp;
 
-    read_vec_from_netcdf<int>(lev, river_file_name, "river_Xposition", river_pos_x);
-    read_vec_from_netcdf<int>(lev, river_file_name, "river_Yposition", river_pos_y);
-    read_vec_from_netcdf<int>(lev, river_file_name, "river_direction", river_direction);
+    std::string river_x_name = "river_Xposition";
+    std::string river_y_name = "river_Eposition";
+    std::string river_dir_name = "river_direction";
+
+    read_vec_from_netcdf(lev, nc_riv_file, river_x_name, river_pos_x);
+    read_vec_from_netcdf(lev, nc_riv_file, river_y_name, river_pos_y);
+    read_vec_from_netcdf(lev, nc_riv_file, river_dir_name, river_direction_tmp);
 
     int nriv = river_pos_x.size();
-    amrex::Gpu::DeviceVector<BCRec> xpos_d(ncomp);
-    amrex::Gpu::DeviceVector<BCRec> ypos_d(ncomp);
+    amrex::Gpu::DeviceVector<int> xpos_d(nriv);
+    amrex::Gpu::DeviceVector<int> ypos_d(nriv);
+    river_direction.resize(nriv);
 #ifdef AMREX_USE_GPU
     Gpu::htod_memcpy_async(xpos_d.data(), river_pos_x.data(), sizeof(int)*nriv);
     Gpu::htod_memcpy_async(ypos_d.data(), river_pos_y.data(), sizeof(int)*nriv);
+    Gpu::htod_memcpy_async(river_direction.data(), river_direction_tmp.data(), sizeof(int)*nriv);
 #else
     std::memcpy(xpos_d.data(), river_pos_x.data(), sizeof(int)*nriv);
     std::memcpy(ypos_d.data(), river_pos_y.data(), sizeof(int)*nriv);
+    std::memcpy(river_direction.data(), river_direction_tmp.data(), sizeof(int)*nriv);
 #endif
     const int* xpos_ptr = xpos_d.data();
     const int* ypos_ptr = ypos_d.data();
 
-    auto mf_river_position = vec_river_position[lev];
-    for (amrex::MFIter mfi(*mf_river_position.get(),true); mfi.isValid(); ++mfi) {
-        amrex::Box bx = mfi.tilebox();
-        auto river_pos = mf_river_position->array(mfi);
+    for (amrex::MFIter mfi(*(vec_river_position[lev]).get(),true); mfi.isValid(); ++mfi) {
+        amrex::Box bx = mfi.growntilebox(amrex::IntVect(NGROW,NGROW,0));
+        auto river_pos = vec_river_position[lev]->array(mfi);
         for (int iriv=0; iriv < nriv; iriv++) {
-            int xriv = xpos_ptr[iriv];
-            int yriv = ypos_ptr[iriv];
+            int xriv = xpos_ptr[iriv]-1;
+            int yriv = ypos_ptr[iriv]-1;
             if (bx.contains(amrex::IntVect(xriv,yriv,0))) {
                 river_pos(xriv,yriv,0) = iriv;
             }
@@ -602,6 +613,9 @@ REMORA::init_riv_pos_from_netcdf (int lev)
     }
 }
 
+/**
+ * @param[inout] mf    multifab of data to convert
+ */
 void
 REMORA::convert_inv_days_to_inv_s (MultiFab* mf) {
     Real inv_days_to_inv_s = 1.0_rt / (3600._rt * 24._rt);

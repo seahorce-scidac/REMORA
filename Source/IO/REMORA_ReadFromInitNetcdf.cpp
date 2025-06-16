@@ -216,15 +216,21 @@ read_clim_nudg_coeff_from_netcdf (int /*lev*/,
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
 
-template <typename DType>
-void read_vec_from_netcdf (int /*lev*/, std::string fname, std::string field_name, amrex::Vector<DType>& vec_dat)
+/**
+ * @param lev            level of data to read
+ * @param fname          file name to read from
+ * @param field_name     field name to read
+ * @param vec_dat        vector to fill data
+ */
+//template <typename DType>
+void read_vec_from_netcdf (int /*lev*/, const std::string& fname, const std::string& field_name, amrex::Vector<int>& vec_dat)
 {
-    amrex::Print() << "Reading " << fname << " from NetCDF file" << std::endl;
+    amrex::Print() << "Reading " << field_name << " from NetCDF file" << std::endl;
 
     // get x-positions and put in array
-    using ARRAY = NDArray<DType>;
+    using ARRAY = NDArray<int>;
     amrex::Vector<ARRAY> array_dat(1);
-    ReadNetCDFFile(file_name, {field_name}, array_dat); // filled only on proc 0
+    ReadNetCDFFile(fname, {field_name}, array_dat); // filled only on proc 0
     if (amrex::ParallelDescriptor::IOProcessor())
     {
         int nd = array_dat[0].get_vshape()[0];

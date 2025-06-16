@@ -132,8 +132,18 @@ struct SolverChoice {
         //This accounts for the main 2d loop but may not include coupling and copying properly
         pp.query("use_barotropic", use_barotropic);
 
-        // Whether to do rivers
+        // Whether to do rivers. By default, rivers are temp and salt sources. Rivers
+        // have to be momentum sources.
         pp.query("do_rivers", do_rivers);
+
+        pp.query("do_rivers_temp", do_rivers_temp);
+        pp.query("do_rivers_salt", do_rivers_salt);
+        pp.query("do_rivers_scalar", do_rivers_scalar);
+
+        do_rivers_cons.resize(NCONS);
+        do_rivers_cons[Temp_comp  ] = do_rivers_temp;
+        do_rivers_cons[Salt_comp  ] = do_rivers_salt;
+        do_rivers_cons[Scalar_comp] = do_rivers_scalar;
 
         pp.query("init_l1ad_h", init_l1ad_h);
         pp.query("init_l1ad_T", init_l1ad_T);
@@ -517,6 +527,10 @@ struct SolverChoice {
     bool        do_salt_flux        = false;
 
     bool        do_rivers             = false;
+    bool        do_rivers_temp        = true;
+    bool        do_rivers_salt        = true;
+    bool        do_rivers_scalar      = false;
+    amrex::Vector<int> do_rivers_cons;
 
     bool init_l1ad_h = false;
     bool init_l1ad_T = false;

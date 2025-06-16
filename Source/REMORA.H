@@ -480,6 +480,7 @@ public:
                      amrex::MultiFab const* mf_h,
                      amrex::MultiFab const* mf_pm,
                      amrex::MultiFab const* mf_pn,
+                     amrex::MultiFab const* mf_mskr,
                      amrex::MultiFab const* mf_msku,
                      amrex::MultiFab const* mf_mskv,
                      const int N,
@@ -542,6 +543,8 @@ public:
                         const amrex::Array4<amrex::Real const>& pn,
                         const amrex::Array4<amrex::Real const>& msku,
                         const amrex::Array4<amrex::Real const>& mskv,
+                        const amrex::Array4<int         const>& river_pos,
+                        const amrex::Array4<amrex::Real const>& river_source,
                         int iic, int ntfirst, int nrhs, int N,
                         const amrex::Real dt_lev);
 
@@ -556,8 +559,11 @@ public:
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& W,
                    const amrex::Array4<amrex::Real      >& FC,
+                   const amrex::Array4<amrex::Real const>& mskr,
                    const amrex::Array4<amrex::Real const>& msku,
                    const amrex::Array4<amrex::Real const>& mskv,
+                   const amrex::Array4<int         const>& river_pos,
+                   const amrex::Array4<amrex::Real const>& river_source,
                    int nrhs, int nnew, int N, const amrex::Real dt_lev);
 
     /** \brief RHS terms for 3D momentum */
@@ -892,7 +898,7 @@ public:
     void convert_inv_days_to_inv_s (amrex::MultiFab*);
 
     /** \brief Mask data arrays before writing output */
-    void mask_arrays_for_write (int lev, amrex::Real fill_value);
+    void mask_arrays_for_write (int lev, amrex::Real fill_value, amrex::Real fill_where);
 
 
 #ifdef REMORA_USE_NETCDF
@@ -1020,11 +1026,17 @@ private:
     /** \brief Data container for salinity climatology data read from file */
     NCTimeSeries* salt_clim_data_from_file;
 
-    NCTimeSeriesRiver* river_salt;
-    NCTimeSeriesRiver* river_temp;
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_river_position;
-    amrex::Vector<int> river_direction;
+    /** \brief Vector of data containers for scalar data in rivers */
+    amrex::Vector<NCTimeSeriesRiver*> river_source_cons;
+    /** \brief Data container for momentum transport in rivers */
+    NCTimeSeriesRiver* river_source_transport;
+    /** \brief Data container for vertically integrated momentum transport in rivers */
+    NCTimeSeriesRiver* river_source_transportbar;
 #endif
+    /** \brief iMultiFab for river positions; contents are indices of rivers */
+    amrex::Vector<std::unique_ptr<amrex::iMultiFab>> vec_river_position;
+    /** \brief Vector over rivers of river direction: 0: u-face; 1: v-face; 2: w-face */
+    amrex::Gpu::DeviceVector<int> river_direction;
 
 #endif // REMORA_USE_NETCDF
 

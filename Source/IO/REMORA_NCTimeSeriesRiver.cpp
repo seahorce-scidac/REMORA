@@ -8,11 +8,12 @@
 #ifdef REMORA_USE_NETCDF
 NCTimeSeriesRiver::NCTimeSeriesRiver (const std::string a_file_name, const std::string a_field_name,
                                       const std::string a_time_name,
-                                      const int a_nz) {
+                                      const int a_nz, const int a_use_vert_integ) {
     file_name = a_file_name;
     time_name = a_time_name;
     field_name = a_field_name;
     nz   = a_nz;
+    use_vert_integ = a_use_vert_integ;
 }
 
 void NCTimeSeriesRiver::Initialize() {
@@ -50,6 +51,7 @@ void NCTimeSeriesRiver::Initialize() {
         }
     }
     int ntimes = river_times.size();
+    amrex::Print() << "ntimes " << ntimes << std::endl;
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     amrex::ParallelDescriptor::Bcast(&ntimes,1,ioproc);
     if (!(amrex::ParallelDescriptor::IOProcessor())) {
@@ -63,29 +65,32 @@ void NCTimeSeriesRiver::Initialize() {
         std::vector<MPI_Offset> shape = ncf.var(field_name).shape();
         if (shape.size() == 2) {
             has_z = 0;
+            nriv = shape[1];
         } else if (shape.size() == 3) {
             has_z = 1;
+            nriv = shape[2];
         } else {
             amrex::Abort("River field shape not 2 or 3");
         }
-        nriv = shape[0];
     }
     amrex::ParallelDescriptor::Bcast(&has_z, 1, ioproc);
     amrex::ParallelDescriptor::Bcast(&nriv, 1, ioproc);
 
     amrex::Box vshape_box(amrex::IntVect(0,0,0),amrex::IntVect(nriv,0,nz));
-    if (!has_z) {
+    if (!has_z && !use_vert_integ) {
         amrex::Vector<amrex::FArrayBox*> NC_fabs;
         amrex::Vector<std::string> NC_names;
         amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types;
         amrex::Print() << "Reading in river_Vshape from " << file_name << std::endl;
 
+        fab_vshape = new amrex::FArrayBox();
         NC_fabs.push_back(fab_vshape); NC_names.push_back("river_Vshape");
         NC_dim_types.push_back(NC_Data_Dims_Type::BT_Riv);
         BuildFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(vshape_box, file_name, NC_names, NC_dim_types, NC_fabs);
     }
 
-    amrex::Box riv_box(amrex::IntVect(0,0,0),amrex::IntVect(nriv,0,nz));
+    nzbox = (use_vert_integ) ? 1 : nz;
+    amrex::Box riv_box(amrex::IntVect(0,0,0),amrex::IntVect(nriv,0,nzbox));
 #ifdef AMREX_USE_GPU
     // It's possible there should be a different arena
     fab_before = new amrex::FArrayBox(riv_box,1,amrex::The_Pinned_Arena());
@@ -132,7 +137,7 @@ void NCTimeSeriesRiver::update_interpolated_to_time (amrex::Real time) {
     auto before_array = fab_before->array();
     auto after_array = fab_after->array();
     for (int r=0; r < nriv; r++) {
-        for (int k=0; k < nz; k++) {
+        for (int k=0; k < nzbox; k++) {
             interp_array(r,0,k) = before_array(r,0,k) + (time - time_before_copy) * (after_array(r,0,k) - before_array(r,0,k)) / dt;
         }
     }
@@ -144,7 +149,6 @@ void NCTimeSeriesRiver::read_in_at_time (amrex::FArrayBox* fab_dat, int itime) {
     amrex::Vector<std::string> NC_names;
     amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types;
     // actual dims don't really matter here; only lower is used in call
-    amrex::Box riv_domain(amrex::IntVect(0,0,0), amrex::IntVect(nriv,1,nz));
 
     amrex::Print() << "Reading in " << field_name << " at  time index " << itime << " from " << file_name << std::endl;
 
@@ -156,6 +160,8 @@ void NCTimeSeriesRiver::read_in_at_time (amrex::FArrayBox* fab_dat, int itime) {
         NC_dim_types.push_back(NC_Data_Dims_Type::Time_Riv);
     }
 
+    amrex::Box riv_domain(amrex::IntVect(0,0,0), amrex::IntVect(nriv,1,nz));
+
     BuildFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(riv_domain, file_name, NC_names, NC_dim_types, NC_fabs, true, itime);
 
     auto dat_array = fab_dat->array();
@@ -165,62 +171,14 @@ void NCTimeSeriesRiver::read_in_at_time (amrex::FArrayBox* fab_dat, int itime) {
             for (int k=0; k < nz; k++) {
                 dat_array(r,0,k) = tmp_array(r,0,k);
             }
+        } else if (use_vert_integ) {
+            dat_array(r,0,0) = tmp_array(r,0,0);
         } else {
             auto array_vshape = fab_vshape->array();
             for (int k=0; k < nz; k++) {
-                dat_array(r,0,k) = tmp_array(r,0,k) * array_vshape(r,0,k);
+                dat_array(r,0,k) = tmp_array(r,0,0) * array_vshape(r,0,k);
             }
         }
     }
-
-//    using RARRAY = amrex::NDArray<Real>;
-//    amrex::Vector<RARRAY> array_dat(1);
-//
-//    int nz_read; // Number of z points we will have read in
-//    auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER );
-//    ncmpi_begin_indep_data(ncf.ncid);
-//    if (amrex::ParallelDescriptor::IOProcessor())
-//    {
-//        std::vector<MPI_Offset> shape = ncf.var(field_name).shape();
-//        array_dat = NDArray<DType>(field_name, shape);
-//        DType* dataPtr = array_dat.get_data();
-//
-//        std::vector<MPI_Offset> start(shape.size(), 0);
-//        start[0] = itime;
-//        shape[0] = 1;
-//        // Don't have z-data
-//        if (shape.size() == 2) {
-//            nz_read = 1;
-//        } else if (shape.size() == 3) {
-//            nz_read = shape[1];
-//        } else {
-//            amrex::Abort("Unexpected river data dimension count");
-//        }
-//
-//        ncf.var(field_name).get(dataPtr, start, shape);
-//
-//        if (nz_read == 1) {
-//            RARRAY vshape_dat = NDArray<DType>(field_name, shape);
-//        }
-//
-//        nriv = array_dat[0].get_vshape()[1];
-//        nz = array_dat[0].get_vshape()[1];
-//
-//        if (nz_read == 1) {
-//            for (int k=0; k < nz; k++) {
-//                for (int r=0; r < nriv; r++) {
-//                    vec[r][k] = *(array_dat.get_data() + r) * vshape[r][k];
-//                }
-//            }
-//        } else {
-//            for (int k=0; k < nz; k++) {
-//                for (int r=0; r < nriv; r++) {
-//                    vec[r][k] = *(array_dat.get_data() + r + k * nriv);
-//                }
-//            }
-//        }
-//    }
-//    amrex::ParallelDescriptor::Bcast(vec.data(), vec.size(), ioproc);
-
 }
 #endif // REMORA_USE_NETCDF

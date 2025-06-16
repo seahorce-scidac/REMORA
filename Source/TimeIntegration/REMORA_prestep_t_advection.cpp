@@ -3,29 +3,31 @@
 using namespace amrex;
 
 /**
- * @param[in   ] tbx        tile box
- * @param[in   ] gbx        grown tile box
- * @param[in   ] tempold    scalar at last time
- * @param[in   ] tempcache  cached current time step's scalar value
- * @param[in   ] Hz         vertical cell height
- * @param[in   ] Huon       u-volume flux
- * @param[in   ] Hvom       v-volume flux
- * @param[in   ] Akv        vertical viscosity coefficient
- * @param[inout] W          vertical velocity
- * @param        DC         temporary
- * @param        FC         temporary
- * @param[  out] tempstore  scratch space for calculations on scalars
- * @param[in   ] z_w        z coordinates at w points
- * @param[in   ] h          bathymetry
- * @param[in   ] pm         1/dx
- * @param[in   ] pn         1/dy
- * @param[in   ] msku       land-sea mask on u-points
- * @param[in   ] mskv       land-sea mask on v-points
- * @param[in   ] iic        which time step we're on
- * @param[in   ] ntfirst    what is the first time step?
- * @param[in   ] nrhs       index of RHS component
- * @param[in   ] N          number of vertical levels
- * @param[in   ] dt_lev     time step at this level
+ * @param[in   ] tbx             tile box
+ * @param[in   ] gbx             grown tile box
+ * @param[in   ] tempold         scalar at last time
+ * @param[in   ] tempcache       cached current time step's scalar value
+ * @param[in   ] Hz              vertical cell height
+ * @param[in   ] Huon            u-volume flux
+ * @param[in   ] Hvom            v-volume flux
+ * @param[in   ] Akv             vertical viscosity coefficient
+ * @param[inout] W               vertical velocity
+ * @param        DC              temporary
+ * @param        FC              temporary
+ * @param[  out] tempstore       scratch space for calculations on scalars
+ * @param[in   ] z_w             z coordinates at w points
+ * @param[in   ] h               bathymetry
+ * @param[in   ] pm              1/dx
+ * @param[in   ] pn              1/dy
+ * @param[in   ] msku            land-sea mask on u-points
+ * @param[in   ] mskv            land-sea mask on v-points
+ * @param[in   ] river_pos       river positions
+ * @param[in   ] river_source    river source data to add, if using
+ * @param[in   ] iic             which time step we're on
+ * @param[in   ] ntfirst         what is the first time step?
+ * @param[in   ] nrhs            index of RHS component
+ * @param[in   ] N               number of vertical levels
+ * @param[in   ] dt_lev          time step at this level
  */
 
 void
@@ -45,6 +47,8 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
                             const Array4<Real const>& pn,
                             const Array4<Real const>& msku,
                             const Array4<Real const>& mskv,
+                            const Array4<int  const>& river_pos,
+                            const Array4<Real const>& river_source,
                             int iic, int ntfirst, int nrhs, int N,
                             Real dt_lev)
 {
@@ -290,6 +294,21 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
             Error("Not a valid horizontal advection scheme");
         }
     } // not flat
+
+    bool do_rivers_cons = (river_source.size() > 0);
+    if (solverChoice.do_rivers) {
+        ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            int iriver = river_pos(i,j,0);
+            if (iriver >= 0) {
+                if (river_direction[iriver] == 0) {
+                    FX(i,j,k) = (!do_rivers_cons) ? 0.0_rt : Huon(i,j,k) * river_source(iriver,0,k);
+                } else {
+                    FE(i,j,k) = (!do_rivers_cons) ? 0.0_rt : Hvom(i,j,k) * river_source(iriver,0,k);
+                }
+            }
+        });
+    }
 
     //Intermediate tracer at 3
     //
