@@ -1003,7 +1003,6 @@ private:
     /** \brief Whether to output NetCDF files as a single history file with several time steps */
     static bool write_history_file;
 
-#ifdef REMORA_USE_NETCDF
     /** \brief Data container for u-component surface momentum flux read from file */
     NCTimeSeries* sustr_data_from_file;
     /** \brief Data container for v-component surface momentum flux read from file */
@@ -1032,13 +1031,12 @@ private:
     NCTimeSeriesRiver* river_source_transport;
     /** \brief Data container for vertically integrated momentum transport in rivers */
     NCTimeSeriesRiver* river_source_transportbar;
-#endif
+#endif // REMORA_USE_NETCDF
     /** \brief iMultiFab for river positions; contents are indices of rivers */
     amrex::Vector<std::unique_ptr<amrex::iMultiFab>> vec_river_position;
     /** \brief Vector over rivers of river direction: 0: u-face; 1: v-face; 2: w-face */
     amrex::Gpu::DeviceVector<int> river_direction;
 
-#endif // REMORA_USE_NETCDF
 
 #ifdef REMORA_USE_MOAB
     /** \brief Initialize connection to MOAB */
