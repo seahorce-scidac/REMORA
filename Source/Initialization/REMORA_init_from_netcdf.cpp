@@ -607,7 +607,9 @@ REMORA::init_riv_pos_from_netcdf (int lev)
             for (int iriv=0; iriv < nriv; iriv++) {
                 int xriv = xpos_ptr[iriv]-1;
                 int yriv = ypos_ptr[iriv]-1;
-                river_pos(i,j,0) = (i==xriv && j==yriv) ? iriv : -1;
+                if (i==xriv && j==yriv) {
+                    river_pos(i,j,0) = iriv;
+                }
             }
         });
     }
