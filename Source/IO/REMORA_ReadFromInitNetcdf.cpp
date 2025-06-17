@@ -233,8 +233,8 @@ void read_vec_from_netcdf (int /*lev*/, const std::string& fname, const std::str
     ReadNetCDFFile(fname, {field_name}, array_dat); // filled only on proc 0
     if (amrex::ParallelDescriptor::IOProcessor())
     {
-        int nd = array_dat[0].get_vshape()[0];
-        for (int i(0); i < nd; i++)
+        int n = array_dat[0].get_vshape()[0];
+        for (int i(0); i < n; i++)
         {
             vec_dat.push_back((*(array_dat[0].get_data() + i)));
         }
