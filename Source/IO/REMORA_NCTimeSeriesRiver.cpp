@@ -133,14 +133,13 @@ void NCTimeSeriesRiver::update_interpolated_to_time (amrex::Real time) {
     amrex::Real dt = time_after - time_before;
     amrex::Real time_before_copy = time_before;
 
+    amrex::Box fab_domain(amrex::IntVect(0,0,0), amrex::IntVect(nriv-1,0,nzbox-1));
     auto interp_array = fab_interp->array();
     auto before_array = fab_before->array();
     auto after_array = fab_after->array();
-    for (int r=0; r < nriv; r++) {
-        for (int k=0; k < nzbox; k++) {
-            interp_array(r,0,k) = before_array(r,0,k) + (time - time_before_copy) * (after_array(r,0,k) - before_array(r,0,k)) / dt;
-        }
-    }
+    amrex::ParallelFor(fab_domain, [=] AMREX_GPU_DEVICE (int r, int , int k) {
+        interp_array(r,0,k) = before_array(r,0,k) + (time - time_before_copy) * (after_array(r,0,k) - before_array(r,0,k)) / dt;
+    });
 }
 
 void NCTimeSeriesRiver::read_in_at_time (amrex::FArrayBox* fab_dat, int itime) {
