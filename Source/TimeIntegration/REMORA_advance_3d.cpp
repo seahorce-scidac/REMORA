@@ -187,11 +187,11 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             fill_from_bdyfiles(mf_u,*mf_msku,t_old[lev],BCVars::xvel_bc,BdyVars::u,0,0,*xvel_old[lev],dt_lev);
             fill_from_bdyfiles(mf_v,*mf_mskv,t_old[lev],BCVars::yvel_bc,BdyVars::v,0,0,*yvel_old[lev],dt_lev);
         }
-#endif
 
     if (solverChoice.do_rivers) {
         river_source_transport->update_interpolated_to_time(t_old[lev]);
     }
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& u = mf_u.array(mfi);
