@@ -873,9 +873,32 @@ List of Parameters
 |                                       | salinity climatology        |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
 
-..
-  include:: InputsPhysics.rst
+Rivers (point sources)
+======================
 
+These parameters are used to configure NetCDF-specified river-like point sources and sinks.
+
++-----------------------------+----------------------------------+--------------+-----------------------------------+
+| Parameter                   | Definition                       | Acceptable   | Default                           |
+|                             |                                  | Values       |                                   |
++=============================+==================================+==============+===================================+
+| **remora.do_rivers**        | Whether to do rivers. Equivalent | true / false | false                             |
+|                             | to ``LuvSrc`` in ROMS.           |              |                                   |
+|                             | sources always apply momentum    |              |                                   |
++-----------------------------+----------------------------------+--------------+-----------------------------------+
+| **remora.nc_river_file**    | NetCDF file for river sources    | string       | must be set if ``do_rivers``      |
++-----------------------------+----------------------------------+--------------+-----------------------------------+
+| **remora.riv_time_varname** | Name of time variable            | string       | ``river_time``                    |
++-----------------------------+----------------------------------+--------------+-----------------------------------+
+| **remora.do_rivers_temp**   | Whether rivers are temperature   | true / false | true; only used if ``do_rivers``  |
+|                             | sources                          |              |                                   |
++-----------------------------+----------------------------------+--------------+-----------------------------------+
+| **remora.do_rivers_salt**   | Whether rivers are salinity      | true / false | true; only used if ``do_rivers``  |
+|                             | sources                          |              |                                   |
++-----------------------------+----------------------------------+--------------+-----------------------------------+
+| **remora.do_rivers_scalar** | Whether rivers are passive       | true / false | false; only used if ``do_rivers`` |
+|                             | scalar sources                   |              |                                   |
++-----------------------------+----------------------------------+--------------+-----------------------------------+
 
 Runtime Error Checking
 ======================
