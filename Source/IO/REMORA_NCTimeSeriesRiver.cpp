@@ -160,25 +160,22 @@ void NCTimeSeriesRiver::read_in_at_time (amrex::FArrayBox* fab_dat, int itime) {
         NC_dim_types.push_back(NC_Data_Dims_Type::Time_Riv);
     }
 
-    amrex::Box riv_domain(amrex::IntVect(0,0,0), amrex::IntVect(nriv,1,nz));
+    amrex::Box riv_domain(amrex::IntVect(0,0,0), amrex::IntVect(nriv-1,0,nz-1));
+    amrex::Box fab_domain(amrex::IntVect(0,0,0), amrex::IntVect(nriv-1,0,nzbox-1));
 
     BuildFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(riv_domain, file_name, NC_names, NC_dim_types, NC_fabs, true, itime);
 
     auto dat_array = fab_dat->array();
-    auto tmp_array = NC_fabs[0]->array();
-    for (int r=0; r < nriv; r++) {
-        if (has_z) {
-            for (int k=0; k < nz; k++) {
-                dat_array(r,0,k) = tmp_array(r,0,k);
-            }
-        } else if (use_vert_integ) {
-            dat_array(r,0,0) = tmp_array(r,0,0);
-        } else {
-            auto array_vshape = fab_vshape->array();
-            for (int k=0; k < nz; k++) {
-                dat_array(r,0,k) = tmp_array(r,0,0) * array_vshape(r,0,k);
-            }
-        }
+    auto tmp_array = NC_fabs[0]->const_array();
+    if (has_z || use_vert_integ) {
+        amrex::ParallelFor(fab_domain, [=] AMREX_GPU_DEVICE (int r, int , int k) {
+            dat_array(r,0,k) = tmp_array(r,0,k);
+        });
+    } else {
+        auto array_vshape = fab_vshape->const_array();
+        amrex::ParallelFor(fab_domain, [=] AMREX_GPU_DEVICE (int r, int , int k) {
+            dat_array(r,0,k) = tmp_array(r,0,0) * array_vshape(r,0,k);
+        });
     }
 }
 #endif // REMORA_USE_NETCDF

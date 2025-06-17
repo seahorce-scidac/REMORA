@@ -281,11 +281,12 @@ REMORA::rhs_t_3d (const Box& bx,
 
     bool do_rivers_cons = (river_source.size() > 0);
     if (solverChoice.do_rivers) {
+        int* river_direction_d = river_direction.data();
         ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             int iriver = river_pos(i,j,0);
             if (iriver >= 0) {
-                if (river_direction[iriver] == 0) {
+                if (river_direction_d[iriver] == 0) {
                     if (do_rivers_cons) {
                         FX(i,j,k) = Huon(i,j,k) * river_source(iriver,0,k);
                     } else if ((mskr(i,j,0)==0) && (mskr(i-1,j,0)==1)) {
@@ -293,7 +294,7 @@ REMORA::rhs_t_3d (const Box& bx,
                     } else if ((mskr(i,j,0)==1) && (mskr(i-1,j,0)==0)) {
                         FX(i,j,k) = Huon(i,j,k) * sstore(i,j,k);
                     }
-                } else if (river_direction[iriver] == 1) {
+                } else if (river_direction_d[iriver] == 1) {
                     if (do_rivers_cons) {
                         FE(i,j,k) = Hvom(i,j,k) * river_source(iriver,0,k);
                     } else if ((mskr(i,j,0)==0) && (mskr(i,j-1,0)==1)) {

@@ -297,11 +297,12 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
 
     bool do_rivers_cons = (river_source.size() > 0);
     if (solverChoice.do_rivers) {
+        int* river_direction_d = river_direction.data();
         ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             int iriver = river_pos(i,j,0);
             if (iriver >= 0) {
-                if (river_direction[iriver] == 0) {
+                if (river_direction_d[iriver] == 0) {
                     FX(i,j,k) = (!do_rivers_cons) ? 0.0_rt : Huon(i,j,k) * river_source(iriver,0,k);
                 } else {
                     FE(i,j,k) = (!do_rivers_cons) ? 0.0_rt : Hvom(i,j,k) * river_source(iriver,0,k);

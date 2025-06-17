@@ -589,9 +589,9 @@ REMORA::init_riv_pos_from_netcdf (int lev)
     amrex::Gpu::DeviceVector<int> ypos_d(nriv);
     river_direction.resize(nriv);
 #ifdef AMREX_USE_GPU
-    Gpu::htod_memcpy_async(xpos_d.data(), river_pos_x.data(), sizeof(int)*nriv);
-    Gpu::htod_memcpy_async(ypos_d.data(), river_pos_y.data(), sizeof(int)*nriv);
-    Gpu::htod_memcpy_async(river_direction.data(), river_direction_tmp.data(), sizeof(int)*nriv);
+    Gpu::htod_memcpy(xpos_d.data(), river_pos_x.data(), sizeof(int)*nriv);
+    Gpu::htod_memcpy(ypos_d.data(), river_pos_y.data(), sizeof(int)*nriv);
+    Gpu::htod_memcpy(river_direction.data(), river_direction_tmp.data(), sizeof(int)*nriv);
 #else
     std::memcpy(xpos_d.data(), river_pos_x.data(), sizeof(int)*nriv);
     std::memcpy(ypos_d.data(), river_pos_y.data(), sizeof(int)*nriv);
@@ -603,13 +603,13 @@ REMORA::init_riv_pos_from_netcdf (int lev)
     for (amrex::MFIter mfi(*(vec_river_position[lev]).get(),true); mfi.isValid(); ++mfi) {
         amrex::Box bx = mfi.growntilebox(amrex::IntVect(NGROW,NGROW,0));
         auto river_pos = vec_river_position[lev]->array(mfi);
-        for (int iriv=0; iriv < nriv; iriv++) {
-            int xriv = xpos_ptr[iriv]-1;
-            int yriv = ypos_ptr[iriv]-1;
-            if (bx.contains(amrex::IntVect(xriv,yriv,0))) {
-                river_pos(xriv,yriv,0) = iriv;
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+            for (int iriv=0; iriv < nriv; iriv++) {
+                int xriv = xpos_ptr[iriv]-1;
+                int yriv = ypos_ptr[iriv]-1;
+                river_pos(i,j,0) = (i==xriv && j==yriv) ? iriv : -1;
             }
-        }
+        });
     }
 }
 

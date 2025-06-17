@@ -805,6 +805,7 @@ REMORA::advance_2d (int lev,
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_rivers) {
             river_source_transportbar->update_interpolated_to_time(t_old[lev]);
+            int* river_direction_d = river_direction.data();
             for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
             {
                 Array4<const int > const& river_pos = vec_river_position[lev]->const_array(mfi);
@@ -823,7 +824,7 @@ REMORA::advance_2d (int lev,
                 {
                     int iriver = river_pos(i,j,0);
                     if (iriver >= 0) {
-                        if (river_direction[iriver] == 0) {
+                        if (river_direction_d[iriver] == 0) {
                             Real on_u = 2.0_rt / (pn(i,j,0)+pn(i-1,j,0));
                             Real cff = 1.0_rt / (on_u * 0.5_rt * (zeta(i-1,j,0,knew) + h(i-1,j,0) +
                                         zeta(i,j,0,knew) + h(i,j,0)));

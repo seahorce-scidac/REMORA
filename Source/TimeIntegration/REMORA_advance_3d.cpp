@@ -231,11 +231,12 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         if (solverChoice.do_rivers) {
             Array4<int  const> const& river_pos = vec_river_position[lev]->const_array(mfi);
             Array4<Real const> const& river_transport = river_source_transport->fab_interp->array();
+            int* river_direction_d = river_direction.data();
             ParallelFor(gbx1, [=] AMREX_GPU_DEVICE(int i, int j, int k)
             {
                 int iriver = river_pos(i,j,0);
                 if (iriver >= 0) {
-                    if (river_direction[iriver] == 0) {
+                    if (river_direction_d[iriver] == 0) {
                         Real on_u = 2.0_rt / (pn(i,j,0)+pn(i-1,j,0));
                         Real cff = 1.0_rt / (on_u * 0.5_rt * (z_w(i-1,j,k+1) - z_w(i-1,j,k) + z_w(i,j,k+1) - z_w(i,j,k)));
                         u(i,j,k) = cff * river_transport(iriver,0,k);

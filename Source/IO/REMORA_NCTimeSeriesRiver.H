@@ -24,11 +24,24 @@ class NCTimeSeriesRiver
 
         /// Container for interpolated data; Only used if save_interpolated == true
         amrex::FArrayBox* fab_interp;
-    private:
+
+        /// Whether the field is specified in the z-dimension
+        int has_z;
+        /// Whether to use the depth-integrated value read from file; Used
+        /// when !has_z
+        int use_vert_integ;
+
+        /// FABs to pointers of river data
+        amrex::FArrayBox* fab_before;
+        amrex::FArrayBox* fab_after;
+        /// Vshape data if needed
+        amrex::FArrayBox* fab_vshape;
+
         /**
          * Read in data from file at time index itime and fill into FAB
          */
         void read_in_at_time (amrex::FArrayBox* vec, int itime);
+    private:
 
         /// File name to read from
         std::string file_name;
@@ -41,11 +54,6 @@ class NCTimeSeriesRiver
         int nriv;
         /// Number of vertical points
         int nz;
-        /// Whether the field is specified in the z-dimension
-        int has_z;
-        /// Whether to use the depth-integrated value read from file; Used
-        /// when !has_z
-        int use_vert_integ;
         /// How many vertical cells there are in the data fabs
         int nzbox;
 
@@ -58,11 +66,6 @@ class NCTimeSeriesRiver
         /// Time in ocean_time immediately after the last time interpolated to
         amrex::Real time_after;
 
-        /// FABs to pointers of river data
-        amrex::FArrayBox* fab_before;
-        amrex::FArrayBox* fab_after;
-        /// Vshape data if needed
-        amrex::FArrayBox* fab_vshape;
 };
 
 #endif // REMORA_USE_NETCDF
