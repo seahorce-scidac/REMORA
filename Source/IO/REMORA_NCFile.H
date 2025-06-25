@@ -18,6 +18,9 @@ enum class NC_Data_Dims_Type {
     Time_SN_WE,
     BT_SN_WE,
     SN_WE,
+    Time_BT_Riv,
+    Time_Riv,
+    BT_Riv,
 };
 
 /**
@@ -216,6 +219,18 @@ fill_fab_from_arrays (int iv,
         nsy = nc_arrays[iv].get_vshape()[2];
         nsx = nc_arrays[iv].get_vshape()[3];
         // amrex::Print() << "TYPE TIME BT SN WE " << nsx << " " << nsy << " " << nsz << std::endl;
+    } else if (NC_dim_type == NC_Data_Dims_Type::Time_BT_Riv) {
+        nsz = nc_arrays[iv].get_vshape()[1]; // number of z-coords
+        nsy = 1; // dummy
+        nsx = nc_arrays[iv].get_vshape()[2]; // number of rivers
+    } else if (NC_dim_type == NC_Data_Dims_Type::Time_Riv) {
+        nsz = 1; // number of z-coords
+        nsy = 1; // dummy
+        nsx = nc_arrays[iv].get_vshape()[1]; // number of rivers
+    } else if (NC_dim_type == NC_Data_Dims_Type::BT_Riv) {
+        nsz = nc_arrays[iv].get_vshape()[0]; // number of z-coords
+        nsy = 1; // dummy
+        nsx = nc_arrays[iv].get_vshape()[1]; // number of rivers
     } else {
         amrex::Abort("Dont know this NC_Data_Dims_Type");
     }
@@ -241,6 +256,12 @@ fill_fab_from_arrays (int iv,
         my_box.setSmall(amrex::IntVect(0,0,0));
         my_box.setBig(amrex::IntVect(nsx-1,nsy-1,nsz-1));
         my_box.setType(amrex::IndexType(amrex::IntVect(1,1,0)));
+    // River data has no ghost cells
+    } else if (NC_dim_type == NC_Data_Dims_Type::Time_BT_Riv ||
+               NC_dim_type == NC_Data_Dims_Type::Time_Riv ||
+               NC_dim_type == NC_Data_Dims_Type::BT_Riv) {
+        my_box.setSmall(amrex::IntVect(0,0,0));
+        my_box.setBig(amrex::IntVect(nsx-1,nsy-1,nsz-1));
     }
     else  // everything cell-centered -- these have one ghost cell
     {

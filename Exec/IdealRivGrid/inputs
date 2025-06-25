@@ -1,0 +1,69 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.max_step = 10
+
+remora.omp_tile_size=8 8 1024
+
+# PROBLEM SIZE & GEOMETRY
+# dims come from ROMS ana_grid, and must match vals in prob.cpp right now
+remora.prob_lo     =   0.       0.  -5000.
+remora.prob_hi     =   320000.  320000.       0.
+
+remora.n_cell           =  10 16 20
+
+remora.is_periodic = 0 0 0
+
+remora.bc.xlo.type = "clamped"
+remora.bc.xhi.type = "clamped"
+remora.bc.ylo.type = "clamped"
+remora.bc.yhi.type = "clamped"
+
+# TIME STEP CONTROL
+remora.fixed_dt            = 4000.0 # Timestep size (seconds)
+remora.fixed_ndtfast_ratio = 10 # Baratropic timestep size (seconds)
+
+remora.flat_bathymetry=0
+
+# DIAGNOSTICS & VERBOSITY
+remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
+remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
+
+# CHECKPOINT FILES
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
+
+# PLOTFILES
+remora.plot_file     = plt        # prefix of plotfile name
+remora.plot_int      = 10         # number of timesteps between plotfiles
+remora.plot_vars     = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+
+# SOLVER CHOICE
+remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+
+remora.use_coriolis  = true
+remora.coriolis_type = netcdf
+remora.coriolis_f0   = 1.0e-4 #-8.26e-5
+
+remora.theta_s = 5.0
+remora.theta_b = 0.5
+remora.tcline = 100.
+
+# PROBLEM PARAMETERS (optional)
+remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+remora.S0    = 32.0    # background salinity (nondimensional) constant
+remora.T0    = 10.0    # background potential temperature (Celsius) constant
+remora.Tcoef = 0.0  # linear equation of state parameter (1/Celsius)
+remora.Scoef = 0.0     # linear equation of state parameter (nondimensional)
+remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
+
+remora.do_rivers = true
+
+#remora.vertical_mixing_type = "gls"
+remora.bulk_fluxes = false
+
+# These files can be found at https://github.com/seahorce-scidac/REMORA-data
+remora.ic_bc_type       = "netcdf"
+remora.nc_init_file_0   = "idRiv_ini_consTS_v0.2_classic64.nc"
+remora.nc_grid_file_0   = "idRiv_grd_masked_v0.2_classic64.nc"
+remora.nc_bdry_file     = "idRiv_bry_consTS_v0.2_classic64.nc"
+remora.nc_river_file    = "idRiv_riv_v0.2_classic64.nc"

@@ -3,22 +3,25 @@
 using namespace amrex;
 
 /**
- * @param[in   ] bx       tilebox
- * @param[inout] t        tracer data
- * @param[in   ] sstore   scratch space for tracer calculations
- * @param[in   ] Huon     u-volume flux
- * @param[in   ] Hvom     v-volume flux
- * @param[in   ] Hz       vertical cell height
- * @param[in   ] pn       1/dx
- * @param[in   ] pm       1/dy
- * @param[in   ] W        vertical velocity
- * @param        FC       temporary
- * @param[in   ] msku     land-sea mask on u-points
- * @param[in   ] mskv     land-sea mask on v-points
- * @param[in   ] nrhs     index of RHS component
- * @param[in   ] nnew     index of current time step
- * @param[in   ] N        number of vertical levels
- * @param[in   ] dt_lev   time step at this level
+ * @param[in   ] bx            tilebox
+ * @param[inout] t             tracer data
+ * @param[in   ] sstore        scratch space for tracer calculations
+ * @param[in   ] Huon          u-volume flux
+ * @param[in   ] Hvom          v-volume flux
+ * @param[in   ] Hz            vertical cell height
+ * @param[in   ] pn            1/dx
+ * @param[in   ] pm            1/dy
+ * @param[in   ] W             vertical velocity
+ * @param        FC            temporary
+ * @param[in   ] mskr          land-sea mask on rho-points
+ * @param[in   ] msku          land-sea mask on u-points
+ * @param[in   ] mskv          land-sea mask on v-points
+ * @param[in   ] river_pos     river positions
+ * @param[in   ] river_source  river source data to add, if using
+ * @param[in   ] nrhs          index of RHS component
+ * @param[in   ] nnew          index of current time step
+ * @param[in   ] N             number of vertical levels
+ * @param[in   ] dt_lev        time step at this level
  */
 void
 REMORA::rhs_t_3d (const Box& bx,
@@ -31,8 +34,11 @@ REMORA::rhs_t_3d (const Box& bx,
                  const Array4<Real const>& pm,
                  const Array4<Real const>& W ,
                  const Array4<Real      >& FC,
+                 const Array4<Real const>& mskr,
                  const Array4<Real const>& msku,
                  const Array4<Real const>& mskv,
+                 const Array4<int  const>& river_pos,
+                 const Array4<Real const>& river_source,
                  int nrhs, int nnew, int N, Real dt_lev)
 {
     const Box& domain = geom[0].Domain();
@@ -46,9 +52,11 @@ REMORA::rhs_t_3d (const Box& bx,
     //copy the tilebox
     Box tbxp1x = bx;
     Box tbxp1y = bx;
+    Box tbxp1 = bx;
     Box tbxp2 = bx;
 
     tbxp2.grow(IntVect(NGROW,NGROW,0));
+    tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
     tbxp1x.grow(IntVect(NGROW-1,0,0));
     tbxp1y.grow(IntVect(0,NGROW-1,0));
 
@@ -269,6 +277,34 @@ REMORA::rhs_t_3d (const Box& bx,
         } else {
             Error("Not a valid horizontal advection scheme");
         }
+    }
+
+    bool do_rivers_cons = (river_source.size() > 0);
+    if (solverChoice.do_rivers) {
+        int* river_direction_d = river_direction.data();
+        ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            int iriver = river_pos(i,j,0);
+            if (iriver >= 0) {
+                if (river_direction_d[iriver] == 0) {
+                    if (do_rivers_cons) {
+                        FX(i,j,k) = Huon(i,j,k) * river_source(iriver,0,k);
+                    } else if ((mskr(i,j,0)==0) && (mskr(i-1,j,0)==1)) {
+                        FX(i,j,k) = Huon(i,j,k) * sstore(i-1,j,k);
+                    } else if ((mskr(i,j,0)==1) && (mskr(i-1,j,0)==0)) {
+                        FX(i,j,k) = Huon(i,j,k) * sstore(i,j,k);
+                    }
+                } else if (river_direction_d[iriver] == 1) {
+                    if (do_rivers_cons) {
+                        FE(i,j,k) = Hvom(i,j,k) * river_source(iriver,0,k);
+                    } else if ((mskr(i,j,0)==0) && (mskr(i,j-1,0)==1)) {
+                        FE(i,j,k) = Hvom(i,j,k) * sstore(i,j-1,k);
+                    } else if ((mskr(i,j,0)==1) && (mskr(i,j-1,0)==0)) {
+                        FE(i,j,k) = Hvom(i,j,k) * sstore(i,j,k);
+                    }
+                }
+            }
+        });
     }
 
     ParallelFor(bx,

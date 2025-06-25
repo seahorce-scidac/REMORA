@@ -43,6 +43,7 @@
 #ifdef REMORA_USE_NETCDF
 #include "REMORA_NCInterface.H"
 #include "REMORA_NCTimeSeries.H"
+#include "REMORA_NCTimeSeriesRiver.H"
 #endif
 
 #ifdef REMORA_USE_MOAB
@@ -76,6 +77,7 @@ namespace InterpType {
 class ProblemBase;
 #ifdef REMORA_USE_NETCDF
 class NCTimeSeries;
+class NCTimeSeriesRiver;
 #endif
 
 /*!
@@ -478,6 +480,7 @@ public:
                      amrex::MultiFab const* mf_h,
                      amrex::MultiFab const* mf_pm,
                      amrex::MultiFab const* mf_pn,
+                     amrex::MultiFab const* mf_mskr,
                      amrex::MultiFab const* mf_msku,
                      amrex::MultiFab const* mf_mskv,
                      const int N,
@@ -540,6 +543,8 @@ public:
                         const amrex::Array4<amrex::Real const>& pn,
                         const amrex::Array4<amrex::Real const>& msku,
                         const amrex::Array4<amrex::Real const>& mskv,
+                        const amrex::Array4<int         const>& river_pos,
+                        const amrex::Array4<amrex::Real const>& river_source,
                         int iic, int ntfirst, int nrhs, int N,
                         const amrex::Real dt_lev);
 
@@ -554,8 +559,11 @@ public:
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& W,
                    const amrex::Array4<amrex::Real      >& FC,
+                   const amrex::Array4<amrex::Real const>& mskr,
                    const amrex::Array4<amrex::Real const>& msku,
                    const amrex::Array4<amrex::Real const>& mskv,
+                   const amrex::Array4<int         const>& river_pos,
+                   const amrex::Array4<amrex::Real const>& river_source,
                    int nrhs, int nnew, int N, const amrex::Real dt_lev);
 
     /** \brief RHS terms for 3D momentum */
@@ -884,12 +892,13 @@ public:
     void init_clim_nudg_coeff_from_netcdf (int lev);
     /** \brief Wrapper to initialize climatology nudging coefficient */
     void init_clim_nudg_coeff (int lev);
+    void init_riv_pos_from_netcdf (int lev);
 
     /** \brief Convert data in a multifab from inverse days to inverse seconds */
     void convert_inv_days_to_inv_s (amrex::MultiFab*);
 
     /** \brief Mask data arrays before writing output */
-    void mask_arrays_for_write (int lev, amrex::Real fill_value);
+    void mask_arrays_for_write (int lev, amrex::Real fill_value, amrex::Real fill_where);
 
 
 #ifdef REMORA_USE_NETCDF
@@ -994,7 +1003,6 @@ private:
     /** \brief Whether to output NetCDF files as a single history file with several time steps */
     static bool write_history_file;
 
-#ifdef REMORA_USE_NETCDF
     /** \brief Data container for u-component surface momentum flux read from file */
     NCTimeSeries* sustr_data_from_file;
     /** \brief Data container for v-component surface momentum flux read from file */
@@ -1016,9 +1024,19 @@ private:
     NCTimeSeries* temp_clim_data_from_file;
     /** \brief Data container for salinity climatology data read from file */
     NCTimeSeries* salt_clim_data_from_file;
-#endif
 
+    /** \brief Vector of data containers for scalar data in rivers */
+    amrex::Vector<NCTimeSeriesRiver*> river_source_cons;
+    /** \brief Data container for momentum transport in rivers */
+    NCTimeSeriesRiver* river_source_transport;
+    /** \brief Data container for vertically integrated momentum transport in rivers */
+    NCTimeSeriesRiver* river_source_transportbar;
 #endif // REMORA_USE_NETCDF
+    /** \brief iMultiFab for river positions; contents are indices of rivers */
+    amrex::Vector<std::unique_ptr<amrex::iMultiFab>> vec_river_position;
+    /** \brief Vector over rivers of river direction: 0: u-face; 1: v-face; 2: w-face */
+    amrex::Gpu::DeviceVector<int> river_direction;
+
 
 #ifdef REMORA_USE_MOAB
     /** \brief Initialize connection to MOAB */
@@ -1249,6 +1267,7 @@ private:
 
     /** \brief NetCDF forcing file */
     std::string nc_frc_file;
+    std::string nc_riv_file;
 
     /** \brief NetCDF climatology history file */
     std::string nc_clim_his_file;
@@ -1269,7 +1288,8 @@ private:
     std::string clim_salt_time_varname = "ocean_time";
     /** \brief Name of time field for temperature climatology data */
     std::string clim_temp_time_varname = "ocean_time";
-
+    /** \brief Name of time field for river time */
+    std::string riv_time_varname = "river_time";
     /** \brief Name of time field for forcing data */
     std::string frc_time_varname = "";
 

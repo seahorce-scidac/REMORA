@@ -517,7 +517,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
 
     cons_new[lev]->FillBoundary(geom[lev].periodicity());
 
-    mask_arrays_for_write(lev, (Real) fill_value);
+    mask_arrays_for_write(lev, (Real) fill_value, 0.0_rt);
 
     // Check whether there are any nans or infs in variables that we will write out
     if (vec_Zt_avg1[lev]->contains_nan() || vec_Zt_avg1[lev]->contains_inf()) {
@@ -978,7 +978,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         } // in subdomain
     } // mfi
 
-    mask_arrays_for_write(lev, 0.0_rt);
+    mask_arrays_for_write(lev, 0.0_rt, (Real) fill_value);
 
     ncf.close();
 

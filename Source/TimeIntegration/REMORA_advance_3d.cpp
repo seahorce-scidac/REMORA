@@ -51,6 +51,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                    MultiFab const* mf_h,
                    MultiFab const* mf_pm,
                    MultiFab const* mf_pn,
+                   MultiFab const* mf_mskr,
                    MultiFab const* mf_msku,
                    MultiFab const* mf_mskv,
                    const int N, Real dt_lev)
@@ -186,8 +187,11 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             fill_from_bdyfiles(mf_u,*mf_msku,t_old[lev],BCVars::xvel_bc,BdyVars::u,0,0,*xvel_old[lev],dt_lev);
             fill_from_bdyfiles(mf_v,*mf_mskv,t_old[lev],BCVars::yvel_bc,BdyVars::v,0,0,*yvel_old[lev],dt_lev);
         }
-#endif
 
+    if (solverChoice.do_rivers) {
+        river_source_transport->update_interpolated_to_time(t_old[lev]);
+    }
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& u = mf_u.array(mfi);
@@ -214,10 +218,38 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real const> const& msku = mf_msku->const_array(mfi);
         Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
 
+        Array4<Real const> const& z_w = mf_z_w->const_array(mfi);
+
+        Box bx   = mfi.tilebox();
+        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
         auto FC = fab_FC.array();
+
+#ifdef REMORA_USE_NETCDF
+        if (solverChoice.do_rivers) {
+            Array4<int  const> const& river_pos = vec_river_position[lev]->const_array(mfi);
+            Array4<Real const> const& river_transport = river_source_transport->fab_interp->array();
+            int* river_direction_d = river_direction.data();
+            ParallelFor(gbx1, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            {
+                int iriver = river_pos(i,j,0);
+                if (iriver >= 0) {
+                    if (river_direction_d[iriver] == 0) {
+                        Real on_u = 2.0_rt / (pn(i,j,0)+pn(i-1,j,0));
+                        Real cff = 1.0_rt / (on_u * 0.5_rt * (z_w(i-1,j,k+1) - z_w(i-1,j,k) + z_w(i,j,k+1) - z_w(i,j,k)));
+                        u(i,j,k) = cff * river_transport(iriver,0,k);
+                    } else {
+                        Real om_v = 2.0_rt / (pm(i,j,0)+pm(i,j-1,0));
+                        Real cff = 1.0_rt / (om_v * 0.5_rt * (z_w(i,j-1,k+1) - z_w(i,j-1,k) + z_w(i,j,k+1) - z_w(i,j,k)));
+                        v(i,j,k) = cff * river_transport(iriver,0,k);
+                    }
+                }
+            });
+        }
+#endif
+
 #if 0
         // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(xbx,IntVect(0,0,1)));
@@ -232,6 +264,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         update_massflux_3d(ybx,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,nnew);
 
 #else
+
         // Reset to zero on the box on which they'll be used
         fab_FC.template setVal<RunOn::Device>(0.,gbx2);
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
@@ -337,6 +370,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Array4<Real const> const& pm  = mf_pm->const_array(mfi);
         Array4<Real const> const& pn  = mf_pn->const_array(mfi);
+        Array4<Real const> const& mskr  = mf_mskr->const_array(mfi);
         Array4<Real const> const& msku  = mf_msku->const_array(mfi);
         Array4<Real const> const& mskv  = mf_mskv->const_array(mfi);
 
@@ -364,9 +398,20 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         //
         for (int i_comp=0; i_comp < NCONS; i_comp++)
         {
+#ifdef REMORA_USE_NETCDF
+            FArrayBox* fab_river_source;
+            if (solverChoice.do_rivers_cons[i_comp]) {
+                fab_river_source = river_source_cons[i_comp]->fab_interp;
+            }
+            const Array4<const int>& river_pos = (solverChoice.do_rivers) ? vec_river_position[lev]->const_array(mfi) : Array4<const int>();
+            const Array4<const Real>& river_source = (solverChoice.do_rivers_cons[i_comp]) ? fab_river_source->const_array() : Array4<const Real>();
+#else
+            const Array4<const int >& river_pos = Array4<const int>();
+            const Array4<const Real>& river_source = Array4<const Real>();
+#endif
             Array4<Real> const& sstore = mf_sstore->array(mfi, i_comp);
             rhs_t_3d(bx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
-                     Hz, pn, pm, W, FC, msku, mskv, nrhs, nnew, N,dt_lev);
+                     Hz, pn, pm, W, FC, mskr, msku, mskv, river_pos, river_source, nrhs, nnew, N,dt_lev);
         }
 
     } // mfi
@@ -409,6 +454,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         }
     } // MFiter
     FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
+
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_temp_clim_nudg) {

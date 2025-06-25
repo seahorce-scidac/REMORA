@@ -215,4 +215,37 @@ read_clim_nudg_coeff_from_netcdf (int /*lev*/,
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }
+
+/**
+ * @param lev            level of data to read
+ * @param fname          file name to read from
+ * @param field_name     field name to read
+ * @param vec_dat        vector to fill data
+ */
+//template <typename DType>
+void read_vec_from_netcdf (int /*lev*/, const std::string& fname, const std::string& field_name, amrex::Vector<int>& vec_dat)
+{
+    amrex::Print() << "Reading " << field_name << " from NetCDF file" << std::endl;
+
+    // get x-positions and put in array
+    using ARRAY = NDArray<int>;
+    amrex::Vector<ARRAY> array_dat(1);
+    ReadNetCDFFile(fname, {field_name}, array_dat); // filled only on proc 0
+    if (amrex::ParallelDescriptor::IOProcessor())
+    {
+        int n = array_dat[0].get_vshape()[0];
+        for (int i(0); i < n; i++)
+        {
+            vec_dat.push_back((*(array_dat[0].get_data() + i)));
+        }
+    }
+    int nvals = vec_dat.size();
+    int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
+    amrex::ParallelDescriptor::Bcast(&nvals,1,ioproc);
+    if (!(amrex::ParallelDescriptor::IOProcessor())) {
+        vec_dat.resize(nvals);
+    }
+    amrex::ParallelDescriptor::Bcast(vec_dat.data(), vec_dat.size(), ioproc);
+}
+
 #endif // ROMSX_USE_NETCDF

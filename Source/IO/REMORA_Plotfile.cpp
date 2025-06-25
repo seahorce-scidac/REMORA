@@ -656,9 +656,10 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
 /**
  * @param lev          level to mask
  * @param fill_value   fill value to mask with
+ * @param fill_where   value at cells where we will apply the mask. This is necessary because rivers
  */
 void
-REMORA::mask_arrays_for_write(int lev, Real fill_value) {
+REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where) {
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
         Box gbx1 = mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0));
         Box ubx = mfi.grownnodaltilebox(0,IntVect(NGROW,NGROW,0));
@@ -679,7 +680,7 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value) {
         ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             if (!mskr(i,j,0)) {
-                Zt_avg1(i,j,0) = 0.0_rt; //fill_value;
+                Zt_avg1(i,j,0) = fill_value;
             }
         });
         ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -691,25 +692,25 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value) {
         });
         ParallelFor(makeSlab(ubx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {
-            if (!msku(i,j,0)) {
+            if (!msku(i,j,0) && ubar(i,j,0)==fill_where) {
                 ubar(i,j,0,n) = fill_value;
             }
         });
         ParallelFor(makeSlab(vbx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {
-            if (!mskv(i,j,0)) {
+            if (!mskv(i,j,0) && vbar(i,j,0)==fill_where) {
                 vbar(i,j,0,n) = fill_value;
             }
         });
         ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (!msku(i,j,0)) {
+            if (!msku(i,j,0) && xvel(i,j,k)==fill_where) {
                 xvel(i,j,k) = fill_value;
             }
         });
         ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (!mskv(i,j,0)) {
+            if (!mskv(i,j,0) && yvel(i,j,k)==fill_where) {
                 yvel(i,j,k) = fill_value;
             }
         });

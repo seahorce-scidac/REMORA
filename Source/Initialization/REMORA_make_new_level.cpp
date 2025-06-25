@@ -406,6 +406,8 @@ void REMORA::resize_stuff(int lev)
     vec_Akk.resize(lev+1);
     vec_Akp.resize(lev+1);
 
+    vec_river_position.resize(lev+1);
+
     if (lev==0) vec_nudg_coeff.resize(BdyVars::NumTypes);
 
     vec_nudg_coeff[BdyVars::u].resize(lev+1);
@@ -583,6 +585,11 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_lhflx[lev]->setVal(0.0_rt);
         vec_shflx[lev]->setVal(0.0_rt);
         vec_rain[lev]->setVal(solverChoice.rain);
+    }
+
+    if (solverChoice.do_rivers) {
+        vec_river_position[lev].reset(new iMultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_river_position[lev]->setVal(-1);
     }
 
     vec_nudg_coeff[BdyVars::u][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));

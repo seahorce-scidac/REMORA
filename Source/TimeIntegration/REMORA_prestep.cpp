@@ -139,11 +139,25 @@ REMORA::prestep (int lev,
 
         auto FC=fab_FC.array();
 
+
         for (int i_comp=0; i_comp < NCONS; i_comp++) {
             Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
+#ifdef REMORA_USE_NETCDF
+            FArrayBox* fab_river_source;
+            if (solverChoice.do_rivers_cons[i_comp]) {
+                river_source_cons[i_comp]->update_interpolated_to_time(t_old[lev]);
+                fab_river_source = river_source_cons[i_comp]->fab_interp;
+            }
+            const Array4<const int>& river_pos = (solverChoice.do_rivers) ? vec_river_position[lev]->const_array(mfi) : Array4<const int>();
+            const Array4<const Real>& river_source = (solverChoice.do_rivers_cons[i_comp]) ? fab_river_source->const_array() : Array4<const Real>();
+#else
+            const Array4<const int >& river_pos = Array4<const int>();
+            const Array4<const Real>& river_source = Array4<const Real>();
+#endif
             prestep_t_advection(bx, gbx, S_old.array(mfi,i_comp),
                                 mf_scalarcache.array(mfi,i_comp), Hz, Huon, Hvom,
-                                W, DC, FC, sstore, z_w, h, pm, pn, msku, mskv, iic, ntfirst,
+                                W, DC, FC, sstore, z_w, h, pm, pn, msku, mskv, river_pos,
+                                river_source, iic, ntfirst,
                                 nrhs, N, dt_lev);
         }
 
