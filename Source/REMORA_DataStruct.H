@@ -141,9 +141,10 @@ struct SolverChoice {
         pp.query("do_rivers_scalar", do_rivers_scalar);
 
         do_rivers_cons.resize(NCONS);
-        do_rivers_cons[Temp_comp  ] = do_rivers_temp;
-        do_rivers_cons[Salt_comp  ] = do_rivers_salt;
-        do_rivers_cons[Scalar_comp] = do_rivers_scalar;
+        // If we aren't doing rivers, set all of these flags to false
+        do_rivers_cons[Temp_comp  ] = do_rivers ? do_rivers_temp : false;
+        do_rivers_cons[Salt_comp  ] = do_rivers ? do_rivers_salt : false;
+        do_rivers_cons[Scalar_comp] = do_rivers ? do_rivers_scalar : false;
 
         pp.query("init_l1ad_h", init_l1ad_h);
         pp.query("init_l1ad_T", init_l1ad_T);
