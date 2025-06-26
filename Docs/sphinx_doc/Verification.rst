@@ -50,6 +50,13 @@ Ideal Mini Grid
 
 .. include:: ../../Exec/IdealMiniGrid/README.rst
 
+.. _idealrivgrid:
+
+Ideal River Grid
+---------------
+
+.. include:: ../../Exec/IdealRivGrid/README.rst
+
 .. _particlesseamount:
 
 Particles Over Seamount
