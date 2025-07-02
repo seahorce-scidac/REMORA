@@ -831,6 +831,9 @@ public:
     /** \brief Initialize horizontal mixing coefficients */
     void set_hmixcoef (int lev);
 
+    /** \brief Initialize flat bathymetry to value from problo */
+    void init_flat_bathymetry (int lev);
+
     /** \brief Initialize or calculate bottom drag */
     void set_drag (int lev);
 

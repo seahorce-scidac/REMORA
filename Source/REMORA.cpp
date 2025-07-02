@@ -495,13 +495,20 @@ REMORA::set_bathymetry (int lev)
     if (solverChoice.init_l0int_h) {
         if (lev==0) {
             if (solverChoice.ic_bc_type == IC_BC_Type::analytic) {
-                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_hOfTheConfusingName[lev]);
-
+                if (!solverChoice.flat_bathymetry) {
+                    prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_hOfTheConfusingName[lev]);
+                } else {
+                    init_flat_bathymetry(lev);
+                }
 #ifdef REMORA_USE_NETCDF
             } else if (solverChoice.ic_bc_type == IC_BC_Type::netcdf) {
-                amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
-                init_bathymetry_from_netcdf(lev);
-                amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+                if (!solverChoice.flat_bathymetry) {
+                    amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
+                    init_bathymetry_from_netcdf(lev);
+                    amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+                } else {
+                    init_flat_bathymetry(lev);
+                }
 #endif
             } else {
                 Abort("Don't know this ic_bc_type!");
@@ -516,13 +523,20 @@ REMORA::set_bathymetry (int lev)
         }
     } else if (solverChoice.init_ana_h) {
         if (solverChoice.ic_bc_type == IC_BC_Type::analytic) {
-            prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this,*vec_hOfTheConfusingName[lev]);
-
+            if (!solverChoice.flat_bathymetry) {
+                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this,*vec_hOfTheConfusingName[lev]);
+            } else {
+                init_flat_bathymetry(lev);
+            }
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_bc_type == IC_BC_Type::netcdf) {
-            amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
-            init_bathymetry_from_netcdf(lev);
-            amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+            if (solverChoice.ic_bc_type == IC_BC_Type::analytic) {
+                amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
+                init_bathymetry_from_netcdf(lev);
+                amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+            } else {
+                init_flat_bathymetry(lev);
+            }
 #endif
         } else {
             Abort("Don't know this ic_bc_type!");
@@ -533,13 +547,20 @@ REMORA::set_bathymetry (int lev)
         vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
     } else if (solverChoice.init_l1ad_h) {
         if (solverChoice.ic_bc_type == IC_BC_Type::analytic) {
-            prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_hOfTheConfusingName[lev]);
-
+            if (!solverChoice.flat_bathymetry) {
+                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_hOfTheConfusingName[lev]);
+            } else {
+                init_flat_bathymetry(lev);
+            }
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_bc_type == IC_BC_Type::netcdf) {
-            amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
-            init_bathymetry_from_netcdf(lev);
-            amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+            if (!solverChoice.flat_bathymetry) {
+                amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
+                init_bathymetry_from_netcdf(lev);
+                amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+            } else {
+                init_flat_bathymetry(lev);
+            }
 #endif
         } else {
             Abort("Don't know this ic_bc_type!");
@@ -628,6 +649,15 @@ REMORA::set_hmixcoef(int lev)
     for (int n=0; n<NCONS; n++) {
         FillPatch(lev, time, *vec_diff2[lev]  , GetVecOfPtrs(vec_diff2),BCVars::foextrap_periodic_bc,BdyVars::null,n,false);
     }
+}
+
+/**
+ * @param[in   ] lev    level to operate on
+ */
+void
+REMORA::init_flat_bathymetry(int lev)
+{
+    vec_hOfTheConfusingName[lev]->setVal(-geom[0].ProbLo()[2]);
 }
 
 /**
