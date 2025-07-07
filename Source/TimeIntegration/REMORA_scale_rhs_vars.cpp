@@ -19,25 +19,30 @@ REMORA::scale_rhs_vars ()
             Array4<Real      > const& ru2d = vec_ru2d[lev]->array(mfi);
             Array4<Real      > const& rv2d = vec_rv2d[lev]->array(mfi);
 
-            ParallelFor(Box(ru), 2, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            Box ubx = mfi.grownnodaltilebox(0,IntVect(NGROW,NGROW,0));
+            Box vbx = mfi.grownnodaltilebox(1,IntVect(NGROW,NGROW,0));
+            Box ubx2d = ubx; ubx.makeSlab(2,0);
+            Box vbx2d = vbx; vbx.makeSlab(2,0);
+
+            ParallelFor(ubx, 2, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 Real cff = (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0));
                 ru(i,j,k,n) = ru(i,j,k,n) / cff;
             });
 
-            ParallelFor(Box(rv), 2, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            ParallelFor(vbx, 2, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 Real cff = (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0));
                 rv(i,j,k,n) = rv(i,j,k,n) / cff;
             });
 
-            ParallelFor(Box(ru2d), 2, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
+            ParallelFor(ubx2d, 2, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
             {
                 Real cff = (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0));
                 ru2d(i,j,0,n) = ru2d(i,j,0,n) / cff;
             });
 
-            ParallelFor(Box(rv2d), 2, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
+            ParallelFor(vbx2d, 2, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
             {
                 Real cff = (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0));
                 rv2d(i,j,0,n) = rv2d(i,j,0,n) / cff;
@@ -63,25 +68,30 @@ REMORA::scale_rhs_vars_inv ()
             Array4<Real      > const& ru2d = vec_ru2d[lev]->array(mfi);
             Array4<Real      > const& rv2d = vec_rv2d[lev]->array(mfi);
 
-            ParallelFor(Box(ru), 2, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            Box ubx = mfi.grownnodaltilebox(0,IntVect(NGROW,NGROW,0));
+            Box vbx = mfi.grownnodaltilebox(1,IntVect(NGROW,NGROW,0));
+            Box ubx2d = ubx; ubx.makeSlab(2,0);
+            Box vbx2d = vbx; vbx.makeSlab(2,0);
+
+            ParallelFor(ubx, 2, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 Real cff = (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0));
                 ru(i,j,k,n) = ru(i,j,k,n) * cff;
             });
 
-            ParallelFor(Box(rv), 2, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+            ParallelFor(vbx, 2, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 Real cff = (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0));
                 rv(i,j,k,n) = rv(i,j,k,n) * cff;
             });
 
-            ParallelFor(Box(ru2d), 2, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
+            ParallelFor(ubx2d, 2, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
             {
                 Real cff = (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0));
                 ru2d(i,j,0,n) = ru2d(i,j,0,n) * cff;
             });
 
-            ParallelFor(Box(rv2d), 2, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
+            ParallelFor(vbx2d, 2, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
             {
                 Real cff = (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0));
                 rv2d(i,j,0,n) = rv2d(i,j,0,n) * cff;
