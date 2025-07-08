@@ -145,6 +145,10 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
             std::string vname_to_write = names[n];
             std::string vname_to_read  = names[n];
 
+            if (!ncf.has_var(vname_to_read)) {
+               amrex::Print() << "Variable name " << vname_to_read << " not found!" << std::endl;
+            }
+
             // amrex::AllPrint() << "About to read " << vname_to_read
             //                   << " while filling the array for " << vname_to_write << std::endl;
 
