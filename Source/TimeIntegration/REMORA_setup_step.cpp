@@ -155,6 +155,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Box  bx = mfi.tilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+        Box ugbx2 = mfi.grownnodaltilebox(0,IntVect(NGROW,NGROW,0));
+        Box vgbx2 = mfi.grownnodaltilebox(1,IntVect(NGROW,NGROW,0));
 
         Box bxD = bx;
         bxD.makeSlab(2,0);
@@ -174,13 +176,13 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m (set_massflux_3d)
         //-----------------------------------------------------------------------
         //
-        ParallelFor(Box(Huon), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(ugbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real on_u = 2.0_rt / (pn(i-1,j,0)+pn(i,j,0));
             Huon(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k)* on_u;
         });
 
-        ParallelFor(Box(Hvom), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(vgbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real om_v= 2.0_rt / (pm(i,j-1,0)+pm(i,j,0));
             Hvom(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k)* om_v;
