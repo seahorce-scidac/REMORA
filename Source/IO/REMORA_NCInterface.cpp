@@ -335,19 +335,20 @@ int NCFile::num_variables() const {
 }
 
 bool NCFile::has_dim(const std::string &name) const {
-    int ierr = ncmpi_inq_dimid(ncid, name.data(), NULL);
+    int ierr = ncmpi_inq_dimid(ncid, name.data(), nullptr);
     return (ierr == NC_NOERR);
 }
 
 bool NCFile::has_var(const std::string &name) const {
-    int ierr = ncmpi_inq_varid(ncid, name.data(), NULL);
+    int rh_id = 0;
+    int ierr = ncmpi_inq_varid(ncid, name.data(), &rh_id);
     return (ierr == NC_NOERR);
 }
 
 bool NCFile::has_attr(const std::string &name) const {
     int ierr;
     MPI_Offset lenp;
-    ierr = ncmpi_inq_att(ncid, NC_GLOBAL, name.data(), NULL, &lenp);
+    ierr = ncmpi_inq_att(ncid, NC_GLOBAL, name.data(), nullptr, &lenp);
     return (ierr == NC_NOERR);
 }
 
