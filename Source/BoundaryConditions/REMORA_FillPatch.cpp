@@ -140,7 +140,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
 
 #ifdef REMORA_USE_NETCDF
         // Fill the data which is stored in the boundary data read from netcdf files
-        if ( (solverChoice.ic_bc_type == IC_BC_Type::netcdf) && (lev==0) &&
+        if ( (solverChoice.boundary_from_netcdf) && (lev==0) &&
              (bdy_var_type != BdyVars::null) )
         {
             fill_from_bdyfiles(mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
@@ -416,7 +416,7 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
                              cdata,
                              m_bc_extdir_vals
 #ifdef REMORA_USE_NETCDF
-                            ,ic_bc_type,bdy_data_xlo,bdy_data_xhi,
+                            ,ic_type,bdy_data_xlo,bdy_data_xhi,
                              bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                             );
@@ -425,7 +425,7 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
                              fdata,
                              m_bc_extdir_vals
 #ifdef REMORA_USE_NETCDF
-                            ,ic_bc_type,bdy_data_xlo,bdy_data_xhi,
+                            ,ic_type,bdy_data_xlo,bdy_data_xhi,
                              bdy_data_ylo,bdy_data_yhi,bdy_time_interval
 #endif
                             );

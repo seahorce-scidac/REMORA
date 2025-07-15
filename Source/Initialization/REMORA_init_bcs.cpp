@@ -68,12 +68,14 @@ void REMORA::init_bcs ()
             phys_bc_type[bcvar_type][ori] = REMORA_BC::clamped;
             phys_bc_need_data[bdy_index[bcvar_type]][ori] = true;
             domain_bc_type[ori] = "Clamped";
+            solverChoice.boundary_from_netcdf = true;
         }
         else if (bc_type_string == "chapman")
         {
             phys_bc_type[bcvar_type][ori] = REMORA_BC::chapman;
             phys_bc_need_data[bdy_index[bcvar_type]][ori] = true;
             domain_bc_type[ori] = "Chapman";
+            solverChoice.boundary_from_netcdf = true;
 
             if (bcvar_type != BCVars::zeta_bc) {
                 amrex::Abort("Chapman BC can only be applied to zeta");
@@ -84,6 +86,7 @@ void REMORA::init_bcs ()
             phys_bc_type[bcvar_type][ori] = REMORA_BC::flather;
             phys_bc_need_data[bdy_index[bcvar_type]][ori] = true;
             domain_bc_type[ori] = "Flather";
+            solverChoice.boundary_from_netcdf = true;
 
             if (!(bcvar_type == BCVars::ubar_bc || bcvar_type == BCVars::vbar_bc)) {
                 amrex::Abort("Flather BC can only be applied to ubar or vbar");
@@ -100,6 +103,7 @@ void REMORA::init_bcs ()
             phys_bc_type[bcvar_type][ori] = REMORA_BC::orlanski_rad_nudge;
             phys_bc_need_data[bdy_index[bcvar_type]][ori] = true;
             domain_bc_type[ori] = "Orlanski Radiation with nudging";
+            solverChoice.boundary_from_netcdf = true;
         }
         else if (bc_type_string == "periodic")
         {

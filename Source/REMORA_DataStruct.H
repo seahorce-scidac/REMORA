@@ -26,8 +26,8 @@ enum class AdvectionScheme {
     centered2, centered4, upstream3
 };
 
-/** \brief Type of initial/boundary condition type. Analytic reads from prob.cpp. Netcdf is from file */
-enum class IC_BC_Type {
+/** \brief Type of initial condition type. Analytic reads from prob.cpp. Netcdf is from file */
+enum class IC_Type {
     analytic, netcdf
 };
 
@@ -226,21 +226,26 @@ struct SolverChoice {
             amrex::Error("Don't know this grid_scale_type");
         }
 
-        static std::string ic_bc_type_string = "analytic";
-        pp.query("ic_bc_type", ic_bc_type_string);
+        static std::string ic_type_string = "analytic";
+        bool found_ic_bc = pp.query("ic_bc_type", ic_type_string);
+        pp.query("ic_type", ic_type_string);
 
-        if ( amrex::toLower(ic_bc_type_string) == "custom") {
+        if (found_ic_bc) {
+            amrex::Warning("remora.ic_bc_type is now called remora.ic_type, and will eventually be deprecated");
+        }
+
+        if ( amrex::toLower(ic_type_string) == "custom") {
             amrex::Warning("Problem initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
-            ic_bc_type = IC_BC_Type::analytic;
-        } else if ( amrex::toLower(ic_bc_type_string) == "analytic") {
-            ic_bc_type = IC_BC_Type::analytic;
-        } else if ( amrex::toLower(ic_bc_type_string) == "netcdf") {
-            ic_bc_type = IC_BC_Type::netcdf;
-        } else if ( amrex::toLower(ic_bc_type_string) == "real") {
-            amrex::Warning("Problem initialization from NetCDF (remora.ic_bc_type) is now called 'netcdf'. 'real' will be deprecated");
-            ic_bc_type = IC_BC_Type::netcdf;
+            ic_type = IC_Type::analytic;
+        } else if ( amrex::toLower(ic_type_string) == "analytic") {
+            ic_type = IC_Type::analytic;
+        } else if ( amrex::toLower(ic_type_string) == "netcdf") {
+            ic_type = IC_Type::netcdf;
+        } else if ( amrex::toLower(ic_type_string) == "real") {
+            amrex::Warning("Problem initialization from NetCDF (remora.ic_type) is now called 'netcdf'. 'real' will be deprecated");
+            ic_type = IC_Type::netcdf;
         } else {
-            amrex::Error("Don't know this ic_bc_type");
+            amrex::Error("Don't know this ic_type");
         }
 
         // Which type of refinement
@@ -463,11 +468,11 @@ struct SolverChoice {
         amrex::Print() << "flat_bathymetry       : " << flat_bathymetry << std::endl;
         amrex::Print() << "spatial_order         : " << spatial_order << std::endl;
 
-        if (ic_bc_type == IC_BC_Type::analytic) {
-            amrex::Print() << "Using analytic initial and boundary conditions" << std::endl;
+        if (ic_type == IC_Type::analytic) {
+            amrex::Print() << "Using analytic initial onditions" << std::endl;
         }
-        else if (ic_bc_type == IC_BC_Type::netcdf) {
-            amrex::Print() << "Using NetCDF initial and boundary conditions" << std::endl;
+        else if (ic_type == IC_Type::netcdf) {
+            amrex::Print() << "Using NetCDF initial conditions" << std::endl;
         }
 
         if (tracer_Hadv_scheme == AdvectionScheme::centered4) {
@@ -549,7 +554,7 @@ struct SolverChoice {
     CouplingType coupling_type;
 
     // IC and BC Type: "analytic" or "netcdf"
-    IC_BC_Type ic_bc_type;
+    IC_Type ic_type;
 
     // Coriolis forcing type
     Cor_Type coriolis_type;
@@ -696,6 +701,8 @@ struct SolverChoice {
     bool do_temp_clim_nudg = false;
     bool do_salt_clim_nudg = false;
     bool do_any_clim_nudg = false;
+
+    bool boundary_from_netcdf = false;
 };
 
 #endif
