@@ -19,6 +19,12 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
     ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
+        if (!ncf.has_var(var_name)) {
+            amrex::Print() << "Trying to read attribute " << attr_name << " from variable " << var_name << " that does not exist!" << std::endl;
+        }
+        if (!ncf.var(var_name).has_attr(attr_name)) {
+            amrex::Print() << "Trying to read attribute " << attr_name << " that does not exist from variable " << var_name << "!" << std::endl;
+        }
         attr_val = ncf.var(var_name).get_attr(attr_name);
     }
     ncf.close();
