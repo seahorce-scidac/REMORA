@@ -29,6 +29,13 @@ Channel Test
 
 .. include:: ../../Exec/Channel_Test/README
 
+.. _dogbone:
+
+Dogbone
+-----------
+
+.. include:: ../../Exec/Dogbone/README.rst
+
 .. _doublegyre:
 
 Double Gyre

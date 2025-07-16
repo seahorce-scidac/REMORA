@@ -171,8 +171,10 @@ REMORA::init_zeta_from_netcdf (int lev)
 //    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),1,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
 //    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),2,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
 
-    Real told = t_new[lev];
-    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,0,0);
+    if (solverChoice.boundary_from_netcdf) {
+        Real told = t_new[lev];
+        fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,0,0);
+    }
 //    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
 //    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
 }
