@@ -58,5 +58,5 @@ remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inf
 
 # These files can be found at https://github.com/seahorce-scidac/REMORA-data
 remora.ic_type       = "netcdf"
-remora.nc_init_file_0   = "dogbone_ini_whole_c64.nc"
-remora.nc_grid_file_0   = "dogbone_grd_whole_c64.nc"
+remora.nc_init_file_0   = "dogbone_ini_whole_classic64.nc"
+remora.nc_grid_file_0   = "dogbone_grd_whole_classic64.nc"
