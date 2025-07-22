@@ -29,4 +29,4 @@ cmake -DCMAKE_INSTALL_PREFIX:PATH=./install \
       -DREMORA_ENABLE_NETCDF:BOOL=ON \
       -DREMORA_ENABLE_HDF5:BOOL=ON \
       -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
-      .. && make -j8
+      .. && make -j8 && make install

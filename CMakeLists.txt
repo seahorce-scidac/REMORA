@@ -119,3 +119,57 @@ endif()
 if(REMORA_ENABLE_DOCUMENTATION)
    add_subdirectory(Docs)
 endif()
+
+# Installation rules
+include(CMakePackageConfigHelpers)
+include(GNUInstallDirs)
+
+# Create non-object library for use as external target
+add_library(remora_api)
+if (BUILD_SHARED_LIBS)
+  set_target_properties(remora_api PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+if (REMORA_ENABLE_CUDA)
+   setup_target_for_cuda_compilation(remora_api)
+endif ()
+target_link_libraries(remora_api PUBLIC remora_srclib)
+add_library(${PROJECT_NAME}::remora_api ALIAS remora_srclib)
+
+# Collect all headers and make them installable with the target
+file(GLOB_RECURSE REMORA_INCLUDES "${CMAKE_SOURCE_DIR}/Source/*.H")
+
+set_target_properties(
+  remora_srclib PROPERTIES PUBLIC_HEADER "${REMORA_INCLUDES}")
+
+# Install ERF
+install(
+  TARGETS remora_api remora_srclib
+  EXPORT ${PROJECT_NAME}Targets
+  RUNTIME       DESTINATION bin
+  ARCHIVE       DESTINATION lib
+  LIBRARY       DESTINATION lib
+  INCLUDES      DESTINATION include
+  PUBLIC_HEADER DESTINATION include
+  )
+
+# Install all headers in include directories
+#install(
+#  DIRECTORY ${REMORA_INCLUDE_DIRECTORIES}
+#  DESTINATION include
+#  FILES_MATCHING PATTERN "*.H")
+
+# Make ERF discoverable using `find_package`
+install(
+  EXPORT ${PROJECT_NAME}Targets
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+  )
+configure_package_config_file(
+  CMake/${PROJECT_NAME}Config.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+  )
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+  )

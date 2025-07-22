@@ -15,4 +15,4 @@ cmake -DCMAKE_INSTALL_PREFIX:PATH=./install \
       -DREMORA_ENABLE_DOCUMENTATION:BOOL=OFF \
       -DREMORA_ENABLE_PARTICLES:BOOL=ON \
       -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
-      .. && make -j8
+      .. && make -j8 && make install
