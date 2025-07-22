@@ -21,7 +21,7 @@ function(build_remora_lib remora_lib_name)
                    ${SRC_DIR}/Particles/REMORA_PC_Init.cpp
                    ${SRC_DIR}/Particles/REMORA_PC_Utils.cpp
                    ${SRC_DIR}/Particles/REMORA_Tracers.cpp)
-    target_include_directories(${remora_lib_name} PUBLIC ${SRC_DIR}/Particles)
+    target_include_directories(${remora_lib_name} PUBLIC $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/Particles>)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_PARTICLES)
   endif()
 
@@ -120,7 +120,7 @@ function(build_remora_lib remora_lib_name)
 
   include(AMReXBuildInfo)
   generate_buildinfo(${remora_lib_name} ${CMAKE_SOURCE_DIR})
-  target_include_directories(${remora_lib_name} PUBLIC ${AMREX_SUBMOD_LOCATION}/Tools/C_scripts)
+    target_include_directories(${remora_lib_name} PUBLIC $<BUILD_INTERFACE:${AMREX_SUBMOD_LOCATION}/Tools/C_scripts>)
 
   if(REMORA_ENABLE_PNETCDF)
     if(PNETCDF_FOUND)
@@ -143,13 +143,13 @@ function(build_remora_lib remora_lib_name)
   endif()
 
   #REMORA include directories
-  target_include_directories(${remora_lib_name} PUBLIC ${SRC_DIR})
-  target_include_directories(${remora_lib_name} PUBLIC ${SRC_DIR}/BoundaryConditions)
-  target_include_directories(${remora_lib_name} PUBLIC ${SRC_DIR}/Initialization)
-  target_include_directories(${remora_lib_name} PUBLIC ${SRC_DIR}/Utils)
-  target_include_directories(${remora_lib_name} PUBLIC ${SRC_DIR}/TimeIntegration)
-  target_include_directories(${remora_lib_name} PUBLIC ${SRC_DIR}/IO)
-  target_include_directories(${remora_lib_name} PUBLIC ${CMAKE_BINARY_DIR})
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/BoundaryConditions>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/Initialization>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/Utils>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/TimeIntegration>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/IO>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>)
 
   #Link to amrex library
   target_link_libraries_system(${remora_lib_name} PUBLIC amrex)
