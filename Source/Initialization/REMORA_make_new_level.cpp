@@ -80,6 +80,10 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
         FillCoarsePatch(lev, time, vec_rv2d[lev].get(), vec_rv2d[lev-1].get(),icomp,false);
     }
 
+    FillCoarsePatch(lev, time, vec_mskr[lev].get(), vec_mskr[lev-1].get());
+
+    calculate_nodal_masks(lev);
+
 
     set_grid_scale(lev);
     stretch_transform(lev);
@@ -799,6 +803,29 @@ REMORA::update_mskp (int lev)
                 mskp(i,j,0) = 0.0_rt;
             }
 
+        });
+    }
+}
+/**
+ * @param[in   ] lev    level to operate on
+ */
+void
+REMORA::calculate_nodal_masks (int lev)
+{
+    for ( MFIter mfi(*vec_mskr[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<const Real> const& mskr = vec_mskr[lev]->const_array(mfi);
+        Array4<      Real> const& msku = vec_msku[lev]->array(mfi);
+        Array4<      Real> const& mskv = vec_mskv[lev]->array(mfi);
+        Array4<      Real> const& mskp = vec_mskp[lev]->array(mfi);
+
+        Box bx = mfi.tilebox(); bx.grow(IntVect(1,1,0)); bx.makeSlab(2,0);
+
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            msku(i,j,0) = mskr(i-1,j  ,0) * mskr(i,j,0);
+            mskv(i,j,0) = mskr(i  ,j-1,0) * mskr(i,j,0);
+            mskp(i,j,0) = mskr(i-1,j-1,0) * mskr(i,j,0) * mskr(i-1,j,0) * mskr(i,j-1,0);
         });
     }
 }

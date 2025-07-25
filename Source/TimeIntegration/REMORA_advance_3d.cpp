@@ -220,7 +220,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Array4<Real const> const& z_w = mf_z_w->const_array(mfi);
 
-        Box bx   = mfi.tilebox();
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 

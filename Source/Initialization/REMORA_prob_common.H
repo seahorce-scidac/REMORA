@@ -110,6 +110,15 @@ public:
         amrex::MultiFab& /*mf_vwind*/) {
           amrex::Error("Doing analytic wind, but not defined in prob.cpp");
     }
+
+    virtual void
+    init_analytic_masks (
+        int /*lev*/, const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
+        amrex::MultiFab& /*mf_mskr*/) {
+          amrex::Error("Doing analytic masks, but not defined in prob.cpp");
+    }
 };
 
 /**
