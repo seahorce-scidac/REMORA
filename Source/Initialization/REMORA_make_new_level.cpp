@@ -60,12 +60,12 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     init_masks(lev, ba, dm);
 
+    init_stuff(lev, ba, dm);
+
     FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1]);
     FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
     FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1]);
     FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1]);
-
-    init_stuff(lev, ba, dm);
 
     FillCoarsePatch(lev, time, vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get());
     FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get());

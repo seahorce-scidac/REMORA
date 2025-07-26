@@ -121,6 +121,7 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
         Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
 
+        mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
         amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
                                   time, cmf, ctime, fmf, ftime,
                                   icomp, icomp, ncomp, geom[lev-1], geom[lev],
@@ -282,6 +283,7 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
         Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
         Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
 
+        mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
         amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
                                   time, cmf, ctime, fmf, ftime,
                                   icomp, icomp, ncomp, geom[lev-1], geom[lev],
@@ -448,15 +450,12 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
                             );
 #endif
 
-//  amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, ncomp, geom[lev-1], geom[lev],
-//                               cphysbc, 0, fphysbc, 0, refRatio(lev-1),
-//                               mapper, domain_bcs_type, bccomp);
+    mf_crse->FillBoundary(geom[lev-1].periodicity());
     amrex::InterpFromCoarseLevel(*mf_to_fill, mf_to_fill->nGrowVect(), IntVect(0,0,0),
             *mf_crse, 0, icomp, ncomp, geom[lev-1], geom[lev],
                                  refRatio(lev-1),
                                  mapper, domain_bcs_type, bccomp);
 
-////IF WE ACTUALLY NEED TO APPLY BCs
     // ***************************************************************************
     // Physical bc's at domain boundary
     // ***************************************************************************
