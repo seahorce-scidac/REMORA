@@ -882,6 +882,18 @@ public:
                             const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                             const amrex::Real = amrex::Real(0.0));
 
+    /** \brief fill an entire multifab by interpolating from the coarser level */
+    void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine,
+                amrex::MultiFab* mf_crse,
+                const int bdy_var_type = BdyVars::null,
+                const int  icomp = 0,
+                const bool fill_all = true,
+                const int  n_not_fill=0,
+                const int icomp_calc=0,
+                const amrex::Real dt = amrex::Real(0.0),
+                const amrex::MultiFab& mf_calc = amrex::MultiFab());
+
+
     /** \brief Calculate Coriolis parameters from beta plane parametrization */
     void init_beta_plane_coriolis (int lev);
 
@@ -949,17 +961,6 @@ private:
 
     /** \brief Define FillPatchers */
     void Define_REMORAFillPatchers (int lev);
-
-    /** \brief fill an entire multifab by interpolating from the coarser level */
-    void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine,
-                amrex::MultiFab* mf_crse,
-                const int bdy_var_type = BdyVars::null,
-                const int  icomp = 0,
-                const bool fill_all = true,
-                const int  n_not_fill=0,
-                const int icomp_calc=0,
-                const amrex::Real dt = amrex::Real(0.0),
-                const amrex::MultiFab& mf_calc = amrex::MultiFab());
 
     /** \brief utility to copy in data from old and/or new state into another multifab */
     TimeInterpolatedData GetDataAtTime (int lev, amrex::Real time);
