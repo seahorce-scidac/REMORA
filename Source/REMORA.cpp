@@ -474,7 +474,7 @@ REMORA::set_zeta (int lev)
 
 #ifdef REMORA_USE_NETCDF
     } else if (solverChoice.ic_type == IC_Type::netcdf) {
-        amrex::Print() << "Calling init_zeta_from_netcdf " << std::endl;
+        amrex::Print() << "Calling init_zeta_from_netcdf on level " << lev << std::endl;
         init_zeta_from_netcdf(lev);
         amrex::Print() << "Sea surface height loaded from netcdf file \n " << std::endl;
 #endif
@@ -530,13 +530,9 @@ REMORA::set_bathymetry (int lev)
             }
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_type == IC_Type::netcdf) {
-            if (solverChoice.ic_type == IC_Type::analytic) {
-                amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
-                init_bathymetry_from_netcdf(lev);
-                amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
-            } else {
-                init_flat_bathymetry(lev);
-            }
+            amrex::Print() << "Calling init_bathymetry_from_netcdf level " << lev << std::endl;
+            init_bathymetry_from_netcdf(lev);
+            amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
 #endif
         } else {
             Abort("Don't know this ic_type!");
@@ -698,6 +694,24 @@ REMORA::set_wind(int lev)
 
 /**
  * @param[in   ] lev    level to operate on
+ */
+void
+REMORA::set_masks(int lev)
+{
+    if (solverChoice.mask_type == MaskType::analytic) {
+        prob->init_analytic_masks(lev,geom[lev], solverChoice, *this, *vec_mskr[lev]);
+        calculate_nodal_masks(lev);
+    } else if (solverChoice.mask_type == MaskType::netcdf) {
+#ifdef REMORA_USE_NETCDF
+        amrex::Print() << "Calling init_masks_from_netcdf level " << lev << std::endl;
+        init_masks_from_netcdf(lev);
+        amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
+#endif
+    }
+}
+
+/**
+ * @param[in   ] lev    level to operate on
  * @param[in   ] time   current time for initialization
  */
 void
@@ -721,12 +735,13 @@ REMORA::init_only (int lev, Real time)
     vec_ru2d[lev]->setVal(0.0_rt);
     vec_rv2d[lev]->setVal(0.0_rt);
 
+    if (solverChoice.ic_type == IC_Type::analytic) {
+        set_grid_scale(lev);
+    }
+    set_masks(lev);
+
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.ic_type == IC_Type::netcdf) {
-        amrex::Print() << "Calling init_masks_from_netcdf " << std::endl;
-        init_masks_from_netcdf(lev);
-        amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
-
         init_clim_nudg_coeff(lev);
 
         if (solverChoice.do_any_clim_nudg) {
@@ -812,9 +827,6 @@ REMORA::init_only (int lev, Real time)
     }
 #endif
 
-    if (solverChoice.ic_type == IC_Type::analytic) {
-        set_grid_scale(lev);
-    }
     set_bathymetry(lev);
     set_zeta(lev);
     stretch_transform(lev);
@@ -847,10 +859,10 @@ REMORA::init_only (int lev, Real time)
             init_analytic(lev);
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_type == IC_Type::netcdf) {
-            amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
+            amrex::Print() << "Calling init_data_from_netcdf on level " << lev << std::endl;
             init_data_from_netcdf(lev);
             set_zeta_to_Ztavg(lev);
-            amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
+            amrex::Print() << "Initial data loaded from netcdf file on level " << lev << std::endl;
 
 #endif
         } else {

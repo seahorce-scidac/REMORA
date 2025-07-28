@@ -155,6 +155,9 @@ public:
     /** \brief Set zeta components to be equal to time-averaged Zt_avg1 */
     void set_zeta_to_Ztavg (int lev);
 
+    /** \brief Calculate u-, v-, and psi-point masks based on rho-point masks after analytic initialization */
+    void calculate_nodal_masks (int lev);
+
     /** \brief Set psi-point mask to be consistent with rho-point mask */
     void update_mskp (int lev);
 
@@ -793,6 +796,9 @@ public:
     /** \brief Initialize Coriolis factor from file or analytic */
     void set_coriolis (int lev);
 
+    /** \brief Initialize land-sea masks from file or analytic */
+    void set_masks (int lev);
+
     /** \brief Calculate vertical stretched coordinates */
     void stretch_transform (int lev);
 
@@ -876,6 +882,18 @@ public:
                             const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                             const amrex::Real = amrex::Real(0.0));
 
+    /** \brief fill an entire multifab by interpolating from the coarser level */
+    void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine,
+                amrex::MultiFab* mf_crse,
+                const int bdy_var_type = BdyVars::null,
+                const int  icomp = 0,
+                const bool fill_all = true,
+                const int  n_not_fill=0,
+                const int icomp_calc=0,
+                const amrex::Real dt = amrex::Real(0.0),
+                const amrex::MultiFab& mf_calc = amrex::MultiFab());
+
+
     /** \brief Calculate Coriolis parameters from beta plane parametrization */
     void init_beta_plane_coriolis (int lev);
 
@@ -943,11 +961,6 @@ private:
 
     /** \brief Define FillPatchers */
     void Define_REMORAFillPatchers (int lev);
-
-    /** \brief fill an entire multifab by interpolating from the coarser level */
-    void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine, amrex::MultiFab* mf_crse,
-          const int  icomp = 0,
-          const bool fill_all = true);
 
     /** \brief utility to copy in data from old and/or new state into another multifab */
     TimeInterpolatedData GetDataAtTime (int lev, amrex::Real time);

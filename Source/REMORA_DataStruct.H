@@ -81,6 +81,11 @@ enum class WindType {
     analytic, netcdf
 };
 
+/** \brief masks */
+enum class MaskType {
+    none, analytic, netcdf
+};
+
 struct SolverChoice {
   public:
     /** \brief read in and initialize parameters */
@@ -311,6 +316,22 @@ struct SolverChoice {
 
         if (wind_specified && smflux_specified) {
             amrex::Abort("Cannot specify both wind and surface momentum flux");
+        }
+
+        static std::string mask_type_string = "none";
+        // If initial condition type is netcdf, default to netcdf masks
+        if (ic_type == IC_Type::netcdf) {
+            mask_type_string = "netcdf";
+        }
+        pp.query("mask_type", mask_type_string);
+        if (amrex::toLower(mask_type_string) == "none") {
+            mask_type = MaskType::none;
+        } else if (amrex::toLower(mask_type_string) == "analytic") {
+            mask_type = MaskType::analytic;
+        } else if (amrex::toLower(mask_type_string) == "netcdf") {
+            mask_type = MaskType::netcdf;
+        } else {
+            amrex::Abort("Don't know this mask_type");
         }
 
         static std::string bottom_stress_type_string = "linear";
@@ -570,6 +591,9 @@ struct SolverChoice {
 
     // Bottom stress type
     BottomStressType bottom_stress_type;
+
+    // Land/sea mask type
+    MaskType mask_type;
 
     // Mixing type and parameters
     VertMixingType vert_mixing_type;

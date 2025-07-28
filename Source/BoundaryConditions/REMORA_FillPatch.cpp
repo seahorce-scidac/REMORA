@@ -121,9 +121,12 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
         Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
         Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
 
-        amrex::FillPatchTwoLevels(mf_to_fill, time, cmf, ctime, fmf, ftime,
+        mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
+        amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
+                                  time, cmf, ctime, fmf, ftime,
                                   icomp, icomp, ncomp, geom[lev-1], geom[lev],
-                                  null_bc, bccomp, null_bc, bccomp, refRatio(lev-1),
+                                  //null_bc, bccomp, null_bc, bccomp,
+                                  refRatio(lev-1),
                                   mapper, domain_bcs_type, bccomp);
     } // lev > 0
 
@@ -280,9 +283,12 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
         Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
         Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
 
-        amrex::FillPatchTwoLevels(mf_to_fill, time, cmf, ctime, fmf, ftime,
-                                  0, icomp, ncomp, geom[lev-1], geom[lev],
-                                  null_bc, bccomp, null_bc, bccomp, refRatio(lev-1),
+        mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
+        amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
+                                  time, cmf, ctime, fmf, ftime,
+                                  icomp, icomp, ncomp, geom[lev-1], geom[lev],
+                                  //null_bc, bccomp, null_bc, bccomp,
+                                  refRatio(lev-1),
                                   mapper, domain_bcs_type, bccomp);
     } // lev > 0
 }
@@ -362,11 +368,18 @@ REMORA::GetDataAtTime (int /*lev*/, Real /*time*/)
  */
 void
 REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_crse,
+                         const int bdy_var_type,
                          const int  icomp,
-                         const bool fill_all)
+                         const bool fill_all,
+                         const int  n_not_fill,
+                         const int  icomp_calc,
+                         const Real dt_lev,
+                         const MultiFab& mf_calc)
 {
     BL_PROFILE_VAR("FillCoarsePatch()",FillCoarsePatch);
     AMREX_ASSERT(lev > 0);
+
+    MultiFab* mask;
 
     int ncomp;
     if (fill_all) {
@@ -374,6 +387,8 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
     } else {
         ncomp = 1;
     }
+
+    Box mf_box(mf_to_fill->boxArray()[0]);
 
     int bccomp = 0;
     amrex::Interpolater* mapper = nullptr;
@@ -384,21 +399,25 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
     {
         bccomp = 0;
         mapper = &cell_cons_interp;
+        mask = vec_mskr[lev].get();
     }
     else if (box_mf.ixType() == IndexType(IntVect(1,0,0)))
     {
         bccomp = BCVars::xvel_bc;
         mapper = &face_linear_interp;
+        mask = vec_msku[lev].get();
     }
     else if (box_mf.ixType() == IndexType(IntVect(0,1,0)))
     {
         bccomp = BCVars::yvel_bc;
         mapper = &face_linear_interp;
+        mask = vec_mskv[lev].get();
     }
     else if (box_mf.ixType() == IndexType(IntVect(0,0,1)))
     {
         bccomp = BCVars::zvel_bc;
         mapper = &face_linear_interp;
+        mask = vec_mskr[lev].get();
     } else {
           amrex::Abort("Dont recognize this box type in REMORA_FillPatch");
     }
@@ -431,12 +450,52 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
                             );
 #endif
 
-//  amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, ncomp, geom[lev-1], geom[lev],
-//                               cphysbc, 0, fphysbc, 0, refRatio(lev-1),
-//                               mapper, domain_bcs_type, bccomp);
-    amrex::InterpFromCoarseLevel(*mf_to_fill, time, *mf_crse, 0, icomp, ncomp, geom[lev-1], geom[lev],
-                                 null_bc, 0, null_bc, 0, refRatio(lev-1),
+    mf_crse->FillBoundary(geom[lev-1].periodicity());
+    amrex::InterpFromCoarseLevel(*mf_to_fill, mf_to_fill->nGrowVect(), IntVect(0,0,0),
+            *mf_crse, 0, icomp, ncomp, geom[lev-1], geom[lev],
+                                 refRatio(lev-1),
                                  mapper, domain_bcs_type, bccomp);
+
+    // ***************************************************************************
+    // Physical bc's at domain boundary
+    // ***************************************************************************
+
+    // Enforce physical boundary conditions
+    (*physbcs[lev])(*mf_to_fill,*mask,icomp,ncomp,mf_to_fill->nGrowVect(),
+            time,bccomp,n_not_fill,mf_calc,
+            *vec_msku[lev].get(), *vec_mskv[lev].get());
+
+#ifdef REMORA_USE_NETCDF
+    // Fill the data which is stored in the boundary data read from netcdf files
+    if ( (solverChoice.boundary_from_netcdf) && (lev==0) &&
+         (bdy_var_type != BdyVars::null) )
+    {
+        fill_from_bdyfiles(*mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
+    }
+#endif
+    // Fill corners of the domain with periodic data
+    if  ( mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
+        mf_to_fill->EnforcePeriodicity(geom[lev].periodicity());
+    }
+
+    // Also enforce free-slip at top boundary (on xvel or yvel)
+    if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
+         (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
+    {
+        int khi = geom[lev].Domain().bigEnd(2);
+        for (MFIter mfi(*mf_to_fill); mfi.isValid(); ++mfi)
+        {
+            Box gbx  = mfi.growntilebox(); // Note this is face-centered since vel is
+            gbx.setSmall(2,khi+1);
+            if (gbx.ok()) {
+                Array4<Real> vel_arr = mf_to_fill->array(mfi);
+                ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    vel_arr(i,j,k) = vel_arr(i,j,khi);
+                });
+            }
+        }
+    }
 }
 
 /**

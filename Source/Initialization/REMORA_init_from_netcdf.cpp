@@ -175,6 +175,10 @@ REMORA::init_zeta_from_netcdf (int lev)
         Real told = t_new[lev];
         fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,0,0);
     }
+    if (lev>0) {
+        FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), BCVars::zeta_bc, BdyVars::zeta,
+                  0, false,false);
+    }
 //    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
 //    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
 }
@@ -260,6 +264,16 @@ REMORA::init_bathymetry_from_netcdf (int lev)
     FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName),
             BCVars::foextrap_periodic_bc,
             BdyVars::null,1,false,true,1);
+
+    if (lev > 0) {
+        FillPatch(lev,dummy_time,*vec_pm[lev],GetVecOfPtrs(vec_pm),
+                BCVars::foextrap_periodic_bc,
+                BdyVars::null,0,false,true);
+        FillPatch(lev,dummy_time,*vec_pn[lev],GetVecOfPtrs(vec_pn),
+                BCVars::foextrap_periodic_bc,
+                BdyVars::null,0,false,true);
+    }
+
 
     int ng = vec_pm[lev]->nGrow();
 
