@@ -38,8 +38,13 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                   const bool fill_all,
                   const bool fill_set,
                   const int  n_not_fill,
+#ifdef REMORA_USE_NETCDF
                   const int  icomp_calc,
                   const Real dt_lev,
+#else
+                  const int /*icomp_calc*/,
+                  const Real /*dt_lev*/,
+#endif
                   const MultiFab& mf_calc)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
@@ -353,6 +358,38 @@ REMORA::GetDataAtTime (int /*lev*/, Real /*time*/)
     return data;
 }
 
+
+/**
+ * Like FillCoarsePatch but uses piecewise constant interpolater
+ *
+ * @param[in   ] lev            level to FillPatch on
+ * @param[in   ] time           current time
+ * @param[inout] mf_to_fill     MultiFab to fill
+ * @param[inout] mf_crse        MultiFab of coarse data
+ * @param[in   ] bccomp         index into domain_bcs_type
+ * @param[in   ] bdy_var_type   when filling from NetCDF, which boundary data
+ * @param[in   ] icomp          component to fill
+ * @param[in   ] fill_all       whether to fill all components
+ * @param[in   ] icomp_calc     component to use in RHS boundary calculation
+ * @param[in   ] dt_lev         time step at this level
+ * @param[in   ] mf_calc        data to use in RHS boundary calculation
+ */
+void
+REMORA::FillCoarsePatchPC (int lev, Real time, MultiFab* mf_to_fill,
+                           MultiFab* mf_crse,
+                           const int bccomp,
+                           const int bdy_var_type,
+                           const int  icomp,
+                           const bool fill_all,
+                           const int  n_not_fill,
+                           const int  icomp_calc,
+                           const Real dt_lev,
+                           const MultiFab& mf_calc) {
+    amrex::Interpolater* mapper = &pc_interp;
+    FillCoarsePatchMap(lev, time, mf_to_fill, mf_crse, bccomp, bdy_var_type,icomp,
+                    fill_all, n_not_fill, icomp_calc, dt_lev, mf_calc, mapper);
+}
+
 /**
  * Fill an entire multifab by interpolating from the coarser level --
  * this is used only when a new level of refinement is being created
@@ -363,18 +400,68 @@ REMORA::GetDataAtTime (int /*lev*/, Real /*time*/)
  * @param[in   ] time           current time
  * @param[inout] mf_to_fill     MultiFab to fill
  * @param[inout] mf_crse        MultiFab of coarse data
+ * @param[in   ] bccomp         index into domain_bcs_type
+ * @param[in   ] bdy_var_type   when filling from NetCDF, which boundary data
  * @param[in   ] icomp          component to fill
  * @param[in   ] fill_all       whether to fill all components
+ * @param[in   ] icomp_calc     component to use in RHS boundary calculation
+ * @param[in   ] dt_lev         time step at this level
+ * @param[in   ] mf_calc        data to use in RHS boundary calculation
  */
 void
-REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_crse,
+REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill,
+                         MultiFab* mf_crse,
+                         const int bccomp,
                          const int bdy_var_type,
                          const int  icomp,
                          const bool fill_all,
                          const int  n_not_fill,
                          const int  icomp_calc,
                          const Real dt_lev,
-                         const MultiFab& mf_calc)
+                         const MultiFab& mf_calc) {
+    amrex::Interpolater* mapper = nullptr;
+    FillCoarsePatchMap(lev, time, mf_to_fill, mf_crse, bccomp, bdy_var_type,icomp,
+                    fill_all, n_not_fill, icomp_calc, dt_lev, mf_calc, mapper);
+}
+
+/**
+ * Fill an entire multifab by interpolating from the coarser level --
+ * this is used only when a new level of refinement is being created
+ * during a run (i.e not at initialization)
+ * This will never be used with static refinement.
+ *
+ * @param[in   ] lev            level to FillPatch on
+ * @param[in   ] time           current time
+ * @param[inout] mf_to_fill     MultiFab to fill
+ * @param[inout] mf_crse        MultiFab of coarse data
+ * @param[in   ] bccomp         index into domain_bcs_type
+ * @param[in   ] bdy_var_type   when filling from NetCDF, which boundary data
+ * @param[in   ] icomp          component to fill
+ * @param[in   ] fill_all       whether to fill all components
+ * @param[in   ] icomp_calc     component to use in RHS boundary calculation
+ * @param[in   ] dt_lev         time step at this level
+ * @param[in   ] mf_calc        data to use in RHS boundary calculation
+ */
+void
+REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_crse,
+                         const int bccomp,
+#ifdef REMORA_USE_NETCDF
+                         const int bdy_var_type,
+#else
+                         const int /*bdy_var_type*/,
+#endif
+                         const int  icomp,
+                         const bool fill_all,
+                         const int  n_not_fill,
+#ifdef REMORA_USE_NETCDF
+                         const int  icomp_calc,
+                         const Real dt_lev,
+#else
+                         const int /*icomp_calc*/,
+                         const Real /*dt_lev*/,
+#endif
+                         const MultiFab& mf_calc,
+                               amrex::Interpolater* mapper)
 {
     BL_PROFILE_VAR("FillCoarsePatch()",FillCoarsePatch);
     AMREX_ASSERT(lev > 0);
@@ -388,38 +475,46 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
         ncomp = 1;
     }
 
-    Box mf_box(mf_to_fill->boxArray()[0]);
-
-    int bccomp = 0;
-    amrex::Interpolater* mapper = nullptr;
-
     Box box_mf(mf_to_fill->boxArray()[0]);
 
     if (box_mf.ixType() == IndexType(IntVect(0,0,0)))
     {
-        bccomp = 0;
-        mapper = &cell_cons_interp;
         mask = vec_mskr[lev].get();
     }
     else if (box_mf.ixType() == IndexType(IntVect(1,0,0)))
     {
-        bccomp = BCVars::xvel_bc;
-        mapper = &face_linear_interp;
         mask = vec_msku[lev].get();
     }
     else if (box_mf.ixType() == IndexType(IntVect(0,1,0)))
     {
-        bccomp = BCVars::yvel_bc;
-        mapper = &face_linear_interp;
         mask = vec_mskv[lev].get();
     }
     else if (box_mf.ixType() == IndexType(IntVect(0,0,1)))
     {
-        bccomp = BCVars::zvel_bc;
-        mapper = &face_linear_interp;
         mask = vec_mskr[lev].get();
     } else {
           amrex::Abort("Dont recognize this box type in REMORA_FillPatch");
+    }
+
+    if (mapper == nullptr) {
+        if (box_mf.ixType() == IndexType(IntVect(0,0,0)))
+        {
+            mapper = &cell_cons_interp;
+        }
+        else if (box_mf.ixType() == IndexType(IntVect(1,0,0)))
+        {
+            mapper = &face_linear_interp;
+        }
+        else if (box_mf.ixType() == IndexType(IntVect(0,1,0)))
+        {
+            mapper = &face_linear_interp;
+        }
+        else if (box_mf.ixType() == IndexType(IntVect(0,0,1)))
+        {
+            mapper = &face_linear_interp;
+        } else {
+              amrex::Abort("Dont recognize this box type in REMORA_FillPatch");
+        }
     }
 
 #if 0
@@ -450,6 +545,7 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
                             );
 #endif
 
+
     mf_crse->FillBoundary(geom[lev-1].periodicity());
     amrex::InterpFromCoarseLevel(*mf_to_fill, mf_to_fill->nGrowVect(), IntVect(0,0,0),
             *mf_crse, 0, icomp, ncomp, geom[lev-1], geom[lev],
@@ -474,13 +570,13 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
     }
 #endif
     // Fill corners of the domain with periodic data
-    if  ( mf_box.ixType() == IndexType(IntVect(0,0,0)) ) {
+    if  ( box_mf.ixType() == IndexType(IntVect(0,0,0)) ) {
         mf_to_fill->EnforcePeriodicity(geom[lev].periodicity());
     }
 
-    // Also enforce free-slip at top boundary (on xvel or yvel)
-    if ( (mf_box.ixType() == IndexType(IntVect(1,0,0))) ||
-         (mf_box.ixType() == IndexType(IntVect(0,1,0))) )
+    // Enforce free-slip at top boundary (on xvel or yvel)
+    if ( (box_mf.ixType() == IndexType(IntVect(1,0,0))) ||
+         (box_mf.ixType() == IndexType(IntVect(0,1,0))) )
     {
         int khi = geom[lev].Domain().bigEnd(2);
         for (MFIter mfi(*mf_to_fill); mfi.isValid(); ++mfi)
@@ -496,6 +592,7 @@ REMORA::FillCoarsePatch (int lev, Real time, MultiFab* mf_to_fill, MultiFab* mf_
             }
         }
     }
+
 }
 
 /**
