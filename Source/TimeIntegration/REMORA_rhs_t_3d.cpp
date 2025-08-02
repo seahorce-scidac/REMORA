@@ -3,6 +3,7 @@
 using namespace amrex;
 
 /**
+ * @param[in   ] lev           level to operate on
  * @param[in   ] bx            tilebox
  * @param[inout] t             tracer data
  * @param[in   ] sstore        scratch space for tracer calculations
@@ -24,7 +25,7 @@ using namespace amrex;
  * @param[in   ] dt_lev        time step at this level
  */
 void
-REMORA::rhs_t_3d (const Box& bx,
+REMORA::rhs_t_3d (int lev, const Box& bx,
                  const Array4<Real      >& t,
                  const Array4<Real const>& sstore,
                  const Array4<Real const>& Huon,
@@ -41,7 +42,7 @@ REMORA::rhs_t_3d (const Box& bx,
                  const Array4<Real const>& river_source,
                  int nrhs, int nnew, int N, Real dt_lev)
 {
-    const Box& domain = geom[0].Domain();
+    const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
 

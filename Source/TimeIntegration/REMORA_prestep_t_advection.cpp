@@ -3,6 +3,7 @@
 using namespace amrex;
 
 /**
+ * @param[in   ] lev             level to operate on
  * @param[in   ] tbx             tile box
  * @param[in   ] gbx             grown tile box
  * @param[in   ] tempold         scalar at last time
@@ -31,7 +32,7 @@ using namespace amrex;
  */
 
 void
-REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
+REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
                             const Array4<Real      >& tempold,
                             const Array4<Real      >& tempcache,
                             const Array4<Real      >& Hz,
@@ -52,7 +53,7 @@ REMORA::prestep_t_advection (const Box& tbx, const Box& gbx,
                             int iic, int ntfirst, int nrhs, int N,
                             Real dt_lev)
 {
-    const Box& domain = geom[0].Domain();
+    const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
 

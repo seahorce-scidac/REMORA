@@ -3,6 +3,7 @@
 using namespace amrex;
 
 /**
+ * @param[in   ] lev            level to operate on
  * @param[in   ] xbx     Box for operations on x-velocity
  * @param[in   ] ybx     Box for operations on y-velocity
  * @param[in   ] uold    u-velocity at last time step
@@ -25,7 +26,8 @@ using namespace amrex;
  * @param[in   ] N       number of vertical levels
  */
 void
-REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
+REMORA::rhs_uv_3d (int lev,
+                  const Box& xbx, const Box& ybx,
                   const Array4<Real const>& uold  ,
                   const Array4<Real const>& vold,
                   const Array4<Real      >& ru,
@@ -44,7 +46,7 @@ REMORA::rhs_uv_3d (const Box& xbx, const Box& ybx,
                   const Array4<Real      >& FC,
                   int nrhs, int N)
 {
-    const Box& domain = geom[0].Domain();
+    const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
 

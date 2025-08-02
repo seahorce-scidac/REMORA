@@ -483,7 +483,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         ////rufrc from 3d is set to ru, then the wind stress (and bottom stress) is added, then the mixing is added
         //rufrc=ru+sustr*om_u*on_u
 
-        rhs_uv_3d(xbx, ybx, uold, vold, ru, rv, rufrc, rvfrc,
+        rhs_uv_3d(lev, xbx, ybx, uold, vold, ru, rv, rufrc, rvfrc,
                   sustr, svstr, bustr, bvstr, Huon, Hvom,
                   pm, pn, W, FC, nrhs, N);
 
