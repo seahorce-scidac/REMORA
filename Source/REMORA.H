@@ -529,7 +529,7 @@ public:
                   int N, const amrex::Real dt_lev);
 
     /** \brief Prestep advection calculations for the tracers */
-    void prestep_t_advection (const amrex::Box& tbx,
+    void prestep_t_advection (int lev, const amrex::Box& tbx,
                         const amrex::Box& gbx,
                         const amrex::Array4<amrex::Real      >& tempold,
                         const amrex::Array4<amrex::Real      >& tempcache,
@@ -552,7 +552,8 @@ public:
                         const amrex::Real dt_lev);
 
     /** \brief RHS terms for tracer */
-    void rhs_t_3d (const amrex::Box& bx,
+    void rhs_t_3d (int lev,
+                   const amrex::Box& bx,
                    const amrex::Array4<amrex::Real      >& t,
                    const amrex::Array4<amrex::Real const>& tempstore,
                    const amrex::Array4<amrex::Real const>& Huon,
@@ -570,7 +571,8 @@ public:
                    int nrhs, int nnew, int N, const amrex::Real dt_lev);
 
     /** \brief RHS terms for 3D momentum */
-    void rhs_uv_3d (const amrex::Box& xbx,
+    void rhs_uv_3d (int lev,
+                    const amrex::Box& xbx,
                     const amrex::Box& ybx,
                     const amrex::Array4<amrex::Real const>& uold,
                     const amrex::Array4<amrex::Real const>& vold,
@@ -591,7 +593,8 @@ public:
                     int nrhs, int N);
 
     /** \brief RHS terms for 2D momentum */
-    void rhs_uv_2d (const amrex::Box& xbx,
+    void rhs_uv_2d (int lev,
+                    const amrex::Box& xbx,
                     const amrex::Box& ybx,
                     const amrex::Array4<amrex::Real const>& uold,
                     const amrex::Array4<amrex::Real const>& vold,
@@ -701,7 +704,7 @@ public:
                        const amrex::Real dt_lev);
 
     /** \brief Correct mass flux */
-    void update_massflux_3d (const amrex::Box& bx,
+    void update_massflux_3d (int lev, const amrex::Box& bx,
                              const int ioff, const int joff,
                              const amrex::Array4<amrex::Real      >& phi,
                              const amrex::Array4<amrex::Real      >& phibar,
@@ -882,9 +885,11 @@ public:
                             const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                             const amrex::Real = amrex::Real(0.0));
 
-    /** \brief fill an entire multifab by interpolating from the coarser level */
-    void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine,
+    /** \brief fill an entire multifab by interpolating from the coarser level
+     *         using the piecewise constant interpolater */
+    void FillCoarsePatchPC (int lev, amrex::Real time, amrex::MultiFab* mf_fine,
                 amrex::MultiFab* mf_crse,
+                const int bccomp,
                 const int bdy_var_type = BdyVars::null,
                 const int  icomp = 0,
                 const bool fill_all = true,
@@ -892,6 +897,32 @@ public:
                 const int icomp_calc=0,
                 const amrex::Real dt = amrex::Real(0.0),
                 const amrex::MultiFab& mf_calc = amrex::MultiFab());
+
+    /** \brief fill an entire multifab by interpolating from the coarser level */
+    void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab* mf_fine,
+                amrex::MultiFab* mf_crse,
+                const int bccomp,
+                const int bdy_var_type = BdyVars::null,
+                const int  icomp = 0,
+                const bool fill_all = true,
+                const int  n_not_fill=0,
+                const int icomp_calc=0,
+                const amrex::Real dt = amrex::Real(0.0),
+                const amrex::MultiFab& mf_calc = amrex::MultiFab());
+
+    /** \brief fill an entire multifab by interpolating from the coarser level,
+     *         explicitly specifying interpolator to use */
+    void FillCoarsePatchMap (int lev, amrex::Real time, amrex::MultiFab* mf_fine,
+                amrex::MultiFab* mf_crse,
+                const int bccomp,
+                const int bdy_var_type = BdyVars::null,
+                const int  icomp = 0,
+                const bool fill_all = true,
+                const int  n_not_fill=0,
+                const int icomp_calc=0,
+                const amrex::Real dt = amrex::Real(0.0),
+                const amrex::MultiFab& mf_calc = amrex::MultiFab(),
+                      amrex::Interpolater* mapper = nullptr);
 
 
     /** \brief Calculate Coriolis parameters from beta plane parametrization */

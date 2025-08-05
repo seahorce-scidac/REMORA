@@ -62,25 +62,54 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     init_stuff(lev, ba, dm);
 
-    FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1]);
-    FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
-    FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1]);
-    FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1]);
+    cons_new[lev]->setVal(0.0_rt);
+    xvel_new[lev]->setVal(0.0_rt);
+    yvel_new[lev]->setVal(0.0_rt);
+    zvel_new[lev]->setVal(0.0_rt);
 
-    FillCoarsePatch(lev, time, vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get());
-    FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get());
+    cons_old[lev]->setVal(0.0_rt);
+    xvel_old[lev]->setVal(0.0_rt);
+    yvel_old[lev]->setVal(0.0_rt);
+    zvel_old[lev]->setVal(0.0_rt);
+
+    vec_ru[lev]->setVal(0.0_rt);
+    vec_rv[lev]->setVal(0.0_rt);
+
+    vec_ru2d[lev]->setVal(0.0_rt);
+    vec_rv2d[lev]->setVal(0.0_rt);
+
+    vec_ubar[lev]->setVal(0.0_rt);
+    vec_vbar[lev]->setVal(0.0_rt);
+
+
+    FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1],BCVars::Temp_bc_comp,BdyVars::t);
+    FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1],BCVars::xvel_bc,BdyVars::u);
+    FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1],BCVars::yvel_bc,BdyVars::v);
+    FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1],BCVars::zvel_bc,BdyVars::null);
+
+    FillCoarsePatch(lev, time, vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get(),
+                    BCVars::cons_bc);
+    FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get(),BCVars::cons_bc);
     for (int icomp=0; icomp<3; icomp++) {
-        FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(),icomp,false);
-        FillCoarsePatch(lev, time, vec_vbar[lev].get(), vec_vbar[lev-1].get(),icomp,false);
+        FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(),BCVars::ubar_bc,
+                BdyVars::ubar,icomp,false);
+        FillCoarsePatch(lev, time, vec_vbar[lev].get(), vec_vbar[lev-1].get(),BCVars::vbar_bc,
+                BdyVars::vbar,icomp,false);
     }
     for (int icomp=0; icomp<2; icomp++) {
-        FillCoarsePatch(lev, time, vec_ru[lev].get(), vec_ru[lev-1].get(),icomp,false);
-        FillCoarsePatch(lev, time, vec_rv[lev].get(), vec_rv[lev-1].get(),icomp,false);
-        FillCoarsePatch(lev, time, vec_ru2d[lev].get(), vec_ru2d[lev-1].get(),icomp,false);
-        FillCoarsePatch(lev, time, vec_rv2d[lev].get(), vec_rv2d[lev-1].get(),icomp,false);
+        FillCoarsePatch(lev, time, vec_ru[lev].get(), vec_ru[lev-1].get(),BCVars::xvel_bc,
+                BdyVars::null,icomp,false);
+        FillCoarsePatch(lev, time, vec_rv[lev].get(), vec_rv[lev-1].get(),BCVars::yvel_bc,
+                BdyVars::null,icomp,false);
+        FillCoarsePatch(lev, time, vec_ru2d[lev].get(), vec_ru2d[lev-1].get(),BCVars::xvel_bc,
+                BdyVars::null,icomp,false);
+        FillCoarsePatch(lev, time, vec_rv2d[lev].get(), vec_rv2d[lev-1].get(),BCVars::yvel_bc,
+                BdyVars::null,icomp,false);
     }
 
-    FillCoarsePatch(lev, time, vec_mskr[lev].get(), vec_mskr[lev-1].get());
+    // Not totally sure foextrap is right here
+    FillCoarsePatchPC(lev, time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
+            BCVars::foextrap_bc);
 
     calculate_nodal_masks(lev);
 
@@ -128,6 +157,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     }
     BoxArray ba2d(std::move(bl2d));
 
+    amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+
 #if (NGROW==2)
     int ngrow_state   = ComputeGhostCells(solverChoice.spatial_order)+1;
     int ngrow_vels    = ComputeGhostCells(solverChoice.spatial_order)+1;
@@ -155,14 +186,11 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     MultiFab tmp_zvel_old(convert(ba, IntVect(0,0,1)), dm, 1, IntVect(ngrow_vels,ngrow_vels,0));
 
     MultiFab tmp_Zt_avg1_new(ba2d, dm, 1, IntVect(ngrow_zeta,ngrow_zeta,0));
-    MultiFab tmp_Zt_avg1_old(ba2d, dm, 1, IntVect(ngrow_zeta,ngrow_zeta,0));
     MultiFab tmp_h(ba2d, dm, 2, IntVect(ngrow_h,ngrow_h,0));
 
     MultiFab tmp_ubar_new(convert(ba2d, IntVect(1,0,0)), dm, 3, IntVect(ngrow_velbar,ngrow_velbar,0));
-    MultiFab tmp_ubar_old(convert(ba2d, IntVect(1,0,0)), dm, 3, IntVect(ngrow_velbar,ngrow_velbar,0));
 
     MultiFab tmp_vbar_new(convert(ba2d, IntVect(0,1,0)), dm, 3, IntVect(ngrow_velbar,ngrow_velbar,0));
-    MultiFab tmp_vbar_old(convert(ba2d, IntVect(0,1,0)), dm, 3, IntVect(ngrow_velbar,ngrow_velbar,0));
 
     MultiFab tmp_ru_new(convert(ba, IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0));
     MultiFab tmp_rv_new(convert(ba, IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0));
@@ -171,6 +199,26 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     MultiFab tmp_rv2d_new(convert(ba2d, IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0));
 
     init_masks(lev, ba, dm);
+
+    tmp_cons_new.setVal(0.0_rt);
+    tmp_xvel_new.setVal(0.0_rt);
+    tmp_yvel_new.setVal(0.0_rt);
+    tmp_zvel_new.setVal(0.0_rt);
+
+    tmp_cons_old.setVal(0.0_rt);
+    tmp_xvel_old.setVal(0.0_rt);
+    tmp_yvel_old.setVal(0.0_rt);
+    tmp_zvel_old.setVal(0.0_rt);
+
+    tmp_ru_new.setVal(0.0_rt);
+    tmp_rv_new.setVal(0.0_rt);
+
+    tmp_ru2d_new.setVal(0.0_rt);
+    tmp_rv2d_new.setVal(0.0_rt);
+
+    tmp_ubar_new.setVal(0.0_rt);
+    tmp_vbar_new.setVal(0.0_rt);
+
 
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
     FillPatch(lev, time, tmp_cons_new, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false);
@@ -217,6 +265,11 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200_rt;
+
+    init_masks(lev, ba, dm);
+    FillCoarsePatchPC(lev, time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
+            BCVars::foextrap_bc);
+    calculate_nodal_masks(lev);
 
     init_stuff(lev, ba, dm);
 

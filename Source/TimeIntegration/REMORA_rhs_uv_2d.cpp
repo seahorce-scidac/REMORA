@@ -3,6 +3,7 @@
 using namespace amrex;
 
 /**
+ * @param[in   ] lev            level to operate on
  * @param[in   ] xbx        Box for operations on x-velocity
  * @param[in   ] ybx        Box for operations on y-velocity
  * @param[in   ] ubar       barotropic x-velocity
@@ -14,7 +15,7 @@ using namespace amrex;
  * @param[in   ] krhs       index of rhs component
  */
 void
-REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
+REMORA::rhs_uv_2d (int lev, const Box& xbx, const Box& ybx,
                   const Array4<Real const>& ubar,
                   const Array4<Real const>& vbar,
                   const Array4<Real      >& rhs_ubar  ,
@@ -23,7 +24,7 @@ REMORA::rhs_uv_2d (const Box& xbx, const Box& ybx,
                   const Array4<Real const>& DVom,
                   const int krhs)
 {
-    const Box& domain = geom[0].Domain();
+    const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
 

@@ -267,12 +267,12 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         // Reset to zero on the box on which they'll be used
         fab_FC.template setVal<RunOn::Device>(0.,gbx2);
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(gbx2,1,0,u,ubar,Huon,Hz,pn,DU_avg1,DU_avg2,DC,FC,msku,nnew);
+        update_massflux_3d(lev,gbx2,1,0,u,ubar,Huon,Hz,pn,DU_avg1,DU_avg2,DC,FC,msku,nnew);
 
         // Reset to zero on the box on which they'll be used
         fab_FC.template     setVal<RunOn::Device>(0.,gbx2);
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(gbx2,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,mskv,nnew);
+        update_massflux_3d(lev,gbx2,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,mskv,nnew);
 #endif
     }
 
@@ -409,7 +409,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             const Array4<const Real>& river_source = Array4<const Real>();
 #endif
             Array4<Real> const& sstore = mf_sstore->array(mfi, i_comp);
-            rhs_t_3d(bx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
+            rhs_t_3d(lev,bx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
                      Hz, pn, pm, W, FC, mskr, msku, mskv, river_pos, river_source, nrhs, nnew, N,dt_lev);
         }
 

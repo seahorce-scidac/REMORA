@@ -154,7 +154,7 @@ REMORA::prestep (int lev,
             const Array4<const int >& river_pos = Array4<const int>();
             const Array4<const Real>& river_source = Array4<const Real>();
 #endif
-            prestep_t_advection(bx, gbx, S_old.array(mfi,i_comp),
+            prestep_t_advection(lev, bx, gbx, S_old.array(mfi,i_comp),
                                 mf_scalarcache.array(mfi,i_comp), Hz, Huon, Hvom,
                                 W, DC, FC, sstore, z_w, h, pm, pn, msku, mskv, river_pos,
                                 river_source, iic, ntfirst,

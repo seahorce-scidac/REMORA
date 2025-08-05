@@ -3,6 +3,7 @@
 using namespace amrex;
 
 /**
+ * @param[in   ] lev        level of refinement (coarsest level is 0)
  * @param[in   ] bx             box on which to update
  * @param[in   ] ioff           offset in x-direction
  * @param[in   ] joff           offset in y-direction
@@ -19,7 +20,7 @@ using namespace amrex;
  * @param[in   ] nnew           component of velocity
  */
 void
-REMORA::update_massflux_3d (const Box& bx,
+REMORA::update_massflux_3d (int lev, const Box& bx,
                            const int ioff, const int joff,
                            const Array4<Real      >& phi,
                            const Array4<Real      >& phibar,
@@ -33,7 +34,7 @@ REMORA::update_massflux_3d (const Box& bx,
                            const Array4<Real const>& msk,
                            const int nnew)
 {
-    const Box& domain = geom[0].Domain();
+    const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
 

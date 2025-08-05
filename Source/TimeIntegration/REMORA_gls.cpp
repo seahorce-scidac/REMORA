@@ -44,7 +44,7 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
         Box ybx_hi = growHi(ybx,0,1);
 
-        const Box& domain = geom[0].Domain();
+        const Box& domain = geom[lev].Domain();
         const auto dlo = amrex::lbound(domain);
         const auto dhi = amrex::ubound(domain);
 

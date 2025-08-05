@@ -519,7 +519,7 @@ REMORA::set_bathymetry (int lev)
             vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
         } else {
             Real dummy_time = 0.0_rt;
-            FillCoarsePatch(lev,dummy_time,vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get());
+            FillCoarsePatch(lev,dummy_time,vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get(),BCVars::cons_bc);
         }
     } else if (solverChoice.init_ana_h) {
         if (solverChoice.ic_type == IC_Type::analytic) {
@@ -848,10 +848,10 @@ REMORA::init_only (int lev, Real time)
                 Abort("Need to specify ic_type");
             }
         } else {
-            FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1]);
-            FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1]);
-            FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1]);
-            FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1]);
+            FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1],BCVars::Temp_bc_comp,BdyVars::t);
+            FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1],BCVars::xvel_bc,BdyVars::u);
+            FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1],BCVars::yvel_bc,BdyVars::v);
+            FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1],BCVars::zvel_bc,BdyVars::null);
         }
     } else if (solverChoice.init_ana_T || solverChoice.init_l1ad_T) {
         if (solverChoice.ic_type == IC_Type::analytic)
