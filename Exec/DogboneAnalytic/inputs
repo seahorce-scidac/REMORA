@@ -1,0 +1,62 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.max_step = 10
+
+# PROBLEM SIZE & GEOMETRY
+remora.prob_lo     =   0.       0.  -10.
+remora.prob_hi     =   8400.  750.       0.
+
+remora.n_cell           =  42 15 16
+
+remora.is_periodic = 0 0 0
+
+remora.bc.xlo.type = "slipwall"
+remora.bc.xhi.type = "slipwall"
+remora.bc.ylo.type = "slipwall"
+remora.bc.yhi.type = "slipwall"
+
+# TIME STEP CONTROL
+remora.fixed_dt            = 6.0 # Timestep size (seconds)
+remora.fixed_ndtfast_ratio = 20 # Baratropic timestep size (seconds)
+
+# DIAGNOSTICS & VERBOSITY
+remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
+remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
+
+# CHECKPOINT FILES
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
+
+# PLOTFILES
+remora.plot_file     = plt        # prefix of plotfile name
+remora.plot_int      = 10         # number of timesteps between plotfiles
+remora.plot_vars     = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+
+# SOLVER CHOICE
+remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+
+remora.Akt_bak = 1e-6
+remora.Akv_bak = 1e-5
+
+remora.use_coriolis  = false
+
+remora.theta_s = 0.0
+remora.theta_b = 0.0
+remora.tcline = 1e16
+
+remora.flat_bathymetry = false
+
+remora.bottom_stress_type = "quadratic"
+remora.rdrag2 = 3.0e-3
+
+remora.mask_type = "analytic"
+
+# PROBLEM PARAMETERS (optional)
+remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+remora.S0    = 35.0    # background salinity (nondimensional) constant
+remora.T0    = 10.0    # background potential temperature (Celsius) constant
+remora.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celsius)
+remora.Scoef = 7.6e-4     # linear equation of state parameter (nondimensional)
+remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
+
+remora.ic_type       = "analytic"

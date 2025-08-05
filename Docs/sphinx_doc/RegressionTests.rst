@@ -25,72 +25,88 @@ Continuous Integration (CI) Tests
 
 The following problems are currently tested in the CI. More details about the problems underlying these tests are given in :ref:`sec:verification`.
 
-+----------------------+----------+-----------+----------+---------------------------------+
-| Test                 | nx ny nz | xbc       | ybc      | Other                           |
-+======================+==========+===========+==========+=================================+
-| Advection            | 81 81 16 | Periodic  | Periodic |                                 |
-+----------------------+----------+-----------+----------+---------------------------------+
-| Advection_ML         | 80 80 16 | Periodic  | Periodic | multilevel                      |
-+----------------------+----------+-----------+----------+---------------------------------+
-| BoundaryLayer        | 39 4 30  | Radiation | Periodic | Coriolis                        |
-|                      |          |           |          |                                 |
-|                      |          | / outflow |          | GLS mixing scheme               |
-|                      |          |           |          |                                 |
-|                      |          |           |          | non-flat bathymetry             |
-+----------------------+----------+-----------+----------+---------------------------------+
-| Channel_Test         | 20 60 50 | Periodic  | SlipWall | Coriolis                        |
-|                      |          |           |          |                                 |
-|                      |          |           |          | GLS mixing scheme               |
-|                      |          |           |          |                                 |
-|                      |          |           |          | non-flat bathymetry             |
-|                      |          |           |          |                                 |
-|                      |          |           |          | quadratic bottom stress         |
-|                      |          |           |          |                                 |
-|                      |          |           |          | bulk fluxes                     |
-|                      |          |           |          |                                 |
-|                      |          |           |          | cloud cover                     |
-|                      |          |           |          |                                 |
-|                      |          |           |          | evaporation/precipitation with  |
-|                      |          |           |          | sea surface height correction   |
-+----------------------+----------+-----------+----------+---------------------------------+
-| DoubleGyre           | 54 108 4 | SlipWall  | SlipWall | Coriolis                        |
-+----------------------+----------+-----------+----------+---------------------------------+
-| DoublyPeriodic       | 41 80 16 | Periodic  | Periodic | Coriolis                        |
-+----------------------+----------+-----------+----------+---------------------------------+
-| DoublyPeriodic_bathy | 41 80 16 | Periodic  | Periodic | Coriolis                        |
-|                      |          |           |          |                                 |
-|                      |          |           |          | non-flat bathymetry             |
-+----------------------+----------+-----------+----------+---------------------------------+
-| Seamount             | 49 48 13 | Periodic  | Periodic | Coriolis                        |
-+----------------------+----------+-----------+----------+---------------------------------+
-| Upwelling            | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
-|                      |          |           |          |                                 |
-|                      |          |           |          | non-flat bathymetry             |
-+----------------------+----------+-----------+----------+---------------------------------+
-| Upwelling_GLS        | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
-|                      |          |           |          |                                 |
-|                      |          |           |          | non-flat bathymetry             |
-|                      |          |           |          |                                 |
-|                      |          |           |          | GLS mixing scheme               |
-+----------------------+----------+-----------+----------+---------------------------------+
-| Upwelling_NLEOS      | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
-|                      |          |           |          |                                 |
-|                      |          |           |          | non-flat bathymetry             |
-|                      |          |           |          |                                 |
-|                      |          |           |          | nonlinear equation of state     |
-+----------------------+----------+-----------+----------+---------------------------------+
-| Upwelling_logdrag    | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
-|                      |          |           |          |                                 |
-|                      |          |           |          | non-flat bathymetry             |
-|                      |          |           |          |                                 |
-|                      |          |           |          | logarithmic bottom stress       |
-+----------------------+----------+-----------+----------+---------------------------------+
-| Upwelling_qdrag      | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
-|                      |          |           |          |                                 |
-|                      |          |           |          | non-flat bathymetry             |
-|                      |          |           |          |                                 |
-|                      |          |           |          | quadratic bottom stress         |
-+----------------------+----------+-----------+----------+---------------------------------+
++-------------------------+----------+-----------+----------+---------------------------------+
+| Test                    | nx ny nz | xbc       | ybc      | Other                           |
++=========================+==========+===========+==========+=================================+
+| Advection               | 81 81 16 | Periodic  | Periodic |                                 |
++-------------------------+----------+-----------+----------+---------------------------------+
+| Advection_ML            | 80 80 16 | Periodic  | Periodic | multilevel                      |
++-------------------------+----------+-----------+----------+---------------------------------+
+| BoundaryLayer           | 39 4 30  | Radiation | Periodic | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          | / outflow |          | GLS mixing scheme               |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
++-------------------------+----------+-----------+----------+---------------------------------+
+| Channel_Test            | 20 60 50 | Periodic  | SlipWall | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | GLS mixing scheme               |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
+|                         |          |           |          |                                 |
+|                         |          |           |          | quadratic bottom stress         |
+|                         |          |           |          |                                 |
+|                         |          |           |          | bulk fluxes                     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | cloud cover                     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | evaporation/precipitation with  |
+|                         |          |           |          | sea surface height correction   |
++-------------------------+----------+-----------+----------+---------------------------------+
+| DogboneAnalytic         | 42 15 16 | SlipWall  | SlipWall | quadratic bottom stress         |
+|                         |          |           |          |                                 |
+|                         |          |           |          | land-sea masking                |
++-------------------------+----------+-----------+----------+---------------------------------+
+| DogboneAnalytic_MLquad  | 42 15 16 | SlipWall  | SlipWall | quadratic bottom stress         |
+|                         |          |           |          |                                 |
+|                         |          |           |          | land-sea masking                |
+|                         |          |           |          |                                 |
+|                         |          |           |          | static multilevel               |
++-------------------------+----------+-----------+----------+---------------------------------+
+| DogboneAnalytic_MLvel   | 42 15 16 | SlipWall  | SlipWall | quadratic bottom stress         |
+|                         |          |           |          |                                 |
+|                         |          |           |          | land-sea masking                |
+|                         |          |           |          |                                 |
+|                         |          |           |          | dynamic multilevel              |
++-------------------------+----------+-----------+----------+---------------------------------+
+| DoubleGyre              | 54 108 4 | SlipWall  | SlipWall | Coriolis                        |
++-------------------------+----------+-----------+----------+---------------------------------+
+| DoublyPeriodic          | 41 80 16 | Periodic  | Periodic | Coriolis                        |
++-------------------------+----------+-----------+----------+---------------------------------+
+| DoublyPeriodic_bathy    | 41 80 16 | Periodic  | Periodic | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
++-------------------------+----------+-----------+----------+---------------------------------+
+| Seamount                | 49 48 13 | Periodic  | Periodic | Coriolis                        |
++-------------------------+----------+-----------+----------+---------------------------------+
+| Upwelling               | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
++-------------------------+----------+-----------+----------+---------------------------------+
+| Upwelling_GLS           | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
+|                         |          |           |          |                                 |
+|                         |          |           |          | GLS mixing scheme               |
++-------------------------+----------+-----------+----------+---------------------------------+
+| Upwelling_NLEOS         | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
+|                         |          |           |          |                                 |
+|                         |          |           |          | nonlinear equation of state     |
++-------------------------+----------+-----------+----------+---------------------------------+
+| Upwelling_logdrag       | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
+|                         |          |           |          |                                 |
+|                         |          |           |          | logarithmic bottom stress       |
++-------------------------+----------+-----------+----------+---------------------------------+
+| Upwelling_qdrag         | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
+|                         |          |           |          |                                 |
+|                         |          |           |          | quadratic bottom stress         |
++-------------------------+----------+-----------+----------+---------------------------------+
 
 Nightly Regression Tests on CPU
 -------------------------------
