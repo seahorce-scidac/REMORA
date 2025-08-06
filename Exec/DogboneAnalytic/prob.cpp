@@ -17,18 +17,40 @@ amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
 }
 
 Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
-{}
+{
+    ParmParse pp("remora.prob");
+
+    pp.query("traditional", parms.traditional);
+}
 
 /**
  * \brief Initializes bathymetry h and surface height Zeta
  */
 void Problem::init_analytic_bathymetry (
-        int /*lev*/, const amrex::Geometry& /*geom*/,
+        int lev, const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
-        REMORA const& /*remora*/,
+        REMORA const& remora,
         amrex::MultiFab& mf_h)
 {
-    mf_h.setVal(10.0_rt);
+    if (parms.traditional) {
+        mf_h.setVal(10.0_rt);
+    } else {
+        mf_h.setVal(0.0_rt);
+        for (MFIter mfi(mf_h, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box &bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+
+            Array4<      Real> const& h = mf_h.array(mfi);
+            Array4<const Real> const& x_r  = remora.vec_xr[lev]->const_array(mfi);
+            Array4<const Real> const& y_r  = remora.vec_yr[lev]->const_array(mfi);
+
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int ) noexcept
+            {
+                h(i,j,0) = 10.0_rt + (x_r(i,j,0) - 4200._rt) * (x_r(i,j,0) - 4200._rt) * 5.0_rt / (4200.0_rt * 4200.0_rt) -
+                            (y_r(i,j,0) - 375._rt) * (y_r(i,j,0) - 375._rt) * 5.0_rt / (375._rt * 375._rt);
+            });
+        }
+    }
 }
 
 void Problem::init_analytic_zeta (
@@ -81,19 +103,33 @@ void Problem::init_analytic_prob(
         Array4<      Real> const& z_vel = mf_zvel.array(mfi);
 
         Array4<const Real> const& x_r = remora.vec_xr[lev]->const_array(mfi);
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-        {
-            const Real x = x_r(i,j,0);
+        if (parms.traditional) {
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+            {
+                if (l_use_salt) {
+                    state(i, j, k, Salt_comp) = 35.0_rt;
+                }
 
-            if (l_use_salt) {
-                state(i, j, k, Salt_comp) = 35.0_rt;
-            }
+                state(i,j,k,Temp_comp)= (x_r(i,j,0) < 1000._rt) ? 5.0_rt : 10.0_rt;
 
-            state(i,j,k,Temp_comp)= (x < 1000._rt) ? 5.0_rt : 10.0_rt;
+                // Set scalar = 0 everywhere
+                state(i, j, k, Scalar_comp) = 0.0_rt;
+            });
+        } else {
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+            {
+                const Real x = x_r(i,j,0);
 
-            // Set scalar = 0 everywhere
-            state(i, j, k, Scalar_comp) = 0.0_rt;
-        });
+                if (l_use_salt) {
+                    state(i, j, k, Salt_comp) = 10.0_rt - 10.0_rt * (x_r(i,j,0) - 8400.0_rt) / 8400.0_rt;
+                }
+
+                state(i,j,k,Temp_comp)= 10.0_rt;
+
+                // Set scalar = 0 everywhere
+                state(i, j, k, Scalar_comp) = 0.0_rt;
+            });
+        }
 
         const Box& xbx = surroundingNodes(bx,0);
         const Box& ybx = surroundingNodes(bx,1);

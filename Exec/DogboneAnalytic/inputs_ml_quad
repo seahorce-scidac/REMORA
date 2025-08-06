@@ -42,6 +42,9 @@ remora.plotfile_type = amrex
 # SOLVER CHOICE
 remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 
+# whether we're doing the traditional or modified dogbone problem
+remora.prob.traditional=1
+
 remora.Akt_bak = 1e-6
 remora.Akv_bak = 1e-5
 

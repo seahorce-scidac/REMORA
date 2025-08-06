@@ -5,6 +5,7 @@
 #include "REMORA_prob_common.H"
 
 struct ProbParm {
+    bool traditional = true;
 }; // namespace ProbParm
 
 class Problem : public ProblemBase
