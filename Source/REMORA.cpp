@@ -60,6 +60,7 @@ amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
  */
 REMORA::REMORA ()
 {
+    BL_PROFILE("REMORA::REMORA()");
     if (ParallelDescriptor::IOProcessor()) {
         const char* remora_hash = amrex::buildInfoGetGitHash(1);
         const char* amrex_hash = amrex::buildInfoGetGitHash(2);
@@ -139,6 +140,7 @@ REMORA::~REMORA ()
 void
 REMORA::Evolve ()
 {
+    BL_PROFILE("REMORA::Evolve()");
     Real cur_time = t_new[0];
 
     // Take one coarse timestep by calling timeStep -- which recursively calls timeStep
@@ -257,6 +259,7 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
 void
 REMORA::InitData ()
 {
+    BL_PROFILE("REMORA::InitData()");
     // Initialize the start time for our CPU-time tracker
     startCPUTime = Real(ParallelDescriptor::second());
 
@@ -363,6 +366,7 @@ REMORA::InitData ()
 void
 REMORA::Construct_REMORAFillPatchers (int lev)
 {
+    BL_PROFILE("REMORA::Construct_REMORAFillPatchers()");
     amrex::Print() << ":::Construct_REMORAFillPatchers " << lev << std::endl;
 
     auto& ba_fine  = cons_new[lev  ]->boxArray();
@@ -411,6 +415,7 @@ REMORA::Construct_REMORAFillPatchers (int lev)
 void
 REMORA::Define_REMORAFillPatchers (int lev)
 {
+    BL_PROFILE("REMORA::Define_REMORAFillPatchers()");
     amrex::Print() << ":::Define_REMORAFillPatchers " << lev << std::endl;
 
     auto& ba_fine  = cons_new[lev  ]->boxArray();
@@ -457,6 +462,7 @@ REMORA::Define_REMORAFillPatchers (int lev)
 void
 REMORA::restart ()
 {
+    BL_PROFILE("REMORA::restart()");
     ReadCheckpointFile();
 
     // We set this here so that we don't over-write the checkpoint file we just started from
@@ -469,6 +475,7 @@ REMORA::restart ()
 void
 REMORA::set_zeta (int lev)
 {
+    BL_PROFILE("REMORA::set_zeta()");
     if (solverChoice.ic_type == IC_Type::analytic) {
         prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, *vec_zeta[lev]);
 
@@ -491,6 +498,7 @@ REMORA::set_zeta (int lev)
 void
 REMORA::set_bathymetry (int lev)
 {
+    BL_PROFILE("REMORA::bathymetry()");
     // Only set bathymetry on level 0, and interpolate for finer levels
     if (solverChoice.init_l0int_h) {
         if (lev==0) {
@@ -575,6 +583,7 @@ REMORA::set_bathymetry (int lev)
  */
 void
 REMORA::set_coriolis(int lev) {
+    BL_PROFILE("REMORA::set_coriolis()");
     if (solverChoice.use_coriolis) {
         if (solverChoice.coriolis_type == Cor_Type::analytic) {
             prob->init_analytic_coriolis(lev, geom[lev], solverChoice, *this, *vec_fcor[lev]);
@@ -598,6 +607,7 @@ REMORA::set_coriolis(int lev) {
 
 void
 REMORA::init_set_vmix(int lev) {
+    BL_PROFILE("REMORA::init_set_vmix()");
     if (solverChoice.vert_mixing_type == VertMixingType::analytic) {
         set_analytic_vmix(lev);
     } else if (solverChoice.vert_mixing_type == VertMixingType::GLS) {
@@ -614,6 +624,7 @@ REMORA::init_set_vmix(int lev) {
  */
 void
 REMORA::set_analytic_vmix(int lev) {
+    BL_PROFILE("REMORA::set_analytic_vmix()");
     Real time = 0.0_rt;
     prob->init_analytic_vmix(lev, geom[lev], solverChoice, *this,*vec_Akv[lev], *vec_Akt[lev]);
     FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv),BCVars::zvel_bc,BdyVars::null,0,true,false);
@@ -628,6 +639,7 @@ REMORA::set_analytic_vmix(int lev) {
 void
 REMORA::set_hmixcoef(int lev)
 {
+    BL_PROFILE("REMORA::set_hmixcoef()");
     if (solverChoice.horiz_mixing_type == HorizMixingType::analytic) {
         prob->init_analytic_hmix(lev, geom[lev], solverChoice, *this, *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev]);
     } else if (solverChoice.horiz_mixing_type == HorizMixingType::constant) {
@@ -653,6 +665,7 @@ REMORA::set_hmixcoef(int lev)
 void
 REMORA::init_flat_bathymetry(int lev)
 {
+    BL_PROFILE("REMORA::init_flat_bathymetry()");
     vec_hOfTheConfusingName[lev]->setVal(-geom[0].ProbLo()[2]);
 }
 
@@ -662,6 +675,7 @@ REMORA::init_flat_bathymetry(int lev)
 void
 REMORA::set_smflux(int lev)
 {
+    BL_PROFILE("REMORA::set_smflux()");
     if (solverChoice.smflux_type == SMFluxType::analytic) {
         prob->init_analytic_smflux(lev, geom[lev], solverChoice, *this,*vec_sustr[lev], *vec_svstr[lev]);
     } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
@@ -680,6 +694,7 @@ REMORA::set_smflux(int lev)
 void
 REMORA::set_wind(int lev)
 {
+    BL_PROFILE("REMORA::set_wind()");
     if (solverChoice.wind_type == WindType::analytic) {
         prob->init_analytic_wind(lev,geom[lev], solverChoice, *this, *vec_uwind[lev], *vec_vwind[lev]);
     } else if (solverChoice.wind_type == WindType::netcdf) {
@@ -717,6 +732,7 @@ REMORA::set_masks(int lev)
 void
 REMORA::init_only (int lev, Real time)
 {
+    BL_PROFILE("REMORA::init_only()");
     t_new[lev] = time;
     t_old[lev] = time - 1.e200_rt;
 
@@ -895,6 +911,7 @@ REMORA::init_only (int lev, Real time)
 void
 REMORA::ReadParameters ()
 {
+    BL_PROFILE("REMORA::ReadParameters()");
     {
         ParmParse pp;  // Traditionally, max_step and stop_time do not have prefix, so allow it for now.
         bool noprefix_max_step = pp.query("max_step", max_step);
@@ -1105,6 +1122,7 @@ REMORA::ReadParameters ()
 void
 REMORA::AverageDown ()
 {
+    BL_PROFILE("REMORA::AverageDown()");
     for (int lev = finest_level-1; lev >= 0; --lev)
     {
         AverageDownTo(lev);
@@ -1117,6 +1135,7 @@ REMORA::AverageDown ()
 void
 REMORA::AverageDownTo (int crse_lev)
 {
+    BL_PROFILE("REMORA::AverageDownTo()");
     average_down(*cons_new[crse_lev+1], *cons_new[crse_lev],
                  0, cons_new[crse_lev]->nComp(), refRatio(crse_lev));
     average_down(*vec_zeta[crse_lev+1].get(), *vec_zeta[crse_lev].get(),

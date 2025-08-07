@@ -25,6 +25,7 @@ REMORA::coriolis (const Box& xbx, const Box& ybx,
                  const Array4<Real const>& fomn,
                  int nrhs, int nr)
 {
+    BL_PROFILE("REMORA::coriolis()");
     //
     //-----------------------------------------------------------------------
     //  Add in Coriolis terms.

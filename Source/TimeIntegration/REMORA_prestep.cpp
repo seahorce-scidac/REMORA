@@ -57,6 +57,7 @@ REMORA::prestep (int lev,
                 const int nnew, int nstp, int nrhs,
                 int N, const Real dt_lev)
 {
+    BL_PROFILE("REMORA::prestep()");
     const BoxArray&            ba = S_old.boxArray();
     const DistributionMapping& dm = S_old.DistributionMap();
 

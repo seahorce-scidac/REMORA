@@ -24,6 +24,7 @@ REMORA::rhs_uv_2d (int lev, const Box& xbx, const Box& ybx,
                   const Array4<Real const>& DVom,
                   const int krhs)
 {
+    BL_PROFILE("REMORA::rhs_uv_2d()");
     const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);

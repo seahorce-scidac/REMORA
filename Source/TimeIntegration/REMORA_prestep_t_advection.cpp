@@ -53,6 +53,7 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
                             int iic, int ntfirst, int nrhs, int N,
                             Real dt_lev)
 {
+    BL_PROFILE("REMORA::prestep_t_advection()");
     const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
@@ -121,6 +122,7 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
     Box gbx1D = gbx1;
     gbx1D.makeSlab(2,0);
 
+    BL_PROFILE_VAR("REMORA::prestep_t_advection()::omega",pomega);
     ParallelFor(gbx1D,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
@@ -150,7 +152,9 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
         }
         W(i,j,N+1)=0.0_rt;
     });
+    BL_PROFILE_VAR_STOP(pomega);
 
+    BL_PROFILE_VAR("REMORA::prestep_t_advection()::initflux",pinitflux);
     //From ini_fields and .in file
     //fab_Akt.setVal(1e-6);
     FArrayBox fab_stflux(tbxp2,1,amrex::The_Async_Arena());
@@ -167,10 +171,12 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
         stflux(i,j,k)=0.0_rt;
         btflux(i,j,k)=0.0_rt;
     });
+    BL_PROFILE_VAR_STOP(pinitflux);
 
     //Use FC and DC as intermediate arrays for FX and FE
     //First pass do centered 2d terms
 
+    BL_PROFILE_VAR("REMORA::prestep_t_advection()::hadv",phadv);
     if (solverChoice.flat_bathymetry) {
         ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -339,7 +345,9 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
                                      cff  * pm(i,j,0)*pn(i,j,0) * (FX(i+1,j,k)-FX(i,j,k)+
                                                                    FE(i,j+1,k)-FE(i,j,k));
     });
+    BL_PROFILE_VAR_STOP(phadv);
 
+    BL_PROFILE_VAR("REMORA::prestep_t_advection()::vadv",pvadv);
     //
     // Time-step vertical advection of tracers (Tunits). Impose artificial
     // continuity equation.
@@ -400,5 +408,6 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
 
         tempstore(i,j,k) = DC(i,j,k)*(tempstore(i,j,k)-c1*c4);
     });
+    BL_PROFILE_VAR_STOP(pvadv);
 
 }

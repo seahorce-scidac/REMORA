@@ -780,6 +780,7 @@ REMORA::set_grid_scale (int lev)
 void
 REMORA::set_zeta_to_Ztavg (int lev)
 {
+    BL_PROFILE("REMORA::set_zeta_to_Ztavg()");
     std::unique_ptr<MultiFab>& mf_zeta = vec_zeta[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     if (solverChoice.eminusp_correct_ssh) {

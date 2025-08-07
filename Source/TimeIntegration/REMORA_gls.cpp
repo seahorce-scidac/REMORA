@@ -22,6 +22,7 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                      const int nstp, const int nnew,
                      const int iic, const int ntfirst, const int N, const Real dt_lev)
 {
+    BL_PROFILE("REMORA::gls_prestep()");
     // temps: grad, gradL, XF, FX, FXL, EF, FE, FEL
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& gls = mf_gls->array(mfi);
@@ -251,6 +252,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                        const int nstp, const int nnew,
                        const int N, const Real dt_lev)
 {
+    BL_PROFILE("REMORA::gls_corrector()");
 //-----------------------------------------------------------------------
 //  Compute several constants.
 //-----------------------------------------------------------------------

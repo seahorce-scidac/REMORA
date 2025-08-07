@@ -27,6 +27,7 @@ REMORA::apply_clim_nudg (const Box& bx,
                          const Array4<Real const>& pn,
                          const Real dt_lev)
 {
+    BL_PROFILE("REMORA::apply_clim_nudg()");
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         Real cff = 0.5_rt * (clim_coeff(i-ioff,j-joff,k) + clim_coeff(i,j,k));

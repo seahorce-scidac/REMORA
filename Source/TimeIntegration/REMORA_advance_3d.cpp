@@ -56,6 +56,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                    MultiFab const* mf_mskv,
                    const int N, Real dt_lev)
 {
+    BL_PROFILE("REMORA::advance_3d()");
     const int nrhs  = 0;
     int nnew  = 0;
 
@@ -127,6 +128,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         auto BC = fab_BC.array();
         auto CF = fab_CF.array();
 
+        BL_PROFILE_VAR("REMORA::advance_3d()::updatevel",pupdatevel);
         Real cff;
         if (iic==ntfirst) {
             cff=0.25_rt*dt_lev;
@@ -147,6 +149,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             v(i,j,k) += cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs);
             v(i,j,k) *= 2.0_rt / (Hz(i,j-1,k) + Hz(i,j,k));
         });
+        BL_PROFILE_VAR_STOP(pupdatevel);
 
         // NOTE: DC is only used as scratch in vert_visc_3d -- no need to pass or return a value
         // NOTE: may not actually need to set these to zero
@@ -284,6 +287,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     // This should fill both temp and salt with temp/salt currently in cons_old
     // ************************************************************************
 
+    BL_PROFILE_VAR("REMORA::advance_3d()::omega",pomega);
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
     mf_W.setVal(0.0_rt);
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -349,6 +353,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             W(i,j,N+1) = 0.0_rt;
         });
     }
+    BL_PROFILE_VAR_STOP(pomega);
 
     const int nstp = (iic) % 2;
     nnew = 1-nstp;

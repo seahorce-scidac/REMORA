@@ -34,6 +34,7 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
                            const Array4<Real const>& msk,
                            const int nnew)
 {
+    BL_PROFILE("REMORA::update_massflux_3d()");
     const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);

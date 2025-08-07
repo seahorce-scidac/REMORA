@@ -12,6 +12,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 {
     BL_PROFILE("REMORA::setup_step()");
 
+    BL_PROFILE_VAR("REMORA::setup_step()::beforekernels",pbeforekernels);
     MultiFab& S_old = *cons_old[lev];
     MultiFab& S_new = *cons_new[lev];
 
@@ -25,14 +26,17 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     int nvars = S_old.nComp();
 
+    BL_PROFILE_VAR("REMORA::setup_step()::beforekernels::fp",pbeforekernels_fp);
     // Fill ghost cells/faces at old time
     FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t);
     FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
     FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
     FillPatch(lev, time, *zvel_old[lev], zvel_old, BCVars::zvel_bc, BdyVars::null);
+    BL_PROFILE_VAR_STOP(pbeforekernels_fp);
 
     //////////    //pre_step3d corrections to boundaries
 
+    BL_PROFILE_VAR("REMORA::setup_step()::beforekernels::allocatemfs",pbeforekernels_allocatemfs);
     const BoxArray&            ba = S_old.boxArray();
     const DistributionMapping& dm = S_old.DistributionMap();
 
@@ -98,10 +102,13 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     mf_rhoA->setVal(0.e34_rt,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
 
     mf_DC.setVal(0);
+    BL_PROFILE_VAR_STOP(pbeforekernels_allocatemfs);
 
+    BL_PROFILE_VAR("REMORA::setup_step()::beforekernels::fp2",pbeforekernels_fp2);
     FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t);
     FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u);
     FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v);
+    BL_PROFILE_VAR_STOP(pbeforekernels_fp2);
 
     mf_rw.setVal(0.0_rt);
     mf_rufrc->setVal(0);
@@ -129,6 +136,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     const auto dlo = amrex::lbound(Geom(lev).Domain());
     const auto dhi = amrex::ubound(Geom(lev).Domain());
 
+    BL_PROFILE_VAR_STOP(pbeforekernels);
+
+    BL_PROFILE_VAR("REMORA::setup_step()::mfiterfluxeos",pmfiterfluxeos);
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& h     = vec_hOfTheConfusingName[lev]->const_array(mfi);
@@ -176,6 +186,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         //  Compute horizontal mass fluxes, Hz*u/n and Hz*v/m (set_massflux_3d)
         //-----------------------------------------------------------------------
         //
+        BL_PROFILE_VAR("REMORA::setup_step()::mfiterfluxeos::setflux",psetflux);
         ParallelFor(ugbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real on_u = 2.0_rt / (pn(i-1,j,0)+pn(i,j,0));
@@ -187,10 +198,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             Real om_v= 2.0_rt / (pm(i,j-1,0)+pm(i,j,0));
             Hvom(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k)* om_v;
         });
+        BL_PROFILE_VAR_STOP(psetflux);
 
         Array4<Real const> const& state_old = S_old.const_array(mfi);
         rho_eos(gbx2,state_old,rho,rhoA,rhoS,bvf,alpha,beta,Hz,z_w,z_r,h,mskr,N);
     }
+    BL_PROFILE_VAR_STOP(pmfiterfluxeos);
 
     const Real Cdb_min = solverChoice.Cdb_min;
     const Real Cdb_max = solverChoice.Cdb_max;
@@ -204,6 +217,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
 
     if (solverChoice.do_temp_flux) {
+        BL_PROFILE("REMORA::setup_step()::tempfluxsetup");
         for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
@@ -220,6 +234,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     }
     if (solverChoice.do_salt_flux) {
+        BL_PROFILE("REMORA::setup_step()::saltfluxsetup");
         for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
@@ -239,6 +254,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     }
 
+    BL_PROFILE_VAR("REMORA::setup_step()::bottomstress",pbottomstress);
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& bustr = mf_bustr->array(mfi);
@@ -307,6 +323,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
     FillPatch(lev, time, *vec_bustr[lev].get(), GetVecOfPtrs(vec_bustr), BCVars::u2d_simple_bc, BdyVars::null,0,true,false);
     FillPatch(lev, time, *vec_bvstr[lev].get(), GetVecOfPtrs(vec_bvstr), BCVars::v2d_simple_bc, BdyVars::null,0,true,false);
+    BL_PROFILE_VAR_STOP(pbottomstress);
 
     if (solverChoice.vert_mixing_type == VertMixingType::analytic) {
         // Update Akv if using analytic mixing

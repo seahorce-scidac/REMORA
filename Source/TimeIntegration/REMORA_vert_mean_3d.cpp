@@ -26,6 +26,7 @@ REMORA::vert_mean_3d (const Box& phi_bx, const int ioff, const int joff,
                      const Array4<Real const>& msk,
                      const int nnew, const int N)
 {
+    BL_PROFILE("REMORA::vert_mean_3d()");
 
     ParallelFor(makeSlab(phi_bx,2,0),
     [=] AMREX_GPU_DEVICE (int i, int j, int )

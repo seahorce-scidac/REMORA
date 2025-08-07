@@ -53,6 +53,7 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
                           const int iic, const int ntfirst, const int nnew, int nstp, int nrhs, int N,
                           const Real lambda, const Real dt_lev)
 {
+    BL_PROFILE("REMORA::prestep_diffusion()");
 
     BoxArray ba_gbxvel = intersect(BoxArray(vel_bx), gbx);
     AMREX_ASSERT((ba_gbxvel.size() == 1));

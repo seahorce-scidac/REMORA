@@ -23,6 +23,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                      MultiFab* mf_shflx,
                      const int N)
 {
+    BL_PROFILE("REMORA::bulk_fluxes()");
     const int IterMax = 3;
     const BoxArray& ba = mf_cons->boxArray();
     const DistributionMapping& dm = mf_cons->DistributionMap();

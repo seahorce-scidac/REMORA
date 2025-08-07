@@ -38,6 +38,7 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
                  int nrhs, int nnew,
                  const Real dt_lev)
 {
+    BL_PROFILE("REMORA::uv3dmix()");
     //-----------------------------------------------------------------------
     //  Add in harmonic viscosity s terms.
     //-----------------------------------------------------------------------

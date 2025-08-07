@@ -37,6 +37,7 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
                const Array4<Real const>& mskv,
                const int nrhs, const int N)
 {
+    BL_PROFILE("REMORA::prsgrd()");
     auto phi_bxD=phi_bx;
     phi_bxD.makeSlab(2,0);
     auto phi_gbxD=phi_gbx & phi_bx;

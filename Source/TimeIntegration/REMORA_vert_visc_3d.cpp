@@ -32,6 +32,7 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
                      const Array4<Real      >& CF,
                      const int nnew, const int N, const Real dt_lev)
 {
+    BL_PROFILE("REMORA::vert_visc_3d()");
     //
     // Put Hzk on the x- or y-face as appropriate, or leave on cell center for tracers
     //

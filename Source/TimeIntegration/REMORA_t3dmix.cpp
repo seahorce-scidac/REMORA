@@ -27,6 +27,7 @@ REMORA::t3dmix  (const Box& bx,
                 const Array4<Real const>& mskv,
                 const Real dt_lev, const int ncomp)
 {
+    BL_PROFILE("REMORA::t3dmix()");
     //-----------------------------------------------------------------------
     //  Add in harmonic diffusivity s terms.
     //-----------------------------------------------------------------------

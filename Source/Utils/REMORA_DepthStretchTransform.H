@@ -14,6 +14,7 @@ using namespace amrex;
 void
 REMORA::stretch_transform (int lev)
 {
+    BL_PROFILE("REMORA::stretch_transform()");
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_s_r = vec_s_r[lev];
