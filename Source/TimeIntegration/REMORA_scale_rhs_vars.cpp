@@ -21,8 +21,8 @@ REMORA::scale_rhs_vars ()
 
             Box ubx = mfi.grownnodaltilebox(0,IntVect(NGROW,NGROW,0));
             Box vbx = mfi.grownnodaltilebox(1,IntVect(NGROW,NGROW,0));
-            Box ubx2d = ubx; ubx.makeSlab(2,0);
-            Box vbx2d = vbx; vbx.makeSlab(2,0);
+            Box ubx2d = ubx; ubx2d.makeSlab(2,0);
+            Box vbx2d = vbx; vbx2d.makeSlab(2,0);
 
             ParallelFor(ubx, 2, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
@@ -70,8 +70,8 @@ REMORA::scale_rhs_vars_inv ()
 
             Box ubx = mfi.grownnodaltilebox(0,IntVect(NGROW,NGROW,0));
             Box vbx = mfi.grownnodaltilebox(1,IntVect(NGROW,NGROW,0));
-            Box ubx2d = ubx; ubx.makeSlab(2,0);
-            Box vbx2d = vbx; vbx.makeSlab(2,0);
+            Box ubx2d = ubx; ubx2d.makeSlab(2,0);
+            Box vbx2d = vbx; vbx2d.makeSlab(2,0);
 
             ParallelFor(ubx, 2, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
