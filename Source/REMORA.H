@@ -266,14 +266,19 @@ public:
     /** \brief z coordinates at w points (faces between z-cells) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_w;
     /** \brief Scaled vertical coordinate (range [0,1]) that transforms to z, defined at rho points (cell centers) */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_r;
+    amrex::Gpu::DeviceVector<amrex::Real> s_r;
     /** \brief Scaled vertical coordinate (range [0,1]) that transforms to z, defined at w-points (cell faces) */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_w;
+    amrex::Gpu::DeviceVector<amrex::Real> s_w;
+
+    //amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_r;
+    //amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_s_w;
+    //amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Cs_r;
+    //amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Cs_w;
 
     /** \brief Stretching coefficients at rho points */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Cs_r;
+    amrex::Gpu::DeviceVector<amrex::Real> Cs_r;
     /** \brief Stretching coefficients at w points */
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Cs_w;
+    amrex::Gpu::DeviceVector<amrex::Real> Cs_w;
 
     /** \brief z coordinates at psi points (cell nodes) **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_z_phys_nd;
@@ -678,7 +683,6 @@ public:
                         const amrex::Array4<amrex::Real      >& rvel,
                         const amrex::Array4<amrex::Real const>& Hz,
                         const amrex::Array4<amrex::Real const>& Akv,
-                        const amrex::Array4<amrex::Real      >& DC,
                         const amrex::Array4<amrex::Real      >& FC,
                         const amrex::Array4<amrex::Real const>& sstr,
                         const amrex::Array4<amrex::Real const>& bstr,
@@ -924,6 +928,10 @@ public:
                 const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                       amrex::Interpolater* mapper = nullptr);
 
+    /** \brief initialize and calculate stretch coefficients */
+    void init_stretch_coeffs ();
+    /** \brief calculate vertical stretch coefficients */
+    void calc_stretch_coeffs ();
 
     /** \brief Calculate Coriolis parameters from beta plane parametrization */
     void init_beta_plane_coriolis (int lev);

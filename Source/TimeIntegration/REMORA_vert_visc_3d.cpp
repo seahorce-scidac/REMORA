@@ -67,25 +67,27 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
         DC(i,j,0) = 0.0_rt;
         FC(i,j,0) = 0.0_rt;
         CF(i,j,0) = 0.0_rt;
-        for (int k=1; k<=N; k++)
-        {
-            //
-            //  Use conservative, parabolic spline reconstruction of vertical
-            //  viscosity derivatives.  Then, time step vertical viscosity term
-            //  implicitly by solving a tridiagonal system.
-            //
-            const Real oHzkm1 = 1.0_rt/ Hzk(i,j,k-1);
-            const Real oHz = 1.0_rt/ Hzk(i,j,k);
-            //const Real oHzkp1 = 1.0_rt/ Hzk(i,j,k+1);
+    });
 
-            FC(i,j,k) = sixth * Hzk(i,j,k-1) - dt_lev * AK(i,j,k-1) / Hzk(i,j,k-1);
-            CF(i,j,k) = sixth * Hzk(i,j,k  ) - dt_lev * AK(i,j,k+1) / Hzk(i,j,k  );
+    ParallelFor(makeSlab(phi_bx,2,0), N, [=] AMREX_GPU_DEVICE (int i, int j, int , int kk)
+    {
+        int k = kk+1;
+        //
+        //  Use conservative, parabolic spline reconstruction of vertical
+        //  viscosity derivatives.  Then, time step vertical viscosity term
+        //  implicitly by solving a tridiagonal system.
+        //
+        const Real oHzkm1 = 1.0_rt/ Hzk(i,j,k-1);
+        const Real oHz = 1.0_rt/ Hzk(i,j,k);
+        //const Real oHzkp1 = 1.0_rt/ Hzk(i,j,k+1);
 
-            BC(i,j,k) = third * (Hzk(i,j,k-1) + Hzk(i,j,k  )) + dt_lev * AK(i,j,k) * (oHzkm1 + oHz);
-            Real cff = 1.0_rt / (BC(i,j,k) - FC(i,j,k) * CF(i,j,k-1));
-            CF(i,j,k) *= cff;
-            DC(i,j,k) = cff * (phi(i,j,k  ,nnew) - phi(i,j,k-1,nnew) - FC(i,j,k)*DC(i,j,k-1));
-        } // k
+        FC(i,j,k) = sixth * Hzk(i,j,k-1) - dt_lev * AK(i,j,k-1) / Hzk(i,j,k-1);
+        CF(i,j,k) = sixth * Hzk(i,j,k  ) - dt_lev * AK(i,j,k+1) / Hzk(i,j,k  );
+
+        BC(i,j,k) = third * (Hzk(i,j,k-1) + Hzk(i,j,k  )) + dt_lev * AK(i,j,k) * (oHzkm1 + oHz);
+        Real cff = 1.0_rt / (BC(i,j,k) - FC(i,j,k) * CF(i,j,k-1));
+        CF(i,j,k) *= cff;
+        DC(i,j,k) = cff * (phi(i,j,k  ,nnew) - phi(i,j,k-1,nnew) - FC(i,j,k)*DC(i,j,k-1));
     });
 #ifdef AMREX_USE_GPU
     Gpu::synchronize();

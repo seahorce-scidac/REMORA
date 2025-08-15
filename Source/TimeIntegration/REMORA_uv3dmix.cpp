@@ -43,15 +43,19 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
     //  Add in harmonic viscosity s terms.
     //-----------------------------------------------------------------------
 
-    FArrayBox fab_UFx(growLo(xbx,0,1),1,amrex::The_Async_Arena()); fab_UFx.template setVal<RunOn::Device>(0.);
-    FArrayBox fab_UFe(growHi(xbx,1,1),1,amrex::The_Async_Arena()); fab_UFe.template setVal<RunOn::Device>(0.);
-    FArrayBox fab_VFe(growLo(ybx,1,1),1,amrex::The_Async_Arena()); fab_VFe.template setVal<RunOn::Device>(0.);
-    FArrayBox fab_VFx(growHi(ybx,0,1),1,amrex::The_Async_Arena()); fab_VFx.template setVal<RunOn::Device>(0.);
+    int ncomp = 0;
+    int UFx_comp = ncomp++;
+    int UFe_comp = ncomp++;
+    int VFe_comp = ncomp++;
+    int VFx_comp = ncomp++;
 
-    auto UFx=fab_UFx.array();
-    auto UFe=fab_UFe.array();
-    auto VFx=fab_VFx.array();
-    auto VFe=fab_VFe.array();
+    Box bx = enclosedCells(xbx);
+    FArrayBox fab(grow(bx,IntVect(2,2,0)),ncomp,amrex::The_Async_Arena()); fab.template setVal<RunOn::Device>(0.);
+
+    auto UFx=fab.array(UFx_comp);
+    auto UFe=fab.array(UFe_comp);
+    auto VFx=fab.array(VFx_comp);
+    auto VFe=fab.array(VFe_comp);
 
     auto N = xbx.hiVect()[2] - ybx.loVect()[2];
 
@@ -165,5 +169,4 @@ REMORA::uv3dmix  (const Box& xbx, const Box& ybx,
             rvfrc(i,j,0) += cff1-cff2;
         }
     });
-
 }

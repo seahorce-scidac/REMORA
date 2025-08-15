@@ -267,6 +267,9 @@ REMORA::InitData ()
     //     those types into what they mean for each variable
     init_bcs();
 
+    // Init vertical stretching coeffs
+    init_stretch_coeffs();
+
     last_plot_file_step = -1;
     last_check_file_step = -1;
     last_plot_file_time = -1.0_rt;

@@ -112,7 +112,22 @@ REMORA::advance_2d (int lev,
     const auto dlo = amrex::lbound(Geom(lev).Domain());
     const auto dhi = amrex::ubound(Geom(lev).Domain());
 
-    BL_PROFILE_VAR("REMORA::advance_2d()::setflux",psetflux);
+    int ncomp = 0;
+    int fomn_comp = ncomp++;
+    int Drhs_comp = ncomp++;
+    int Dnew_comp = ncomp++;
+    int zwrk_comp = ncomp++;
+    int gzeta_comp = ncomp++;
+    int gzeta2_comp = ncomp++;
+    int gzetaSA_comp = ncomp++;
+    int Dstp_comp = ncomp++;
+    int rhs_ubar_comp = ncomp++;
+    int rhs_vbar_comp = ncomp++;
+    int rhs_zeta_comp = ncomp++;
+    int zeta_new_comp = ncomp++;
+
+    MultiFab mf(ba,dm,ncomp,IntVect(NGROW+1,NGROW+1,0));
+
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& ubar = mf_ubar->array(mfi);
@@ -131,12 +146,10 @@ REMORA::advance_2d (int lev,
         Box ygbx2 = mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0));
 
         Box tbxp1 = bx;
-        Box tbxp11 = bx;
         Box tbxp2 = bx;
         Box tbxp3 = bx;
         tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
         tbxp2.grow(IntVect(NGROW,NGROW,0));
-        tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
         tbxp3.grow(IntVect(NGROW+1,NGROW+1,0));
 
         Box bxD   = bx  ;   bxD.makeSlab(2,0);
@@ -177,7 +190,6 @@ REMORA::advance_2d (int lev,
     // These are needed to pass the tests with bathymetry but I don't quite see why
     mf_DUon.FillBoundary(geom[lev].periodicity());
     mf_DVom.FillBoundary(geom[lev].periodicity());
-    BL_PROFILE_VAR_STOP(psetflux);
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_m2_clim_nudg) {
@@ -258,7 +270,6 @@ REMORA::advance_2d (int lev,
         }
 
         Box tbxp1  = bx;  tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
-        Box tbxp11 = bx; tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
         Box tbxp2  = bx;  tbxp2.grow(IntVect(NGROW,NGROW,0));
         Box tbxp3  = bx;  tbxp3.grow(IntVect(NGROW+1,NGROW+1,0));
 
@@ -270,44 +281,28 @@ REMORA::advance_2d (int lev,
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-        FArrayBox fab_fomn(tbxp2,1,The_Async_Arena());
+        auto fomn = mf.array(mfi,fomn_comp);
+        auto Drhs = mf.array(mfi,Drhs_comp);
+        auto Drhs_const = mf.const_array(mfi,Drhs_comp);
+        auto Dnew = mf.array(mfi,Dnew_comp);
+        auto zwrk = mf.array(mfi,zwrk_comp);
+        auto gzeta = mf.array(mfi,gzeta_comp);
+        auto gzeta2 = mf.array(mfi,gzeta2_comp);
+        auto gzetaSA = mf.array(mfi,gzetaSA_comp);
+        auto Dstp = mf.array(mfi,Dstp_comp);
+        auto rhs_ubar = mf.array(mfi,rhs_ubar_comp);
+        auto rhs_vbar = mf.array(mfi,rhs_vbar_comp);
+        auto rhs_zeta = mf.array(mfi,rhs_zeta_comp);
+        auto zeta_new = mf.array(mfi,zeta_new_comp);
 
-        //step2d work arrays
-        FArrayBox fab_Drhs(tbxp3,1,The_Async_Arena());
-        FArrayBox fab_Dnew(tbxp2,1,The_Async_Arena());
-        FArrayBox fab_zwrk(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_gzeta(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_gzeta2(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_gzetaSA(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_Dstp(tbxp3,1,The_Async_Arena());
         FArrayBox & fab_DUon=mf_DUon[mfi];
         FArrayBox & fab_DVom=mf_DVom[mfi];
-        FArrayBox fab_rhs_ubar(xbxD,1,The_Async_Arena());
-        FArrayBox fab_rhs_vbar(ybxD,1,The_Async_Arena());
-        FArrayBox fab_rhs_zeta(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_zeta_new(tbxp1,1,The_Async_Arena());
-
-        auto fomn=fab_fomn.array();
-
-        auto Drhs = fab_Drhs.array();
-        auto Drhs_const = fab_Drhs.const_array();
-        auto Dnew=fab_Dnew.array();
-        auto zwrk=fab_zwrk.array();
-        auto gzeta=fab_gzeta.array();
-        auto gzeta2=fab_gzeta2.array();
-        auto gzetaSA=fab_gzetaSA.array();
-        auto Dstp=fab_Dstp.array();
         auto DUon=fab_DUon.array();
         auto DVom=fab_DVom.array();
-        auto rhs_ubar=fab_rhs_ubar.array();
-        auto rhs_vbar=fab_rhs_vbar.array();
-        auto rhs_zeta=fab_rhs_zeta.array();
-        auto zeta_new=fab_zeta_new.array();
 
         auto weight1 = vec_weight1.dataPtr();
         auto weight2 = vec_weight2.dataPtr();
 
-        BL_PROFILE_VAR("REMORA::advance_2d()::calc_averages",paverages);
         //From ana_grid.h and metrics.F
         ParallelFor(xbxD, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
@@ -395,7 +390,6 @@ REMORA::advance_2d (int lev,
                 DV_avg2(i,j,0)=DV_avg2(i,j,0)+cff2_wt2*DVom(i,j,0);
             });
         }
-        BL_PROFILE_VAR_STOP(paverages);
         //
         //  Do not perform the actual time stepping during the auxiliary
         //  (nfast(ng)+1) time step. Jump to next box
@@ -420,7 +414,6 @@ REMORA::advance_2d (int lev,
         // todo: HACKHACKHACK Should use rho0 from prob.H
         Real fac=1000.0_rt/1025.0_rt;
 
-        BL_PROFILE_VAR("REMORA::advance_2d()::zeta",pzeta);
         if (my_iif==0) {
             Real cff1=dtfast_lev;
 
@@ -505,7 +498,6 @@ REMORA::advance_2d (int lev,
                 rzeta(i,j,0,krhs)=rhs_zeta(i,j,0);
             });
         }
-        BL_PROFILE_VAR_STOP(pzeta);
 
         //
         //=======================================================================
@@ -519,8 +511,6 @@ REMORA::advance_2d (int lev,
 !-----------------------------------------------------------------------
 !
 */
-
-        BL_PROFILE_VAR("REMORA::advance_2d()::rhsbar",prhsbar);
         Real cff1 = 0.5_rt * g;
         Real cff2 = 1.0_rt / 3.0_rt;
         ParallelFor(xbxD,
@@ -550,7 +540,6 @@ REMORA::advance_2d (int lev,
                                  (zwrk(i,j-1,0)- zwrk(i,j  ,0)))+
                            (gzeta2(i,j-1,0)- gzeta2(i,j  ,0)));
         });
-        BL_PROFILE_VAR_STOP(prhsbar);
 
         // Advection terms for 2d ubar, vbar added to rhs_ubar and rhs_vbar
         //
@@ -595,7 +584,6 @@ REMORA::advance_2d (int lev,
         }
 #endif
 
-        BL_PROFILE_VAR("REMORA::advance_2d()::coupling",pcoupling);
         //-----------------------------------------------------------------------
         // Coupling from 3d to 2d
         //-----------------------------------------------------------------------
@@ -681,9 +669,7 @@ REMORA::advance_2d (int lev,
                 rhs_vbar(i,j,0) += rvfrc(i,j,0);
             });
         }
-        BL_PROFILE_VAR_STOP(pcoupling);
 
-        BL_PROFILE_VAR("REMORA::advance_2d()::barupdate",pbarcalc);
         //
         //=======================================================================
         //  Time step 2D momentum equations.
@@ -789,10 +775,8 @@ REMORA::advance_2d (int lev,
                 rvbar(i,j,0,krhs)=rhs_vbar(i,j,0);
             });
         }
-        BL_PROFILE_VAR_STOP(pbarcalc);
     }
 
-    BL_PROFILE_VAR("REMORA::advance_2d()::fillpatch",pfillpatch);
     // Don't do the FillPatch or rivers at the last truncated predictor step.
     // We may need to move the zeta FillPatch further up
     if (my_iif<nfast) {
@@ -858,6 +842,5 @@ REMORA::advance_2d (int lev,
         FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,
                   knew, false,false);
 #endif
-        BL_PROFILE_VAR_STOP(pfillpatch);
     }
 }

@@ -587,48 +587,61 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 if (bx.contains(IntVect(0,0,0)))
                 {
                     {
-                        FArrayBox tmp_srho;
-                        tmp_srho.resize(tmp_bx_1d, 1, amrex::The_Pinned_Arena());
+                        amrex::Gpu::DeviceVector<amrex::Real> tmp_srho(local_nz);
 
-                        tmp_srho.template copy<RunOn::Device>((*vec_s_r[lev])[mfi.index()], 0, 0, 1);
+#ifdef AMREX_USE_GPU
+                        Gpu::htod_memcpy(tmp_srho.data(), s_r.data(), sizeof(amrex::Real)*local_nz);
+#else
+                        std::memcpy(tmp_srho.data(), s_r.data(), sizeof(amrex::Real)*local_nz);
+#endif
                         Gpu::streamSynchronize();
 
                         auto nc_plot_var = ncf.var("s_rho");
                         //nc_plot_var.par_access(NC_INDEPENDENT);
-                        nc_plot_var.put(tmp_srho.dataPtr(), { local_start_z }, { local_nz });
+                        nc_plot_var.put(tmp_srho.data(), { local_start_z }, { local_nz });
                     }
                     {
-                        FArrayBox tmp_sw;
-                        tmp_sw.resize(convert(tmp_bx_1d,IntVect(0,0,1)), 1, amrex::The_Pinned_Arena());
+                        amrex::Gpu::DeviceVector<amrex::Real> tmp_sw(local_nz+1);
 
-                        tmp_sw.template copy<RunOn::Device>((*vec_s_w[lev])[mfi.index()], 0, 0, 1);
+#ifdef AMREX_USE_GPU
+                        Gpu::htod_memcpy(tmp_sw.data(), s_w.data(), sizeof(amrex::Real)*(local_nz+1));
+#else
+                        std::memcpy(tmp_sw.data(), s_w.data(), sizeof(amrex::Real)*(local_nz+1));
+#endif
                         Gpu::streamSynchronize();
 
                         auto nc_plot_var = ncf.var("s_w");
                         //nc_plot_var.par_access(NC_INDEPENDENT);
-                        nc_plot_var.put(tmp_sw.dataPtr(), { local_start_z }, { local_nz + 1});
+                        nc_plot_var.put(tmp_sw.data(), { local_start_z }, { local_nz + 1});
                     }
                     {
-                        FArrayBox tmp_Csrho;
-                        tmp_Csrho.resize(tmp_bx_1d, 1, amrex::The_Pinned_Arena());
+                        amrex::Gpu::DeviceVector<amrex::Real> tmp_Csrho(local_nz);
 
-                        tmp_Csrho.template copy<RunOn::Device>((*vec_Cs_r[lev])[mfi.index()], 0, 0, 1);
+#ifdef AMREX_USE_GPU
+                        Gpu::htod_memcpy(tmp_Csrho.data(), Cs_r.data(), sizeof(amrex::Real)*(local_nz));
+#else
+                        std::memcpy(tmp_Csrho.data(), Cs_r.data(), sizeof(amrex::Real)*(local_nz));
+#endif
                         Gpu::streamSynchronize();
 
                         auto nc_plot_var = ncf.var("Cs_r");
                         //nc_plot_var.par_access(NC_INDEPENDENT);
-                        nc_plot_var.put(tmp_Csrho.dataPtr(), { local_start_z }, { local_nz });
+                        nc_plot_var.put(tmp_Csrho.data(), { local_start_z }, { local_nz });
                     }
                     {
-                        FArrayBox tmp_Csw;
-                        tmp_Csw.resize(convert(tmp_bx_1d,IntVect(0,0,1)), 1, amrex::The_Pinned_Arena());
+                        amrex::Gpu::DeviceVector<amrex::Real> tmp_Csw(local_nz+1);
 
-                        tmp_Csw.template copy<RunOn::Device>((*vec_Cs_w[lev])[mfi.index()], 0, 0, 1);
+#ifdef AMREX_USE_GPU
+                        Gpu::htod_memcpy(tmp_Csw.data(), Cs_w.data(), sizeof(amrex::Real)*(local_nz+1));
+#else
+                        std::memcpy(tmp_Csw.data(), Cs_w.data(), sizeof(amrex::Real)*(local_nz+1));
+#endif
+
                         Gpu::streamSynchronize();
 
                         auto nc_plot_var = ncf.var("Cs_w");
                         //nc_plot_var.par_access(NC_INDEPENDENT);
-                        nc_plot_var.put(tmp_Csw.dataPtr(), { local_start_z }, { local_nz + 1});
+                        nc_plot_var.put(tmp_Csw.data(), { local_start_z }, { local_nz + 1});
                     }
                 }
 

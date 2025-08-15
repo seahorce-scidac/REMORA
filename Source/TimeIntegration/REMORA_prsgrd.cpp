@@ -56,19 +56,22 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     Real GRho0    = 1000.0_rt * GRho;
     Real HalfGRho = 0.5_rt    * GRho;
 
-    FArrayBox fab_P(phi_bx,1,The_Async_Arena());
-    FArrayBox fab_aux(Box(z_r),1,The_Async_Arena());
-    FArrayBox fab_dR(phi_bx,1,The_Async_Arena());
-    FArrayBox fab_dZ(phi_bx,1,The_Async_Arena());
-    FArrayBox fab_dRx(phi_bx,1,The_Async_Arena());
-    FArrayBox fab_dZx(phi_bx,1,The_Async_Arena());
+    int ncomp = 0;
+    int P_comp = ncomp++;
+    int aux_comp = ncomp++;
+    int dR_comp = ncomp++;
+    int dZ_comp = ncomp++;
+    int dRx_comp = ncomp++;
+    int dZx_comp = ncomp++;
 
-    auto P=fab_P.array();
-    auto aux=fab_aux.array();
-    auto dR=fab_dR.array();
-    auto dZ=fab_dZ.array();
-    auto dRx=fab_dRx.array();
-    auto dZx=fab_dZx.array();
+    FArrayBox fab(grow(phi_bx,IntVect(1,1,0)),ncomp,The_Async_Arena());
+
+    auto P=  fab.array(P_comp);
+    auto aux=fab.array(aux_comp);
+    auto dR= fab.array(dR_comp);
+    auto dZ= fab.array(dZ_comp);
+    auto dRx=fab.array(dRx_comp);
+    auto dZx=fab.array(dZx_comp);
 
     // Derivatives in the z direction
     ParallelFor(phi_bx,

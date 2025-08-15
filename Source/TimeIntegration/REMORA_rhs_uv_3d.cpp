@@ -73,7 +73,6 @@ REMORA::rhs_uv_3d (int lev,
     //check this////////////
     const Real Gadv = -0.25_rt;
 
-    BL_PROFILE_VAR("REMORA::rhs_uv_3d()::hadv_u",phadv_u);
     if (uv_hadv_scheme == AdvectionScheme::upstream3) {
         // *************************************************************
         // UPDATING U
@@ -163,9 +162,7 @@ REMORA::rhs_uv_3d (int lev,
     {
         ru(i,j,k,nrhs) -= ( (UFx(i,j,k)-UFx(i-1,j,k)) + (UFe(i,j+1,k)-UFe(i  ,j,k)) );
     });
-    BL_PROFILE_VAR_STOP(phadv_u);
 
-    BL_PROFILE_VAR("REMORA::rhs_uv_3d()::vadv_u",pvadv_u);
     if (uv_hadv_scheme == AdvectionScheme::upstream3) {
         ParallelFor(surroundingNodes(xbx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -216,11 +213,9 @@ REMORA::rhs_uv_3d (int lev,
 
         ru(i,j,k,nrhs) -= cff;
     });
-    BL_PROFILE_VAR_STOP(pvadv_u);
 
     Gpu::synchronize();
 
-    BL_PROFILE_VAR("REMORA::rhs_uv_3d()::stress_u",pstress_u);
     AMREX_ASSERT(xbx.smallEnd(2) == 0 && xbx.bigEnd(2) == N);
     ParallelFor(makeSlab(xbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
@@ -238,9 +233,7 @@ REMORA::rhs_uv_3d (int lev,
           rufrc(i,j,0) += cff1+cff2;
        }
     });
-    BL_PROFILE_VAR_STOP(pstress_u);
 
-    BL_PROFILE_VAR("REMORA::rhs_uv_3d()::hadv_v",phadv_v);
     if (uv_hadv_scheme == AdvectionScheme::upstream3) {
         // *************************************************************
         // UPDATING V
@@ -320,9 +313,7 @@ REMORA::rhs_uv_3d (int lev,
     {
         rv(i,j,k,nrhs) -= ( (VFx(i+1,j,k)-VFx(i,j,k)) + (VFe(i,j,k)-VFe(i,j-1,k)) );
     });
-    BL_PROFILE_VAR_STOP(phadv_v);
 
-    BL_PROFILE_VAR("REMORA::rhs_uv_3d()::vadv_v",pvadv_v);
     if (uv_hadv_scheme == AdvectionScheme::upstream3) {
         ParallelFor(surroundingNodes(ybx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -370,12 +361,9 @@ REMORA::rhs_uv_3d (int lev,
 
         rv(i,j,k,nrhs) -= cff;
     });
-    BL_PROFILE_VAR_STOP(pvadv_v);
 
     Gpu::synchronize();
 
-    AMREX_ASSERT(ybx.smallEnd(2) == 0 && ybx.bigEnd(2) == N);
-    BL_PROFILE_VAR("REMORA::rhs_uv_3d()::stress_v",pstress_v);
     ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
        for (int k = 0; k <= N; ++k)
@@ -392,5 +380,4 @@ REMORA::rhs_uv_3d (int lev,
           rvfrc(i,j,0) += cff1+cff2;
        }
     });
-    BL_PROFILE_VAR_STOP(pstress_v);
 }
