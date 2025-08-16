@@ -219,9 +219,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real const> const& msku = mf_msku->const_array(mfi);
         Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
 
-        Array4<Real const> const& z_w = mf_z_w->const_array(mfi);
-
-        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
@@ -229,6 +226,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_rivers) {
+            Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+            Array4<Real const> const& z_w = mf_z_w->const_array(mfi);
             Array4<int  const> const& river_pos = vec_river_position[lev]->const_array(mfi);
             Array4<Real const> const& river_transport = river_source_transport->fab_interp->array();
             int* river_direction_d = river_direction.data();

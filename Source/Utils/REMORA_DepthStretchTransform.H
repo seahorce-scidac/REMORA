@@ -176,9 +176,9 @@ REMORA::stretch_transform (int lev)
 
         // We shrink the box in the vertical since z_phys_nd has a ghost cell in the vertical
         //    which we will fill by extrapolation, not from z_w
-        Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,-1));//Box(z_phys_nd); bx.grow(2,-1);
+        Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));//Box(z_phys_nd); bx.grow(2,-1);
 
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(convert(bx,IntVect(0,0,1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             // For now assume all boundaries are constant height --
             //     we will enforce periodicity below

@@ -354,10 +354,10 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
     ParallelFor(tbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Real c1 = cff*pm(i,j,0)*pn(i,j,0);
+        Real c_p = cff*pm(i,j,0)*pn(i,j,0);
 
         Real c4 = FC(i,j,k+1)-FC(i,j,k);
 
-        tempstore(i,j,k) = DC(i,j,k)*(tempstore(i,j,k)-c1*c4);
+        tempstore(i,j,k) = DC(i,j,k)*(tempstore(i,j,k)-c_p*c4);
     });
 }

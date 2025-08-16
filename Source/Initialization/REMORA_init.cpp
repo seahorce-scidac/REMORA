@@ -207,7 +207,6 @@ REMORA::init_clim_nudg_coeff (int lev) {
 void
 REMORA::init_stretch_coeffs () {
     int nz = geom[0].Domain().length(2);
-    Print() << "NZ: " << nz  << std::endl;
     s_r.resize(nz);
     s_w.resize(nz+1);
     Cs_r.resize(nz);

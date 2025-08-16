@@ -209,8 +209,6 @@ REMORA::advance_2d (int lev,
         Array4<Real      > const& Zt_avg1 = mf_Zt_avg1->array(mfi);
         Array4<Real      > const& ubar    = mf_ubar->array(mfi);
         Array4<Real      > const& vbar    = mf_vbar->array(mfi);
-        Array4<Real      > const& ubar_krhs    = mf_ubar->array(mfi, krhs);
-        Array4<Real      > const& vbar_krhs    = mf_vbar->array(mfi, krhs);
         Array4<Real      > const& zeta = mf_zeta->array(mfi);
         Array4<Real      > const& DU_avg1 = (mf_DU_avg1)->array(mfi);
         Array4<Real      > const& DU_avg2 = (mf_DU_avg2)->array(mfi);
@@ -574,6 +572,8 @@ REMORA::advance_2d (int lev,
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_m2_clim_nudg) {
+            Array4<Real      > const& ubar_krhs    = mf_ubar->array(mfi, krhs);
+            Array4<Real      > const& vbar_krhs    = mf_vbar->array(mfi, krhs);
             Array4<const Real> const& ubar_clim = ubar_clim_data_from_file->mf_interpolated->const_array(mfi);
             Array4<const Real> const& vbar_clim = vbar_clim_data_from_file->mf_interpolated->const_array(mfi);
             Array4<const Real> const& ubar_nudg_coeff = vec_nudg_coeff[BdyVars::ubar][lev]->const_array(mfi);
