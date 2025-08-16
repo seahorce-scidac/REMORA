@@ -1,17 +1,17 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: inputs_ml
+inputs file: DogboneAnalytic_MLvel.i
 
 number of MPI processes: 1
-number of threads:       4
+number of threads:       8
 
-CPU time used since start of simulation (CPU-hours): 0.000404551
+CPU time used since start of simulation (CPU-hours): 0.0027258
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Mon Aug  4 15:37:10 2025
+output data / time: Fri Aug  8 17:53:36 2025
 output dir:         /home/klion/software/REMORA/Exec/DogboneAnalytic
 
 
