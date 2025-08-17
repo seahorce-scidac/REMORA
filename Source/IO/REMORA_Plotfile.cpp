@@ -184,6 +184,24 @@ REMORA::WritePlotFile ()
         mf_nd[lev].setVal(0.);
     }
 
+    // Vector of MultiFabs for face-centered velocity
+    Vector<MultiFab> mf_u(finest_level+1);
+    Vector<MultiFab> mf_v(finest_level+1);
+    Vector<MultiFab> mf_w(finest_level+1);
+    if (plot_staggered_vels) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            BoxArray grid_stag_u(grids[lev]); grid_stag_u.surroundingNodes(0);
+            BoxArray grid_stag_v(grids[lev]); grid_stag_v.surroundingNodes(1);
+            BoxArray grid_stag_w(grids[lev]); grid_stag_w.surroundingNodes(2);
+            mf_u[lev].define(grid_stag_u, dmap[lev], 1, 0);
+            mf_v[lev].define(grid_stag_v, dmap[lev], 1, 0);
+            mf_w[lev].define(grid_stag_w, dmap[lev], 1, 0);
+            MultiFab::Copy(mf_u[lev],*xvel_new[lev],0,0,1,0);
+            MultiFab::Copy(mf_v[lev],*yvel_new[lev],0,0,1,0);
+            MultiFab::Copy(mf_w[lev],*zvel_new[lev],0,0,1,0);
+        }
+    }
+
     // Array of MultiFabs for cell-centered velocity
     Vector<MultiFab> mf_cc_vel(finest_level+1);
 
@@ -370,6 +388,9 @@ REMORA::WritePlotFile ()
             WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
                                                   GetVecOfConstPtrs(mf),
                                                   GetVecOfConstPtrs(mf_nd),
+                                                  GetVecOfConstPtrs(mf_u),
+                                                  GetVecOfConstPtrs(mf_v),
+                                                  GetVecOfConstPtrs(mf_w),
                                                   varnames,
                                                   t_new[0], istep);
             writeJobInfo(plotfilename);
@@ -482,13 +503,16 @@ REMORA::WritePlotFile ()
  REMORA::WriteMultiLevelPlotfileWithBathymetry (const std::string& plotfilename, int nlevels,
                                                const Vector<const MultiFab*>& mf,
                                                const Vector<const MultiFab*>& mf_nd,
+                                               const Vector<const MultiFab*>& mf_u,
+                                               const Vector<const MultiFab*>& mf_v,
+                                               const Vector<const MultiFab*>& mf_w,
                                                const Vector<std::string>& varnames,
-                                              Real time,
-                                              const Vector<int>& level_steps,
-                                              const std::string &versionName,
-                                              const std::string &levelPrefix,
-                                              const std::string &mfPrefix,
-                                              const Vector<std::string>& extra_dirs) const
+                                               Real time,
+                                               const Vector<int>& level_steps,
+                                               const std::string &versionName,
+                                               const std::string &levelPrefix,
+                                               const std::string &mfPrefix,
+                                               const Vector<std::string>& extra_dirs) const
 {
     BL_PROFILE("WriteMultiLevelPlotfileWithBathymetry()");
 
@@ -535,6 +559,10 @@ REMORA::WritePlotFile ()
     }
 
     std::string mf_nodal_prefix = "Nu_nd";
+    std::string mf_uface_prefix = "UonXFace";
+    std::string mf_vface_prefix = "VonYFace";
+    std::string mf_wface_prefix = "WonZFace";
+
     for (int level = 0; level <= finest_level; ++level)
     {
         if (AsyncOut::UseAsyncOut()) {
@@ -544,8 +572,18 @@ REMORA::WritePlotFile ()
             VisMF::AsyncWrite(*mf_nd[level],
                               MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix),
                               true);
-        } else {
-            const MultiFab* data;
+            if (plot_staggered_vels) {
+                VisMF::AsyncWrite(*mf_u[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_uface_prefix),
+                                  true);
+                VisMF::AsyncWrite(*mf_v[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_vface_prefix),
+                                  true);
+                VisMF::AsyncWrite(*mf_w[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_wface_prefix),
+                                  true);
+            }
+        } else { const MultiFab* data;
             std::unique_ptr<MultiFab> mf_tmp;
             if (mf[level]->nGrowVect() != 0) {
                 mf_tmp = std::make_unique<MultiFab>(mf[level]->boxArray(),
@@ -559,6 +597,11 @@ REMORA::WritePlotFile ()
             }
             VisMF::Write(*data       , MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix));
             VisMF::Write(*mf_nd[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix));
+            if (plot_staggered_vels) {
+                VisMF::Write(*mf_u[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_uface_prefix));
+                VisMF::Write(*mf_v[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_vface_prefix));
+                VisMF::Write(*mf_w[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_wface_prefix));
+            }
         }
     }
 }
