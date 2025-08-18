@@ -22,6 +22,7 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                      const int nstp, const int nnew,
                      const int iic, const int ntfirst, const int N, const Real dt_lev)
 {
+    BL_PROFILE("REMORA::gls_prestep()");
     // temps: grad, gradL, XF, FX, FXL, EF, FE, FEL
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& gls = mf_gls->array(mfi);
@@ -251,6 +252,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                        const int nstp, const int nnew,
                        const int N, const Real dt_lev)
 {
+    BL_PROFILE("REMORA::gls_corrector()");
 //-----------------------------------------------------------------------
 //  Compute several constants.
 //-----------------------------------------------------------------------
@@ -289,9 +291,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     Real cmu_fac1 = std::pow(solverChoice.gls_cmu0,(-solverChoice.gls_p/solverChoice.gls_n));
     Real cmu_fac2 = std::pow(solverChoice.gls_cmu0,(3.0_rt+solverChoice.gls_p/solverChoice.gls_n));
     Real cmu_fac3 = 1.0_rt/std::pow(solverChoice.gls_cmu0,2.0_rt);
-    //Real cmu_fac4 = std::pow(1.5_rt*solverChoice.gls_sigk,(1.0_rt/3.0_rt))/std::pow(solverChoice.gls_cmu0,4.0_rt/3.0_rt);
 
-    //Real gls_fac1 = solverChoice.gls_n*std::pow(solverChoice.gls_cmu0,solverChoice.gls_p+1.0_rt);
     Real gls_fac2 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p)*solverChoice.gls_n*std::pow(vonKar,solverChoice.gls_n);
     Real gls_fac3 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p)*solverChoice.gls_n;
     Real gls_fac4 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p);
@@ -301,8 +301,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     Real gls_exp1 = 1.0_rt/solverChoice.gls_n;
     Real tke_exp1 = solverChoice.gls_m/solverChoice.gls_n;
     Real tke_exp2 = 0.5_rt+solverChoice.gls_m/solverChoice.gls_n;
-    //Real tke_exp3 = 0.5_rt+solverChoice.gls_m;
     Real tke_exp4 = solverChoice.gls_m+0.5_rt*solverChoice.gls_n;
+
+    Real cmu0_exp_p = std::pow(gls_cmu0, gls_p);
+    Real gls_cmu0_cube = gls_cmu0 * gls_cmu0 * gls_cmu0;
 
     Real gls_s0, gls_s1, gls_s2, gls_s4, gls_s5, gls_s6;
     Real gls_b0, gls_b1, gls_b2, gls_b3, gls_b4, gls_b5;
@@ -358,9 +360,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         gls_b3 = 0.0_rt;
         gls_b4 = 0.0_rt;
         gls_b5 = 0.0_rt;
-        //my_Sm1=solverChoice.my_A1*solverChoice.my_A2*((solverChoice.my_B2-3.0_rt*solverChoice.my_A2)*
-        //                    (1.0_rt-6.0_rt*solverChoice.my_A1/solverChoice.my_B1)-
-        //                    3.0_rt*solverChoice.my_C1*(solverChoice.my_B2+6.0_rt*solverChoice.my_A1));
         my_Sm2=9.0_rt*solverChoice.my_A1*solverChoice.my_A2;
         my_Sm3=solverChoice.my_A1*(1.0_rt-3.0_rt*solverChoice.my_C1-6.0_rt*solverChoice.my_A1/solverChoice.my_B1);
         my_Sm4=18.0_rt*solverChoice.my_A1*solverChoice.my_A1+9.0_rt*solverChoice.my_A1*solverChoice.my_A2;
@@ -375,28 +374,19 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
     const BoxArray&            ba = cons_old[lev]->boxArray();
     const DistributionMapping& dm = cons_old[lev]->DistributionMap();
-    MultiFab mf_dU(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_dV(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0));
 
-    MultiFab mf_CF(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0));
+    int ncomp_w = 0;
+    int dU_comp = ncomp_w++;
+    int dV_comp = ncomp_w++;
+    int CF_comp = ncomp_w++;
 
-    MultiFab mf_shear2(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_shear2_cached(ba,dm,1,IntVect(NGROW,NGROW,0));
+    int ncomp = 0;
+    int shear2_comp = ncomp++;
+    int shear2_cache_comp = ncomp++;
+    int buoy2_comp = ncomp++;
 
-    MultiFab mf_buoy2(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_tmp_buoy(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_tmp_shear(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_curvK(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_curvP(ba,dm,1,IntVect(NGROW,NGROW,0));
-
-    MultiFab mf_FXK(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_FXP(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_FEK(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_FEP(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_FCK(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_FCP(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_BCK(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_BCP(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_w(convert(ba, IntVect(0,0,1)),dm,ncomp_w,IntVect(NGROW,NGROW,0));
+    MultiFab mf(ba,dm,ncomp,IntVect(NGROW,NGROW,0));
 
     const Box& domain = geom[0].Domain();
     const auto dlo = amrex::lbound(domain);
@@ -405,7 +395,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     GeometryData const& geomdata = geom[0].data();
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
-
 
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -421,10 +410,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Array4<Real> const& u = xvel_old[lev]->array(mfi);
         Array4<Real> const& v = yvel_old[lev]->array(mfi);
 
-        auto dU = mf_dU.array(mfi);
-        auto dV = mf_dV.array(mfi);
-        auto CF = mf_CF.array(mfi);
-        auto shear2_cached = mf_shear2_cached.array(mfi);
+        auto dU = mf_w.array(mfi,dU_comp);
+        auto dV = mf_w.array(mfi,dV_comp);
+        auto CF = mf_w.array(mfi,CF_comp);
+        auto shear2_cached = mf.array(mfi,shear2_cache_comp);
 
         ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -454,8 +443,22 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
     // While potentially counterintuitive, this is what ROMS does for handling shear2 at all boundaries, even
     // periodic
-    (*physbcs[lev])(mf_shear2_cached,*mf_mskr,0,1,mf_shear2_cached.nGrowVect(),t_new[lev],BCVars::foextrap_bc);
-    mf_CF.setVal(0.0_rt);
+    (*physbcs[lev])(mf,*mf_mskr,shear2_cache_comp,1,mf.nGrowVect(),t_new[lev],BCVars::foextrap_bc);
+    mf.setVal(0.0_rt,CF_comp,1);
+
+    int ncomp_fab = 0;
+    int tmp_buoy_comp  = ncomp_fab++;
+    int tmp_shear_comp = ncomp_fab++;
+    int curvK_comp = ncomp_fab++;
+    int curvP_comp = ncomp_fab++;
+    int FXK_comp = ncomp_fab++;
+    int FXP_comp = ncomp_fab++;
+    int FEK_comp = ncomp_fab++;
+    int FEP_comp = ncomp_fab++;
+    int FCK_comp = ncomp_fab++;
+    int FCP_comp = ncomp_fab++;
+    int BCK_comp = ncomp_fab++;
+    int BCP_comp = ncomp_fab++;
 
     for ( MFIter mfi(*mf_gls, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -466,9 +469,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
         Box bx_rho = bx;
         bx_rho.convert(IntVect(0,0,0));
-
-        Box xbx_int = grow(xbx,IntVect(0,0,-1)); // interior points in w of xbx
-        Box ybx_int = grow(ybx,IntVect(0,0,-1)); // interior points in w of ybx
         Box bx_growloxy = growLo(growLo(grow(bx,IntVect(0,0,-1)),0,1),1,1);
 
         Box bxD = bx;
@@ -476,9 +476,9 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
 
-        int ncomp = 1;
-        Vector<BCRec> bcrs_x(ncomp);
-        Vector<BCRec> bcrs_y(ncomp);
+        int ncompbc = 1;
+        Vector<BCRec> bcrs_x(ncompbc);
+        Vector<BCRec> bcrs_y(ncompbc);
         amrex::setBC(xbx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
         amrex::setBC(ybx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
 
@@ -504,40 +504,26 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
         Array4<Real> const& ZoBot = vec_ZoBot[lev]->array(mfi);
 
-        FArrayBox fab_tmp_buoy(bx_growloxy,1, amrex::The_Async_Arena()); fab_tmp_buoy.template setVal<RunOn::Device>(0.);
-        FArrayBox fab_tmp_shear(bx_growloxy,1, amrex::The_Async_Arena()); fab_tmp_shear.template setVal<RunOn::Device>(0.);
+        FArrayBox fab(gbx1,ncomp_fab, amrex::The_Async_Arena()); fab.template setVal<RunOn::Device>(0.);
 
-        FArrayBox fab_curvK(gbx1,1, amrex::The_Async_Arena()); fab_curvK.template setVal<RunOn::Device>(0.);
-        FArrayBox fab_curvP(gbx1,1, amrex::The_Async_Arena()); fab_curvP.template setVal<RunOn::Device>(0.);
-
-        FArrayBox fab_FXK(xbx_int,1,amrex::The_Async_Arena()); fab_FXK.template setVal<RunOn::Device>(0.);
-        FArrayBox fab_FXP(xbx_int,1,amrex::The_Async_Arena()); fab_FXP.template setVal<RunOn::Device>(0.);
-        FArrayBox fab_FEK(ybx_int,1,amrex::The_Async_Arena()); fab_FEK.template setVal<RunOn::Device>(0.);
-        FArrayBox fab_FEP(ybx_int,1,amrex::The_Async_Arena()); fab_FEP.template setVal<RunOn::Device>(0.);
-
-        FArrayBox fab_FCK(bx_rho,1,amrex::The_Async_Arena()); fab_FCK.template setVal<RunOn::Device>(0.);
-        FArrayBox fab_FCP(bx_rho,1,amrex::The_Async_Arena()); fab_FCP.template setVal<RunOn::Device>(0.);
-        FArrayBox fab_BCK(bx_rho,1,amrex::The_Async_Arena()); fab_BCK.template setVal<RunOn::Device>(0.);
-        FArrayBox fab_BCP(bx_rho,1,amrex::The_Async_Arena()); fab_BCP.template setVal<RunOn::Device>(0.);
-
-        auto CF = mf_CF.array(mfi);
-        auto shear2 = mf_shear2.array(mfi);
-        auto shear2_cached = mf_shear2_cached.array(mfi);
-        auto buoy2 = mf_buoy2.array(mfi);
+        auto CF = mf_w.array(mfi,CF_comp);
+        auto shear2 = mf.array(mfi,shear2_comp);
+        auto shear2_cached = mf.array(mfi,shear2_cache_comp);
+        auto buoy2 = mf.array(mfi,buoy2_comp);
         Array4<Real> const& bvf = vec_bvf[lev]->array(mfi);
 
-        auto tmp_buoy = fab_tmp_buoy.array();
-        auto tmp_shear = fab_tmp_shear.array();
-        auto curvK = fab_curvK.array();
-        auto curvP = fab_curvP.array();
-        auto FXK = fab_FXK.array();
-        auto FXP = fab_FXP.array();
-        auto FEK = fab_FEK.array();
-        auto FEP = fab_FEP.array();
-        auto FCK = fab_FCK.array();
-        auto FCP = fab_FCP.array();
-        auto BCK = fab_BCK.array();
-        auto BCP = fab_BCP.array();
+        auto tmp_buoy = fab.array(tmp_buoy_comp);
+        auto tmp_shear = fab.array(tmp_shear_comp);
+        auto curvK = fab.array(curvK_comp);
+        auto curvP = fab.array(curvP_comp);
+        auto FXK = fab.array(FXK_comp);
+        auto FXP = fab.array(FXP_comp);
+        auto FEK = fab.array(FEK_comp);
+        auto FEP = fab.array(FEP_comp);
+        auto FCK = fab.array(FCK_comp);
+        auto FCP = fab.array(FCP_comp);
+        auto BCK = fab.array(BCK_comp);
+        auto BCP = fab.array(BCP_comp);
 
         auto Akt = mf_Akt->array(mfi);
         auto Akv = mf_Akv->array(mfi);
@@ -635,7 +621,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew), gls_Pmin);
         });
 
-
         // Vertical advection
         ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -697,46 +682,47 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             // (BCK and BCP) below, using "cff1" and "cff2" as the on/off switch.
             Real cff1 = (Kprod < 0.0_rt) ? 0.0_rt : 1.0_rt;
             Real cff2 = (Pprod < 0.0_rt) ? 0.0_rt : 1.0_rt;
-            if (Kprod < 0.0_rt) {
-                Kprod = Kprod + strat2*(Akt(i,j,k,Temp_comp)-Akt_bak);
-            }
-            if (Pprod < 0.0_rt) {
-                Pprod = Pprod + gls_c3*strat2*(Akt(i,j,k,Temp_comp)-Akt_bak);
-            }
+            Kprod = (Kprod < 0.0_rt) ? Kprod + strat2*(Akt(i,j,k,Temp_comp)-Akt_bak) : Kprod;
+            Pprod = (Pprod < 0.0_rt) ? Pprod + gls_c3*strat2*(Akt(i,j,k,Temp_comp)-Akt_bak) : Pprod;
             // Time-step shear and buoyancy production terms.
             Real cff_Hz = 0.5_rt * (Hz(i,j,k) + Hz(i,j,k-1));
             tke(i,j,k,nnew) = tke(i,j,k,nnew)+dt_lev * cff_Hz * Kprod;
             gls(i,j,k,nnew) = gls(i,j,k,nnew)+dt_lev
                                 *cff_Hz*Pprod*gls(i,j,k,nstp) / std::max(tke(i,j,k,nstp),gls_Kmin);
 
+            Real gls_exp_exp1 = std::pow(gls(i,j,k,nstp),gls_exp1);
+            Real gls_exp_mexp1 = 1.0_rt / (gls_exp_exp1);
+            Real tke_exp_mexp1 = std::pow(tke(i,j,k,nstp),-tke_exp1);
+            Real tke_exp_exp2 = std::pow(tke(i,j,k,nstp),tke_exp2);
+
             // Compute dissipation of turbulent energy (m3/s3).
             Real wall_fac = 1.0_rt;
             if (Lmy25) {
-                // Parabolic wall function,  L = ds db / (ds + db).
                 wall_fac=1.0_rt+gls_E2/(vonKar*vonKar)*
-                        std::pow(std::pow(gls(i,j,k,nstp),( gls_exp1))*cmu_fac1*
-                         std::pow(tke(i,j,k,nstp),-tke_exp1)*
+                        std::pow(gls_exp_exp1*cmu_fac1*
+                         tke_exp_mexp1*
                          (1.0_rt/ (z_w(i,j,k)-z_w(i,j,0))),2)+
                         0.25_rt/(vonKar*vonKar)*
-                        std::pow(std::pow(gls(i,j,k,nstp), gls_exp1)*cmu_fac1*
-                         std::pow(tke(i,j,k,nstp),-tke_exp1)*
+                        std::pow(gls_exp_exp1*cmu_fac1*
+                         tke_exp_mexp1*
                          (1.0_rt/ (z_w(i,j,N+1)-z_w(i,j,k))),2);
             }
             BCK(i,j,k)=cff_Hz*(1.0_rt+dt_lev*
-                          std::pow(gls(i,j,k,nstp),(-gls_exp1))*cmu_fac2*
-                          std::pow(tke(i,j,k,nstp), tke_exp2)+
+                          gls_exp_mexp1*cmu_fac2*
+                          tke_exp_exp2+
                           dt_lev*(1.0_rt-cff1)*strat2*
                           (Akt(i,j,k,Temp_comp)-Akt_bak)/
                           tke(i,j,k,nstp))-
                           FCK(i,j,k)-FCK(i,j,k-1);
             BCP(i,j,k)=cff_Hz*(1.0_rt+dt_lev*gls_c2*wall_fac*
-                          std::pow(gls(i,j,k,nstp),-gls_exp1)*cmu_fac2*
-                          std::pow(tke(i,j,k,nstp), tke_exp2)+
+                          gls_exp_mexp1*cmu_fac2*
+                          tke_exp_exp2+
                           dt_lev*(1.0_rt-cff2)*gls_c3*strat2*
                           (Akt(i,j,k,Temp_comp)-Akt_bak)/
                           tke(i,j,k,nstp))-
                           FCP(i,j,k)-FCP(i,j,k-1);
         });
+
         // Compute production and dissipation terms.
         ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -759,7 +745,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                                       (bvstr(i,j,0)+bvstr(i,j+1,0))*(bvstr(i,j,0)+bvstr(i,j+1,0))),
                                         gls_Kmin);
 
-            gls(i,j,N+1,nnew)=std::max(std::pow(gls_cmu0,gls_p)*
+            gls(i,j,N+1,nnew)=std::max(cmu0_exp_p*
                                     std::pow(tke(i,j,N+1,nnew),gls_m)*
                                     std::pow(L_sft*Zos_eff,gls_n), gls_Pmin);
             Real cff_gls = gls_fac4*std::pow(vonKar*Zob_min,gls_n);
@@ -813,34 +799,24 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         {
             tke(i,j,k,nnew) = std::max(tke(i,j,k,nnew),gls_Kmin);
             gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew),gls_Pmin);
-            if (gls_n >= 0.0_rt) {
-                gls(i,j,k,nnew)=std::min(gls(i,j,k,nnew),gls_fac5*
+            Real gls_comparison = gls_fac5 *
                                     std::pow(tke(i,j,k,nnew),tke_exp4)*
                                     std::pow(std::sqrt(std::max(0.0_rt,
-                                          buoy2(i,j,k)))+eps,-gls_n));
-            } else {
-                gls(i,j,k,nnew)=std::max(gls(i,j,k,nnew), gls_fac5*
-                                 std::pow(tke(i,j,k,nnew),(tke_exp4))*
-                                 std::pow((std::sqrt(std::max(0.0_rt,
-                                       buoy2(i,j,k)))+eps),(-gls_n)));
-            }
+                                          buoy2(i,j,k)))+eps,-gls_n);
+            gls(i,j,k,nnew) = (gls_n >= 0.0_rt) ? std::min(gls(i,j,k,nnew),gls_comparison) : std::max(gls(i,j,k,nnew),gls_comparison);
             Real Ls_lmt;
             Real Ls_unlmt=std::max(eps,
                                    std::pow(gls(i,j,k,nnew),( gls_exp1))*cmu_fac1*
                                    std::pow(tke(i,j,k,nnew),(-tke_exp1)));
             // Some problems are very sensitive to this condition (ultimate cause of
             // some discrepancies in BoundaryLayer test between CPU and GPU)
-            if (buoy2(i,j,k) > 0.0_rt) {
-                Ls_lmt=std::min(Ls_unlmt,
-                                std::sqrt(0.56_rt*tke(i,j,k,nnew)/
-                                (std::max(0.0_rt,buoy2(i,j,k))+eps)));
-            } else {
-                Ls_lmt = Ls_unlmt;
-            }
+            Ls_lmt = (buoy2(i,j,k) > 0.0_rt) ? std::min(Ls_unlmt,
+                                                std::sqrt(0.56_rt*tke(i,j,k,nnew)/
+                                                (std::max(0.0_rt,buoy2(i,j,k))+eps))) : Ls_unlmt;
             //
             //  Recompute gls based on limited length scale
             //
-            gls(i,j,k,nnew)=std::max(std::pow(gls_cmu0,gls_p)*
+            gls(i,j,k,nnew)=std::max(cmu0_exp_p*
                                            std::pow(tke(i,j,k,nnew),gls_m)*
                                            std::pow(Ls_lmt,gls_n), gls_Pmin);
 
@@ -877,7 +853,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 //
                 //  Relate Canuto stability to ROMS notation
                 //
-                Real gls_cmu0_cube = gls_cmu0 * gls_cmu0 * gls_cmu0;
                 Sm=Sm*sqrt2/(gls_cmu0_cube);
                 Sh=Sh*sqrt2/gls_cmu0_cube;
             } else if (gls_stability_type == GLS_StabilityType::Galperin) {
@@ -906,6 +881,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             //  Save limited length scale.
             Lscale(i,j,k)=Ls_lmt;
         });
+
         ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             Real Zob_min = std::max(ZoBot(i,j,0), 0.0001_rt);

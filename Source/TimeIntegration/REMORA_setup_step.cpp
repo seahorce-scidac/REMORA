@@ -39,19 +39,15 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     const int nrhs  = 0;
     int nstp  = 0;
 
-    // Place-holder for source array -- for now just set to 0
-    MultiFab source(ba,dm,nvars,1);
-    source.setVal(0.0_rt);
-
     //-----------------------------------------------------------------------
     //  Time step momentum equation
     //-----------------------------------------------------------------------
 
     //Only used locally, probably should be rearranged into FArrayBox declaration
-    MultiFab mf_AK(ba,dm,1,IntVect(NGROW,NGROW,0)); //2d missing j coordinate
+
     MultiFab mf_DC(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
-    MultiFab mf_Hzk(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
     MultiFab mf_logdrg_tmp(ba,dm,1,IntVect(NGROW,NGROW,0));
+    MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
 
     MultiFab* mf_z_r = vec_z_r[lev].get();
     MultiFab* mf_z_w = vec_z_w[lev].get();
@@ -65,7 +61,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     //Consider passing these into the advance function or renaming relevant things
 
-    MultiFab mf_rho(ba,dm,1,IntVect(NGROW,NGROW,0));
     std::unique_ptr<MultiFab>& mf_rhoS = vec_rhoS[lev];
     std::unique_ptr<MultiFab>& mf_rhoA = vec_rhoA[lev];
     std::unique_ptr<MultiFab>& mf_bvf = vec_bvf[lev];
@@ -86,8 +81,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     std::unique_ptr<MultiFab>& mf_mskv = vec_mskv[lev];
     std::unique_ptr<MultiFab>& mf_mskp = vec_mskp[lev];
 
-    MultiFab mf_rw(ba,dm,1,IntVect(NGROW,NGROW,0));
-
     std::unique_ptr<MultiFab>& mf_visc2_p = vec_visc2_p[lev];
     std::unique_ptr<MultiFab>& mf_visc2_r = vec_visc2_r[lev];
 
@@ -96,14 +89,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     mf_rho.setVal(0.e34_rt,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rhoS->setVal(0.e34_rt,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_rhoA->setVal(0.e34_rt,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-
     mf_DC.setVal(0);
 
     FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t);
     FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u);
     FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v);
 
-    mf_rw.setVal(0.0_rt);
     mf_rufrc->setVal(0);
     mf_rvfrc->setVal(0);
 
@@ -164,12 +155,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         gbx1D.makeSlab(2,0);
         Box gbx2D = gbx2;
         gbx2D.makeSlab(2,0);
-
-        FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
 
         //
         //-----------------------------------------------------------------------
@@ -422,15 +407,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         tbxp2D.makeSlab(2,0);
 
         FArrayBox fab_FC(surroundingNodes(tbxp2,2),1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_FX(gbx2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_FE(gbx2,1,amrex::The_Async_Arena()); //3D
-        FArrayBox fab_BC(gbx2,1,amrex::The_Async_Arena());
-        FArrayBox fab_CF(gbx2,1,amrex::The_Async_Arena());
-
-        FArrayBox fab_fomn(tbxp2D,1,amrex::The_Async_Arena());
-
         auto FC=fab_FC.array();
 
+        FArrayBox fab_fomn(tbxp2D,1,amrex::The_Async_Arena());
         auto fomn=fab_fomn.array();
 
         if (solverChoice.use_coriolis) {

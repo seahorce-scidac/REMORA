@@ -74,6 +74,7 @@ REMORA::advance_2d (int lev,
                    bool first_2d_step, int my_iif,
                    int & next_indx1)
 {
+    BL_PROFILE("REMORA::advance2d()");
     int iic = istep[lev];
     const int nnew  = 0;
     const int nstp  = 0;
@@ -111,6 +112,22 @@ REMORA::advance_2d (int lev,
     const auto dlo = amrex::lbound(Geom(lev).Domain());
     const auto dhi = amrex::ubound(Geom(lev).Domain());
 
+    int ncomp = 0;
+    int fomn_comp = ncomp++;
+    int Drhs_comp = ncomp++;
+    int Dnew_comp = ncomp++;
+    int zwrk_comp = ncomp++;
+    int gzeta_comp = ncomp++;
+    int gzeta2_comp = ncomp++;
+    int gzetaSA_comp = ncomp++;
+    int Dstp_comp = ncomp++;
+    int rhs_ubar_comp = ncomp++;
+    int rhs_vbar_comp = ncomp++;
+    int rhs_zeta_comp = ncomp++;
+    int zeta_new_comp = ncomp++;
+
+    MultiFab mf(ba,dm,ncomp,IntVect(NGROW+1,NGROW+1,0));
+
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& ubar = mf_ubar->array(mfi);
@@ -129,12 +146,10 @@ REMORA::advance_2d (int lev,
         Box ygbx2 = mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0));
 
         Box tbxp1 = bx;
-        Box tbxp11 = bx;
         Box tbxp2 = bx;
         Box tbxp3 = bx;
         tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
         tbxp2.grow(IntVect(NGROW,NGROW,0));
-        tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
         tbxp3.grow(IntVect(NGROW+1,NGROW+1,0));
 
         Box bxD   = bx  ;   bxD.makeSlab(2,0);
@@ -194,8 +209,6 @@ REMORA::advance_2d (int lev,
         Array4<Real      > const& Zt_avg1 = mf_Zt_avg1->array(mfi);
         Array4<Real      > const& ubar    = mf_ubar->array(mfi);
         Array4<Real      > const& vbar    = mf_vbar->array(mfi);
-        Array4<Real      > const& ubar_krhs    = mf_ubar->array(mfi, krhs);
-        Array4<Real      > const& vbar_krhs    = mf_vbar->array(mfi, krhs);
         Array4<Real      > const& zeta = mf_zeta->array(mfi);
         Array4<Real      > const& DU_avg1 = (mf_DU_avg1)->array(mfi);
         Array4<Real      > const& DU_avg2 = (mf_DU_avg2)->array(mfi);
@@ -255,7 +268,6 @@ REMORA::advance_2d (int lev,
         }
 
         Box tbxp1  = bx;  tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
-        Box tbxp11 = bx; tbxp11.grow(IntVect(NGROW-1,NGROW-1,NGROW-1));
         Box tbxp2  = bx;  tbxp2.grow(IntVect(NGROW,NGROW,0));
         Box tbxp3  = bx;  tbxp3.grow(IntVect(NGROW+1,NGROW+1,0));
 
@@ -267,39 +279,24 @@ REMORA::advance_2d (int lev,
         Box tbxp2D = tbxp2;
         tbxp2D.makeSlab(2,0);
 
-        FArrayBox fab_fomn(tbxp2,1,The_Async_Arena());
+        auto fomn = mf.array(mfi,fomn_comp);
+        auto Drhs = mf.array(mfi,Drhs_comp);
+        auto Drhs_const = mf.const_array(mfi,Drhs_comp);
+        auto Dnew = mf.array(mfi,Dnew_comp);
+        auto zwrk = mf.array(mfi,zwrk_comp);
+        auto gzeta = mf.array(mfi,gzeta_comp);
+        auto gzeta2 = mf.array(mfi,gzeta2_comp);
+        auto gzetaSA = mf.array(mfi,gzetaSA_comp);
+        auto Dstp = mf.array(mfi,Dstp_comp);
+        auto rhs_ubar = mf.array(mfi,rhs_ubar_comp);
+        auto rhs_vbar = mf.array(mfi,rhs_vbar_comp);
+        auto rhs_zeta = mf.array(mfi,rhs_zeta_comp);
+        auto zeta_new = mf.array(mfi,zeta_new_comp);
 
-        //step2d work arrays
-        FArrayBox fab_Drhs(tbxp3,1,The_Async_Arena());
-        FArrayBox fab_Dnew(tbxp2,1,The_Async_Arena());
-        FArrayBox fab_zwrk(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_gzeta(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_gzeta2(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_gzetaSA(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_Dstp(tbxp3,1,The_Async_Arena());
         FArrayBox & fab_DUon=mf_DUon[mfi];
         FArrayBox & fab_DVom=mf_DVom[mfi];
-        FArrayBox fab_rhs_ubar(xbxD,1,The_Async_Arena());
-        FArrayBox fab_rhs_vbar(ybxD,1,The_Async_Arena());
-        FArrayBox fab_rhs_zeta(tbxp1,1,The_Async_Arena());
-        FArrayBox fab_zeta_new(tbxp1,1,The_Async_Arena());
-
-        auto fomn=fab_fomn.array();
-
-        auto Drhs = fab_Drhs.array();
-        auto Drhs_const = fab_Drhs.const_array();
-        auto Dnew=fab_Dnew.array();
-        auto zwrk=fab_zwrk.array();
-        auto gzeta=fab_gzeta.array();
-        auto gzeta2=fab_gzeta2.array();
-        auto gzetaSA=fab_gzetaSA.array();
-        auto Dstp=fab_Dstp.array();
         auto DUon=fab_DUon.array();
         auto DVom=fab_DVom.array();
-        auto rhs_ubar=fab_rhs_ubar.array();
-        auto rhs_vbar=fab_rhs_vbar.array();
-        auto rhs_zeta=fab_rhs_zeta.array();
-        auto zeta_new=fab_zeta_new.array();
 
         auto weight1 = vec_weight1.dataPtr();
         auto weight2 = vec_weight2.dataPtr();
@@ -512,7 +509,6 @@ REMORA::advance_2d (int lev,
 !-----------------------------------------------------------------------
 !
 */
-
         Real cff1 = 0.5_rt * g;
         Real cff2 = 1.0_rt / 3.0_rt;
         ParallelFor(xbxD,
@@ -576,6 +572,8 @@ REMORA::advance_2d (int lev,
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_m2_clim_nudg) {
+            Array4<Real      > const& ubar_krhs    = mf_ubar->array(mfi, krhs);
+            Array4<Real      > const& vbar_krhs    = mf_vbar->array(mfi, krhs);
             Array4<const Real> const& ubar_clim = ubar_clim_data_from_file->mf_interpolated->const_array(mfi);
             Array4<const Real> const& vbar_clim = vbar_clim_data_from_file->mf_interpolated->const_array(mfi);
             Array4<const Real> const& ubar_nudg_coeff = vec_nudg_coeff[BdyVars::ubar][lev]->const_array(mfi);

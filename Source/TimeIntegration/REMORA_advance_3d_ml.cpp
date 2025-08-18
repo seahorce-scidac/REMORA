@@ -8,6 +8,7 @@ using namespace amrex;
  */
 void REMORA::advance_3d_ml (int lev, Real dt_lev)
 {
+    BL_PROFILE("REMORA::advance_3d_ml()");
     // Fill in three ways: 1) interpolate from coarse grid if lev > 0; 2) fill from physical boundaries;
     //                     3) fine-fine fill of ghost cells with FillBoundary call
     //FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t);

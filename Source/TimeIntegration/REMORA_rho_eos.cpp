@@ -71,6 +71,7 @@ REMORA::lin_eos (const Box& bx,
                 const Array4<Real const>& mskr,
                 const int N)
 {
+    BL_PROFILE("REMORA::lin_eos()");
 //
     AMREX_ASSERT(bx.smallEnd(2) == 0 && bx.bigEnd(2) == N);
 //
@@ -169,6 +170,7 @@ REMORA::nonlin_eos (const Box& bx,
                 const Array4<Real const>& mskr,
                 const int N)
 {
+    BL_PROFILE("REMORA::nonlin_eos()");
 //
     AMREX_ASSERT(bx.smallEnd(2) == 0 && bx.bigEnd(2) == N);
 

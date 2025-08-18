@@ -210,7 +210,7 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
     // HACK: Note that this is hacky; should be able to have a single call to FillPatch with a
     // flag for bcs, but for some reason it was acting weird, so we're splitting this out into
     // two functions with repeated code for the time being
-    BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
+    BL_PROFILE_VAR("REMORA::FillPatchNoBC()",REMORA_FillPatch);
     int bccomp;
     amrex::Interpolater* mapper = nullptr;
 

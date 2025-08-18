@@ -56,6 +56,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                    MultiFab const* mf_mskv,
                    const int N, Real dt_lev)
 {
+    BL_PROFILE("REMORA::advance_3d()");
     const int nrhs  = 0;
     int nnew  = 0;
 
@@ -218,9 +219,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real const> const& msku = mf_msku->const_array(mfi);
         Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
 
-        Array4<Real const> const& z_w = mf_z_w->const_array(mfi);
-
-        Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
         FArrayBox fab_FC(gbx2,1,amrex::The_Async_Arena());
@@ -228,6 +226,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_rivers) {
+            Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
+            Array4<Real const> const& z_w = mf_z_w->const_array(mfi);
             Array4<int  const> const& river_pos = vec_river_position[lev]->const_array(mfi);
             Array4<Real const> const& river_transport = river_source_transport->fab_interp->array();
             int* river_direction_d = river_direction.data();
@@ -322,30 +322,29 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Box gbx1D = gbx1;
         gbx1D.makeSlab(2,0);
 
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        ParallelFor(gbx1D, N+1,
+        [=] AMREX_GPU_DEVICE (int i, int j, int , int kk)
         {
-            W(i,j,0) = 0.0_rt;
-            for (int k=1; k<=N+1; k++) {
-                W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k-1)-Huon(i,j,k-1)) - (Hvom(i,j+1,k-1)-Hvom(i,j,k-1));
-            }
+            //  Starting with zero vertical velocity at the bottom, integrate
+            //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
+            //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
+            //  Notice that barotropic mass flux divergence is not used directly.
+            //
+            int k = kk + 1;
+            W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k-1)-Huon(i,j,k-1)) - (Hvom(i,j+1,k-1)-Hvom(i,j,k-1));
         });
-
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
         ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real wrk_ij = W(i,j,N+1) / (z_w(i,j,N+1)+h(i,j,0,0));
-
-            for (int k=1; k<=N; k++) {
-                W(i,j,k) -=  wrk_ij * (z_w(i,j,k)+h(i,j,0,0));
-            }
+            W(i,j,N+1)=W(i,j,N+1)/(z_w(i,j,N+1)+h(i,j,0,0)); // wrk_i
+        });
+        ParallelFor(gbx1D, N,
+        [=] AMREX_GPU_DEVICE (int i, int j, int , int kk)
+        {
+            int k = kk + 1;
+            W(i,j,k) = W(i,j,k)- W(i,j,N+1)*(z_w(i,j,k)+h(i,j,0,0));
+        });
+        ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
             W(i,j,N+1) = 0.0_rt;
         });
     }
@@ -412,7 +411,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             rhs_t_3d(lev,bx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
                      Hz, pn, pm, W, FC, mskr, msku, mskv, river_pos, river_source, nrhs, nnew, N,dt_lev);
         }
-
     } // mfi
 
     FillPatch(lev, t_old[lev], mf_cons, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
@@ -453,7 +451,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         }
     } // MFiter
     FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
-
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_temp_clim_nudg) {

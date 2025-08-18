@@ -440,6 +440,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                         }
                         n_plane = ny * nz;
 
+                        Print() << nc_var_names_full[iv] << " " << ny << " " << nz  << " " << my_box.numPts() <<std::endl;
                         AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
 
                         int i    = my_box.smallEnd()[0];
@@ -472,6 +473,7 @@ read_bdry_from_netcdf (const Box& domain, const std::string& nc_bdry_file,
                         }
                         n_plane = nx * nz;
 
+                        Print() << nc_var_names_full[iv] << " " << nx << " " << nz  << " " << my_box.numPts() <<std::endl;
                         AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
 
                         int j    = my_box.smallEnd()[1];

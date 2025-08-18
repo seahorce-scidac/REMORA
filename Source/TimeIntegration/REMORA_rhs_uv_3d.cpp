@@ -46,6 +46,7 @@ REMORA::rhs_uv_3d (int lev,
                   const Array4<Real      >& FC,
                   int nrhs, int N)
 {
+    BL_PROFILE("REMORA::rhs_uv_3d()");
     const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
@@ -363,7 +364,6 @@ REMORA::rhs_uv_3d (int lev,
 
     Gpu::synchronize();
 
-    AMREX_ASSERT(ybx.smallEnd(2) == 0 && ybx.bigEnd(2) == N);
     ParallelFor(makeSlab(ybx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
     {
        for (int k = 0; k <= N; ++k)

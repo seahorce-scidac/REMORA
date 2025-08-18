@@ -42,6 +42,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
                  const Array4<Real const>& river_source,
                  int nrhs, int nnew, int N, Real dt_lev)
 {
+    BL_PROFILE("REMORA::rhs_t_3d()");
     const Box& domain = geom[lev].Domain();
     const auto dlo = amrex::lbound(domain);
     const auto dhi = amrex::ubound(domain);
@@ -89,6 +90,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
     fab_FX.template setVal<RunOn::Device>(0.);
     fab_FE.template setVal<RunOn::Device>(0.);
 
+    BL_PROFILE_VAR("REMORA::rhs_t_3d()::hadv",phadv);
     ParallelFor(utbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         FX(i,j,k)=(sstore(i,j,k,nrhs)-sstore(i-1,j,k,nrhs)) * msku(i,j,0);
@@ -322,6 +324,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
         t(i,j,k,nnew) -= cff3;
     });
 
+    BL_PROFILE_VAR_STOP(phadv);
     //-----------------------------------------------------------------------
     //  Time-step vertical advection term.
     //-----------------------------------------------------------------------
@@ -331,6 +334,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
     //  (Tunits m3/s).
     //
 
+    BL_PROFILE_VAR("REMORA::rhs_t_3d()::vadv",pvadv);
     ParallelFor(surroundingNodes(bx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
         //-----------------------------------------------------------------------
@@ -365,4 +369,5 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
 
         t(i,j,k) = (t(i,j,k)-cff1*cff4) / Hz(i,j,k);
     });
+    BL_PROFILE_VAR_STOP(pvadv);
 }
