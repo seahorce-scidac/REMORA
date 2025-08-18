@@ -20,42 +20,52 @@ REMORA::calc_stretch_coeffs ()
     Box bx(IntVect(0,0,0),IntVect(0,0,N));
     const auto local_theta_s = solverChoice.theta_s;
     const auto local_theta_b = solverChoice.theta_b;
+
+    //amrex::Vector<Real> s_w_vec(N+1); auto s_w_dat = s_w_vec.data();
+    //amrex::Vector<Real> Cs_w_vec(N+1); auto Cs_w_dat = Cs_w_vec.data();
+    //amrex::Vector<Real> s_r_vec(N); auto s_r_dat = s_r_vec.data();
+    //amrex::Vector<Real> Cs_r_vec(N); auto Cs_r_dat = Cs_r_vec.data();
+    auto s_w_dat = s_w.data();
+    auto Cs_w_dat = Cs_w.data();
+    auto s_r_dat = s_r.data();
+    auto Cs_r_dat = Cs_r.data();
+
     amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int , int , int k)
     {
         Real Csur,Cbot;
 
-        s_w[k]=ds*(k-N);
+        s_w_dat[k]=ds*(k-N);
         if (local_theta_s > 0.0_rt) {
-            Csur=(1.0_rt-std::cosh(local_theta_s*s_w[k]))/
+            Csur=(1.0_rt-std::cosh(local_theta_s*s_w_dat[k]))/
                 (std::cosh(local_theta_s)-1.0_rt);
         } else {
-            Csur=-s_w[k]*s_w[k];
+            Csur=-s_w_dat[k]*s_w_dat[k];
         }
 
         if (local_theta_b > 0.0_rt) {
             Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
                 (1.0_rt-std::exp(-local_theta_b));
-            Cs_w[k]=Cbot;
+            Cs_w_dat[k]=Cbot;
         } else {
-            Cs_w[k]=Csur;
+            Cs_w_dat[k]=Csur;
         }
 
         if (k<N) {
-            s_r[k]=ds*(k-N+0.5_rt);
+            s_r_dat[k]=ds*(k-N+0.5_rt);
 
             if (local_theta_s > 0.0_rt) {
-                Csur=(1.0_rt-std::cosh(local_theta_s*s_r[k]))/
+                Csur=(1.0_rt-std::cosh(local_theta_s*s_r_dat[k]))/
                     (std::cosh(local_theta_s)-1.0_rt);
             } else {
-                Csur=-s_r[k]*s_r[k];
+                Csur=-s_r_dat[k]*s_r_dat[k];
             }
 
             if (local_theta_b > 0.0_rt) {
                 Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
                     (1.0_rt-std::exp(-local_theta_b));
-                Cs_r[k]=Cbot;
+                Cs_r_dat[k]=Cbot;
             } else {
-                Cs_r[k]=Csur;
+                Cs_r_dat[k]=Csur;
             }
         }
     });
@@ -74,6 +84,11 @@ REMORA::stretch_transform (int lev)
     std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
+
+    auto s_w_dat = s_w.data();
+    auto Cs_w_dat = Cs_w.data();
+    auto s_r_dat = s_r.data();
+    auto Cs_r_dat = Cs_r.data();
 
     for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -117,10 +132,10 @@ REMORA::stretch_transform (int lev)
             Real sc_w=ds*(k-N);
 
             Real cff_r=hc*sc_r;
-            Real cff1_r=Cs_r[k];
+            Real cff1_r=Cs_r_dat[k];
 
             Real cff_w=hc*sc_w;
-            Real cff1_w=Cs_w[k];
+            Real cff1_w=Cs_w_dat[k];
 
             Real hwater=h(i,j,0);
 
