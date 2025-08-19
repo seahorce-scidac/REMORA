@@ -184,6 +184,9 @@ public:
                                                 int nlevels,
                                                 const amrex::Vector<const amrex::MultiFab*> &mf,
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_nd,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_u,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_v,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_w,
                                                 const amrex::Vector<std::string> &varnames,
                                                 amrex::Real time,
                                                 const amrex::Vector<int> &level_steps,
@@ -1309,6 +1312,9 @@ private:
 
     /** \brief Minimum number of digits in plotfile name or chunked history file */
     static int file_min_digits;
+
+    /** \brief Whether to write the staggered velocities (not averaged to cell centers) */
+    static int plot_staggered_vels;
 
     /** \brief Native or NetCDF plotfile output */
     static PlotfileType plotfile_type;
