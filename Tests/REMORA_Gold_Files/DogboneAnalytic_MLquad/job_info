@@ -1,33 +1,33 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: inputs_ml_quad
+inputs file: DogboneAnalytic_MLquad.i
 
 number of MPI processes: 1
-number of threads:       4
+number of threads:       1
 
-CPU time used since start of simulation (CPU-hours): 0.000442548
+CPU time used since start of simulation (CPU-hours): 0.000112979
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Mon Aug  4 15:37:14 2025
-output dir:         /home/klion/software/REMORA/Exec/DogboneAnalytic
+output data / time: Tue Aug 19 20:33:42 2025
+output dir:         /home/klion/software/REMORA_clean/Exec/DogboneAnalytic
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    2025-08-04 14:33:19.575816
+build date:    2025-08-16 10:05:48.945409
 build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64 x86_64 x86_64 GNU/Linux
-build dir:     /home/klion/software/REMORA/Exec/DogboneAnalytic
+build dir:     /home/klion/software/REMORA_clean/Exec/DogboneAnalytic
 AMReX dir:     ../../Submodules/AMReX
 
 COMP:          gnu
 COMP version:  13.3.0
 
 
-REMORA       git hash: v1.3-53-g4001e3d-dirty
+REMORA       git hash: v1.3-61-g9eacd12-dirty
 AMReX       git hash: 25.06-14-g65bf80d76
 
 
@@ -148,6 +148,7 @@ remora.mask_type = analytic
 remora.max_step = 10
 remora.n_cell = 42 15 16
 remora.plot_file = plt_ml_quad
+remora.plot_file = mlquad
 remora.plot_int = 10
 remora.plot_vars = salt temp x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
