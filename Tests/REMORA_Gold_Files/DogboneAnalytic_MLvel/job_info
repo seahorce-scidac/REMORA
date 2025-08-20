@@ -6,12 +6,12 @@ inputs file: DogboneAnalytic_MLvel.i
 number of MPI processes: 1
 number of threads:       1
 
-CPU time used since start of simulation (CPU-hours): 0.000101585
+CPU time used since start of simulation (CPU-hours): 0.000104985
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Tue Aug 19 20:35:07 2025
+output data / time: Wed Aug 20 14:52:02 2025
 output dir:         /home/klion/software/REMORA_clean/Exec/DogboneAnalytic
 
 
