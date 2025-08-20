@@ -1163,6 +1163,7 @@ REMORA::AverageDownTo (int crse_lev)
 
     average_down_faces(GetArrOfConstPtrs(faces_fine), faces_crse,
                        refRatio(crse_lev),geom[crse_lev]);
+    stretch_transform(crse_lev);
 }
 
 /**
