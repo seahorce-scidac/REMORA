@@ -1278,6 +1278,9 @@ private:
     /** \brief Container for algorithmic choices */
     static SolverChoice solverChoice;
 
+    /** \brief whether plotfile variables should be expanded to a uniform refinement ratio */
+    bool expand_plotvars_to_unif_rr = false;
+
 #ifdef REMORA_USE_PARTICLES
     /** \brief Particle container with all particle species */
     ParticleData particleData;

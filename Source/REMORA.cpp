@@ -942,6 +942,8 @@ REMORA::ReadParameters ()
         pp.query("check_int_time", check_int_time);
         pp_amr.query("check_int_time", check_int_time);
 
+        pp.query("expand_plotvars_to_unif_rr", expand_plotvars_to_unif_rr);
+
         pp.query("restart", restart_chkfile);
         pp_amr.query("restart", restart_chkfile);
         pp.query("start_time",start_time);
