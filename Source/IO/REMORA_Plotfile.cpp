@@ -211,10 +211,10 @@ REMORA::WritePlotFile ()
         containerHasElement(plot_var_names, "vorticity") ) {
 
         for (int lev = 0; lev <= finest_level; ++lev) {
-            // NOTE/TODO: Vorticity looks better doing this with 1 grow cell (IntVect(1,1,1)) as last argument and
-            // 1 as last argument to average_face_to_cellcenter. However, vels don't have grow cells in the z-
+            // NOTE/TODO: Vorticity looks better doing this with 1 grow cell (1 as last argument
+            // to average_face_to_cellcenter). However, vels don't have grow cells in the z-
             // direction so this causes an out of bounds. This is presumably fixable.
-            mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(0,0,0));
+            mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(1,1,1));
             mf_cc_vel[lev].setVal(0.0_rt); // zero out velocity in case we have any wall boundaries
             average_face_to_cellcenter(mf_cc_vel[lev],0,
                                        Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]},0);
@@ -234,7 +234,7 @@ REMORA::WritePlotFile ()
                 amrex::FillPatchTwoLevels(mf_cc_vel[lev], mf_cc_vel[lev].nGrowVect(), IntVect(0,0,0),
                                           t_new[lev], cmf, ctime, fmf, ftime,
                                           0, 0, mf_cc_vel[lev].nComp(), geom[lev-1], geom[lev],
-                                          refRatio(lev-1), mapper, domain_bcs_type, BCVars::foextrap_bc);
+                                          refRatio(lev-1), mapper, domain_bcs_type, BCVars::cons_bc);
             } // lev
         } // if
     } // if
