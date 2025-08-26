@@ -392,7 +392,8 @@ REMORA::WritePlotFile ()
                                                   GetVecOfConstPtrs(mf_v),
                                                   GetVecOfConstPtrs(mf_w),
                                                   varnames,
-                                                  t_new[0], istep);
+                                                  Geom(),
+                                                  t_new[0], istep, refRatio());
             writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
@@ -488,7 +489,8 @@ REMORA::WritePlotFile ()
                                                       GetVecOfConstPtrs(mf_v),
                                                       GetVecOfConstPtrs(mf_w),
                                                       varnames,
-                                                      t_new[0], istep);
+                                                      g2,
+                                                      t_new[0], istep, rr);
                 writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
@@ -502,7 +504,8 @@ REMORA::WritePlotFile ()
                                                       GetVecOfConstPtrs(mf_v),
                                                       GetVecOfConstPtrs(mf_w),
                                                       varnames,
-                                                      t_new[0], istep);
+                                                      Geom(),
+                                                      t_new[0], istep, ref_ratio);
                 writeJobInfo(plotfilename);
 #ifdef REMORA_USE_PARTICLES
                 particleData.Checkpoint(plotfilename);
@@ -521,8 +524,10 @@ REMORA::WritePlotFile ()
  * @param mf              MultiFab of data to write out
  * @param mf_nd           Multifab of nodal data to write out
  * @param varnames        variable names to write out
+ * @param my_geom         geometry to use for writing plotfile
  * @param time            time at which to output
  * @param level_steps     vector over level of iterations
+ * @param rr              refinement ratio to use for writing plotfile
  * @param versionName     version string for VisIt
  * @param levelPrefix     string to prepend to level number
  * @param mfPrefix        subdirectory for multifab data
@@ -536,8 +541,10 @@ REMORA::WritePlotFile ()
                                                const Vector<const MultiFab*>& mf_v,
                                                const Vector<const MultiFab*>& mf_w,
                                                const Vector<std::string>& varnames,
+                                               const Vector<Geometry>& my_geom,
                                                Real time,
                                                const Vector<int>& level_steps,
+                                               const Vector<IntVect>& rr,
                                                const std::string &versionName,
                                                const std::string &levelPrefix,
                                                const std::string &mfPrefix,
@@ -576,7 +583,7 @@ REMORA::WritePlotFile ()
                                                     std::ofstream::binary);
             if( ! HeaderFile.good()) FileOpenFailed(HeaderFileName);
             WriteGenericPlotfileHeaderWithBathymetry(HeaderFile, nlevels, boxArrays, varnames,
-                                                     time, level_steps, versionName,
+                                                     my_geom, time, level_steps, rr, versionName,
                                                      levelPrefix, mfPrefix);
         };
 
@@ -640,8 +647,10 @@ REMORA::WritePlotFile ()
  * @param nlevels         number of levels to write out
  * @param bArray          vector over levels of BoxArrays
  * @param varnames        variable names to write out
+ * @param my_geom         geometry to use for writing plotfile
  * @param time            time at which to output
  * @param level_steps     vector over level of iterations
+ * @param my_ref_ratio    refinement ratio to use for writing plotfile
  * @param versionName     version string for VisIt
  * @param levelPrefix     string to prepend to level number
  * @param mfPrefix        subdirectory for multifab data
@@ -651,8 +660,10 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                  int nlevels,
                                                  const Vector<BoxArray> &bArray,
                                                  const Vector<std::string> &varnames,
+                                                 const Vector<Geometry>& my_geom,
                                                  Real time,
                                                  const Vector<int> &level_steps,
+                                                 const Vector<IntVect>& my_ref_ratio,
                                                  const std::string &versionName,
                                                  const std::string &levelPrefix,
                                                  const std::string &mfPrefix) const
@@ -680,19 +691,19 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
         HeaderFile << time << '\n';
         HeaderFile << finest_level << '\n';
         for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-            HeaderFile << geom[0].ProbLo(i) << ' ';
+            HeaderFile << my_geom[0].ProbLo(i) << ' ';
         }
         HeaderFile << '\n';
         for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-            HeaderFile << geom[0].ProbHi(i) << ' ';
+            HeaderFile << my_geom[0].ProbHi(i) << ' ';
         }
         HeaderFile << '\n';
         for (int i = 0; i < finest_level; ++i) {
-            HeaderFile << ref_ratio[i][0] << ' ';
+            HeaderFile << my_ref_ratio[i][0] << ' ';
         }
         HeaderFile << '\n';
         for (int i = 0; i <= finest_level; ++i) {
-            HeaderFile << geom[i].Domain() << ' ';
+            HeaderFile << my_geom[i].Domain() << ' ';
         }
         HeaderFile << '\n';
         for (int i = 0; i <= finest_level; ++i) {
@@ -701,25 +712,25 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
         HeaderFile << '\n';
         for (int i = 0; i <= finest_level; ++i) {
             for (int k = 0; k < AMREX_SPACEDIM; ++k) {
-                HeaderFile << geom[i].CellSize()[k] << ' ';
+                HeaderFile << my_geom[i].CellSize()[k] << ' ';
             }
             HeaderFile << '\n';
         }
-        HeaderFile << (int) geom[0].Coord() << '\n';
+        HeaderFile << (int) my_geom[0].Coord() << '\n';
         HeaderFile << "0\n";
 
         for (int level = 0; level <= finest_level; ++level) {
             HeaderFile << level << ' ' << bArray[level].size() << ' ' << time << '\n';
             HeaderFile << level_steps[level] << '\n';
 
-            const IntVect& domain_lo = geom[level].Domain().smallEnd();
+            const IntVect& domain_lo = my_geom[level].Domain().smallEnd();
             for (int i = 0; i < bArray[level].size(); ++i)
             {
                 // Need to shift because the RealBox ctor we call takes the
                 // physical location of index (0,0,0).  This does not affect
                 // the usual cases where the domain index starts with 0.
                 const Box& b = shift(bArray[level][i], -domain_lo);
-                RealBox loc = RealBox(b, geom[level].CellSize(), geom[level].ProbLo());
+                RealBox loc = RealBox(b, my_geom[level].CellSize(), my_geom[level].ProbLo());
                 for (int n = 0; n < AMREX_SPACEDIM; ++n) {
                     HeaderFile << loc.lo(n) << ' ' << loc.hi(n) << '\n';
                 }
