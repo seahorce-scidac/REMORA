@@ -211,7 +211,7 @@ REMORA::WritePlotFile ()
         containerHasElement(plot_var_names, "vorticity") ) {
 
         for (int lev = 0; lev <= finest_level; ++lev) {
-            // NOTE/TODO: Vorticity looks better doing this with 1 grow cell (IntVect(1,1,1)) as last arugment and
+            // NOTE/TODO: Vorticity looks better doing this with 1 grow cell (IntVect(1,1,1)) as last argument and
             // 1 as last argument to average_face_to_cellcenter. However, vels don't have grow cells in the z-
             // direction so this causes an out of bounds. This is presumably fixable.
             mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(0,0,0));
