@@ -188,8 +188,10 @@ public:
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_v,
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_w,
                                                 const amrex::Vector<std::string> &varnames,
+                                                const amrex::Vector<amrex::Geometry>& my_geom,
                                                 amrex::Real time,
                                                 const amrex::Vector<int> &level_steps,
+                                                const amrex::Vector<amrex::IntVect>& rr,
                                                 const std::string &versionName = "HyperCLaw-V1.1",
                                                 const std::string &levelPrefix = "Level_",
                                                 const std::string &mfPrefix = "Cell",
@@ -201,8 +203,10 @@ public:
                                                    int nlevels,
                                                    const amrex::Vector<amrex::BoxArray> &bArray,
                                                    const amrex::Vector<std::string> &varnames,
+                                                   const amrex::Vector<amrex::Geometry>& my_geom,
                                                    amrex::Real time,
                                                    const amrex::Vector<int> &level_steps,
+                                                   const amrex::Vector<amrex::IntVect>& rr,
                                                    const std::string &versionName,
                                                    const std::string &levelPrefix,
                                                    const std::string &mfPrefix) const;
@@ -1277,6 +1281,9 @@ private:
 
     /** \brief Container for algorithmic choices */
     static SolverChoice solverChoice;
+
+    /** \brief whether plotfile variables should be expanded to a uniform refinement ratio */
+    bool expand_plotvars_to_unif_rr = false;
 
 #ifdef REMORA_USE_PARTICLES
     /** \brief Particle container with all particle species */

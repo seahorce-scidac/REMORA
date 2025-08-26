@@ -40,6 +40,7 @@ remora.plot_file     = plt_ml        # prefix of plotfile name
 remora.plot_int      = 10            # number of timesteps between plotfiles
 remora.plot_vars     = salt temp x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
+remora.expand_plotvars_to_unif_rr = 1
 
 # SOLVER CHOICE
 remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4

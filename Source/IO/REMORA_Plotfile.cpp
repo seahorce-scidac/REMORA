@@ -211,10 +211,13 @@ REMORA::WritePlotFile ()
         containerHasElement(plot_var_names, "vorticity") ) {
 
         for (int lev = 0; lev <= finest_level; ++lev) {
-            mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(1,1,0));
+            // NOTE/TODO: Vorticity looks better doing this with 1 grow cell (IntVect(1,1,1)) as last argument and
+            // 1 as last argument to average_face_to_cellcenter. However, vels don't have grow cells in the z-
+            // direction so this causes an out of bounds. This is presumably fixable.
+            mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(0,0,0));
             mf_cc_vel[lev].setVal(0.0_rt); // zero out velocity in case we have any wall boundaries
             average_face_to_cellcenter(mf_cc_vel[lev],0,
-                                       Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]});
+                                       Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]},0);
             mf_cc_vel[lev].FillBoundary(geom[lev].periodicity());
         } // lev
 
@@ -228,10 +231,10 @@ REMORA::WritePlotFile ()
                 Vector<Real> ctime    = {t_new[lev], t_new[lev]};
 
                 MultiFab mf_to_fill;
-                amrex::FillPatchTwoLevels(mf_cc_vel[lev], t_new[lev], cmf, ctime, fmf, ftime,
-                                          0, 0, AMREX_SPACEDIM, geom[lev-1], geom[lev],
-                                          null_bc_for_fill, 0, null_bc_for_fill, 0, refRatio(lev-1),
-                                          mapper, domain_bcs_type, 0);
+                amrex::FillPatchTwoLevels(mf_cc_vel[lev], mf_cc_vel[lev].nGrowVect(), IntVect(0,0,0),
+                                          t_new[lev], cmf, ctime, fmf, ftime,
+                                          0, 0, mf_cc_vel[lev].nComp(), geom[lev-1], geom[lev],
+                                          refRatio(lev-1), mapper, domain_bcs_type, BCVars::foextrap_bc);
             } // lev
         } // if
     } // if
@@ -392,7 +395,8 @@ REMORA::WritePlotFile ()
                                                   GetVecOfConstPtrs(mf_v),
                                                   GetVecOfConstPtrs(mf_w),
                                                   varnames,
-                                                  t_new[0], istep);
+                                                  Geom(),
+                                                  t_new[0], istep, refRatio());
             writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
@@ -412,73 +416,104 @@ REMORA::WritePlotFile ()
         }
 
     } else { // multilevel
-
-        Vector<IntVect>   r2(finest_level);
-        Vector<Geometry>  g2(finest_level+1);
-        Vector<MultiFab> mf2(finest_level+1);
-
-        mf2[0].define(grids[0], dmap[0], ncomp_mf, 0);
-
-        // Copy level 0 as is
-        MultiFab::Copy(mf2[0],mf[0],0,0,mf[0].nComp(),0);
-
-        // Define a new multi-level array of Geometry's so that we pass the new "domain" at lev > 0
-        Array<int,AMREX_SPACEDIM> periodicity =
-                     {Geom()[0].isPeriodic(0),Geom()[0].isPeriodic(1),Geom()[0].isPeriodic(2)};
-        g2[0].define(Geom()[0].Domain(),&(Geom()[0].ProbDomain()),0,periodicity.data());
-
         if (plotfile_type == PlotfileType::amrex) {
-            r2[0] = IntVect(1,1,ref_ratio[0][0]);
-            for (int lev = 1; lev <= finest_level; ++lev) {
-                if (lev > 1) {
-                    r2[lev-1][0] = 1;
-                    r2[lev-1][1] = 1;
-                    r2[lev-1][2] = r2[lev-2][2] * ref_ratio[lev-1][0];
+            int lev0 = 0;
+            int desired_ratio = std::max(std::max(ref_ratio[lev0][0],ref_ratio[lev0][1]),ref_ratio[lev0][2]);
+            bool any_ratio_one = ( ( (ref_ratio[lev0][0] == 1) || (ref_ratio[lev0][1] == 1) ) ||
+                                     (ref_ratio[lev0][2] == 1) );
+            for (int lev = 1; lev < finest_level; lev++) {
+                any_ratio_one = any_ratio_one ||
+                                     ( ( (ref_ratio[lev][0] == 1) || (ref_ratio[lev][1] == 1) ) ||
+                                         (ref_ratio[lev][2] == 1) );
+            }
+            if (any_ratio_one && expand_plotvars_to_unif_rr) {
+                Vector<IntVect>   r2(finest_level);
+                Vector<Geometry>  g2(finest_level+1);
+                Vector<MultiFab> mf2(finest_level+1);
+
+                mf2[0].define(grids[0], dmap[0], ncomp_mf, 0);
+
+                // Copy level 0 as is
+                MultiFab::Copy(mf2[0],mf[0],0,0,mf[0].nComp(),0);
+
+                // Define a new multi-level array of Geometry's so that we pass the new "domain" at lev > 0
+                Array<int,AMREX_SPACEDIM> periodicity =
+                             {Geom()[0].isPeriodic(0),Geom()[0].isPeriodic(1),Geom()[0].isPeriodic(2)};
+                g2[0].define(Geom()[0].Domain(),&(Geom()[0].ProbDomain()),0,periodicity.data());
+
+                r2[0] = IntVect(1,1,ref_ratio[0][0]);
+                for (int lev = 1; lev <= finest_level; ++lev) {
+                    if (lev > 1) {
+                        r2[lev-1][0] = 1;
+                        r2[lev-1][1] = 1;
+                        r2[lev-1][2] = r2[lev-2][2] * ref_ratio[lev-1][0];
+                    }
+
+                    mf2[lev].define(refine(grids[lev],r2[lev-1]), dmap[lev], ncomp_mf, 0);
+
+                    // Set the new problem domain
+                    Box d2(Geom()[lev].Domain());
+                    d2.refine(r2[lev-1]);
+
+                    g2[lev].define(d2,&(Geom()[lev].ProbDomain()),0,periodicity.data());
                 }
 
-                mf2[lev].define(refine(grids[lev],r2[lev-1]), dmap[lev], ncomp_mf, 0);
-
-                // Set the new problem domain
-                Box d2(Geom()[lev].Domain());
-                d2.refine(r2[lev-1]);
-
-                g2[lev].define(d2,&(Geom()[lev].ProbDomain()),0,periodicity.data());
-            }
-
-            // Make a vector of BCRec with default values so we can use it here -- note the values
-            //      aren't actually used because we do PCInterp
-            amrex::Vector<amrex::BCRec> null_dom_bcs;
-            null_dom_bcs.resize(mf2[0].nComp());
-            for (int n = 0; n < mf2[0].nComp(); n++) {
-                for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
-                    null_dom_bcs[n].setLo(dir, REMORABCType::int_dir);
-                    null_dom_bcs[n].setHi(dir, REMORABCType::int_dir);
+                // Make a vector of BCRec with default values so we can use it here -- note the values
+                //      aren't actually used because we do PCInterp
+                amrex::Vector<amrex::BCRec> null_dom_bcs;
+                null_dom_bcs.resize(mf2[0].nComp());
+                for (int n = 0; n < mf2[0].nComp(); n++) {
+                    for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
+                        null_dom_bcs[n].setLo(dir, REMORABCType::int_dir);
+                        null_dom_bcs[n].setHi(dir, REMORABCType::int_dir);
+                    }
                 }
-            }
 
-            // Do piecewise interpolation of mf into mf2
-            for (int lev = 1; lev <= finest_level; ++lev) {
-                Interpolater* mapper_c = &pc_interp;
-                InterpFromCoarseLevel(mf2[lev], t_new[lev], mf[lev],
-                                      0, 0, mf2[lev].nComp(),
-                                      geom[lev], g2[lev],
-                                      null_bc_for_fill, 0, null_bc_for_fill, 0,
-                                      r2[lev-1], mapper_c, null_dom_bcs, 0);
-            }
+                // Do piecewise interpolation of mf into mf2
+                for (int lev = 1; lev <= finest_level; ++lev) {
+                    Interpolater* mapper_c = &pc_interp;
+                    InterpFromCoarseLevel(mf2[lev], t_new[lev], mf[lev],
+                                          0, 0, mf2[lev].nComp(),
+                                          geom[lev], g2[lev],
+                                          null_bc_for_fill, 0, null_bc_for_fill, 0,
+                                          r2[lev-1], mapper_c, null_dom_bcs, 0);
+                }
 
-            // Define an effective ref_ratio which is isotropic to be passed into WriteMultiLevelPlotfile
-            Vector<IntVect> rr(finest_level);
-            for (int lev = 0; lev < finest_level; ++lev) {
-                rr[lev] = IntVect(ref_ratio[lev][0],ref_ratio[lev][1],ref_ratio[lev][0]);
-            }
+                // Define an effective ref_ratio which is isotropic to be passed into WriteMultiLevelPlotfile
+                Vector<IntVect> rr(finest_level);
+                for (int lev = 0; lev < finest_level; ++lev) {
+                    rr[lev] = IntVect(ref_ratio[lev][0],ref_ratio[lev][1],ref_ratio[lev][0]);
+                }
 
-            WriteMultiLevelPlotfile(plotfilename, finest_level+1, GetVecOfConstPtrs(mf2), varnames,
-                                    g2, t_new[0], istep, rr);
-            writeJobInfo(plotfilename);
+                WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
+                                                      GetVecOfConstPtrs(mf2),
+                                                      GetVecOfConstPtrs(mf_nd),
+                                                      GetVecOfConstPtrs(mf_u),
+                                                      GetVecOfConstPtrs(mf_v),
+                                                      GetVecOfConstPtrs(mf_w),
+                                                      varnames,
+                                                      g2,
+                                                      t_new[0], istep, rr);
+                writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
-            particleData.Checkpoint(plotfilename);
+                particleData.Checkpoint(plotfilename);
 #endif
+            } else {
+                WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
+                                                      GetVecOfConstPtrs(mf),
+                                                      GetVecOfConstPtrs(mf_nd),
+                                                      GetVecOfConstPtrs(mf_u),
+                                                      GetVecOfConstPtrs(mf_v),
+                                                      GetVecOfConstPtrs(mf_w),
+                                                      varnames,
+                                                      Geom(),
+                                                      t_new[0], istep, ref_ratio);
+                writeJobInfo(plotfilename);
+#ifdef REMORA_USE_PARTICLES
+                particleData.Checkpoint(plotfilename);
+#endif
+            }
         }
     } // end multi-level
     for (int lev = 0; lev <= finest_level; ++lev) {
@@ -492,8 +527,10 @@ REMORA::WritePlotFile ()
  * @param mf              MultiFab of data to write out
  * @param mf_nd           Multifab of nodal data to write out
  * @param varnames        variable names to write out
+ * @param my_geom         geometry to use for writing plotfile
  * @param time            time at which to output
  * @param level_steps     vector over level of iterations
+ * @param rr              refinement ratio to use for writing plotfile
  * @param versionName     version string for VisIt
  * @param levelPrefix     string to prepend to level number
  * @param mfPrefix        subdirectory for multifab data
@@ -507,8 +544,10 @@ REMORA::WritePlotFile ()
                                                const Vector<const MultiFab*>& mf_v,
                                                const Vector<const MultiFab*>& mf_w,
                                                const Vector<std::string>& varnames,
+                                               const Vector<Geometry>& my_geom,
                                                Real time,
                                                const Vector<int>& level_steps,
+                                               const Vector<IntVect>& rr,
                                                const std::string &versionName,
                                                const std::string &levelPrefix,
                                                const std::string &mfPrefix,
@@ -547,7 +586,7 @@ REMORA::WritePlotFile ()
                                                     std::ofstream::binary);
             if( ! HeaderFile.good()) FileOpenFailed(HeaderFileName);
             WriteGenericPlotfileHeaderWithBathymetry(HeaderFile, nlevels, boxArrays, varnames,
-                                                     time, level_steps, versionName,
+                                                     my_geom, time, level_steps, rr, versionName,
                                                      levelPrefix, mfPrefix);
         };
 
@@ -559,9 +598,9 @@ REMORA::WritePlotFile ()
     }
 
     std::string mf_nodal_prefix = "Nu_nd";
-    std::string mf_uface_prefix = "UonXFace";
-    std::string mf_vface_prefix = "VonYFace";
-    std::string mf_wface_prefix = "WonZFace";
+    std::string mf_uface_prefix = "UFace";
+    std::string mf_vface_prefix = "VFace";
+    std::string mf_wface_prefix = "WFace";
 
     for (int level = 0; level <= finest_level; ++level)
     {
@@ -611,8 +650,10 @@ REMORA::WritePlotFile ()
  * @param nlevels         number of levels to write out
  * @param bArray          vector over levels of BoxArrays
  * @param varnames        variable names to write out
+ * @param my_geom         geometry to use for writing plotfile
  * @param time            time at which to output
  * @param level_steps     vector over level of iterations
+ * @param my_ref_ratio    refinement ratio to use for writing plotfile
  * @param versionName     version string for VisIt
  * @param levelPrefix     string to prepend to level number
  * @param mfPrefix        subdirectory for multifab data
@@ -622,8 +663,10 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                  int nlevels,
                                                  const Vector<BoxArray> &bArray,
                                                  const Vector<std::string> &varnames,
+                                                 const Vector<Geometry>& my_geom,
                                                  Real time,
                                                  const Vector<int> &level_steps,
+                                                 const Vector<IntVect>& my_ref_ratio,
                                                  const std::string &versionName,
                                                  const std::string &levelPrefix,
                                                  const std::string &mfPrefix) const
@@ -631,6 +674,11 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
         BL_ASSERT(nlevels <= bArray.size());
         BL_ASSERT(nlevels <= ref_ratio.size()+1);
         BL_ASSERT(nlevels <= level_steps.size());
+
+        int num_extra_mfs = 1; // for nodal, which is always on
+        if (plot_staggered_vels) {
+            num_extra_mfs += 3; // for nodal, which is always on
+        }
 
         HeaderFile.precision(17);
 
@@ -646,19 +694,19 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
         HeaderFile << time << '\n';
         HeaderFile << finest_level << '\n';
         for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-            HeaderFile << geom[0].ProbLo(i) << ' ';
+            HeaderFile << my_geom[0].ProbLo(i) << ' ';
         }
         HeaderFile << '\n';
         for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-            HeaderFile << geom[0].ProbHi(i) << ' ';
+            HeaderFile << my_geom[0].ProbHi(i) << ' ';
         }
         HeaderFile << '\n';
         for (int i = 0; i < finest_level; ++i) {
-            HeaderFile << ref_ratio[i][0] << ' ';
+            HeaderFile << my_ref_ratio[i][0] << ' ';
         }
         HeaderFile << '\n';
         for (int i = 0; i <= finest_level; ++i) {
-            HeaderFile << geom[i].Domain() << ' ';
+            HeaderFile << my_geom[i].Domain() << ' ';
         }
         HeaderFile << '\n';
         for (int i = 0; i <= finest_level; ++i) {
@@ -667,25 +715,25 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
         HeaderFile << '\n';
         for (int i = 0; i <= finest_level; ++i) {
             for (int k = 0; k < AMREX_SPACEDIM; ++k) {
-                HeaderFile << geom[i].CellSize()[k] << ' ';
+                HeaderFile << my_geom[i].CellSize()[k] << ' ';
             }
             HeaderFile << '\n';
         }
-        HeaderFile << (int) geom[0].Coord() << '\n';
+        HeaderFile << (int) my_geom[0].Coord() << '\n';
         HeaderFile << "0\n";
 
         for (int level = 0; level <= finest_level; ++level) {
             HeaderFile << level << ' ' << bArray[level].size() << ' ' << time << '\n';
             HeaderFile << level_steps[level] << '\n';
 
-            const IntVect& domain_lo = geom[level].Domain().smallEnd();
+            const IntVect& domain_lo = my_geom[level].Domain().smallEnd();
             for (int i = 0; i < bArray[level].size(); ++i)
             {
                 // Need to shift because the RealBox ctor we call takes the
                 // physical location of index (0,0,0).  This does not affect
                 // the usual cases where the domain index starts with 0.
                 const Box& b = shift(bArray[level][i], -domain_lo);
-                RealBox loc = RealBox(b, geom[level].CellSize(), geom[level].ProbLo());
+                RealBox loc = RealBox(b, my_geom[level].CellSize(), my_geom[level].ProbLo());
                 for (int n = 0; n < AMREX_SPACEDIM; ++n) {
                     HeaderFile << loc.lo(n) << ' ' << loc.hi(n) << '\n';
                 }
@@ -693,7 +741,7 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
 
             HeaderFile << MultiFabHeaderPath(level, levelPrefix, mfPrefix) << '\n';
         }
-        HeaderFile << "1" << "\n";
+        HeaderFile << num_extra_mfs << "\n";
         HeaderFile << "3" << "\n";
         HeaderFile << "amrexvec_nu_x" << "\n";
         HeaderFile << "amrexvec_nu_y" << "\n";
@@ -701,6 +749,26 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
         std::string mf_nodal_prefix = "Nu_nd";
         for (int level = 0; level <= finest_level; ++level) {
             HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_nodal_prefix) << '\n';
+        }
+        if (plot_staggered_vels) {
+            HeaderFile << "1" << "\n"; // number of components in the multifab
+            HeaderFile << "u_vel" << "\n";
+            std::string mf_uface_prefix = "UFace";
+            for (int level = 0; level <= finest_level; ++level) {
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_uface_prefix) << '\n';
+            }
+            HeaderFile << "1" << "\n";
+            HeaderFile << "v_vel" << "\n";
+            std::string mf_vface_prefix = "VFace";
+            for (int level = 0; level <= finest_level; ++level) {
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_vface_prefix) << '\n';
+            }
+            HeaderFile << "1" << "\n";
+            HeaderFile << "w_vel" << "\n";
+            std::string mf_wface_prefix = "WFace";
+            for (int level = 0; level <= finest_level; ++level) {
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_wface_prefix) << '\n';
+            }
         }
 }
 

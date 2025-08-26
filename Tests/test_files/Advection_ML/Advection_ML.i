@@ -36,6 +36,7 @@ remora.plot_file     = plt        # prefix of plotfile name
 remora.plot_int      = 100          # number of timesteps between plotfiles
 remora.plot_vars     = salt temp scalar x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
+remora.expand_plotvars_to_unif_rr = 1
 
 # SOLVER CHOICE
 remora.use_coriolis = false
