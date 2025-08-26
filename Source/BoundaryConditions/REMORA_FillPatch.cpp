@@ -99,16 +99,16 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
     }
     else if (mf_box.ixType() == IndexType(IntVect(1,0,0)))
     {
-        mapper = &face_linear_interp;
+        mapper = &face_cons_linear_interp;
         mask   = vec_msku[lev].get();
     }
     else if (mf_box.ixType() == IndexType(IntVect(0,1,0)))
     {
-        mapper = &face_linear_interp;
+        mapper = &face_cons_linear_interp;
         mask   = vec_mskv[lev].get();
     }
     else {
-        mapper = &face_linear_interp;
+        mapper = &face_cons_linear_interp;
         mask   = vec_mskr[lev].get();
     }
 
@@ -262,16 +262,16 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
     else if (mf_box.ixType() == IndexType(IntVect(1,0,0)))
     {
         bccomp = BCVars::xvel_bc;
-        mapper = &face_linear_interp;
+        mapper = &face_cons_linear_interp;
     }
     else if (mf_box.ixType() == IndexType(IntVect(0,1,0)))
     {
         bccomp = BCVars::yvel_bc;
-        mapper = &face_linear_interp;
+        mapper = &face_cons_linear_interp;
     }
     else {
         bccomp = BCVars::zvel_bc;
-        mapper = &face_linear_interp;
+        mapper = &face_cons_linear_interp;
     }
 
     if (lev == 0)
@@ -503,15 +503,15 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
         }
         else if (box_mf.ixType() == IndexType(IntVect(1,0,0)))
         {
-            mapper = &face_linear_interp;
+            mapper = &face_cons_linear_interp;
         }
         else if (box_mf.ixType() == IndexType(IntVect(0,1,0)))
         {
-            mapper = &face_linear_interp;
+            mapper = &face_cons_linear_interp;
         }
         else if (box_mf.ixType() == IndexType(IntVect(0,0,1)))
         {
-            mapper = &face_linear_interp;
+            mapper = &face_cons_linear_interp;
         } else {
               amrex::Abort("Dont recognize this box type in REMORA_FillPatch");
         }
