@@ -6,12 +6,12 @@ inputs file: DogboneAnalytic_MLquad.i
 number of MPI processes: 1
 number of threads:       1
 
-CPU time used since start of simulation (CPU-hours): 0.000104763
+CPU time used since start of simulation (CPU-hours): 8.76423e-05
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Wed Aug 20 14:52:22 2025
+output data / time: Fri Aug 29 13:04:01 2025
 output dir:         /home/klion/software/REMORA_clean/Exec/DogboneAnalytic
 
 
@@ -129,6 +129,7 @@ remora.bc.ylo.type = slipwall
 remora.bottom_stress_type = quadratic
 remora.check_file = chk
 remora.coupling_type = TwoWay
+remora.expand_plotvars_to_unif_rr = 1
 remora.fixed_dt = 2.0
 remora.fixed_ndtfast_ratio = 20
 remora.flat_bathymetry = false
@@ -148,7 +149,6 @@ remora.mask_type = analytic
 remora.max_step = 10
 remora.n_cell = 42 15 16
 remora.plot_file = plt_ml_quad
-remora.plot_file = mlquad
 remora.plot_int = 10
 remora.plot_vars = salt temp x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
