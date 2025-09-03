@@ -46,6 +46,9 @@ REMORA::timeStep (int lev, Real time, int iteration)
             }
         }
     }
+
+    scale_rhs_vars();
+
     // Update what we call "old" and "new" time
     t_old[lev] = t_new[lev];
     t_new[lev] += dt[lev];
@@ -66,6 +69,8 @@ REMORA::timeStep (int lev, Real time, int iteration)
     Advance(lev, time, dt[lev], iteration, nsubsteps[lev]);
 
     ++istep[lev];
+
+    scale_rhs_vars_inv();
 
     if (Verbose())
     {
