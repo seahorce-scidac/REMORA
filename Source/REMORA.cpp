@@ -1111,9 +1111,29 @@ REMORA::ReadParameters ()
         pp.query("nc_clim_his_file", nc_clim_his_file);
         pp.query("nc_clim_coeff_file", nc_clim_coeff_file);
 
+        for (int i=0; i<BdyVars::NumTypes; i++) {
+            bdry_time_name_byvar.push_back("");
+        }
         pp.query("bdy_time_varname",bdry_time_varname);
+        pp.query("bdy_temp_time_varname",bdry_time_name_byvar[BdyVars::t]);
+        pp.query("bdy_salt_time_varname",bdry_time_name_byvar[BdyVars::s]);
+        pp.query("bdy_u_time_varname",bdry_time_name_byvar[BdyVars::u]);
+        pp.query("bdy_v_time_varname",bdry_time_name_byvar[BdyVars::v]);
+        pp.query("bdy_ubar_time_varname",bdry_time_name_byvar[BdyVars::ubar]);
+        pp.query("bdy_vbar_time_varname",bdry_time_name_byvar[BdyVars::vbar]);
+        pp.query("bdy_zeta_time_varname",bdry_time_name_byvar[BdyVars::zeta]);
+
+        // If not specified per variable, populate with the default
+        for (int i=0; i<BdyVars::NumTypes; i++) {
+            if (bdry_time_name_byvar[i] == "") {
+                bdry_time_name_byvar[i] = bdry_time_varname;
+            }
+        }
+
         pp.query("frc_time_varname",frc_time_varname);
+
         pp.query("riv_time_varname",riv_time_varname);
+
         pp.query("clim_ubar_time_varname",clim_ubar_time_varname);
         pp.query("clim_vbar_time_varname",clim_vbar_time_varname);
         pp.query("clim_u_time_varname",clim_u_time_varname);
