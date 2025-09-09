@@ -58,7 +58,7 @@ jobs:
           -DCMAKE_C_COMPILER=$(which icx) \
           -DCMAKE_CXX_COMPILER=$(which icpx) \
           -DCMAKE_CXX_STANDARD=17
-        make -j 2
+        make -j 2 2>&1 | tee -a ${{runner.workspace}}/build-output.txt;
 
         ccache -s
         du -hs ~/.cache/ccache

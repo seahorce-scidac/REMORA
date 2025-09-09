@@ -86,7 +86,7 @@ jobs:
 
         pushd ${{runner.workspace}}/REMORA/build-${{matrix.os}};
         # make -j ${{env.NPROCS}};
-        make -j 2;
+        make -j 2 2>&1 | tee -a ${{runner.workspace}}/build-${{matrix.os}}-output.txt;
 
         ccache -s
         du -hs ~/.cache/ccache

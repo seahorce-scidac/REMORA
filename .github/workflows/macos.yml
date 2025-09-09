@@ -50,7 +50,7 @@ jobs:
         export CCACHE_SLOPPINESS=time_macros
         ccache -z
 
-        cmake --build ${{runner.workspace}}/REMORA/build --parallel 2 --verbose
+        cmake --build ${{runner.workspace}}/REMORA/build --parallel 2 --verbose 2>&1 | tee -a ${{runner.workspace}}/build-output.txt;
 
         du -hs ~/Library/Caches/ccache
         ccache -s
