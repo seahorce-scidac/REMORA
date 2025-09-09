@@ -29,9 +29,9 @@ Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
  * \brief Initializes bathymetry h and surface height Zeta
  */
 void Problem::init_analytic_bathymetry (
-        int lev, const amrex::Geometry& geom,
-        SolverChoice const& m_solverChoice,
-        REMORA const& remora,
+        int /*lev*/, const amrex::Geometry& geom,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
         amrex::MultiFab& mf_h)
 {
     const auto & geomdata = geom.data();
@@ -66,10 +66,10 @@ void Problem::init_analytic_zeta (
 }
 
 void Problem::init_analytic_prob(
-        int lev,
+        int /*lev*/,
         const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
-        REMORA const& remora,
+        REMORA const& /*remora*/,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
         amrex::MultiFab& mf_yvel,

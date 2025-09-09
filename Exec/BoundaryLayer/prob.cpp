@@ -64,8 +64,8 @@ void Problem::init_analytic_bathymetry (
 
 void Problem::init_analytic_grid_scale (
         int /*lev*/, const amrex::Geometry& geom,
-        SolverChoice const& m_solverChoice,
-        REMORA const& remora,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
         amrex::MultiFab& mf_pm, amrex::MultiFab& mf_pn)
 {
     auto geomdata = geom.data();

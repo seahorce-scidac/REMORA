@@ -118,10 +118,10 @@ void Problem::init_analytic_prob(
 }
 
 void Problem::init_analytic_vmix(
-        int lev,
+        int /*lev*/,
         const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
-        REMORA const& remora,
+        REMORA const& /*remora*/,
         MultiFab& mf_Akv, MultiFab& mf_Akt)
 {
     for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -202,7 +202,7 @@ void Problem::init_analytic_smflux(
         const Box& xbx2 = mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0));
 
         Array4<Real> const& sustr = mf_sustr.array(mfi);
-        ParallelFor(xbx2, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(xbx2, [=] AMREX_GPU_DEVICE(int i, int j, int /*k*/) noexcept
         {
             // Create bounding box for x and y to make spatially-dependent T and S
             const auto prob_lo         = geomdata.ProbLo();

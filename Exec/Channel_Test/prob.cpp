@@ -20,9 +20,9 @@ amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
  * \brief Initializes bathymetry h and surface height Zeta
  */
 void Problem::init_analytic_bathymetry (
-        int lev, const amrex::Geometry& geom,
+        int /*lev*/, const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
-        REMORA const& remora,
+        REMORA const& /*remora*/,
         amrex::MultiFab& mf_h)
 {
     auto geomdata = geom.data();
@@ -47,7 +47,7 @@ void Problem::init_analytic_bathymetry (
 
         Gpu::streamSynchronize();
 
-        ParallelForRNG(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int , auto engine)
+        ParallelForRNG(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int , auto /*engine*/)
         {
             h(i,j,0) = 50.0_rt;
         });
