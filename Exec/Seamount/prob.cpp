@@ -136,7 +136,7 @@ void Problem::init_analytic_prob(
         // Construct a box that is on x-faces
         const Box& xbx = surroundingNodes(bx,0);
         // Set the x-velocity
-        ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
               // Set the x-velocity
               x_vel(i, j, k) = 0.0;
@@ -146,7 +146,7 @@ void Problem::init_analytic_prob(
         const Box& ybx = surroundingNodes(bx,1);
 
         // Set the y-velocity
-        ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
               y_vel(i, j, k) = 0.0;
         });
@@ -155,7 +155,7 @@ void Problem::init_analytic_prob(
         const Box& zbx = surroundingNodes(bx,2);
 
         // Set the z-velocity
-        ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
             z_vel(i, j, k) = 0.0;
         });
