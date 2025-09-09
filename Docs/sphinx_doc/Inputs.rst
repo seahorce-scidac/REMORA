@@ -209,70 +209,82 @@ refinement, they use the prefix ``amr``.
 List of Parameters
 ------------------
 
-+----------------------------+-----------------+----------------+----------------+
-| Parameter                  | Definition      | Acceptable     | Default        |
-|                            |                 | Values         |                |
-+============================+=================+================+================+
-| **amr.max_level**          | number of       | Integer >= 0   | must be set    |
-|                            | levels of       |                |                |
-|                            | refinement      |                |                |
-|                            | above the       |                |                |
-|                            | coarsest level  |                |                |
-+----------------------------+-----------------+----------------+----------------+
-| **amr.ref_ratio**          | ratio of coarse | 2 / 3 / 4      | 2 for all      |
-|                            | to fine grid    | (one per level)| levels         |
-|                            | spacing between |                |                |
-|                            | subsequent      |                |                |
-|                            | levels          |                |                |
-+----------------------------+-----------------+----------------+----------------+
-| **amr.ref_ratio_vect**     | ratio of coarse | 3 integers     | 2 for all      |
-|                            | to fine grid    | (one per dir)  | directions     |
-|                            | spacing between | 2 / 3 / 4      |                |
-|                            | subsequent      |                |                |
-|                            | levels          |                |                |
-+----------------------------+-----------------+----------------+----------------+
-| **amr.regrid_int**         | how often to    | Integer > 0    | must be set    |
-|                            | regrid          |                |                |
-+----------------------------+-----------------+----------------+----------------+
-| **amr.regrid_on_restart**  | should we       | 0 or 1         | 0              |
-|                            | regrid          |                |                |
-|                            | immediately     |                |                |
-|                            | after           |                |                |
-|                            | restarting      |                |                |
-+----------------------------+-----------------+----------------+----------------+
-| **amr.regrid_file**        | name of file    | text           | no file        |
-|                            | from which to   |                |                |
-|                            | read the grids  |                |                |
-+----------------------------+-----------------+----------------+----------------+
-| **amr.grid_eff**           | grid            | Real > 0, < 1  | 0.7            |
-|                            | efficiency at   |                |                |
-|                            | coarse level    |                |                |
-|                            | at which grids  |                |                |
-|                            | are created     |                |                |
-+----------------------------+-----------------+----------------+----------------+
-| **amr.n_error_buf**        | radius of       | Integer >= 0   | 1              |
-|                            | additional      |                |                |
-|                            | tagging around  |                |                |
-|                            | already tagged  |                |                |
-|                            | cells           |                |                |
-+----------------------------+-----------------+----------------+----------------+
-| **amr.blocking_factor**    | grid size must  | Integer > 0    | 2              |
-|                            | be a multiple   |                |                |
-|                            | of this         |                |                |
-+----------------------------+-----------------+----------------+----------------+
-| **amr.refine_grid_layout** | refine grids    | 0 if false, 1  | 1              |
-|                            | more if # of    | if true        |                |
-|                            | processors      |                |                |
-|                            | :math:`>` # of  |                |                |
-|                            | grids           |                |                |
-+----------------------------+-----------------+----------------+----------------+
-| **amr.do_substep**         | whether to sub- | 0 if false, 1  | 0              |
-|                            | step finer      | if true        |                |
-|                            | levels in time  |                |                |
-|                            |                 | NOTE: true     |                |
-|                            |                 | will trigger   |                |
-|                            |                 | Assert failure |                |
-+----------------------------+-----------------+----------------+----------------+
++----------------------------------+------------------+--------------------+----------------+
+| Parameter                        | Definition       | Acceptable         | Default        |
+|                                  |                  | Values             |                |
++==================================+==================+====================+================+
+| **amr.max_level**                | number of        | Integer >= 0       | must be set    |
+|                                  | levels of        |                    |                |
+|                                  | refinement       |                    |                |
+|                                  | above the        |                    |                |
+|                                  | coarsest level   |                    |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.ref_ratio_vect**           | ratio of coarse  | 3 integers         | 2 for all      |
+|                                  | to fine grid     | (one per dir)      | directions     |
+|                                  | spacing between  | per refinement     |                |
+|                                  | subsequent       | level. Refinement  |                |
+|                                  | levels           | ratios in z must   |                |
+|                                  |                  | be 1               |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.regrid_int**               | how often to     | Integer > 0        | must be set    |
+|                                  | regrid in        |                    |                |
+|                                  | iterations       |                    |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.regrid_on_restart**        | should we        | 0 or 1             | 0              |
+|                                  | regrid           |                    |                |
+|                                  | immediately      |                    |                |
+|                                  | after            |                    |                |
+|                                  | restarting       |                    |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.regrid_file**              | name of file     | text               | no file        |
+|                                  | from which to    |                    |                |
+|                                  | read the grids   |                    |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.grid_eff**                 | grid             | Real > 0, < 1      | 0.7            |
+|                                  | efficiency at    |                    |                |
+|                                  | coarse level     |                    |                |
+|                                  | at which grids   |                    |                |
+|                                  | are created      |                    |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.n_error_buf**              | radius of        | Integer >= 0;      | 1              |
+|                                  | additional       | Can specify up     |                |
+|                                  | tagging around   | to one per         |                |
+|                                  | already tagged   | ref. level         |                |
+|                                  | cells            |                    |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.n_error_buf_{x,y,z}**      | radius of        | Integer >= 0;      | 1              |
+|                                  | additional       | Can specify up     |                |
+|                                  | tagging around   | to one per         |                |
+|                                  | already tagged   | ref. level         |                |
+|                                  | cells in x, y,   |                    |                |
+|                                  | or z             |                    |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.blocking_factor**          | grid size must   | Integer > 0;       | 1              |
+|                                  | be a multiple    | Can specify up to  |                |
+|                                  | of this          | one per ref. level |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.blocking_factor_{x,y}**    | grid size in     | Integer > 0;       | 1              |
+|                                  | {x,y} must be    | Can specify up to  |                |
+|                                  | multiple of this | one per ref. level |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.blocking_factor_z**        | grid size in     | Integer > 0;       | 1              |
+|                                  | z must be        | In AMR problems,   |                |
+|                                  | multiple of this | recommend it equal |                |
+|                                  | multiple of this | ``n_cell`` in z    |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.refine_grid_layout**       | refine grids     | 0 if false, 1      | 1              |
+|                                  | more if # of     | if true            |                |
+|                                  | processors       |                    |                |
+|                                  | :math:`>` # of   |                    |                |
+|                                  | grids            |                    |                |
++----------------------------------+------------------+--------------------+----------------+
+| **amr.do_substep**               | whether to sub-  | 0 if false, 1      | 0              |
+|                                  | step finer       | if true            |                |
+|                                  | levels in time   |                    |                |
+|                                  |                  | NOTE: true         |                |
+|                                  |                  | will trigger       |                |
+|                                  |                  | Assert failure     |                |
++----------------------------------+------------------+--------------------+----------------+
 
 .. _notes-2:
 
@@ -280,7 +292,7 @@ Notes
 -----
 
 -  if **amr.max_level** = 0 then you do not need to set
-   **amr.ref_ratio** or **amr.regrid_int**.
+   **amr.ref_ratio_vect** or **amr.regrid_int**.
 
 -  **amr.n_error_buf**, **remora.max_grid_size** and
    **amr.blocking_factor** can be read in as a single value which is
@@ -311,14 +323,15 @@ Examples of Usage
      :math:`\leq` **amr.max_level**, but can change in time and need not
      always be equal to **amr.max_level**.
 
--  | **amr.ref_ratio** = 2 3
+-  | **amr.ref_ratio** = 2 6
    | would set factor 2 refinement between levels 0 and 1, and factor 3
-     refinement between levels 1 and 2. Note that you must have at least
-     **amr.max_level** values of **amr.ref_ratio** (Additional values
+     refinement between levels 1 and 2 (6 between levels 0 and 2). Note
+     that you must have at least **amr.max_level** values of
+     **amr.ref_ratio** (Additional values
      may appear in that line and they will be ignored).
 
--  | **amr.ref_ratio_vect** = 2 4 3
-   | would set factor {2 in x-dir, 4 in y-dir, 3 in z-dir} refinement between
+-  | **amr.ref_ratio_vect** = 2 4 1
+   | would set factor {2 in x-dir, 4 in y-dir, 1 in z-dir} refinement between
      all adjacent levels.    Note that you must specify 3 values, one for
      each coordinate direction.
 
