@@ -35,14 +35,14 @@ void Problem::init_analytic_bathymetry (
 
     mf_h.setVal(geomdata.ProbHi(2));
 
-    const int Lm = geomdata.Domain().size()[0];
-    const int Mm = geomdata.Domain().size()[1];
+    [[maybe_unused]] const int Lm = geomdata.Domain().size()[0];
+    [[maybe_unused]] const int Mm = geomdata.Domain().size()[1];
 
     for ( MFIter mfi(mf_h, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
       Array4<Real> const& h  = (mf_h).array(mfi);
       Array4<const Real> const& xr  = remora.vec_xr[lev]->array(mfi);
-      Array4<const Real> const& yr  = remora.vec_yr[lev]->array(mfi);
+      [[maybe_unused]] Array4<const Real> const& yr  = remora.vec_yr[lev]->array(mfi);
 
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
@@ -114,7 +114,7 @@ void Problem::init_analytic_prob(
         amrex::MultiFab& mf_yvel,
         amrex::MultiFab& mf_zvel)
 {
-    bool l_use_salt = m_solverChoice.use_salt;
+    [[maybe_unused]] bool l_use_salt = m_solverChoice.use_salt;
     auto T0 = m_solverChoice.T0;
     auto S0 = m_solverChoice.S0;
 
@@ -122,8 +122,8 @@ void Problem::init_analytic_prob(
 
     const int khi = geomdata.Domain().bigEnd()[2];
 
-    bool EWPeriodic = geomdata.isPeriodic(0);
-    bool NSPeriodic = geomdata.isPeriodic(1);
+    [[maybe_unused]] bool EWPeriodic = geomdata.isPeriodic(0);
+    [[maybe_unused]] bool NSPeriodic = geomdata.isPeriodic(1);
 
     for (MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {

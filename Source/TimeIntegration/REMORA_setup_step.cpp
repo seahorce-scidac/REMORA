@@ -23,7 +23,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     MultiFab& V_new = *yvel_new[lev];
     MultiFab& W_new = *zvel_new[lev];
 
-    int nvars = S_old.nComp();
+    [[maybe_unused]] int nvars = S_old.nComp();
 
     // Fill ghost cells/faces at old time
     FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t);

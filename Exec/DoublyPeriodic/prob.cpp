@@ -66,7 +66,8 @@ void Problem::init_analytic_bathymetry (
           amrex::ParallelFor(gbx2D,
           [=] AMREX_GPU_DEVICE (int i, int j, int )
           {
-              Real val1, val2;
+              Real val1;
+              [[maybe_unused]] Real val2;
               int iFort = i+1;
               int jFort = j+1;
               if (NSPeriodic) {

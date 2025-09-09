@@ -118,7 +118,7 @@ void Problem::init_analytic_prob(
         } else {
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
             {
-                const Real x = x_r(i,j,0);
+                [[maybe_unused]] const Real x = x_r(i,j,0);
 
                 if (l_use_salt) {
                     state(i, j, k, Salt_comp) = 10.0_rt - 10.0_rt * (x_r(i,j,0) - 8400.0_rt) / 8400.0_rt;

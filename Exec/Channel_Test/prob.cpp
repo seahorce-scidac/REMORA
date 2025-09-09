@@ -82,8 +82,8 @@ void Problem::init_analytic_prob(
     auto geomdata = geom.data();
     const int khi = geomdata.Domain().bigEnd()[2];
 
-    bool EWPeriodic = geomdata.isPeriodic(1);
-    bool NSPeriodic = geomdata.isPeriodic(0);
+    [[maybe_unused]] bool EWPeriodic = geomdata.isPeriodic(1);
+    [[maybe_unused]] bool NSPeriodic = geomdata.isPeriodic(0);
 
     auto T0 = m_solverChoice.T0;
     auto S0 = m_solverChoice.S0;
@@ -109,9 +109,9 @@ void Problem::init_analytic_prob(
 
             // Create bounding box for x and y to make spatially-dependent T and S
             const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
-            const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
+            [[maybe_unused]] const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
 
-            const Real x  = prob_lo[0] + (i + 0.5) * dx[0] - xcent;
+            [[maybe_unused]] const Real x  = prob_lo[0] + (i + 0.5) * dx[0] - xcent;
             const Real y  = prob_lo[1] + (j + 0.5) * dx[1];
 
             state(i,j,k,Temp_comp)=T0 + z / (9.8_rt * 1.7_rt);
@@ -134,8 +134,8 @@ void Problem::init_analytic_prob(
             const auto prob_hi         = geomdata.ProbHi();
             const auto dx              = geomdata.CellSize();
 
-            const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
-            const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
+            [[maybe_unused]] const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
+            [[maybe_unused]] const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
 
             const Real z = z_r(i,j,k);
             // h(i,j,0) = -geomdata.ProbLo(2);
@@ -228,8 +228,8 @@ void Problem::init_analytic_smflux(
         MultiFab& mf_sustr, MultiFab& mf_svstr)
 {
     auto geomdata = geom.data();
-    bool EWPeriodic = geomdata.isPeriodic(0);
-    bool NSPeriodic = geomdata.isPeriodic(1);
+    [[maybe_unused]] bool EWPeriodic = geomdata.isPeriodic(0);
+    [[maybe_unused]] bool NSPeriodic = geomdata.isPeriodic(1);
 
     Real time = remora.get_t_old(lev);
 

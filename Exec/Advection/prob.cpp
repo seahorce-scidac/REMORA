@@ -113,7 +113,7 @@ void Problem::init_analytic_prob(
             const Real rad = 0.1 * (prob_hi[0]-prob_lo[0]);
             const Real radsq = rad*rad;
             const Real rad_inner = 0.05 * (prob_hi[0]-prob_lo[0]);
-            const Real rad_inner_sq = rad_inner*rad_inner;
+            [[maybe_unused]] const Real rad_inner_sq = rad_inner*rad_inner;
 
             if (l_use_salt) {
                 state(i,j,k,Salt_comp)= S0;

@@ -183,8 +183,8 @@ void Problem::init_analytic_smflux(
         MultiFab& mf_sustr, MultiFab& mf_svstr)
 {
     auto geomdata = geom.data();
-    bool EWPeriodic = geomdata.isPeriodic(0);
-    bool NSPeriodic = geomdata.isPeriodic(1);
+    [[maybe_unused]] bool EWPeriodic = geomdata.isPeriodic(0);
+    [[maybe_unused]] bool NSPeriodic = geomdata.isPeriodic(1);
 
     const auto prob_lo         = geomdata.ProbLo();
     const auto prob_hi         = geomdata.ProbHi();
@@ -198,7 +198,7 @@ void Problem::init_analytic_smflux(
     for ( MFIter mfi((mf_sustr), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         const Box& bx = mfi.tilebox();
-        const Box& xbx = surroundingNodes(bx,0);
+        [[maybe_unused]] const Box& xbx = surroundingNodes(bx,0);
         const Box& xbx2 = mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0));
 
         Array4<Real> const& sustr = mf_sustr.array(mfi);
