@@ -206,7 +206,7 @@ void Problem::init_analytic_prob(
         const Box& zbx = surroundingNodes(bx,2);
 
         // Set the z-velocity
-        ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
             z_vel(i, j, k) = 0.0_rt;
         });

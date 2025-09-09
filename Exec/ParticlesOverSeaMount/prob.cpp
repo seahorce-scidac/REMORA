@@ -133,7 +133,7 @@ void Problem::init_analytic_prob(
 
         Real S0 = m_solverChoice.S0;
         Real T0 = m_solverChoice.T0;
-        ParallelFor(bx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
             // Geometry (note we must include these here to get the data on device)
             // const auto prob_lo         = geomdata.ProbLo();
@@ -177,7 +177,7 @@ void Problem::init_analytic_prob(
         const Box& ybx = surroundingNodes(bx,1);
 
         // Set the y-velocity
-        ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
               // const auto prob_lo         = geomdata.ProbLo();
               // const auto dx              = geomdata.CellSize();
@@ -191,7 +191,7 @@ void Problem::init_analytic_prob(
         const Box& zbx = surroundingNodes(bx,2);
 
         // Set the z-velocity
-        ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
             z_vel(i, j, k) = 0.0_rt;
         });
