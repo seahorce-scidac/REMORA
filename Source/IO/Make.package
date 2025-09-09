@@ -7,7 +7,6 @@ CEXE_sources += REMORA_console_io.cpp
 
 ifeq ($(USE_PNETCDF), TRUE)
   CEXE_sources += REMORA_ReadFromInitNetcdf.cpp
-  CEXE_sources += REMORA_ReadFromBdryNetcdf.cpp
   CEXE_sources += REMORA_NCInterface.cpp
   CEXE_sources += REMORA_NCPlotFile.cpp
   CEXE_sources += REMORA_NCFile.cpp
@@ -16,4 +15,5 @@ ifeq ($(USE_PNETCDF), TRUE)
   CEXE_headers += REMORA_NCFile.H
   CEXE_sources += REMORA_NCTimeSeries.cpp
   CEXE_sources += REMORA_NCTimeSeriesRiver.cpp
+  CEXE_sources += REMORA_NCTimeSeriesBoundary.cpp
 endif

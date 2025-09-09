@@ -20,20 +20,6 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
 {
     int lev = 0;
 
-    // amrex::Print() << "TIME  " << time << std::endl;
-
-    // Time interpolation
-    Real dT = bdy_time_interval;
-    // amrex::Print() << "DT    " << dT << std::endl;
-    // amrex::Print() << "START " << start_bdy_time << std::endl;
-
-    Real time_since_start = time - start_bdy_time;
-    int n_time = static_cast<int>( time_since_start /  dT);
-
-    amrex::Real alpha = (time_since_start - n_time * dT) / dT;
-    AMREX_ALWAYS_ASSERT( alpha >= 0. && alpha <= 1.0_rt);
-    amrex::Real oma   = 1.0_rt - alpha;
-
     // Which variable are we filling
     int ivar = bdy_var_type;
 
@@ -61,35 +47,36 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
     AMREX_ALWAYS_ASSERT(Temp_comp == 0);
     AMREX_ALWAYS_ASSERT(Salt_comp == 1);
 
-    // Make sure we can interpolate in time
-    AMREX_ALWAYS_ASSERT(n_time + 1 < bdy_data_xlo.size());
-
     const Real eps= 1.0e-20_rt;
     const bool null_mf_calc = (!mf_calc.ok());
 
     for (int icomp = 0; icomp < ncomp; icomp++) // This is to do both temp and salt if doing scalars
     {
-        // We have data at fixed time intervals we will call dT
-        // Then to interpolate, given time, we can define n = (time/dT)
-        // and alpha = (time - n*dT) / dT, then we define the data at time
-        // as  alpha * (data at time n+1) + (1 - alpha) * (data at time n)
-        const auto& bdatxlo_n   = bdy_data_xlo[n_time  ][ivar+icomp].const_array();
-        const auto& bdatxlo_np1 = bdy_data_xlo[n_time+1][ivar+icomp].const_array();
-        const auto& bdatxhi_n   = bdy_data_xhi[n_time  ][ivar+icomp].const_array();
-        const auto& bdatxhi_np1 = bdy_data_xhi[n_time+1][ivar+icomp].const_array();
-        const auto& bdatylo_n   = bdy_data_ylo[n_time  ][ivar+icomp].const_array();
-        const auto& bdatylo_np1 = bdy_data_ylo[n_time+1][ivar+icomp].const_array();
-        const auto& bdatyhi_n   = bdy_data_yhi[n_time  ][ivar+icomp].const_array();
-        const auto& bdatyhi_np1 = bdy_data_yhi[n_time+1][ivar+icomp].const_array();
+        boundary_series[ivar+icomp]->update_interpolated_to_time(time);
+        const auto& bdatxlo = boundary_series[ivar+icomp]->xlo_dat_interp.const_array();
+        const auto& bdatxhi = boundary_series[ivar+icomp]->xhi_dat_interp.const_array();
+        const auto& bdatylo = boundary_series[ivar+icomp]->ylo_dat_interp.const_array();
+        const auto& bdatyhi = boundary_series[ivar+icomp]->yhi_dat_interp.const_array();
 
-        const auto& bdatzetaxlo_n   = bdy_data_xlo[n_time  ][BdyVars::zeta].const_array();
-        const auto& bdatzetaxlo_np1 = bdy_data_xlo[n_time+1][BdyVars::zeta].const_array();
-        const auto& bdatzetaxhi_n   = bdy_data_xhi[n_time  ][BdyVars::zeta].const_array();
-        const auto& bdatzetaxhi_np1 = bdy_data_xhi[n_time+1][BdyVars::zeta].const_array();
-        const auto& bdatzetaylo_n   = bdy_data_ylo[n_time  ][BdyVars::zeta].const_array();
-        const auto& bdatzetaylo_np1 = bdy_data_ylo[n_time+1][BdyVars::zeta].const_array();
-        const auto& bdatzetayhi_n   = bdy_data_yhi[n_time  ][BdyVars::zeta].const_array();
-        const auto& bdatzetayhi_np1 = bdy_data_yhi[n_time+1][BdyVars::zeta].const_array();
+        const auto& bx_bdatxlo = boundary_series[ivar+icomp]->xlo_dat_interp.box();
+        const auto& bx_bdatxhi = boundary_series[ivar+icomp]->xhi_dat_interp.box();
+        const auto& bx_bdatylo = boundary_series[ivar+icomp]->ylo_dat_interp.box();
+        const auto& bx_bdatyhi = boundary_series[ivar+icomp]->yhi_dat_interp.box();
+
+        if (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather ||
+            domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather ||
+            domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::flather ||
+            domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::flather) {
+            boundary_series[BdyVars::zeta]->update_interpolated_to_time(time);
+        }
+        const auto& bdatxlo_zeta = domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather ?
+                                   boundary_series[BdyVars::zeta]->xlo_dat_interp.const_array() : Array4<Real>();
+        const auto& bdatxhi_zeta = domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather ?
+                                   boundary_series[BdyVars::zeta]->xhi_dat_interp.const_array() : Array4<Real>();
+        const auto& bdatylo_zeta = domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::flather ?
+                                   boundary_series[BdyVars::zeta]->ylo_dat_interp.const_array() : Array4<Real>();
+        const auto& bdatyhi_zeta = domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::flather ?
+                                   boundary_series[BdyVars::zeta]->yhi_dat_interp.const_array() : Array4<Real>();
 
         const bool apply_west  = (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::clamped) ||
                                  (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather) ||
@@ -121,11 +108,10 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             Box mf_box(mf_to_fill[mfi.index()].box());
 
             // Compute intersections of the FAB to be filled and the bdry data boxes
-            Box xlo_tmp(bdy_data_xlo[n_time][ivar].box());
-            Box xlo = xlo_tmp & mf_box;
-            Box xhi_tmp(bdy_data_xhi[n_time][ivar].box()); Box xhi = xhi_tmp & mf_box;
-            Box ylo_tmp(bdy_data_ylo[n_time][ivar].box()); Box ylo = ylo_tmp & mf_box;
-            Box yhi_tmp(bdy_data_yhi[n_time][ivar].box()); Box yhi = yhi_tmp & mf_box;
+            Box xlo = bx_bdatxlo & mf_box;
+            Box xhi = bx_bdatxhi & mf_box;
+            Box ylo = bx_bdatylo & mf_box;
+            Box yhi = bx_bdatyhi & mf_box;
 
             xlo.setSmall(0,lbound(mf_box).x);
             xhi.setBig  (0,ubound(mf_box).x);
@@ -137,10 +123,6 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             Box xhi_ylo = xhi & ylo;
             Box xhi_yhi = xhi & yhi;
 
-//            Box xlo_edge = xlo; xlo_edge.setSmall(0,dom_lo.x-1+mf_index_type[0]); xlo_edge.setBig(0,dom_lo.x-1+mf_index_type[0]);
-//            Box xhi_edge = xhi; xhi_edge.setSmall(0,dom_hi.x+1-mf_index_type[0]); xhi_edge.setBig(0,dom_hi.x+1-mf_index_type[0]);
-//            Box ylo_edge = ylo; ylo_edge.setSmall(1,dom_lo.y-1+mf_index_type[1]); ylo_edge.setBig(1,dom_lo.x-1+mf_index_type[1]);
-//            Box yhi_edge = yhi; yhi_edge.setSmall(1,dom_hi.y+1-mf_index_type[1]); yhi_edge.setBig(1,dom_hi.x+1-mf_index_type[1]);
             Box xlo_edge = xlo; xlo_edge.setSmall(0,ubound(xlo).x); xlo_edge.setBig(0,ubound(xlo).x);
             Box xhi_edge = xhi; xhi_edge.setSmall(0,lbound(xhi).x); xhi_edge.setBig(0,lbound(xhi).x);
             Box ylo_edge = ylo; ylo_edge.setSmall(1,ubound(ylo).y); ylo_edge.setBig(1,ubound(ylo).y);
@@ -184,12 +166,11 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             if (!xlo.isEmpty() && apply_west) {
                 ParallelFor(grow(xlo_edge,IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    Real bry_val = (oma   * bdatxlo_n  (ubound(xlo).x,j,k,0)
-                               + alpha * bdatxlo_np1(ubound(xlo).x,j,k,0));
+                    Real bry_val = bdatxlo(ubound(xlo).x,j,k,0);
                     if (bcr.lo(0) == REMORABCType::clamped) {
                         dest_arr(i,j,k,icomp+icomp_to_fill) = bry_val * mask_arr(i,j,0);
                     } else if (bcr.lo(0) == REMORABCType::flather) {
-                        Real bry_val_zeta = (oma * bdatzetaxlo_n(ubound(xlo).x-1,j,k,0) + alpha * bdatzetaxlo_np1(ubound(xlo).x-1,j,k,0));
+                        Real bry_val_zeta = bdatxlo_zeta(ubound(xlo).x-1,j,k,0);
                         Real cff = 1.0_rt / (0.5_rt * (h_arr(dom_lo.x-1,j,0) + zeta_arr(dom_lo.x-1,j,0,icomp_calc)
                                                      + h_arr(dom_lo.x,j,0) + zeta_arr(dom_lo.x,j,0,icomp_calc)));
                         Real Cx = std::sqrt(g * cff);
@@ -244,12 +225,11 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             if (!xhi.isEmpty() && apply_east) {
                 ParallelFor(grow(xhi_edge,IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    Real bry_val = (oma   * bdatxhi_n  (lbound(xhi).x,j,k,0)
-                                    + alpha * bdatxhi_np1(lbound(xhi).x,j,k,0));
+                    Real bry_val = bdatxhi(lbound(xhi).x,j,k,0);
                     if (bcr.hi(0) == REMORABCType::clamped) {
                         dest_arr(i,j,k,icomp+icomp_to_fill) = bry_val * mask_arr(i,j,0);
                     } else if (bcr.hi(0) == REMORABCType::flather) {
-                        Real bry_val_zeta = (oma * bdatzetaxhi_n(lbound(xhi).x,j,k,0) + alpha * bdatzetaxhi_np1(lbound(xhi).x,j,k,0));
+                        Real bry_val_zeta = bdatxhi_zeta(lbound(xhi).x,j,k,0);
                         Real cff = 1.0_rt / (0.5_rt * (h_arr(dom_hi.x-1,j,0) + zeta_arr(dom_hi.x-1,j,0,icomp_calc)
                                                      + h_arr(dom_hi.x,j,0) + zeta_arr(dom_hi.x,j,0,icomp_calc)));
                         Real Cx = std::sqrt(g * cff);
@@ -305,13 +285,11 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             if (!ylo.isEmpty() && apply_south) {
                 ParallelFor(grow(ylo_edge,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    Real bry_val = (oma   * bdatylo_n  (i,ubound(ylo).y,k,0)
-                                    + alpha * bdatylo_np1(i,ubound(ylo).y,k,0));
+                    Real bry_val = bdatylo(i,ubound(ylo).y,k,0);
                     if (bcr.lo(1) == REMORABCType::clamped) {
                         dest_arr(i,j,k,icomp+icomp_to_fill) = bry_val * mask_arr(i,j,0);
                     } else if (bcr.lo(1) == REMORABCType::flather) {
-                        Real bry_val_zeta = (oma   * bdatzetaylo_n  (i,ubound(ylo).y-1,k,0)
-                                            + alpha * bdatzetaylo_np1(i,ubound(ylo).y-1,k,0));
+                        Real bry_val_zeta = bdatylo_zeta(i,ubound(ylo).y-1,k,0);
                         Real cff = 1.0_rt / (0.5_rt * (h_arr(i,dom_lo.y-1,0) + zeta_arr(i,dom_lo.y-1,0,icomp_calc)
                                                      + h_arr(i,dom_lo.y,0) + zeta_arr(i,dom_lo.y,0,icomp_calc)));
                         Real Ce = std::sqrt(g * cff);
@@ -367,13 +345,11 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             if (!yhi.isEmpty() && apply_north) {
                 ParallelFor(grow(yhi_edge,IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    Real bry_val = (oma    * bdatyhi_n  (i,lbound(yhi).y,k,0)
-                                           + alpha * bdatyhi_np1(i,lbound(yhi).y,k,0)) * mask_arr(i,j,0);
+                    Real bry_val = bdatyhi(i,lbound(yhi).y,k,0);
                     if (bcr.hi(1) == REMORABCType::clamped) {
                         dest_arr(i,j,k,icomp+icomp_to_fill) = bry_val * mask_arr(i,j,0);
                     } else if (bcr.hi(1) == REMORABCType::flather) {
-                        Real bry_val_zeta = (oma   * bdatzetayhi_n  (i,lbound(yhi).y,k,0)
-                                            + alpha * bdatzetayhi_np1(i,lbound(yhi).y,k,0));
+                        Real bry_val_zeta = bdatyhi_zeta(i,lbound(yhi).y,k,0);
                         Real cff = 1.0_rt / (0.5_rt * (h_arr(i,dom_hi.y-1,0) + zeta_arr(i,dom_hi.y-1,0,icomp_calc)
                                                      + h_arr(i,dom_hi.y,0) + zeta_arr(i,dom_hi.y,0,icomp_calc)));
                         Real Ce = std::sqrt(g * cff);

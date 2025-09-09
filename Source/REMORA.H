@@ -44,6 +44,7 @@
 #include "REMORA_NCInterface.H"
 #include "REMORA_NCTimeSeries.H"
 #include "REMORA_NCTimeSeriesRiver.H"
+#include "REMORA_NCTimeSeriesBoundary.H"
 #endif
 
 #ifdef REMORA_USE_MOAB
@@ -78,6 +79,7 @@ class ProblemBase;
 #ifdef REMORA_USE_NETCDF
 class NCTimeSeries;
 class NCTimeSeriesRiver;
+class NCTimeSeriesBoundary;
 #endif
 
 /*!
@@ -1048,15 +1050,6 @@ private:
                          int coordinatorProc = amrex::ParallelDescriptor::IOProcessorNumber(),
                          int allow_empty_mf = 0);
 
-    /** \brief Vectors (over time) of Vector (over variables) of FArrayBoxs for holding Western boundary data from file */
-    amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_xlo;
-    /** \brief Vectors (over time) of Vector (over variables) of FArrayBoxs for holding Eastern boundary data from file */
-    amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_xhi;
-    /** \brief Vectors (over time) of Vector (over variables) of FArrayBoxs for holding Southern boundary data from file */
-    amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_ylo;
-    /** \brief Vectors (over time) of Vector (over variables) of FArrayBoxs for holding Northern boundary data from file */
-    amrex::Vector<amrex::Vector<amrex::FArrayBox>> bdy_data_yhi;
-
     /** \brief Start time in the time series of boundary data */
     amrex::Real start_bdy_time;
     /** \brief Interval between boundary data times */
@@ -1093,6 +1086,10 @@ private:
     NCTimeSeriesRiver* river_source_transport;
     /** \brief Data container for vertically integrated momentum transport in rivers */
     NCTimeSeriesRiver* river_source_transportbar;
+
+    /** \brief Vector over BdyVars of boundary series data containers */
+    amrex::Vector<NCTimeSeriesBoundary*> boundary_series;
+
 #endif // REMORA_USE_NETCDF
     /** \brief iMultiFab for river positions; contents are indices of rivers */
     amrex::Vector<std::unique_ptr<amrex::iMultiFab>> vec_river_position;
@@ -1342,8 +1339,11 @@ private:
     /** \brief NetCDF climatology coefficient file */
     std::string nc_clim_coeff_file;
 
-    /** \brief Name of time field for boundary data */
+    /** \brief Default name of time field for boundary data */
     std::string bdry_time_varname = "ocean_time";
+    /** \brief Name of time fields for boundary data */
+    amrex::Vector<std::string> bdry_time_name_byvar;
+
     /** \brief Name of time field for ubar climatology data */
     std::string clim_ubar_time_varname = "ocean_time";
     /** \brief Name of time field for vbar climatology data */
