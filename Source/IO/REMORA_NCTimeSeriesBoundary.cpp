@@ -75,8 +75,12 @@ void NCTimeSeriesBoundary::Initialize() {
     amrex::ParallelDescriptor::Bcast(&ntimes,1,ioproc);
     if (!(amrex::ParallelDescriptor::IOProcessor())) {
         bry_times.resize(ntimes);
+        file_for_time.resize(ntimes);
+        file_itime_offset.resize(ntimes);
     }
     amrex::ParallelDescriptor::Bcast(bry_times.data(), bry_times.size(), ioproc);
+    amrex::ParallelDescriptor::Bcast(file_for_time.data(), file_for_time.size(), ioproc);
+    amrex::ParallelDescriptor::Bcast(file_itime_offset.data(), file_itime_offset.size(), ioproc);
 
     // Initialize Fabs
     amrex::Arena* Arena_Used = amrex::The_Arena();
@@ -229,93 +233,96 @@ void NCTimeSeriesBoundary::read_in_at_time (amrex::FArrayBox& fab_xlo,
     ReadNetCDFFile(nc_bdry_file, nc_var_names, arrays, true, itime_offset); // does work on proc 0 only
 
     for (int iv=0; iv < nc_var_names.size(); iv++) {
-        std::string  last4 = nc_var_names[iv].substr(nc_var_names[iv].size()-4, 4);
-        std::string  last5 = nc_var_names[iv].substr(nc_var_names[iv].size()-5, 5);
-        int nx, ny, nz, n_plane;
-        int i, j, k, ioff, joff;
-        if (last4 == "west") {
-            amrex::Box my_box = fab_xlo.box();
-            if (is2d) {
-                nz = 1;
-                ny = arrays[iv].get_vshape()[1];
-            } else {
-                nz = arrays[iv].get_vshape()[1];
-                ny = arrays[iv].get_vshape()[2];
-            }
-            n_plane = ny * nz;
-            AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
+        if (amrex::ParallelDescriptor::IOProcessor())
+        {
+            std::string  last4 = nc_var_names[iv].substr(nc_var_names[iv].size()-4, 4);
+            std::string  last5 = nc_var_names[iv].substr(nc_var_names[iv].size()-5, 5);
+            int nx, ny, nz, n_plane;
+            int i, j, k, ioff, joff;
+            if (last4 == "west") {
+                amrex::Box my_box = fab_xlo.box();
+                if (is2d) {
+                    nz = 1;
+                    ny = arrays[iv].get_vshape()[1];
+                } else {
+                    nz = arrays[iv].get_vshape()[1];
+                    ny = arrays[iv].get_vshape()[2];
+                }
+                n_plane = ny * nz;
+                AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
 
-            i    = my_box.smallEnd()[0];
-            joff = my_box.smallEnd()[1];
+                i    = my_box.smallEnd()[0];
+                joff = my_box.smallEnd()[1];
 
-            amrex::Array4<amrex::Real> fab_arr = fab_xlo.array();
-            for (int n(0); n < n_plane; n++) {
-                k = n / ny;
-                j = n - (k * ny);
-                fab_arr(i, j+joff, k, 0) = static_cast<amrex::Real>(*(arrays[iv].get_data() + n));
-            }
-        } else if (last4 == "east") {
-            amrex::Box my_box = fab_xhi.box();
-            if (is2d) {
-                nz = 1;
-                ny = arrays[iv].get_vshape()[1];
-            } else {
-                nz = arrays[iv].get_vshape()[1];
-                ny = arrays[iv].get_vshape()[2];
-            }
-            n_plane = ny * nz;
-            AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
+                amrex::Array4<amrex::Real> fab_arr = fab_xlo.array();
+                for (int n(0); n < n_plane; n++) {
+                    k = n / ny;
+                    j = n - (k * ny);
+                    fab_arr(i, j+joff, k, 0) = static_cast<amrex::Real>(*(arrays[iv].get_data() + n));
+                }
+            } else if (last4 == "east") {
+                amrex::Box my_box = fab_xhi.box();
+                if (is2d) {
+                    nz = 1;
+                    ny = arrays[iv].get_vshape()[1];
+                } else {
+                    nz = arrays[iv].get_vshape()[1];
+                    ny = arrays[iv].get_vshape()[2];
+                }
+                n_plane = ny * nz;
+                AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
 
-            i    = my_box.smallEnd()[0];
-            joff = my_box.smallEnd()[1];
+                i    = my_box.smallEnd()[0];
+                joff = my_box.smallEnd()[1];
 
-            amrex::Array4<amrex::Real> fab_arr = fab_xhi.array();
-            for (int n(0); n < n_plane; n++) {
-                k = n / ny;
-                j = n - (k * ny);
-                fab_arr(i, j+joff, k, 0) = static_cast<amrex::Real>(*(arrays[iv].get_data() + n));
-            }
-        } else if (last5 == "south") {
-            amrex::Box my_box = fab_ylo.box();
-            if (is2d) {
-                nz = 1;
-                nx = arrays[iv].get_vshape()[1];
-            } else {
-                nz = arrays[iv].get_vshape()[1];
-                nx = arrays[iv].get_vshape()[2];
-            }
-            n_plane = nx * nz;
-            AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
+                amrex::Array4<amrex::Real> fab_arr = fab_xhi.array();
+                for (int n(0); n < n_plane; n++) {
+                    k = n / ny;
+                    j = n - (k * ny);
+                    fab_arr(i, j+joff, k, 0) = static_cast<amrex::Real>(*(arrays[iv].get_data() + n));
+                }
+            } else if (last5 == "south") {
+                amrex::Box my_box = fab_ylo.box();
+                if (is2d) {
+                    nz = 1;
+                    nx = arrays[iv].get_vshape()[1];
+                } else {
+                    nz = arrays[iv].get_vshape()[1];
+                    nx = arrays[iv].get_vshape()[2];
+                }
+                n_plane = nx * nz;
+                AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
 
-            j    = my_box.smallEnd()[1];
-            ioff = my_box.smallEnd()[0];
+                j    = my_box.smallEnd()[1];
+                ioff = my_box.smallEnd()[0];
 
-            amrex::Array4<amrex::Real> fab_arr = fab_ylo.array();
-            for (int n(0); n < n_plane; n++) {
-                k = n / nx;
-                i = n - (k * nx);
-                fab_arr(i+ioff, j, k, 0) = static_cast<amrex::Real>(*(arrays[iv].get_data() + n));
-            }
-        } else if (last5 == "north") {
-            amrex::Box my_box = fab_yhi.box();
-            if (is2d) {
-                nz = 1;
-                nx = arrays[iv].get_vshape()[1];
-            } else {
-                nz = arrays[iv].get_vshape()[1];
-                nx = arrays[iv].get_vshape()[2];
-            }
-            n_plane = nx * nz;
-            AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
+                amrex::Array4<amrex::Real> fab_arr = fab_ylo.array();
+                for (int n(0); n < n_plane; n++) {
+                    k = n / nx;
+                    i = n - (k * nx);
+                    fab_arr(i+ioff, j, k, 0) = static_cast<amrex::Real>(*(arrays[iv].get_data() + n));
+                }
+            } else if (last5 == "north") {
+                amrex::Box my_box = fab_yhi.box();
+                if (is2d) {
+                    nz = 1;
+                    nx = arrays[iv].get_vshape()[1];
+                } else {
+                    nz = arrays[iv].get_vshape()[1];
+                    nx = arrays[iv].get_vshape()[2];
+                }
+                n_plane = nx * nz;
+                AMREX_ALWAYS_ASSERT(my_box.numPts() == n_plane);
 
-            j    = my_box.smallEnd()[1];
-            ioff = my_box.smallEnd()[0];
+                j    = my_box.smallEnd()[1];
+                ioff = my_box.smallEnd()[0];
 
-            amrex::Array4<amrex::Real> fab_arr = fab_yhi.array();
-            for (int n(0); n < n_plane; n++) {
-                k = n / nx;
-                i = n - (k * nx);
-                fab_arr(i+ioff, j, k, 0) = static_cast<amrex::Real>(*(arrays[iv].get_data() + n));
+                amrex::Array4<amrex::Real> fab_arr = fab_yhi.array();
+                for (int n(0); n < n_plane; n++) {
+                    k = n / nx;
+                    i = n - (k * nx);
+                    fab_arr(i+ioff, j, k, 0) = static_cast<amrex::Real>(*(arrays[iv].get_data() + n));
+                }
             }
         }
     }
