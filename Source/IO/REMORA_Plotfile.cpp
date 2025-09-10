@@ -657,7 +657,7 @@ REMORA::WritePlotFile ()
  */
 void
 REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
-                                                 int /*nlevels*/,
+                                                 [[maybe_unused]] int nlevels,
                                                  const Vector<BoxArray> &bArray,
                                                  const Vector<std::string> &varnames,
                                                  const Vector<Geometry>& my_geom,
