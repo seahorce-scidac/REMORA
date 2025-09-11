@@ -60,7 +60,7 @@ Ideal Mini Grid
 .. _idealrivgrid:
 
 Ideal River Grid
----------------
+----------------
 
 .. include:: ../../Exec/IdealRivGrid/README.rst
 
