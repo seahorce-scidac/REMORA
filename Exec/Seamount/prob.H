@@ -59,7 +59,7 @@ public:
         amrex::MultiFab& mf_sustr, amrex::MultiFab& mf_svstr);
 
 private:
-    ProbParm parms;
+    [[maybe_unused]] ProbParm parms;
 };
 
 #endif

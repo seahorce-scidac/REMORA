@@ -85,9 +85,9 @@ REMORA::stretch_transform (int lev)
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
 
-    auto s_w_dat = s_w.data();
+    [[maybe_unused]] auto s_w_dat = s_w.data();
     auto Cs_w_dat = Cs_w.data();
-    auto s_r_dat = s_r.data();
+    [[maybe_unused]] auto s_r_dat = s_r.data();
     auto Cs_r_dat = Cs_r.data();
 
     for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )

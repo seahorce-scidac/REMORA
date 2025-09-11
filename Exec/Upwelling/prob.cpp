@@ -23,9 +23,9 @@ Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
  * \brief Initializes bathymetry h and surface height Zeta
  */
 void Problem::init_analytic_bathymetry (
-        int lev, const amrex::Geometry& geom,
+        int /*lev*/, const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
-        REMORA const& remora,
+        REMORA const& /*remora*/,
         amrex::MultiFab& mf_h)
 {
     auto geomdata = geom.data();
@@ -110,8 +110,8 @@ void Problem::init_analytic_prob(
     auto geomdata = geom.data();
     const int khi = geomdata.Domain().bigEnd()[2];
 
-    bool EWPeriodic = geomdata.isPeriodic(0);
-    bool NSPeriodic = geomdata.isPeriodic(1);
+    [[maybe_unused]] bool EWPeriodic = geomdata.isPeriodic(0);
+    [[maybe_unused]] bool NSPeriodic = geomdata.isPeriodic(1);
 
     auto T0 = m_solverChoice.T0;
     auto S0 = m_solverChoice.S0;

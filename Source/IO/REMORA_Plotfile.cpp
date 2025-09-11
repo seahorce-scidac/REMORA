@@ -415,7 +415,7 @@ REMORA::WritePlotFile ()
     } else { // multilevel
         if (plotfile_type == PlotfileType::amrex) {
             int lev0 = 0;
-            int desired_ratio = std::max(std::max(ref_ratio[lev0][0],ref_ratio[lev0][1]),ref_ratio[lev0][2]);
+            [[maybe_unused]] int desired_ratio = std::max(std::max(ref_ratio[lev0][0],ref_ratio[lev0][1]),ref_ratio[lev0][2]);
             bool any_ratio_one = ( ( (ref_ratio[lev0][0] == 1) || (ref_ratio[lev0][1] == 1) ) ||
                                      (ref_ratio[lev0][2] == 1) );
             for (int lev = 1; lev < finest_level; lev++) {
@@ -657,7 +657,7 @@ REMORA::WritePlotFile ()
  */
 void
 REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
-                                                 int nlevels,
+                                                 [[maybe_unused]] int nlevels,
                                                  const Vector<BoxArray> &bArray,
                                                  const Vector<std::string> &varnames,
                                                  const Vector<Geometry>& my_geom,
@@ -795,38 +795,38 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where) {
 
         ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            if (!mskr(i,j,0)) {
+            if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
                 Zt_avg1(i,j,0) = fill_value;
             }
         });
         ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (!mskr(i,j,0)) {
+            if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
                 temp(i,j,k) = fill_value;
                 salt(i,j,k) = fill_value;
             }
         });
         ParallelFor(makeSlab(ubx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {
-            if (!msku(i,j,0) && ubar(i,j,0)==fill_where) {
+            if (msku(i,j,0) == 0.0 && ubar(i,j,0)==fill_where) {  // Explicitly compare to 0.0
                 ubar(i,j,0,n) = fill_value;
             }
         });
         ParallelFor(makeSlab(vbx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {
-            if (!mskv(i,j,0) && vbar(i,j,0)==fill_where) {
+            if (mskv(i,j,0) == 0.0 && vbar(i,j,0)==fill_where) {  // Explicitly compare to 0.0
                 vbar(i,j,0,n) = fill_value;
             }
         });
         ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (!msku(i,j,0) && xvel(i,j,k)==fill_where) {
+            if (msku(i,j,0) == 0.0 && xvel(i,j,k)==fill_where) {  // Explicitly compare to 0.0
                 xvel(i,j,k) = fill_value;
             }
         });
         ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (!mskv(i,j,0) && yvel(i,j,k)==fill_where) {
+            if (mskv(i,j,0) == 0.0 && yvel(i,j,k)==fill_where) {  // Explicitly compare to 0.0
                 yvel(i,j,k) = fill_value;
             }
         });

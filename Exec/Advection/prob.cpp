@@ -29,9 +29,9 @@ Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
  * \brief Initializes bathymetry h and surface height Zeta
  */
 void Problem::init_analytic_bathymetry (
-        int lev, const amrex::Geometry& geom,
-        SolverChoice const& m_solverChoice,
-        REMORA const& remora,
+        int /*lev*/, const amrex::Geometry& geom,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
         amrex::MultiFab& mf_h)
 {
     const auto & geomdata = geom.data();
@@ -66,10 +66,10 @@ void Problem::init_analytic_zeta (
 }
 
 void Problem::init_analytic_prob(
-        int lev,
+        int /*lev*/,
         const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
-        REMORA const& remora,
+        REMORA const& /*remora*/,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
         amrex::MultiFab& mf_yvel,
@@ -113,7 +113,7 @@ void Problem::init_analytic_prob(
             const Real rad = 0.1 * (prob_hi[0]-prob_lo[0]);
             const Real radsq = rad*rad;
             const Real rad_inner = 0.05 * (prob_hi[0]-prob_lo[0]);
-            const Real rad_inner_sq = rad_inner*rad_inner;
+            [[maybe_unused]] const Real rad_inner_sq = rad_inner*rad_inner;
 
             if (l_use_salt) {
                 state(i,j,k,Salt_comp)= S0;
@@ -129,25 +129,25 @@ void Problem::init_analytic_prob(
         // Construct a box that is on x-faces
         const Box& xbx = surroundingNodes(bx,0);
         // Set the x-velocity
-        ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(xbx, [=, parms_gpu=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-              x_vel(i, j, k) = parms.u_0;
+              x_vel(i, j, k) = parms_gpu.u_0;
         });
 
         // Construct a box that is on y-faces
         const Box& ybx = surroundingNodes(bx,1);
 
         // Set the y-velocity
-        ParallelFor(ybx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(ybx, [=, parms_gpu=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-              y_vel(i, j, k) = parms.v_0;
+              y_vel(i, j, k) = parms_gpu.v_0;
         });
 
         // Construct a box that is on z-faces
         const Box& zbx = surroundingNodes(bx,2);
 
         // Set the z-velocity
-        ParallelFor(zbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
             z_vel(i, j, k) = 0.0;
         });

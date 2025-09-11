@@ -118,10 +118,10 @@ void Problem::init_analytic_prob(
 }
 
 void Problem::init_analytic_vmix(
-        int lev,
+        int /*lev*/,
         const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
-        REMORA const& remora,
+        REMORA const& /*remora*/,
         MultiFab& mf_Akv, MultiFab& mf_Akt)
 {
     for ( MFIter mfi((mf_Akv), TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -183,8 +183,8 @@ void Problem::init_analytic_smflux(
         MultiFab& mf_sustr, MultiFab& mf_svstr)
 {
     auto geomdata = geom.data();
-    bool EWPeriodic = geomdata.isPeriodic(0);
-    bool NSPeriodic = geomdata.isPeriodic(1);
+    [[maybe_unused]] bool EWPeriodic = geomdata.isPeriodic(0);
+    [[maybe_unused]] bool NSPeriodic = geomdata.isPeriodic(1);
 
     const auto prob_lo         = geomdata.ProbLo();
     const auto prob_hi         = geomdata.ProbHi();
@@ -198,11 +198,11 @@ void Problem::init_analytic_smflux(
     for ( MFIter mfi((mf_sustr), TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         const Box& bx = mfi.tilebox();
-        const Box& xbx = surroundingNodes(bx,0);
+        [[maybe_unused]] const Box& xbx = surroundingNodes(bx,0);
         const Box& xbx2 = mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0));
 
         Array4<Real> const& sustr = mf_sustr.array(mfi);
-        ParallelFor(xbx2, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(xbx2, [=] AMREX_GPU_DEVICE(int i, int j, int /*k*/) noexcept
         {
             // Create bounding box for x and y to make spatially-dependent T and S
             const auto prob_lo         = geomdata.ProbLo();

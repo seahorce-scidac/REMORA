@@ -139,7 +139,7 @@ void REMORA::init_bcs ()
         }
     };
 
-    auto f_by_side = [this, &f_set_var_bc] (std::string const& bcid, Orientation ori)
+    auto f_by_side = [&f_set_var_bc] (std::string const& bcid, Orientation ori)
     {
         ParmParse pp("remora.bc."+bcid);
         std::string bc_type_in = "null";
