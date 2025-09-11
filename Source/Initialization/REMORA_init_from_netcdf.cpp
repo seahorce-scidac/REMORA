@@ -219,7 +219,7 @@ REMORA::init_bathymetry_from_netcdf (int lev)
         // Don't tile this since we are operating on full FABs in this routine
         for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
         {
-            FArrayBox &h_fab     = (*vec_hOfTheConfusingName[lev])[mfi];
+            FArrayBox &h_fab     = (*vec_h[lev])[mfi];
             FArrayBox &pm_fab    = (*vec_pm[lev])[mfi];
             FArrayBox &pn_fab    = (*vec_pn[lev])[mfi];
             FArrayBox &xr_fab    = (*vec_xr[lev])[mfi];
@@ -258,10 +258,10 @@ REMORA::init_bathymetry_from_netcdf (int lev)
     const double dummy_time = 0.0_rt;
     // Unconditional foextrap will overwrite periodicity, but EnforcePeriodicity will
     // be called on h afterwards
-    FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName),
+    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
             BCVars::foextrap_periodic_bc,
             BdyVars::null,0,false,true,1);
-    FillPatch(lev,dummy_time,*vec_hOfTheConfusingName[lev],GetVecOfPtrs(vec_hOfTheConfusingName),
+    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
             BCVars::foextrap_periodic_bc,
             BdyVars::null,1,false,true,1);
 
@@ -346,7 +346,7 @@ REMORA::init_bathymetry_from_netcdf (int lev)
         }
     } // mfi
 
-    vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
+    vec_h[lev]->FillBoundary(geom[lev].periodicity());
 }
 
 /**

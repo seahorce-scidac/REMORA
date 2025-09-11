@@ -238,7 +238,7 @@ public:
     // There is one pointer per level
 
     /** \brief Bathymetry data (2D, positive valued, h in ROMS) **/
-    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_hOfTheConfusingName;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_h;
 
     /** \brief Width of cells in the vertical (z-) direction (3D, Hz in ROMS) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hz;

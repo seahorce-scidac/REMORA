@@ -81,7 +81,7 @@ REMORA::stretch_transform (int lev)
     std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
     std::unique_ptr<MultiFab>& mf_z_r = vec_z_r[lev];
     std::unique_ptr<MultiFab>& mf_Hz  = vec_Hz[lev];
-    std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
+    std::unique_ptr<MultiFab>& mf_h  = vec_h[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
     std::unique_ptr<MultiFab>& mf_z_phys_nd  = vec_z_phys_nd[lev];
 

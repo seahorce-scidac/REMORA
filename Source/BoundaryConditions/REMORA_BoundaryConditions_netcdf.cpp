@@ -136,7 +136,7 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
             const Array4<Real>& dest_arr = mf_to_fill.array(mfi);
             const Array4<const Real>& mask_arr = mf_mask.array(mfi);
             const Array4<const Real>& calc_arr = (!null_mf_calc) ? mf_calc.array(mfi) : Array4<amrex::Real>();
-            const Array4<const Real>& h_arr = vec_hOfTheConfusingName[lev]->const_array(mfi);
+            const Array4<const Real>& h_arr = vec_h[lev]->const_array(mfi);
             const Array4<const Real>& zeta_arr = vec_zeta[lev]->const_array(mfi);
             const Array4<const Real>& pm = vec_pm[lev]->const_array(mfi);
             const Array4<const Real>& pn = vec_pn[lev]->const_array(mfi);
