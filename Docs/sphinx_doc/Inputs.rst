@@ -248,12 +248,15 @@ List of Parameters
 |                                  | coarsest level   |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.ref_ratio_vect**           | ratio of coarse  | 3 integers         | 2 for all         |
+|                                  |                  |                    |                   |
 |                                  | to fine grid     |                    | directions        |
 |                                  |                  | (one per dir)      |                   |
+|                                  |                  |                    |                   |
 |                                  | spacing between  | per refinement     |                   |
 |                                  |                  |                    |                   |
 |                                  | subsequent       | level. Refinement  |                   |
-|                                  | levels           | in z must be 1     |                   |
+|                                  | levels           |                    |                   |
+|                                  |                  | in z must be 1     |                   |
 |                                  |                  |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.regrid_int**               | how often to     | Integer            | -1 (don't regrid) |
@@ -268,6 +271,7 @@ List of Parameters
 |                                  | restarting       |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.regrid_file**              | name of file     | text               | no file           |
+|                                  |                  |                    |                   |
 |                                  | from which to    |                    |                   |
 |                                  |                  |                    |                   |
 |                                  | read the grids   |                    |                   |
@@ -278,6 +282,7 @@ List of Parameters
 |                                  | coarse level     |                    |                   |
 |                                  |                  |                    |                   |
 |                                  | at which grids   |                    |                   |
+|                                  |                  |                    |                   |
 |                                  | are created      |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.n_error_buf**              | radius of        | Integer >= 0       | 1                 |
@@ -289,25 +294,34 @@ List of Parameters
 |                                  | cells            |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.n_error_buf_{x,y,z}**      | radius of        | Integer >= 0;      | 1                 |
-|                                  | additional       | Can specify up     |                   |
-|                                  | tagging around   | to one per         |                   |
-|                                  | already tagged   | ref. level         |                   |
+|                                  | additional       |                    |                   |
+|                                  |                  | Can specify up     |                   |
+|                                  | tagging around   |                    |                   |
+|                                  |                  |                    |                   |
+|                                  | already tagged   | to one per         |                   |
+|                                  |                  | ref. level         |                   |
 |                                  | cells in x, y,   |                    |                   |
 |                                  | or z             |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.blocking_factor**          | grid size must   | Integer > 0        | 2                 |
+|                                  |                  |                    |                   |
 |                                  | be a multiple    |                    |                   |
 |                                  |                  |                    |                   |
 |                                  | of this          |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.blocking_factor_{x,y}**    | grid size in     | Integer > 0;       | 1                 |
+|                                  |                  |                    |                   |
 |                                  | {x,y} must be    | Can specify up to  |                   |
+|                                  |                  |                    |                   |
 |                                  | multiple of this | one per ref. level |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.blocking_factor_z**        | grid size in     | Integer > 0;       | 1                 |
+|                                  |                  |                    |                   |
 |                                  | z must be        | In AMR problems,   |                   |
+|                                  |                  |                    |                   |
 |                                  | multiple of this | recommend it equal |                   |
-|                                  | multiple of this | ``n_cell`` in z    |                   |
+|                                  |                  |                    |                   |
+|                                  |                  | ``n_cell`` in z    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.refine_grid_layout**       | refine grids     | 0 if false, 1      | 1                 |
 |                                  | more if          | if true            |                   |
