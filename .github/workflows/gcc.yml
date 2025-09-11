@@ -52,6 +52,10 @@ jobs:
         ccache -s
         du -hs ~/.cache/ccache
 
+    - name: Compile and Link
+      run: |
+        cmake --build ${{runner.workspace}}/REMORA/build --parallel 2 --verbose 2>&1 | tee -a ${{runner.workspace}}/build-output.txt;
+
     - name: Report
       run: |
         egrep "warning:|error:" ${{runner.workspace}}/build-output.txt \
@@ -60,10 +64,6 @@ jobs:
         cat ${{runner.workspace}}/build-output-warnings.txt
         export return=$(tail -n 1 ${{runner.workspace}}/build-output-warnings.txt | awk '{print $2}')
         exit ${return}
-
-    - name: Compile and Link
-      run: |
-        cmake --build ${{runner.workspace}}/REMORA/build --parallel 2 --verbose
 
     - name: CMake Tests # see file REMORA/Tests/CTestList.cmake
       run: |

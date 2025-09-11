@@ -859,6 +859,9 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 Real cff_galperin = 1.0_rt - my_Sh2*Gh;
                 Sh = my_Sh1 / cff_galperin;
                 Sm = (my_Sm3+Sh*Gh*my_Sm4)/(1.0_rt-my_Sm2*Gh);
+            } else {
+                Sh = 0.0;
+                Sm = 0.0;
             }
 
             //  Compute vertical mixing (m2/s) coefficients of momentum and

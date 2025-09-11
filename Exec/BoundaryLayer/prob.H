@@ -64,7 +64,7 @@ public:
         amrex::MultiFab& mf_Uwind, amrex::MultiFab& mf_Vwind);
 
 private:
-    ProbParm parms;
+    [[maybe_unused]] ProbParm parms;
 };
 
 #endif

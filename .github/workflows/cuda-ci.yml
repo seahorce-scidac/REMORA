@@ -56,7 +56,8 @@ jobs:
             -DREMORA_DIM:STRING=3 \
             -DREMORA_ENABLE_MPI:BOOL=OFF \
             -DREMORA_ENABLE_CUDA:BOOL=ON .
-          cmake --build build-${{matrix.cuda_pkg}} -- -j $(nproc)
+          cmake --build build-${{matrix.cuda_pkg}} --parallel $(nproc) \
+          2>&1 | tee -a ${{runner.workspace}}/build-${{matrix.cuda_pkg}}-output.txt;
 
           ccache -s
           du -hs ~/.cache/ccache

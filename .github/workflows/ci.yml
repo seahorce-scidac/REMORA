@@ -73,7 +73,10 @@ jobs:
         export CCACHE_MAXSIZE=600M
         ccache -z
 
-        cmake --build ${{runner.workspace}}/REMORA/build-${{matrix.os}} --parallel ${{env.NPROCS}};
+        cmake \
+          --build ${{runner.workspace}}/REMORA/build-${{matrix.os}} \
+          --parallel ${{env.NPROCS}} \
+          2>&1 | tee -a ${{runner.workspace}}/build-output.txt;
 
         ccache -s
         du -hs ~/.cache/ccache
