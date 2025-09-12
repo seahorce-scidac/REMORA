@@ -51,7 +51,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     MultiFab* mf_z_r = vec_z_r[lev].get();
     MultiFab* mf_z_w = vec_z_w[lev].get();
-    MultiFab* mf_h   = vec_hOfTheConfusingName[lev].get();
+    MultiFab* mf_h   = vec_h[lev].get();
     MultiFab* mf_pm  = vec_pm[lev].get();
     MultiFab* mf_pn  =   vec_pn[lev].get();
     MultiFab* mf_fcor  = vec_fcor[lev].get();
@@ -122,7 +122,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-        Array4<Real const> const& h     = vec_hOfTheConfusingName[lev]->const_array(mfi);
+        Array4<Real const> const& h     = vec_h[lev]->const_array(mfi);
         Array4<Real const> const& Hz    = vec_Hz[lev]->const_array(mfi);
         Array4<Real      > const& Huon  = vec_Huon[lev]->array(mfi);
         Array4<Real      > const& Hvom  = vec_Hvom[lev]->array(mfi);

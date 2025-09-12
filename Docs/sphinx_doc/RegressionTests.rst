@@ -51,6 +51,7 @@ The following problems are currently tested in the CI. More details about the pr
 |                         |          |           |          | cloud cover                     |
 |                         |          |           |          |                                 |
 |                         |          |           |          | evaporation/precipitation with  |
+|                         |          |           |          |                                 |
 |                         |          |           |          | sea surface height correction   |
 +-------------------------+----------+-----------+----------+---------------------------------+
 | DogboneAnalytic         | 42 15 16 | SlipWall  | SlipWall | quadratic bottom stress         |
@@ -236,9 +237,13 @@ Based on :ref:`Doubly Periodic<doublyperiodic>`, which always includes Coriolis:
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| DoublyPeriodic64-OMP-xy                | 328 320 64   | Periodic         | Periodic          | MPI + OpenMP, large problem      |
+| DoublyPeriodic64-OMP-xy                | 328 320 64   | Periodic         | Periodic          | MPI + OpenMP,                    |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | large problem                    |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| DoublyPeriodic64-OMP-xy-bathy          | 328 320 64   | Periodic         | Periodic          | MPI + OpenMP, large problem      |
+| DoublyPeriodic64-OMP-xy-bathy          | 328 320 64   | Periodic         | Periodic          | MPI + OpenMP                     |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | large problem                    |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | non-flat bathymetry              |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
@@ -246,247 +251,247 @@ Based on :ref:`Doubly Periodic<doublyperiodic>`, which always includes Coriolis:
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodicC4-xy                    | 41 80 16     | Periodic         | Periodic          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | advection: centered 4th order    |
+|                                        |              |                  |                   | adv.: centered 4th order         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
-Based on :ref:`Ideal Mini Grid<idealminigrid>`, which always includes Coriolis and PnetCDF:
+Based on :ref:`Ideal Mini Grid<idealminigrid>`, which always includes Coriolis and PnetCDF. Replace braces in test name with ``IdealMiniGrid``. C-F stands for Chapman-Flather:
 
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                                |
 +========================================+==============+==================+===================+======================================+
-| IdealMiniGrid                          | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}                                     | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-1grid                    | 10 16 20     | Clamped          | Clamped           | Varying salt at boundary             |
+| {}-1grid                               | 10 16 20     | Clamped          | Clamped           | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-CF-Uvel-OMP              | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                         |
+| {}-CF-Uvel-OMP                         | 10 16 20     | C-F              | C-F               | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-CFO-Salt-OMP             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                         |
+| {}-CFO-Salt-OMP                        | 10 16 20     | C-F              | C-F               | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying salt at boundary             |
+|                                        |              | Radiation        | Radiation         | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-CFO-Temp-OMP             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                         |
+| {}-CFO-Temp-OMP                        | 10 16 20     | C-F              | C-F               | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying temperature at boundary      |
+|                                        |              | Radiation        | Radiation         | Vary temperature at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-CFO-Uvel-OMP             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                         |
+| {}-CFO-Uvel-OMP                        | 10 16 20     | C-F              | C-F               | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying velocity at boundary         |
+|                                        |              | Radiation        | Radiation         | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-EWWall-OMP               | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                         |
+| {}-EWWall-OMP                          | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-EWWall-restart           | 10 16 20     | SlipWall         | Clamped           | MPI                                  |
+| {}-EWWall-restart                      | 10 16 20     | SlipWall         | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-NSWall-OMP               | 10 16 20     | Clamped          | SlipWall          | MPI + OpenMP                         |
+| {}-NSWall-OMP                          | 10 16 20     | Clamped          | SlipWall          | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-NSWall-restart           | 10 16 20     | Clamped          | Slipwall          | MPI                                  |
+| {}-NSWall-restart                      | 10 16 20     | Clamped          | Slipwall          | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-OMP                      | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                         |
+| {}-OMP                                 | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-OMP-1grid                | 10 16 20     | Clamped          | Clamped           | OpenMP                               |
+| {}-OMP-1grid                           | 10 16 20     | Clamped          | Clamped           | OpenMP                               |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Temp                     | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}-Temp                                | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying temperature at boundary      |
+|                                        |              |                  |                   | Vary temperature at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Uvel                     | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}-Uvel                                | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Uvel-1grid               | 10 16 20     | Clamped          | Clamped           | Varying velocity at boundary         |
+| {}-Uvel-1grid                          | 10 16 20     | Clamped          | Clamped           | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Uvel-EWWall-OMP          | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                         |
+| {}-Uvel-EWWall-OMP                     | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Uvel-NSWall-OMP          | 10 16 20     | Clamped          | SlipWall          | MPI + OpenMP                         |
+| {}-Uvel-NSWall-OMP                     | 10 16 20     | Clamped          | SlipWall          | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Uvel-OMP                 | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                         |
+| {}-Uvel-OMP                            | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Uvel-OMP-1grid           | 10 16 20     | Clamped          | Clamped           | OpenMP                               |
+| {}-Uvel-OMP-1grid                      | 10 16 20     | Clamped          | Clamped           | OpenMP                               |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-restart                  | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}-restart                             | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask                      | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}Mask                                 | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-1grid                | 10 16 20     | Clamped          | Clamped           | Coriolis                             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-CF-Uvel-OMP          | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                         |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+| {}Mask-1grid                           | 10 16 20     | Clamped          | Clamped           | Coriolis                             |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-CFO-Salt-OMP         | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                         |
+| {}Mask-CF-Uvel-OMP                     | 10 16 20     | C-F              | C-F               | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiaion          | Varying salt at boundary             |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-CFO-Temp-OMP         | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                         |
-|                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiaion          | Varying temperature at boundary      |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-CFO-Uvel-OMP         | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                         |
+| {}Mask-CFO-Salt-OMP                    | 10 16 20     | C-F              | C-F               | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiaion          | Varying velocity at boundary         |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-EWWall-OMP           | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                         |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              | Radiation        | Radiaion          | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-OMP                  | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                         |
+| {}Mask-CFO-Temp-OMP                    | 10 16 20     | C-F              | C-F               | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-OMP-1grid            | 10 16 20     | Clamped          | Clamped           | OpenMP                               |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              | Radiation        | Radiaion          | Vary temperature at boundary         |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Temp                 | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}Mask-CFO-Uvel-OMP                    | 10 16 20     | C-F              | C-F               | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying temperature at boundary      |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Uvel                 | 10 16 20     | Clamped          | Clamped           | MPI                                  |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              | Radiation        | Radiaion          | Vary velocity at boundary            |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Uvel-1grid           | 10 16 20     | Clamped          | Clamped           | Varying velocity at boundary         |
+| {}Mask-EWWall-OMP                      | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                         |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Uvel-EWWall-OMP      | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                         |
+| {}Mask-OMP                             | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Uvel-NSWall-OMP      | 10 16 20     | Clamped          | SlipWall          | MPI + OpenMP                         |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Uvel-OMP             | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                         |
+| {}Mask-OMP-1grid                       | 10 16 20     | Clamped          | Clamped           | OpenMP                               |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Uvel-OMP-1grid       | 10 16 20     | Clamped          | Clamped           | OpenMP                               |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-restart              | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}Mask-Temp                            | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary temperature at boundary         |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-Uvel                            | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary velocity at boundary            |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-Uvel-1grid                      | 10 16 20     | Clamped          | Clamped           | Vary velocity at boundary            |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-Uvel-EWWall-OMP                 | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                         |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary velocity at boundary            |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-Uvel-NSWall-OMP                 | 10 16 20     | Clamped          | SlipWall          | MPI + OpenMP                         |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary velocity at boundary            |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-Uvel-OMP                        | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                         |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary velocity at boundary            |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-Uvel-OMP-1grid                  | 10 16 20     | Clamped          | Clamped           | OpenMP                               |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary velocity at boundary            |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-restart                         | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridWind                      | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}Wind                                 | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Surface wind forcing and bulk fluxes |
+|                                        |              |                  |                   | Surface wind and bulk fluxes         |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridWind-1grid                | 10 16 20     | Clamped          | Clamped           | Varying salt at boundary             |
+| {}Wind-1grid                           | 10 16 20     | Clamped          | Clamped           | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Surface wind forcing and bulk fluxes |
+|                                        |              |                  |                   | Surface wind and bulk fluxes         |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridWind-OMP                  | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                         |
+| {}Wind-OMP                             | 10 16 20     | Clamped          | Clamped           | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Surface wind forcing and bulk fluxes |
+|                                        |              |                  |                   | Surface wind and bulk fluxes         |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridWind-OMP-1grid            | 10 16 20     | Clamped          | Clamped           | OpenMP                               |
+| {}Wind-OMP-1grid                       | 10 16 20     | Clamped          | Clamped           | OpenMP                               |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Surface wind forcing and bulk fluxes |
+|                                        |              |                  |                   | Surface wind and bulk fluxes         |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridWind-restart              | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}Wind-restart                         | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Surface wind forcing and bulk fluxes |
+|                                        |              |                  |                   | Surface wind and bulk fluxes         |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridClim                      | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
+| {}Clim                                 | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying salt, temp, v at boundary    |
+|                                        |              | Radiation        | Radiation         | Vary salt, temp, v at boundary       |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | Climatology nudging                  |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridClim-OMP                  | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI + OpenMP                         |
+| {}Clim-OMP                             | 10 16 20     | C-F              | C-F               | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying salt, temp, v at boundary    |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Climatology nudging                  |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridClim-OMP-1grid            | 10 16 20     | Chapman-Flather  | Chapman-Flather   | OpenMP                               |
-|                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying salt, temp, v at boundary    |
+|                                        |              | Radiation        | Radiation         | Vary salt, temp, v at boundary       |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | Climatology nudging                  |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridClim-restart              | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
+| {}Clim-OMP-1grid                       | 10 16 20     | C-F              | C-F               | OpenMP                               |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying salt, temp, v at boundary    |
+|                                        |              | Radiation        | Radiation         | Vary salt, temp, v at boundary       |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Climatology nudging                  |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Clim-restart                         | 10 16 20     | C-F              | C-F               | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              | Radiation        | Radiation         | Vary salt, temp, v at boundary       |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 |                                        |              |                  |                   |                                      |
@@ -706,195 +711,195 @@ Based on :ref:`Doubly Periodic<doublyperiodic>`, which always includes Coriolis:
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoublyPeriodicC4-xy                    | 41 80 16     | Periodic         | Periodic          | MPI                              |
 |                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | advection: centered 4th order    |
+|                                        |              |                  |                   | adv.: centered 4th order         |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
-Based on :ref:`Ideal Mini Grid<idealminigrid>`, which always includes Coriolis and PnetCDF:
+Based on :ref:`Ideal Mini Grid<idealminigrid>`, which always includes Coriolis and PnetCDF. Replace braces in test name with ``IdealMiniGrid``. C-F stands for Chapman-Flather:
 
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                                |
 +========================================+==============+==================+===================+======================================+
-| IdealMiniGrid                          | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}                                     | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-1grid                    | 10 16 20     | Clamped          | Clamped           | Varying salt at boundary             |
+| {}-1grid                               | 10 16 20     | Clamped          | Clamped           | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-CF-Uvel                  | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
+| {}-CF-Uvel                             | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-CFO-Salt                 | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
+| {}-CFO-Salt                            | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying salt at boundary             |
+|                                        |              | Radiation        | Radiation         | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-CFO-Temp                 | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
+| {}-CFO-Temp                            | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying temperature at boundary      |
+|                                        |              | Radiation        | Radiation         | Vary temperature at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-CFO-Uvel                 | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
+| {}-CFO-Uvel                            | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying velocity at boundary         |
+|                                        |              | Radiation        | Radiation         | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-EWWall                   | 10 16 20     | SlipWall         | Clamped           | MPI                                  |
+| {}-EWWall                              | 10 16 20     | SlipWall         | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-NSWall                   | 10 16 20     | Clamped          | SlipWall          | MPI                                  |
+| {}-NSWall                              | 10 16 20     | Clamped          | SlipWall          | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Temp                     | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}-Temp                                | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying temperature at boundary      |
+|                                        |              |                  |                   | Vary temperature at boundary         |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Uvel                     | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}-Uvel                                | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Uvel-1grid               | 10 16 20     | Clamped          | Clamped           | Varying velocity at boundary         |
+| {}-Uvel-1grid                          | 10 16 20     | Clamped          | Clamped           | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Uvel-EWWall              | 10 16 20     | SlipWall         | Clamped           | Varying velocity at boundary         |
+| {}-Uvel-EWWall                         | 10 16 20     | SlipWall         | Clamped           | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-Uvel-NSWall              | 10 16 20     | Clamped          | SlipWall          | MPI                                  |
+| {}-Uvel-NSWall                         | 10 16 20     | Clamped          | SlipWall          | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGrid-restart                  | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}-restart                             | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask                      | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}Mask                                 | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-1grid                | 10 16 20     | Clamped          | Clamped           | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-CF-Uvel              | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+| {}Mask-1grid                           | 10 16 20     | Clamped          | Clamped           | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-CFO-Salt             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
+| {}Mask-CF-Uvel                         | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiaion          | Varying salt at boundary             |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-CFO-Temp             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
-|                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiaion          | Varying temperature at boundary      |
+|                                        |              |                  |                   | Vary velocity at boundary            |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-CFO-Uvel             | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
+| {}Mask-CFO-Salt                        | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiaion          | Varying velocity at boundary         |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-EWWall               | 10 16 20     | SlipWall         | Clamped           | MPI                                  |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              | Radiation        | Radiaion          | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-EWWall-restart       | 10 16 20     | SlipWall         | Clamped           | MPI                                  |
+| {}Mask-CFO-Temp                        | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | restart                              |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-NSWall               | 10 16 20     | Clamped          | Slipwall          | MPI                                  |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              | Radiation        | Radiaion          | Vary temperature at boundary         |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-NSWall-restart       | 10 16 20     | Clamped          | Slipwall          | MPI                                  |
+| {}Mask-CFO-Uvel                        | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              | Radiation        | Radiaion          | Vary velocity at boundary            |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-EWWall                          | 10 16 20     | SlipWall         | Clamped           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary salt at boundary                |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-EWWall-restart                  | 10 16 20     | SlipWall         | Clamped           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Temp                 | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}Mask-NSWall                          | 10 16 20     | Clamped          | Slipwall          | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying temperature at boundary      |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Uvel                 | 10 16 20     | Clamped          | Clamped           | MPI                                  |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying velocity at boundary         |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Uvel-1grid           | 10 16 20     | Clamped          | Clamped           | Varying velocity at boundary         |
+| {}Mask-NSWall-restart                  | 10 16 20     | Clamped          | Slipwall          | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Uvel-EWWall          | 10 16 20     | SlipWall         | Clamped           | MPI                                  |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-Uvel-NSWall          | 10 16 20     | Clamped          | Periodic          | MPI                                  |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | land-sea masking                     |
-+----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridMask-restart              | 10 16 20     | Clamped          | Clamped           | MPI                                  |
-|                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | land-sea masking                     |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridWind                      | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}Mask-Temp                            | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | Vary temperature at boundary         |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Surface wind forcing and bulk fluxes |
+|                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridWind-1grid                | 10 16 20     | Clamped          | Clamped           | Varying salt at boundary             |
+| {}Mask-Uvel                            | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Surface wind forcing and bulk fluxes |
+|                                        |              |                  |                   | Vary velocity at boundary            |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridWind-restart              | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+| {}Mask-Uvel-1grid                      | 10 16 20     | Clamped          | Clamped           | Vary velocity at boundary            |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Varying salt at boundary             |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-Uvel-EWWall                     | 10 16 20     | SlipWall         | Clamped           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary salt at boundary                |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-Uvel-NSWall                     | 10 16 20     | Clamped          | Periodic          | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary salt at boundary                |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-restart                         | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary salt at boundary                |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | restart                              |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Wind                                 | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary salt at boundary                |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Surface wind and bulk fluxes         |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Wind-1grid                           | 10 16 20     | Clamped          | Clamped           | Vary salt at boundary                |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Surface wind and bulk fluxes         |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Wind-restart                         | 10 16 20     | Clamped          | Clamped           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 |                                        |              |                  |                   |                                      |
-|                                        |              |                  |                   | Surface wind forcing and bulk fluxes |
+|                                        |              |                  |                   | Surface wind and bulk fluxes         |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridClim                      | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
+| {}Clim                                 | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying salt, temp, v at boundary    |
+|                                        |              | Radiation        | Radiation         | Vary salt, temp, v at boundary       |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | Climatology nudging                  |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridClim-1grid                | 10 16 20     | Chapman-Flather  | Chapman-Flather   | Varying salt, temp, v at boundary    |
+| {}Clim-1grid                           | 10 16 20     | C-F              | C-F               | Vary salt, temp, v at boundary       |
 |                                        |              |                  |                   |                                      |
 |                                        |              | Radiation        | Radiation         | Climatology nudging                  |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
-| IdealMiniGridClim-restart              | 10 16 20     | Chapman-Flather  | Chapman-Flather   | MPI                                  |
+| {}Clim-restart                         | 10 16 20     | C-F              | C-F               | MPI                                  |
 |                                        |              |                  |                   |                                      |
-|                                        |              | Radiation        | Radiation         | Varying salt, temp, v at boundary    |
+|                                        |              | Radiation        | Radiation         | Vary salt, temp, v at boundary       |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 |                                        |              |                  |                   |                                      |

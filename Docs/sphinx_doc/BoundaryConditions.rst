@@ -125,8 +125,12 @@ Boundary condition options
 Boundary types for per-side or per-variable specification
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Scroll table to the right if not all visible. Rightmost column is sea surface height.
+
 +-------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
-| Type        | ROMS name | Normal vel (3D)    | Tangential vel (3D) | Normal vel (2D)    | Tangential vel (2D) | T, S, etc.         | sea surface height |
+| Type        | ROMS      | Normal             | Tangential          | Normal             | Tangential          | T, S, etc.         | sea surface        |
+|             |           |                    |                     |                    |                     |                    |                    |
+|             | name      | vel (3D)           | vel (3D)            | vel (2D)           | vel (2D)            |                    | height             |
 +=============+===========+====================+=====================+====================+=====================+====================+====================+
 | periodic    | Per       | periodic           | periodic            | periodic           | periodic            | periodic           | periodic           |
 +-------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
@@ -134,9 +138,13 @@ Boundary types for per-side or per-variable specification
 +-------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
 | outflow     | Gra       | foextrap           | foextrap            | foextrap           | foextrap            | foextrap           | foextrap           |
 +-------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
-| slipwall    | Clo       | ext_dir (set to 0) | foextrap            | ext_dir (set to 0) | foextrap            | ext_dir/foextrap   | ext_dir/foextrap   |
+| slipwall    | Clo       | ext_dir            | foextrap            | ext_dir            | foextrap            | ext_dir/           | ext_dir/           |
+|             |           |                    |                     |                    |                     |                    |                    |
+|             |           | (set to 0)         |                     | (set to 0)         |                     | foextrap           | foextrap           |
 +-------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
-| noslipwall  | N/A       | ext_dir (set to 0) | ext_dir (set to 0)  | ext_dir (set to 0) | ext_dir (set to 0)  | ext_dir/foextrap   | ext_dir/foextrap   |
+| noslipwall  | N/A       | ext_dir            | ext_dir             | ext_dir            | ext_dir             | ext_dir/           | ext_dir/           |
+|             |           |                    |                     |                    |                     |                    |                    |
+|             |           | (set to 0)         | (set to 0)          | (set to 0)         | (set to 0)          | foextrap           | foextrap           |
 +-------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
 | symmetry    | N/A       | reflect_odd        | reflect_even        | reflect_odd        | reflect_even        | reflect_even       | reflect_even       |
 +-------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
@@ -146,8 +154,12 @@ Boundary types for per-side or per-variable specification
 Boundary types for per-variable specification ONLY
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Scroll table to the right if not all visible. Rightmost column is sea surface height.
+
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
-| Type               | ROMS name | Normal vel (3D)    | Tangential vel (3D) | Normal vel (2D)    | Tangential vel (2D) | T, S, etc.         | sea surface height |
+| Type               | ROMS      | Normal             | Tangential          | Normal             | Tangential          | T, S, etc.         | sea surface        |
+|                    |           |                    |                     |                    |                     |                    |                    |
+|                    | name      | vel (3D)           | vel (3D)            | vel (2D)           | vel (2D)            |                    | height             |
 +====================+===========+====================+=====================+====================+=====================+====================+====================+
 | chapman*           | Che       | N/A                | N/A                 | N/A                | N/A                 | N/A                | chapman            |
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
@@ -155,7 +167,9 @@ Boundary types for per-variable specification ONLY
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
 | orlanski_rad       | Rad       | orlanski           | orlanski            | N/A                | N/A                 | orlanski           | N/A                |
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
-| orlanski_rad_nudg* | RadNud    | orlanski w/nudging | orlanski w/nudging  | N/A                | N/A                 | orlanski w/nudging | N/A                |
+| orlanski_rad_nudg* | RadNud    | orlanski           | orlanski            | N/A                | N/A                 | orlanski           | N/A                |
+|                    |           |                    |                     |                    |                     |                    |                    |
+|                    |           | w/nudging          | w/nudging           |                    |                     | w/nudging          |                    |
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
 
 The asterisks (*) indicate conditions that require the specification of a :ref:`boundary file`<icbc-parameters>`.
@@ -206,13 +220,17 @@ When using ``orlanski_nudg``, the nudging strength is specified by input paramet
 | Parameter         | Definition              | Acceptable Values | Default       |
 +===================+=========================+===================+===============+
 | **remora.tnudg**  | Nudging timescale for   | Positive real     | 0.0           |
+|                   |                         |                   |               |
 |                   | tracers in days         |                   |               |
 +-------------------+-------------------------+-------------------+---------------+
 | **remora.m3nudg** | Nudging timescale for   | Positive real     | 0.0           |
+|                   |                         |                   |               |
 |                   | 3D momentum in days     |                   |               |
 +-------------------+-------------------------+-------------------+---------------+
 | **remora.obcfac** | Ratio between inflow    | Positive real     | 0.0           |
+|                   |                         |                   |               |
 |                   | and outflow             |                   |               |
+|                   |                         |                   |               |
 |                   | boundary conditions     |                   |               |
 +-------------------+-------------------------+-------------------+---------------+
 

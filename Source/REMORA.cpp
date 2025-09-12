@@ -510,7 +510,7 @@ REMORA::set_bathymetry (int lev)
         if (lev==0) {
             if (solverChoice.ic_type == IC_Type::analytic) {
                 if (!solverChoice.flat_bathymetry) {
-                    prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_hOfTheConfusingName[lev]);
+                    prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_h[lev]);
                 } else {
                     init_flat_bathymetry(lev);
                 }
@@ -529,16 +529,16 @@ REMORA::set_bathymetry (int lev)
             }
             // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
             // to make sure ghost cells in the domain corners are consistent.
-            vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
-            vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
+            vec_h[lev]->FillBoundary(geom[lev].periodicity());
+            vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
         } else {
             Real dummy_time = 0.0_rt;
-            FillCoarsePatch(lev,dummy_time,vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get(),BCVars::cons_bc);
+            FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
         }
     } else if (solverChoice.init_ana_h) {
         if (solverChoice.ic_type == IC_Type::analytic) {
             if (!solverChoice.flat_bathymetry) {
-                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this,*vec_hOfTheConfusingName[lev]);
+                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this,*vec_h[lev]);
             } else {
                 init_flat_bathymetry(lev);
             }
@@ -553,12 +553,12 @@ REMORA::set_bathymetry (int lev)
         }
         // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
         // to make sure ghost cells in the domain corners are consistent.
-        vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
-        vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
+        vec_h[lev]->FillBoundary(geom[lev].periodicity());
+        vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
     } else if (solverChoice.init_l1ad_h) {
         if (solverChoice.ic_type == IC_Type::analytic) {
             if (!solverChoice.flat_bathymetry) {
-                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_hOfTheConfusingName[lev]);
+                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_h[lev]);
             } else {
                 init_flat_bathymetry(lev);
             }
@@ -577,8 +577,8 @@ REMORA::set_bathymetry (int lev)
         }
         // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
         // to make sure ghost cells in the domain corners are consistent.
-        vec_hOfTheConfusingName[lev]->FillBoundary(geom[lev].periodicity());
-        vec_hOfTheConfusingName[lev]->EnforcePeriodicity(geom[lev].periodicity());
+        vec_h[lev]->FillBoundary(geom[lev].periodicity());
+        vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
     } else {
         amrex::Abort("Don't know this h init type");
     }
@@ -672,7 +672,7 @@ void
 REMORA::init_flat_bathymetry(int lev)
 {
     BL_PROFILE("REMORA::init_flat_bathymetry()");
-    vec_hOfTheConfusingName[lev]->setVal(-geom[0].ProbLo()[2]);
+    vec_h[lev]->setVal(-geom[0].ProbLo()[2]);
 }
 
 /**

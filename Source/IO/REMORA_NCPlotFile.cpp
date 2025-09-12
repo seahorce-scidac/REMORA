@@ -649,7 +649,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                     FArrayBox tmp_bathy;
                     tmp_bathy.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
 
-                    tmp_bathy.template copy<RunOn::Device>((*vec_hOfTheConfusingName[lev])[mfi.index()], 0, 0, 1);
+                    tmp_bathy.template copy<RunOn::Device>((*vec_h[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
                     auto nc_plot_var = ncf.var("h");

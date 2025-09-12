@@ -45,7 +45,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     resize_stuff(lev);
 
     vec_Zt_avg1[lev].reset(new MultiFab(ba2d ,dm,1,IntVect(NGROW+1,NGROW+1,0))); //2d, average of the free surface (zeta)
-    vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d ,dm,2,IntVect(NGROW+1,NGROW+1,0))); //2d, average of the free surface (zeta)
+    vec_h[lev].reset(new MultiFab(ba2d ,dm,2,IntVect(NGROW+1,NGROW+1,0))); //2d, average of the free surface (zeta)
     vec_ubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
 
@@ -87,7 +87,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1],BCVars::yvel_bc,BdyVars::v);
     FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1],BCVars::zvel_bc,BdyVars::null);
 
-    FillCoarsePatch(lev, time, vec_hOfTheConfusingName[lev].get(), vec_hOfTheConfusingName[lev-1].get(),
+    FillCoarsePatch(lev, time, vec_h[lev].get(), vec_h[lev-1].get(),
                     BCVars::cons_bc);
     FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get(),BCVars::cons_bc);
     for (int icomp=0; icomp<3; icomp++) {
@@ -226,8 +226,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     FillPatch(lev, time, tmp_yvel_new, yvel_new, BCVars::yvel_bc, BdyVars::v,0,true,false,0,0,0.0,tmp_yvel_new);
     FillPatch(lev, time, tmp_zvel_new, zvel_new, BCVars::zvel_bc, BdyVars::null,0,true,false);
 
-    FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_hOfTheConfusingName), BCVars::cons_bc, BdyVars::null,0,false,false);
-    FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_hOfTheConfusingName), BCVars::cons_bc, BdyVars::null,1,false,false);
+    FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), BCVars::cons_bc, BdyVars::null,0,false,false);
+    FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), BCVars::cons_bc, BdyVars::null,1,false,false);
     FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), BCVars::zeta_bc, BdyVars::null,0,true,false);
     for (int icomp=0; icomp<3; icomp++) {
         FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), BCVars::ubar_bc, BdyVars::ubar, icomp,false,false);
@@ -255,7 +255,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     std::swap(tmp_zvel_new, *zvel_new[lev]);
     std::swap(tmp_zvel_old, *zvel_old[lev]);
     std::swap(tmp_Zt_avg1_new, *vec_Zt_avg1[lev]);
-    std::swap(tmp_h,           *vec_hOfTheConfusingName[lev]);
+    std::swap(tmp_h,           *vec_h[lev]);
     std::swap(tmp_ubar_new,    *vec_ubar[lev]);
     std::swap(tmp_vbar_new,    *vec_vbar[lev]);
     std::swap(tmp_ru_new,    *vec_ru[lev]);
@@ -348,7 +348,7 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     resize_stuff(lev);
 
     vec_Zt_avg1[lev].reset(new MultiFab(ba2d ,dm,1,IntVect(NGROW+1,NGROW+1,0))); //2d, average of the free surface (zeta)
-    vec_hOfTheConfusingName[lev].reset(new MultiFab(ba2d ,dm,2,IntVect(NGROW+1,NGROW+1,0))); //2d, bathymetry
+    vec_h[lev].reset(new MultiFab(ba2d ,dm,2,IntVect(NGROW+1,NGROW+1,0))); //2d, bathymetry
     vec_ubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,3,IntVect(NGROW,NGROW,0)));
     vec_vbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,3,IntVect(NGROW,NGROW,0)));
 
@@ -381,7 +381,7 @@ void REMORA::resize_stuff(int lev)
 {
     vec_z_phys_nd.resize(lev+1);
 
-    vec_hOfTheConfusingName.resize(lev+1);
+    vec_h.resize(lev+1);
     vec_Zt_avg1.resize(lev+1);
     vec_z_w.resize(lev+1);
     vec_z_r.resize(lev+1);

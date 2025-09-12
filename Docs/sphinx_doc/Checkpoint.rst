@@ -26,22 +26,26 @@ List of Parameters
 | Parameter                        | Definition                        | Acceptable     | Default        |
 |                                  |                                   | Values         |                |
 +==================================+===================================+================+================+
-| **remora.check_file**            | prefix for                        | String         | “*chk*”        |
+| **remora.check_file**            | prefix for                        | String         | ``chk``        |
 |                                  | restart files                     |                |                |
 +----------------------------------+-----------------------------------+----------------+----------------+
 | **remora.check_int**             | how often (by                     | Integer        | -1             |
 |                                  | level-0 time                      | :math:`> 0`    |                |
+|                                  |                                   |                |                |
 |                                  | steps) to                         |                |                |
 |                                  | write restart                     |                |                |
+|                                  |                                   |                |                |
 |                                  | files                             |                |                |
 +----------------------------------+-----------------------------------+----------------+----------------+
 | **remora.check_int_time**        | how often (in simulation time     | Real           | -1.0           |
-|                                  | in seconds) to                    | :math:`> 0`    |                |
-|                                  | write restart                     |                |                |
+|                                  |                                   | :math:`> 0`    |                |
+|                                  | in seconds) to write restart      |                |                |
 |                                  | files                             |                |                |
 +----------------------------------+-----------------------------------+----------------+----------------+
 | **remora.file_min_digits**       | Minimum number of digits          | Integer >= 0   | 5              |
+|                                  |                                   |                |                |
 |                                  | in iteration number appended to   |                |                |
+|                                  |                                   |                |                |
 |                                  | plotfile and checkpoint files     |                |                |
 +----------------------------------+-----------------------------------+----------------+----------------+
 
@@ -58,6 +62,7 @@ Restarting
 | **remora.restart**               | name of the    | String         | not used if    |
 |                                  | file           |                | not set        |
 |                                  | (directory)    |                |                |
+|                                  |                |                |                |
 |                                  | from which to  |                |                |
 |                                  | restart        |                |                |
 |                                  | files          |                |                |
@@ -68,16 +73,16 @@ Restarting
 Examples of Usage
 -----------------
 
--  **remora.check_file** = *chk_run*
+-  **remora.check_file** = ``chk_run``
 
 -  **remora.check_int** = 10
 
    means that restart files (really directories) starting with the
    prefix “*chk_run*” will be generated every 10 level-0 time steps. The
-   directory names will be *chk_run00000*, *chk_run00010*,
-   *chk_run00020*, etc.
+   directory names will be ``chk_run00000``, ``chk_run00010``,
+   ``chk_run00020``, etc.
 
-To restart from *chk_run00061*,for example, then set
+To restart from ``chk_run00061``,for example, then set
 
--  **remora.restart** = *chk_run00061*
+-  **remora.restart** = ``chk_run00061``
 

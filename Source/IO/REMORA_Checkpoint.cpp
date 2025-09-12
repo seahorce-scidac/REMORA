@@ -200,7 +200,7 @@ REMORA::WriteCheckpointFile ()
        VisMF::Write(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "zeta"));
        VisMF::Write(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Zt_avg1"));
 
-       VisMF::Write(*(vec_hOfTheConfusingName[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "h"));
+       VisMF::Write(*(vec_h[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "h"));
 
        VisMF::Write(*(vec_tke[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "tke"));
        VisMF::Write(*(vec_gls[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "gls"));
@@ -424,7 +424,7 @@ REMORA::ReadCheckpointFile ()
        VisMF::Read(*(vec_zeta[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "zeta"));
        VisMF::Read(*(vec_Zt_avg1[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Zt_avg1"));
 
-       VisMF::Read(*(vec_hOfTheConfusingName[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "h"));
+       VisMF::Read(*(vec_h[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "h"));
 
        VisMF::Read(*(vec_tke[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "tke"));
        VisMF::Read(*(vec_gls[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "gls"));

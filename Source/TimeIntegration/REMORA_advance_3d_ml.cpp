@@ -28,7 +28,7 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
                vec_DV_avg1[lev], vec_DV_avg2[lev],
                vec_ubar[lev],  vec_vbar[lev],
                vec_Akv[lev], vec_Akt[lev], vec_Hz[lev], vec_Huon[lev], vec_Hvom[lev],
-               vec_z_w[lev], vec_hOfTheConfusingName[lev].get(),
+               vec_z_w[lev], vec_h[lev].get(),
                vec_pm[lev].get(), vec_pn[lev].get(), vec_mskr[lev].get(),
                vec_msku[lev].get(), vec_mskv[lev].get(),
                N, dt_lev);

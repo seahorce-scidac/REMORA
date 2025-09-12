@@ -23,59 +23,81 @@ List of Parameters
 
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | Parameter                              | Definition                        | Acceptable            | Default    |
+|                                        |                                   |                       |            |
 |                                        |                                   | Values                |            |
 +========================================+===================================+=======================+============+
-| **remora.plotfile_type**               | AMReX or NETCDF plotfiles         | "amrex" or            | "amrex"    |
-|                                        |                                   | "netcdf / "NetCDF"    |            |
+| **remora.plotfile_type**               | AMReX or NETCDF plotfiles         | ``amrex`` or          | ``amrex``  |
+|                                        |                                   |                       |            |
+|                                        |                                   | ``netcdf``            |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.file_min_digits**             | Minimum number of digits          | Integer >= 0          | 5          |
-|                                        | in iteration number appended to   |                       |            |
-|                                        | plotfile, checkpoint, or chunked  |                       |            |
-|                                        | history files                     |                       |            |
+|                                        |                                   |                       |            |
+|                                        | in iteration number appended      |                       |            |
+|                                        |                                   |                       |            |
+|                                        | to plotfile, checkpoint,          |                       |            |
+|                                        |                                   |                       |            |
+|                                        | or chunked history files          |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.write_history_file**          | do we write                       | false or true         | true       |
 |                                        | netcdf files at                   |                       |            |
-|                                        | each timestep                     |                       |            |
-|                                        | or one file for                   |                       |            |
+|                                        |                                   |                       |            |
+|                                        | each timestep or one file         |                       |            |
+|                                        |                                   |                       |            |
+|                                        | for                               |                       |            |
 |                                        | all timesteps?                    |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.chunk_history_file**          | do we divide netcdf history       | false or true         | false      |
+|                                        |                                   |                       |            |
 |                                        | files so that each file contains  |                       |            |
+|                                        |                                   |                       |            |
 |                                        | only a certain number of time     |                       |            |
+|                                        |                                   |                       |            |
 |                                        | steps?                            |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.steps_per_history_file**      | Maximum number of steps per       | integer               | -1         |
+|                                        |                                   |                       |            |
 |                                        | netcdf history file. If <=0,      |                       |            |
-|                                        | calculate automatically such that |                       |            |
-|                                        | each file is less than 2GB        |                       |            |
+|                                        |                                   |                       |            |
+|                                        | calculate automatically such      |                       |            |
+|                                        |                                   |                       |            |
+|                                        | that each file is less than 2GB   |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.plot_file**                   | prefix for                        | String                | “plt”      |
 |                                        | plotfiles                         |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.plot_int**                    | how often (by                     | Integer               | -1         |
 |                                        | level-0 time                      | :math:`> 0`           |            |
+|                                        |                                   |                       |            |
 |                                        | steps) to write                   |                       |            |
 |                                        | plot files                        |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.plot_int_time**               | how often (in simulation time     | Real                  | -1.0       |
-|                                        | seconds)                          | :math:`> 0`           |            |
-|                                        | to write                          |                       |            |
+|                                        |                                   | :math:`> 0`           |            |
+|                                        |                                   |                       |            |
+|                                        | seconds) to write                 |                       |            |
 |                                        | plot files                        |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.plot_vars**                   | name of                           | list of names         | None       |
-|                                        | variables to                      | (see table below)     |            |
-|                                        | include in                        |                       |            |
+|                                        | variables to                      |                       |            |
+|                                        | include in                        | (see table below)     |            |
+|                                        |                                   |                       |            |
 |                                        | plotfiles. Not                    |                       |            |
 |                                        | used for netCDF                   |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
-| **remora.plot_staggered_vels**         | whether to output velocities on   | false or true         | false      |
-|                                        | cell faces. They will be in       |                       |            |
-|                                        | the UFace/VFace/WFace multifab.   |                       |            |
-|                                        | Not used for netCDF               |                       |            |
+| **remora.plot_staggered_vels**         | whether to output velocities      | false or true         | false      |
+|                                        |                                   |                       |            |
+|                                        | on cell faces. They will be in    |                       |            |
+|                                        |                                   |                       |            |
+|                                        | the UFace/VFace/WFace             |                       |            |
+|                                        |                                   |                       |            |
+|                                        | multifab. Not used for netCDF     |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.expand_plotvars_to_unif_rr**  | whether to expand a multilevel    | false or true         | false      |
+|                                        |                                   |                       |            |
 |                                        | plotfile to have a uniform        |                       |            |
+|                                        |                                   |                       |            |
 |                                        | refinement ratio on levels > 0.   |                       |            |
+|                                        |                                   |                       |            |
 |                                        | This is necessary for amrvis.     |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 

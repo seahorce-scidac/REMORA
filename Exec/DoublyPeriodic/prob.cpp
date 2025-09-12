@@ -37,9 +37,6 @@ void Problem::init_analytic_bathymetry (
         REMORA const& /*remora*/,
         amrex::MultiFab& mf_h)
 {
-    //std::unique_ptr<MultiFab>& mf_z_w = vec_z_w[lev];
-    //std::unique_ptr<MultiFab>& mf_h  = vec_hOfTheConfusingName[lev];
-
     const auto & geomdata = geom.data();
     mf_h.setVal(geomdata.ProbHi(2));
 
