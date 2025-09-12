@@ -723,7 +723,7 @@ List of Parameters
 |                                   |                                        |                   |                |
 |                                   | ``analytic`` means function is         | ``constant``      |                |
 |                                   |                                        |                   |                |
-|                                   | speicified in ``prob.cpp``.            |                   |                |
+|                                   | specified in ``prob.cpp``.             |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.visc2**                  | Constant horizontal viscosity,         | Real number       | 0.0            |
 |                                   |                                        |                   |                |
