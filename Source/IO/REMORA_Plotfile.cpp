@@ -414,6 +414,7 @@ REMORA::WritePlotFile ()
 
     } else { // multilevel
         if (plotfile_type == PlotfileType::amrex) {
+            amrex::Print() << "Writing plotfile " << plotfilename << "\n";
             int lev0 = 0;
             [[maybe_unused]] int desired_ratio = std::max(std::max(ref_ratio[lev0][0],ref_ratio[lev0][1]),ref_ratio[lev0][2]);
             bool any_ratio_one = ( ( (ref_ratio[lev0][0] == 1) || (ref_ratio[lev0][1] == 1) ) ||

@@ -30,6 +30,9 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     }
     BoxArray ba2d(std::move(bl2d));
 
+    amrex::Print() << "Making level " << lev << " from coarse" << std::endl;
+    amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+
     cons_new[lev] = new MultiFab(ba, dm, NCONS, cons_new[lev-1]->nGrowVect());
     cons_old[lev] = new MultiFab(ba, dm, NCONS, cons_new[lev-1]->nGrowVect());
 
@@ -157,6 +160,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     }
     BoxArray ba2d(std::move(bl2d));
 
+    amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
 
 #if (NGROW==2)
@@ -321,6 +325,7 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     }
     BoxArray ba2d(std::move(bl2d));
 
+    amrex::Print() << "Making level " << lev << " from scratch" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
 
     // The number of ghost cells for density must be 1 greater than that for velocity
