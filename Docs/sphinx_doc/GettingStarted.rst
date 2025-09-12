@@ -35,9 +35,9 @@ The executable can be run with the provided inputs file:
 
       ./REMORA.3d.gnu.TEST.ex inputs
 
-This will produce an AMReX plotfile at the 10th time step called ``plt00010`` which can be :ref:`visualized`<Visualization>`.
+This will produce an AMReX plotfile at the 10th time step called ``plt00010`` which can be :ref:`visualized<Visualization>`.
 
-A similar process can be used to build other cases within ``Exec``, except for ``IdealMiniGrid``, which requires MPI and :ref:`PnetCDF`<netcdf>`.
+A similar process can be used to build other cases within ``Exec``, except for ``IdealMiniGrid``, which requires MPI and :ref:`PnetCDF<netcdf>`.
 
 Downloading the code
 --------------------
