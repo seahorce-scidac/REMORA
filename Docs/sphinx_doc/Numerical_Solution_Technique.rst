@@ -433,7 +433,7 @@ When using the linear equation of state, density is obtained from temperature :m
 .. math::
    \rho\left(T,S\right) = R_0 - R_0 T_{\mathrm{coef}} (T - T_0) + R_0 S_{\mathrm{coef}} (S-S_0).
 
-The constants :math:`R_0`, :math:`T_0`, :math:`S_0`, :math:`T_{\mathrm{coef}}`, and :math:`S_{\mathrm{coef}}` are specified in the :ref:`inputs`<list-of-parameters-15>` file.
+The constants :math:`R_0`, :math:`T_0`, :math:`S_0`, :math:`T_{\mathrm{coef}}`, and :math:`S_{\mathrm{coef}}` are specified in the :ref:`inputs <list-of-parameters-15>` file.
 
 Nonlinear Equation of State
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -19,7 +19,7 @@ stress is specified by the function ``init_analytic_smflux`` in ``prob.cpp``.
 
 REMORA also implements the ROMS bulk fluxes parameterization with optional evaporation-precipitation. The
 parametrization can be turned on with ``remora.bulk_fluxes``. Further options can be found in the
-:ref:`parameter list<list-of-parameters-bulk-fluxes>`.
+:ref:`parameter list <list-of-parameters-bulk-fluxes>`.
 
 
 Boundary per side
@@ -43,7 +43,7 @@ options for boundary conditions per side are listed below.
 Each of these types of physical boundary condition has a mapping to a mathematical boundary condition
 for each type; this is summarized in the table below, along with the corresponding ROMS boundary conditions.
 If periodic is selected, it must be used for both low and high faces in a direction. The ``remora.is_periodic``
-flag must match as described in :ref:`ProblemGeometry`<geometry-parameters>`.
+flag must match as described in :ref:`ProblemGeometry <geometry-parameters>`.
 
 For example, setting
 
@@ -114,7 +114,7 @@ For example, setting
 
 will define a problem that is periodic on the Western and Eastern sides. Temperature, salinity, passive scalar,
 3D u-velocity, and 3D v-velocity will be clamped to values given in a NetCDF file specified by
-:ref:`remora.nc_bdry_file_0`<icbc-parameters>`. The 2D momentum and zeta BCs are calculated from the
+:ref:`remora.nc_bdry_file_0<icbc-parameters>`. The 2D momentum and zeta BCs are calculated from the
 Chapman/Flather conditions, with nudging towards values given in the boundary NetCDF file.
 
 .. _sec:bc-options:
@@ -172,7 +172,7 @@ Scroll table to the right if not all visible. Rightmost column is sea surface he
 |                    |           | w/nudging          | w/nudging           |                    |                     | w/nudging          |                    |
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
 
-The asterisks (*) indicate conditions that require the specification of a :ref:`boundary file`<icbc-parameters>`.
+The asterisks (*) indicate conditions that require the specification of a :ref:`boundary file <icbc-parameters>`.
 
 Here ``ext_dir``, ``foextrap``, and ``reflect_even`` refer to AMReX keywords.   The ``ext_dir`` type
 refers to an "external Dirichlet" boundary, which means the values must be specified by the user, unless

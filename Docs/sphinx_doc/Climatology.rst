@@ -8,7 +8,7 @@
 Nudging to climatology
 ======================
 
-REMORA supports nudging to climatology both on the boundaries and in an interior sponge region. Nudging at the boundaries is discussed in :ref:`Boundary Conditions`<sec:domainBCs>`.
+REMORA supports nudging to climatology both on the boundaries and in an interior sponge region. Nudging at the boundaries is discussed in :ref:`Boundary Conditions<sec:domainBCs>`.
 
 The climatology history and nudging coefficients are read from NetCDF files.
 

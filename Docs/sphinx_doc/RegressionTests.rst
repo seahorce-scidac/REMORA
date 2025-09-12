@@ -7,7 +7,7 @@ Regression Tests
 There are currently 12 accuracy tests which are run as part of every PR on a range of architectures.
 The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
-instructions in :ref:`Testing`<Testing>`.
+instructions in :ref:`Testing<Testing>`.
 
 In addition there is a suite of more extensive nightly tests that use GNUMake and use the current
 development branch of AMReX.
@@ -615,7 +615,7 @@ Nightly Regression Tests on GPU
 
 And the following are currently tested nighly on GPU. All are compiled and run with CUDA.
 
-Based on :ref:`Advection`<advection>`:
+Based on :ref:`Advection<advection>`:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |

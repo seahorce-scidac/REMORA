@@ -11,7 +11,7 @@ These equations are as given in the `ROMS documentation`_
 
 .. _`ROMS documentation`: https://www.myroms.org/wiki/Vertical_Mixing_Parameterizations
 
-The type of vertical mixing parametrization can be chosen in the :ref:`inputs file`<list-of-parameters-15>` with the ``remora.vertical_mixing_type`` option.
+The type of vertical mixing parametrization can be chosen in the :ref:`inputs file<list-of-parameters-15>` with the ``remora.vertical_mixing_type`` option.
 
 Analytic Mixing
 ---------------
@@ -52,7 +52,7 @@ The coefficients :math:`c_1` and :math:`c_2` are chosen to be consistent with ob
     \psi &= \left(c_{\mu}^0\right)^p k^m l^n\\
     l &= \left(c_{\mu}^0\right)^3 k^{3/2}\epsilon - 1
 
-The indices :math:`p`, :math:`m`, and :math:`n` as well as coefficients are set in the :ref:`inputs file`<list-of-parameters-gls>`. The default values correspond to the :math:`k-\epsilon` turbulence model.
+The indices :math:`p`, :math:`m`, and :math:`n` as well as coefficients are set in the :ref:`inputs file<list-of-parameters-gls>`. The default values correspond to the :math:`k-\epsilon` turbulence model.
 
 The equations for :math:`q` and :math:`\psi` are evolved much like the model tracer equations, including an implicit solve for vertical operations. We use a predictor-corrector scheme in which the predictor step only computes advection. The mixing coefficients are calculated from :math:`q` and :math:`l`:
 
