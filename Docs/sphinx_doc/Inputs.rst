@@ -97,9 +97,9 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   |                                   | Values          |                                 |
 +===================================+===================================+=================+=================================+
-| **remora.ic_type**                | read initial and grid             |                 |                                 |
+| **remora.ic_type**                | read initial and grid             | ``analytic``    |                                 |
 |                                   |                                   |                 |                                 |
-|                                   | data from files                   | true/false      | false                           |
+|                                   | data from files                   | or ``netcdf``   | ``analytic``                    |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.nc_init_file_0**         | initial data NetCDF               | string          | must be set                     |
 |                                   |                                   |                 |                                 |
