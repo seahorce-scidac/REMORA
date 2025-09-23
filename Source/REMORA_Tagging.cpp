@@ -149,10 +149,27 @@ REMORA::refinement_criteria_setup ()
                     int ihi = static_cast<int>((box_hi[0] - plo[0])/dx[0]-1);
                     int jhi = static_cast<int>((box_hi[1] - plo[1])/dx[1]-1);
                     int khi = static_cast<int>((box_hi[2] - plo[2])/dx[2]-1);
+                    Box bx_old(IntVect(ilo,jlo,klo),IntVect(ihi,jhi,khi));
+                    int mod_ilo = ilo%ref_ratio[lev_for_box-1][0];
+                    int mod_ihi = (ihi+1)%ref_ratio[lev_for_box-1][0];
+                    int mod_jlo = jlo%ref_ratio[lev_for_box-1][0];
+                    int mod_jhi = (jhi+1)%ref_ratio[lev_for_box-1][0];
+                    if (mod_ilo != 0) {
+                        ilo -= mod_ilo;
+                    }
+                    if (mod_jlo != 0) {
+                        jlo -= mod_jlo;
+                    }
+                    if (mod_ihi != 0) {
+                        ihi += ref_ratio[lev_for_box-1][0] - mod_ihi;
+                    }
+                    if (mod_jhi != 0) {
+                        jhi += ref_ratio[lev_for_box-1][1] - mod_jhi;
+                    }
                     Box bx(IntVect(ilo,jlo,klo),IntVect(ihi,jhi,khi));
-                    if ( (ilo%ref_ratio[lev_for_box-1][0] != 0) || ((ihi+1)%ref_ratio[lev_for_box-1][0] != 0) ||
-                         (jlo%ref_ratio[lev_for_box-1][1] != 0) || ((jhi+1)%ref_ratio[lev_for_box-1][1] != 0) )
-                         amrex::Error("Fine box is not legit with this ref_ratio");
+                    if (mod_ilo !=0 || mod_jlo !=0 || mod_ihi != 0 || mod_jhi != 0) {
+                        amrex::Print() << "Fine box on level " << lev_for_box << " adjusted from " << bx_old << " to " << bx << " to make it valid for refinement." << std::endl;
+                    }
                     boxes_at_level[lev_for_box].push_back(bx);
                     amrex::Print() << "Saving in 'boxes at level' as " << bx << std::endl;
                 } // lev
