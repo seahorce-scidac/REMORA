@@ -31,7 +31,8 @@ The following example demonstrates how to tag regions for static refinement.
 In this first example, all cells in the region :math:`[0.15,0.25,\texttt{prob_lo_z}] \times [0.35,0.45,\texttt{prob_hi_z}]`
 and in the region :math:`[0.65,0.75,\texttt{prob_lo_z}]\times[0.85,0.95,\texttt{prob_hi_z}]` are tagged for
 one level of refinement, where prob_lo_z and prob_hi_z are the vertical extents of the domain. They will be refined
-by a factor of 2 in the x and y directions, and not refined (i.e. refinement ratio 1) in the z direction:
+by a factor of 2 in the x and y directions, and not refined (i.e. refinement ratio 1) in the z direction. If needed, the
+refinement region will be expanded slightly to include the entirety of any partially-tagged coarse-level cell.
 
 ::
 
