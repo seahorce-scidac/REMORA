@@ -587,10 +587,10 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 if (bx.contains(IntVect(0,0,0)))
                 {
                     {
-                        amrex::Gpu::DeviceVector<amrex::Real> tmp_srho(local_nz);
+                        amrex::Vector<amrex::Real> tmp_srho(local_nz);
 
 #ifdef AMREX_USE_GPU
-                        Gpu::htod_memcpy(tmp_srho.data(), s_r.data(), sizeof(amrex::Real)*local_nz);
+                        Gpu::dtoh_memcpy(tmp_srho.data(), s_r.data(), sizeof(amrex::Real)*local_nz);
 #else
                         std::memcpy(tmp_srho.data(), s_r.data(), sizeof(amrex::Real)*local_nz);
 #endif
@@ -601,10 +601,10 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                         nc_plot_var.put(tmp_srho.data(), { local_start_z }, { local_nz });
                     }
                     {
-                        amrex::Gpu::DeviceVector<amrex::Real> tmp_sw(local_nz+1);
+                        amrex::Vector<amrex::Real> tmp_sw(local_nz+1);
 
 #ifdef AMREX_USE_GPU
-                        Gpu::htod_memcpy(tmp_sw.data(), s_w.data(), sizeof(amrex::Real)*(local_nz+1));
+                        Gpu::dtoh_memcpy(tmp_sw.data(), s_w.data(), sizeof(amrex::Real)*(local_nz+1));
 #else
                         std::memcpy(tmp_sw.data(), s_w.data(), sizeof(amrex::Real)*(local_nz+1));
 #endif
@@ -615,10 +615,10 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                         nc_plot_var.put(tmp_sw.data(), { local_start_z }, { local_nz + 1});
                     }
                     {
-                        amrex::Gpu::DeviceVector<amrex::Real> tmp_Csrho(local_nz);
+                        amrex::Vector<amrex::Real> tmp_Csrho(local_nz);
 
 #ifdef AMREX_USE_GPU
-                        Gpu::htod_memcpy(tmp_Csrho.data(), Cs_r.data(), sizeof(amrex::Real)*(local_nz));
+                        Gpu::dtoh_memcpy(tmp_Csrho.data(), Cs_r.data(), sizeof(amrex::Real)*(local_nz));
 #else
                         std::memcpy(tmp_Csrho.data(), Cs_r.data(), sizeof(amrex::Real)*(local_nz));
 #endif
@@ -629,10 +629,10 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                         nc_plot_var.put(tmp_Csrho.data(), { local_start_z }, { local_nz });
                     }
                     {
-                        amrex::Gpu::DeviceVector<amrex::Real> tmp_Csw(local_nz+1);
+                        amrex::Vector<amrex::Real> tmp_Csw(local_nz+1);
 
 #ifdef AMREX_USE_GPU
-                        Gpu::htod_memcpy(tmp_Csw.data(), Cs_w.data(), sizeof(amrex::Real)*(local_nz+1));
+                        Gpu::dtoh_memcpy(tmp_Csw.data(), Cs_w.data(), sizeof(amrex::Real)*(local_nz+1));
 #else
                         std::memcpy(tmp_Csw.data(), Cs_w.data(), sizeof(amrex::Real)*(local_nz+1));
 #endif
