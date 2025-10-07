@@ -793,12 +793,15 @@ REMORA::advance_2d (int lev,
             dt2d = dtfast_lev;
         }
 
+        MultiFab ubar_know(*vec_ubar[lev], make_alias, know, 1);
+        MultiFab vbar_know(*vec_vbar[lev], make_alias, know, 1);
+        MultiFab zeta_know(*vec_zeta[lev], make_alias, know, 1);
         FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BCVars::ubar_bc, BdyVars::ubar,
-                  knew, false,true, 0,know, dt2d);
+                  knew, false,true, 0,know, dt2d, ubar_know);
         FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BCVars::vbar_bc, BdyVars::vbar,
-                  knew, false,true, 0,know, dt2d);
+                  knew, false,true, 0,know, dt2d, vbar_know);
         FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), BCVars::zeta_bc, BdyVars::zeta,
-                  knew, false,false, 0,know, dt2d);
+                  knew, false,false, 0,know, dt2d, zeta_know);
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_rivers) {

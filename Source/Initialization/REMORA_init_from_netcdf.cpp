@@ -167,17 +167,18 @@ REMORA::init_zeta_from_netcdf (int lev)
         } // omp
     } // idx
     vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
-    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
+    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc,0,*vec_zeta[lev],*vec_msku[lev],*vec_mskv[lev]);
 //    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),1,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
 //    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),2,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
 
     if (solverChoice.boundary_from_netcdf) {
         Real told = t_new[lev];
-        fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,0,0);
+        fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,0,0,
+                           *vec_zeta[lev]);
     }
     if (lev>0) {
         FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), BCVars::zeta_bc, BdyVars::zeta,
-                  0, false,false);
+                  0, false,false,0,0,0.0,*vec_zeta[lev]);
     }
 //    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
 //    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
