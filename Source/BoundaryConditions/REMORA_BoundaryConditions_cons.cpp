@@ -63,6 +63,13 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     bool is_periodic_in_y = geomdata.isPeriodic(1);
     const Real eps= 1.0e-20_rt;
 
+    // If we're doing zeta, then calc_arr only has a single component
+    // corresponding to the component to be used in calculating the boundary
+    // value. If it's another variable, either we aren't using calc_arr
+    // or the components correspond to salt, temp, etc and we loop over ncomp
+    // so we leave icomp as is
+    int icomp_calc = (bccomp == BCVars::zeta_bc) ? 0 : icomp;
+
     Box dest_arr_box = Box(dest_arr);
     // First do all ext_dir bcs
     if (!is_periodic_in_x)
@@ -76,30 +83,30 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                 if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][0] * mskr(i,j,0);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::orlanski_rad) {
-                    Real grad_lo       = (calc_arr(dom_lo.x  ,j  ,k,icomp+n) - calc_arr(dom_lo.x  ,j-1,k,icomp+n)) * mskv(i,j,0);
-                    Real grad_lo_jp1   = (calc_arr(dom_lo.x  ,j+1,k,icomp+n) - calc_arr(dom_lo.x  ,j  ,k,icomp+n)) * mskv(i,j,0);
-                    Real dTdt = calc_arr(dom_lo.x,j,k,icomp+n) - dest_arr(dom_lo.x  ,j,k,icomp+n);
+                    Real grad_lo       = (calc_arr(dom_lo.x  ,j  ,k,icomp_calc+n) - calc_arr(dom_lo.x  ,j-1,k,icomp_calc+n)) * mskv(i,j,0);
+                    Real grad_lo_jp1   = (calc_arr(dom_lo.x  ,j+1,k,icomp_calc+n) - calc_arr(dom_lo.x  ,j  ,k,icomp_calc+n)) * mskv(i,j,0);
+                    Real dTdt = calc_arr(dom_lo.x,j,k,icomp_calc+n) - dest_arr(dom_lo.x  ,j,k,icomp+n);
                     Real dTdx = dest_arr(dom_lo.x,j,k,icomp+n) - dest_arr(dom_lo.x+1,j,k,icomp+n);
                     if (dTdt*dTdx < 0.0_rt) dTdt = 0.0_rt;
                     Real dTde = (dTdt * (grad_lo+grad_lo_jp1) > 0.0_rt) ? grad_lo : grad_lo_jp1;
                     Real cff = std::max(dTdx*dTdx+dTde*dTde,eps);
                     Real Cx = dTdt * dTdx;
-                    dest_arr(i,j,k,icomp+n) = (cff * calc_arr(dom_lo.x-1,j,k,icomp+n) + Cx * dest_arr(dom_lo.x,j,k,icomp+n)) * mskr(i,j,0) / (cff+Cx);
+                    dest_arr(i,j,k,icomp+n) = (cff * calc_arr(dom_lo.x-1,j,k,icomp_calc+n) + Cx * dest_arr(dom_lo.x,j,k,icomp+n)) * mskr(i,j,0) / (cff+Cx);
                 }
             },
             bx_xhi & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][3] * mskr(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::orlanski_rad) {
-                    Real grad_hi      = (calc_arr(dom_hi.x  ,j  ,k,icomp+n) - calc_arr(dom_hi.x  ,j-1,k,icomp+n)) * mskv(i,j,0);
-                    Real grad_hi_jp1  = (calc_arr(dom_hi.x  ,j+1,k,icomp+n) - calc_arr(dom_hi.x  ,j  ,k,icomp+n)) * mskv(i,j,0);
-                    Real dTdt = calc_arr(dom_hi.x,j,k,icomp+n) - dest_arr(dom_hi.x  ,j,k,icomp+n);
+                    Real grad_hi      = (calc_arr(dom_hi.x  ,j  ,k,icomp_calc+n) - calc_arr(dom_hi.x  ,j-1,k,icomp_calc+n)) * mskv(i,j,0);
+                    Real grad_hi_jp1  = (calc_arr(dom_hi.x  ,j+1,k,icomp_calc+n) - calc_arr(dom_hi.x  ,j  ,k,icomp_calc+n)) * mskv(i,j,0);
+                    Real dTdt = calc_arr(dom_hi.x,j,k,icomp_calc+n) - dest_arr(dom_hi.x  ,j,k,icomp+n);
                     Real dTdx = dest_arr(dom_hi.x,j,k,icomp+n) - dest_arr(dom_hi.x-1,j,k,icomp+n);
                     if (dTdt * dTdx < 0.0_rt) dTdt = 0.0_rt;
                     Real dTde = (dTdt * (grad_hi + grad_hi_jp1) > 0.0_rt) ? grad_hi : grad_hi_jp1;
                     Real cff = std::max(dTdx*dTdx + dTde*dTde,eps);
                     Real Cx = dTdt * dTdx;
-                    dest_arr(i,j,k,icomp+n) = (cff * calc_arr(dom_hi.x+1,j,k,icomp+n) + Cx * dest_arr(dom_hi.x,j,k,icomp+n)) * mskr(i,j,0) / (cff+Cx);
+                    dest_arr(i,j,k,icomp+n) = (cff * calc_arr(dom_hi.x+1,j,k,icomp_calc+n) + Cx * dest_arr(dom_hi.x,j,k,icomp+n)) * mskr(i,j,0) / (cff+Cx);
                 }
             }
         );
@@ -116,30 +123,30 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                 if (bc_ptr[n].lo(1) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][1] * mskr(i,j,0);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::orlanski_rad) {
-                    Real grad_lo       = (calc_arr(i  ,dom_lo.y,  k,icomp+n) - calc_arr(i-1,dom_lo.y  ,k,icomp+n)) * msku(i,j,0);
-                    Real grad_lo_ip1   = (calc_arr(i+1,dom_lo.y  ,k,icomp+n) - calc_arr(i  ,dom_lo.y  ,k,icomp+n)) * msku(i,j,0);
-                    Real dTdt = calc_arr(i,dom_lo.y,k,icomp+n) - dest_arr(i,dom_lo.y  ,k,icomp+n);
+                    Real grad_lo       = (calc_arr(i  ,dom_lo.y,  k,icomp_calc+n) - calc_arr(i-1,dom_lo.y  ,k,icomp_calc+n)) * msku(i,j,0);
+                    Real grad_lo_ip1   = (calc_arr(i+1,dom_lo.y  ,k,icomp_calc+n) - calc_arr(i  ,dom_lo.y  ,k,icomp_calc+n)) * msku(i,j,0);
+                    Real dTdt = calc_arr(i,dom_lo.y,k,icomp_calc+n) - dest_arr(i,dom_lo.y  ,k,icomp+n);
                     Real dTde = dest_arr(i,dom_lo.y,k,icomp+n) - dest_arr(i,dom_lo.y+1,k,icomp+n);
                     if (dTdt * dTde < 0.0_rt) dTdt = 0.0_rt;
                     Real dTdx = (dTdt * (grad_lo + grad_lo_ip1) > 0.0_rt) ? grad_lo : grad_lo_ip1;
                     Real cff = std::max(dTdx*dTdx + dTde*dTde, eps);
                     Real Ce = dTdt*dTde;
-                    dest_arr(i,j,k,icomp+n) = (cff * calc_arr(i,dom_lo.y-1,k,icomp+n) + Ce * dest_arr(i,dom_lo.y,k,icomp+n)) * mskr(i,j,0) / (cff+Ce);
+                    dest_arr(i,j,k,icomp+n) = (cff * calc_arr(i,dom_lo.y-1,k,icomp_calc+n) + Ce * dest_arr(i,dom_lo.y,k,icomp+n)) * mskr(i,j,0) / (cff+Ce);
                 }
             },
             bx_yhi & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].hi(1) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k,icomp+n) = l_bc_extdir_vals_d[n][4] * mskr(i,j,0);
                 } else if (bc_ptr[n].hi(1) == REMORABCType::orlanski_rad) {
-                    Real grad_hi      = (calc_arr(i  ,dom_hi.y  ,k,icomp+n) - calc_arr(i-1,dom_hi.y  ,k,icomp+n)) * msku(i,j,0);
-                    Real grad_hi_ip1  = (calc_arr(i+1,dom_hi.y  ,k,icomp+n) - calc_arr(i  ,dom_hi.y  ,k,icomp+n)) * msku(i,j,0);
-                    Real dTdt = calc_arr(i,dom_hi.y,k,icomp+n) - dest_arr(i,dom_hi.y  ,k,icomp+n);
+                    Real grad_hi      = (calc_arr(i  ,dom_hi.y  ,k,icomp_calc+n) - calc_arr(i-1,dom_hi.y  ,k,icomp_calc+n)) * msku(i,j,0);
+                    Real grad_hi_ip1  = (calc_arr(i+1,dom_hi.y  ,k,icomp_calc+n) - calc_arr(i  ,dom_hi.y  ,k,icomp_calc+n)) * msku(i,j,0);
+                    Real dTdt = calc_arr(i,dom_hi.y,k,icomp_calc+n) - dest_arr(i,dom_hi.y  ,k,icomp+n);
                     Real dTde = dest_arr(i,dom_hi.y,k,icomp+n) - dest_arr(i,dom_hi.y-1,k,icomp+n);
                     if (dTdt * dTde < 0.0_rt) dTdt = 0.0_rt;
                     Real dTdx = (dTdt * (grad_hi + grad_hi_ip1) > 0.0_rt) ? grad_hi : grad_hi_ip1;
                     Real cff = std::max(dTdx*dTdx + dTde*dTde, eps);
                     Real Ce = dTdt*dTde;
-                    dest_arr(i,j,k,icomp+n) = (cff*calc_arr(i,dom_hi.y+1,k,icomp+n) + Ce*dest_arr(i,dom_hi.y,k,icomp+n)) * mskr(i,j,0) / (cff+Ce);
+                    dest_arr(i,j,k,icomp+n) = (cff*calc_arr(i,dom_hi.y+1,k,icomp_calc+n) + Ce*dest_arr(i,dom_hi.y,k,icomp+n)) * mskr(i,j,0) / (cff+Ce);
                 }
             }
         );

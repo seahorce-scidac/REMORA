@@ -566,6 +566,26 @@ void REMORA::init_bcs ()
                         }
                     }
                 }
+                else if (bct == REMORA_BC::orlanski_rad)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::orlanski_rad);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::foextrap);
+                    } else {
+                        domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::orlanski_rad);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::foextrap);
+                    }
+                }
+                else if (bct == REMORA_BC::orlanski_rad_nudge)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::ubar_bc+i].setLo(dir, REMORABCType::orlanski_rad_nudge);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setLo(dir, REMORABCType::foextrap);
+                    } else {
+                        domain_bcs_type[BCVars::ubar_bc+i].setHi(dir, REMORABCType::orlanski_rad_nudge);
+                        domain_bcs_type[BCVars::u2d_simple_bc+i].setHi(dir, REMORABCType::foextrap);
+                    }
+                }
                 else
                 {
                     amrex::Abort("ubar or vbar boundary condition not validly specified");
@@ -649,6 +669,22 @@ void REMORA::init_bcs ()
                         domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::clamped);
                     } else {
                         domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::clamped);
+                    }
+                }
+                else if ( bct == REMORA_BC::orlanski_rad)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::orlanski_rad);
+                    } else {
+                        domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::orlanski_rad);
+                    }
+                }
+                else if ( bct == REMORA_BC::orlanski_rad_nudge)
+                {
+                    if (side == Orientation::low) {
+                        domain_bcs_type[BCVars::zeta_bc+i].setLo(dir, REMORABCType::orlanski_rad_nudge);
+                    } else {
+                        domain_bcs_type[BCVars::zeta_bc+i].setHi(dir, REMORABCType::orlanski_rad_nudge);
                     }
                 }
                 else
