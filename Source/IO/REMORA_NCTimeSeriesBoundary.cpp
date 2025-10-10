@@ -188,25 +188,33 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time) {
     amrex::Array4<amrex::Real> ylo_after_arr = ylo_dat_after.array();
     amrex::Array4<amrex::Real> yhi_after_arr = yhi_dat_after.array();
 
-    amrex::ParallelFor(xlo_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        xlo_interp_arr(i,j,k) = xlo_before_arr(i,j,k) + (time - time_before_copy) * (xlo_after_arr(i,j,k) - xlo_before_arr(i,j,k)) / dt;
-    });
+    if (var_need_data[amrex::Orientation(amrex::Direction::x,amrex::Orientation::low)] == true) {
+        amrex::ParallelFor(xlo_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            xlo_interp_arr(i,j,k) = xlo_before_arr(i,j,k) + (time - time_before_copy) * (xlo_after_arr(i,j,k) - xlo_before_arr(i,j,k)) / dt;
+        });
+    }
 
-    amrex::ParallelFor(xhi_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        xhi_interp_arr(i,j,k) = xhi_before_arr(i,j,k) + (time - time_before_copy) * (xhi_after_arr(i,j,k) - xhi_before_arr(i,j,k)) / dt;
-    });
+    if (var_need_data[amrex::Orientation(amrex::Direction::x,amrex::Orientation::high)] == true) {
+        amrex::ParallelFor(xhi_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            xhi_interp_arr(i,j,k) = xhi_before_arr(i,j,k) + (time - time_before_copy) * (xhi_after_arr(i,j,k) - xhi_before_arr(i,j,k)) / dt;
+        });
+    }
 
-    amrex::ParallelFor(ylo_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        ylo_interp_arr(i,j,k) = ylo_before_arr(i,j,k) + (time - time_before_copy) * (ylo_after_arr(i,j,k) - ylo_before_arr(i,j,k)) / dt;
-    });
+    if (var_need_data[amrex::Orientation(amrex::Direction::y,amrex::Orientation::low)] == true) {
+        amrex::ParallelFor(ylo_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            ylo_interp_arr(i,j,k) = ylo_before_arr(i,j,k) + (time - time_before_copy) * (ylo_after_arr(i,j,k) - ylo_before_arr(i,j,k)) / dt;
+        });
+    }
 
-    amrex::ParallelFor(yhi_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-    {
-        yhi_interp_arr(i,j,k) = yhi_before_arr(i,j,k) + (time - time_before_copy) * (yhi_after_arr(i,j,k) - yhi_before_arr(i,j,k)) / dt;
-    });
+    if (var_need_data[amrex::Orientation(amrex::Direction::y,amrex::Orientation::high)] == true) {
+        amrex::ParallelFor(yhi_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            yhi_interp_arr(i,j,k) = yhi_before_arr(i,j,k) + (time - time_before_copy) * (yhi_after_arr(i,j,k) - yhi_before_arr(i,j,k)) / dt;
+        });
+    }
 }
 
 /**
