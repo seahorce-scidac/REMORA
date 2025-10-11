@@ -165,11 +165,11 @@ Scroll table to the right if not all visible. Rightmost column is sea surface he
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
 | flather*           | Fla       | N/A                | N/A                 | flather            | flather             | N/A                | N/A                |
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
-| orlanski_rad       | Rad       | orlanski           | orlanski            | N/A                | N/A                 | orlanski           | N/A                |
+| orlanski_rad       | Rad       | orlanski           | orlanski            |  orlanski          | orlanski            | orlanski           | orlanski           |
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
-| orlanski_rad_nudg* | RadNud    | orlanski           | orlanski            | N/A                | N/A                 | orlanski           | N/A                |
+| orlanski_rad_nudg* | RadNud    | orlanski           | orlanski            | orlanski           | orlanski            | orlanski           | orlanski           |
 |                    |           |                    |                     |                    |                     |                    |                    |
-|                    |           | w/nudging          | w/nudging           |                    |                     | w/nudging          |                    |
+|                    |           | w/nudging          | w/nudging           | w/nudging          | w/nudging           | w/nudging          | w/nudging          |
 +--------------------+-----------+--------------------+---------------------+--------------------+---------------------+--------------------+--------------------+
 
 The asterisks (*) indicate conditions that require the specification of a :ref:`boundary file <icbc-parameters>`.
