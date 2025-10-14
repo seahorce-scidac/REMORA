@@ -847,6 +847,9 @@ REMORA::init_only (int lev, Real time)
     if (solverChoice.boundary_from_netcdf) {
         Abort("Not compiled with NetCDF, but selected boundary conditions require NetCDF");
     }
+    if (solverChoice.do_rivers) {
+        Abort("Not compiled with NetCDF, but using river sources requires NetCDF");
+    }
 #endif
 
     set_bathymetry(lev);
