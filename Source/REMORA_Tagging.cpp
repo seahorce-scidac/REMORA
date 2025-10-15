@@ -16,32 +16,31 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 {
     const int clearval = TagBox::CLEAR;
     const int   tagval = TagBox::SET;
+
+    //
+    // This mf must have ghost cells because we may take differences between adjacent values
+    //
+    std::unique_ptr<MultiFab> mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 1);
+
     for (int j=0; j < ref_tags.size(); ++j)
     {
-        std::unique_ptr<MultiFab> mf;
 
         // This allows dynamic refinement based on the value of the scalar
         if (ref_tags[j].Field() == "scalar")
         {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab::Copy(*mf,*cons_new[levc],Scalar_comp,0,1,0);
         } else if (ref_tags[j].Field() == "temp") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab::Copy(*mf,*cons_new[levc],Temp_comp,0,1,0);
         } else if (ref_tags[j].Field() == "salt") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
+            amrex::Print() << "TAGGING ON SALT " << std::endl;
             MultiFab::Copy(*mf,*cons_new[levc],Salt_comp,0,1,0);
         } else if (ref_tags[j].Field() == "x_velocity") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,0);
         } else if (ref_tags[j].Field() == "y_velocity") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab::Copy(*mf,*yvel_new[levc],0,0,1,0);
         } else if (ref_tags[j].Field() == "z_velocity") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,0);
         } else if (ref_tags[j].Field() == "vorticity") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab mf_cc_vel(grids[levc],dmap[levc],3,1);
             average_face_to_cellcenter(mf_cc_vel,0,
                                        Array<const MultiFab*,3>{xvel_new[levc],
