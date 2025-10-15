@@ -3,6 +3,7 @@ name: REMORA CUDA CI
 on:
   pull_request:
     branches: [development]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.ref }}-${{ github.head_ref }}-cuda-ci
@@ -26,6 +27,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+      - name: Free up disk space
+        uses: ./.github/actions/free-space-ubuntu
       - name: Prepare CUDA environment
         run: Submodules/AMReX/.github/workflows/dependencies/dependencies_nvcc.sh ${{matrix.cuda_ver}}
       - name: Install CCache
@@ -37,11 +40,14 @@ jobs:
           key: ccache-${{ github.workflow }}-${{ github.job }}-git-${{ github.sha }}
           restore-keys: |
                ccache-${{ github.workflow }}-${{ github.job }}-git-
+      - name: Show disk space
+        run: df -h
       - name: Configure and build
         run: |
           export CCACHE_COMPRESS=1
           export CCACHE_COMPRESSLEVEL=10
-          export CCACHE_MAXSIZE=600M
+          export CCACHE_MAXSIZE=300M
+          export CCACHE_DEPEND=1
           ccache -z
 
           export PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
