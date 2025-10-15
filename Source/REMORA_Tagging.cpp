@@ -24,7 +24,6 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 
     for (int j=0; j < ref_tags.size(); ++j)
     {
-
         // This allows dynamic refinement based on the value of the scalar
         if (ref_tags[j].Field() == "scalar")
         {
@@ -32,7 +31,6 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         } else if (ref_tags[j].Field() == "temp") {
             MultiFab::Copy(*mf,*cons_new[levc],Temp_comp,0,1,0);
         } else if (ref_tags[j].Field() == "salt") {
-            amrex::Print() << "TAGGING ON SALT " << std::endl;
             MultiFab::Copy(*mf,*cons_new[levc],Salt_comp,0,1,0);
         } else if (ref_tags[j].Field() == "x_velocity") {
             MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,0);
@@ -61,6 +59,11 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
                 auto pn = vec_pn[levc]->const_array(mfi);
                 derived::remora_dervort(bx, dfab, 0, 1, sfab, pm, pn, Geom(levc), time, nullptr, levc);
             } // mfi
+
+          mf->FillBoundary(geom[levc].periodicity());
+          //
+          // TODO: we may need to fill physical boundaries here before tagging criteria are imposed
+          //
 
 #ifdef REMORA_USE_PARTICLES
         } else {
