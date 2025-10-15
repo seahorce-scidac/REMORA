@@ -3,7 +3,6 @@ name: REMORA CUDA CI
 on:
   pull_request:
     branches: [development]
-  push:
   workflow_dispatch:
 
 concurrency:
