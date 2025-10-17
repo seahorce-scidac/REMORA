@@ -74,7 +74,7 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
           //
 
         } else if (ref_tags[j].Field() == "mask") {
-            MultiFab::Copy(*mf,*vec_mskr3d[levc],0,0,1,1);
+            MultiFab::Copy(*mf,*vec_mskr3d[levc],0,0,1,IntVect(1,1,0));
 #ifdef REMORA_USE_PARTICLES
         } else {
             //
