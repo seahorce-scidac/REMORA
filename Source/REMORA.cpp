@@ -729,6 +729,7 @@ REMORA::set_masks(int lev)
         amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
 #endif
     }
+    fill_3d_masks(lev);
 }
 
 /**
