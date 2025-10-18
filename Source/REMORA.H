@@ -189,6 +189,9 @@ public:
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_u,
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_v,
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_w,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_2drho,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_2du,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_2dv,
                                                 const amrex::Vector<std::string> &varnames,
                                                 const amrex::Vector<amrex::Geometry>& my_geom,
                                                 amrex::Real time,
@@ -1319,6 +1322,9 @@ private:
 
     /** \brief Whether to write the staggered velocities (not averaged to cell centers) */
     static int plot_staggered_vels;
+
+    /** \brief Whether to write 2D plotfile variables */
+    static int plot_2d_vars;
 
     /** \brief Native or NetCDF plotfile output */
     static PlotfileType plotfile_type;

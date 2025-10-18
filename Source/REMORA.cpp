@@ -37,6 +37,9 @@ int         REMORA::file_min_digits = 5;
 // Do we include staggered velocities in the plotfile?
 int         REMORA::plot_staggered_vels = 0;
 
+// Do we include 2d variables in plotfile
+int         REMORA::plot_2d_vars = 0;
+
 // Native AMReX vs NetCDF
 PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
 
@@ -1022,6 +1025,8 @@ REMORA::ReadParameters ()
 
         // Should we plot the staggered face velocities (without averaging to cell centers)
         pp.query("plot_staggered_vels", plot_staggered_vels);
+
+        pp.query("plot_2d_vars", plot_2d_vars);
 
         // Output format
         std::string plotfile_type_str = "amrex";

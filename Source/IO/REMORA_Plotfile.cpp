@@ -163,6 +163,8 @@ REMORA::WritePlotFile ()
         FillPatchNoBC(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u,0,true,false);
         FillPatchNoBC(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v,0,true,false);
         FillPatchNoBC(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,false);
+        FillPatchNoBC(lev, t_new[lev], *vec_Zt_avg1[lev], GetVecOfPtrs(vec_Zt_avg1), BdyVars::null,0,true,false);
+        set_2darrays(lev);
     }
 
     Real fill_value = 0.0_rt;
@@ -235,6 +237,30 @@ REMORA::WritePlotFile ()
             } // lev
         } // if
     } // if
+
+    // Array of MultiFabs for 2D variables
+    Vector<MultiFab> mf_2drho(finest_level+1);
+    Vector<MultiFab> mf_2du(finest_level+1);
+    Vector<MultiFab> mf_2dv(finest_level+1);
+    if (plot_2d_vars) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            BoxArray ba(grids[lev]);
+            BoxList bl2d = ba.boxList();
+            for (auto& b : bl2d) {
+                b.setRange(2,0);
+            }
+            BoxArray ba2d(std::move(bl2d));
+            // 2 here because we'll output two vairables: zeta and h
+            mf_2drho[lev].define(ba2d, dmap[lev], 2, 0);
+            mf_2du[lev].define(convert(ba2d,IntVect(1,0,0)), dmap[lev], 1, 0);
+            mf_2dv[lev].define(convert(ba2d,IntVect(0,1,0)), dmap[lev], 1, 0);
+            MultiFab::Copy(mf_2drho[lev],*vec_Zt_avg1[lev],0,0,1,0);
+            // Copy into the second component
+            MultiFab::Copy(mf_2drho[lev],*vec_h[lev],0,1,1,0);
+            MultiFab::Copy(mf_2du[lev],*vec_ubar[lev],0,0,1,0);
+            MultiFab::Copy(mf_2dv[lev],*vec_vbar[lev],0,0,1,0);
+        }
+    }
 
     for (int lev = 0; lev <= finest_level; ++lev)
     {
@@ -391,6 +417,9 @@ REMORA::WritePlotFile ()
                                                   GetVecOfConstPtrs(mf_u),
                                                   GetVecOfConstPtrs(mf_v),
                                                   GetVecOfConstPtrs(mf_w),
+                                                  GetVecOfConstPtrs(mf_2drho),
+                                                  GetVecOfConstPtrs(mf_2du),
+                                                  GetVecOfConstPtrs(mf_2dv),
                                                   varnames,
                                                   Geom(),
                                                   t_new[0], istep, refRatio());
@@ -489,6 +518,9 @@ REMORA::WritePlotFile ()
                                                       GetVecOfConstPtrs(mf_u),
                                                       GetVecOfConstPtrs(mf_v),
                                                       GetVecOfConstPtrs(mf_w),
+                                                      GetVecOfConstPtrs(mf_2drho),
+                                                      GetVecOfConstPtrs(mf_2du),
+                                                      GetVecOfConstPtrs(mf_2dv),
                                                       varnames,
                                                       g2,
                                                       t_new[0], istep, rr);
@@ -504,6 +536,9 @@ REMORA::WritePlotFile ()
                                                       GetVecOfConstPtrs(mf_u),
                                                       GetVecOfConstPtrs(mf_v),
                                                       GetVecOfConstPtrs(mf_w),
+                                                      GetVecOfConstPtrs(mf_2drho),
+                                                      GetVecOfConstPtrs(mf_2du),
+                                                      GetVecOfConstPtrs(mf_2dv),
                                                       varnames,
                                                       Geom(),
                                                       t_new[0], istep, ref_ratio);
@@ -541,6 +576,9 @@ REMORA::WritePlotFile ()
                                                const Vector<const MultiFab*>& mf_u,
                                                const Vector<const MultiFab*>& mf_v,
                                                const Vector<const MultiFab*>& mf_w,
+                                               const Vector<const MultiFab*>& mf_2drho,
+                                               const Vector<const MultiFab*>& mf_2du,
+                                               const Vector<const MultiFab*>& mf_2dv,
                                                const Vector<std::string>& varnames,
                                                const Vector<Geometry>& my_geom,
                                                Real time,
@@ -599,6 +637,9 @@ REMORA::WritePlotFile ()
     std::string mf_uface_prefix = "UFace";
     std::string mf_vface_prefix = "VFace";
     std::string mf_wface_prefix = "WFace";
+    std::string mf_2drho_prefix = "rho2d";
+    std::string mf_2du_prefix = "u2d";
+    std::string mf_2dv_prefix = "v2d";
 
     for (int level = 0; level <= finest_level; ++level)
     {
@@ -620,6 +661,18 @@ REMORA::WritePlotFile ()
                                   MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_wface_prefix),
                                   true);
             }
+            if (plot_2d_vars) {
+                VisMF::AsyncWrite(*mf_2drho[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2drho_prefix),
+                                  true);
+                VisMF::AsyncWrite(*mf_2du[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2du_prefix),
+                                  true);
+                VisMF::AsyncWrite(*mf_2dv[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2dv_prefix),
+                                  true);
+
+            }
         } else { const MultiFab* data;
             std::unique_ptr<MultiFab> mf_tmp;
             if (mf[level]->nGrowVect() != 0) {
@@ -638,6 +691,11 @@ REMORA::WritePlotFile ()
                 VisMF::Write(*mf_u[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_uface_prefix));
                 VisMF::Write(*mf_v[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_vface_prefix));
                 VisMF::Write(*mf_w[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_wface_prefix));
+            }
+            if (plot_2d_vars) {
+                VisMF::Write(*mf_2drho[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2drho_prefix));
+                VisMF::Write(*mf_2du[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2du_prefix));
+                VisMF::Write(*mf_2dv[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2dv_prefix));
             }
         }
     }
@@ -766,6 +824,27 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
             std::string mf_wface_prefix = "WFace";
             for (int level = 0; level <= finest_level; ++level) {
                 HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_wface_prefix) << '\n';
+            }
+        }
+        if (plot_2d_vars) {
+            HeaderFile << "2" << "\n"; // number of components in the rho multifab
+            HeaderFile << "zeta" << "\n";
+            HeaderFile << "h" << "\n";
+            std::string mf_2drho_prefix = "rho2d";
+            for (int level = 0; level <= finest_level; ++level) {
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2drho_prefix) << "\n";
+            }
+            HeaderFile << "1" << "\n"; // number of components in the rho multifab
+            HeaderFile << "ubar" << "\n";
+            std::string mf_2du_prefix = "u2d";
+            for (int level = 0; level <= finest_level; ++level) {
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2du_prefix) << "\n";
+            }
+            HeaderFile << "1" << "\n"; // number of components in the rho multifab
+            HeaderFile << "vbar" << "\n";
+            std::string mf_2dv_prefix = "v2d";
+            for (int level = 0; level <= finest_level; ++level) {
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2dv_prefix) << "\n";
             }
         }
 }
