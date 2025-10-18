@@ -439,6 +439,7 @@ void REMORA::resize_stuff(int lev)
     vec_msku.resize(lev+1);
     vec_mskv.resize(lev+1);
     vec_mskp.resize(lev+1);
+    vec_mskr3d.resize(lev+1);
     vec_sstore.resize(lev+1);
 
     vec_pm.resize(lev+1);
@@ -495,10 +496,14 @@ void REMORA::init_masks (int lev, const BoxArray& ba, const DistributionMapping&
     vec_mskv[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
     vec_mskp[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
+    vec_mskr3d[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+
     vec_mskr[lev]->setVal(1.0_rt);
     vec_msku[lev]->setVal(1.0_rt);
     vec_mskv[lev]->setVal(1.0_rt);
     vec_mskp[lev]->setVal(1.0_rt);
+
+    vec_mskr3d[lev]->setVal(1.0_rt);
 }
 
 /**
@@ -853,6 +858,7 @@ REMORA::update_mskp (int lev)
         });
     }
 }
+
 /**
  * @param[in   ] lev    level to operate on
  */
@@ -873,6 +879,26 @@ REMORA::calculate_nodal_masks (int lev)
             msku(i,j,0) = mskr(i-1,j  ,0) * mskr(i,j,0);
             mskv(i,j,0) = mskr(i  ,j-1,0) * mskr(i,j,0);
             mskp(i,j,0) = mskr(i-1,j-1,0) * mskr(i,j,0) * mskr(i-1,j,0) * mskr(i,j-1,0);
+        });
+    }
+}
+
+/**
+ * @param[in   ] lev    level to operate on
+ */
+void
+REMORA::fill_3d_masks (int lev)
+{
+    for ( MFIter mfi(*vec_mskr3d[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<const Real> const& mskr = vec_mskr[lev]->const_array(mfi);
+        Array4<      Real> const& mskr3d = vec_mskr3d[lev]->array(mfi);
+
+        Box bx = mfi.tilebox(); bx.grow(IntVect(1,1,0)); bx.makeSlab(2,0);
+
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            mskr3d(i,j,k) = mskr(i,j,0);
         });
     }
 }

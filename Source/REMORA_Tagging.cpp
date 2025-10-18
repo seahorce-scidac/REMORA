@@ -16,32 +16,37 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 {
     const int clearval = TagBox::CLEAR;
     const int   tagval = TagBox::SET;
+
+    //
+    // This mf must have ghost cells because we may take differences between adjacent values
+    //
+    std::unique_ptr<MultiFab> mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 1);
+
     for (int j=0; j < ref_tags.size(); ++j)
     {
-        std::unique_ptr<MultiFab> mf;
-
+        if (ref_tags[j].Field() == "scalar" || ref_tags[j].Field() == "temp" ||
+            ref_tags[j].Field() == "salt") {
+            FillPatch(levc, time, *cons_new[levc], cons_new, BCVars::cons_bc, BdyVars::t,
+                0,true,false);
+        }
         // This allows dynamic refinement based on the value of the scalar
         if (ref_tags[j].Field() == "scalar")
         {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
-            MultiFab::Copy(*mf,*cons_new[levc],Scalar_comp,0,1,0);
+            MultiFab::Copy(*mf,*cons_new[levc],Scalar_comp,0,1,1);
         } else if (ref_tags[j].Field() == "temp") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
-            MultiFab::Copy(*mf,*cons_new[levc],Temp_comp,0,1,0);
+            MultiFab::Copy(*mf,*cons_new[levc],Temp_comp,0,1,1);
         } else if (ref_tags[j].Field() == "salt") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
-            MultiFab::Copy(*mf,*cons_new[levc],Salt_comp,0,1,0);
+            MultiFab::Copy(*mf,*cons_new[levc],Salt_comp,0,1,1);
         } else if (ref_tags[j].Field() == "x_velocity") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
-            MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,0);
+            FillPatch(levc, time, *xvel_new[levc], xvel_new, BCVars::xvel_bc, BdyVars::u,0,true,true);
+            MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,1);
         } else if (ref_tags[j].Field() == "y_velocity") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
-            MultiFab::Copy(*mf,*yvel_new[levc],0,0,1,0);
+            FillPatch(levc, time, *yvel_new[levc], yvel_new, BCVars::yvel_bc, BdyVars::v,0,true,true);
+            MultiFab::Copy(*mf,*yvel_new[levc],0,0,1,1);
         } else if (ref_tags[j].Field() == "z_velocity") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
-            MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,0);
+            FillPatch(levc, time, *zvel_new[levc], zvel_new, BCVars::zvel_bc, BdyVars::null,0,true,true);
+            MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,1);
         } else if (ref_tags[j].Field() == "vorticity") {
-            mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 0);
             MultiFab mf_cc_vel(grids[levc],dmap[levc],3,1);
             average_face_to_cellcenter(mf_cc_vel,0,
                                        Array<const MultiFab*,3>{xvel_new[levc],
@@ -63,6 +68,13 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
                 derived::remora_dervort(bx, dfab, 0, 1, sfab, pm, pn, Geom(levc), time, nullptr, levc);
             } // mfi
 
+          mf->FillBoundary(geom[levc].periodicity());
+          //
+          // TODO: we may need to fill physical boundaries here before tagging criteria are imposed
+          //
+
+        } else if (ref_tags[j].Field() == "mask") {
+            MultiFab::Copy(*mf,*vec_mskr3d[levc],0,0,1,IntVect(1,1,0));
 #ifdef REMORA_USE_PARTICLES
         } else {
             //
@@ -105,7 +117,7 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         }
 
         ref_tags[j](tags,mf.get(),clearval,tagval,time,levc,geom[levc]);
-  }
+    }
 }
 
 /**
@@ -221,6 +233,11 @@ REMORA::refinement_criteria_setup ()
                 Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
             }
         } // loop over criteria
+        // Untag anywhere we have masks
+        AMRErrorTagInfo info;
+        info.SetDerefine(1);
+        Real value = 0.5_rt;
+        ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,"mask",info));
     } // if max_level > 0
 }
 

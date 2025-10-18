@@ -160,6 +160,9 @@ public:
     /** \brief Calculate u-, v-, and psi-point masks based on rho-point masks after analytic initialization */
     void calculate_nodal_masks (int lev);
 
+    /** \brief Copy maskr to all z levels */
+    void fill_3d_masks (int lev);
+
     /** \brief Set psi-point mask to be consistent with rho-point mask */
     void update_mskp (int lev);
 
@@ -367,6 +370,8 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskv;
     /** \brief land/sea mask at cell corners (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskp;
+    /** \brief land/sea mask at cell centers, copied to all z levels (3D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskr3d;
 
     /** \brief horizontal scaling factor: 1 / dx (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm;
