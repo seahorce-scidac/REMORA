@@ -250,7 +250,7 @@ REMORA::WritePlotFile ()
                 b.setRange(2,0);
             }
             BoxArray ba2d(std::move(bl2d));
-            // 2 here because we'll output two vairables: zeta and h
+            // 2 here because we'll output two variables: zeta and h
             mf_2drho[lev].define(ba2d, dmap[lev], 2, 0);
             mf_2du[lev].define(convert(ba2d,IntVect(1,0,0)), dmap[lev], 1, 0);
             mf_2dv[lev].define(convert(ba2d,IntVect(0,1,0)), dmap[lev], 1, 0);
