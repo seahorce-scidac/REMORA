@@ -14,8 +14,8 @@ void REMORA::readTracersParams ()
     m_use_tracer_particles = 0;
     m_use_hydro_particles = 0;
 
-    pp.query(std::string("use_"+REMORAParticleNames::tracers).c_str(), m_use_tracer_particles);
-    pp.query(std::string("use_"+REMORAParticleNames::hydro).c_str(), m_use_hydro_particles);
+    pp.queryAdd(std::string("use_"+REMORAParticleNames::tracers).c_str(), m_use_tracer_particles);
+    pp.queryAdd(std::string("use_"+REMORAParticleNames::hydro).c_str(), m_use_hydro_particles);
 
     if (m_use_tracer_particles) {
         particleData.addName(REMORAParticleNames::tracers);

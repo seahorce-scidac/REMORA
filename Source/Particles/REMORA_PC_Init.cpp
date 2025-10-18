@@ -12,7 +12,7 @@ void REMORAPC::readInputs ()
     ParmParse pp("remora."+m_name);
 
     m_initialization_type = REMORAParticleInitializations::init_box_uniform;
-    pp.query("initial_distribution_type", m_initialization_type);
+    pp.queryAdd("initial_distribution_type", m_initialization_type);
 
     if (m_initialization_type == REMORAParticleInitializations::init_box_uniform)
     {
@@ -35,14 +35,14 @@ void REMORAPC::readInputs ()
         // We default to placing the particles randomly within each cell,
         // but can override this for regression testing
         place_randomly_in_cells = true;
-        pp.query("place_randomly_in_cells", place_randomly_in_cells);
+        pp.queryAdd("place_randomly_in_cells", place_randomly_in_cells);
     }
 
     m_ppc_init = 1;
-    pp.query("initial_particles_per_cell", m_ppc_init);
+    pp.queryAdd("initial_particles_per_cell", m_ppc_init);
 
     m_advect_w_flow = (m_name == REMORAParticleNames::tracers ? true : false);
-    pp.query("advect_with_flow", m_advect_w_flow);
+    pp.queryAdd("advect_with_flow", m_advect_w_flow);
 
     return;
 }
