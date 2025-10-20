@@ -924,10 +924,10 @@ REMORA::ReadParameters ()
     BL_PROFILE("REMORA::ReadParameters()");
     {
         ParmParse pp;  // Traditionally, max_step and stop_time do not have prefix, so allow it for now.
-        bool noprefix_max_step = pp.query("max_step", max_step);
-        bool noprefix_stop_time = pp.query("stop_time", stop_time);
-        bool remora_max_step = pp.query("remora.max_step", max_step);
-        bool remora_stop_time = pp.query("remora.stop_time", stop_time);
+        bool noprefix_max_step = pp.queryAdd("max_step", max_step);
+        bool noprefix_stop_time = pp.queryAdd("stop_time", stop_time);
+        bool remora_max_step = pp.queryAdd("remora.max_step", max_step);
+        bool remora_stop_time = pp.queryAdd("remora.stop_time", stop_time);
         if (remora_max_step and noprefix_max_step) {
             Abort("remora.max_step and max_step are both specified. Please use only one!");
         }
@@ -939,18 +939,18 @@ REMORA::ReadParameters ()
     ParmParse pp(pp_prefix);
     ParmParse pp_amr("amr");
     {
-        pp_amr.query("regrid_int", regrid_int);
-        pp.query("check_file", check_file);
-        pp.query("check_int", check_int);
-        pp_amr.query("check_int", check_int);
-        pp.query("check_int_time", check_int_time);
-        pp_amr.query("check_int_time", check_int_time);
+        pp_amr.queryAdd("regrid_int", regrid_int);
+        pp.queryAdd("check_file", check_file);
+        pp.queryAdd("check_int", check_int);
+        pp_amr.queryAdd("check_int", check_int);
+        pp.queryAdd("check_int_time", check_int_time);
+        pp_amr.queryAdd("check_int_time", check_int_time);
 
-        pp.query("expand_plotvars_to_unif_rr", expand_plotvars_to_unif_rr);
+        pp.queryAdd("expand_plotvars_to_unif_rr", expand_plotvars_to_unif_rr);
 
-        pp.query("restart", restart_chkfile);
-        pp_amr.query("restart", restart_chkfile);
-        pp.query("start_time",start_time);
+        pp.queryAdd("restart", restart_chkfile);
+        pp_amr.queryAdd("restart", restart_chkfile);
+        pp.queryAdd("start_time",start_time);
 
         if (pp.contains("data_log"))
         {
@@ -963,25 +963,25 @@ REMORA::ReadParameters ()
         }
 
         // Verbosity
-        pp.query("v", verbose);
+        pp.queryAdd("v", verbose);
 
         // Frequency of diagnostic output
-        pp.query("sum_interval", sum_interval);
-        pp.query("sum_period"  , sum_per);
-        pp.query("file_min_digits", file_min_digits);
+        pp.queryAdd("sum_interval", sum_interval);
+        pp.queryAdd("sum_period"  , sum_per);
+        pp.queryAdd("file_min_digits", file_min_digits);
 
         if (file_min_digits < 0) {
             amrex::Abort("remora.file_min_digits must be non-negative");
         }
 
         // Time step controls
-        pp.query("cfl", cfl);
-        pp.query("change_max", change_max);
+        pp.queryAdd("cfl", cfl);
+        pp.queryAdd("change_max", change_max);
 
-        pp.query("fixed_dt", fixed_dt);
-        pp.query("fixed_fast_dt", fixed_fast_dt);
+        pp.queryAdd("fixed_dt", fixed_dt);
+        pp.queryAdd("fixed_fast_dt", fixed_fast_dt);
 
-        pp.query("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
+        pp.queryAdd("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
 
         // If all three are specified, they must be consistent
         if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio > 0)
@@ -999,7 +999,7 @@ REMORA::ReadParameters ()
 
         AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
 
-        pp_amr.query("do_substep", do_substep);
+        pp_amr.queryAdd("do_substep", do_substep);
         if (do_substep) {
             amrex::Abort("Time substepping is not yet implemented. amr.do_substep must be 0");
         }
@@ -1017,24 +1017,24 @@ REMORA::ReadParameters ()
         boxes_at_level[0][0] = geom[0].Domain();
 
         // Plotfile name and frequency
-        pp.query("plot_file", plot_file_name);
-        pp.query("plot_int", plot_int);
-        pp.query("plot_int_time", plot_int_time);
+        pp.queryAdd("plot_file", plot_file_name);
+        pp.queryAdd("plot_int", plot_int);
+        pp.queryAdd("plot_int_time", plot_int_time);
 
         // Should we plot the staggered face velocities (without averaging to cell centers)
-        pp.query("plot_staggered_vels", plot_staggered_vels);
+        pp.queryAdd("plot_staggered_vels", plot_staggered_vels);
 
         // Output format
         std::string plotfile_type_str = "amrex";
-        pp.query("plotfile_type", plotfile_type_str);
+        pp.queryAdd("plotfile_type", plotfile_type_str);
         if (plotfile_type_str == "amrex") {
             plotfile_type = PlotfileType::amrex;
         } else if (plotfile_type_str == "netcdf" || plotfile_type_str == "NetCDF") {
             plotfile_type = PlotfileType::netcdf;
 #ifdef REMORA_USE_NETCDF
-            pp.query("write_history_file",write_history_file);
-            pp.query("chunk_history_file",chunk_history_file);
-            pp.query("steps_per_history_file",steps_per_history_file);
+            pp.queryAdd("write_history_file",write_history_file);
+            pp.queryAdd("chunk_history_file",chunk_history_file);
+            pp.queryAdd("steps_per_history_file",steps_per_history_file);
             // Estimate size of domain for one timestep of netcdf
             auto dom = geom[0].Domain();
             int nx = dom.length(0) + 2;
@@ -1106,26 +1106,26 @@ REMORA::ReadParameters ()
         pp.queryarr("nc_bdry_file", nc_bdry_file);
 
         // Also only read forcings at level 0 (for now)
-        pp.query("nc_frc_file", nc_frc_file);
+        pp.queryAdd("nc_frc_file", nc_frc_file);
 
         // Get river file
-        pp.query("nc_river_file", nc_riv_file);
+        pp.queryAdd("nc_river_file", nc_riv_file);
 
         // Read in file names for climatology history and nudging weights
-        pp.query("nc_clim_his_file", nc_clim_his_file);
-        pp.query("nc_clim_coeff_file", nc_clim_coeff_file);
+        pp.queryAdd("nc_clim_his_file", nc_clim_his_file);
+        pp.queryAdd("nc_clim_coeff_file", nc_clim_coeff_file);
 
         for (int i=0; i<BdyVars::NumTypes; i++) {
             bdry_time_name_byvar.push_back("");
         }
-        pp.query("bdy_time_varname",bdry_time_varname);
-        pp.query("bdy_temp_time_varname",bdry_time_name_byvar[BdyVars::t]);
-        pp.query("bdy_salt_time_varname",bdry_time_name_byvar[BdyVars::s]);
-        pp.query("bdy_u_time_varname",bdry_time_name_byvar[BdyVars::u]);
-        pp.query("bdy_v_time_varname",bdry_time_name_byvar[BdyVars::v]);
-        pp.query("bdy_ubar_time_varname",bdry_time_name_byvar[BdyVars::ubar]);
-        pp.query("bdy_vbar_time_varname",bdry_time_name_byvar[BdyVars::vbar]);
-        pp.query("bdy_zeta_time_varname",bdry_time_name_byvar[BdyVars::zeta]);
+        pp.queryAdd("bdy_time_varname",bdry_time_varname);
+        pp.queryAdd("bdy_temp_time_varname",bdry_time_name_byvar[BdyVars::t]);
+        pp.queryAdd("bdy_salt_time_varname",bdry_time_name_byvar[BdyVars::s]);
+        pp.queryAdd("bdy_u_time_varname",bdry_time_name_byvar[BdyVars::u]);
+        pp.queryAdd("bdy_v_time_varname",bdry_time_name_byvar[BdyVars::v]);
+        pp.queryAdd("bdy_ubar_time_varname",bdry_time_name_byvar[BdyVars::ubar]);
+        pp.queryAdd("bdy_vbar_time_varname",bdry_time_name_byvar[BdyVars::vbar]);
+        pp.queryAdd("bdy_zeta_time_varname",bdry_time_name_byvar[BdyVars::zeta]);
 
         // If not specified per variable, populate with the default
         for (int i=0; i<BdyVars::NumTypes; i++) {
@@ -1134,16 +1134,16 @@ REMORA::ReadParameters ()
             }
         }
 
-        pp.query("frc_time_varname",frc_time_varname);
+        pp.queryAdd("frc_time_varname",frc_time_varname);
 
-        pp.query("riv_time_varname",riv_time_varname);
+        pp.queryAdd("riv_time_varname",riv_time_varname);
 
-        pp.query("clim_ubar_time_varname",clim_ubar_time_varname);
-        pp.query("clim_vbar_time_varname",clim_vbar_time_varname);
-        pp.query("clim_u_time_varname",clim_u_time_varname);
-        pp.query("clim_v_time_varname",clim_v_time_varname);
-        pp.query("clim_salt_time_varname",clim_salt_time_varname);
-        pp.query("clim_temp_time_varname",clim_temp_time_varname);
+        pp.queryAdd("clim_ubar_time_varname",clim_ubar_time_varname);
+        pp.queryAdd("clim_vbar_time_varname",clim_vbar_time_varname);
+        pp.queryAdd("clim_u_time_varname",clim_u_time_varname);
+        pp.queryAdd("clim_v_time_varname",clim_v_time_varname);
+        pp.queryAdd("clim_salt_time_varname",clim_salt_time_varname);
+        pp.queryAdd("clim_temp_time_varname",clim_temp_time_varname);
 
 #endif
 

@@ -34,7 +34,7 @@ void REMORA::init_bcs ()
                 m_bc_extdir_vals[bcvar_type][ori] = v[bcvar_type - BCVars::xvel_bc];
             } else if (bcvar_type == BCVars::Scalar_bc_comp) {
                 Real scalar_in = 0.;
-                if (pp.query("scalar", scalar_in))
+                if (pp.queryAdd("scalar", scalar_in))
                 m_bc_extdir_vals[BCVars::Scalar_bc_comp][ori] = scalar_in;
             }
         }
@@ -145,7 +145,7 @@ void REMORA::init_bcs ()
         std::string bc_type_in = "null";
         // Default z directions to slipwall
         if (bcid=="zlo" or bcid=="zhi") bc_type_in = "slipwall";
-        pp.query("type", bc_type_in);
+        pp.queryAdd("type", bc_type_in);
         std::string bc_type = amrex::toLower(bc_type_in);
 
         for (int icomp=0; icomp<BCVars::NumTypes; icomp++) {
@@ -209,7 +209,7 @@ void REMORA::init_bcs ()
     set_bcs_by_var = false;
 
     ParmParse pp("remora");
-    pp.query("boundary_per_variable", set_bcs_by_var);
+    pp.queryAdd("boundary_per_variable", set_bcs_by_var);
     if (!set_bcs_by_var) {
         f_by_side("xlo", Orientation(Direction::x,Orientation::low));
         f_by_side("xhi", Orientation(Direction::x,Orientation::high));

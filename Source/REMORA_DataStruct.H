@@ -93,11 +93,11 @@ struct SolverChoice {
     {
         amrex::ParmParse pp(pp_prefix);
 
-        pp.query("flat_bathymetry", flat_bathymetry);
+        pp.queryAdd("flat_bathymetry", flat_bathymetry);
 
         // Which horizontal advection scheme for tracers
         static std::string tracer_hadv_string = "upstream3";
-        pp.query("tracer_horizontal_advection_scheme",tracer_hadv_string);
+        pp.queryAdd("tracer_horizontal_advection_scheme",tracer_hadv_string);
         if (tracer_hadv_string == "centered4")
             tracer_Hadv_scheme = AdvectionScheme::centered4;
         else if (tracer_hadv_string == "upstream3")
@@ -107,7 +107,7 @@ struct SolverChoice {
 
         // Which horizontal advection scheme
         static std::string uv_hadv_string = "upstream3";
-        pp.query("uv_horizontal_advection_scheme",uv_hadv_string);
+        pp.queryAdd("uv_horizontal_advection_scheme",uv_hadv_string);
         if (uv_hadv_string == "upstream3")
             uv_Hadv_scheme = AdvectionScheme::upstream3;
         else if (uv_hadv_string == "centered2")
@@ -115,35 +115,35 @@ struct SolverChoice {
         else
             amrex::Error("UV advection scheme unknown.");
 
-        pp.query("rdrag", rdrag);
-        pp.query("rdrag2", rdrag2);
-        pp.query("Zos", Zos);
-        pp.query("Zob", Zob);
-        pp.query("Cdb_max", Cdb_max);
-        pp.query("Cdb_min", Cdb_min);
+        pp.queryAdd("rdrag", rdrag);
+        pp.queryAdd("rdrag2", rdrag2);
+        pp.queryAdd("Zos", Zos);
+        pp.queryAdd("Zob", Zob);
+        pp.queryAdd("Cdb_max", Cdb_max);
+        pp.queryAdd("Cdb_min", Cdb_min);
 
         // Include salinity?
-        pp.query("use_salt", use_salt);
+        pp.queryAdd("use_salt", use_salt);
 
         // Include Coriolis forcing?
-        pp.query("use_coriolis", use_coriolis);
+        pp.queryAdd("use_coriolis", use_coriolis);
 
         // Include prestep / lagged predictor / corrections
-        pp.query("use_prestep", use_prestep);
+        pp.queryAdd("use_prestep", use_prestep);
 
         //This affect forcing and some of the mixing terms for velocity
-        pp.query("use_uv3dmix", use_uv3dmix);
+        pp.queryAdd("use_uv3dmix", use_uv3dmix);
 
         //This accounts for the main 2d loop but may not include coupling and copying properly
-        pp.query("use_barotropic", use_barotropic);
+        pp.queryAdd("use_barotropic", use_barotropic);
 
         // Whether to do rivers. By default, rivers are temp and salt sources. Rivers
         // have to be momentum sources.
-        pp.query("do_rivers", do_rivers);
+        pp.queryAdd("do_rivers", do_rivers);
 
-        pp.query("do_rivers_temp", do_rivers_temp);
-        pp.query("do_rivers_salt", do_rivers_salt);
-        pp.query("do_rivers_scalar", do_rivers_scalar);
+        pp.queryAdd("do_rivers_temp", do_rivers_temp);
+        pp.queryAdd("do_rivers_salt", do_rivers_salt);
+        pp.queryAdd("do_rivers_scalar", do_rivers_scalar);
 
         do_rivers_cons.resize(NCONS);
         // If we aren't doing rivers, set all of these flags to false
@@ -151,22 +151,22 @@ struct SolverChoice {
         do_rivers_cons[Salt_comp  ] = do_rivers ? do_rivers_salt : false;
         do_rivers_cons[Scalar_comp] = do_rivers ? do_rivers_scalar : false;
 
-        pp.query("init_l1ad_h", init_l1ad_h);
-        pp.query("init_l1ad_T", init_l1ad_T);
+        pp.queryAdd("init_l1ad_h", init_l1ad_h);
+        pp.queryAdd("init_l1ad_T", init_l1ad_T);
 
-        pp.query("init_ana_h", init_ana_h);
-        pp.query("init_ana_T", init_ana_T);
+        pp.queryAdd("init_ana_h", init_ana_h);
+        pp.queryAdd("init_ana_T", init_ana_T);
 
-        pp.query("init_l0int_h", init_l0int_h);
-        pp.query("init_l0int_T", init_l0int_T);
+        pp.queryAdd("init_l0int_h", init_l0int_h);
+        pp.queryAdd("init_l0int_T", init_l0int_T);
 
         static std::string eos_type_string = "linear";
-        pp.query("eos_type",eos_type_string);
+        pp.queryAdd("eos_type",eos_type_string);
         if (eos_type_string == "linear" || eos_type_string == "Linear" ||
               eos_type_string == "lin"    || eos_type_string == "Lin") {
             eos_type = EOSType::linear;
-            pp.query("Tcoef",Tcoef);
-            pp.query("Scoef",Scoef);
+            pp.queryAdd("Tcoef",Tcoef);
+            pp.queryAdd("Scoef",Scoef);
         } else if (eos_type_string == "nonlinear" || eos_type_string == "Nonlinear" ||
                    eos_type_string == "non-linear" || eos_type_string == "Non-linear" ||
                    eos_type_string == "nonlin"     || eos_type_string == "Nonlin") {
@@ -174,27 +174,27 @@ struct SolverChoice {
         } else {
             amrex::Abort("Dont know this eos_type");
         }
-        pp.query("R0",R0);
-        pp.query("S0",S0);
-        pp.query("T0",T0);
-        pp.query("rho0", rho0);
+        pp.queryAdd("R0",R0);
+        pp.queryAdd("S0",S0);
+        pp.queryAdd("T0",T0);
+        pp.queryAdd("rho0", rho0);
 
-        pp.query("bulk_fluxes",bulk_fluxes);
+        pp.queryAdd("bulk_fluxes",bulk_fluxes);
         if (bulk_fluxes) {
             do_salt_flux = true;
             do_temp_flux = true;
         }
-        pp.query("air_pressure",Pair);
-        pp.query("air_temperature",Tair);
-        pp.query("air_humidity",Hair);
-        pp.query("surface_radiation_flux",srflux);
-        pp.query("cloud",cloud);
-        pp.query("rain",rain);
-        pp.query("blk_ZQ",blk_ZQ);
-        pp.query("blk_ZT",blk_ZT);
-        pp.query("blk_ZW",blk_ZW);
-        pp.query("eminusp",eminusp);
-        pp.query("eminusp_correct_ssh",eminusp_correct_ssh);
+        pp.queryAdd("air_pressure",Pair);
+        pp.queryAdd("air_temperature",Tair);
+        pp.queryAdd("air_humidity",Hair);
+        pp.queryAdd("surface_radiation_flux",srflux);
+        pp.queryAdd("cloud",cloud);
+        pp.queryAdd("rain",rain);
+        pp.queryAdd("blk_ZQ",blk_ZQ);
+        pp.queryAdd("blk_ZT",blk_ZT);
+        pp.queryAdd("blk_ZW",blk_ZW);
+        pp.queryAdd("eminusp",eminusp);
+        pp.queryAdd("eminusp_correct_ssh",eminusp_correct_ssh);
 
         if (eminusp_correct_ssh and !eminusp) {
             amrex::Abort("If evaporation minus precipitation (E-P) sea surface height correct in is on, E-P must be on as well (remora.eminusp=true)");
@@ -205,20 +205,20 @@ struct SolverChoice {
 
         //Read in linear eos parameters
         //Grid stretching
-        pp.query("theta_s",theta_s);
-        pp.query("theta_b",theta_b);
-        pp.query("tcline",tcline);
+        pp.queryAdd("theta_s",theta_s);
+        pp.queryAdd("theta_b",theta_b);
+        pp.queryAdd("tcline",tcline);
 
         //coriolis factor
-        pp.query("coriolis_f0",coriolis_f0);
-        pp.query("coriolis_beta",coriolis_beta);
+        pp.queryAdd("coriolis_f0",coriolis_f0);
+        pp.queryAdd("coriolis_beta",coriolis_beta);
 
-        pp.query("Akv_bak",Akv_bak);
-        pp.query("Akt_bak",Akt_bak);
+        pp.queryAdd("Akv_bak",Akv_bak);
+        pp.queryAdd("Akt_bak",Akt_bak);
 
 
         static std::string grid_scale_type_string = "constant";
-        pp.query("grid_scale_type",grid_scale_type_string);
+        pp.queryAdd("grid_scale_type",grid_scale_type_string);
 
         if (amrex::toLower(grid_scale_type_string) == "constant") {
             grid_scale_type = GridScaleType::constant;
@@ -232,8 +232,8 @@ struct SolverChoice {
         }
 
         static std::string ic_type_string = "analytic";
-        bool found_ic_bc = pp.query("ic_bc_type", ic_type_string);
-        pp.query("ic_type", ic_type_string);
+        bool found_ic_bc = pp.queryAdd("ic_bc_type", ic_type_string);
+        pp.queryAdd("ic_type", ic_type_string);
 
         if (found_ic_bc) {
             amrex::Warning("remora.ic_bc_type is now called remora.ic_type, and will eventually be deprecated");
@@ -255,7 +255,7 @@ struct SolverChoice {
 
         // Which type of refinement
         static std::string coupling_type_string = "TwoWay";
-        pp.query("coupling_type",coupling_type_string);
+        pp.queryAdd("coupling_type",coupling_type_string);
         if (amrex::toLower(coupling_type_string) == "twoway" ||
             amrex::toLower(coupling_type_string) == "two_way") {
             coupling_type = CouplingType::two_way;
@@ -269,7 +269,7 @@ struct SolverChoice {
         // Which type of coriolis forcing
         if (use_coriolis) {
             static std::string coriolis_type_string = "beta_plane";
-            pp.query("coriolis_type",coriolis_type_string);
+            pp.queryAdd("coriolis_type",coriolis_type_string);
             if ( amrex::toLower(coriolis_type_string) == "custom") {
                 amrex::Warning("Coriolis initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
                 coriolis_type = Cor_Type::analytic;
@@ -289,7 +289,7 @@ struct SolverChoice {
         }
 
         static std::string smflux_type_string = "analytic";
-        int smflux_specified = pp.query("smflux_type",smflux_type_string);
+        int smflux_specified = pp.queryAdd("smflux_type",smflux_type_string);
         if ( amrex::toLower(smflux_type_string) == "custom") {
             amrex::Warning("Surface momentum flux initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
             smflux_type = SMFluxType::analytic;
@@ -302,7 +302,7 @@ struct SolverChoice {
         }
 
         static std::string wind_type_string = "analytic";
-        int wind_specified = pp.query("wind_type",wind_type_string);
+        int wind_specified = pp.queryAdd("wind_type",wind_type_string);
         if ( amrex::toLower(wind_type_string) == "custom") {
             amrex::Warning("Surface wind initialization from prob.cpp is now called 'analytic'. 'custom' will be deprecated");
             wind_type = WindType::analytic;
@@ -323,7 +323,7 @@ struct SolverChoice {
         if (ic_type == IC_Type::netcdf) {
             mask_type_string = "netcdf";
         }
-        pp.query("mask_type", mask_type_string);
+        pp.queryAdd("mask_type", mask_type_string);
         if (amrex::toLower(mask_type_string) == "none") {
             mask_type = MaskType::none;
         } else if (amrex::toLower(mask_type_string) == "analytic") {
@@ -335,7 +335,7 @@ struct SolverChoice {
         }
 
         static std::string bottom_stress_type_string = "linear";
-        pp.query("bottom_stress_type", bottom_stress_type_string);
+        pp.queryAdd("bottom_stress_type", bottom_stress_type_string);
         if (amrex::toLower(bottom_stress_type_string) == "linear") {
             bottom_stress_type = BottomStressType::linear;
         } else if (amrex::toLower(bottom_stress_type_string) == "quadratic") {
@@ -350,7 +350,7 @@ struct SolverChoice {
         amrex::Real tnu2_temp = amrex::Real(0.0);
         amrex::Real tnu2_scalar = amrex::Real(0.0);
         static std::string horiz_mixing_type_string = "analytic";
-        pp.query("horizontal_mixing_type", horiz_mixing_type_string);
+        pp.queryAdd("horizontal_mixing_type", horiz_mixing_type_string);
         if (amrex::toLower(horiz_mixing_type_string) == "analytical" ||
             amrex::toLower(horiz_mixing_type_string) == "analytic") {
             horiz_mixing_type = HorizMixingType::analytic;
@@ -359,10 +359,10 @@ struct SolverChoice {
         } else {
             amrex::Abort("Don't know this horizontal mixing type");
         }
-        pp.query("visc2",visc2);
-        pp.query("tnu2_salt",tnu2_salt);
-        pp.query("tnu2_temp",tnu2_temp);
-        pp.query("tnu2_scalar",tnu2_scalar);
+        pp.queryAdd("visc2",visc2);
+        pp.queryAdd("tnu2_salt",tnu2_salt);
+        pp.queryAdd("tnu2_temp",tnu2_temp);
+        pp.queryAdd("tnu2_scalar",tnu2_scalar);
         tnu2.resize(NCONS);
         if (use_salt) {
             tnu2[0] = tnu2_temp;
@@ -373,12 +373,12 @@ struct SolverChoice {
             tnu2[1] = tnu2_scalar;
         }
 
-        pp.query("Akk_bak", Akk_bak);
-        pp.query("Akp_bak", Akp_bak);
+        pp.queryAdd("Akk_bak", Akk_bak);
+        pp.queryAdd("Akp_bak", Akp_bak);
         static std::string vert_mixing_type_string = "analytic";
         static std::string gls_stability_type_string = "Canuto_A";
-        pp.query("vertical_mixing_type", vert_mixing_type_string);
-        pp.query("gls_stability_type", gls_stability_type_string);
+        pp.queryAdd("vertical_mixing_type", vert_mixing_type_string);
+        pp.queryAdd("gls_stability_type", gls_stability_type_string);
         if (amrex::toLower(vert_mixing_type_string) == "analytical" ||
             amrex::toLower(vert_mixing_type_string) == "analytic") {
             vert_mixing_type = VertMixingType::analytic;
@@ -401,19 +401,19 @@ struct SolverChoice {
         }
         // Read in GLS params
         if (vert_mixing_type == VertMixingType::GLS) {
-            pp.query("gls_P", gls_p);
-            pp.query("gls_M", gls_m);
-            pp.query("gls_N", gls_n);
-            pp.query("gls_Kmin", gls_Kmin);
-            pp.query("gls_Pmin", gls_Pmin);
+            pp.queryAdd("gls_P", gls_p);
+            pp.queryAdd("gls_M", gls_m);
+            pp.queryAdd("gls_N", gls_n);
+            pp.queryAdd("gls_Kmin", gls_Kmin);
+            pp.queryAdd("gls_Pmin", gls_Pmin);
 
-            pp.query("gls_cmu0", gls_cmu0);
-            pp.query("gls_c1", gls_c1);
-            pp.query("gls_c2", gls_c2);
-            pp.query("gls_c3m", gls_c3m);
-            pp.query("gls_c3p", gls_c3p);
-            pp.query("gls_sigk", gls_sigk);
-            pp.query("gls_sigp", gls_sigp);
+            pp.queryAdd("gls_cmu0", gls_cmu0);
+            pp.queryAdd("gls_c1", gls_c1);
+            pp.queryAdd("gls_c2", gls_c2);
+            pp.queryAdd("gls_c3m", gls_c3m);
+            pp.queryAdd("gls_c3p", gls_c3p);
+            pp.queryAdd("gls_sigk", gls_sigk);
+            pp.queryAdd("gls_sigp", gls_sigp);
             if (gls_stability_type == GLS_StabilityType::Canuto_A) {
                 gls_Gh0 = amrex::Real(0.0329); // 0.0329 GOTM, 0.0673 Burchard
                 gls_Ghcri = amrex::Real(0.03);
@@ -448,11 +448,11 @@ struct SolverChoice {
         amrex::Real znudg =  amrex::Real(0.0);
         amrex::Real m2nudg = amrex::Real(0.0);
         amrex::Real m3nudg = amrex::Real(0.0);
-        pp.query("tnudg",tnudg);
-        pp.query("znudg",znudg);
-        pp.query("m2nudg",m2nudg);
-        pp.query("m3nudg",m3nudg);
-        pp.query("obcfac",obcfac);
+        pp.queryAdd("tnudg",tnudg);
+        pp.queryAdd("znudg",znudg);
+        pp.queryAdd("m2nudg",m2nudg);
+        pp.queryAdd("m3nudg",m3nudg);
+        pp.queryAdd("obcfac",obcfac);
 
         nudg_coeff.resize(BdyVars::NumTypes);
         nudg_coeff[BdyVars::u    ] = (m3nudg > 0.0) ? amrex::Real(1.0) / (m3nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::u
@@ -463,10 +463,10 @@ struct SolverChoice {
         nudg_coeff[BdyVars::vbar ] = (m2nudg > 0.0) ? amrex::Real(1.0) / (m2nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::vbar
         nudg_coeff[BdyVars::zeta ] = ( znudg > 0.0) ? amrex::Real(1.0) / ( znudg * amrex::Real(86400.0)) : 0.0;//BdyVars::zeta
 
-        pp.query("do_m3_clim_nudg", do_m3_clim_nudg);
-        pp.query("do_m2_clim_nudg", do_m2_clim_nudg);
-        pp.query("do_temp_clim_nudg", do_temp_clim_nudg);
-        pp.query("do_salt_clim_nudg", do_salt_clim_nudg);
+        pp.queryAdd("do_m3_clim_nudg", do_m3_clim_nudg);
+        pp.queryAdd("do_m2_clim_nudg", do_m2_clim_nudg);
+        pp.queryAdd("do_temp_clim_nudg", do_temp_clim_nudg);
+        pp.queryAdd("do_salt_clim_nudg", do_salt_clim_nudg);
 
         if (do_m3_clim_nudg || do_m2_clim_nudg || do_temp_clim_nudg || do_salt_clim_nudg) {
             do_any_clim_nudg = true;
