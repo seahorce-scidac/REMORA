@@ -163,8 +163,6 @@ REMORA::WritePlotFile ()
         FillPatchNoBC(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u,0,true,false);
         FillPatchNoBC(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v,0,true,false);
         FillPatchNoBC(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,false);
-        FillPatchNoBC(lev, t_new[lev], *vec_Zt_avg1[lev], GetVecOfPtrs(vec_Zt_avg1), BdyVars::null,0,true,false);
-        set_2darrays(lev);
     }
 
     Real fill_value = 0.0_rt;
@@ -252,13 +250,20 @@ REMORA::WritePlotFile ()
             BoxArray ba2d(std::move(bl2d));
             // 2 here because we'll output two variables: zeta and h
             mf_2drho[lev].define(ba2d, dmap[lev], 2, 0);
-            mf_2du[lev].define(convert(ba2d,IntVect(1,0,0)), dmap[lev], 1, 0);
-            mf_2dv[lev].define(convert(ba2d,IntVect(0,1,0)), dmap[lev], 1, 0);
+
+            mf_2du[lev].define(convert(ba2d,IntVect(1,0,0)), dmap[lev], 3, 0);
+            mf_2dv[lev].define(convert(ba2d,IntVect(0,1,0)), dmap[lev], 3, 0);
             MultiFab::Copy(mf_2drho[lev],*vec_Zt_avg1[lev],0,0,1,0);
             // Copy into the second component
             MultiFab::Copy(mf_2drho[lev],*vec_h[lev],0,1,1,0);
-            MultiFab::Copy(mf_2du[lev],*vec_ubar[lev],0,0,1,0);
-            MultiFab::Copy(mf_2dv[lev],*vec_vbar[lev],0,0,1,0);
+
+            MultiFab::Copy(mf_2du[lev],*vec_DU_avg1[lev],0,0,1,0);
+            MultiFab::Copy(mf_2du[lev],*vec_sustr[lev],0,1,1,0);
+            MultiFab::Copy(mf_2du[lev],*vec_bustr[lev],0,2,1,0);
+
+            MultiFab::Copy(mf_2dv[lev],*vec_DV_avg1[lev],0,0,1,0);
+            MultiFab::Copy(mf_2dv[lev],*vec_svstr[lev],0,1,1,0);
+            MultiFab::Copy(mf_2dv[lev],*vec_bvstr[lev],0,2,1,0);
         }
     }
 
@@ -834,14 +839,18 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
             for (int level = 0; level <= finest_level; ++level) {
                 HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2drho_prefix) << "\n";
             }
-            HeaderFile << "1" << "\n"; // number of components in the rho multifab
+            HeaderFile << "3" << "\n"; // number of components in the u multifab
             HeaderFile << "ubar" << "\n";
+            HeaderFile << "sustr" << "\n";
+            HeaderFile << "bustr" << "\n";
             std::string mf_2du_prefix = "u2d";
             for (int level = 0; level <= finest_level; ++level) {
                 HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2du_prefix) << "\n";
             }
-            HeaderFile << "1" << "\n"; // number of components in the rho multifab
+            HeaderFile << "3" << "\n"; // number of components in the v multifab
             HeaderFile << "vbar" << "\n";
+            HeaderFile << "svstr" << "\n";
+            HeaderFile << "bvstr" << "\n";
             std::string mf_2dv_prefix = "v2d";
             for (int level = 0; level <= finest_level; ++level) {
                 HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2dv_prefix) << "\n";
