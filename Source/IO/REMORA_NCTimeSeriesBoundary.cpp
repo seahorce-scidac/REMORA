@@ -107,9 +107,16 @@ NCTimeSeriesBoundary::NCTimeSeriesBoundary (int a_lev, const amrex::Vector<amrex
     m_ry = a_ry;
 }
 
-void NCTimeSeriesBoundary::Initialize() {
+void NCTimeSeriesBoundary::Initialize()
+{
+    // Initialize Fabs
+    amrex::Arena* Arena_Used = amrex::The_Arena();
+#ifdef AMREX_USE_GPU
+    Arena_Used = amrex::The_Pinned_Arena();
+#endif
+
     // open file
-    amrex::Print() << "Loading boundary data for " << field_name << " from NetCDF file " << std::endl;
+    amrex::Print() << "Setting up boundary data for " << field_name << " coming from NetCDF file " << std::endl;
 
     // The time field can have any number of names, depending on the field.
     // If not specified in input file (time_name.empty()) then set it by default
@@ -161,11 +168,6 @@ void NCTimeSeriesBoundary::Initialize() {
     amrex::ParallelDescriptor::Bcast(file_for_time.data(), file_for_time.size(), ioproc);
     amrex::ParallelDescriptor::Bcast(file_itime_offset.data(), file_itime_offset.size(), ioproc);
 
-    // Initialize Fabs
-    amrex::Arena* Arena_Used = amrex::The_Arena();
-#ifdef AMREX_USE_GPU
-    Arena_Used = amrex::The_Pinned_Arena();
-#endif
     const auto& lo = domain.loVect();
     const auto& hi = domain.hiVect();
 
@@ -184,7 +186,7 @@ void NCTimeSeriesBoundary::Initialize() {
         yhi_bx.makeSlab(2,0);
     }
 
-    amrex::Print() << xlo_bx << " " << xhi_bx << " " << ylo_bx << " " << yhi_bx << std::endl;
+    // amrex::Print() << xlo_bx << " " << xhi_bx << " " << ylo_bx << " " << yhi_bx << std::endl;
 
     xlo_dat_before = amrex::FArrayBox(xlo_bx, 1, Arena_Used);
     xhi_dat_before = amrex::FArrayBox(xhi_bx, 1, Arena_Used);
@@ -200,37 +202,6 @@ void NCTimeSeriesBoundary::Initialize() {
     xhi_dat_interp = amrex::FArrayBox(xhi_bx, 1, Arena_Used);
     ylo_dat_interp = amrex::FArrayBox(ylo_bx, 1, Arena_Used);
     yhi_dat_interp = amrex::FArrayBox(yhi_bx, 1, Arena_Used);
-
-    // If not at level 0 then the size of what we read is different than the size of what we will store
-    if (m_lev > 0) {
-        const auto& crse_lo = m_geom[0].Domain().loVect();
-        const auto& crse_hi = m_geom[0].Domain().hiVect();
-
-        amrex::Box read_xlo_bx(amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_lo[1]+index_type[1]-1, crse_lo[2]),
-                               amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_hi[1]+1              , crse_hi[2]), index_type);
-        amrex::Box read_xhi_bx(amrex::IntVect(crse_hi[0]+1              , crse_lo[1]+index_type[1]-1, crse_lo[2]),
-                               amrex::IntVect(crse_hi[0]+1              , crse_hi[1]+1              , crse_hi[2]), index_type);
-        amrex::Box read_ylo_bx(amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_lo[1]+index_type[1]-1, crse_lo[2]),
-                               amrex::IntVect(crse_hi[0]+1              , crse_lo[1]+index_type[1]-1, crse_hi[2]), index_type);
-        amrex::Box read_yhi_bx(amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_hi[1]+1              , crse_lo[2]),
-                               amrex::IntVect(crse_hi[0]+1              , crse_hi[1]+1              , crse_hi[2]), index_type);
-    if (is2d) {
-        read_xlo_bx.makeSlab(2,0);
-        read_xhi_bx.makeSlab(2,0);
-        read_ylo_bx.makeSlab(2,0);
-        read_yhi_bx.makeSlab(2,0);
-    }
-
-        read_xlo_dat_before = amrex::FArrayBox(read_xlo_bx, 1, Arena_Used);
-        read_xhi_dat_before = amrex::FArrayBox(read_xhi_bx, 1, Arena_Used);
-        read_ylo_dat_before = amrex::FArrayBox(read_ylo_bx, 1, Arena_Used);
-        read_yhi_dat_before = amrex::FArrayBox(read_yhi_bx, 1, Arena_Used);
-
-        read_xlo_dat_after = amrex::FArrayBox(read_xlo_bx, 1, Arena_Used);
-        read_xhi_dat_after = amrex::FArrayBox(read_xhi_bx, 1, Arena_Used);
-        read_ylo_dat_after = amrex::FArrayBox(read_ylo_bx, 1, Arena_Used);
-        read_yhi_dat_after = amrex::FArrayBox(read_yhi_bx, 1, Arena_Used);
-    }
 
     // dummy initialization
     i_time_before = -100;
@@ -254,6 +225,12 @@ void NCTimeSeriesBoundary::Initialize() {
  */
 void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
 {
+    // Initialize Fabs
+    amrex::Arena* Arena_Used = amrex::The_Arena();
+#ifdef AMREX_USE_GPU
+    Arena_Used = amrex::The_Pinned_Arena();
+#endif
+
     // Figure out time index:
     AMREX_ASSERT(time >= bry_times[0]);
     AMREX_ASSERT(time <= bry_times[bry_times.size()-1]);
@@ -269,6 +246,36 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
 
     int i_time_after = i_time_before + 1;
 
+    amrex::FArrayBox crse_xlo_dat;
+    amrex::FArrayBox crse_xhi_dat;
+    amrex::FArrayBox crse_ylo_dat;
+    amrex::FArrayBox crse_yhi_dat;
+
+    if (m_lev > 0) {
+        const auto& crse_lo = m_geom[0].Domain().loVect();
+        const auto& crse_hi = m_geom[0].Domain().hiVect();
+
+        amrex::Box crse_xlo_bx(amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_lo[1]+index_type[1]-1, crse_lo[2]),
+                               amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_hi[1]+1              , crse_hi[2]), index_type);
+        amrex::Box crse_xhi_bx(amrex::IntVect(crse_hi[0]+1              , crse_lo[1]+index_type[1]-1, crse_lo[2]),
+                               amrex::IntVect(crse_hi[0]+1              , crse_hi[1]+1              , crse_hi[2]), index_type);
+        amrex::Box crse_ylo_bx(amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_lo[1]+index_type[1]-1, crse_lo[2]),
+                               amrex::IntVect(crse_hi[0]+1              , crse_lo[1]+index_type[1]-1, crse_hi[2]), index_type);
+        amrex::Box crse_yhi_bx(amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_hi[1]+1              , crse_lo[2]),
+                               amrex::IntVect(crse_hi[0]+1              , crse_hi[1]+1              , crse_hi[2]), index_type);
+        if (is2d) {
+            crse_xlo_bx.makeSlab(2,0);
+            crse_xhi_bx.makeSlab(2,0);
+            crse_ylo_bx.makeSlab(2,0);
+            crse_yhi_bx.makeSlab(2,0);
+        }
+
+        crse_xlo_dat = amrex::FArrayBox(crse_xlo_bx, 1, Arena_Used);
+        crse_xhi_dat = amrex::FArrayBox(crse_xhi_bx, 1, Arena_Used);
+        crse_ylo_dat = amrex::FArrayBox(crse_ylo_bx, 1, Arena_Used);
+        crse_yhi_dat = amrex::FArrayBox(crse_yhi_bx, 1, Arena_Used);
+    }
+
     if (i_time_before_old + 1 == i_time_before) {
         // swap multifabs so we only have to read in one MultiFab
         std::swap(xlo_dat_before, xlo_dat_after);
@@ -276,41 +283,48 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
         std::swap(ylo_dat_before, ylo_dat_after);
         std::swap(yhi_dat_before, yhi_dat_after);
 
+        amrex::Print() << "Reading in " << field_name << " at (after) time " << i_time_after << std::endl;
+
         if (m_lev == 0) {
-            read_in_at_time(xlo_dat_after,xhi_dat_after, ylo_dat_after, yhi_dat_after, i_time_after);
+            read_in_at_time(xlo_dat_after, xhi_dat_after, ylo_dat_after, yhi_dat_after, i_time_after);
         } else {
 
-            std::swap(read_xlo_dat_before, read_xlo_dat_after);
-            std::swap(read_xhi_dat_before, read_xhi_dat_after);
-            std::swap(read_ylo_dat_before, read_ylo_dat_after);
-            std::swap(read_yhi_dat_before, read_yhi_dat_after);
+            read_in_at_time(crse_xlo_dat, crse_xhi_dat, crse_ylo_dat, crse_yhi_dat, i_time_after);
 
-            read_in_at_time(read_xlo_dat_after, read_xhi_dat_after, read_ylo_dat_after, read_yhi_dat_after, i_time_after);
-
-            interp_fab(read_xlo_dat_after, xlo_dat_after, m_rx, m_ry);
-            interp_fab(read_xhi_dat_after, xhi_dat_after, m_rx, m_ry);
-            interp_fab(read_ylo_dat_after, ylo_dat_after, m_rx, m_ry);
-            interp_fab(read_yhi_dat_after, yhi_dat_after, m_rx, m_ry);
+            interp_fab(crse_xlo_dat, xlo_dat_after, m_rx, m_ry);
+            interp_fab(crse_xhi_dat, xhi_dat_after, m_rx, m_ry);
+            interp_fab(crse_ylo_dat, ylo_dat_after, m_rx, m_ry);
+            interp_fab(crse_yhi_dat, yhi_dat_after, m_rx, m_ry);
 
         }
+
     } else if (i_time_before_old != i_time_before) {
 
+
         if (m_lev == 0) {
-            read_in_at_time(xlo_dat_after,xhi_dat_after, ylo_dat_after, yhi_dat_after, i_time_after);
+            amrex::Print() << "Reading in " << field_name << " at (before) time " << i_time_before << std::endl;
             read_in_at_time(xlo_dat_before,xhi_dat_before, ylo_dat_before,yhi_dat_before, i_time_before);
+            amrex::Print() << "Reading in " << field_name << " at (after) time " << i_time_after << std::endl;
+            read_in_at_time(xlo_dat_after ,xhi_dat_after , ylo_dat_after , yhi_dat_after, i_time_after);
         } else {
-            read_in_at_time(read_xlo_dat_after,read_xhi_dat_after, read_ylo_dat_after, read_yhi_dat_after, i_time_after);
-            read_in_at_time(read_xlo_dat_before,read_xhi_dat_before, read_ylo_dat_before,read_yhi_dat_before, i_time_before);
 
-            interp_fab(read_xlo_dat_before, xlo_dat_before, m_rx, m_ry);
-            interp_fab(read_xhi_dat_before, xhi_dat_before, m_rx, m_ry);
-            interp_fab(read_ylo_dat_before, ylo_dat_before, m_rx, m_ry);
-            interp_fab(read_yhi_dat_before, yhi_dat_before, m_rx, m_ry);
+            amrex::Print() << "Reading in " << field_name << " at (before) time " << i_time_before << std::endl;
 
-            interp_fab(read_xlo_dat_after, xlo_dat_after, m_rx, m_ry);
-            interp_fab(read_xhi_dat_after, xhi_dat_after, m_rx, m_ry);
-            interp_fab(read_ylo_dat_after, ylo_dat_after, m_rx, m_ry);
-            interp_fab(read_yhi_dat_after, yhi_dat_after, m_rx, m_ry);
+            read_in_at_time(crse_xlo_dat, crse_xhi_dat, crse_ylo_dat,crse_yhi_dat, i_time_before);
+
+            interp_fab(crse_xlo_dat, xlo_dat_before, m_rx, m_ry);
+            interp_fab(crse_xhi_dat, xhi_dat_before, m_rx, m_ry);
+            interp_fab(crse_ylo_dat, ylo_dat_before, m_rx, m_ry);
+            interp_fab(crse_yhi_dat, yhi_dat_before, m_rx, m_ry);
+
+            amrex::Print() << "Reading in " << field_name << " at time " << i_time_after << std::endl;
+
+            read_in_at_time(crse_xlo_dat, crse_xhi_dat, crse_ylo_dat, crse_yhi_dat, i_time_after);
+
+            interp_fab(crse_xlo_dat, xlo_dat_after, m_rx, m_ry);
+            interp_fab(crse_xhi_dat, xhi_dat_after, m_rx, m_ry);
+            interp_fab(crse_ylo_dat, ylo_dat_after, m_rx, m_ry);
+            interp_fab(crse_yhi_dat, yhi_dat_after, m_rx, m_ry);
         } // lev
     } // i_time
 
@@ -376,7 +390,7 @@ void NCTimeSeriesBoundary::read_in_at_time (amrex::FArrayBox& fab_xlo,
     using RARRAY = NDArray<amrex::Real>;
     amrex::Vector<RARRAY> arrays(nc_var_names.size());
 
-    amrex::Print() << "Reading in " << field_name << " at time " << bry_times[itime] << std::endl;
+    amrex::Print() << "Actually reading in " << field_name << " at time " << bry_times[itime] << std::endl;
     std::string nc_bdry_file = file_names[file_for_time[itime]];
     int itime_offset = file_itime_offset[itime];
     ReadNetCDFFile(nc_bdry_file, nc_var_names, arrays, true, itime_offset); // does work on proc 0 only
@@ -404,6 +418,7 @@ void NCTimeSeriesBoundary::read_in_at_time (amrex::FArrayBox& fab_xlo,
                 joff = my_box.smallEnd()[1];
 
                 amrex::Array4<amrex::Real> fab_arr = fab_xlo.array();
+
                 for (int n(0); n < n_plane; n++) {
                     k = n / ny;
                     j = n - (k * ny);

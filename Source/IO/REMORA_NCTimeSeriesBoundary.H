@@ -111,30 +111,6 @@ class NCTimeSeriesBoundary
         /// FArrayBox to store data at time_after at yhi boundary
         amrex::FArrayBox yhi_dat_after;
 
-        /////////////////////////////////////////////////////////////////////////////////////
-        // Used only for reading level 0 data when at lev > 0
-        /////////////////////////////////////////////////////////////////////////////////////
-        /// FArrayBox to store data at time_before at xlo boundary
-        amrex::FArrayBox read_xlo_dat_before;
-        /// FArrayBox to store data at time_after at xlo boundary
-        amrex::FArrayBox read_xlo_dat_after;
-
-        /// FArrayBox to store data at time_before at ylo boundary
-        amrex::FArrayBox read_ylo_dat_before;
-        /// FArrayBox to store data at time_after at ylo boundary
-        amrex::FArrayBox read_ylo_dat_after;
-
-        /// FArrayBox to store data at time_before at xhi boundary
-        amrex::FArrayBox read_xhi_dat_before;
-        /// FArrayBox to store data at time_after at xhi boundary
-        amrex::FArrayBox read_xhi_dat_after;
-
-        /// FArrayBox to store data at time_before at yhi boundary
-        amrex::FArrayBox read_yhi_dat_before;
-        /// FArrayBox to store data at time_after at yhi boundary
-        amrex::FArrayBox read_yhi_dat_after;
-
-        /////////////////////////////////////////////////////////////////////////////////////
         /// Array over boundaries indicating whether we need physical data for this variable
         amrex::GpuArray<bool, AMREX_SPACEDIM*2> var_need_data;
 };
