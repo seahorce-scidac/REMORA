@@ -12,6 +12,9 @@ void interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine, int rx, 
 
     const auto& bhi = ubound(dat_crse.box());
 
+    amrex::Real xfac = 1.0 / static_cast<amrex::Real>(rx);
+    amrex::Real yfac = 1.0 / static_cast<amrex::Real>(ry);
+
     // Doing box on x-face
     if (dat_crse.box().length(0) == 1) {
         // amrex::Print() << "DOING INTERP ON XFACE " << dat_crse.box() << " " << dat_fine.box() << std::endl;
@@ -24,7 +27,9 @@ void interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine, int rx, 
                 } else {
                     fine_arr(i_f,ry*j  ,k) = crse_arr(i,j,k);
                     if (j < bhi.y) {
-                        fine_arr(i_f,ry*j+1,k) = crse_arr(i,j,k);
+                        for (int n = 1; n < ry; n++) {
+                            fine_arr(i_f,ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
+                        }
                     }
                 }
             });
@@ -37,7 +42,9 @@ void interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine, int rx, 
                 } else {
                     fine_arr(i_f,ry*j,k) = crse_arr(i,j,k);
                     if (j < bhi.y) {
-                        fine_arr(i_f,ry*j+1,k) = 0.5 * (crse_arr(i,j,k) + crse_arr(i,j+1,k));
+                        for (int n = 1; n < ry; n++) {
+                            fine_arr(i_f,ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
+                        }
                     }
                 }
             });
@@ -54,7 +61,9 @@ void interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine, int rx, 
                 } else {
                     fine_arr(rx*i  ,j_f,k) = crse_arr(i,j,k);
                     if (i < bhi.x) {
-                        fine_arr(rx*i+1,j_f,k) = crse_arr(i,j,k);
+                        for (int n = 1; n < rx; n++) {
+                            fine_arr(rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
+                        }
                     }
                 }
             });
@@ -67,7 +76,9 @@ void interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine, int rx, 
                 } else {
                     fine_arr(rx*i,j_f,k) = crse_arr(i,j,k);
                     if (i < bhi.x) {
-                        fine_arr(rx*i+1,j_f,k) = 0.5 * (crse_arr(i,j,k) + crse_arr(i+1,j,k));
+                        for (int n = 1; n < rx; n++) {
+                            fine_arr(rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
+                        }
                     }
                 }
             });
@@ -501,5 +512,7 @@ void NCTimeSeriesBoundary::read_in_at_time (amrex::FArrayBox& fab_xlo,
     amrex::ParallelDescriptor::Bcast(fab_xhi.dataPtr(),fab_xhi.box().numPts(),ioproc);
     amrex::ParallelDescriptor::Bcast(fab_ylo.dataPtr(),fab_ylo.box().numPts(),ioproc);
     amrex::ParallelDescriptor::Bcast(fab_yhi.dataPtr(),fab_yhi.box().numPts(),ioproc);
+
+    amrex::Print() << "DONE reading in " << field_name << " at time " << bry_times[itime] << std::endl;
 }
 #endif // REMORA_USE_NETCDF
