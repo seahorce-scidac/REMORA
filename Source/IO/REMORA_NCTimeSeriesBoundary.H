@@ -18,13 +18,14 @@ class NCTimeSeriesBoundary
 {
     public:
         /** \brief Constructor */
-        NCTimeSeriesBoundary (const amrex::Vector<std::string>& a_file_name,
+        NCTimeSeriesBoundary (int lev,
+                              const amrex::Vector<amrex::Geometry> a_geom,
+                              const amrex::Vector<std::string>& a_file_name,
                               const std::string a_field_name,
                               const std::string a_time_name,
-                              const amrex::Box& a_domain,
                               const amrex::IntVect a_index_type,
                               const amrex::GpuArray<bool, AMREX_SPACEDIM*2>* a_var_need_data,
-                              bool a_is2d);
+                              bool a_is2d, int rx, int ry);
 
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
@@ -65,6 +66,15 @@ class NCTimeSeriesBoundary
         /// Index type for field to fill
         amrex::IntVect index_type;
 
+        /// Level at which we are holding the boundary data
+        int m_lev;
+
+        /// Geometry at all levels
+        amrex::Vector<amrex::Geometry> m_geom;
+
+        /// Refinement ratios relative to level 0
+        int m_rx; int m_ry;
+
         /// Whether the field we're reading in is 2d
         bool is2d;
 
@@ -101,6 +111,30 @@ class NCTimeSeriesBoundary
         /// FArrayBox to store data at time_after at yhi boundary
         amrex::FArrayBox yhi_dat_after;
 
+        /////////////////////////////////////////////////////////////////////////////////////
+        // Used only for reading level 0 data when at lev > 0
+        /////////////////////////////////////////////////////////////////////////////////////
+        /// FArrayBox to store data at time_before at xlo boundary
+        amrex::FArrayBox read_xlo_dat_before;
+        /// FArrayBox to store data at time_after at xlo boundary
+        amrex::FArrayBox read_xlo_dat_after;
+
+        /// FArrayBox to store data at time_before at ylo boundary
+        amrex::FArrayBox read_ylo_dat_before;
+        /// FArrayBox to store data at time_after at ylo boundary
+        amrex::FArrayBox read_ylo_dat_after;
+
+        /// FArrayBox to store data at time_before at xhi boundary
+        amrex::FArrayBox read_xhi_dat_before;
+        /// FArrayBox to store data at time_after at xhi boundary
+        amrex::FArrayBox read_xhi_dat_after;
+
+        /// FArrayBox to store data at time_before at yhi boundary
+        amrex::FArrayBox read_yhi_dat_before;
+        /// FArrayBox to store data at time_after at yhi boundary
+        amrex::FArrayBox read_yhi_dat_after;
+
+        /////////////////////////////////////////////////////////////////////////////////////
         /// Array over boundaries indicating whether we need physical data for this variable
         amrex::GpuArray<bool, AMREX_SPACEDIM*2> var_need_data;
 };

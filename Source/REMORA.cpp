@@ -816,9 +816,9 @@ REMORA::init_only (int lev, Real time)
         }
     }
 
-    if (solverChoice.boundary_from_netcdf && lev == 0) {
-        amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
-        init_bdry_from_netcdf();
+    if (solverChoice.boundary_from_netcdf) {
+        amrex::Print() << "Calling init_bdry_from_netcdf at level " << lev << std::endl;
+        init_bdry_from_netcdf(lev);
         amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
     }
 
@@ -1098,6 +1098,8 @@ REMORA::ReadParameters ()
 #ifdef REMORA_USE_NETCDF
         nc_init_file.resize(max_level+1);
         nc_grid_file.resize(max_level+1);
+
+        boundary_series.resize(max_level+1);
 
         // NetCDF initialization files -- possibly multiple files at each of multiple levels
         //        but we always have exactly one file at level 0

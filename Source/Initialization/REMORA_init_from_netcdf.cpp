@@ -166,6 +166,7 @@ REMORA::init_zeta_from_netcdf (int lev)
         } // mf
         } // omp
     } // idx
+
     vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
     (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc,0,*vec_zeta[lev],*vec_msku[lev],*vec_mskv[lev]);
 //    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),1,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
@@ -173,15 +174,15 @@ REMORA::init_zeta_from_netcdf (int lev)
 
     if (solverChoice.boundary_from_netcdf) {
         Real told = t_new[lev];
-        fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,0,0,
+        fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,0,0,
                            *vec_zeta[lev]);
     }
     if (lev>0) {
         FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), BCVars::zeta_bc, BdyVars::zeta,
                   0, false,false,0,0,0.0,*vec_zeta[lev]);
     }
-//    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
-//    fill_from_bdyfiles(*vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
+//    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
+//    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
 }
 /**
  * @param lev Integer specifying the current level
@@ -436,13 +437,11 @@ REMORA::init_masks_from_netcdf (int lev)
  * @param lev Integer specifying the current level
  */
 void
-REMORA::init_bdry_from_netcdf ()
+REMORA::init_bdry_from_netcdf (int lev)
 {
     if (nc_bdry_file.empty()) {
         amrex::Error("NetCDF boundary file name must be provided via input");
     }
-
-    int width = 1;
 
     amrex::Vector<std::string> field_name  = {"u", "v", "temp", "salt", "ubar", "vbar", "zeta"};
     amrex::Vector<IntVect    > index_types = {IntVect(1,0,0), IntVect(0,1,0),
@@ -450,14 +449,22 @@ REMORA::init_bdry_from_netcdf ()
                                              IntVect(1,0,0), IntVect(0,1,0),
                                              IntVect(0,0,0)};
     std::vector<bool       > is_2d       = {false, false, false, false, true, true, true};
-    for (int ivar = 0; ivar < BdyVars::NumTypes; ivar++) {
-        boundary_series.push_back(new NCTimeSeriesBoundary(nc_bdry_file, field_name[ivar],
-                                                         bdry_time_name_byvar[ivar],
-                                                         geom[0].Domain(), index_types[ivar],
-                                                         &phys_bc_need_data[ivar], is_2d[ivar]));
-        boundary_series[ivar]->Initialize();
+
+    amrex::Print() << "DOING INIT AT LEVEL " << lev << std::endl;
+    int rx = 1; int ry = 1;
+    if (lev > 0) {
+        for (int k = lev-1; k >= 0; k--) {
+            rx *= ref_ratio[k][0];
+            ry *= ref_ratio[k][1];
+        }
     }
-    amrex::Print() << "Read in boundary data with width " << width << std::endl;
+    for (int ivar = 0; ivar < BdyVars::NumTypes; ivar++) {
+        boundary_series[lev].push_back(new NCTimeSeriesBoundary(lev, geom, nc_bdry_file, field_name[ivar],
+                                                                bdry_time_name_byvar[ivar],
+                                                                index_types[ivar],
+                                                                &phys_bc_need_data[ivar], is_2d[ivar], rx, ry));
+        boundary_series[lev][ivar]->Initialize();
+    }
 }
 
 /**

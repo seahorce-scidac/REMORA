@@ -893,7 +893,8 @@ public:
                     const bool fill_all=true,
                     const bool fill_set=true);
     /** \brief Fill boundary data from netcdf file */
-    void fill_from_bdyfiles (amrex::MultiFab& mf_to_fill,
+    void fill_from_bdyfiles (int lev,
+                             amrex::MultiFab& mf_to_fill,
                             const amrex::MultiFab& mf_mask,
                             const amrex::Real time,
                             const int bccomp,
@@ -953,7 +954,7 @@ public:
     /** \brief Problem initialization from NetCDF file */
     void init_data_from_netcdf (int lev);
     /** \brief Boundary data initialization from NetCDF file */
-    void init_bdry_from_netcdf ();
+    void init_bdry_from_netcdf (int lev);
     /** \brief Mask data initialization from NetCDF file */
     void init_masks_from_netcdf (int lev);
     /** \brief Bathymetry data initialization from NetCDF file */
@@ -1093,7 +1094,7 @@ private:
     NCTimeSeriesRiver* river_source_transportbar;
 
     /** \brief Vector over BdyVars of boundary series data containers */
-    amrex::Vector<NCTimeSeriesBoundary*> boundary_series;
+    amrex::Vector<amrex::Vector<NCTimeSeriesBoundary*>> boundary_series;
 
 #endif // REMORA_USE_NETCDF
     /** \brief iMultiFab for river positions; contents are indices of rivers */

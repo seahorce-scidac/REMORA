@@ -5,78 +5,6 @@
 
 #include <string>
 
-void interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine, int rx, int ry)
-{
-    amrex::Array4<amrex::Real> crse_arr = dat_crse.array();
-    amrex::Array4<amrex::Real> fine_arr = dat_fine.array();
-
-    const auto& bhi = ubound(dat_crse.box());
-
-    // Doing box on x-face
-    if (dat_crse.box().length(0) == 1) {
-        // amrex::Print() << "DOING INTERP ON XFACE " << dat_crse.box() << " " << dat_fine.box() << std::endl;
-        if (dat_crse.box().ixType()[1] == 0) {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int i_f = (i == -1) ? -1 : rx*i;
-                if (j == -1) {
-                    fine_arr(i_f,j,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(i_f,ry*j  ,k) = crse_arr(i,j,k);
-                    if (j < bhi.y) {
-                        fine_arr(i_f,ry*j+1,k) = crse_arr(i,j,k);
-                    }
-                }
-            });
-        } else {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int i_f = (i == -1) ? -1 : rx*i;
-                if (j == -1) {
-                    fine_arr(i_f,j,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(i_f,ry*j,k) = crse_arr(i,j,k);
-                    if (j < bhi.y) {
-                        fine_arr(i_f,ry*j+1,k) = 0.5 * (crse_arr(i,j,k) + crse_arr(i,j+1,k));
-                    }
-                }
-            });
-        }
-    } else if (dat_crse.box().length(1) == 1) {
-    // Doing box on y-face
-        // amrex::Print() << "DOING INTERP ON YFACE " << dat_crse.box() << " " << dat_fine.box() << std::endl;
-        if (dat_crse.box().ixType()[0] == 0) {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int j_f = (j == -1) ? -1 : ry*j;
-                if (i == -1) {
-                    fine_arr(i,j_f,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(rx*i  ,j_f,k) = crse_arr(i,j,k);
-                    if (i < bhi.x) {
-                        fine_arr(rx*i+1,j_f,k) = crse_arr(i,j,k);
-                    }
-                }
-            });
-        } else {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int j_f = (j == -1) ? -1 : ry*j;
-                if (i == -1) {
-                    fine_arr(i,j_f,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(rx*i,j_f,k) = crse_arr(i,j,k);
-                    if (i < bhi.x) {
-                        fine_arr(rx*i+1,j_f,k) = 0.5 * (crse_arr(i,j,k) + crse_arr(i+1,j,k));
-                    }
-                }
-            });
-        }
-    } else {
-        amrex::Abort(" What am I doing here??");
-    }
-}
-
 #ifdef REMORA_USE_NETCDF
 /**
  * @param[in   ] a_lev                level at which we will store the data
@@ -92,7 +20,7 @@ NCTimeSeriesBoundary::NCTimeSeriesBoundary (int a_lev, const amrex::Vector<amrex
                                             const std::string a_time_name,
                                             const amrex::IntVect a_index_type,
                                             const amrex::GpuArray<bool, AMREX_SPACEDIM*2>* a_var_need_data,
-                                            bool a_is2d, int a_rx, int a_ry)
+                                            bool a_is2d)
 {
     m_lev = a_lev;
     m_geom = a_geom;
@@ -103,8 +31,6 @@ NCTimeSeriesBoundary::NCTimeSeriesBoundary (int a_lev, const amrex::Vector<amrex
     index_type = a_index_type;
     var_need_data = *a_var_need_data;
     is2d = a_is2d;
-    m_rx = a_rx;
-    m_ry = a_ry;
 }
 
 void NCTimeSeriesBoundary::Initialize() {
@@ -203,17 +129,17 @@ void NCTimeSeriesBoundary::Initialize() {
 
     // If not at level 0 then the size of what we read is different than the size of what we will store
     if (m_lev > 0) {
-        const auto& crse_lo = m_geom[0].Domain().loVect();
-        const auto& crse_hi = m_geom[0].Domain().hiVect();
+        const auto& lo = m_geom[0].Domain().loVect();
+        const auto& hi = m_geom[0].Domain().hiVect();
 
-        amrex::Box read_xlo_bx(amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_lo[1]+index_type[1]-1, crse_lo[2]),
-                               amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_hi[1]+1              , crse_hi[2]), index_type);
-        amrex::Box read_xhi_bx(amrex::IntVect(crse_hi[0]+1              , crse_lo[1]+index_type[1]-1, crse_lo[2]),
-                               amrex::IntVect(crse_hi[0]+1              , crse_hi[1]+1              , crse_hi[2]), index_type);
-        amrex::Box read_ylo_bx(amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_lo[1]+index_type[1]-1, crse_lo[2]),
-                               amrex::IntVect(crse_hi[0]+1              , crse_lo[1]+index_type[1]-1, crse_hi[2]), index_type);
-        amrex::Box read_yhi_bx(amrex::IntVect(crse_lo[0]+index_type[0]-1, crse_hi[1]+1              , crse_lo[2]),
-                               amrex::IntVect(crse_hi[0]+1              , crse_hi[1]+1              , crse_hi[2]), index_type);
+        amrex::Box read_xlo_bx(amrex::IntVect(lo[0]+index_type[0]-1, lo[1]+index_type[1]-1, lo[2]),
+                               amrex::IntVect(lo[0]+index_type[0]-1, hi[1]+1              , hi[2]), index_type);
+        amrex::Box read_xhi_bx(amrex::IntVect(hi[0]+1              , lo[1]+index_type[1]-1, lo[2]),
+                               amrex::IntVect(hi[0]+1              , hi[1]+1              , hi[2]), index_type);
+        amrex::Box read_ylo_bx(amrex::IntVect(lo[0]+index_type[0]-1, lo[1]+index_type[1]-1, lo[2]),
+                               amrex::IntVect(hi[0]+1              , lo[1]+index_type[1]-1, hi[2]), index_type);
+        amrex::Box read_yhi_bx(amrex::IntVect(lo[0]+index_type[0]-1, hi[1]+1              , lo[2]),
+                               amrex::IntVect(hi[0]+1              , hi[1]+1              , hi[2]), index_type);
     if (is2d) {
         read_xlo_bx.makeSlab(2,0);
         read_xhi_bx.makeSlab(2,0);
@@ -252,8 +178,7 @@ void NCTimeSeriesBoundary::Initialize() {
 /**
  * @param time   time to interpolate to
  */
-void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
-{
+void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time) {
     // Figure out time index:
     AMREX_ASSERT(time >= bry_times[0]);
     AMREX_ASSERT(time <= bry_times[bry_times.size()-1]);
@@ -266,56 +191,6 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
             break;
         }
     }
-
-    int i_time_after = i_time_before + 1;
-
-    if (i_time_before_old + 1 == i_time_before) {
-        // swap multifabs so we only have to read in one MultiFab
-        std::swap(xlo_dat_before, xlo_dat_after);
-        std::swap(xhi_dat_before, xhi_dat_after);
-        std::swap(ylo_dat_before, ylo_dat_after);
-        std::swap(yhi_dat_before, yhi_dat_after);
-
-        if (m_lev == 0) {
-            read_in_at_time(xlo_dat_after,xhi_dat_after, ylo_dat_after, yhi_dat_after, i_time_after);
-        } else {
-
-            std::swap(read_xlo_dat_before, read_xlo_dat_after);
-            std::swap(read_xhi_dat_before, read_xhi_dat_after);
-            std::swap(read_ylo_dat_before, read_ylo_dat_after);
-            std::swap(read_yhi_dat_before, read_yhi_dat_after);
-
-            read_in_at_time(read_xlo_dat_after, read_xhi_dat_after, read_ylo_dat_after, read_yhi_dat_after, i_time_after);
-
-            interp_fab(read_xlo_dat_after, xlo_dat_after, m_rx, m_ry);
-            interp_fab(read_xhi_dat_after, xhi_dat_after, m_rx, m_ry);
-            interp_fab(read_ylo_dat_after, ylo_dat_after, m_rx, m_ry);
-            interp_fab(read_yhi_dat_after, yhi_dat_after, m_rx, m_ry);
-
-        }
-    } else if (i_time_before_old != i_time_before) {
-
-        if (m_lev == 0) {
-            read_in_at_time(xlo_dat_after,xhi_dat_after, ylo_dat_after, yhi_dat_after, i_time_after);
-            read_in_at_time(xlo_dat_before,xhi_dat_before, ylo_dat_before,yhi_dat_before, i_time_before);
-        } else {
-            read_in_at_time(read_xlo_dat_after,read_xhi_dat_after, read_ylo_dat_after, read_yhi_dat_after, i_time_after);
-            read_in_at_time(read_xlo_dat_before,read_xhi_dat_before, read_ylo_dat_before,read_yhi_dat_before, i_time_before);
-
-            interp_fab(read_xlo_dat_before, xlo_dat_before, m_rx, m_ry);
-            interp_fab(read_xhi_dat_before, xhi_dat_before, m_rx, m_ry);
-            interp_fab(read_ylo_dat_before, ylo_dat_before, m_rx, m_ry);
-            interp_fab(read_yhi_dat_before, yhi_dat_before, m_rx, m_ry);
-
-            interp_fab(read_xlo_dat_after, xlo_dat_after, m_rx, m_ry);
-            interp_fab(read_xhi_dat_after, xhi_dat_after, m_rx, m_ry);
-            interp_fab(read_ylo_dat_after, ylo_dat_after, m_rx, m_ry);
-            interp_fab(read_yhi_dat_after, yhi_dat_after, m_rx, m_ry);
-        } // lev
-    } // i_time
-
-    amrex::Real dt = time_after - time_before;
-    amrex::Real time_before_copy = time_before;
 
     amrex::Array4<amrex::Real> xlo_interp_arr = xlo_dat_interp.array();
     amrex::Array4<amrex::Real> xhi_interp_arr = xhi_dat_interp.array();
@@ -332,8 +207,200 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
     amrex::Array4<amrex::Real> ylo_after_arr = ylo_dat_after.array();
     amrex::Array4<amrex::Real> yhi_after_arr = yhi_dat_after.array();
 
+    int i_time_after = i_time_before + 1;
+    if (i_time_before_old + 1 == i_time_before) {
+        // swap multifabs so we only have to read in one MultiFab
+        if (m_lev == 0) { 
+            std::swap(xlo_dat_before, xlo_dat_after);
+            std::swap(xhi_dat_before, xhi_dat_after);
+            std::swap(ylo_dat_before, ylo_dat_after);
+            std::swap(yhi_dat_before, yhi_dat_after);
+            read_in_at_time(xlo_dat_after,xhi_dat_after, ylo_dat_after, yhi_dat_after, i_time_after);
+        } else {
+            std::swap(read_xlo_dat_before, read_xlo_dat_after);
+            std::swap(read_xhi_dat_before, read_xhi_dat_after);
+            std::swap(read_ylo_dat_before, read_ylo_dat_after);
+            std::swap(read_yhi_dat_before, read_yhi_dat_after);
+            read_in_at_time(read_xlo_dat_after,read_xhi_dat_after, read_ylo_dat_after, read_yhi_dat_after, i_time_after);
+        }
+    } else if (i_time_before_old != i_time_before) {
+        if (m_lev == 0) { 
+            read_in_at_time(xlo_dat_after,xhi_dat_after, ylo_dat_after, yhi_dat_after, i_time_after);
+            read_in_at_time(xlo_dat_before,xhi_dat_before, ylo_dat_before,yhi_dat_before, i_time_before);
+        } else {
+            read_in_at_time(read_xlo_dat_after,read_xhi_dat_after, read_ylo_dat_after, read_yhi_dat_after, i_time_after);
+            read_in_at_time(read_xlo_dat_before,read_xhi_dat_before, read_ylo_dat_before,read_yhi_dat_before, i_time_before);
+
+            amrex::Array4<amrex::Real> read_xlo_before_arr = read_xlo_dat_before.array();
+            amrex::Array4<amrex::Real> read_xhi_before_arr = read_xhi_dat_before.array();
+            amrex::Array4<amrex::Real> read_ylo_before_arr = read_ylo_dat_before.array();
+            amrex::Array4<amrex::Real> read_yhi_before_arr = read_yhi_dat_before.array();
+
+            amrex::Array4<amrex::Real> read_xlo_after_arr = read_xlo_dat_after.array();
+            amrex::Array4<amrex::Real> read_xhi_after_arr = read_xhi_dat_after.array();
+            amrex::Array4<amrex::Real> read_ylo_after_arr = read_ylo_dat_after.array();
+            amrex::Array4<amrex::Real> read_yhi_after_arr = read_yhi_dat_after.array();
+
+    int i_time_after = i_time_before + 1;
+    if (i_time_before_old + 1 == i_time_before) {
+        // swap multifabs so we only have to read in one MultiFab
+        if (m_lev == 0) { 
+            std::swap(xlo_dat_before, xlo_dat_after);
+            std::swap(xhi_dat_before, xhi_dat_after);
+            std::swap(ylo_dat_before, ylo_dat_after);
+            std::swap(yhi_dat_before, yhi_dat_after);
+            read_in_at_time(xlo_dat_after,xhi_dat_after, ylo_dat_after, yhi_dat_after, i_time_after);
+        } else {
+            std::swap(read_xlo_dat_before, read_xlo_dat_after);
+            std::swap(read_xhi_dat_before, read_xhi_dat_after);
+            std::swap(read_ylo_dat_before, read_ylo_dat_after);
+            std::swap(read_yhi_dat_before, read_yhi_dat_after);
+            read_in_at_time(read_xlo_dat_after,read_xhi_dat_after, read_ylo_dat_after, read_yhi_dat_after, i_time_after);
+        }
+    } else if (i_time_before_old != i_time_before) {
+        if (m_lev == 0) { 
+            read_in_at_time(xlo_dat_after,xhi_dat_after, ylo_dat_after, yhi_dat_after, i_time_after);
+            read_in_at_time(xlo_dat_before,xhi_dat_before, ylo_dat_before,yhi_dat_before, i_time_before);
+        } else {
+            read_in_at_time(read_xlo_dat_after,read_xhi_dat_after, read_ylo_dat_after, read_yhi_dat_after, i_time_after);
+            read_in_at_time(read_xlo_dat_before,read_xhi_dat_before, read_ylo_dat_before,read_yhi_dat_before, i_time_before);
+
+            // interpolate from level 0 to lev 
+            // ANN
+            amrex::Array4<amrex::Real> xlo_before_arr = xlo_dat_before.array();
+            amrex::Array4<amrex::Real> xhi_before_arr = xhi_dat_before.array();
+            if (index_type[1] == 0) {
+                amrex::ParallelFor(read_xlo_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    xlo_before_arr(i,2*j  ,k) = read_xlo_before_arr(i,j,k);
+                    xlo_before_arr(i,2*j+1,k) = read_xlo_before_arr(i,j,k);
+                });
+                amrex::ParallelFor(read_xhi_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    xhi_before_arr(i,2*j  ,k) = read_xhi_before_arr(i,j,k);
+                    xhi_before_arr(i,2*j+1,k) = read_xhi_before_arr(i,j,k);
+                });
+            } else {
+                const auto& bx_hi = ubound(read_xlo_dat_before.box());
+                amrex::ParallelFor(read_xlo_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    xlo_before_arr(i,2*j,k) = read_xlo_before_arr(i,j,k);
+                    if (j < bx_hi.y) {
+                        xlo_before_arr(i,2*j+1,k) = 0.5 * (read_xlo_before_arr(i,j,k) + read_xlo_before_arr(i,j+1,k));
+                    }
+                });
+                amrex::ParallelFor(read_xhi_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    xhi_before_arr(i,2*j,k) = read_xhi_before_arr(i,j,k);
+                    if (j < bx_hi.y) {
+                        xhi_before_arr(i,2*j+1,k) = 0.5 * (read_xhi_before_arr(i,j,k) + read_xhi_before_arr(i,j+1,k));
+                    }
+                });
+            }
+            amrex::Array4<amrex::Real> ylo_before_arr = ylo_dat_before.array();
+            amrex::Array4<amrex::Real> yhi_before_arr = yhi_dat_before.array();
+            if (index_type[0] == 0) {
+                amrex::ParallelFor(read_ylo_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    ylo_before_arr(2*i,j  ,k) = read_ylo_before_arr(i,j,k);
+                    ylo_before_arr(2*i,j+1,k) = read_ylo_before_arr(i,j,k);
+                });
+                amrex::ParallelFor(read_yhi_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    yhi_before_arr(2*i,j  ,k) = read_yhi_before_arr(i,j,k);
+                    yhi_before_arr(2*i,j+1,k) = read_yhi_before_arr(i,j,k);
+                });
+            } else {
+                const auto& bx_hi = ubound(read_ylo_dat_before.box());
+                amrex::ParallelFor(read_ylo_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    ylo_before_arr(2*i,j,k) = read_ylo_before_arr(i,j,k);
+                    if (i < bx_hi.x) {
+                        ylo_before_arr(2*i+1,j,k) = 0.5 * (read_ylo_before_arr(i,j,k) + read_ylo_before_arr(i+1,j,k));
+                    }
+                });
+                amrex::ParallelFor(read_yhi_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    yhi_before_arr(i,2*j,k) = read_yhi_before_arr(i,j,k);
+                    if (j < bx_hi.y) {
+                        yhi_before_arr(2*i+1,j,k) = 0.5 * (read_yhi_before_arr(i,j,k) + read_yhi_before_arr(i+1,j,k));
+                    }
+                });
+            }
+        }
+    }
+
+    if (var_need_data[amrex::Orientation(amrex::Direction::x,amrex::Orientation::high)] == true) {
+
+            // interpolate from level 0 to lev 
+            // ANN
+            amrex::Array4<amrex::Real> xlo_before_arr = xlo_dat_before.array();
+            amrex::Array4<amrex::Real> xhi_before_arr = xhi_dat_before.array();
+            if (index_type[1] == 0) {
+                amrex::ParallelFor(read_xlo_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    xlo_before_arr(i,2*j  ,k) = read_xlo_before_arr(i,j,k);
+                    xlo_before_arr(i,2*j+1,k) = read_xlo_before_arr(i,j,k);
+                });
+                amrex::ParallelFor(read_xhi_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    xhi_before_arr(i,2*j  ,k) = read_xhi_before_arr(i,j,k);
+                    xhi_before_arr(i,2*j+1,k) = read_xhi_before_arr(i,j,k);
+                });
+            } else {
+                const auto bx_hi = ubound(read_xlo_dat_before);
+                amrex::ParallelFor(read_xlo_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    xlo_before_arr(i,2*j,k) = read_xlo_before_arr(i,j,k);
+                    if (j < bx_hi.y) {
+                        xlo_before_arr(i,2*j+1,k) = 0.5 * (read_xlo_before_arr(i,j,k) + read_xlo_before_arr(i,j+1,k));
+                    }
+                });
+                {
+                    xhi_before_arr(i,2*j,k) = read_xhi_before_arr(i,j,k);
+                    if (j < bx_hi.y) {
+                        xhi_before_arr(i,2*j+1,k) = 0.5 * (read_xhi_before_arr(i,j,k) + read_xhi_before_arr(i,j+1,k));
+                    }
+                });
+            }
+            amrex::Array4<amrex::Real> ylo_before_arr = ylo_dat_before.array();
+            amrex::Array4<amrex::Real> yhi_before_arr = yhi_dat_before.array();
+            if (index_type[0] == 0) {
+                amrex::ParallelFor(read_ylo_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    ylo_before_arr(2*i,j  ,k) = read_ylo_before_arr(i,j,k);
+                    ylo_before_arr(2*i,j+1,k) = read_ylo_before_arr(i,j,k);
+                });
+                amrex::ParallelFor(read_yhi_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    yhi_before_arr(2*i,j  ,k) = read_yhi_before_arr(i,j,k);
+                    yhi_before_arr(2*i,j+1,k) = read_yhi_before_arr(i,j,k);
+                });
+            } else {
+                const auto bx_hi = ubound(read_ylo_dat_before);
+                amrex::ParallelFor(read_ylo_dat_before.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    ylo_before_arr(2*i,j,k) = read_ylo_before_arr(i,j,k);
+                    if (i < bx_hi.x) {
+                        ylo_before_arr(2*i+1,j,k) = 0.5 * (read_ylo_before_arr(i,j,k) + read_ylo_before_arr(i+1,j,k));
+                    }
+                });
+                {
+                    yhi_before_arr(i,2*j,k) = read_yhi_before_arr(i,j,k);
+                    if (j < bx_hi.y) {
+                        yhi_before_arr(2*i+1,j,k) = 0.5 * (read_yhi_before_arr(i,j,k) + read_yhi_before_arr(i+1,j,k));
+                    }
+                });
+            }
+        }
+    }
+
+    amrex::Real dt = time_after - time_before;
+
+    amrex::Real time_before_copy = time_before;
+
     if (var_need_data[amrex::Orientation(amrex::Direction::x,amrex::Orientation::low)] == true) {
-        amrex::ParallelFor(xlo_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        amrex::ParallelFor(ylo_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             xlo_interp_arr(i,j,k) = xlo_before_arr(i,j,k) + (time - time_before_copy) * (xlo_after_arr(i,j,k) - xlo_before_arr(i,j,k)) / dt;
         });
@@ -375,6 +442,9 @@ void NCTimeSeriesBoundary::read_in_at_time (amrex::FArrayBox& fab_xlo,
                                             int itime) {
     using RARRAY = NDArray<amrex::Real>;
     amrex::Vector<RARRAY> arrays(nc_var_names.size());
+
+    // The width of the boundary region we need to read is 1
+    int width = 1;
 
     amrex::Print() << "Reading in " << field_name << " at time " << bry_times[itime] << std::endl;
     std::string nc_bdry_file = file_names[file_for_time[itime]];
