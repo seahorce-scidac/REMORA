@@ -487,9 +487,14 @@ REMORA::set_zeta (int lev)
 
 #ifdef REMORA_USE_NETCDF
     } else if (solverChoice.ic_type == IC_Type::netcdf) {
-        amrex::Print() << "Calling init_zeta_from_netcdf on level " << lev << std::endl;
-        init_zeta_from_netcdf(lev);
-        amrex::Print() << "Sea surface height loaded from netcdf file \n " << std::endl;
+        if (lev == 0) {
+            amrex::Print() << "Calling init_zeta_from_netcdf on level " << lev << std::endl;
+            init_zeta_from_netcdf(lev);
+            amrex::Print() << "Sea surface height loaded from netcdf file \n " << std::endl;
+        } else {
+            Real dummy_time = 0.0_rt;
+            FillCoarsePatch(lev,dummy_time,vec_zeta[lev].get(), vec_zeta[lev-1].get(),BCVars::cons_bc);
+        }
 #endif
     } else {
         Abort("Don't know this ic_type!");
@@ -534,6 +539,9 @@ REMORA::set_bathymetry (int lev)
         } else {
             Real dummy_time = 0.0_rt;
             FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
+            if (solverChoice.ic_type == IC_Type::netcdf) {
+                set_grid_scale(lev);
+            }
         }
     } else if (solverChoice.init_ana_h) {
         if (solverChoice.ic_type == IC_Type::analytic) {
@@ -597,9 +605,14 @@ REMORA::set_coriolis(int lev) {
             init_beta_plane_coriolis(lev);
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.coriolis_type == Cor_Type::netcdf) {
-            amrex::Print() << "Calling init_coriolis_from_netcdf " << std::endl;
-            init_coriolis_from_netcdf(lev);
-            amrex::Print() << "Coriolis loaded from netcdf file \n" << std::endl;
+            if (lev == 0) {
+                amrex::Print() << "Calling init_coriolis_from_netcdf " << std::endl;
+                init_coriolis_from_netcdf(lev);
+                amrex::Print() << "Coriolis loaded from netcdf file \n" << std::endl;
+            } else {
+                Real dummy_time = 0.0_rt;
+                FillCoarsePatch(lev,dummy_time,vec_fcor[lev].get(), vec_fcor[lev-1].get(),BCVars::cons_bc);
+            }
 #endif
         } else {
             Abort("Don't know this coriolis_type!");
@@ -724,9 +737,16 @@ REMORA::set_masks(int lev)
         calculate_nodal_masks(lev);
     } else if (solverChoice.mask_type == MaskType::netcdf) {
 #ifdef REMORA_USE_NETCDF
-        amrex::Print() << "Calling init_masks_from_netcdf level " << lev << std::endl;
-        init_masks_from_netcdf(lev);
-        amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
+        if (lev == 0) {
+            amrex::Print() << "Calling init_masks_from_netcdf level " << lev << std::endl;
+            init_masks_from_netcdf(lev);
+            amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
+        } else {
+            Real dummy_time = 0.0_rt;
+            FillCoarsePatchPC(lev, dummy_time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
+                    BCVars::foextrap_bc);
+            calculate_nodal_masks(lev);
+        }
 #endif
     }
     fill_3d_masks(lev);
@@ -796,7 +816,7 @@ REMORA::init_only (int lev, Real time)
         }
     }
 
-    if (solverChoice.boundary_from_netcdf) {
+    if (solverChoice.boundary_from_netcdf && lev == 0) {
         amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
         init_bdry_from_netcdf();
         amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;

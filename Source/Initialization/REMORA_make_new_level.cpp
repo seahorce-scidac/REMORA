@@ -721,15 +721,37 @@ REMORA::ClearLevel (int lev)
 void
 REMORA::set_grid_scale (int lev)
 {
-    AMREX_ASSERT(solverChoice.ic_type == IC_Type::analytic);
-    if (solverChoice.grid_scale_type == GridScaleType::constant) {
-        const auto dxi = Geom(lev).InvCellSize();
-        vec_pm[lev]->setVal(dxi[0]); vec_pm[lev]->FillBoundary(geom[lev].periodicity());
-        vec_pn[lev]->setVal(dxi[1]); vec_pn[lev]->FillBoundary(geom[lev].periodicity());
-    } else if (solverChoice.grid_scale_type == GridScaleType::analytic) {
-        prob->init_analytic_grid_scale(lev, Geom(lev), solverChoice, *this, *vec_pm[lev].get(), *vec_pn[lev].get());
-        vec_pm[lev]->FillBoundary(geom[lev].periodicity());
-        vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+    if (solverChoice.ic_type == IC_Type::analytic) {
+        if (solverChoice.grid_scale_type == GridScaleType::constant) {
+            const auto dxi = Geom(lev).InvCellSize();
+            vec_pm[lev]->setVal(dxi[0]); vec_pm[lev]->FillBoundary(geom[lev].periodicity());
+            vec_pn[lev]->setVal(dxi[1]); vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+        } else if (solverChoice.grid_scale_type == GridScaleType::analytic) {
+            prob->init_analytic_grid_scale(lev, Geom(lev), solverChoice, *this, *vec_pm[lev].get(), *vec_pn[lev].get());
+            vec_pm[lev]->FillBoundary(geom[lev].periodicity());
+            vec_pn[lev]->FillBoundary(geom[lev].periodicity());
+        }
+    } else if (solverChoice.ic_type == IC_Type::netcdf && lev > 0) { // if lev==0, pm/pn are set by init_bathymetry
+        Real dummy_time = 0.0_rt;
+        FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), BCVars::foextrap_bc);
+        FillCoarsePatch(lev,dummy_time,vec_pn[lev].get(), vec_pn[lev-1].get(), BCVars::foextrap_bc);
+
+        int rrx = (lev == 1) ? ref_ratio[lev-1][0] : ref_ratio[lev-1][0] / ref_ratio[lev-2][0];
+        int rry = (lev == 1) ? ref_ratio[lev-1][1] : ref_ratio[lev-1][1] / ref_ratio[lev-2][1];
+        // pm and pn need to be rescaled by the refinement ratio
+        for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            Array4<Real> const& pm   = vec_pm[lev]->array(mfi);
+            Array4<Real> const& pn   = vec_pn[lev]->array(mfi);
+            Box ubx = mfi.growntilebox(IntVect(NGROW+1,NGROW+2,0));
+            Box vbx = mfi.growntilebox(IntVect(NGROW+2,NGROW+1,0));
+            ParallelFor(makeSlab(ubx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+                pm(i,j,0) = pm(i,j,0) * (rrx);
+            });
+            ParallelFor(makeSlab(vbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+                pn(i,j,0) = pn(i,j,0) * (rry);
+            });
+        }
     }
 
     for ( MFIter mfi(*vec_xr[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
