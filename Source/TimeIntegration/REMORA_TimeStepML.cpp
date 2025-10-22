@@ -164,9 +164,16 @@ REMORA::timeStepML (Real time, int /*iteration*/)
                 FPr_w[lev].RegisterCoarseData({zvel_old[lev], zvel_new[lev]}, {time, time + dt[lev]});
             }
         }
-        FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BCVars::xvel_bc, BdyVars::u,0,true,true);
-        FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BCVars::yvel_bc, BdyVars::v,0,true,true);
-        FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null,0,true,true);
+        if ( (solverChoice.boundary_from_netcdf) && (lev==0) ) {
+            // We might need to go back to normal FillPatch once the refined patches are allowed to intersect the boundary in NetCDF
+            FillPatchNoBC(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u,0,true,true);
+            FillPatchNoBC(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v,0,true,true);
+            FillPatchNoBC(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,true);
+        } else {
+            FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BCVars::xvel_bc, BdyVars::u,0,true,true);
+            FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BCVars::yvel_bc, BdyVars::v,0,true,true);
+            FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null,0,true,true);
+        }
     }
 
     scale_rhs_vars_inv();
