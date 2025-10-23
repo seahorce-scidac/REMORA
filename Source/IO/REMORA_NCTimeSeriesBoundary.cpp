@@ -5,89 +5,6 @@
 
 #include <string>
 
-void interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine, int rx, int ry)
-{
-    amrex::Array4<amrex::Real> crse_arr = dat_crse.array();
-    amrex::Array4<amrex::Real> fine_arr = dat_fine.array();
-
-    const auto& bhi = ubound(dat_crse.box());
-
-    amrex::Real xfac = 1.0 / static_cast<amrex::Real>(rx);
-    amrex::Real yfac = 1.0 / static_cast<amrex::Real>(ry);
-
-    // Doing box on x-face
-    if (dat_crse.box().length(0) == 1) {
-        // amrex::Print() << "DOING INTERP ON XFACE " << dat_crse.box() << " " << dat_fine.box() << std::endl;
-        if (dat_crse.box().ixType()[1] == 0) {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int i_f = (i == -1) ? -1 : rx*i;
-                if (j == -1) {
-                    fine_arr(i_f,j,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(i_f,ry*j  ,k) = crse_arr(i,j,k);
-                    if (j < bhi.y) {
-                        for (int n = 1; n < ry; n++) {
-                            fine_arr(i_f,ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
-                        }
-                    }
-                }
-            });
-        } else {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int i_f = (i == -1) ? -1 : rx*i;
-                if (j == -1) {
-                    fine_arr(i_f,j,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(i_f,ry*j,k) = crse_arr(i,j,k);
-                    if (j < bhi.y) {
-                        for (int n = 1; n < ry; n++) {
-                            fine_arr(i_f,ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
-                        }
-                    }
-                }
-            });
-        }
-    } else if (dat_crse.box().length(1) == 1) {
-    // Doing box on y-face
-        // amrex::Print() << "DOING INTERP ON YFACE " << dat_crse.box() << " " << dat_fine.box() << std::endl;
-        if (dat_crse.box().ixType()[0] == 0) {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int j_f = (j == -1) ? -1 : ry*j;
-                if (i == -1) {
-                    fine_arr(i,j_f,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(rx*i  ,j_f,k) = crse_arr(i,j,k);
-                    if (i < bhi.x) {
-                        for (int n = 1; n < rx; n++) {
-                            fine_arr(rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
-                        }
-                    }
-                }
-            });
-        } else {
-            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                int j_f = (j == -1) ? -1 : ry*j;
-                if (i == -1) {
-                    fine_arr(i,j_f,k) = crse_arr(i,j,k);
-                } else {
-                    fine_arr(rx*i,j_f,k) = crse_arr(i,j,k);
-                    if (i < bhi.x) {
-                        for (int n = 1; n < rx; n++) {
-                            fine_arr(rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
-                        }
-                    }
-                }
-            });
-        }
-    } else {
-        amrex::Abort(" What am I doing here??");
-    }
-}
-
 #ifdef REMORA_USE_NETCDF
 /**
  * @param[in   ] a_lev                level at which we will store the data
@@ -95,8 +12,11 @@ void interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine, int rx, 
  * @param[in   ] a_file_name          file name to read from
  * @param[in   ] a_field_name         name of field to read in
  * @param[in   ] a_time_name          name of time variable in NetCDF file
- * @param[in   ] a_domain             simulation domain
+ * @param[in   ] a_index_type         nodality of data field
+ * @param[in   ] a_var_need_data      array over boundaries of flags that indicate whether we need data for the variable
  * @param[in   ] a_is2d               Whether the variable we're working with is 2D
+ * @param[in   ] a_rx                 refinement ratio in x relative to level 0
+ * @param[in   ] a_ry                 refinement ratio in y relative to level 0
  */
 NCTimeSeriesBoundary::NCTimeSeriesBoundary (int a_lev, const amrex::Vector<amrex::Geometry> a_geom,
                                             const amrex::Vector<std::string>& a_file_names, const std::string a_field_name,
@@ -302,10 +222,10 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
 
             read_in_at_time(crse_xlo_dat, crse_xhi_dat, crse_ylo_dat, crse_yhi_dat, i_time_after);
 
-            interp_fab(crse_xlo_dat, xlo_dat_after, m_rx, m_ry);
-            interp_fab(crse_xhi_dat, xhi_dat_after, m_rx, m_ry);
-            interp_fab(crse_ylo_dat, ylo_dat_after, m_rx, m_ry);
-            interp_fab(crse_yhi_dat, yhi_dat_after, m_rx, m_ry);
+            interp_fab(crse_xlo_dat, xlo_dat_after);
+            interp_fab(crse_xhi_dat, xhi_dat_after);
+            interp_fab(crse_ylo_dat, ylo_dat_after);
+            interp_fab(crse_yhi_dat, yhi_dat_after);
 
         }
 
@@ -323,19 +243,19 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
 
             read_in_at_time(crse_xlo_dat, crse_xhi_dat, crse_ylo_dat,crse_yhi_dat, i_time_before);
 
-            interp_fab(crse_xlo_dat, xlo_dat_before, m_rx, m_ry);
-            interp_fab(crse_xhi_dat, xhi_dat_before, m_rx, m_ry);
-            interp_fab(crse_ylo_dat, ylo_dat_before, m_rx, m_ry);
-            interp_fab(crse_yhi_dat, yhi_dat_before, m_rx, m_ry);
+            interp_fab(crse_xlo_dat, xlo_dat_before);
+            interp_fab(crse_xhi_dat, xhi_dat_before);
+            interp_fab(crse_ylo_dat, ylo_dat_before);
+            interp_fab(crse_yhi_dat, yhi_dat_before);
 
             amrex::Print() << "Reading in " << field_name << " at time " << i_time_after << std::endl;
 
             read_in_at_time(crse_xlo_dat, crse_xhi_dat, crse_ylo_dat, crse_yhi_dat, i_time_after);
 
-            interp_fab(crse_xlo_dat, xlo_dat_after, m_rx, m_ry);
-            interp_fab(crse_xhi_dat, xhi_dat_after, m_rx, m_ry);
-            interp_fab(crse_ylo_dat, ylo_dat_after, m_rx, m_ry);
-            interp_fab(crse_yhi_dat, yhi_dat_after, m_rx, m_ry);
+            interp_fab(crse_xlo_dat, xlo_dat_after);
+            interp_fab(crse_xhi_dat, xhi_dat_after);
+            interp_fab(crse_ylo_dat, ylo_dat_after);
+            interp_fab(crse_yhi_dat, yhi_dat_after);
         } // lev
     } // i_time
 
@@ -515,4 +435,92 @@ void NCTimeSeriesBoundary::read_in_at_time (amrex::FArrayBox& fab_xlo,
 
     amrex::Print() << "DONE reading in " << field_name << " at time " << bry_times[itime] << std::endl;
 }
+
+/**
+ * @param[in   ] dat_crse  fab of coarse data to interpolate from
+ * @param[  out] dat_fine  fab of fine data to interpoalte to
+ */
+void NCTimeSeriesBoundary::interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine)//, int rx, int ry)
+{
+    amrex::Array4<amrex::Real> crse_arr = dat_crse.array();
+    amrex::Array4<amrex::Real> fine_arr = dat_fine.array();
+
+    const auto& bhi = ubound(dat_crse.box());
+
+    amrex::Real xfac = 1.0 / static_cast<amrex::Real>(m_rx);
+    amrex::Real yfac = 1.0 / static_cast<amrex::Real>(m_ry);
+
+    // Doing box on x-face
+    if (dat_crse.box().length(0) == 1) {
+        // amrex::Print() << "DOING INTERP ON XFACE " << dat_crse.box() << " " << dat_fine.box() << std::endl;
+        if (dat_crse.box().ixType()[1] == 0) {
+            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                int i_f = (i == -1) ? -1 : m_rx*i;
+                if (j == -1) {
+                    fine_arr(i_f,j,k) = crse_arr(i,j,k);
+                } else {
+                    fine_arr(i_f,m_ry*j  ,k) = crse_arr(i,j,k);
+                    if (j < bhi.y) {
+                        for (int n = 1; n < m_ry; n++) {
+                            fine_arr(i_f,m_ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
+                        }
+                    }
+                }
+            });
+        } else {
+            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                int i_f = (i == -1) ? -1 : m_rx*i;
+                if (j == -1) {
+                    fine_arr(i_f,j,k) = crse_arr(i,j,k);
+                } else {
+                    fine_arr(i_f,m_ry*j,k) = crse_arr(i,j,k);
+                    if (j < bhi.y) {
+                        for (int n = 1; n < m_ry; n++) {
+                            fine_arr(i_f,m_ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
+                        }
+                    }
+                }
+            });
+        }
+    } else if (dat_crse.box().length(1) == 1) {
+    // Doing box on y-face
+        // amrex::Print() << "DOING INTERP ON YFACE " << dat_crse.box() << " " << dat_fine.box() << std::endl;
+        if (dat_crse.box().ixType()[0] == 0) {
+            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                int j_f = (j == -1) ? -1 : m_ry*j;
+                if (i == -1) {
+                    fine_arr(i,j_f,k) = crse_arr(i,j,k);
+                } else {
+                    fine_arr(m_rx*i  ,j_f,k) = crse_arr(i,j,k);
+                    if (i < bhi.x) {
+                        for (int n = 1; n < m_rx; n++) {
+                            fine_arr(m_rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
+                        }
+                    }
+                }
+            });
+        } else {
+            amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                int j_f = (j == -1) ? -1 : m_ry*j;
+                if (i == -1) {
+                    fine_arr(i,j_f,k) = crse_arr(i,j,k);
+                } else {
+                    fine_arr(m_rx*i,j_f,k) = crse_arr(i,j,k);
+                    if (i < bhi.x) {
+                        for (int n = 1; n < m_rx; n++) {
+                            fine_arr(m_rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
+                        }
+                    }
+                }
+            });
+        }
+    } else {
+        amrex::Abort(" What am I doing here??");
+    }
+}
+
 #endif // REMORA_USE_NETCDF

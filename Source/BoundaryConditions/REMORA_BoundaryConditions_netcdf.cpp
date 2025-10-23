@@ -4,6 +4,7 @@ using namespace amrex;
 
 #ifdef REMORA_USE_NETCDF
 /*
+ * @param[in   ] lev           level to operate on
  * @param[inout] mf_to_fill    data on which to apply BCs
  * @param[in   ] mf_mask       land-sea mask
  * @param[in   ] time          current time

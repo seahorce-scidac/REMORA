@@ -18,7 +18,7 @@ class NCTimeSeriesBoundary
 {
     public:
         /** \brief Constructor */
-        NCTimeSeriesBoundary (int lev,
+        NCTimeSeriesBoundary (int a_lev,
                               const amrex::Vector<amrex::Geometry> a_geom,
                               const amrex::Vector<std::string>& a_file_name,
                               const std::string a_field_name,
@@ -52,6 +52,10 @@ class NCTimeSeriesBoundary
                               amrex::FArrayBox& fab_ylo,
                               amrex::FArrayBox& fab_yhi,
                               int itime);
+
+        /** \brief spatially interpolate boundary fabs from level 0 data (read in) to current level */
+        void interp_fab (amrex::FArrayBox& dat_crse,
+                         amrex::FArrayBox& dat_fine);
 
         /// File name to read from
         amrex::Vector<std::string> file_names;
