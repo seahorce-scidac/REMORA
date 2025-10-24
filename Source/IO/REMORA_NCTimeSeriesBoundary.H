@@ -18,13 +18,14 @@ class NCTimeSeriesBoundary
 {
     public:
         /** \brief Constructor */
-        NCTimeSeriesBoundary (const amrex::Vector<std::string>& a_file_name,
+        NCTimeSeriesBoundary (int a_lev,
+                              const amrex::Vector<amrex::Geometry> a_geom,
+                              const amrex::Vector<std::string>& a_file_name,
                               const std::string a_field_name,
                               const std::string a_time_name,
-                              const amrex::Box& a_domain,
                               const amrex::IntVect a_index_type,
                               const amrex::GpuArray<bool, AMREX_SPACEDIM*2>* a_var_need_data,
-                              bool a_is2d);
+                              bool a_is2d, int rx, int ry);
 
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
@@ -52,6 +53,10 @@ class NCTimeSeriesBoundary
                               amrex::FArrayBox& fab_yhi,
                               int itime);
 
+        /** \brief spatially interpolate boundary fabs from level 0 data (read in) to current level */
+        void interp_fab (amrex::FArrayBox& dat_crse,
+                         amrex::FArrayBox& dat_fine);
+
         /// File name to read from
         amrex::Vector<std::string> file_names;
         /// Field name in netcdf file
@@ -64,6 +69,15 @@ class NCTimeSeriesBoundary
         amrex::Box domain;
         /// Index type for field to fill
         amrex::IntVect index_type;
+
+        /// Level at which we are holding the boundary data
+        int m_lev;
+
+        /// Geometry at all levels
+        amrex::Vector<amrex::Geometry> m_geom;
+
+        /// Refinement ratios relative to level 0
+        int m_rx; int m_ry;
 
         /// Whether the field we're reading in is 2d
         bool is2d;

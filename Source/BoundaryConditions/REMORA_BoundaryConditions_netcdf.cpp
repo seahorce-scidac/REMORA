@@ -4,6 +4,7 @@ using namespace amrex;
 
 #ifdef REMORA_USE_NETCDF
 /*
+ * @param[in   ] lev           level to operate on
  * @param[inout] mf_to_fill    data on which to apply BCs
  * @param[in   ] mf_mask       land-sea mask
  * @param[in   ] time          current time
@@ -16,10 +17,9 @@ using namespace amrex;
  */
 
 void
-REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const Real time, const int bccomp, const int bdy_var_type, const int icomp_to_fill, const int icomp_calc, const MultiFab& mf_calc, const Real dt_calc)
+REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_mask, const Real time, const int bccomp,
+                            const int bdy_var_type, const int icomp_to_fill, const int icomp_calc, const MultiFab& mf_calc, const Real dt_calc)
 {
-    int lev = 0;
-
     // Which variable are we filling
     int ivar = bdy_var_type;
 
@@ -60,31 +60,32 @@ REMORA::fill_from_bdyfiles (MultiFab& mf_to_fill, const MultiFab& mf_mask, const
         int icomp_to_fill_calc = (bccomp == BCVars::zeta_bc || bccomp == BCVars::ubar_bc ||
                               bccomp == BCVars::vbar_bc) ? 0 : icomp_to_fill;
 
-        boundary_series[ivar+icomp]->update_interpolated_to_time(time);
-        const auto& bdatxlo = boundary_series[ivar+icomp]->xlo_dat_interp.const_array();
-        const auto& bdatxhi = boundary_series[ivar+icomp]->xhi_dat_interp.const_array();
-        const auto& bdatylo = boundary_series[ivar+icomp]->ylo_dat_interp.const_array();
-        const auto& bdatyhi = boundary_series[ivar+icomp]->yhi_dat_interp.const_array();
+        boundary_series[lev][ivar+icomp]->update_interpolated_to_time(time);
 
-        const auto& bx_bdatxlo = boundary_series[ivar+icomp]->xlo_dat_interp.box();
-        const auto& bx_bdatxhi = boundary_series[ivar+icomp]->xhi_dat_interp.box();
-        const auto& bx_bdatylo = boundary_series[ivar+icomp]->ylo_dat_interp.box();
-        const auto& bx_bdatyhi = boundary_series[ivar+icomp]->yhi_dat_interp.box();
+        const auto& bdatxlo = boundary_series[lev][ivar+icomp]->xlo_dat_interp.const_array();
+        const auto& bdatxhi = boundary_series[lev][ivar+icomp]->xhi_dat_interp.const_array();
+        const auto& bdatylo = boundary_series[lev][ivar+icomp]->ylo_dat_interp.const_array();
+        const auto& bdatyhi = boundary_series[lev][ivar+icomp]->yhi_dat_interp.const_array();
+
+        const auto& bx_bdatxlo = boundary_series[lev][ivar+icomp]->xlo_dat_interp.box();
+        const auto& bx_bdatxhi = boundary_series[lev][ivar+icomp]->xhi_dat_interp.box();
+        const auto& bx_bdatylo = boundary_series[lev][ivar+icomp]->ylo_dat_interp.box();
+        const auto& bx_bdatyhi = boundary_series[lev][ivar+icomp]->yhi_dat_interp.box();
 
         if (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather ||
             domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather ||
             domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::flather ||
             domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::flather) {
-            boundary_series[BdyVars::zeta]->update_interpolated_to_time(time);
+            boundary_series[lev][BdyVars::zeta]->update_interpolated_to_time(time);
         }
         const auto& bdatxlo_zeta = domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather ?
-                                   boundary_series[BdyVars::zeta]->xlo_dat_interp.const_array() : Array4<Real>();
+                                   boundary_series[lev][BdyVars::zeta]->xlo_dat_interp.const_array() : Array4<Real>();
         const auto& bdatxhi_zeta = domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather ?
-                                   boundary_series[BdyVars::zeta]->xhi_dat_interp.const_array() : Array4<Real>();
+                                   boundary_series[lev][BdyVars::zeta]->xhi_dat_interp.const_array() : Array4<Real>();
         const auto& bdatylo_zeta = domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::flather ?
-                                   boundary_series[BdyVars::zeta]->ylo_dat_interp.const_array() : Array4<Real>();
+                                   boundary_series[lev][BdyVars::zeta]->ylo_dat_interp.const_array() : Array4<Real>();
         const auto& bdatyhi_zeta = domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::flather ?
-                                   boundary_series[BdyVars::zeta]->yhi_dat_interp.const_array() : Array4<Real>();
+                                   boundary_series[lev][BdyVars::zeta]->yhi_dat_interp.const_array() : Array4<Real>();
 
         const bool apply_west  = (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::clamped) ||
                                  (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather) ||

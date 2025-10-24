@@ -37,6 +37,9 @@ int         REMORA::file_min_digits = 5;
 // Do we include staggered velocities in the plotfile?
 int         REMORA::plot_staggered_vels = 0;
 
+// Do we include 2d variables in plotfile
+int         REMORA::plot_2d_vars = 0;
+
 // Native AMReX vs NetCDF
 PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
 
@@ -816,9 +819,9 @@ REMORA::init_only (int lev, Real time)
         }
     }
 
-    if (solverChoice.boundary_from_netcdf && lev == 0) {
-        amrex::Print() << "Calling init_bdry_from_netcdf " << std::endl;
-        init_bdry_from_netcdf();
+    if (solverChoice.boundary_from_netcdf) {
+        amrex::Print() << "Calling init_bdry_from_netcdf at level " << lev << std::endl;
+        init_bdry_from_netcdf(lev);
         amrex::Print() << "Boundary data loaded from netcdf file \n " << std::endl;
     }
 
@@ -1044,6 +1047,8 @@ REMORA::ReadParameters ()
         // Should we plot the staggered face velocities (without averaging to cell centers)
         pp.queryAdd("plot_staggered_vels", plot_staggered_vels);
 
+        pp.query("plot_2d_vars", plot_2d_vars);
+
         // Output format
         std::string plotfile_type_str = "amrex";
         pp.queryAdd("plotfile_type", plotfile_type_str);
@@ -1098,6 +1103,8 @@ REMORA::ReadParameters ()
 #ifdef REMORA_USE_NETCDF
         nc_init_file.resize(max_level+1);
         nc_grid_file.resize(max_level+1);
+
+        boundary_series.resize(max_level+1);
 
         // NetCDF initialization files -- possibly multiple files at each of multiple levels
         //        but we always have exactly one file at level 0

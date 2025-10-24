@@ -192,6 +192,9 @@ public:
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_u,
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_v,
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_w,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_2drho,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_2du,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_2dv,
                                                 const amrex::Vector<std::string> &varnames,
                                                 const amrex::Vector<amrex::Geometry>& my_geom,
                                                 amrex::Real time,
@@ -893,7 +896,8 @@ public:
                     const bool fill_all=true,
                     const bool fill_set=true);
     /** \brief Fill boundary data from netcdf file */
-    void fill_from_bdyfiles (amrex::MultiFab& mf_to_fill,
+    void fill_from_bdyfiles (int lev,
+                             amrex::MultiFab& mf_to_fill,
                             const amrex::MultiFab& mf_mask,
                             const amrex::Real time,
                             const int bccomp,
@@ -953,7 +957,7 @@ public:
     /** \brief Problem initialization from NetCDF file */
     void init_data_from_netcdf (int lev);
     /** \brief Boundary data initialization from NetCDF file */
-    void init_bdry_from_netcdf ();
+    void init_bdry_from_netcdf (int lev);
     /** \brief Mask data initialization from NetCDF file */
     void init_masks_from_netcdf (int lev);
     /** \brief Bathymetry data initialization from NetCDF file */
@@ -1093,7 +1097,7 @@ private:
     NCTimeSeriesRiver* river_source_transportbar;
 
     /** \brief Vector over BdyVars of boundary series data containers */
-    amrex::Vector<NCTimeSeriesBoundary*> boundary_series;
+    amrex::Vector<amrex::Vector<NCTimeSeriesBoundary*>> boundary_series;
 
 #endif // REMORA_USE_NETCDF
     /** \brief iMultiFab for river positions; contents are indices of rivers */
@@ -1324,6 +1328,9 @@ private:
 
     /** \brief Whether to write the staggered velocities (not averaged to cell centers) */
     static int plot_staggered_vels;
+
+    /** \brief Whether to write 2D plotfile variables */
+    static int plot_2d_vars;
 
     /** \brief Native or NetCDF plotfile output */
     static PlotfileType plotfile_type;

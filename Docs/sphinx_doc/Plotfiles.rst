@@ -100,6 +100,14 @@ List of Parameters
 |                                        |                                   |                       |            |
 |                                        | This is necessary for amrvis.     |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
+| **remora.plot_2d_vars**                | whether to output 2D variables    | false or true         | false      |
+|                                        |                                   |                       |            |
+|                                        | in plotfiles, including sea       |                       |            |
+|                                        |                                   |                       |            |
+|                                        | surface height and depth-averaged |                       |            |
+|                                        |                                   |                       |            |
+|                                        | variables, among others.          |                       |            |
++----------------------------------------+-----------------------------------+-----------------------+------------+
 
 .. _notes-5:
 

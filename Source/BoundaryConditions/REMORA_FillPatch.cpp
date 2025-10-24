@@ -148,10 +148,9 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
 
 #ifdef REMORA_USE_NETCDF
         // Fill the data which is stored in the boundary data read from netcdf files
-        if ( (solverChoice.boundary_from_netcdf) && (lev==0) &&
-             (bdy_var_type != BdyVars::null) )
+        if ( (solverChoice.boundary_from_netcdf) && (bdy_var_type != BdyVars::null) )
         {
-            fill_from_bdyfiles(mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
+            fill_from_bdyfiles(lev, mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
         }
 #endif
         // Fill corners of the domain with periodic data
@@ -563,10 +562,9 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
 
 #ifdef REMORA_USE_NETCDF
     // Fill the data which is stored in the boundary data read from netcdf files
-    if ( (solverChoice.boundary_from_netcdf) && (lev==0) &&
-         (bdy_var_type != BdyVars::null) )
+    if ( (solverChoice.boundary_from_netcdf) && (bdy_var_type != BdyVars::null) )
     {
-        fill_from_bdyfiles(*mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
+        fill_from_bdyfiles(lev, *mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
     }
 #endif
     // Fill corners of the domain with periodic data
