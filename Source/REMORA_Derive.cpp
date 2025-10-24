@@ -14,6 +14,7 @@ remora_dernull(
   const amrex::FArrayBox& /*datfab*/,
   const amrex::Array4<const amrex::Real>& /*pm*/,
   const amrex::Array4<const amrex::Real>& /*pn*/,
+  const amrex::Array4<const amrex::Real>& /*maskr*/,
   const amrex::Geometry& /*geomdata*/,
   amrex::Real /*time*/,
   const int* /*bcrec*/,
@@ -46,6 +47,7 @@ remora_dervort(
   const amrex::FArrayBox& datfab,
   const amrex::Array4<const amrex::Real>& pm,
   const amrex::Array4<const amrex::Real>& pn,
+  const amrex::Array4<const amrex::Real>& /*maskr*/,
   const amrex::Geometry& /*geomdata*/,
   amrex::Real /*time*/,
   const int* /*bcrec*/,
@@ -62,6 +64,7 @@ remora_dervort(
         Real d2y = 0.5_rt / pn(i,  j-1,0) + 1.0_rt / pn(i,j,0) + 0.5_rt / pm(i,j+1,0);
         tfab(i,j,k,dcomp) = (dat(i+1,j,k,1) - dat(i-1,j,k,1)) / (d2x)  // dv/dx
                           - (dat(i,j+1,k,0) - dat(i,j-1,k,0)) / (d2y); // du/dy
+        /*TODO: Add masking to vorticity. Need to calculate psi mask first.*/
     });
 }
 }
