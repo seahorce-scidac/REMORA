@@ -450,20 +450,23 @@ void NCTimeSeriesBoundary::interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayB
     amrex::Real xfac = 1.0 / static_cast<amrex::Real>(m_rx);
     amrex::Real yfac = 1.0 / static_cast<amrex::Real>(m_ry);
 
+    amrex::Real rx = m_rx;
+    amrex::Real ry = m_ry;
+
     // Doing box on x-face
     if (dat_crse.box().length(0) == 1) {
         // amrex::Print() << "DOING INTERP ON XFACE " << dat_crse.box() << " " << dat_fine.box() << std::endl;
         if (dat_crse.box().ixType()[1] == 0) {
             amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                int i_f = (i == -1) ? -1 : m_rx*i;
+                int i_f = (i == -1) ? -1 : rx*i;
                 if (j == -1) {
                     fine_arr(i_f,j,k) = crse_arr(i,j,k);
                 } else {
-                    fine_arr(i_f,m_ry*j  ,k) = crse_arr(i,j,k);
+                    fine_arr(i_f,ry*j  ,k) = crse_arr(i,j,k);
                     if (j < bhi.y) {
-                        for (int n = 1; n < m_ry; n++) {
-                            fine_arr(i_f,m_ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
+                        for (int n = 1; n < ry; n++) {
+                            fine_arr(i_f,ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
                         }
                     }
                 }
@@ -471,14 +474,14 @@ void NCTimeSeriesBoundary::interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayB
         } else {
             amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                int i_f = (i == -1) ? -1 : m_rx*i;
+                int i_f = (i == -1) ? -1 : rx*i;
                 if (j == -1) {
                     fine_arr(i_f,j,k) = crse_arr(i,j,k);
                 } else {
-                    fine_arr(i_f,m_ry*j,k) = crse_arr(i,j,k);
+                    fine_arr(i_f,ry*j,k) = crse_arr(i,j,k);
                     if (j < bhi.y) {
-                        for (int n = 1; n < m_ry; n++) {
-                            fine_arr(i_f,m_ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
+                        for (int n = 1; n < ry; n++) {
+                            fine_arr(i_f,ry*j+n,k) = crse_arr(i,j,k) + n * yfac * (crse_arr(i,j+1,k) - crse_arr(i,j,k));
                         }
                     }
                 }
@@ -490,14 +493,14 @@ void NCTimeSeriesBoundary::interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayB
         if (dat_crse.box().ixType()[0] == 0) {
             amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                int j_f = (j == -1) ? -1 : m_ry*j;
+                int j_f = (j == -1) ? -1 : ry*j;
                 if (i == -1) {
                     fine_arr(i,j_f,k) = crse_arr(i,j,k);
                 } else {
-                    fine_arr(m_rx*i  ,j_f,k) = crse_arr(i,j,k);
+                    fine_arr(rx*i  ,j_f,k) = crse_arr(i,j,k);
                     if (i < bhi.x) {
-                        for (int n = 1; n < m_rx; n++) {
-                            fine_arr(m_rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
+                        for (int n = 1; n < rx; n++) {
+                            fine_arr(rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
                         }
                     }
                 }
@@ -505,14 +508,14 @@ void NCTimeSeriesBoundary::interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayB
         } else {
             amrex::ParallelFor(dat_crse.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                int j_f = (j == -1) ? -1 : m_ry*j;
+                int j_f = (j == -1) ? -1 : ry*j;
                 if (i == -1) {
                     fine_arr(i,j_f,k) = crse_arr(i,j,k);
                 } else {
-                    fine_arr(m_rx*i,j_f,k) = crse_arr(i,j,k);
+                    fine_arr(rx*i,j_f,k) = crse_arr(i,j,k);
                     if (i < bhi.x) {
-                        for (int n = 1; n < m_rx; n++) {
-                            fine_arr(m_rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
+                        for (int n = 1; n < rx; n++) {
+                            fine_arr(rx*i+n,j_f,k) = crse_arr(i,j,k) + n * xfac * (crse_arr(i+1,j,k) - crse_arr(i,j,k));
                         }
                     }
                 }
