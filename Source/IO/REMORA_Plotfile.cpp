@@ -258,12 +258,12 @@ REMORA::WritePlotFile ()
             MultiFab::Copy(mf_2drho[lev],*vec_h[lev],0,1,1,0);
 
             MultiFab::Copy(mf_2du[lev],*vec_DU_avg1[lev],0,0,1,0);
-            MultiFab::Copy(mf_2du[lev],*vec_sustr[lev],0,1,1,0);
-            MultiFab::Copy(mf_2du[lev],*vec_bustr[lev],0,2,1,0);
+            MultiFab::Copy(mf_2du[lev],*vec_sustr[lev]  ,0,1,1,0);
+            MultiFab::Copy(mf_2du[lev],*vec_bustr[lev]  ,0,2,1,0);
 
             MultiFab::Copy(mf_2dv[lev],*vec_DV_avg1[lev],0,0,1,0);
-            MultiFab::Copy(mf_2dv[lev],*vec_svstr[lev],0,1,1,0);
-            MultiFab::Copy(mf_2dv[lev],*vec_bvstr[lev],0,2,1,0);
+            MultiFab::Copy(mf_2dv[lev],*vec_svstr[lev]  ,0,1,1,0);
+            MultiFab::Copy(mf_2dv[lev],*vec_bvstr[lev]  ,0,2,1,0);
         }
     }
 
@@ -643,8 +643,8 @@ REMORA::WritePlotFile ()
     std::string mf_vface_prefix = "VFace";
     std::string mf_wface_prefix = "WFace";
     std::string mf_2drho_prefix = "rho2d";
-    std::string mf_2du_prefix = "u2d";
-    std::string mf_2dv_prefix = "v2d";
+    std::string mf_2du_prefix   = "u2d";
+    std::string mf_2dv_prefix   = "v2d";
 
     for (int level = 0; level <= finest_level; ++level)
     {
@@ -835,25 +835,25 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
             HeaderFile << "2" << "\n"; // number of components in the rho multifab
             HeaderFile << "zeta" << "\n";
             HeaderFile << "h" << "\n";
-            std::string mf_2drho_prefix = "rho2d";
+            std::string mf_2dzeta_prefix = "zeta2d";
             for (int level = 0; level <= finest_level; ++level) {
-                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2drho_prefix) << "\n";
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2dzeta_prefix) << "\n";
             }
             HeaderFile << "3" << "\n"; // number of components in the u multifab
             HeaderFile << "ubar" << "\n";
             HeaderFile << "sustr" << "\n";
             HeaderFile << "bustr" << "\n";
-            std::string mf_2du_prefix = "u2d";
+            std::string mf_2dubar_prefix = "ubar2d";
             for (int level = 0; level <= finest_level; ++level) {
-                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2du_prefix) << "\n";
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2dubar_prefix) << "\n";
             }
             HeaderFile << "3" << "\n"; // number of components in the v multifab
             HeaderFile << "vbar" << "\n";
             HeaderFile << "svstr" << "\n";
             HeaderFile << "bvstr" << "\n";
-            std::string mf_2dv_prefix = "v2d";
+            std::string mf_2dvbar_prefix = "vbar2d";
             for (int level = 0; level <= finest_level; ++level) {
-                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2dv_prefix) << "\n";
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2dvbar_prefix) << "\n";
             }
         }
 }
