@@ -45,6 +45,13 @@ class NCTimeSeriesBoundary
         /// FArrayBox to store data at inteprolated time at yhi boundary */
         amrex::FArrayBox yhi_dat_interp;
 
+        /// Refinement ratios relative to level 0
+        int m_rx; int m_ry;
+
+        /** \brief spatially interpolate boundary fabs from level 0 data (read in) to current level */
+        void interp_fab (amrex::FArrayBox& dat_crse,
+                         amrex::FArrayBox& dat_fine);
+
     private:
         /** \brief Read in data from file at time index itime and fill into mf */
         void read_in_at_time (amrex::FArrayBox& fab_xlo,
@@ -52,10 +59,6 @@ class NCTimeSeriesBoundary
                               amrex::FArrayBox& fab_ylo,
                               amrex::FArrayBox& fab_yhi,
                               int itime);
-
-        /** \brief spatially interpolate boundary fabs from level 0 data (read in) to current level */
-        void interp_fab (amrex::FArrayBox& dat_crse,
-                         amrex::FArrayBox& dat_fine);
 
         /// File name to read from
         amrex::Vector<std::string> file_names;
@@ -75,9 +78,6 @@ class NCTimeSeriesBoundary
 
         /// Geometry at all levels
         amrex::Vector<amrex::Geometry> m_geom;
-
-        /// Refinement ratios relative to level 0
-        int m_rx; int m_ry;
 
         /// Whether the field we're reading in is 2d
         bool is2d;
