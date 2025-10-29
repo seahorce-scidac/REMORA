@@ -65,7 +65,8 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
                 auto& sfab = mf_cc_vel[mfi];
                 auto pm = vec_pm[levc]->const_array(mfi);
                 auto pn = vec_pn[levc]->const_array(mfi);
-                derived::remora_dervort(bx, dfab, 0, 1, sfab, pm, pn, Geom(levc), time, nullptr, levc);
+                auto maskr = vec_mskr[levc]->const_array(mfi);
+                derived::remora_dervort(bx, dfab, 0, 1, sfab, pm, pn, maskr, Geom(levc), time, nullptr, levc);
             } // mfi
 
           mf->FillBoundary(geom[levc].periodicity());
