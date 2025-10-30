@@ -192,10 +192,13 @@ public:
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_u,
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_v,
                                                 const amrex::Vector<const amrex::MultiFab*> &mf_w,
-                                                const amrex::Vector<const amrex::MultiFab*> &mf_2drho,
-                                                const amrex::Vector<const amrex::MultiFab*> &mf_2du,
-                                                const amrex::Vector<const amrex::MultiFab*> &mf_2dv,
-                                                const amrex::Vector<std::string> &varnames,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_2d_rho,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_2d_u,
+                                                const amrex::Vector<const amrex::MultiFab*> &mf_2d_v,
+                                                const amrex::Vector<std::string> &varnames_3d,
+                                                const amrex::Vector<std::string> &varnames_2d_rho,
+                                                const amrex::Vector<std::string> &varnames_2d_u,
+                                                const amrex::Vector<std::string> &varnames_2d_v,
                                                 const amrex::Vector<amrex::Geometry>& my_geom,
                                                 amrex::Real time,
                                                 const amrex::Vector<int> &level_steps,
@@ -210,7 +213,10 @@ public:
     void WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                    int nlevels,
                                                    const amrex::Vector<amrex::BoxArray> &bArray,
-                                                   const amrex::Vector<std::string> &varnames,
+                                                   const amrex::Vector<std::string> &varnames_3d,
+                                                   const amrex::Vector<std::string> &varnames_2d_rho,
+                                                   const amrex::Vector<std::string> &varnames_2d_u,
+                                                   const amrex::Vector<std::string> &varnames_2d_v,
                                                    const amrex::Vector<amrex::Geometry>& my_geom,
                                                    amrex::Real time,
                                                    const amrex::Vector<int> &level_steps,
@@ -1035,10 +1041,12 @@ private:
     std::string PlotFileName (int lev) const;
 
     /* set which variables and derived quantities go into plotfiles */
-    void setPlotVariables (const std::string& pp_plot_var_names);
+    void set2DPlotVariables (const std::string& pp_plot_var_names_2d);
+    void set3DPlotVariables (const std::string& pp_plot_var_names_3d);
 
     /* append variables to plot */
-    void appendPlotVariables (const std::string& pp_plot_var_names);
+    void append2DPlotVariables (const std::string& pp_plot_var_names_2d);
+    void append3DPlotVariables (const std::string& pp_plot_var_names_3d);
 
 #ifdef REMORA_USE_NETCDF
     /** \brief Write plotfile using NetCDF (wrapper) */
@@ -1277,8 +1285,10 @@ private:
     /** \brief Counter for which time index we are writing to in the netcdf history file */
     int history_count = 0;
 
-    /** \brief Names of variables to output to AMReX plotfile */
-    amrex::Vector<std::string> plot_var_names;
+    /** \brief Names of 3D variables to output to AMReX plotfile */
+    amrex::Vector<std::string> plot_var_names_3d;
+    /** \brief Names of 2D variables to output to AMReX plotfile */
+    amrex::Vector<std::string> plot_var_names_2d;
     /** \brief Names of scalars for plotfile output */
     const amrex::Vector<std::string>     cons_names {"temp", "salt", "scalar"};
     // Note that the order of variable names here must match the order in PlotFile.cpp
@@ -1328,9 +1338,6 @@ private:
 
     /** \brief Whether to write the staggered velocities (not averaged to cell centers) */
     static int plot_staggered_vels;
-
-    /** \brief Whether to write 2D plotfile variables */
-    static int plot_2d_vars;
 
     /** \brief Native or NetCDF plotfile output */
     static PlotfileType plotfile_type;

@@ -37,9 +37,6 @@ int         REMORA::file_min_digits = 5;
 // Do we include staggered velocities in the plotfile?
 int         REMORA::plot_staggered_vels = 0;
 
-// Do we include 2d variables in plotfile
-int         REMORA::plot_2d_vars = 0;
-
 // Native AMReX vs NetCDF
 PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
 
@@ -88,7 +85,9 @@ REMORA::REMORA ()
     }
 
     ReadParameters();
-    const std::string& pv1 = "plot_vars"; setPlotVariables(pv1);
+
+    const std::string& pv3d = "plot_vars_3d"; set3DPlotVariables(pv3d);
+    const std::string& pv2d = "plot_vars_2d"; set2DPlotVariables(pv2d);
 
     prob = amrex_probinit(geom[0].ProbLo(),geom[0].ProbHi());
 
@@ -335,7 +334,8 @@ REMORA::InitData ()
 
     // Check for additional plotting variables that are available after
     // particle containers are setup.
-    const std::string& pv1 = "plot_vars"; appendPlotVariables(pv1);
+    const std::string& pv3d = "plot_vars_3d"; append3DPlotVariables(pv3d);
+    const std::string& pv2d = "plot_vars_2d"; append2DPlotVariables(pv2d);
 
     if (restart_chkfile == "" && (check_int > 0 || check_int_time > 0.0_rt))
     {
@@ -1046,8 +1046,6 @@ REMORA::ReadParameters ()
 
         // Should we plot the staggered face velocities (without averaging to cell centers)
         pp.queryAdd("plot_staggered_vels", plot_staggered_vels);
-
-        pp.query("plot_2d_vars", plot_2d_vars);
 
         // Output format
         std::string plotfile_type_str = "amrex";

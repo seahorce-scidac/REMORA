@@ -11,149 +11,41 @@ bool containerHasElement(const V& iterable, const T& query) {
     return std::find(iterable.begin(), iterable.end(), query) != iterable.end();
 }
 
-/**
- * @param pp_plot_var_names   list of variable names to plot read in from parameter file
- */
-void
-REMORA::setPlotVariables (const std::string& pp_plot_var_names)
-{
-    ParmParse pp(pp_prefix);
-
-    if (pp.contains(pp_plot_var_names.c_str()))
-    {
-        std::string nm;
-
-        int nPltVars = pp.countval(pp_plot_var_names.c_str());
-
-        for (int i = 0; i < nPltVars; i++)
-        {
-            pp.get(pp_plot_var_names.c_str(), nm, i);
-
-            // Add the named variable to our list of plot variables
-            // if it is not already in the list
-            if (!containerHasElement(plot_var_names, nm)) {
-                plot_var_names.push_back(nm);
-            }
-        }
-    } else {
-        //
-        // The default is to add none of the variables to the list
-        //
-        plot_var_names.clear();
-    }
-
-    // Get state variables in the same order as we define them,
-    // since they may be in any order in the input list
-    Vector<std::string> tmp_plot_names;
-
-    for (int i = 0; i < NCONS; ++i) {
-        if ( containerHasElement(plot_var_names, cons_names[i]) ) {
-            tmp_plot_names.push_back(cons_names[i]);
-        }
-    }
-    // Check for velocity since it's not in cons_names
-    // If we are asked for any velocity component, we will need them all
-    if (containerHasElement(plot_var_names, "x_velocity") ||
-        containerHasElement(plot_var_names, "y_velocity") ||
-        containerHasElement(plot_var_names, "z_velocity")) {
-        tmp_plot_names.push_back("x_velocity");
-        tmp_plot_names.push_back("y_velocity");
-        tmp_plot_names.push_back("z_velocity");
-    }
-
-    // If we are asked for any location component, we will provide them all
-    if (containerHasElement(plot_var_names, "x_cc") ||
-        containerHasElement(plot_var_names, "y_cc") ||
-        containerHasElement(plot_var_names, "z_cc")) {
-        tmp_plot_names.push_back("x_cc");
-        tmp_plot_names.push_back("y_cc");
-        tmp_plot_names.push_back("z_cc");
-    }
-
-    for (int i = 0; i < derived_names.size(); ++i) {
-        if ( containerHasElement(plot_var_names, derived_names[i]) ) {
-               tmp_plot_names.push_back(derived_names[i]);
-        } // if
-    } // i
-
-#ifdef REMORA_USE_PARTICLES
-    const auto& particles_namelist( particleData.getNamesUnalloc() );
-    for (auto it = particles_namelist.cbegin(); it != particles_namelist.cend(); ++it) {
-        std::string tmp( (*it)+"_count" );
-        if (containerHasElement(plot_var_names, tmp) ) {
-            tmp_plot_names.push_back(tmp);
-        }
-    }
-#endif
-
-    // Check to see if we found all the requested variables
-    for (auto plot_name : plot_var_names) {
-      if (!containerHasElement(tmp_plot_names, plot_name)) {
-           Warning("\nWARNING: Requested to plot variable '" + plot_name + "' but it is not available");
-      }
-    }
-    plot_var_names = tmp_plot_names;
-}
-
-/**
- * @param pp_plot_var_names     variables to add to plot list
- */
-void
-REMORA::appendPlotVariables (const std::string& pp_plot_var_names)
-{
-    ParmParse pp(pp_prefix);
-
-    if (pp.contains(pp_plot_var_names.c_str())) {
-        std::string nm;
-        int nPltVars = pp.countval(pp_plot_var_names.c_str());
-        for (int i = 0; i < nPltVars; i++) {
-            pp.get(pp_plot_var_names.c_str(), nm, i);
-            // Add the named variable to our list of plot variables
-            // if it is not already in the list
-            if (!containerHasElement(plot_var_names, nm)) {
-                plot_var_names.push_back(nm);
-            }
-        }
-    }
-
-    Vector<std::string> tmp_plot_names(0);
-#ifdef REMORA_USE_PARTICLES
-    Vector<std::string> particle_mesh_plot_names;
-    particleData.GetMeshPlotVarNames( particle_mesh_plot_names );
-    for (int i = 0; i < particle_mesh_plot_names.size(); i++) {
-        std::string tmp(particle_mesh_plot_names[i]);
-        if (containerHasElement(plot_var_names, tmp) ) {
-            tmp_plot_names.push_back(tmp);
-        }
-    }
-#endif
-
-    for (int i = 0; i < tmp_plot_names.size(); i++) {
-        plot_var_names.push_back( tmp_plot_names[i] );
-    }
-
-    // Finally, check to see if we found all the requested variables
-    for (const auto& plot_name : plot_var_names) {
-        if (!containerHasElement(plot_var_names, plot_name)) {
-             if (amrex::ParallelDescriptor::IOProcessor()) {
-                 Warning("\nWARNING: Requested to plot variable '" + plot_name + "' but it is not available");
-             }
-        }
-    }
-}
-
 // Write plotfile to disk
 void
 REMORA::WritePlotFile ()
 {
-    Vector<std::string> varnames;
-    varnames.insert(varnames.end(), plot_var_names.begin(), plot_var_names.end());
+    Vector<std::string> varnames_3d;
+    varnames_3d.insert(varnames_3d.end(), plot_var_names_3d.begin(), plot_var_names_3d.end());
 
-    const int ncomp_mf = varnames.size();
+    Vector<std::string> varnames_2d;
+    varnames_2d.insert(varnames_2d.end(), plot_var_names_2d.begin(), plot_var_names_2d.end());
+
+    Vector<std::string> varnames_2d_rho;
+    Vector<std::string> varnames_2d_u;
+    Vector<std::string> varnames_2d_v;
+
+    const int ncomp_mf_3d = varnames_3d.size();
+    const int ncomp_mf_2d = varnames_2d.size();
     const auto ngrow_vars = IntVect(NGROW-1,NGROW-1,0);
 
-    if (ncomp_mf == 0) {
-        return;
+    // These are the ncomp for the 2D cell-centered, x-face-based, y-face-based MultiFabs respectively
+    int ncomp_mf_2d_rho = 0;
+    int ncomp_mf_2d_u   = 0;
+    int ncomp_mf_2d_v   = 0;
+
+    // Check to see if we found all the requested variables
+    for (auto plot_name : varnames_2d) {
+      {
+         if (plot_name == "zeta" ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "h"    ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
+         if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
+         if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
+         if (plot_name == "vbar" ) {varnames_2d_v.push_back(plot_name); ncomp_mf_2d_v++;}
+         if (plot_name == "svstr") {varnames_2d_v.push_back(plot_name); ncomp_mf_2d_v++;}
+         if (plot_name == "bvstr") {varnames_2d_v.push_back(plot_name); ncomp_mf_2d_v++;}
+      }
     }
 
     // We fillpatch here because some of the derived quantities require derivatives
@@ -170,10 +62,26 @@ REMORA::WritePlotFile ()
         mask_arrays_for_write(lev, (Real) fill_value, 0.0_rt);
     }
 
-    // Array of MultiFabs to hold the plotfile data
+    // Array of 3D MultiFabs to hold the plotfile data
     Vector<MultiFab> mf(finest_level+1);
     for (int lev = 0; lev <= finest_level; ++lev) {
-        mf[lev].define(grids[lev], dmap[lev], ncomp_mf, ngrow_vars);
+        mf[lev].define(grids[lev], dmap[lev], ncomp_mf_3d, ngrow_vars);
+    }
+
+    // Array of 2D MultiFabs to hold the plotfile data
+    Vector<MultiFab> mf_2d_rho(finest_level+1);
+    Vector<MultiFab> mf_2d_u(finest_level+1);
+    Vector<MultiFab> mf_2d_v(finest_level+1);
+    for (int lev = 0; lev <= finest_level; ++lev) {
+        BoxArray ba(grids[lev]);
+        BoxList bl2d = ba.boxList();
+        for (auto& b : bl2d) {
+            b.setRange(2,0);
+        }
+        BoxArray ba2d(std::move(bl2d));
+        mf_2d_rho[lev].define(ba2d, dmap[lev], ncomp_mf_2d_rho, ngrow_vars);
+          mf_2d_u[lev].define(ba2d, dmap[lev], ncomp_mf_2d_u  , ngrow_vars);
+          mf_2d_v[lev].define(ba2d, dmap[lev], ncomp_mf_2d_v  , ngrow_vars);
     }
 
     // Array of MultiFabs for nodal data
@@ -205,10 +113,10 @@ REMORA::WritePlotFile ()
     // Array of MultiFabs for cell-centered velocity
     Vector<MultiFab> mf_cc_vel(finest_level+1);
 
-    if (containerHasElement(plot_var_names, "x_velocity") ||
-        containerHasElement(plot_var_names, "y_velocity") ||
-        containerHasElement(plot_var_names, "z_velocity") ||
-        containerHasElement(plot_var_names, "vorticity") ) {
+    if (containerHasElement(plot_var_names_3d, "x_velocity") ||
+        containerHasElement(plot_var_names_3d, "y_velocity") ||
+        containerHasElement(plot_var_names_3d, "z_velocity") ||
+        containerHasElement(plot_var_names_3d, "vorticity") ) {
 
         for (int lev = 0; lev <= finest_level; ++lev) {
             mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(1,1,0));
@@ -220,7 +128,7 @@ REMORA::WritePlotFile ()
 
         // We need ghost cells if computing vorticity
         amrex::Interpolater* mapper = &cell_cons_interp;
-        if ( containerHasElement(plot_var_names, "vorticity") ) {
+        if ( containerHasElement(plot_var_names_3d, "vorticity") ) {
             for (int lev = 1; lev <= finest_level; ++lev) {
                 Vector<MultiFab*> fmf = {&(mf_cc_vel[lev]), &(mf_cc_vel[lev])};
                 Vector<Real> ftime    = {t_new[lev], t_new[lev]};
@@ -236,37 +144,43 @@ REMORA::WritePlotFile ()
         } // if
     } // if
 
-    // Array of MultiFabs for 2D variables
-    Vector<MultiFab> mf_2drho(finest_level+1);
-    Vector<MultiFab> mf_2du(finest_level+1);
-    Vector<MultiFab> mf_2dv(finest_level+1);
-    if (plot_2d_vars) {
-        for (int lev = 0; lev <= finest_level; ++lev) {
-            BoxArray ba(grids[lev]);
-            BoxList bl2d = ba.boxList();
-            for (auto& b : bl2d) {
-                b.setRange(2,0);
-            }
-            BoxArray ba2d(std::move(bl2d));
-            // 2 here because we'll output two variables: zeta and h
-            mf_2drho[lev].define(ba2d, dmap[lev], 2, 0);
+    int icomp_rho = 0;
+    for (auto plot_name : varnames_2d_rho)
+    {
+         if (plot_name == "zeta" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_Zt_avg1[lev],0,icomp_rho,1,0); icomp_rho++;}
+         }
+         if (plot_name == "h" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); icomp_rho++;}
+         }
+    }
 
-            mf_2du[lev].define(convert(ba2d,IntVect(1,0,0)), dmap[lev], 3, 0);
-            mf_2dv[lev].define(convert(ba2d,IntVect(0,1,0)), dmap[lev], 3, 0);
+    int icomp_u   = 0;
+    for (auto plot_name : varnames_2d_u)
+    {
+         if (plot_name == "ubar" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_DU_avg1[lev],0,icomp_u,1,0); icomp_u++;}
+         }
+         if (plot_name == "sustr" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_sustr[lev],0,icomp_u,1,0); icomp_u++;}
+         }
+         if (plot_name == "bustr" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_bustr[lev],0,icomp_u,1,0); icomp_u++;}
+         }
+    }
 
-            MultiFab::Copy(mf_2drho[lev],*vec_Zt_avg1[lev],0,0,1,0);
-            MultiFab::Copy(mf_2drho[lev],*vec_h[lev]      ,0,1,1,0);
-
-            amrex::Print() <<" ZETA " << mf_2drho[lev][0] << std::endl;
-
-            MultiFab::Copy(mf_2du[lev],*vec_DU_avg1[lev],0,0,1,0);
-            MultiFab::Copy(mf_2du[lev],*vec_sustr[lev]  ,0,1,1,0);
-            MultiFab::Copy(mf_2du[lev],*vec_bustr[lev]  ,0,2,1,0);
-
-            MultiFab::Copy(mf_2dv[lev],*vec_DV_avg1[lev],0,0,1,0);
-            MultiFab::Copy(mf_2dv[lev],*vec_svstr[lev]  ,0,1,1,0);
-            MultiFab::Copy(mf_2dv[lev],*vec_bvstr[lev]  ,0,2,1,0);
-        }
+    int icomp_v   = 0;
+    for (auto plot_name : varnames_2d_v)
+    {
+         if (plot_name == "vbar" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_DV_avg1[lev],0,icomp_v,1,0); icomp_v++;}
+         }
+         if (plot_name == "svstr" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_svstr[lev],0,icomp_v,1,0); icomp_v++;}
+         }
+         if (plot_name == "bvstr" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_bvstr[lev],0,icomp_v,1,0); icomp_v++;}
+         }
     }
 
     for (int lev = 0; lev <= finest_level; ++lev)
@@ -276,7 +190,7 @@ REMORA::WritePlotFile ()
         // First, copy any of the conserved state variables into the output plotfile
         AMREX_ALWAYS_ASSERT(cons_names.size() == NCONS);
         for (int i = 0; i < NCONS; ++i) {
-            if (containerHasElement(plot_var_names, cons_names[i])) {
+            if (containerHasElement(plot_var_names_3d, cons_names[i])) {
               if (cons_new[lev]->contains_nan() || cons_new[lev]->contains_inf()) {
                   amrex::Abort("Found while writing output: Cons (salt, temp, or scalar, etc) contains nan or inf");
               }
@@ -286,21 +200,21 @@ REMORA::WritePlotFile ()
         } // NCONS
 
         // Next, check for velocities
-        if (containerHasElement(plot_var_names, "x_velocity")) {
+        if (containerHasElement(plot_var_names_3d, "x_velocity")) {
             if (mf_cc_vel[lev].contains_nan(0,1) || mf_cc_vel[lev].contains_inf(0,1)) {
                 amrex::Abort("Found while writing output: u velocity contains nan or inf");
             }
             MultiFab::Copy(mf[lev], mf_cc_vel[lev], 0, mf_comp, 1, 0);
             mf_comp += 1;
         }
-        if (containerHasElement(plot_var_names, "y_velocity")) {
+        if (containerHasElement(plot_var_names_3d, "y_velocity")) {
             if (mf_cc_vel[lev].contains_nan(1,1) || mf_cc_vel[lev].contains_inf(1,1)) {
                 amrex::Abort("Found while writing output: v velocity contains nan or inf");
             }
             MultiFab::Copy(mf[lev], mf_cc_vel[lev], 1, mf_comp, 1, 0);
             mf_comp += 1;
         }
-        if (containerHasElement(plot_var_names, "z_velocity")) {
+        if (containerHasElement(plot_var_names_3d, "z_velocity")) {
             if (mf_cc_vel[lev].contains_nan(2,1) || mf_cc_vel[lev].contains_inf(2,1)) {
                 amrex::Abort("Found while writing output: z velocity contains nan or inf");
             }
@@ -312,7 +226,7 @@ REMORA::WritePlotFile ()
         auto calculate_derived = [&](const std::string& der_name,
                                      decltype(derived::remora_dernull)& der_function)
         {
-            if (containerHasElement(plot_var_names, der_name)) {
+            if (containerHasElement(plot_var_names_3d, der_name)) {
                 MultiFab dmf(mf[lev], make_alias, mf_comp, 1);
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -343,9 +257,9 @@ REMORA::WritePlotFile ()
         Real dy = Geom()[lev].CellSizeArray()[1];
 
         // Next, check for location names -- if we write one we write all
-        if (containerHasElement(plot_var_names, "x_cc") ||
-            containerHasElement(plot_var_names, "y_cc") ||
-            containerHasElement(plot_var_names, "z_cc"))
+        if (containerHasElement(plot_var_names_3d, "x_cc") ||
+            containerHasElement(plot_var_names_3d, "y_cc") ||
+            containerHasElement(plot_var_names_3d, "z_cc"))
         {
             MultiFab dmf(mf[lev], make_alias, mf_comp, AMREX_SPACEDIM);
 #ifdef _OPENMP
@@ -371,7 +285,7 @@ REMORA::WritePlotFile ()
 #ifdef REMORA_USE_PARTICLES
         const auto& particles_namelist( particleData.getNames() );
         for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++) {
-            if (containerHasElement(plot_var_names, std::string(particles_namelist[i]+"_count"))) {
+            if (containerHasElement(plot_var_names_3d, std::string(particles_namelist[i]+"_count"))) {
                 MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
                 temp_dat.setVal(0);
                 particleData[particles_namelist[i]]->Increment(temp_dat, lev);
@@ -384,7 +298,7 @@ REMORA::WritePlotFile ()
         particleData.GetMeshPlotVarNames( particle_mesh_plot_names );
         for (int i = 0; i < particle_mesh_plot_names.size(); i++) {
             std::string plot_var_name(particle_mesh_plot_names[i]);
-            if (containerHasElement(plot_var_names, plot_var_name) ) {
+            if (containerHasElement(plot_var_names_3d, plot_var_name) ) {
                 MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 1);
                 temp_dat.setVal(0);
                 particleData.GetMeshPlotVar(plot_var_name, temp_dat, lev);
@@ -424,10 +338,11 @@ REMORA::WritePlotFile ()
                                                   GetVecOfConstPtrs(mf_u),
                                                   GetVecOfConstPtrs(mf_v),
                                                   GetVecOfConstPtrs(mf_w),
-                                                  GetVecOfConstPtrs(mf_2drho),
-                                                  GetVecOfConstPtrs(mf_2du),
-                                                  GetVecOfConstPtrs(mf_2dv),
-                                                  varnames,
+                                                  GetVecOfConstPtrs(mf_2d_rho),
+                                                  GetVecOfConstPtrs(mf_2d_u),
+                                                  GetVecOfConstPtrs(mf_2d_v),
+                                                  varnames_3d, varnames_2d_rho,
+                                                  varnames_2d_u, varnames_2d_v,
                                                   Geom(),
                                                   t_new[0], istep, refRatio());
             writeJobInfo(plotfilename);
@@ -441,7 +356,7 @@ REMORA::WritePlotFile ()
             amrex::Print() << "Writing plotfile " << plotfilename+"d01.h5" << "\n";
             WriteMultiLevelPlotfileHDF5(plotfilename, finest_level+1,
                                         GetVecOfConstPtrs(mf),
-                                        varnames,
+                                        varnames_3d,
                                         Geom(), t_new[0], istep, refRatio());
 #endif
         } else if (!(plotfile_type == PlotfileType::netcdf)) {
@@ -465,7 +380,7 @@ REMORA::WritePlotFile ()
                 Vector<Geometry>  g2(finest_level+1);
                 Vector<MultiFab> mf2(finest_level+1);
 
-                mf2[0].define(grids[0], dmap[0], ncomp_mf, 0);
+                mf2[0].define(grids[0], dmap[0], ncomp_mf_3d, 0);
 
                 // Copy level 0 as is
                 MultiFab::Copy(mf2[0],mf[0],0,0,mf[0].nComp(),0);
@@ -483,7 +398,7 @@ REMORA::WritePlotFile ()
                         r2[lev-1][2] = r2[lev-2][2] * ref_ratio[lev-1][0];
                     }
 
-                    mf2[lev].define(refine(grids[lev],r2[lev-1]), dmap[lev], ncomp_mf, 0);
+                    mf2[lev].define(refine(grids[lev],r2[lev-1]), dmap[lev], ncomp_mf_3d, 0);
 
                     // Set the new problem domain
                     Box d2(Geom()[lev].Domain());
@@ -525,10 +440,11 @@ REMORA::WritePlotFile ()
                                                       GetVecOfConstPtrs(mf_u),
                                                       GetVecOfConstPtrs(mf_v),
                                                       GetVecOfConstPtrs(mf_w),
-                                                      GetVecOfConstPtrs(mf_2drho),
-                                                      GetVecOfConstPtrs(mf_2du),
-                                                      GetVecOfConstPtrs(mf_2dv),
-                                                      varnames,
+                                                      GetVecOfConstPtrs(mf_2d_rho),
+                                                      GetVecOfConstPtrs(mf_2d_u),
+                                                      GetVecOfConstPtrs(mf_2d_v),
+                                                      varnames_3d, varnames_2d_rho,
+                                                      varnames_2d_u, varnames_2d_v,
                                                       g2,
                                                       t_new[0], istep, rr);
                 writeJobInfo(plotfilename);
@@ -543,10 +459,11 @@ REMORA::WritePlotFile ()
                                                       GetVecOfConstPtrs(mf_u),
                                                       GetVecOfConstPtrs(mf_v),
                                                       GetVecOfConstPtrs(mf_w),
-                                                      GetVecOfConstPtrs(mf_2drho),
-                                                      GetVecOfConstPtrs(mf_2du),
-                                                      GetVecOfConstPtrs(mf_2dv),
-                                                      varnames,
+                                                      GetVecOfConstPtrs(mf_2d_rho),
+                                                      GetVecOfConstPtrs(mf_2d_u),
+                                                      GetVecOfConstPtrs(mf_2d_v),
+                                                      varnames_3d, varnames_2d_rho,
+                                                      varnames_2d_u, varnames_2d_v,
                                                       Geom(),
                                                       t_new[0], istep, ref_ratio);
                 writeJobInfo(plotfilename);
@@ -566,7 +483,10 @@ REMORA::WritePlotFile ()
  * @param nlevels         number of levels to write out
  * @param mf              MultiFab of data to write out
  * @param mf_nd           Multifab of nodal data to write out
- * @param varnames        variable names to write out
+ * @param varnames_3d     3D variable names to write out
+ * @param varnames_2d_rho 2D cell-centered variable names to write out
+ * @param varnames_2d_u   2D x-face-based variable names to write out
+ * @param varnames_2d_v   2D y-face-based variable names to write out
  * @param my_geom         geometry to use for writing plotfile
  * @param time            time at which to output
  * @param level_steps     vector over level of iterations
@@ -583,10 +503,13 @@ REMORA::WritePlotFile ()
                                                const Vector<const MultiFab*>& mf_u,
                                                const Vector<const MultiFab*>& mf_v,
                                                const Vector<const MultiFab*>& mf_w,
-                                               const Vector<const MultiFab*>& mf_2drho,
-                                               const Vector<const MultiFab*>& mf_2du,
-                                               const Vector<const MultiFab*>& mf_2dv,
-                                               const Vector<std::string>& varnames,
+                                               const Vector<const MultiFab*>& mf_2d_rho,
+                                               const Vector<const MultiFab*>& mf_2d_u,
+                                               const Vector<const MultiFab*>& mf_2d_v,
+                                               const Vector<std::string>& varnames_3d,
+                                               const Vector<std::string>& varnames_2d_rho,
+                                               const Vector<std::string>& varnames_2d_u,
+                                               const Vector<std::string>& varnames_2d_v,
                                                const Vector<Geometry>& my_geom,
                                                Real time,
                                                const Vector<int>& level_steps,
@@ -601,7 +524,8 @@ REMORA::WritePlotFile ()
     BL_ASSERT(nlevels <= mf.size());
     BL_ASSERT(nlevels <= ref_ratio.size()+1);
     BL_ASSERT(nlevels <= level_steps.size());
-    BL_ASSERT(mf[0]->nComp() == varnames.size());
+
+    BL_ASSERT(mf[0]->nComp() == varnames_3d.size());
 
     bool callBarrier(false);
     PreBuildDirectorHierarchy(plotfilename, levelPrefix, nlevels, callBarrier);
@@ -628,7 +552,8 @@ REMORA::WritePlotFile ()
                                                     std::ofstream::trunc |
                                                     std::ofstream::binary);
             if( ! HeaderFile.good()) FileOpenFailed(HeaderFileName);
-            WriteGenericPlotfileHeaderWithBathymetry(HeaderFile, nlevels, boxArrays, varnames,
+            WriteGenericPlotfileHeaderWithBathymetry(HeaderFile, nlevels, boxArrays, varnames_3d,
+                                                     varnames_2d_rho, varnames_2d_u, varnames_2d_v,
                                                      my_geom, time, level_steps, rr, versionName,
                                                      levelPrefix, mfPrefix);
         };
@@ -644,9 +569,9 @@ REMORA::WritePlotFile ()
     std::string mf_uface_prefix = "UFace";
     std::string mf_vface_prefix = "VFace";
     std::string mf_wface_prefix = "WFace";
-    std::string mf_2drho_prefix = "rho2d";
-    std::string mf_2du_prefix   = "u2d";
-    std::string mf_2dv_prefix   = "v2d";
+    std::string mf_2d_rho_prefix = "rho2d";
+    std::string mf_2d_u_prefix   = "u2d";
+    std::string mf_2d_v_prefix   = "v2d";
 
     for (int level = 0; level <= finest_level; ++level)
     {
@@ -668,19 +593,23 @@ REMORA::WritePlotFile ()
                                   MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_wface_prefix),
                                   true);
             }
-            if (plot_2d_vars) {
-                VisMF::AsyncWrite(*mf_2drho[level],
-                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2drho_prefix),
+            if (mf_2d_rho[level]->nComp() > 0) {
+                VisMF::AsyncWrite(*mf_2d_rho[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2d_rho_prefix),
                                   true);
-                VisMF::AsyncWrite(*mf_2du[level],
-                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2du_prefix),
-                                  true);
-                VisMF::AsyncWrite(*mf_2dv[level],
-                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2dv_prefix),
-                                  true);
-
             }
-        } else { const MultiFab* data;
+            if (mf_2d_u[level]->nComp() > 0) {
+                VisMF::AsyncWrite(*mf_2d_u[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2d_u_prefix),
+                                  true);
+            }
+            if (mf_2d_v[level]->nComp() > 0) {
+                VisMF::AsyncWrite(*mf_2d_v[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2d_v_prefix),
+                                  true);
+            }
+        } else {
+            const MultiFab* data;
             std::unique_ptr<MultiFab> mf_tmp;
             if (mf[level]->nGrowVect() != 0) {
                 mf_tmp = std::make_unique<MultiFab>(mf[level]->boxArray(),
@@ -699,20 +628,25 @@ REMORA::WritePlotFile ()
                 VisMF::Write(*mf_v[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_vface_prefix));
                 VisMF::Write(*mf_w[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_wface_prefix));
             }
-            if (plot_2d_vars) {
-                VisMF::Write(*mf_2drho[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2drho_prefix));
-                VisMF::Write(*mf_2du[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2du_prefix));
-                VisMF::Write(*mf_2dv[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2dv_prefix));
+            if (mf_2d_rho[level]->nComp() > 0) {
+                VisMF::Write(*mf_2d_rho[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2d_rho_prefix));
+            }
+            if (mf_2d_u[level]->nComp() > 0) {
+                VisMF::Write(*mf_2d_u[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2d_u_prefix));
+            }
+            if (mf_2d_v[level]->nComp() > 0) {
+                VisMF::Write(*mf_2d_v[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_2d_v_prefix));
             }
         }
-    }
+    } // level
 }
 
 /**
  * @param HeaderFile      output stream for header
  * @param nlevels         number of levels to write out
  * @param bArray          vector over levels of BoxArrays
- * @param varnames        variable names to write out
+ * @param varnames_3d     3D variable names to write out
+ * @param varnames_2d     2D variable names to write out
  * @param my_geom         geometry to use for writing plotfile
  * @param time            time at which to output
  * @param level_steps     vector over level of iterations
@@ -725,7 +659,10 @@ void
 REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                  [[maybe_unused]] int nlevels,
                                                  const Vector<BoxArray> &bArray,
-                                                 const Vector<std::string> &varnames,
+                                                 const Vector<std::string> &varnames_3d,
+                                                 const Vector<std::string> &varnames_2d_rho,
+                                                 const Vector<std::string> &varnames_2d_u,
+                                                 const Vector<std::string> &varnames_2d_v,
                                                  const Vector<Geometry>& my_geom,
                                                  Real time,
                                                  const Vector<int> &level_steps,
@@ -748,10 +685,10 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
         // ---- this is the generic plot file type name
         HeaderFile << versionName << '\n';
 
-        HeaderFile << varnames.size() << '\n';
+        HeaderFile << varnames_3d.size() << '\n';
 
-        for (int ivar = 0; ivar < varnames.size(); ++ivar) {
-            HeaderFile << varnames[ivar] << "\n";
+        for (int ivar = 0; ivar < varnames_3d.size(); ++ivar) {
+            HeaderFile << varnames_3d[ivar] << "\n";
         }
         HeaderFile << AMREX_SPACEDIM << '\n';
         HeaderFile << time << '\n';
@@ -833,29 +770,37 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                 HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_wface_prefix) << '\n';
             }
         }
-        if (plot_2d_vars) {
-            HeaderFile << "2" << "\n"; // number of components in the rho multifab
-            HeaderFile << "zeta" << "\n";
-            HeaderFile << "h" << "\n";
-            std::string mf_2drho_prefix = "rho2d";
-            for (int level = 0; level <= finest_level; ++level) {
-                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2drho_prefix) << "\n";
+
+        if (varnames_2d_rho.size() > 0) {
+            HeaderFile << varnames_2d_rho.size() << "\n"; // number of components in the 2D rho multifab
+            for (int ivar = 0; ivar < varnames_2d_rho.size(); ++ivar) {
+                HeaderFile << varnames_2d_rho[ivar] << "\n";
             }
-            HeaderFile << "3" << "\n"; // number of components in the u multifab
-            HeaderFile << "ubar" << "\n";
-            HeaderFile << "sustr" << "\n";
-            HeaderFile << "bustr" << "\n";
-            std::string mf_2du_prefix = "u2d";
+            std::string mf_2d_rho_prefix = "rho2d";
             for (int level = 0; level <= finest_level; ++level) {
-                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2du_prefix) << "\n";
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2d_rho_prefix) << "\n";
             }
-            HeaderFile << "3" << "\n"; // number of components in the v multifab
-            HeaderFile << "vbar" << "\n";
-            HeaderFile << "svstr" << "\n";
-            HeaderFile << "bvstr" << "\n";
-            std::string mf_2dv_prefix = "v2d";
+        }
+
+        if (varnames_2d_u.size() > 0) {
+            HeaderFile << varnames_2d_u.size() << "\n"; // number of components in the 2D rho multifab
+            for (int ivar = 0; ivar < varnames_2d_u.size(); ++ivar) {
+                HeaderFile << varnames_2d_u[ivar] << "\n";
+            }
+            std::string mf_2d_u_prefix = "u2d";
             for (int level = 0; level <= finest_level; ++level) {
-                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2dv_prefix) << "\n";
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2d_u_prefix) << "\n";
+            }
+        }
+
+        if (varnames_2d_v.size() > 0) {
+            HeaderFile << varnames_2d_v.size() << "\n"; // number of components in the 2D v multifab
+            for (int ivar = 0; ivar < varnames_2d_v.size(); ++ivar) {
+                HeaderFile << varnames_2d_v[ivar] << "\n";
+            }
+            std::string mf_2d_v_prefix = "v2d";
+            for (int level = 0; level <= finest_level; ++level) {
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2d_v_prefix) << "\n";
             }
         }
 }

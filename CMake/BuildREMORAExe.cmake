@@ -81,6 +81,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/Initialization/REMORA_make_new_level.cpp
        ${SRC_DIR}/IO/REMORA_Checkpoint.cpp
        ${SRC_DIR}/IO/REMORA_Plotfile.cpp
+       ${SRC_DIR}/IO/REMORA_SetPlotVars.cpp
        ${SRC_DIR}/IO/REMORA_writeJobInfo.cpp
        ${SRC_DIR}/IO/REMORA_console_io.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_Advance.cpp
