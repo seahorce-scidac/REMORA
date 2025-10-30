@@ -36,7 +36,7 @@ remora.check_file      = chk        # root name of checkpoint file
 # PLOTFILES
 remora.plot_file     = plt_ml_quad   # prefix of plotfile name
 remora.plot_int      = 10            # number of timesteps between plotfiles
-remora.plot_vars     = salt temp x_velocity y_velocity z_velocity
+remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
 remora.expand_plotvars_to_unif_rr = 1
 

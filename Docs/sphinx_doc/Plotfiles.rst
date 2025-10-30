@@ -77,8 +77,15 @@ List of Parameters
 |                                        | seconds) to write                 |                       |            |
 |                                        | plot files                        |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
-| **remora.plot_vars**                   | name of                           | list of names         | None       |
-|                                        | variables to                      |                       |            |
+| **remora.plot_vars_3d**                | name of                           | list of names         | None       |
+|                                        | 3D variables to                   |                       |            |
+|                                        | include in                        | (see table below)     |            |
+|                                        |                                   |                       |            |
+|                                        | plotfiles. Not                    |                       |            |
+|                                        | used for netCDF                   |                       |            |
++----------------------------------------+-----------------------------------+-----------------------+------------+
+| **remora.plot_vars_2d**                | name of                           | list of names         | None       |
+|                                        | 2D variables to                   |                       |            |
 |                                        | include in                        | (see table below)     |            |
 |                                        |                                   |                       |            |
 |                                        | plotfiles. Not                    |                       |            |
@@ -99,14 +106,6 @@ List of Parameters
 |                                        | refinement ratio on levels > 0.   |                       |            |
 |                                        |                                   |                       |            |
 |                                        | This is necessary for amrvis.     |                       |            |
-+----------------------------------------+-----------------------------------+-----------------------+------------+
-| **remora.plot_2d_vars**                | whether to output 2D variables    | false or true         | false      |
-|                                        |                                   |                       |            |
-|                                        | in plotfiles, including sea       |                       |            |
-|                                        |                                   |                       |            |
-|                                        | surface height and depth-averaged |                       |            |
-|                                        |                                   |                       |            |
-|                                        | variables, among others.          |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 
 .. _notes-5:
@@ -131,8 +130,8 @@ Notes
 -  If both ``remora.plot_int`` and ``remora.plot_int_time`` have been set, plotfile output will occur
   ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
 
-Plotfile Field Options
-----------------------
+3D Plotfile Field Options
+--------------------------
 
 +--------------------------------+---------------------------+
 | Field                          | Definition                |
@@ -151,6 +150,30 @@ Plotfile Field Options
 | **z_velocity**                 | velocity in z-direction   |
 +--------------------------------+---------------------------+
 | **vorticity**                  | vorticity                 |
++--------------------------------+---------------------------+
+
+2D Plotfile Field Options
+--------------------------
+
++--------------------------------+---------------------------+
+| Field                          | Definition                |
+|                                |                           |
++================================+===========================+
+| **zeta**                       |                           |
++--------------------------------+---------------------------+
+| **h**                          |                           |
++--------------------------------+---------------------------+
+| **ubar**                       |                           |
++--------------------------------+---------------------------+
+| **sustr**                      |                           |
++--------------------------------+---------------------------+
+| **bustr**                      |                           |
++--------------------------------+---------------------------+
+| **vbar**                       |                           |
++--------------------------------+---------------------------+
+| **svstr**                      |                           |
++--------------------------------+---------------------------+
+| **bvstr**                      |                           |
 +--------------------------------+---------------------------+
 
 .. _examples-of-usage-8:
