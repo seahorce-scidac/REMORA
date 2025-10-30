@@ -26,7 +26,6 @@ REMORA::WritePlotFile ()
     Vector<std::string> varnames_2d_v;
 
     const int ncomp_mf_3d = varnames_3d.size();
-    const int ncomp_mf_2d = varnames_2d.size();
     const auto ngrow_vars = IntVect(NGROW-1,NGROW-1,0);
 
     // These are the ncomp for the 2D cell-centered, x-face-based, y-face-based MultiFabs respectively
