@@ -78,9 +78,9 @@ REMORA::WritePlotFile ()
             b.setRange(2,0);
         }
         BoxArray ba2d(std::move(bl2d));
-        mf_2d_rho[lev].define(ba2d, dmap[lev], ncomp_mf_2d_rho, ngrow_vars);
-          mf_2d_u[lev].define(ba2d, dmap[lev], ncomp_mf_2d_u  , ngrow_vars);
-          mf_2d_v[lev].define(ba2d, dmap[lev], ncomp_mf_2d_v  , ngrow_vars);
+        mf_2d_rho[lev].define(ba2d, dmap[lev], ncomp_mf_2d_rho, IntVect(0,0,0));
+          mf_2d_u[lev].define(ba2d, dmap[lev], ncomp_mf_2d_u  , IntVect(0,0,0));
+          mf_2d_v[lev].define(ba2d, dmap[lev], ncomp_mf_2d_v  , IntVect(0,0,0));
     }
 
     // Array of MultiFabs for nodal data
