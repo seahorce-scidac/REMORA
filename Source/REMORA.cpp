@@ -725,6 +725,44 @@ REMORA::set_wind(int lev)
         Vwind_data_from_file->update_interpolated_to_time(t_old[lev]);
         FillPatch(lev, t_old[lev], *vec_uwind[lev], GetVecOfPtrs(vec_uwind),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
         FillPatch(lev, t_old[lev], *vec_vwind[lev], GetVecOfPtrs(vec_vwind),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        
+        // Conditionally update atmospheric fields if loaded from NetCDF
+        if (solverChoice.Tair_from_netcdf) {
+            Tair_data_from_file->update_interpolated_to_time(t_old[lev]);
+            FillPatch(lev, t_old[lev], *vec_Tair[lev], GetVecOfPtrs(vec_Tair),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        }
+        if (solverChoice.qair_from_netcdf) {
+            qair_data_from_file->update_interpolated_to_time(t_old[lev]);
+            FillPatch(lev, t_old[lev], *vec_qair[lev], GetVecOfPtrs(vec_qair),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+            
+            // Convert qair from percentage (0-100) to specific humidity (0-1) if needed
+            if (solverChoice.qair_is_percent) {
+                vec_qair[lev]->mult(0.01);
+                
+                // Update ghost cells after modification
+                vec_qair[lev]->FillBoundary(geom[lev].periodicity());
+            }
+        }
+        if (solverChoice.Pair_from_netcdf) {
+            Pair_data_from_file->update_interpolated_to_time(t_old[lev]);
+            FillPatch(lev, t_old[lev], *vec_Pair[lev], GetVecOfPtrs(vec_Pair),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        }
+        if (solverChoice.srflx_from_netcdf) {
+            srflx_data_from_file->update_interpolated_to_time(t_old[lev]);
+            FillPatch(lev, t_old[lev], *vec_srflx[lev], GetVecOfPtrs(vec_srflx),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+            // Sanity check for unreasonable values - only at step 10
+            if (istep[lev] == 10) {
+                Real srflx_min = vec_srflx[lev]->min(0);
+                Real srflx_max = vec_srflx[lev]->max(0);
+                if (ParallelDescriptor::IOProcessor()) {
+                    amrex::Print() << "SANITY CHECK (istep=10): srflx min=" << srflx_min 
+                                  << ", max=" << srflx_max << " W/m²\n";
+                    if (std::abs(srflx_min) > 2000.0 || std::abs(srflx_max) > 2000.0) {
+                        amrex::Print() << "  WARNING: srflx values out of reasonable range\n";
+                    }
+                }
+            }
+        }
 #endif
     }
 }
@@ -834,6 +872,24 @@ REMORA::init_only (int lev, Real time)
         Vwind_data_from_file = new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false);
         Uwind_data_from_file->Initialize();
         Vwind_data_from_file->Initialize();
+        
+        // Conditionally load atmospheric forcing fields from NetCDF based on user flags
+        if (solverChoice.Tair_from_netcdf) {
+            Tair_data_from_file = new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false);
+            Tair_data_from_file->Initialize();
+        }
+        if (solverChoice.qair_from_netcdf) {
+            qair_data_from_file = new NCTimeSeries(nc_frc_file, "qair", frc_time_varname, geom[lev].Domain(),vec_qair[lev].get(), true, false);
+            qair_data_from_file->Initialize();
+        }
+        if (solverChoice.Pair_from_netcdf) {
+            Pair_data_from_file = new NCTimeSeries(nc_frc_file, "Pair", frc_time_varname, geom[lev].Domain(),vec_Pair[lev].get(), true, false);
+            Pair_data_from_file->Initialize();
+        }
+        if (solverChoice.srflx_from_netcdf) {
+            srflx_data_from_file = new NCTimeSeries(nc_frc_file, "swrad", frc_time_varname, geom[lev].Domain(),vec_srflx[lev].get(), true, false);
+            srflx_data_from_file->Initialize();
+        }
     } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
         if (nc_frc_file.empty()) {
             amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
