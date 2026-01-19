@@ -420,14 +420,6 @@ REMORA::advance_2d (int lev,
                 rhs_zeta(i,j,0) = (DUon(i,j,0)-DUon(i+1,j,0))+
                                   (DVom(i,j,0)-DVom(i,j+1,0));
                 zeta_new(i,j,0) = (zeta(i,j,0,kstp)+ pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0)) * mskr(i,j,0);
-                if (i == 300 && j == 125) {
-                    amrex::Print() << "rhs_zeta(" << i << "," << j << ")=" << rhs_zeta(i,j,0)
-                                   << " DUon=" << DUon(i,j,0)
-                                   << " DVom=" << DVom(i,j,0)
-                                   << " cff1=" << cff1
-                                   << " zeta_new=" << zeta_new(i,j,0) << "\n"
-                                   << "h(i,j)=" << h(i,j,0) << "\n";
-                }
                 Dnew(i,j,0) = zeta_new(i,j,0)+h(i,j,0);
 
                 //Pressure gradient terms:
@@ -449,15 +441,7 @@ REMORA::advance_2d (int lev,
                                 (DVom(i,j,0)-DVom(i,j+1,0));
                 zeta_new(i,j,0)=(zeta(i,j,0,kstp)+
                                 pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0)) * mskr(i,j,0);
-                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
-                if (i == 300 && j == 125) {
-                    amrex::Print() << "rhs_zeta(" << i << "," << j << ")=" << rhs_zeta(i,j,0)
-                                    << " DUon=" << DUon(i,j,0)
-                                    << " DVom=" << DVom(i,j,0)
-                                    << " cff1=" << cff1
-                                    << " zeta_new=" << zeta_new(i,j,0) << "\n"
-                                    << "h(i,j)=" << h(i,j,0) << "\n";    
-                }             
+                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);          
                 //Pressure gradient terms
                 zwrk(i,j,0)=cff5*zeta(i,j,0,krhs)+
                     cff4*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
@@ -483,15 +467,7 @@ REMORA::advance_2d (int lev,
                                          cff2*rzeta(i,j,0,kstp)-
                                          cff3*rzeta(i,j,0,ptsk));
                 zeta_new(i,j,0) *= mskr(i,j,0);
-                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
-                if (i == 300 && j == 125) {
-                    amrex::Print() << "grid point(" << i << "," << j << ")"
-                                    << " DUon=" << DUon(i,j,0)
-                                    << " DVom=" << DVom(i,j,0)
-                                    << " cff1=" << cff1
-                                    << " zeta_new=" << zeta_new(i,j,0) << "\n"
-                                    << "h(i,j)=" << h(i,j,0) << "\n"; 
-                }                               
+                Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);                          
                 //Pressure gradient terms
                 zwrk(i,j,0)=cff5*zeta_new(i,j,0)+cff4*zeta(i,j,0,krhs);
                 gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);

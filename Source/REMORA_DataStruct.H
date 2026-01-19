@@ -201,9 +201,6 @@ struct SolverChoice {
         pp.queryAdd("Tair_from_netcdf",Tair_from_netcdf);
         pp.queryAdd("qair_from_netcdf",qair_from_netcdf);
         pp.queryAdd("qair_is_percent",qair_is_percent);
-        if (amrex::ParallelDescriptor::IOProcessor()) {
-            amrex::Print() << "STARTUP: qair_is_percent = " << (qair_is_percent ? "true" : "false") << "\n";
-        }
         pp.queryAdd("Pair_from_netcdf",Pair_from_netcdf);
 
         if (eminusp_correct_ssh and !eminusp) {
