@@ -750,18 +750,6 @@ REMORA::set_wind(int lev)
         if (solverChoice.srflx_from_netcdf) {
             srflx_data_from_file->update_interpolated_to_time(t_old[lev]);
             FillPatch(lev, t_old[lev], *vec_srflx[lev], GetVecOfPtrs(vec_srflx),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
-            // Sanity check for unreasonable values - only at step 10
-            if (istep[lev] == 10) {
-                Real srflx_min = vec_srflx[lev]->min(0);
-                Real srflx_max = vec_srflx[lev]->max(0);
-                if (ParallelDescriptor::IOProcessor()) {
-                    amrex::Print() << "SANITY CHECK (istep=10): srflx min=" << srflx_min 
-                                  << ", max=" << srflx_max << " W/m²\n";
-                    if (std::abs(srflx_min) > 2000.0 || std::abs(srflx_max) > 2000.0) {
-                        amrex::Print() << "  WARNING: srflx values out of reasonable range\n";
-                    }
-                }
-            }
         }
 #endif
     }
