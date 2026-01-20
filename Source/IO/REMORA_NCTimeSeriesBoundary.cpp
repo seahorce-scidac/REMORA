@@ -440,18 +440,18 @@ void NCTimeSeriesBoundary::read_in_at_time (amrex::FArrayBox& fab_xlo,
  * @param[in   ] dat_crse  fab of coarse data to interpolate from
  * @param[  out] dat_fine  fab of fine data to interpoalte to
  */
-void NCTimeSeriesBoundary::interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine)//, int rx, int ry)
+void NCTimeSeriesBoundary::interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayBox& dat_fine)
 {
     amrex::Array4<amrex::Real> crse_arr = dat_crse.array();
     amrex::Array4<amrex::Real> fine_arr = dat_fine.array();
 
     const auto& bhi = ubound(dat_crse.box());
 
-    amrex::Real xfac = 1.0 / static_cast<amrex::Real>(m_rx);
-    amrex::Real yfac = 1.0 / static_cast<amrex::Real>(m_ry);
+    int rx = m_rx;
+    int ry = m_ry;
 
-    amrex::Real rx = m_rx;
-    amrex::Real ry = m_ry;
+    amrex::Real xfac = 1.0 / static_cast<amrex::Real>(rx);
+    amrex::Real yfac = 1.0 / static_cast<amrex::Real>(ry);
 
     // Doing box on x-face
     if (dat_crse.box().length(0) == 1) {
