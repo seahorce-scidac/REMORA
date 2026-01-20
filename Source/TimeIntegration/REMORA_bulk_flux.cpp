@@ -7,6 +7,10 @@ using namespace amrex;
  * @param[in   ] mf_cons        scalar data: temperature, salinity, passsive scalar, etc
  * @param[in   ] mf_uwind       u-direction wind dvelocity
  * @param[in   ] mf_vwind       v-direction wind dvelocity
+ * @param[in   ] mf_Tair        air temperature [°C]
+ * @param[in   ] mf_qair        specific humidity [kg/kg]
+ * @param[in   ] mf_Pair        air pressure [mb]
+ * @param[in   ] mf_srflx       shortwave radiation flux [W/m²]
  * @param[inout] mf_evap        evaporation rate
  * @param[  out] mf_sustr       u-direction surface momentum stress
  * @param[  out] mf_svstr       v-direction surface momentum stress
@@ -18,6 +22,8 @@ using namespace amrex;
  */
 void
 REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* mf_vwind,
+                     MultiFab* mf_Tair, MultiFab* mf_qair, MultiFab* mf_Pair,
+                     MultiFab* mf_srflx,
                      MultiFab* mf_evap, MultiFab* mf_sustr, MultiFab* mf_svstr,
                      MultiFab* mf_stflux, MultiFab* mf_lrflx, MultiFab* mf_lhflx,
                      MultiFab* mf_shflx,
@@ -29,10 +35,15 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
     const DistributionMapping& dm = mf_cons->DistributionMap();
     MultiFab mf_Taux(ba, dm, 1, IntVect(NGROW,NGROW,0));
     MultiFab mf_Tauy(ba, dm, 1, IntVect(NGROW,NGROW,0));
+    
     // temps: Taux, Tauy,
     for ( MFIter mfi(*mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real const> const& uwind = mf_uwind->const_array(mfi);
         Array4<Real const> const& vwind = mf_vwind->const_array(mfi);
+        Array4<Real const> const& Tair_arr = mf_Tair->const_array(mfi);
+        Array4<Real const> const& qair_arr = mf_qair->const_array(mfi);
+        Array4<Real const> const& Pair_arr = mf_Pair->const_array(mfi);
+        Array4<Real const> const& srflx_arr = mf_srflx->const_array(mfi);
         Array4<Real const> const& cons = mf_cons->const_array(mfi);
         Array4<Real> const& sustr = mf_sustr->array(mfi);
         Array4<Real> const& svstr = mf_svstr->array(mfi);
@@ -51,11 +62,6 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
 
         Real Hscale = solverChoice.rho0 * Cp;
         Real Hscale2 = 1.0_rt / (solverChoice.rho0 * Cp);
-        Real srflux = solverChoice.srflux;
-        Real PairM = solverChoice.Pair;
-        Real TairC = solverChoice.Tair;
-        Real TairK = solverChoice.Tair + 273.16_rt;
-        Real Hair = solverChoice.Hair;
         Real cloud = solverChoice.cloud;
         Real blk_ZQ = solverChoice.blk_ZQ;
         Real blk_ZT = solverChoice.blk_ZT;
@@ -69,6 +75,12 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Box gbx1 = bx; gbx1.grow(IntVect(NGROW,NGROW,0));
 
         ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+            // Get spatially-varying atmospheric forcing from input arrays
+            Real PairM = Pair_arr(i,j,0);  // Air pressure [mb]
+            Real TairC = Tair_arr(i,j,0);  // Air temperature [°C]
+            Real TairK = TairC + 273.16_rt; // Air temperature [K]
+            Real Hair = qair_arr(i,j,0);   // Specific humidity [kg/kg] or RH [fraction]
+
             // Input bulk parametrization fields
             Real wind_mag = std::sqrt(uwind(i,j,0)*uwind(i,j,0) + vwind(i,j,0) * vwind(i,j,0)) + eps;
             Real TseaK = cons(i,j,N,Temp_comp) + 273.16_rt;
@@ -182,7 +194,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
 
             Real VisAir=1.326E-5_rt*(1.0_rt+TairC*(6.542E-3_rt+TairC*
                                      (8.301E-6_rt-4.84E-9_rt*TairC)));
-
+\
             //  Compute latent heat of vaporization (J/kg) at sea surface, Hlv.
 
             Real Hlv = (2.501_rt-0.00237_rt*cons(i,j,N,Temp_comp))*1.0e6_rt;
@@ -278,7 +290,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             // Compute transfer coefficients for momentum (Cd).
             Real Wspeed=std::sqrt(wind_mag*wind_mag+Wgus*Wgus);
             Cd=Wstar*Wstar/(Wspeed*Wspeed+eps);
-
+            
             // Compute turbulent sensible heat flux (W/m2), Hs.
             Real Hs=-blk_Cpa*rhoAir*Wstar*Tstar;
 
@@ -297,23 +309,25 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             // Compute turbulent latent heat flux (W/m2), Hl.
 
             Real Hl=-Hlv*rhoAir*Wstar*Qstar;
-
+            
             // Compute Webb correction (Webb effect) to latent heat flux, Hlw.
             Real upvel=-1.61_rt*Wstar*Qstar-
                         (1.0_rt+1.61_rt*Q)*Wstar*Tstar/TairK;
             Real Hlw=rhoAir*Hlv*upvel*Q;
             LHeat=(Hl+Hlw) * mskr(i,j,0);
-
+            
             // Compute momentum flux (N/m2) due to rainfall (kg/m2/s).
             Taur=0.85_rt*rain(i,j,0)*wind_mag;
 
             // Compute wind stress components (N/m2), Tau.
             cff=rhoAir*Cd*Wspeed;
+            // amrex::Print() << "rhoAir: " << rhoAir << " Cd: " << Cd << " Wspeed: " << Wspeed << " cff: " << cff << "\n";
             Real sign_u = (uwind(i,j,0) >= 0.0_rt) ? 1 : -1;
             Real sign_v = (vwind(i,j,0) >= 0.0_rt) ? 1 : -1;
             Taux(i,j,0)=(cff*uwind(i,j,0)+Taur*sign_u) * mskr(i,j,0);
             Tauy(i,j,0)=(cff*vwind(i,j,0)+Taur*sign_v) * mskr(i,j,0);
-
+            // amrex::Print() << "Taux: " << Taux(i,j,0) << " Tauy: " << Tauy(i,j,0) << "\n";
+            
             //=======================================================================
             //  Compute surface net heat flux and surface wind stress.
             //=======================================================================
@@ -346,7 +360,8 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             lrflx(i,j,0) = LRad*Hscale2;
             lhflx(i,j,0) = -LHeat*Hscale2;
             shflx(i,j,0) = -SHeat*Hscale2;
-            stflux(i,j,0,Temp_comp)=(srflux + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
+            // Note: srflx from NetCDF is in W/m², convert to degC m/s by multiplying by Hscale2
+            stflux(i,j,0,Temp_comp)=(srflx_arr(i,j,0)*Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
             evap(i,j,0) = (LHeat / Hlv+eps) * mskr(i,j,0);
             stflux(i,j,0,Salt_comp) = mskr(i,j,0) * (evap(i,j,0)-rain(i,j,0)) / rhow;
         });

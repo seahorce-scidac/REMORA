@@ -316,6 +316,14 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_uwind;
     /** \brief Wind in the v direction, defined at rho-points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_vwind;
+    /** \brief Air temperature [°C], defined at rho-points */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Tair;
+    /** \brief Specific humidity [kg/kg], defined at rho-points */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_qair;
+    /** \brief Air pressure [mb], defined at rho-points */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Pair;
+    /** \brief Shortwave radiation flux [W/m²], defined at rho-points */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_srflx;
 
     /** \brief longwave radiation */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lrflx;
@@ -522,6 +530,10 @@ public:
                       amrex::MultiFab* mf_cons,
                       amrex::MultiFab* mf_uwind,
                       amrex::MultiFab* mf_vwind,
+                      amrex::MultiFab* mf_Tair,
+                      amrex::MultiFab* mf_qair,
+                      amrex::MultiFab* mf_Pair,
+                      amrex::MultiFab* mf_srflx,
                       amrex::MultiFab* mf_evap,
                       amrex::MultiFab* mf_sustr,
                       amrex::MultiFab* mf_svstr,
@@ -1083,6 +1095,14 @@ private:
     NCTimeSeries* Uwind_data_from_file;
     /** \brief Data container for v-direction wind read from file */
     NCTimeSeries* Vwind_data_from_file;
+    /** \brief Data container for air temperature read from file */
+    NCTimeSeries* Tair_data_from_file;
+    /** \brief Data container for specific humidity read from file */
+    NCTimeSeries* qair_data_from_file;
+    /** \brief Data container for air pressure read from file */
+    NCTimeSeries* Pair_data_from_file;
+    /** \brief Data container for shortwave radiation flux read from file */
+    NCTimeSeries* srflx_data_from_file;
 
     /** \brief Data container for ubar climatology data read from file */
     NCTimeSeries* ubar_clim_data_from_file;
