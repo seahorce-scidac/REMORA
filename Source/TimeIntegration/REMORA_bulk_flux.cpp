@@ -35,7 +35,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
     const DistributionMapping& dm = mf_cons->DistributionMap();
     MultiFab mf_Taux(ba, dm, 1, IntVect(NGROW,NGROW,0));
     MultiFab mf_Tauy(ba, dm, 1, IntVect(NGROW,NGROW,0));
-    
+
     // temps: Taux, Tauy,
     for ( MFIter mfi(*mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real const> const& uwind = mf_uwind->const_array(mfi);
@@ -290,7 +290,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             // Compute transfer coefficients for momentum (Cd).
             Real Wspeed=std::sqrt(wind_mag*wind_mag+Wgus*Wgus);
             Cd=Wstar*Wstar/(Wspeed*Wspeed+eps);
-            
+
             // Compute turbulent sensible heat flux (W/m2), Hs.
             Real Hs=-blk_Cpa*rhoAir*Wstar*Tstar;
 
@@ -309,13 +309,13 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             // Compute turbulent latent heat flux (W/m2), Hl.
 
             Real Hl=-Hlv*rhoAir*Wstar*Qstar;
-            
+
             // Compute Webb correction (Webb effect) to latent heat flux, Hlw.
             Real upvel=-1.61_rt*Wstar*Qstar-
                         (1.0_rt+1.61_rt*Q)*Wstar*Tstar/TairK;
             Real Hlw=rhoAir*Hlv*upvel*Q;
             LHeat=(Hl+Hlw) * mskr(i,j,0);
-            
+
             // Compute momentum flux (N/m2) due to rainfall (kg/m2/s).
             Taur=0.85_rt*rain(i,j,0)*wind_mag;
 
@@ -327,7 +327,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Taux(i,j,0)=(cff*uwind(i,j,0)+Taur*sign_u) * mskr(i,j,0);
             Tauy(i,j,0)=(cff*vwind(i,j,0)+Taur*sign_v) * mskr(i,j,0);
             // amrex::Print() << "Taux: " << Taux(i,j,0) << " Tauy: " << Tauy(i,j,0) << "\n";
-            
+
             //=======================================================================
             //  Compute surface net heat flux and surface wind stress.
             //=======================================================================
