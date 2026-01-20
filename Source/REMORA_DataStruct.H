@@ -188,6 +188,7 @@ struct SolverChoice {
         pp.queryAdd("air_temperature",Tair);
         pp.queryAdd("air_humidity",Hair);
         pp.queryAdd("surface_radiation_flux",srflux);
+        pp.queryAdd("srflx_from_netcdf",srflx_from_netcdf);
         pp.queryAdd("cloud",cloud);
         pp.queryAdd("rain",rain);
         pp.queryAdd("blk_ZQ",blk_ZQ);
@@ -195,6 +196,12 @@ struct SolverChoice {
         pp.queryAdd("blk_ZW",blk_ZW);
         pp.queryAdd("eminusp",eminusp);
         pp.queryAdd("eminusp_correct_ssh",eminusp_correct_ssh);
+
+        // Control flags for loading atmospheric variables from NetCDF
+        pp.queryAdd("Tair_from_netcdf",Tair_from_netcdf);
+        pp.queryAdd("qair_from_netcdf",qair_from_netcdf);
+        pp.queryAdd("qair_is_percent",qair_is_percent);
+        pp.queryAdd("Pair_from_netcdf",Pair_from_netcdf);
 
         if (eminusp_correct_ssh and !eminusp) {
             amrex::Abort("If evaporation minus precipitation (E-P) sea surface height correct in is on, E-P must be on as well (remora.eminusp=true)");
@@ -552,6 +559,13 @@ struct SolverChoice {
     bool        bulk_fluxes           = false;
     bool        do_temp_flux        = false;
     bool        do_salt_flux        = false;
+
+    // Control flags for loading atmospheric variables from NetCDF
+    bool        Tair_from_netcdf      = false;
+    bool        qair_from_netcdf      = false;
+    bool        Pair_from_netcdf      = false;
+    bool        srflx_from_netcdf     = false;
+    bool        qair_is_percent       = false;
 
     bool        do_rivers             = false;
     bool        do_rivers_temp        = true;
