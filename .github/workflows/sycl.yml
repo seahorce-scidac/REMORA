@@ -21,7 +21,9 @@ jobs:
       run: Submodules/AMReX/.github/workflows/dependencies/dependencies_dpcpp.sh
 
     - name: Install CCache
-      run: Submodules/AMReX/.github/workflows/dependencies/dependencies_ccache.sh
+      run:
+	Submodules/AMReX/.github/workflows/dependencies/dependencies_ccache.sh
+	Submodules/AMReX/.github/workflows/dependencies/ubuntu_free_disk_space.sh
 
     - name: Set Up Cache
       uses: actions/cache@v4
