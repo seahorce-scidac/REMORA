@@ -363,7 +363,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             lhflx(i,j,0) = -LHeat*Hscale2;
             shflx(i,j,0) = -SHeat*Hscale2;
             // Note: srflx from NetCDF is in W/m², convert to degC m/s by multiplying by Hscale2
-            stflux(i,j,0,Temp_comp)=(srflx_arr(i,j,0)*Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
+            stflux(i,j,0,Temp_comp)=(srflux*Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
             evap(i,j,0) = (LHeat / Hlv+eps) * mskr(i,j,0);
             stflux(i,j,0,Salt_comp) = mskr(i,j,0) * (evap(i,j,0)-rain(i,j,0)) / rhow;
         });
