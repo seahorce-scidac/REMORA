@@ -59,10 +59,10 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<const Real> const& msku  = vec_msku[lev]->const_array(mfi);
         Array4<const Real> const& mskv  = vec_mskv[lev]->const_array(mfi);
         Array4<const Real> const& rain  = vec_rain[lev]->const_array(mfi);
+        Array4<const Real> const& cloud_arr = vec_cloud[lev]->const_array(mfi);
 
         Real Hscale = solverChoice.rho0 * Cp;
         Real Hscale2 = 1.0_rt / (solverChoice.rho0 * Cp);
-        Real cloud = solverChoice.cloud;
         Real blk_ZQ = solverChoice.blk_ZQ;
         Real blk_ZT = solverChoice.blk_ZT;
         Real blk_ZW = solverChoice.blk_ZW;
@@ -80,6 +80,8 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real TairC = Tair_arr(i,j,0);  // Air temperature [°C]
             Real TairK = TairC + 273.16_rt; // Air temperature [K]
             Real Hair = qair_arr(i,j,0);   // Specific humidity [kg/kg] or RH [fraction]
+            Real srflux = srflx_arr(i,j,0); // Shortwave radiation flux [W/m²]
+            Real cloud = cloud_arr(i,j,0);  // Cloud cover fraction [0-1]
 
             // Input bulk parametrization fields
             Real wind_mag = std::sqrt(uwind(i,j,0)*uwind(i,j,0) + vwind(i,j,0) * vwind(i,j,0)) + eps;
@@ -361,7 +363,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             lhflx(i,j,0) = -LHeat*Hscale2;
             shflx(i,j,0) = -SHeat*Hscale2;
             // Note: srflx from NetCDF is in W/m², convert to degC m/s by multiplying by Hscale2
-            stflux(i,j,0,Temp_comp)=(srflx_arr(i,j,0)*Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
+            stflux(i,j,0,Temp_comp)=(srflux*Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
             evap(i,j,0) = (LHeat / Hlv+eps) * mskr(i,j,0);
             stflux(i,j,0,Salt_comp) = mskr(i,j,0) * (evap(i,j,0)-rain(i,j,0)) / rhow;
         });

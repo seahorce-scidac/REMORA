@@ -985,9 +985,31 @@ List of Bulk Fluxes parameters
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.cloud**                 | Cloud cover fraction (0=clear sky,     | Real number       | 0.0            |
 |                                  |                                        |                   |                |
-|                                  | 1=overcast)                            | from 0 to 1       |                |
+|                                  | 1=overcast) (used as uniform           | from 0 to 1       |                |
+|                                  |                                        |                   |                |
+|                                  | value if **cloud_from_netcdf**         |                   |                |
+|                                  |                                        |                   |                |
+|                                  | is false)                              |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.rain**                  | Precipitation rate [kg/m^2/s]          | Real number       | 0.0            |
+|                                  |                                        |                   |                |
+|                                  | (used as uniform value if              |                   |                |
+|                                  |                                        |                   |                |
+|                                  | **rain_from_netcdf** is false)         |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.cloud_from_netcdf**     | Load cloud cover from NetCDF           | true / false      | false          |
+|                                  |                                        |                   |                |
+|                                  | file (spatially varying)               |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.rain_from_netcdf**      | Load precipitation rate from           | true / false      | false          |
+|                                  |                                        |                   |                |
+|                                  | NetCDF file (spatially varying)        |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.EminusP_from_netcdf**   | Load evaporation minus                 | true / false      | false          |
+|                                  |                                        |                   |                |
+|                                  | precipitation from NetCDF file         |                   |                |
+|                                  |                                        |                   |                |
+|                                  | (spatially varying)                    |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.eminusp**               | Whether to do E-P prescription for     | true / false      | false          |
 |                                  |                                        |                   |                |
@@ -1003,11 +1025,13 @@ List of Bulk Fluxes parameters
 .. note::
 
    When loading atmospheric forcing variables from NetCDF files (by setting
-   **Tair_from_netcdf**, **qair_from_netcdf**, **Pair_from_netcdf**, or
-   **srflx_from_netcdf** to true), these variables are read from the file
+   **Tair_from_netcdf**, **qair_from_netcdf**, **Pair_from_netcdf**,
+   **srflx_from_netcdf**, **rain_from_netcdf**, **cloud_from_netcdf**, or
+   **EminusP_from_netcdf** to true), these variables are read from the file
    specified by **remora.nc_frc_file** (see :ref:`list-of-parameters surface-forcing`).
    The NetCDF file must contain variables named ``Tair``, ``qair``, ``Pair``,
-   and ``swrad`` respectively, with the same spatial dimensions as the model grid.
+   ``swrad``, ``rain``, ``cloud``, and ``EminusP`` respectively, with the same
+   spatial dimensions as the model grid.
    Time interpolation is performed automatically based on the simulation time.
 
    The **qair_is_percent** flag should be set to true if the relative humidity
