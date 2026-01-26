@@ -757,6 +757,21 @@ REMORA::set_wind(int lev)
             FillPatch(lev, t_old[lev], *vec_srflx[lev], GetVecOfPtrs(vec_srflx),
                       BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
         }
+        if (solverChoice.rain_from_netcdf) {
+            rain_data_from_file->update_interpolated_to_time(t_old[lev]);
+            FillPatch(lev, t_old[lev], *vec_rain[lev], GetVecOfPtrs(vec_rain),
+                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        }
+        if (solverChoice.cloud_from_netcdf) {
+            cloud_data_from_file->update_interpolated_to_time(t_old[lev]);
+            FillPatch(lev, t_old[lev], *vec_cloud[lev], GetVecOfPtrs(vec_cloud),
+                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        }
+        if (solverChoice.EminusP_from_netcdf) {
+            EminusP_data_from_file->update_interpolated_to_time(t_old[lev]);
+            FillPatch(lev, t_old[lev], *vec_EminusP[lev], GetVecOfPtrs(vec_EminusP),
+                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        }
 #endif
     }
 }
@@ -883,6 +898,18 @@ REMORA::init_only (int lev, Real time)
         if (solverChoice.srflx_from_netcdf) {
             srflx_data_from_file = new NCTimeSeries(nc_frc_file, "swrad", frc_time_varname, geom[lev].Domain(),vec_srflx[lev].get(), true, false);
             srflx_data_from_file->Initialize();
+        }
+        if (solverChoice.rain_from_netcdf) {
+            rain_data_from_file = new NCTimeSeries(nc_frc_file, "rain", frc_time_varname, geom[lev].Domain(),vec_rain[lev].get(), true, false);
+            rain_data_from_file->Initialize();
+        }
+        if (solverChoice.cloud_from_netcdf) {
+            cloud_data_from_file = new NCTimeSeries(nc_frc_file, "cloud", frc_time_varname, geom[lev].Domain(),vec_cloud[lev].get(), true, false);
+            cloud_data_from_file->Initialize();
+        }
+        if (solverChoice.EminusP_from_netcdf) {
+            EminusP_data_from_file = new NCTimeSeries(nc_frc_file, "EminusP", frc_time_varname, geom[lev].Domain(),vec_EminusP[lev].get(), true, false);
+            EminusP_data_from_file->Initialize();
         }
     } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
         if (nc_frc_file.empty()) {

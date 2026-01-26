@@ -345,6 +345,10 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rain;
     /** \brief evaporation rate [kg/m^2/s] */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_evap;
+    /** \brief cloud cover fraction [0-1], defined at rho-points */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_cloud;
+    /** \brief evaporation minus precipitation [kg/m^2/s], defined at rho-points */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_EminusP;
 
     /** \brief Linear drag coefficient [m/s], defined at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;
@@ -1103,6 +1107,12 @@ private:
     NCTimeSeries* Pair_data_from_file;
     /** \brief Data container for shortwave radiation flux read from file */
     NCTimeSeries* srflx_data_from_file;
+    /** \brief Data container for precipitation rate read from file */
+    NCTimeSeries* rain_data_from_file;
+    /** \brief Data container for cloud cover fraction read from file */
+    NCTimeSeries* cloud_data_from_file;
+    /** \brief Data container for evaporation minus precipitation read from file */
+    NCTimeSeries* EminusP_data_from_file;
 
     /** \brief Data container for ubar climatology data read from file */
     NCTimeSeries* ubar_clim_data_from_file;

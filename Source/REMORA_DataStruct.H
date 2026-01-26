@@ -202,6 +202,9 @@ struct SolverChoice {
         pp.queryAdd("qair_from_netcdf",qair_from_netcdf);
         pp.queryAdd("qair_is_percent",qair_is_percent);
         pp.queryAdd("Pair_from_netcdf",Pair_from_netcdf);
+        pp.queryAdd("rain_from_netcdf",rain_from_netcdf);
+        pp.queryAdd("cloud_from_netcdf",cloud_from_netcdf);
+        pp.queryAdd("EminusP_from_netcdf",EminusP_from_netcdf);
 
         if (eminusp_correct_ssh and !eminusp) {
             amrex::Abort("If evaporation minus precipitation (E-P) sea surface height correct in is on, E-P must be on as well (remora.eminusp=true)");
@@ -565,6 +568,9 @@ struct SolverChoice {
     bool        qair_from_netcdf      = false;
     bool        Pair_from_netcdf      = false;
     bool        srflx_from_netcdf     = false;
+    bool        rain_from_netcdf      = false;
+    bool        cloud_from_netcdf     = false;
+    bool        EminusP_from_netcdf   = false;
     bool        qair_is_percent       = false;
 
     bool        do_rivers             = false;

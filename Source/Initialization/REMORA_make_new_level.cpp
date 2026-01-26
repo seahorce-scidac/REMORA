@@ -426,6 +426,8 @@ void REMORA::resize_stuff(int lev)
     vec_qair.resize(lev+1);
     vec_Pair.resize(lev+1);
     vec_srflx.resize(lev+1);
+    vec_cloud.resize(lev+1);
+    vec_EminusP.resize(lev+1);
     vec_alpha.resize(lev+1);
     vec_beta.resize(lev+1);
 
@@ -638,6 +640,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_qair[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));  //2d, specific humidity
         vec_Pair[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));  //2d, air pressure
         vec_srflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, shortwave radiation flux
+        vec_cloud[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, cloud cover fraction
+        vec_EminusP[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, evaporation minus precipitation
         vec_alpha[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_beta[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_lrflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
@@ -649,6 +653,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_qair[lev]->setVal(solverChoice.Hair); // Hair can be specific humidity or RH
         vec_Pair[lev]->setVal(solverChoice.Pair);
         vec_srflx[lev]->setVal(solverChoice.srflux);
+        vec_cloud[lev]->setVal(solverChoice.cloud);
+        vec_EminusP[lev]->setVal(0.0_rt);
         vec_lhflx[lev]->setVal(0.0_rt);
         vec_shflx[lev]->setVal(0.0_rt);
         vec_rain[lev]->setVal(solverChoice.rain);

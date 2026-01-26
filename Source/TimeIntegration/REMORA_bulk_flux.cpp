@@ -59,10 +59,10 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<const Real> const& msku  = vec_msku[lev]->const_array(mfi);
         Array4<const Real> const& mskv  = vec_mskv[lev]->const_array(mfi);
         Array4<const Real> const& rain  = vec_rain[lev]->const_array(mfi);
+        Array4<const Real> const& cloud_arr = vec_cloud[lev]->const_array(mfi);
 
         Real Hscale = solverChoice.rho0 * Cp;
         Real Hscale2 = 1.0_rt / (solverChoice.rho0 * Cp);
-        Real cloud = solverChoice.cloud;
         Real blk_ZQ = solverChoice.blk_ZQ;
         Real blk_ZT = solverChoice.blk_ZT;
         Real blk_ZW = solverChoice.blk_ZW;
@@ -80,6 +80,8 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real TairC = Tair_arr(i,j,0);  // Air temperature [°C]
             Real TairK = TairC + 273.16_rt; // Air temperature [K]
             Real Hair = qair_arr(i,j,0);   // Specific humidity [kg/kg] or RH [fraction]
+            Real srflux = srflx_arr(i,j,0); // Shortwave radiation flux [W/m²]
+            Real cloud = cloud_arr(i,j,0);  // Cloud cover fraction [0-1]
 
             // Input bulk parametrization fields
             Real wind_mag = std::sqrt(uwind(i,j,0)*uwind(i,j,0) + vwind(i,j,0) * vwind(i,j,0)) + eps;
