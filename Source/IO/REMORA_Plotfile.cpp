@@ -147,10 +147,12 @@ REMORA::WritePlotFile ()
     for (auto plot_name : varnames_2d_rho)
     {
          if (plot_name == "zeta" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_Zt_avg1[lev],0,icomp_rho,1,0); icomp_rho++;}
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_Zt_avg1[lev],0,icomp_rho,1,0); }
+             icomp_rho++;
          }
          if (plot_name == "h" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); icomp_rho++;}
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); }
+             icomp_rho++;
          }
     }
 
@@ -158,13 +160,18 @@ REMORA::WritePlotFile ()
     for (auto plot_name : varnames_2d_u)
     {
          if (plot_name == "ubar" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_DU_avg1[lev],0,icomp_u,1,0); icomp_u++;}
+             for (int lev = 0; lev <= finest_level; ++lev) {
+                 MultiFab::Copy(mf_2d_u[lev],*vec_DU_avg1[lev],0,icomp_u,1,0);
+             }
+             icomp_u++;
          }
          if (plot_name == "sustr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_sustr[lev],0,icomp_u,1,0); icomp_u++;}
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_sustr[lev],0,icomp_u,1,0); }
+             icomp_u++;
          }
          if (plot_name == "bustr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_bustr[lev],0,icomp_u,1,0); icomp_u++;}
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_bustr[lev],0,icomp_u,1,0); }
+             icomp_u++;
          }
     }
 
@@ -172,13 +179,16 @@ REMORA::WritePlotFile ()
     for (auto plot_name : varnames_2d_v)
     {
          if (plot_name == "vbar" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_DV_avg1[lev],0,icomp_v,1,0); icomp_v++;}
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_DV_avg1[lev],0,icomp_v,1,0); }
+             icomp_v++;
          }
          if (plot_name == "svstr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_svstr[lev],0,icomp_v,1,0); icomp_v++;}
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_svstr[lev],0,icomp_v,1,0); }
+             icomp_v++;
          }
          if (plot_name == "bvstr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_bvstr[lev],0,icomp_v,1,0); icomp_v++;}
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_bvstr[lev],0,icomp_v,1,0); }
+             icomp_v++;
          }
     }
 
