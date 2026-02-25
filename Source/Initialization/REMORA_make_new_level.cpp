@@ -411,6 +411,7 @@ void REMORA::resize_stuff(int lev)
     vec_btflux.resize(lev+1);
     vec_stflux.resize(lev+1);
     vec_lrflx.resize(lev+1);
+    vec_longwave_down.resize(lev+1);
     vec_lhflx.resize(lev+1);
     vec_shflx.resize(lev+1);
     vec_rain.resize(lev+1);
@@ -640,6 +641,7 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_qair[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));  //2d, specific humidity
         vec_Pair[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));  //2d, air pressure
         vec_srflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, shortwave radiation flux
+        vec_longwave_down[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, downward longwave radiation flux
         vec_cloud[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, cloud cover fraction
         vec_EminusP[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, evaporation minus precipitation
         vec_alpha[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));

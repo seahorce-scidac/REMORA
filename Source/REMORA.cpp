@@ -757,6 +757,11 @@ REMORA::set_wind(int lev)
             FillPatch(lev, t_old[lev], *vec_srflx[lev], GetVecOfPtrs(vec_srflx),
                       BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
         }
+        if (solverChoice.longwave_down_from_netcdf) {
+            longwave_down_data_from_file->update_interpolated_to_time(t_old[lev]);
+            FillPatch(lev, t_old[lev], *vec_longwave_down[lev], GetVecOfPtrs(vec_longwave_down),
+                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        }
         if (solverChoice.rain_from_netcdf) {
             rain_data_from_file->update_interpolated_to_time(t_old[lev]);
             FillPatch(lev, t_old[lev], *vec_rain[lev], GetVecOfPtrs(vec_rain),

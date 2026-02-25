@@ -322,11 +322,13 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_qair;
     /** \brief Air pressure [mb], defined at rho-points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Pair;
+
     /** \brief Shortwave radiation flux [W/m²], defined at rho-points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_srflx;
-
     /** \brief longwave radiation */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lrflx;
+    /** \brief Downward longwave radiation */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_longwave_down;
     /** \brief latent heat flux */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lhflx;
     /** \brief sensible heat flux */
@@ -538,6 +540,7 @@ public:
                       amrex::MultiFab* mf_qair,
                       amrex::MultiFab* mf_Pair,
                       amrex::MultiFab* mf_srflx,
+                      amrex::MultiFab* mf_longwave_down,
                       amrex::MultiFab* mf_evap,
                       amrex::MultiFab* mf_sustr,
                       amrex::MultiFab* mf_svstr,
@@ -1107,6 +1110,8 @@ private:
     NCTimeSeries* Pair_data_from_file;
     /** \brief Data container for shortwave radiation flux read from file */
     NCTimeSeries* srflx_data_from_file;
+    /** \brief Data container for downward longwave radiation flux read from file */
+    NCTimeSeries* longwave_down_data_from_file;
     /** \brief Data container for precipitation rate read from file */
     NCTimeSeries* rain_data_from_file;
     /** \brief Data container for cloud cover fraction read from file */
