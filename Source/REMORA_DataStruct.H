@@ -565,9 +565,9 @@ struct SolverChoice {
     bool        use_barotropic        = true;
 
     bool        bulk_fluxes           = false;
-    bool        do_temp_flux        = false;
-    bool        do_salt_flux        = false;
-    bool        longwave_down          = false;
+    bool        do_temp_flux          = false;
+    bool        do_salt_flux          = false;
+    bool        longwave_down         = false;
 
     // Control flags for loading atmospheric variables from NetCDF
     bool        Tair_from_netcdf      = false;
