@@ -99,6 +99,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             // Initialize
             Real delTc = 0.0_rt;
             Real delQc = 0.0_rt;
+            Real cff = 0.0_rt;
 
             Real LHeat = lhflx(i,j,0) * Hscale;
             Real SHeat = shflx(i,j,0) * Hscale;
