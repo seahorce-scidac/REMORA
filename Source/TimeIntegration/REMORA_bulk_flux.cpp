@@ -97,7 +97,6 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real TseaK = cons(i,j,N,Temp_comp) + 273.16_rt;
 
             // Initialize
-            Real cff = 0.0_rt;
             Real delTc = 0.0_rt;
             Real delQc = 0.0_rt;
 
@@ -106,12 +105,12 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real Taur = 0.0_rt;
             Taux(i,j,0) = 0.0_rt;
             Tauy(i,j,0) = 0.0_rt;
-
+            Real LRad;
 
             /*-----------------------------------------------------------------------
                Compute outward or net longwave radiation (W/m2), LRad.
              -----------------------------------------------------------------------
-               If given downward longwave radiation, compute net longwave radiation as 
+               If given downward longwave radiation, compute net longwave radiation as
                Ldown - Lemit, where Lemit is computed from the model SST and an emissivity.
                Or use Berliand (1952) formula to calculate net longwave radiation.
                The equation for saturation vapor pressure is from Gill (Atmosphere-
@@ -120,19 +119,11 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                1.0 at poles to 0.5 at the Equator).
 
             */
-            Real LRad;
-            // If given downward longwave radiation, compute net longwave radiation as 
-            // Ldown - Lemit, where Lemit is computed from the model SST and an assumed emissivity.
-
             if (use_longwave_down) {
-
                 Real Ldown = longwave_down_arr(i,j,0);
                 Real Lemit = emmiss * StefBo * std::pow(TseaK,4);
-
                 LRad = Ldown - Lemit;
-
             } else {
-
                 // Original Berliand parameterization
                 Real cff=(0.7859_rt+0.03477_rt*TairC)/(1.0_rt+0.00412_rt*TairC);
                 Real e_sat=std::pow(10.0_rt,cff);
@@ -145,7 +136,6 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                         (1.0_rt-0.6823_rt*cloud*cloud)+
                         cff2*4.0_rt*(TseaK-TairK));
             }
-
            /*
             -----------------------------------------------------------------------
               Compute specific humidities (kg/kg).
@@ -222,7 +212,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
 
             Real VisAir=1.326E-5_rt*(1.0_rt+TairC*(6.542E-3_rt+TairC*
                                      (8.301E-6_rt-4.84E-9_rt*TairC)));
-\
+
             //  Compute latent heat of vaporization (J/kg) at sea surface, Hlv.
 
             Real Hlv = (2.501_rt-0.00237_rt*cons(i,j,N,Temp_comp))*1.0e6_rt;
