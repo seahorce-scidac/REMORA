@@ -415,6 +415,25 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         ncf.var("svstr").put_attr("coordinates","x_v y_v ocean_time");
         ncf.var("svstr").put_attr("field","surface v-momentum stress, scalar, series");
 
+        if (solverChoice.output_forcing) {
+            ncf.def_var("Tair", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("Tair").put_attr("long_name","surface air temperature");
+            ncf.var("Tair").put_attr("units","Celsius");
+            ncf.var("Tair").put_attr("time","ocean_time");
+            ncf.var("Tair").put_attr("grid","grid");
+            ncf.var("Tair").put_attr("location","face");
+            ncf.var("Tair").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("Tair").put_attr("field","Tair, scalar, series");
+
+            ncf.def_var("Pair", ncutils::NCDType::Real,{ nt_name, ny_r_name, nx_r_name });
+            ncf.var("Pair").put_attr("long_name","surface air pressure");
+            ncf.var("Pair").put_attr("units","Pascal");
+            ncf.var("Pair").put_attr("time","ocean_time");
+            ncf.var("Pair").put_attr("grid","grid");
+            ncf.var("Pair").put_attr("location","face");
+            ncf.var("Pair").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("Pair").put_attr("field","Pair, scalar, series");
+        }
         // Right now this is hard-wired to {temp, salt, tracer, u, v}
         ncf.put_attr("space_dimension", std::vector<int> { AMREX_SPACEDIM });
 //        ncf.put_attr("current_time", std::vector<double> { time });
@@ -729,6 +748,27 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 auto nc_plot_var = ncf.var("zeta");
                 nc_plot_var.put(tmp_zeta.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
                         local_nx });
+            }
+            if (solverChoice.output_forcing) {
+                {
+                    FArrayBox tmp_Tair;
+                    tmp_Tair.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                    tmp_Tair.template copy<RunOn::Device>((*vec_Tair[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_plot_var = ncf.var("Tair");
+                    nc_plot_var.put(tmp_Tair.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
+                }
+
+                {
+                    FArrayBox tmp_Pair;
+                    tmp_Pair.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                    tmp_Pair.template copy<RunOn::Device>((*vec_Pair[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_plot_var = ncf.var("Pair");
+                    nc_plot_var.put(tmp_Pair.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
+                }
             }
 
             {
