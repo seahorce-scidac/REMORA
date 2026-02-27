@@ -198,8 +198,6 @@ struct SolverChoice {
         pp.queryAdd("blk_ZW",blk_ZW);
         pp.queryAdd("eminusp",eminusp);
         pp.queryAdd("eminusp_correct_ssh",eminusp_correct_ssh);
-        
-
         // Control flags for loading atmospheric variables from NetCDF
         pp.queryAdd("Tair_from_netcdf",Tair_from_netcdf);
         pp.queryAdd("qair_from_netcdf",qair_from_netcdf);
@@ -215,8 +213,6 @@ struct SolverChoice {
         if (eminusp and !bulk_fluxes) {
             amrex::Abort("Evaporation minus precipitation (E-P) requires bulk flux parametrizations (remora.bulk_fluxes=true)");
         }
-
-        
 
         //Read in linear eos parameters
         //Grid stretching
