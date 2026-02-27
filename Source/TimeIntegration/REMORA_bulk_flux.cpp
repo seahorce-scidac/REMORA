@@ -126,7 +126,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                 LRad = Ldown - Lemit;
             } else {
                 // Original Berliand parameterization
-                Real cff=(0.7859_rt+0.03477_rt*TairC)/(1.0_rt+0.00412_rt*TairC);
+                cff=(0.7859_rt+0.03477_rt*TairC)/(1.0_rt+0.00412_rt*TairC);
                 Real e_sat=std::pow(10.0_rt,cff);
                 Real vap_p=e_sat*RH;
                 Real cff2=TairK*TairK*TairK;
