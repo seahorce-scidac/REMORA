@@ -415,6 +415,107 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         ncf.var("svstr").put_attr("coordinates","x_v y_v ocean_time");
         ncf.var("svstr").put_attr("field","surface v-momentum stress, scalar, series");
 
+        if (solverChoice.output_forcing) {
+            // Surface air temperature (Celsius)
+            ncf.def_var("Tair", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("Tair").put_attr("long_name","surface air temperature");
+            ncf.var("Tair").put_attr("units","Celsius");
+            ncf.var("Tair").put_attr("time","ocean_time");
+            ncf.var("Tair").put_attr("grid","grid");
+            ncf.var("Tair").put_attr("location","face");
+            ncf.var("Tair").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("Tair").put_attr("field","Tair, scalar, series");
+
+            // Surface air pressure (Pascal)
+            ncf.def_var("Pair", ncutils::NCDType::Real,{ nt_name, ny_r_name, nx_r_name });
+            ncf.var("Pair").put_attr("long_name","surface air pressure");
+            ncf.var("Pair").put_attr("units","Pascal");
+            ncf.var("Pair").put_attr("time","ocean_time");
+            ncf.var("Pair").put_attr("grid","grid");
+            ncf.var("Pair").put_attr("location","face");
+            ncf.var("Pair").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("Pair").put_attr("field","Pair, scalar, series");
+
+            // Surface net heat flux (W/m2)
+            ncf.def_var("qnet", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("qnet").put_attr("long_name","surface net heat flux");
+            ncf.var("qnet").put_attr("units","watt meter-2");
+            ncf.var("qnet").put_attr("time","ocean_time");
+            ncf.var("qnet").put_attr("grid","grid");
+            ncf.var("qnet").put_attr("location","face");
+            ncf.var("qnet").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("qnet").put_attr("field","surface heat flux, scalar, series");
+
+            // Surface net salt flux (kinematic)
+            ncf.def_var("ssflux", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("ssflux").put_attr("long_name","kinematic surface net salt flux, SALT*(E-P)/rhow");
+            ncf.var("ssflux").put_attr("units","meter second-1");
+            ncf.var("ssflux").put_attr("time","ocean_time");
+            ncf.var("ssflux").put_attr("grid","grid");
+            ncf.var("ssflux").put_attr("location","face");
+            ncf.var("ssflux").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("ssflux").put_attr("field","surface net salt flux, scalar, series");
+
+            // Latent heat flux (W/m2)
+            ncf.def_var("latent", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("latent").put_attr("long_name","net latent heat flux");
+            ncf.var("latent").put_attr("units","watt meter-2");
+            ncf.var("latent").put_attr("time","ocean_time");
+            ncf.var("latent").put_attr("grid","grid");
+            ncf.var("latent").put_attr("location","face");
+            ncf.var("latent").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("latent").put_attr("field","latent heat flux, scalar, series");
+
+            // Sensible heat flux (W/m2)
+            ncf.def_var("sensible", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("sensible").put_attr("long_name","net sensible heat flux");
+            ncf.var("sensible").put_attr("units","watt meter-2");
+            ncf.var("sensible").put_attr("time","ocean_time");
+            ncf.var("sensible").put_attr("grid","grid");
+            ncf.var("sensible").put_attr("location","face");
+            ncf.var("sensible").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("sensible").put_attr("field","sensible heat flux, scalar, series");
+
+            // Longwave radiation (W/m2)
+            ncf.def_var("lwrad", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("lwrad").put_attr("long_name","net longwave radiation flux");
+            ncf.var("lwrad").put_attr("units","watt meter-2");
+            ncf.var("lwrad").put_attr("time","ocean_time");
+            ncf.var("lwrad").put_attr("grid","grid");
+            ncf.var("lwrad").put_attr("location","face");
+            ncf.var("lwrad").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("lwrad").put_attr("field","longwave radiation, scalar, series");
+
+            // Shortwave radiation (W/m2)
+            ncf.def_var("swrad", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("swrad").put_attr("long_name","solar shortwave radiation flux");
+            ncf.var("swrad").put_attr("units","watt meter-2");
+            ncf.var("swrad").put_attr("time","ocean_time");
+            ncf.var("swrad").put_attr("grid","grid");
+            ncf.var("swrad").put_attr("location","face");
+            ncf.var("swrad").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("swrad").put_attr("field","shortwave radiation, scalar, series");
+
+            // Evaporation rate (kg m-2 s-1)
+            ncf.def_var("evaporation", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("evaporation").put_attr("long_name","evaporation rate");
+            ncf.var("evaporation").put_attr("units","kilogram meter-2 second-1");
+            ncf.var("evaporation").put_attr("time","ocean_time");
+            ncf.var("evaporation").put_attr("grid","grid");
+            ncf.var("evaporation").put_attr("location","face");
+            ncf.var("evaporation").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("evaporation").put_attr("field","evaporation, scalar, series");
+
+            // Rain rate (kg m-2 s-1)
+            ncf.def_var("rain", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("rain").put_attr("long_name","rain fall rate");
+            ncf.var("rain").put_attr("units","kilogram meter-2 second-1");
+            ncf.var("rain").put_attr("time","ocean_time");
+            ncf.var("rain").put_attr("grid","grid");
+            ncf.var("rain").put_attr("location","face");
+            ncf.var("rain").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var("rain").put_attr("field","rain, scalar, series");
+        }
         // Right now this is hard-wired to {temp, salt, tracer, u, v}
         ncf.put_attr("space_dimension", std::vector<int> { AMREX_SPACEDIM });
 //        ncf.put_attr("current_time", std::vector<double> { time });
@@ -730,6 +831,151 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 nc_plot_var.put(tmp_zeta.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
                         local_nx });
             }
+            if (solverChoice.output_forcing) {
+
+                const Real Hscale = solverChoice.rho0 * Cp;
+                // Tair
+                {
+                    FArrayBox tmp_Tair;
+                    tmp_Tair.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                    tmp_Tair.template copy<RunOn::Device>((*vec_Tair[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_plot_var = ncf.var("Tair");
+                    nc_plot_var.put(tmp_Tair.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
+                }
+                // Pair
+                {
+                    FArrayBox tmp_Pair;
+                    tmp_Pair.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                    tmp_Pair.template copy<RunOn::Device>((*vec_Pair[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_plot_var = ncf.var("Pair");
+                    nc_plot_var.put(tmp_Pair.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
+                }
+                // qnet  (stored °C m/s → write W/m²)
+                {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+
+                    // Copy stflux Temp component
+                    tmp.template copy<RunOn::Device>(
+                        (*vec_stflux[lev])[mfi.index()],
+                        Temp_comp,  // source component
+                        0,          // dest component
+                        1           // number of comps
+                    );
+
+                    Gpu::streamSynchronize();
+
+                    // Convert °C·m/s → W/m²
+                    tmp.mult(Hscale);
+
+                    auto nc_var = ncf.var("qnet");
+                    nc_var.put(tmp.dataPtr(),
+                            { local_start_nt, local_start_y, local_start_x },
+                            { local_nt,       local_ny,       local_nx });
+                }
+                // ssflux = surface net freshwater flux (kg/m²/s converted to m/s)
+                {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+
+                    // Copy stflux Salt component
+                    tmp.template copy<RunOn::Device>(
+                        (*vec_stflux[lev])[mfi.index()],
+                        Salt_comp, // source component
+                        0,         // destination component
+                        1          // number of components
+                    );
+
+                    Gpu::streamSynchronize();
+
+                    auto nc_var = ncf.var("ssflux");
+                    nc_var.put(tmp.dataPtr(),
+                            { local_start_nt, local_start_y, local_start_x },
+                            { local_nt,       local_ny,       local_nx });
+                }
+                // latent  (stored °C m/s → write W/m²)
+                {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*vec_lhflx[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    tmp.mult(Hscale);  // convert to W/m²
+
+                    auto nc_var = ncf.var("latent");
+                    nc_var.put(tmp.dataPtr(),
+                            { local_start_nt, local_start_y, local_start_x },
+                            { local_nt,       local_ny,       local_nx });
+                }
+                // sensible  (stored °C m/s → write W/m²)
+                {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*vec_shflx[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    tmp.mult(Hscale);  // convert to W/m²
+
+                    auto nc_var = ncf.var("sensible");
+                    nc_var.put(tmp.dataPtr(),
+                            { local_start_nt, local_start_y, local_start_x },
+                            { local_nt,       local_ny,       local_nx });
+                }
+                // lwrad  (stored °C m/s → write W/m²)
+                {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*vec_lrflx[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    tmp.mult(Hscale);  // convert to W/m²
+
+                    auto nc_var = ncf.var("lwrad");
+                    nc_var.put(tmp.dataPtr(),
+                            { local_start_nt, local_start_y, local_start_x },
+                            { local_nt,       local_ny,       local_nx });
+                }
+                // swrad, note this is stored explicitly as W/m², not degC m/s in REMORA.bulk_flux.cpp
+                {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*vec_srflx[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_var = ncf.var("swrad");
+                    nc_var.put(tmp.dataPtr(),
+                            { local_start_nt, local_start_y, local_start_x },
+                            { local_nt,       local_ny,       local_nx });
+                }
+                // evaporation
+                {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*vec_evap[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_var = ncf.var("evaporation");
+                    nc_var.put(tmp.dataPtr(),
+                            { local_start_nt, local_start_y, local_start_x },
+                            { local_nt,       local_ny,       local_nx });
+                }
+                // rain
+                {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*vec_rain[lev])[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_var = ncf.var("rain");
+                    nc_var.put(tmp.dataPtr(),
+                            { local_start_nt, local_start_y, local_start_x },
+                            { local_nt,       local_ny,       local_nx });
+                }
+            }
 
             {
                 FArrayBox tmp_temp;
@@ -741,7 +987,6 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 nc_plot_var.put(tmp_temp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
                         local_nz, local_ny, local_nx });
             }
-
             {
                 FArrayBox tmp_salt;
                 tmp_salt.resize(tmp_bx, 1, amrex::The_Pinned_Arena());

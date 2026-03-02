@@ -184,6 +184,8 @@ struct SolverChoice {
             do_salt_flux = true;
             do_temp_flux = true;
         }
+        // Outputs forcing variables if true
+        pp.queryAdd("output_forcing", output_forcing);
         pp.queryAdd("air_pressure",Pair);
         pp.queryAdd("air_temperature",Tair);
         pp.queryAdd("air_humidity",Hair);
@@ -561,6 +563,8 @@ struct SolverChoice {
     bool        use_barotropic        = true;
 
     bool        bulk_fluxes           = false;
+
+    bool        output_forcing        = false;
     bool        do_temp_flux          = false;
     bool        do_salt_flux          = false;
     bool        longwave_down         = false;
