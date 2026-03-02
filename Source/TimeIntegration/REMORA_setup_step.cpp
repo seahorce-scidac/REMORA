@@ -180,10 +180,15 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     const Real Cdb_min = solverChoice.Cdb_min;
     const Real Cdb_max = solverChoice.Cdb_max;
 
+    MultiFab* lw_ptr = nullptr;
+
+    if (solverChoice.longwave_down_from_netcdf)
+        lw_ptr = vec_longwave_down[lev].get();
     if (solverChoice.bulk_fluxes) {
         bulk_fluxes(lev, cons_old[lev],vec_uwind[lev].get(),vec_vwind[lev].get(),
                     vec_Tair[lev].get(),vec_qair[lev].get(),vec_Pair[lev].get(),
                     vec_srflx[lev].get(),
+                    lw_ptr,
                     vec_evap[lev].get(),
                     vec_sustr[lev].get(),vec_svstr[lev].get(),vec_stflux[lev].get(),
                     vec_lrflx[lev].get(),vec_lhflx[lev].get(),vec_shflx[lev].get(),N);

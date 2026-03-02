@@ -757,6 +757,11 @@ REMORA::set_wind(int lev)
             FillPatch(lev, t_old[lev], *vec_srflx[lev], GetVecOfPtrs(vec_srflx),
                       BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
         }
+        if (solverChoice.longwave_down_from_netcdf) {
+            longwave_down_data_from_file->update_interpolated_to_time(t_old[lev]);
+            FillPatch(lev, t_old[lev], *vec_longwave_down[lev], GetVecOfPtrs(vec_longwave_down),
+                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        }
         if (solverChoice.rain_from_netcdf) {
             rain_data_from_file->update_interpolated_to_time(t_old[lev]);
             FillPatch(lev, t_old[lev], *vec_rain[lev], GetVecOfPtrs(vec_rain),
@@ -775,7 +780,6 @@ REMORA::set_wind(int lev)
 #endif
     }
 }
-
 /**
  * @param[in   ] lev    level to operate on
  */
@@ -919,6 +923,13 @@ REMORA::init_only (int lev, Real time)
         svstr_data_from_file = new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),vec_svstr[lev].get(), true, false);
         sustr_data_from_file->Initialize();
         svstr_data_from_file->Initialize();
+    }
+    if (solverChoice.longwave_down_from_netcdf) {
+        if (nc_frc_file.empty()) {
+            amrex::Error("NetCDF forcing file name must be provided via input for longwave radiation");
+        }
+        longwave_down_data_from_file = new NCTimeSeries(nc_frc_file, "longwave_down", frc_time_varname, geom[lev].Domain(), vec_longwave_down[lev].get(), true, false);
+        longwave_down_data_from_file->Initialize();
     }
 
     if (solverChoice.do_rivers) {

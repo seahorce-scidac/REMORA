@@ -11,6 +11,7 @@ using namespace amrex;
  * @param[in   ] mf_qair        specific humidity [kg/kg]
  * @param[in   ] mf_Pair        air pressure [mb]
  * @param[in   ] mf_srflx       shortwave radiation flux [W/m²]
+ * @param[in   ] mf_longwave_down longwave radiation flux [W/m²]
  * @param[inout] mf_evap        evaporation rate
  * @param[  out] mf_sustr       u-direction surface momentum stress
  * @param[  out] mf_svstr       v-direction surface momentum stress
@@ -24,6 +25,7 @@ void
 REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* mf_vwind,
                      MultiFab* mf_Tair, MultiFab* mf_qair, MultiFab* mf_Pair,
                      MultiFab* mf_srflx,
+                     MultiFab* mf_longwave_down,
                      MultiFab* mf_evap, MultiFab* mf_sustr, MultiFab* mf_svstr,
                      MultiFab* mf_stflux, MultiFab* mf_lrflx, MultiFab* mf_lhflx,
                      MultiFab* mf_shflx,
@@ -44,6 +46,10 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<Real const> const& qair_arr = mf_qair->const_array(mfi);
         Array4<Real const> const& Pair_arr = mf_Pair->const_array(mfi);
         Array4<Real const> const& srflx_arr = mf_srflx->const_array(mfi);
+        Array4<Real const> longwave_down_arr;
+        if (mf_longwave_down != nullptr) {
+            longwave_down_arr = mf_longwave_down->const_array(mfi);
+        }
         Array4<Real const> const& cons = mf_cons->const_array(mfi);
         Array4<Real> const& sustr = mf_sustr->array(mfi);
         Array4<Real> const& svstr = mf_svstr->array(mfi);
@@ -67,6 +73,8 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Real blk_ZT = solverChoice.blk_ZT;
         Real blk_ZW = solverChoice.blk_ZW;
 
+        bool use_longwave_down = solverChoice.longwave_down;
+
         Real eps = 1e-20_rt;
 
         Box bx = mfi.tilebox();
@@ -80,6 +88,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real TairC = Tair_arr(i,j,0);  // Air temperature [°C]
             Real TairK = TairC + 273.16_rt; // Air temperature [K]
             Real Hair = qair_arr(i,j,0);   // Specific humidity [kg/kg] or RH [fraction]
+            Real RH = Hair;
             Real srflux = srflx_arr(i,j,0); // Shortwave radiation flux [W/m²]
             Real cloud = cloud_arr(i,j,0);  // Cloud cover fraction [0-1]
 
@@ -90,36 +99,44 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             // Initialize
             Real delTc = 0.0_rt;
             Real delQc = 0.0_rt;
+            Real cff = 0.0_rt;
 
             Real LHeat = lhflx(i,j,0) * Hscale;
             Real SHeat = shflx(i,j,0) * Hscale;
             Real Taur = 0.0_rt;
             Taux(i,j,0) = 0.0_rt;
             Tauy(i,j,0) = 0.0_rt;
-
+            Real LRad;
 
             /*-----------------------------------------------------------------------
-               Compute net longwave radiation (W/m2), LRad.
+               Compute outward or net longwave radiation (W/m2), LRad.
              -----------------------------------------------------------------------
-
-               Use Berliand (1952) formula to calculate net longwave radiation.
+               If given downward longwave radiation, compute net longwave radiation as
+               Ldown - Lemit, where Lemit is computed from the model SST and an emissivity.
+               Or use Berliand (1952) formula to calculate net longwave radiation.
                The equation for saturation vapor pressure is from Gill (Atmosphere-
                Ocean Dynamics, pp 606). Here the coefficient in the cloud term
                is assumed constant, but it is a function of latitude varying from
                1.0 at poles to 0.5 at the Equator).
 
             */
-            Real RH = Hair;
-            Real cff=(0.7859_rt+0.03477_rt*TairC)/(1.0_rt+0.00412_rt*TairC);
-            Real e_sat=std::pow(10.0_rt,cff);   // saturation vapor pressure (hPa or mbar)
-            Real vap_p=e_sat*RH;       // water vapor pressure (hPa or mbar)
-            Real cff2=TairK*TairK*TairK;
-            Real cff1=cff2*TairK;
-            Real LRad=-emmiss*StefBo*
-                               (cff1*(0.39_rt-0.05_rt*std::sqrt(vap_p))*
-                                     (1.0_rt-0.6823_rt*cloud*cloud)+
-                                cff2*4.0_rt*(TseaK-TairK));
+            if (use_longwave_down) {
+                Real Ldown = longwave_down_arr(i,j,0);
+                Real Lemit = emmiss * StefBo * std::pow(TseaK,4);
+                LRad = Ldown - Lemit;
+            } else {
+                // Original Berliand parameterization
+                cff=(0.7859_rt+0.03477_rt*TairC)/(1.0_rt+0.00412_rt*TairC);
+                Real e_sat=std::pow(10.0_rt,cff);
+                Real vap_p=e_sat*RH;
+                Real cff2=TairK*TairK*TairK;
+                Real cff1=cff2*TairK;
 
+                LRad=-emmiss*StefBo*
+                    (cff1*(0.39_rt-0.05_rt*std::sqrt(vap_p))*
+                        (1.0_rt-0.6823_rt*cloud*cloud)+
+                        cff2*4.0_rt*(TseaK-TairK));
+            }
            /*
             -----------------------------------------------------------------------
               Compute specific humidities (kg/kg).
@@ -196,7 +213,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
 
             Real VisAir=1.326E-5_rt*(1.0_rt+TairC*(6.542E-3_rt+TairC*
                                      (8.301E-6_rt-4.84E-9_rt*TairC)));
-\
+
             //  Compute latent heat of vaporization (J/kg) at sea surface, Hlv.
 
             Real Hlv = (2.501_rt-0.00237_rt*cons(i,j,N,Temp_comp))*1.0e6_rt;
