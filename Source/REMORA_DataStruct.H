@@ -191,6 +191,8 @@ struct SolverChoice {
         pp.queryAdd("air_humidity",Hair);
         pp.queryAdd("surface_radiation_flux",srflux);
         pp.queryAdd("srflx_from_netcdf",srflx_from_netcdf);
+        pp.queryAdd("longwave_down", longwave_down);
+        pp.queryAdd("longwave_down_from_netcdf",longwave_down_from_netcdf);
         pp.queryAdd("cloud",cloud);
         pp.queryAdd("rain",rain);
         pp.queryAdd("blk_ZQ",blk_ZQ);
@@ -198,7 +200,6 @@ struct SolverChoice {
         pp.queryAdd("blk_ZW",blk_ZW);
         pp.queryAdd("eminusp",eminusp);
         pp.queryAdd("eminusp_correct_ssh",eminusp_correct_ssh);
-
         // Control flags for loading atmospheric variables from NetCDF
         pp.queryAdd("Tair_from_netcdf",Tair_from_netcdf);
         pp.queryAdd("qair_from_netcdf",qair_from_netcdf);
@@ -562,19 +563,23 @@ struct SolverChoice {
     bool        use_barotropic        = true;
 
     bool        bulk_fluxes           = false;
+
     bool        output_forcing        = false;
-    bool        do_temp_flux        = false;
-    bool        do_salt_flux        = false;
+    bool        do_temp_flux          = false;
+    bool        do_salt_flux          = false;
+    bool        longwave_down         = false;
 
     // Control flags for loading atmospheric variables from NetCDF
     bool        Tair_from_netcdf      = false;
     bool        qair_from_netcdf      = false;
     bool        Pair_from_netcdf      = false;
     bool        srflx_from_netcdf     = false;
+    bool        longwave_down_from_netcdf          = false;
     bool        rain_from_netcdf      = false;
     bool        cloud_from_netcdf     = false;
     bool        EminusP_from_netcdf   = false;
     bool        qair_is_percent       = false;
+
 
     bool        do_rivers             = false;
     bool        do_rivers_temp        = true;
