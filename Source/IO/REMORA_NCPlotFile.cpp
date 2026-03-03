@@ -870,7 +870,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                     Gpu::streamSynchronize();
 
                     // Convert °C·m/s → W/m²
-                    tmp.mult(Hscale);
+                    tmp.mult<RunOn::Device>(Hscale);
 
                     auto nc_var = ncf.var("qnet");
                     nc_var.put(tmp.dataPtr(),
@@ -904,7 +904,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                     tmp.template copy<RunOn::Device>((*vec_lhflx[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    tmp.mult(Hscale);  // convert to W/m²
+                    // Convert °C·m/s → W/m²
+                    tmp.mult<RunOn::Device>(Hscale);
 
                     auto nc_var = ncf.var("latent");
                     nc_var.put(tmp.dataPtr(),
@@ -918,7 +919,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                     tmp.template copy<RunOn::Device>((*vec_shflx[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    tmp.mult(Hscale);  // convert to W/m²
+                    // Convert °C·m/s → W/m²
+                    tmp.mult<RunOn::Device>(Hscale);
 
                     auto nc_var = ncf.var("sensible");
                     nc_var.put(tmp.dataPtr(),
@@ -932,7 +934,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                     tmp.template copy<RunOn::Device>((*vec_lrflx[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    tmp.mult(Hscale);  // convert to W/m²
+                    // Convert °C·m/s → W/m²
+                    tmp.mult<RunOn::Device>(Hscale);
 
                     auto nc_var = ncf.var("lwrad");
                     nc_var.put(tmp.dataPtr(),
