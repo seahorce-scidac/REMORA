@@ -73,8 +73,6 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF) {
 
     bool is_history;
 
-    amrex::Print() << "PLOTMF " << (*plotMF)[0] << std::endl;
-
     if (REMORA::write_history_file) {
         is_history = true;
         bool write_header = !(amrex::FileExists(FullPath));
@@ -128,10 +126,21 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     int ny = subdomain.length(1);
     int nz = subdomain.length(2);
 
-    // unsigned long int nt= NC_UNLIMITED;
-    if (is_history && max_step < 0)
+    if (is_history && max_step < 0) {
         amrex::Abort("Need to know max_step if writing history file");
-    long long int nt = is_history ? static_cast<long long int>(max_step / std::min(plot_int, max_step)) + 1 : 1;
+    }
+
+    long long int nt;
+    if (is_history) {
+        if (max_step > 0) {
+            nt = static_cast<long long int>(max_step / std::min(plot_int, max_step)) + 1;
+        } else {
+            nt = 1;
+        }
+    } else {
+        nt = 1;
+    }
+
     if (chunk_history_file) {
         // First index of the last history file
         int last_file_index = REMORA::steps_per_history_file * int(nt / REMORA::steps_per_history_file);
@@ -364,6 +373,22 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("tracer").put_attr("location","face");
         ncf.var("tracer").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
         ncf.var("tracer").put_attr("field","tracer, scalar, series");
+
+        {
+            int comp = -1;
+            for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                if (plot_var_names_3d[i] == "vorticity") comp = i;
+            }
+            if (comp >= 0) {
+               ncf.def_var_fill("vorticity", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+               ncf.var("vorticity").put_attr("long_name","vorticity");
+               ncf.var("vorticity").put_attr("time","ocean_time");
+               ncf.var("vorticity").put_attr("grid","grid");
+               ncf.var("vorticity").put_attr("location","face");
+               ncf.var("vorticity").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
+               ncf.var("vorticity").put_attr("field","vorticity, scalar, series");
+            }
+        }
 
         ncf.def_var_fill("u", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_u_name, nx_u_name }, &fill_value);
         ncf.var("u").put_attr("long_name","u-momentum component");
@@ -833,8 +858,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 nc_plot_var.put(tmp_zeta.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
                         local_nx });
             }
-            if (solverChoice.output_forcing) {
 
+            if (solverChoice.output_forcing)
+            {
                 const Real Hscale = solverChoice.rho0 * Cp;
                 // Tair
                 {
@@ -980,39 +1006,84 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                             { local_start_nt, local_start_y, local_start_x },
                             { local_nt,       local_ny,       local_nx });
                 }
-            }
+            } // end output forcing
 
-            {
-                FArrayBox tmp_temp;
-                tmp_temp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp_temp.template copy<RunOn::Device>((*plotMF)[mfi.index()], Temp_comp, 0, 1);
-                Gpu::streamSynchronize();
+            // **************************************************************************
+            { // Temp
+                int comp = -1;
+                for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                    if (plot_var_names_3d[i] == "temp") comp = i;
+                }
+                if (comp >= 0) {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
+                    Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("temp");
-                nc_plot_var.put(tmp_temp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
-                        local_nz, local_ny, local_nx });
-            }
-            {
-                FArrayBox tmp_salt;
-                tmp_salt.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp_salt.template copy<RunOn::Device>((*plotMF)[mfi.index()], Salt_comp, 0, 1);
-                Gpu::streamSynchronize();
+                    auto nc_plot_var = ncf.var(plot_var_names_3d[comp]);
+                    nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                            local_nz, local_ny, local_nx });
+                } // if temp exists in plotMF
+            } // end temp
+            // **************************************************************************
 
-                auto nc_plot_var = ncf.var("salt");
-                nc_plot_var.put(tmp_salt.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
-                        local_nz, local_ny, local_nx });
-            }
+            // **************************************************************************
+            { // Salt
+                int comp = -1;
+                for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                    if (plot_var_names_3d[i] == "salt") comp = i;
+                }
+                if (comp >= 0) {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
+                    Gpu::streamSynchronize();
 
-            {
-                FArrayBox tmp_tracer;
-                tmp_tracer.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp_tracer.template copy<RunOn::Device>((*plotMF)[mfi.index()], Tracer_comp, 0, 1);
-                Gpu::streamSynchronize();
+                    auto nc_plot_var = ncf.var(plot_var_names_3d[comp]);
+                    nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                            local_nz, local_ny, local_nx });
+                } // if salt exists in plotMF
+            } // end salt
+            // **************************************************************************
 
-                auto nc_plot_var = ncf.var("tracer");
-                nc_plot_var.put(tmp_tracer.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
-                        local_nz, local_ny, local_nx });
-            }
+            // **************************************************************************
+            { // Tracer
+                int comp = -1;
+                for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                    if (plot_var_names_3d[i] == "tracer") comp = i;
+                }
+                if (comp >= 0) {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_plot_var = ncf.var(plot_var_names_3d[comp]);
+                    nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                            local_nz, local_ny, local_nx });
+                } // if tracer exists in plotMF
+            } // end tracer
+            // **************************************************************************
+
+            // **************************************************************************
+            { // Vorticity
+                int comp = -1;
+                for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                    if (plot_var_names_3d[i] == "vorticity") comp = i;
+                }
+                if (comp >= 0) {
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_plot_var = ncf.var(plot_var_names_3d[comp]);
+                    nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                            local_nz, local_ny, local_nx });
+                } // if vorticity exists in plotMF
+            } // end vorticity
+            // **************************************************************************
+
         } // subdomain
     } // mfi
 
