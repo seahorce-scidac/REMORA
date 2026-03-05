@@ -349,30 +349,54 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("zeta").put_attr("coordinates","x_rho y_rho ocean_time");
         ncf.var("zeta").put_attr("field","free-surface, scalar, series");
 
-        ncf.def_var_fill("temp", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
-        ncf.var("temp").put_attr("long_name","potential temperature");
-        ncf.var("temp").put_attr("units","Celsius");
-        ncf.var("temp").put_attr("time","ocean_time");
-        ncf.var("temp").put_attr("grid","grid");
-        ncf.var("temp").put_attr("location","face");
-        ncf.var("temp").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
-        ncf.var("temp").put_attr("field","temperature, scalar, series");
+        {
+            int comp = -1;
+            for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                if (plot_var_names_3d[i] == "temp") comp = i;
+            }
+            if (comp >= 0) {
+                ncf.def_var_fill("temp", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+                ncf.var("temp").put_attr("long_name","potential temperature");
+                ncf.var("temp").put_attr("units","Celsius");
+                ncf.var("temp").put_attr("time","ocean_time");
+                ncf.var("temp").put_attr("grid","grid");
+                ncf.var("temp").put_attr("location","face");
+                ncf.var("temp").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
+                ncf.var("temp").put_attr("field","temperature, scalar, series");
+            }
+        } // end temp
 
-        ncf.def_var_fill("salt", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
-        ncf.var("salt").put_attr("long_name","salinity");
-        ncf.var("salt").put_attr("time","ocean_time");
-        ncf.var("salt").put_attr("grid","grid");
-        ncf.var("salt").put_attr("location","face");
-        ncf.var("salt").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
-        ncf.var("salt").put_attr("field","salinity, scalar, series");
+        {
+            int comp = -1;
+            for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                if (plot_var_names_3d[i] == "salt") comp = i;
+            }
+            if (comp >= 0) {
+                ncf.def_var_fill("salt", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+                ncf.var("salt").put_attr("long_name","salinity");
+                ncf.var("salt").put_attr("time","ocean_time");
+                ncf.var("salt").put_attr("grid","grid");
+                ncf.var("salt").put_attr("location","face");
+                ncf.var("salt").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
+                ncf.var("salt").put_attr("field","salinity, scalar, series");
+            }
+        } // end salt
 
-        ncf.def_var_fill("tracer", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
-        ncf.var("tracer").put_attr("long_name","passive tracer");
-        ncf.var("tracer").put_attr("time","ocean_time");
-        ncf.var("tracer").put_attr("grid","grid");
-        ncf.var("tracer").put_attr("location","face");
-        ncf.var("tracer").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
-        ncf.var("tracer").put_attr("field","tracer, scalar, series");
+        {
+            int comp = -1;
+            for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                if (plot_var_names_3d[i] == "tracer") comp = i;
+            }
+            if (comp >= 0) {
+                ncf.def_var_fill("tracer", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+                ncf.var("tracer").put_attr("long_name","passive tracer");
+                ncf.var("tracer").put_attr("time","ocean_time");
+                ncf.var("tracer").put_attr("grid","grid");
+                ncf.var("tracer").put_attr("location","face");
+                ncf.var("tracer").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
+                ncf.var("tracer").put_attr("field","tracer, scalar, series");
+            }
+        } // end tracer
 
         {
             int comp = -1;
@@ -388,7 +412,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                ncf.var("vorticity").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
                ncf.var("vorticity").put_attr("field","vorticity, scalar, series");
             }
-        }
+        } // end vorticity
 
         ncf.def_var_fill("u", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_u_name, nx_u_name }, &fill_value);
         ncf.var("u").put_attr("long_name","u-momentum component");

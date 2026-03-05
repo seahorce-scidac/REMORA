@@ -336,7 +336,11 @@ REMORA::WritePlotFile (int istep_for_plot)
 
     } // lev
 
-    if (plotfile_type == PlotfileType::amrex) {
+    if ( (plotfile_type == PlotfileType::amrex)
+#ifdef REMORA_USE_HDF5
+        || (plotfile_type == PlotfileType::hdf5)
+#endif
+    ) {
 
     std::string plotfilename = Concatenate(plot_file_name, istep[0], file_min_digits);
 
@@ -371,8 +375,6 @@ REMORA::WritePlotFile (int istep_for_plot)
                                         varnames_3d,
                                         Geom(), t_new[0], istep, refRatio());
 #endif
-        } else if (!(plotfile_type == PlotfileType::netcdf)) {
-            amrex::Abort("User specified unknown plot_filetype");
         }
 
     } else { // multilevel
