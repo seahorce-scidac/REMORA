@@ -182,7 +182,7 @@ public:
     amrex::MultiFab& build_fine_mask(int lev);
 
     /** \brief main driver for writing AMReX plotfiles */
-    void WritePlotFile ();
+    void WritePlotFile (int istep);
 
     /** \brief write out particular data to an AMReX plotfile */
     void WriteMultiLevelPlotfileWithBathymetry (const std::string &plotfilename,

@@ -13,8 +13,15 @@ bool containerHasElement(const V& iterable, const T& query) {
 
 // Write plotfile to disk
 void
-REMORA::WritePlotFile ()
+REMORA::WritePlotFile (int istep_for_plot)
 {
+#ifdef REMORA_USE_NETCDF
+    if (plotfile_type == PlotfileType::netcdf) {
+        WriteNCPlotFile(istep_for_plot);
+    } else
+#endif
+    if (plotfile_type == PlotfileType::amrex) {
+
     Vector<std::string> varnames_3d;
     varnames_3d.insert(varnames_3d.end(), plot_var_names_3d.begin(), plot_var_names_3d.end());
 
@@ -485,6 +492,8 @@ REMORA::WritePlotFile ()
     for (int lev = 0; lev <= finest_level; ++lev) {
         mask_arrays_for_write(lev, 0.0_rt, (Real) fill_value);
     }
+
+    } // end if plotfile_type == amrex
 }
 
 /**
