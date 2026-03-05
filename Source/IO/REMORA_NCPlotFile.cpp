@@ -21,7 +21,7 @@ using namespace amrex;
 /**
  * @param which_step   current step for output
  */
-void REMORA::WriteNCPlotFile(int which_step) {
+void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF) {
     AMREX_ASSERT(max_level == 0);
     // For right now we assume single level -- we will generalize this later to multilevel
     int lev = 0;
@@ -84,7 +84,7 @@ void REMORA::WriteNCPlotFile(int which_step) {
 
         amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
 
-        WriteNCPlotFile_which(lev, which_subdomain, write_header, ncf, is_history);
+        WriteNCPlotFile_which(lev, which_subdomain, plotMF, write_header, ncf, is_history);
 
     } else {
 
@@ -95,7 +95,7 @@ void REMORA::WriteNCPlotFile(int which_step) {
         auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
         amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
 
-        WriteNCPlotFile_which(lev, which_subdomain, write_header, ncf, is_history);
+        WriteNCPlotFile_which(lev, which_subdomain, plotMF, write_header, ncf, is_history);
     }
 }
 
@@ -106,7 +106,9 @@ void REMORA::WriteNCPlotFile(int which_step) {
  * @param ncf               netcdf file object
  * @param is_history        whether the file being written is a history file
  */
-void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_header, ncutils::NCFile &ncf, bool is_history) {
+void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const* plotMF,
+                                   bool write_header, ncutils::NCFile &ncf, bool is_history)
+{
     // Number of cells in this "domain" at this level
     std::vector<int> n_cells;
 
@@ -616,21 +618,19 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
     // do all independent writes
     //ncmpi_end_indep_data(ncf.ncid);
 
-    cons_new[lev]->FillBoundary(geom[lev].periodicity());
-
     mask_arrays_for_write(lev, (Real) fill_value, 0.0_rt);
 
     // Check whether there are any nans or infs in variables that we will write out
     if (vec_Zt_avg1[lev]->contains_nan() || vec_Zt_avg1[lev]->contains_inf()) {
         amrex::Abort("Found while writing output: zeta contains nan or inf");
     }
-    if (cons_new[lev]->contains_nan(Temp_comp,1) || cons_new[lev]->contains_inf(Temp_comp,1)) {
+    if (plotMF->contains_nan(Temp_comp,1) || plotMF->contains_inf(Temp_comp,1)) {
         amrex::Abort("Found while writing output: Temperature contains nan or inf");
     }
-    if (cons_new[lev]->contains_nan(Salt_comp,1) || cons_new[lev]->contains_inf(Salt_comp,1)) {
+    if (plotMF->contains_nan(Salt_comp,1) || plotMF->contains_inf(Salt_comp,1)) {
         amrex::Abort("Found while writing output: Salinity contains nan or inf");
     }
-    if (cons_new[lev]->contains_nan(Scalar_comp,1) || cons_new[lev]->contains_inf(Scalar_comp,1)) {
+    if (plotMF->contains_nan(Scalar_comp,1) || plotMF->contains_inf(Scalar_comp,1)) {
         amrex::Abort("Found while writing output: Passive tracer contains nan or inf");
     }
     if (xvel_new[lev]->contains_nan() || xvel_new[lev]->contains_inf()) {
@@ -646,7 +646,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         amrex::Abort("Found while writing output: velocity vbar contains nan or inf");
     }
 
-    for (MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi) {
+    for (MFIter mfi(*plotMF, false); mfi.isValid(); ++mfi) {
         auto bx = mfi.validbox();
         if (subdomain.contains(bx)) {
             //
@@ -983,7 +983,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             {
                 FArrayBox tmp_temp;
                 tmp_temp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp_temp.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()], Temp_comp, 0, 1);
+                tmp_temp.template copy<RunOn::Device>((*plotMF)[mfi.index()], Temp_comp, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("temp");
@@ -993,7 +993,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             {
                 FArrayBox tmp_salt;
                 tmp_salt.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp_salt.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()], Salt_comp, 0, 1);
+                tmp_salt.template copy<RunOn::Device>((*plotMF)[mfi.index()], Salt_comp, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("salt");
@@ -1004,7 +1004,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             {
                 FArrayBox tmp_tracer;
                 tmp_tracer.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp_tracer.template copy<RunOn::Device>((*cons_new[lev])[mfi.index()], Scalar_comp, 0, 1);
+                tmp_tracer.template copy<RunOn::Device>((*plotMF)[mfi.index()], Scalar_comp, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("tracer");
@@ -1018,7 +1018,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
     //requests.resize(0);
     //irq = 0;
     // Writing u (we loop over cons to get cell-centered box)
-    for (MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi) {
+    for (MFIter mfi(*plotMF, false); mfi.isValid(); ++mfi) {
         Box bx = mfi.validbox();
 
         if (subdomain.contains(bx)) {
@@ -1102,7 +1102,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
     } // mfi
 
     // Writing v (we loop over cons to get cell-centered box)
-    for (MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi) {
+    for (MFIter mfi(*plotMF, false); mfi.isValid(); ++mfi) {
         Box bx = mfi.validbox();
 
         if (subdomain.contains(bx)) {
@@ -1134,7 +1134,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
             long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2]);
 
             if (write_header) {
-            {
+                {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                 tmp.template copy<RunOn::Device>((*vec_xv[lev])[mfi.index()], 0, 0, 1);
@@ -1143,8 +1143,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 auto nc_plot_var = ncf.var("x_v");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 nc_plot_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
-            }
-            {
+                }
+                {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                 tmp.template copy<RunOn::Device>((*vec_yv[lev])[mfi.index()], 0, 0, 1);
@@ -1153,9 +1153,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 auto nc_plot_var = ncf.var("y_v");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 nc_plot_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
+                }
             }
 
-            }
             {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
@@ -1176,6 +1176,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
                 auto nc_plot_var = ncf.var("vbar");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
+
             {
                 FArrayBox tmp;
                 tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
@@ -1189,7 +1190,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, bool write_head
         } // in subdomain
     } // mfi
 
-    for (MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi) {
+    for (MFIter mfi(*plotMF, false); mfi.isValid(); ++mfi) {
         Box bx = mfi.validbox();
 
         if (subdomain.contains(bx)) {

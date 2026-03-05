@@ -1069,9 +1069,11 @@ private:
 
 #ifdef REMORA_USE_NETCDF
     /** \brief Write plotfile using NetCDF (wrapper) */
-    void WriteNCPlotFile       (int istep);
+    void WriteNCPlotFile       (int istep, amrex::MultiFab const* plotMF);
+
     /** \brief Write a particular NetCDF plotfile */
     void WriteNCPlotFile_which (int lev, int which_subdomain,
+                                amrex::MultiFab const* plotMF,
                                 bool write_header, ncutils::NCFile& ncf,
                                 bool is_history);
 
