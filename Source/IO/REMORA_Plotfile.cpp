@@ -340,11 +340,9 @@ REMORA::WritePlotFile (int istep_for_plot)
 
     } // lev
 
-    if ( (plotfile_type == PlotfileType::amrex)
-#ifdef REMORA_USE_HDF5
-        || (plotfile_type == PlotfileType::hdf5)
-#endif
-    ) {
+    if ( (plotfile_type == PlotfileType::amrex) ||
+         (plotfile_type == PlotfileType::hdf5) )
+    {
 
     std::string plotfilename = Concatenate(plot_file_name, istep[0], file_min_digits);
 
