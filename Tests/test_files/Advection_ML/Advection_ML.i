@@ -34,7 +34,7 @@ remora.check_int       = -57600      # number of timesteps between checkpoints
 # PLOTFILES
 remora.plot_file     = plt        # prefix of plotfile name
 remora.plot_int      = 100          # number of timesteps between plotfiles
-remora.plot_vars_3d  = salt temp scalar x_velocity y_velocity z_velocity
+remora.plot_vars_3d  = salt temp tracer x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
 remora.expand_plotvars_to_unif_rr = 1
 
@@ -65,7 +65,7 @@ remora.prob.v_0   = -1.0e-0
 
 remora.refinement_indicators = scalar
 remora.scalar.max_level = 1
-remora.scalar.field_name = scalar
+remora.scalar.field_name = tracer
 remora.scalar.value_greater = 0.5
 remora.scalar.start_time = 200
 remora.coupling_type = "TwoWay"
