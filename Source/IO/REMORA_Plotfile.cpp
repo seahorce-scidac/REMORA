@@ -15,6 +15,9 @@ bool containerHasElement(const V& iterable, const T& query) {
 void
 REMORA::WritePlotFile (int istep_for_plot)
 {
+#ifndef REMORA_USE_NETCDF
+    amrex::ignore_unused(istep_for_plot);
+#endif
     Vector<std::string> varnames_3d;
     varnames_3d.insert(varnames_3d.end(), plot_var_names_3d.begin(), plot_var_names_3d.end());
 
