@@ -68,6 +68,7 @@ REMORA::WritePlotFile (int istep_for_plot)
     Vector<MultiFab> plotMF(finest_level+1);
     for (int lev = 0; lev <= finest_level; ++lev) {
         plotMF[lev].define(grids[lev], dmap[lev], ncomp_mf_3d, ngrow_vars);
+        plotMF[lev].setVal(1.234e20);
     }
 
     // Array of 2D MultiFabs to hold the plotfile data
