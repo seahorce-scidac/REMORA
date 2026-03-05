@@ -171,20 +171,13 @@ REMORA::Evolve ()
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
                        << " DT = " << dt[0]  << std::endl;
 
-        if ((plot_int > 0 && (step+1 - last_plot_file_step) == plot_int)
-                || (plot_int_time > 0 && cur_time >= (last_plot_file_time + plot_int_time))) {
+        if ( (plot_int > 0      && (step+1 - last_plot_file_step) == plot_int         ) ||
+             (plot_int_time > 0 && (cur_time >= (last_plot_file_time + plot_int_time))) )
+        {
             last_plot_file_step = step+1;
             last_plot_file_time = cur_time;
-            if (plotfile_type == PlotfileType::amrex) {
-
-                WritePlotFile();
-            }
-#ifdef REMORA_USE_NETCDF
-            else if (plotfile_type == PlotfileType::netcdf) {
-                WriteNCPlotFile(step+1);
-                history_count++;
-            }
-#endif
+            WritePlotFile(step+1);
+            history_count++;
         }
 
         if ((check_int > 0 && (step+1 - last_check_file_step) == check_int)
@@ -207,16 +200,10 @@ REMORA::Evolve ()
         if (cur_time >= stop_time - 1.e-6*dt[0]) break;
     }
 
-    if ((plot_int > 0 || plot_int_time > 0.0) && istep[0] > last_plot_file_step) {
-        if (plotfile_type == PlotfileType::amrex) {
-            WritePlotFile();
-        }
-#ifdef REMORA_USE_NETCDF
-        if (plotfile_type == PlotfileType::netcdf) {
-            WriteNCPlotFile(istep[0]);
-            history_count++;
-        }
-#endif
+    if ( (plot_int > 0 || plot_int_time > 0.0) && istep[0] > last_plot_file_step)
+    {
+        WritePlotFile(istep[0]);
+        history_count++;
     }
 
     if ((check_int > 0 || check_int_time > 0.0) && istep[0] > last_check_file_step) {
@@ -348,15 +335,9 @@ REMORA::InitData ()
     {
         if (plot_int > 0 || plot_int_time > 0.0)
         {
-            if (plotfile_type == PlotfileType::amrex)
-                WritePlotFile();
-#ifdef REMORA_USE_NETCDF
-            if (plotfile_type == PlotfileType::netcdf) {
-                int step0 = 0;
-                WriteNCPlotFile(step0);
-                history_count++;
-            }
-#endif
+            int step0 = 0;
+            WritePlotFile(step0);
+            history_count++;
             last_plot_file_step = istep[0];
         }
     }
@@ -945,9 +926,9 @@ REMORA::init_only (int lev, Real time)
             river_source_cons[Temp_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz);
             river_source_cons[Temp_comp]->Initialize();
         }
-        if (solverChoice.do_rivers_cons[Scalar_comp]) {
-            river_source_cons[Scalar_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz);
-            river_source_cons[Scalar_comp]->Initialize();
+        if (solverChoice.do_rivers_cons[Tracer_comp]) {
+            river_source_cons[Tracer_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz);
+            river_source_cons[Tracer_comp]->Initialize();
         }
         river_source_transport = new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz);
         river_source_transport->Initialize();

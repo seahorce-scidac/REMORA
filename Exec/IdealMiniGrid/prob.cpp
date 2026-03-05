@@ -42,7 +42,7 @@ void Problem::init_analytic_vmix(
 
         Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
         Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
-        Akt(i,j,k,Scalar_comp) = 0.0_rt;
+        Akt(i,j,k,Tracer_comp) = 0.0_rt;
       });
     }
 }
@@ -65,7 +65,7 @@ void Problem::init_analytic_hmix(
       Box bx = mfi.tilebox();
       bx.grow(IntVect(NGROW,NGROW,0));
 
-      int ncomp = mf_diff2.nComp(); // temperature and salt and scalar
+      int ncomp = mf_diff2.nComp(); // temperature and salt and tracer
       Gpu::streamSynchronize();
 
       amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)

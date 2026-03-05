@@ -103,7 +103,7 @@ void Problem::init_analytic_prob(
 
             state(i,j,k,Temp_comp)=T0; //+8.0*std::exp(z/50.0_rt);
 
-            // Set scalar = 0 everywhere
+            // Set tracer = 0 everywhere
             const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
             const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
 
@@ -119,11 +119,11 @@ void Problem::init_analytic_prob(
                 state(i,j,k,Salt_comp)= S0;
             }
 
-            // Single circle of scalar (default)
-            state(i, j, k, Scalar_comp) = std::exp(-r2/(2.*radsq));
+            // Single circle of tracer (default)
+            state(i, j, k, Tracer_comp) = std::exp(-r2/(2.*radsq));
 
-            // Donut of scalar
-            //state(i, j, k, Scalar_comp) = 1.25 * (std::exp(-r2/(2.*radsq)) - std::exp(-r2/(2*rad_inner_sq)));
+            // Donut of tracer
+            //state(i, j, k, Tracer_comp) = 1.25 * (std::exp(-r2/(2.*radsq)) - std::exp(-r2/(2*rad_inner_sq)));
         });
 
         // Construct a box that is on x-faces
@@ -178,7 +178,7 @@ void Problem::init_analytic_vmix(
 
         Akt(i,j,k,Temp_comp) = 1.0e-6;
         Akt(i,j,k,Salt_comp) = 1.0e-6;
-        Akt(i,j,k,Scalar_comp) = 0.0;
+        Akt(i,j,k,Tracer_comp) = 0.0;
       });
     }
 }

@@ -137,8 +137,8 @@ void Problem::init_analytic_prob(
                 state(i,j,k,Salt_comp)=S0;
             }
 
-            // Set scalar = 0 everywhere
-            state(i, j, k, Scalar_comp) = 0.0_rt;
+            // Set tracer = 0 everywhere
+            state(i, j, k, Tracer_comp) = 0.0_rt;
         });
 
         const Box& xbx = surroundingNodes(bx,0);
@@ -184,7 +184,7 @@ void Problem::init_analytic_vmix(
 
         Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
         Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
-        Akt(i,j,k,Scalar_comp) = 0.0_rt;
+        Akt(i,j,k,Tracer_comp) = 0.0_rt;
       });
     }
 }

@@ -3,4 +3,4 @@ distribution on a doubly-periodic domain with flat bathymetry.
 
 The file called inputs contains the single-level version of this test. The
 file called inputs_ml runs the problem with adaptive mesh refinement, refining
-where the scalar has a value greater than 0.5.
+where the passive tracer has a value greater than 0.5.

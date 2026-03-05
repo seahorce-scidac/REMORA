@@ -154,7 +154,7 @@ void Problem::init_analytic_prob(
                 state(i,j,k,Salt_comp)=S0;
             }
 
-            // Set scalar = 0 everywhere
+            // Set tracer = 0 everywhere
             const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
             const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
 
@@ -164,7 +164,7 @@ void Problem::init_analytic_prob(
             const Real rad = 0.1 * (prob_hi[0]-prob_lo[0]);
             const Real radsq = rad*rad;
 
-            state(i, j, k, Scalar_comp) = (r2 < radsq) ? 1.0_rt : 0.0_rt;
+            state(i, j, k, Tracer_comp) = (r2 < radsq) ? 1.0_rt : 0.0_rt;
         });
 
         // Construct a box that is on x-faces
@@ -233,7 +233,7 @@ void Problem::init_analytic_vmix(
 
         Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
         Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
-        Akt(i,j,k,Scalar_comp) = 0.0_rt;
+        Akt(i,j,k,Tracer_comp) = 0.0_rt;
       });
     }
 }

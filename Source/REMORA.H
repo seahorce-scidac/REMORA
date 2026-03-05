@@ -182,7 +182,7 @@ public:
     amrex::MultiFab& build_fine_mask(int lev);
 
     /** \brief main driver for writing AMReX plotfiles */
-    void WritePlotFile ();
+    void WritePlotFile (int istep);
 
     /** \brief write out particular data to an AMReX plotfile */
     void WriteMultiLevelPlotfileWithBathymetry (const std::string &plotfilename,
@@ -228,7 +228,7 @@ public:
     /** \brief default prefix for input file parameters */
     std::string pp_prefix {"remora"};
 
-    /** \brief multilevel data container for last step's scalar data: temperature, salinity, passive scalar  */
+    /** \brief multilevel data container for last step's scalar data: temperature, salinity, passive tracer  */
     amrex::Vector<amrex::MultiFab*> cons_old;
     /** \brief multilevel data container for last step's x velocities (u in ROMS) */
     amrex::Vector<amrex::MultiFab*> xvel_old;
@@ -237,7 +237,7 @@ public:
     /** \brief multilevel data container for last step's z velocities (largely unused; W stored separately) */
     amrex::Vector<amrex::MultiFab*> zvel_old;
 
-    /** \brief multilevel data container for current step's scalar data: temperature, salinity, passive scalar  */
+    /** \brief multilevel data container for current step's scalar data: temperature, salinity, passive tracer  */
     amrex::Vector<amrex::MultiFab*> cons_new;
     /** \brief multilevel data container for current step's x velocities (u in ROMS) */
     amrex::Vector<amrex::MultiFab*> xvel_new;
@@ -1069,9 +1069,11 @@ private:
 
 #ifdef REMORA_USE_NETCDF
     /** \brief Write plotfile using NetCDF (wrapper) */
-    void WriteNCPlotFile       (int istep);
+    void WriteNCPlotFile       (int istep, amrex::MultiFab const* plotMF);
+
     /** \brief Write a particular NetCDF plotfile */
     void WriteNCPlotFile_which (int lev, int which_subdomain,
+                                amrex::MultiFab const* plotMF,
                                 bool write_header, ncutils::NCFile& ncf,
                                 bool is_history);
 
@@ -1325,7 +1327,7 @@ private:
     /** \brief Names of 2D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_2d;
     /** \brief Names of scalars for plotfile output */
-    const amrex::Vector<std::string>     cons_names {"temp", "salt", "scalar"};
+    const amrex::Vector<std::string>     cons_names {"temp", "salt", "tracer"};
     // Note that the order of variable names here must match the order in PlotFile.cpp
     /** \brief Names of derived fields for plotfiles */
     const amrex::Vector<std::string> derived_names {"vorticity"};

@@ -24,15 +24,15 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 
     for (int j=0; j < ref_tags.size(); ++j)
     {
-        if (ref_tags[j].Field() == "scalar" || ref_tags[j].Field() == "temp" ||
+        if (ref_tags[j].Field() == "tracer" || ref_tags[j].Field() == "temp" ||
             ref_tags[j].Field() == "salt") {
             FillPatch(levc, time, *cons_new[levc], cons_new, BCVars::cons_bc, BdyVars::t,
                 0,true,false);
         }
-        // This allows dynamic refinement based on the value of the scalar
-        if (ref_tags[j].Field() == "scalar")
+        // This allows dynamic refinement based on the value of the tracer
+        if (ref_tags[j].Field() == "tracer")
         {
-            MultiFab::Copy(*mf,*cons_new[levc],Scalar_comp,0,1,1);
+            MultiFab::Copy(*mf,*cons_new[levc],Tracer_comp,0,1,1);
         } else if (ref_tags[j].Field() == "temp") {
             MultiFab::Copy(*mf,*cons_new[levc],Temp_comp,0,1,1);
         } else if (ref_tags[j].Field() == "salt") {

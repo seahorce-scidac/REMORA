@@ -13,8 +13,11 @@ bool containerHasElement(const V& iterable, const T& query) {
 
 // Write plotfile to disk
 void
-REMORA::WritePlotFile ()
+REMORA::WritePlotFile (int istep_for_plot)
 {
+#ifndef REMORA_USE_NETCDF
+    amrex::ignore_unused(istep_for_plot);
+#endif
     Vector<std::string> varnames_3d;
     varnames_3d.insert(varnames_3d.end(), plot_var_names_3d.begin(), plot_var_names_3d.end());
 
@@ -62,9 +65,10 @@ REMORA::WritePlotFile ()
     }
 
     // Array of 3D MultiFabs to hold the plotfile data
-    Vector<MultiFab> mf(finest_level+1);
+    Vector<MultiFab> plotMF(finest_level+1);
     for (int lev = 0; lev <= finest_level; ++lev) {
-        mf[lev].define(grids[lev], dmap[lev], ncomp_mf_3d, ngrow_vars);
+        plotMF[lev].define(grids[lev], dmap[lev], ncomp_mf_3d, ngrow_vars);
+        plotMF[lev].setVal(1.234e20);
     }
 
     // Array of 2D MultiFabs to hold the plotfile data
@@ -200,10 +204,10 @@ REMORA::WritePlotFile ()
         AMREX_ALWAYS_ASSERT(cons_names.size() == NCONS);
         for (int i = 0; i < NCONS; ++i) {
             if (containerHasElement(plot_var_names_3d, cons_names[i])) {
-              if (cons_new[lev]->contains_nan() || cons_new[lev]->contains_inf()) {
-                  amrex::Abort("Found while writing output: Cons (salt, temp, or scalar, etc) contains nan or inf");
-              }
-              MultiFab::Copy(mf[lev],*cons_new[lev],i,mf_comp,1,ngrow_vars);
+                if (cons_new[lev]->contains_nan() || cons_new[lev]->contains_inf()) {
+                    amrex::Abort("Found while writing output: Cons (salt, temp, or tracer, etc) contains nan or inf");
+                }
+                MultiFab::Copy(plotMF[lev],*cons_new[lev],i,mf_comp,1,ngrow_vars);
                 mf_comp++;
             }
         } // NCONS
@@ -213,21 +217,21 @@ REMORA::WritePlotFile ()
             if (mf_cc_vel[lev].contains_nan(0,1) || mf_cc_vel[lev].contains_inf(0,1)) {
                 amrex::Abort("Found while writing output: u velocity contains nan or inf");
             }
-            MultiFab::Copy(mf[lev], mf_cc_vel[lev], 0, mf_comp, 1, 0);
+            MultiFab::Copy(plotMF[lev], mf_cc_vel[lev], 0, mf_comp, 1, 0);
             mf_comp += 1;
         }
         if (containerHasElement(plot_var_names_3d, "y_velocity")) {
             if (mf_cc_vel[lev].contains_nan(1,1) || mf_cc_vel[lev].contains_inf(1,1)) {
                 amrex::Abort("Found while writing output: v velocity contains nan or inf");
             }
-            MultiFab::Copy(mf[lev], mf_cc_vel[lev], 1, mf_comp, 1, 0);
+            MultiFab::Copy(plotMF[lev], mf_cc_vel[lev], 1, mf_comp, 1, 0);
             mf_comp += 1;
         }
         if (containerHasElement(plot_var_names_3d, "z_velocity")) {
             if (mf_cc_vel[lev].contains_nan(2,1) || mf_cc_vel[lev].contains_inf(2,1)) {
                 amrex::Abort("Found while writing output: z velocity contains nan or inf");
             }
-            MultiFab::Copy(mf[lev], mf_cc_vel[lev], 2, mf_comp, 1, 0);
+            MultiFab::Copy(plotMF[lev], mf_cc_vel[lev], 2, mf_comp, 1, 0);
             mf_comp += 1;
         }
 
@@ -236,7 +240,7 @@ REMORA::WritePlotFile ()
                                      decltype(derived::remora_dernull)& der_function)
         {
             if (containerHasElement(plot_var_names_3d, der_name)) {
-                MultiFab dmf(mf[lev], make_alias, mf_comp, 1);
+                MultiFab dmf(plotMF[lev], make_alias, mf_comp, 1);
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
@@ -270,7 +274,7 @@ REMORA::WritePlotFile ()
             containerHasElement(plot_var_names_3d, "y_cc") ||
             containerHasElement(plot_var_names_3d, "z_cc"))
         {
-            MultiFab dmf(mf[lev], make_alias, mf_comp, AMREX_SPACEDIM);
+            MultiFab dmf(plotMF[lev], make_alias, mf_comp, AMREX_SPACEDIM);
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -294,11 +298,12 @@ REMORA::WritePlotFile ()
 #ifdef REMORA_USE_PARTICLES
         const auto& particles_namelist( particleData.getNames() );
         for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++) {
-            if (containerHasElement(plot_var_names_3d, std::string(particles_namelist[i]+"_count"))) {
-                MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 0);
+            if (containerHasElement(plot_var_names_3d, std::string(particles_namelist[i]+"_count")))
+            {
+                MultiFab temp_dat(plotMF[lev].boxArray(), plotMF[lev].DistributionMap(), 1, 0);
                 temp_dat.setVal(0);
                 particleData[particles_namelist[i]]->Increment(temp_dat, lev);
-                MultiFab::Copy(mf[lev], temp_dat, 0, mf_comp, 1, 0);
+                MultiFab::Copy(plotMF[lev], temp_dat, 0, mf_comp, 1, 0);
                 mf_comp += 1;
             }
         }
@@ -308,10 +313,10 @@ REMORA::WritePlotFile ()
         for (int i = 0; i < particle_mesh_plot_names.size(); i++) {
             std::string plot_var_name(particle_mesh_plot_names[i]);
             if (containerHasElement(plot_var_names_3d, plot_var_name) ) {
-                MultiFab temp_dat(mf[lev].boxArray(), mf[lev].DistributionMap(), 1, 1);
+                MultiFab temp_dat(plotMF[lev].boxArray(), plotMF[lev].DistributionMap(), 1, 1);
                 temp_dat.setVal(0);
                 particleData.GetMeshPlotVar(plot_var_name, temp_dat, lev);
-                MultiFab::Copy(mf[lev], temp_dat, 0, mf_comp, 1, 0);
+                MultiFab::Copy(plotMF[lev], temp_dat, 0, mf_comp, 1, 0);
                 mf_comp += 1;
             }
         }
@@ -335,6 +340,10 @@ REMORA::WritePlotFile ()
 
     } // lev
 
+    if ( (plotfile_type == PlotfileType::amrex) ||
+         (plotfile_type == PlotfileType::hdf5) )
+    {
+
     std::string plotfilename = Concatenate(plot_file_name, istep[0], file_min_digits);
 
     if (finest_level == 0)
@@ -342,7 +351,7 @@ REMORA::WritePlotFile ()
         if (plotfile_type == PlotfileType::amrex) {
             amrex::Print() << "Writing plotfile " << plotfilename << "\n";
             WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
-                                                  GetVecOfConstPtrs(mf),
+                                                  GetVecOfConstPtrs(plotMF),
                                                   GetVecOfConstPtrs(mf_nd),
                                                   GetVecOfConstPtrs(mf_u),
                                                   GetVecOfConstPtrs(mf_v),
@@ -364,12 +373,10 @@ REMORA::WritePlotFile ()
         } else if (plotfile_type == PlotfileType::hdf5) {
             amrex::Print() << "Writing plotfile " << plotfilename+"d01.h5" << "\n";
             WriteMultiLevelPlotfileHDF5(plotfilename, finest_level+1,
-                                        GetVecOfConstPtrs(mf),
+                                        GetVecOfConstPtrs(plotMF),
                                         varnames_3d,
                                         Geom(), t_new[0], istep, refRatio());
 #endif
-        } else if (!(plotfile_type == PlotfileType::netcdf)) {
-            amrex::Abort("User specified unknown plot_filetype");
         }
 
     } else { // multilevel
@@ -392,7 +399,7 @@ REMORA::WritePlotFile ()
                 mf2[0].define(grids[0], dmap[0], ncomp_mf_3d, 0);
 
                 // Copy level 0 as is
-                MultiFab::Copy(mf2[0],mf[0],0,0,mf[0].nComp(),0);
+                MultiFab::Copy(mf2[0],plotMF[0],0,0,plotMF[0].nComp(),0);
 
                 // Define a new multi-level array of Geometry's so that we pass the new "domain" at lev > 0
                 Array<int,AMREX_SPACEDIM> periodicity =
@@ -430,7 +437,7 @@ REMORA::WritePlotFile ()
                 // Do piecewise interpolation of mf into mf2
                 for (int lev = 1; lev <= finest_level; ++lev) {
                     Interpolater* mapper_c = &pc_interp;
-                    InterpFromCoarseLevel(mf2[lev], t_new[lev], mf[lev],
+                    InterpFromCoarseLevel(mf2[lev], t_new[lev], plotMF[lev],
                                           0, 0, mf2[lev].nComp(),
                                           geom[lev], g2[lev],
                                           null_bc_for_fill, 0, null_bc_for_fill, 0,
@@ -463,7 +470,7 @@ REMORA::WritePlotFile ()
 #endif
             } else {
                 WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
-                                                      GetVecOfConstPtrs(mf),
+                                                      GetVecOfConstPtrs(plotMF),
                                                       GetVecOfConstPtrs(mf_nd),
                                                       GetVecOfConstPtrs(mf_u),
                                                       GetVecOfConstPtrs(mf_v),
@@ -485,6 +492,18 @@ REMORA::WritePlotFile ()
     for (int lev = 0; lev <= finest_level; ++lev) {
         mask_arrays_for_write(lev, 0.0_rt, (Real) fill_value);
     }
+
+    }
+#ifdef REMORA_USE_NETCDF
+    else if (plotfile_type == PlotfileType::netcdf)
+    {
+        // Currently this is hard-coded to plot only level 0
+        AMREX_ASSERT(finest_level == 0);
+        int lev = 0;
+        plotMF[0].FillBoundary(geom[lev].periodicity());
+        WriteNCPlotFile(istep_for_plot,&plotMF[lev]);
+    } // end if plotfile_type == netcdf
+#endif
 }
 
 /**
@@ -530,11 +549,11 @@ REMORA::WritePlotFile ()
 {
     BL_PROFILE("WriteMultiLevelPlotfileWithBathymetry()");
 
-    BL_ASSERT(nlevels <= mf.size());
-    BL_ASSERT(nlevels <= ref_ratio.size()+1);
-    BL_ASSERT(nlevels <= level_steps.size());
+    AMREX_ASSERT(nlevels <= mf.size());
+    AMREX_ASSERT(nlevels <= ref_ratio.size()+1);
+    AMREX_ASSERT(nlevels <= level_steps.size());
 
-    BL_ASSERT(mf[0]->nComp() == varnames_3d.size());
+    AMREX_ASSERT(mf[0]->nComp() == varnames_3d.size());
 
     bool callBarrier(false);
     PreBuildDirectorHierarchy(plotfilename, levelPrefix, nlevels, callBarrier);
@@ -680,76 +699,76 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                  const std::string &levelPrefix,
                                                  const std::string &mfPrefix) const
 {
-        BL_ASSERT(nlevels <= bArray.size());
-        BL_ASSERT(nlevels <= ref_ratio.size()+1);
-        BL_ASSERT(nlevels <= level_steps.size());
+    AMREX_ASSERT(nlevels <= bArray.size());
+    AMREX_ASSERT(nlevels <= ref_ratio.size()+1);
+    AMREX_ASSERT(nlevels <= level_steps.size());
 
-        int num_extra_mfs = 1; // for nodal, which is always on
-        if (plot_staggered_vels) {
-            num_extra_mfs += 3; // for nodal, which is always on
-        }
+    int num_extra_mfs = 1; // for nodal, which is always on
+    if (plot_staggered_vels) {
+        num_extra_mfs += 3; // for nodal, which is always on
+    }
 
-        HeaderFile.precision(17);
+    HeaderFile.precision(17);
 
-        // ---- this is the generic plot file type name
-        HeaderFile << versionName << '\n';
+    // ---- this is the generic plot file type name
+    HeaderFile << versionName << '\n';
 
-        HeaderFile << varnames_3d.size() << '\n';
+    HeaderFile << varnames_3d.size() << '\n';
 
-        for (int ivar = 0; ivar < varnames_3d.size(); ++ivar) {
-            HeaderFile << varnames_3d[ivar] << "\n";
+    for (int ivar = 0; ivar < varnames_3d.size(); ++ivar) {
+        HeaderFile << varnames_3d[ivar] << "\n";
+    }
+    HeaderFile << AMREX_SPACEDIM << '\n';
+    HeaderFile << time << '\n';
+    HeaderFile << finest_level << '\n';
+    for (int i = 0; i < AMREX_SPACEDIM; ++i) {
+        HeaderFile << my_geom[0].ProbLo(i) << ' ';
+    }
+    HeaderFile << '\n';
+    for (int i = 0; i < AMREX_SPACEDIM; ++i) {
+        HeaderFile << my_geom[0].ProbHi(i) << ' ';
+    }
+    HeaderFile << '\n';
+    for (int i = 0; i < finest_level; ++i) {
+        HeaderFile << my_ref_ratio[i][0] << ' ';
         }
-        HeaderFile << AMREX_SPACEDIM << '\n';
-        HeaderFile << time << '\n';
-        HeaderFile << finest_level << '\n';
-        for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-            HeaderFile << my_geom[0].ProbLo(i) << ' ';
-        }
-        HeaderFile << '\n';
-        for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-            HeaderFile << my_geom[0].ProbHi(i) << ' ';
-        }
-        HeaderFile << '\n';
-        for (int i = 0; i < finest_level; ++i) {
-            HeaderFile << my_ref_ratio[i][0] << ' ';
-        }
-        HeaderFile << '\n';
-        for (int i = 0; i <= finest_level; ++i) {
-            HeaderFile << my_geom[i].Domain() << ' ';
-        }
-        HeaderFile << '\n';
-        for (int i = 0; i <= finest_level; ++i) {
+    HeaderFile << '\n';
+    for (int i = 0; i <= finest_level; ++i) {
+        HeaderFile << my_geom[i].Domain() << ' ';
+    }
+    HeaderFile << '\n';
+    for (int i = 0; i <= finest_level; ++i) {
             HeaderFile << level_steps[i] << ' ';
+    }
+    HeaderFile << '\n';
+    for (int i = 0; i <= finest_level; ++i) {
+        for (int k = 0; k < AMREX_SPACEDIM; ++k) {
+            HeaderFile << my_geom[i].CellSize()[k] << ' ';
         }
         HeaderFile << '\n';
-        for (int i = 0; i <= finest_level; ++i) {
-            for (int k = 0; k < AMREX_SPACEDIM; ++k) {
-                HeaderFile << my_geom[i].CellSize()[k] << ' ';
+    }
+    HeaderFile << (int) my_geom[0].Coord() << '\n';
+    HeaderFile << "0\n";
+
+    for (int level = 0; level <= finest_level; ++level) {
+        HeaderFile << level << ' ' << bArray[level].size() << ' ' << time << '\n';
+        HeaderFile << level_steps[level] << '\n';
+
+        const IntVect& domain_lo = my_geom[level].Domain().smallEnd();
+        for (int i = 0; i < bArray[level].size(); ++i)
+        {
+            // Need to shift because the RealBox ctor we call takes the
+            // physical location of index (0,0,0).  This does not affect
+            // the usual cases where the domain index starts with 0.
+            const Box& b = shift(bArray[level][i], -domain_lo);
+            RealBox loc = RealBox(b, my_geom[level].CellSize(), my_geom[level].ProbLo());
+            for (int n = 0; n < AMREX_SPACEDIM; ++n) {
+                HeaderFile << loc.lo(n) << ' ' << loc.hi(n) << '\n';
             }
-            HeaderFile << '\n';
         }
-        HeaderFile << (int) my_geom[0].Coord() << '\n';
-        HeaderFile << "0\n";
 
-        for (int level = 0; level <= finest_level; ++level) {
-            HeaderFile << level << ' ' << bArray[level].size() << ' ' << time << '\n';
-            HeaderFile << level_steps[level] << '\n';
-
-            const IntVect& domain_lo = my_geom[level].Domain().smallEnd();
-            for (int i = 0; i < bArray[level].size(); ++i)
-            {
-                // Need to shift because the RealBox ctor we call takes the
-                // physical location of index (0,0,0).  This does not affect
-                // the usual cases where the domain index starts with 0.
-                const Box& b = shift(bArray[level][i], -domain_lo);
-                RealBox loc = RealBox(b, my_geom[level].CellSize(), my_geom[level].ProbLo());
-                for (int n = 0; n < AMREX_SPACEDIM; ++n) {
-                    HeaderFile << loc.lo(n) << ' ' << loc.hi(n) << '\n';
-                }
-            }
-
-            HeaderFile << MultiFabHeaderPath(level, levelPrefix, mfPrefix) << '\n';
-        }
+        HeaderFile << MultiFabHeaderPath(level, levelPrefix, mfPrefix) << '\n';
+    }
         HeaderFile << num_extra_mfs << "\n";
         HeaderFile << "3" << "\n";
         HeaderFile << "amrexvec_nu_x" << "\n";
@@ -820,7 +839,8 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
  * @param fill_where   value at cells where we will apply the mask. This is necessary because rivers
  */
 void
-REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where) {
+REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
+{
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
         Box gbx1 = mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0));
         Box ubx = mfi.grownnodaltilebox(0,IntVect(NGROW,NGROW,0));
@@ -875,6 +895,6 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where) {
                 yvel(i,j,k) = fill_value;
             }
         });
-    }
+    } // mfi
     Gpu::streamSynchronize();
 }

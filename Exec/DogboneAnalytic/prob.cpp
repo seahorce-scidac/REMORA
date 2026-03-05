@@ -112,8 +112,8 @@ void Problem::init_analytic_prob(
 
                 state(i,j,k,Temp_comp)= (x_r(i,j,0) < 1000._rt) ? 5.0_rt : 10.0_rt;
 
-                // Set scalar = 0 everywhere
-                state(i, j, k, Scalar_comp) = 0.0_rt;
+                // Set tracer = 0 everywhere
+                state(i, j, k, Tracer_comp) = 0.0_rt;
             });
         } else {
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
@@ -126,8 +126,8 @@ void Problem::init_analytic_prob(
 
                 state(i,j,k,Temp_comp)= 10.0_rt;
 
-                // Set scalar = 0 everywhere
-                state(i, j, k, Scalar_comp) = 0.0_rt;
+                // Set tracer = 0 everywhere
+                state(i, j, k, Tracer_comp) = 0.0_rt;
             });
         }
 
