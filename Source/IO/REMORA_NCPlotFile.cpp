@@ -73,6 +73,8 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF) {
 
     bool is_history;
 
+    amrex::Print() << "PLOTMF " << (*plotMF)[0] << std::endl;
+
     if (REMORA::write_history_file) {
         is_history = true;
         bool write_header = !(amrex::FileExists(FullPath));
@@ -630,7 +632,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     if (plotMF->contains_nan(Salt_comp,1) || plotMF->contains_inf(Salt_comp,1)) {
         amrex::Abort("Found while writing output: Salinity contains nan or inf");
     }
-    if (plotMF->contains_nan(Scalar_comp,1) || plotMF->contains_inf(Scalar_comp,1)) {
+    if (plotMF->contains_nan(Tracer_comp,1) || plotMF->contains_inf(Tracer_comp,1)) {
         amrex::Abort("Found while writing output: Passive tracer contains nan or inf");
     }
     if (xvel_new[lev]->contains_nan() || xvel_new[lev]->contains_inf()) {
@@ -1004,7 +1006,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             {
                 FArrayBox tmp_tracer;
                 tmp_tracer.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                tmp_tracer.template copy<RunOn::Device>((*plotMF)[mfi.index()], Scalar_comp, 0, 1);
+                tmp_tracer.template copy<RunOn::Device>((*plotMF)[mfi.index()], Tracer_comp, 0, 1);
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = ncf.var("tracer");

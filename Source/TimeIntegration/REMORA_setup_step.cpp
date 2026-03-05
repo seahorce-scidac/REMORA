@@ -441,8 +441,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
         t3dmix(bx, s_arr, s_arr_rhs, diff2_arr, Hz, pm, pn, msku, mskv, dt_lev, ncomp);
 
-        Array4<Real> const& diff2_arr_scalar = vec_diff2[lev]->array(mfi,Scalar_comp);
-        t3dmix(bx, S_new.array(mfi,Scalar_comp), S_old.array(mfi,Scalar_comp), diff2_arr_scalar, Hz, pm, pn, msku, mskv, dt_lev, 1);
+        Array4<Real> const& diff2_arr_scalar = vec_diff2[lev]->array(mfi,Tracer_comp);
+        t3dmix(bx, S_new.array(mfi,Tracer_comp), S_old.array(mfi,Tracer_comp), diff2_arr_scalar, Hz, pm, pn, msku, mskv, dt_lev, 1);
 
         if (solverChoice.use_coriolis) {
             //-----------------------------------------------------------------------

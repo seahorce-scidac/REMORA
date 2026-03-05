@@ -1,0 +1,9 @@
+Initializing AMReX (26.01-40-gbac24575699e)...
+MPI initialized with 1 MPI processes
+MPI initialized with thread support level 0
+OMP initialized with 8 OMP threads
+AMReX (26.01-40-gbac24575699e) initialized
+
+REMORA git hash: v1.4-58-g4000a48-dirty
+AMReX git hash: 26.01-40-gbac2457569
+

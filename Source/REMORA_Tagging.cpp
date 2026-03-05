@@ -32,7 +32,7 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         // This allows dynamic refinement based on the value of the scalar
         if (ref_tags[j].Field() == "scalar")
         {
-            MultiFab::Copy(*mf,*cons_new[levc],Scalar_comp,0,1,1);
+            MultiFab::Copy(*mf,*cons_new[levc],Tracer_comp,0,1,1);
         } else if (ref_tags[j].Field() == "temp") {
             MultiFab::Copy(*mf,*cons_new[levc],Temp_comp,0,1,1);
         } else if (ref_tags[j].Field() == "salt") {

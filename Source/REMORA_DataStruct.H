@@ -149,7 +149,7 @@ struct SolverChoice {
         // If we aren't doing rivers, set all of these flags to false
         do_rivers_cons[Temp_comp  ] = do_rivers ? do_rivers_temp : false;
         do_rivers_cons[Salt_comp  ] = do_rivers ? do_rivers_salt : false;
-        do_rivers_cons[Scalar_comp] = do_rivers ? do_rivers_scalar : false;
+        do_rivers_cons[Tracer_comp] = do_rivers ? do_rivers_scalar : false;
 
         pp.queryAdd("init_l1ad_h", init_l1ad_h);
         pp.queryAdd("init_l1ad_T", init_l1ad_T);

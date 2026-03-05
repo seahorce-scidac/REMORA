@@ -211,8 +211,8 @@ void Problem::init_analytic_prob(
             const Real rad = 0.1 * (prob_hi[0]-prob_lo[0]);
             const Real radsq = rad*rad;
 
-            // Set scalar = 0 everywhere
-            state(i, j, k, Scalar_comp) = std::exp(-r2/(2.*radsq));
+            // Set tracer = 0 everywhere
+            state(i, j, k, Tracer_comp) = std::exp(-r2/(2.*radsq));
         });
 
         const Box& xbx = surroundingNodes(bx,0);
@@ -262,7 +262,7 @@ void Problem::init_analytic_vmix(
 
         Akt(i,j,k,Temp_comp) = 0.0; // 1.0e-6_rt;
         Akt(i,j,k,Salt_comp) = 0.0; // 1.0e-6_rt;
-        Akt(i,j,k,Scalar_comp) = 0.0_rt;
+        Akt(i,j,k,Tracer_comp) = 0.0_rt;
       });
     }
 }

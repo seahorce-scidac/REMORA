@@ -48,7 +48,7 @@ REMORA::sum_integrated_quantities(Real time)
         const int icomp = 0;
         Real max_vel_local = std::sqrt(2.0_rt * kineng_mf.max(icomp));
 
-        scalar += volWgtSumMF(lev,*cons_new[lev],Scalar_comp,false,true);
+        scalar += volWgtSumMF(lev,*cons_new[lev],Tracer_comp,false,true);
         kineng += volWgtSumMF(lev,kineng_mf     ,             0,false,true);
         volume += volWgtSumMF(lev,ones_mf       ,             0,false,true);
         max_vel = std::max(max_vel, max_vel_local);

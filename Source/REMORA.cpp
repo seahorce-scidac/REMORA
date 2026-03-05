@@ -926,9 +926,9 @@ REMORA::init_only (int lev, Real time)
             river_source_cons[Temp_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz);
             river_source_cons[Temp_comp]->Initialize();
         }
-        if (solverChoice.do_rivers_cons[Scalar_comp]) {
-            river_source_cons[Scalar_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz);
-            river_source_cons[Scalar_comp]->Initialize();
+        if (solverChoice.do_rivers_cons[Tracer_comp]) {
+            river_source_cons[Tracer_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz);
+            river_source_cons[Tracer_comp]->Initialize();
         }
         river_source_transport = new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz);
         river_source_transport->Initialize();

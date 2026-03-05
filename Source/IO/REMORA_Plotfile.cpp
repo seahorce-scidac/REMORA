@@ -201,7 +201,7 @@ REMORA::WritePlotFile (int istep_for_plot)
         for (int i = 0; i < NCONS; ++i) {
             if (containerHasElement(plot_var_names_3d, cons_names[i])) {
                 if (cons_new[lev]->contains_nan() || cons_new[lev]->contains_inf()) {
-                    amrex::Abort("Found while writing output: Cons (salt, temp, or scalar, etc) contains nan or inf");
+                    amrex::Abort("Found while writing output: Cons (salt, temp, or tracer, etc) contains nan or inf");
                 }
                 MultiFab::Copy(plotMF[lev],*cons_new[lev],i,mf_comp,1,ngrow_vars);
                 mf_comp++;

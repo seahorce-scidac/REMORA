@@ -228,7 +228,7 @@ public:
     /** \brief default prefix for input file parameters */
     std::string pp_prefix {"remora"};
 
-    /** \brief multilevel data container for last step's scalar data: temperature, salinity, passive scalar  */
+    /** \brief multilevel data container for last step's scalar data: temperature, salinity, passive tracer  */
     amrex::Vector<amrex::MultiFab*> cons_old;
     /** \brief multilevel data container for last step's x velocities (u in ROMS) */
     amrex::Vector<amrex::MultiFab*> xvel_old;
@@ -237,7 +237,7 @@ public:
     /** \brief multilevel data container for last step's z velocities (largely unused; W stored separately) */
     amrex::Vector<amrex::MultiFab*> zvel_old;
 
-    /** \brief multilevel data container for current step's scalar data: temperature, salinity, passive scalar  */
+    /** \brief multilevel data container for current step's scalar data: temperature, salinity, passive tracer  */
     amrex::Vector<amrex::MultiFab*> cons_new;
     /** \brief multilevel data container for current step's x velocities (u in ROMS) */
     amrex::Vector<amrex::MultiFab*> xvel_new;
@@ -1327,7 +1327,7 @@ private:
     /** \brief Names of 2D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_2d;
     /** \brief Names of scalars for plotfile output */
-    const amrex::Vector<std::string>     cons_names {"temp", "salt", "scalar"};
+    const amrex::Vector<std::string>     cons_names {"temp", "salt", "tracer"};
     // Note that the order of variable names here must match the order in PlotFile.cpp
     /** \brief Names of derived fields for plotfiles */
     const amrex::Vector<std::string> derived_names {"vorticity"};
