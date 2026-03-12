@@ -329,8 +329,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 #ifdef REMORA_USE_NETCDF
     // Get u and v climatology if we're going to do nudging
     if (solverChoice.do_m3_clim_nudg) {
-        u_clim_data_from_file->update_interpolated_to_time(t_new[lev]);
-        v_clim_data_from_file->update_interpolated_to_time(t_new[lev]);
+        u_clim_data_from_file->update_interpolated_to_time(t_new[lev], lev, xvel_new[lev], geom, ref_ratio);
+        v_clim_data_from_file->update_interpolated_to_time(t_new[lev], lev, yvel_new[lev], geom, ref_ratio);
     }
 #endif
 
@@ -456,8 +456,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_m3_clim_nudg) {
-            Array4<const Real> const& uclim = u_clim_data_from_file->mf_interpolated->const_array(mfi);
-            Array4<const Real> const& vclim = v_clim_data_from_file->mf_interpolated->const_array(mfi);
+            Array4<const Real> const& uclim = u_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
+            Array4<const Real> const& vclim = v_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
             Array4<const Real> const& u_nudg_coeff = vec_nudg_coeff[BdyVars::u][lev]->const_array(mfi);
             Array4<const Real> const& v_nudg_coeff = vec_nudg_coeff[BdyVars::v][lev]->const_array(mfi);
             // These boxes are set to match ROMS

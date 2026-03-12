@@ -1,6 +1,8 @@
 #include "REMORA_NCTimeSeries.H"
 #include "REMORA_NCFile.H"
 
+#include "AMReX_FillPatchUtil.H"
+#include "AMReX_Interpolater.H"
 #include "AMReX_ParallelDescriptor.H"
 
 #include <string>
@@ -79,12 +81,10 @@ void NCTimeSeries::Initialize() {
     amrex::ParallelDescriptor::Bcast(ocean_times.data(), ocean_times.size(), ioproc);
 
     // Initialize MultiFabs
-    // This assumes that the level 0 distribution map and box array won't
+    // NetCDF data is always read and temporally interpolated on level 0.
     mf_before = new amrex::MultiFab(mf_var->boxArray(), mf_var->DistributionMap(), 1, mf_var->nGrowVect());
     mf_after = new amrex::MultiFab(mf_var->boxArray(), mf_var->DistributionMap(), 1, mf_var->nGrowVect());
-    if (save_interpolated) {
-        mf_interpolated = new amrex::MultiFab(mf_var->boxArray(), mf_var->DistributionMap(), 1, mf_var->nGrowVect());
-    }
+    mf_interp_lev0 = new amrex::MultiFab(mf_var->boxArray(), mf_var->DistributionMap(), 1, mf_var->nGrowVect());
 
     // dummy initialization
     i_time_before = -100;
@@ -93,7 +93,10 @@ void NCTimeSeries::Initialize() {
 /**
  * @param time   time to interpolate to
  */
-void NCTimeSeries::update_interpolated_to_time (amrex::Real time) {
+void NCTimeSeries::update_interpolated_to_time (amrex::Real time, int lev,
+                                                amrex::MultiFab* mf_lev,
+                                                const amrex::Vector<amrex::Geometry>& geom,
+                                                const amrex::Vector<amrex::IntVect>& ref_ratio) {
     // Figure out time index:
     AMREX_ASSERT(time >= ocean_times[0]);
     AMREX_ASSERT(time <= ocean_times[ocean_times.size()-1]);
@@ -119,20 +122,19 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time) {
 
     amrex::Real dt = time_after - time_before;
 
-    auto nodality = mf_var->ixType();
+    auto nodality = mf_interp_lev0->ixType();
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
-    for (amrex::MFIter mfi(*mf_var,true); mfi.isValid(); ++mfi) {
+    for (amrex::MFIter mfi(*mf_interp_lev0,true); mfi.isValid(); ++mfi) {
         // Adjust box to match ROMS grid
         amrex::Box bx = mfi.growntilebox(amrex::IntVect(1-nodality[0],1-nodality[1],0));
 
         amrex::Real time_before_copy = time_before;
 
-        // If we're saving the interpolated values, we fill mf_interpolated; otherwise, directly fill
-        // the multifab from the REMORA class
-        amrex::MultiFab* mf_to_fill = save_interpolated ? mf_interpolated : mf_var;
+        // Temporal interpolation is done once on level 0.
+        amrex::MultiFab* mf_to_fill = mf_interp_lev0;
         amrex::Array4<amrex::Real> to_fill = mf_to_fill->array(mfi);
         amrex::Array4<const amrex::Real> before = mf_before->const_array(mfi);
         amrex::Array4<const amrex::Real> after  = mf_after->const_array(mfi);
@@ -141,6 +143,69 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time) {
             to_fill(i,j,k) = before(i,j,k) + (time - time_before_copy) * (after(i,j,k) - before(i,j,k)) / dt;
         });
     }
+
+    amrex::MultiFab* mf_to_fill_lev = mf_lev;
+    if (save_interpolated) {
+        if (mf_interpolated_lev.size() <= static_cast<std::size_t>(lev)) {
+            mf_interpolated_lev.resize(lev+1);
+        }
+        if (!mf_interpolated_lev[lev] ||
+            mf_interpolated_lev[lev]->boxArray() != mf_lev->boxArray() ||
+            mf_interpolated_lev[lev]->nGrowVect() != mf_lev->nGrowVect()) {
+            mf_interpolated_lev[lev] = std::make_unique<amrex::MultiFab>(
+                mf_lev->boxArray(), mf_lev->DistributionMap(), 1, mf_lev->nGrowVect());
+        }
+        mf_to_fill_lev = mf_interpolated_lev[lev].get();
+    }
+
+    if (lev == 0) {
+        amrex::MultiFab::Copy(*mf_to_fill_lev, *mf_interp_lev0, 0, 0, 1, mf_to_fill_lev->nGrowVect());
+        return;
+    }
+
+    amrex::PhysBCFunctNoOp null_bc_for_fill;
+    amrex::Vector<amrex::BCRec> null_dom_bcs(1);
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        null_dom_bcs[0].setLo(dir, amrex::BCType::int_dir);
+        null_dom_bcs[0].setHi(dir, amrex::BCType::int_dir);
+    }
+
+    amrex::Interpolater* mapper = nullptr;
+    const auto& idx_type = mf_to_fill_lev->ixType();
+    if (idx_type == amrex::IndexType(amrex::IntVect(0,0,0))) {
+        mapper = &amrex::cell_cons_interp;
+    } else {
+        mapper = &amrex::face_cons_linear_interp;
+    }
+
+    amrex::InterpFromCoarseLevel(*mf_to_fill_lev, amrex::Real(0.0), *mf_interp_lev0,
+                                 0, 0, 1,
+                                 geom[0], geom[lev],
+                                 null_bc_for_fill, 0, null_bc_for_fill, 0,
+                                 cumulative_ref_ratio(lev, ref_ratio),
+                                 mapper, null_dom_bcs, 0);
+
+    mf_to_fill_lev->FillBoundary(geom[lev].periodicity());
+}
+
+amrex::IntVect
+NCTimeSeries::cumulative_ref_ratio (int lev,
+                                    const amrex::Vector<amrex::IntVect>& ref_ratio) const {
+    amrex::IntVect rr(1,1,1);
+    for (int l = 0; l < lev; ++l) {
+        rr[0] *= ref_ratio[l][0];
+        rr[1] *= ref_ratio[l][1];
+        rr[2] *= ref_ratio[l][2];
+    }
+    return rr;
+}
+
+const amrex::MultiFab*
+NCTimeSeries::get_interpolated_mf (int lev) const {
+    AMREX_ALWAYS_ASSERT(save_interpolated);
+    AMREX_ALWAYS_ASSERT(lev < static_cast<int>(mf_interpolated_lev.size()));
+    AMREX_ALWAYS_ASSERT(mf_interpolated_lev[lev]);
+    return mf_interpolated_lev[lev].get();
 }
 
 /**
