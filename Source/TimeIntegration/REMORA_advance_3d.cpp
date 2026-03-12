@@ -454,13 +454,13 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_temp_clim_nudg) {
-        temp_clim_data_from_file->update_interpolated_to_time(t_old[lev]);
+        temp_clim_data_from_file->update_interpolated_to_time(t_old[lev], lev, cons_new[lev], geom, ref_ratio);
 
         for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Box bx = mfi.growntilebox(IntVect(1,1,0));
             Array4<const Real> const& temp_nudg_coeff = vec_nudg_coeff[BdyVars::t][lev]->const_array(mfi);
-            Array4<const Real> const& temp_clim = temp_clim_data_from_file->mf_interpolated->const_array(mfi);
+            Array4<const Real> const& temp_clim = temp_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
             Array4<      Real> const& temp = cons_new[lev]->array(mfi, Temp_comp);
             Array4<const Real> const& Hz   = vec_Hz[lev]->const_array(mfi);
             Array4<const Real> const& pm   = vec_pm[lev]->const_array(mfi);
@@ -470,13 +470,13 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         }
     }
     if (solverChoice.do_salt_clim_nudg) {
-        salt_clim_data_from_file->update_interpolated_to_time(t_old[lev]);
+        salt_clim_data_from_file->update_interpolated_to_time(t_old[lev], lev, cons_new[lev], geom, ref_ratio);
 
         for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Box bx = mfi.growntilebox(IntVect(1,1,0));
             Array4<const Real> const& salt_nudg_coeff = vec_nudg_coeff[BdyVars::s][lev]->const_array(mfi);
-            Array4<const Real> const& salt_clim = salt_clim_data_from_file->mf_interpolated->const_array(mfi);
+            Array4<const Real> const& salt_clim = salt_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
             Array4<      Real> const& salt = cons_new[lev]->array(mfi, Salt_comp);
             Array4<const Real> const& Hz   = vec_Hz[lev]->const_array(mfi);
             Array4<const Real> const& pm   = vec_pm[lev]->const_array(mfi);
