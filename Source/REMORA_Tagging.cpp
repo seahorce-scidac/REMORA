@@ -190,9 +190,10 @@ REMORA::refinement_criteria_setup ()
                     Box bx_old(IntVect(ilo,jlo,klo),IntVect(ihi,jhi,khi));
 
                     int mod_ilo = ilo%ref_ratio[lev_for_box-1][0];
+                    int mod_jlo = jlo%ref_ratio[lev_for_box-1][1];
+
                     int mod_ihi = (ihi+1)%ref_ratio[lev_for_box-1][0];
-                    int mod_jlo = jlo%ref_ratio[lev_for_box-1][0];
-                    int mod_jhi = (jhi+1)%ref_ratio[lev_for_box-1][0];
+                    int mod_jhi = (jhi+1)%ref_ratio[lev_for_box-1][1];
 
                     if (mod_ilo != 0) {
                         ilo -= mod_ilo;
