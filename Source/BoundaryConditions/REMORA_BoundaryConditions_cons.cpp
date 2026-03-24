@@ -261,7 +261,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
         if (bx_zlo.ok()) {
             ParallelFor(bx_zlo & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-                int kflip = dom_lo.z - 1 - i;
+                int kflip = dom_lo.z - 1 - k;
                 if (bc_ptr[n].lo(2) == REMORABCType::foextrap) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,j,dom_lo.z,icomp+n);
                 } else if (bc_ptr[n].lo(2) == REMORABCType::reflect_even) {
@@ -275,7 +275,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
         if (bx_zlo.ok()) {
             ParallelFor(bx_zhi & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
-                int kflip =  2*dom_hi.z + 1 - i;
+                int kflip =  2*dom_hi.z + 1 - k;
                 if (bc_ptr[n].hi(2) == REMORABCType::foextrap) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,j,dom_hi.z,icomp+n);
                 } else if (bc_ptr[n].hi(2) == REMORABCType::reflect_even) {
