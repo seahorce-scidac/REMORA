@@ -77,6 +77,44 @@ will be refined by a single factor 3 refinement.
           remora.box2.max_level = 1
 
 
+We note that instead of specifying the physical extent enclosed, we can instead specify the indices of
+the bounding box of the refined region in the index space of that fine level.
+To do this we use
+``in_box_lo_indices`` and ``in_box_hi_indices`` instead of ``in_box_lo`` and ``in_box_hi``.
+If we want to refine the inner region (spanning half the width in each direction) by one level of
+factor 2 refinement, and the domain has 32x64x8 cells at level 0 covering the domain, then we would set
+
+::
+
+          amr.max_level = 1
+          amr.ref_ratio = 2 2 2
+
+          remora.refinement_indicators = box1
+
+          remora.box1.in_box_lo_indices = 16 32  4
+          remora.box1.in_box_hi_indices = 47 95 11
+          remora.box1.max_level = 1
+
+There is also an option to specify the indices of the bounding box of the refined region in the index space of the coarser level, using
+``in_box_lo_indices_crse`` and ``in_box_hi_indices_crse``.  This is useful when the user has a particular region in mind that they want to refine,
+and they know the indices of that region on the coarser level but not on the finer level.  In this case, the code will automatically adjust the
+indices to create a valid box at the finer level.
+
+::
+
+          amr.max_level = 1
+          amr.ref_ratio = 2 2 2
+
+          remora.refinement_indicators = box1
+
+          remora.box1.in_box_lo_indices_crse = 16 32  4
+          remora.box1.in_box_hi_indices_crse = 47 95 11
+          remora.box1.max_level = 1
+
+
+The lo_indices should be divisible by the refinement ratio, and the hi_indices should be one less than a number divisible by the refinement ratio.
+There are no such requirements for the coarse level indices, since the code will adjust them as needed to create a valid box at the finer level.
+
 Dynamic Mesh Refinement
 -----------------------
 
