@@ -85,7 +85,7 @@ Other versions of NetCDF files can be converted to 64-bit NetCDF classic by runn
 
     ncks -5 old_file.nc converted_file.nc
 
-The utility ``ncks`` is part of the NCO (https://nco.sourceforge.net) suite.
+The utility ``ncks`` is part of the NCO suite.
 
 Currently, if initial or grid files are specified, they both must be. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
 
