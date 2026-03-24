@@ -140,10 +140,33 @@ REMORA::refinement_criteria_setup ()
             ParmParse ppr(ref_prefix);
             RealBox realbox;
             int lev_for_box;
-            if (ppr.countval("in_box_lo")) {
+
+            int num_real_lo      = ppr.countval("in_box_lo");
+            int num_indx_lo      = ppr.countval("in_box_lo_indices");
+            int num_indx_lo_crse = ppr.countval("in_box_lo_indices_crse");
+
+            int num_real_hi      = ppr.countval("in_box_hi");
+            int num_indx_hi      = ppr.countval("in_box_hi_indices");
+            int num_indx_hi_crse = ppr.countval("in_box_hi_indices_crse");
+
+            AMREX_ALWAYS_ASSERT( (num_real_lo      == num_real_hi)      && (num_real_lo      == 0 || num_real_lo      >= 2) );
+            AMREX_ALWAYS_ASSERT( (num_indx_lo      == num_indx_hi)      && (num_indx_lo      == 0 || num_indx_lo      >= 2) );
+            AMREX_ALWAYS_ASSERT( (num_indx_lo_crse == num_indx_hi_crse) && (num_indx_lo_crse == 0 || num_indx_lo_crse >= 2) );
+
+            // Problem low and high (in real not index space) are the same at all levels
+            if ( !((num_real_lo >= AMREX_SPACEDIM-1 && num_indx_lo == 0 && num_indx_lo_crse == 0) ||
+                   (num_indx_lo >= AMREX_SPACEDIM-1 && num_real_lo == 0 && num_indx_lo_crse == 0) ||
+                   (num_indx_lo ==              0   && num_real_lo == 0 && num_indx_lo_crse == 0) ||
+                   (num_indx_lo_crse >= AMREX_SPACEDIM-1 && num_real_lo == 0 && num_indx_lo == 0)
+                ) )
+            {
+                amrex::Abort("Must only specify box for refinement using real OR index space with fine/coarse grid indices");
+            }
+
+            if (num_real_lo > 0) {
                 std::vector<Real> box_lo(3), box_hi(3);
                 ppr.get("max_level",lev_for_box);
-                if (lev_for_box <= max_level)
+                if (lev_for_box > 0 && lev_for_box <= max_level)
                 {
                     ppr.getarr("in_box_lo",box_lo,0,2);
                     ppr.getarr("in_box_hi",box_hi,0,2);
@@ -156,17 +179,22 @@ REMORA::refinement_criteria_setup ()
 
                     const auto* dx  = geom[lev_for_box].CellSize();
                     const Real* plo = geom[lev_for_box].ProbLo();
+
                     int ilo = static_cast<int>((box_lo[0] - plo[0])/dx[0]);
                     int jlo = static_cast<int>((box_lo[1] - plo[1])/dx[1]);
                     int klo = static_cast<int>((box_lo[2] - plo[2])/dx[2]);
                     int ihi = static_cast<int>((box_hi[0] - plo[0])/dx[0]-1);
                     int jhi = static_cast<int>((box_hi[1] - plo[1])/dx[1]-1);
                     int khi = static_cast<int>((box_hi[2] - plo[2])/dx[2]-1);
+
                     Box bx_old(IntVect(ilo,jlo,klo),IntVect(ihi,jhi,khi));
+
                     int mod_ilo = ilo%ref_ratio[lev_for_box-1][0];
+                    int mod_jlo = jlo%ref_ratio[lev_for_box-1][1];
+
                     int mod_ihi = (ihi+1)%ref_ratio[lev_for_box-1][0];
-                    int mod_jlo = jlo%ref_ratio[lev_for_box-1][0];
-                    int mod_jhi = (jhi+1)%ref_ratio[lev_for_box-1][0];
+                    int mod_jhi = (jhi+1)%ref_ratio[lev_for_box-1][1];
+
                     if (mod_ilo != 0) {
                         ilo -= mod_ilo;
                     }
@@ -185,6 +213,125 @@ REMORA::refinement_criteria_setup ()
                     }
                     boxes_at_level[lev_for_box].push_back(bx);
                     amrex::Print() << "Saving in 'boxes at level' as " << bx << std::endl;
+                } // lev
+
+            } else if (num_indx_lo > 0) {
+
+                std::vector<int> box_lo(3), box_hi(3);
+                ppr.get("max_level",lev_for_box);
+                if (lev_for_box > 0 && lev_for_box <= max_level)
+                {
+                    if (n_error_buf[0] != IntVect::TheZeroVector()) {
+                        amrex::Abort("Don't use n_error_buf > 0 when setting the box explicitly");
+                    }
+
+                    ppr.getarr("in_box_lo_indices",box_lo,0,num_indx_lo);
+                    ppr.getarr("in_box_hi_indices",box_hi,0,num_indx_hi);
+
+                    if (num_indx_lo < AMREX_SPACEDIM) {
+                        box_lo[2] = geom[lev_for_box].Domain().smallEnd(2);
+                        box_hi[2] = geom[lev_for_box].Domain().bigEnd(2);
+                    }
+
+                    Box bx(IntVect(box_lo[0],box_lo[1],box_lo[2]),IntVect(box_hi[0],box_hi[1],box_hi[2]));
+                    const Box& domain = geom[lev_for_box].Domain();
+
+                    if (!domain.contains(bx)) {
+                        amrex::Print() << "\n";
+                        amrex::Print() << "Box specified       is " << bx << std::endl;
+                        amrex::Print() << "But domain at level is " << domain << std::endl;
+                        amrex::Error("Specified box doesn't fit in the domain");
+                    }
+
+                    const auto* dx  = geom[lev_for_box].CellSize();
+                    const Real* plo = geom[lev_for_box].ProbLo();
+                    realbox = RealBox(plo[0]+ box_lo[0]   *dx[0], plo[1]+ box_lo[1]   *dx[1], plo[2]+ box_lo[2]   *dx[2],
+                                      plo[0]+(box_hi[0]+1)*dx[0], plo[1]+(box_hi[1]+1)*dx[1], plo[2]+(box_hi[2]+1)*dx[2]);
+
+                    Print() << "Reading " << bx << " at level " << lev_for_box << std::endl;
+                    num_boxes_at_level[lev_for_box] += 1;
+
+                    if(box_lo[0]%ref_ratio[lev_for_box-1][0] != 0){
+                        amrex::Print()<< "Requested ilo in x-direction : " << box_lo[0] << std::endl;
+                        amrex::Print() << "ilo = " << box_lo[0] << " is not divisible by ref_ratio in x direction = " <<
+                                          ref_ratio[lev_for_box-1][0] << std::endl;
+                        amrex::Error("Adjust in_box_lo_indices in x-direction to be divisible by ref_ratio and try again");
+                    }
+                    if((box_hi[0]+1)%ref_ratio[lev_for_box-1][0] != 0){
+                        amrex::Print()<< "Requested ihi in x-direction : " << box_hi[0] << std::endl;
+                        amrex::Print() << "ihi+1 = " << box_hi[0]+1 << " is not divisible by ref_ratio in x direction = " <<
+                                          ref_ratio[lev_for_box-1][0] << std::endl;
+                        amrex::Error("Adjust in_box_hi_indices in x-direction to be divisible by ref_ratio and try again");
+                    }
+                     if(box_lo[1]%ref_ratio[lev_for_box-1][1] != 0){
+                        amrex::Print()<< "Requested jlo in y-direction : " << box_lo[1] << std::endl;
+                        amrex::Print() << "jlo = " << box_lo[1] << " is not divisible by ref_ratio in y direction = " <<
+                                          ref_ratio[lev_for_box-1][1] << std::endl;
+                        amrex::Error("Adjust in_box_lo_indices in y-direction to be divisible by ref_ratio and try again");
+                    }
+                    if((box_hi[1]+1)%ref_ratio[lev_for_box-1][1] != 0){
+                        amrex::Print()<< "Requested jhi in y-direction : " << box_hi[1] << std::endl;
+                        amrex::Print() << "jhi+1 = " << box_hi[1]+1 << " is not divisible by ref_ratio in y direction = " <<
+                                          ref_ratio[lev_for_box-1][1] << std::endl;
+                        amrex::Error("Adjust in_box_hi_indices in y-direction to be divisible by ref_ratio and try again");
+                    }
+                    if(box_lo[2]%ref_ratio[lev_for_box-1][2] != 0){
+                        amrex::Print()<< "Requested klo in z-direction : " << box_lo[2] << std::endl;
+                        amrex::Print() << "klo = " << box_lo[2] << " is not   divisible by ref_ratio in z direction = " <<
+                                          ref_ratio[lev_for_box-1][2] << std::endl;
+                        amrex::Error("Adjust in_box_lo_indices in z-direction to be divisible by ref_ratio and try again");
+                    }
+                    if((box_hi[2]+1)%ref_ratio[lev_for_box-1][2] != 0){
+                        amrex::Print()<< "Requested khi in z-direction : " << box_hi[2] << std::endl;
+                        amrex::Print() << "khi+1 = " << box_hi[2]+1 << " is not divisible by ref_ratio in z direction = " <<
+                                          ref_ratio[lev_for_box-1][2] << std::endl;
+                        amrex::Error("Adjust in_box_hi_indices in z-direction to be divisible by ref_ratio and try again");
+                    }
+
+                    boxes_at_level[lev_for_box].push_back(bx);
+                    Print() << "Saving in 'boxes at level' as " << bx << std::endl;
+                } // lev
+
+            } else if (num_indx_lo_crse > 0) {
+
+                std::vector<int> box_lo(3), box_hi(3);
+                ppr.get("max_level",lev_for_box);
+                if (lev_for_box > 0 && lev_for_box <= max_level)
+                {
+                    if (n_error_buf[0] != IntVect::TheZeroVector()) {
+                        amrex::Abort("Don't use n_error_buf > 0 when setting the box explicitly");
+                    }
+
+                    ppr.getarr("in_box_lo_indices_crse",box_lo,0,num_indx_lo_crse);
+                    ppr.getarr("in_box_hi_indices_crse",box_hi,0,num_indx_hi_crse);
+
+                    if (num_indx_lo_crse < AMREX_SPACEDIM) {
+                        box_lo[2] = geom[lev_for_box-1].Domain().smallEnd(2);
+                        box_hi[2] = geom[lev_for_box-1].Domain().bigEnd(2);
+                    }
+
+                    Box bx(IntVect(box_lo[0],box_lo[1],box_lo[2]),IntVect(box_hi[0],box_hi[1],box_hi[2]));
+
+                    if (!geom[lev_for_box-1].Domain().contains(bx)) {
+                        amrex::Print() << "\n";
+                        amrex::Print() << "(Coarse) Box specified       is " << bx << std::endl;
+                        amrex::Print() << "But (coarse) domain at level is " << geom[lev_for_box-1].Domain() << std::endl;
+                        amrex::Error("Specified box doesn't fit in the domain");
+                    }
+
+                    bx.refine(ref_ratio[lev_for_box-1]);
+
+                    const auto* dx  = geom[lev_for_box-1].CellSize();
+
+                    const Real* plo = geom[lev_for_box].ProbLo();
+                    realbox = RealBox(plo[0]+ box_lo[0]   *dx[0], plo[1]+ box_lo[1]   *dx[1], plo[2]+ box_lo[2]   *dx[2],
+                                      plo[0]+(box_hi[0]+1)*dx[0], plo[1]+(box_hi[1]+1)*dx[1], plo[2]+(box_hi[2]+1)*dx[2]);
+
+                    Print() << "Reading " << bx << " at level " << lev_for_box << std::endl;
+                    num_boxes_at_level[lev_for_box] += 1;
+
+                    boxes_at_level[lev_for_box].push_back(bx);
+                    Print() << "Saving in 'boxes at level' as " << bx << std::endl;
                 } // lev
             }
 
