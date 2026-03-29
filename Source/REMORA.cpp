@@ -133,10 +133,10 @@ REMORA::REMORA ()
 
        if (ref_ratio[lev][2] != 1)
        {
-           amrex::Print() << "**********************************************************************************" << std::endl;
-           amrex::Print() << "We don't allow refinement in the vertical -- make sure to set ref_ratio = 1 in z  " << std::endl;
-           amrex::Print() << "It's possible you set remora.ref_ratio when you meant to set remora.ref_ratio_vect" << std::endl;
-           amrex::Print() << "**********************************************************************************" << std::endl;
+           amrex::Print() << "********************************************************************************" << std::endl;
+           amrex::Print() << "We don't allow refinement in the vertical -- make sure to set ref_ratio = 1 in z" << std::endl;
+           amrex::Print() << "It's possible you set amr.ref_ratio when you meant to set amr.ref_ratio_vect    " << std::endl;
+           amrex::Print() << "********************************************************************************" << std::endl;
            amrex::Abort();
        }
     }
