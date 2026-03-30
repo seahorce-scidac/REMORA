@@ -965,6 +965,21 @@ List of Bulk Fluxes parameters
 |                                  |                                        |                   |                |
 |                                  | (spatially varying)                    |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.longwave_down**         | Use file-provided downward longwave    | true / false      | false          |
+|                                  | radiation to compute net longwave      |                   |                |
+|                                  | (``Lnet = Ldown - sigma*epsilon*T^4``) |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.longwave_down_from_netcdf** | Load longwave field from NetCDF    | true / false      | false          |
+|                                  | file (spatially varying)               |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.longwave_netcdf_is_net**| Interpret the NetCDF longwave field    | true / false      | false          |
+|                                  | as net longwave (use as-is). If false, |                   |                |
+|                                  | interpret as downward longwave and     |                   |                |
+|                                  | compute net in the bulk flux routine   |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.longwave_netcdf_varname** | Name of the NetCDF longwave variable | String            | ``lwrad``      |
+|                                  | in ``remora.nc_frc_file``              |                   |                |
++----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.blk_ZQ**                | Height [m] of atmospheric              | Real number       | 10.0           |
 |                                  |                                        |                   |                |
 |                                  | humidity memasurements for             |                   |                |
@@ -1026,13 +1041,21 @@ List of Bulk Fluxes parameters
 
    When loading atmospheric forcing variables from NetCDF files (by setting
    **Tair_from_netcdf**, **qair_from_netcdf**, **Pair_from_netcdf**,
-   **srflx_from_netcdf**, **rain_from_netcdf**, **cloud_from_netcdf**, or
-   **EminusP_from_netcdf** to true), these variables are read from the file
+   **srflx_from_netcdf**, **longwave_down_from_netcdf**,
+   **rain_from_netcdf**, **cloud_from_netcdf**, or **EminusP_from_netcdf**
+   to true), these variables are read from the file
    specified by **remora.nc_frc_file** (see :ref:`list-of-parameters surface-forcing`).
    The NetCDF file must contain variables named ``Tair``, ``qair``, ``Pair``,
    ``swrad``, ``rain``, ``cloud``, and ``EminusP`` respectively, with the same
    spatial dimensions as the model grid.
    Time interpolation is performed automatically based on the simulation time.
+
+   For longwave forcing, the variable name is controlled by
+   **remora.longwave_netcdf_varname** (default ``lwrad``).
+   If **remora.longwave_netcdf_is_net** is true, that variable is treated as
+   net longwave radiation and used directly. If false, it is treated as
+   downward longwave radiation and net longwave is computed in the bulk-flux
+   routine using sea-surface temperature and emissivity.
 
    The **qair_is_percent** flag should be set to true if the relative humidity
    in the NetCDF file is stored as a percentage (0-100) rather than as a

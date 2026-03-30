@@ -909,7 +909,8 @@ REMORA::init_only (int lev, Real time)
         if (nc_frc_file.empty()) {
             amrex::Error("NetCDF forcing file name must be provided via input for longwave radiation");
         }
-        longwave_down_data_from_file = new NCTimeSeries(nc_frc_file, "longwave_down", frc_time_varname, geom[lev].Domain(), vec_longwave_down[lev].get(), true, false);
+            longwave_down_data_from_file = new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
+                                                            geom[lev].Domain(), vec_longwave_down[lev].get(), true, false);
         longwave_down_data_from_file->Initialize();
     }
 

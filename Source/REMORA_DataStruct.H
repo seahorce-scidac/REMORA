@@ -193,6 +193,8 @@ struct SolverChoice {
         pp.queryAdd("srflx_from_netcdf",srflx_from_netcdf);
         pp.queryAdd("longwave_down", longwave_down);
         pp.queryAdd("longwave_down_from_netcdf",longwave_down_from_netcdf);
+        pp.queryAdd("longwave_netcdf_is_net", longwave_netcdf_is_net);
+        pp.queryAdd("longwave_netcdf_varname", longwave_netcdf_varname);
         pp.queryAdd("cloud",cloud);
         pp.queryAdd("rain",rain);
         pp.queryAdd("blk_ZQ",blk_ZQ);
@@ -208,6 +210,16 @@ struct SolverChoice {
         pp.queryAdd("rain_from_netcdf",rain_from_netcdf);
         pp.queryAdd("cloud_from_netcdf",cloud_from_netcdf);
         pp.queryAdd("EminusP_from_netcdf",EminusP_from_netcdf);
+
+        if (longwave_netcdf_is_net) {
+            // If user provides net longwave from NetCDF, force use of file-based longwave.
+            longwave_down = true;
+            longwave_down_from_netcdf = true;
+        }
+
+        if (!longwave_down_from_netcdf && longwave_netcdf_varname != "lwrad") {
+            amrex::Warning("remora.longwave_netcdf_varname is set but remora.longwave_down_from_netcdf is false; the value will be ignored.");
+        }
 
         if (eminusp_correct_ssh and !eminusp) {
             amrex::Abort("If evaporation minus precipitation (E-P) sea surface height correct in is on, E-P must be on as well (remora.eminusp=true)");
@@ -575,10 +587,12 @@ struct SolverChoice {
     bool        Pair_from_netcdf      = false;
     bool        srflx_from_netcdf     = false;
     bool        longwave_down_from_netcdf          = false;
+    bool        longwave_netcdf_is_net = false;
     bool        rain_from_netcdf      = false;
     bool        cloud_from_netcdf     = false;
     bool        EminusP_from_netcdf   = false;
     bool        qair_is_percent       = false;
+    std::string longwave_netcdf_varname = "lwrad";
 
 
     bool        do_rivers             = false;
