@@ -74,6 +74,8 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Real blk_ZW = solverChoice.blk_ZW;
 
         bool use_longwave_down = solverChoice.longwave_down;
+        bool longwave_netcdf_is_net = solverChoice.longwave_netcdf_is_net;
+        bool have_longwave_from_file = (mf_longwave_down != nullptr);
 
         Real eps = 1e-20_rt;
 
@@ -120,7 +122,10 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                1.0 at poles to 0.5 at the Equator).
 
             */
-            if (use_longwave_down) {
+            if (have_longwave_from_file && longwave_netcdf_is_net) {
+                // File provides net longwave directly (W/m2), no additional conversion.
+                LRad = longwave_down_arr(i,j,0);
+            } else if (use_longwave_down) {
                 Real Ldown = longwave_down_arr(i,j,0);
                 Real Lemit = emmiss * StefBo * std::pow(TseaK,4);
                 LRad = Ldown - Lemit;

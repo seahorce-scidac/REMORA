@@ -180,6 +180,14 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     const Real Cdb_min = solverChoice.Cdb_min;
     const Real Cdb_max = solverChoice.Cdb_max;
 
+    if (solverChoice.longwave_netcdf_is_net && !solverChoice.longwave_down_from_netcdf) {
+        amrex::Abort("remora.longwave_netcdf_is_net=true requires remora.longwave_down_from_netcdf=true");
+    }
+
+    if (solverChoice.longwave_down && !solverChoice.longwave_down_from_netcdf) {
+        amrex::Abort("remora.longwave_down=true currently requires remora.longwave_down_from_netcdf=true");
+    }
+
     MultiFab* lw_ptr = nullptr;
 
     if (solverChoice.longwave_down_from_netcdf)
