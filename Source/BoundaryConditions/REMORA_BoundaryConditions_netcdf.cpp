@@ -95,11 +95,11 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                                  (domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather) ||
                                  (domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::chapman) ||
                                  (domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::orlanski_rad_nudge);
-        const bool apply_north = (domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::clamped) ||
+        const bool apply_south = (domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::clamped) ||
                                  (domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::flather) ||
                                  (domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::chapman) ||
                                  (domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::orlanski_rad_nudge);
-        const bool apply_south = (domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::clamped) ||
+        const bool apply_north = (domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::clamped) ||
                                  (domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::flather) ||
                                  (domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::chapman) ||
                                  (domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::orlanski_rad_nudge);
