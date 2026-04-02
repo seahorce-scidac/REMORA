@@ -1,4 +1,4 @@
-#include "AMReX_PhysBCFunct.H"
+.makeSlab(2,0)#include "AMReX_PhysBCFunct.H"
 #include <REMORA_PhysBCFunct.H>
 
 using namespace amrex;
@@ -241,7 +241,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             bx_yhi & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int jflip =  2*dom_hi.y + 1 - j;
                 int inner = (bc_ptr[n].hi(1) == REMORABCType::orlanski_rad) ? 1 : 0;
-                if (bc_ptr[n].hi(1) == REMORABCType::foextrap || bc_ptr[n].hi(1) == REMORABCType::clamped || bc_ptr[n].hi(1) == REMORABCType::chapman || bc_ptr[n].lo(1) == REMORABCType::orlanski_rad ||
+                if (bc_ptr[n].hi(1) == REMORABCType::foextrap || bc_ptr[n].hi(1) == REMORABCType::clamped || bc_ptr[n].hi(1) == REMORABCType::chapman || bc_ptr[n].hi(1) == REMORABCType::orlanski_rad ||
                     bc_ptr[n].hi(1) == REMORABCType::orlanski_rad_nudge) {
                     dest_arr(i,j,k,icomp+n) =  dest_arr(i,dom_hi.y+n_not_fill+inner,k,icomp+n);
                 } else if (bc_ptr[n].hi(1) == REMORABCType::reflect_even) {
