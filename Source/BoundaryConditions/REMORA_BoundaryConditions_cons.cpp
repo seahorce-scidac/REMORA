@@ -272,7 +272,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             });
         }
 
-        if (bx_zlo.ok()) {
+        if (bx_zhi.ok()) {
             ParallelFor(bx_zhi & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
             {
                 int kflip =  2*dom_hi.z + 1 - k;
