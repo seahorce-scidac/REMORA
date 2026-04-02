@@ -1,4 +1,4 @@
-.makeSlab(2,0)#include "AMReX_PhysBCFunct.H"
+#include "AMReX_PhysBCFunct.H"
 #include <REMORA_PhysBCFunct.H>
 
 using namespace amrex;
