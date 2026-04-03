@@ -88,6 +88,10 @@ void NCTimeSeriesBoundary::Initialize()
     AMREX_ASSERT(std::is_sorted(bry_times.begin(), bry_times.end()));
 
     int ntimes = bry_times.size();
+    if (ntimes <= 1) {
+        amrex::Error("Time series of boundary data must be given at at least two times");
+    }
+    AMREX_ASSERT(ntimes > 1);
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     amrex::ParallelDescriptor::Bcast(&ntimes,1,ioproc);
     if (!(amrex::ParallelDescriptor::IOProcessor())) {

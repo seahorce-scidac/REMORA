@@ -51,7 +51,9 @@ void NCTimeSeriesRiver::Initialize() {
         }
     }
     int ntimes = river_times.size();
-    amrex::Print() << "ntimes " << ntimes << std::endl;
+    if (ntimes <= 1) {
+        amrex::Error("River data must be given at at least two times");
+    }
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     amrex::ParallelDescriptor::Bcast(&ntimes,1,ioproc);
     if (!(amrex::ParallelDescriptor::IOProcessor())) {
