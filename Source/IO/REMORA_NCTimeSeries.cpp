@@ -73,6 +73,9 @@ void NCTimeSeries::Initialize() {
         }
     }
     int ntimes = ocean_times.size();
+    if (ntimes <= 1) {
+        amrex::Error("Time series data must be given at at least two times");
+    }
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     amrex::ParallelDescriptor::Bcast(&ntimes,1,ioproc);
     if (!(amrex::ParallelDescriptor::IOProcessor())) {
