@@ -51,8 +51,12 @@ void NCTimeSeriesRiver::Initialize() {
         }
     }
     int ntimes = river_times.size();
-    if (ntimes <= 1) {
-        amrex::Error("River data must be given at at least two times");
+    // Only do checks on IO processors since river_times isn't populated on other ranks yet
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        AMREX_ASSERT(std::is_sorted(river_times.begin(), river_times.end()));
+        if (ntimes <= 1) {
+            amrex::Error("River data must be given at at least two times");
+        }
     }
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     amrex::ParallelDescriptor::Bcast(&ntimes,1,ioproc);
