@@ -178,8 +178,6 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     const std::string ny_p_name = "eta_psi";
     const std::string nz_w_name = "s_w";
 
-    const Real fill_value = 1.0e37_rt;
-
     if (write_header) {
         ncf.enter_def_mode();
         ncf.put_attr("title", "REMORA data ");
@@ -340,7 +338,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("h").put_attr("coordinates","x_rho y_rho");
         ncf.var("h").put_attr("field","bath, scalar");
 
-        ncf.def_var_fill("zeta", ncutils::NCDType::Real, { nt_name, ny_r_name, nx_r_name }, &fill_value);
+        ncf.def_var_fill("zeta", ncutils::NCDType::Real, { nt_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
         ncf.var("zeta").put_attr("long_name","free-surface");
         ncf.var("zeta").put_attr("units","meter");
         ncf.var("zeta").put_attr("time","ocean_time");
@@ -355,7 +353,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 if (plot_var_names_3d[i] == "temp") comp = i;
             }
             if (comp >= 0) {
-                ncf.def_var_fill("temp", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+                ncf.def_var_fill("temp", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
                 ncf.var("temp").put_attr("long_name","potential temperature");
                 ncf.var("temp").put_attr("units","Celsius");
                 ncf.var("temp").put_attr("time","ocean_time");
@@ -372,7 +370,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 if (plot_var_names_3d[i] == "salt") comp = i;
             }
             if (comp >= 0) {
-                ncf.def_var_fill("salt", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+                ncf.def_var_fill("salt", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
                 ncf.var("salt").put_attr("long_name","salinity");
                 ncf.var("salt").put_attr("time","ocean_time");
                 ncf.var("salt").put_attr("grid","grid");
@@ -388,7 +386,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 if (plot_var_names_3d[i] == "tracer") comp = i;
             }
             if (comp >= 0) {
-                ncf.def_var_fill("tracer", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+                ncf.def_var_fill("tracer", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
                 ncf.var("tracer").put_attr("long_name","passive tracer");
                 ncf.var("tracer").put_attr("time","ocean_time");
                 ncf.var("tracer").put_attr("grid","grid");
@@ -404,7 +402,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 if (plot_var_names_3d[i] == "vorticity") comp = i;
             }
             if (comp >= 0) {
-               ncf.def_var_fill("vorticity", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+               ncf.def_var_fill("vorticity", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
                ncf.var("vorticity").put_attr("long_name","vorticity");
                ncf.var("vorticity").put_attr("time","ocean_time");
                ncf.var("vorticity").put_attr("grid","grid");
@@ -414,7 +412,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             }
         } // end vorticity
 
-        ncf.def_var_fill("u", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_u_name, nx_u_name }, &fill_value);
+        ncf.def_var_fill("u", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_u_name, nx_u_name }, &netcdf_fill_value);
         ncf.var("u").put_attr("long_name","u-momentum component");
         ncf.var("u").put_attr("units","meter second-1");
         ncf.var("u").put_attr("time","ocean_time");
@@ -423,7 +421,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("u").put_attr("coordinates","x_u y_u s_rho ocean_time");
         ncf.var("u").put_attr("field","u-velocity, scalar, series");
 
-        ncf.def_var_fill("v", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_v_name, nx_v_name }, &fill_value);
+        ncf.def_var_fill("v", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_v_name, nx_v_name }, &netcdf_fill_value);
         ncf.var("v").put_attr("long_name","v-momentum component");
         ncf.var("v").put_attr("units","meter second-1");
         ncf.var("v").put_attr("time","ocean_time");
@@ -432,7 +430,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("v").put_attr("coordinates","x_v y_v s_rho ocean_time");
         ncf.var("v").put_attr("field","v-velocity, scalar, series");
 
-        ncf.def_var_fill("ubar", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name }, &fill_value);
+        ncf.def_var_fill("ubar", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name }, &netcdf_fill_value);
         ncf.var("ubar").put_attr("long_name","vertically integrated u-momentum component");
         ncf.var("ubar").put_attr("units","meter second-1");
         ncf.var("ubar").put_attr("time","ocean_time");
@@ -441,7 +439,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("ubar").put_attr("coordinates","x_u y_u ocean_time");
         ncf.var("ubar").put_attr("field","ubar-velocity, scalar, series");
 
-        ncf.def_var_fill("vbar", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name }, &fill_value);
+        ncf.def_var_fill("vbar", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name }, &netcdf_fill_value);
         ncf.var("vbar").put_attr("long_name","vertically integrated v-momentum component");
         ncf.var("vbar").put_attr("units","meter second-1");
         ncf.var("vbar").put_attr("time","ocean_time");
@@ -669,7 +667,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     // do all independent writes
     //ncmpi_end_indep_data(ncf.ncid);
 
-    mask_arrays_for_write(lev, (Real) fill_value, 0.0_rt);
+    mask_arrays_for_write(lev, (Real) netcdf_fill_value, 0.0_rt);
 
     // Check whether there are any nans or infs in variables that we will write out
     if (vec_Zt_avg1[lev]->contains_nan() || vec_Zt_avg1[lev]->contains_inf()) {
@@ -1337,7 +1335,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         } // in subdomain
     } // mfi
 
-    mask_arrays_for_write(lev, 0.0_rt, (Real) fill_value);
+    mask_arrays_for_write(lev, 0.0_rt, netcdf_fill_value);
 
     ncf.close();
 
