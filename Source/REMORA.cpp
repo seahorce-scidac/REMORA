@@ -700,9 +700,11 @@ REMORA::set_hmixcoef(int lev)
     //     nu0     = solverChoice.visc2
     //     kappa0  = solverChoice.tnu2[n]
     //
-    // This makes mixing strongest where grid spacing is largest,
-    // and ensures the maximum coefficient equals the user-specified value.
-    // The normalization (Gmax) is computed over the entire grid (ignoring masks).
+    // This makes mixing strongest where grid spacing is largest.
+    //
+    // NOTE: The normalization (Gmax) is computed over the entire grid (ignoring masks).
+    // Therefore, if the largest cell area occurs over land, the maximum over *wet* cells
+    // (or in masked output files) may be smaller than the user-specified value.
 
     } else if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
 
@@ -816,15 +818,95 @@ REMORA::set_hmixcoef(int lev)
         FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), BCVars::foextrap_periodic_bc);
 
         // Diagnostics
-        Real visc_min = vec_visc2_r[lev]->min(0,0,true);
-        Real visc_max = vec_visc2_r[lev]->max(0,0,true);
+        // NOTE: coefficients are computed everywhere (including land). Output routines may later
+        // mask land points (e.g., to FillValue in NetCDF/plotfiles), and analysis tools may
+        // additionally apply mask_rho (setting land to 0). Report both conventions.
+        //
+        // Global (MPI-reduced) extrema over all valid cells (no ghost).
+        Real visc_min_all = vec_visc2_r[lev]->min(0,0,false);
+        Real visc_max_all = vec_visc2_r[lev]->max(0,0,false);
+
+        // Global extrema over *wet* rho points only, k=0.
+        amrex::Gpu::LaunchSafeGuard lsg_diag(true);
+        Real visc_min_wet = amrex::ReduceMin(*vec_visc2_r[lev], *vec_mskr[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& visc2,
+                                      Array4<Real const> const& mskr) -> Real
+            {
+                Real local_min = 1.0e200_rt;
+                amrex::Loop(bx, [=,&local_min] (int i, int j, int k) noexcept
+                {
+                    if (k != 0) { return; }
+                    if (mskr(i,j,0) > 0.0_rt) {
+                        local_min = amrex::min(local_min, visc2(i,j,k));
+                    }
+                });
+                return local_min;
+            });
+        ParallelDescriptor::ReduceRealMin(visc_min_wet);
+
+        Real visc_max_wet = amrex::ReduceMax(*vec_visc2_r[lev], *vec_mskr[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& visc2,
+                                      Array4<Real const> const& mskr) -> Real
+            {
+                Real local_max = -1.0e200_rt;
+                amrex::Loop(bx, [=,&local_max] (int i, int j, int k) noexcept
+                {
+                    if (k != 0) { return; }
+                    if (mskr(i,j,0) > 0.0_rt) {
+                        local_max = amrex::max(local_max, visc2(i,j,k));
+                    }
+                });
+                return local_max;
+            });
+        ParallelDescriptor::ReduceRealMax(visc_max_wet);
+
+        // Mimic "apply mask_rho" convention (dry -> 0), k=0.
+        Real visc_min_mask0 = amrex::ReduceMin(*vec_visc2_r[lev], *vec_mskr[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& visc2,
+                                      Array4<Real const> const& mskr) -> Real
+            {
+                Real local_min = 1.0e200_rt;
+                amrex::Loop(bx, [=,&local_min] (int i, int j, int k) noexcept
+                {
+                    if (k != 0) { return; }
+                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,k) : 0.0_rt;
+                    local_min = amrex::min(local_min, v);
+                });
+                return local_min;
+            });
+        ParallelDescriptor::ReduceRealMin(visc_min_mask0);
+
+        Real visc_max_mask0 = amrex::ReduceMax(*vec_visc2_r[lev], *vec_mskr[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& visc2,
+                                      Array4<Real const> const& mskr) -> Real
+            {
+                Real local_max = -1.0e200_rt;
+                amrex::Loop(bx, [=,&local_max] (int i, int j, int k) noexcept
+                {
+                    if (k != 0) { return; }
+                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,k) : 0.0_rt;
+                    local_max = amrex::max(local_max, v);
+                });
+                return local_max;
+            });
+        ParallelDescriptor::ReduceRealMax(visc_max_mask0);
         if (ParallelDescriptor::IOProcessor() && lev == 0)
         {
             Print() << "\nHorizontal mixing scaled by grid metric\n";
             Print() << "grdmax = " << grdmax << "\n";
-            Print() << "visc2 min/max = "
-                    << visc_min << " / "
-                    << visc_max << "\n";
+            Print() << "visc2(all)      min/max = "
+                    << visc_min_all << " / "
+                    << visc_max_all << "\n";
+            Print() << "visc2(wet,k=0)  min/max = "
+                    << visc_min_wet << " / "
+                    << visc_max_wet << "\n";
+            Print() << "visc2(mask->0)  min/max = "
+                    << visc_min_mask0 << " / "
+                    << visc_max_mask0 << "\n";
         }
 
     } else {

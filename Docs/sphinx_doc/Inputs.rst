@@ -802,8 +802,7 @@ Scaled-to-grid horizontal mixing
 --------------------------------
 
 If ``remora.horizontal_mixing_type = "scaled_to_grid"``, REMORA follows the ROMS-style approach of
-scaling horizontal harmonic mixing coefficients by a grid-size metric derived from the curvilinear
-metrics ``pm`` and ``pn`` (read from the NetCDF grid file):
+scaling horizontal harmonic mixing coefficients by the grid cell area. 
 
 .. math::
 
@@ -816,7 +815,10 @@ metrics ``pm`` and ``pn`` (read from the NetCDF grid file):
 
 where :math:`\\nu_0` is ``remora.visc2`` and :math:`\\kappa_{0,n}` are the tracer diffusivities
 (``remora.tnu2_temp``, ``remora.tnu2_salt``, ``remora.tnu2_scalar``). This ensures the *maximum*
-coefficient equals the user-specified value, while varying spatially with grid size.
+coefficient over the normalization region equals the user-specified value, while varying spatially
+with grid size. Note that if the largest cell area occurs over land, then the maximum over *wet*
+cells (and thus what you see after applying ``mask_rho`` in post-processing) may be smaller than
+the user-specified value.
 
 Implementation details
 ^^^^^^^^^^^^^^^^^^^^^^
