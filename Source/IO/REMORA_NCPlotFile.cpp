@@ -414,6 +414,61 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             }
         } // end vorticity
 
+        {
+            int comp = -1;
+            for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                if (plot_var_names_3d[i] == "visc2") comp = i;
+            }
+            if (comp >= 0) {
+                // For scaled_to_grid, viscosity is time-invariant; write it as a static variable
+                // without an ocean_time dimension (and only write it once per file).
+                if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
+                    ncf.def_var_fill("visc2", ncutils::NCDType::Real, { nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+                } else {
+                    ncf.def_var_fill("visc2", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+                }
+                ncf.var("visc2").put_attr("long_name","horizontal harmonic viscosity coefficient at RHO-points");
+                ncf.var("visc2").put_attr("units","meter2 second-1");
+                ncf.var("visc2").put_attr("grid","grid");
+                ncf.var("visc2").put_attr("location","face");
+                if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
+                    ncf.var("visc2").put_attr("coordinates","x_rho y_rho s_rho");
+                    ncf.var("visc2").put_attr("field","visc2, scalar");
+                } else {
+                    ncf.var("visc2").put_attr("time","ocean_time");
+                    ncf.var("visc2").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
+                    ncf.var("visc2").put_attr("field","visc2, scalar, series");
+                }
+            }
+        } // end visc2
+
+        for (int n = 0; n < NCONS; ++n) {
+            const std::string nm = std::string("diff2_") + cons_names[n];
+            int comp = -1;
+            for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                if (plot_var_names_3d[i] == nm) comp = i;
+            }
+            if (comp >= 0) {
+                if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
+                    ncf.def_var_fill(nm, ncutils::NCDType::Real, { nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+                } else {
+                    ncf.def_var_fill(nm, ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &fill_value);
+                }
+                ncf.var(nm).put_attr("long_name", std::string("horizontal harmonic diffusivity coefficient for ") + cons_names[n] + " at RHO-points");
+                ncf.var(nm).put_attr("units","meter2 second-1");
+                ncf.var(nm).put_attr("grid","grid");
+                ncf.var(nm).put_attr("location","face");
+                if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
+                    ncf.var(nm).put_attr("coordinates","x_rho y_rho s_rho");
+                    ncf.var(nm).put_attr("field", nm + ", scalar");
+                } else {
+                    ncf.var(nm).put_attr("time","ocean_time");
+                    ncf.var(nm).put_attr("coordinates","x_rho y_rho s_rho ocean_time");
+                    ncf.var(nm).put_attr("field", nm + ", scalar, series");
+                }
+            }
+        } // end diff2_*
+
         ncf.def_var_fill("u", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_u_name, nx_u_name }, &fill_value);
         ncf.var("u").put_attr("long_name","u-momentum component");
         ncf.var("u").put_attr("units","meter second-1");
@@ -1108,6 +1163,66 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             } // end vorticity
             // **************************************************************************
 
+            // **************************************************************************
+            // Horizontal mixing coefficients:
+            // - For scaled_to_grid: treat as time-invariant and write only once (header creation).
+            // - Otherwise: write as time series like other 3D fields.
+            // **************************************************************************
+            const bool coeffs_are_time_invariant =
+                (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid);
+            const bool should_write_static_coeffs = (!coeffs_are_time_invariant) || write_header;
+
+            if (should_write_static_coeffs) {
+                { // visc2
+                    int comp = -1;
+                    for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                        if (plot_var_names_3d[i] == "visc2") comp = i;
+                    }
+                    if (comp >= 0) {
+                        FArrayBox tmp;
+                        tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
+                        tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
+                        Gpu::streamSynchronize();
+
+                        auto nc_plot_var = ncf.var(plot_var_names_3d[comp]);
+                        if (coeffs_are_time_invariant) {
+                            nc_plot_var.put(tmp.dataPtr(),
+                                            { local_start_z, local_start_y, local_start_x },
+                                            { local_nz,      local_ny,      local_nx });
+                        } else {
+                            nc_plot_var.put(tmp.dataPtr(),
+                                            { local_start_nt, local_start_z, local_start_y, local_start_x },
+                                            { local_nt,       local_nz,      local_ny,      local_nx });
+                        }
+                    }
+                } // visc2
+
+                for (int n = 0; n < NCONS; ++n) {
+                    const std::string nm = std::string("diff2_") + cons_names[n];
+                    int comp = -1;
+                    for (int i = 0; i < plot_var_names_3d.size(); i++) {
+                        if (plot_var_names_3d[i] == nm) comp = i;
+                    }
+                    if (comp >= 0) {
+                        FArrayBox tmp;
+                        tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
+                        tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
+                        Gpu::streamSynchronize();
+
+                        auto nc_plot_var = ncf.var(plot_var_names_3d[comp]);
+                        if (coeffs_are_time_invariant) {
+                            nc_plot_var.put(tmp.dataPtr(),
+                                            { local_start_z, local_start_y, local_start_x },
+                                            { local_nz,      local_ny,      local_nx });
+                        } else {
+                            nc_plot_var.put(tmp.dataPtr(),
+                                            { local_start_nt, local_start_z, local_start_y, local_start_x },
+                                            { local_nt,       local_nz,      local_ny,      local_nx });
+                        }
+                    }
+                } // diff2_*
+            }
+
         } // subdomain
     } // mfi
 
@@ -1343,4 +1458,3 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 
     REMORA::total_nc_plot_file_step += 1;
 }
-

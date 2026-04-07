@@ -44,6 +44,20 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
         plot_var_names_3d.clear();
     }
 
+    // If horizontal mixing is scaled to grid size, automatically output the
+    // spatially-varying coefficients used by the run.
+    if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
+        if (!containerHasElement(plot_var_names_3d, "visc2")) {
+            plot_var_names_3d.push_back("visc2");
+        }
+        for (int n = 0; n < NCONS; ++n) {
+            const std::string nm = std::string("diff2_") + cons_names[n];
+            if (!containerHasElement(plot_var_names_3d, nm)) {
+                plot_var_names_3d.push_back(nm);
+            }
+        }
+    }
+
     // Get state variables in the same order as we define them,
     // since they may be in any order in the input list
     Vector<std::string> tmp_plot_names;
@@ -77,6 +91,17 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
                tmp_plot_names.push_back(derived_names[i]);
         } // if
     } // i
+
+    // Horizontal mixing coefficients (cell-centered rho points)
+    if (containerHasElement(plot_var_names_3d, "visc2")) {
+        tmp_plot_names.push_back("visc2");
+    }
+    for (int n = 0; n < NCONS; ++n) {
+        const std::string nm = std::string("diff2_") + cons_names[n];
+        if (containerHasElement(plot_var_names_3d, nm)) {
+            tmp_plot_names.push_back(nm);
+        }
+    }
 
 #ifdef REMORA_USE_PARTICLES
     const auto& particles_namelist( particleData.getNamesUnalloc() );
@@ -200,6 +225,19 @@ REMORA::append3DPlotVariables (const std::string& pp_plot_var_names_3d)
             pp.get(pp_plot_var_names_3d.c_str(), nm, i);
             // Add the named variable to our list of plot variables
             // if it is not already in the list
+            if (!containerHasElement(plot_var_names_3d, nm)) {
+                plot_var_names_3d.push_back(nm);
+            }
+        }
+    }
+
+    // Same auto-append for scaled_to_grid as in set3DPlotVariables.
+    if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
+        if (!containerHasElement(plot_var_names_3d, "visc2")) {
+            plot_var_names_3d.push_back("visc2");
+        }
+        for (int n = 0; n < NCONS; ++n) {
+            const std::string nm = std::string("diff2_") + cons_names[n];
             if (!containerHasElement(plot_var_names_3d, nm)) {
                 plot_var_names_3d.push_back(nm);
             }

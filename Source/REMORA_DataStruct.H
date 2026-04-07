@@ -48,7 +48,7 @@ enum class VertMixingType {
 
 /** \brief horizontal viscosity/diffusion type */
 enum class HorizMixingType {
-    analytic, constant
+    analytic, constant, scaled_to_grid
 };
 
 /** \brief stability function for GLS */
@@ -381,6 +381,8 @@ struct SolverChoice {
             horiz_mixing_type = HorizMixingType::analytic;
         } else if (amrex::toLower(horiz_mixing_type_string) == "constant") {
             horiz_mixing_type = HorizMixingType::constant;
+        } else if (amrex::toLower(horiz_mixing_type_string) == "scaled_to_grid") {
+            horiz_mixing_type = HorizMixingType::scaled_to_grid;
         } else {
             amrex::Abort("Don't know this horizontal mixing type");
         }

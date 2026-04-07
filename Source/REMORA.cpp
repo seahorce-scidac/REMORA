@@ -644,26 +644,200 @@ REMORA::set_analytic_vmix(int lev) {
  * @param[in   ] lev    level to operate on
  */
 void
+REMORA::set_masks(int lev)
+{
+    if (solverChoice.mask_type == MaskType::analytic) {
+        prob->init_analytic_masks(lev,geom[lev], solverChoice, *this, *vec_mskr[lev]);
+        calculate_nodal_masks(lev);
+    } else if (solverChoice.mask_type == MaskType::netcdf) {
+#ifdef REMORA_USE_NETCDF
+        if (lev == 0) {
+            amrex::Print() << "Calling init_masks_from_netcdf level " << lev << std::endl;
+            init_masks_from_netcdf(lev);
+            amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
+        } else {
+            Real dummy_time = 0.0_rt;
+            FillCoarsePatchPC(lev, dummy_time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
+                    BCVars::foextrap_bc);
+            calculate_nodal_masks(lev);
+        }
+#endif
+    }
+    fill_3d_masks(lev);
+}
+
+/**
+ * @param[in   ] lev    level to operate on
+ */
+void
 REMORA::set_hmixcoef(int lev)
 {
     BL_PROFILE("REMORA::set_hmixcoef()");
+
     if (solverChoice.horiz_mixing_type == HorizMixingType::analytic) {
-        prob->init_analytic_hmix(lev, geom[lev], solverChoice, *this, *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev]);
+        prob->init_analytic_hmix(lev, geom[lev], solverChoice,
+                                 *this, *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev]);
+
     } else if (solverChoice.horiz_mixing_type == HorizMixingType::constant) {
         vec_visc2_p[lev]->setVal(solverChoice.visc2);
         vec_visc2_r[lev]->setVal(solverChoice.visc2);
-        for (int n=0; n<NCONS; n++) {
-            vec_diff2[lev]->setVal(solverChoice.tnu2[n],n,1);
+        for (int n=0; n<NCONS; n++)
+            vec_diff2[lev]->setVal(solverChoice.tnu2[n], n, 1);
+
+    // Scale harmonic viscosity and diffusivity by the grid size as ROMS
+    // does in Utility/ini_hmixcoef.F. Intended for curvilinear grids.
+    //
+    // Define the ROMS grid factor (grdscl):
+    //     G(i,j) = sqrt( 1 / (pm(i,j) * pn(i,j)) )
+    //            = sqrt(cell area)
+    //     Gmax   = max over grid of G(i,j)
+    //
+    // Then horizontal harmonic mixing coefficients are scaled as:
+    //     nu(i,j)       = nu0    * G(i,j) / Gmax
+    //     kappa_n(i,j)  = kappa0 * G(i,j) / Gmax
+    //
+    // where:
+    //     nu0     = solverChoice.visc2
+    //     kappa0  = solverChoice.tnu2[n]
+    //
+    // This makes mixing strongest where grid spacing is largest,
+    // and ensures the maximum coefficient equals the user-specified value.
+    // The normalization (Gmax) is computed over the entire grid (ignoring masks).
+
+    } else if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
+
+        // ------------------------------------------------------------
+        // Step 1: Compute grdmax over entire grid
+        // ------------------------------------------------------------
+        vec_visc2_r[lev]->setVal(solverChoice.visc2);
+        vec_visc2_p[lev]->setVal(solverChoice.visc2);
+        vec_diff2[lev]->setVal(solverChoice.visc2);
+
+        // NOTE: This must be GPU-safe. Do not dereference MultiFab data on host.
+        // Force the reduction to run in the GPU launch region if GPUs are enabled.
+        // (If the launch region is disabled at runtime, ReduceMax may fall back to
+        // a host path that can try to read device-only data.)
+        amrex::Gpu::LaunchSafeGuard lsg(true);
+        Real denom_min = amrex::ReduceMin(*vec_pm[lev], *vec_pn[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& pm,
+                                      Array4<Real const> const& pn) -> Real
+            {
+                Real local_min = 1.0e200_rt;
+                amrex::Loop(bx, [=,&local_min] (int i, int j, int k) noexcept
+                {
+                    if (k != 0) { return; }
+                    local_min = amrex::min(local_min, pm(i,j,0) * pn(i,j,0));
+                });
+                return local_min;
+            });
+
+        ParallelDescriptor::ReduceRealMin(denom_min);
+        if (denom_min <= 0.0_rt) {
+            Abort("scaled_to_grid: found non-positive pm*pn (grid metrics must be > 0)");
         }
+
+        Real grdmax = amrex::ReduceMax(*vec_pm[lev], *vec_pn[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& pm,
+                                      Array4<Real const> const& pn) -> Real
+            {
+                Real local_max = 0.0_rt;
+                amrex::Loop(bx, [=,&local_max] (int i, int j, int k) noexcept
+                {
+                    if (k != 0) { return; }
+                    Real denom = pm(i,j,0) * pn(i,j,0);
+                    if (denom > 0.0_rt) {
+                        Real G = std::sqrt(1.0_rt / denom);
+                        local_max = amrex::max(local_max, G);
+                    }
+                });
+                return local_max;
+            });
+
+        ParallelDescriptor::ReduceRealMax(grdmax);
+        if (grdmax <= 0.0_rt)
+            Abort("scaled_to_grid: grdmax <= 0");
+
+        Real visc0 = solverChoice.visc2;
+        Real cff   = visc0 / grdmax;
+
+        // ------------------------------------------------------------
+        // Step 2: Set rho coefficients everywhere
+        // ------------------------------------------------------------
+        for (MFIter mfi(*vec_visc2_r[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.validbox();
+            auto pm    = vec_pm[lev]->const_array(mfi);
+            auto pn    = vec_pn[lev]->const_array(mfi);
+            auto visc2_r = vec_visc2_r[lev]->array(mfi);
+            auto diff2   = vec_diff2[lev]->array(mfi);
+
+            Real diff0[NCONS];
+            for (int n=0; n<NCONS; n++)
+                diff0[n] = solverChoice.tnu2[n];
+
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                Real denom  = pm(i,j,0) * pn(i,j,0);
+                Real grdscl = (denom > 0.0_rt) ? std::sqrt(1.0_rt / denom) : 0.0_rt;
+                visc2_r(i,j,k) = cff * grdscl;
+
+                for (int n = 0; n < NCONS; n++)
+                    diff2(i,j,k,n) = (diff0[n]/grdmax) * grdscl;
+            });
+        }
+
+        // Fill ghost cells for rho coefficients BEFORE psi averaging
+        Real time = 0.0_rt;
+        FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), BCVars::foextrap_periodic_bc);
+
+        // ------------------------------------------------------------
+        // Step 3: Psi coefficients = average of 4 surrounding rho
+        // (exact ROMS form, applied everywhere)
+        // ------------------------------------------------------------
+        for (MFIter mfi(*vec_visc2_p[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.validbox();
+            auto visc2_p = vec_visc2_p[lev]->array(mfi);
+            auto visc2_r = vec_visc2_r[lev]->const_array(mfi);
+
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                visc2_p(i,j,k) = 0.25_rt * (
+                    visc2_r(i-1,j-1,k) +
+                    visc2_r(i  ,j-1,k) +
+                    visc2_r(i-1,j  ,k) +
+                    visc2_r(i  ,j  ,k)
+                );
+            });
+        }
+
+        FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), BCVars::foextrap_periodic_bc);
+
+        // Diagnostics
+        Real visc_min = vec_visc2_r[lev]->min(0,0,true);
+        Real visc_max = vec_visc2_r[lev]->max(0,0,true);
+        if (ParallelDescriptor::IOProcessor() && lev == 0)
+        {
+            Print() << "\nHorizontal mixing scaled by grid metric\n";
+            Print() << "grdmax = " << grdmax << "\n";
+            Print() << "visc2 min/max = "
+                    << visc_min << " / "
+                    << visc_max << "\n";
+        }
+
     } else {
         Abort("Don't know this horizontal mixing type");
     }
+
+    // Final FillPatch for all fields
     Real time = 0.0_rt;
-    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p),BCVars::foextrap_periodic_bc);
-    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r),BCVars::foextrap_periodic_bc);
-    for (int n=0; n<NCONS; n++) {
-        FillPatch(lev, time, *vec_diff2[lev]  , GetVecOfPtrs(vec_diff2),BCVars::foextrap_periodic_bc,BdyVars::null,n,false);
-    }
+    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), BCVars::foextrap_periodic_bc);
+    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), BCVars::foextrap_periodic_bc);
+    for (int n=0; n<NCONS; n++)
+        FillPatch(lev, time, *vec_diff2[lev], GetVecOfPtrs(vec_diff2),
+                  BCVars::foextrap_periodic_bc, BdyVars::null, n, false);
 }
 
 /**
@@ -764,31 +938,6 @@ REMORA::set_wind(int lev)
         }
 #endif
     }
-}
-/**
- * @param[in   ] lev    level to operate on
- */
-void
-REMORA::set_masks(int lev)
-{
-    if (solverChoice.mask_type == MaskType::analytic) {
-        prob->init_analytic_masks(lev,geom[lev], solverChoice, *this, *vec_mskr[lev]);
-        calculate_nodal_masks(lev);
-    } else if (solverChoice.mask_type == MaskType::netcdf) {
-#ifdef REMORA_USE_NETCDF
-        if (lev == 0) {
-            amrex::Print() << "Calling init_masks_from_netcdf level " << lev << std::endl;
-            init_masks_from_netcdf(lev);
-            amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
-        } else {
-            Real dummy_time = 0.0_rt;
-            FillCoarsePatchPC(lev, dummy_time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
-                    BCVars::foextrap_bc);
-            calculate_nodal_masks(lev);
-        }
-#endif
-    }
-    fill_3d_masks(lev);
 }
 
 /**
