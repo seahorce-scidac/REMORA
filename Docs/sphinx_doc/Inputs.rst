@@ -727,8 +727,8 @@ List of Parameters
 |                                   |                                        |                   |                |
 |                                   | ``scaled_to_grid`` scales harmonic     |                   |                |
 |                                   | viscosity/diffusivity by the grid      |                   |                |
-|                                   | cell area. Equivalent to ``DIFF_GRID`` |                   |                | 
-|                                   | and ``VISC_GRID`` in ROMS.             |                   |                | 
+|                                   | cell area. Equivalent to ``DIFF_GRID`` |                   |                |
+|                                   | and ``VISC_GRID`` in ROMS.             |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.visc2**                  | Constant horizontal viscosity,         | Real number       | 0.0            |
 |                                   |                                        |                   |                |
@@ -802,7 +802,7 @@ Scaled-to-grid horizontal mixing
 --------------------------------
 
 If ``remora.horizontal_mixing_type = "scaled_to_grid"``, REMORA follows the ROMS-style approach of
-scaling horizontal harmonic mixing coefficients by the grid cell area. 
+scaling horizontal harmonic mixing coefficients by the grid cell area.
 
 .. math::
 
