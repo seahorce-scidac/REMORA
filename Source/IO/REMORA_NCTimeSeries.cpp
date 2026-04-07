@@ -73,8 +73,12 @@ void NCTimeSeries::Initialize() {
         }
     }
     int ntimes = ocean_times.size();
-    if (ntimes <= 1) {
-        amrex::Error("Time series data must be given at at least two times");
+    // Only do checks on IO processor since ocean_times isn't populated on other ranks yet
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        AMREX_ASSERT(std::is_sorted(ocean_times.begin(), ocean_times.end()));
+        if (ntimes <= 1) {
+            amrex::Error("Time series data must be given at at least two times");
+        }
     }
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     amrex::ParallelDescriptor::Bcast(&ntimes,1,ioproc);

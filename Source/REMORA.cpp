@@ -1304,6 +1304,9 @@ REMORA::ReadParameters ()
 
         pp.queryAdd("expand_plotvars_to_unif_rr", expand_plotvars_to_unif_rr);
 
+        pp.query("plotfile_fill_value", plotfile_fill_value);
+        pp.query("netcdf_fill_value", netcdf_fill_value);
+
         pp.queryAdd("restart", restart_chkfile);
         pp_amr.queryAdd("restart", restart_chkfile);
         pp.queryAdd("start_time",start_time);

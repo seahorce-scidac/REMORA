@@ -1338,6 +1338,12 @@ private:
     /** \brief whether plotfile variables should be expanded to a uniform refinement ratio */
     bool expand_plotvars_to_unif_rr = false;
 
+    /** \brief fill value for masked arrays in amrex plotfiles */
+    amrex::Real plotfile_fill_value = amrex::Real(0.0);
+    /** \brief fill value for masked arrays in netcdf output */
+    amrex::Real netcdf_fill_value = amrex::Real(1.0e37);
+
+
 #ifdef REMORA_USE_PARTICLES
     /** \brief Particle container with all particle species */
     ParticleData particleData;
