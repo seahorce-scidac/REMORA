@@ -51,6 +51,11 @@ enum class HorizMixingType {
     analytic, constant, scaled_to_grid
 };
 
+/** \brief How to scale scaled_to_grid coefficients on AMR levels */
+enum class ScaledToGridAMRScaling {
+    none, linear
+};
+
 /** \brief stability function for GLS */
 enum class GLS_StabilityType {
     Canuto_A, Canuto_B, Galperin
@@ -390,6 +395,19 @@ struct SolverChoice {
         pp.queryAdd("tnu2_salt",tnu2_salt);
         pp.queryAdd("tnu2_temp",tnu2_temp);
         pp.queryAdd("tnu2_scalar",tnu2_scalar);
+
+        // For scaled_to_grid runs with AMR refinement: optionally scale the coefficients
+        // by the horizontal refinement ratio (linear in grid size).
+        static std::string scaled_to_grid_amr_scaling_string = "none";
+        pp.queryAdd("scaled_to_grid_amr_scaling", scaled_to_grid_amr_scaling_string);
+        if (amrex::toLower(scaled_to_grid_amr_scaling_string) == "none") {
+            scaled_to_grid_amr_scaling = ScaledToGridAMRScaling::none;
+        } else if (amrex::toLower(scaled_to_grid_amr_scaling_string) == "linear") {
+            scaled_to_grid_amr_scaling = ScaledToGridAMRScaling::linear;
+        } else {
+            amrex::Abort("Don't know this scaled_to_grid_amr_scaling option");
+        }
+
         tnu2.resize(NCONS);
         if (use_salt) {
             tnu2[0] = tnu2_temp;
@@ -642,6 +660,7 @@ struct SolverChoice {
     // Mixing type and parameters
     VertMixingType vert_mixing_type;
     HorizMixingType horiz_mixing_type;
+    ScaledToGridAMRScaling scaled_to_grid_amr_scaling = ScaledToGridAMRScaling::none;
     GLS_StabilityType gls_stability_type;
 
     // Type for grid scale (pm and pn)

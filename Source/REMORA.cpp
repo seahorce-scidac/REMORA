@@ -674,15 +674,27 @@ REMORA::set_hmixcoef(int lev)
 {
     BL_PROFILE("REMORA::set_hmixcoef()");
 
+    // Optional AMR scaling: decrease coefficients on refined levels linearly
+    // with grid size (i.e., proportional to sqrt(cell area)). For a horizontal
+    // refinement ratio rx x ry, the effective scale factor is 1/sqrt(rx*ry).
+    Real lev_scale = 1.0_rt;
+    if ((solverChoice.scaled_to_grid_amr_scaling == ScaledToGridAMRScaling::linear) && (lev > 0)) {
+        Real rf = 1.0_rt;
+        for (int l = 0; l < lev; ++l) {
+            rf *= std::sqrt(static_cast<Real>(ref_ratio[l][0]) * static_cast<Real>(ref_ratio[l][1]));
+        }
+        lev_scale = 1.0_rt / rf;
+    }
+
     if (solverChoice.horiz_mixing_type == HorizMixingType::analytic) {
         prob->init_analytic_hmix(lev, geom[lev], solverChoice,
                                  *this, *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev]);
 
     } else if (solverChoice.horiz_mixing_type == HorizMixingType::constant) {
-        vec_visc2_p[lev]->setVal(solverChoice.visc2);
-        vec_visc2_r[lev]->setVal(solverChoice.visc2);
+        vec_visc2_p[lev]->setVal(solverChoice.visc2 * lev_scale);
+        vec_visc2_r[lev]->setVal(solverChoice.visc2 * lev_scale);
         for (int n=0; n<NCONS; n++)
-            vec_diff2[lev]->setVal(solverChoice.tnu2[n], n, 1);
+            vec_diff2[lev]->setVal(solverChoice.tnu2[n] * lev_scale, n, 1);
 
     // Scale harmonic viscosity and diffusivity by the grid size as ROMS
     // does in Utility/ini_hmixcoef.F. Intended for curvilinear grids.
@@ -761,7 +773,19 @@ REMORA::set_hmixcoef(int lev)
         if (grdmax <= 0.0_rt)
             Abort("scaled_to_grid: grdmax <= 0");
 
-        Real visc0 = solverChoice.visc2;
+        // Optional AMR scaling: decrease coefficients on refined levels linearly
+        // with grid size (i.e., proportional to sqrt(cell area)). For a horizontal
+        // refinement ratio rx x ry, the effective scale factor is 1/sqrt(rx*ry).
+        lev_scale = 1.0_rt;
+        if ((solverChoice.scaled_to_grid_amr_scaling == ScaledToGridAMRScaling::linear) && (lev > 0)) {
+            Real rf = 1.0_rt;
+            for (int l = 0; l < lev; ++l) {
+                rf *= std::sqrt(static_cast<Real>(ref_ratio[l][0]) * static_cast<Real>(ref_ratio[l][1]));
+            }
+            lev_scale = 1.0_rt / rf;
+        }
+
+        Real visc0 = solverChoice.visc2 * lev_scale;
         Real cff   = visc0 / grdmax;
 
         // ------------------------------------------------------------
@@ -785,8 +809,9 @@ REMORA::set_hmixcoef(int lev)
                 Real grdscl = (denom > 0.0_rt) ? std::sqrt(1.0_rt / denom) : 0.0_rt;
                 visc2_r(i,j,k) = cff * grdscl;
 
-                for (int n = 0; n < NCONS; n++)
-                    diff2(i,j,k,n) = (diff0[n]/grdmax) * grdscl;
+                for (int n = 0; n < NCONS; n++) {
+                    diff2(i,j,k,n) = ((diff0[n] * lev_scale) / grdmax) * grdscl;
+                }
             });
         }
 
@@ -898,6 +923,9 @@ REMORA::set_hmixcoef(int lev)
         {
             Print() << "\nHorizontal mixing scaled by grid metric\n";
             Print() << "grdmax = " << grdmax << "\n";
+            if (solverChoice.scaled_to_grid_amr_scaling == ScaledToGridAMRScaling::linear) {
+                Print() << "AMR scaling (linear) lev_scale = " << lev_scale << "\n";
+            }
             Print() << "visc2(all)      min/max = "
                     << visc_min_all << " / "
                     << visc_max_all << "\n";

@@ -730,6 +730,13 @@ List of Parameters
 |                                   | cell area. Equivalent to ``DIFF_GRID`` |                   |                |
 |                                   | and ``VISC_GRID`` in ROMS.             |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.scaled_to_grid_amr_scaling** | AMR scaling behavior for                | ``none`` /        | ``none``       |
+|                                   | ``scaled_to_grid`` and ``constant``     | ``linear``        |                |
+|                                   | coefficients on refined levels.         |                   |                |
+|                                   | ``linear`` decreases coefficients in    |                   |                |
+|                                   | proportion to the horizontal refinement |                   |                |
+|                                   | ratio.                                  |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.visc2**                  | Constant horizontal viscosity,         | Real number       | 0.0            |
 |                                   |                                        |                   |                |
 |                                   | everywhere. Needed when                |                   |                |
@@ -826,6 +833,11 @@ Implementation details
 - The normalization ``max(G)`` is computed as a global maximum over the level-0 grid (rho points at
   the surface, i.e. ``k=0``) and does not use land/sea masks. Equivalently, it uses the maximum grid-cell
   area :math:`A(i,j) = 1/(pm\,pn)` via :math:`\\max(G)=\\sqrt{\\max(A)}`.
+
+- AMR refinement scaling: if ``remora.scaled_to_grid_amr_scaling = "linear"``, then on AMR level
+  :math:`\\ell` the coefficients are additionally scaled by the cumulative horizontal refinement ratio,
+  :math:`1/\\prod_{m<\\ell}\\sqrt{r_x(m)\,r_y(m)}`. For example, with a refinement ratio of ``5 5 1``,
+  level 1 coefficients are reduced by a factor of 5 relative to level 0.
 
 - Ghost cells for the coefficient fields are filled using the same periodic/foextrap boundary fill
   used elsewhere in REMORA. This is done so stencil-based operations (e.g., the psi-point averaging for
