@@ -21,28 +21,32 @@ REMORA::WritePlotFile (int istep_for_plot)
     Vector<std::string> varnames_3d;
     varnames_3d.insert(varnames_3d.end(), plot_var_names_3d.begin(), plot_var_names_3d.end());
 
-    // For scaled_to_grid, horizontal mixing coefficients are time-invariant. For AMReX plotfiles,
-    // write them once to a dedicated static plotfile and omit them from regular time-series plotfiles.
-    Vector<std::string> varnames_3d_coeff;
+    Vector<std::string> varnames_2d;
+    varnames_2d.insert(varnames_2d.end(), plot_var_names_2d.begin(), plot_var_names_2d.end());
+
+    // For scaled_to_grid, viscosity/diffusivity coefficients are vertically homogeneous and
+    // time-invariant. For AMReX plotfiles, write them once to a dedicated static plotfile and
+    // omit them from regular time-series plotfiles.
+    Vector<std::string> varnames_2d_coeff;
     const bool write_static_coeff_plotfile =
         (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) &&
         (plotfile_type == PlotfileType::amrex);
 
     if (write_static_coeff_plotfile) {
-        for (auto const& nm : varnames_3d) {
+        for (auto const& nm : varnames_2d) {
             if (nm == "visc2") {
-                varnames_3d_coeff.push_back(nm);
+                varnames_2d_coeff.push_back(nm);
                 continue;
             }
             for (int n = 0; n < NCONS; ++n) {
                 if (nm == std::string("diff2_") + cons_names[n]) {
-                    varnames_3d_coeff.push_back(nm);
+                    varnames_2d_coeff.push_back(nm);
                     break;
                 }
             }
         }
 
-        varnames_3d.erase(std::remove_if(varnames_3d.begin(), varnames_3d.end(),
+        varnames_2d.erase(std::remove_if(varnames_2d.begin(), varnames_2d.end(),
                                          [&] (std::string const& nm) {
                                              if (nm == "visc2") { return true; }
                                              for (int n = 0; n < NCONS; ++n) {
@@ -50,18 +54,14 @@ REMORA::WritePlotFile (int istep_for_plot)
                                              }
                                              return false;
                                          }),
-                          varnames_3d.end());
+                          varnames_2d.end());
     }
-
-    Vector<std::string> varnames_2d;
-    varnames_2d.insert(varnames_2d.end(), plot_var_names_2d.begin(), plot_var_names_2d.end());
 
     Vector<std::string> varnames_2d_rho;
     Vector<std::string> varnames_2d_u;
     Vector<std::string> varnames_2d_v;
 
     const int ncomp_mf_3d = varnames_3d.size();
-    const int ncomp_mf_3d_coeff = varnames_3d_coeff.size();
     const auto ngrow_vars = IntVect(NGROW-1,NGROW-1,0);
 
     // These are the ncomp for the 2D cell-centered, x-face-based, y-face-based MultiFabs respectively
@@ -74,6 +74,10 @@ REMORA::WritePlotFile (int istep_for_plot)
       {
          if (plot_name == "zeta" ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "h"    ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "visc2") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "diff2_temp"  ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "diff2_salt"  ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "diff2_tracer") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
@@ -108,16 +112,6 @@ REMORA::WritePlotFile (int istep_for_plot)
         plotMF[lev].setVal(1.234e20);
     }
 
-    // 3D MultiFabs to hold time-invariant coefficient fields (written once)
-    Vector<MultiFab> plotMF_coeff;
-    if (write_static_coeff_plotfile && (ncomp_mf_3d_coeff > 0)) {
-        plotMF_coeff.resize(finest_level+1);
-        for (int lev = 0; lev <= finest_level; ++lev) {
-            plotMF_coeff[lev].define(grids[lev], dmap[lev], ncomp_mf_3d_coeff, ngrow_vars);
-            plotMF_coeff[lev].setVal(1.234e20);
-        }
-    }
-
     // Array of 2D MultiFabs to hold the plotfile data
     Vector<MultiFab> mf_2d_rho(finest_level+1);
     Vector<MultiFab> mf_2d_u(finest_level+1);
@@ -134,20 +128,27 @@ REMORA::WritePlotFile (int istep_for_plot)
           mf_2d_v[lev].define(ba2d, dmap[lev], ncomp_mf_2d_v  , IntVect(0,0,0));
     }
 
-    // Empty 2D MultiFabs for the static coefficient plotfile
-    Vector<MultiFab> mf_2d_rho_zero;
+    // Static coefficient plotfile (2D rho-point fields, written once)
+    const int ncomp_mf_2d_rho_coeff = static_cast<int>(varnames_2d_coeff.size());
+    Vector<MultiFab> plotMF_zero;
+    Vector<MultiFab> mf_2d_rho_coeff;
     Vector<MultiFab> mf_2d_u_zero;
     Vector<MultiFab> mf_2d_v_zero;
-    if (write_static_coeff_plotfile && (ncomp_mf_3d_coeff > 0)) {
-        mf_2d_rho_zero.resize(finest_level+1);
+    if (write_static_coeff_plotfile && (ncomp_mf_2d_rho_coeff > 0)) {
+        plotMF_zero.resize(finest_level+1);
+        mf_2d_rho_coeff.resize(finest_level+1);
         mf_2d_u_zero.resize(finest_level+1);
         mf_2d_v_zero.resize(finest_level+1);
         for (int lev = 0; lev <= finest_level; ++lev) {
+            // 3D plot MF with zero components
+            plotMF_zero[lev].define(grids[lev], dmap[lev], 0, IntVect(0,0,0));
+
             BoxArray ba(grids[lev]);
             BoxList bl2d = ba.boxList();
             for (auto& b : bl2d) { b.setRange(2,0); }
             BoxArray ba2d(std::move(bl2d));
-            mf_2d_rho_zero[lev].define(ba2d, dmap[lev], 0, IntVect(0,0,0));
+
+            mf_2d_rho_coeff[lev].define(ba2d, dmap[lev], ncomp_mf_2d_rho_coeff, IntVect(0,0,0));
             mf_2d_u_zero[lev].define  (ba2d, dmap[lev], 0, IntVect(0,0,0));
             mf_2d_v_zero[lev].define  (ba2d, dmap[lev], 0, IntVect(0,0,0));
         }
@@ -224,6 +225,65 @@ REMORA::WritePlotFile (int istep_for_plot)
              for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); }
              icomp_rho++;
          }
+         if (plot_name == "visc2" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) {
+                 if (vec_visc2_r[lev]->contains_nan(0, 1, 0, true) || vec_visc2_r[lev]->contains_inf(0, 1, 0, true)) {
+                     amrex::Abort("Found while writing output: visc2 contains nan or inf");
+                 }
+                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                     const Box& bx = mfi.validbox();
+                     const int K = mfi.index();
+                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                     auto src = vec_visc2_r[lev]->const_array(K);
+                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+                         dst(i,j,k) = src(i,j,0,0);
+                     });
+                 }
+             }
+             icomp_rho++;
+         }
+         if (plot_name == "diff2_temp" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) {
+                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                     const Box& bx = mfi.validbox();
+                     const int K = mfi.index();
+                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                     auto src = vec_diff2[lev]->const_array(K);
+                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+                         dst(i,j,k) = src(i,j,0,Temp_comp);
+                     });
+                 }
+             }
+             icomp_rho++;
+         }
+         if (plot_name == "diff2_salt" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) {
+                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                     const Box& bx = mfi.validbox();
+                     const int K = mfi.index();
+                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                     auto src = vec_diff2[lev]->const_array(K);
+                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+                         dst(i,j,k) = src(i,j,0,Salt_comp);
+                     });
+                 }
+             }
+             icomp_rho++;
+         }
+         if (plot_name == "diff2_tracer" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) {
+                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                     const Box& bx = mfi.validbox();
+                     const int K = mfi.index();
+                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                     auto src = vec_diff2[lev]->const_array(K);
+                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+                         dst(i,j,k) = src(i,j,0,Tracer_comp);
+                     });
+                 }
+             }
+             icomp_rho++;
+         }
     }
 
     int icomp_u   = 0;
@@ -260,6 +320,73 @@ REMORA::WritePlotFile (int istep_for_plot)
              for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_bvstr[lev],0,icomp_v,1,0); }
              icomp_v++;
          }
+    }
+
+    // Fill the time-invariant coefficient plotfile (2D rho points) if enabled
+    if (write_static_coeff_plotfile && (ncomp_mf_2d_rho_coeff > 0)) {
+        int icomp_coeff = 0;
+        for (auto const& nm : varnames_2d_coeff) {
+            if (nm == "visc2") {
+                for (int lev = 0; lev <= finest_level; ++lev) {
+                    for (MFIter mfi(mf_2d_rho_coeff[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                        const Box& bx = mfi.validbox();
+                        const int K = mfi.index();
+                        auto dst = mf_2d_rho_coeff[lev].array(mfi, icomp_coeff);
+                        auto src = vec_visc2_r[lev]->const_array(K);
+                        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+                            dst(i,j,k) = src(i,j,0,0);
+                        });
+                    }
+                }
+                icomp_coeff++;
+                continue;
+            }
+            if (nm == "diff2_temp") {
+                for (int lev = 0; lev <= finest_level; ++lev) {
+                    for (MFIter mfi(mf_2d_rho_coeff[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                        const Box& bx = mfi.validbox();
+                        const int K = mfi.index();
+                        auto dst = mf_2d_rho_coeff[lev].array(mfi, icomp_coeff);
+                        auto src = vec_diff2[lev]->const_array(K);
+                        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+                            dst(i,j,k) = src(i,j,0,Temp_comp);
+                        });
+                    }
+                }
+                icomp_coeff++;
+                continue;
+            }
+            if (nm == "diff2_salt") {
+                for (int lev = 0; lev <= finest_level; ++lev) {
+                    for (MFIter mfi(mf_2d_rho_coeff[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                        const Box& bx = mfi.validbox();
+                        const int K = mfi.index();
+                        auto dst = mf_2d_rho_coeff[lev].array(mfi, icomp_coeff);
+                        auto src = vec_diff2[lev]->const_array(K);
+                        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+                            dst(i,j,k) = src(i,j,0,Salt_comp);
+                        });
+                    }
+                }
+                icomp_coeff++;
+                continue;
+            }
+            if (nm == "diff2_tracer") {
+                for (int lev = 0; lev <= finest_level; ++lev) {
+                    for (MFIter mfi(mf_2d_rho_coeff[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                        const Box& bx = mfi.validbox();
+                        const int K = mfi.index();
+                        auto dst = mf_2d_rho_coeff[lev].array(mfi, icomp_coeff);
+                        auto src = vec_diff2[lev]->const_array(K);
+                        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+                            dst(i,j,k) = src(i,j,0,Tracer_comp);
+                        });
+                    }
+                }
+                icomp_coeff++;
+                continue;
+            }
+        }
     }
 
     for (int lev = 0; lev <= finest_level; ++lev)
@@ -361,42 +488,6 @@ REMORA::WritePlotFile (int istep_for_plot)
             mf_comp += AMREX_SPACEDIM;
         } // if containerHasElement
 
-        // Horizontal mixing coefficients (rho points) written into the time-series plotfile
-        if (containerHasElement(varnames_3d, "visc2")) {
-            if (vec_visc2_r[lev]->contains_nan(0, 1, 0, true) || vec_visc2_r[lev]->contains_inf(0, 1, 0, true)) {
-                amrex::Abort("Found while writing output: visc2 contains nan or inf");
-            }
-            MultiFab::Copy(plotMF[lev], *vec_visc2_r[lev], 0, mf_comp, 1, ngrow_vars);
-            mf_comp += 1;
-        }
-
-        for (int n = 0; n < NCONS; ++n) {
-            const std::string nm = std::string("diff2_") + cons_names[n];
-            if (containerHasElement(varnames_3d, nm)) {
-                if (vec_diff2[lev]->contains_nan(n, 1, 0, true) || vec_diff2[lev]->contains_inf(n, 1, 0, true)) {
-                    amrex::Abort("Found while writing output: diff2 contains nan or inf");
-                }
-                MultiFab::Copy(plotMF[lev], *vec_diff2[lev], n, mf_comp, 1, ngrow_vars);
-                mf_comp += 1;
-            }
-        }
-
-        // Time-invariant coefficient plotfile for scaled_to_grid
-        if (write_static_coeff_plotfile && (ncomp_mf_3d_coeff > 0)) {
-            int cf_comp = 0;
-            if (containerHasElement(varnames_3d_coeff, "visc2")) {
-                MultiFab::Copy(plotMF_coeff[lev], *vec_visc2_r[lev], 0, cf_comp, 1, ngrow_vars);
-                cf_comp += 1;
-            }
-            for (int n = 0; n < NCONS; ++n) {
-                const std::string nm = std::string("diff2_") + cons_names[n];
-                if (containerHasElement(varnames_3d_coeff, nm)) {
-                    MultiFab::Copy(plotMF_coeff[lev], *vec_diff2[lev], n, cf_comp, 1, ngrow_vars);
-                    cf_comp += 1;
-                }
-            }
-        }
-
 #ifdef REMORA_USE_PARTICLES
         const auto& particles_namelist( particleData.getNames() );
         for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++) {
@@ -451,25 +542,26 @@ REMORA::WritePlotFile (int istep_for_plot)
     if (finest_level == 0)
     {
         if (plotfile_type == PlotfileType::amrex) {
-            if (write_static_coeff_plotfile && (ncomp_mf_3d_coeff > 0)) {
+            if (write_static_coeff_plotfile && (ncomp_mf_2d_rho_coeff > 0)) {
                 const std::string coeff_plotfilename = plot_file_name + "_hmixcoef";
                 if (!amrex::FileExists(coeff_plotfilename)) {
                     amrex::Print() << "Writing static horizontal mixing coefficient plotfile "
                                    << coeff_plotfilename << "\n";
                     Vector<int> level_steps_zero = istep;
                     for (auto& s : level_steps_zero) { s = 0; }
+                    Vector<std::string> empty_3d;
                     Vector<std::string> empty_2d;
                     WriteMultiLevelPlotfileWithBathymetry(coeff_plotfilename, finest_level+1,
-                                                          GetVecOfConstPtrs(plotMF_coeff),
+                                                          GetVecOfConstPtrs(plotMF_zero),
                                                           GetVecOfConstPtrs(mf_nd),
                                                           GetVecOfConstPtrs(mf_u),
                                                           GetVecOfConstPtrs(mf_v),
                                                           GetVecOfConstPtrs(mf_w),
-                                                          GetVecOfConstPtrs(mf_2d_rho_zero),
+                                                          GetVecOfConstPtrs(mf_2d_rho_coeff),
                                                           GetVecOfConstPtrs(mf_2d_u_zero),
                                                           GetVecOfConstPtrs(mf_2d_v_zero),
-                                                          varnames_3d_coeff,
-                                                          empty_2d, empty_2d, empty_2d,
+                                                          empty_3d,
+                                                          varnames_2d_coeff, empty_2d, empty_2d,
                                                           Geom(),
                                                           0.0_rt, level_steps_zero, refRatio());
                     writeJobInfo(coeff_plotfilename);
@@ -507,25 +599,26 @@ REMORA::WritePlotFile (int istep_for_plot)
 
     } else { // multilevel
         if (plotfile_type == PlotfileType::amrex) {
-            if (write_static_coeff_plotfile && (ncomp_mf_3d_coeff > 0)) {
+            if (write_static_coeff_plotfile && (ncomp_mf_2d_rho_coeff > 0)) {
                 const std::string coeff_plotfilename = plot_file_name + "_hmixcoef";
                 if (!amrex::FileExists(coeff_plotfilename)) {
                     amrex::Print() << "Writing static horizontal mixing coefficient plotfile "
                                    << coeff_plotfilename << "\n";
                     Vector<int> level_steps_zero = istep;
                     for (auto& s : level_steps_zero) { s = 0; }
+                    Vector<std::string> empty_3d;
                     Vector<std::string> empty_2d;
                     WriteMultiLevelPlotfileWithBathymetry(coeff_plotfilename, finest_level+1,
-                                                          GetVecOfConstPtrs(plotMF_coeff),
+                                                          GetVecOfConstPtrs(plotMF_zero),
                                                           GetVecOfConstPtrs(mf_nd),
                                                           GetVecOfConstPtrs(mf_u),
                                                           GetVecOfConstPtrs(mf_v),
                                                           GetVecOfConstPtrs(mf_w),
-                                                          GetVecOfConstPtrs(mf_2d_rho_zero),
+                                                          GetVecOfConstPtrs(mf_2d_rho_coeff),
                                                           GetVecOfConstPtrs(mf_2d_u_zero),
                                                           GetVecOfConstPtrs(mf_2d_v_zero),
-                                                          varnames_3d_coeff,
-                                                          empty_2d, empty_2d, empty_2d,
+                                                          empty_3d,
+                                                          varnames_2d_coeff, empty_2d, empty_2d,
                                                           Geom(),
                                                           0.0_rt, level_steps_zero, ref_ratio);
                     writeJobInfo(coeff_plotfilename);

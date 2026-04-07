@@ -81,8 +81,9 @@ List of Parameters
 |                                        | 3D variables to                   |                       |            |
 |                                        | include in                        | (see table below)     |            |
 |                                        |                                   |                       |            |
-|                                        | plotfiles. Not                    |                       |            |
-|                                        | used for netCDF                   |                       |            |
+|                                        | plotfiles. Also used to select    |                       |            |
+|                                        | optional 3D tracer/derived fields |                       |            |
+|                                        | in NetCDF plotfiles.              |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.plot_vars_2d**                | name of                           | list of names         | None       |
 |                                        | 2D variables to                   |                       |            |
@@ -125,6 +126,15 @@ Notes
    cell centers when written in amrex/native plotfiles. They are not averaged when writing
    NetCDF files.
 
+-  If ``remora.horizontal_mixing_type = "scaled_to_grid"``, REMORA outputs the spatially varying
+   horizontal mixing coefficients as 2D (vertically homogeneous) fields: ``visc2``, ``diff2_temp``,
+   ``diff2_salt``, and ``diff2_tracer``.
+
+   - For NetCDF output they are written as time-invariant variables (no ``ocean_time`` dimension).
+   - For native AMReX plotfiles they are written once into a static plotfile named
+     ``<remora.plot_file>_hmixcoef`` (and omitted from the regular time-series plotfiles).
+   - The coefficients are written for the valid region only (ghost cells are not written).
+
 -  File prefixes can include directories.
 
 -  If both ``remora.plot_int`` and ``remora.plot_int_time`` have been set, plotfile output will occur
@@ -162,6 +172,17 @@ Notes
 | **zeta**                       |                           |
 +--------------------------------+---------------------------+
 | **h**                          |                           |
++--------------------------------+---------------------------+
+| **visc2**                      | horizontal viscosity      |
++--------------------------------+---------------------------+
+| **diff2_temp**                 | horizontal diffusivity    |
+|                                | for temperature           |
++--------------------------------+---------------------------+
+| **diff2_salt**                 | horizontal diffusivity    |
+|                                | for salinity              |
++--------------------------------+---------------------------+
+| **diff2_tracer**               | horizontal diffusivity    |
+|                                | for passive tracer        |
 +--------------------------------+---------------------------+
 | **ubar**                       |                           |
 +--------------------------------+---------------------------+
