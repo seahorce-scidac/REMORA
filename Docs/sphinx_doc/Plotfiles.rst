@@ -107,6 +107,19 @@ List of Parameters
 |                                        |                                   |                       |            |
 |                                        | This is necessary for amrvis.     |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
+| **remora.plotfile_fill_value**         | fill value to use in AMReX        | Real                  | 0.0        |
+|                                        |                                   |                       |            |
+|                                        | plotfiles to mask values          |                       |            |
+|                                        |                                   |                       |            |
+|                                        | when using land/sea mask          |                       |            |
++----------------------------------------+-----------------------------------+-----------------------+------------+
+| **remora.netcdf_fill_value**           | fill value to use in NetCDF       | Real                  | 1.0e37     |
+|                                        |                                   |                       |            |
+|                                        | output to mask values             |                       |            |
+|                                        |                                   |                       |            |
+|                                        | when using land/sea mask          |                       |            |
++----------------------------------------+-----------------------------------+-----------------------+------------+
+
 
 .. _notes-5:
 

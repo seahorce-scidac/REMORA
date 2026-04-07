@@ -59,9 +59,8 @@ REMORA::WritePlotFile (int istep_for_plot)
         FillPatchNoBC(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,false);
     }
 
-    Real fill_value = 0.0_rt;
     for (int lev = 0; lev <= finest_level; ++lev) {
-        mask_arrays_for_write(lev, (Real) fill_value, 0.0_rt);
+        mask_arrays_for_write(lev, plotfile_fill_value, 0.0_rt);
     }
 
     // Array of 3D MultiFabs to hold the plotfile data
@@ -490,7 +489,7 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
     } // end multi-level
     for (int lev = 0; lev <= finest_level; ++lev) {
-        mask_arrays_for_write(lev, 0.0_rt, (Real) fill_value);
+        mask_arrays_for_write(lev, 0.0_rt, plotfile_fill_value);
     }
 
     }
