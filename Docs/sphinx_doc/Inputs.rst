@@ -1048,9 +1048,9 @@ List of Bulk Fluxes parameters
    The NetCDF file must contain variables named ``Tair``, ``qair``, ``Pair``,
    ``swrad``, ``rain``, ``cloud``, and ``EminusP`` respectively, with the same
    spatial dimensions as the level 0 (coarsest) model grid. If atmospheric forcing
-   is not loaded from NetCDF files, spatially uniform constant values can be 
-   specified in the inputs file. Time interpolation is performed automatically 
-   based on the simulation time on level 0, and fields are interpolated to finer 
+   is not loaded from NetCDF files, spatially uniform constant values can be
+   specified in the inputs file. Time interpolation is performed automatically
+   based on the simulation time on level 0, and fields are interpolated to finer
    AMR levels when needed.
 
    For longwave forcing, the variable name is controlled by
@@ -1062,7 +1062,7 @@ List of Bulk Fluxes parameters
 
    The **qair_is_percent** flag should be set to true if the relative humidity
    in the NetCDF file is stored as a percentage (0-100) rather than as a
-   fraction (0-1). 
+   fraction (0-1).
 
 Numerical Algorithms
 ====================
