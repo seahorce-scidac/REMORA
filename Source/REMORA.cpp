@@ -757,9 +757,8 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& pn) -> Real
             {
                 Real local_max = 0.0_rt;
-                amrex::Loop(bx, [=,&local_max] (int i, int j, int k) noexcept
+                amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
                 {
-                    if (k != 0) { return; }
                     Real denom = pm(i,j,0) * pn(i,j,0);
                     if (denom > 0.0_rt) {
                         Real G = std::sqrt(1.0_rt / denom);
@@ -861,11 +860,10 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& mskr) -> Real
             {
                 Real local_min = 1.0e200_rt;
-                amrex::Loop(bx, [=,&local_min] (int i, int j, int k) noexcept
+                amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
                 {
-                    if (k != 0) { return; }
                     if (mskr(i,j,0) > 0.0_rt) {
-                        local_min = amrex::min(local_min, visc2(i,j,k));
+                        local_min = amrex::min(local_min, visc2(i,j,0));
                     }
                 });
                 return local_min;
@@ -878,11 +876,10 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& mskr) -> Real
             {
                 Real local_max = -1.0e200_rt;
-                amrex::Loop(bx, [=,&local_max] (int i, int j, int k) noexcept
+                amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
                 {
-                    if (k != 0) { return; }
                     if (mskr(i,j,0) > 0.0_rt) {
-                        local_max = amrex::max(local_max, visc2(i,j,k));
+                        local_max = amrex::max(local_max, visc2(i,j,0));
                     }
                 });
                 return local_max;
@@ -898,7 +895,6 @@ REMORA::set_hmixcoef(int lev)
                 Real local_min = 1.0e200_rt;
                 amrex::Loop(bx, [=,&local_min] (int i, int j, int k) noexcept
                 {
-                    if (k != 0) { return; }
                     const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,k) : 0.0_rt;
                     local_min = amrex::min(local_min, v);
                 });
@@ -912,10 +908,9 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& mskr) -> Real
             {
                 Real local_max = -1.0e200_rt;
-                amrex::Loop(bx, [=,&local_max] (int i, int j, int k) noexcept
+                amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
                 {
-                    if (k != 0) { return; }
-                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,k) : 0.0_rt;
+                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,0) : 0.0_rt;
                     local_max = amrex::max(local_max, v);
                 });
                 return local_max;
