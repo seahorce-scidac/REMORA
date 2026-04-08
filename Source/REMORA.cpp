@@ -693,8 +693,9 @@ REMORA::set_hmixcoef(int lev)
     } else if (solverChoice.horiz_mixing_type == HorizMixingType::constant) {
         vec_visc2_p[lev]->setVal(solverChoice.visc2 * lev_scale);
         vec_visc2_r[lev]->setVal(solverChoice.visc2 * lev_scale);
-        for (int n=0; n<NCONS; n++)
+        for (int n=0; n<NCONS; n++) {
             vec_diff2[lev]->setVal(solverChoice.tnu2[n] * lev_scale, n, 1);
+        }
 
     // Scale harmonic viscosity and diffusivity by the grid size as ROMS
     // does in Utility/ini_hmixcoef.F. Intended for curvilinear grids.
@@ -769,8 +770,9 @@ REMORA::set_hmixcoef(int lev)
             });
 
         ParallelDescriptor::ReduceRealMax(grdmax);
-        if (grdmax <= 0.0_rt)
+        if (grdmax <= 0.0_rt) {
             Abort("scaled_to_grid: grdmax <= 0");
+        }
 
         // Optional AMR scaling: decrease coefficients on refined levels linearly
         // with grid size (i.e., proportional to sqrt(cell area)). For a horizontal
@@ -799,8 +801,9 @@ REMORA::set_hmixcoef(int lev)
             auto diff2   = vec_diff2[lev]->array(mfi);
 
             Real diff0[NCONS];
-            for (int n=0; n<NCONS; n++)
+            for (int n=0; n<NCONS; n++) {
                 diff0[n] = solverChoice.tnu2[n];
+            }
 
             ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
@@ -944,9 +947,10 @@ REMORA::set_hmixcoef(int lev)
     Real time = 0.0_rt;
     FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), BCVars::foextrap_periodic_bc);
     FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), BCVars::foextrap_periodic_bc);
-    for (int n=0; n<NCONS; n++)
+    for (int n = 0; n < NCONS; n++) {
         FillPatch(lev, time, *vec_diff2[lev], GetVecOfPtrs(vec_diff2),
                   BCVars::foextrap_periodic_bc, BdyVars::null, n, false);
+    }
 }
 
 /**
