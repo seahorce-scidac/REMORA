@@ -941,11 +941,11 @@ List of Bulk Fluxes parameters
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.Tair_from_netcdf**      | Load air temperature from NetCDF       | true / false      | false          |
 |                                  |                                        |                   |                |
-|                                  | file (spatially varying)               |                   |                |
+|                                  | file                                   |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.qair_from_netcdf**      | Load air humidity from NetCDF          | true / false      | false          |
 |                                  |                                        |                   |                |
-|                                  | file (spatially varying)               |                   |                |
+|                                  | file                                   |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.qair_is_percent**       | Convert qair from percentage           | true / false      | false          |
 |                                  |                                        |                   |                |
@@ -957,20 +957,20 @@ List of Bulk Fluxes parameters
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.Pair_from_netcdf**      | Load air pressure from NetCDF          | true / false      | false          |
 |                                  |                                        |                   |                |
-|                                  | file (spatially varying)               |                   |                |
+|                                  | file                                   |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.srflx_from_netcdf**     | Load shortwave radiation flux          | true / false      | false          |
 |                                  |                                        |                   |                |
 |                                  | from NetCDF file                       |                   |                |
 |                                  |                                        |                   |                |
-|                                  | (spatially varying)                    |                   |                |
+|                                  |                                        |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.longwave_down**         | Use file-provided downward longwave    | true / false      | false          |
 |                                  | radiation to compute net longwave      |                   |                |
 |                                  | (``Lnet = Ldown - sigma*epsilon*T^4``) |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.longwave_down_from_netcdf** | Load longwave field from NetCDF    | true / false      | false          |
-|                                  | file (spatially varying)               |                   |                |
+|                                  | file                                   |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.longwave_netcdf_is_net**| Interpret the NetCDF longwave field    | true / false      | false          |
 |                                  | as net longwave (use as-is). If false, |                   |                |
@@ -1014,17 +1014,17 @@ List of Bulk Fluxes parameters
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.cloud_from_netcdf**     | Load cloud cover from NetCDF           | true / false      | false          |
 |                                  |                                        |                   |                |
-|                                  | file (spatially varying)               |                   |                |
+|                                  | file                                   |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.rain_from_netcdf**      | Load precipitation rate from           | true / false      | false          |
 |                                  |                                        |                   |                |
-|                                  | NetCDF file (spatially varying)        |                   |                |
+|                                  | NetCDF file                            |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.EminusP_from_netcdf**   | Load evaporation minus                 | true / false      | false          |
 |                                  |                                        |                   |                |
 |                                  | precipitation from NetCDF file         |                   |                |
 |                                  |                                        |                   |                |
-|                                  | (spatially varying)                    |                   |                |
+|                                  |                                        |                   |                |
 +----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.eminusp**               | Whether to do E-P prescription for     | true / false      | false          |
 |                                  |                                        |                   |                |
@@ -1047,8 +1047,11 @@ List of Bulk Fluxes parameters
    specified by **remora.nc_frc_file** (see :ref:`list-of-parameters surface-forcing`).
    The NetCDF file must contain variables named ``Tair``, ``qair``, ``Pair``,
    ``swrad``, ``rain``, ``cloud``, and ``EminusP`` respectively, with the same
-   spatial dimensions as the model grid.
-   Time interpolation is performed automatically based on the simulation time.
+   spatial dimensions as the level 0 (coarsest) model grid. If atmospheric forcing
+   is not loaded from NetCDF files, spatially uniform constant values can be
+   specified in the inputs file. Time interpolation is performed automatically
+   based on the simulation time on level 0, and fields are interpolated to finer
+   AMR levels when needed.
 
    For longwave forcing, the variable name is controlled by
    **remora.longwave_netcdf_varname** (default ``lwrad``).
@@ -1059,8 +1062,7 @@ List of Bulk Fluxes parameters
 
    The **qair_is_percent** flag should be set to true if the relative humidity
    in the NetCDF file is stored as a percentage (0-100) rather than as a
-   fraction (0-1). This conversion is applied after loading and includes proper
-   ghost cell synchronization.
+   fraction (0-1).
 
 Numerical Algorithms
 ====================
@@ -1197,6 +1199,12 @@ List of Parameters
 |                                       |                             |              |                           |
 |                                       | climatology                 |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
+
+.. note::
+
+   For AMR runs, climatology fields are read on level 0 and temporally
+   interpolated there. REMORA then interpolates those fields to finer AMR
+   levels for nudging updates.
 
 Rivers (point sources)
 ======================
