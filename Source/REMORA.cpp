@@ -893,9 +893,9 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& mskr) -> Real
             {
                 Real local_min = 1.0e200_rt;
-                amrex::Loop(bx, [=,&local_min] (int i, int j, int k) noexcept
+                amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
                 {
-                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,k) : 0.0_rt;
+                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,0) : 0.0_rt;
                     local_min = amrex::min(local_min, v);
                 });
                 return local_min;
