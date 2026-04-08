@@ -148,9 +148,7 @@ Notes
      ``<plotfilename>_hmixcoef`` (e.g., ``plt00010_hmixcoef``), and omitted from the regular
      time-series plotfiles. This is written per plot output so it matches the current AMR grid
      hierarchy.
-   - For AMReX output these coefficient fields are written as a k=0 slab (nz=1). Some analysis tools
-     may therefore show a singleton vertical dimension; this can be removed in post-processing with
-     ``squeeze()`` or by selecting the first plane.
+   - For AMReX output these coefficient fields are written as a k=0 slab. 
    - The coefficients are written for the valid region only (ghost cells are not written).
 
 -  File prefixes can include directories.
