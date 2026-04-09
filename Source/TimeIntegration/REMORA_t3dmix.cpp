@@ -54,7 +54,7 @@ REMORA::t3dmix  (const Box& bx,
     {
         const Real pnom_v = (pn(i,j-1,0)+pn(i,j,0))/(pm(i,j-1,0)+pm(i,j,0));
 
-        const Real cff = 0.25_rt*(diff2(i,j,n)+diff2(i,j-1,n)) * pnom_v;
+        const Real cff = 0.25_rt*(diff2(i,j,0,n)+diff2(i,j-1,0,n)) * pnom_v;
         FE(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i,j-1,k)) * (state_rhs(i,j,k,n) - state_rhs(i,j-1,k,n));
         FE(i,j,k,n) *= mskv(i,j,0);
     });
