@@ -556,9 +556,9 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_Akt[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,NCONS,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
 
     // check dimensionality
-    vec_visc2_p[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?
-    vec_visc2_r[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at rho points
-    vec_diff2[lev].reset(new MultiFab(ba,dm,NCONS,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature/salt
+    vec_visc2_p[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?
+    vec_visc2_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at rho points
+    vec_diff2[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature/salt
 
     //2d, (incl advection terms and surface/bottom stresses, integral over the whole column, k=0)
     vec_rufrc[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0)));

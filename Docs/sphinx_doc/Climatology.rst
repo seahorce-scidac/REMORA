@@ -12,6 +12,8 @@ REMORA supports nudging to climatology both on the boundaries and in an interior
 
 The climatology history and nudging coefficients are read from NetCDF files. The nudging coefficients are expected to be in units of 1/day, as in ROMS.
 
+For AMR runs, climatology fields are read and temporally interpolated on level 0, then interpolated to higher AMR levels as needed. This allows one climatology dataset on the coarse grid to drive nudging on all levels.
+
 Nudging for Tracers
 -------------------
 
