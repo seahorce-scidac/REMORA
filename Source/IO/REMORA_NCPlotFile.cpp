@@ -412,10 +412,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             }
         } // end vorticity
 
-        // Horizontal mixing coefficients are vertically homogeneous. For scaled_to_grid we output
-        // them as static 2D rho-point fields (no ocean_time, no s_rho).
+        // Output 2D horizontal mixing coefficients if using scaled_to_grid option
         if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
-            ncf.def_var_fill("visc2", ncutils::NCDType::Real, { ny_r_name, nx_r_name }, &fill_value);
+            ncf.def_var_fill("visc2", ncutils::NCDType::Real, { ny_r_name, nx_r_name }, &netcdf_fill_value);
             ncf.var("visc2").put_attr("long_name","horizontal harmonic viscosity coefficient at RHO-points");
             ncf.var("visc2").put_attr("units","meter2 second-1");
             ncf.var("visc2").put_attr("grid","grid");
@@ -425,7 +424,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 
             for (int n = 0; n < NCONS; ++n) {
                 const std::string nm = std::string("diff2_") + cons_names[n];
-                ncf.def_var_fill(nm, ncutils::NCDType::Real, { ny_r_name, nx_r_name }, &fill_value);
+                ncf.def_var_fill(nm, ncutils::NCDType::Real, { ny_r_name, nx_r_name }, &netcdf_fill_value);
                 ncf.var(nm).put_attr("long_name", std::string("horizontal harmonic diffusivity coefficient for ") + cons_names[n] + " at RHO-points");
                 ncf.var(nm).put_attr("units","meter2 second-1");
                 ncf.var(nm).put_attr("grid","grid");
