@@ -1133,7 +1133,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             // vertically homogeneous and time-invariant -> write static 2D fields once.
             // **************************************************************************
             if ((solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) && write_header) {
-                { // visc2 (k=0 plane)
+                { // visc2
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_visc2_r[lev])[mfi.index()], 0, 0, 1);
@@ -1143,7 +1143,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     nc_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
 
-                // diff2_* (k=0 plane)
+                // diff2_*
                 for (int n = 0; n < NCONS; ++n) {
                     const std::string nm = std::string("diff2_") + cons_names[n];
                     FArrayBox tmp;

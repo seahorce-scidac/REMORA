@@ -726,7 +726,9 @@ REMORA::set_hmixcoef(int lev)
         // ------------------------------------------------------------
         vec_visc2_r[lev]->setVal(solverChoice.visc2);
         vec_visc2_p[lev]->setVal(solverChoice.visc2);
-        vec_diff2[lev]->setVal(solverChoice.visc2);
+        for (int n = 0; n < NCONS; n++) {
+            vec_diff2[lev]->setVal(solverChoice.tnu2[n], n, 1);
+        }
 
         // NOTE: This must be GPU-safe. Do not dereference MultiFab data on host.
         // Force the reduction to run in the GPU launch region if GPUs are enabled.
@@ -804,14 +806,14 @@ REMORA::set_hmixcoef(int lev)
                 diff0[n] = solverChoice.tnu2[n];
             }
 
-            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
             {
                 Real denom  = pm(i,j,0) * pn(i,j,0);
                 Real grdscl = (denom > 0.0_rt) ? std::sqrt(1.0_rt / denom) : 0.0_rt;
-                visc2_r(i,j,k) = cff * grdscl;
+                visc2_r(i,j,0) = cff * grdscl;
 
                 for (int n = 0; n < NCONS; n++) {
-                    diff2(i,j,k,n) = ((diff0[n] * lev_scale) / grdmax) * grdscl;
+                    diff2(i,j,0,n) = ((diff0[n] * lev_scale) / grdmax) * grdscl;
                 }
             });
         }
@@ -822,7 +824,6 @@ REMORA::set_hmixcoef(int lev)
 
         // ------------------------------------------------------------
         // Step 3: Psi coefficients = average of 4 surrounding rho
-        // (exact ROMS form, applied everywhere)
         // ------------------------------------------------------------
         for (MFIter mfi(*vec_visc2_p[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
@@ -830,13 +831,13 @@ REMORA::set_hmixcoef(int lev)
             auto visc2_p = vec_visc2_p[lev]->array(mfi);
             auto visc2_r = vec_visc2_r[lev]->const_array(mfi);
 
-            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
             {
-                visc2_p(i,j,k) = 0.25_rt * (
-                    visc2_r(i-1,j-1,k) +
-                    visc2_r(i  ,j-1,k) +
-                    visc2_r(i-1,j  ,k) +
-                    visc2_r(i  ,j  ,k)
+                visc2_p(i,j,0) = 0.25_rt * (
+                    visc2_r(i-1,j-1,0) +
+                    visc2_r(i  ,j-1,0) +
+                    visc2_r(i-1,j  ,0) +
+                    visc2_r(i  ,j  ,0)
                 );
             });
         }
@@ -886,7 +887,7 @@ REMORA::set_hmixcoef(int lev)
             });
         ParallelDescriptor::ReduceRealMax(visc_max_wet);
 
-        // Mimic "apply mask_rho" convention (dry -> 0), k=0.
+        // Mimic "apply mask_rho" convention (dry -> 0).
         Real visc_min_mask0 = amrex::ReduceMin(*vec_visc2_r[lev], *vec_mskr[lev], 0,
             [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
                                       Array4<Real const> const& visc2,

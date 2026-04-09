@@ -139,18 +139,6 @@ Notes
    cell centers when written in amrex/native plotfiles. They are not averaged when writing
    NetCDF files.
 
--  If ``remora.horizontal_mixing_type = "scaled_to_grid"``, REMORA outputs the spatially varying
-   horizontal mixing coefficients as 2D (vertically homogeneous) fields: ``visc2``, ``diff2_temp``,
-   ``diff2_salt``, and ``diff2_tracer``.
-
-   - For NetCDF output they are written as time-invariant variables (no ``ocean_time`` dimension).
-   - For native AMReX plotfiles they are written into a companion coefficient plotfile named
-     ``<plotfilename>_hmixcoef`` (e.g., ``plt00010_hmixcoef``), and omitted from the regular
-     time-series plotfiles. This is written per plot output so it matches the current AMR grid
-     hierarchy.
-   - For AMReX output these coefficient fields are written as a k=0 slab.
-   - The coefficients are written for the valid region only (ghost cells are not written).
-
 -  File prefixes can include directories.
 
 -  If both ``remora.plot_int`` and ``remora.plot_int_time`` have been set, plotfile output will occur
