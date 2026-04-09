@@ -174,9 +174,9 @@ REMORA::WritePlotFile (int istep_for_plot)
                      const int K = mfi.index();
                      auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
                      auto src = vec_visc2_r[lev]->const_array(K);
-                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
-                         dst(i,j,k) = src(i,j,0,0);
-                     });
+                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                        dst(i,j,0) = src(i,j,0);
+                    });
                  }
              }
              icomp_rho++;
@@ -188,8 +188,8 @@ REMORA::WritePlotFile (int istep_for_plot)
                      const int K = mfi.index();
                      auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
                      auto src = vec_diff2[lev]->const_array(K);
-                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
-                         dst(i,j,k) = src(i,j,0,Temp_comp);
+                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                         dst(i,j,0) = src(i,j,0,Temp_comp);
                      });
                  }
              }
@@ -202,8 +202,8 @@ REMORA::WritePlotFile (int istep_for_plot)
                      const int K = mfi.index();
                      auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
                      auto src = vec_diff2[lev]->const_array(K);
-                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
-                         dst(i,j,k) = src(i,j,0,Salt_comp);
+                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                         dst(i,j,0) = src(i,j,0,Salt_comp);
                      });
                  }
              }
@@ -216,8 +216,8 @@ REMORA::WritePlotFile (int istep_for_plot)
                      const int K = mfi.index();
                      auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
                      auto src = vec_diff2[lev]->const_array(K);
-                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
-                         dst(i,j,k) = src(i,j,0,Tracer_comp);
+                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                         dst(i,j,0) = src(i,j,0,Tracer_comp);
                      });
                  }
              }
