@@ -44,18 +44,6 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
         plot_var_names_3d.clear();
     }
 
-    // Horizontal mixing coefficients are vertically homogeneous, so we output
-    // them as 2D rho-point fields (see set2DPlotVariables).
-    if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
-        plot_var_names_3d.erase(std::remove(plot_var_names_3d.begin(), plot_var_names_3d.end(), "visc2"),
-                                plot_var_names_3d.end());
-        for (int n = 0; n < NCONS; ++n) {
-            const std::string nm = std::string("diff2_") + cons_names[n];
-            plot_var_names_3d.erase(std::remove(plot_var_names_3d.begin(), plot_var_names_3d.end(), nm),
-                                    plot_var_names_3d.end());
-        }
-    }
-
     // Get state variables in the same order as we define them,
     // since they may be in any order in the input list
     Vector<std::string> tmp_plot_names;
@@ -240,17 +228,6 @@ REMORA::append3DPlotVariables (const std::string& pp_plot_var_names_3d)
             if (!containerHasElement(plot_var_names_3d, nm)) {
                 plot_var_names_3d.push_back(nm);
             }
-        }
-    }
-
-    // Coefficient fields are 2D (see append2DPlotVariables / set2DPlotVariables).
-    if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
-        plot_var_names_3d.erase(std::remove(plot_var_names_3d.begin(), plot_var_names_3d.end(), "visc2"),
-                                plot_var_names_3d.end());
-        for (int n = 0; n < NCONS; ++n) {
-            const std::string nm = std::string("diff2_") + cons_names[n];
-            plot_var_names_3d.erase(std::remove(plot_var_names_3d.begin(), plot_var_names_3d.end(), nm),
-                                    plot_var_names_3d.end());
         }
     }
 

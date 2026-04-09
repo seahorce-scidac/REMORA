@@ -261,7 +261,6 @@ REMORA::WritePlotFile (int istep_for_plot)
          }
     }
 
-
     for (int lev = 0; lev <= finest_level; ++lev)
     {
         int mf_comp = 0;
@@ -403,8 +402,6 @@ REMORA::WritePlotFile (int istep_for_plot)
                 mf_arr(i,j,k,2) = mf_arr(i,j,k,2) + (N-k) * dz;
             });
         } // mfi
-
-
     } // lev
 
     if ( (plotfile_type == PlotfileType::amrex) ||
@@ -415,7 +412,7 @@ REMORA::WritePlotFile (int istep_for_plot)
 
     if (finest_level == 0)
     {
-            if (plotfile_type == PlotfileType::amrex) {
+        if (plotfile_type == PlotfileType::amrex) {
             amrex::Print() << "Writing plotfile " << plotfilename << "\n";
             WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
                                                   GetVecOfConstPtrs(plotMF),
@@ -447,7 +444,7 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
 
     } else { // multilevel
-            if (plotfile_type == PlotfileType::amrex) {
+        if (plotfile_type == PlotfileType::amrex) {
             amrex::Print() << "Writing plotfile " << plotfilename << "\n";
             int lev0 = 0;
             [[maybe_unused]] int desired_ratio = std::max(std::max(ref_ratio[lev0][0],ref_ratio[lev0][1]),ref_ratio[lev0][2]);
@@ -941,9 +938,6 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
                 salt(i,j,k) = fill_value;
             }
         });
-        // visc2/diff2 are stored as horizontally-varying only (nz==1).
-        // Only touch the k==0 slab here to avoid out-of-bounds writes when
-        // these MultiFabs have a single vertical layer.
         ParallelFor(makeSlab(gbx_coeff,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
