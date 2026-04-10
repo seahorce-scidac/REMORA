@@ -293,10 +293,10 @@ REMORA::InitData ()
         advflux_reg[0] = nullptr;
         for (int lev = 1; lev <= finest_level; lev++)
         {
-            advflux_reg[lev] = new YAFluxRegister(grids[lev], grids[lev-1],
+            advflux_reg[lev].reset( new YAFluxRegister(grids[lev], grids[lev-1],
                                                    dmap[lev],  dmap[lev-1],
                                                    geom[lev],  geom[lev-1],
-                                              ref_ratio[lev-1], lev, NCONS);
+                                              ref_ratio[lev-1], lev, NCONS));
         }
     }
 
@@ -831,25 +831,27 @@ REMORA::init_only (int lev, Real time)
                 amrex::Error("NetCDF climatology file name must be provided via input");
             }
             if (solverChoice.do_m2_clim_nudg) {
-                ubar_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "ubar", clim_ubar_time_varname, geom[lev].Domain(),vec_ubar[lev].get(),true,true);
-                vbar_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "vbar", clim_ubar_time_varname, geom[lev].Domain(),vec_vbar[lev].get(),true,true);
+                ubar_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "ubar",
+                            clim_ubar_time_varname, geom[lev].Domain(),vec_ubar[lev].get(),true,true));
+                vbar_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "vbar",
+                            clim_ubar_time_varname, geom[lev].Domain(),vec_vbar[lev].get(),true,true));
                 ubar_clim_data_from_file->Initialize();
                 vbar_clim_data_from_file->Initialize();
             }
             if (solverChoice.do_m3_clim_nudg) {
-                u_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "u", clim_u_time_varname, geom[lev].Domain(),xvel_new[lev],false,true);
-                v_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "v", clim_v_time_varname, geom[lev].Domain(),yvel_new[lev],false,true);
+                u_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "u", clim_u_time_varname, geom[lev].Domain(),xvel_new[lev],false,true));
+                v_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "v", clim_v_time_varname, geom[lev].Domain(),yvel_new[lev],false,true));
                 u_clim_data_from_file->Initialize();
                 v_clim_data_from_file->Initialize();
             }
             // Since the NCTimeSeries object isn't filling the cons_new MultiFab directly, we don't have to specify a component.
             // It just needs to know the shape of the MultiFab
             if (solverChoice.do_temp_clim_nudg) {
-                temp_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "temp", clim_temp_time_varname,geom[lev].Domain(),cons_new[lev],false,true);
+                temp_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "temp", clim_temp_time_varname,geom[lev].Domain(),cons_new[lev],false,true));
                 temp_clim_data_from_file->Initialize();
             }
             if (solverChoice.do_salt_clim_nudg) {
-                salt_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "salt", clim_salt_time_varname,geom[lev].Domain(),cons_new[lev],false,true);
+                salt_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "salt", clim_salt_time_varname,geom[lev].Domain(),cons_new[lev],false,true));
                 salt_clim_data_from_file->Initialize();
             }
         }
@@ -866,46 +868,46 @@ REMORA::init_only (int lev, Real time)
         if (nc_frc_file.empty()) {
             amrex::Error("NetCDF forcing file name must be provided via input for winds");
         }
-        Uwind_data_from_file = new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false);
-        Vwind_data_from_file = new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false);
+        Uwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false));
+        Vwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false));
         Uwind_data_from_file->Initialize();
         Vwind_data_from_file->Initialize();
 
         // Conditionally load atmospheric forcing fields from NetCDF based on user flags
         if (solverChoice.Tair_from_netcdf) {
-            Tair_data_from_file = new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false);
+            Tair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false));
             Tair_data_from_file->Initialize();
         }
         if (solverChoice.qair_from_netcdf) {
-            qair_data_from_file = new NCTimeSeries(nc_frc_file, "qair", frc_time_varname, geom[lev].Domain(),vec_qair[lev].get(), true, false);
+            qair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "qair", frc_time_varname, geom[lev].Domain(),vec_qair[lev].get(), true, false));
             qair_data_from_file->Initialize();
         }
         if (solverChoice.Pair_from_netcdf) {
-            Pair_data_from_file = new NCTimeSeries(nc_frc_file, "Pair", frc_time_varname, geom[lev].Domain(),vec_Pair[lev].get(), true, false);
+            Pair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Pair", frc_time_varname, geom[lev].Domain(),vec_Pair[lev].get(), true, false));
             Pair_data_from_file->Initialize();
         }
         if (solverChoice.srflx_from_netcdf) {
-            srflx_data_from_file = new NCTimeSeries(nc_frc_file, "swrad", frc_time_varname, geom[lev].Domain(),vec_srflx[lev].get(), true, false);
+            srflx_data_from_file.reset(new NCTimeSeries(nc_frc_file, "swrad", frc_time_varname, geom[lev].Domain(),vec_srflx[lev].get(), true, false));
             srflx_data_from_file->Initialize();
         }
         if (solverChoice.rain_from_netcdf) {
-            rain_data_from_file = new NCTimeSeries(nc_frc_file, "rain", frc_time_varname, geom[lev].Domain(),vec_rain[lev].get(), true, false);
+            rain_data_from_file.reset(new NCTimeSeries(nc_frc_file, "rain", frc_time_varname, geom[lev].Domain(),vec_rain[lev].get(), true, false));
             rain_data_from_file->Initialize();
         }
         if (solverChoice.cloud_from_netcdf) {
-            cloud_data_from_file = new NCTimeSeries(nc_frc_file, "cloud", frc_time_varname, geom[lev].Domain(),vec_cloud[lev].get(), true, false);
+            cloud_data_from_file.reset(new NCTimeSeries(nc_frc_file, "cloud", frc_time_varname, geom[lev].Domain(),vec_cloud[lev].get(), true, false));
             cloud_data_from_file->Initialize();
         }
         if (solverChoice.EminusP_from_netcdf) {
-            EminusP_data_from_file = new NCTimeSeries(nc_frc_file, "EminusP", frc_time_varname, geom[lev].Domain(),vec_EminusP[lev].get(), true, false);
+            EminusP_data_from_file.reset(new NCTimeSeries(nc_frc_file, "EminusP", frc_time_varname, geom[lev].Domain(),vec_EminusP[lev].get(), true, false));
             EminusP_data_from_file->Initialize();
         }
     } else if (solverChoice.smflux_type == SMFluxType::netcdf && lev == 0) {
         if (nc_frc_file.empty()) {
             amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
         }
-        sustr_data_from_file = new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),vec_sustr[lev].get(), true, false);
-        svstr_data_from_file = new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),vec_svstr[lev].get(), true, false);
+        sustr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),vec_sustr[lev].get(), true, false));
+        svstr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),vec_svstr[lev].get(), true, false));
         sustr_data_from_file->Initialize();
         svstr_data_from_file->Initialize();
     }
@@ -913,8 +915,8 @@ REMORA::init_only (int lev, Real time)
         if (nc_frc_file.empty()) {
             amrex::Error("NetCDF forcing file name must be provided via input for longwave radiation");
         }
-            longwave_down_data_from_file = new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
-                                                            geom[lev].Domain(), vec_longwave_down[lev].get(), true, false);
+            longwave_down_data_from_file.reset(new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
+                                                            geom[lev].Domain(), vec_longwave_down[lev].get(), true, false));
         longwave_down_data_from_file->Initialize();
     }
 
@@ -924,20 +926,20 @@ REMORA::init_only (int lev, Real time)
         river_source_cons.resize(NCONS);
         Print() << solverChoice.do_rivers_cons[0] << std::endl;
         if ((bool) solverChoice.do_rivers_cons[Salt_comp]) {
-            river_source_cons[Salt_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz);
+            river_source_cons[Salt_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz));
             river_source_cons[Salt_comp]->Initialize();
         }
         if (solverChoice.do_rivers_cons[Temp_comp]) {
-            river_source_cons[Temp_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz);
+            river_source_cons[Temp_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz));
             river_source_cons[Temp_comp]->Initialize();
         }
         if (solverChoice.do_rivers_cons[Tracer_comp]) {
-            river_source_cons[Tracer_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz);
+            river_source_cons[Tracer_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz));
             river_source_cons[Tracer_comp]->Initialize();
         }
-        river_source_transport = new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz);
+        river_source_transport.reset(new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz));
         river_source_transport->Initialize();
-        river_source_transportbar = new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz, 1);
+        river_source_transportbar.reset(new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz, 1));
         river_source_transportbar->Initialize();
         init_riv_pos_from_netcdf(lev);
     }
