@@ -81,8 +81,9 @@ List of Parameters
 |                                        | 3D variables to                   |                       |            |
 |                                        | include in                        | (see table below)     |            |
 |                                        |                                   |                       |            |
-|                                        | plotfiles. Not                    |                       |            |
-|                                        | used for netCDF                   |                       |            |
+|                                        | plotfiles. Also used to select    |                       |            |
+|                                        | optional 3D tracer/derived fields |                       |            |
+|                                        | in NetCDF plotfiles.              |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.plot_vars_2d**                | name of                           | list of names         | None       |
 |                                        | 2D variables to                   |                       |            |
@@ -175,6 +176,17 @@ Notes
 | **zeta**                       |                           |
 +--------------------------------+---------------------------+
 | **h**                          |                           |
++--------------------------------+---------------------------+
+| **visc2**                      | horizontal viscosity      |
++--------------------------------+---------------------------+
+| **diff2_temp**                 | horizontal diffusivity    |
+|                                | for temperature           |
++--------------------------------+---------------------------+
+| **diff2_salt**                 | horizontal diffusivity    |
+|                                | for salinity              |
++--------------------------------+---------------------------+
+| **diff2_tracer**               | horizontal diffusivity    |
+|                                | for passive tracer        |
 +--------------------------------+---------------------------+
 | **ubar**                       |                           |
 +--------------------------------+---------------------------+

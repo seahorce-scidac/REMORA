@@ -128,6 +128,20 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
         plot_var_names_2d.clear();
     }
 
+    // If horizontal mixing is scaled_to_grid, automatically output the spatially
+    // varying coefficients used by the run as 2D fields.
+    if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
+        if (!containerHasElement(plot_var_names_2d, "visc2")) {
+            plot_var_names_2d.push_back("visc2");
+        }
+        for (int n = 0; n < NCONS; ++n) {
+            const std::string nm = std::string("diff2_") + cons_names[n];
+            if (!containerHasElement(plot_var_names_2d, nm)) {
+                plot_var_names_2d.push_back(nm);
+            }
+        }
+    }
+
     // Get state variables in the same order as we define them,
     // since they may be in any order in the input list
     Vector<std::string> tmp_plot_names;
@@ -161,6 +175,17 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
                tmp_plot_names.push_back(derived_names[i]);
         } // if
     } // i
+
+    // Horizontal mixing coefficients (2D rho points)
+    if (containerHasElement(plot_var_names_2d, "visc2")) {
+        tmp_plot_names.push_back("visc2");
+    }
+    for (int n = 0; n < NCONS; ++n) {
+        const std::string nm = std::string("diff2_") + cons_names[n];
+        if (containerHasElement(plot_var_names_2d, nm)) {
+            tmp_plot_names.push_back(nm);
+        }
+    }
 
 #ifdef REMORA_USE_PARTICLES
     const auto& particles_namelist( particleData.getNamesUnalloc() );
