@@ -91,7 +91,7 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_3d) {
       if (!containerHasElement(tmp_plot_names, plot_name)) {
-           Warning("\nWARNING: Requested to plot variable '" + plot_name + "' but it is not available");
+           Warning("\nWARNING: Requested to plot variable '" + plot_name + "' in 3D list but it is not available");
       }
     }
     plot_var_names_3d = tmp_plot_names;
@@ -142,33 +142,16 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
         }
     }
 
-    // Get state variables in the same order as we define them,
-    // since they may be in any order in the input list
     Vector<std::string> tmp_plot_names;
 
-    for (int i = 0; i < NCONS; ++i) {
-        if ( containerHasElement(plot_var_names_2d, cons_names[i]) ) {
-            tmp_plot_names.push_back(cons_names[i]);
-        }
-    }
-    // Check for velocity since it's not in cons_names
-    // If we are asked for any velocity component, we will need them all
-    if (containerHasElement(plot_var_names_2d, "x_velocity") ||
-        containerHasElement(plot_var_names_2d, "y_velocity") ||
-        containerHasElement(plot_var_names_2d, "z_velocity")) {
-        tmp_plot_names.push_back("x_velocity");
-        tmp_plot_names.push_back("y_velocity");
-        tmp_plot_names.push_back("z_velocity");
-    }
-
-    // If we are asked for any location component, we will provide them all
-    if (containerHasElement(plot_var_names_2d, "x_cc") ||
-        containerHasElement(plot_var_names_2d, "y_cc") ||
-        containerHasElement(plot_var_names_2d, "z_cc")) {
-        tmp_plot_names.push_back("x_cc");
-        tmp_plot_names.push_back("y_cc");
-        tmp_plot_names.push_back("z_cc");
-    }
+    if (containerHasElement(plot_var_names_2d, "zeta")) tmp_plot_names.push_back("zeta");
+    if (containerHasElement(plot_var_names_2d, "h")) tmp_plot_names.push_back("h");
+    if (containerHasElement(plot_var_names_2d, "ubar")) tmp_plot_names.push_back("ubar");
+    if (containerHasElement(plot_var_names_2d, "vbar")) tmp_plot_names.push_back("vbar");
+    if (containerHasElement(plot_var_names_2d, "sustr")) tmp_plot_names.push_back("sustr");
+    if (containerHasElement(plot_var_names_2d, "bustr")) tmp_plot_names.push_back("bustr");
+    if (containerHasElement(plot_var_names_2d, "svstr")) tmp_plot_names.push_back("svstr");
+    if (containerHasElement(plot_var_names_2d, "bvstr")) tmp_plot_names.push_back("bvstr");
 
     for (int i = 0; i < derived_names.size(); ++i) {
         if ( containerHasElement(plot_var_names_2d, derived_names[i]) ) {
@@ -187,20 +170,10 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
         }
     }
 
-#ifdef REMORA_USE_PARTICLES
-    const auto& particles_namelist( particleData.getNamesUnalloc() );
-    for (auto it = particles_namelist.cbegin(); it != particles_namelist.cend(); ++it) {
-        std::string tmp( (*it)+"_count" );
-        if (containerHasElement(plot_var_names_2d, tmp) ) {
-            tmp_plot_names.push_back(tmp);
-        }
-    }
-#endif
-
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_2d) {
       if (!containerHasElement(tmp_plot_names, plot_name)) {
-           Warning("\nWARNING: Requested to plot variable '" + plot_name + "' but it is not available");
+           Warning("\nWARNING: Requested to plot variable '" + plot_name + "' in 2D list but it is not available");
       }
     }
     plot_var_names_2d = tmp_plot_names;
