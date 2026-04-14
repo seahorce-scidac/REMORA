@@ -667,13 +667,13 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_river_position[lev]->setVal(-1);
     }
 
-    vec_nudg_coeff[BdyVars::u][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
-    vec_nudg_coeff[BdyVars::v][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
-    vec_nudg_coeff[BdyVars::t][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
-    vec_nudg_coeff[BdyVars::s][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
-    vec_nudg_coeff[BdyVars::ubar][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
-    vec_nudg_coeff[BdyVars::vbar][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
-    vec_nudg_coeff[BdyVars::zeta][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+    vec_nudg_coeff[BdyVars::u][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_nudg_coeff[BdyVars::v][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_nudg_coeff[BdyVars::t][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_nudg_coeff[BdyVars::s][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_nudg_coeff[BdyVars::ubar][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_nudg_coeff[BdyVars::vbar][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_nudg_coeff[BdyVars::zeta][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
     set_weights(lev);
 
