@@ -185,6 +185,12 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
                                   const std::string& attr_name);
 
 /**
+ * \brief Helper function for testing for the presence of a single variable attribute
+ */
+bool QueryNetCDFVarAttrStr (const std::string& fname,
+                            const std::string& var_name,
+                            const std::string& attr_name);
+/**
  * \brief Helper function for reading data from NetCDF file into a
  * provided FAB.
  *

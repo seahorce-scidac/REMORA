@@ -214,3 +214,21 @@ REMORA::init_stretch_coeffs () {
 
     calc_stretch_coeffs();
 }
+
+void REMORA::allocate_bathymetry_full_domain () {
+    // Make fake boxArray that covers the whole domain on level 0
+    BoxArray ba;
+    ba.define(makeSlab(geom[0].Domain(),2,0));
+    Box refined_domain = makeSlab(geom[0].Domain(),2,0);
+
+    DistributionMapping dm(ba);
+    vec_h_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
+    for (int lev=1; lev <= nc_hires_grid_level; lev++) {
+        ba = ba.refine(refRatio(lev-1));
+        refined_domain.refine(refRatio(lev-1));
+        //TODO: +2 is a HACK for this specific problem!!!!!
+        vec_h_full_domain[lev].reset(new MultiFab(ba, dm, 1, IntVect(1+2,1+2,0)));
+    }
+    nc_hires_grid_box = refined_domain;
+    Print() << nc_hires_grid_box << std::endl;
+}

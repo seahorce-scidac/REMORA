@@ -499,38 +499,52 @@ REMORA::set_bathymetry (int lev)
 {
     BL_PROFILE("REMORA::bathymetry()");
     // Only set bathymetry on level 0, and interpolate for finer levels
-    if (solverChoice.init_l0int_h) {
-        if (lev==0) {
-            if (solverChoice.ic_type == IC_Type::analytic) {
-                if (!solverChoice.flat_bathymetry) {
-                    prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_h[lev]);
-                } else {
-                    init_flat_bathymetry(lev);
-                }
-#ifdef REMORA_USE_NETCDF
-            } else if (solverChoice.ic_type == IC_Type::netcdf) {
-                if (!solverChoice.flat_bathymetry) {
-                    amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
-                    init_bathymetry_from_netcdf(lev);
-                    amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
-                } else {
-                    init_flat_bathymetry(lev);
-                }
-#endif
+//    if (solverChoice.init_l0int_h) {
+    if (lev==0) {
+        if (solverChoice.ic_type == IC_Type::analytic) {
+            if (!solverChoice.flat_bathymetry) {
+                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_h[lev]);
             } else {
-                Abort("Don't know this ic_type!");
+                init_flat_bathymetry(lev);
             }
-            // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
-            // to make sure ghost cells in the domain corners are consistent.
+#ifdef REMORA_USE_NETCDF
+        } else if (solverChoice.ic_type == IC_Type::netcdf) {
+            if (!solverChoice.flat_bathymetry) {
+                amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
+                init_bathymetry_from_netcdf(lev);
+                amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+            } else {
+                init_flat_bathymetry(lev);
+            }
+#endif
+        } else {
+            Abort("Don't know this ic_type!");
+        }
+        // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
+        // to make sure ghost cells in the domain corners are consistent.
+        vec_h[lev]->FillBoundary(geom[lev].periodicity());
+        vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
+    } else {
+        Real dummy_time = 0.0_rt;
+        if (lev > nc_hires_grid_level || solverChoice.ic_type == IC_Type::analytic) {
+            FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
+        } else {
+            ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1);
+            ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1);
+            FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
+                    BCVars::foextrap_periodic_bc,
+                    BdyVars::null,0,false,true,1);
+            FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
+                    BCVars::foextrap_periodic_bc,
+                    BdyVars::null,1,false,true,1);
             vec_h[lev]->FillBoundary(geom[lev].periodicity());
             vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
-        } else {
-            Real dummy_time = 0.0_rt;
-            FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
-            if (solverChoice.ic_type == IC_Type::netcdf) {
-                set_grid_scale(lev);
-            }
         }
+        if (solverChoice.ic_type == IC_Type::netcdf) {
+            set_grid_scale(lev);
+        }
+    }
+#if 0
     } else if (solverChoice.init_ana_h) {
         if (solverChoice.ic_type == IC_Type::analytic) {
             if (!solverChoice.flat_bathymetry) {
@@ -578,6 +592,7 @@ REMORA::set_bathymetry (int lev)
     } else {
         amrex::Abort("Don't know this h init type");
     }
+#endif
 }
 
 /**
@@ -862,16 +877,36 @@ REMORA::init_only (int lev, Real time)
     }
 
     // This will be a non-op if forcings specified analytically
-    if (solverChoice.wind_type == WindType::netcdf && lev == 0) {
-        if (nc_frc_file.empty()) {
-            amrex::Error("NetCDF forcing file name must be provided via input for winds");
+    if (solverChoice.wind_type == WindType::netcdf) {
+        if (lev==0) {
+            if (nc_frc_file.empty()) {
+                amrex::Error("NetCDF forcing file name must be provided via input for winds");
+            }
+            Uwind_data_from_file = new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false);
+            Vwind_data_from_file = new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false);
+            Uwind_data_from_file->Initialize();
+            Vwind_data_from_file->Initialize();
+        } else {
+            FillCoarsePatch(lev, time, vec_uwind[lev].get(), vec_uwind[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_vwind[lev].get(), vec_vwind[lev-1].get(), BCVars::foextrap_bc);
         }
-        Uwind_data_from_file = new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false);
-        Vwind_data_from_file = new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false);
-        Uwind_data_from_file->Initialize();
-        Vwind_data_from_file->Initialize();
+    } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
+        if (lev==0) {
+            if (nc_frc_file.empty()) {
+                amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
+            }
+            sustr_data_from_file = new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),vec_sustr[lev].get(), true, false);
+            svstr_data_from_file = new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),vec_svstr[lev].get(), true, false);
+            sustr_data_from_file->Initialize();
+            svstr_data_from_file->Initialize();
+        } else {
+            FillCoarsePatch(lev, time, vec_sustr[lev].get(), vec_sustr[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_svstr[lev].get(), vec_svstr[lev-1].get(), BCVars::foextrap_bc);
+        }
+    }
 
-        // Conditionally load atmospheric forcing fields from NetCDF based on user flags
+    // Conditionally load atmospheric forcing fields from NetCDF based on user flags
+    if (lev==0) {
         if (solverChoice.Tair_from_netcdf) {
             Tair_data_from_file = new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false);
             Tair_data_from_file->Initialize();
@@ -900,25 +935,45 @@ REMORA::init_only (int lev, Real time)
             EminusP_data_from_file = new NCTimeSeries(nc_frc_file, "EminusP", frc_time_varname, geom[lev].Domain(),vec_EminusP[lev].get(), true, false);
             EminusP_data_from_file->Initialize();
         }
-    } else if (solverChoice.smflux_type == SMFluxType::netcdf && lev == 0) {
-        if (nc_frc_file.empty()) {
-            amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
+    } else {
+        if (solverChoice.Tair_from_netcdf) {
+            FillCoarsePatch(lev, time, vec_Tair[lev].get(), vec_Tair[lev-1].get(), BCVars::foextrap_bc);
         }
-        sustr_data_from_file = new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),vec_sustr[lev].get(), true, false);
-        svstr_data_from_file = new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),vec_svstr[lev].get(), true, false);
-        sustr_data_from_file->Initialize();
-        svstr_data_from_file->Initialize();
+        if (solverChoice.qair_from_netcdf) {
+            FillCoarsePatch(lev, time, vec_qair[lev].get(), vec_qair[lev-1].get(), BCVars::foextrap_bc);
+        }
+        if (solverChoice.Pair_from_netcdf) {
+            FillCoarsePatch(lev, time, vec_Pair[lev].get(), vec_Pair[lev-1].get(), BCVars::foextrap_bc);
+        }
+        if (solverChoice.srflx_from_netcdf) {
+            FillCoarsePatch(lev, time, vec_srflx[lev].get(), vec_srflx[lev-1].get(), BCVars::foextrap_bc);
+        }
+        if (solverChoice.rain_from_netcdf) {
+            FillCoarsePatch(lev, time, vec_rain[lev].get(), vec_rain[lev-1].get(), BCVars::foextrap_bc);
+        }
+        if (solverChoice.cloud_from_netcdf) {
+            FillCoarsePatch(lev, time, vec_cloud[lev].get(), vec_cloud[lev-1].get(), BCVars::foextrap_bc);
+        }
+        if (solverChoice.EminusP_from_netcdf) {
+            FillCoarsePatch(lev, time, vec_EminusP[lev].get(), vec_EminusP[lev-1].get(), BCVars::foextrap_bc);
+        }
     }
-    if (solverChoice.longwave_down_from_netcdf && lev == 0) {
-        if (nc_frc_file.empty()) {
-            amrex::Error("NetCDF forcing file name must be provided via input for longwave radiation");
-        }
+    if (solverChoice.longwave_down_from_netcdf) {
+        if (lev==0) {
+            if (nc_frc_file.empty()) {
+                amrex::Error("NetCDF forcing file name must be provided via input for longwave radiation");
+            }
             longwave_down_data_from_file = new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
-                                                            geom[lev].Domain(), vec_longwave_down[lev].get(), true, false);
-        longwave_down_data_from_file->Initialize();
+                                                                geom[lev].Domain(), vec_longwave_down[lev].get(), true, false);
+            longwave_down_data_from_file->Initialize();
+        } else {
+            FillCoarsePatch(lev, time, vec_longwave_down[lev].get(), vec_longwave_down[lev-1].get(), BCVars::foextrap_bc);
+        }
     }
 
-    if (solverChoice.do_rivers) {
+    // Only need to read in rivers on level 0
+    // Will need to be on higher levels eventually
+    if (solverChoice.do_rivers and lev==0) {
         auto dom = geom[0].Domain();
         int nz = dom.length(2);
         river_source_cons.resize(NCONS);
@@ -940,6 +995,12 @@ REMORA::init_only (int lev, Real time)
         river_source_transportbar = new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz, 1);
         river_source_transportbar->Initialize();
         init_riv_pos_from_netcdf(lev);
+    }
+
+    if (lev==0 and nc_hires_grid_level > 0) {
+        amrex::Print() << "Reading high resolution bathymetry data" << std::endl;
+        allocate_bathymetry_full_domain();
+        init_bathymetry_full_domain_from_netcdf();
     }
 #else
     if (solverChoice.boundary_from_netcdf) {
@@ -1109,7 +1170,7 @@ REMORA::ReadParameters ()
 
         // We use this to keep track of how many boxes are specified thru the refinement indicators
         num_boxes_at_level.resize(max_level+1,0);
-            boxes_at_level.resize(max_level+1);
+        boxes_at_level.resize(max_level+1);
 
         // We always have exactly one file at level 0
         num_boxes_at_level[0] = 1;
@@ -1185,11 +1246,13 @@ REMORA::ReadParameters ()
         //        but we always have exactly one file at level 0
         for (int lev = 0; lev <= max_level; lev++)
         {
+            Print() << lev << std::endl;
             const std::string nc_file_names = amrex::Concatenate("nc_init_file_",lev,1);
             const std::string nc_bathy_file_names = amrex::Concatenate("nc_grid_file_",lev,1);
 
             if (pp.contains(nc_file_names.c_str()))
             {
+                Print() << "in contains" << std::endl;
                 int num_files = pp.countval(nc_file_names.c_str());
                 int num_bathy_files = pp.countval(nc_bathy_file_names.c_str());
                 if (num_files != num_bathy_files) {
@@ -1202,8 +1265,18 @@ REMORA::ReadParameters ()
 
                 pp.queryarr(nc_file_names.c_str()      , nc_init_file[lev]     ,0,num_files);
                 pp.queryarr(nc_bathy_file_names.c_str(), nc_grid_file[lev],0,num_files);
+                Print() << nc_grid_file[lev][0] << std::endl;
             }
         }
+
+        pp.queryAdd("nc_hires_grid_level", nc_hires_grid_level);
+        if (nc_hires_grid_level > 0) {
+            pp.queryAdd("nc_grid_file_hires", nc_grid_file_hires);
+            if (nc_grid_file_hires.empty()) {
+                Abort("If remora.nc_hires_grid_level > 0, must specify a high-resolution grid file in remora.nc_grid_file_hires");
+            }
+        }
+
         // We only read boundary data at level 0
         pp.queryarr("nc_bdry_file", nc_bdry_file);
 

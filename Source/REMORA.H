@@ -209,6 +209,7 @@ public:
                                                 const amrex::Vector<std::string>& extra_dirs = amrex::Vector<std::string>()) const;
 
 
+
     /** \brief write out header data for an AMReX plotfile */
     void WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                    int nlevels,
@@ -251,6 +252,9 @@ public:
 
     /** \brief Bathymetry data (2D, positive valued, h in ROMS) **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_h;
+
+    /** \brief Bathymetry data on the whole domain at each potential level **/
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_h_full_domain;
 
     /** \brief Width of cells in the vertical (z-) direction (3D, Hz in ROMS) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hz;
@@ -987,6 +991,8 @@ public:
     void init_masks_from_netcdf (int lev);
     /** \brief Bathymetry data initialization from NetCDF file */
     void init_bathymetry_from_netcdf (int lev);
+    /** \brief Full domian bathymetry data initialization from NetCDF file */
+    void init_bathymetry_full_domain_from_netcdf ();
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);
     /** \brief Coriolis parameter data initialization from NetCDF file */
@@ -996,6 +1002,9 @@ public:
     /** \brief Wrapper to initialize climatology nudging coefficient */
     void init_clim_nudg_coeff (int lev);
     void init_riv_pos_from_netcdf (int lev);
+
+    /** \brief Allocate multifabs for storing full-domain bathymetry data */
+    void allocate_bathymetry_full_domain ();
 
     /** \brief Convert data in a multifab from inverse days to inverse seconds */
     void convert_inv_days_to_inv_s (amrex::MultiFab*);
@@ -1392,8 +1401,16 @@ private:
     /** \brief NetCDF boundary data */
     static amrex::Vector<std::string> nc_bdry_file;
 
+    /** \brief Which level the high resolution bathymetry is at */
+    int nc_hires_grid_level = -1;
+    /** \brief Grid file for high resolution bathymetry */
+    std::string nc_grid_file_hires;
+    /** \brief Box for the full domain at nc_hires_grid_level */
+    amrex::Box nc_hires_grid_box;
+
     /** \brief NetCDF forcing file */
     std::string nc_frc_file;
+    /** \brief NetCDF river file */
     std::string nc_riv_file;
 
     /** \brief NetCDF climatology history file */
