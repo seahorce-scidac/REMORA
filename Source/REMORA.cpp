@@ -293,10 +293,10 @@ REMORA::InitData ()
         advflux_reg[0] = nullptr;
         for (int lev = 1; lev <= finest_level; lev++)
         {
-            advflux_reg[lev] = new YAFluxRegister(grids[lev], grids[lev-1],
+            advflux_reg[lev].reset( new YAFluxRegister(grids[lev], grids[lev-1],
                                                    dmap[lev],  dmap[lev-1],
                                                    geom[lev],  geom[lev-1],
-                                              ref_ratio[lev-1], lev, NCONS);
+                                              ref_ratio[lev-1], lev, NCONS));
         }
     }
 
@@ -659,25 +659,308 @@ REMORA::set_analytic_vmix(int lev) {
  * @param[in   ] lev    level to operate on
  */
 void
+REMORA::set_masks(int lev)
+{
+    if (solverChoice.mask_type == MaskType::analytic) {
+        prob->init_analytic_masks(lev,geom[lev], solverChoice, *this, *vec_mskr[lev]);
+        calculate_nodal_masks(lev);
+    } else if (solverChoice.mask_type == MaskType::netcdf) {
+#ifdef REMORA_USE_NETCDF
+        if (lev == 0) {
+            amrex::Print() << "Calling init_masks_from_netcdf level " << lev << std::endl;
+            init_masks_from_netcdf(lev);
+            amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
+        } else {
+            Real dummy_time = 0.0_rt;
+            FillCoarsePatchPC(lev, dummy_time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
+                    BCVars::foextrap_bc);
+            calculate_nodal_masks(lev);
+        }
+#endif
+    }
+    fill_3d_masks(lev);
+}
+
+/**
+ * @param[in   ] lev    level to operate on
+ */
+void
 REMORA::set_hmixcoef(int lev)
 {
     BL_PROFILE("REMORA::set_hmixcoef()");
-    if (solverChoice.horiz_mixing_type == HorizMixingType::analytic) {
-        prob->init_analytic_hmix(lev, geom[lev], solverChoice, *this, *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev]);
-    } else if (solverChoice.horiz_mixing_type == HorizMixingType::constant) {
-        vec_visc2_p[lev]->setVal(solverChoice.visc2);
-        vec_visc2_r[lev]->setVal(solverChoice.visc2);
-        for (int n=0; n<NCONS; n++) {
-            vec_diff2[lev]->setVal(solverChoice.tnu2[n],n,1);
+
+    // Optional AMR scaling: decrease coefficients on refined levels linearly
+    // with grid size (i.e., proportional to sqrt(cell area)). For a horizontal
+    // refinement ratio rx x ry, the effective scale factor is 1/sqrt(rx*ry).
+    Real lev_scale = 1.0_rt;
+    if ((solverChoice.scaled_to_grid_amr_scaling == ScaledToGridAMRScaling::linear) && (lev > 0)) {
+        Real rf = 1.0_rt;
+        for (int l = 0; l < lev; ++l) {
+            rf *= std::sqrt(static_cast<Real>(ref_ratio[l][0]) * static_cast<Real>(ref_ratio[l][1]));
         }
+        lev_scale = 1.0_rt / rf;
+    }
+
+    if (solverChoice.horiz_mixing_type == HorizMixingType::analytic) {
+        prob->init_analytic_hmix(lev, geom[lev], solverChoice,
+                                 *this, *vec_visc2_p[lev], *vec_visc2_r[lev], *vec_diff2[lev]);
+
+    } else if (solverChoice.horiz_mixing_type == HorizMixingType::constant) {
+        vec_visc2_p[lev]->setVal(solverChoice.visc2 * lev_scale);
+        vec_visc2_r[lev]->setVal(solverChoice.visc2 * lev_scale);
+        for (int n=0; n<NCONS; n++) {
+            vec_diff2[lev]->setVal(solverChoice.tnu2[n] * lev_scale, n, 1);
+        }
+
+    // Scale harmonic viscosity and diffusivity by the grid size as ROMS
+    // does in Utility/ini_hmixcoef.F. Intended for curvilinear grids.
+    //
+    // Define the ROMS grid factor (grdscl):
+    //     G(i,j) = sqrt( 1 / (pm(i,j) * pn(i,j)) )
+    //            = sqrt(cell area)
+    //     Gmax   = max over grid of G(i,j)
+    //
+    // Then horizontal harmonic mixing coefficients are scaled as:
+    //     nu(i,j)       = nu0    * G(i,j) / Gmax
+    //     kappa_n(i,j)  = kappa0 * G(i,j) / Gmax
+    //
+    // where:
+    //     nu0     = solverChoice.visc2
+    //     kappa0  = solverChoice.tnu2[n]
+    //
+    // This makes mixing strongest where grid spacing is largest.
+    //
+    // NOTE: The normalization (Gmax) is computed over the entire grid (ignoring masks).
+    // Therefore, if the largest cell area occurs over land, the maximum over *wet* cells
+    // (or in masked output files) may be smaller than the user-specified value.
+
+    } else if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
+
+        // ------------------------------------------------------------
+        // Step 1: Compute grdmax over entire grid
+        // ------------------------------------------------------------
+        vec_visc2_r[lev]->setVal(solverChoice.visc2);
+        vec_visc2_p[lev]->setVal(solverChoice.visc2);
+        for (int n = 0; n < NCONS; n++) {
+            vec_diff2[lev]->setVal(solverChoice.tnu2[n], n, 1);
+        }
+
+        // NOTE: This must be GPU-safe. Do not dereference MultiFab data on host.
+        // Force the reduction to run in the GPU launch region if GPUs are enabled.
+        // (If the launch region is disabled at runtime, ReduceMax may fall back to
+        // a host path that can try to read device-only data.)
+        amrex::Gpu::LaunchSafeGuard lsg(true);
+        Real denom_min = amrex::ReduceMin(*vec_pm[lev], *vec_pn[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& pm,
+                                      Array4<Real const> const& pn) -> Real
+            {
+                Real local_min = 1.0e200_rt;
+                amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
+                {
+                    local_min = amrex::min(local_min, pm(i,j,0) * pn(i,j,0));
+                });
+                return local_min;
+            });
+
+        ParallelDescriptor::ReduceRealMin(denom_min);
+        if (denom_min <= 0.0_rt) {
+            Abort("scaled_to_grid: found non-positive pm*pn (grid metrics must be > 0)");
+        }
+
+        Real grdmax = amrex::ReduceMax(*vec_pm[lev], *vec_pn[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& pm,
+                                      Array4<Real const> const& pn) -> Real
+            {
+                Real local_max = 0.0_rt;
+                amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
+                {
+                    Real denom = pm(i,j,0) * pn(i,j,0);
+                    if (denom > 0.0_rt) {
+                        Real G = std::sqrt(1.0_rt / denom);
+                        local_max = amrex::max(local_max, G);
+                    }
+                });
+                return local_max;
+            });
+
+        ParallelDescriptor::ReduceRealMax(grdmax);
+        if (grdmax <= 0.0_rt) {
+            Abort("scaled_to_grid: grdmax <= 0");
+        }
+
+        // Optional AMR scaling: decrease coefficients on refined levels linearly
+        // with grid size (i.e., proportional to sqrt(cell area)). For a horizontal
+        // refinement ratio rx x ry, the effective scale factor is 1/sqrt(rx*ry).
+        lev_scale = 1.0_rt;
+        if ((solverChoice.scaled_to_grid_amr_scaling == ScaledToGridAMRScaling::linear) && (lev > 0)) {
+            Real rf = 1.0_rt;
+            for (int l = 0; l < lev; ++l) {
+                rf *= std::sqrt(static_cast<Real>(ref_ratio[l][0]) * static_cast<Real>(ref_ratio[l][1]));
+            }
+            lev_scale = 1.0_rt / rf;
+        }
+
+        Real visc0 = solverChoice.visc2 * lev_scale;
+        Real cff   = visc0 / grdmax;
+
+        // ------------------------------------------------------------
+        // Step 2: Set rho coefficients everywhere
+        // ------------------------------------------------------------
+        for (MFIter mfi(*vec_visc2_r[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.validbox();
+            auto pm    = vec_pm[lev]->const_array(mfi);
+            auto pn    = vec_pn[lev]->const_array(mfi);
+            auto visc2_r = vec_visc2_r[lev]->array(mfi);
+            auto diff2   = vec_diff2[lev]->array(mfi);
+
+            Real diff0[NCONS];
+            for (int n=0; n<NCONS; n++) {
+                diff0[n] = solverChoice.tnu2[n];
+            }
+
+            ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
+            {
+                Real denom  = pm(i,j,0) * pn(i,j,0);
+                Real grdscl = (denom > 0.0_rt) ? std::sqrt(1.0_rt / denom) : 0.0_rt;
+                visc2_r(i,j,0) = cff * grdscl;
+
+                for (int n = 0; n < NCONS; n++) {
+                    diff2(i,j,0,n) = ((diff0[n] * lev_scale) / grdmax) * grdscl;
+                }
+            });
+        }
+
+        // Fill ghost cells for rho coefficients BEFORE psi averaging
+        Real time = 0.0_rt;
+        FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), BCVars::foextrap_periodic_bc);
+
+        // ------------------------------------------------------------
+        // Step 3: Psi coefficients = average of 4 surrounding rho
+        // ------------------------------------------------------------
+        for (MFIter mfi(*vec_visc2_p[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.validbox();
+            auto visc2_p = vec_visc2_p[lev]->array(mfi);
+            auto visc2_r = vec_visc2_r[lev]->const_array(mfi);
+
+            ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
+            {
+                visc2_p(i,j,0) = 0.25_rt * (
+                    visc2_r(i-1,j-1,0) +
+                    visc2_r(i  ,j-1,0) +
+                    visc2_r(i-1,j  ,0) +
+                    visc2_r(i  ,j  ,0)
+                );
+            });
+        }
+
+        FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), BCVars::foextrap_periodic_bc);
+
+        // Diagnostics
+        // NOTE: coefficients are computed everywhere (including land). Output routines may later
+        // mask land points (e.g., to FillValue in NetCDF/plotfiles), and analysis tools may
+        // additionally apply mask_rho (setting land to 0). Report both conventions.
+        //
+        // Global (MPI-reduced) extrema over all valid cells (no ghost).
+        Real visc_min_all = vec_visc2_r[lev]->min(0,0,false);
+        Real visc_max_all = vec_visc2_r[lev]->max(0,0,false);
+
+        // Global extrema over *wet* rho points only, k=0.
+        amrex::Gpu::LaunchSafeGuard lsg_diag(true);
+        Real visc_min_wet = amrex::ReduceMin(*vec_visc2_r[lev], *vec_mskr[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& visc2,
+                                      Array4<Real const> const& mskr) -> Real
+            {
+                Real local_min = 1.0e200_rt;
+                amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
+                {
+                    if (mskr(i,j,0) > 0.0_rt) {
+                        local_min = amrex::min(local_min, visc2(i,j,0));
+                    }
+                });
+                return local_min;
+            });
+        ParallelDescriptor::ReduceRealMin(visc_min_wet);
+
+        Real visc_max_wet = amrex::ReduceMax(*vec_visc2_r[lev], *vec_mskr[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& visc2,
+                                      Array4<Real const> const& mskr) -> Real
+            {
+                Real local_max = -1.0e200_rt;
+                amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
+                {
+                    if (mskr(i,j,0) > 0.0_rt) {
+                        local_max = amrex::max(local_max, visc2(i,j,0));
+                    }
+                });
+                return local_max;
+            });
+        ParallelDescriptor::ReduceRealMax(visc_max_wet);
+
+        // Mimic "apply mask_rho" convention (dry -> 0).
+        Real visc_min_mask0 = amrex::ReduceMin(*vec_visc2_r[lev], *vec_mskr[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& visc2,
+                                      Array4<Real const> const& mskr) -> Real
+            {
+                Real local_min = 1.0e200_rt;
+                amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
+                {
+                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,0) : 0.0_rt;
+                    local_min = amrex::min(local_min, v);
+                });
+                return local_min;
+            });
+        ParallelDescriptor::ReduceRealMin(visc_min_mask0);
+
+        Real visc_max_mask0 = amrex::ReduceMax(*vec_visc2_r[lev], *vec_mskr[lev], 0,
+            [=] AMREX_GPU_HOST_DEVICE (Box const& bx,
+                                      Array4<Real const> const& visc2,
+                                      Array4<Real const> const& mskr) -> Real
+            {
+                Real local_max = -1.0e200_rt;
+                amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
+                {
+                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,0) : 0.0_rt;
+                    local_max = amrex::max(local_max, v);
+                });
+                return local_max;
+            });
+        ParallelDescriptor::ReduceRealMax(visc_max_mask0);
+        if (ParallelDescriptor::IOProcessor() && lev == 0)
+        {
+            Print() << "\nHorizontal mixing scaled by grid metric\n";
+            Print() << "grdmax = " << grdmax << "\n";
+            if (solverChoice.scaled_to_grid_amr_scaling == ScaledToGridAMRScaling::linear) {
+                Print() << "AMR scaling (linear) lev_scale = " << lev_scale << "\n";
+            }
+            Print() << "visc2(all)      min/max = "
+                    << visc_min_all << " / "
+                    << visc_max_all << "\n";
+            Print() << "visc2(wet,k=0)  min/max = "
+                    << visc_min_wet << " / "
+                    << visc_max_wet << "\n";
+            Print() << "visc2(mask->0)  min/max = "
+                    << visc_min_mask0 << " / "
+                    << visc_max_mask0 << "\n";
+        }
+
     } else {
         Abort("Don't know this horizontal mixing type");
     }
+
+    // Final FillPatch for all fields
     Real time = 0.0_rt;
-    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p),BCVars::foextrap_periodic_bc);
-    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r),BCVars::foextrap_periodic_bc);
-    for (int n=0; n<NCONS; n++) {
-        FillPatch(lev, time, *vec_diff2[lev]  , GetVecOfPtrs(vec_diff2),BCVars::foextrap_periodic_bc,BdyVars::null,n,false);
+    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), BCVars::foextrap_periodic_bc);
+    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), BCVars::foextrap_periodic_bc);
+    for (int n = 0; n < NCONS; n++) {
+        FillPatch(lev, time, *vec_diff2[lev], GetVecOfPtrs(vec_diff2),
+                  BCVars::foextrap_periodic_bc, BdyVars::null, n, false);
     }
 }
 
@@ -780,31 +1063,6 @@ REMORA::set_wind(int lev)
 #endif
     }
 }
-/**
- * @param[in   ] lev    level to operate on
- */
-void
-REMORA::set_masks(int lev)
-{
-    if (solverChoice.mask_type == MaskType::analytic) {
-        prob->init_analytic_masks(lev,geom[lev], solverChoice, *this, *vec_mskr[lev]);
-        calculate_nodal_masks(lev);
-    } else if (solverChoice.mask_type == MaskType::netcdf) {
-#ifdef REMORA_USE_NETCDF
-        if (lev == 0) {
-            amrex::Print() << "Calling init_masks_from_netcdf level " << lev << std::endl;
-            init_masks_from_netcdf(lev);
-            amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
-        } else {
-            Real dummy_time = 0.0_rt;
-            FillCoarsePatchPC(lev, dummy_time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
-                    BCVars::foextrap_bc);
-            calculate_nodal_masks(lev);
-        }
-#endif
-    }
-    fill_3d_masks(lev);
-}
 
 /**
  * @param[in   ] lev    level to operate on
@@ -846,25 +1104,27 @@ REMORA::init_only (int lev, Real time)
                 amrex::Error("NetCDF climatology file name must be provided via input");
             }
             if (solverChoice.do_m2_clim_nudg) {
-                ubar_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "ubar", clim_ubar_time_varname, geom[lev].Domain(),vec_ubar[lev].get(),true,true);
-                vbar_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "vbar", clim_ubar_time_varname, geom[lev].Domain(),vec_vbar[lev].get(),true,true);
+                ubar_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "ubar",
+                            clim_ubar_time_varname, geom[lev].Domain(),vec_ubar[lev].get(),true,true));
+                vbar_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "vbar",
+                            clim_ubar_time_varname, geom[lev].Domain(),vec_vbar[lev].get(),true,true));
                 ubar_clim_data_from_file->Initialize();
                 vbar_clim_data_from_file->Initialize();
             }
             if (solverChoice.do_m3_clim_nudg) {
-                u_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "u", clim_u_time_varname, geom[lev].Domain(),xvel_new[lev],false,true);
-                v_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "v", clim_v_time_varname, geom[lev].Domain(),yvel_new[lev],false,true);
+                u_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "u", clim_u_time_varname, geom[lev].Domain(),xvel_new[lev],false,true));
+                v_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "v", clim_v_time_varname, geom[lev].Domain(),yvel_new[lev],false,true));
                 u_clim_data_from_file->Initialize();
                 v_clim_data_from_file->Initialize();
             }
             // Since the NCTimeSeries object isn't filling the cons_new MultiFab directly, we don't have to specify a component.
             // It just needs to know the shape of the MultiFab
             if (solverChoice.do_temp_clim_nudg) {
-                temp_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "temp", clim_temp_time_varname,geom[lev].Domain(),cons_new[lev],false,true);
+                temp_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "temp", clim_temp_time_varname,geom[lev].Domain(),cons_new[lev],false,true));
                 temp_clim_data_from_file->Initialize();
             }
             if (solverChoice.do_salt_clim_nudg) {
-                salt_clim_data_from_file = new NCTimeSeries(nc_clim_his_file, "salt", clim_salt_time_varname,geom[lev].Domain(),cons_new[lev],false,true);
+                salt_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "salt", clim_salt_time_varname,geom[lev].Domain(),cons_new[lev],false,true));
                 salt_clim_data_from_file->Initialize();
             }
         }
@@ -882,8 +1142,8 @@ REMORA::init_only (int lev, Real time)
             if (nc_frc_file.empty()) {
                 amrex::Error("NetCDF forcing file name must be provided via input for winds");
             }
-            Uwind_data_from_file = new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false);
-            Vwind_data_from_file = new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false);
+            Uwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false));
+            Vwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false));
             Uwind_data_from_file->Initialize();
             Vwind_data_from_file->Initialize();
         } else {
@@ -895,8 +1155,8 @@ REMORA::init_only (int lev, Real time)
             if (nc_frc_file.empty()) {
                 amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
             }
-            sustr_data_from_file = new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),vec_sustr[lev].get(), true, false);
-            svstr_data_from_file = new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),vec_svstr[lev].get(), true, false);
+            sustr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),vec_sustr[lev].get(), true, false));
+            svstr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),vec_svstr[lev].get(), true, false));
             sustr_data_from_file->Initialize();
             svstr_data_from_file->Initialize();
         } else {
@@ -908,31 +1168,31 @@ REMORA::init_only (int lev, Real time)
     // Conditionally load atmospheric forcing fields from NetCDF based on user flags
     if (lev==0) {
         if (solverChoice.Tair_from_netcdf) {
-            Tair_data_from_file = new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false);
+            Tair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false));
             Tair_data_from_file->Initialize();
         }
         if (solverChoice.qair_from_netcdf) {
-            qair_data_from_file = new NCTimeSeries(nc_frc_file, "qair", frc_time_varname, geom[lev].Domain(),vec_qair[lev].get(), true, false);
+            qair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "qair", frc_time_varname, geom[lev].Domain(),vec_qair[lev].get(), true, false));
             qair_data_from_file->Initialize();
         }
         if (solverChoice.Pair_from_netcdf) {
-            Pair_data_from_file = new NCTimeSeries(nc_frc_file, "Pair", frc_time_varname, geom[lev].Domain(),vec_Pair[lev].get(), true, false);
+            Pair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Pair", frc_time_varname, geom[lev].Domain(),vec_Pair[lev].get(), true, false));
             Pair_data_from_file->Initialize();
         }
         if (solverChoice.srflx_from_netcdf) {
-            srflx_data_from_file = new NCTimeSeries(nc_frc_file, "swrad", frc_time_varname, geom[lev].Domain(),vec_srflx[lev].get(), true, false);
+            srflx_data_from_file.reset(new NCTimeSeries(nc_frc_file, "swrad", frc_time_varname, geom[lev].Domain(),vec_srflx[lev].get(), true, false));
             srflx_data_from_file->Initialize();
         }
         if (solverChoice.rain_from_netcdf) {
-            rain_data_from_file = new NCTimeSeries(nc_frc_file, "rain", frc_time_varname, geom[lev].Domain(),vec_rain[lev].get(), true, false);
+            rain_data_from_file.reset(new NCTimeSeries(nc_frc_file, "rain", frc_time_varname, geom[lev].Domain(),vec_rain[lev].get(), true, false));
             rain_data_from_file->Initialize();
         }
         if (solverChoice.cloud_from_netcdf) {
-            cloud_data_from_file = new NCTimeSeries(nc_frc_file, "cloud", frc_time_varname, geom[lev].Domain(),vec_cloud[lev].get(), true, false);
+            cloud_data_from_file.reset(new NCTimeSeries(nc_frc_file, "cloud", frc_time_varname, geom[lev].Domain(),vec_cloud[lev].get(), true, false));
             cloud_data_from_file->Initialize();
         }
         if (solverChoice.EminusP_from_netcdf) {
-            EminusP_data_from_file = new NCTimeSeries(nc_frc_file, "EminusP", frc_time_varname, geom[lev].Domain(),vec_EminusP[lev].get(), true, false);
+            EminusP_data_from_file.reset(new NCTimeSeries(nc_frc_file, "EminusP", frc_time_varname, geom[lev].Domain(),vec_EminusP[lev].get(), true, false));
             EminusP_data_from_file->Initialize();
         }
     } else {
@@ -963,8 +1223,8 @@ REMORA::init_only (int lev, Real time)
             if (nc_frc_file.empty()) {
                 amrex::Error("NetCDF forcing file name must be provided via input for longwave radiation");
             }
-            longwave_down_data_from_file = new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
-                                                                geom[lev].Domain(), vec_longwave_down[lev].get(), true, false);
+            longwave_down_data_from_file.reset(new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
+                                                                geom[lev].Domain(), vec_longwave_down[lev].get(), true, false));
             longwave_down_data_from_file->Initialize();
         } else {
             FillCoarsePatch(lev, time, vec_longwave_down[lev].get(), vec_longwave_down[lev-1].get(), BCVars::foextrap_bc);
@@ -979,20 +1239,20 @@ REMORA::init_only (int lev, Real time)
         river_source_cons.resize(NCONS);
         Print() << solverChoice.do_rivers_cons[0] << std::endl;
         if ((bool) solverChoice.do_rivers_cons[Salt_comp]) {
-            river_source_cons[Salt_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz);
+            river_source_cons[Salt_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz));
             river_source_cons[Salt_comp]->Initialize();
         }
         if (solverChoice.do_rivers_cons[Temp_comp]) {
-            river_source_cons[Temp_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz);
+            river_source_cons[Temp_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz));
             river_source_cons[Temp_comp]->Initialize();
         }
         if (solverChoice.do_rivers_cons[Tracer_comp]) {
-            river_source_cons[Tracer_comp] = new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz);
+            river_source_cons[Tracer_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz));
             river_source_cons[Tracer_comp]->Initialize();
         }
-        river_source_transport = new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz);
+        river_source_transport.reset(new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz));
         river_source_transport->Initialize();
-        river_source_transportbar = new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz, 1);
+        river_source_transportbar.reset(new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz, 1));
         river_source_transportbar->Initialize();
         init_riv_pos_from_netcdf(lev);
     }

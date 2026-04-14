@@ -723,7 +723,19 @@ List of Parameters
 |                                   |                                        |                   |                |
 |                                   | ``analytic`` means function is         | ``constant``      |                |
 |                                   |                                        |                   |                |
-|                                   | specified in ``prob.cpp``.             |                   |                |
+|                                   | specified in ``prob.cpp``.             | / ``scaled_to_grid`` |             |
+|                                   |                                        |                   |                |
+|                                   | ``scaled_to_grid`` scales harmonic     |                   |                |
+|                                   | viscosity/diffusivity by the grid      |                   |                |
+|                                   | cell area. Equivalent to ``DIFF_GRID`` |                   |                |
+|                                   | and ``VISC_GRID`` in ROMS.             |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.scaled_to_grid_amr_scaling** | AMR scaling behavior for                | ``none`` /        | ``none``       |
+|                                   | ``scaled_to_grid`` and ``constant``     | ``linear``        |                |
+|                                   | coefficients on refined levels.         |                   |                |
+|                                   | ``linear`` decreases coefficients in    |                   |                |
+|                                   | proportion to the horizontal refinement |                   |                |
+|                                   | ratio.                                  |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.visc2**                  | Constant horizontal viscosity,         | Real number       | 0.0            |
 |                                   |                                        |                   |                |
@@ -731,7 +743,9 @@ List of Parameters
 |                                   |                                        |                   |                |
 |                                   | ``horizontal_mixing_type`` is          |                   |                |
 |                                   |                                        |                   |                |
-|                                   | ``constant``.                          |                   |                |
+|                                   | ``constant`` or ``scaled_to_grid``     |                   |                |
+|                                   | (in this case, it is the maximum       |                   |                |
+|                                   | viscosity over the domain).            |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.tnu2_salt**              | Constant horizontal diffusivity,       | Real number       | 0.0            |
 |                                   |                                        |                   |                |
@@ -741,7 +755,9 @@ List of Parameters
 |                                   |                                        |                   |                |
 |                                   | ``horizontal_mixing_type`` is          |                   |                |
 |                                   |                                        |                   |                |
-|                                   | ``constant``.                          |                   |                |
+|                                   | ``constant`` or ``scaled_to_grid``     |                   |                |
+|                                   | (in this case, it is the maximum       |                   |                |
+|                                   | salt diffusivity over the domain).     |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.tnu2_temp**              | Constant horizontal diffusivity,       | Real number       | 0.0            |
 |                                   |                                        |                   |                |
@@ -751,7 +767,10 @@ List of Parameters
 |                                   |                                        |                   |                |
 |                                   | ``horizontal_mixing_type``             |                   |                |
 |                                   |                                        |                   |                |
-|                                   | is ``constant``.                       |                   |                |
+|                                   | is ``constant`` or ``scaled_to_grid``  |                   |                |
+|                                   | (in this case, it is the maximum       |                   |                |
+|                                   | temperature diffusivity over the       |                   |                |
+|                                   | domain).                               |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.tnu2_scalar**            | Constant horizontal diffusivity,       | Real number       | 0.0            |
 |                                   |                                        |                   |                |
@@ -761,7 +780,9 @@ List of Parameters
 |                                   |                                        |                   |                |
 |                                   | ``horizontal_mixing_type``             |                   |                |
 |                                   |                                        |                   |                |
-|                                   | is ``constant``.                       |                   |                |
+|                                   | is ``constant`` or ``scaled_to_grid``  |                   |                |
+|                                   | (in this case, it is the maximum       |                   |                |
+|                                   | scalar diffusivity over the domain).   |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.vertical_mixing_type**   | Vertical mixing type. ``analytic``     | ``analytic`` /    | ``analytic``   |
 |                                   |                                        |                   |                |
@@ -783,6 +804,51 @@ List of Parameters
 |                                   |                                        |                   |                |
 |                                   | parametrization                        |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
+
+Scaled-to-grid horizontal mixing
+--------------------------------
+
+If ``remora.horizontal_mixing_type = "scaled_to_grid"``, REMORA follows the ROMS-style approach of
+scaling horizontal harmonic mixing coefficients by the grid cell area.
+
+.. math::
+
+   G(i,j) = \sqrt{\frac{1}{pm(i,j)\,pn(i,j)}}
+
+.. math::
+
+   \nu(i,j) = \nu_0 \frac{G(i,j)}{\max(G)}, \qquad
+   \kappa_n(i,j) = \kappa_{0,n} \frac{G(i,j)}{\max(G)}
+
+where :math:`\\nu_0` is ``remora.visc2`` and :math:`\\kappa_{0,n}` are the tracer diffusivities
+(``remora.tnu2_temp``, ``remora.tnu2_salt``, ``remora.tnu2_scalar``). This ensures the *maximum*
+coefficient over the normalization region equals the user-specified value, while varying spatially
+with grid size. Note that if the largest cell area occurs over land, then the maximum over *wet*
+cells (and thus what you see after applying ``mask_rho`` in post-processing) may be smaller than
+the user-specified value.
+
+Implementation details
+^^^^^^^^^^^^^^^^^^^^^^
+
+- The normalization ``max(G)`` is computed as a global maximum over the level-0 grid (rho points at
+  the surface, i.e. ``k=0``) and does not use land/sea masks. Equivalently, it uses the maximum grid-cell
+  area :math:`A(i,j) = 1/(pm\,pn)` via :math:`\\max(G)=\\sqrt{\\max(A)}`.
+
+- AMR refinement scaling: if ``remora.scaled_to_grid_amr_scaling = "linear"``, then on AMR level
+  :math:`\\ell` the coefficients are additionally scaled by the cumulative horizontal refinement ratio,
+  :math:`1/\\prod_{m<\\ell}\\sqrt{r_x(m)\,r_y(m)}`. For example, with a refinement ratio of ``5 5 1``,
+  level 1 coefficients are reduced by a factor of 5 relative to level 0.
+
+- Ghost cells for the coefficient fields are filled using the same periodic/foextrap boundary fill
+  used elsewhere in REMORA. This is done so stencil-based operations (e.g., the psi-point averaging for
+  ``visc2_p``) have valid neighbor values near domain boundaries and coarse/fine interfaces. Output
+  (plotfiles / NetCDF) writes only the valid region.
+
+When this option is active, the spatially varying coefficients are automatically included in plot output
+as 2D (vertically homogeneous) fields:
+
+- ``visc2`` (horizontal viscosity at rho points)
+- ``diff2_temp``, ``diff2_salt``, ``diff2_tracer`` (horizontal diffusivities at rho points)
 
 .. _list-of-parameters-drag:
 

@@ -41,6 +41,10 @@ REMORA::WritePlotFile (int istep_for_plot)
       {
          if (plot_name == "zeta" ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "h"    ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "visc2") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "diff2_temp"  ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "diff2_salt"  ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "diff2_tracer") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
@@ -57,6 +61,8 @@ REMORA::WritePlotFile (int istep_for_plot)
         FillPatchNoBC(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u,0,true,false);
         FillPatchNoBC(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v,0,true,false);
         FillPatchNoBC(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,false);
+        FillPatchNoBC(lev, t_new[lev], *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), BdyVars::null,0,true,false);
+        FillPatchNoBC(lev, t_new[lev], *vec_diff2[lev],   GetVecOfPtrs(vec_diff2),   BdyVars::null,0,true,false);
     }
 
     for (int lev = 0; lev <= finest_level; ++lev) {
@@ -85,6 +91,7 @@ REMORA::WritePlotFile (int istep_for_plot)
           mf_2d_u[lev].define(ba2d, dmap[lev], ncomp_mf_2d_u  , IntVect(0,0,0));
           mf_2d_v[lev].define(ba2d, dmap[lev], ncomp_mf_2d_v  , IntVect(0,0,0));
     }
+
 
     // Array of MultiFabs for nodal data
     Vector<MultiFab> mf_nd(finest_level+1);
@@ -155,6 +162,65 @@ REMORA::WritePlotFile (int istep_for_plot)
          }
          if (plot_name == "h" ) {
              for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); }
+             icomp_rho++;
+         }
+         if (plot_name == "visc2" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) {
+                 if (vec_visc2_r[lev]->contains_nan(0, 1, 0, true) || vec_visc2_r[lev]->contains_inf(0, 1, 0, true)) {
+                     amrex::Abort("Found while writing output: visc2 contains nan or inf");
+                 }
+                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                     const Box& bx = mfi.validbox();
+                     const int K = mfi.index();
+                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                     auto src = vec_visc2_r[lev]->const_array(K);
+                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                        dst(i,j,0) = src(i,j,0);
+                    });
+                 }
+             }
+             icomp_rho++;
+         }
+         if (plot_name == "diff2_temp" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) {
+                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                     const Box& bx = mfi.validbox();
+                     const int K = mfi.index();
+                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                     auto src = vec_diff2[lev]->const_array(K);
+                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                         dst(i,j,0) = src(i,j,0,Temp_comp);
+                     });
+                 }
+             }
+             icomp_rho++;
+         }
+         if (plot_name == "diff2_salt" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) {
+                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                     const Box& bx = mfi.validbox();
+                     const int K = mfi.index();
+                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                     auto src = vec_diff2[lev]->const_array(K);
+                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                         dst(i,j,0) = src(i,j,0,Salt_comp);
+                     });
+                 }
+             }
+             icomp_rho++;
+         }
+         if (plot_name == "diff2_tracer" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) {
+                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                     const Box& bx = mfi.validbox();
+                     const int K = mfi.index();
+                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                     auto src = vec_diff2[lev]->const_array(K);
+                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                         dst(i,j,0) = src(i,j,0,Tracer_comp);
+                     });
+                 }
+             }
              icomp_rho++;
          }
     }
@@ -336,7 +402,6 @@ REMORA::WritePlotFile (int istep_for_plot)
                 mf_arr(i,j,k,2) = mf_arr(i,j,k,2) + (N-k) * dz;
             });
         } // mfi
-
     } // lev
 
     if ( (plotfile_type == PlotfileType::amrex) ||
@@ -842,6 +907,7 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 {
     for (MFIter mfi(*cons_new[lev],false); mfi.isValid(); ++mfi) {
         Box gbx1 = mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0));
+        Box gbx_coeff = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         Box ubx = mfi.grownnodaltilebox(0,IntVect(NGROW,NGROW,0));
         Box vbx = mfi.grownnodaltilebox(1,IntVect(NGROW,NGROW,0));
 
@@ -850,6 +916,8 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
         Array4<Real> const& vbar = vec_vbar[lev]->array(mfi);
         Array4<Real> const& xvel = xvel_new[lev]->array(mfi);
         Array4<Real> const& yvel = yvel_new[lev]->array(mfi);
+        Array4<Real> const& visc2 = vec_visc2_r[lev]->array(mfi);
+        Array4<Real> const& diff2 = vec_diff2[lev]->array(mfi);
         Array4<Real> const& temp = cons_new[lev]->array(mfi,Temp_comp);
         Array4<Real> const& salt = cons_new[lev]->array(mfi,Salt_comp);
 
@@ -868,6 +936,15 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
             if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
                 temp(i,j,k) = fill_value;
                 salt(i,j,k) = fill_value;
+            }
+        });
+        ParallelFor(makeSlab(gbx_coeff,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+        {
+            if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
+                visc2(i,j,0) = fill_value;
+                for (int n = 0; n < NCONS; ++n) {
+                    diff2(i,j,0,n) = fill_value;
+                }
             }
         });
         ParallelFor(makeSlab(ubx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)

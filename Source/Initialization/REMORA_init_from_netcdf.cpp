@@ -464,10 +464,10 @@ REMORA::init_bdry_from_netcdf (int lev)
         }
     }
     for (int ivar = 0; ivar < BdyVars::NumTypes; ivar++) {
-        boundary_series[lev].push_back(new NCTimeSeriesBoundary(lev, geom, nc_bdry_file, field_name[ivar],
+        boundary_series[lev].push_back(std::unique_ptr<NCTimeSeriesBoundary>(new NCTimeSeriesBoundary(lev, geom, nc_bdry_file, field_name[ivar],
                                                                 bdry_time_name_byvar[ivar],
                                                                 index_types[ivar],
-                                                                &phys_bc_need_data[ivar], is_2d[ivar], rx, ry));
+                                                                &phys_bc_need_data[ivar], is_2d[ivar], rx, ry)));
         boundary_series[lev][ivar]->Initialize();
     }
 }

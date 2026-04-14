@@ -1106,52 +1106,52 @@ private:
     static bool write_history_file;
 
     /** \brief Data container for u-component surface momentum flux read from file */
-    NCTimeSeries* sustr_data_from_file;
+    std::unique_ptr<NCTimeSeries> sustr_data_from_file;
     /** \brief Data container for v-component surface momentum flux read from file */
-    NCTimeSeries* svstr_data_from_file;
+    std::unique_ptr<NCTimeSeries> svstr_data_from_file;
     /** \brief Data container for u-direction wind read from file */
-    NCTimeSeries* Uwind_data_from_file;
+    std::unique_ptr<NCTimeSeries> Uwind_data_from_file;
     /** \brief Data container for v-direction wind read from file */
-    NCTimeSeries* Vwind_data_from_file;
+    std::unique_ptr<NCTimeSeries> Vwind_data_from_file;
     /** \brief Data container for air temperature read from file */
-    NCTimeSeries* Tair_data_from_file;
+    std::unique_ptr<NCTimeSeries> Tair_data_from_file;
     /** \brief Data container for specific humidity read from file */
-    NCTimeSeries* qair_data_from_file;
+    std::unique_ptr<NCTimeSeries> qair_data_from_file;
     /** \brief Data container for air pressure read from file */
-    NCTimeSeries* Pair_data_from_file;
+    std::unique_ptr<NCTimeSeries> Pair_data_from_file;
     /** \brief Data container for shortwave radiation flux read from file */
-    NCTimeSeries* srflx_data_from_file;
+    std::unique_ptr<NCTimeSeries> srflx_data_from_file;
     /** \brief Data container for downward longwave radiation flux read from file */
-    NCTimeSeries* longwave_down_data_from_file;
+    std::unique_ptr<NCTimeSeries> longwave_down_data_from_file;
     /** \brief Data container for precipitation rate read from file */
-    NCTimeSeries* rain_data_from_file;
+    std::unique_ptr<NCTimeSeries> rain_data_from_file;
     /** \brief Data container for cloud cover fraction read from file */
-    NCTimeSeries* cloud_data_from_file;
+    std::unique_ptr<NCTimeSeries> cloud_data_from_file;
     /** \brief Data container for evaporation minus precipitation read from file */
-    NCTimeSeries* EminusP_data_from_file;
+    std::unique_ptr<NCTimeSeries> EminusP_data_from_file;
 
     /** \brief Data container for ubar climatology data read from file */
-    NCTimeSeries* ubar_clim_data_from_file;
+    std::unique_ptr<NCTimeSeries> ubar_clim_data_from_file;
     /** \brief Data container for vbar climatology data read from file */
-    NCTimeSeries* vbar_clim_data_from_file;
+    std::unique_ptr<NCTimeSeries> vbar_clim_data_from_file;
     /** \brief Data container for u-velocity climatology data read from file */
-    NCTimeSeries* u_clim_data_from_file;
+    std::unique_ptr<NCTimeSeries> u_clim_data_from_file;
     /** \brief Data container for v-velocity climatology data read from file */
-    NCTimeSeries* v_clim_data_from_file;
+    std::unique_ptr<NCTimeSeries> v_clim_data_from_file;
     /** \brief Data container for temperature climatology data read from file */
-    NCTimeSeries* temp_clim_data_from_file;
+    std::unique_ptr<NCTimeSeries> temp_clim_data_from_file;
     /** \brief Data container for salinity climatology data read from file */
-    NCTimeSeries* salt_clim_data_from_file;
+    std::unique_ptr<NCTimeSeries> salt_clim_data_from_file;
 
     /** \brief Vector of data containers for scalar data in rivers */
-    amrex::Vector<NCTimeSeriesRiver*> river_source_cons;
+    amrex::Vector<std::unique_ptr<NCTimeSeriesRiver>> river_source_cons;
     /** \brief Data container for momentum transport in rivers */
-    NCTimeSeriesRiver* river_source_transport;
+    std::unique_ptr<NCTimeSeriesRiver> river_source_transport;
     /** \brief Data container for vertically integrated momentum transport in rivers */
-    NCTimeSeriesRiver* river_source_transportbar;
+    std::unique_ptr<NCTimeSeriesRiver> river_source_transportbar;
 
     /** \brief Vector over BdyVars of boundary series data containers */
-    amrex::Vector<amrex::Vector<NCTimeSeriesBoundary*>> boundary_series;
+    amrex::Vector<amrex::Vector<std::unique_ptr<NCTimeSeriesBoundary>>> boundary_series;
 
 #endif // REMORA_USE_NETCDF
     /** \brief iMultiFab for river positions; contents are indices of rivers */
@@ -1230,7 +1230,7 @@ private:
     amrex::Vector<std::unique_ptr<REMORAPhysBCFunct>> physbcs;
 
     /** \brief array of flux registers for refluxing in multilevel */
-    amrex::Vector<amrex::YAFluxRegister*> advflux_reg;
+    amrex::Vector<std::unique_ptr<amrex::YAFluxRegister>> advflux_reg;
 
     ////////////////
     // boundary data members
@@ -1476,13 +1476,6 @@ private:
         }
 
         return nGhostCells;
-    }
-
-    /** \brief Get flux register */
-    AMREX_FORCE_INLINE
-    amrex::YAFluxRegister* getAdvFluxReg (int lev)
-    {
-        return advflux_reg[lev];
     }
 
     /** \brief Helper function for IO stream */
