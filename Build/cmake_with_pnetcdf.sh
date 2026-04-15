@@ -5,7 +5,7 @@ FC_cmake=mpifort
 if [ "$NERSC_HOST" == "perlmutter" ]
 then
 # See https://docs.nersc.gov/development/compilers/wrappers/#hpe-cray-compiler-wrappers
-     source saul-env.sh
+     source ../Build/saul-env.sh
      CXX_cmake=CC
      C_cmake=cc
      FC_cmake=ftn
