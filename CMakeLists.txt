@@ -17,6 +17,10 @@ option(REMORA_ENABLE_DOCUMENTATION "Build documentation" OFF)
 option(REMORA_ENABLE_ALL_WARNINGS  "Enable all compiler warnings" OFF)
 option(REMORA_ENABLE_TESTS         "Enable regression and unit tests" OFF)
 option(REMORA_ENABLE_PNETCDF        "Enable PNetCDF IO" OFF)
+
+if(DEFINED REMORA_ENABLE_NETCDF)
+  message(FATAL_ERROR "REMORA_ENABLE_NETCDF is not supported. Only REMORA_ENABLE_PNETCDF is supported.")
+endif()
 option(REMORA_ENABLE_FCOMPARE "Enable building fcompare when not testing" OFF)
 set(REMORA_PRECISION "DOUBLE" CACHE STRING "Floating point precision SINGLE or DOUBLE")
 

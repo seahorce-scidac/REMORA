@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Example CMake config script for an OSX laptop with OpenMPI
 

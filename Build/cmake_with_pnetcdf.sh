@@ -1,10 +1,11 @@
+#!/bin/bash
 CXX_cmake=mpicxx
-C_cmake=mpicx
+C_cmake=mpicc
 FC_cmake=mpifort
 if [ "$NERSC_HOST" == "perlmutter" ]
 then
 # See https://docs.nersc.gov/development/compilers/wrappers/#hpe-cray-compiler-wrappers
-     source saul-env.sh
+     source ../Build/saul-env.sh
      CXX_cmake=CC
      C_cmake=cc
      FC_cmake=ftn
@@ -26,7 +27,7 @@ cmake -DCMAKE_INSTALL_PREFIX:PATH=./install \
       -DREMORA_ENABLE_TESTS:BOOL=ON \
       -DREMORA_ENABLE_FCOMPARE:BOOL=ON \
       -DREMORA_ENABLE_DOCUMENTATION:BOOL=OFF \
-      -DREMORA_ENABLE_NETCDF:BOOL=ON \
+      -DREMORA_ENABLE_PNETCDF:BOOL=ON \
       -DREMORA_ENABLE_HDF5:BOOL=ON \
       -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON \
       .. && make -j8 && make install
