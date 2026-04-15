@@ -89,6 +89,8 @@ The utility ``ncks`` is part of the NCO suite.
 
 Currently, if initial or grid files are specified, they both must be. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
 
+By default, bathymetry is specified at level 0 and interpolated to the finer levels, like with any other variable. Bathymetry may also be specified at level ``remora.nc_grid_file_hires > 0`` in file ``remora.nc_grid_file_hires``. Bathymetry on levels ``< remora.nc_grid_file_hires`` is set by averaging down the given bathymetry. Bathymetry on higher levels is set by interpolating. High resolution bathymetry data must be given with XXXXXXX ghost cells.
+
 List of Parameters
 ------------------
 
@@ -112,6 +114,16 @@ List of Parameters
 |                                   |                                   |                 | if ``remora.ic_type``           |
 |                                   |                                   |                 |                                 |
 |                                   | file name                         |                 | is true                         |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.nc_grid_file_hires**     | high-resolution grid data NetCDF  | string          | must be set if                  |
+|                                   |                                   |                 |                                 |
+|                                   |                                   |                 | ``remora.nc_hires_grid_level``  |
+|                                   |                                   |                 |                                 |
+|                                   | file name                         |                 | is valid (greater than -1)      |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.nc_hires_grid_level**    | level where high-resolution       | integer         | -1, meaning grid data will      |
+|                                   |                                   |                 |                                 |
+|                                   | grid data is specified            |                 | be specified at level 0         |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.nc_bdry_file**           | boundary data NetCDF              | string or list  | must be set if                  |
 |                                   |                                   |                 |                                 |
