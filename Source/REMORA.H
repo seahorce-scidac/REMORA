@@ -995,7 +995,7 @@ public:
     void init_masks_from_netcdf (int lev);
     /** \brief Bathymetry data initialization from NetCDF file */
     void init_bathymetry_from_netcdf (int lev);
-    /** \brief Full domian bathymetry data initialization from NetCDF file */
+    /** \brief Full domain bathymetry data initialization from NetCDF file */
     void init_bathymetry_full_domain_from_netcdf ();
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);
