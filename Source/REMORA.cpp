@@ -499,7 +499,6 @@ REMORA::set_bathymetry (int lev)
 {
     BL_PROFILE("REMORA::bathymetry()");
     // Only set bathymetry on level 0, and interpolate for finer levels
-//    if (solverChoice.init_l0int_h) {
     if (lev==0) {
         if (solverChoice.ic_type == IC_Type::analytic) {
             if (!solverChoice.flat_bathymetry) {
@@ -510,9 +509,16 @@ REMORA::set_bathymetry (int lev)
 #ifdef REMORA_USE_NETCDF
         } else if (solverChoice.ic_type == IC_Type::netcdf) {
             if (!solverChoice.flat_bathymetry) {
-                amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
-                init_bathymetry_from_netcdf(lev);
-                amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+                // If high resolution grid data has not been provided (negative level) then
+                // initialize from low-resolution grid normally. Otherwise use high-resolution
+                // grid data averaged down to level 0
+                if (nc_hires_grid_level < 0) {
+                    amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
+                    init_bathymetry_from_netcdf(lev);
+                    amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+                } else {
+                    set_bathymetry_averaged_down(lev);
+                }
             } else {
                 init_flat_bathymetry(lev);
             }
@@ -525,18 +531,14 @@ REMORA::set_bathymetry (int lev)
         vec_h[lev]->FillBoundary(geom[lev].periodicity());
         vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
     } else {
-        Real dummy_time = 0.0_rt;
+        // If our level is higher than the high resolution grid or initialization
+        // is analytic, interpolate from level below. Otherwise, copy over the bathymetry
+        // data that has been averaged down
         if (lev > nc_hires_grid_level || solverChoice.ic_type == IC_Type::analytic) {
+            Real dummy_time = 0.0_rt;
             FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
         } else {
-            ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1);
-            ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1);
-            FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-                    BCVars::foextrap_periodic_bc,
-                    BdyVars::null,0,false,true,1);
-            FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-                    BCVars::foextrap_periodic_bc,
-                    BdyVars::null,1,false,true,1);
+            set_bathymetry_averaged_down(lev);
             vec_h[lev]->FillBoundary(geom[lev].periodicity());
             vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
         }
@@ -544,55 +546,23 @@ REMORA::set_bathymetry (int lev)
             set_grid_scale(lev);
         }
     }
-#if 0
-    } else if (solverChoice.init_ana_h) {
-        if (solverChoice.ic_type == IC_Type::analytic) {
-            if (!solverChoice.flat_bathymetry) {
-                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this,*vec_h[lev]);
-            } else {
-                init_flat_bathymetry(lev);
-            }
-#ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.ic_type == IC_Type::netcdf) {
-            amrex::Print() << "Calling init_bathymetry_from_netcdf level " << lev << std::endl;
-            init_bathymetry_from_netcdf(lev);
-            amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
-#endif
-        } else {
-            Abort("Don't know this ic_type!");
-        }
-        // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
-        // to make sure ghost cells in the domain corners are consistent.
-        vec_h[lev]->FillBoundary(geom[lev].periodicity());
-        vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
-    } else if (solverChoice.init_l1ad_h) {
-        if (solverChoice.ic_type == IC_Type::analytic) {
-            if (!solverChoice.flat_bathymetry) {
-                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_h[lev]);
-            } else {
-                init_flat_bathymetry(lev);
-            }
-#ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.ic_type == IC_Type::netcdf) {
-            if (!solverChoice.flat_bathymetry) {
-                amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
-                init_bathymetry_from_netcdf(lev);
-                amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
-            } else {
-                init_flat_bathymetry(lev);
-            }
-#endif
-        } else {
-            Abort("Don't know this ic_type!");
-        }
-        // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
-        // to make sure ghost cells in the domain corners are consistent.
-        vec_h[lev]->FillBoundary(geom[lev].periodicity());
-        vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
-    } else {
-        amrex::Abort("Don't know this h init type");
-    }
-#endif
+}
+
+/**
+ * @param[in   ] lev   level to operate on
+ */
+void
+REMORA::set_bathymetry_averaged_down (int lev) {
+    Real dummy_time = 0.0_rt;
+    ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1,IntVect(1,1,0),IntVect(1,1,0));
+    ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1,IntVect(1,1,0),IntVect(1,1,0));
+    print_state(*vec_h[lev],IntVect(-1,0,0),0,IntVect(1,1,0));
+    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
+            BCVars::foextrap_periodic_bc,
+            BdyVars::null,0,false,true,1);
+    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
+            BCVars::foextrap_periodic_bc,
+            BdyVars::null,1,false,true,1);
 }
 
 /**

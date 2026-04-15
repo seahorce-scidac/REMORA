@@ -846,6 +846,10 @@ public:
     /** \brief Initialize bathymetry from file or analytic */
     void set_bathymetry (int lev);
 
+    /** \brief Copy over bathymetry data that has been averaged down from high resolution
+     * input netcdf file */
+    void set_bathymetry_averaged_down (int lev);
+
     /** \brief Initialize Coriolis factor from file or analytic */
     void set_coriolis (int lev);
 

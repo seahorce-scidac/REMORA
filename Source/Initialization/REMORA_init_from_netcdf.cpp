@@ -674,16 +674,13 @@ REMORA::init_bathymetry_full_domain_from_netcdf ()
     {
         FArrayBox &h_fab     = (*vec_h_full_domain[nc_hires_grid_level])[mfi];
         h_fab.template    copy<RunOn::Device>(NC_h_fab[0]);
-        Print() << NC_h_fab[0].array()(50,50,0) << std::endl;
-        Print() << h_fab.array()(50,50,0) << std::endl;
     }
 
     // Average down to fill levels below nc_hires_grid_level
     for (int lev=nc_hires_grid_level-1; lev >= 0; lev--) {
-        Print() << lev << std::endl;
-        Print() << refRatio(lev) << std::endl;
         average_down(*vec_h_full_domain[lev+1].get(), *vec_h_full_domain[lev].get(),
                      0, 1, refRatio(lev));
+        vec_h_full_domain[lev]->FillBoundary(geom[lev].periodicity());
     }
 }
 

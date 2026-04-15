@@ -230,5 +230,4 @@ void REMORA::allocate_bathymetry_full_domain () {
         vec_h_full_domain[lev].reset(new MultiFab(ba, dm, 1, IntVect(1+2,1+2,0)));
     }
     nc_hires_grid_box = refined_domain;
-    Print() << nc_hires_grid_box << std::endl;
 }
