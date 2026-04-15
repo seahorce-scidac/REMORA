@@ -33,9 +33,9 @@ void REMORA::init_bcs ()
 
     auto f_set_var_bc = [this, uses_velocity_input, uses_scalar_input, xvel_bc_idx, zeta_bc_idx, ubar_bc_idx, vbar_bc_idx]
         (ParmParse& pp, int bcvar_type, Orientation ori, std::string bc_type_string) {
-        const bool requires_file_data =
-            (bc_type_string == "clamped") || (bc_type_string == "chapman") ||
-            (bc_type_string == "flather") || (bc_type_string == "orlanski_rad_nudg");
+        // const bool requires_file_data =
+        //     (bc_type_string == "clamped") || (bc_type_string == "chapman") ||
+        //     (bc_type_string == "flather") || (bc_type_string == "orlanski_rad_nudg");
 
         // if (bcvar_type > Tracer_comp && requires_file_data) {
         //     amrex::Abort("Additional passive scalars do not yet support NetCDF-driven boundary conditions");
