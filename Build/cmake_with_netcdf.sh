@@ -1,5 +1,6 @@
+#!/bin/bash
 CXX_cmake=mpicxx
-C_cmake=mpicx
+C_cmake=mpicc
 FC_cmake=mpifort
 if [ "$NERSC_HOST" == "perlmutter" ]
 then
