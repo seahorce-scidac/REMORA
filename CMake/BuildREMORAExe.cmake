@@ -37,7 +37,6 @@ function(build_remora_lib remora_lib_name)
                    ${SRC_DIR}/IO/REMORA_NCTimeSeriesRiver.cpp
                    ${SRC_DIR}/IO/REMORA_NCTimeSeriesBoundary.cpp
                    ${SRC_DIR}/IO/REMORA_ReadFromInitNetcdf.cpp
-                   ${SRC_DIR}/IO/REMORA_ReadFromBdryNetcdf.cpp
                    ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_netcdf.cpp
                    ${SRC_DIR}/Initialization/REMORA_init_from_netcdf.cpp)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_NETCDF)
