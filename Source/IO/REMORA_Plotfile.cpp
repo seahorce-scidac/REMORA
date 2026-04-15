@@ -903,6 +903,7 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
         Array4<Real const> const& mskr = vec_mskr[lev]->array(mfi);
         Array4<Real const> const& msku = vec_msku[lev]->array(mfi);
         Array4<Real const> const& mskv = vec_mskv[lev]->array(mfi);
+        const int ncons_local = ncons;
 
         ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -921,7 +922,7 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
         {
             if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
                 visc2(i,j,0) = fill_value;
-                for (int n = 0; n < ncons; ++n) {
+                for (int n = 0; n < ncons_local; ++n) {
                     diff2(i,j,0,n) = fill_value;
                 }
             }

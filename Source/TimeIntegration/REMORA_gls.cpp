@@ -643,6 +643,8 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             FCK(i,j,N) = cff * (cff1 * tke(i,j,N+1,2)+cff2*tke(i,j,N,2)-cff3*tke(i,j,N-1,2));
             FCP(i,j,N) = cff * (cff1 * gls(i,j,N+1,2)+cff2*gls(i,j,N,2)-cff3*gls(i,j,N-1,2));
         });
+        const int ncons_local = ncons;
+
         ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
@@ -871,7 +873,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Real ql=sqrt2*0.5_rt*(Ls_lmt*std::sqrt(tke(i,j,k,nnew))+
                                   Lscale(i,j,k)*std::sqrt(tke(i,j,k,nstp)));
             Akv(i,j,k)=Akv_bak+Sm*ql;
-            for (int n=0; n<ncons; n++) {
+            for (int n=0; n<ncons_local; n++) {
                 Akt(i,j,k,n)=Akt_bak+Sh*ql;
             }
 
@@ -898,7 +900,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Akp(i,j,N+1)=Akp_bak+Akv(i,j,N+1)*ogls_sigp;
             Akp(i,j,0)=Akp_bak+Akv(i,j,0)/gls_sigp_cb;
 
-            for (int n=0; n<ncons; n++) {
+            for (int n=0; n<ncons_local; n++) {
                 Akt(i,j,N+1,n)  = Akt_bak;
                 Akt(i,j,0,n) = Akt_bak;
             }

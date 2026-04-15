@@ -646,10 +646,12 @@ void
 REMORA::set_analytic_vmix(int lev) {
     BL_PROFILE("REMORA::set_analytic_vmix()");
     Real time = 0.0_rt;
+    vec_Akv[lev]->setVal(solverChoice.Akv_bak);
+    vec_Akt[lev]->setVal(solverChoice.Akt_bak);
     prob->init_analytic_vmix(lev, geom[lev], solverChoice, *this,*vec_Akv[lev], *vec_Akt[lev]);
     FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv), zvel_bc(), BdyVars::null,0,true,false);
     for (int n = 0; n < ncons; n++) {
-        FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null,0,false,false);
+        FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null,n,false,false);
     }
 }
 
@@ -820,13 +822,14 @@ REMORA::set_hmixcoef(int lev)
             auto visc2_r = vec_visc2_r[lev]->array(mfi);
             auto diff2   = vec_diff2[lev]->array(mfi);
 
+            int ncons_local = ncons;
             ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
             {
                 Real denom  = pm(i,j,0) * pn(i,j,0);
                 Real grdscl = (denom > 0.0_rt) ? std::sqrt(1.0_rt / denom) : 0.0_rt;
                 visc2_r(i,j,0) = cff * grdscl;
 
-                for (int n = 0; n < ncons; n++) {
+                for (int n = 0; n < ncons_local; n++) {
                     diff2(i,j,0,n) = ((diff0_ptr[n] * lev_scale) / grdmax) * grdscl;
                 }
             });

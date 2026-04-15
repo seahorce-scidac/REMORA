@@ -37,9 +37,9 @@ void REMORA::init_bcs ()
             (bc_type_string == "clamped") || (bc_type_string == "chapman") ||
             (bc_type_string == "flather") || (bc_type_string == "orlanski_rad_nudg");
 
-        if (bcvar_type > Tracer_comp && requires_file_data) {
-            amrex::Abort("Additional passive scalars do not yet support NetCDF-driven boundary conditions");
-        }
+        // if (bcvar_type > Tracer_comp && requires_file_data) {
+        //     amrex::Abort("Additional passive scalars do not yet support NetCDF-driven boundary conditions");
+        // }
 
         if (bc_type_string == "symmetry")
         {
