@@ -57,8 +57,8 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
         // value. Since we access icomp + icomp_to_fill_calc, we need icomp_to_fill_calc to be zero.
         // If it's another variable, either we aren't using calc_arr
         // or the components correspond to salt, temp, etc so we leave it as is.
-        int icomp_to_fill_calc = (bccomp == BCVars::zeta_bc || bccomp == BCVars::ubar_bc ||
-                              bccomp == BCVars::vbar_bc) ? 0 : icomp_to_fill;
+        int icomp_to_fill_calc = (bccomp == zeta_bc() || bccomp == ubar_bc() ||
+                              bccomp == vbar_bc()) ? 0 : icomp_to_fill;
 
         boundary_series[lev][ivar+icomp]->update_interpolated_to_time(time);
 

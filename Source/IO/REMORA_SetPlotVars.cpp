@@ -48,7 +48,7 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
     // since they may be in any order in the input list
     Vector<std::string> tmp_plot_names;
 
-    for (int i = 0; i < NCONS; ++i) {
+    for (int i = 0; i < ncons; ++i) {
         if ( containerHasElement(plot_var_names_3d, cons_names[i]) ) {
             tmp_plot_names.push_back(cons_names[i]);
         }
@@ -134,7 +134,7 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
         if (!containerHasElement(plot_var_names_2d, "visc2")) {
             plot_var_names_2d.push_back("visc2");
         }
-        for (int n = 0; n < NCONS; ++n) {
+        for (int n = 0; n < ncons; ++n) {
             const std::string nm = std::string("diff2_") + cons_names[n];
             if (!containerHasElement(plot_var_names_2d, nm)) {
                 plot_var_names_2d.push_back(nm);
@@ -163,7 +163,7 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
     if (containerHasElement(plot_var_names_2d, "visc2")) {
         tmp_plot_names.push_back("visc2");
     }
-    for (int n = 0; n < NCONS; ++n) {
+    for (int n = 0; n < ncons; ++n) {
         const std::string nm = std::string("diff2_") + cons_names[n];
         if (containerHasElement(plot_var_names_2d, nm)) {
             tmp_plot_names.push_back(nm);

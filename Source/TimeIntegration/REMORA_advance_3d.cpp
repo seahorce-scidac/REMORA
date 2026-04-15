@@ -178,15 +178,15 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     }
 
     // Apply physical boundary conditions to u and v
-    (*physbcs[lev])(mf_u,*mf_msku,0,1,mf_u.nGrowVect(),t_old[lev],BCVars::xvel_bc,0,*xvel_old[lev]);
-    (*physbcs[lev])(mf_v,*mf_mskv,0,1,mf_v.nGrowVect(),t_old[lev],BCVars::yvel_bc,0,*yvel_old[lev]);
+    (*physbcs[lev])(mf_u,*mf_msku,0,1,mf_u.nGrowVect(),t_old[lev],xvel_bc(),0,*xvel_old[lev]);
+    (*physbcs[lev])(mf_v,*mf_mskv,0,1,mf_v.nGrowVect(),t_old[lev],yvel_bc(),0,*yvel_old[lev]);
 
 #ifdef REMORA_USE_NETCDF
         // Fill the data which is stored in the boundary data read from netcdf files
         if (solverChoice.boundary_from_netcdf)
         {
-            fill_from_bdyfiles(lev, mf_u,*mf_msku,t_old[lev],BCVars::xvel_bc,BdyVars::u,0,0,*xvel_old[lev],dt_lev);
-            fill_from_bdyfiles(lev, mf_v,*mf_mskv,t_old[lev],BCVars::yvel_bc,BdyVars::v,0,0,*yvel_old[lev],dt_lev);
+            fill_from_bdyfiles(lev, mf_u,*mf_msku,t_old[lev],xvel_bc(),BdyVars::u,0,0,*xvel_old[lev],dt_lev);
+            fill_from_bdyfiles(lev, mf_v,*mf_mskv,t_old[lev],yvel_bc(),BdyVars::v,0,0,*yvel_old[lev],dt_lev);
         }
 
     if (solverChoice.do_rivers) {
@@ -394,7 +394,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         // rhs_t_3d
         //-----------------------------------------------------------------------
         //
-        for (int i_comp=0; i_comp < NCONS; i_comp++)
+        for (int i_comp=0; i_comp < ncons; i_comp++)
         {
 #ifdef REMORA_USE_NETCDF
             FArrayBox* fab_river_source;
@@ -445,7 +445,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         auto BC = fab_BC.array();
         auto CF = fab_CF.array();
 
-        for (int i_comp=0; i_comp < NCONS; i_comp++) {
+        for (int i_comp=0; i_comp < ncons; i_comp++) {
             vert_visc_3d(bx,0,0,mf_cons.array(mfi,i_comp),Hz,Hzk,
                     AK,mf_Akt->array(mfi,i_comp),BC,DC,FC,CF,nnew,N,dt_lev);
         }

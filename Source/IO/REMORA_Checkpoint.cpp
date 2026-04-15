@@ -63,7 +63,7 @@ REMORA::WriteCheckpointFile ()
        // for each variable we store
 
        // conservative, cell-centered vars
-       HeaderFile << NCONS << "\n";
+       HeaderFile << ncons << "\n";
 
        // x-velocity on faces
        HeaderFile << 1 << "\n";
@@ -117,11 +117,11 @@ REMORA::WriteCheckpointFile ()
        }
        BoxArray ba2d(std::move(bl2d));
 
-       MultiFab cons(grids[lev],dmap[lev],NCONS,cons_new[lev]->nGrowVect());
-       MultiFab::Copy(cons,*cons_new[lev],0,0,NCONS,cons_new[lev]->nGrowVect());
+       MultiFab cons(grids[lev],dmap[lev],ncons,cons_new[lev]->nGrowVect());
+       MultiFab::Copy(cons,*cons_new[lev],0,0,ncons,cons_new[lev]->nGrowVect());
        VisMF::Write(cons, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Cell"));
 
-       MultiFab::Copy(cons,*cons_old[lev],0,0,NCONS,cons_old[lev]->nGrowVect());
+       MultiFab::Copy(cons,*cons_old[lev],0,0,ncons,cons_old[lev]->nGrowVect());
        VisMF::Write(cons, amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Cell_old"));
 
        MultiFab xvel(convert(grids[lev],IntVect(1,0,0)),dmap[lev],1,xvel_new[lev]->nGrowVect());
@@ -248,7 +248,9 @@ REMORA::ReadCheckpointFile ()
     // conservative, cell-centered vars
     is >> chk_ncomp;
     GotoNextLine(is);
-    AMREX_ASSERT(chk_ncomp == NCONS);
+    if (chk_ncomp != ncons) {
+        amrex::Abort("Checkpoint scalar component count does not match remora.nscalar");
+    }
 
     // x-velocity on faces
     is >> chk_ncomp;
@@ -341,12 +343,12 @@ REMORA::ReadCheckpointFile ()
         }
         BoxArray ba2d(std::move(bl2d));
 
-        MultiFab cons(grids[lev],dmap[lev],NCONS,cons_new[lev]->nGrowVect());
+        MultiFab cons(grids[lev],dmap[lev],ncons,cons_new[lev]->nGrowVect());
         VisMF::Read(cons, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Cell"));
-        MultiFab::Copy(*cons_new[lev],cons,0,0,NCONS,cons_new[lev]->nGrowVect());
+        MultiFab::Copy(*cons_new[lev],cons,0,0,ncons,cons_new[lev]->nGrowVect());
 
         VisMF::Read(cons, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Cell_old"));
-        MultiFab::Copy(*cons_old[lev],cons,0,0,NCONS,cons_old[lev]->nGrowVect());
+        MultiFab::Copy(*cons_old[lev],cons,0,0,ncons,cons_old[lev]->nGrowVect());
 
         MultiFab xvel(convert(grids[lev],IntVect(1,0,0)),dmap[lev],1,xvel_new[lev]->nGrowVect());
         VisMF::Read(xvel, amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "XFace"));

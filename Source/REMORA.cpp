@@ -147,6 +147,19 @@ REMORA::~REMORA ()
 }
 
 void
+REMORA::init_scalar_metadata ()
+{
+    cons_names.clear();
+    cons_names.reserve(ncons);
+    cons_names.emplace_back("temp");
+    cons_names.emplace_back("salt");
+    cons_names.emplace_back("tracer");
+    for (int i = 1; i < nscalar; ++i) {
+        cons_names.emplace_back("tracer_" + std::to_string(i));
+    }
+}
+
+void
 REMORA::Evolve ()
 {
     BL_PROFILE("REMORA::Evolve()");
@@ -296,7 +309,7 @@ REMORA::InitData ()
             advflux_reg[lev].reset( new YAFluxRegister(grids[lev], grids[lev-1],
                                                    dmap[lev],  dmap[lev-1],
                                                    geom[lev],  geom[lev-1],
-                                              ref_ratio[lev-1], lev, NCONS));
+                                              ref_ratio[lev-1], lev, ncons));
         }
     }
 
@@ -309,14 +322,14 @@ REMORA::InitData ()
 
         if (restart_chkfile == "") {
             FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,0.0,*cons_new[lev]);
-            FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, BCVars::xvel_bc, BdyVars::u, 0, true, false,0,0,0.0,*xvel_new[lev]);
-            FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, BCVars::yvel_bc, BdyVars::v, 0, true, false,0,0,0.0,*yvel_new[lev]);
-            FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null, 0, true, false);
+            FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,0.0,*xvel_new[lev]);
+            FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,0.0,*yvel_new[lev]);
+            FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null, 0, true, false);
 
             // Copy from new into old just in case when initializing from scratch
             int ngs   = cons_new[lev]->nGrow();
             int ngvel = xvel_new[lev]->nGrow();
-            MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,NCONS,ngs);
+            MultiFab::Copy(*cons_old[lev],*cons_new[lev],0,0,ncons,ngs);
             MultiFab::Copy(*xvel_old[lev],*xvel_new[lev],0,0,1,ngvel);
             MultiFab::Copy(*yvel_old[lev],*yvel_new[lev],0,0,1,ngvel);
             MultiFab::Copy(*zvel_old[lev],*zvel_new[lev],0,0,1,IntVect(ngvel,ngvel,0));
@@ -607,7 +620,7 @@ REMORA::set_coriolis(int lev) {
         }
 
         Real time = 0.0_rt;
-        FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor),BCVars::foextrap_bc);
+        FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor), foextrap_bc());
         vec_fcor[lev]->EnforcePeriodicity(geom[lev].periodicity());
     }
 }
@@ -634,9 +647,9 @@ REMORA::set_analytic_vmix(int lev) {
     BL_PROFILE("REMORA::set_analytic_vmix()");
     Real time = 0.0_rt;
     prob->init_analytic_vmix(lev, geom[lev], solverChoice, *this,*vec_Akv[lev], *vec_Akt[lev]);
-    FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv),BCVars::zvel_bc,BdyVars::null,0,true,false);
-    for (int n=0; n<NCONS;n++) {
-        FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt),BCVars::zvel_bc,BdyVars::null,0,false,false);
+    FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv), zvel_bc(), BdyVars::null,0,true,false);
+    for (int n = 0; n < ncons; n++) {
+        FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null,0,false,false);
     }
 }
 
@@ -658,7 +671,7 @@ REMORA::set_masks(int lev)
         } else {
             Real dummy_time = 0.0_rt;
             FillCoarsePatchPC(lev, dummy_time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
-                    BCVars::foextrap_bc);
+                    foextrap_bc());
             calculate_nodal_masks(lev);
         }
 #endif
@@ -693,7 +706,7 @@ REMORA::set_hmixcoef(int lev)
     } else if (solverChoice.horiz_mixing_type == HorizMixingType::constant) {
         vec_visc2_p[lev]->setVal(solverChoice.visc2 * lev_scale);
         vec_visc2_r[lev]->setVal(solverChoice.visc2 * lev_scale);
-        for (int n=0; n<NCONS; n++) {
+        for (int n = 0; n < ncons; n++) {
             vec_diff2[lev]->setVal(solverChoice.tnu2[n] * lev_scale, n, 1);
         }
 
@@ -726,7 +739,7 @@ REMORA::set_hmixcoef(int lev)
         // ------------------------------------------------------------
         vec_visc2_r[lev]->setVal(solverChoice.visc2);
         vec_visc2_p[lev]->setVal(solverChoice.visc2);
-        for (int n = 0; n < NCONS; n++) {
+        for (int n = 0; n < ncons; n++) {
             vec_diff2[lev]->setVal(solverChoice.tnu2[n], n, 1);
         }
 
@@ -793,6 +806,12 @@ REMORA::set_hmixcoef(int lev)
         // ------------------------------------------------------------
         // Step 2: Set rho coefficients everywhere
         // ------------------------------------------------------------
+        amrex::Gpu::DeviceVector<Real> diff0_d(ncons);
+        amrex::Gpu::copy(amrex::Gpu::hostToDevice,
+                         solverChoice.tnu2.begin(), solverChoice.tnu2.begin() + ncons,
+                         diff0_d.begin());
+        Real const* diff0_ptr = diff0_d.data();
+
         for (MFIter mfi(*vec_visc2_r[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
             const Box& bx = mfi.validbox();
@@ -801,26 +820,21 @@ REMORA::set_hmixcoef(int lev)
             auto visc2_r = vec_visc2_r[lev]->array(mfi);
             auto diff2   = vec_diff2[lev]->array(mfi);
 
-            Real diff0[NCONS];
-            for (int n=0; n<NCONS; n++) {
-                diff0[n] = solverChoice.tnu2[n];
-            }
-
             ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
             {
                 Real denom  = pm(i,j,0) * pn(i,j,0);
                 Real grdscl = (denom > 0.0_rt) ? std::sqrt(1.0_rt / denom) : 0.0_rt;
                 visc2_r(i,j,0) = cff * grdscl;
 
-                for (int n = 0; n < NCONS; n++) {
-                    diff2(i,j,0,n) = ((diff0[n] * lev_scale) / grdmax) * grdscl;
+                for (int n = 0; n < ncons; n++) {
+                    diff2(i,j,0,n) = ((diff0_ptr[n] * lev_scale) / grdmax) * grdscl;
                 }
             });
         }
 
         // Fill ghost cells for rho coefficients BEFORE psi averaging
         Real time = 0.0_rt;
-        FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), BCVars::foextrap_periodic_bc);
+        FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), foextrap_periodic_bc());
 
         // ------------------------------------------------------------
         // Step 3: Psi coefficients = average of 4 surrounding rho
@@ -842,7 +856,7 @@ REMORA::set_hmixcoef(int lev)
             });
         }
 
-        FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), BCVars::foextrap_periodic_bc);
+        FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), foextrap_periodic_bc());
 
         // Diagnostics
         // NOTE: coefficients are computed everywhere (including land). Output routines may later
@@ -941,11 +955,11 @@ REMORA::set_hmixcoef(int lev)
 
     // Final FillPatch for all fields
     Real time = 0.0_rt;
-    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), BCVars::foextrap_periodic_bc);
-    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), BCVars::foextrap_periodic_bc);
-    for (int n = 0; n < NCONS; n++) {
+    FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), foextrap_periodic_bc());
+    FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), foextrap_periodic_bc());
+    for (int n = 0; n < ncons; n++) {
         FillPatch(lev, time, *vec_diff2[lev], GetVecOfPtrs(vec_diff2),
-                  BCVars::foextrap_periodic_bc, BdyVars::null, n, false);
+                  foextrap_periodic_bc(), BdyVars::null, n, false);
     }
 }
 
@@ -972,8 +986,8 @@ REMORA::set_smflux(int lev)
 #ifdef REMORA_USE_NETCDF
         sustr_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_sustr[lev].get(), geom, ref_ratio);
         svstr_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_svstr[lev].get(), geom, ref_ratio);
-        FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
-        FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr),BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+        FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr), foextrap_periodic_bc(), BdyVars::null,0,false);
+        FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr), foextrap_periodic_bc(), BdyVars::null,0,false);
 #endif
     }
 }
@@ -992,20 +1006,20 @@ REMORA::set_wind(int lev)
         Uwind_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_uwind[lev].get(), geom, ref_ratio);
         Vwind_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_vwind[lev].get(), geom, ref_ratio);
         FillPatch(lev, t_old[lev], *vec_uwind[lev], GetVecOfPtrs(vec_uwind),
-                  BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+                  foextrap_periodic_bc(),BdyVars::null,0,false);
         FillPatch(lev, t_old[lev], *vec_vwind[lev], GetVecOfPtrs(vec_vwind),
-                  BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+                  foextrap_periodic_bc(),BdyVars::null,0,false);
 
         // Conditionally update atmospheric fields if loaded from NetCDF
         if (solverChoice.Tair_from_netcdf) {
             Tair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_Tair[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_Tair[lev], GetVecOfPtrs(vec_Tair),
-                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+                      foextrap_periodic_bc(),BdyVars::null,0,false);
         }
         if (solverChoice.qair_from_netcdf) {
             qair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_qair[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_qair[lev], GetVecOfPtrs(vec_qair),
-                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+                      foextrap_periodic_bc(),BdyVars::null,0,false);
 
             // Convert qair from percentage (0-100) to specific humidity (0-1) if needed
             if (solverChoice.qair_is_percent) {
@@ -1018,32 +1032,32 @@ REMORA::set_wind(int lev)
         if (solverChoice.Pair_from_netcdf) {
             Pair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_Pair[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_Pair[lev], GetVecOfPtrs(vec_Pair),
-                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+                      foextrap_periodic_bc(),BdyVars::null,0,false);
         }
         if (solverChoice.srflx_from_netcdf) {
             srflx_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_srflx[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_srflx[lev], GetVecOfPtrs(vec_srflx),
-                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+                      foextrap_periodic_bc(),BdyVars::null,0,false);
         }
         if (solverChoice.longwave_down_from_netcdf) {
             longwave_down_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_longwave_down[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_longwave_down[lev], GetVecOfPtrs(vec_longwave_down),
-                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+                      foextrap_periodic_bc(),BdyVars::null,0,false);
         }
         if (solverChoice.rain_from_netcdf) {
             rain_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_rain[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_rain[lev], GetVecOfPtrs(vec_rain),
-                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+                      foextrap_periodic_bc(),BdyVars::null,0,false);
         }
         if (solverChoice.cloud_from_netcdf) {
             cloud_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_cloud[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_cloud[lev], GetVecOfPtrs(vec_cloud),
-                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+                      foextrap_periodic_bc(),BdyVars::null,0,false);
         }
         if (solverChoice.EminusP_from_netcdf) {
             EminusP_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_EminusP[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_EminusP[lev], GetVecOfPtrs(vec_EminusP),
-                      BCVars::foextrap_periodic_bc,BdyVars::null,0,false);
+                      foextrap_periodic_bc(),BdyVars::null,0,false);
         }
 #endif
     }
@@ -1181,7 +1195,7 @@ REMORA::init_only (int lev, Real time)
     if (solverChoice.do_rivers) {
         auto dom = geom[0].Domain();
         int nz = dom.length(2);
-        river_source_cons.resize(NCONS);
+        river_source_cons.resize(ncons);
         Print() << solverChoice.do_rivers_cons[0] << std::endl;
         if ((bool) solverChoice.do_rivers_cons[Salt_comp]) {
             river_source_cons[Salt_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz));
@@ -1232,9 +1246,9 @@ REMORA::init_only (int lev, Real time)
             }
         } else {
             FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1],BCVars::Temp_bc_comp,BdyVars::t);
-            FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1],BCVars::xvel_bc,BdyVars::u);
-            FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1],BCVars::yvel_bc,BdyVars::v);
-            FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1],BCVars::zvel_bc,BdyVars::null);
+            FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1], xvel_bc(), BdyVars::u);
+            FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
+            FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1], zvel_bc(), BdyVars::null);
         }
     } else if (solverChoice.init_ana_T || solverChoice.init_l1ad_T) {
         if (solverChoice.ic_type == IC_Type::analytic)
@@ -1296,6 +1310,13 @@ REMORA::ReadParameters ()
     ParmParse pp(pp_prefix);
     ParmParse pp_amr("amr");
     {
+        pp.queryAdd("nscalar", nscalar);
+        if (nscalar < 1) {
+            amrex::Abort("remora.nscalar must be at least 1");
+        }
+        ncons = Tracer_comp + nscalar;
+        init_scalar_metadata();
+
         pp_amr.queryAdd("regrid_int", regrid_int);
         pp.queryAdd("check_file", check_file);
         pp.queryAdd("check_int", check_int);
@@ -1514,7 +1535,7 @@ REMORA::ReadParameters ()
 #endif
     }
 
-    solverChoice.init_params();
+    solverChoice.init_params(ncons);
 }
 
 void

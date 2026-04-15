@@ -43,12 +43,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
     std::memcpy(bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
 #endif
     const amrex::BCRec* bc_ptr = bcrs_d.data();
-
-    GpuArray<GpuArray<Real, AMREX_SPACEDIM*2>, AMREX_SPACEDIM+NCONS+8> l_bc_extdir_vals_d;
-
-    for (int i = 0; i < ncomp; i++)
-        for (int ori = 0; ori < 2*AMREX_SPACEDIM; ori++)
-            l_bc_extdir_vals_d[i][ori] = m_bc_extdir_vals[bccomp+i][ori];
+    const auto* bc_extdir_vals_ptr = m_bc_extdir_vals_d.data();
 
     GeometryData const& geomdata = m_geom.data();
     bool is_periodic_in_x = geomdata.isPeriodic(0);
@@ -57,7 +52,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
 
     Box dest_arr_box = growHi(convert(Box(dest_arr),IntVect(0,1,0)),1,-1);
     // First do all ext_dir bcs
-    if (!is_periodic_in_x or bccomp==BCVars::foextrap_bc)
+    if (!is_periodic_in_x or bccomp == BCVars::foextrap_bc(m_ncons))
     {
         // Populate ghost cells on lo-x and hi-x domain boundaries
         Box bx_xlo(bx);  bx_xlo.setBig  (0,dom_lo.x-1);
@@ -66,7 +61,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
             grow(bx_xlo,IntVect(0,-1,0)) & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip = dom_lo.x - 1- i;
                 if (bc_ptr[n].lo(0) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][0]*mskv(i,j,0);
+                    dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][0]*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::foextrap || bc_ptr[n].lo(0) == REMORABCType::clamped) {
                     dest_arr(i,j,k) =  dest_arr(dom_lo.x,j,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(0) == REMORABCType::orlanski_rad) {
@@ -88,7 +83,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
             grow(bx_xhi,IntVect(0,-1,0)) & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int iflip =  2*dom_hi.x + 1 - i;
                 if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][3]*mskv(i,j,0);
+                    dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][3]*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::foextrap || bc_ptr[n].hi(0) == REMORABCType::clamped) {
                     dest_arr(i,j,k) =  dest_arr(dom_hi.x,j,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::orlanski_rad) {
@@ -110,7 +105,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
         );
     }
 
-    if (!is_periodic_in_y or bccomp==BCVars::foextrap_bc)
+    if (!is_periodic_in_y or bccomp == BCVars::foextrap_bc(m_ncons))
     {
         // Populate ghost cells on lo-y and hi-y domain boundaries
         Box bx_ylo(bx);  bx_ylo.setBig  (1,dom_lo.y-1);
@@ -122,7 +117,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
             // We only set the values on the domain faces themselves if EXT_DIR or outflow
             grow(bx_ylo_face,IntVect(-1,0,0)) & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].lo(1) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][1]*mskv(i,j,0);
+                    dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][1]*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::foextrap) {
                     dest_arr(i,j,k) =  dest_arr(i,dom_lo.y+1,k)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::orlanski_rad) {
@@ -142,7 +137,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                 int jflip = dom_lo.y-j;
                 int inner = (bc_ptr[n].lo(1) == REMORABCType::foextrap) ? 1 : 0;
                 if (bc_ptr[n].lo(1) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][1]*mskv(i,j,0);
+                    dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][1]*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(1) == REMORABCType::foextrap || bc_ptr[n].lo(1) == REMORABCType::clamped ||
                         bc_ptr[n].lo(1) == REMORABCType::orlanski_rad) {
                     dest_arr(i,j,k) =  dest_arr(i,dom_lo.y+inner,k)*mskv(i,j,0);
@@ -156,7 +151,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
             // We only set the values on the domain faces themselves if EXT_DIR or outflow
             grow(bx_yhi_face,IntVect(-1,0,0)) & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 if (bc_ptr[n].hi(1) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][4]*mskv(i,j,0);
+                    dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][4]*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(1) == REMORABCType::foextrap) {
                     dest_arr(i,j,k) =  dest_arr(i,dom_hi.y,k)*mskv(i,j,0);
                  } else if (bc_ptr[n].hi(1) == REMORABCType::orlanski_rad) {
@@ -176,7 +171,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
                  int jflip =  2*(dom_hi.y + 1) - j;
                  int inner = (bc_ptr[n].hi(1) == REMORABCType::foextrap) ? 1 : 0;
                  if (bc_ptr[n].hi(1) == REMORABCType::ext_dir) {
-                     dest_arr(i,j,k) = l_bc_extdir_vals_d[n][4]*mskv(i,j,0);
+                     dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][4]*mskv(i,j,0);
                  } else if (bc_ptr[n].hi(1) == REMORABCType::foextrap || bc_ptr[n].hi(1) == REMORABCType::clamped ||
                          bc_ptr[n].hi(1) == REMORABCType::orlanski_rad) {
                      dest_arr(i,j,k) =  dest_arr(i,dom_hi.y+1-inner,k)*mskv(i,j,0);
@@ -196,7 +191,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
             bx_zlo & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int kflip = dom_lo.z - 1 - k;
                 if (bc_ptr[n].lo(2) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][2]*mskv(i,j,0);
+                    dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][2]*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(2) == REMORABCType::foextrap) {
                     dest_arr(i,j,k) =  dest_arr(i,j,dom_lo.z)*mskv(i,j,0);
                 } else if (bc_ptr[n].lo(2) == REMORABCType::reflect_even) {
@@ -208,7 +203,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
             bx_zhi & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 int kflip =  2*dom_hi.z + 1 - k;
                 if (bc_ptr[n].hi(2) == REMORABCType::ext_dir) {
-                    dest_arr(i,j,k) = l_bc_extdir_vals_d[n][5]*mskv(i,j,0);
+                    dest_arr(i,j,k) = bc_extdir_vals_ptr[bccomp+n][5]*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(2) == REMORABCType::foextrap) {
                     dest_arr(i,j,k) =  dest_arr(i,j,dom_hi.z)*mskv(i,j,0);
                 } else if (bc_ptr[n].hi(2) == REMORABCType::reflect_even) {
@@ -220,8 +215,8 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
         );
     }
 
-    if ((!is_periodic_in_x or bccomp==BCVars::foextrap_bc) and
-        (!is_periodic_in_y or bccomp==BCVars::foextrap_bc)) {
+    if ((!is_periodic_in_x or bccomp == BCVars::foextrap_bc(m_ncons)) and
+        (!is_periodic_in_y or bccomp == BCVars::foextrap_bc(m_ncons))) {
         Box xlo(bx);  xlo.setBig  (0,dom_lo.x-1);
         Box xhi(bx);  xhi.setSmall(0,dom_hi.x+1);
         Box ylo(bx);  ylo.setBig  (1,dom_lo.y  );

@@ -8,7 +8,6 @@
 #define Temp_comp      0
 #define Salt_comp      1
 #define Tracer_comp    2
-#define NCONS          3
 
 #define NGROW          2
 
@@ -22,24 +21,23 @@
  * \brief Boundary fill types
  */
 namespace BCVars {
-    enum {
-        cons_bc = 0,
-        Temp_bc_comp = 0,
-        Salt_bc_comp,
-        Scalar_bc_comp,
-        xvel_bc = NCONS,
-        yvel_bc,
-        zvel_bc,
-        ubar_bc,
-        vbar_bc,
-        zeta_bc,
-        tke_bc,
-        foextrap_periodic_bc,
-        foextrap_bc,
-        u2d_simple_bc,
-        v2d_simple_bc,
-        NumTypes
-    };
+    static constexpr int cons_bc         = 0;
+    static constexpr int Temp_bc_comp    = 0;
+    static constexpr int Salt_bc_comp    = 1;
+    static constexpr int Scalar_bc_comp  = 2;
+
+    inline int xvel_bc (int ncons) noexcept { return ncons; }
+    inline int yvel_bc (int ncons) noexcept { return ncons + 1; }
+    inline int zvel_bc (int ncons) noexcept { return ncons + 2; }
+    inline int ubar_bc (int ncons) noexcept { return ncons + 3; }
+    inline int vbar_bc (int ncons) noexcept { return ncons + 4; }
+    inline int zeta_bc (int ncons) noexcept { return ncons + 5; }
+    inline int tke_bc  (int ncons) noexcept { return ncons + 6; }
+    inline int foextrap_periodic_bc (int ncons) noexcept { return ncons + 7; }
+    inline int foextrap_bc          (int ncons) noexcept { return ncons + 8; }
+    inline int u2d_simple_bc        (int ncons) noexcept { return ncons + 9; }
+    inline int v2d_simple_bc        (int ncons) noexcept { return ncons + 10; }
+    inline int NumTypes             (int ncons) noexcept { return ncons + AMREX_SPACEDIM + 8; }
 }
 
 /**

@@ -48,7 +48,7 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     // Note that we need the fine-fine and physical bc's in order to correctly move the particles
     xvel_new[lev]->FillBoundary(geom[lev].periodicity());
     yvel_new[lev]->FillBoundary(geom[lev].periodicity());
-    FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, BCVars::zvel_bc, BdyVars::null);
+    FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null);
 
     // Apply land/sea mask to tracers
 #ifdef _OPENMP
@@ -61,7 +61,7 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
 
         Box bx = mfi.tilebox();
 
-        ParallelFor(bx, NCONS, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        ParallelFor(bx, ncons, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
         {
             cons(i,j,k,n) *= mskr(i,j,0);
         });
