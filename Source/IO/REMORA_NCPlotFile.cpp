@@ -422,7 +422,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("visc2").put_attr("coordinates","x_rho y_rho");
             ncf.var("visc2").put_attr("field","visc2, scalar");
 
-            for (int n = 0; n < NCONS; ++n) {
+            for (int n = 0; n < Tracer_comp + 1; ++n) {
                 const std::string nm = std::string("diff2_") + cons_names[n];
                 ncf.def_var_fill(nm, ncutils::NCDType::Real, { ny_r_name, nx_r_name }, &netcdf_fill_value);
                 ncf.var(nm).put_attr("long_name", std::string("horizontal harmonic diffusivity coefficient for ") + cons_names[n] + " at RHO-points");
@@ -1144,7 +1144,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 }
 
                 // diff2_*
-                for (int n = 0; n < NCONS; ++n) {
+                for (int n = 0; n < Tracer_comp + 1; ++n) {
                     const std::string nm = std::string("diff2_") + cons_names[n];
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());

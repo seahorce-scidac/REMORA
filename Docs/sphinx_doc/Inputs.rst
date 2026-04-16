@@ -772,6 +772,10 @@ List of Parameters
 |                                   | temperature diffusivity over the       |                   |                |
 |                                   | domain).                               |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.nscalar**                | Number of passive scalars              | Integer >= 1      | 1              |
+|                                   | in addition to temperature             |                   |                |
+|                                   | and salinity.                          |                   |                |
++-----------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.tnu2_scalar**            | Constant horizontal diffusivity,       | Real number       | 0.0            |
 |                                   |                                        |                   |                |
 |                                   | everywhere for passive scalar.         |                   |                |
@@ -804,6 +808,29 @@ List of Parameters
 |                                   |                                        |                   |                |
 |                                   | parametrization                        |                   |                |
 +-----------------------------------+----------------------------------------+-------------------+----------------+
+
+Passive scalars
+---------------
+
+REMORA always includes temperature and salinity as the first two conserved
+state variables. Passive scalars begin at component ``Tracer_comp = 2``.
+
+The total number of conserved components is
+
+.. math::
+
+   ncons = 2 + \texttt{remora.nscalar}
+
+so ``remora.nscalar`` counts only the passive scalars, not temperature or
+salinity.
+
+For example:
+
+- ``remora.nscalar = 1`` gives ``temp``, ``salt``, and ``tracer``.
+- ``remora.nscalar = 2`` gives ``temp``, ``salt``, ``tracer``, and ``tracer_1``.
+
+Additional passive scalars continue with the names ``tracer_2``,
+``tracer_3``, and so on.
 
 Scaled-to-grid horizontal mixing
 --------------------------------
@@ -849,6 +876,7 @@ as 2D (vertically homogeneous) fields:
 
 - ``visc2`` (horizontal viscosity at rho points)
 - ``diff2_temp``, ``diff2_salt``, ``diff2_tracer`` (horizontal diffusivities at rho points)
+- additional passive scalars appear as ``diff2_tracer_1``, ``diff2_tracer_2``, and so on
 
 .. _list-of-parameters-drag:
 
