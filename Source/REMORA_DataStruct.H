@@ -38,7 +38,7 @@ enum class Cor_Type {
 
 /** \brief plotfile format */
 enum class PlotfileType {
-    amrex, netcdf, hdf5
+    amrex, netcdf
 };
 
 /** \brief vertical mixing type */

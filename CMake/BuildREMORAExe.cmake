@@ -42,10 +42,6 @@ function(build_remora_lib remora_lib_name)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_NETCDF)
   endif()
 
-  if(REMORA_ENABLE_HDF5)
-    target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_HDF5)
-  endif()
-
   if(REMORA_ENABLE_MOAB)
     target_sources(${remora_lib_name} PRIVATE
                    ${SRC_DIR}/REMORA_MOAB.cpp

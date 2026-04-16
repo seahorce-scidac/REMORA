@@ -64,10 +64,6 @@ include $(AMREX_HOME)/Src/Base/Make.package
 
 AMReXdirs             := Base Boundary AmrCore
 
-ifeq ($(USE_HDF5),TRUE)
-AMReXdirs             += Extern/HDF5
-endif
-
 ifeq ($(USE_PARTICLES),TRUE)
 AMReXdirs             += Particle
 endif
@@ -102,11 +98,6 @@ ifeq ($(USE_MOAB), TRUE)
   PKG_CONFIG_PATH  := $(PKG_CONFIG_PATH):$(MOAB_DIR)/lib/pkgconfig
   includes += $(shell pkg-config --cflags MOAB)
   LIBRARIES += $(shell pkg-config --libs MOAB)
-endif
-
-ifeq ($(USE_HDF5), TRUE)
-  DEFINES += -DREMORA_USE_HDF5
-  DEFINES += -DAMREX_USE_HDF5
 endif
 
 ifeq ($(USE_PARTICLES), TRUE)

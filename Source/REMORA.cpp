@@ -1423,8 +1423,6 @@ REMORA::ReadParameters ()
                 Print() << "NetCDF history files will have " << steps_per_history_file << " steps per file." << std::endl;
             }
 #endif
-        } else if (plotfile_type_str == "hdf5" || plotfile_type_str == "HDF5") {
-            plotfile_type = PlotfileType::hdf5;
         } else {
             amrex::Print() << "User selected plotfile_type = " << plotfile_type_str << std::endl;
             amrex::Abort("Dont know this plotfile_type");
@@ -1436,14 +1434,6 @@ REMORA::ReadParameters ()
         }
 
 #endif
-#ifndef REMORA_USE_HDF5
-        if (plotfile_type == PlotfileType::hdf5)
-        {
-            amrex::Abort("Please compile with HDF5 in order to enable HDF5 plotfiles");
-        }
-
-#endif
-
 #ifdef REMORA_USE_NETCDF
         nc_init_file.resize(max_level+1);
         nc_grid_file.resize(max_level+1);
