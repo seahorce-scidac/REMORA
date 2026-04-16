@@ -17,7 +17,7 @@ class NCTimeSeries
 {
     public:
         /** \brief Constructor */
-        NCTimeSeries (const std::string a_file_name,
+        NCTimeSeries (const amrex::Vector<std::string>& a_file_names,
                       const std::string a_field_name,
                       const std::string a_time_name,
                       const amrex::Box& a_domain,
@@ -43,8 +43,8 @@ class NCTimeSeries
         amrex::IntVect cumulative_ref_ratio (int lev,
                                              const amrex::Vector<amrex::IntVect>& ref_ratio) const;
 
-        /// File name to read from
-        std::string file_name;
+        /// File names to read from
+        amrex::Vector<std::string> file_names;
         /// Field name in netcdf file
         std::string field_name;
         /// Field name for time series in netcdf file
@@ -60,6 +60,10 @@ class NCTimeSeries
 
         /// Time points in netcdf file
         amrex::Vector<amrex::Real> ocean_times;
+        /// File index to access a particular time
+        amrex::Vector<int> file_for_time;
+        /// Offset to access a particular time within its file
+        amrex::Vector<int> file_itime_offset;
         /// Time index immediately before the last time interpolated to
         int i_time_before;
         /// Time in ocean_times immediately before the last time interpolated to

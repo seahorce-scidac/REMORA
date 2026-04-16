@@ -125,10 +125,10 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   |                                   |                 | or ``flather``.                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
-| **remora.nc_frc_file**            | forcing data NetCDF               | string          | must be set                     |
+| **remora.nc_frc_file**            | forcing data NetCDF               | string or list  | must be set                     |
 |                                   |                                   |                 |                                 |
 |                                   |                                   |                 | if ``remora.wind_type``         |
-|                                   | file name                         |                 |                                 |
+|                                   | file name(s)                      | of strings      |                                 |
 |                                   |                                   |                 | or ``remora.smflux_type``       |
 |                                   |                                   |                 |                                 |
 |                                   |                                   |                 | equal ``netcdf``                |
@@ -160,6 +160,8 @@ Notes
 -----
 
 -  ``nc_bdry_file`` must either be a string or a space-separated list of strings of boundary data files. They must be in time series order.
+
+-  ``nc_frc_file`` may be either a string or a space-separated list of strings of forcing data files. They must be in time series order.
 
 -  The time variables in the boundary files may be different for each boundary variable. Any that are not individually specified with
    ``remora.bdy_{var}_time_varname`` will default to the variable name given by ``bdy_time_varname``.
@@ -1138,8 +1140,9 @@ List of Bulk Fluxes parameters
    **srflx_from_netcdf**, **longwave_down_from_netcdf**,
    **rain_from_netcdf**, **cloud_from_netcdf**, or **EminusP_from_netcdf**
    to true), these variables are read from the file
-   specified by **remora.nc_frc_file** (see :ref:`list-of-parameters surface-forcing`).
-   The NetCDF file must contain variables named ``Tair``, ``qair``, ``Pair``,
+   or files specified by **remora.nc_frc_file** (see :ref:`list-of-parameters surface-forcing`).
+   If multiple forcing files are provided, REMORA concatenates their time axes in
+   the order listed in the inputs file. The NetCDF data must contain variables named ``Tair``, ``qair``, ``Pair``,
    ``swrad``, ``rain``, ``cloud``, and ``EminusP`` respectively, with the same
    spatial dimensions as the level 0 (coarsest) model grid. If atmospheric forcing
    is not loaded from NetCDF files, spatially uniform constant values can be
@@ -1253,11 +1256,11 @@ List of Parameters
 |                                       |                             |              |                           |
 |                                       | to climatology              |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.nc_clim_his_file**           | NetCDF file name for        | string       | must be set if one of     |
+| **remora.nc_clim_his_file**           | NetCDF file name(s) for     | string or    | must be set if one of     |
 |                                       |                             |              |                           |
-|                                       | climatology data            |              | ``do_*_clim_nudg``        |
+|                                       | climatology data            | list         | ``do_*_clim_nudg``        |
 |                                       |                             |              |                           |
-|                                       |                             |              | flags is true             |
+|                                       |                             | of strings   | flags is true             |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
 | **remora.nc_clim_coeff_file**         | NetCDF file name for        | string       | must be set if one of     |
 |                                       |                             |              |                           |
@@ -1298,7 +1301,9 @@ List of Parameters
 
    For AMR runs, climatology fields are read on level 0 and temporally
    interpolated there. REMORA then interpolates those fields to finer AMR
-   levels for nudging updates.
+   levels for nudging updates. ``remora.nc_clim_his_file`` may be a single file
+   or a space-separated list of files. When multiple files are provided, they
+   must be listed in time series order.
 
 Rivers (point sources)
 ======================
@@ -1318,9 +1323,9 @@ These parameters are used to configure NetCDF-specified river-like point sources
 |                             |                                  |              |                                   |
 |                             | apply momentum                   |              |                                   |
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
-| **remora.nc_river_file**    | NetCDF file for river sources    | string       | must be set if                    |
+| **remora.nc_river_file**    | NetCDF file(s) for river         | string or    | must be set if                    |
 |                             |                                  |              |                                   |
-|                             |                                  |              | ``do_rivers``                     |
+|                             | sources                          | list         | ``do_rivers``                     |
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
 | **remora.riv_time_varname** | Name of time variable            | string       | ``river_time``                    |
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
@@ -1336,6 +1341,12 @@ These parameters are used to configure NetCDF-specified river-like point sources
 |                             |                                  |              |                                   |
 |                             | scalar sources                   |              | if ``do_rivers``                  |
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
+
+.. note::
+
+   ``remora.nc_river_file`` may be either a single file or a space-separated
+   list of files. If multiple river files are provided, they must be listed in
+   time series order.
 
 Runtime Error Checking
 ======================

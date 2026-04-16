@@ -1102,7 +1102,7 @@ REMORA::init_only (int lev, Real time)
         init_clim_nudg_coeff(lev);
 
         if (solverChoice.do_any_clim_nudg && lev == 0) {
-            if (nc_clim_his_file.empty()) {
+            if (nc_clim_his_file.empty() || nc_clim_his_file[0].empty()) {
                 amrex::Error("NetCDF climatology file name must be provided via input");
             }
             if (solverChoice.do_m2_clim_nudg) {
@@ -1140,7 +1140,7 @@ REMORA::init_only (int lev, Real time)
 
     // This will be a non-op if forcings specified analytically
     if (solverChoice.wind_type == WindType::netcdf && lev == 0) {
-        if (nc_frc_file.empty()) {
+        if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
             amrex::Error("NetCDF forcing file name must be provided via input for winds");
         }
         Uwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false));
@@ -1178,7 +1178,7 @@ REMORA::init_only (int lev, Real time)
             EminusP_data_from_file->Initialize();
         }
     } else if (solverChoice.smflux_type == SMFluxType::netcdf && lev == 0) {
-        if (nc_frc_file.empty()) {
+        if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
             amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
         }
         sustr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),vec_sustr[lev].get(), true, false));
@@ -1187,7 +1187,7 @@ REMORA::init_only (int lev, Real time)
         svstr_data_from_file->Initialize();
     }
     if (solverChoice.longwave_down_from_netcdf && lev == 0) {
-        if (nc_frc_file.empty()) {
+        if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
             amrex::Error("NetCDF forcing file name must be provided via input for longwave radiation");
         }
             longwave_down_data_from_file.reset(new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
@@ -1196,6 +1196,9 @@ REMORA::init_only (int lev, Real time)
     }
 
     if (solverChoice.do_rivers) {
+        if (nc_riv_file.empty() || nc_riv_file[0].empty()) {
+            amrex::Error("NetCDF river file name must be provided via input for rivers");
+        }
         auto dom = geom[0].Domain();
         int nz = dom.length(2);
         river_source_cons.resize(ncons);
@@ -1491,13 +1494,25 @@ REMORA::ReadParameters ()
         pp.queryarr("nc_bdry_file", nc_bdry_file);
 
         // Also only read forcings at level 0 (for now)
-        pp.queryAdd("nc_frc_file", nc_frc_file);
+        if (pp.contains("nc_frc_file")) {
+            int num_files = pp.countval("nc_frc_file");
+            nc_frc_file.resize(num_files);
+            pp.queryarr("nc_frc_file", nc_frc_file, 0, num_files);
+        }
 
         // Get river file
-        pp.queryAdd("nc_river_file", nc_riv_file);
+        if (pp.contains("nc_river_file")) {
+            int num_files = pp.countval("nc_river_file");
+            nc_riv_file.resize(num_files);
+            pp.queryarr("nc_river_file", nc_riv_file, 0, num_files);
+        }
 
         // Read in file names for climatology history and nudging weights
-        pp.queryAdd("nc_clim_his_file", nc_clim_his_file);
+        if (pp.contains("nc_clim_his_file")) {
+            int num_files = pp.countval("nc_clim_his_file");
+            nc_clim_his_file.resize(num_files);
+            pp.queryarr("nc_clim_his_file", nc_clim_his_file, 0, num_files);
+        }
         pp.queryAdd("nc_clim_coeff_file", nc_clim_coeff_file);
 
         for (int i=0; i<BdyVars::NumTypes; i++) {

@@ -9,7 +9,7 @@
 /**
  * @param[in   ] a_lev                level at which we will store the data
  * @param[in   ] a_geom               Vector of Geometry objects at all levels
- * @param[in   ] a_file_name          file name to read from
+ * @param[in   ] a_file_name          vector of file name(s) to read from
  * @param[in   ] a_field_name         name of field to read in
  * @param[in   ] a_time_name          name of time variable in NetCDF file
  * @param[in   ] a_index_type         nodality of data field
@@ -80,7 +80,6 @@ void NCTimeSeriesBoundary::Initialize()
                 bry_times.push_back((*(array_ts[0].get_data() + nt)) * amrex::Real(60.0) * amrex::Real(60.0) * amrex::Real(24.0));
                 file_for_time.push_back(ifile);
                 file_itime_offset.push_back(nt);
-                // amrex::Print() << "TIMES " << bry_times[nt] << std::endl;
             }
         }
     }
