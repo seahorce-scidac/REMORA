@@ -218,13 +218,16 @@ read_clim_nudg_coeff_from_netcdf (int /*lev*/,
 
 /**
  * @param lev            level of data to read
- * @param fname          file name to read from
+ * @param fnames         file name(s) to read from
  * @param field_name     field name to read
  * @param vec_dat        vector to fill data
  */
 //template <typename DType>
-void read_vec_from_netcdf (int /*lev*/, const std::string& fname, const std::string& field_name, amrex::Vector<int>& vec_dat)
+void read_vec_from_netcdf (int /*lev*/, const amrex::Vector<std::string>& fnames, const std::string& field_name, amrex::Vector<int>& vec_dat)
 {
+    AMREX_ALWAYS_ASSERT(!fnames.empty());
+    const std::string& fname = fnames[0];
+
     amrex::Print() << "Reading " << field_name << " from NetCDF file" << std::endl;
 
     // get x-positions and put in array

@@ -9,7 +9,7 @@
 
 #ifdef REMORA_USE_NETCDF
 /**
- * @param[in   ] a_file_name          file name to read from
+ * @param[in   ] a_file_names         vector of file name(s) to read from
  * @param[in   ] a_field_name         name of field to read in
  * @param[in   ] a_time_name          name of time variable in NetCDF file
  * @param[in   ] a_domain             simulation domain
@@ -17,11 +17,11 @@
  * @param[in   ] a_is2d               Whether the variable we're working with is 2D
  * @param[in   ] a_save_interpolated  Whether the interpolated value should be saved internally
  */
-NCTimeSeries::NCTimeSeries (const std::string a_file_name, const std::string a_field_name,
+NCTimeSeries::NCTimeSeries (const amrex::Vector<std::string>& a_file_names, const std::string a_field_name,
                             const std::string a_time_name,
                             const amrex::Box& a_domain,
                             amrex::MultiFab* a_mf_var, bool a_is2d, bool a_save_interpolated) {
-    file_name = a_file_name;
+    file_names.assign(a_file_names.begin(), a_file_names.end());
     time_name = a_time_name;
     field_name = a_field_name;
     domain = a_domain;
@@ -32,7 +32,7 @@ NCTimeSeries::NCTimeSeries (const std::string a_file_name, const std::string a_f
 
 void NCTimeSeries::Initialize() {
     // open file
-    amrex::Print() << "Loading " << field_name << " from NetCDF file " << file_name << std::endl;
+    amrex::Print() << "Loading " << field_name << " from NetCDF file(s)" << std::endl;
 
     // The time field can have any number of names, depending on the field.
     // If not specified in input file (time_name.empty()) then set it by default
@@ -49,27 +49,33 @@ void NCTimeSeries::Initialize() {
         }
     }
 
-    // Check units of time stamps; should be days
-    std::string unit_str = ReadNetCDFVarAttrStr(file_name, time_name, "units"); // works on proc 0
-    if (amrex::ParallelDescriptor::IOProcessor())
-    {
-        if (unit_str.find("days") == std::string::npos) {
-            amrex::Print() << "Units of ocean_time given as: " << unit_str << std::endl;
-            amrex::Abort("Units must be in days.");
-        }
-    }
-    // get times and put in array
-    using RARRAY = NDArray<amrex::Real>;
-    amrex::Vector<RARRAY> array_ts(1);
-    ReadNetCDFFile(file_name, {time_name}, array_ts); // filled only on proc 0
-    if (amrex::ParallelDescriptor::IOProcessor())
-    {
-        int ntimes_io = array_ts[0].get_vshape()[0];
-        for (int nt(0); nt < ntimes_io; nt++)
+    for (int ifile = 0; ifile < file_names.size(); ++ifile) {
+        const std::string& file_name = file_names[ifile];
+
+        // Check units of time stamps; should be days
+        std::string unit_str = ReadNetCDFVarAttrStr(file_name, time_name, "units"); // works on proc 0
+        if (amrex::ParallelDescriptor::IOProcessor())
         {
-            // Convert ocean time from days to seconds
-            ocean_times.push_back((*(array_ts[0].get_data() + nt)) * amrex::Real(60.0) * amrex::Real(60.0) * amrex::Real(24.0));
-            // amrex::Print() << "TIMES " << ocean_times[nt] << std::endl;
+            if (unit_str.find("days") == std::string::npos) {
+                amrex::Print() << "Units of ocean_time given as: " << unit_str << std::endl;
+                amrex::Abort("Units must be in days.");
+            }
+        }
+
+        // get times and put in array
+        using RARRAY = NDArray<amrex::Real>;
+        amrex::Vector<RARRAY> array_ts(1);
+        ReadNetCDFFile(file_name, {time_name}, array_ts); // filled only on proc 0
+        if (amrex::ParallelDescriptor::IOProcessor())
+        {
+            int ntimes_io = array_ts[0].get_vshape()[0];
+            for (int nt(0); nt < ntimes_io; nt++)
+            {
+                // Convert ocean time from days to seconds
+                ocean_times.push_back((*(array_ts[0].get_data() + nt)) * amrex::Real(60.0) * amrex::Real(60.0) * amrex::Real(24.0));
+                file_for_time.push_back(ifile);
+                file_itime_offset.push_back(nt);
+            }
         }
     }
     int ntimes = ocean_times.size();
@@ -84,8 +90,12 @@ void NCTimeSeries::Initialize() {
     amrex::ParallelDescriptor::Bcast(&ntimes,1,ioproc);
     if (!(amrex::ParallelDescriptor::IOProcessor())) {
         ocean_times.resize(ntimes);
+        file_for_time.resize(ntimes);
+        file_itime_offset.resize(ntimes);
     }
     amrex::ParallelDescriptor::Bcast(ocean_times.data(), ocean_times.size(), ioproc);
+    amrex::ParallelDescriptor::Bcast(file_for_time.data(), file_for_time.size(), ioproc);
+    amrex::ParallelDescriptor::Bcast(file_itime_offset.data(), file_itime_offset.size(), ioproc);
 
     // Initialize MultiFabs
     // NetCDF data is always read and temporally interpolated on level 0.
@@ -226,7 +236,11 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
     amrex::Vector<std::string> NC_names;
     amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
-    amrex::Print() << "Reading in " << field_name << " at  time index " << itime << " from " << file_name << std::endl;
+    const std::string& file_name = file_names[file_for_time[itime]];
+    const int itime_offset = file_itime_offset[itime];
+
+    amrex::Print() << "Reading in " << field_name << " at time index " << itime
+                   << " from " << file_name << std::endl;
 
     NC_fabs.push_back(&NC_fab) ; NC_names.push_back(field_name);
 
@@ -236,7 +250,8 @@ void NCTimeSeries::read_in_at_time (amrex::MultiFab* mf, int itime) {
         NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
     }
 
-    BuildFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(domain, file_name, NC_names, NC_dim_types, NC_fabs, true, itime);
+    BuildFABsFromNetCDFFile<amrex::FArrayBox,amrex::Real>(domain, file_name, NC_names, NC_dim_types,
+                                                          NC_fabs, true, itime_offset);
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())

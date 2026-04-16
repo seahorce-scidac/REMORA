@@ -1392,12 +1392,13 @@ private:
     /** \brief NetCDF boundary data */
     static amrex::Vector<std::string> nc_bdry_file;
 
-    /** \brief NetCDF forcing file */
-    std::string nc_frc_file;
-    std::string nc_riv_file;
+    /** \brief NetCDF forcing file(s) */
+    amrex::Vector<std::string> nc_frc_file;
+    /** \brief NetCDF river file(s) */
+    amrex::Vector<std::string> nc_riv_file;
 
-    /** \brief NetCDF climatology history file */
-    std::string nc_clim_his_file;
+    /** \brief NetCDF climatology history file(s) */
+    amrex::Vector<std::string> nc_clim_his_file;
     /** \brief NetCDF climatology coefficient file */
     std::string nc_clim_coeff_file;
 

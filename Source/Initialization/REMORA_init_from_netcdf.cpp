@@ -80,8 +80,7 @@ read_clim_nudg_coeff_from_netcdf (int lev, const Box& domain, const std::string&
                                   FArrayBox& NC_SaltNC_fab);
 
 /** \brief helper function to read in vector of data from netcdf */
-//template <typename DType>
-void read_vec_from_netcdf (int lev, const std::string& fname, const std::string& field_name, amrex::Vector<int>& vec_dat);
+void read_vec_from_netcdf (int lev, const amrex::Vector<std::string>& fnames, const std::string& field_name, amrex::Vector<int>& vec_dat);
 
 /**
  * @param lev Integer specifying the current level
@@ -439,7 +438,7 @@ REMORA::init_masks_from_netcdf (int lev)
 void
 REMORA::init_bdry_from_netcdf (int lev)
 {
-    if (nc_bdry_file.empty()) {
+    if (nc_bdry_file.empty() || nc_bdry_file[0].empty()) {
         amrex::Error("NetCDF boundary file name must be provided via input");
     }
 
