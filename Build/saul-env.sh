@@ -1,6 +1,5 @@
 module load PrgEnv-gnu
 module load cray-parallel-netcdf
-module load cray-hdf5-parallel
 #module load ncview
 #module load openmpi
 

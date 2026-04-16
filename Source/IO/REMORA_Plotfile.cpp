@@ -404,8 +404,7 @@ REMORA::WritePlotFile (int istep_for_plot)
         } // mfi
     } // lev
 
-    if ( (plotfile_type == PlotfileType::amrex) ||
-         (plotfile_type == PlotfileType::hdf5) )
+    if (plotfile_type == PlotfileType::amrex)
     {
 
     std::string plotfilename = Concatenate(plot_file_name, istep[0], file_min_digits);
@@ -433,14 +432,6 @@ REMORA::WritePlotFile (int istep_for_plot)
             particleData.Checkpoint(plotfilename);
 #endif
 
-#ifdef REMORA_USE_HDF5
-        } else if (plotfile_type == PlotfileType::hdf5) {
-            amrex::Print() << "Writing plotfile " << plotfilename+"d01.h5" << "\n";
-            WriteMultiLevelPlotfileHDF5(plotfilename, finest_level+1,
-                                        GetVecOfConstPtrs(plotMF),
-                                        varnames_3d,
-                                        Geom(), t_new[0], istep, refRatio());
-#endif
         }
 
     } else { // multilevel
