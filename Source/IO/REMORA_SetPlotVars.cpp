@@ -146,6 +146,7 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
 
     if (containerHasElement(plot_var_names_2d, "zeta")) tmp_plot_names.push_back("zeta");
     if (containerHasElement(plot_var_names_2d, "h")) tmp_plot_names.push_back("h");
+    if (containerHasElement(plot_var_names_2d, "f")) tmp_plot_names.push_back("f");
     if (containerHasElement(plot_var_names_2d, "ubar")) tmp_plot_names.push_back("ubar");
     if (containerHasElement(plot_var_names_2d, "vbar")) tmp_plot_names.push_back("vbar");
     if (containerHasElement(plot_var_names_2d, "sustr")) tmp_plot_names.push_back("sustr");

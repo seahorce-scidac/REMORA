@@ -41,6 +41,7 @@ REMORA::WritePlotFile (int istep_for_plot)
       {
          if (plot_name == "zeta" ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "h"    ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "f"    ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "visc2") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          for (int n = 0; n < ncons; ++n) {
              const std::string diff2_name = std::string("diff2_") + cons_names[n];
@@ -166,6 +167,10 @@ REMORA::WritePlotFile (int istep_for_plot)
          }
          if (plot_name == "h" ) {
              for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); }
+             icomp_rho++;
+         }
+         if (plot_name == "f" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_fcor[lev],0,icomp_rho,1,0); }
              icomp_rho++;
          }
          if (plot_name == "visc2" ) {
