@@ -91,6 +91,11 @@ enum class MaskType {
     none, analytic, netcdf
 };
 
+/** \brief harmonic mixing; which surfaces to calculate along */
+enum class HarmonicMixingType {
+    s, geopotential
+};
+
 struct SolverChoice {
   public:
     /** \brief read in and initialize parameters */
@@ -418,6 +423,17 @@ struct SolverChoice {
             tnu2[Salt_comp] = tnu2_salt;
         }
 
+        static std::string harmonic_mixing_type_string = "s";
+        pp.queryAdd("harmonic_mixing_type", harmonic_mixing_type_string);
+        if (amrex::toLower(harmonic_mixing_type_string) == "s") {
+            harmonic_mixing_type = HarmonicMixingType::s;
+        } else if (amrex::toLower(harmonic_mixing_type_string) == "geopotential" ||
+                   amrex::toLower(harmonic_mixing_type_string) == "geo") {
+            harmonic_mixing_type = HarmonicMixingType::geopotential;
+        } else {
+            amrex::Abort("Don't know this harmonic_mixing_type");
+        }
+
         pp.queryAdd("Akk_bak", Akk_bak);
         pp.queryAdd("Akp_bak", Akp_bak);
         static std::string vert_mixing_type_string = "analytic";
@@ -662,6 +678,7 @@ struct SolverChoice {
     HorizMixingType horiz_mixing_type;
     ScaledToGridAMRScaling scaled_to_grid_amr_scaling = ScaledToGridAMRScaling::none;
     GLS_StabilityType gls_stability_type;
+    HarmonicMixingType harmonic_mixing_type;
 
     // Type for grid scale (pm and pn)
     GridScaleType grid_scale_type;

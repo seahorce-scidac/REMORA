@@ -794,18 +794,45 @@ public:
                    int nrhs, int nnew,
                    const amrex::Real dt_lev);
 
-    /** \brief Harmonic diffusivity for tracers */
-    void t3dmix  (const amrex::Box& bx,
+    /** \brief Wrapper for harmonic diffusivity for tracers */
+    void t3dmix2 (const amrex::Box& bx,
                   const amrex::Array4<amrex::Real      >& state,
                   const amrex::Array4<amrex::Real      >& state_rhs,
                   const amrex::Array4<amrex::Real const>& diff2,
                   const amrex::Array4<amrex::Real const>& Hz,
+                  const amrex::Array4<amrex::Real const>& z_r,
                   const amrex::Array4<amrex::Real const>& pm,
                   const amrex::Array4<amrex::Real const>& pn,
                   const amrex::Array4<amrex::Real const>& msku,
                   const amrex::Array4<amrex::Real const>& mskv,
                   const amrex::Real dt_lev,
-                  const int ncomp);
+                  const int ncomp, const int N);
+
+    /** \brief Harmonic diffusivity for tracers along S-coordinate level surfaces */
+    void t3dmix2_s(const amrex::Box& bx,
+                   const amrex::Array4<amrex::Real      >& state,
+                   const amrex::Array4<amrex::Real      >& state_rhs,
+                   const amrex::Array4<amrex::Real const>& diff2,
+                   const amrex::Array4<amrex::Real const>& Hz,
+                   const amrex::Array4<amrex::Real const>& pm,
+                   const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& msku,
+                   const amrex::Array4<amrex::Real const>& mskv,
+                   const amrex::Real dt_lev, const int ncomp);
+
+    /** \brief Harmonic diffusivity for tracers along geopotential surfaces */
+    void t3dmix2_geo (const amrex::Box& bx,
+                      const amrex::Array4<amrex::Real      >& state,
+                      const amrex::Array4<amrex::Real      >& state_rhs,
+                      const amrex::Array4<amrex::Real const>& diff2,
+                      const amrex::Array4<amrex::Real const>& Hz,
+                      const amrex::Array4<amrex::Real const>& z_r,
+                      const amrex::Array4<amrex::Real const>& pm,
+                      const amrex::Array4<amrex::Real const>& pn,
+                      const amrex::Array4<amrex::Real const>& msku,
+                      const amrex::Array4<amrex::Real const>& mskv,
+                      const amrex::Real dt_lev,
+                      const int ncomp, const int N);
 
     /** \brief Calculate Coriolis terms */
     void coriolis (const amrex::Box& xbx,
