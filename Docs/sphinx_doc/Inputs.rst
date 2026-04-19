@@ -798,7 +798,7 @@ List of Parameters
 |                                          | (in this case, it is the maximum       |                        |                |
 |                                          | scalar diffusivity over the domain).   |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
-| **remora.harmonic_mixing_type**          | Whether to calculate harmonic mixing   | ``s`` /                | ``s``          |
+| **remora.harmonic_mixing_type**          | Whether harmonic mixing (tracers)      | ``s`` /                | ``s``          |
 |                                          |                                        |                        |                |
 |                                          | is calculated along s- or geopotential | ``geopotential``       |                |
 |                                          |                                        |                        |                |
