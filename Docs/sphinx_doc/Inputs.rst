@@ -798,6 +798,12 @@ List of Parameters
 |                                          | (in this case, it is the maximum       |                        |                |
 |                                          | scalar diffusivity over the domain).   |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.harmonic_mixing_type**          | Whether to calculate harmonic mixing   | ``s`` /                | ``s``          |
+|                                          |                                        |                        |                |
+|                                          | is calculated along s- or geopotential | ``geopotential``       |                |
+|                                          |                                        |                        |                |
+|                                          | surfaces.                              |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.vertical_mixing_type**          | Vertical mixing type. ``analytic``     | ``analytic`` /         | ``analytic``   |
 |                                          |                                        |                        |                |
 |                                          | function is specified in               | ``GLS``                |                |
