@@ -12,7 +12,7 @@
 class NCTimeSeriesRiver
 {
     public:
-        NCTimeSeriesRiver (const std::string a_file_name,
+        NCTimeSeriesRiver (const amrex::Vector<std::string>& a_file_names,
                            const std::string a_field_name,
                            const std::string a_time_name,
                            const int a_nz, const int a_use_vert_integ=0);
@@ -43,8 +43,8 @@ class NCTimeSeriesRiver
         void read_in_at_time (amrex::FArrayBox* vec, int itime);
     private:
 
-        /// File name to read from
-        std::string file_name;
+        /// File names to read from
+        amrex::Vector<std::string> file_names;
         /// Field name in netcdf file
         std::string field_name;
         /// Field name for time series in netcdf file
@@ -59,6 +59,10 @@ class NCTimeSeriesRiver
 
         /// Time points in netcdf file
         amrex::Vector<amrex::Real> river_times;
+        /// File index to access a particular time
+        amrex::Vector<int> file_for_time;
+        /// Offset to access a particular time within its file
+        amrex::Vector<int> file_itime_offset;
         /// Time index immediately before the last time interpolated to
         int i_time_before;
         /// Time in ocean_time immediately before the last time interpolated to

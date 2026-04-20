@@ -38,7 +38,7 @@ enum class Cor_Type {
 
 /** \brief plotfile format */
 enum class PlotfileType {
-    amrex, netcdf, hdf5
+    amrex, netcdf
 };
 
 /** \brief vertical mixing type */
@@ -91,10 +91,15 @@ enum class MaskType {
     none, analytic, netcdf
 };
 
+/** \brief harmonic mixing; which surfaces to calculate along */
+enum class HarmonicMixingType {
+    s, geopotential
+};
+
 struct SolverChoice {
   public:
     /** \brief read in and initialize parameters */
-    void init_params()
+    void init_params(int ncons)
     {
         amrex::ParmParse pp(pp_prefix);
 
@@ -150,11 +155,13 @@ struct SolverChoice {
         pp.queryAdd("do_rivers_salt", do_rivers_salt);
         pp.queryAdd("do_rivers_scalar", do_rivers_scalar);
 
-        do_rivers_cons.resize(NCONS);
+        do_rivers_cons.assign(ncons, 0);
         // If we aren't doing rivers, set all of these flags to false
         do_rivers_cons[Temp_comp  ] = do_rivers ? do_rivers_temp : false;
         do_rivers_cons[Salt_comp  ] = do_rivers ? do_rivers_salt : false;
-        do_rivers_cons[Tracer_comp] = do_rivers ? do_rivers_scalar : false;
+        for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+            do_rivers_cons[icomp] = do_rivers ? do_rivers_scalar : false;
+        }
 
         pp.queryAdd("init_l1ad_T", init_l1ad_T);
 
@@ -405,14 +412,23 @@ struct SolverChoice {
             amrex::Abort("Don't know this scaled_to_grid_amr_scaling option");
         }
 
-        tnu2.resize(NCONS);
-        if (use_salt) {
-            tnu2[0] = tnu2_temp;
-            tnu2[1] = tnu2_salt;
-            tnu2[2] = tnu2_scalar;
+        tnu2.assign(ncons, tnu2_scalar);
+        if (ncons > Temp_comp) {
+            tnu2[Temp_comp] = tnu2_temp;
+        }
+        if (ncons > Salt_comp) {
+            tnu2[Salt_comp] = tnu2_salt;
+        }
+
+        static std::string harmonic_mixing_type_string = "s";
+        pp.queryAdd("harmonic_mixing_type", harmonic_mixing_type_string);
+        if (amrex::toLower(harmonic_mixing_type_string) == "s") {
+            harmonic_mixing_type = HarmonicMixingType::s;
+        } else if (amrex::toLower(harmonic_mixing_type_string) == "geopotential" ||
+                   amrex::toLower(harmonic_mixing_type_string) == "geo") {
+            harmonic_mixing_type = HarmonicMixingType::geopotential;
         } else {
-            tnu2[0] = tnu2_temp;
-            tnu2[1] = tnu2_scalar;
+            amrex::Abort("Don't know this harmonic_mixing_type");
         }
 
         pp.queryAdd("Akk_bak", Akk_bak);
@@ -656,6 +672,7 @@ struct SolverChoice {
     HorizMixingType horiz_mixing_type;
     ScaledToGridAMRScaling scaled_to_grid_amr_scaling = ScaledToGridAMRScaling::none;
     GLS_StabilityType gls_stability_type;
+    HarmonicMixingType harmonic_mixing_type;
 
     // Type for grid scale (pm and pn)
     GridScaleType grid_scale_type;

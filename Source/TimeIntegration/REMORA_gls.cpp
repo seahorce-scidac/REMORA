@@ -56,8 +56,8 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         int ncomp = 1;
         Vector<BCRec> bcrs_x(ncomp);
         Vector<BCRec> bcrs_y(ncomp);
-        amrex::setBC(xbx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
-        amrex::setBC(ybx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
+        amrex::setBC(xbx,domain,xvel_bc(),0,1,domain_bcs_type,bcrs_x);
+        amrex::setBC(ybx,domain,yvel_bc(),0,1,domain_bcs_type,bcrs_y);
 
         FArrayBox fab_XF(xbx_hi, 1, amrex::The_Async_Arena()); fab_XF.template setVal<RunOn::Device>(0.);
         FArrayBox fab_FX(xbx_hi, 1, amrex::The_Async_Arena()); fab_FX.template setVal<RunOn::Device>(0.);
@@ -221,8 +221,8 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     }
 
     for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, t_old[lev], *vec_tke[lev], GetVecOfPtrs(vec_tke), BCVars::zvel_bc, BdyVars::null, icomp, false, false);
-        FillPatch(lev, t_old[lev], *vec_gls[lev], GetVecOfPtrs(vec_gls), BCVars::zvel_bc, BdyVars::null, icomp, false, false);
+        FillPatch(lev, t_old[lev], *vec_tke[lev], GetVecOfPtrs(vec_tke), zvel_bc(), BdyVars::null, icomp, false, false);
+        FillPatch(lev, t_old[lev], *vec_gls[lev], GetVecOfPtrs(vec_gls), zvel_bc(), BdyVars::null, icomp, false, false);
     }
 }
 
@@ -443,7 +443,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
     // While potentially counterintuitive, this is what ROMS does for handling shear2 at all boundaries, even
     // periodic
-    (*physbcs[lev])(mf,*mf_mskr,shear2_cache_comp,1,mf.nGrowVect(),t_new[lev],BCVars::foextrap_bc);
+    (*physbcs[lev])(mf,*mf_mskr,shear2_cache_comp,1,mf.nGrowVect(),t_new[lev],foextrap_bc());
     mf.setVal(0.0_rt,CF_comp,1);
 
     int ncomp_fab = 0;
@@ -479,8 +479,8 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         int ncompbc = 1;
         Vector<BCRec> bcrs_x(ncompbc);
         Vector<BCRec> bcrs_y(ncompbc);
-        amrex::setBC(xbx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
-        amrex::setBC(ybx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
+        amrex::setBC(xbx,domain,xvel_bc(),0,1,domain_bcs_type,bcrs_x);
+        amrex::setBC(ybx,domain,yvel_bc(),0,1,domain_bcs_type,bcrs_y);
 
         Array4<Real const> const& W = mf_W.const_array(mfi);
         Array4<Real> const& Hz = vec_Hz[lev]->array(mfi);
@@ -643,6 +643,8 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             FCK(i,j,N) = cff * (cff1 * tke(i,j,N+1,2)+cff2*tke(i,j,N,2)-cff3*tke(i,j,N-1,2));
             FCP(i,j,N) = cff * (cff1 * gls(i,j,N+1,2)+cff2*gls(i,j,N,2)-cff3*gls(i,j,N-1,2));
         });
+        const int ncons_local = ncons;
+
         ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
@@ -871,7 +873,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Real ql=sqrt2*0.5_rt*(Ls_lmt*std::sqrt(tke(i,j,k,nnew))+
                                   Lscale(i,j,k)*std::sqrt(tke(i,j,k,nstp)));
             Akv(i,j,k)=Akv_bak+Sm*ql;
-            for (int n=0; n<NCONS; n++) {
+            for (int n=0; n<ncons_local; n++) {
                 Akt(i,j,k,n)=Akt_bak+Sh*ql;
             }
 
@@ -898,7 +900,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Akp(i,j,N+1)=Akp_bak+Akv(i,j,N+1)*ogls_sigp;
             Akp(i,j,0)=Akp_bak+Akv(i,j,0)/gls_sigp_cb;
 
-            for (int n=0; n<NCONS; n++) {
+            for (int n=0; n<ncons_local; n++) {
                 Akt(i,j,N+1,n)  = Akt_bak;
                 Akt(i,j,0,n) = Akt_bak;
             }
@@ -906,11 +908,11 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     }
 
     for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, t_old[lev], *mf_tke, GetVecOfPtrs(vec_tke), BCVars::zvel_bc, BdyVars::null, icomp, false, false);
-        FillPatch(lev, t_old[lev], *mf_gls, GetVecOfPtrs(vec_gls), BCVars::zvel_bc, BdyVars::null, icomp, false, false);
+        FillPatch(lev, t_old[lev], *mf_tke, GetVecOfPtrs(vec_tke), zvel_bc(), BdyVars::null, icomp, false, false);
+        FillPatch(lev, t_old[lev], *mf_gls, GetVecOfPtrs(vec_gls), zvel_bc(), BdyVars::null, icomp, false, false);
     }
-    for (int icomp=0; icomp<NCONS; icomp++) {
-        FillPatch(lev, t_old[lev], *mf_Akt, GetVecOfPtrs(vec_Akt), BCVars::zvel_bc, BdyVars::null, icomp, false, false);
+    for (int icomp=0; icomp<ncons; icomp++) {
+        FillPatch(lev, t_old[lev], *mf_Akt, GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null, icomp, false, false);
     }
     FillPatchNoBC(lev, t_old[lev], *mf_Akv, GetVecOfPtrs(vec_Akv), BdyVars::null);
     FillPatchNoBC(lev, t_old[lev], *mf_Akp, GetVecOfPtrs(vec_Akp), BdyVars::null);

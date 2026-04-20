@@ -798,18 +798,45 @@ public:
                    int nrhs, int nnew,
                    const amrex::Real dt_lev);
 
-    /** \brief Harmonic diffusivity for tracers */
-    void t3dmix  (const amrex::Box& bx,
+    /** \brief Wrapper for harmonic diffusivity for tracers */
+    void t3dmix2 (const amrex::Box& bx,
                   const amrex::Array4<amrex::Real      >& state,
                   const amrex::Array4<amrex::Real      >& state_rhs,
                   const amrex::Array4<amrex::Real const>& diff2,
                   const amrex::Array4<amrex::Real const>& Hz,
+                  const amrex::Array4<amrex::Real const>& z_r,
                   const amrex::Array4<amrex::Real const>& pm,
                   const amrex::Array4<amrex::Real const>& pn,
                   const amrex::Array4<amrex::Real const>& msku,
                   const amrex::Array4<amrex::Real const>& mskv,
                   const amrex::Real dt_lev,
-                  const int ncomp);
+                  const int ncomp, const int N);
+
+    /** \brief Harmonic diffusivity for tracers along S-coordinate level surfaces */
+    void t3dmix2_s(const amrex::Box& bx,
+                   const amrex::Array4<amrex::Real      >& state,
+                   const amrex::Array4<amrex::Real      >& state_rhs,
+                   const amrex::Array4<amrex::Real const>& diff2,
+                   const amrex::Array4<amrex::Real const>& Hz,
+                   const amrex::Array4<amrex::Real const>& pm,
+                   const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& msku,
+                   const amrex::Array4<amrex::Real const>& mskv,
+                   const amrex::Real dt_lev, const int ncomp);
+
+    /** \brief Harmonic diffusivity for tracers along geopotential surfaces */
+    void t3dmix2_geo (const amrex::Box& bx,
+                      const amrex::Array4<amrex::Real      >& state,
+                      const amrex::Array4<amrex::Real      >& state_rhs,
+                      const amrex::Array4<amrex::Real const>& diff2,
+                      const amrex::Array4<amrex::Real const>& Hz,
+                      const amrex::Array4<amrex::Real const>& z_r,
+                      const amrex::Array4<amrex::Real const>& pm,
+                      const amrex::Array4<amrex::Real const>& pn,
+                      const amrex::Array4<amrex::Real const>& msku,
+                      const amrex::Array4<amrex::Real const>& mskv,
+                      const amrex::Real dt_lev,
+                      const int ncomp, const int N);
 
     /** \brief Calculate Coriolis terms */
     void coriolis (const amrex::Box& xbx,
@@ -1016,6 +1043,19 @@ public:
     /** \brief Mask data arrays before writing output */
     void mask_arrays_for_write (int lev, amrex::Real fill_value, amrex::Real fill_where);
 
+    int xvel_bc () const noexcept { return BCVars::xvel_bc(ncons); }
+    int yvel_bc () const noexcept { return BCVars::yvel_bc(ncons); }
+    int zvel_bc () const noexcept { return BCVars::zvel_bc(ncons); }
+    int ubar_bc () const noexcept { return BCVars::ubar_bc(ncons); }
+    int vbar_bc () const noexcept { return BCVars::vbar_bc(ncons); }
+    int zeta_bc () const noexcept { return BCVars::zeta_bc(ncons); }
+    int tke_bc  () const noexcept { return BCVars::tke_bc(ncons); }
+    int foextrap_periodic_bc () const noexcept { return BCVars::foextrap_periodic_bc(ncons); }
+    int foextrap_bc () const noexcept { return BCVars::foextrap_bc(ncons); }
+    int u2d_simple_bc () const noexcept { return BCVars::u2d_simple_bc(ncons); }
+    int v2d_simple_bc () const noexcept { return BCVars::v2d_simple_bc(ncons); }
+    int num_bc_vars () const noexcept { return BCVars::NumTypes(ncons); }
+
 
 #ifdef REMORA_USE_NETCDF
     static int total_nc_plot_file_step;
@@ -1029,6 +1069,9 @@ private:
 
     /** \brief read in some parameters from inputs file */
     void ReadParameters();
+
+    /** \brief Build runtime scalar names after nscalar is known */
+    void init_scalar_metadata();
 
     /** \brief set covered coarse cells to be the average of overlying fine cells */
     void AverageDown ();
@@ -1251,10 +1294,10 @@ private:
     amrex::Array<std::string,2*AMREX_SPACEDIM> domain_bc_type;
 
     /** \brief Array holding the Dirichlet values at walls which need them */
-    amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS+8> m_bc_extdir_vals;
+    amrex::Vector<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM*2>> m_bc_extdir_vals;
 
     /** \brief Array holding the "physical" boundary condition types (e.g. "inflow") */
-    amrex::GpuArray<amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2>,BCVars::NumTypes> phys_bc_type;
+    amrex::Vector<amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2>> phys_bc_type;
 
     /** \brief These are flags that indicate whether we need to read in boundary data from file */
     amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1> phys_bc_need_data;
@@ -1290,6 +1333,11 @@ private:
 
     /** \brief If set, restart from this checkpoint file */
     std::string restart_chkfile = "";
+
+    /** \brief Number of passive scalars carried in the state */
+    int nscalar = 1;
+    /** \brief Number of conserved scalars in the state (temperature + salt + passive scalars) */
+    int ncons = Tracer_comp + 1;
 
     // Time step controls
     /** \brief CFL condition */
@@ -1340,7 +1388,7 @@ private:
     /** \brief Names of 2D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_2d;
     /** \brief Names of scalars for plotfile output */
-    const amrex::Vector<std::string>     cons_names {"temp", "salt", "tracer"};
+    amrex::Vector<std::string> cons_names {"temp", "salt", "tracer"};
     // Note that the order of variable names here must match the order in PlotFile.cpp
     /** \brief Names of derived fields for plotfiles */
     const amrex::Vector<std::string> derived_names {"vorticity"};
@@ -1412,13 +1460,13 @@ private:
     /** \brief Box for the full domain at nc_hires_grid_level */
     amrex::Box nc_hires_grid_box;
 
-    /** \brief NetCDF forcing file */
-    std::string nc_frc_file;
-    /** \brief NetCDF river file */
-    std::string nc_riv_file;
+    /** \brief NetCDF forcing file(s) */
+    amrex::Vector<std::string> nc_frc_file;
+    /** \brief NetCDF river file(s) */
+    amrex::Vector<std::string> nc_riv_file;
 
-    /** \brief NetCDF climatology history file */
-    std::string nc_clim_his_file;
+    /** \brief NetCDF climatology history file(s) */
+    amrex::Vector<std::string> nc_clim_his_file;
     /** \brief NetCDF climatology coefficient file */
     std::string nc_clim_coeff_file;
 

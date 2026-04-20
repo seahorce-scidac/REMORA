@@ -33,8 +33,8 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     amrex::Print() << "Making level " << lev << " from coarse" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
 
-    cons_new[lev] = new MultiFab(ba, dm, NCONS, cons_new[lev-1]->nGrowVect());
-    cons_old[lev] = new MultiFab(ba, dm, NCONS, cons_new[lev-1]->nGrowVect());
+    cons_new[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
+    cons_old[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
 
     xvel_new[lev] = new MultiFab(convert(ba, IntVect(1,0,0)), dm, 1, xvel_new[lev-1]->nGrowVect());
     xvel_old[lev] = new MultiFab(convert(ba, IntVect(1,0,0)), dm, 1, xvel_new[lev-1]->nGrowVect());
@@ -86,9 +86,9 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
 
     FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1],BCVars::Temp_bc_comp,BdyVars::t);
-    FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1],BCVars::xvel_bc,BdyVars::u);
-    FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1],BCVars::yvel_bc,BdyVars::v);
-    FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1],BCVars::zvel_bc,BdyVars::null);
+    FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1], xvel_bc(), BdyVars::u);
+    FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
+    FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1], zvel_bc(), BdyVars::null);
 
     if (lev > nc_hires_grid_level || solverChoice.ic_type == IC_Type::analytic) {
         FillCoarsePatch(lev, time, vec_h[lev].get(), vec_h[lev-1].get(),
@@ -109,25 +109,25 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get(),BCVars::cons_bc);
     for (int icomp=0; icomp<3; icomp++) {
-        FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(),BCVars::ubar_bc,
+        FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(), ubar_bc(),
                 BdyVars::ubar,icomp,false);
-        FillCoarsePatch(lev, time, vec_vbar[lev].get(), vec_vbar[lev-1].get(),BCVars::vbar_bc,
+        FillCoarsePatch(lev, time, vec_vbar[lev].get(), vec_vbar[lev-1].get(), vbar_bc(),
                 BdyVars::vbar,icomp,false);
     }
     for (int icomp=0; icomp<2; icomp++) {
-        FillCoarsePatch(lev, time, vec_ru[lev].get(), vec_ru[lev-1].get(),BCVars::xvel_bc,
+        FillCoarsePatch(lev, time, vec_ru[lev].get(), vec_ru[lev-1].get(), xvel_bc(),
                 BdyVars::null,icomp,false);
-        FillCoarsePatch(lev, time, vec_rv[lev].get(), vec_rv[lev-1].get(),BCVars::yvel_bc,
+        FillCoarsePatch(lev, time, vec_rv[lev].get(), vec_rv[lev-1].get(), yvel_bc(),
                 BdyVars::null,icomp,false);
-        FillCoarsePatch(lev, time, vec_ru2d[lev].get(), vec_ru2d[lev-1].get(),BCVars::xvel_bc,
+        FillCoarsePatch(lev, time, vec_ru2d[lev].get(), vec_ru2d[lev-1].get(), xvel_bc(),
                 BdyVars::null,icomp,false);
-        FillCoarsePatch(lev, time, vec_rv2d[lev].get(), vec_rv2d[lev-1].get(),BCVars::yvel_bc,
+        FillCoarsePatch(lev, time, vec_rv2d[lev].get(), vec_rv2d[lev-1].get(), yvel_bc(),
                 BdyVars::null,icomp,false);
     }
 
     // Not totally sure foextrap is right here
     FillCoarsePatchPC(lev, time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
-            BCVars::foextrap_bc);
+            foextrap_bc());
 
     calculate_nodal_masks(lev);
 
@@ -192,8 +192,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     int ngrow_velbar  = ComputeGhostCells(solverChoice.spatial_order)+1;
 #endif
 
-    MultiFab tmp_cons_new(ba, dm, NCONS, ngrow_state);
-    MultiFab tmp_cons_old(ba, dm, NCONS, ngrow_state);
+    MultiFab tmp_cons_new(ba, dm, ncons, ngrow_state);
+    MultiFab tmp_cons_old(ba, dm, ncons, ngrow_state);
 
     MultiFab tmp_xvel_new(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
     MultiFab tmp_xvel_old(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
@@ -241,24 +241,24 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
     FillPatch(lev, time, tmp_cons_new, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false);
-    FillPatch(lev, time, tmp_xvel_new, xvel_new, BCVars::xvel_bc, BdyVars::u,0,true,false,0,0,0.0,tmp_xvel_new);
-    FillPatch(lev, time, tmp_yvel_new, yvel_new, BCVars::yvel_bc, BdyVars::v,0,true,false,0,0,0.0,tmp_yvel_new);
-    FillPatch(lev, time, tmp_zvel_new, zvel_new, BCVars::zvel_bc, BdyVars::null,0,true,false);
+    FillPatch(lev, time, tmp_xvel_new, xvel_new, xvel_bc(), BdyVars::u,0,true,false,0,0,0.0,tmp_xvel_new);
+    FillPatch(lev, time, tmp_yvel_new, yvel_new, yvel_bc(), BdyVars::v,0,true,false,0,0,0.0,tmp_yvel_new);
+    FillPatch(lev, time, tmp_zvel_new, zvel_new, zvel_bc(), BdyVars::null,0,true,false);
+    FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), zeta_bc(), BdyVars::null,0,true,false);
 
-    FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), BCVars::zeta_bc, BdyVars::null,0,true,false);
     for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), BCVars::ubar_bc, BdyVars::ubar, icomp,false,false);
-        FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), BCVars::vbar_bc, BdyVars::vbar, icomp,false,false);
+        FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar, icomp,false,false);
+        FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar, icomp,false,false);
     }
     for (int icomp=0; icomp<2; icomp++) {
-        FillPatch(lev, time, tmp_ru_new, GetVecOfPtrs(vec_ru),BCVars::xvel_bc, BdyVars::null, icomp,false,false);
-        FillPatch(lev, time, tmp_rv_new, GetVecOfPtrs(vec_rv),BCVars::yvel_bc, BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_ru_new, GetVecOfPtrs(vec_ru), xvel_bc(), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_rv_new, GetVecOfPtrs(vec_rv), yvel_bc(), BdyVars::null, icomp,false,false);
         // These might want to have BCVars::ubar_bc and vbar_bc
-        FillPatch(lev, time, tmp_ru2d_new, GetVecOfPtrs(vec_ru2d),BCVars::xvel_bc, BdyVars::null, icomp,false,false);
-        FillPatch(lev, time, tmp_rv2d_new, GetVecOfPtrs(vec_rv2d),BCVars::yvel_bc, BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_ru2d_new, GetVecOfPtrs(vec_ru2d), xvel_bc(), BdyVars::null, icomp,false,false);
+        FillPatch(lev, time, tmp_rv2d_new, GetVecOfPtrs(vec_rv2d), yvel_bc(), BdyVars::null, icomp,false,false);
     }
 
-    MultiFab::Copy(tmp_cons_old,tmp_cons_new,0,0,NCONS,tmp_cons_new.nGrowVect());
+    MultiFab::Copy(tmp_cons_old,tmp_cons_new,0,0,ncons,tmp_cons_new.nGrowVect());
     MultiFab::Copy(tmp_xvel_old,tmp_xvel_new,0,0,    1,tmp_xvel_new.nGrowVect());
     MultiFab::Copy(tmp_yvel_old,tmp_yvel_new,0,0,    1,tmp_yvel_new.nGrowVect());
     MultiFab::Copy(tmp_zvel_old,tmp_zvel_new,0,0,    1,tmp_zvel_new.nGrowVect());
@@ -303,7 +303,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     init_masks(lev, ba, dm);
     FillCoarsePatchPC(lev, time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
-            BCVars::foextrap_bc);
+            foextrap_bc());
     calculate_nodal_masks(lev);
 
     init_stuff(lev, ba, dm);
@@ -369,8 +369,8 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
 #endif
 
-    cons_old[lev] = new MultiFab(ba, dm, NCONS, ngrow_state);
-    cons_new[lev] = new MultiFab(ba, dm, NCONS, ngrow_state);
+    cons_old[lev] = new MultiFab(ba, dm, ncons, ngrow_state);
+    cons_new[lev] = new MultiFab(ba, dm, ncons, ngrow_state);
 
     xvel_new[lev] = new MultiFab(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
     xvel_old[lev] = new MultiFab(convert(ba, IntVect(1,0,0)), dm, 1, ngrow_vels);
@@ -557,7 +557,7 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     // Initialize the boundary conditions
     // ********************************************************************************************
     physbcs[lev] = std::make_unique<REMORAPhysBCFunct> (lev, geom[lev], domain_bcs_type, domain_bcs_type_d,
-                                                       m_bc_extdir_vals);
+                                                       m_bc_extdir_vals, ncons);
 
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
@@ -586,12 +586,12 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_Hvom[lev].reset               (new MultiFab(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
 
     vec_Akv[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
-    vec_Akt[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,NCONS,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
+    vec_Akt[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,ncons,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
 
     // check dimensionality
     vec_visc2_p[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?
     vec_visc2_r[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at rho points
-    vec_diff2[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature/salt
+    vec_diff2[lev].reset(new MultiFab(ba2d,dm,ncons,IntVect(NGROW,NGROW,0))); // harmonic diffusivity temperature/salt
 
     //2d, (incl advection terms and surface/bottom stresses, integral over the whole column, k=0)
     vec_rufrc[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,2,IntVect(NGROW,NGROW,0)));
@@ -648,7 +648,7 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 
 
     // tempstore, saltstore, etc
-    vec_sstore[lev].reset(new MultiFab(ba,dm,NCONS,IntVect(NGROW,NGROW,0)));
+    vec_sstore[lev].reset(new MultiFab(ba,dm,ncons,IntVect(NGROW,NGROW,0)));
 
     vec_rhoS[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
     vec_rhoA[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW,NGROW,0)));
@@ -661,11 +661,11 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_Akp[lev].reset(new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0)));
 
     // surface/bottom tracer fluxes for update
-    vec_stflx[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0)));
-    vec_btflx[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0)));
+    vec_stflx[lev].reset(new MultiFab(ba2d,dm,ncons,IntVect(NGROW,NGROW,0)));
+    vec_btflx[lev].reset(new MultiFab(ba2d,dm,ncons,IntVect(NGROW,NGROW,0)));
     // surface/bottom tracer fluxes to be filled by inputs
-    vec_stflux[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0)));
-    vec_btflux[lev].reset(new MultiFab(ba2d,dm,NCONS,IntVect(NGROW,NGROW,0)));
+    vec_stflux[lev].reset(new MultiFab(ba2d,dm,ncons,IntVect(NGROW,NGROW,0)));
+    vec_btflux[lev].reset(new MultiFab(ba2d,dm,ncons,IntVect(NGROW,NGROW,0)));
 
     if (solverChoice.bulk_fluxes) {
         vec_uwind[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind u
@@ -786,8 +786,8 @@ REMORA::set_grid_scale (int lev)
         }
     } else if (solverChoice.ic_type == IC_Type::netcdf && lev > 0) { // if lev==0, pm/pn are set by init_bathymetry
         Real dummy_time = 0.0_rt;
-        FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), BCVars::foextrap_bc);
-        FillCoarsePatch(lev,dummy_time,vec_pn[lev].get(), vec_pn[lev-1].get(), BCVars::foextrap_bc);
+        FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), foextrap_bc());
+        FillCoarsePatch(lev,dummy_time,vec_pn[lev].get(), vec_pn[lev-1].get(), foextrap_bc());
 
         int rrx = (lev == 1) ? ref_ratio[lev-1][0] : ref_ratio[lev-1][0] / ref_ratio[lev-2][0];
         int rry = (lev == 1) ? ref_ratio[lev-1][1] : ref_ratio[lev-1][1] / ref_ratio[lev-2][1];

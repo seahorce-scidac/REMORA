@@ -46,8 +46,8 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
     int ncomp = 1;
     Vector<BCRec> bcrs_x(ncomp);
     Vector<BCRec> bcrs_y(ncomp);
-    amrex::setBC(bx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
-    amrex::setBC(bx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
+    amrex::setBC(bx,domain,xvel_bc(),0,1,domain_bcs_type,bcrs_x);
+    amrex::setBC(bx,domain,yvel_bc(),0,1,domain_bcs_type,bcrs_y);
 
     auto N = Geom(0).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 

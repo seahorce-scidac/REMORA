@@ -36,8 +36,8 @@ REMORA::rhs_uv_2d (int lev, const Box& xbx, const Box& ybx,
     int ncompbc = 1;
     Vector<BCRec> bcrs_x(ncompbc);
     Vector<BCRec> bcrs_y(ncompbc);
-    amrex::setBC(xbx,domain,BCVars::xvel_bc,0,1,domain_bcs_type,bcrs_x);
-    amrex::setBC(ybx,domain,BCVars::yvel_bc,0,1,domain_bcs_type,bcrs_y);
+    amrex::setBC(xbx,domain,xvel_bc(),0,1,domain_bcs_type,bcrs_x);
+    amrex::setBC(ybx,domain,yvel_bc(),0,1,domain_bcs_type,bcrs_y);
 
     //
     // Scratch space

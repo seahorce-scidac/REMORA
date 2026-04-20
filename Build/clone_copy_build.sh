@@ -17,10 +17,7 @@ git apply ../REMORA/Build/compare_flat_tweak_inputs.patch
 git checkout ROMS/Nonlinear/step2d_LF_AM3.h
 
 cd ../REMORA/Build
-if [ "$NERSC_HOST" == "cori" ]
-then
-source cori-env.sh
-elif [ "$NERSC_HOST" == "perlmutter" ]
+if [ "$NERSC_HOST" == "perlmutter" ]
 then
 source saul-env.sh
 else
@@ -56,7 +53,6 @@ cd COAWST
 #  ["PrgEnv-gnu"] = "8.3.3",
 #  ["cpe"] = "22.11",
 #  ["cray-dsmml"] = "0.2.2",
-#  ["cray-hdf5"] = "1.12.2.1",
 #  ["cray-libsci"] = "22.11.1.2",
 #  ["cray-mpich"] = "8.1.22",
 #  ["cray-netcdf"] = "4.9.0.1",

@@ -41,10 +41,15 @@ REMORA::WritePlotFile (int istep_for_plot)
       {
          if (plot_name == "zeta" ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "h"    ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "f"    ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "visc2") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
-         if (plot_name == "diff2_temp"  ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
-         if (plot_name == "diff2_salt"  ) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
-         if (plot_name == "diff2_tracer") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         for (int n = 0; n < ncons; ++n) {
+             const std::string diff2_name = std::string("diff2_") + cons_names[n];
+             if (plot_name == diff2_name) {
+                 varnames_2d_rho.push_back(plot_name);
+                 ncomp_mf_2d_rho++;
+             }
+         }
          if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
@@ -148,7 +153,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                 amrex::FillPatchTwoLevels(mf_cc_vel[lev], mf_cc_vel[lev].nGrowVect(), IntVect(0,0,0),
                                           t_new[lev], cmf, ctime, fmf, ftime,
                                           0, 0, mf_cc_vel[lev].nComp(), geom[lev-1], geom[lev],
-                                          refRatio(lev-1), mapper, domain_bcs_type, BCVars::foextrap_bc);
+                                          refRatio(lev-1), mapper, domain_bcs_type, foextrap_bc());
             } // lev
         } // if
     } // if
@@ -162,6 +167,10 @@ REMORA::WritePlotFile (int istep_for_plot)
          }
          if (plot_name == "h" ) {
              for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); }
+             icomp_rho++;
+         }
+         if (plot_name == "f" ) {
+             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_fcor[lev],0,icomp_rho,1,0); }
              icomp_rho++;
          }
          if (plot_name == "visc2" ) {
@@ -181,47 +190,22 @@ REMORA::WritePlotFile (int istep_for_plot)
              }
              icomp_rho++;
          }
-         if (plot_name == "diff2_temp" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) {
-                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                     const Box& bx = mfi.validbox();
-                     const int K = mfi.index();
-                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
-                     auto src = vec_diff2[lev]->const_array(K);
-                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
-                         dst(i,j,0) = src(i,j,0,Temp_comp);
-                     });
+         for (int n = 0; n < ncons; ++n) {
+             const std::string diff2_name = std::string("diff2_") + cons_names[n];
+             if (plot_name == diff2_name) {
+                 for (int lev = 0; lev <= finest_level; ++lev) {
+                     for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                         const Box& bx = mfi.validbox();
+                         const int K = mfi.index();
+                         auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                         auto src = vec_diff2[lev]->const_array(K);
+                         ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                             dst(i,j,0) = src(i,j,0,n);
+                         });
+                     }
                  }
+                 icomp_rho++;
              }
-             icomp_rho++;
-         }
-         if (plot_name == "diff2_salt" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) {
-                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                     const Box& bx = mfi.validbox();
-                     const int K = mfi.index();
-                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
-                     auto src = vec_diff2[lev]->const_array(K);
-                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
-                         dst(i,j,0) = src(i,j,0,Salt_comp);
-                     });
-                 }
-             }
-             icomp_rho++;
-         }
-         if (plot_name == "diff2_tracer" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) {
-                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                     const Box& bx = mfi.validbox();
-                     const int K = mfi.index();
-                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
-                     auto src = vec_diff2[lev]->const_array(K);
-                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
-                         dst(i,j,0) = src(i,j,0,Tracer_comp);
-                     });
-                 }
-             }
-             icomp_rho++;
          }
     }
 
@@ -266,8 +250,8 @@ REMORA::WritePlotFile (int istep_for_plot)
         int mf_comp = 0;
 
         // First, copy any of the conserved state variables into the output plotfile
-        AMREX_ALWAYS_ASSERT(cons_names.size() == NCONS);
-        for (int i = 0; i < NCONS; ++i) {
+        AMREX_ALWAYS_ASSERT(cons_names.size() == ncons);
+        for (int i = 0; i < ncons; ++i) {
             if (containerHasElement(plot_var_names_3d, cons_names[i])) {
                 if (cons_new[lev]->contains_nan() || cons_new[lev]->contains_inf()) {
                     amrex::Abort("Found while writing output: Cons (salt, temp, or tracer, etc) contains nan or inf");
@@ -275,7 +259,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                 MultiFab::Copy(plotMF[lev],*cons_new[lev],i,mf_comp,1,ngrow_vars);
                 mf_comp++;
             }
-        } // NCONS
+        } // ncons
 
         // Next, check for velocities
         if (containerHasElement(plot_var_names_3d, "x_velocity")) {
@@ -404,8 +388,7 @@ REMORA::WritePlotFile (int istep_for_plot)
         } // mfi
     } // lev
 
-    if ( (plotfile_type == PlotfileType::amrex) ||
-         (plotfile_type == PlotfileType::hdf5) )
+    if (plotfile_type == PlotfileType::amrex)
     {
 
     std::string plotfilename = Concatenate(plot_file_name, istep[0], file_min_digits);
@@ -433,14 +416,6 @@ REMORA::WritePlotFile (int istep_for_plot)
             particleData.Checkpoint(plotfilename);
 #endif
 
-#ifdef REMORA_USE_HDF5
-        } else if (plotfile_type == PlotfileType::hdf5) {
-            amrex::Print() << "Writing plotfile " << plotfilename+"d01.h5" << "\n";
-            WriteMultiLevelPlotfileHDF5(plotfilename, finest_level+1,
-                                        GetVecOfConstPtrs(plotMF),
-                                        varnames_3d,
-                                        Geom(), t_new[0], istep, refRatio());
-#endif
         }
 
     } else { // multilevel
@@ -924,6 +899,7 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
         Array4<Real const> const& mskr = vec_mskr[lev]->array(mfi);
         Array4<Real const> const& msku = vec_msku[lev]->array(mfi);
         Array4<Real const> const& mskv = vec_mskv[lev]->array(mfi);
+        const int ncons_local = ncons;
 
         ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
@@ -942,7 +918,7 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
         {
             if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
                 visc2(i,j,0) = fill_value;
-                for (int n = 0; n < NCONS; ++n) {
+                for (int n = 0; n < ncons_local; ++n) {
                     diff2(i,j,0,n) = fill_value;
                 }
             }

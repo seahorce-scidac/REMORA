@@ -137,10 +137,10 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   |                                   |                 | or ``flather``.                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
-| **remora.nc_frc_file**            | forcing data NetCDF               | string          | must be set                     |
+| **remora.nc_frc_file**            | forcing data NetCDF               | string or list  | must be set                     |
 |                                   |                                   |                 |                                 |
 |                                   |                                   |                 | if ``remora.wind_type``         |
-|                                   | file name                         |                 |                                 |
+|                                   | file name(s)                      | of strings      |                                 |
 |                                   |                                   |                 | or ``remora.smflux_type``       |
 |                                   |                                   |                 |                                 |
 |                                   |                                   |                 | equal ``netcdf``                |
@@ -172,6 +172,8 @@ Notes
 -----
 
 -  ``nc_bdry_file`` must either be a string or a space-separated list of strings of boundary data files. They must be in time series order.
+
+-  ``nc_frc_file`` may be either a string or a space-separated list of strings of forcing data files. They must be in time series order.
 
 -  The time variables in the boundary files may be different for each boundary variable. Any that are not individually specified with
    ``remora.bdy_{var}_time_varname`` will default to the variable name given by ``bdy_time_varname``.
@@ -644,178 +646,219 @@ Physics Parameters
 List of Parameters
 ------------------
 
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| Parameter                         | Definition                             | Acceptable        | Default        |
-|                                   |                                        |                   |                |
-|                                   |                                        | Values            |                |
-+===================================+========================================+===================+================+
-| **remora.ggrav**                  | Gravitational field strength           | Real number       | 9.81           |
-|                                   |                                        |                   |                |
-|                                   | [kg m/s^2]                             |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.eos_type**               | Which equation of state to use.        | Linear or         | Linear         |
-|                                   |                                        |                   |                |
-|                                   | Nonlinear is UNESCO                    | Nonlinear         |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.R0**                     | Background density [kg/m^3]            | Real number       | 1028           |
-|                                   |                                        |                   |                |
-|                                   | used in Linear Equation of             |                   |                |
-|                                   |                                        |                   |                |
-|                                   | State. May be used in setup            |                   |                |
-|                                   |                                        |                   |                |
-|                                   | of some problems.                      |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.S0**                     | Background salinity                    | Real number       | 35             |
-|                                   |                                        |                   |                |
-|                                   | (nondimensional) used in               |                   |                |
-|                                   |                                        |                   |                |
-|                                   | Linear Equation of State               |                   |                |
-|                                   |                                        |                   |                |
-|                                   | State. May be used in setup            |                   |                |
-|                                   |                                        |                   |                |
-|                                   | of some problems.                      |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.T0**                     | Background temperature                 | Real number       | 5              |
-|                                   |                                        |                   |                |
-|                                   | (Celsius) used in                      |                   |                |
-|                                   |                                        |                   |                |
-|                                   | Linear Equation of State               |                   |                |
-|                                   |                                        |                   |                |
-|                                   | State. May be used in setup            |                   |                |
-|                                   |                                        |                   |                |
-|                                   | of some problems.                      |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.Tcoef**                  | Linear EOS parameter                   | Real number       | 1.7e-4         |
-|                                   |                                        |                   |                |
-|                                   | (1/Celsius)                            |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.Scoef**                  | Linear EOS parameter                   | Real number       | 0.0            |
-|                                   |                                        |                   |                |
-|                                   | (nondimensional)                       |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.rho0**                   | Mean density (kg/m^3) used             | Real number       | 1025           |
-|                                   |                                        |                   |                |
-|                                   | when Boussinesq approx is              |                   |                |
-|                                   |                                        |                   |                |
-|                                   | inferred                               |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.coriolis_type**          | Type of Coriolis forcing.              | ``beta_plane`` /  | ``beta_plane`` |
-|                                   |                                        |                   |                |
-|                                   | ``beta_plane`` uses a linear           | ``analytic`` /    |                |
-|                                   |                                        |                   |                |
-|                                   | approximation. ``analytic`` is         | ``netcdf``        |                |
-|                                   |                                        |                   |                |
-|                                   | calculated from a function in          |                   |                |
-|                                   |                                        |                   |                |
-|                                   | ``prob.cpp``, and ``netcdf`` is        |                   |                |
-|                                   |                                        |                   |                |
-|                                   | read from the netcdf grid file         |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.coriolis_f0**            | f-plane constant for                   | Real number       | 0.0            |
-|                                   |                                        |                   |                |
-|                                   | Coriolis param                         |                   |                |
-|                                   |                                        |                   |                |
-|                                   | :math:`f = f_0 + \beta y`              |                   |                |
-|                                   |                                        |                   |                |
-|                                   | when using beta plane                  |                   |                |
-|                                   |                                        |                   |                |
-|                                   | Coriolis type                          |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.coriolis_beta**          | beta-plane constant for                | Real number       | 0.0            |
-|                                   |                                        |                   |                |
-|                                   | Coriolis param                         |                   |                |
-|                                   |                                        |                   |                |
-|                                   | :math:`f = f_0 + \beta y`              |                   |                |
-|                                   |                                        |                   |                |
-|                                   | when using beta plane                  |                   |                |
-|                                   |                                        |                   |                |
-|                                   | Coriolis type                          |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.horizontal_mixing_type** | Horizontal mixing type.                | ``analytic`` /    | ``analytic``   |
-|                                   |                                        |                   |                |
-|                                   | ``analytic`` means function is         | ``constant``      |                |
-|                                   |                                        |                   |                |
-|                                   | specified in ``prob.cpp``.             | / ``scaled_to_grid`` |             |
-|                                   |                                        |                   |                |
-|                                   | ``scaled_to_grid`` scales harmonic     |                   |                |
-|                                   | viscosity/diffusivity by the grid      |                   |                |
-|                                   | cell area. Equivalent to ``DIFF_GRID`` |                   |                |
-|                                   | and ``VISC_GRID`` in ROMS.             |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.scaled_to_grid_amr_scaling** | AMR scaling behavior for                | ``none`` /        | ``none``       |
-|                                   | ``scaled_to_grid`` and ``constant``     | ``linear``        |                |
-|                                   | coefficients on refined levels.         |                   |                |
-|                                   | ``linear`` decreases coefficients in    |                   |                |
-|                                   | proportion to the horizontal refinement |                   |                |
-|                                   | ratio.                                  |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.visc2**                  | Constant horizontal viscosity,         | Real number       | 0.0            |
-|                                   |                                        |                   |                |
-|                                   | everywhere. Needed when                |                   |                |
-|                                   |                                        |                   |                |
-|                                   | ``horizontal_mixing_type`` is          |                   |                |
-|                                   |                                        |                   |                |
-|                                   | ``constant`` or ``scaled_to_grid``     |                   |                |
-|                                   | (in this case, it is the maximum       |                   |                |
-|                                   | viscosity over the domain).            |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.tnu2_salt**              | Constant horizontal diffusivity,       | Real number       | 0.0            |
-|                                   |                                        |                   |                |
-|                                   | everywhere for salt.                   |                   |                |
-|                                   |                                        |                   |                |
-|                                   | Needed when                            |                   |                |
-|                                   |                                        |                   |                |
-|                                   | ``horizontal_mixing_type`` is          |                   |                |
-|                                   |                                        |                   |                |
-|                                   | ``constant`` or ``scaled_to_grid``     |                   |                |
-|                                   | (in this case, it is the maximum       |                   |                |
-|                                   | salt diffusivity over the domain).     |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.tnu2_temp**              | Constant horizontal diffusivity,       | Real number       | 0.0            |
-|                                   |                                        |                   |                |
-|                                   | everywhere for temperature.            |                   |                |
-|                                   |                                        |                   |                |
-|                                   | Needed when                            |                   |                |
-|                                   |                                        |                   |                |
-|                                   | ``horizontal_mixing_type``             |                   |                |
-|                                   |                                        |                   |                |
-|                                   | is ``constant`` or ``scaled_to_grid``  |                   |                |
-|                                   | (in this case, it is the maximum       |                   |                |
-|                                   | temperature diffusivity over the       |                   |                |
-|                                   | domain).                               |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.tnu2_scalar**            | Constant horizontal diffusivity,       | Real number       | 0.0            |
-|                                   |                                        |                   |                |
-|                                   | everywhere for passive scalar.         |                   |                |
-|                                   |                                        |                   |                |
-|                                   | Needed when                            |                   |                |
-|                                   |                                        |                   |                |
-|                                   | ``horizontal_mixing_type``             |                   |                |
-|                                   |                                        |                   |                |
-|                                   | is ``constant`` or ``scaled_to_grid``  |                   |                |
-|                                   | (in this case, it is the maximum       |                   |                |
-|                                   | scalar diffusivity over the domain).   |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.vertical_mixing_type**   | Vertical mixing type. ``analytic``     | ``analytic`` /    | ``analytic``   |
-|                                   |                                        |                   |                |
-|                                   | function is specified in               | ``GLS``           |                |
-|                                   |                                        |                   |                |
-|                                   | ``prob.cpp``.                          |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.gls_stability_type**     | Stability function to use for GLS      | ``Canuto_A`` /    | ``Canuto_A``   |
-|                                   |                                        |                   |                |
-|                                   |                                        | ``Canuto_B`` /    |                |
-|                                   |                                        |                   |                |
-|                                   |                                        | ``Galperin``      |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.Akv_bak**                | Minimum/initial value of Akv           | Real number       | 5.0e-6         |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.Akt_bak**                | Minimum/initial value of Akt           | Real number       | 1.0e-6         |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.bulk_fluxes**            | Whether to use bulk fluxes             | true / false      | false          |
-|                                   |                                        |                   |                |
-|                                   | parametrization                        |                   |                |
-+-----------------------------------+----------------------------------------+-------------------+----------------+
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| Parameter                                | Definition                             | Acceptable             | Default        |
+|                                          |                                        |                        |                |
+|                                          |                                        | Values                 |                |
++==========================================+========================================+========================+================+
+| **remora.ggrav**                         | Gravitational field strength           | Real number            | 9.81           |
+|                                          |                                        |                        |                |
+|                                          | [kg m/s^2]                             |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.eos_type**                      | Which equation of state to use.        | Linear or              | Linear         |
+|                                          |                                        |                        |                |
+|                                          | Nonlinear is UNESCO                    | Nonlinear              |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.R0**                            | Background density [kg/m^3]            | Real number            | 1028           |
+|                                          |                                        |                        |                |
+|                                          | used in Linear Equation of             |                        |                |
+|                                          |                                        |                        |                |
+|                                          | State. May be used in setup            |                        |                |
+|                                          |                                        |                        |                |
+|                                          | of some problems.                      |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.S0**                            | Background salinity                    | Real number            | 35             |
+|                                          |                                        |                        |                |
+|                                          | (nondimensional) used in               |                        |                |
+|                                          |                                        |                        |                |
+|                                          | Linear Equation of State               |                        |                |
+|                                          |                                        |                        |                |
+|                                          | State. May be used in setup            |                        |                |
+|                                          |                                        |                        |                |
+|                                          | of some problems.                      |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.T0**                            | Background temperature                 | Real number            | 5              |
+|                                          |                                        |                        |                |
+|                                          | (Celsius) used in                      |                        |                |
+|                                          |                                        |                        |                |
+|                                          | Linear Equation of State               |                        |                |
+|                                          |                                        |                        |                |
+|                                          | State. May be used in setup            |                        |                |
+|                                          |                                        |                        |                |
+|                                          | of some problems.                      |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.Tcoef**                         | Linear EOS parameter                   | Real number            | 1.7e-4         |
+|                                          |                                        |                        |                |
+|                                          | (1/Celsius)                            |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.Scoef**                         | Linear EOS parameter                   | Real number            | 0.0            |
+|                                          |                                        |                        |                |
+|                                          | (nondimensional)                       |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.rho0**                          | Mean density (kg/m^3) used             | Real number            | 1025           |
+|                                          |                                        |                        |                |
+|                                          | when Boussinesq approx is              |                        |                |
+|                                          |                                        |                        |                |
+|                                          | inferred                               |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.coriolis_type**                 | Type of Coriolis forcing.              | ``beta_plane`` /       | ``beta_plane`` |
+|                                          |                                        |                        |                |
+|                                          | ``beta_plane`` uses a linear           | ``analytic`` /         |                |
+|                                          |                                        |                        |                |
+|                                          | approximation. ``analytic`` is         | ``netcdf``             |                |
+|                                          |                                        |                        |                |
+|                                          | calculated from a function in          |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``prob.cpp``, and ``netcdf`` is        |                        |                |
+|                                          |                                        |                        |                |
+|                                          | read from the netcdf grid file         |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.coriolis_f0**                   | f-plane constant for                   | Real number            | 0.0            |
+|                                          |                                        |                        |                |
+|                                          | Coriolis param                         |                        |                |
+|                                          |                                        |                        |                |
+|                                          | :math:`f = f_0 + \beta y`              |                        |                |
+|                                          |                                        |                        |                |
+|                                          | when using beta plane                  |                        |                |
+|                                          |                                        |                        |                |
+|                                          | Coriolis type                          |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.coriolis_beta**                 | beta-plane constant for                | Real number            | 0.0            |
+|                                          |                                        |                        |                |
+|                                          | Coriolis param                         |                        |                |
+|                                          |                                        |                        |                |
+|                                          | :math:`f = f_0 + \beta y`              |                        |                |
+|                                          |                                        |                        |                |
+|                                          | when using beta plane                  |                        |                |
+|                                          |                                        |                        |                |
+|                                          | Coriolis type                          |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.horizontal_mixing_type**        | Horizontal mixing type.                | ``analytic`` /         | ``analytic``   |
+|                                          |                                        |                        |                |
+|                                          | ``analytic`` means function is         | ``constant``           |                |
+|                                          |                                        |                        |                |
+|                                          | specified in ``prob.cpp``.             | / ``scaled_to_grid``   |                |
+|                                          |                                        |                        |                |
+|                                          | ``scaled_to_grid`` scales harmonic     |                        |                |
+|                                          |                                        |                        |                |
+|                                          | viscosity/diffusivity by the grid      |                        |                |
+|                                          |                                        |                        |                |
+|                                          | cell area. Equivalent to ``DIFF_GRID`` |                        |                |
+|                                          |                                        |                        |                |
+|                                          | and ``VISC_GRID`` in ROMS.             |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.scaled_to_grid_amr_scaling**    | AMR scaling behavior for               | ``none`` /             | ``none``       |
+|                                          |                                        |                        |                |
+|                                          | ``scaled_to_grid`` and ``constant``    | ``linear``             |                |
+|                                          |                                        |                        |                |
+|                                          | coefficients on refined levels.        |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``linear`` decreases coefficients in   |                        |                |
+|                                          |                                        |                        |                |
+|                                          | proportion to the horizontal           |                        |                |
+|                                          |                                        |                        |                |
+|                                          | refinement ratio.                      |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.visc2**                         | Constant horizontal viscosity,         | Real number            | 0.0            |
+|                                          |                                        |                        |                |
+|                                          | everywhere. Needed when                |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``horizontal_mixing_type`` is          |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``constant`` or ``scaled_to_grid``     |                        |                |
+|                                          | (in this case, it is the maximum       |                        |                |
+|                                          | viscosity over the domain).            |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.tnu2_salt**                     | Constant horizontal diffusivity,       | Real number            | 0.0            |
+|                                          |                                        |                        |                |
+|                                          | everywhere for salt.                   |                        |                |
+|                                          |                                        |                        |                |
+|                                          | Needed when                            |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``horizontal_mixing_type`` is          |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``constant`` or ``scaled_to_grid``     |                        |                |
+|                                          | (in this case, it is the maximum       |                        |                |
+|                                          | salt diffusivity over the domain).     |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.tnu2_temp**                     | Constant horizontal diffusivity,       | Real number            | 0.0            |
+|                                          |                                        |                        |                |
+|                                          | everywhere for temperature.            |                        |                |
+|                                          |                                        |                        |                |
+|                                          | Needed when                            |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``horizontal_mixing_type``             |                        |                |
+|                                          |                                        |                        |                |
+|                                          | is ``constant`` or ``scaled_to_grid``  |                        |                |
+|                                          | (in this case, it is the maximum       |                        |                |
+|                                          | temperature diffusivity over the       |                        |                |
+|                                          | domain).                               |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.nscalar**                       | Number of passive scalars              | Integer >= 1           | 1              |
+|                                          | in addition to temperature             |                        |                |
+|                                          | and salinity.                          |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.tnu2_scalar**                   | Constant horizontal diffusivity,       | Real number            | 0.0            |
+|                                          |                                        |                        |                |
+|                                          | everywhere for passive scalar.         |                        |                |
+|                                          |                                        |                        |                |
+|                                          | Needed when                            |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``horizontal_mixing_type``             |                        |                |
+|                                          |                                        |                        |                |
+|                                          | is ``constant`` or ``scaled_to_grid``  |                        |                |
+|                                          | (in this case, it is the maximum       |                        |                |
+|                                          | scalar diffusivity over the domain).   |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.harmonic_mixing_type**          | Whether harmonic mixing (tracers)      | ``s`` /                | ``s``          |
+|                                          |                                        |                        |                |
+|                                          | is calculated along s- or geopotential | ``geopotential``       |                |
+|                                          |                                        |                        |                |
+|                                          | surfaces.                              |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.vertical_mixing_type**          | Vertical mixing type. ``analytic``     | ``analytic`` /         | ``analytic``   |
+|                                          |                                        |                        |                |
+|                                          | function is specified in               | ``GLS``                |                |
+|                                          |                                        |                        |                |
+|                                          | ``prob.cpp``.                          |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.gls_stability_type**            | Stability function to use for GLS      | ``Canuto_A`` /         | ``Canuto_A``   |
+|                                          |                                        |                        |                |
+|                                          |                                        | ``Canuto_B`` /         |                |
+|                                          |                                        |                        |                |
+|                                          |                                        | ``Galperin``           |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.Akv_bak**                       | Minimum/initial value of Akv           | Real number            | 5.0e-6         |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.Akt_bak**                       | Minimum/initial value of Akt           | Real number            | 1.0e-6         |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.bulk_fluxes**                   | Whether to use bulk fluxes             | true / false           | false          |
+|                                          |                                        |                        |                |
+|                                          | parametrization                        |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+
+Passive scalars
+---------------
+
+REMORA always includes temperature and salinity as the first two conserved
+state variables. Passive scalars begin at component ``Tracer_comp = 2``.
+
+The total number of conserved components is
+
+.. math::
+
+   ncons = 2 + \texttt{remora.nscalar}
+
+so ``remora.nscalar`` counts only the passive scalars, not temperature or
+salinity.
+
+For example:
+
+- ``remora.nscalar = 1`` gives ``temp``, ``salt``, and ``tracer``.
+- ``remora.nscalar = 2`` gives ``temp``, ``salt``, ``tracer``, and ``tracer_1``.
+
+Additional passive scalars continue with the names ``tracer_2``,
+``tracer_3``, and so on.
 
 Scaled-to-grid horizontal mixing
 --------------------------------
@@ -861,6 +904,7 @@ as 2D (vertically homogeneous) fields:
 
 - ``visc2`` (horizontal viscosity at rho points)
 - ``diff2_temp``, ``diff2_salt``, ``diff2_tracer`` (horizontal diffusivities at rho points)
+- additional passive scalars appear as ``diff2_tracer_1``, ``diff2_tracer_2``, and so on
 
 .. _list-of-parameters-drag:
 
@@ -988,132 +1032,136 @@ List of surface forcing parameters
 List of Bulk Fluxes parameters
 ------------------------------
 
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| Parameter                        | Definition                             | Acceptable        | Default        |
-|                                  |                                        |                   |                |
-|                                  |                                        | Values            |                |
-+==================================+========================================+===================+================+
-| **remora.air_temperature**       | Air temperature [C] (used as           | Real number       | 23.567         |
-|                                  |                                        |                   |                |
-|                                  | uniform value if                       |                   |                |
-|                                  |                                        |                   |                |
-|                                  | **Tair_from_netcdf** is false)         |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.air_humidity**          | Relative humidity of air               | Real number       | 0.776          |
-|                                  |                                        |                   |                |
-|                                  | (used as uniform value if              | from 0 to 1       |                |
-|                                  |                                        |                   |                |
-|                                  | **qair_from_netcdf** is false)         |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.air_pressure**          | Air pressure [hPa] (used as            | Real number       | 1013.48        |
-|                                  |                                        |                   |                |
-|                                  | uniform value if                       |                   |                |
-|                                  |                                        |                   |                |
-|                                  | **Pair_from_netcdf** is false)         |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.surface_radiation_flux**| Shortwave radiation flux [W/m^2]       | Real number       | 0.0            |
-|                                  |                                        |                   |                |
-|                                  | (used as uniform value if              |                   |                |
-|                                  |                                        |                   |                |
-|                                  | **srflx_from_netcdf** is false)        |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.Tair_from_netcdf**      | Load air temperature from NetCDF       | true / false      | false          |
-|                                  |                                        |                   |                |
-|                                  | file                                   |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.qair_from_netcdf**      | Load air humidity from NetCDF          | true / false      | false          |
-|                                  |                                        |                   |                |
-|                                  | file                                   |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.qair_is_percent**       | Convert qair from percentage           | true / false      | false          |
-|                                  |                                        |                   |                |
-|                                  | (0-100) to fraction (0-1).             |                   |                |
-|                                  |                                        |                   |                |
-|                                  | Only used if                           |                   |                |
-|                                  |                                        |                   |                |
-|                                  | **qair_from_netcdf** is true           |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.Pair_from_netcdf**      | Load air pressure from NetCDF          | true / false      | false          |
-|                                  |                                        |                   |                |
-|                                  | file                                   |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.srflx_from_netcdf**     | Load shortwave radiation flux          | true / false      | false          |
-|                                  |                                        |                   |                |
-|                                  | from NetCDF file                       |                   |                |
-|                                  |                                        |                   |                |
-|                                  |                                        |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.longwave_down**         | Use file-provided downward longwave    | true / false      | false          |
-|                                  | radiation to compute net longwave      |                   |                |
-|                                  | (``Lnet = Ldown - sigma*epsilon*T^4``) |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.longwave_down_from_netcdf** | Load longwave field from NetCDF    | true / false      | false          |
-|                                  | file                                   |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.longwave_netcdf_is_net**| Interpret the NetCDF longwave field    | true / false      | false          |
-|                                  | as net longwave (use as-is). If false, |                   |                |
-|                                  | interpret as downward longwave and     |                   |                |
-|                                  | compute net in the bulk flux routine   |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.longwave_netcdf_varname** | Name of the NetCDF longwave variable | String            | ``lwrad``      |
-|                                  | in ``remora.nc_frc_file``              |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.blk_ZQ**                | Height [m] of atmospheric              | Real number       | 10.0           |
-|                                  |                                        |                   |                |
-|                                  | humidity memasurements for             |                   |                |
-|                                  |                                        |                   |                |
-|                                  | bulk fluxes parametrization            |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.blk_ZT**                | Height [m] of atmospheric              | Real number       | 10.0           |
-|                                  |                                        |                   |                |
-|                                  | temperature memasurements              |                   |                |
-|                                  |                                        |                   |                |
-|                                  | bulk fluxes parametrization            |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.blk_ZW**                | Height [m] of atmospheric wind         | Real number       | 10.0           |
-|                                  |                                        |                   |                |
-|                                  | memasurements for bulk fluxes          |                   |                |
-|                                  |                                        |                   |                |
-|                                  | parametrization                        |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.cloud**                 | Cloud cover fraction (0=clear sky,     | Real number       | 0.0            |
-|                                  |                                        |                   |                |
-|                                  | 1=overcast) (used as uniform           | from 0 to 1       |                |
-|                                  |                                        |                   |                |
-|                                  | value if **cloud_from_netcdf**         |                   |                |
-|                                  |                                        |                   |                |
-|                                  | is false)                              |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.rain**                  | Precipitation rate [kg/m^2/s]          | Real number       | 0.0            |
-|                                  |                                        |                   |                |
-|                                  | (used as uniform value if              |                   |                |
-|                                  |                                        |                   |                |
-|                                  | **rain_from_netcdf** is false)         |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.cloud_from_netcdf**     | Load cloud cover from NetCDF           | true / false      | false          |
-|                                  |                                        |                   |                |
-|                                  | file                                   |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.rain_from_netcdf**      | Load precipitation rate from           | true / false      | false          |
-|                                  |                                        |                   |                |
-|                                  | NetCDF file                            |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.EminusP_from_netcdf**   | Load evaporation minus                 | true / false      | false          |
-|                                  |                                        |                   |                |
-|                                  | precipitation from NetCDF file         |                   |                |
-|                                  |                                        |                   |                |
-|                                  |                                        |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.eminusp**               | Whether to do E-P prescription for     | true / false      | false          |
-|                                  |                                        |                   |                |
-|                                  | evaporation/precipiation               |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.eminusp_correct_ssh**   | Whether to adjust sea surface          | true / false      | false          |
-|                                  |                                        |                   |                |
-|                                  | height for amount of evaporation       |                   |                |
-|                                  |                                        |                   |                |
-|                                  | and precipitation                      |                   |                |
-+----------------------------------+----------------------------------------+-------------------+----------------+
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| Parameter                            | Definition                             | Acceptable        | Default        |
+|                                      |                                        |                   |                |
+|                                      |                                        | Values            |                |
++======================================+========================================+===================+================+
+| **remora.air_temperature**           | Air temperature [C] (used as           | Real number       | 23.567         |
+|                                      |                                        |                   |                |
+|                                      | uniform value if                       |                   |                |
+|                                      |                                        |                   |                |
+|                                      | **Tair_from_netcdf** is false)         |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.air_humidity**              | Relative humidity of air               | Real number       | 0.776          |
+|                                      |                                        |                   |                |
+|                                      | (used as uniform value if              | from 0 to 1       |                |
+|                                      |                                        |                   |                |
+|                                      | **qair_from_netcdf** is false)         |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.air_pressure**              | Air pressure [hPa] (used as            | Real number       | 1013.48        |
+|                                      |                                        |                   |                |
+|                                      | uniform value if                       |                   |                |
+|                                      |                                        |                   |                |
+|                                      | **Pair_from_netcdf** is false)         |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.surface_radiation_flux**    | Shortwave radiation flux [W/m^2]       | Real number       | 0.0            |
+|                                      |                                        |                   |                |
+|                                      | (used as uniform value if              |                   |                |
+|                                      |                                        |                   |                |
+|                                      | **srflx_from_netcdf** is false)        |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.Tair_from_netcdf**          | Load air temperature from NetCDF       | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | file                                   |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.qair_from_netcdf**          | Load air humidity from NetCDF          | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | file                                   |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.qair_is_percent**           | Convert qair from percentage           | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | (0-100) to fraction (0-1).             |                   |                |
+|                                      |                                        |                   |                |
+|                                      | Only used if                           |                   |                |
+|                                      |                                        |                   |                |
+|                                      | **qair_from_netcdf** is true           |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.Pair_from_netcdf**          | Load air pressure from NetCDF          | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | file                                   |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.srflx_from_netcdf**         | Load shortwave radiation flux          | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | from NetCDF file                       |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.longwave_down**             | Use file-provided downward longwave    | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | radiation to compute net longwave      |                   |                |
+|                                      |                                        |                   |                |
+|                                      | (``Lnet = Ldown - sigma*epsilon*T^4``) |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.longwave_down_from_netcdf** | Load longwave field from NetCDF        | true / false      | false          |
+|                                      | file                                   |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.longwave_netcdf_is_net**    | Interpret the NetCDF longwave field    | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | as net longwave (use as-is). If false, |                   |                |
+|                                      |                                        |                   |                |
+|                                      | interpret as downward longwave and     |                   |                |
+|                                      |                                        |                   |                |
+|                                      | compute net in the bulk flux routine   |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.longwave_netcdf_varname**   | Name of the NetCDF longwave variable   | String            | ``lwrad``      |
+|                                      |                                        |                   |                |
+|                                      | in ``remora.nc_frc_file``              |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.blk_ZQ**                    | Height [m] of atmospheric              | Real number       | 10.0           |
+|                                      |                                        |                   |                |
+|                                      | humidity memasurements for             |                   |                |
+|                                      |                                        |                   |                |
+|                                      | bulk fluxes parametrization            |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.blk_ZT**                    | Height [m] of atmospheric              | Real number       | 10.0           |
+|                                      |                                        |                   |                |
+|                                      | temperature memasurements              |                   |                |
+|                                      |                                        |                   |                |
+|                                      | bulk fluxes parametrization            |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.blk_ZW**                    | Height [m] of atmospheric wind         | Real number       | 10.0           |
+|                                      |                                        |                   |                |
+|                                      | memasurements for bulk fluxes          |                   |                |
+|                                      |                                        |                   |                |
+|                                      | parametrization                        |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.cloud**                     | Cloud cover fraction (0=clear sky,     | Real number       | 0.0            |
+|                                      |                                        |                   |                |
+|                                      | 1=overcast) (used as uniform           | from 0 to 1       |                |
+|                                      |                                        |                   |                |
+|                                      | value if **cloud_from_netcdf**         |                   |                |
+|                                      |                                        |                   |                |
+|                                      | is false)                              |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.rain**                      | Precipitation rate [kg/m^2/s]          | Real number       | 0.0            |
+|                                      |                                        |                   |                |
+|                                      | (used as uniform value if              |                   |                |
+|                                      |                                        |                   |                |
+|                                      | **rain_from_netcdf** is false)         |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.cloud_from_netcdf**         | Load cloud cover from NetCDF           | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | file                                   |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.rain_from_netcdf**          | Load precipitation rate from           | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | NetCDF file                            |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.EminusP_from_netcdf**       | Load evaporation minus                 | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | precipitation from NetCDF file         |                   |                |
+|                                      |                                        |                   |                |
+|                                      |                                        |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.eminusp**                   | Whether to do E-P prescription for     | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | evaporation/precipiation               |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.eminusp_correct_ssh**       | Whether to adjust sea surface          | true / false      | false          |
+|                                      |                                        |                   |                |
+|                                      | height for amount of evaporation       |                   |                |
+|                                      |                                        |                   |                |
+|                                      | and precipitation                      |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
 
 .. note::
 
@@ -1122,8 +1170,9 @@ List of Bulk Fluxes parameters
    **srflx_from_netcdf**, **longwave_down_from_netcdf**,
    **rain_from_netcdf**, **cloud_from_netcdf**, or **EminusP_from_netcdf**
    to true), these variables are read from the file
-   specified by **remora.nc_frc_file** (see :ref:`list-of-parameters surface-forcing`).
-   The NetCDF file must contain variables named ``Tair``, ``qair``, ``Pair``,
+   or files specified by **remora.nc_frc_file** (see :ref:`list-of-parameters surface-forcing`).
+   If multiple forcing files are provided, REMORA concatenates their time axes in
+   the order listed in the inputs file. The NetCDF data must contain variables named ``Tair``, ``qair``, ``Pair``,
    ``swrad``, ``rain``, ``cloud``, and ``EminusP`` respectively, with the same
    spatial dimensions as the level 0 (coarsest) model grid. If atmospheric forcing
    is not loaded from NetCDF files, spatially uniform constant values can be
@@ -1237,11 +1286,11 @@ List of Parameters
 |                                       |                             |              |                           |
 |                                       | to climatology              |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.nc_clim_his_file**           | NetCDF file name for        | string       | must be set if one of     |
+| **remora.nc_clim_his_file**           | NetCDF file name(s) for     | string or    | must be set if one of     |
 |                                       |                             |              |                           |
-|                                       | climatology data            |              | ``do_*_clim_nudg``        |
+|                                       | climatology data            | list         | ``do_*_clim_nudg``        |
 |                                       |                             |              |                           |
-|                                       |                             |              | flags is true             |
+|                                       |                             | of strings   | flags is true             |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
 | **remora.nc_clim_coeff_file**         | NetCDF file name for        | string       | must be set if one of     |
 |                                       |                             |              |                           |
@@ -1282,7 +1331,9 @@ List of Parameters
 
    For AMR runs, climatology fields are read on level 0 and temporally
    interpolated there. REMORA then interpolates those fields to finer AMR
-   levels for nudging updates.
+   levels for nudging updates. ``remora.nc_clim_his_file`` may be a single file
+   or a space-separated list of files. When multiple files are provided, they
+   must be listed in time series order.
 
 Rivers (point sources)
 ======================
@@ -1302,9 +1353,9 @@ These parameters are used to configure NetCDF-specified river-like point sources
 |                             |                                  |              |                                   |
 |                             | apply momentum                   |              |                                   |
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
-| **remora.nc_river_file**    | NetCDF file for river sources    | string       | must be set if                    |
+| **remora.nc_river_file**    | NetCDF file(s) for river         | string or    | must be set if                    |
 |                             |                                  |              |                                   |
-|                             |                                  |              | ``do_rivers``                     |
+|                             | sources                          | list         | ``do_rivers``                     |
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
 | **remora.riv_time_varname** | Name of time variable            | string       | ``river_time``                    |
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
@@ -1320,6 +1371,12 @@ These parameters are used to configure NetCDF-specified river-like point sources
 |                             |                                  |              |                                   |
 |                             | scalar sources                   |              | if ``do_rivers``                  |
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
+
+.. note::
+
+   ``remora.nc_river_file`` may be either a single file or a space-separated
+   list of files. If multiple river files are provided, they must be listed in
+   time series order.
 
 Runtime Error Checking
 ======================

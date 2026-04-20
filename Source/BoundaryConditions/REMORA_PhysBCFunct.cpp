@@ -7,8 +7,8 @@ using namespace amrex;
 /**
  * @param[inout] mf          multifab to be filled
  * @param[in   ] msk         land/sea mask for the variable
- * @param[in   ] icomp       index into the MultiFab -- if cell-centered this can be any value from 0 to NCONS-1, if face-centered can be any value from 0 to 2 (inclusive)
- * @param[in   ] ncomp       number of components -- if cell-centered this can be any value from 1 to NCONS as long as icomp+ncomp <= NCONS-1.  If face-centered this must be 1
+ * @param[in   ] icomp       index into the MultiFab -- if cell-centered this can be any value from 0 to nComp()-1, if face-centered can be any value from 0 to 2 (inclusive)
+ * @param[in   ] ncomp       number of components -- if cell-centered this can be any value from 1 to nComp(). If face-centered this must be 1
  * @param[in   ] nghost      how many ghost cells to be filled
  * @param[in   ] time        time at which the data should be filled
  * @param[in   ] bccomp      index into both domain_bcs_type_bcr and bc_extdir_vals for icomp = 0 so this follows the BCVars enum
@@ -31,7 +31,7 @@ void REMORAPhysBCFunct::operator() (MultiFab& mf, const MultiFab& msk, int icomp
     // Create a grown domain box containing valid + periodic cells
     Box gdomain = amrex::convert(domain, mf.boxArray().ixType());
     for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-        if (m_geom.isPeriodic(i) and bccomp != BCVars::foextrap_bc) {
+        if (m_geom.isPeriodic(i) and bccomp != BCVars::foextrap_bc(m_ncons)) {
             gdomain.grow(i, nghost[i]);
         }
     }

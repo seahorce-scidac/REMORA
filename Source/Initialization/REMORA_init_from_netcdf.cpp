@@ -85,8 +85,7 @@ read_clim_nudg_coeff_from_netcdf (int lev, const Box& domain, const std::string&
                                   FArrayBox& NC_SaltNC_fab);
 
 /** \brief helper function to read in vector of data from netcdf */
-//template <typename DType>
-void read_vec_from_netcdf (int lev, const std::string& fname, const std::string& field_name, amrex::Vector<int>& vec_dat);
+void read_vec_from_netcdf (int lev, const amrex::Vector<std::string>& fnames, const std::string& field_name, amrex::Vector<int>& vec_dat);
 
 /**
  * @param lev Integer specifying the current level
@@ -137,6 +136,10 @@ REMORA::init_data_from_netcdf (int lev)
                                NC_ubar_fab, NC_vbar_fab);
     } // mf
     } // omp
+
+    if (nscalar > 1) {
+        cons_new[lev]->setVal(0.0_rt, Tracer_comp + 1, nscalar - 1, cons_new[lev]->nGrowVect());
+    }
 }
 
 /**
@@ -173,17 +176,17 @@ REMORA::init_zeta_from_netcdf (int lev)
     } // idx
 
     vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
-    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc,0,*vec_zeta[lev],*vec_msku[lev],*vec_mskv[lev]);
+    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),0,1,vec_zeta[lev]->nGrowVect(),t_new[lev],zeta_bc(),0,*vec_zeta[lev],*vec_msku[lev],*vec_mskv[lev]);
 //    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),1,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
 //    (*physbcs[lev])(*vec_zeta[lev],*vec_mskr[lev].get(),2,1,vec_zeta[lev]->nGrowVect(),t_new[lev],BCVars::zeta_bc);
 
     if (solverChoice.boundary_from_netcdf) {
         Real told = t_new[lev];
-        fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,0,0,
+        fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, zeta_bc(),BdyVars::zeta,0,0,
                            *vec_zeta[lev]);
     }
     if (lev>0) {
-        FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), BCVars::zeta_bc, BdyVars::zeta,
+        FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
                   0, false,false,0,0,0.0,*vec_zeta[lev]);
     }
 //    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
@@ -266,18 +269,18 @@ REMORA::init_bathymetry_from_netcdf (int lev)
     // Unconditional foextrap will overwrite periodicity, but EnforcePeriodicity will
     // be called on h afterwards
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-            BCVars::foextrap_periodic_bc,
+            foextrap_periodic_bc(),
             BdyVars::null,0,false,true,1);
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-            BCVars::foextrap_periodic_bc,
+            foextrap_periodic_bc(),
             BdyVars::null,1,false,true,1);
 
     if (lev > 0) {
         FillPatch(lev,dummy_time,*vec_pm[lev],GetVecOfPtrs(vec_pm),
-                BCVars::foextrap_periodic_bc,
+                foextrap_periodic_bc(),
                 BdyVars::null,0,false,true);
         FillPatch(lev,dummy_time,*vec_pn[lev],GetVecOfPtrs(vec_pn),
-                BCVars::foextrap_periodic_bc,
+                foextrap_periodic_bc(),
                 BdyVars::null,0,false,true);
     }
 
@@ -444,7 +447,7 @@ REMORA::init_masks_from_netcdf (int lev)
 void
 REMORA::init_bdry_from_netcdf (int lev)
 {
-    if (nc_bdry_file.empty()) {
+    if (nc_bdry_file.empty() || nc_bdry_file[0].empty()) {
         amrex::Error("NetCDF boundary file name must be provided via input");
     }
 

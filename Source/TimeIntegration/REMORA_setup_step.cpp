@@ -29,7 +29,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t);
     FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
     FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
-    FillPatch(lev, time, *zvel_old[lev], zvel_old, BCVars::zvel_bc, BdyVars::null);
+    FillPatch(lev, time, *zvel_old[lev], zvel_old, zvel_bc(), BdyVars::null);
 
     //////////    //pre_step3d corrections to boundaries
 
@@ -305,8 +305,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             });
         }
     }
-    FillPatch(lev, time, *vec_bustr[lev].get(), GetVecOfPtrs(vec_bustr), BCVars::u2d_simple_bc, BdyVars::null,0,true,false);
-    FillPatch(lev, time, *vec_bvstr[lev].get(), GetVecOfPtrs(vec_bvstr), BCVars::v2d_simple_bc, BdyVars::null,0,true,false);
+    FillPatch(lev, time, *vec_bustr[lev].get(), GetVecOfPtrs(vec_bustr), u2d_simple_bc(), BdyVars::null,0,true,false);
+    FillPatch(lev, time, *vec_bvstr[lev].get(), GetVecOfPtrs(vec_bvstr), v2d_simple_bc(), BdyVars::null,0,true,false);
 
     if (solverChoice.vert_mixing_type == VertMixingType::analytic) {
         // Update Akv if using analytic mixing
@@ -332,7 +332,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // We use FillBoundary not FillPatch here since mf_W is single-level scratch space
     mf_W.FillBoundary(geom[lev].periodicity());
-    (*physbcs[lev])(mf_W,*mf_mskr.get(),0,1,mf_W.nGrowVect(),t_new[lev],BCVars::zvel_bc);
+    (*physbcs[lev])(mf_W,*mf_mskr.get(),0,1,mf_W.nGrowVect(),t_new[lev],zvel_bc());
 
 #ifdef REMORA_USE_NETCDF
     // Get u and v climatology if we're going to do nudging
@@ -447,10 +447,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real> const& s_arr_rhs = S_old.array(mfi);
         Array4<Real> const& diff2_arr = vec_diff2[lev]->array(mfi);
 
-        t3dmix(bx, s_arr, s_arr_rhs, diff2_arr, Hz, pm, pn, msku, mskv, dt_lev, ncomp);
+        t3dmix2(bx, s_arr, s_arr_rhs, diff2_arr, Hz, z_r, pm, pn, msku, mskv, dt_lev, ncomp, N);
 
-        Array4<Real> const& diff2_arr_scalar = vec_diff2[lev]->array(mfi,Tracer_comp);
-        t3dmix(bx, S_new.array(mfi,Tracer_comp), S_old.array(mfi,Tracer_comp), diff2_arr_scalar, Hz, pm, pn, msku, mskv, dt_lev, 1);
+        for (int itrac = Tracer_comp; itrac < ncons; ++itrac) {
+            Array4<Real> const& diff2_arr_scalar = vec_diff2[lev]->array(mfi,itrac);
+            t3dmix2(bx, S_new.array(mfi,itrac), S_old.array(mfi,itrac), diff2_arr_scalar, Hz, z_r, pm, pn, msku, mskv, dt_lev, 1, N);
+        }
 
         if (solverChoice.use_coriolis) {
             //-----------------------------------------------------------------------

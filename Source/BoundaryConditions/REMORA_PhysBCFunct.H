@@ -25,12 +25,19 @@ public:
     REMORAPhysBCFunct (const int lev,
                       const amrex::Geometry& geom, const amrex::Vector<amrex::BCRec>& domain_bcs_type,
                       const amrex::Gpu::DeviceVector<amrex::BCRec>& domain_bcs_type_d,
-                      amrex::Array<amrex::Array<amrex::Real,AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS+8> bc_extdir_vals
+                      const amrex::Vector<amrex::GpuArray<amrex::Real,AMREX_SPACEDIM*2>>& bc_extdir_vals,
+                      int ncons
                     )
         : m_lev(lev), m_geom(geom), m_domain_bcs_type(domain_bcs_type),
           m_domain_bcs_type_d(domain_bcs_type_d),
-          m_bc_extdir_vals(bc_extdir_vals)
-          {}
+          m_bc_extdir_vals(bc_extdir_vals),
+          m_ncons(ncons)
+    {
+        m_bc_extdir_vals_d.resize(m_bc_extdir_vals.size());
+        amrex::Gpu::copy(amrex::Gpu::hostToDevice,
+                         m_bc_extdir_vals.begin(), m_bc_extdir_vals.end(),
+                         m_bc_extdir_vals_d.begin());
+    }
 
     ~REMORAPhysBCFunct () {}
 
@@ -71,7 +78,9 @@ private:
     amrex::Geometry      m_geom;
     amrex::Vector<amrex::BCRec>            m_domain_bcs_type;
     amrex::Gpu::DeviceVector<amrex::BCRec> m_domain_bcs_type_d;
-    amrex::Array<amrex::Array<amrex::Real, AMREX_SPACEDIM*2>,AMREX_SPACEDIM+NCONS+8> m_bc_extdir_vals;
+    amrex::Vector<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM*2>> m_bc_extdir_vals;
+    amrex::Gpu::DeviceVector<amrex::GpuArray<amrex::Real, AMREX_SPACEDIM*2>> m_bc_extdir_vals_d;
+    int m_ncons;
 };
 
 #endif

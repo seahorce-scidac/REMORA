@@ -10,7 +10,7 @@ Nudging to climatology
 
 REMORA supports nudging to climatology both on the boundaries and in an interior sponge region. Nudging at the boundaries is discussed in :ref:`Boundary Conditions<sec:domainBCs>`.
 
-The climatology history and nudging coefficients are read from NetCDF files. The nudging coefficients are expected to be in units of 1/day, as in ROMS.
+The climatology history and nudging coefficients are read from NetCDF files. The climatology history may come from a single file or a time-ordered list of files. The nudging coefficients are expected to be in units of 1/day, as in ROMS.
 
 For AMR runs, climatology fields are read and temporally interpolated on level 0, then interpolated to higher AMR levels as needed. This allows one climatology dataset on the coarse grid to drive nudging on all levels.
 
@@ -43,4 +43,3 @@ The 3D velocity components are updated in the right-hand side term ``ru`` accord
    \mathrm{RHS}_{u} = \mathrm{RHS}_{u} + C_{\mathrm{M3}} \frac{H_{z}}{mn} \left(u_{\mathrm{clim}} - u_{\mathrm{old}}\right)
 
 or similar for v. :math:`C_{\mathrm{M3}}` is the nudging coefficient and :math:`u_{\mathrm{clim}}` is the climatology value read from file. :math:`\mathrm{RHS}_{u}` is the variable ``ru`` and :math:`u_{\mathrm{old}}` is the value of :math:`u` at the prior time step.
-

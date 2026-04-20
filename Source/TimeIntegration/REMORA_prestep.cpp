@@ -66,8 +66,8 @@ REMORA::prestep (int lev,
     MultiFab mf_saltcache(ba,dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_tempcache(ba,dm,1,IntVect(NGROW,NGROW,0));
 
-    MultiFab mf_scalarcache(ba,dm,NCONS,IntVect(NGROW,NGROW,0));
-    MultiFab::Copy(mf_scalarcache,S_new,0,0,NCONS,IntVect(NGROW,NGROW,0));
+    MultiFab mf_scalarcache(ba,dm,ncons,IntVect(NGROW,NGROW,0));
+    MultiFab::Copy(mf_scalarcache,S_new,0,0,ncons,IntVect(NGROW,NGROW,0));
 
     MultiFab::Copy(mf_saltcache,S_new,Salt_comp,0,1,IntVect(NGROW,NGROW,0));
     MultiFab::Copy(mf_tempcache,S_new,Temp_comp,0,1,IntVect(NGROW,NGROW,0));
@@ -141,7 +141,7 @@ REMORA::prestep (int lev,
         auto FC=fab_FC.array();
 
 
-        for (int i_comp=0; i_comp < NCONS; i_comp++) {
+        for (int i_comp=0; i_comp < ncons; i_comp++) {
             Array4<Real> const& sstore = (vec_sstore[lev])->array(mfi,i_comp);
 #ifdef REMORA_USE_NETCDF
             FArrayBox* fab_river_source;
@@ -163,7 +163,7 @@ REMORA::prestep (int lev,
         }
 
         // Only do diffusion for salt and temperature, not other tracer(s)
-        for (int i_comp=0; i_comp < NCONS; i_comp++) {
+        for (int i_comp=0; i_comp < ncons; i_comp++) {
             const Array4<Real const>& stflx = vec_stflx[lev]->const_array(mfi,i_comp);
             const Array4<Real const>& btflx = vec_btflx[lev]->const_array(mfi,i_comp);
             prestep_diffusion(bx,gbx,0,0,S_new.array(mfi,i_comp), S_old.array(mfi,i_comp), ru,

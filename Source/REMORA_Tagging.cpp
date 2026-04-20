@@ -38,13 +38,13 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         } else if (ref_tags[j].Field() == "salt") {
             MultiFab::Copy(*mf,*cons_new[levc],Salt_comp,0,1,1);
         } else if (ref_tags[j].Field() == "x_velocity") {
-            FillPatch(levc, time, *xvel_new[levc], xvel_new, BCVars::xvel_bc, BdyVars::u,0,true,true);
+            FillPatch(levc, time, *xvel_new[levc], xvel_new, xvel_bc(), BdyVars::u,0,true,true);
             MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,1);
         } else if (ref_tags[j].Field() == "y_velocity") {
-            FillPatch(levc, time, *yvel_new[levc], yvel_new, BCVars::yvel_bc, BdyVars::v,0,true,true);
+            FillPatch(levc, time, *yvel_new[levc], yvel_new, yvel_bc(), BdyVars::v,0,true,true);
             MultiFab::Copy(*mf,*yvel_new[levc],0,0,1,1);
         } else if (ref_tags[j].Field() == "z_velocity") {
-            FillPatch(levc, time, *zvel_new[levc], zvel_new, BCVars::zvel_bc, BdyVars::null,0,true,true);
+            FillPatch(levc, time, *zvel_new[levc], zvel_new, zvel_bc(), BdyVars::null,0,true,true);
             MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,1);
         } else if (ref_tags[j].Field() == "vorticity") {
             MultiFab mf_cc_vel(grids[levc],dmap[levc],3,1);
@@ -388,4 +388,3 @@ REMORA::refinement_criteria_setup ()
         ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,"mask",info));
     } // if max_level > 0
 }
-
