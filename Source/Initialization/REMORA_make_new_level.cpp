@@ -98,10 +98,10 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
         ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1);
         ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1);
         FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-                BCVars::foextrap_periodic_bc,
+                foextrap_periodic_bc(),
                 BdyVars::null,0,false,true,1);
         FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-                BCVars::foextrap_periodic_bc,
+                foextrap_periodic_bc(),
                 BdyVars::null,1,false,true,1);
         vec_h[lev]->FillBoundary(geom[lev].periodicity());
         vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
@@ -289,10 +289,10 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
         ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1);
         ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1);
         FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-                BCVars::foextrap_periodic_bc,
+                foextrap_periodic_bc(),
                 BdyVars::null,0,false,true,1);
         FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-                BCVars::foextrap_periodic_bc,
+                foextrap_periodic_bc(),
                 BdyVars::null,1,false,true,1);
         vec_h[lev]->FillBoundary(geom[lev].periodicity());
         vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());

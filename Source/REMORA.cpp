@@ -571,10 +571,10 @@ REMORA::set_bathymetry_averaged_down (int lev) {
     ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1,IntVect(1,1,0),IntVect(1,1,0));
     print_state(*vec_h[lev],IntVect(-1,0,0),0,IntVect(1,1,0));
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-            BCVars::foextrap_periodic_bc,
+            foextrap_periodic_bc(),
             BdyVars::null,0,false,true,1);
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-            BCVars::foextrap_periodic_bc,
+            foextrap_periodic_bc(),
             BdyVars::null,1,false,true,1);
 }
 
@@ -1134,8 +1134,8 @@ REMORA::init_only (int lev, Real time)
             Uwind_data_from_file->Initialize();
             Vwind_data_from_file->Initialize();
         } else {
-            FillCoarsePatch(lev, time, vec_uwind[lev].get(), vec_uwind[lev-1].get(), BCVars::foextrap_bc);
-            FillCoarsePatch(lev, time, vec_vwind[lev].get(), vec_vwind[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_uwind[lev].get(), vec_uwind[lev-1].get(), foextrap_bc());
+            FillCoarsePatch(lev, time, vec_vwind[lev].get(), vec_vwind[lev-1].get(), foextrap_bc());
         }
     } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
         if (lev==0) {
@@ -1147,8 +1147,8 @@ REMORA::init_only (int lev, Real time)
             sustr_data_from_file->Initialize();
             svstr_data_from_file->Initialize();
         } else {
-            FillCoarsePatch(lev, time, vec_sustr[lev].get(), vec_sustr[lev-1].get(), BCVars::foextrap_bc);
-            FillCoarsePatch(lev, time, vec_svstr[lev].get(), vec_svstr[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_sustr[lev].get(), vec_sustr[lev-1].get(), foextrap_bc());
+            FillCoarsePatch(lev, time, vec_svstr[lev].get(), vec_svstr[lev-1].get(), foextrap_bc());
         }
     }
 
@@ -1184,25 +1184,25 @@ REMORA::init_only (int lev, Real time)
         }
     } else {
         if (solverChoice.Tair_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_Tair[lev].get(), vec_Tair[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_Tair[lev].get(), vec_Tair[lev-1].get(), foextrap_bc());
         }
         if (solverChoice.qair_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_qair[lev].get(), vec_qair[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_qair[lev].get(), vec_qair[lev-1].get(), foextrap_bc());
         }
         if (solverChoice.Pair_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_Pair[lev].get(), vec_Pair[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_Pair[lev].get(), vec_Pair[lev-1].get(), foextrap_bc());
         }
         if (solverChoice.srflx_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_srflx[lev].get(), vec_srflx[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_srflx[lev].get(), vec_srflx[lev-1].get(), foextrap_bc());
         }
         if (solverChoice.rain_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_rain[lev].get(), vec_rain[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_rain[lev].get(), vec_rain[lev-1].get(), foextrap_bc());
         }
         if (solverChoice.cloud_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_cloud[lev].get(), vec_cloud[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_cloud[lev].get(), vec_cloud[lev-1].get(), foextrap_bc());
         }
         if (solverChoice.EminusP_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_EminusP[lev].get(), vec_EminusP[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_EminusP[lev].get(), vec_EminusP[lev-1].get(), foextrap_bc());
         }
     }
     if (solverChoice.longwave_down_from_netcdf) {
@@ -1214,7 +1214,7 @@ REMORA::init_only (int lev, Real time)
                                                                 geom[lev].Domain(), vec_longwave_down[lev].get(), true, false));
             longwave_down_data_from_file->Initialize();
         } else {
-            FillCoarsePatch(lev, time, vec_longwave_down[lev].get(), vec_longwave_down[lev-1].get(), BCVars::foextrap_bc);
+            FillCoarsePatch(lev, time, vec_longwave_down[lev].get(), vec_longwave_down[lev-1].get(), foextrap_bc());
         }
     }
 
