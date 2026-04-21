@@ -803,7 +803,9 @@ List of Parameters
 |                                          | is calculated along s- or geopotential | ``geopotential``       |                |
 |                                          |                                        |                        |                |
 |                                          | surfaces.                              |                        |                |
+
 +------------------------------------------+----------------------------------------+------------------------+----------------+
+
 | **remora.vertical_mixing_type**          | Vertical mixing type. ``analytic``     | ``analytic`` /         | ``analytic``   |
 |                                          |                                        |                        |                |
 |                                          | function is specified in               | ``GLS``                |                |
@@ -863,23 +865,20 @@ scaling horizontal harmonic mixing coefficients by the grid cell area.
    \nu(i,j) = \nu_0 \frac{G(i,j)}{\max(G)}, \qquad
    \kappa_n(i,j) = \kappa_{0,n} \frac{G(i,j)}{\max(G)}
 
-where :math:`\\nu_0` is ``remora.visc2`` and :math:`\\kappa_{0,n}` are the tracer diffusivities
+where :math:`\nu_0` is ``remora.visc2`` and :math:`\kappa_{0,n}` are the tracer diffusivities
 (``remora.tnu2_temp``, ``remora.tnu2_salt``, ``remora.tnu2_scalar``). This ensures the *maximum*
 coefficient over the normalization region equals the user-specified value, while varying spatially
 with grid size. Note that if the largest cell area occurs over land, then the maximum over *wet*
 cells (and thus what you see after applying ``mask_rho`` in post-processing) may be smaller than
 the user-specified value.
 
-Implementation details
-^^^^^^^^^^^^^^^^^^^^^^
-
 - The normalization ``max(G)`` is computed as a global maximum over the level-0 grid (rho points at
   the surface, i.e. ``k=0``) and does not use land/sea masks. Equivalently, it uses the maximum grid-cell
-  area :math:`A(i,j) = 1/(pm\,pn)` via :math:`\\max(G)=\\sqrt{\\max(A)}`.
+  area :math:`A(i,j) = 1/(pm\,pn)` via :math:`\max(G)=\sqrt{\max(A)}`.
 
 - AMR refinement scaling: if ``remora.scaled_to_grid_amr_scaling = "linear"``, then on AMR level
-  :math:`\\ell` the coefficients are additionally scaled by the cumulative horizontal refinement ratio,
-  :math:`1/\\prod_{m<\\ell}\\sqrt{r_x(m)\,r_y(m)}`. For example, with a refinement ratio of ``5 5 1``,
+  :math:`\ell` the coefficients are additionally scaled by the cumulative horizontal refinement ratio,
+  :math:`1/\prod_{m<\ell}\sqrt{r_x(m)\,r_y(m)}`. For example, with a refinement ratio of ``5 5 1``,
   level 1 coefficients are reduced by a factor of 5 relative to level 0.
 
 - Ghost cells for the coefficient fields are filled using the same periodic/foextrap boundary fill
@@ -893,6 +892,80 @@ as 2D (vertically homogeneous) fields:
 - ``visc2`` (horizontal viscosity at rho points)
 - ``diff2_temp``, ``diff2_salt``, ``diff2_tracer`` (horizontal diffusivities at rho points)
 - additional passive scalars appear as ``diff2_tracer_1``, ``diff2_tracer_2``, and so on
+
+Geopotential rotated harmonic tracer diffusion
+-------------------------------------
+
+Harmonic tracer diffusion can be performed along geopotential (constant-:math:`z`)
+surfaces when ``remora.harmonic_mixing_type = "geopotential"``. 
+This is to prevent spurious diapycnal mixing over steeply sloping bathymetry
+where the :math:`s` layers intersect with isopycnal surfaces. ROMS equivalent of ``MIX_GEO_TS``
+as shown in ``Nonlinear/t3dmix2_geo.h``, but documentation is lacking in ROMS. REMORA discretizes a rotated diffusion
+operator that corrects horizontal gradients with the surface slopes. Let :math:`z_r(i,j,k)` be the
+geopotential (rho-point) coordinate. Horizontal slopes are approximated as
+
+.. math::
+
+   S_x \equiv dZdx \approx c_x\,(z_r(i,j,k)-z_r(i-1,j,k)),
+   \qquad
+   S_y \equiv dZde \approx c_y\,(z_r(i,j,k)-z_r(i,j-1,k)),
+
+where :math:`c_x` and :math:`c_y` are geometric scaling factors that convert grid-space
+differences into physical-space slopes. In the discrete implementation they are constructed
+from averaged inverse grid spacing and staggered land–sea masks:
+
+.. math::
+
+   c_x(i,j) = \tfrac{1}{2}\left(pm(i,j) + pm(i-1,j)\right)\, msku(i,j)
+
+   c_y(i,j) = \tfrac{1}{2}\left(pn(i,j) + pn(i,j-1)\right)\, mskv(i,j)
+
+The rotated surface-gradient yields, in continuous form,
+
+.. math::
+
+   F_x = -K\; H\; (\partial_x T - S_x\;\partial_z T),
+   \qquad
+   F_y = -K\; H\; (\partial_y T - S_y\;\partial_z T),
+
+with :math:`K(x,y,z)` the harmonic diffusivity and :math:`H` the face-averaged vertical cell thickness (``Hz``).
+
+Temporary arrays store centered horizontal differences (``dTdx``, ``dTde``), vertical differences (``dTdz``), and
+horizontal slopes (``dZdx``, ``dZde``). Diffusivity is averaged to faces and multiplied by
+metric factors. The x-face flux (code array ``FX``) is constructed as a face-average of
+diffusivity and thickness times a corrected horizontal difference:
+
+.. math::
+
+   FX_{i+1/2,j,k} \propto (\bar K)_{i+1/2,j,k}\,(H_{i+1/2}+H_{i-1/2})\;\bigl(dTdx_{i+1/2,j,k} - \mathcal{U}\{S_x\}\bigr),
+
+where the bracketed correction is a sign-aware average of nearby vertical gradients. REMORA uses
+min/max selections to pick an upwind-like two-layer vertical stencil based on the sign of the
+local slope, e.g.
+
+.. math::
+
+   \mathcal{U}\{S_x\} = \tfrac{1}{2}\Big(\min(S_x,0)\,(dTdz_{\text{down}}+dTdz_{\text{up}+1}) +\max(S_x,0)\,(dTdz_{\text{down}+1}+dTdz_{\text{up}})\Big).
+
+The y-face flux ``FE`` is computed analogously using :math:`S_y`. A separate vertical coupling term
+``FS`` collects slope-conditioned coupling from both x- and y-directions; it is assembled using
+min/max factorizations so that the vertical contribution uses the appropriate neighbor horizontal
+differences. Finally, REMORA applies the divergence of these fluxes and updates the tracer with
+the time-step multiplier and horizontal metric factors (``dt_lev*pm*pn``):
+
+.. math::
+
+   T^{n+1}_{i,j,k} = T^{n}_{i,j,k} + \Delta t\;\bigl(\nabla\cdot\mathbf{F}\bigr)_{i,j,k}.
+
+Remarks
+
+- The min/max selection acts as a monotonic upwind-like choice to avoid unstable combinations of
+  slopes and vertical gradients; it is not a full flux-limiter but stabilizes the staggered-grid
+  stencil.
+- Diffusivity is face-averaged before multiplying by metric factors, which reduces odd-even
+  decoupling for heterogeneous diffusivities.
+- The implementation computes temporaries per component and then performs a single divergence
+  update inside an AMReX `ParallelFor` kernel.
 
 .. _list-of-parameters-drag:
 
