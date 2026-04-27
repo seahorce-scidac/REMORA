@@ -5,6 +5,9 @@ REMORA now ships a generated master template at ``Exec/Generic/inputs_generic``.
 This file is intended as a comprehensive, ROMS-style reference inputs file that
 lists all currently discovered ``ParmParse`` parameters.
 
+This is reference material for case setup and parameter discovery, not a fixed
+workflow contract.
+
 Generation Flow
 ---------------
 
@@ -42,4 +45,4 @@ CI Validation
 -------------
 
 GitHub Actions workflow ``generic-inputs-validate.yml`` regenerates
-``Exec/Generic/inputs_generic`` and fails if the file is stale.
+``Exec/Generic/inputs_generic`` and reports when the file is stale.
