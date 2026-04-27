@@ -1,0 +1,43 @@
+name: Generic Inputs Validate
+
+on:
+  pull_request:
+    branches: [development]
+    paths:
+      - "Source/**"
+      - "Submodules/AMReX/Src/**"
+      - "Exec/Generic/**"
+      - "Docs/sphinx_doc/Inputs.rst"
+      - ".github/workflows/generic-inputs-validate.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.head_ref }}-generic-inputs
+  cancel-in-progress: true
+
+jobs:
+  validate-generic-inputs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run schema unit tests
+        run: |
+          python3 -m unittest Exec/Generic/tests/test_build_schema_remora.py
+
+      - name: Regenerate schema and generic inputs
+        run: |
+          bash Exec/Generic/build_schema_remora.sh
+          python3 Exec/Generic/render_inputs_generic.py
+
+      - name: Validate generated inputs_generic is up to date
+        run: |
+          git diff --exit-code -- Exec/Generic/inputs_generic
