@@ -90,8 +90,13 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
     FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1], zvel_bc(), BdyVars::null);
 
-    FillCoarsePatch(lev, time, vec_h[lev].get(), vec_h[lev-1].get(),
-                    BCVars::cons_bc);
+    if (lev > hires_grid_level) {
+        FillCoarsePatch(lev, time, vec_h[lev].get(), vec_h[lev-1].get(),
+                        BCVars::cons_bc);
+    } else {
+        set_bathymetry_averaged_down(lev);
+    }
+
     FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get(),BCVars::cons_bc);
     for (int icomp=0; icomp<3; icomp++) {
         FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(), ubar_bc(),
@@ -229,10 +234,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     FillPatch(lev, time, tmp_xvel_new, xvel_new, xvel_bc(), BdyVars::u,0,true,false,0,0,0.0,tmp_xvel_new);
     FillPatch(lev, time, tmp_yvel_new, yvel_new, yvel_bc(), BdyVars::v,0,true,false,0,0,0.0,tmp_yvel_new);
     FillPatch(lev, time, tmp_zvel_new, zvel_new, zvel_bc(), BdyVars::null,0,true,false);
-
-    FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), BCVars::cons_bc, BdyVars::null,0,false,false);
-    FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), BCVars::cons_bc, BdyVars::null,1,false,false);
     FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), zeta_bc(), BdyVars::null,0,true,false);
+
     for (int icomp=0; icomp<3; icomp++) {
         FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar, icomp,false,false);
         FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar, icomp,false,false);
@@ -259,13 +262,21 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     std::swap(tmp_zvel_new, *zvel_new[lev]);
     std::swap(tmp_zvel_old, *zvel_old[lev]);
     std::swap(tmp_Zt_avg1_new, *vec_Zt_avg1[lev]);
-    std::swap(tmp_h,           *vec_h[lev]);
     std::swap(tmp_ubar_new,    *vec_ubar[lev]);
     std::swap(tmp_vbar_new,    *vec_vbar[lev]);
     std::swap(tmp_ru_new,    *vec_ru[lev]);
     std::swap(tmp_rv_new,    *vec_rv[lev]);
     std::swap(tmp_ru2d_new,    *vec_ru2d[lev]);
     std::swap(tmp_rv2d_new,    *vec_rv2d[lev]);
+
+    // Handle bathymetry separately
+    if (lev > hires_grid_level) {
+        FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), BCVars::cons_bc, BdyVars::null,0,false,false);
+        FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), BCVars::cons_bc, BdyVars::null,1,false,false);
+        std::swap(tmp_h,           *vec_h[lev]);
+    } else {
+        set_bathymetry_averaged_down(lev);
+    }
 
     t_new[lev] = time;
     t_old[lev] = time - 1.e200_rt;
@@ -385,6 +396,8 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 void REMORA::resize_stuff(int lev)
 {
     vec_z_phys_nd.resize(lev+1);
+
+    vec_h_full_domain.resize(hires_grid_level+1);
 
     vec_h.resize(lev+1);
     vec_Zt_avg1.resize(lev+1);

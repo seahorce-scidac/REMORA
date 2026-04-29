@@ -56,16 +56,24 @@ void NCTimeSeriesBoundary::Initialize()
         time_name = "ocean_time";
     }
 
+    int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     for (int ifile = 0; ifile < file_names.size(); ifile++) {
         std::string file_name = file_names[ifile];
-        // Check units of time stamps; should be days
-        std::string unit_str = ReadNetCDFVarAttrStr(file_name, time_name, "units"); // works on proc 0
-        if (amrex::ParallelDescriptor::IOProcessor())
-        {
-            if (unit_str.find("days") == std::string::npos) {
-                amrex::Print() << "Units of ocean_time given as: " << unit_str << std::endl;
-                amrex::Abort("Units must be in days.");
+        // Check units of time stamps; should be days, if unit attribute exists.
+        // If it does not, print a warning and assume days
+        int has_units = QueryNetCDFVarAttrStr(file_name, time_name, "units");
+        amrex::ParallelDescriptor::Bcast(&has_units,1,ioproc);
+        if (has_units) {
+            std::string unit_str = ReadNetCDFVarAttrStr(file_name, time_name, "units"); // works on proc 0
+            if (amrex::ParallelDescriptor::IOProcessor())
+            {
+                if (unit_str.find("days") == std::string::npos) {
+                    amrex::Print() << "Units of ocean_time given as: " << unit_str << std::endl;
+                    amrex::Abort("Units must be in days.");
+                }
             }
+        } else {
+            amrex::Warning("Units attribute not found on time variable " + time_name + ". Assuming days");
         }
         // get times and put in array
         using RARRAY = NDArray<amrex::Real>;
@@ -92,7 +100,6 @@ void NCTimeSeriesBoundary::Initialize()
             amrex::Error("Time series of boundary data must be given at at least two times");
         }
     }
-    int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
     amrex::ParallelDescriptor::Bcast(&ntimes,1,ioproc);
     if (!(amrex::ParallelDescriptor::IOProcessor())) {
         bry_times.resize(ntimes);

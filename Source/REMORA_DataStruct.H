@@ -163,13 +163,10 @@ struct SolverChoice {
             do_rivers_cons[icomp] = do_rivers ? do_rivers_scalar : false;
         }
 
-        pp.queryAdd("init_l1ad_h", init_l1ad_h);
         pp.queryAdd("init_l1ad_T", init_l1ad_T);
 
-        pp.queryAdd("init_ana_h", init_ana_h);
         pp.queryAdd("init_ana_T", init_ana_T);
 
-        pp.queryAdd("init_l0int_h", init_l0int_h);
         pp.queryAdd("init_l0int_T", init_l0int_T);
 
         static std::string eos_type_string = "linear";
@@ -637,13 +634,10 @@ struct SolverChoice {
     bool        do_rivers_scalar      = false;
     amrex::Vector<int> do_rivers_cons;
 
-    bool init_l1ad_h = false;
     bool init_l1ad_T = false;
 
-    bool init_ana_h = false;
     bool init_ana_T = false;
 
-    bool init_l0int_h = true;
     bool init_l0int_T = true;
 
     AdvectionScheme tracer_Hadv_scheme;

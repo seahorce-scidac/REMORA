@@ -157,6 +157,12 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
                                   const std::string& attr_name);
 
 /**
+ * \brief Helper function for testing for the presence of a single variable attribute
+ */
+bool QueryNetCDFVarAttrStr (const std::string& fname,
+                            const std::string& var_name,
+                            const std::string& attr_name);
+/**
  * \brief Helper function for reading data from NetCDF file into a
  * provided FAB.
  *
@@ -165,6 +171,7 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
  * @param var_name Variable name
  * @param NC_dim_type Dimension type for the variable as stored in the NetCDF file
  * @param temp FAB where we store the variable data from the NetCDF Arrays
+ * @param custom_ngrow Custom number of grow cells for the FAB
  */
 template<class FAB,typename DType>
 void
@@ -172,7 +179,7 @@ fill_fab_from_arrays (int iv,
                       amrex::Vector<NDArray<amrex::Real>>& nc_arrays,
                       const std::string& var_name,
                       NC_Data_Dims_Type& NC_dim_type,
-                      FAB& temp)
+                      FAB& temp, amrex::IntVect custom_ngrow)
 {
     int nsx, nsy, nsz;
     if (NC_dim_type == NC_Data_Dims_Type::SN_WE) {
@@ -244,6 +251,8 @@ fill_fab_from_arrays (int iv,
         my_box.setSmall(amrex::IntVect(-1,-1,0));
         my_box.setBig(amrex::IntVect(nsx-2,nsy-2,nsz-1));
     }
+    // Adjust box size if a non-standard number of grow cells
+    my_box.grow(custom_ngrow - amrex::IntVect(1,1,0));
 
     // amrex::Print() <<" NAME and BOX for this VAR " << var_name << " " << my_box << std::endl;
 
@@ -282,6 +291,7 @@ fill_fab_from_arrays (int iv,
  * @param fab_vars Fab data we are to fill
  * @param one_time Whether to read in a single time step from file
  * @param fill_time What time step to read from file, if only reading one step
+ * @param custom_ngrow Number of grow cells to read in the fab; default is based off of one cell in each of x and y directions
  */
 template<class FAB,typename DType>
 void
@@ -290,7 +300,8 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
                          amrex::Vector<std::string> nc_var_names,
                          amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types,
                          amrex::Vector<FAB*> fab_vars,
-                         bool one_time=false, int fill_time=0)
+                         bool one_time=false, int fill_time=0,
+                         amrex::IntVect custom_ngrow=amrex::IntVect(1,1,0))
 {
     int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();  // I/O rank
 
@@ -303,7 +314,7 @@ BuildFABsFromNetCDFFile (const amrex::Box& domain,
     {
         FAB tmp;
         if (amrex::ParallelDescriptor::IOProcessor()) {
-            fill_fab_from_arrays<FAB,DType>(iv, nc_arrays, nc_var_names[iv], NC_dim_types[iv], tmp);
+            fill_fab_from_arrays<FAB,DType>(iv, nc_arrays, nc_var_names[iv], NC_dim_types[iv], tmp, custom_ngrow);
         }
 
         int ncomp = tmp.nComp();

@@ -115,6 +115,29 @@ read_bathymetry_from_netcdf (int /*lev*/,
 }
 
 /**
+ * @param domain          simulation domain at nc_hires_grid_level
+ * @param fname           file name to read from
+ * @param NC_h_fab        container for bathymetry data
+ * @param ngrow           number of grow cells to read in, if not default
+ */
+void
+read_bathymetry_full_domain_from_netcdf (const Box& domain,
+                                         const std::string& fname,
+                                         FArrayBox& NC_h_fab, IntVect ngrow)
+{
+    amrex::Print() << "Loading high resolution bathymetry from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_h_fab )   ; NC_names.push_back("h")     ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
+
+    // Read the netcdf file and fill these FABs
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+}
+
+/**
  * @param lev             level of data to read
  * @param domain          simulation domain
  * @param fname           file name to read from

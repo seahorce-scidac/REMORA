@@ -58,6 +58,11 @@ read_bathymetry_from_netcdf (int lev, const Box& domain, const std::string& fnam
                              FArrayBox& NC_xv_fab, FArrayBox& NC_yv_fab,
                              FArrayBox& NC_xp_fab, FArrayBox& NC_yp_fab);
 
+/** \brief helper function to read full-domain high resolution bathymetry from netcdf */
+void
+read_bathymetry_full_domain_from_netcdf (const Box& domain, const std::string& fname,
+                                         FArrayBox& NC_h_fab, IntVect ngrow);
+
 /** \brief helper function to read coriolis factor from netcdf */
 void
 read_coriolis_from_netcdf (int lev, const Box& domain, const std::string& fname, FArrayBox& NC_fcor_fab);
@@ -659,6 +664,29 @@ REMORA::convert_inv_days_to_inv_s (MultiFab* mf) {
         });
     }
 
+}
+
+void
+REMORA::init_bathymetry_full_domain_from_netcdf ()
+{
+    if (nc_grid_file_hires.empty()) {
+        Abort("Must specify high-resolution grid file when initializing from NetCDF and hires_grid_level > 0");
+    }
+    Vector<FArrayBox> NC_h_fab     ; NC_h_fab.resize(1);
+    read_bathymetry_full_domain_from_netcdf(nc_hires_grid_box, nc_grid_file_hires, NC_h_fab[0],cum_ref_ratios[hires_grid_level]);
+
+    // Don't tile this since we are operating on full FABs in this routine
+    for ( MFIter mfi(*vec_h_full_domain[hires_grid_level], false); mfi.isValid(); ++mfi )
+    {
+        FArrayBox &h_fab     = (*vec_h_full_domain[hires_grid_level])[mfi];
+        h_fab.template    copy<RunOn::Device>(NC_h_fab[0]);
+    }
+
+    // Average down to fill levels below hires_grid_level. Use a special average_down so
+    // grow cells get populated by averaged down fine data
+    for (int lev=hires_grid_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_h_full_domain);;
+    }
 }
 
 #endif // REMORA_USE_NETCDF
