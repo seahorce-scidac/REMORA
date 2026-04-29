@@ -244,7 +244,7 @@ REMORA::init_bathymetry_full_domain_from_analytic ()
     prob->init_analytic_bathymetry(hires_grid_level, Geom(hires_grid_level), solverChoice, *this, *vec_h_full_domain[hires_grid_level]);
     // Do a fake physical bc call to apply foextrap to the grow cells. We don't want to rely
     // on prob::init_analytic_bathymetry to fill them since there can be an arbitrary number
-    // rather than the 2 or 3 typically epxected
+    // rather than the 2 or 3 typically expected
     (*physbcs[0])(*vec_h_full_domain[hires_grid_level],*vec_mskr[0], 0,1,cum_ref_ratios[hires_grid_level],0.0_rt,foextrap_bc());
     // Average down to fill levels below hires_grid_level. Use a special average_down so grow cells
     // get populated by averaged down fine data
