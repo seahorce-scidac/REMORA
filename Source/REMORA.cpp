@@ -1638,11 +1638,13 @@ REMORA::average_down_with_grow_cells(int crse_lev, Vector<std::unique_ptr<MultiF
     auto const& crsema = vec_mf[crse_lev]->arrays();
     auto const& finema = vec_mf[crse_lev+1]->const_arrays();
     auto nghost_crse = cum_ref_ratios[crse_lev];
+    auto ref_ratio_crse = refRatio(crse_lev);
     ParallelFor(*vec_mf[crse_lev], nghost_crse, 1,
             [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k, int n) noexcept
     {
-        amrex_avgdown(i,j,k,n,crsema[box_no],finema[box_no],0,0,refRatio(crse_lev));
+        amrex_avgdown(i,j,k,n,crsema[box_no],finema[box_no],0,0,ref_ratio_crse);
     });
+    Gpu::streamSynchronize();
 }
 
 /**

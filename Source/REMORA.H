@@ -1046,6 +1046,9 @@ public:
     /** \brief Mask data arrays before writing output */
     void mask_arrays_for_write (int lev, amrex::Real fill_value, amrex::Real fill_where);
 
+    /** \brief Average down from level lev+1 to lev in mf, including grow cells */
+    void average_down_with_grow_cells(int lev, amrex::Vector<std::unique_ptr<amrex::MultiFab>>& mf);
+
     int xvel_bc () const noexcept { return BCVars::xvel_bc(ncons); }
     int yvel_bc () const noexcept { return BCVars::yvel_bc(ncons); }
     int zvel_bc () const noexcept { return BCVars::zvel_bc(ncons); }
@@ -1096,8 +1099,6 @@ private:
 
     /** \brief more flexible version of AverageDown() that lets you average down across multiple levels */
     void AverageDownTo (int crse_lev);
-
-    void average_down_with_grow_cells(int lev, amrex::Vector<std::unique_ptr<amrex::MultiFab>>&);
 
     /** \brief Construct FillPatchers */
     void Construct_REMORAFillPatchers (int lev);
