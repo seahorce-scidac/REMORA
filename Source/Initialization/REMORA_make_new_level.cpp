@@ -90,21 +90,11 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
     FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1], zvel_bc(), BdyVars::null);
 
-    if (lev > nc_hires_grid_level || solverChoice.ic_type == IC_Type::analytic) {
+    if (lev > hires_grid_level) {
         FillCoarsePatch(lev, time, vec_h[lev].get(), vec_h[lev-1].get(),
                         BCVars::cons_bc);
     } else {
-        Real dummy_time = 0.0_rt;
-        ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1);
-        ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1);
-        FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-                foextrap_periodic_bc(),
-                BdyVars::null,0,false,true,1);
-        FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-                foextrap_periodic_bc(),
-                BdyVars::null,1,false,true,1);
-        vec_h[lev]->FillBoundary(geom[lev].periodicity());
-        vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
+        set_bathymetry_averaged_down(lev);
     }
 
     FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get(),BCVars::cons_bc);
@@ -280,22 +270,12 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     std::swap(tmp_rv2d_new,    *vec_rv2d[lev]);
 
     // Handle bathymetry separately
-    if (lev > nc_hires_grid_level || solverChoice.ic_type == IC_Type::analytic) {
+    if (lev > hires_grid_level) {
         FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), BCVars::cons_bc, BdyVars::null,0,false,false);
         FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), BCVars::cons_bc, BdyVars::null,1,false,false);
         std::swap(tmp_h,           *vec_h[lev]);
     } else {
-        Real dummy_time = 0.0_rt;
-        ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1);
-        ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1);
-        FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-                foextrap_periodic_bc(),
-                BdyVars::null,0,false,true,1);
-        FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-                foextrap_periodic_bc(),
-                BdyVars::null,1,false,true,1);
-        vec_h[lev]->FillBoundary(geom[lev].periodicity());
-        vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
+        set_bathymetry_averaged_down(lev);
     }
 
     t_new[lev] = time;
@@ -417,7 +397,7 @@ void REMORA::resize_stuff(int lev)
 {
     vec_z_phys_nd.resize(lev+1);
 
-    vec_h_full_domain.resize(nc_hires_grid_level+1);
+    vec_h_full_domain.resize(hires_grid_level+1);
 
     vec_h.resize(lev+1);
     vec_Zt_avg1.resize(lev+1);

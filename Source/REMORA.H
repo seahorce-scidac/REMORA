@@ -1014,6 +1014,9 @@ public:
     /** \brief Calculate Coriolis parameters from beta plane parametrization */
     void init_beta_plane_coriolis (int lev);
 
+    /** \brief Full domain bathymetry data initialization from analytic */
+    void init_bathymetry_full_domain_from_analytic ();
+
     /** \brief Problem initialization from NetCDF file */
     void init_data_from_netcdf (int lev);
     /** \brief Boundary data initialization from NetCDF file */
@@ -1093,6 +1096,8 @@ private:
 
     /** \brief more flexible version of AverageDown() that lets you average down across multiple levels */
     void AverageDownTo (int crse_lev);
+
+    void average_down_with_grow_cells(int lev, amrex::Vector<std::unique_ptr<amrex::MultiFab>>&);
 
     /** \brief Construct FillPatchers */
     void Construct_REMORAFillPatchers (int lev);
@@ -1454,11 +1459,13 @@ private:
     static amrex::Vector<std::string> nc_bdry_file;
 
     /** \brief Which level the high resolution bathymetry is at */
-    int nc_hires_grid_level = -1;
+    int hires_grid_level = -1;
     /** \brief Grid file for high resolution bathymetry */
     std::string nc_grid_file_hires;
     /** \brief Box for the full domain at nc_hires_grid_level */
     amrex::Box nc_hires_grid_box;
+    /** \brief Cumulative refinement ratio between level 0 and level i */
+    amrex::Vector<amrex::IntVect> cum_ref_ratios;
 
     /** \brief NetCDF forcing file(s) */
     amrex::Vector<std::string> nc_frc_file;
@@ -1491,7 +1498,6 @@ private:
     std::string riv_time_varname = "river_time";
     /** \brief Name of time field for forcing data */
     std::string frc_time_varname = "";
-
 
     /** \brief Set refinement criteria */
     void refinement_criteria_setup();

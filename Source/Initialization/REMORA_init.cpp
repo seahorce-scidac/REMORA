@@ -220,14 +220,35 @@ void REMORA::allocate_bathymetry_full_domain () {
     BoxArray ba;
     ba.define(makeSlab(geom[0].Domain(),2,0));
     Box refined_domain = makeSlab(geom[0].Domain(),2,0);
+    IntVect cum_ref_ratio = IntVect(1,1,0); // cumulative refinement ratio
+    cum_ref_ratios.push_back(cum_ref_ratio);
 
     DistributionMapping dm(ba);
     vec_h_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
-    for (int lev=1; lev <= nc_hires_grid_level; lev++) {
+    for (int lev=1; lev <= hires_grid_level; lev++) {
         ba = ba.refine(refRatio(lev-1));
         refined_domain.refine(refRatio(lev-1));
-        //TODO: +2 is a HACK for this specific problem!!!!!
-        vec_h_full_domain[lev].reset(new MultiFab(ba, dm, 1, IntVect(1+2,1+2,0)));
+        // Calculate the cumulative refinement ratio from level lev to level 0
+        cum_ref_ratio[0] = cum_ref_ratio[0] * refRatio(lev-1)[0];
+        cum_ref_ratio[1] = cum_ref_ratio[1] * refRatio(lev-1)[1];
+        cum_ref_ratios.push_back(cum_ref_ratio);
+
+        vec_h_full_domain[lev].reset(new MultiFab(ba, dm, 1, cum_ref_ratio));
     }
     nc_hires_grid_box = refined_domain;
+}
+
+void
+REMORA::init_bathymetry_full_domain_from_analytic ()
+{
+    prob->init_analytic_bathymetry(hires_grid_level, Geom(hires_grid_level), solverChoice, *this, *vec_h_full_domain[hires_grid_level]);
+    // Do a fake physical bc call to apply foextrap to the grow cells. We don't want to rely
+    // on prob::init_analytic_bathymetry to fill them since there can be an arbitrary number
+    // rather than the 2 or 3 typically epxected
+    (*physbcs[0])(*vec_h_full_domain[hires_grid_level],*vec_mskr[0], 0,1,cum_ref_ratios[hires_grid_level],0.0_rt,foextrap_bc());
+    // Average down to fill levels below hires_grid_level. Use a special average_down so grow cells
+    // get populated by averaged down fine data
+    for (int lev=hires_grid_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_h_full_domain);
+    }
 }

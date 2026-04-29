@@ -513,31 +513,25 @@ REMORA::set_bathymetry (int lev)
     BL_PROFILE("REMORA::bathymetry()");
     // Only set bathymetry on level 0, and interpolate for finer levels
     if (lev==0) {
-        if (solverChoice.ic_type == IC_Type::analytic) {
-            if (!solverChoice.flat_bathymetry) {
+        if (solverChoice.flat_bathymetry) {
+            init_flat_bathymetry(lev);
+        // If grid data is not defined on a level > 0 (negative level) then
+        // initialize from low-resolution grid normally. Otherwise use high-resolution
+        // grid data averaged down to level 0
+        } else if (hires_grid_level < 0) {
+            if (solverChoice.ic_type == IC_Type::analytic) {
                 prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_h[lev]);
-            } else {
-                init_flat_bathymetry(lev);
-            }
+            } else if (solverChoice.ic_type == IC_Type::netcdf) {
 #ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.ic_type == IC_Type::netcdf) {
-            if (!solverChoice.flat_bathymetry) {
-                // If high resolution grid data has not been provided (negative level) then
-                // initialize from low-resolution grid normally. Otherwise use high-resolution
-                // grid data averaged down to level 0
-                if (nc_hires_grid_level < 0) {
-                    amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
-                    init_bathymetry_from_netcdf(lev);
-                    amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
-                } else {
-                    set_bathymetry_averaged_down(lev);
-                }
-            } else {
-                init_flat_bathymetry(lev);
-            }
+                amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
+                init_bathymetry_from_netcdf(lev);
+                amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
 #endif
+            } else {
+                amrex::Abort("Unknown IC_Type");
+            }
         } else {
-            Abort("Don't know this ic_type!");
+            set_bathymetry_averaged_down(lev);
         }
         // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
         // to make sure ghost cells in the domain corners are consistent.
@@ -547,7 +541,7 @@ REMORA::set_bathymetry (int lev)
         // If our level is higher than the high resolution grid or initialization
         // is analytic, interpolate from level below. Otherwise, copy over the bathymetry
         // data that has been averaged down
-        if (lev > nc_hires_grid_level || solverChoice.ic_type == IC_Type::analytic) {
+        if (lev > hires_grid_level) {
             Real dummy_time = 0.0_rt;
             FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
         } else {
@@ -569,7 +563,6 @@ REMORA::set_bathymetry_averaged_down (int lev) {
     Real dummy_time = 0.0_rt;
     ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1,IntVect(1,1,0),IntVect(1,1,0));
     ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1,IntVect(1,1,0),IntVect(1,1,0));
-    print_state(*vec_h[lev],IntVect(-1,0,0),0,IntVect(1,1,0));
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
             foextrap_periodic_bc(),
             BdyVars::null,0,false,true,1);
@@ -1227,7 +1220,6 @@ REMORA::init_only (int lev, Real time)
         auto dom = geom[0].Domain();
         int nz = dom.length(2);
         river_source_cons.resize(ncons);
-        Print() << solverChoice.do_rivers_cons[0] << std::endl;
         if ((bool) solverChoice.do_rivers_cons[Salt_comp]) {
             river_source_cons[Salt_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz));
             river_source_cons[Salt_comp]->Initialize();
@@ -1247,10 +1239,11 @@ REMORA::init_only (int lev, Real time)
         init_riv_pos_from_netcdf(lev);
     }
 
-    if (lev==0 and nc_hires_grid_level > 0) {
+    if (lev==0 and hires_grid_level > 0 and solverChoice.ic_type == IC_Type::netcdf) {
         amrex::Print() << "Reading high resolution bathymetry data" << std::endl;
         allocate_bathymetry_full_domain();
         init_bathymetry_full_domain_from_netcdf();
+        amrex::Print() << "Done reading in high resolution bathymetry data" << std::endl;
     }
 #else
     if (solverChoice.boundary_from_netcdf) {
@@ -1260,6 +1253,11 @@ REMORA::init_only (int lev, Real time)
         Abort("Not compiled with NetCDF, but using river sources requires NetCDF");
     }
 #endif
+
+    if (lev==0 and hires_grid_level > 0 and solverChoice.ic_type == IC_Type::analytic) {
+        allocate_bathymetry_full_domain();
+        init_bathymetry_full_domain_from_analytic();
+    }
 
     set_bathymetry(lev);
     set_zeta(lev);
@@ -1502,13 +1500,11 @@ REMORA::ReadParameters ()
         //        but we always have exactly one file at level 0
         for (int lev = 0; lev <= max_level; lev++)
         {
-            Print() << lev << std::endl;
             const std::string nc_file_names = amrex::Concatenate("nc_init_file_",lev,1);
             const std::string nc_bathy_file_names = amrex::Concatenate("nc_grid_file_",lev,1);
 
             if (pp.contains(nc_file_names.c_str()))
             {
-                Print() << "in contains" << std::endl;
                 int num_files = pp.countval(nc_file_names.c_str());
                 int num_bathy_files = pp.countval(nc_bathy_file_names.c_str());
                 if (num_files != num_bathy_files) {
@@ -1521,17 +1517,10 @@ REMORA::ReadParameters ()
 
                 pp.queryarr(nc_file_names.c_str()      , nc_init_file[lev]     ,0,num_files);
                 pp.queryarr(nc_bathy_file_names.c_str(), nc_grid_file[lev],0,num_files);
-                Print() << nc_grid_file[lev][0] << std::endl;
             }
         }
 
-        pp.queryAdd("nc_hires_grid_level", nc_hires_grid_level);
-        if (nc_hires_grid_level > 0) {
-            pp.queryAdd("nc_grid_file_hires", nc_grid_file_hires);
-            if (nc_grid_file_hires.empty()) {
-                Abort("If remora.nc_hires_grid_level > 0, must specify a high-resolution grid file in remora.nc_grid_file_hires");
-            }
-        }
+        pp.queryAdd("nc_grid_file_hires", nc_grid_file_hires);
 
         // We only read boundary data at level 0
         pp.queryarr("nc_bdry_file", nc_bdry_file);
@@ -1589,6 +1578,10 @@ REMORA::ReadParameters ()
         pp.queryAdd("clim_temp_time_varname",clim_temp_time_varname);
 
 #endif
+        pp.queryAdd("hires_grid_level", hires_grid_level);
+        if (hires_grid_level > max_level) {
+            amrex::Abort("hires_grid_level must be less than or equal to amr.max_level");
+        }
 
 #ifdef REMORA_USE_PARTICLES
         readTracersParams();
@@ -1633,6 +1626,23 @@ REMORA::AverageDownTo (int crse_lev)
     average_down_faces(GetArrOfConstPtrs(faces_fine), faces_crse,
                        refRatio(crse_lev),geom[crse_lev]);
     stretch_transform(crse_lev);
+}
+
+/**
+ * @param[in   ] crse_lev   level to average data down to
+ * @param[inout] vec_mf     vector over levels of multifabs containing data to average
+ */
+void
+REMORA::average_down_with_grow_cells(int crse_lev, Vector<std::unique_ptr<MultiFab>>& vec_mf)
+{
+    auto const& crsema = vec_mf[crse_lev]->arrays();
+    auto const& finema = vec_mf[crse_lev+1]->const_arrays();
+    auto nghost_crse = cum_ref_ratios[crse_lev];
+    ParallelFor(*vec_mf[crse_lev], nghost_crse, 1,
+            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k, int n) noexcept
+    {
+        amrex_avgdown(i,j,k,n,crsema[box_no],finema[box_no],0,0,refRatio(crse_lev));
+    });
 }
 
 /**
