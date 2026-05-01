@@ -803,9 +803,7 @@ List of Parameters
 |                                          | is calculated along s- or geopotential | ``geopotential``       |                |
 |                                          |                                        |                        |                |
 |                                          | surfaces.                              |                        |                |
-
 +------------------------------------------+----------------------------------------+------------------------+----------------+
-
 | **remora.vertical_mixing_type**          | Vertical mixing type. ``analytic``     | ``analytic`` /         | ``analytic``   |
 |                                          |                                        |                        |                |
 |                                          | function is specified in               | ``GLS``                |                |
@@ -877,9 +875,13 @@ the user-specified value.
   area :math:`A(i,j) = 1/(pm\,pn)` via :math:`\max(G)=\sqrt{\max(A)}`.
 
 - AMR refinement scaling: if ``remora.scaled_to_grid_amr_scaling = "linear"``, then on AMR level
-  :math:`\ell` the coefficients are additionally scaled by the cumulative horizontal refinement ratio,
-  :math:`1/\prod_{m<\ell}\sqrt{r_x(m)\,r_y(m)}`. For example, with a refinement ratio of ``5 5 1``,
-  level 1 coefficients are reduced by a factor of 5 relative to level 0.
+  :math:`\ell` the coefficients are additionally scaled by the cumulative horizontal refinement ratio.
+
+  .. math::
+
+     \frac{1}{\prod_{m=0}^{\ell-1} \sqrt{r_x(m)\,r_y(m)}}
+
+  For example, with a refinement ratio of ``5 5 1``, level 1 coefficients are reduced by a factor of 5 relative to level 0.
 
 - Ghost cells for the coefficient fields are filled using the same periodic/foextrap boundary fill
   used elsewhere in REMORA. This is done so stencil-based operations (e.g., the psi-point averaging for
@@ -896,76 +898,87 @@ as 2D (vertically homogeneous) fields:
 Geopotential rotated harmonic tracer diffusion
 -------------------------------------
 
-Harmonic tracer diffusion can be performed along geopotential (constant-:math:`z`)
-surfaces when ``remora.harmonic_mixing_type = "geopotential"``. 
-This is to prevent spurious diapycnal mixing over steeply sloping bathymetry
-where the :math:`s` layers intersect with isopycnal surfaces. ROMS equivalent of ``MIX_GEO_TS``
-as shown in ``Nonlinear/t3dmix2_geo.h``, but documentation is lacking in ROMS. REMORA discretizes a rotated diffusion
-operator that corrects horizontal gradients with the surface slopes. Let :math:`z_r(i,j,k)` be the
-geopotential (rho-point) coordinate. Horizontal slopes are approximated as
+Harmonic tracer diffusion can be rotated along geopotential (constant-:math:`z`)
+surfaces when ``remora.harmonic_mixing_type = "geopotential"``. This formulation
+reduces spurious diapycnal mixing over steeply sloping bathymetry, where terrain-following
+:math:`s`-levels intersect isopycnal surfaces. This approach corresponds
+to the ROMS ``MIX_GEO_TS`` option (``Nonlinear/t3dmix2_geo.h``), although full algorithmic
+details are not documented in the ROMS implementation. While this
+method reduces spurious mixing at depth, it may be problematic at the surface if 
+fronts are present because :math:`s`-levels intersect isopycnal surfaces.
+
+Let :math:`z_r(i,j,k)` denote the geopotential (rho-point) vertical coordinate. Local
+surface slopes are defined using metric-weighted discrete differences:
 
 .. math::
 
-   S_x \equiv dZdx \approx c_x\,(z_r(i,j,k)-z_r(i-1,j,k)),
+   S_x \equiv dZdx \approx c_x(i,j)\,\bigl(z_r(i,j,k)-z_r(i-1,j,k)\bigr),
+   
+   S_y \equiv dZde \approx c_y(i,j)\,\bigl(z_r(i,j,k)-z_r(i,j-1,k)\bigr),
+
+where :math:`c_x` and :math:`c_y` are C-grid metric factors that include inverse grid spacing
+and land–sea masking. These are constructed as face-centered averages:
+
+.. math::
+
+   c_x(i,j) = \tfrac{1}{2}\left(pm(i,j) + pm(i-1,j)\right)\, msku(i,j),
+
+   c_y(i,j) = \tfrac{1}{2}\left(pn(i,j) + pn(i,j-1)\right)\, mskv(i,j).
+
+The rotated diffusion operator can be interpreted in flux-form as:
+
+.. math::
+
+   F_x = -K_h\,H\left(\partial_x T - S_x\,\partial_z T\right),
    \qquad
-   S_y \equiv dZde \approx c_y\,(z_r(i,j,k)-z_r(i,j-1,k)),
+   F_y = -K_h\,H\left(\partial_y T - S_y\,\partial_z T\right),
 
-where :math:`c_x` and :math:`c_y` are geometric scaling factors that convert grid-space
-differences into physical-space slopes. In the discrete implementation they are constructed
-from averaged inverse grid spacing and staggered land–sea masks:
+where :math:`K_h` is the harmonic diffusivity and :math:`H` is the face-averaged
+vertical cell thickness (``Hz``).
 
-.. math::
+In practice, all gradients are computed using finite differences:
 
-   c_x(i,j) = \tfrac{1}{2}\left(pm(i,j) + pm(i-1,j)\right)\, msku(i,j)
+- ``dTdx``, ``dTde``: centered horizontal differences on cell faces
+- ``dTdz``: vertical differences along rho columns
+- ``dZdx``, ``dZde``: metric-weighted slope fields
 
-   c_y(i,j) = \tfrac{1}{2}\left(pn(i,j) + pn(i,j-1)\right)\, mskv(i,j)
+Diffusivity is interpolated to cell faces and combined with face-averaged vertical thicknesses
+prior to flux construction.
 
-The rotated surface-gradient yields, in continuous form,
-
-.. math::
-
-   F_x = -K\; H\; (\partial_x T - S_x\;\partial_z T),
-   \qquad
-   F_y = -K\; H\; (\partial_y T - S_y\;\partial_z T),
-
-with :math:`K(x,y,z)` the harmonic diffusivity and :math:`H` the face-averaged vertical cell thickness (``Hz``).
-
-Temporary arrays store centered horizontal differences (``dTdx``, ``dTde``), vertical differences (``dTdz``), and
-horizontal slopes (``dZdx``, ``dZde``). Diffusivity is averaged to faces and multiplied by
-metric factors. The x-face flux (code array ``FX``) is constructed as a face-average of
-diffusivity and thickness times a corrected horizontal difference:
+The x-face flux (``FX``) is computed as a face-centered diffusivity–thickness product multiplied
+by a slope-corrected horizontal tracer gradient:
 
 .. math::
 
-   FX_{i+1/2,j,k} \propto (\bar K)_{i+1/2,j,k}\,(H_{i+1/2}+H_{i-1/2})\;\bigl(dTdx_{i+1/2,j,k} - \mathcal{U}\{S_x\}\bigr),
+   FX_{i+1/2,j,k} =
+   K_{i+1/2,j,k}\,H_{i+1/2,j,k}
+   \left[
+      dTdx_{i+1/2,j,k}
+      - \mathcal{R}_x(S_x, \partial_z T)
+   \right],
 
-where the bracketed correction is a sign-aware average of nearby vertical gradients. REMORA uses
-min/max selections to pick an upwind-like two-layer vertical stencil based on the sign of the
-local slope, e.g.
+where :math:`\mathcal{R}_x` denotes a a slope-dependent estimate of how much vertical stratification 
+contaminates the horizontal gradient. This term uses a sign-aware (min/max) stencil that selects 
+locally appropriate vertical neighbor averages of :math:`\partial_z T` based on the sign of the slope.
 
-.. math::
-
-   \mathcal{U}\{S_x\} = \tfrac{1}{2}\Big(\min(S_x,0)\,(dTdz_{\text{down}}+dTdz_{\text{up}+1}) +\max(S_x,0)\,(dTdz_{\text{down}+1}+dTdz_{\text{up}})\Big).
-
-The y-face flux ``FE`` is computed analogously using :math:`S_y`. A separate vertical coupling term
-``FS`` collects slope-conditioned coupling from both x- and y-directions; it is assembled using
-min/max factorizations so that the vertical contribution uses the appropriate neighbor horizontal
-differences. Finally, REMORA applies the divergence of these fluxes and updates the tracer with
-the time-step multiplier and horizontal metric factors (``dt_lev*pm*pn``):
+Specifically, the reconstruction is given by:
 
 .. math::
 
-   T^{n+1}_{i,j,k} = T^{n}_{i,j,k} + \Delta t\;\bigl(\nabla\cdot\mathbf{F}\bigr)_{i,j,k}.
+   \mathcal{R}_x =
+   \tfrac{1}{2}\Big(
+   \min(S_x,0)\,(dTdz_{\text{down}}+dTdz_{\text{up}+1})
+   +
+   \max(S_x,0)\,(dTdz_{\text{down}+1}+dTdz_{\text{up}})
+   \Big).
 
-Remarks
+The y-face flux (``FE``) is constructed analogously using :math:`S_y` and the corresponding
+y-direction stencil.
 
-- The min/max selection acts as a monotonic upwind-like choice to avoid unstable combinations of
-  slopes and vertical gradients; it is not a full flux-limiter but stabilizes the staggered-grid
-  stencil.
-- Diffusivity is face-averaged before multiplying by metric factors, which reduces odd-even
-  decoupling for heterogeneous diffusivities.
-- The implementation computes temporaries per component and then performs a single divergence
-  update inside an AMReX `ParallelFor` kernel.
+A separate vertical coupling term (``FS``) accounts for cross-directional slope–gradient
+interactions between horizontal and vertical derivatives. It is constructed using similar
+sign-dependent decompositions (min/max splitting) that select locally consistent horizontal
+and vertical neighbor contributions.
 
 .. _list-of-parameters-drag:
 
