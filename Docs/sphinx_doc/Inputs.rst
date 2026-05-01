@@ -903,18 +903,17 @@ surfaces when ``remora.harmonic_mixing_type = "geopotential"``. This formulation
 reduces spurious diapycnal mixing over steeply sloping bathymetry, where terrain-following
 :math:`s`-levels intersect isopycnal surfaces. This approach corresponds
 to the ROMS ``MIX_GEO_TS`` option (``Nonlinear/t3dmix2_geo.h``), although full algorithmic
-details are not documented in the ROMS implementation. While this
-method reduces spurious mixing at depth, it may be problematic at the surface if 
-fronts are present because :math:`s`-levels intersect isopycnal surfaces.
+details are not documented in the ROMS implementation.
 
 Let :math:`z_r(i,j,k)` denote the geopotential (rho-point) vertical coordinate. Local
 surface slopes are defined using metric-weighted discrete differences:
 
 .. math::
 
-   S_x \equiv dZdx \approx c_x(i,j)\,\bigl(z_r(i,j,k)-z_r(i-1,j,k)\bigr),
-   
-   S_y \equiv dZde \approx c_y(i,j)\,\bigl(z_r(i,j,k)-z_r(i,j-1,k)\bigr),
+   \begin{aligned}
+   S_x &\equiv dZdx \approx c_x(i,j)\,(z_r(i,j,k)-z_r(i-1,j,k)) \\
+   S_y &\equiv dZde \approx c_y(i,j)\,(z_r(i,j,k)-z_r(i,j-1,k))
+   \end{aligned}
 
 where :math:`c_x` and :math:`c_y` are C-grid metric factors that include inverse grid spacing
 and land–sea masking. These are constructed as face-centered averages:
@@ -957,8 +956,8 @@ by a slope-corrected horizontal tracer gradient:
       - \mathcal{R}_x(S_x, \partial_z T)
    \right],
 
-where :math:`\mathcal{R}_x` denotes a a slope-dependent estimate of how much vertical stratification 
-contaminates the horizontal gradient. This term uses a sign-aware (min/max) stencil that selects 
+where :math:`\mathcal{R}_x` denotes a slope-dependent estimate of how much vertical stratification
+contaminates the horizontal gradient. This term uses a sign-aware (min/max) stencil that selects
 locally appropriate vertical neighbor averages of :math:`\partial_z T` based on the sign of the slope.
 
 Specifically, the reconstruction is given by:
