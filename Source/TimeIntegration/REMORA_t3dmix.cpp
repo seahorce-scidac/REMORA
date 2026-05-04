@@ -170,7 +170,7 @@ REMORA::t3dmix2_geo(const Box& bx,
     });
     ParallelFor(ybx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real cff = 0.5_rt * (pn(i,j,0) + pm(i,j-1,0)) * mskv(i,j,0);
+        Real cff = 0.5_rt * (pn(i,j,0) + pn(i,j-1,0)) * mskv(i,j,0);
         dZde(i,j,k,n) = cff * (z_r(i,j,k) - z_r(i,j-1,k));
         dTde(i,j,k,n)=cff*(state_rhs(i,j,k,n)-state_rhs(i,j-1,k,n));
     });
