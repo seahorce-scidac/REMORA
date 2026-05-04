@@ -877,24 +877,25 @@ scaling horizontal harmonic mixing coefficients by the grid cell area.
    \nu(i,j) = \nu_0 \frac{G(i,j)}{\max(G)}, \qquad
    \kappa_n(i,j) = \kappa_{0,n} \frac{G(i,j)}{\max(G)}
 
-where :math:`\\nu_0` is ``remora.visc2`` and :math:`\\kappa_{0,n}` are the tracer diffusivities
+where :math:`\nu_0` is ``remora.visc2`` and :math:`\kappa_{0,n}` are the tracer diffusivities
 (``remora.tnu2_temp``, ``remora.tnu2_salt``, ``remora.tnu2_scalar``). This ensures the *maximum*
 coefficient over the normalization region equals the user-specified value, while varying spatially
 with grid size. Note that if the largest cell area occurs over land, then the maximum over *wet*
 cells (and thus what you see after applying ``mask_rho`` in post-processing) may be smaller than
 the user-specified value.
 
-Implementation details
-^^^^^^^^^^^^^^^^^^^^^^
-
 - The normalization ``max(G)`` is computed as a global maximum over the level-0 grid (rho points at
   the surface, i.e. ``k=0``) and does not use land/sea masks. Equivalently, it uses the maximum grid-cell
-  area :math:`A(i,j) = 1/(pm\,pn)` via :math:`\\max(G)=\\sqrt{\\max(A)}`.
+  area :math:`A(i,j) = 1/(pm\,pn)` via :math:`\max(G)=\sqrt{\max(A)}`.
 
 - AMR refinement scaling: if ``remora.scaled_to_grid_amr_scaling = "linear"``, then on AMR level
-  :math:`\\ell` the coefficients are additionally scaled by the cumulative horizontal refinement ratio,
-  :math:`1/\\prod_{m<\\ell}\\sqrt{r_x(m)\,r_y(m)}`. For example, with a refinement ratio of ``5 5 1``,
-  level 1 coefficients are reduced by a factor of 5 relative to level 0.
+  :math:`\ell` the coefficients are additionally scaled by the cumulative horizontal refinement ratio.
+
+  .. math::
+
+     \frac{1}{\prod_{m=0}^{\ell-1} \sqrt{r_x(m)\,r_y(m)}}
+
+  For example, with a refinement ratio of ``5 5 1``, level 1 coefficients are reduced by a factor of 5 relative to level 0.
 
 - Ghost cells for the coefficient fields are filled using the same periodic/foextrap boundary fill
   used elsewhere in REMORA. This is done so stencil-based operations (e.g., the psi-point averaging for
@@ -907,6 +908,90 @@ as 2D (vertically homogeneous) fields:
 - ``visc2`` (horizontal viscosity at rho points)
 - ``diff2_temp``, ``diff2_salt``, ``diff2_tracer`` (horizontal diffusivities at rho points)
 - additional passive scalars appear as ``diff2_tracer_1``, ``diff2_tracer_2``, and so on
+
+Geopotential rotated harmonic tracer diffusion
+-------------------------------------
+
+Harmonic tracer diffusion can be rotated along geopotential (constant-:math:`z`)
+surfaces when ``remora.harmonic_mixing_type = "geopotential"``. This formulation
+reduces spurious diapycnal mixing over steeply sloping bathymetry, where terrain-following
+:math:`s`-levels intersect isopycnal surfaces. This approach corresponds
+to the ROMS ``MIX_GEO_TS`` option (``Nonlinear/t3dmix2_geo.h``), although full algorithmic
+details are not documented in the ROMS implementation.
+
+Let :math:`z_r(i,j,k)` denote the geopotential (rho-point) vertical coordinate. Local
+surface slopes are defined using metric-weighted discrete differences:
+
+.. math::
+
+   \begin{aligned}
+   S_x &\equiv dZdx \approx c_x(i,j)\,(z_r(i,j,k)-z_r(i-1,j,k)) \\
+   S_y &\equiv dZde \approx c_y(i,j)\,(z_r(i,j,k)-z_r(i,j-1,k))
+   \end{aligned}
+
+where :math:`c_x` and :math:`c_y` are C-grid metric factors that include inverse grid spacing
+and land–sea masking. These are constructed as face-centered averages:
+
+.. math::
+
+   c_x(i,j) = \tfrac{1}{2}\left(pm(i,j) + pm(i-1,j)\right)\, msku(i,j),
+
+   c_y(i,j) = \tfrac{1}{2}\left(pn(i,j) + pn(i,j-1)\right)\, mskv(i,j).
+
+The rotated diffusion operator can be interpreted in flux-form as:
+
+.. math::
+
+   F_x = -K_h\,H\left(\partial_x T - S_x\,\partial_z T\right),
+   \qquad
+   F_y = -K_h\,H\left(\partial_y T - S_y\,\partial_z T\right),
+
+where :math:`K_h` is the harmonic diffusivity and :math:`H` is the face-averaged
+vertical cell thickness (``Hz``).
+
+In practice, all gradients are computed using finite differences:
+
+- ``dTdx``, ``dTde``: centered horizontal differences on cell faces
+- ``dTdz``: vertical differences along rho columns
+- ``dZdx``, ``dZde``: metric-weighted slope fields
+
+Diffusivity is interpolated to cell faces and combined with face-averaged vertical thicknesses
+prior to flux construction.
+
+The x-face flux (``FX``) is computed as a face-centered diffusivity–thickness product multiplied
+by a slope-corrected horizontal tracer gradient:
+
+.. math::
+
+   FX_{i+1/2,j,k} =
+   K_{i+1/2,j,k}\,H_{i+1/2,j,k}
+   \left[
+      dTdx_{i+1/2,j,k}
+      - \mathcal{R}_x(S_x, \partial_z T)
+   \right],
+
+where :math:`\mathcal{R}_x` denotes a slope-dependent estimate of how much vertical stratification
+contaminates the horizontal gradient. This term uses a sign-aware (min/max) stencil that selects
+locally appropriate vertical neighbor averages of :math:`\partial_z T` based on the sign of the slope.
+
+Specifically, the reconstruction is given by:
+
+.. math::
+
+   \mathcal{R}_x =
+   \tfrac{1}{2}\Big(
+   \min(S_x,0)\,(dTdz_{\text{down}}+dTdz_{\text{up}+1})
+   +
+   \max(S_x,0)\,(dTdz_{\text{down}+1}+dTdz_{\text{up}})
+   \Big).
+
+The y-face flux (``FE``) is constructed analogously using :math:`S_y` and the corresponding
+y-direction stencil.
+
+A separate vertical coupling term (``FS``) accounts for cross-directional slope–gradient
+interactions between horizontal and vertical derivatives. It is constructed using similar
+sign-dependent decompositions (min/max splitting) that select locally consistent horizontal
+and vertical neighbor contributions.
 
 .. _list-of-parameters-drag:
 
