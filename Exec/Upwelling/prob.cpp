@@ -46,17 +46,17 @@ void Problem::init_analytic_bathymetry (
       Array4<Real> const& h  = (mf_h).array(mfi);
 
       Box bx = mfi.tilebox();
-      Box gbx2 = bx;
-      gbx2.grow(IntVect(NGROW,NGROW,0));
+      Box gbx = bx;
+      gbx.grow(mf_h.nGrowVect());
 
-      Box gbx2D = gbx2;
-      gbx2D.makeSlab(2,0);
+      Box gbxD = gbx;
+      gbxD.makeSlab(2,0);
 
       Gpu::streamSynchronize();
 
       if (NSPeriodic) {
 
-          ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+          ParallelFor(gbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
           {
               int iFort = i+1; // (+1 is to match the Fortran indexing in ROMS)
 
@@ -69,7 +69,7 @@ void Problem::init_analytic_bathymetry (
 
       } else if (EWPeriodic) {
 
-          ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
+          ParallelFor(gbxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
           {
               int jFort = j+1; // (+1 is to match the Fortran indexing in ROMS)
 
