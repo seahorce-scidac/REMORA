@@ -215,7 +215,7 @@ REMORA::init_stretch_coeffs () {
     calc_stretch_coeffs();
 }
 
-void REMORA::allocate_bathymetry_full_domain () {
+void REMORA::allocate_bathymetry_grid_vars_full_domain () {
     // Make fake boxArray that covers the whole domain on level 0
     BoxArray ba;
     ba.define(makeSlab(geom[0].Domain(),2,0));
@@ -225,6 +225,12 @@ void REMORA::allocate_bathymetry_full_domain () {
 
     DistributionMapping dm(ba);
     vec_h_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
+    vec_pm_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
+    vec_pn_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
+
+    auto h_growvect = vec_h[0]->nGrowVect();
+    auto pm_growvect = vec_pm[0]->nGrowVect();
+    auto pn_growvect = vec_pn[0]->nGrowVect();
     for (int lev=1; lev <= hires_grid_level; lev++) {
         ba = ba.refine(refRatio(lev-1));
         refined_domain.refine(refRatio(lev-1));
@@ -233,7 +239,11 @@ void REMORA::allocate_bathymetry_full_domain () {
         cum_ref_ratio[1] = cum_ref_ratio[1] * refRatio(lev-1)[1];
         cum_ref_ratios.push_back(cum_ref_ratio);
 
-        vec_h_full_domain[lev].reset(new MultiFab(ba, dm, 1, cum_ref_ratio));
+        // Always allocate at least as many grow cells as there are in the level's normal variable multifab
+        // This makes copying and boundary filling much easier
+        vec_h_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratio,h_growvect)));
+        vec_pm_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratio,pm_growvect)));
+        vec_pn_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratio,pn_growvect)));
     }
     nc_hires_grid_box = refined_domain;
 }
@@ -241,11 +251,8 @@ void REMORA::allocate_bathymetry_full_domain () {
 void
 REMORA::init_bathymetry_full_domain_from_analytic ()
 {
+    // init_analytic_bathymetry needs to be able to handle the full number of grow cells that vec_h_full_domain has
     prob->init_analytic_bathymetry(hires_grid_level, Geom(hires_grid_level), solverChoice, *this, *vec_h_full_domain[hires_grid_level]);
-    // Do a fake physical bc call to apply foextrap to the grow cells. We don't want to rely
-    // on prob::init_analytic_bathymetry to fill them since there can be an arbitrary number
-    // rather than the 2 or 3 typically expected
-    (*physbcs[0])(*vec_h_full_domain[hires_grid_level],*vec_mskr[0], 0,1,cum_ref_ratios[hires_grid_level],0.0_rt,foextrap_bc());
     // Average down to fill levels below hires_grid_level. Use a special average_down so grow cells
     // get populated by averaged down fine data
     for (int lev=hires_grid_level-1; lev >= 0; lev--) {

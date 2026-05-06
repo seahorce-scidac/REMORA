@@ -465,6 +465,8 @@ void REMORA::resize_stuff(int lev)
     vec_pm.resize(lev+1);
     vec_pn.resize(lev+1);
     vec_fcor.resize(lev+1);
+    vec_pm_full_domain.resize(hires_grid_level+1);
+    vec_pn_full_domain.resize(hires_grid_level+1);
 
     vec_xr.resize(lev+1);
     vec_yr.resize(lev+1);
@@ -754,6 +756,7 @@ REMORA::ClearLevel (int lev)
 void
 REMORA::set_grid_scale (int lev)
 {
+    // Even if we're using high-resolution grid initialization, don't set it up with average-down
     if (solverChoice.ic_type == IC_Type::analytic) {
         if (solverChoice.grid_scale_type == GridScaleType::constant) {
             const auto dxi = Geom(lev).InvCellSize();
@@ -764,29 +767,46 @@ REMORA::set_grid_scale (int lev)
             vec_pm[lev]->FillBoundary(geom[lev].periodicity());
             vec_pn[lev]->FillBoundary(geom[lev].periodicity());
         }
-    } else if (solverChoice.ic_type == IC_Type::netcdf && lev > 0) { // if lev==0, pm/pn are set by init_bathymetry
-        Real dummy_time = 0.0_rt;
-        FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), foextrap_bc());
-        FillCoarsePatch(lev,dummy_time,vec_pn[lev].get(), vec_pn[lev-1].get(), foextrap_bc());
+        set_grid_coords_from_grid_scale(lev);
+#ifdef REMORA_USE_NETCDF
+    } else if (solverChoice.ic_type == IC_Type::netcdf) {
+        if (lev == 0 && hires_grid_level < 0) {
+            init_grid_vars_from_netcdf(lev);
+        } else if (lev > hires_grid_level) {
+            Real dummy_time = 0.0_rt;
+            FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), foextrap_bc());
+            FillCoarsePatch(lev,dummy_time,vec_pn[lev].get(), vec_pn[lev-1].get(), foextrap_bc());
 
-        int rrx = (lev == 1) ? ref_ratio[lev-1][0] : ref_ratio[lev-1][0] / ref_ratio[lev-2][0];
-        int rry = (lev == 1) ? ref_ratio[lev-1][1] : ref_ratio[lev-1][1] / ref_ratio[lev-2][1];
-        // pm and pn need to be rescaled by the refinement ratio
-        for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
-        {
-            Array4<Real> const& pm   = vec_pm[lev]->array(mfi);
-            Array4<Real> const& pn   = vec_pn[lev]->array(mfi);
-            Box ubx = mfi.growntilebox(IntVect(NGROW+1,NGROW+2,0));
-            Box vbx = mfi.growntilebox(IntVect(NGROW+2,NGROW+1,0));
-            ParallelFor(makeSlab(ubx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-                pm(i,j,0) = pm(i,j,0) * (rrx);
-            });
-            ParallelFor(makeSlab(vbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-                pn(i,j,0) = pn(i,j,0) * (rry);
-            });
+            int rrx = ref_ratio[lev-1][0];
+            int rry = ref_ratio[lev-1][1];
+            // pm and pn need to be rescaled by the refinement ratio
+            for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+            {
+                Array4<Real> const& pm   = vec_pm[lev]->array(mfi);
+                Array4<Real> const& pn   = vec_pn[lev]->array(mfi);
+                Box ubx = mfi.growntilebox(IntVect(NGROW+1,NGROW+2,0));
+                Box vbx = mfi.growntilebox(IntVect(NGROW+2,NGROW+1,0));
+                ParallelFor(makeSlab(ubx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+                    pm(i,j,0) = pm(i,j,0) * (rrx);
+                });
+                ParallelFor(makeSlab(vbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+                    pn(i,j,0) = pn(i,j,0) * (rry);
+                });
+            }
+            set_grid_coords_from_grid_scale(lev);
+        } else {
+            set_grid_vars_averaged_down(lev);
+            set_grid_coords_from_grid_scale(lev);
         }
+#endif
     }
+}
 
+/**
+ * @param[in   ]lev   level to operate on
+ */
+void
+REMORA::set_grid_coords_from_grid_scale (int lev) {
     for ( MFIter mfi(*vec_xr[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<const Real> const& pm = vec_pm[lev]->const_array(mfi);
