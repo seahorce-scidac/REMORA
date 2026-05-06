@@ -4,31 +4,30 @@
 inputs file: Channel_Test.i
 
 number of MPI processes: 1
-number of threads:       8
 
-CPU time used since start of simulation (CPU-hours): 0.00267918
+CPU time used since start of simulation (CPU-hours): 0.000211761
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Wed Aug 14 17:42:12 2024
-output dir:         /home/klion/software/REMORA/Exec/Channel_Test
+output data / time: Mon May  4 11:36:43 2026
+output dir:         /home/klion/software/REMORA_clean/Exec/Channel_Test
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    2024-04-18 10:45:40.713399
-build machine: Linux varan 5.15.0-91-generic #101~20.04.1-Ubuntu SMP Thu Nov 16 14:22:28 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
-build dir:     /home/klion/software/REMORA/Exec/Channel_Test
+build date:    2025-03-20 12:20:31.162004
+build machine: Linux varan 6.8.0-53-generic #55-Ubuntu SMP PREEMPT_DYNAMIC Fri Jan 17 15:37:52 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+build dir:     /home/klion/software/REMORA_clean/Exec/Channel_Test
 AMReX dir:     ../../Submodules/AMReX
 
 COMP:          gnu
-COMP version:  9.4.0
+COMP version:  13.3.0
 
 
-REMORA       git hash: fdae6c0-dirty
-AMReX       git hash: v2024-8-gae3af4339
+REMORA       git hash: v1.0.1-60-g2cf4843-dirty
+AMReX       git hash: 25.02-10-g63e03ea81
 
 
 ===============================================================================
@@ -50,15 +49,14 @@ AMReX       git hash: v2024-8-gae3af4339
 ===============================================================================
  Inputs File Parameters
 ===============================================================================
-DistributionMapping.efficiency = 0.90000000000000002
-DistributionMapping.node_size = 0
-DistributionMapping.sfc_threshold = 0
-DistributionMapping.v = 0
 DistributionMapping.verbose = 0
-DistributionMapping.verbose_mapper = 0
 amr.blocking_factor = 1
 amr.check_input = 1
+amr.check_int = -57600
+amr.check_int_time = -1
+amr.do_substep = 0
 amr.grid_eff = 0.69999999999999996
+amr.max_grid_iterations = 4
 amr.max_grid_size = 2048
 amr.max_level = 0
 amr.n_cell = 20 60 50
@@ -68,12 +66,12 @@ amr.refine_grid_layout = 1
 amr.refine_grid_layout_x = 1
 amr.refine_grid_layout_y = 1
 amr.refine_grid_layout_z = 0
+amr.regrid_int = 2
 amr.v = 1
 amrex.abort_on_out_of_gpu_memory = 0
 amrex.abort_on_unused_inputs = 0
 amrex.async_out = 0
 amrex.async_out_nfiles = 64
-amrex.call_addr2line = 1
 amrex.fpe_trap_invalid = 1
 amrex.fpe_trap_overflow = 0
 amrex.fpe_trap_zero = 0
@@ -85,54 +83,91 @@ amrex.handle_sigsegv = 1
 amrex.handle_sigterm = 0
 amrex.init_snan = 1
 amrex.mf.alloc_single_chunk = 0
-amrex.omp_threads = system
-amrex.regtest_reduction = 0
 amrex.signal_handling = 1
-amrex.the_arena_init_size = 0
+amrex.the_arena_defragmentation = 1
+amrex.the_arena_init_size = 8388608
 amrex.the_arena_is_managed = 0
 amrex.the_arena_release_threshold = 9223372036854775807
-amrex.the_async_arena_release_threshold = 9223372036854775807
+amrex.the_comms_arena_defragmentation = 1
 amrex.the_comms_arena_init_size = 8388608
 amrex.the_comms_arena_release_threshold = 9223372036854775807
+amrex.the_device_arena_defragmentation = 1
 amrex.the_device_arena_init_size = 8388608
 amrex.the_device_arena_release_threshold = 9223372036854775807
+amrex.the_managed_arena_defragmentation = 1
 amrex.the_managed_arena_init_size = 8388608
 amrex.the_managed_arena_release_threshold = 9223372036854775807
+amrex.the_pinned_arena_defragmentation = 1
 amrex.the_pinned_arena_init_size = 8388608
 amrex.the_pinned_arena_release_threshold = 9223372036854775807
 amrex.throw_exception = 0
 amrex.use_gpu_aware_mpi = 0
-amrex.v = 1
 amrex.vector_growth_factor = 1.5
 amrex.verbose = 1
-fab.do_initval = 1
-fab.init_snan = 1
-fab.initval = nan
-fabarray.maxcomp = 25
-fabarray.mfiter_tile_size = 1024 1024 1024
+fabarray.comm_tile_size = 1024000 1024000 1024000
+fabarray.mfiter_tile_size = 8 8 1024000
 geometry.coord_sys = 0
 geometry.is_periodic = 1 0 0
-geometry.prob_hi = 100000. 300000. 0.
-geometry.prob_lo = 0. 0. -50.
-machine.verbose = 0
-machine.very_verbose = 0
-max_step = 10
+geometry.prob_hi = 100000 300000 0
+geometry.prob_lo = 0 0 -50
+max_step = 2147483647
 remora.Akk_bak = 5.0e-6
 remora.Akp_bak = 5.0e-6
+remora.Akt_bak = 9.9999999999999995e-07
 remora.Akv_bak = 1.0e-5
+remora.Cdb_max = 0.5
+remora.Cdb_min = 9.9999999999999995e-07
+remora.EminusP_from_netcdf = 0
+remora.Pair_from_netcdf = 0
 remora.R0 = 1027.0
 remora.S0 = 15.0
 remora.Scoef = 7.6e-4
 remora.T0 = 10.0
+remora.Tair_from_netcdf = 0
 remora.Tcoef = 1.7e-4
 remora.Zob = 0.002
 remora.Zos = 0.002
+remora.air_humidity = 0.77600000000000002
+remora.air_pressure = 1013.48
+remora.air_temperature = 23.567
+remora.bc.xhi.type = null
+remora.bc.xlo.type = null
+remora.bc.yhi.type = SlipWall
+remora.bc.ylo.type = SlipWall
+remora.bc.zhi.type = slipwall
+remora.bc.zlo.type = slipwall
+remora.blk_ZQ = 10
+remora.blk_ZT = 10
+remora.blk_ZW = 10
+remora.bottom_stress_type = linear
+remora.boundary_per_variable = 0
+remora.bulk_fluxes = 0
+remora.cfl = 0.80000000000000004
+remora.change_max = 1.1000000000000001
 remora.check_file = chk
 remora.check_int = -57600
+remora.check_int_time = -1
+remora.cloud = 0
+remora.cloud_from_netcdf = 0
 remora.coriolis_beta = 0.0
 remora.coriolis_f0 = 1.0e-4
 remora.coriolis_type = beta_plane
+remora.coupling_type = TwoWay
+remora.do_m2_clim_nudg = 0
+remora.do_m3_clim_nudg = 0
+remora.do_rivers = 0
+remora.do_rivers_salt = 1
+remora.do_rivers_scalar = 0
+remora.do_rivers_temp = 1
+remora.do_salt_clim_nudg = 0
+remora.do_temp_clim_nudg = 0
+remora.eminusp = 0
+remora.eminusp_correct_ssh = 0
+remora.eos_type = linear
+remora.expand_plotvars_to_unif_rr = 0
+remora.file_min_digits = 5
 remora.fixed_dt = 400.0
+remora.fixed_fast_dt = -1
 remora.fixed_ndtfast_ratio = 10
 remora.flat_bathymetry = false
 remora.gls_Kmin = 7.6e-6
@@ -147,31 +182,70 @@ remora.gls_c3p = 1.0
 remora.gls_cmu0 = 0.5477
 remora.gls_sigk = 1.0
 remora.gls_sigp = 1.3
+remora.gls_stability_type = Canuto_A
+remora.grid_scale_type = constant
+remora.harmonic_mixing_type = s
+remora.hires_grid_level = -1
+remora.horizontal_mixing_type = analytic
+remora.ic_bc_type = analytic
+remora.ic_type = analytic
+remora.init_ana_T = 0
+remora.init_l0int_T = 1
+remora.init_l1ad_T = 0
+remora.is_periodic = 1 0 0
+remora.longwave_down = 0
+remora.longwave_down_from_netcdf = 0
+remora.longwave_netcdf_is_net = 0
+remora.longwave_netcdf_varname = lwrad
+remora.m2nudg = 0
+remora.m3nudg = 0
+remora.mask_type = none
+remora.max_step = 10
+remora.n_cell = 20 60 50
+remora.nscalar = 1
+remora.obcfac = 0
+remora.output_forcing = 0
 remora.plot_file = plt
 remora.plot_int = 10
-remora.plot_vars = salt temp x_velocity y_velocity z_velocity
+remora.plot_int_time = -1
+remora.plot_staggered_vels = 0
+remora.plot_vars_3d = salt temp x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
+remora.prob_hi = 100000. 300000. 0.
+remora.prob_lo = 0. 0. -50.
+remora.qair_from_netcdf = 0
+remora.qair_is_percent = 0
+remora.rain = 0
+remora.rain_from_netcdf = 0
+remora.rdrag = 0.00029999999999999997
+remora.rdrag2 = 0.0030000000000000001
 remora.rho0 = 1025.0
-remora.spatial_order = 2
+remora.scaled_to_grid_amr_scaling = none
+remora.smflux_type = analytic
+remora.spatial_order(nvals = 1)  :: [2]
+remora.srflx_from_netcdf = 0
+remora.start_time = 0
+remora.stop_time = 1.7976931348623157e+308
 remora.sum_interval = 1
+remora.sum_period = -1
+remora.surface_radiation_flux = 0
 remora.tcline = 25.0
+remora.theta_b = 0
+remora.theta_s = 3
+remora.tnu2_salt = 0
+remora.tnu2_scalar = 0
+remora.tnu2_temp = 0
+remora.tnudg = 0
 remora.tracer_horizontal_advection_scheme = upstream3
+remora.use_barotropic = 1
 remora.use_coriolis = true
+remora.use_prestep = 1
+remora.use_salt = 1
+remora.use_uv3dmix = 1
+remora.uv_horizontal_advection_scheme = upstream3
 remora.v = 0
 remora.vertical_mixing_type = gls
-vismf.allowsparsewrites = 1
-vismf.checkfilepositions = 0
-vismf.groupsets = 0
-vismf.headerversion = 1
-vismf.iobuffersize = 2097152
-vismf.setbuf = 1
-vismf.usedynamicsetselection = 1
-vismf.usepersistentifstreams = 0
-vismf.usesingleread = 0
-vismf.usesinglewrite = 0
-vismf.usesynchronousreads = 0
-vismf.v = 0
-yhi.type = SlipWall
-ylo.type = SlipWall
-zhi.type = SlipWall
-zlo.type = SlipWall
+remora.visc2 = 0
+remora.wind_type = analytic
+remora.znudg = 0
+stop_time = 1.7976931348623157e+308
