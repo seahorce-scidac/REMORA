@@ -13,16 +13,13 @@ using namespace amrex;
  * @param NC_salt_fab     container for salinity data
  * @param NC_u_fab        container for u velocity data
  * @param NC_v_fab        container for v velocity data
- * @param NC_ubar_fab     container for u_bar velocity data
- * @param NC_vbar_fab     container for v_bar velocity data
  */
 void
 read_data_from_netcdf (int /*lev*/,
                        const Box& domain,
                        const std::string& fname,
                        FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
-                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
-                       FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab)
+                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab)
 {
     amrex::Print() << "Loading initial solution data from NetCDF file " << fname << std::endl;
 
@@ -34,8 +31,6 @@ read_data_from_netcdf (int /*lev*/,
     NC_fabs.push_back(&NC_salt_fab); NC_names.push_back("salt");     NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 1
     NC_fabs.push_back(&NC_xvel_fab); NC_names.push_back("u");        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 2
     NC_fabs.push_back(&NC_yvel_fab); NC_names.push_back("v");        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 3
-    NC_fabs.push_back(&NC_ubar_fab), NC_names.push_back("ubar");     NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 4
-    NC_fabs.push_back(&NC_vbar_fab); NC_names.push_back("vbar");     NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 5
 
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);

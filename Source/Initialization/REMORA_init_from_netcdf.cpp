@@ -15,8 +15,7 @@ using namespace amrex;
 void
 read_data_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
                        FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
-                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
-                       FArrayBox& NC_ubar_fab, FArrayBox& NC_vbar_fab);
+                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab);
 
 /** \brief helper function for reading in land-sea masks from netcdf */
 void
@@ -40,13 +39,10 @@ void
 init_state_from_netcdf (int lev,
                         FArrayBox&  temp_fab, FArrayBox&  salt_fab,
                         FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
-                        FArrayBox&  ubar_fab, FArrayBox&  vbar_fab,
                         const Vector<FArrayBox>& NC_temp_fab,
                         const Vector<FArrayBox>& NC_salt_fab,
                         const Vector<FArrayBox>& NC_xvel_fab,
-                        const Vector<FArrayBox>& NC_yvel_fab,
-                        const Vector<FArrayBox>& NC_ubar_fab,
-                        const Vector<FArrayBox>& NC_vbar_fab);
+                        const Vector<FArrayBox>& NC_yvel_fab);
 
 /** \brief helper function to read bathymetry from netcdf */
 void
@@ -108,15 +104,12 @@ REMORA::init_data_from_netcdf (int lev)
     Vector<FArrayBox> NC_salt_fab ; NC_salt_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_xvel_fab ; NC_xvel_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_yvel_fab ; NC_yvel_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_ubar_fab ; NC_ubar_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_vbar_fab ; NC_vbar_fab.resize(num_boxes_at_level[lev]);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         read_data_from_netcdf(lev, boxes_at_level[lev][idx], nc_init_file[lev][idx],
                               NC_temp_fab[idx], NC_salt_fab[idx],
-                              NC_xvel_fab[idx], NC_yvel_fab[idx],
-                              NC_ubar_fab[idx], NC_vbar_fab[idx]);
+                              NC_xvel_fab[idx], NC_yvel_fab[idx]);
     }
 
 
@@ -135,15 +128,11 @@ REMORA::init_data_from_netcdf (int lev)
         FArrayBox &salt_fab = mf_salt[mfi];
         FArrayBox &xvel_fab = (*xvel_new[lev])[mfi];
         FArrayBox &yvel_fab = (*yvel_new[lev])[mfi];
-        FArrayBox &ubar_fab = (*vec_ubar[lev])[mfi];
-        FArrayBox &vbar_fab = (*vec_vbar[lev])[mfi];
 
         init_state_from_netcdf(lev, temp_fab, salt_fab,
                                xvel_fab, yvel_fab,
-                               ubar_fab, vbar_fab,
                                NC_temp_fab, NC_salt_fab,
-                               NC_xvel_fab, NC_yvel_fab,
-                               NC_ubar_fab, NC_vbar_fab);
+                               NC_xvel_fab, NC_yvel_fab);
     } // mf
     } // omp
 
@@ -523,28 +512,19 @@ REMORA::init_bdry_from_netcdf (int lev)
  * @param salt_fab  FArrayBox object holding the salt        data we initialize
  * @param x_vel_fab FArrayBox object holding the x-velocity data we initialize
  * @param y_vel_fab FArrayBox object holding the y-velocity data we initialize
- * @param ubar_fab  FArrayBox object holding the ubar       data we initialize
- * @param vbar_fab  FArrayBox object holding the vbar       data we initialize
- * @param zeta_fab  FArrayBox object holding the zeta       data we initialize
  * @param NC_temp_fab Vector of FArrayBox objects with the REMORA dataset specifying temperature
  * @param NC_salt_fab Vector of FArrayBox objects with the REMORA dataset specifying salinity
  * @param NC_xvel_fab Vector of FArrayBox objects with the REMORA dataset specifying x-velocity
  * @param NC_yvel_fab Vector of FArrayBox objects with the REMORA dataset specifying y-velocity
- * @param NC_ubar_fab Vector of FArrayBox objects with the REMORA dataset specifying ubar
- * @param NC_vbar_fab Vector of FArrayBox objects with the REMORA dataset specifying vbar
- * @param NC_zeta_fab Vector of FArrayBox objects with the REMORA dataset specifying zeta
  */
 void
 init_state_from_netcdf (int /*lev*/,
                         FArrayBox&  temp_fab, FArrayBox&  salt_fab,
                         FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
-                        FArrayBox&  ubar_fab, FArrayBox&  vbar_fab,
                         const Vector<FArrayBox>& NC_temp_fab,
                         const Vector<FArrayBox>& NC_salt_fab,
                         const Vector<FArrayBox>& NC_xvel_fab,
-                        const Vector<FArrayBox>& NC_yvel_fab,
-                        const Vector<FArrayBox>& NC_ubar_fab,
-                        const Vector<FArrayBox>& NC_vbar_fab)
+                        const Vector<FArrayBox>& NC_yvel_fab)
 {
     int nboxes = NC_xvel_fab.size();
     for (int idx = 0; idx < nboxes; idx++)
@@ -557,8 +537,6 @@ init_state_from_netcdf (int /*lev*/,
         salt_fab.template copy<RunOn::Device>(NC_salt_fab[idx]);
         x_vel_fab.template copy<RunOn::Device>(NC_xvel_fab[idx]);
         y_vel_fab.template copy<RunOn::Device>(NC_yvel_fab[idx]);
-        ubar_fab.template copy<RunOn::Device>(NC_ubar_fab[idx],0,0,1);
-        vbar_fab.template copy<RunOn::Device>(NC_vbar_fab[idx],0,0,1);
     } // idx
 }
 
