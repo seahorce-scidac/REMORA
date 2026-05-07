@@ -70,6 +70,29 @@ read_zeta_from_netcdf (int /*lev*/,
  * @param domain          simulation domain
  * @param fname           file name to read from
  * @param NC_h_fab        container for bathymetry data
+ */
+void
+read_bathymetry_from_netcdf (int /*lev*/,
+                             const Box& domain,
+                             const std::string& fname,
+                             FArrayBox& NC_h_fab)
+{
+    amrex::Print() << "Loading initial bathymetry from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_h_fab )   ; NC_names.push_back("h")     ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
+
+    // Read the netcdf file and fill these FABs
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+}
+
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
  * @param NC_pm_fab       container for pm data
  * @param NC_pn_fab       container for pn data
  * @param NC_xr_fab       container for x_rho data
@@ -82,23 +105,21 @@ read_zeta_from_netcdf (int /*lev*/,
  * @param NC_yp_fab       container for y_p data
  */
 void
-read_bathymetry_from_netcdf (int /*lev*/,
+read_grid_vars_from_netcdf (int /*lev*/,
                              const Box& domain,
                              const std::string& fname,
-                             FArrayBox& NC_h_fab,
                              FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab,
                              FArrayBox& NC_xr_fab, FArrayBox& NC_yr_fab,
                              FArrayBox& NC_xu_fab, FArrayBox& NC_yu_fab,
                              FArrayBox& NC_xv_fab, FArrayBox& NC_yv_fab,
                              FArrayBox& NC_xp_fab, FArrayBox& NC_yp_fab)
 {
-    amrex::Print() << "Loading initial bathymetry from NetCDF file " << fname << std::endl;
+    amrex::Print() << "Loading grid variables from NetCDF file " << fname << std::endl;
 
     Vector<FArrayBox*> NC_fabs;
     Vector<std::string> NC_names;
     Vector<enum NC_Data_Dims_Type> NC_dim_types;
 
-    NC_fabs.push_back(&NC_h_fab )   ; NC_names.push_back("h")     ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
     NC_fabs.push_back(&NC_pm_fab)   ; NC_names.push_back("pm")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 1
     NC_fabs.push_back(&NC_pn_fab)   ; NC_names.push_back("pn")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 2
     NC_fabs.push_back(&NC_xr_fab)   ; NC_names.push_back("x_rho") ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 3
@@ -133,6 +154,32 @@ read_bathymetry_full_domain_from_netcdf (const Box& domain,
 
     NC_fabs.push_back(&NC_h_fab )   ; NC_names.push_back("h")     ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
 
+    // Read the netcdf file and fill these FABs
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+}
+
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param NC_pm_fab       container for pm data
+ * @param NC_pn_fab       container for pn data
+ * @param ngrow           number of grow cells to read in, if not default
+ */
+void
+read_grid_vars_full_domain_from_netcdf (const Box& domain,
+                             const std::string& fname,
+                             FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab,
+                             IntVect ngrow)
+{
+    amrex::Print() << "Loading high resolution grid variables from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_pm_fab)   ; NC_names.push_back("pm")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 0
+    NC_fabs.push_back(&NC_pn_fab)   ; NC_names.push_back("pn")    ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE); // 1
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
 }

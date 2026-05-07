@@ -51,7 +51,11 @@ init_state_from_netcdf (int lev,
 /** \brief helper function to read bathymetry from netcdf */
 void
 read_bathymetry_from_netcdf (int lev, const Box& domain, const std::string& fname,
-                             FArrayBox& NC_h_fab,
+                             FArrayBox& NC_h_fab);
+
+/** \brief helper function to read grid variables from netcdf */
+void
+read_grid_vars_from_netcdf  (int lev, const Box& domain, const std::string& fname,
                              FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab,
                              FArrayBox& NC_xr_fab, FArrayBox& NC_yr_fab,
                              FArrayBox& NC_xu_fab, FArrayBox& NC_yu_fab,
@@ -62,6 +66,12 @@ read_bathymetry_from_netcdf (int lev, const Box& domain, const std::string& fnam
 void
 read_bathymetry_full_domain_from_netcdf (const Box& domain, const std::string& fname,
                                          FArrayBox& NC_h_fab, IntVect ngrow);
+
+/** \brief helper function to read full-domain high resolution grid variables from netcdf */
+void
+read_grid_vars_full_domain_from_netcdf (const Box& domain, const std::string& fname,
+                                         FArrayBox& NC_pm_fab, FArrayBox& NC_pn_fab,
+                                         IntVect ngrow);
 
 /** \brief helper function to read coriolis factor from netcdf */
 void
@@ -192,14 +202,14 @@ REMORA::init_zeta_from_netcdf (int lev)
 //    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
 //    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
 }
+
 /**
  * @param lev Integer specifying the current level
  */
 void
-REMORA::init_bathymetry_from_netcdf (int lev)
+REMORA::init_grid_vars_from_netcdf (int lev)
 {
     // *** FArrayBox's at this level for holding the INITIAL data
-    Vector<FArrayBox> NC_h_fab     ; NC_h_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_pm_fab    ; NC_pm_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_pn_fab    ; NC_pn_fab.resize(num_boxes_at_level[lev]);
 
@@ -214,8 +224,7 @@ REMORA::init_bathymetry_from_netcdf (int lev)
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
-        read_bathymetry_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
-                                    NC_h_fab[idx],
+        read_grid_vars_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
                                     NC_pm_fab[idx], NC_pn_fab[idx],
                                     NC_xr_fab[idx], NC_yr_fab[idx],
                                     NC_xu_fab[idx], NC_yu_fab[idx],
@@ -229,7 +238,6 @@ REMORA::init_bathymetry_from_netcdf (int lev)
         // Don't tile this since we are operating on full FABs in this routine
         for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
         {
-            FArrayBox &h_fab     = (*vec_h[lev])[mfi];
             FArrayBox &pm_fab    = (*vec_pm[lev])[mfi];
             FArrayBox &pn_fab    = (*vec_pn[lev])[mfi];
             FArrayBox &xr_fab    = (*vec_xr[lev])[mfi];
@@ -246,10 +254,6 @@ REMORA::init_bathymetry_from_netcdf (int lev)
             // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
             //
 
-            // Copy into both components of h
-            h_fab.template     copy<RunOn::Device>(NC_h_fab[idx],0,0,1);
-            h_fab.template     copy<RunOn::Device>(NC_h_fab[idx],0,1,1);
-
             pm_fab.template    copy<RunOn::Device>(NC_pm_fab[idx]);
             pn_fab.template    copy<RunOn::Device>(NC_pn_fab[idx]);
 
@@ -265,16 +269,7 @@ REMORA::init_bathymetry_from_netcdf (int lev)
         } // omp
     } // idx
 
-    const double dummy_time = 0.0_rt;
-    // Unconditional foextrap will overwrite periodicity, but EnforcePeriodicity will
-    // be called on h afterwards
-    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-            foextrap_periodic_bc(),
-            BdyVars::null,0,false,true,1);
-    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-            foextrap_periodic_bc(),
-            BdyVars::null,1,false,true,1);
-
+    Real dummy_time = 0.0_rt;
     if (lev > 0) {
         FillPatch(lev,dummy_time,*vec_pm[lev],GetVecOfPtrs(vec_pm),
                 foextrap_periodic_bc(),
@@ -355,6 +350,50 @@ REMORA::init_bathymetry_from_netcdf (int lev)
             });
         }
     } // mfi
+}
+/**
+ * @param lev Integer specifying the current level
+ */
+void
+REMORA::init_bathymetry_from_netcdf (int lev)
+{
+    // *** FArrayBox's at this level for holding the INITIAL data
+    Vector<FArrayBox> NC_h_fab     ; NC_h_fab.resize(num_boxes_at_level[lev]);
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
+    {
+        read_bathymetry_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
+                                    NC_h_fab[idx]);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        {
+        // Don't tile this since we are operating on full FABs in this routine
+        for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
+        {
+            FArrayBox &h_fab     = (*vec_h[lev])[mfi];
+
+            //
+            // FArrayBox to FArrayBox copy does "copy on intersection"
+            // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
+            //
+
+            // Copy into both components of h
+            h_fab.template     copy<RunOn::Device>(NC_h_fab[idx],0,0,1);
+            h_fab.template     copy<RunOn::Device>(NC_h_fab[idx],0,1,1);
+        } // mf
+        } // omp
+    } // idx
+
+    const double dummy_time = 0.0_rt;
+    // Unconditional foextrap will overwrite periodicity, but EnforcePeriodicity will
+    // be called on h afterwards
+    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
+            foextrap_periodic_bc(),
+            BdyVars::null,0,false,true,1);
+    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
+            foextrap_periodic_bc(),
+            BdyVars::null,1,false,true,1);
 
     vec_h[lev]->FillBoundary(geom[lev].periodicity());
 }
@@ -686,6 +725,107 @@ REMORA::init_bathymetry_full_domain_from_netcdf ()
     // grow cells get populated by averaged down fine data
     for (int lev=hires_grid_level-1; lev >= 0; lev--) {
         average_down_with_grow_cells(lev, vec_h_full_domain);;
+    }
+}
+
+void
+REMORA::init_grid_vars_full_domain_from_netcdf ()
+{
+    if (nc_grid_file_hires.empty()) {
+        Abort("Must specify high-resolution grid file when initializing from NetCDF and hires_grid_level > 0");
+    }
+    Vector<FArrayBox> NC_pm_fab    ; NC_pm_fab.resize(1);
+    Vector<FArrayBox> NC_pn_fab    ; NC_pn_fab.resize(1);
+
+    read_grid_vars_full_domain_from_netcdf(nc_hires_grid_box, nc_grid_file_hires,
+                                    NC_pm_fab[0], NC_pn_fab[0],
+                                    cum_ref_ratios[hires_grid_level]);
+
+    // Don't tile this since we are operating on full FABs in this routine
+    for ( MFIter mfi(*vec_h_full_domain[hires_grid_level], false); mfi.isValid(); ++mfi )
+    {
+        FArrayBox &pm_fab    = (*vec_pm_full_domain[hires_grid_level])[mfi];
+        FArrayBox &pn_fab    = (*vec_pn_full_domain[hires_grid_level])[mfi];
+        pm_fab.template    copy<RunOn::Device>(NC_pm_fab[0]);
+        pn_fab.template    copy<RunOn::Device>(NC_pn_fab[0]);
+    }
+
+    // Average down to fill levels below hires_grid_level. Use a special average_down so
+    // grow cells get populated by averaged down fine data
+    for (int lev=hires_grid_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_pm_full_domain);
+        average_down_with_grow_cells(lev, vec_pn_full_domain);
+
+        int rrx = ref_ratio[lev][0];
+        int rry = ref_ratio[lev][1];
+        // pm and pn need to be rescaled by the refinement ratio
+        for ( MFIter mfi(*vec_h_full_domain[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+        {
+            Array4<Real> const& pm   = vec_pm_full_domain[lev]->array(mfi);
+            Array4<Real> const& pn   = vec_pn_full_domain[lev]->array(mfi);
+            Box ubx = mfi.growntilebox(cum_ref_ratios[lev] - IntVect(1,0,0));;
+            Box vbx = mfi.growntilebox(cum_ref_ratios[lev] - IntVect(0,1,0));;
+            ParallelFor(makeSlab(ubx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+                pm(i,j,0) = pm(i,j,0) / Real(rrx);
+            });
+            ParallelFor(makeSlab(vbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+                pn(i,j,0) = pn(i,j,0) / Real(rry);
+            });
+        }
+    }
+
+    for (int lev=0; lev<=hires_grid_level; lev++) {
+        int ng = vec_pm_full_domain[lev]->nGrow();
+
+        const auto& dom_lo = amrex::lbound(geom[lev].Domain());
+        const auto& dom_hi = amrex::ubound(geom[lev].Domain());
+
+        for ( MFIter mfi(*vec_pm_full_domain[lev]); mfi.isValid(); ++mfi )
+        {
+            Box bx   = mfi.tilebox();
+
+            auto pm_fab = vec_pm_full_domain[lev]->array(mfi);
+            auto pn_fab = vec_pn_full_domain[lev]->array(mfi);
+
+            Box gbx_lox = adjCellLo(bx,0,ng); gbx_lox.grow(1,ng); gbx_lox.setBig  (0,dom_lo.x-2);
+            Box gbx_hix = adjCellHi(bx,0,ng); gbx_hix.grow(1,ng); gbx_hix.setSmall(0,dom_hi.x+2);
+            Box gbx_loy = adjCellLo(bx,1,ng); gbx_loy.grow(0,ng); gbx_loy.setBig  (1,dom_lo.y-2);
+            Box gbx_hiy = adjCellHi(bx,1,ng); gbx_hiy.grow(0,ng); gbx_hiy.setSmall(1,dom_hi.y+2);
+
+            // if (gbx_lox.ok()) amrex::AllPrint() << "GBX_XLO " << gbx_lox << std::endl;
+            // if (gbx_hix.ok()) amrex::AllPrint() << "GBX_XHI " << gbx_hix << std::endl;
+            // if (gbx_loy.ok()) amrex::AllPrint() << "GBX_YLO " << gbx_loy << std::endl;
+            // if (gbx_hiy.ok()) amrex::AllPrint() << "GBX_YHI " << gbx_hiy << std::endl;
+
+            if (gbx_lox.ok()) {
+                ParallelFor(gbx_lox, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    pm_fab(i,j,k,0) = pm_fab(dom_lo.x-1,j,k,0);
+                    pn_fab(i,j,k,0) = pn_fab(dom_lo.x-1,j,k,0);
+                });
+            }
+            if (gbx_hix.ok()) {
+                ParallelFor(gbx_hix, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    pm_fab(i,j,k,0) = pm_fab(dom_hi.x+1,j,k,0);
+                    pn_fab(i,j,k,0) = pn_fab(dom_hi.x+1,j,k,0);
+                });
+            }
+            if (gbx_loy.ok()) {
+                ParallelFor(gbx_loy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    pm_fab(i,j,k,0) = pm_fab(i,dom_lo.y-1,k,0);
+                    pn_fab(i,j,k,0) = pn_fab(i,dom_lo.y-1,k,0);
+                });
+            }
+            if (gbx_hiy.ok()) {
+                ParallelFor(gbx_hiy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    pm_fab(i,j,k,0) = pm_fab(i,dom_hi.y+1,k,0);
+                    pn_fab(i,j,k,0) = pn_fab(i,dom_hi.y+1,k,0);
+                });
+            }
+        } // mfi
     }
 }
 

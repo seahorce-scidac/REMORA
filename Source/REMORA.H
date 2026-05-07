@@ -151,8 +151,14 @@ public:
     virtual void MakeNewLevelFromScratch (int lev, amrex::Real time, const amrex::BoxArray& ba,
                       const amrex::DistributionMapping& dm) override;
 
-    /** \brief Set pm and pn arrays on level lev. Only works if using analytic initialization */
+    /** \brief Set pm and pn arrays and x/y coords on level lev */
     void set_grid_scale (int lev);
+
+    /** \brief Set x/y coords on level lev based on pm and pn */
+    void set_grid_coords_from_grid_scale (int lev);
+
+    /** \brief Set pm/pn by averaging down from higher-resolution grid */
+    void set_grid_vars_averaged_down (int lev);
 
     /** \brief Set zeta components to be equal to time-averaged Zt_avg1 */
     void set_zeta_to_Ztavg (int lev);
@@ -404,6 +410,11 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm;
     /** \brief horizontal scaling factor: 1 / dy (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn;
+    /** \brief horizontal scaling factor: 1 / dx (2D) on whole domain */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm_full_domain;
+    /** \brief horizontal scaling factor: 1 / dy (2D) on whole domain */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn_full_domain;
+
 
     /** \brief coriolis factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_fcor;
@@ -1025,8 +1036,12 @@ public:
     void init_masks_from_netcdf (int lev);
     /** \brief Bathymetry data initialization from NetCDF file */
     void init_bathymetry_from_netcdf (int lev);
-    /** \brief Full domain bathymetry data initialization from NetCDF file */
+    /** \brief Full domain high-res bathymetry data initialization from NetCDF file */
     void init_bathymetry_full_domain_from_netcdf ();
+    /** \brief Grid variable initialization from NetCDF file */
+    void init_grid_vars_from_netcdf (int lev);
+    /** \brief Full domain high-res grid variable initialization from NetCDF file */
+    void init_grid_vars_full_domain_from_netcdf ();
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);
     /** \brief Coriolis parameter data initialization from NetCDF file */
@@ -1037,8 +1052,8 @@ public:
     void init_clim_nudg_coeff (int lev);
     void init_riv_pos_from_netcdf (int lev);
 
-    /** \brief Allocate multifabs for storing full-domain bathymetry data */
-    void allocate_bathymetry_full_domain ();
+    /** \brief Allocate multifabs for storing full-domain bathymetry and grid vars data */
+    void allocate_bathymetry_grid_vars_full_domain ();
 
     /** \brief Convert data in a multifab from inverse days to inverse seconds */
     void convert_inv_days_to_inv_s (amrex::MultiFab*);

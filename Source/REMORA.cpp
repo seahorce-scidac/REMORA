@@ -526,12 +526,16 @@ REMORA::set_bathymetry (int lev)
                 amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
                 init_bathymetry_from_netcdf(lev);
                 amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
+                amrex::Print() << "Calling init_grid_vars_from_netcdf " << std::endl;
+                init_grid_vars_from_netcdf(lev);
+                amrex::Print() << "Grid variables loaded from netcdf file \n " << std::endl;
 #endif
             } else {
                 amrex::Abort("Unknown IC_Type");
             }
         } else {
             set_bathymetry_averaged_down(lev);
+            set_grid_vars_averaged_down(lev);
         }
         // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
         // to make sure ghost cells in the domain corners are consistent.
@@ -549,10 +553,8 @@ REMORA::set_bathymetry (int lev)
             vec_h[lev]->FillBoundary(geom[lev].periodicity());
             vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
         }
-        if (solverChoice.ic_type == IC_Type::netcdf) {
-            set_grid_scale(lev);
-        }
     }
+    set_grid_scale(lev);
 }
 
 /**
@@ -561,14 +563,33 @@ REMORA::set_bathymetry (int lev)
 void
 REMORA::set_bathymetry_averaged_down (int lev) {
     Real dummy_time = 0.0_rt;
-    ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1,IntVect(1,1,0),IntVect(1,1,0));
-    ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1,IntVect(1,1,0),IntVect(1,1,0));
+    // Note: don't understand why the grow vector args aren't vec_h and then vec_h_full_domain
+    ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
+    ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
             foextrap_periodic_bc(),
             BdyVars::null,0,false,true,1);
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
             foextrap_periodic_bc(),
             BdyVars::null,1,false,true,1);
+}
+
+/**
+ * @param[in   ] lev   level to operate on
+ */
+void
+REMORA::set_grid_vars_averaged_down (int lev) {
+    Real dummy_time = 0.0_rt;
+    ParallelCopy(*vec_pm[lev].get(), *vec_pm_full_domain[lev].get(), 0, 0, 1,
+            vec_pm_full_domain[lev]->nGrowVect(),vec_pm[lev]->nGrowVect());
+    ParallelCopy(*vec_pn[lev].get(), *vec_pn_full_domain[lev].get(), 0, 0, 1,
+            vec_pn_full_domain[lev]->nGrowVect(),vec_pn[lev]->nGrowVect());
+    FillPatch(lev,dummy_time,*vec_pm[lev],GetVecOfPtrs(vec_pm),
+            foextrap_periodic_bc(),
+            BdyVars::null,0,false,true);
+    FillPatch(lev,dummy_time,*vec_pn[lev],GetVecOfPtrs(vec_pn),
+            foextrap_periodic_bc(),
+            BdyVars::null,0,false,true);
 }
 
 /**
@@ -1240,10 +1261,11 @@ REMORA::init_only (int lev, Real time)
     }
 
     if (lev==0 and hires_grid_level > 0 and solverChoice.ic_type == IC_Type::netcdf) {
-        amrex::Print() << "Reading high resolution bathymetry data" << std::endl;
-        allocate_bathymetry_full_domain();
+        amrex::Print() << "Reading high resolution bathymetry and grid data" << std::endl;
+        allocate_bathymetry_grid_vars_full_domain();
         init_bathymetry_full_domain_from_netcdf();
-        amrex::Print() << "Done reading in high resolution bathymetry data" << std::endl;
+        init_grid_vars_full_domain_from_netcdf();
+        amrex::Print() << "Done reading in high resolution bathymetry and grid data" << std::endl;
     }
 #else
     if (solverChoice.boundary_from_netcdf) {
@@ -1255,7 +1277,7 @@ REMORA::init_only (int lev, Real time)
 #endif
 
     if (lev==0 and hires_grid_level > 0 and solverChoice.ic_type == IC_Type::analytic) {
-        allocate_bathymetry_full_domain();
+        allocate_bathymetry_grid_vars_full_domain();
         init_bathymetry_full_domain_from_analytic();
     }
 
@@ -1637,13 +1659,30 @@ REMORA::average_down_with_grow_cells(int crse_lev, Vector<std::unique_ptr<MultiF
 {
     auto const& crsema = vec_mf[crse_lev]->arrays();
     auto const& finema = vec_mf[crse_lev+1]->const_arrays();
-    auto nghost_crse = cum_ref_ratios[crse_lev];
     auto ref_ratio_crse = refRatio(crse_lev);
-    ParallelFor(*vec_mf[crse_lev], nghost_crse, 1,
-            [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k, int n) noexcept
-    {
-        amrex_avgdown(i,j,k,n,crsema[box_no],finema[box_no],0,0,ref_ratio_crse);
-    });
+    auto index_type = (vec_mf[crse_lev]->boxArray().ixType()).toIntVect();
+    auto nghost_crse = cum_ref_ratios[crse_lev] - index_type;
+    if (index_type[0]==0 and index_type[1]==0) {
+        ParallelFor(*vec_mf[crse_lev], nghost_crse, 1,
+                [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k, int n) noexcept
+        {
+            amrex_avgdown(i,j,k,n,crsema[box_no],finema[box_no],0,0,ref_ratio_crse);
+        });
+    } else if (index_type[0]==1 and index_type[1]==0) {
+        ParallelFor(*vec_mf[crse_lev], nghost_crse, 1,
+                [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k, int n) noexcept
+        {
+            amrex_avgdown_faces(i,j,k,n,crsema[box_no],finema[box_no],0,0,ref_ratio_crse,0);
+        });
+    } else if (index_type[0]==0 and index_type[1]==1) {
+        ParallelFor(*vec_mf[crse_lev], nghost_crse, 1,
+                [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k, int n) noexcept
+        {
+            amrex_avgdown_faces(i,j,k,n,crsema[box_no],finema[box_no],0,0,ref_ratio_crse,1);
+        });
+    } else {
+        amrex::Abort("Unexpected nodality in average_down_with_grow_cells");
+    }
     Gpu::streamSynchronize();
 }
 
