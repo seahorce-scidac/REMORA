@@ -9,10 +9,10 @@ endfunction(target_link_libraries_system)
 
 function(build_remora_lib remora_lib_name)
 
-  set(SRC_DIR ${CMAKE_SOURCE_DIR}/Source)
+  set(SRC_DIR ${PROJECT_SOURCE_DIR}/Source)
   set(BIN_DIR ${CMAKE_BINARY_DIR}/Source/${remora_lib_name})
 
-  include(${CMAKE_SOURCE_DIR}/CMake/SetREMORACompileFlags.cmake)
+  include(${PROJECT_SOURCE_DIR}/CMake/SetREMORACompileFlags.cmake)
   set_remora_compile_flags(${remora_lib_name})
 
   if(REMORA_ENABLE_PARTICLES)
@@ -21,7 +21,7 @@ function(build_remora_lib remora_lib_name)
                    ${SRC_DIR}/Particles/REMORA_PC_Init.cpp
                    ${SRC_DIR}/Particles/REMORA_PC_Utils.cpp
                    ${SRC_DIR}/Particles/REMORA_Tracers.cpp)
-    target_include_directories(${remora_lib_name} PUBLIC $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/Particles>)
+    target_include_directories(${remora_lib_name} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/Particles>)
     target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_PARTICLES)
   endif()
 
@@ -61,6 +61,7 @@ function(build_remora_lib remora_lib_name)
      PRIVATE
        ${SRC_DIR}/REMORA_Derive.cpp
        ${SRC_DIR}/REMORA.cpp
+       ${SRC_DIR}/REMORA_Coupling.cpp
        ${SRC_DIR}/REMORA_SumIQ.cpp
        ${SRC_DIR}/REMORA_Tagging.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_cons.cpp
@@ -109,16 +110,13 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/TimeIntegration/REMORA_set_weights.cpp
   )
 
-  if(NOT "${remora_exe_name}" STREQUAL "remora_unit_tests")
-    target_sources(${remora_lib_name}
-       PRIVATE
-         ${SRC_DIR}/main.cpp
-    )
-  endif()
-
   include(AMReXBuildInfo)
-  generate_buildinfo(${remora_lib_name} ${CMAKE_SOURCE_DIR})
+  generate_buildinfo(${remora_lib_name} ${PROJECT_SOURCE_DIR})
+  if(AMREX_C_SCRIPTS_DIR)
+    target_include_directories(${remora_lib_name} PUBLIC $<BUILD_INTERFACE:${AMREX_C_SCRIPTS_DIR}>)
+  elseif(REMORA_USE_INTERNAL_AMREX)
     target_include_directories(${remora_lib_name} PUBLIC $<BUILD_INTERFACE:${AMREX_SUBMOD_LOCATION}/Tools/C_scripts>)
+  endif()
 
   if(REMORA_ENABLE_PNETCDF)
     if(PNETCDF_FOUND)
@@ -141,16 +139,16 @@ function(build_remora_lib remora_lib_name)
   endif()
 
   #REMORA include directories
-  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source>)
-  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/BoundaryConditions>)
-  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/Initialization>)
-  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/Utils>)
-  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/TimeIntegration>)
-  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/Source/IO>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/BoundaryConditions>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/Initialization>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/Utils>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/TimeIntegration>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/IO>)
   target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>)
 
   #Link to amrex library
-  target_link_libraries_system(${remora_lib_name} PUBLIC amrex)
+  target_link_libraries_system(${remora_lib_name} PUBLIC ${REMORA_AMREX_TARGET})
   if(REMORA_ENABLE_CUDA)
     set(pctargets "${remora_lib_name}")
     foreach(tgt IN LISTS pctargets)
@@ -176,10 +174,10 @@ endfunction(build_remora_lib)
 
 function(build_remora_exe remora_exe_name)
 
-  set(SRC_DIR ${CMAKE_SOURCE_DIR}/Source)
+  set(SRC_DIR ${PROJECT_SOURCE_DIR}/Source)
 
   target_link_libraries(${remora_exe_name}  PUBLIC ${remora_lib_name})
-  include(${CMAKE_SOURCE_DIR}/CMake/SetREMORACompileFlags.cmake)
+  include(${PROJECT_SOURCE_DIR}/CMake/SetREMORACompileFlags.cmake)
   set_remora_compile_flags(${remora_exe_name})
 
   if(REMORA_ENABLE_CUDA)
