@@ -53,7 +53,7 @@ amrex::Vector<amrex::Vector<std::string>> REMORA::nc_init_file = {{""}}; // Must
 amrex::Vector<amrex::Vector<std::string>> REMORA::nc_grid_file = {{""}}; // Must provide via input
 #endif
 
-amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
+static amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 
 /**
  * constructor:

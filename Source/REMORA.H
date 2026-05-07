@@ -111,6 +111,12 @@ public:
     /** \brief Called after every level 0 timestep */
     void post_timestep (int nstep, amrex::Real time, amrex::Real dt_lev);
 
+    /** \brief Pack a stage-0 synthetic surface state for atmosphere coupling */
+    void PackSurfaceState (amrex::Vector<amrex::MultiFab*>& state, amrex::Real time);
+
+    /** \brief Apply stage-0 synthetic atmospheric forcing fields from the driver */
+    void ApplyAtmosphericStates (const amrex::Vector<amrex::MultiFab*>& states, amrex::Real time);
+
     // Diagnostics
 
     /** \brief Integrate conserved quantities for diagnostics */
