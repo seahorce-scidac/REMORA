@@ -61,8 +61,13 @@ function(build_remora_lib remora_lib_name)
   # to instantiate these out-of-line member definitions.
   if(NOT REMORA_BUILD_EXECUTABLES)
     # Avoid cross-application symbol collision when REMORA and ERF are linked
-    # into one parent executable.
-    target_compile_definitions(${remora_lib_name} PRIVATE amrex_probinit=remora_probinit)
+    # into one parent executable by forcing explicit REMORA-prefixed names.
+    target_compile_definitions(${remora_lib_name} PRIVATE
+                   amrex_probinit=remora_probinit)
+    target_compile_definitions(${remora_lib_name} PRIVATE
+                   Problem=REMORAProblem
+                   ProblemBase=REMORAProblemBase
+                   SolverChoice=REMORASolverChoice)
     target_sources(${remora_lib_name} PRIVATE
                    ${PROJECT_SOURCE_DIR}/Exec/BlankProblem/prob.cpp)
   endif()
