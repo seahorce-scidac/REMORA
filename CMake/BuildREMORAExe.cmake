@@ -72,11 +72,17 @@ function(build_remora_lib remora_lib_name)
                    ${PROJECT_SOURCE_DIR}/Exec/BlankProblem/prob.cpp)
   endif()
 
+  # Coupling source is present only on coupling branches.
+  # Build/link branches should compile without requiring this file.
+  if(EXISTS "${SRC_DIR}/REMORA_Coupling.cpp")
+    target_sources(${remora_lib_name} PRIVATE
+                   ${SRC_DIR}/REMORA_Coupling.cpp)
+  endif()
+
   target_sources(${remora_lib_name}
      PRIVATE
        ${SRC_DIR}/REMORA_Derive.cpp
        ${SRC_DIR}/REMORA.cpp
-       ${SRC_DIR}/REMORA_Coupling.cpp
        ${SRC_DIR}/REMORA_SumIQ.cpp
        ${SRC_DIR}/REMORA_Tagging.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_cons.cpp
