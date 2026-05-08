@@ -131,6 +131,15 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/TimeIntegration/REMORA_set_weights.cpp
   )
 
+  # Example executables rely on Source/main.cpp for the process entry point
+  # and for globally shared CLI metadata (e.g., inputs_name).
+  if(REMORA_BUILD_EXECUTABLES)
+    target_sources(${remora_lib_name}
+       PRIVATE
+         ${SRC_DIR}/main.cpp
+    )
+  endif()
+
   include(AMReXBuildInfo)
   generate_buildinfo(${remora_lib_name} ${PROJECT_SOURCE_DIR})
   if(AMREX_C_SCRIPTS_DIR)
