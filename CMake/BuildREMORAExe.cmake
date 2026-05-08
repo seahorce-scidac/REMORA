@@ -68,8 +68,14 @@ function(build_remora_lib remora_lib_name)
                    Problem=REMORAProblem
                    ProblemBase=REMORAProblemBase
                    SolverChoice=REMORASolverChoice)
+    set(remora_library_prob "${PROJECT_SOURCE_DIR}/Exec/${REMORA_LIBRARY_PROBLEM}/prob.cpp")
+    if(NOT EXISTS "${remora_library_prob}")
+      message(FATAL_ERROR
+              "REMORA library mode requested REMORA_LIBRARY_PROBLEM='${REMORA_LIBRARY_PROBLEM}', "
+              "but '${remora_library_prob}' does not exist.")
+    endif()
     target_sources(${remora_lib_name} PRIVATE
-                   ${PROJECT_SOURCE_DIR}/Exec/BlankProblem/prob.cpp)
+                   ${remora_library_prob})
   endif()
 
   # Coupling source is present only on coupling branches.
@@ -130,6 +136,15 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/TimeIntegration/REMORA_TimeStepML.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_set_weights.cpp
   )
+
+  # Example executables rely on Source/main.cpp for the process entry point
+  # and for globally shared CLI metadata (e.g., inputs_name).
+  if(REMORA_BUILD_EXECUTABLES)
+    target_sources(${remora_lib_name}
+       PRIVATE
+         ${SRC_DIR}/main.cpp
+    )
+  endif()
 
   include(AMReXBuildInfo)
   generate_buildinfo(${remora_lib_name} ${PROJECT_SOURCE_DIR})
