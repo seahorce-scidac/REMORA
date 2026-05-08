@@ -57,6 +57,16 @@ function(build_remora_lib remora_lib_name)
   target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_FUNWAVE_FORT)
   endif()
 
+  # In library-only superbuild mode there is no Exec/prob.cpp translation unit
+  # to instantiate these out-of-line member definitions.
+  if(NOT REMORA_BUILD_EXECUTABLES)
+    # Avoid cross-application symbol collision when REMORA and ERF are linked
+    # into one parent executable.
+    target_compile_definitions(${remora_lib_name} PRIVATE amrex_probinit=remora_probinit)
+    target_sources(${remora_lib_name} PRIVATE
+                   ${PROJECT_SOURCE_DIR}/Exec/BlankProblem/prob.cpp)
+  endif()
+
   target_sources(${remora_lib_name}
      PRIVATE
        ${SRC_DIR}/REMORA_Derive.cpp
