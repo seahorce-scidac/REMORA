@@ -1,6 +1,5 @@
 #include <REMORA.H>
 
-#include <AMReX_MFIter.H>
 #include <AMReX_Print.H>
 
 using namespace amrex;
@@ -27,12 +26,6 @@ namespace {
 
 constexpr int SSTIndex = 0;
 
-void
-fill_multifab (MultiFab& mf, Real value)
-{
-    mf.setVal(value);
-}
-
 }
 
 void
@@ -42,7 +35,7 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real time)
 
     // Initial-step-testing example: return deterministic SST for cache validation.
     // At time=t, state[0] (SST) = 290 + 0.01*t [K].
-    fill_multifab(*state[SSTIndex], Real(290.0) + Real(0.01) * time);
+    state[SSTIndex]->setVal(Real(290.0) + Real(0.01) * time);
 }
 
 void
@@ -51,16 +44,9 @@ REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real time)
     if (states.empty() || states[0] == nullptr) { return; }
 
     // Example (legacy state-passing): states[0] is Uwind from ERF.
-    // We read one sample value and print it so reviewers can verify
-    // atmosphere->ocean data movement in initial-step-testing runs.
-    Real sample = Real(0.0);
-    for (MFIter mfi(*states[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        const auto& bx = mfi.validbox();
-        const auto arr = states[0]->const_array(mfi);
-        const auto lo = lbound(bx);
-        sample = arr(lo.x, lo.y, lo.z, 0);
-        break;
-    }
+    // Use a built-in reduction so debug output is deterministic across
+    // decomposition choices.
+    const Real sample = states[0]->min(0);
 
     if (ParallelDescriptor::IOProcessor()) {
         Print() << "REMORA::ApplyAtmosphericStates time=" << time
