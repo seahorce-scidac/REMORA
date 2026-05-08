@@ -68,8 +68,14 @@ function(build_remora_lib remora_lib_name)
                    Problem=REMORAProblem
                    ProblemBase=REMORAProblemBase
                    SolverChoice=REMORASolverChoice)
+    set(remora_library_prob "${PROJECT_SOURCE_DIR}/Exec/${REMORA_LIBRARY_PROBLEM}/prob.cpp")
+    if(NOT EXISTS "${remora_library_prob}")
+      message(FATAL_ERROR
+              "REMORA library mode requested REMORA_LIBRARY_PROBLEM='${REMORA_LIBRARY_PROBLEM}', "
+              "but '${remora_library_prob}' does not exist.")
+    endif()
     target_sources(${remora_lib_name} PRIVATE
-                   ${PROJECT_SOURCE_DIR}/Exec/BlankProblem/prob.cpp)
+                   ${remora_library_prob})
   endif()
 
   # Coupling source is present only on coupling branches.

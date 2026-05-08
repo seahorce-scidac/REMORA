@@ -25,6 +25,11 @@ else()
   set(REMORA_BUILD_EXECUTABLES_DEFAULT OFF)
 endif()
 option(REMORA_BUILD_EXECUTABLES "Build REMORA example executables" ${REMORA_BUILD_EXECUTABLES_DEFAULT})
+set(REMORA_LIBRARY_PROBLEM "BlankProblem" CACHE STRING
+    "Exec problem directory used to provide prob.cpp when REMORA_BUILD_EXECUTABLES=OFF")
+set_property(CACHE REMORA_LIBRARY_PROBLEM PROPERTY STRINGS
+    BlankProblem Advection Seamount DoublyPeriodic Upwelling Channel_Test
+    DoubleGyre IdealMiniGrid BoundaryLayer DogboneAnalytic)
 
 if(DEFINED REMORA_ENABLE_NETCDF)
   message(FATAL_ERROR "REMORA_ENABLE_NETCDF is not supported. Only REMORA_ENABLE_PNETCDF is supported.")
