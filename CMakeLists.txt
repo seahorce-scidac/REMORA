@@ -6,7 +6,7 @@ if(REMORA_ENABLE_FUNWAVE_FORT)
 else()
   project(REMORA CXX C)
 endif()
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/CMake")
 include(CMakePackageConfigHelpers)
 
 ########################## OPTIONS #####################################
@@ -17,6 +17,19 @@ option(REMORA_ENABLE_DOCUMENTATION "Build documentation" OFF)
 option(REMORA_ENABLE_ALL_WARNINGS  "Enable all compiler warnings" OFF)
 option(REMORA_ENABLE_TESTS         "Enable regression and unit tests" OFF)
 option(REMORA_ENABLE_PNETCDF        "Enable PNetCDF IO" OFF)
+option(REMORA_USE_INTERNAL_AMREX   "Add AMReX as subproject" ON)
+
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  set(REMORA_BUILD_EXECUTABLES_DEFAULT ON)
+else()
+  set(REMORA_BUILD_EXECUTABLES_DEFAULT OFF)
+endif()
+option(REMORA_BUILD_EXECUTABLES "Build REMORA example executables" ${REMORA_BUILD_EXECUTABLES_DEFAULT})
+set(REMORA_LIBRARY_PROBLEM "BlankProblem" CACHE STRING
+    "Exec problem directory used to provide prob.cpp when REMORA_BUILD_EXECUTABLES=OFF")
+set_property(CACHE REMORA_LIBRARY_PROBLEM PROPERTY STRINGS
+    BlankProblem Advection Seamount DoublyPeriodic Upwelling Channel_Test
+    DoubleGyre IdealMiniGrid BoundaryLayer DogboneAnalytic)
 
 if(DEFINED REMORA_ENABLE_NETCDF)
   message(FATAL_ERROR "REMORA_ENABLE_NETCDF is not supported. Only REMORA_ENABLE_PNETCDF is supported.")
@@ -66,13 +79,42 @@ endif()
 
 ########################### AMReX #####################################
 
-set(AMREX_SUBMOD_LOCATION "${CMAKE_SOURCE_DIR}/Submodules/AMReX")
-include(${CMAKE_SOURCE_DIR}/CMake/SetAmrexOptions.cmake)
-list(APPEND CMAKE_MODULE_PATH "${AMREX_SUBMOD_LOCATION}/Tools/CMake")
-
-########################### AMReX #####################################
-
-add_subdirectory(${AMREX_SUBMOD_LOCATION})
+if (REMORA_USE_INTERNAL_AMREX)
+  set(AMREX_SUBMOD_LOCATION "${PROJECT_SOURCE_DIR}/Submodules/AMReX")
+  include(${PROJECT_SOURCE_DIR}/CMake/SetAmrexOptions.cmake)
+  list(APPEND CMAKE_MODULE_PATH "${AMREX_SUBMOD_LOCATION}/Tools/CMake")
+  add_subdirectory(${AMREX_SUBMOD_LOCATION})
+  set(REMORA_AMREX_TARGET amrex)
+else()
+  if (TARGET AMReX::amrex OR TARGET amrex)
+    if (TARGET AMReX::amrex)
+      set(REMORA_AMREX_TARGET AMReX::amrex)
+    else()
+      set(REMORA_AMREX_TARGET amrex)
+    endif()
+  else()
+    set(CMAKE_PREFIX_PATH ${AMReX_DIR} ${CMAKE_PREFIX_PATH})
+    list(APPEND AMREX_COMPONENTS "3D" "DOUBLE")
+    if (REMORA_ENABLE_MPI)
+      list(APPEND AMREX_COMPONENTS "MPI")
+    endif()
+    if (REMORA_ENABLE_OPENMP)
+      list(APPEND AMREX_COMPONENTS "OMP")
+    endif()
+    if (REMORA_ENABLE_CUDA)
+      list(APPEND AMREX_COMPONENTS "CUDA")
+    endif()
+    if (REMORA_ENABLE_SYCL)
+      list(APPEND AMREX_COMPONENTS "SYCL")
+    endif()
+    if (REMORA_ENABLE_HIP)
+      list(APPEND AMREX_COMPONENTS "HIP")
+    endif()
+    separate_arguments(AMREX_COMPONENTS)
+    find_package(AMReX CONFIG REQUIRED COMPONENTS ${AMREX_COMPONENTS})
+    set(REMORA_AMREX_TARGET AMReX::amrex)
+  endif()
+endif()
 
 ########################## PNETCDF ##################################
 
@@ -110,7 +152,7 @@ message(STATUS "CMAKE_CXX_COMPILER_VERSION = ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 
 # Turn on rpath stuff
-include(${CMAKE_SOURCE_DIR}/CMake/SetRpath.cmake)
+include(${PROJECT_SOURCE_DIR}/CMake/SetRpath.cmake)
 
 #Build REMORA executables and intermediate object library and link to amrex library
 add_subdirectory(Exec)
@@ -140,40 +182,42 @@ target_link_libraries(remora_api PUBLIC remora_srclib)
 add_library(${PROJECT_NAME}::remora_api ALIAS remora_srclib)
 
 # Collect all headers and make them installable with the target
-file(GLOB_RECURSE REMORA_INCLUDES "${CMAKE_SOURCE_DIR}/Source/*.H")
+file(GLOB_RECURSE REMORA_INCLUDES "${PROJECT_SOURCE_DIR}/Source/*.H")
 
 set_target_properties(
   remora_srclib PROPERTIES PUBLIC_HEADER "${REMORA_INCLUDES}")
 
-# Install ERF
-install(
-  TARGETS remora_api remora_srclib
-  EXPORT ${PROJECT_NAME}Targets
-  RUNTIME       DESTINATION bin
-  ARCHIVE       DESTINATION lib
-  LIBRARY       DESTINATION lib
-  INCLUDES      DESTINATION include
-  PUBLIC_HEADER DESTINATION include
-  )
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  # Install REMORA
+  install(
+    TARGETS remora_api remora_srclib
+    EXPORT ${PROJECT_NAME}Targets
+    RUNTIME       DESTINATION bin
+    ARCHIVE       DESTINATION lib
+    LIBRARY       DESTINATION lib
+    INCLUDES      DESTINATION include
+    PUBLIC_HEADER DESTINATION include
+    )
 
-# Install all headers in include directories
-#install(
-#  DIRECTORY ${REMORA_INCLUDE_DIRECTORIES}
-#  DESTINATION include
-#  FILES_MATCHING PATTERN "*.H")
+  # Install all headers in include directories
+  #install(
+  #  DIRECTORY ${REMORA_INCLUDE_DIRECTORIES}
+  #  DESTINATION include
+  #  FILES_MATCHING PATTERN "*.H")
 
-# Make ERF discoverable using `find_package`
-install(
-  EXPORT ${PROJECT_NAME}Targets
-  NAMESPACE ${PROJECT_NAME}::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-  )
-configure_package_config_file(
-  CMake/${PROJECT_NAME}Config.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-  )
-install(FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-  )
+  # Make REMORA discoverable using `find_package`
+  install(
+    EXPORT ${PROJECT_NAME}Targets
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    )
+  configure_package_config_file(
+    CMake/${PROJECT_NAME}Config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    )
+  install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    )
+endif()

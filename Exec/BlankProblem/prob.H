@@ -66,14 +66,14 @@ public:
         REMORA const& remora,
         amrex::MultiFab& mf_Uwind, amrex::MultiFab& mf_Vwind);
 
-    void Problem::init_analytic_smflux(
+    void init_analytic_smflux(
         int lev,
         const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
         REMORA const& remora,
-        MultiFab& mf_sustr, MultiFab& mf_svstr);
+        amrex::MultiFab& mf_sustr, amrex::MultiFab& mf_svstr);
 
-    void Problem::init_analytic_coriolis (
+    void init_analytic_coriolis (
         int lev, const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
         REMORA const& remora,
@@ -84,4 +84,3 @@ private:
 };
 
 #endif
-
