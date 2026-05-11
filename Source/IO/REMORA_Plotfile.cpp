@@ -4,7 +4,7 @@
 
 using namespace amrex;
 
-PhysBCFunctNoOp null_bc_for_fill;
+static PhysBCFunctNoOp null_bc_for_fill;
 
 template<typename V, typename T>
 bool containerHasElement(const V& iterable, const T& query) {
