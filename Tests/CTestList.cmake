@@ -103,6 +103,73 @@ function(add_test_u TEST_NAME)
     )
 endfunction(add_test_u)
 
+# Startup contract test: run a short case and assert expected log strings exist.
+function(add_test_log_contains TEST_NAME TEST_EXE RUN_ARGS)
+    setup_test()
+
+    set(TEST_EXE ${CMAKE_BINARY_DIR}/Exec/${TEST_EXE})
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUN_ARGS} > ${TEST_NAME}.log")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 1200
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "startup_contract"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+
+    foreach(expected_line IN LISTS ARGN)
+        string(REGEX REPLACE "[^A-Za-z0-9_]" "_" expected_tag "${expected_line}")
+        set(check_name "${TEST_NAME}_check_${expected_tag}")
+        add_test(${check_name} sh -c "grep -Fq \"${expected_line}\" ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log")
+        set_tests_properties(${check_name}
+            PROPERTIES
+            TIMEOUT 120
+            PROCESSORS 1
+            WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+            LABELS "startup_contract"
+            ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+        )
+        set_tests_properties(${check_name} PROPERTIES DEPENDS ${TEST_NAME})
+    endforeach()
+endfunction(add_test_log_contains)
+
+# Startup contract failure test: command must fail and log must contain expected strings.
+function(add_test_log_contains_fail TEST_NAME TEST_EXE RUN_ARGS)
+    setup_test()
+
+    set(TEST_EXE ${CMAKE_BINARY_DIR}/Exec/${TEST_EXE})
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUN_ARGS} > ${TEST_NAME}.log 2>&1")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        WILL_FAIL TRUE
+        TIMEOUT 1200
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "startup_contract"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+
+    foreach(expected_line IN LISTS ARGN)
+        string(REGEX REPLACE "[^A-Za-z0-9_]" "_" expected_tag "${expected_line}")
+        set(check_name "${TEST_NAME}_check_${expected_tag}")
+        add_test(${check_name} sh -c "grep -Fq \"${expected_line}\" ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log")
+        set_tests_properties(${check_name}
+            PROPERTIES
+            TIMEOUT 120
+            PROCESSORS 1
+            WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+            LABELS "startup_contract"
+            ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+        )
+        set_tests_properties(${check_name} PROPERTIES DEPENDS ${TEST_NAME})
+    endforeach()
+endfunction(add_test_log_contains_fail)
+
 #=============================================================================
 # Unit tests
 #=============================================================================
@@ -145,6 +212,46 @@ else()
   add_test_r(DogboneAnalytic              "DogboneAnalytic/dogboneanalytic" "plt00010")
   add_test_r(DogboneAnalytic_MLvel        "DogboneAnalytic/dogboneanalytic" "plt_ml00010")
   add_test_r(DogboneAnalytic_MLquad       "DogboneAnalytic/dogboneanalytic" "plt_ml_quad00010")
+
+    add_test_log_contains(BiologyStartup_ECB "DoublyPeriodic/doublyperiodic"
+            "remora.max_step=0 remora.sum_interval=1 remora.v=1 remora.biology_enabled=true remora.biology_model=ecb remora.biology_require_tracers_strict=true remora.nscalar=1"
+            "[REMORA] Expanding nscalar from 1 to 9 to satisfy ecb packed tracer requirements through DON"
+            "[REMORA] Biology tracer registry entries: 12"
+            "[REMORA] Biology startup status: enabled=true, model=ecb, strict_tracer_check=true"
+            "biology_scaffold_required_total=9")
+
+    add_test_log_contains(BiologyStartup_Fennel "DoublyPeriodic/doublyperiodic"
+            "remora.max_step=0 remora.sum_interval=1 remora.v=1 remora.biology_enabled=true remora.biology_model=fennel remora.biology_require_tracers_strict=true remora.nscalar=1"
+            "[REMORA] Expanding nscalar from 1 to 9 to satisfy fennel packed tracer requirements through DON"
+            "[REMORA] Biology tracer registry entries: 12"
+            "[REMORA] Biology startup status: enabled=true, model=fennel, strict_tracer_check=true"
+            "biology_scaffold_required_total=9")
+
+      add_test_log_contains(BiologyStartup_Ecosim "DoublyPeriodic/doublyperiodic"
+          "remora.max_step=0 remora.sum_interval=1 remora.v=1 remora.biology_enabled=true remora.biology_model=ecosim remora.biology_require_tracers_strict=true remora.nscalar=1"
+          "[REMORA] Expanding nscalar from 1 to 9 to satisfy ecosim packed tracer requirements through DON"
+          "[REMORA] Biology tracer registry entries: 12"
+          "[REMORA] Biology startup status: enabled=true, model=ecosim, strict_tracer_check=true"
+          "biology_scaffold_required_total=9")
+
+      add_test_log_contains(BiologyStartup_NPZDFranks "DoublyPeriodic/doublyperiodic"
+          "remora.max_step=0 remora.sum_interval=1 remora.v=1 remora.biology_enabled=true remora.biology_model=npzd_franks remora.biology_require_tracers_strict=true remora.nscalar=1"
+          "[REMORA] Biology tracer registry entries: 0"
+          "[REMORA] Biology startup status: enabled=true, model=npzd_franks, strict_tracer_check=true"
+          "biology_scaffold_required_total=4"
+          "biology_scaffold_missing_required_flag=1")
+
+      add_test_log_contains(BiologyStartup_NPZDFranksAlias "DoublyPeriodic/doublyperiodic"
+          "remora.max_step=0 remora.sum_interval=1 remora.v=1 remora.biology_enabled=true remora.biology_model=npzd-franks remora.biology_require_tracers_strict=true remora.nscalar=1"
+          "[REMORA] Biology tracer registry entries: 0"
+          "[REMORA] Biology startup status: enabled=true, model=npzd-franks, strict_tracer_check=true"
+          "[REMORA] Creating NPZD-Franks biology model plugin"
+          "biology_scaffold_required_total=4"
+          "biology_scaffold_missing_required_flag=1")
+
+      add_test_log_contains_fail(BiologyStartup_InvalidNscalar "DoublyPeriodic/doublyperiodic"
+          "remora.max_step=0 remora.v=1 remora.nscalar=0"
+          "remora.nscalar must be at least 1")
 endif()
 #=============================================================================
 # Performance tests

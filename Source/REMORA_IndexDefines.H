@@ -66,6 +66,45 @@ enum struct REMORA_BC {
 };
 
 /**
+ * \brief Biology tracer indices (model-dependent)
+ * 
+ * These are logical indices for biology tracers. Actual indices in mf_cons
+ * depend on which biology model is selected and how tracers are allocated.
+ * 
+ * Framework manages the mapping from these logical indices to actual array positions.
+ */
+namespace BiologyTracers {
+    // Fennel model tracers (core)
+    enum {
+        // Core nitrogen cycle (fennel)
+        NO3     = 0,    // Nitrate
+        NH4     = 1,    // Ammonium
+        Phyt    = 2,    // Phytoplankton
+        Chlo    = 3,    // Chlorophyll
+        ZoopS   = 4,    // Small zooplankton
+        ZoopL   = 5,    // Large zooplankton
+        SDet_N  = 6,    // Small detritus (nitrogen)
+        LDet_N  = 7,    // Large detritus (nitrogen)
+        DON     = 8,    // Dissolved organic nitrogen
+        
+        // Optional: Oxygen
+        Oxygen  = 9,
+        
+        // Optional: Carbon cycle
+        TIC     = 10,   // Total inorganic carbon
+        TAlk    = 11,   // Total alkalinity
+        SDet_C  = 12,   // Small detritus (carbon)
+        LDet_C  = 13,   // Large detritus (carbon)
+        
+        // Optional: Phosphorus
+        PO4     = 14,   // Phosphate
+        
+        // Generic upper bound (model-specific)
+        NumTracerTypes  = 15
+    };
+}
+
+/**
  * NOTE: the first of these must match up with the BCType enum
  * in amrex/Src/Base/AMReX_BC_TYPES.H.  We had extras at
  * the end to use locally

@@ -135,8 +135,8 @@ REMORA::WritePlotFile (int istep_for_plot)
         for (int lev = 0; lev <= finest_level; ++lev) {
             mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(1,1,0));
             mf_cc_vel[lev].setVal(0.0_rt); // zero out velocity in case we have any wall boundaries
-            average_face_to_cellcenter(mf_cc_vel[lev],0,
-                                       Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]},IntVect(1,1,0));
+            Vector<const MultiFab*> fc = {xvel_new[lev], yvel_new[lev], zvel_new[lev]};
+            average_face_to_cellcenter(mf_cc_vel[lev], 0, fc, 0);
             mf_cc_vel[lev].FillBoundary(geom[lev].periodicity());
         } // lev
 

@@ -6,6 +6,7 @@
 #include <REMORA.H>
 
 #include <AMReX_buildInfo.H>
+#include <algorithm>
 
 using namespace amrex;
 
@@ -257,7 +258,40 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
 
     if (is_it_time_for_action(nstep, time, dt_lev0, sum_interval, sum_per)) {
         sum_integrated_quantities(time);
+        report_biology_budgets(time);
     }
+}
+
+void
+REMORA::report_biology_budgets (Real time)
+{
+    if (!solverChoice.biology_enabled || !biology_model) {
+        return;
+    }
+
+    if (cons_new.empty() || cons_new[0] == nullptr) {
+        return;
+    }
+
+    std::map<std::string, Real> budgets;
+    bool found_tile = false;
+
+    for (MFIter mfi(*cons_new[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        auto const& state = cons_new[0]->const_array(mfi);
+        biology_model->ComputeConservationBudget(state, budgets);
+        found_tile = true;
+        break;
+    }
+
+    if (!found_tile || budgets.empty()) {
+        return;
+    }
+
+    amrex::Print() << "TIME= " << time << " BIOLOGY_BUDGETS";
+    for (const auto& kv : budgets) {
+        amrex::Print() << " " << kv.first << "=" << kv.second;
+    }
+    amrex::Print() << "\n";
 }
 
 /**
@@ -359,6 +393,7 @@ REMORA::InitData ()
 
     if (is_it_time_for_action(istep[0], t_new[0], dt[0], sum_interval, sum_per)) {
         sum_integrated_quantities(t_new[0]);
+        report_biology_budgets(t_new[0]);
     }
 
     ComputeDt();
@@ -1365,12 +1400,48 @@ REMORA::ReadParameters ()
     ParmParse pp(pp_prefix);
     ParmParse pp_amr("amr");
     {
+        // Pre-read biology selection so we can size scalar/tracer storage before allocation.
+        bool biology_enabled_pre = false;
+        std::string biology_model_name_pre = "none";
+        pp.queryAdd("biology_enabled", biology_enabled_pre);
+        if (biology_enabled_pre) {
+            pp.queryAdd("biology_model", biology_model_name_pre);
+        }
+
+        biology_model_name_pre = REMORA_Biology::NormalizeBiologyModelName(biology_model_name_pre);
+        const auto model_req_pre = REMORA_Biology::GetModelTracerRequirements(biology_model_name_pre);
+
         pp.queryAdd("nscalar", nscalar);
         if (nscalar < 1) {
             amrex::Abort("remora.nscalar must be at least 1");
         }
+
+        // For models with packed DON layout, ensure packed tracers exist in scalar block.
+        if (biology_enabled_pre && model_req_pre.uses_packed_don_layout) {
+            const int min_nscalar = model_req_pre.packed_min_nscalar;
+            if (nscalar < min_nscalar) {
+                amrex::Print() << "[REMORA] Expanding nscalar from " << nscalar
+                               << " to " << min_nscalar
+                               << " to satisfy " << biology_model_name_pre
+                               << " packed tracer requirements through DON\n";
+                nscalar = min_nscalar;
+            }
+        }
+
         ncons = Tracer_comp + nscalar;
         init_scalar_metadata();
+
+        biology_tracer_indices = biology_enabled_pre
+            ? REMORA_Biology::BuildDefaultTracerMapForModel(biology_model_name_pre, Tracer_comp)
+            : REMORA_Biology::TracerIndexMap{};
+
+        if (biology_enabled_pre && !biology_tracer_indices.empty()) {
+            amrex::Print() << "[REMORA] Biology tracer map (" << biology_model_name_pre << "):";
+            for (const auto& kv : biology_tracer_indices) {
+                amrex::Print() << " " << kv.first << "=" << kv.second;
+            }
+            amrex::Print() << "\n";
+        }
 
         pp_amr.queryAdd("regrid_int", regrid_int);
         pp.queryAdd("check_file", check_file);
@@ -1609,6 +1680,48 @@ REMORA::ReadParameters ()
     }
 
     solverChoice.init_params(ncons);
+
+    // Preflight biology/tracer consistency checks before model construction.
+    if (solverChoice.biology_enabled) {
+        const auto model_req = REMORA_Biology::GetModelTracerRequirements(solverChoice.biology_model_name);
+        if (model_req.uses_packed_don_layout) {
+            const int min_required = Tracer_comp + model_req.packed_min_nscalar;
+            if (ncons < min_required) {
+            std::string msg = "[REMORA] biology_model=" + solverChoice.biology_model_name +
+                              " requires packed tracer components through DON "
+                              "(minimum ncons=" + std::to_string(min_required) +
+                              ", current ncons=" + std::to_string(ncons) + "). ";
+            if (solverChoice.biology_require_tracers_strict) {
+                amrex::Abort(msg + "Set biology_require_tracers_strict=false to downgrade this to a warning and disable biology");
+            } else {
+                amrex::Warning(msg + "Biology will be disabled for this run");
+                solverChoice.biology_enabled = false;
+                solverChoice.biology_model_type = BiologyModelType::none;
+            }
+            }
+        }
+    }
+
+    // Initialize biology model if enabled
+    if (solverChoice.biology_enabled && solverChoice.biology_model_type != BiologyModelType::none) {
+        amrex::Print() << "[REMORA] Initializing biology model: " << solverChoice.biology_model_name << "\n";
+        biology_model = REMORA_Biology::BiologyFactory::CreateModel(
+            solverChoice.biology_model_name,
+            ncons,
+            biology_tracer_indices
+        );
+        if (!biology_model) {
+            amrex::Warning("Failed to create biology model. Biology will be disabled.");
+            solverChoice.biology_enabled = false;
+        }
+    }
+
+    amrex::Print() << "[REMORA] Biology startup status: enabled="
+                   << (solverChoice.biology_enabled ? "true" : "false")
+                   << ", model=" << solverChoice.biology_model_name
+                   << ", strict_tracer_check="
+                   << (solverChoice.biology_require_tracers_strict ? "true" : "false")
+                   << "\n";
 }
 
 void

@@ -3,6 +3,8 @@
 
 #include <string>
 #include <iostream>
+#include <algorithm>
+#include <cctype>
 
 #include <AMReX_ParmParse.H>
 #include <AMReX_Print.H>
@@ -94,6 +96,22 @@ enum class MaskType {
 /** \brief harmonic mixing; which surfaces to calculate along */
 enum class HarmonicMixingType {
     s, geopotential
+};
+
+/** \brief Biology model type selection */
+enum class BiologyModelType {
+    none,
+    fennel,
+    ecb,
+    ecosim,
+    hypoxia_srm,
+    nemuro,
+    npzd_franks,
+    npzd_powell,
+    npzd_iron,
+    oyster_floats,
+    red_tide,
+    zaecb
 };
 
 struct SolverChoice {
@@ -534,6 +552,48 @@ struct SolverChoice {
             amrex::Abort("Climatology nudging requires building with NetCDF");
         }
 #endif
+
+        // Biology model selection
+        pp.queryAdd("biology_enabled", biology_enabled);
+        pp.queryAdd("biology_require_tracers_strict", biology_require_tracers_strict);
+        if (biology_enabled) {
+            pp.queryAdd("biology_model", biology_model_name);
+
+            std::string normalized_biology_model = biology_model_name;
+            std::transform(normalized_biology_model.begin(), normalized_biology_model.end(),
+                           normalized_biology_model.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+            if (normalized_biology_model == "fennel") {
+                biology_model_type = BiologyModelType::fennel;
+            } else if (normalized_biology_model == "ecb") {
+                biology_model_type = BiologyModelType::ecb;
+            } else if (normalized_biology_model == "ecosim") {
+                biology_model_type = BiologyModelType::ecosim;
+            } else if (normalized_biology_model == "hypoxia_srm" || normalized_biology_model == "hypoxia-srm") {
+                biology_model_type = BiologyModelType::hypoxia_srm;
+            } else if (normalized_biology_model == "nemuro") {
+                biology_model_type = BiologyModelType::nemuro;
+            } else if (normalized_biology_model == "npzd_franks" || normalized_biology_model == "npzd-franks") {
+                biology_model_type = BiologyModelType::npzd_franks;
+            } else if (normalized_biology_model == "npzd_powell" || normalized_biology_model == "npzd-powell") {
+                biology_model_type = BiologyModelType::npzd_powell;
+            } else if (normalized_biology_model == "npzd_iron" || normalized_biology_model == "npzd-iron") {
+                biology_model_type = BiologyModelType::npzd_iron;
+            } else if (normalized_biology_model == "oyster_floats" || normalized_biology_model == "oyster-floats") {
+                biology_model_type = BiologyModelType::oyster_floats;
+            } else if (normalized_biology_model == "red_tide" || normalized_biology_model == "red-tide") {
+                biology_model_type = BiologyModelType::red_tide;
+            } else if (normalized_biology_model == "zaecb") {
+                biology_model_type = BiologyModelType::zaecb;
+            } else {
+                amrex::Warning("Unknown biology_model: " + biology_model_name + ". Biology will be disabled.");
+                biology_enabled = false;
+                biology_model_type = BiologyModelType::none;
+            }
+
+            biology_model_name = normalized_biology_model;
+        }
     }
 
     void display()
@@ -799,6 +859,12 @@ struct SolverChoice {
     bool do_temp_clim_nudg = false;
     bool do_salt_clim_nudg = false;
     bool do_any_clim_nudg = false;
+
+    // Biology framework
+    bool biology_enabled = false;
+    BiologyModelType biology_model_type = BiologyModelType::none;
+    std::string biology_model_name = "none";
+    bool biology_require_tracers_strict = false;
 
     bool boundary_from_netcdf = false;
 };

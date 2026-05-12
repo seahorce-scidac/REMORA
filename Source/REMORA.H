@@ -35,6 +35,7 @@
 #include <REMORA_DataStruct.H>
 #include <REMORA_Derive.H>
 #include "REMORA_prob_common.H"
+#include "REMORA_biology.H"
 
 #ifdef REMORA_USE_PARTICLES
 #include "REMORA_ParticleData.H"
@@ -1100,6 +1101,9 @@ private:
     /** \brief Build runtime scalar names after nscalar is known */
     void init_scalar_metadata();
 
+    /** \brief Print biology model conservation budgets to console */
+    void report_biology_budgets(amrex::Real time);
+
     /** \brief set covered coarse cells to be the average of overlying fine cells */
     void AverageDown ();
 
@@ -1278,6 +1282,12 @@ private:
 
     /** \brief Pointer to container of analytical functions for problem definition */
     std::unique_ptr<ProblemBase> prob = nullptr;
+
+    /** \brief Biology model plugin (if enabled) */
+    std::unique_ptr<REMORA_Biology::BiologyModel> biology_model = nullptr;
+
+    /** \brief Runtime tracer-index registry for biology plugins */
+    REMORA_Biology::TracerIndexMap biology_tracer_indices;
 
     /** \brief how many boxes specified at each level by tagging criteria */
     amrex::Vector<int> num_boxes_at_level;

@@ -411,6 +411,38 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             rhs_t_3d(lev,bx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
                      Hz, pn, pm, W, FC, mskr, msku, mskv, river_pos, river_source, nrhs, nnew, N,dt_lev);
         }
+
+        //
+        //-----------------------------------------------------------------------
+        // Biology source/sink terms (if enabled)
+        //-----------------------------------------------------------------------
+        //
+        if (solverChoice.biology_enabled && biology_model) {
+            Array4<Real const> const& pm_const = mf_pm->const_array(mfi);
+            Array4<Real const> const& pn_const = mf_pn->const_array(mfi);
+            Array4<Real const> const& Hz_const = mf_Hz->const_array(mfi);
+            Array4<Real const> const& rmask_const = mf_mskr->const_array(mfi);
+            Array4<Real const> const& rmask_wet_const = mf_mskr->const_array(mfi);  // TODO: use proper wet mask
+            
+            // Create dummy forcing data array for now (will be populated with real data in future)
+            Array4<Real const> forcing_data = mf_W.const_array(mfi);
+            auto rhs_bio = mf_sstore->array(mfi);
+            
+            biology_model->ComputeTendencies(
+                mfi.LocalIndex(),
+                lev,
+                bx,
+                mf_cons.const_array(mfi),
+                Hz_const,
+                pm_const,
+                pn_const,
+                rmask_const,
+                rmask_wet_const,
+                forcing_data,
+                rhs_bio,
+                ncons
+            );
+        }
     } // mfi
 
     FillPatch(lev, t_old[lev], mf_cons, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
