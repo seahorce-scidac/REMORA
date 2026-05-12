@@ -31,7 +31,7 @@ Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
  * \brief Initializes custom sea surface height
  */
 void Problem::init_analytic_zeta (
-        int lev, const amrex::Geometry& /*geom*/,
+        int /*lev*/, const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& /*remora*/,
         MultiFab& mf_zeta)
