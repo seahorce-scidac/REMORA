@@ -29,7 +29,7 @@ set(REMORA_LIBRARY_PROBLEM "BlankProblem" CACHE STRING
     "Exec problem directory used to provide prob.cpp when REMORA_BUILD_EXECUTABLES=OFF")
 set_property(CACHE REMORA_LIBRARY_PROBLEM PROPERTY STRINGS
     BlankProblem Advection Seamount DoublyPeriodic Upwelling Channel_Test
-    DoubleGyre IdealMiniGrid BoundaryLayer DogboneAnalytic)
+    DoubleGyre IdealMiniGrid BoundaryLayer DogboneAnalytic CoupleToERF)
 
 if(DEFINED REMORA_ENABLE_NETCDF)
   message(FATAL_ERROR "REMORA_ENABLE_NETCDF is not supported. Only REMORA_ENABLE_PNETCDF is supported.")
