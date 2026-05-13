@@ -62,6 +62,8 @@ amrex::Vector<amrex::Vector<std::string>> REMORA::nc_grid_file = {{""}}; // Must
 REMORA::REMORA ()
 {
     BL_PROFILE("REMORA::REMORA()");
+    explicit_construction = false;
+    
     if (ParallelDescriptor::IOProcessor()) {
         const char* remora_hash = amrex::buildInfoGetGitHash(1);
         const char* amrex_hash = amrex::buildInfoGetGitHash(2);
@@ -124,6 +126,83 @@ REMORA::REMORA ()
 
     // We have already read in the ref_Ratio (via amr.ref_ratio =) but we need to enforce
     //     that there is no refinement in the vertical so we test on that here.
+    for (int lev = 0; lev < max_level; ++lev)
+    {
+       amrex::Print() << "Refinement ratio at level " << lev << " set to be " <<
+          ref_ratio[lev][0]  << " " << ref_ratio[lev][1]  <<  " " << ref_ratio[lev][2] << std::endl;
+
+       if (ref_ratio[lev][2] != 1)
+       {
+           amrex::Print() << "********************************************************************************" << std::endl;
+           amrex::Print() << "We don't allow refinement in the vertical -- make sure to set ref_ratio = 1 in z" << std::endl;
+           amrex::Print() << "It's possible you set amr.ref_ratio when you meant to set amr.ref_ratio_vect    " << std::endl;
+           amrex::Print() << "********************************************************************************" << std::endl;
+           amrex::Abort();
+       }
+    }
+}
+
+REMORA::REMORA (const amrex::RealBox& rb, int max_level_in, const amrex::Vector<int>& n_cell_in, int coord, const amrex::Vector<amrex::IntVect>& ref_ratio_in, const amrex::Array<int,AMREX_SPACEDIM>& is_per, std::string prefix)
+    : amrex::AmrCore (rb, max_level_in, n_cell_in, coord, ref_ratio_in, is_per)
+{
+    BL_PROFILE("REMORA::REMORA(explicit)");
+    explicit_construction = true;
+    pp_prefix = prefix;
+
+    if (ParallelDescriptor::IOProcessor()) {
+        const char* remora_hash = amrex::buildInfoGetGitHash(1);
+        const char* amrex_hash = amrex::buildInfoGetGitHash(2);
+        const char* buildgithash = amrex::buildInfoGetBuildGitHash();
+        const char* buildgitname = amrex::buildInfoGetBuildGitName();
+
+        if (strlen(remora_hash) > 0) {
+          amrex::Print() << "\n"
+                         << "REMORA git hash: " << remora_hash << "\n";
+        }
+        if (strlen(amrex_hash) > 0) {
+          amrex::Print() << "AMReX git hash: " << amrex_hash << "\n";
+        }
+        if (strlen(buildgithash) > 0) {
+          amrex::Print() << buildgitname << " git hash: " << buildgithash << "\n";
+        }
+
+        amrex::Print() << "\n";
+    }
+
+    ReadParameters();
+
+    const std::string& pv3d = "plot_vars_3d"; set3DPlotVariables(pv3d);
+    const std::string& pv2d = "plot_vars_2d"; set2DPlotVariables(pv2d);
+
+    prob = amrex_probinit(geom[0].ProbLo(),geom[0].ProbHi());
+
+    int nlevs_max = max_level + 1;
+
+    istep.resize(nlevs_max, 0);
+    nsubsteps.resize(nlevs_max, 1);
+    for (int lev = 1; lev <= max_level; ++lev) {
+        nsubsteps[lev] = do_substep ? MaxRefRatio(lev-1) : 1;
+    }
+
+    physbcs.resize(nlevs_max);
+
+    t_new.resize(nlevs_max, 0.0_rt);
+    t_old.resize(nlevs_max, -1.e100_rt);
+    dt.resize(nlevs_max, 1.e100_rt);
+
+    cons_new.resize(nlevs_max);
+    cons_old.resize(nlevs_max);
+    xvel_new.resize(nlevs_max);
+    xvel_old.resize(nlevs_max);
+    yvel_new.resize(nlevs_max);
+    yvel_old.resize(nlevs_max);
+    zvel_new.resize(nlevs_max);
+    zvel_old.resize(nlevs_max);
+
+    advflux_reg.resize(nlevs_max);
+
+    refinement_criteria_setup();
+
     for (int lev = 0; lev < max_level; ++lev)
     {
        amrex::Print() << "Refinement ratio at level " << lev << " set to be " <<
@@ -1357,6 +1436,300 @@ REMORA::ReadParameters ()
         if (remora_max_step and noprefix_max_step) {
             Abort("remora.max_step and max_step are both specified. Please use only one!");
         }
+        if (remora_stop_time and noprefix_stop_time) {
+            Abort("remora.stop_time and stop_time are both specified. Please use only one!");
+        }
+    }
+
+    ParmParse pp(pp_prefix);
+
+    // Common physics and simulation parameters
+    pp.queryAdd("nscalar", nscalar);
+    if (nscalar < 1) {
+        amrex::Abort("remora.nscalar must be at least 1");
+    }
+    ncons = Tracer_comp + nscalar;
+    init_scalar_metadata();
+
+    pp.queryAdd("check_file", check_file);
+    pp.queryAdd("check_int", check_int);
+    pp.queryAdd("check_int_time", check_int_time);
+    pp.queryAdd("expand_plotvars_to_unif_rr", expand_plotvars_to_unif_rr);
+    pp.query("plotfile_fill_value", plotfile_fill_value);
+    pp.query("netcdf_fill_value", netcdf_fill_value);
+    pp.queryAdd("restart", restart_chkfile);
+    pp.queryAdd("start_time", start_time);
+
+    if (pp.contains("data_log")) {
+        int num_datalogs = pp.countval("data_log");
+        datalog.resize(num_datalogs);
+        datalogname.resize(num_datalogs);
+        pp.queryarr("data_log", datalogname, 0, num_datalogs);
+        for (int i = 0; i < num_datalogs; i++)
+            setRecordDataInfo(i, datalogname[i]);
+    }
+
+    pp.queryAdd("v", verbose);
+    pp.queryAdd("sum_interval", sum_interval);
+    pp.queryAdd("sum_period", sum_per);
+    pp.queryAdd("file_min_digits", file_min_digits);
+
+    if (file_min_digits < 0) {
+        amrex::Abort("remora.file_min_digits must be non-negative");
+    }
+
+    pp.queryAdd("cfl", cfl);
+    pp.queryAdd("change_max", change_max);
+    pp.queryAdd("fixed_dt", fixed_dt);
+    pp.queryAdd("fixed_fast_dt", fixed_fast_dt);
+    pp.queryAdd("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
+
+    if (fixed_dt > 0. && fixed_fast_dt > 0. && fixed_ndtfast_ratio > 0) {
+        if (fixed_dt / fixed_fast_dt != fixed_ndtfast_ratio) {
+            amrex::Abort("Dt is over-specfied");
+        }
+    } else if (fixed_dt > 0. && fixed_fast_dt > 0. && fixed_ndtfast_ratio <= 0) {
+        fixed_ndtfast_ratio = static_cast<int>(fixed_dt / fixed_fast_dt);
+    }
+    AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
+
+    pp.queryAdd("plot_file", plot_file_name);
+    pp.queryAdd("plot_int", plot_int);
+    pp.queryAdd("plot_int_time", plot_int_time);
+    pp.queryAdd("plot_staggered_vels", plot_staggered_vels);
+
+    std::string plotfile_type_str = "amrex";
+    pp.queryAdd("plotfile_type", plotfile_type_str);
+    if (plotfile_type_str == "amrex") {
+        plotfile_type = PlotfileType::amrex;
+    } else if (plotfile_type_str == "netcdf" || plotfile_type_str == "NetCDF") {
+        plotfile_type = PlotfileType::netcdf;
+    }
+
+    if (!explicit_construction) {
+        ParmParse pp_amr("amr");
+        pp_amr.queryAdd("regrid_int", regrid_int);
+        pp_amr.queryAdd("check_int", check_int);
+        pp_amr.queryAdd("check_int_time", check_int_time);
+        pp_amr.queryAdd("restart", restart_chkfile);
+        pp_amr.queryAdd("do_substep", do_substep);
+        if (do_substep) {
+            amrex::Abort("Time substepping is not yet implemented. amr.do_substep must be 0");
+        }
+
+        num_files_at_level.resize(max_level + 1, 0);
+        num_boxes_at_level.resize(max_level + 1, 0);
+        boxes_at_level.resize(max_level + 1);
+        num_boxes_at_level[0] = 1;
+        boxes_at_level[0].resize(1);
+        boxes_at_level[0][0] = geom[0].Domain();
+    }
+
+    solverChoice.init_params(ncons);
+}
+
+        if (remora_stop_time and noprefix_stop_time) {
+            Abort("remora.stop_time and stop_time are both specified. Please use only one!");
+        }
+    }
+
+    ParmParse pp(pp_prefix);
+    
+    if (!explicit_construction) {
+        ParmParse pp_amr("amr");
+        {
+            pp.queryAdd("nscalar", nscalar);
+            if (nscalar < 1) {
+                amrex::Abort("remora.nscalar must be at least 1");
+            }
+            ncons = Tracer_comp + nscalar;
+            init_scalar_metadata();
+
+            pp_amr.queryAdd("regrid_int", regrid_int);
+            pp.queryAdd("check_file", check_file);
+            pp.queryAdd("check_int", check_int);
+            pp_amr.queryAdd("check_int", check_int);
+            pp.queryAdd("check_int_time", check_int_time);
+            pp_amr.queryAdd("check_int_time", check_int_time);
+
+            pp.queryAdd("expand_plotvars_to_unif_rr", expand_plotvars_to_unif_rr);
+
+            pp.query("plotfile_fill_value", plotfile_fill_value);
+            pp.query("netcdf_fill_value", netcdf_fill_value);
+
+            pp.queryAdd("restart", restart_chkfile);
+            pp_amr.queryAdd("restart", restart_chkfile);
+            pp.queryAdd("start_time",start_time);
+
+            if (pp.contains("data_log"))
+            {
+                int num_datalogs = pp.countval("data_log");
+                datalog.resize(num_datalogs);
+                datalogname.resize(num_datalogs);
+                pp.queryarr("data_log",datalogname,0,num_datalogs);
+                for (int i = 0; i < num_datalogs; i++)
+                    setRecordDataInfo(i,datalogname[i]);
+            }
+
+            // Verbosity
+            pp.queryAdd("v", verbose);
+
+            // Frequency of diagnostic output
+            pp.queryAdd("sum_interval", sum_interval);
+            pp.queryAdd("sum_period"  , sum_per);
+            pp.queryAdd("file_min_digits", file_min_digits);
+
+            if (file_min_digits < 0) {
+                amrex::Abort("remora.file_min_digits must be non-negative");
+            }
+
+            // Time step controls
+            pp.queryAdd("cfl", cfl);
+            pp.queryAdd("change_max", change_max);
+
+            pp.queryAdd("fixed_dt", fixed_dt);
+            pp.queryAdd("fixed_fast_dt", fixed_fast_dt);
+
+            pp.queryAdd("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
+
+            // If all three are specified, they must be consistent
+            if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio > 0)
+            {
+                if (fixed_dt / fixed_fast_dt != fixed_ndtfast_ratio)
+                {
+                    amrex::Abort("Dt is over-specfied");
+                }
+            }
+            // If two are specified, initialize fixed_ndtfast_ratio
+            else if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio <= 0)
+            {
+                fixed_ndtfast_ratio = static_cast<int>(fixed_dt / fixed_fast_dt);
+            }
+
+            AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
+
+            pp_amr.queryAdd("do_substep", do_substep);
+            if (do_substep) {
+                amrex::Abort("Time substepping is not yet implemented. amr.do_substep must be 0");
+            }
+
+            // We use this to keep track of how many boxes we read in from WRF initialization
+            num_files_at_level.resize(max_level+1,0);
+
+            // We use this to keep track of how many boxes are specified thru the refinement indicators
+            num_boxes_at_level.resize(max_level+1,0);
+            boxes_at_level.resize(max_level+1);
+
+            // We always have exactly one file at level 0
+            num_boxes_at_level[0] = 1;
+            boxes_at_level[0].resize(1);
+            boxes_at_level[0][0] = geom[0].Domain();
+
+            // Plotfile name and frequency
+            pp.queryAdd("plot_file", plot_file_name);
+            pp.queryAdd("plot_int", plot_int);
+            pp.queryAdd("plot_int_time", plot_int_time);
+
+            // Should we plot the staggered face velocities (without averaging to cell centers)
+            pp.queryAdd("plot_staggered_vels", plot_staggered_vels);
+
+            // Output format
+            std::string plotfile_type_str = "amrex";
+            pp.queryAdd("plotfile_type", plotfile_type_str);
+            if (plotfile_type_str == "amrex") {
+                plotfile_type = PlotfileType::amrex;
+            } else if (plotfile_type_str == "netcdf" || plotfile_type_str == "NetCDF") {
+                plotfile_type = PlotfileType::netcdf;
+            }
+        }
+    } else {
+        // For explicit construction, we still want to read physics parameters
+        // but we skip the geometry and AMR parameters that are now owned by the driver.
+        
+        // We still read the remora.* parameters.
+        pp.queryAdd("nscalar", nscalar);
+        if (nscalar < 1) {
+            amrex::Abort("remora.nscalar must be at least 1");
+        }
+        ncons = Tracer_comp + nscalar;
+        init_scalar_metadata();
+
+        pp.queryAdd("check_file", check_file);
+        pp.queryAdd("check_int", check_int);
+        pp.queryAdd("check_int_time", check_int_time);
+
+        pp.queryAdd("expand_plotvars_to_unif_rr", expand_plotvars_to_unif_rr);
+
+        pp.query("plotfile_fill_value", plotfile_fill_value);
+        pp.query("netcdf_fill_value", netcdf_fill_value);
+
+        pp.queryAdd("restart", restart_chkfile);
+        pp.queryAdd("start_time",start_time);
+
+        if (pp.contains("data_log"))
+        {
+            int num_datalogs = pp.countval("data_log");
+            datalog.resize(num_datalogs);
+            datalogname.resize(num_datalogs);
+            pp.queryarr("data_log",datalogname,0,num_datalogs);
+            for (int i = 0; i < num_datalogs; i++)
+                setRecordDataInfo(i,datalogname[i]);
+        }
+
+        // Verbosity
+        pp.queryAdd("v", verbose);
+
+        // Frequency of diagnostic output
+        pp.queryAdd("sum_interval", sum_interval);
+        pp.queryAdd("sum_period"  , sum_per);
+        pp.queryAdd("file_min_digits", file_min_digits);
+
+        if (file_min_digits < 0) {
+            amrex::Abort("remora.file_min_digits must be non-negative");
+        }
+
+        // Time step controls
+        pp.queryAdd("cfl", cfl);
+        pp.queryAdd("change_max", change_max);
+
+        pp.queryAdd("fixed_dt", fixed_dt);
+        pp.queryAdd("fixed_fast_dt", fixed_fast_dt);
+
+        pp.queryAdd("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
+
+        if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio > 0)
+        {
+            if (fixed_dt / fixed_fast_dt != fixed_ndtfast_ratio)
+            {
+                amrex::Abort("Dt is over-specfied");
+            }
+        }
+        else if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio <= 0)
+        {
+            fixed_ndtfast_ratio = static_cast<int>(fixed_dt / fixed_fast_dt);
+        }
+
+        AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
+
+        // Plotfile name and frequency
+        pp.queryAdd("plot_file", plot_file_name);
+        pp.queryAdd("plot_int", plot_int);
+        pp.queryAdd("plot_int_time", plot_int_time);
+
+        // Should we plot the staggered face velocities (without averaging to cell centers)
+        pp.queryAdd("plot_staggered_vels", plot_staggered_vels);
+
+        // Output format
+        std::string plotfile_type_str = "amrex";
+        pp.queryAdd("plotfile_type", plotfile_type_str);
+        if (plotfile_type_str == "amrex") {
+            plotfile_type = PlotfileType::amrex;
+        } else if (plotfile_type_str == "netcdf" || plotfile_type_str == "NetCDF") {
+            plotfile_type = PlotfileType::netcdf;
+        }
+    }
+}
+
         if (remora_stop_time and noprefix_stop_time) {
             Abort("remora.stop_time and stop_time are both specified. Please use only one!");
         }

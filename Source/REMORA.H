@@ -91,6 +91,7 @@ class REMORA
 public:
 
     REMORA ();
+    REMORA (const amrex::RealBox& rb, int max_level_in, const amrex::Vector<int>& n_cell_in, int coord, const amrex::Vector<amrex::IntVect>& ref_ratio, const amrex::Array<int,AMREX_SPACEDIM>& is_per, std::string prefix);
     virtual ~REMORA ();
 
     /** \brief Advance solution to final time */
@@ -240,6 +241,7 @@ public:
 
     /** \brief default prefix for input file parameters */
     std::string pp_prefix {"remora"};
+    bool explicit_construction = false;
 
     /** \brief multilevel data container for last step's scalar data: temperature, salinity, passive tracer  */
     amrex::Vector<amrex::MultiFab*> cons_old;
