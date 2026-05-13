@@ -25,107 +25,75 @@ using namespace amrex;
 */
 
 namespace {
-
 constexpr int SSTIndex = 0;
-
-int
-bottom_cell_k (const MultiFab& mf)
-{
-    return mf.boxArray().minimalBox().smallEnd(2);
-}
-
-int
-top_cell_k (const MultiFab& mf)
-{
-    return mf.boxArray().minimalBox().bigEnd(2);
 }
 
 void
-copy_plane_to_plane_xy (MultiFab& dst,
-                        int dst_k,
-                        const MultiFab& src,
-                        int src_k)
-{
-    AMREX_ALWAYS_ASSERT(dst.nComp() >= 1);
-    AMREX_ALWAYS_ASSERT(src.nComp() >= 1);
-    AMREX_ALWAYS_ASSERT(dst.boxArray() == src.boxArray());
-    AMREX_ALWAYS_ASSERT(dst.DistributionMap() == src.DistributionMap());
-
-    for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        Box bx = makeSlab(mfi.validbox(), 2, dst_k);
-
-        auto const& dst_arr = dst.array(mfi);
-        auto const& src_arr = src.const_array(mfi);
-
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
-        {
-            dst_arr(i,j,dst_k) = src_arr(i,j,src_k);
-        });
-    }
-}
-
-void
-copy_if_present (const Vector<MultiFab*>& states,
-                 int src_idx,
-                 MultiFab* dst)
-{
-    if (dst == nullptr) { return; }
-    if (src_idx >= static_cast<int>(states.size())) { return; }
-    if (states[src_idx] == nullptr) { return; }
-
-    // Initial matched-grid assumption: identical horizontal decomposition.
-    // We use an interface-face convention and derive source/destination cell
-    // planes from it.
-    // For ERF cell-centered states at the lower boundary, interface face is
-    // at src.smallEnd(2), so the source cell adjacent to the interface is
-    // src_k = src.smallEnd(2) (typically k=0).
-    const int dst_k = bottom_cell_k(*dst);
-    const int src_face_k = bottom_cell_k(*states[src_idx]);
-    const int src_k = src_face_k;
-    copy_plane_to_plane_xy(*dst, dst_k, *states[src_idx], src_k);
-}
-
-}
-
-void
-REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real time)
+REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
 {
     if (state.empty() || state[SSTIndex] == nullptr) { return; }
+    const int lev = 0;
 
-    // Initial-step-testing example: return deterministic SST for cache validation.
-    // At time=t, state[0] (SST) = 290 + 0.01*t [K].
-    state[SSTIndex]->setVal(Real(290.0) + Real(0.01) * time);
+    // REMORA stores temperature in Celsius. Surface is at k=N (top of water column).
+    const int k_sfc = cons_new[lev]->boxArray().minimalBox().bigEnd(2);
+
+    // Build a temp MultiFab on REMORA's ba2d (k=0) derived from cons_new's BoxArray.
+    // Same DistributionMap ensures each box is local; we fill at k=0 from cons at k=k_sfc.
+    BoxList bl2d = cons_new[lev]->boxArray().boxList();
+    for (auto& b : bl2d) { b.setRange(2, 0); }
+    BoxArray ba2d(std::move(bl2d));
+    MultiFab tmp(ba2d, cons_new[lev]->DistributionMap(), 1, 0);
+
+    for (MFIter mfi(*cons_new[lev]); mfi.isValid(); ++mfi) {
+        auto const& c = cons_new[lev]->const_array(mfi);
+        auto         t = tmp.array(mfi);
+        Box bx = makeSlab(mfi.validbox(), 2, k_sfc);
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int) {
+            // Write to k=0 in tmp (ba2d range); convert Celsius → Kelvin.
+            t(i, j, 0) = c(i, j, k_sfc, Temp_comp) + 273.15_rt;
+        });
+    }
+    state[SSTIndex]->ParallelCopy(tmp, 0, 0, 1);
 }
 
 void
 REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real time)
 {
     if (states.empty() || states[0] == nullptr) { return; }
+    if (finest_level < 0) { return; }
 
-    // Legacy state-passing mapping (COAWST Block-B style):
-    // 0:Uwind 1:Vwind 2:Pair 3:RH/Hair(qair path) 4:Tair
-    // 5:cloud 6:rain 7:SWrad 8:LWrad
-    if (finest_level >= 0) {
-        copy_if_present(states, 0, vec_uwind[0].get());
-        copy_if_present(states, 1, vec_vwind[0].get());
-        copy_if_present(states, 2, vec_Pair[0].get());
-        copy_if_present(states, 3, vec_qair[0].get());
-        copy_if_present(states, 4, vec_Tair[0].get());
-        copy_if_present(states, 5, vec_cloud[0].get());
-        copy_if_present(states, 6, vec_rain[0].get());
-        copy_if_present(states, 7, vec_srflx[0].get());
-        copy_if_present(states, 8, vec_longwave_down[0].get());
-    }
+    // ParallelCopy from driver slab (k=0) into REMORA forcing arrays (also k=0).
+    // Uses cross-BoxArray safe ParallelCopy rather than the asserting copy helper.
+    auto safe_copy = [&] (int src_idx, MultiFab* dst) {
+        if (dst == nullptr) { return; }
+        if (src_idx >= static_cast<int>(states.size())) { return; }
+        if (states[src_idx] == nullptr) { return; }
+        dst->ParallelCopy(*states[src_idx], 0, 0, 1);
+    };
 
-    // Example (legacy state-passing): states[0] is Uwind from ERF.
-    // Use a built-in reduction so debug output is deterministic across
-    // decomposition choices.
-    const int src_top_k = top_cell_k(*states[0]);
-    const Real sample = states[0]->min(0);
+    // Wind (m/s) — no unit conversion
+    safe_copy(0, vec_uwind[0].get());
+    safe_copy(1, vec_vwind[0].get());
+
+    // Atmospheric pressure: Pa → mb (REMORA bulk flux expects mb)
+    safe_copy(2, vec_Pair[0].get());
+    if (vec_Pair[0]) { vec_Pair[0]->mult(0.01_rt, 0, 1); }
+
+    // Specific humidity (kg/kg) — no conversion
+    safe_copy(3, vec_qair[0].get());
+
+    // Air temperature: K → °C (REMORA stores/uses Celsius internally)
+    safe_copy(4, vec_Tair[0].get());
+    if (vec_Tair[0]) { vec_Tair[0]->plus(-273.15_rt, 0, 1); }
+
+    // Cloud fraction [0-1], rain, SW/LW radiation — no unit conversion
+    safe_copy(5, vec_cloud[0].get());
+    safe_copy(6, vec_rain[0].get());
+    safe_copy(7, vec_srflx[0].get());
+    safe_copy(8, vec_longwave_down[0].get());
 
     if (ParallelDescriptor::IOProcessor()) {
         Print() << "REMORA::ApplyAtmosphericStates time=" << time
-                << " sample_Uwind=" << sample
-                << " (src_k=" << src_top_k << ")\n";
+                << " sample_Uwind=" << states[0]->min(0) << "\n";
     }
 }
