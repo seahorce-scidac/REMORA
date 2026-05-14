@@ -62,7 +62,6 @@ amrex::Vector<amrex::Vector<std::string>> REMORA::nc_grid_file = {{""}}; // Must
 REMORA::REMORA ()
 {
     BL_PROFILE("REMORA::REMORA()");
-    explicit_construction = false;
     
     if (ParallelDescriptor::IOProcessor()) {
         const char* remora_hash = amrex::buildInfoGetGitHash(1);
@@ -146,7 +145,6 @@ REMORA::REMORA (const amrex::RealBox& rb, int max_level_in, const amrex::Vector<
     : amrex::AmrCore (rb, max_level_in, n_cell_in, coord, ref_ratio_in, is_per)
 {
     BL_PROFILE("REMORA::REMORA(explicit)");
-    explicit_construction = true;
     pp_prefix = prefix;
 
     if (ParallelDescriptor::IOProcessor()) {
