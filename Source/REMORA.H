@@ -241,7 +241,6 @@ public:
 
     /** \brief default prefix for input file parameters */
     std::string pp_prefix {"remora"};
-    bool explicit_construction = false;
 
     /** \brief multilevel data container for last step's scalar data: temperature, salinity, passive tracer  */
     amrex::Vector<amrex::MultiFab*> cons_old;
