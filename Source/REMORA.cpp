@@ -250,6 +250,7 @@ REMORA::Evolve ()
 
         int lev = 0;
         int iteration = 1;
+        auto dEvolveTime0 = amrex::second();
 
         if (max_level == 0) {
             timeStep(lev, cur_time, iteration);
@@ -262,6 +263,13 @@ REMORA::Evolve ()
 
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
                        << " DT = " << dt[0]  << std::endl;
+
+        if (verbose > 0)
+        {
+            auto dEvolveTime = amrex::second() - dEvolveTime0;
+            ParallelDescriptor::ReduceRealMax(dEvolveTime,ParallelDescriptor::IOProcessorNumber());
+            amrex::Print() << "Timestep time = " << dEvolveTime << " seconds." << '\n';
+        }
 
         if ( (plot_int > 0      && (step+1 - last_plot_file_step) == plot_int         ) ||
              (plot_int_time > 0 && (cur_time >= (last_plot_file_time + plot_int_time))) )
