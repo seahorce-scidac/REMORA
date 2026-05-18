@@ -102,6 +102,7 @@ public:
 
     /** \brief Initialize multilevel data */
     void InitData ();
+    amrex::Real EvolveOneStep (amrex::Real time, amrex::Real dt_request);
 
     /** \brief Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);
