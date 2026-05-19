@@ -1084,24 +1084,49 @@ void
 REMORA::set_wind(int lev)
 {
     BL_PROFILE("REMORA::set_wind()");
+    auto fill_preserved = [&] (MultiFab* mf) {
+        if (mf != nullptr) {
+            mf->FillBoundary(geom[lev].periodicity());
+        }
+    };
+
+    const bool driver_has_uwind = driver_atmos_state_from_driver[0];
+    const bool driver_has_vwind = driver_atmos_state_from_driver[1];
+
     if (solverChoice.wind_type == WindType::analytic) {
-        prob->init_analytic_wind(lev,geom[lev], solverChoice, *this, *vec_uwind[lev], *vec_vwind[lev]);
+        // The analytic wind initializer writes both components together, so only
+        // invoke it when the driver has not already provided the wind pair.
+        if (!(driver_has_uwind && driver_has_vwind)) {
+            prob->init_analytic_wind(lev,geom[lev], solverChoice, *this, *vec_uwind[lev], *vec_vwind[lev]);
+        }
+        fill_preserved(vec_uwind[lev].get());
+        fill_preserved(vec_vwind[lev].get());
     } else if (solverChoice.wind_type == WindType::netcdf) {
 #ifdef REMORA_USE_NETCDF
-        Uwind_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_uwind[lev].get(), geom, ref_ratio);
-        Vwind_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_vwind[lev].get(), geom, ref_ratio);
-        FillPatch(lev, t_old[lev], *vec_uwind[lev], GetVecOfPtrs(vec_uwind),
-                  foextrap_periodic_bc(),BdyVars::null,0,false);
-        FillPatch(lev, t_old[lev], *vec_vwind[lev], GetVecOfPtrs(vec_vwind),
-                  foextrap_periodic_bc(),BdyVars::null,0,false);
+        if (!driver_has_uwind) {
+            Uwind_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_uwind[lev].get(), geom, ref_ratio);
+            FillPatch(lev, t_old[lev], *vec_uwind[lev], GetVecOfPtrs(vec_uwind),
+                      foextrap_periodic_bc(),BdyVars::null,0,false);
+        } else {
+            fill_preserved(vec_uwind[lev].get());
+        }
+        if (!driver_has_vwind) {
+            Vwind_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_vwind[lev].get(), geom, ref_ratio);
+            FillPatch(lev, t_old[lev], *vec_vwind[lev], GetVecOfPtrs(vec_vwind),
+                      foextrap_periodic_bc(),BdyVars::null,0,false);
+        } else {
+            fill_preserved(vec_vwind[lev].get());
+        }
 
         // Conditionally update atmospheric fields if loaded from NetCDF
-        if (solverChoice.Tair_from_netcdf) {
+        if (solverChoice.Tair_from_netcdf && !driver_atmos_state_from_driver[4]) {
             Tair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_Tair[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_Tair[lev], GetVecOfPtrs(vec_Tair),
                       foextrap_periodic_bc(),BdyVars::null,0,false);
+        } else if (vec_Tair[lev]) {
+            fill_preserved(vec_Tair[lev].get());
         }
-        if (solverChoice.qair_from_netcdf) {
+        if (solverChoice.qair_from_netcdf && !driver_atmos_state_from_driver[3]) {
             qair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_qair[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_qair[lev], GetVecOfPtrs(vec_qair),
                       foextrap_periodic_bc(),BdyVars::null,0,false);
@@ -1113,38 +1138,54 @@ REMORA::set_wind(int lev)
                 // Update ghost cells after modification
                 vec_qair[lev]->FillBoundary(geom[lev].periodicity());
             }
+        } else if (vec_qair[lev]) {
+            fill_preserved(vec_qair[lev].get());
         }
-        if (solverChoice.Pair_from_netcdf) {
+        if (solverChoice.Pair_from_netcdf && !driver_atmos_state_from_driver[2]) {
             Pair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_Pair[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_Pair[lev], GetVecOfPtrs(vec_Pair),
                       foextrap_periodic_bc(),BdyVars::null,0,false);
+        } else if (vec_Pair[lev]) {
+            fill_preserved(vec_Pair[lev].get());
         }
-        if (solverChoice.srflx_from_netcdf) {
+        if (solverChoice.srflx_from_netcdf && !driver_atmos_state_from_driver[7]) {
             srflx_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_srflx[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_srflx[lev], GetVecOfPtrs(vec_srflx),
                       foextrap_periodic_bc(),BdyVars::null,0,false);
+        } else if (vec_srflx[lev]) {
+            fill_preserved(vec_srflx[lev].get());
         }
-        if (solverChoice.longwave_down_from_netcdf) {
+        if (solverChoice.longwave_down_from_netcdf && !driver_atmos_state_from_driver[8]) {
             longwave_down_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_longwave_down[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_longwave_down[lev], GetVecOfPtrs(vec_longwave_down),
                       foextrap_periodic_bc(),BdyVars::null,0,false);
+        } else if (vec_longwave_down[lev]) {
+            fill_preserved(vec_longwave_down[lev].get());
         }
-        if (solverChoice.rain_from_netcdf) {
+        if (solverChoice.rain_from_netcdf && !driver_atmos_state_from_driver[6]) {
             rain_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_rain[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_rain[lev], GetVecOfPtrs(vec_rain),
                       foextrap_periodic_bc(),BdyVars::null,0,false);
+        } else if (vec_rain[lev]) {
+            fill_preserved(vec_rain[lev].get());
         }
-        if (solverChoice.cloud_from_netcdf) {
+        if (solverChoice.cloud_from_netcdf && !driver_atmos_state_from_driver[5]) {
             cloud_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_cloud[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_cloud[lev], GetVecOfPtrs(vec_cloud),
                       foextrap_periodic_bc(),BdyVars::null,0,false);
+        } else if (vec_cloud[lev]) {
+            fill_preserved(vec_cloud[lev].get());
         }
         if (solverChoice.EminusP_from_netcdf) {
             EminusP_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_EminusP[lev].get(), geom, ref_ratio);
             FillPatch(lev, t_old[lev], *vec_EminusP[lev], GetVecOfPtrs(vec_EminusP),
                       foextrap_periodic_bc(),BdyVars::null,0,false);
+        } else if (vec_EminusP[lev]) {
+            fill_preserved(vec_EminusP[lev].get());
         }
 #endif
+    } else {
+        amrex::Abort("Unknown wind_type in REMORA::set_wind()");
     }
 }
 

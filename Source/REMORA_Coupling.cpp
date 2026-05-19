@@ -102,41 +102,40 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
 void
 REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real time)
 {
+    driver_atmos_state_from_driver.fill(false);
     if (states.empty() || states[0] == nullptr) { return; }
     if (finest_level < 0) { return; }
 
     // ParallelCopy from driver slab (k=0) into REMORA forcing arrays (also k=0).
     // Uses cross-BoxArray safe ParallelCopy rather than the asserting copy helper.
-    auto safe_copy = [&] (int src_idx, MultiFab* dst) {
-        if (dst == nullptr) { return; }
-        if (src_idx >= static_cast<int>(states.size())) { return; }
-        if (states[src_idx] == nullptr) { return; }
+    auto safe_copy = [&] (int src_idx, MultiFab* dst) -> bool {
+        if (dst == nullptr) { return false; }
+        if (src_idx >= static_cast<int>(states.size())) { return false; }
+        if (states[src_idx] == nullptr) { return false; }
         dst->ParallelCopy(*states[src_idx], 0, 0, 1);
+        dst->FillBoundary(geom[0].periodicity());
+        return true;
     };
 
     // Wind (m/s) — no unit conversion
-    safe_copy(0, vec_uwind[0].get());
-    safe_copy(1, vec_vwind[0].get());
+    driver_atmos_state_from_driver[0] = safe_copy(0, vec_uwind[0].get());
+    driver_atmos_state_from_driver[1] = safe_copy(1, vec_vwind[0].get());
 
     // Atmospheric pressure: Pa → mb (REMORA bulk flux expects mb)
-    safe_copy(2, vec_Pair[0].get());
-    if (vec_Pair[0]) { vec_Pair[0]->mult(0.01_rt, 0, 1); }
+    driver_atmos_state_from_driver[2] = safe_copy(2, vec_Pair[0].get());
+    if (vec_Pair[0] && driver_atmos_state_from_driver[2]) { vec_Pair[0]->mult(0.01_rt, 0, 1); }
 
     // Specific humidity (kg/kg) — no conversion
-    safe_copy(3, vec_qair[0].get());
+    driver_atmos_state_from_driver[3] = safe_copy(3, vec_qair[0].get());
 
     // Air temperature: K → °C (REMORA stores/uses Celsius internally)
-    safe_copy(4, vec_Tair[0].get());
-    if (vec_Tair[0]) { vec_Tair[0]->plus(-273.15_rt, 0, 1); }
+    driver_atmos_state_from_driver[4] = safe_copy(4, vec_Tair[0].get());
+    if (vec_Tair[0] && driver_atmos_state_from_driver[4]) { vec_Tair[0]->plus(-273.15_rt, 0, 1); }
 
     // Cloud fraction [0-1], rain, SW/LW radiation — no unit conversion
-    safe_copy(5, vec_cloud[0].get());
-    safe_copy(6, vec_rain[0].get());
-    safe_copy(7, vec_srflx[0].get());
-    safe_copy(8, vec_longwave_down[0].get());
+    driver_atmos_state_from_driver[5] = safe_copy(5, vec_cloud[0].get());
+    driver_atmos_state_from_driver[6] = safe_copy(6, vec_rain[0].get());
+    driver_atmos_state_from_driver[7] = safe_copy(7, vec_srflx[0].get());
+    driver_atmos_state_from_driver[8] = safe_copy(8, vec_longwave_down[0].get());
 
-    if (ParallelDescriptor::IOProcessor()) {
-        Print() << "REMORA::ApplyAtmosphericStates time=" << time
-                << " sample_Uwind=" << states[0]->min(0) << "\n";
-    }
 }

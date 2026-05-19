@@ -3,6 +3,7 @@
 
 #include <string>
 #include <limits>
+#include <array>
 #include <memory>
 
 #ifdef _OPENMP
@@ -369,6 +370,9 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_cloud;
     /** \brief evaporation minus precipitation [kg/m^2/s], defined at rho-points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_EminusP;
+
+    /** \brief provenance flags for driver-supplied atmospheric forcing lanes */
+    std::array<bool, 9> driver_atmos_state_from_driver {};
 
     /** \brief Linear drag coefficient [m/s], defined at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;
