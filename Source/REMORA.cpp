@@ -62,7 +62,7 @@ amrex::Vector<amrex::Vector<std::string>> REMORA::nc_grid_file = {{""}}; // Must
 REMORA::REMORA ()
 {
     BL_PROFILE("REMORA::REMORA()");
-    
+
     if (ParallelDescriptor::IOProcessor()) {
         const char* remora_hash = amrex::buildInfoGetGitHash(1);
         const char* amrex_hash = amrex::buildInfoGetGitHash(2);

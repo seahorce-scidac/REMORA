@@ -100,7 +100,7 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
 }
 
 void
-REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real time)
+REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
 {
     driver_atmos_state_from_driver.fill(false);
     if (finest_level < 0) { return; }
