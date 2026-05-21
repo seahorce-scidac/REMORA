@@ -103,39 +103,81 @@ void
 REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real time)
 {
     driver_atmos_state_from_driver.fill(false);
-    if (states.empty() || states[0] == nullptr) { return; }
     if (finest_level < 0) { return; }
 
-    // ParallelCopy from driver slab (k=0) into REMORA forcing arrays (also k=0).
-    // Uses cross-BoxArray safe ParallelCopy rather than the asserting copy helper.
-    auto safe_copy = [&] (int src_idx, MultiFab* dst) -> bool {
-        if (dst == nullptr) { return false; }
-        if (src_idx >= static_cast<int>(states.size())) { return false; }
-        if (states[src_idx] == nullptr) { return false; }
-        dst->ParallelCopy(*states[src_idx], 0, 0, 1);
-        dst->FillBoundary(geom[0].periodicity());
-        return true;
-    };
-
     // Wind (m/s) — no unit conversion
-    driver_atmos_state_from_driver[0] = safe_copy(0, vec_uwind[0].get());
-    driver_atmos_state_from_driver[1] = safe_copy(1, vec_vwind[0].get());
+    if (vec_uwind[0] != nullptr) {
+        if (states.size() > 0 && states[0] != nullptr) {
+            vec_uwind[0]->ParallelCopy(*states[0], 0, 0, 1);
+            vec_uwind[0]->FillBoundary(geom[0].periodicity());
+            driver_atmos_state_from_driver[0] = true;
+        }
+    }
+    if (vec_vwind[0] != nullptr) {
+        if (states.size() > 1 && states[1] != nullptr) {
+            vec_vwind[0]->ParallelCopy(*states[1], 0, 0, 1);
+            vec_vwind[0]->FillBoundary(geom[0].periodicity());
+            driver_atmos_state_from_driver[1] = true;
+        }
+    }
 
     // Atmospheric pressure: Pa → mb (REMORA bulk flux expects mb)
-    driver_atmos_state_from_driver[2] = safe_copy(2, vec_Pair[0].get());
+    if (vec_Pair[0] != nullptr) {
+        if (states.size() > 2 && states[2] != nullptr) {
+            vec_Pair[0]->ParallelCopy(*states[2], 0, 0, 1);
+            vec_Pair[0]->FillBoundary(geom[0].periodicity());
+            driver_atmos_state_from_driver[2] = true;
+        }
+    }
     if (vec_Pair[0] && driver_atmos_state_from_driver[2]) { vec_Pair[0]->mult(0.01_rt, 0, 1); }
 
     // Specific humidity (kg/kg) — no conversion
-    driver_atmos_state_from_driver[3] = safe_copy(3, vec_qair[0].get());
+    if (vec_qair[0] != nullptr) {
+        if (states.size() > 3 && states[3] != nullptr) {
+            vec_qair[0]->ParallelCopy(*states[3], 0, 0, 1);
+            vec_qair[0]->FillBoundary(geom[0].periodicity());
+            driver_atmos_state_from_driver[3] = true;
+        }
+    }
 
     // Air temperature: K → °C (REMORA stores/uses Celsius internally)
-    driver_atmos_state_from_driver[4] = safe_copy(4, vec_Tair[0].get());
+    if (vec_Tair[0] != nullptr) {
+        if (states.size() > 4 && states[4] != nullptr) {
+            vec_Tair[0]->ParallelCopy(*states[4], 0, 0, 1);
+            vec_Tair[0]->FillBoundary(geom[0].periodicity());
+            driver_atmos_state_from_driver[4] = true;
+        }
+    }
     if (vec_Tair[0] && driver_atmos_state_from_driver[4]) { vec_Tair[0]->plus(-273.15_rt, 0, 1); }
 
     // Cloud fraction [0-1], rain, SW/LW radiation — no unit conversion
-    driver_atmos_state_from_driver[5] = safe_copy(5, vec_cloud[0].get());
-    driver_atmos_state_from_driver[6] = safe_copy(6, vec_rain[0].get());
-    driver_atmos_state_from_driver[7] = safe_copy(7, vec_srflx[0].get());
-    driver_atmos_state_from_driver[8] = safe_copy(8, vec_longwave_down[0].get());
+    if (vec_cloud[0] != nullptr) {
+        if (states.size() > 5 && states[5] != nullptr) {
+            vec_cloud[0]->ParallelCopy(*states[5], 0, 0, 1);
+            vec_cloud[0]->FillBoundary(geom[0].periodicity());
+            driver_atmos_state_from_driver[5] = true;
+        }
+    }
+    if (vec_rain[0] != nullptr) {
+        if (states.size() > 6 && states[6] != nullptr) {
+            vec_rain[0]->ParallelCopy(*states[6], 0, 0, 1);
+            vec_rain[0]->FillBoundary(geom[0].periodicity());
+            driver_atmos_state_from_driver[6] = true;
+        }
+    }
+    if (vec_srflx[0] != nullptr) {
+        if (states.size() > 7 && states[7] != nullptr) {
+            vec_srflx[0]->ParallelCopy(*states[7], 0, 0, 1);
+            vec_srflx[0]->FillBoundary(geom[0].periodicity());
+            driver_atmos_state_from_driver[7] = true;
+        }
+    }
+    if (vec_longwave_down[0] != nullptr) {
+        if (states.size() > 8 && states[8] != nullptr) {
+            vec_longwave_down[0]->ParallelCopy(*states[8], 0, 0, 1);
+            vec_longwave_down[0]->FillBoundary(geom[0].periodicity());
+            driver_atmos_state_from_driver[8] = true;
+        }
+    }
 
 }
