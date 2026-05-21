@@ -125,11 +125,11 @@ REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real time)
     if (vec_Pair[0] != nullptr) {
         if (states.size() > 2 && states[2] != nullptr) {
             vec_Pair[0]->ParallelCopy(*states[2], 0, 0, 1);
+            vec_Pair[0]->mult(0.01_rt, 0, 1);
             vec_Pair[0]->FillBoundary(geom[0].periodicity());
             driver_atmos_state_from_driver[2] = true;
         }
     }
-    if (vec_Pair[0] && driver_atmos_state_from_driver[2]) { vec_Pair[0]->mult(0.01_rt, 0, 1); }
 
     // Specific humidity (kg/kg) — no conversion
     if (vec_qair[0] != nullptr) {
@@ -144,11 +144,11 @@ REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real time)
     if (vec_Tair[0] != nullptr) {
         if (states.size() > 4 && states[4] != nullptr) {
             vec_Tair[0]->ParallelCopy(*states[4], 0, 0, 1);
+            vec_Tair[0]->plus(-273.15_rt, 0, 1);
             vec_Tair[0]->FillBoundary(geom[0].periodicity());
             driver_atmos_state_from_driver[4] = true;
         }
     }
-    if (vec_Tair[0] && driver_atmos_state_from_driver[4]) { vec_Tair[0]->plus(-273.15_rt, 0, 1); }
 
     // Cloud fraction [0-1], rain, SW/LW radiation — no unit conversion
     if (vec_cloud[0] != nullptr) {

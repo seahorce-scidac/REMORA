@@ -273,6 +273,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         fab_FC.template     setVal<RunOn::Device>(0.,gbx2);
         mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
         update_massflux_3d(lev,gbx2,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,mskv,nnew);
+
 #endif
     }
 
