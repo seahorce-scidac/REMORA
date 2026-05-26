@@ -71,6 +71,22 @@ REMORA::EvolveOneStep (amrex::Real /*time*/, amrex::Real /*dt_request*/)
     return dt[0];
 }
 
+/*
+ * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
+ *
+ * Reads Temp_comp at the top water-column cell (k_sfc), converts from
+ * Celsius to Kelvin, and copies the result into state[SSTIndex].
+ *
+ * @param[in,out] state  OCN2ATM slab buffer sized by the driver (one MultiFab
+ *                       per ocean-to-atmosphere export layer). state[SSTIndex]
+ *                       (index 0) is overwritten with sea-surface temperature
+ *                       (SST) sampled from the Temp_comp tracer at the uppermost
+ *                       sigma level (k = Nz) and converted from degrees Celsius
+ *                       to Kelvin for the atmospheric driver. An empty vector or
+ *                       null state[0] is treated as a no-op.
+ * @param[in    ] time   Current ocean model time (unused; retained for driver
+ *                       interface conformance).
+ */
 void
 REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
 {
@@ -99,6 +115,29 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
     state[SSTIndex]->ParallelCopy(tmp, 0, 0, 1);
 }
 
+/*
+ * \brief Receives atmospheric states from the driver and applies unit conversions.
+ *
+ * Fills REMORA's internal forcing MultiFabs from states and records which
+ * lanes were successfully updated in driver_atmos_state_from_driver.
+ * Unit conversions applied: Pair Pa to mb; Tair K to Celsius.
+ *
+ * @param[in] states  ATM2OCN forcing slab buffer from the driver (Warner et al.
+ *                    2010, Block B state-passing contract), indexed by AtmosState.
+ *                    Expected units per lane:
+ *                    Uwind/Vwind: 10-m winds [m/s];
+ *                    Pair: mean sea-level pressure [Pa, converted to mb];
+ *                    Qair: near-surface specific humidity [kg/kg];
+ *                    Tair: 2-m air temperature [K, converted to degC];
+ *                    Cloud: cloud fraction [0-1];
+ *                    Rain: precipitation rate [kg/m^2/s];
+ *                    SWrad/LWrad: downwelling shortwave/longwave radiation [W/m^2].
+ *                    Missing lanes (null pointer or index out of range) are skipped;
+ *                    driver_atmos_state_from_driver tracks populated lanes for the
+ *                    bulk-flux parameterization fallback logic.
+ * @param[in] time    Current ocean model time (unused; retained for driver
+ *                    interface conformance).
+ */
 void
 REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
 {
@@ -107,76 +146,76 @@ REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
 
     // Wind (m/s) — no unit conversion
     if (vec_uwind[0] != nullptr) {
-        if (states.size() > 0 && states[0] != nullptr) {
-            vec_uwind[0]->ParallelCopy(*states[0], 0, 0, 1);
+        if (states.size() > AtmosState::Uwind && states[AtmosState::Uwind] != nullptr) {
+            vec_uwind[0]->ParallelCopy(*states[AtmosState::Uwind], 0, 0, 1);
             vec_uwind[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[0] = true;
+            driver_atmos_state_from_driver[AtmosState::Uwind] = true;
         }
     }
     if (vec_vwind[0] != nullptr) {
-        if (states.size() > 1 && states[1] != nullptr) {
-            vec_vwind[0]->ParallelCopy(*states[1], 0, 0, 1);
+        if (states.size() > AtmosState::Vwind && states[AtmosState::Vwind] != nullptr) {
+            vec_vwind[0]->ParallelCopy(*states[AtmosState::Vwind], 0, 0, 1);
             vec_vwind[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[1] = true;
+            driver_atmos_state_from_driver[AtmosState::Vwind] = true;
         }
     }
 
     // Atmospheric pressure: Pa → mb (REMORA bulk flux expects mb)
     if (vec_Pair[0] != nullptr) {
-        if (states.size() > 2 && states[2] != nullptr) {
-            vec_Pair[0]->ParallelCopy(*states[2], 0, 0, 1);
+        if (states.size() > AtmosState::Pair && states[AtmosState::Pair] != nullptr) {
+            vec_Pair[0]->ParallelCopy(*states[AtmosState::Pair], 0, 0, 1);
             vec_Pair[0]->mult(0.01_rt, 0, 1);
             vec_Pair[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[2] = true;
+            driver_atmos_state_from_driver[AtmosState::Pair] = true;
         }
     }
 
     // Specific humidity (kg/kg) — no conversion
     if (vec_qair[0] != nullptr) {
-        if (states.size() > 3 && states[3] != nullptr) {
-            vec_qair[0]->ParallelCopy(*states[3], 0, 0, 1);
+        if (states.size() > AtmosState::Qair && states[AtmosState::Qair] != nullptr) {
+            vec_qair[0]->ParallelCopy(*states[AtmosState::Qair], 0, 0, 1);
             vec_qair[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[3] = true;
+            driver_atmos_state_from_driver[AtmosState::Qair] = true;
         }
     }
 
     // Air temperature: K → °C (REMORA stores/uses Celsius internally)
     if (vec_Tair[0] != nullptr) {
-        if (states.size() > 4 && states[4] != nullptr) {
-            vec_Tair[0]->ParallelCopy(*states[4], 0, 0, 1);
+        if (states.size() > AtmosState::Tair && states[AtmosState::Tair] != nullptr) {
+            vec_Tair[0]->ParallelCopy(*states[AtmosState::Tair], 0, 0, 1);
             vec_Tair[0]->plus(-273.15_rt, 0, 1);
             vec_Tair[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[4] = true;
+            driver_atmos_state_from_driver[AtmosState::Tair] = true;
         }
     }
 
     // Cloud fraction [0-1], rain, SW/LW radiation — no unit conversion
     if (vec_cloud[0] != nullptr) {
-        if (states.size() > 5 && states[5] != nullptr) {
-            vec_cloud[0]->ParallelCopy(*states[5], 0, 0, 1);
+        if (states.size() > AtmosState::Cloud && states[AtmosState::Cloud] != nullptr) {
+            vec_cloud[0]->ParallelCopy(*states[AtmosState::Cloud], 0, 0, 1);
             vec_cloud[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[5] = true;
+            driver_atmos_state_from_driver[AtmosState::Cloud] = true;
         }
     }
     if (vec_rain[0] != nullptr) {
-        if (states.size() > 6 && states[6] != nullptr) {
-            vec_rain[0]->ParallelCopy(*states[6], 0, 0, 1);
+        if (states.size() > AtmosState::Rain && states[AtmosState::Rain] != nullptr) {
+            vec_rain[0]->ParallelCopy(*states[AtmosState::Rain], 0, 0, 1);
             vec_rain[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[6] = true;
+            driver_atmos_state_from_driver[AtmosState::Rain] = true;
         }
     }
     if (vec_srflx[0] != nullptr) {
-        if (states.size() > 7 && states[7] != nullptr) {
-            vec_srflx[0]->ParallelCopy(*states[7], 0, 0, 1);
+        if (states.size() > AtmosState::SWrad && states[AtmosState::SWrad] != nullptr) {
+            vec_srflx[0]->ParallelCopy(*states[AtmosState::SWrad], 0, 0, 1);
             vec_srflx[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[7] = true;
+            driver_atmos_state_from_driver[AtmosState::SWrad] = true;
         }
     }
     if (vec_longwave_down[0] != nullptr) {
-        if (states.size() > 8 && states[8] != nullptr) {
-            vec_longwave_down[0]->ParallelCopy(*states[8], 0, 0, 1);
+        if (states.size() > AtmosState::LWrad && states[AtmosState::LWrad] != nullptr) {
+            vec_longwave_down[0]->ParallelCopy(*states[AtmosState::LWrad], 0, 0, 1);
             vec_longwave_down[0]->FillBoundary(geom[0].periodicity());
-            driver_atmos_state_from_driver[8] = true;
+            driver_atmos_state_from_driver[AtmosState::LWrad] = true;
         }
     }
 
