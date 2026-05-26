@@ -3,6 +3,7 @@
 
 #include <string>
 #include <limits>
+#include <array>
 #include <memory>
 
 #ifdef _OPENMP
@@ -91,6 +92,7 @@ class REMORA
 public:
 
     REMORA ();
+    REMORA (const amrex::RealBox& rb, int max_level_in, const amrex::Vector<int>& n_cell_in, int coord, const amrex::Vector<amrex::IntVect>& ref_ratio, const amrex::Array<int,AMREX_SPACEDIM>& is_per, std::string prefix);
     virtual ~REMORA ();
 
     /** \brief Advance solution to final time */
@@ -101,6 +103,7 @@ public:
 
     /** \brief Initialize multilevel data */
     void InitData ();
+    amrex::Real EvolveOneStep (amrex::Real time, amrex::Real dt_request);
 
     /** \brief Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);
@@ -111,10 +114,47 @@ public:
     /** \brief Called after every level 0 timestep */
     void post_timestep (int nstep, amrex::Real time, amrex::Real dt_lev);
 
-    /** \brief Pack a stage-0 synthetic surface state for atmosphere coupling */
+    /**
+     * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
+     *
+     * Reads Temp_comp at the top water-column cell (k_sfc), converts from
+     * Celsius to Kelvin, and copies the result into state[SSTIndex].
+     *
+     * @param[in,out] state  OCN2ATM slab buffer sized by the driver (one MultiFab
+     *                       per ocean-to-atmosphere export layer). state[SSTIndex]
+     *                       (index 0) is overwritten with sea-surface temperature
+     *                       (SST) sampled from the Temp_comp tracer at the uppermost
+     *                       sigma level (k = Nz) and converted from degrees Celsius
+     *                       to Kelvin for the atmospheric driver. An empty vector or
+     *                       null state[0] is treated as a no-op.
+     * @param[in    ] time   Current ocean model time (unused; retained for driver
+     *                       interface conformance).
+     */
     void PackSurfaceState (amrex::Vector<amrex::MultiFab*>& state, amrex::Real time);
 
-    /** \brief Apply stage-0 synthetic atmospheric forcing fields from the driver */
+    /**
+     * \brief Receives atmospheric states from the driver and applies unit conversions.
+     *
+     * Fills REMORA's internal forcing MultiFabs from states and records which
+     * lanes were successfully updated in driver_atmos_state_from_driver.
+     * Unit conversions applied: Pair Pa to mb; Tair K to Celsius.
+     *
+     * @param[in] states  ATM2OCN forcing slab buffer from the driver (Warner et al.
+     *                    2010, Block B state-passing contract), indexed by AtmosState.
+     *                    Expected units per lane:
+     *                    Uwind/Vwind: 10-m winds [m/s];
+     *                    Pair: mean sea-level pressure [Pa, converted to mb];
+     *                    Qair: near-surface specific humidity [kg/kg];
+     *                    Tair: 2-m air temperature [K, converted to degC];
+     *                    Cloud: cloud fraction [0-1];
+     *                    Rain: precipitation rate [kg/m^2/s];
+     *                    SWrad/LWrad: downwelling shortwave/longwave radiation [W/m^2].
+     *                    Missing lanes (null pointer or index out of range) are skipped;
+     *                    driver_atmos_state_from_driver tracks populated lanes for the
+     *                    bulk-flux parameterization fallback logic.
+     * @param[in] time    Current ocean model time (unused; retained for driver
+     *                    interface conformance).
+     */
     void ApplyAtmosphericStates (const amrex::Vector<amrex::MultiFab*>& states, amrex::Real time);
 
     // Diagnostics
@@ -367,6 +407,9 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_cloud;
     /** \brief evaporation minus precipitation [kg/m^2/s], defined at rho-points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_EminusP;
+
+    /** \brief provenance flags for driver-supplied atmospheric forcing lanes */
+    std::array<bool, AtmosState::NumTypes> driver_atmos_state_from_driver {};
 
     /** \brief Linear drag coefficient [m/s], defined at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;

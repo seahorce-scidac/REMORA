@@ -4,6 +4,10 @@ remora.stop_time = 30000.0
 
 amrex.fpe_trap_invalid=1
 
+# INITIALIZATION
+remora.ic_type = analytic
+remora.grid_scale_type = constant
+
 # PROBLEM SIZE & GEOMETRY
 remora.prob_lo     =      0.     0.    -150.
 remora.prob_hi     =   1600.  1600.       0.
