@@ -1591,6 +1591,12 @@ REMORA::ReadParameters ()
 #ifdef REMORA_USE_NETCDF
     nc_init_file.resize(max_level+1);
     nc_grid_file.resize(max_level+1);
+    num_files_at_level.resize(max_level + 1, 0);
+    num_boxes_at_level.resize(max_level + 1, 0);
+    boxes_at_level.resize(max_level + 1);
+    num_boxes_at_level[0] = 1;
+    boxes_at_level[0].resize(1);
+    boxes_at_level[0][0] = geom[0].Domain();
 
     boundary_series.resize(max_level+1);
 
@@ -1688,20 +1694,11 @@ REMORA::ReadParameters ()
     {
         ParmParse pp_amr("amr");
         pp_amr.queryAdd("regrid_int", regrid_int);
-        pp_amr.queryAdd("check_int", check_int);
-        pp_amr.queryAdd("check_int_time", check_int_time);
-        pp_amr.queryAdd("restart", restart_chkfile);
         pp_amr.queryAdd("do_substep", do_substep);
         if (do_substep) {
             amrex::Abort("Time substepping is not yet implemented. amr.do_substep must be 0");
         }
 
-        num_files_at_level.resize(max_level + 1, 0);
-        num_boxes_at_level.resize(max_level + 1, 0);
-        boxes_at_level.resize(max_level + 1);
-        num_boxes_at_level[0] = 1;
-        boxes_at_level[0].resize(1);
-        boxes_at_level[0][0] = geom[0].Domain();
     }
 
     solverChoice.init_params(ncons);
