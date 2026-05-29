@@ -1501,6 +1501,12 @@ REMORA::ReadParameters ()
     pp.queryAdd("restart", restart_chkfile);
     pp.queryAdd("start_time", start_time);
 
+    num_boxes_at_level.resize(max_level + 1, 0);
+    boxes_at_level.resize(max_level + 1);
+    num_boxes_at_level[0] = 1;
+    boxes_at_level[0].resize(1);
+    boxes_at_level[0][0] = geom[0].Domain();
+
     if (pp.contains("data_log")) {
         int num_datalogs = pp.countval("data_log");
         datalog.resize(num_datalogs);
@@ -1592,11 +1598,6 @@ REMORA::ReadParameters ()
     nc_init_file.resize(max_level+1);
     nc_grid_file.resize(max_level+1);
     num_files_at_level.resize(max_level + 1, 0);
-    num_boxes_at_level.resize(max_level + 1, 0);
-    boxes_at_level.resize(max_level + 1);
-    num_boxes_at_level[0] = 1;
-    boxes_at_level[0].resize(1);
-    boxes_at_level[0][0] = geom[0].Domain();
 
     boundary_series.resize(max_level+1);
 
