@@ -1,7 +1,9 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-remora.max_step = 10
+remora.max_step = 100
 
-remora.omp_tile_size = 1024 1024 1024
+remora.omp_tile_size = 16 16 1024
+
+amrex.fpe_trap_invalid=1
 
 # PROBLEM SIZE & GEOMETRY
 remora.prob_lo     =      0.     0.    -150.
@@ -15,9 +17,9 @@ remora.bc.ylo.type = "SlipWall"
 remora.bc.yhi.type = "SlipWall"
 
 # TIME STEP CONTROL
-remora.fixed_dt       = 300.0 # Timestep size (seconds)
+remora.fixed_dt       = 90.0 # Timestep size (seconds)
 
-remora.fixed_fast_dt  = 10.0 # Baratropic timestep size (seconds)
+remora.fixed_fast_dt  = 3.0 # Baratropic timestep size (seconds)
 
 #remora.fixed_ndtfast_ratio  = 30 # Ratio of baroclinic to barotropic time step
 
@@ -31,13 +33,14 @@ remora.check_int       = -57600      # number of timesteps between checkpoints
 
 # PLOTFILES
 remora.plot_file     = plt        # prefix of plotfile name
-remora.plot_int      = 100        # number of timesteps between plotfiles
+remora.plot_int      = 1000        # number of timesteps between plotfiles
 remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
 
 # SOLVER CHOICE
 remora.flat_bathymetry = false
 remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+remora.harmonic_mixing_type = "geopotential"
 
 # Linear EOS parameters
 remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
@@ -55,3 +58,14 @@ remora.coriolis_type = beta_plane
 remora.coriolis_f0 = -8.26e-5
 remora.coriolis_beta = 0.0
 
+amr.max_level=1
+amr.ref_ratio_vect=3 3 1
+remora.hires_grid_level=1
+
+remora.expand_plotvars_to_unif_rr=1
+
+remora.refinement_indicators=box
+remora.box.max_level=1
+remora.box.in_box_lo=-10000 -5000 -150
+remora.box.in_box_hi=20000 20000 0
+remora.coupling_type="TwoWay"

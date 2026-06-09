@@ -14,9 +14,17 @@ using namespace amrex;
 void
 REMORA::init_analytic(int lev)
 {
-    prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, *cons_new[lev], *xvel_new[lev], *yvel_new[lev], *zvel_new[lev]);
+    prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, *cons_new[lev], *xvel_new[lev], *yvel_new[lev]);
 
     set_grid_scale(lev);
+}
+
+void
+REMORA::init_full_domain_analytic()
+{
+    prob->init_analytic_prob(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_cons_full_domain[hires_init_level], *vec_xvel_full_domain[hires_init_level], *vec_yvel_full_domain[hires_init_level]);
+
+    set_grid_scale(hires_init_level);
 }
 
 /**
@@ -220,8 +228,6 @@ void REMORA::allocate_bathymetry_grid_vars_full_domain () {
     BoxArray ba;
     ba.define(makeSlab(geom[0].Domain(),2,0));
     Box refined_domain = makeSlab(geom[0].Domain(),2,0);
-    IntVect cum_ref_ratio = IntVect(1,1,0); // cumulative refinement ratio
-    cum_ref_ratios.push_back(cum_ref_ratio);
 
     DistributionMapping dm(ba);
     vec_h_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
@@ -234,16 +240,12 @@ void REMORA::allocate_bathymetry_grid_vars_full_domain () {
     for (int lev=1; lev <= hires_grid_level; lev++) {
         ba = ba.refine(refRatio(lev-1));
         refined_domain.refine(refRatio(lev-1));
-        // Calculate the cumulative refinement ratio from level lev to level 0
-        cum_ref_ratio[0] = cum_ref_ratio[0] * refRatio(lev-1)[0];
-        cum_ref_ratio[1] = cum_ref_ratio[1] * refRatio(lev-1)[1];
-        cum_ref_ratios.push_back(cum_ref_ratio);
 
         // Always allocate at least as many grow cells as there are in the level's normal variable multifab
         // This makes copying and boundary filling much easier
-        vec_h_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratio,h_growvect)));
-        vec_pm_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratio,pm_growvect)));
-        vec_pn_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratio,pn_growvect)));
+        vec_h_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],h_growvect)));
+        vec_pm_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],pm_growvect)));
+        vec_pn_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],pn_growvect)));
     }
     nc_hires_grid_box = refined_domain;
 }
@@ -258,4 +260,38 @@ REMORA::init_bathymetry_full_domain_from_analytic ()
     for (int lev=hires_grid_level-1; lev >= 0; lev--) {
         average_down_with_grow_cells(lev, vec_h_full_domain);
     }
+}
+
+void REMORA::allocate_init_full_domain () {
+    // Make fake boxArray that covers the whole domain on level 0
+    BoxArray ba;
+    ba.define(geom[0].Domain());
+    BoxArray ba2d;
+    ba2d.define(makeSlab(geom[0].Domain(),2,0));
+    Box refined_domain = geom[0].Domain();
+
+    DistributionMapping dm(ba);
+    Print() << "making full domain with " << ncons << " components" << std::endl;
+    vec_cons_full_domain[0].reset(new MultiFab(ba, dm, ncons, IntVect(1,1,0)));
+    vec_xvel_full_domain[0].reset(new MultiFab(convert(ba,IntVect(1,0,0)), dm, 1, IntVect(0,1,0)));
+    vec_yvel_full_domain[0].reset(new MultiFab(convert(ba,IntVect(0,1,0)), dm, 1, IntVect(1,0,0)));
+    vec_zeta_full_domain[0].reset(new MultiFab(ba2d, dm, 1, IntVect(1,1,0)));
+
+
+    auto cons_growvect = cons_new[0]->nGrowVect();
+    auto xvel_growvect = xvel_new[0]->nGrowVect();
+    auto yvel_growvect = yvel_new[0]->nGrowVect();
+    auto zeta_growvect = vec_zeta[0]->nGrowVect();
+    for (int lev=1; lev <= hires_grid_level; lev++) {
+        ba = ba.refine(refRatio(lev-1));
+        refined_domain.refine(refRatio(lev-1));
+
+        // Always allocate at least as many grow cells as there are in the level's normal variable multifab
+        // This makes copying and boundary filling much easier
+        vec_cons_full_domain[lev].reset(new MultiFab(ba, dm, ncons, max(cum_ref_ratios[lev],cons_growvect)));
+        vec_xvel_full_domain[lev].reset(new MultiFab(convert(ba,IntVect(1,0,0)), dm, 1, max(cum_ref_ratios[lev],xvel_growvect) - IntVect(1,0,0)));
+        vec_yvel_full_domain[lev].reset(new MultiFab(convert(ba,IntVect(0,1,0)), dm, 1, max(cum_ref_ratios[lev],yvel_growvect) - IntVect(0,1,0)));
+        vec_zeta_full_domain[lev].reset(new MultiFab(ba2d, dm, 1, max(cum_ref_ratios[lev],zeta_growvect)));
+    }
+    nc_hires_init_box = refined_domain;
 }

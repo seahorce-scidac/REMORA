@@ -46,8 +46,7 @@ void Problem::init_analytic_prob(
         REMORA const& /*remora*/,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
-        amrex::MultiFab& mf_yvel,
-        amrex::MultiFab& mf_zvel)
+        amrex::MultiFab& mf_yvel)
 {
     auto T0 = m_solverChoice.T0;
     auto S0 = m_solverChoice.S0;
@@ -57,7 +56,6 @@ void Problem::init_analytic_prob(
     mf_cons.setVal(0.0_rt,Tracer_comp,1);
     mf_xvel.setVal(0.0_rt);
     mf_yvel.setVal(0.0_rt);
-    mf_zvel.setVal(0.0_rt);
 }
 
 void Problem::init_analytic_wind(

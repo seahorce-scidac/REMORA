@@ -61,8 +61,7 @@ void Problem::init_analytic_prob(
         REMORA const& remora,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
-        amrex::MultiFab& mf_yvel,
-        amrex::MultiFab& mf_zvel)
+        amrex::MultiFab& mf_yvel)
 {}
 
 void Problem::init_analytic_vmix(

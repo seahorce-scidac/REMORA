@@ -72,8 +72,7 @@ void Problem::init_analytic_prob(
         REMORA const& /*remora*/,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
-        amrex::MultiFab& mf_yvel,
-        amrex::MultiFab& mf_zvel)
+        amrex::MultiFab& mf_yvel)
 {
     bool l_use_salt = m_solverChoice.use_salt;
 
@@ -91,7 +90,6 @@ void Problem::init_analytic_prob(
         Array4<      Real> const& state = mf_cons.array(mfi);
         Array4<      Real> const& x_vel = mf_xvel.array(mfi);
         Array4<      Real> const& y_vel = mf_yvel.array(mfi);
-        Array4<      Real> const& z_vel = mf_zvel.array(mfi);
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
@@ -141,15 +139,6 @@ void Problem::init_analytic_prob(
         ParallelFor(ybx, [=, parms_gpu=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
               y_vel(i, j, k) = parms_gpu.v_0;
-        });
-
-        // Construct a box that is on z-faces
-        const Box& zbx = surroundingNodes(bx,2);
-
-        // Set the z-velocity
-        ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-        {
-            z_vel(i, j, k) = 0.0;
         });
     }
     Gpu::streamSynchronize();

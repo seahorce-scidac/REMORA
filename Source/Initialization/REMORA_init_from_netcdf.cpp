@@ -141,6 +141,69 @@ REMORA::init_data_from_netcdf (int lev)
     }
 }
 
+void
+REMORA::init_data_full_domain_from_netcdf ()
+{
+    // *** FArrayBox's at this level for holding the INITIAL data
+    Vector<FArrayBox> NC_temp_fab ; NC_temp_fab.resize(1);
+    Vector<FArrayBox> NC_salt_fab ; NC_salt_fab.resize(1);
+    Vector<FArrayBox> NC_xvel_fab ; NC_xvel_fab.resize(1);
+    Vector<FArrayBox> NC_yvel_fab ; NC_yvel_fab.resize(1);
+
+    read_data_from_netcdf(hires_init_level, nc_hires_init_box, nc_init_file_hires,
+                          NC_temp_fab[0], NC_salt_fab[0],
+                          NC_xvel_fab[0], NC_yvel_fab[0]);
+
+
+    Print() << "before alias temp " << Temp_comp << " " << vec_cons_full_domain[hires_init_level]->nComp() << std::endl;
+    MultiFab mf_temp(*vec_cons_full_domain[hires_init_level], make_alias, Temp_comp, 1);
+    Print() << "before alias salt " << Salt_comp << std::endl;
+    MultiFab mf_salt(*vec_cons_full_domain[hires_init_level], make_alias, Salt_comp, 1);
+    Print() << "after alias" << std::endl;
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    {
+    // Don't tile this since we are operating on full FABs in this routine
+    for ( MFIter mfi(mf_temp, false); mfi.isValid(); ++mfi )
+    {
+        Print() << "in mfiter" << std::endl;
+        // Define fabs for holding the initial data
+        FArrayBox &temp_fab = mf_temp[mfi];
+        FArrayBox &salt_fab = mf_salt[mfi];
+        FArrayBox &xvel_fab = (*vec_xvel_full_domain[hires_init_level])[mfi];
+        FArrayBox &yvel_fab = (*vec_yvel_full_domain[hires_init_level])[mfi];
+
+        Print() << "in init state" << std::endl;
+        init_state_from_netcdf(hires_init_level, temp_fab, salt_fab,
+                               xvel_fab, yvel_fab,
+                               NC_temp_fab, NC_salt_fab,
+                               NC_xvel_fab, NC_yvel_fab);
+    } // mf
+    } // omp
+
+    vec_cons_full_domain[hires_init_level]->setVal(0.0_rt, Tracer_comp, 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
+    if (nscalar > 1) {
+        vec_cons_full_domain[hires_init_level]->setVal(0.0_rt, Tracer_comp + 1, nscalar - 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
+    }
+    print_state(*vec_cons_full_domain[hires_init_level],IntVect(10,10,0));
+
+    // Average down to fill levels below hires_grid_level. Use a special average_down so
+    // grow cells get populated by averaged down fine data
+    for (int lev=hires_grid_level-1; lev >= 0; lev--) {
+        Print() << "ad cons" << std::endl;
+        average_down_with_grow_cells(lev, vec_cons_full_domain);;
+        Print() << "ad xvel" << std::endl;
+        average_down_with_grow_cells(lev, vec_xvel_full_domain);;
+        Print() << "ad yvel" << std::endl;
+        average_down_with_grow_cells(lev, vec_yvel_full_domain);;
+        Print() << "ad zeta" << std::endl;
+        average_down_with_grow_cells(lev, vec_zeta_full_domain);;
+        Print() << "ad done" << std::endl;
+    }
+}
+
 /**
  * @param lev Integer specifying the current level
  */

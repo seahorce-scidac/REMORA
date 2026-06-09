@@ -18,7 +18,6 @@ USE_HIP   = FALSE
 USE_SYCL  = FALSE
 
 # Debugging
-DEBUG = TRUE
 DEBUG = FALSE
 
 TEST = TRUE

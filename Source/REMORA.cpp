@@ -123,6 +123,8 @@ REMORA::REMORA ()
     // Initialize tagging criteria for mesh refinement
     refinement_criteria_setup();
 
+    IntVect cum_ref_ratio = IntVect(1,1,0);
+    cum_ref_ratios.push_back(cum_ref_ratio);
     // We have already read in the ref_Ratio (via amr.ref_ratio =) but we need to enforce
     //     that there is no refinement in the vertical so we test on that here.
     for (int lev = 0; lev < max_level; ++lev)
@@ -138,6 +140,10 @@ REMORA::REMORA ()
            amrex::Print() << "********************************************************************************" << std::endl;
            amrex::Abort();
        }
+
+       cum_ref_ratio[0] *= ref_ratio[lev][0];
+       cum_ref_ratio[1] *= ref_ratio[lev][1];
+       cum_ref_ratios.push_back(cum_ref_ratio);
     }
 }
 
@@ -673,6 +679,27 @@ REMORA::set_grid_vars_averaged_down (int lev) {
     FillPatch(lev,dummy_time,*vec_pn[lev],GetVecOfPtrs(vec_pn),
             foextrap_periodic_bc(),
             BdyVars::null,0,false,true);
+}
+
+/**
+ * @param[in   ] lev   level to operate on
+ */
+void
+REMORA::set_init_data_averaged_down (int lev) {
+    ParallelCopy(*cons_new[lev], *vec_cons_full_domain[lev], 0, 0, ncons,
+            vec_cons_full_domain[lev]->nGrowVect(),cons_new[lev]->nGrowVect());
+    ParallelCopy(*xvel_new[lev], *vec_xvel_full_domain[lev], 0, 0, 1,
+            vec_xvel_full_domain[lev]->nGrowVect(),xvel_new[lev]->nGrowVect());
+    ParallelCopy(*yvel_new[lev], *vec_yvel_full_domain[lev], 0, 0, 1,
+            vec_yvel_full_domain[lev]->nGrowVect(),yvel_new[lev]->nGrowVect());
+    ParallelCopy(*vec_zeta[lev].get(), *vec_zeta_full_domain[lev].get(), 0, 0, 1,
+            vec_zeta_full_domain[lev]->nGrowVect(),vec_zeta[lev]->nGrowVect());
+
+    FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,0.0,*cons_new[lev]);
+    FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,0.0,*xvel_new[lev]);
+    FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,0.0,*yvel_new[lev]);
+    FillPatch(lev, t_new[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
+                  0, false,false,0,0,0.0,*vec_zeta[lev]);
 }
 
 /**
@@ -1385,6 +1412,12 @@ REMORA::init_only (int lev, Real time)
         init_grid_vars_full_domain_from_netcdf();
         amrex::Print() << "Done reading in high resolution bathymetry and grid data" << std::endl;
     }
+    if (lev==0 and hires_init_level > 0 and solverChoice.ic_type == IC_Type::netcdf) {
+        amrex::Print() << "Reading high resolution initial data" << std::endl;
+        allocate_init_full_domain();
+        init_data_full_domain_from_netcdf();
+        amrex::Print() << "Done reading in high resolution initial data" << std::endl;
+    }
 #else
     if (solverChoice.boundary_from_netcdf) {
         Abort("Not compiled with NetCDF, but selected boundary conditions require NetCDF");
@@ -1403,45 +1436,39 @@ REMORA::init_only (int lev, Real time)
     set_zeta(lev);
     stretch_transform(lev);
 
-    if (solverChoice.init_l0int_T) {
-        if (lev==0) {
-            if (solverChoice.ic_type == IC_Type::analytic)
-            {
+    if (lev==0 and hires_init_level > 0 and solverChoice.ic_type == IC_Type::analytic) {
+        allocate_init_full_domain();
+        init_full_domain_analytic();
+    }
+
+    if (lev==0) {
+        if (hires_init_level < 0) {
+            if (solverChoice.ic_type == IC_Type::analytic) {
                 init_analytic(lev);
-#ifdef REMORA_USE_NETCDF
             } else if (solverChoice.ic_type == IC_Type::netcdf) {
+#ifdef REMORA_USE_NETCDF
                 amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
                 init_data_from_netcdf(lev);
                 set_zeta_to_Ztavg(lev);
                 amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
-
 #endif
             } else {
-                Abort("Need to specify ic_type");
+                amrex::Abort("Unknown IC_Type");
             }
         } else {
+            set_init_data_averaged_down(lev);
+            set_zeta_to_Ztavg(lev); // MAYBE???
+        }
+    } else {
+        if (lev > hires_init_level) {
             FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1],BCVars::Temp_bc_comp,BdyVars::t);
             FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1], xvel_bc(), BdyVars::u);
             FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
             FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1], zvel_bc(), BdyVars::null);
-        }
-    } else if (solverChoice.init_ana_T || solverChoice.init_l1ad_T) {
-        if (solverChoice.ic_type == IC_Type::analytic)
-        {
-            init_analytic(lev);
-#ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.ic_type == IC_Type::netcdf) {
-            amrex::Print() << "Calling init_data_from_netcdf on level " << lev << std::endl;
-            init_data_from_netcdf(lev);
-            set_zeta_to_Ztavg(lev);
-            amrex::Print() << "Initial data loaded from netcdf file on level " << lev << std::endl;
-
-#endif
         } else {
-            Abort("Need to specify ic_type");
+            set_init_data_averaged_down(lev);
+            set_zeta_to_Ztavg(lev); // MAYBE???
         }
-    } else {
-        amrex::Abort("Need to specify T init procedure");
     }
 
     // Ensure that the face-based data are the same on both sides of a periodic domain.
@@ -1534,6 +1561,13 @@ REMORA::ReadParameters ()
     }
     AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
 
+    num_files_at_level.resize(max_level + 1, 0);
+    num_boxes_at_level.resize(max_level + 1, 0);
+    boxes_at_level.resize(max_level + 1);
+    num_boxes_at_level[0] = 1;
+    boxes_at_level[0].resize(1);
+    boxes_at_level[0][0] = geom[0].Domain();
+
     pp.queryAdd("plot_file", plot_file_name);
     pp.queryAdd("plot_int", plot_int);
     pp.queryAdd("plot_int_time", plot_int_time);
@@ -1593,6 +1627,7 @@ REMORA::ReadParameters ()
     nc_grid_file.resize(max_level+1);
 
     boundary_series.resize(max_level+1);
+
 
     // NetCDF initialization files -- possibly multiple files at each of multiple levels
     //        but we always have exactly one file at level 0
@@ -1696,14 +1731,7 @@ REMORA::ReadParameters ()
             amrex::Abort("Time substepping is not yet implemented. amr.do_substep must be 0");
         }
 
-        num_files_at_level.resize(max_level + 1, 0);
-        num_boxes_at_level.resize(max_level + 1, 0);
-        boxes_at_level.resize(max_level + 1);
-        num_boxes_at_level[0] = 1;
-        boxes_at_level[0].resize(1);
-        boxes_at_level[0][0] = geom[0].Domain();
     }
-
     solverChoice.init_params(ncons);
 }
 
@@ -1750,7 +1778,7 @@ REMORA::AverageDownTo (int crse_lev)
  * @param[inout] vec_mf     vector over levels of multifabs containing data to average
  */
 void
-REMORA::average_down_with_grow_cells(int crse_lev, Vector<std::unique_ptr<MultiFab>>& vec_mf)
+REMORA::average_down_with_grow_cells (int crse_lev, Vector<std::unique_ptr<MultiFab>>& vec_mf)
 {
     auto const& crsema = vec_mf[crse_lev]->arrays();
     auto const& finema = vec_mf[crse_lev+1]->const_arrays();

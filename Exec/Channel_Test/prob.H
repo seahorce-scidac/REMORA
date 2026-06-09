@@ -16,13 +16,13 @@ public:
         int lev, const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
         REMORA const& remora,
-        amrex::MultiFab& mf_h);
+        amrex::MultiFab& mf_h) override;
 
     void init_analytic_zeta (
         int /*lev*/, const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& /*remora*/,
-        amrex::MultiFab& mf_zeta);
+        amrex::MultiFab& mf_zeta) override;
 
     void init_analytic_prob(
         int lev,
@@ -31,15 +31,14 @@ public:
         REMORA const& remora,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
-        amrex::MultiFab& mf_yvel,
-        amrex::MultiFab& mf_zvel);
+        amrex::MultiFab& mf_yvel) override;
 
     void init_analytic_vmix(
         int lev,
         const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& remora,
-        amrex::MultiFab& mf_Akv, amrex::MultiFab& mf_Akt);
+        amrex::MultiFab& mf_Akv, amrex::MultiFab& mf_Akt) override;
 
     void init_analytic_hmix(
         int /*lev*/,
@@ -48,14 +47,14 @@ public:
         REMORA const& /*remora*/,
         amrex::MultiFab& mf_visc2_p,
         amrex::MultiFab& mf_visc2_r,
-        amrex::MultiFab& mf_diff2);
+        amrex::MultiFab& mf_diff2) override;
 
     void init_analytic_smflux(
         int lev,
         const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& remora,
-        amrex::MultiFab& mf_sustr, amrex::MultiFab& mf_svstr);
+        amrex::MultiFab& mf_sustr, amrex::MultiFab& mf_svstr) override;
 private:
     [[maybe_unused]] ProbParm parms;
 };

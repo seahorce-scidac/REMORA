@@ -18,7 +18,7 @@ public:
         const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& remora,
-        amrex::MultiFab& mf_Akv, amrex::MultiFab& mf_Akt);
+        amrex::MultiFab& mf_Akv, amrex::MultiFab& mf_Akt) override;
 
     void init_analytic_hmix(
         int /*lev*/,
@@ -27,14 +27,14 @@ public:
         REMORA const& /*remora*/,
         amrex::MultiFab& mf_visc2_p,
         amrex::MultiFab& mf_visc2_r,
-        amrex::MultiFab& mf_diff2);
+        amrex::MultiFab& mf_diff2) override;
 
     void init_analytic_smflux(
         int lev,
         const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& remora,
-        amrex::MultiFab& mf_sustr, amrex::MultiFab& mf_svstr);
+        amrex::MultiFab& mf_sustr, amrex::MultiFab& mf_svstr) override;
 
 private:
     [[maybe_unused]] ProbParm parms;
