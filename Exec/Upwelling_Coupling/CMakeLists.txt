@@ -1,4 +1,4 @@
-set(remora_exe_name upwelling_ml)
+set(remora_exe_name upwelling_coupling)
 
 add_executable(${remora_exe_name} "")
 target_sources(${remora_exe_name}
