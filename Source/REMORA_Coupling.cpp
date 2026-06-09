@@ -1,7 +1,12 @@
 #include <REMORA.H>
 
+#include <AMReX_BCRec.H>
 #include <AMReX_Box.H>
+#include <AMReX_FillPatchUtil.H>
+#include <AMReX_Geometry.H>
+#include <AMReX_Interpolater.H>
 #include <AMReX_MFIter.H>
+#include <AMReX_MultiFabUtil.H>
 #include <AMReX_Print.H>
 
 using namespace amrex;
@@ -26,6 +31,29 @@ using namespace amrex;
 
 namespace {
 constexpr int SSTIndex = 0;
+
+Geometry
+make_unit_slab_geometry (Box const& domain)
+{
+    static constexpr Real lo[AMREX_SPACEDIM] = {0.0_rt, 0.0_rt, 0.0_rt};
+    static constexpr Real hi[AMREX_SPACEDIM] = {1.0_rt, 1.0_rt, 1.0_rt};
+    static constexpr int periodicity[AMREX_SPACEDIM] = {0, 0, 0};
+    RealBox rb(lo, hi);
+    return Geometry(domain, &rb, CoordSys::cartesian, periodicity);
+}
+
+Vector<BCRec>
+make_internal_bcs (int ncomp)
+{
+    Vector<BCRec> bcs(ncomp);
+    for (auto& bc : bcs) {
+        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+            bc.setLo(dir, BCType::int_dir);
+            bc.setHi(dir, BCType::int_dir);
+        }
+    }
+    return bcs;
+}
 }
 
 amrex::Real
@@ -112,7 +140,58 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
             t(i, j, 0) = c(i, j, k_sfc, Temp_comp) + 273.15_rt;
         });
     }
-    state[SSTIndex]->ParallelCopy(tmp, 0, 0, 1);
+
+    MultiFab& dst = *state[SSTIndex];
+    const Box src_domain = tmp.boxArray().minimalBox();
+    const Box dst_domain = dst.boxArray().minimalBox();
+
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        src_domain.smallEnd(2) == src_domain.bigEnd(2) &&
+        dst_domain.smallEnd(2) == dst_domain.bigEnd(2),
+        "REMORA::PackSurfaceState expects 2D slab source and destination MultiFabs.");
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        src_domain.smallEnd(0) == dst_domain.smallEnd(0) &&
+        src_domain.smallEnd(1) == dst_domain.smallEnd(1),
+        "REMORA::PackSurfaceState requires aligned atmosphere/ocean slab origins.");
+
+    const IntVect src_len = src_domain.length();
+    const IntVect dst_len = dst_domain.length();
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        src_len[2] == 1 && dst_len[2] == 1,
+        "REMORA::PackSurfaceState expects unit-thickness source and destination slabs.");
+
+    const bool same_xy = (src_len[0] == dst_len[0] && src_len[1] == dst_len[1]);
+    const bool dst_finer =
+        (dst_len[0] >= src_len[0] && dst_len[1] >= src_len[1] &&
+         dst_len[0] % src_len[0] == 0 && dst_len[1] % src_len[1] == 0);
+    const bool dst_coarser =
+        (src_len[0] >= dst_len[0] && src_len[1] >= dst_len[1] &&
+         src_len[0] % dst_len[0] == 0 && src_len[1] % dst_len[1] == 0);
+
+    if (same_xy) {
+        dst.ParallelCopy(tmp, 0, 0, 1);
+        return;
+    }
+
+    if (dst_finer) {
+        const IntVect ratio(dst_len[0] / src_len[0], dst_len[1] / src_len[1], 1);
+        const auto src_geom = make_unit_slab_geometry(src_domain);
+        const auto dst_geom = make_unit_slab_geometry(dst_domain);
+        const auto bcs = make_internal_bcs(1);
+        amrex::InterpFromCoarseLevel(dst, IntVect(0), IntVect(0),
+                                     tmp, 0, 0, 1,
+                                     src_geom, dst_geom,
+                                     ratio, &pc_interp, bcs, 0);
+        return;
+    }
+
+    if (dst_coarser) {
+        const IntVect ratio(src_len[0] / dst_len[0], src_len[1] / dst_len[1], 1);
+        amrex::average_down(tmp, dst, 0, 1, ratio);
+        return;
+    }
+
+    amrex::Abort("REMORA::PackSurfaceState requires matching horizontal extents and integer-ratio atmosphere/ocean slab resolutions.");
 }
 
 /*
