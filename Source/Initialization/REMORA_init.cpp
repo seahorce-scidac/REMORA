@@ -271,7 +271,6 @@ void REMORA::allocate_init_full_domain () {
     Box refined_domain = geom[0].Domain();
 
     DistributionMapping dm(ba);
-    Print() << "making full domain with " << ncons << " components" << std::endl;
     vec_cons_full_domain[0].reset(new MultiFab(ba, dm, ncons, IntVect(1,1,0)));
     vec_xvel_full_domain[0].reset(new MultiFab(convert(ba,IntVect(1,0,0)), dm, 1, IntVect(0,1,0)));
     vec_yvel_full_domain[0].reset(new MultiFab(convert(ba,IntVect(0,1,0)), dm, 1, IntVect(1,0,0)));
@@ -282,8 +281,9 @@ void REMORA::allocate_init_full_domain () {
     auto xvel_growvect = xvel_new[0]->nGrowVect();
     auto yvel_growvect = yvel_new[0]->nGrowVect();
     auto zeta_growvect = vec_zeta[0]->nGrowVect();
-    for (int lev=1; lev <= hires_grid_level; lev++) {
+    for (int lev=1; lev <= hires_init_level; lev++) {
         ba = ba.refine(refRatio(lev-1));
+        ba2d = ba2d.refine(refRatio(lev-1));
         refined_domain.refine(refRatio(lev-1));
 
         // Always allocate at least as many grow cells as there are in the level's normal variable multifab

@@ -572,24 +572,35 @@ void
 REMORA::set_zeta (int lev)
 {
     BL_PROFILE("REMORA::set_zeta()");
-    if (solverChoice.ic_type == IC_Type::analytic) {
-        prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, *vec_zeta[lev]);
-
+    if (lev==0) {
+        if (hires_init_level < 0) {
+            if (solverChoice.ic_type == IC_Type::analytic) {
+                prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, *vec_zeta[lev]);
+            } else if (solverChoice.ic_type == IC_Type::netcdf) {
 #ifdef REMORA_USE_NETCDF
-    } else if (solverChoice.ic_type == IC_Type::netcdf) {
-        if (lev == 0) {
-            amrex::Print() << "Calling init_zeta_from_netcdf on level " << lev << std::endl;
-            init_zeta_from_netcdf(lev);
-            amrex::Print() << "Sea surface height loaded from netcdf file \n " << std::endl;
-        } else {
-            Real dummy_time = 0.0_rt;
-            FillCoarsePatch(lev,dummy_time,vec_zeta[lev].get(), vec_zeta[lev-1].get(),BCVars::cons_bc);
-        }
+                amrex::Print() << "Calling init_zeta_from_netcdf on level " << lev << std::endl;
+                init_zeta_from_netcdf(lev);
+                amrex::Print() << "Sea surface height loaded from netcdf file \n " << std::endl;
 #endif
+            } else {
+                amrex::Abort("Unknown IC_Type");
+            }
+        } else {
+            set_zeta_averaged_down(lev);
+        }
+        vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
     } else {
-        Abort("Don't know this ic_type!");
+        // If our level is higher than the high resolution grid or initialization
+        // is analytic, interpolate from level below. Otherwise, copy over the bathymetry
+        // data that has been averaged down
+        if (lev > hires_init_level) {
+            Real dummy_time = 0.0_rt;
+            FillCoarsePatch(lev,dummy_time,vec_zeta[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
+        } else {
+            set_zeta_averaged_down(lev);
+            vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
+        }
     }
-    vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
     set_zeta_average(lev);
 }
 
@@ -685,6 +696,17 @@ REMORA::set_grid_vars_averaged_down (int lev) {
  * @param[in   ] lev   level to operate on
  */
 void
+REMORA::set_zeta_averaged_down (int lev) {
+    ParallelCopy(*vec_zeta[lev].get(), *vec_zeta_full_domain[lev].get(), 0, 0, 1,
+            vec_zeta_full_domain[lev]->nGrowVect(),vec_zeta[lev]->nGrowVect());
+    FillPatch(lev, t_new[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
+                  0, false,false,0,0,0.0,*vec_zeta[lev]);
+}
+
+/**
+ * @param[in   ] lev   level to operate on
+ */
+void
 REMORA::set_init_data_averaged_down (int lev) {
     ParallelCopy(*cons_new[lev], *vec_cons_full_domain[lev], 0, 0, ncons,
             vec_cons_full_domain[lev]->nGrowVect(),cons_new[lev]->nGrowVect());
@@ -692,14 +714,10 @@ REMORA::set_init_data_averaged_down (int lev) {
             vec_xvel_full_domain[lev]->nGrowVect(),xvel_new[lev]->nGrowVect());
     ParallelCopy(*yvel_new[lev], *vec_yvel_full_domain[lev], 0, 0, 1,
             vec_yvel_full_domain[lev]->nGrowVect(),yvel_new[lev]->nGrowVect());
-    ParallelCopy(*vec_zeta[lev].get(), *vec_zeta_full_domain[lev].get(), 0, 0, 1,
-            vec_zeta_full_domain[lev]->nGrowVect(),vec_zeta[lev]->nGrowVect());
 
     FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,0.0,*cons_new[lev]);
     FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,0.0,*xvel_new[lev]);
     FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,0.0,*yvel_new[lev]);
-    FillPatch(lev, t_new[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
-                  0, false,false,0,0,0.0,*vec_zeta[lev]);
 }
 
 /**
@@ -1416,6 +1434,7 @@ REMORA::init_only (int lev, Real time)
         amrex::Print() << "Reading high resolution initial data" << std::endl;
         allocate_init_full_domain();
         init_data_full_domain_from_netcdf();
+        init_zeta_full_domain_from_netcdf();
         amrex::Print() << "Done reading in high resolution initial data" << std::endl;
     }
 #else
@@ -1661,6 +1680,7 @@ REMORA::ReadParameters ()
     }
 
     pp.queryAdd("nc_grid_file_hires", nc_grid_file_hires);
+    pp.queryAdd("nc_init_file_hires", nc_init_file_hires);
 
     // We only read boundary data at level 0
     pp.queryarr("nc_bdry_file", nc_bdry_file);
@@ -1721,6 +1741,10 @@ REMORA::ReadParameters ()
     pp.queryAdd("hires_grid_level", hires_grid_level);
     if (hires_grid_level > max_level) {
         amrex::Abort("hires_grid_level must be less than or equal to amr.max_level");
+    }
+    pp.queryAdd("hires_init_level", hires_init_level);
+    if (hires_init_level > max_level) {
+        amrex::Abort("hires_init_level must be less than or equal to amr.max_level");
     }
 
 #ifdef REMORA_USE_PARTICLES
@@ -1790,7 +1814,7 @@ REMORA::average_down_with_grow_cells (int crse_lev, Vector<std::unique_ptr<Multi
     auto index_type = (vec_mf[crse_lev]->boxArray().ixType()).toIntVect();
     auto nghost_crse = cum_ref_ratios[crse_lev] - index_type;
     if (index_type[0]==0 and index_type[1]==0) {
-        ParallelFor(*vec_mf[crse_lev], nghost_crse, 1,
+        ParallelFor(*vec_mf[crse_lev], nghost_crse, vec_mf[crse_lev]->nComp(),
                 [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k, int n) noexcept
         {
             amrex_avgdown(i,j,k,n,crsema[box_no],finema[box_no],0,0,ref_ratio_crse);

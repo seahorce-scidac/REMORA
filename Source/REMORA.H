@@ -941,6 +941,9 @@ public:
     /** \brief Initialize zeta from file or analytic */
     void set_zeta (int lev);
 
+    /** \brief Copy over zeta data that has been averaged down from high res */
+    void set_zeta_averaged_down (int lev);
+
     /** \brief Initialize bathymetry from file or analytic */
     void set_bathymetry (int lev);
 
@@ -1108,6 +1111,8 @@ public:
     void init_grid_vars_full_domain_from_netcdf ();
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);
+    /** \brief Full-domain high res sea-surface height data initialization from NetCDF file */
+    void init_zeta_full_domain_from_netcdf ();
     /** \brief Coriolis parameter data initialization from NetCDF file */
     void init_coriolis_from_netcdf (int lev);
     /** \brief Climatology nudging coefficient initialization from NetCDF file */

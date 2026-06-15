@@ -17,6 +17,13 @@ read_data_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
                        FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
                        FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab);
 
+/** \brief helper function for reading in full domain high-resolution initial state data from netcdf */
+void
+read_data_full_domain_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
+                       FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
+                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
+                       IntVect ngrow);
+
 /** \brief helper function for reading in land-sea masks from netcdf */
 void
 read_masks_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
@@ -77,6 +84,11 @@ read_coriolis_from_netcdf (int lev, const Box& domain, const std::string& fname,
 void
 read_zeta_from_netcdf (int lev, const Box& domain, const std::string& fname,
                              FArrayBox& NC_zeta_fab);
+
+/** \brief helper function to read high-resolution full-domain sea surface height from netcdf */
+void
+read_zeta_full_domain_from_netcdf (int lev, const Box& domain, const std::string& fname,
+                                   FArrayBox& NC_zeta_fab, IntVect ngrow);
 
 /** \brief helper function to read climatology nudging from netcdf */
 void
@@ -150,16 +162,13 @@ REMORA::init_data_full_domain_from_netcdf ()
     Vector<FArrayBox> NC_xvel_fab ; NC_xvel_fab.resize(1);
     Vector<FArrayBox> NC_yvel_fab ; NC_yvel_fab.resize(1);
 
-    read_data_from_netcdf(hires_init_level, nc_hires_init_box, nc_init_file_hires,
+    read_data_full_domain_from_netcdf(hires_init_level, nc_hires_init_box, nc_init_file_hires,
                           NC_temp_fab[0], NC_salt_fab[0],
-                          NC_xvel_fab[0], NC_yvel_fab[0]);
+                          NC_xvel_fab[0], NC_yvel_fab[0],
+                          cum_ref_ratios[hires_init_level]);
 
-
-    Print() << "before alias temp " << Temp_comp << " " << vec_cons_full_domain[hires_init_level]->nComp() << std::endl;
     MultiFab mf_temp(*vec_cons_full_domain[hires_init_level], make_alias, Temp_comp, 1);
-    Print() << "before alias salt " << Salt_comp << std::endl;
     MultiFab mf_salt(*vec_cons_full_domain[hires_init_level], make_alias, Salt_comp, 1);
-    Print() << "after alias" << std::endl;
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -168,14 +177,12 @@ REMORA::init_data_full_domain_from_netcdf ()
     // Don't tile this since we are operating on full FABs in this routine
     for ( MFIter mfi(mf_temp, false); mfi.isValid(); ++mfi )
     {
-        Print() << "in mfiter" << std::endl;
         // Define fabs for holding the initial data
         FArrayBox &temp_fab = mf_temp[mfi];
         FArrayBox &salt_fab = mf_salt[mfi];
         FArrayBox &xvel_fab = (*vec_xvel_full_domain[hires_init_level])[mfi];
         FArrayBox &yvel_fab = (*vec_yvel_full_domain[hires_init_level])[mfi];
 
-        Print() << "in init state" << std::endl;
         init_state_from_netcdf(hires_init_level, temp_fab, salt_fab,
                                xvel_fab, yvel_fab,
                                NC_temp_fab, NC_salt_fab,
@@ -187,20 +194,13 @@ REMORA::init_data_full_domain_from_netcdf ()
     if (nscalar > 1) {
         vec_cons_full_domain[hires_init_level]->setVal(0.0_rt, Tracer_comp + 1, nscalar - 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
     }
-    print_state(*vec_cons_full_domain[hires_init_level],IntVect(10,10,0));
 
     // Average down to fill levels below hires_grid_level. Use a special average_down so
     // grow cells get populated by averaged down fine data
-    for (int lev=hires_grid_level-1; lev >= 0; lev--) {
-        Print() << "ad cons" << std::endl;
-        average_down_with_grow_cells(lev, vec_cons_full_domain);;
-        Print() << "ad xvel" << std::endl;
-        average_down_with_grow_cells(lev, vec_xvel_full_domain);;
-        Print() << "ad yvel" << std::endl;
-        average_down_with_grow_cells(lev, vec_yvel_full_domain);;
-        Print() << "ad zeta" << std::endl;
-        average_down_with_grow_cells(lev, vec_zeta_full_domain);;
-        Print() << "ad done" << std::endl;
+    for (int lev=hires_init_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_cons_full_domain);
+        average_down_with_grow_cells(lev, vec_xvel_full_domain);
+        average_down_with_grow_cells(lev, vec_yvel_full_domain);
     }
 }
 
@@ -254,6 +254,41 @@ REMORA::init_zeta_from_netcdf (int lev)
 //    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
 //    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
 }
+
+void
+REMORA::init_zeta_full_domain_from_netcdf ()
+{
+    // *** FArrayBox's at this level for holding the INITIAL data
+    Vector<FArrayBox> NC_zeta_fab     ; NC_zeta_fab.resize(1);
+
+    read_zeta_full_domain_from_netcdf(hires_init_level, nc_hires_init_box, nc_init_file_hires,
+                          NC_zeta_fab[0], cum_ref_ratios[hires_init_level]);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        {
+        // Don't tile this since we are operating on full FABs in this routine
+        for ( MFIter mfi(*vec_zeta_full_domain[hires_init_level], false); mfi.isValid(); ++mfi )
+        {
+            FArrayBox &zeta_fab  = (*vec_zeta_full_domain[hires_init_level])[mfi];
+
+            //
+            // FArrayBox to FArrayBox copy does "copy on intersection"
+            // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
+            //
+
+            zeta_fab.template    copy<RunOn::Device>(NC_zeta_fab[0],0,0,1);
+        } // mf
+        } // omp
+
+    // Average down to fill levels below hires_grid_level. Use a special average_down so
+    // grow cells get populated by averaged down fine data
+    for (int lev=hires_init_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_zeta_full_domain);
+    }
+}
+
 
 /**
  * @param lev Integer specifying the current level
@@ -567,7 +602,7 @@ REMORA::init_bdry_from_netcdf (int lev)
 }
 
 /**
- * \brief Helper function to initialize state and velocity data in a Fab from a REMORAdataset.
+ * \brief Helper function to initialize state and velocity data in a Fab.
  *
  * @param lev Integer specifying current level
  * @param state_fab FArrayBox object holding the state data we initialize
@@ -588,6 +623,44 @@ init_state_from_netcdf (int /*lev*/,
                         const Vector<FArrayBox>& NC_salt_fab,
                         const Vector<FArrayBox>& NC_xvel_fab,
                         const Vector<FArrayBox>& NC_yvel_fab)
+{
+    int nboxes = NC_xvel_fab.size();
+    for (int idx = 0; idx < nboxes; idx++)
+    {
+        //
+        // FArrayBox to FArrayBox copy does "copy on intersection"
+        // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
+        //
+        temp_fab.template copy<RunOn::Device>(NC_temp_fab[idx]);
+        salt_fab.template copy<RunOn::Device>(NC_salt_fab[idx]);
+        x_vel_fab.template copy<RunOn::Device>(NC_xvel_fab[idx]);
+        y_vel_fab.template copy<RunOn::Device>(NC_yvel_fab[idx]);
+    } // idx
+}
+
+/**
+ * \brief Helper function to initialize state and velocity data in a Fab.
+ *
+ * @param lev Integer specifying current level
+ * @param state_fab FArrayBox object holding the state data we initialize
+ * @param temp_fab  FArrayBox object holding the temperature data we initialize
+ * @param salt_fab  FArrayBox object holding the salt        data we initialize
+ * @param x_vel_fab FArrayBox object holding the x-velocity data we initialize
+ * @param y_vel_fab FArrayBox object holding the y-velocity data we initialize
+ * @param NC_temp_fab Vector of FArrayBox objects with the REMORA dataset specifying temperature
+ * @param NC_salt_fab Vector of FArrayBox objects with the REMORA dataset specifying salinity
+ * @param NC_xvel_fab Vector of FArrayBox objects with the REMORA dataset specifying x-velocity
+ * @param NC_yvel_fab Vector of FArrayBox objects with the REMORA dataset specifying y-velocity
+ */
+void
+init_state_full_domain_from_netcdf (int /*lev*/,
+                        FArrayBox&  temp_fab, FArrayBox&  salt_fab,
+                        FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
+                        const Vector<FArrayBox>& NC_temp_fab,
+                        const Vector<FArrayBox>& NC_salt_fab,
+                        const Vector<FArrayBox>& NC_xvel_fab,
+                        const Vector<FArrayBox>& NC_yvel_fab,
+                        IntVect ngrow)
 {
     int nboxes = NC_xvel_fab.size();
     for (int idx = 0; idx < nboxes; idx++)
