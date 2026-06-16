@@ -19,14 +19,6 @@ REMORA::init_analytic(int lev)
     set_grid_scale(lev);
 }
 
-void
-REMORA::init_full_domain_analytic()
-{
-    prob->init_analytic_prob(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_cons_full_domain[hires_init_level], *vec_xvel_full_domain[hires_init_level], *vec_yvel_full_domain[hires_init_level]);
-
-    set_grid_scale(hires_init_level);
-}
-
 /**
  * @param[in   ] lev     level to initialize on
  */
@@ -294,4 +286,26 @@ void REMORA::allocate_init_full_domain () {
         vec_zeta_full_domain[lev].reset(new MultiFab(ba2d, dm, 1, max(cum_ref_ratios[lev],zeta_growvect)));
     }
     nc_hires_init_box = refined_domain;
+}
+
+void
+REMORA::init_full_domain_from_analytic ()
+{
+    prob->init_analytic_prob(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_cons_full_domain[hires_init_level], *vec_xvel_full_domain[hires_init_level], *vec_yvel_full_domain[hires_init_level]);
+
+    for (int lev=hires_init_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_cons_full_domain);
+        average_down_with_grow_cells(lev, vec_xvel_full_domain);
+        average_down_with_grow_cells(lev, vec_yvel_full_domain);
+    }
+}
+
+void
+REMORA::init_full_domain_zeta_from_analytic ()
+{
+    prob->init_analytic_zeta(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_zeta_full_domain[hires_init_level]);
+
+    for (int lev=hires_init_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_zeta_full_domain);
+    }
 }

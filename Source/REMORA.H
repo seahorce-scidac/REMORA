@@ -1174,7 +1174,10 @@ private:
     /** \brief Initialize initial problem data from analytic functions */
     void init_analytic(int lev);
     /** \brief Initialize high resolution initial problem data from analytic functions */
-    void init_full_domain_analytic();
+    void init_full_domain_from_analytic();
+
+    /** \brief Initialize high resolution initial sea surface height from analytic functions */
+    void init_full_domain_zeta_from_analytic();
 
     /** \brief Allocate MultiFabs for state and evolution variables */
     void init_stuff (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
