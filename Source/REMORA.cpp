@@ -595,7 +595,7 @@ REMORA::set_zeta (int lev)
         // data that has been averaged down
         if (lev > hires_init_level) {
             Real dummy_time = 0.0_rt;
-            FillCoarsePatch(lev,dummy_time,vec_zeta[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
+            FillCoarsePatch(lev,dummy_time,vec_zeta[lev].get(), vec_zeta[lev-1].get(),BCVars::cons_bc);
         } else {
             set_zeta_averaged_down(lev);
             vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
@@ -1451,13 +1451,17 @@ REMORA::init_only (int lev, Real time)
         init_bathymetry_full_domain_from_analytic();
     }
 
+    if (lev==0 and hires_init_level > 0 and solverChoice.ic_type == IC_Type::analytic) {
+        allocate_init_full_domain();
+        init_full_domain_zeta_from_analytic();
+    }
+
     set_bathymetry(lev);
     set_zeta(lev);
     stretch_transform(lev);
 
     if (lev==0 and hires_init_level > 0 and solverChoice.ic_type == IC_Type::analytic) {
-        allocate_init_full_domain();
-        init_full_domain_analytic();
+        init_full_domain_from_analytic();
     }
 
     if (lev==0) {
@@ -1477,6 +1481,10 @@ REMORA::init_only (int lev, Real time)
         } else {
             set_init_data_averaged_down(lev);
             set_zeta_to_Ztavg(lev); // MAYBE???
+            // Since set_grid_scale is usually called from init_analytic for analytic problems
+            if (solverChoice.ic_type == IC_Type::analytic) {
+                set_grid_scale(lev);
+            }
         }
     } else {
         if (lev > hires_init_level) {
@@ -1487,6 +1495,10 @@ REMORA::init_only (int lev, Real time)
         } else {
             set_init_data_averaged_down(lev);
             set_zeta_to_Ztavg(lev); // MAYBE???
+            if (solverChoice.ic_type == IC_Type::analytic) {
+                // Since set_grid_scale is usually called from init_analytic for analytic problems
+                set_grid_scale(lev);
+            }
         }
     }
 
@@ -1746,7 +1758,6 @@ REMORA::ReadParameters ()
     if (hires_init_level > max_level) {
         amrex::Abort("hires_init_level must be less than or equal to amr.max_level");
     }
-
 #ifdef REMORA_USE_PARTICLES
     readTracersParams();
 #endif
@@ -1761,6 +1772,17 @@ REMORA::ReadParameters ()
 
     }
     solverChoice.init_params(ncons);
+
+    // NOTE: This feature is not yet implemented because it will require passing x,y,z to prob functions.
+    // Currently these are accessed by passing a pointer to the REMORA class. However, this requires the
+    // coordinates at hires_init_level to already exist (and specifically for the hires_init_level level
+    // to already be initialized), which is generally not the case. A solution is to create a separate
+    // coordinates object that is passed to the prob functions instead of the REMORA object. Then x,y,z
+    // coordinates can be calculated at any level without the corresponding level having been created.
+    if (hires_init_level >= 0 and solverChoice.ic_type == IC_Type::analytic) {
+        amrex::Abort("Cannot do high-resolution initialization for analytic initial conditions. Not yet implemented");
+    }
+
 }
 
 

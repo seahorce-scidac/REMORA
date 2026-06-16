@@ -639,44 +639,6 @@ init_state_from_netcdf (int /*lev*/,
 }
 
 /**
- * \brief Helper function to initialize state and velocity data in a Fab.
- *
- * @param lev Integer specifying current level
- * @param state_fab FArrayBox object holding the state data we initialize
- * @param temp_fab  FArrayBox object holding the temperature data we initialize
- * @param salt_fab  FArrayBox object holding the salt        data we initialize
- * @param x_vel_fab FArrayBox object holding the x-velocity data we initialize
- * @param y_vel_fab FArrayBox object holding the y-velocity data we initialize
- * @param NC_temp_fab Vector of FArrayBox objects with the REMORA dataset specifying temperature
- * @param NC_salt_fab Vector of FArrayBox objects with the REMORA dataset specifying salinity
- * @param NC_xvel_fab Vector of FArrayBox objects with the REMORA dataset specifying x-velocity
- * @param NC_yvel_fab Vector of FArrayBox objects with the REMORA dataset specifying y-velocity
- */
-void
-init_state_full_domain_from_netcdf (int /*lev*/,
-                        FArrayBox&  temp_fab, FArrayBox&  salt_fab,
-                        FArrayBox& x_vel_fab, FArrayBox& y_vel_fab,
-                        const Vector<FArrayBox>& NC_temp_fab,
-                        const Vector<FArrayBox>& NC_salt_fab,
-                        const Vector<FArrayBox>& NC_xvel_fab,
-                        const Vector<FArrayBox>& NC_yvel_fab,
-                        IntVect ngrow)
-{
-    int nboxes = NC_xvel_fab.size();
-    for (int idx = 0; idx < nboxes; idx++)
-    {
-        //
-        // FArrayBox to FArrayBox copy does "copy on intersection"
-        // This only works here because we have broadcast the FArrayBox of data from the netcdf file to all ranks
-        //
-        temp_fab.template copy<RunOn::Device>(NC_temp_fab[idx]);
-        salt_fab.template copy<RunOn::Device>(NC_salt_fab[idx]);
-        x_vel_fab.template copy<RunOn::Device>(NC_xvel_fab[idx]);
-        y_vel_fab.template copy<RunOn::Device>(NC_yvel_fab[idx]);
-    } // idx
-}
-
-/**
  * @param lev Integer specifying the current level
  */
 void
