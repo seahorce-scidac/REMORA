@@ -50,8 +50,7 @@ void Problem::init_analytic_prob(
         REMORA const& remora,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
-        amrex::MultiFab& mf_yvel,
-        amrex::MultiFab& mf_zvel)
+        amrex::MultiFab& mf_yvel)
 {
     bool l_use_salt = m_solverChoice.use_salt;
 
@@ -70,7 +69,6 @@ void Problem::init_analytic_prob(
         Array4<      Real> const& state = mf_cons.array(mfi);
         Array4<      Real> const& x_vel = mf_xvel.array(mfi);
         Array4<      Real> const& y_vel = mf_yvel.array(mfi);
-        Array4<      Real> const& z_vel = mf_zvel.array(mfi);
 
         Array4<const Real> const& z_r = remora.vec_z_r[lev]->const_array(mfi);
 
@@ -98,8 +96,6 @@ void Problem::init_analytic_prob(
 
         const Box& xbx = surroundingNodes(bx,0);
         const Box& ybx = surroundingNodes(bx,1);
-        const Box& zbx = surroundingNodes(bx,2);
-
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
             x_vel(i,j,k) = 0.0_rt;
@@ -107,11 +103,6 @@ void Problem::init_analytic_prob(
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
             y_vel(i, j, k) = 0.0_rt;
-        });
-
-        ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-        {
-            z_vel(i, j, k) = 0.0_rt;
         });
     }
     Gpu::streamSynchronize();

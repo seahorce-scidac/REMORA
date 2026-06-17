@@ -299,6 +299,14 @@ public:
     /** \brief multilevel data container for current step's z velocities (largely unused; W stored separately) */
     amrex::Vector<amrex::MultiFab*> zvel_new;
 
+    /** \brief multilevel data container for high res initial data: temperature, salinity, passive tracer  */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_cons_full_domain;
+    /** \brief multilevel data container for high res initial x velocities (u in ROMS) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xvel_full_domain;
+    /** \brief multilevel data container for high res initial y velocities (v in ROMS) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yvel_full_domain;
+    /** \brief multilevel data container for current step's z velocities (largely unused; W stored separately) */
+
     // Program state data is represented by vectors of pointers to AMReX Multifabs.
     // There is one pointer per level
 
@@ -443,6 +451,9 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_vbar;
     /** \brief free surface height (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_zeta;
+
+    /** \brief high resolution initial free surface height (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_zeta_full_domain;
 
     /** \brief land/sea mask at cell centers (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskr;
@@ -930,6 +941,9 @@ public:
     /** \brief Initialize zeta from file or analytic */
     void set_zeta (int lev);
 
+    /** \brief Copy over zeta data that has been averaged down from high res */
+    void set_zeta_averaged_down (int lev);
+
     /** \brief Initialize bathymetry from file or analytic */
     void set_bathymetry (int lev);
 
@@ -1077,8 +1091,12 @@ public:
     /** \brief Full domain bathymetry data initialization from analytic */
     void init_bathymetry_full_domain_from_analytic ();
 
+    /** \brief Problem initialization from averaged-down high resolution data */
+    void set_init_data_averaged_down (int lev);
     /** \brief Problem initialization from NetCDF file */
     void init_data_from_netcdf (int lev);
+    /** \brief High resolution roblem initialization from NetCDF file */
+    void init_data_full_domain_from_netcdf ();
     /** \brief Boundary data initialization from NetCDF file */
     void init_bdry_from_netcdf (int lev);
     /** \brief Mask data initialization from NetCDF file */
@@ -1093,6 +1111,8 @@ public:
     void init_grid_vars_full_domain_from_netcdf ();
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);
+    /** \brief Full-domain high res sea-surface height data initialization from NetCDF file */
+    void init_zeta_full_domain_from_netcdf ();
     /** \brief Coriolis parameter data initialization from NetCDF file */
     void init_coriolis_from_netcdf (int lev);
     /** \brief Climatology nudging coefficient initialization from NetCDF file */
@@ -1103,6 +1123,8 @@ public:
 
     /** \brief Allocate multifabs for storing full-domain bathymetry and grid vars data */
     void allocate_bathymetry_grid_vars_full_domain ();
+    /** \brief Allocate multifabs for storing full-domain high resolution initial data */
+    void allocate_init_full_domain ();
 
     /** \brief Convert data in a multifab from inverse days to inverse seconds */
     void convert_inv_days_to_inv_s (amrex::MultiFab*);
@@ -1151,6 +1173,11 @@ private:
 
     /** \brief Initialize initial problem data from analytic functions */
     void init_analytic(int lev);
+    /** \brief Initialize high resolution initial problem data from analytic functions */
+    void init_full_domain_from_analytic();
+
+    /** \brief Initialize high resolution initial sea surface height from analytic functions */
+    void init_full_domain_zeta_from_analytic();
 
     /** \brief Allocate MultiFabs for state and evolution variables */
     void init_stuff (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
@@ -1529,6 +1556,14 @@ private:
     std::string nc_grid_file_hires;
     /** \brief Box for the full domain at nc_hires_grid_level */
     amrex::Box nc_hires_grid_box;
+
+    /** \brief Which level the high resolution initialization data is at */
+    int hires_init_level = -1;
+    /** \brief Init file for high resolution */
+    std::string nc_init_file_hires;
+    /** \brief Box for the full domain at nc_hires_init_level */
+    amrex::Box nc_hires_init_box;
+
     /** \brief Cumulative refinement ratio between level 0 and level i */
     amrex::Vector<amrex::IntVect> cum_ref_ratios;
 

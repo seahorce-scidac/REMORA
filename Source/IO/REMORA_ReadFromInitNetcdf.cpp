@@ -40,6 +40,39 @@ read_data_from_netcdf (int /*lev*/,
  * @param lev             level of data to read
  * @param domain          simulation domain
  * @param fname           file name to read from
+ * @param NC_temp_fab     container for temperature data
+ * @param NC_salt_fab     container for salinity data
+ * @param NC_u_fab        container for u velocity data
+ * @param NC_v_fab        container for v velocity data
+ * @param ngrow           number of grow cells to read
+ */
+void
+read_data_full_domain_from_netcdf (int /*lev*/,
+                       const Box& domain,
+                       const std::string& fname,
+                       FArrayBox& NC_temp_fab, FArrayBox& NC_salt_fab,
+                       FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
+                       IntVect ngrow)
+{
+    amrex::Print() << "Loading initial solution data from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_temp_fab); NC_names.push_back("temp");     NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 0
+    NC_fabs.push_back(&NC_salt_fab); NC_names.push_back("salt");     NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 1
+    NC_fabs.push_back(&NC_xvel_fab); NC_names.push_back("u");        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 2
+    NC_fabs.push_back(&NC_yvel_fab); NC_names.push_back("v");        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE); // 3
+
+    // Read the netcdf file and fill these FABs
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+}
+
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
  * @param NC_zeta_fab     container for sea surface height data
  */
 void
@@ -58,6 +91,32 @@ read_zeta_from_netcdf (int /*lev*/,
 
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+}
+
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param NC_zeta_fab     container for sea surface height data
+ * @param ngrow           number of grow cells to read in, if not default
+ */
+void
+read_zeta_full_domain_from_netcdf (int /*lev*/,
+                      const Box& domain,
+                      const std::string& fname,
+                      FArrayBox& NC_zeta_fab,
+                      IntVect ngrow)
+{
+    amrex::Print() << "Loading initial sea surface height from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_zeta_fab )   ; NC_names.push_back("zeta")    ; NC_dim_types.push_back(NC_Data_Dims_Type::Time_SN_WE); // 0
+
+    // Read the netcdf file and fill these FABs
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
 }
 
 /**

@@ -455,12 +455,17 @@ void REMORA::resize_stuff(int lev)
     vec_ubar.resize(lev+1);
     vec_vbar.resize(lev+1);
     vec_zeta.resize(lev+1);
+    vec_zeta_full_domain.resize(hires_init_level+1);
     vec_mskr.resize(lev+1);
     vec_msku.resize(lev+1);
     vec_mskv.resize(lev+1);
     vec_mskp.resize(lev+1);
     vec_mskr3d.resize(lev+1);
     vec_sstore.resize(lev+1);
+
+    vec_cons_full_domain.resize(hires_init_level+1);
+    vec_xvel_full_domain.resize(hires_init_level+1);
+    vec_yvel_full_domain.resize(hires_init_level+1);
 
     vec_pm.resize(lev+1);
     vec_pn.resize(lev+1);

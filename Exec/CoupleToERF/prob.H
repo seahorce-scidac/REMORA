@@ -19,7 +19,7 @@ public:
         int lev, const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
         REMORA const& remora,
-        amrex::MultiFab& mf_zeta);
+        amrex::MultiFab& mf_zeta) override;
 
     void init_analytic_prob(
         int lev,
@@ -28,15 +28,14 @@ public:
         REMORA const& remora,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
-        amrex::MultiFab& mf_yvel,
-        amrex::MultiFab& mf_zvel);
+        amrex::MultiFab& mf_yvel) override;
 
     void init_analytic_wind(
         int lev,
         const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
         REMORA const& remora,
-        amrex::MultiFab& mf_Uwind, amrex::MultiFab& mf_Vwind);
+        amrex::MultiFab& mf_Uwind, amrex::MultiFab& mf_Vwind) override;
 
 private:
 //    ProbParm parms;

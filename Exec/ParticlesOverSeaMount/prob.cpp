@@ -111,8 +111,7 @@ void Problem::init_analytic_prob(
         REMORA const& remora,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
-        amrex::MultiFab& mf_yvel,
-        amrex::MultiFab& mf_zvel)
+        amrex::MultiFab& mf_yvel)
 {
     auto geomdata = geom.data();
     const int khi = geomdata.Domain().bigEnd()[2];
@@ -127,7 +126,6 @@ void Problem::init_analytic_prob(
         Array4<      Real> const& state = mf_cons.array(mfi);
         Array4<      Real> const& x_vel = mf_xvel.array(mfi);
         Array4<      Real> const& y_vel = mf_yvel.array(mfi);
-        Array4<      Real> const& z_vel = mf_zvel.array(mfi);
 
         Array4<const Real> const& z_r = remora.vec_z_r[lev]->const_array(mfi);
 
@@ -185,15 +183,6 @@ void Problem::init_analytic_prob(
               // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
               // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
               y_vel(i, j, k) = 0.0_rt;
-        });
-
-        // Construct a box that is on z-faces
-        const Box& zbx = surroundingNodes(bx,2);
-
-        // Set the z-velocity
-        ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-        {
-            z_vel(i, j, k) = 0.0_rt;
         });
     }
     Gpu::streamSynchronize();
