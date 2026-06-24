@@ -243,7 +243,7 @@ REMORA::init_scalar_metadata ()
 void
 REMORA::Evolve ()
 {
-    BL_PROFILE("REMORA::Evolve()");
+    BL_PROFILE_VAR("REMORA::Evolve()",evolve);
     Real cur_time = t_new[0];
 
     // Take one coarse timestep by calling timeStep -- which recursively calls timeStep
@@ -277,21 +277,7 @@ REMORA::Evolve ()
             amrex::Print() << "Timestep time = " << dEvolveTime << " seconds." << '\n';
         }
 
-        if ( (plot_int > 0      && (step+1 - last_plot_file_step) == plot_int         ) ||
-             (plot_int_time > 0 && (cur_time >= (last_plot_file_time + plot_int_time))) )
-        {
-            last_plot_file_step = step+1;
-            last_plot_file_time = cur_time;
-            WritePlotFile(step+1);
-            history_count++;
-        }
-
-        if ((check_int > 0 && (step+1 - last_check_file_step) == check_int)
-                || (check_int_time > 0 && cur_time >= (last_check_file_time + check_int_time))) {
-            last_check_file_step = step+1;
-            last_check_file_time = cur_time;
-            WriteCheckpointFile();
-        }
+        WriteAtIntermediateTime(step, cur_time);
 
         post_timestep(step, cur_time, dt[0]);
 
@@ -306,6 +292,15 @@ REMORA::Evolve ()
         if (cur_time >= stop_time - 1.e-6*dt[0]) break;
     }
 
+    BL_PROFILE_VAR_STOP(evolve);
+
+    WriteAtFinalTime();
+}
+
+void
+REMORA::WriteAtFinalTime()
+{
+
     if ( (plot_int > 0 || plot_int_time > 0.0) && istep[0] > last_plot_file_step)
     {
         WritePlotFile(istep[0]);
@@ -313,6 +308,26 @@ REMORA::Evolve ()
     }
 
     if ((check_int > 0 || check_int_time > 0.0) && istep[0] > last_check_file_step) {
+        WriteCheckpointFile();
+    }
+}
+
+void
+REMORA::WriteAtIntermediateTime(int step, amrex::Real cur_time)
+{
+    if ( (plot_int > 0      && (step+1 - last_plot_file_step) == plot_int         ) ||
+         (plot_int_time > 0 && (cur_time >= (last_plot_file_time + plot_int_time))) )
+    {
+        last_plot_file_step = step+1;
+        last_plot_file_time = cur_time;
+        WritePlotFile(step+1);
+        history_count++;
+    }
+
+    if ((check_int > 0 && (step+1 - last_check_file_step) == check_int)
+            || (check_int_time > 0 && cur_time >= (last_check_file_time + check_int_time))) {
+        last_check_file_step = step+1;
+        last_check_file_time = cur_time;
         WriteCheckpointFile();
     }
 }

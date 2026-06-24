@@ -78,21 +78,7 @@ REMORA::EvolveOneStep (amrex::Real /*time*/, amrex::Real /*dt_request*/)
 
     cur_time += dt[0];
 
-    if ( (plot_int > 0      && (step+1 - last_plot_file_step) == plot_int         ) ||
-         (plot_int_time > 0 && (cur_time >= (last_plot_file_time + plot_int_time))) )
-    {
-        last_plot_file_step = step+1;
-        last_plot_file_time = cur_time;
-        WritePlotFile(step+1);
-        history_count++;
-    }
-
-    if ((check_int > 0 && (step+1 - last_check_file_step) == check_int)
-            || (check_int_time > 0 && cur_time >= (last_check_file_time + check_int_time))) {
-        last_check_file_step = step+1;
-        last_check_file_time = cur_time;
-        WriteCheckpointFile();
-    }
+    WriteAtIntermediateTime(step, cur_time);
 
     post_timestep(step, cur_time, dt[0]);
 
