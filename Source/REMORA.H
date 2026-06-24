@@ -98,6 +98,12 @@ public:
     /** \brief Advance solution to final time */
     void Evolve ();
 
+    /** \brief Write checkpoint and plotfiles at end of simulation */
+    void WriteAtFinalTime ();
+
+    /** \brief Write checkpoint and plotfiles at intermediate point of simulation, if needed */
+    void WriteAtIntermediateTime (int step, amrex::Real cur_time);
+
     /** \brief Tag cells for refinement */
     virtual void ErrorEst (int lev, amrex::TagBoxArray& tags, amrex::Real time, int ngrow) override;
 
