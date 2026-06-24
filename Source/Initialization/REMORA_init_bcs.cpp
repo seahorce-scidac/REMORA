@@ -39,7 +39,7 @@ void REMORA::init_bcs ()
         return bcvar_type == xvel_bc_idx || bcvar_type == yvel_bc_idx || bcvar_type == zvel_bc_idx;
     };
 
-    auto uses_scalar_input = [=] (int bcvar_type) noexcept {
+    auto uses_scalar_input = [this] (int bcvar_type) noexcept {
         return bcvar_type >= Tracer_comp && bcvar_type < ncons;
     };
 
