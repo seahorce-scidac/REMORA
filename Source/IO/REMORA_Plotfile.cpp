@@ -610,7 +610,9 @@ REMORA::WritePlotFile (int istep_for_plot)
             boxArrays[level] = mf[level]->boxArray();
         }
 
-        auto f = [=]() {
+        auto f = [this, plotfilename, nlevels, boxArrays, varnames_3d,
+                  varnames_2d_rho, varnames_2d_u, varnames_2d_v, my_geom,
+                  time, level_steps, rr, versionName, levelPrefix, mfPrefix]() {
             VisMF::IO_Buffer io_buffer(VisMF::IO_Buffer_Size);
             std::string HeaderFileName(plotfilename + "/Header");
             std::ofstream HeaderFile;
