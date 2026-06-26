@@ -35,7 +35,7 @@ amrex::Real REMORA::sum_per       = -1.0_rt;
 int         REMORA::file_min_digits = 5;
 
 // Do we include staggered velocities in the plotfile?
-int         REMORA::plot_staggered_vels = 0;
+bool        REMORA::plot_staggered_vels = false;
 
 // Do we include nodal data (Nu_nd) in the plotfile?
 bool        REMORA::plot_nodal_data = true;
@@ -1626,8 +1626,8 @@ REMORA::ReadParameters ()
     pp.queryAdd("plot_file", plot_file_name);
     pp.queryAdd("plot_int", plot_int);
     pp.queryAdd("plot_int_time", plot_int_time);
-    pp.queryAdd("plot_staggered_vels", plot_staggered_vels);
-    pp.queryAdd("plot_nodal_data", plot_nodal_data);
+    pp.query("plot_staggered_vels", plot_staggered_vels);
+    pp.query("plot_nodal_data", plot_nodal_data);
 
     std::string plotfile_type_str = "amrex";
     pp.queryAdd("plotfile_type", plotfile_type_str);
