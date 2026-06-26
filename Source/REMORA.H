@@ -1543,11 +1543,11 @@ private:
     /** \brief Minimum number of digits in plotfile name or chunked history file */
     static int file_min_digits;
 
-     /** \brief Whether to write the staggered velocities (not averaged to cell centers) */
-     static int plot_staggered_vels;
+      /** \brief Whether to write the staggered velocities (not averaged to cell centers) */
+      static int plot_staggered_vels;
 
-     /** \brief Whether to write nodal data (Nu_nd) to plotfiles */
-     static int plot_nodal_data;
+      /** \brief Whether to write nodal data (Nu_nd) to plotfiles */
+      static bool plot_nodal_data;
 
      /** \brief Native or NetCDF plotfile output */
      static PlotfileType plotfile_type;

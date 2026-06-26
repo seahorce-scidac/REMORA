@@ -38,7 +38,7 @@ int         REMORA::file_min_digits = 5;
 int         REMORA::plot_staggered_vels = 0;
 
 // Do we include nodal data (Nu_nd) in the plotfile?
-int         REMORA::plot_nodal_data = 1;
+bool        REMORA::plot_nodal_data = true;
 
 // Native AMReX vs NetCDF
 PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
