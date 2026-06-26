@@ -648,9 +648,11 @@ REMORA::WritePlotFile (int istep_for_plot)
             VisMF::AsyncWrite(*mf[level],
                               MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix),
                               true);
-            VisMF::AsyncWrite(*mf_nd[level],
-                              MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix),
-                              true);
+            if (plot_nodal_data) {
+                VisMF::AsyncWrite(*mf_nd[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix),
+                                  true);
+            }
             if (plot_staggered_vels) {
                 VisMF::AsyncWrite(*mf_u[level],
                                   MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_uface_prefix),
@@ -691,7 +693,9 @@ REMORA::WritePlotFile (int istep_for_plot)
                 data = mf[level];
             }
             VisMF::Write(*data       , MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix));
-            VisMF::Write(*mf_nd[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix));
+            if (plot_nodal_data) {
+                VisMF::Write(*mf_nd[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix));
+            }
             if (plot_staggered_vels) {
                 VisMF::Write(*mf_u[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_uface_prefix));
                 VisMF::Write(*mf_v[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_vface_prefix));

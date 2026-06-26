@@ -37,6 +37,9 @@ int         REMORA::file_min_digits = 5;
 // Do we include staggered velocities in the plotfile?
 int         REMORA::plot_staggered_vels = 0;
 
+// Do we include nodal data (Nu_nd) in the plotfile?
+int         REMORA::plot_nodal_data = 1;
+
 // Native AMReX vs NetCDF
 PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
 
@@ -1624,6 +1627,7 @@ REMORA::ReadParameters ()
     pp.queryAdd("plot_int", plot_int);
     pp.queryAdd("plot_int_time", plot_int_time);
     pp.queryAdd("plot_staggered_vels", plot_staggered_vels);
+    pp.queryAdd("plot_nodal_data", plot_nodal_data);
 
     std::string plotfile_type_str = "amrex";
     pp.queryAdd("plotfile_type", plotfile_type_str);
