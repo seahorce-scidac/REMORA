@@ -1233,22 +1233,46 @@ List of Bulk Fluxes parameters
 |                                      |                                        |                   |                |
 |                                      | NetCDF file                            |                   |                |
 +--------------------------------------+----------------------------------------+-------------------+----------------+
-| **remora.EminusP_from_netcdf**       | Load evaporation minus                 | true / false      | false          |
-|                                      |                                        |                   |                |
-|                                      | precipitation from NetCDF file         |                   |                |
-|                                      |                                        |                   |                |
+| **remora.EminusP_from_netcdf**       | Use NetCDF ``EminusP`` as the         | true / false      | false          |
+|                                      | E-P source for salt/freshwater        |                   |                |
+|                                      | flux (used only if                     |                   |                |
+|                                      | ``remora.eminusp`` = true)            |                   |                |
 |                                      |                                        |                   |                |
 +--------------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.eminusp**                   | Whether to do E-P prescription for     | true / false      | false          |
 |                                      |                                        |                   |                |
-|                                      | evaporation/precipiation               |                   |                |
+|                                      | evaporation/precipitation. If false,   |                   |                |
+|                                      | E-P is computed diagnostically as      |                   |                |
+|                                      | evaporation minus rain                 |                   |                |
 +--------------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.eminusp_correct_ssh**       | Whether to adjust sea surface          | true / false      | false          |
 |                                      |                                        |                   |                |
-|                                      | height for amount of evaporation       |                   |                |
+|                                      | height for amount of E-P               |                   |                |
 |                                      |                                        |                   |                |
 |                                      | and precipitation                      |                   |                |
 +--------------------------------------+----------------------------------------+-------------------+----------------+
+
+.. note::
+
+    E-P option behavior when ``remora.bulk_fluxes = true``:
+
+    - If ``remora.eminusp = false``, E-P is computed diagnostically as
+       evaporation minus rain.
+    - If ``remora.eminusp = true`` and ``remora.EminusP_from_netcdf = false``,
+       E-P is computed diagnostically from bulk evaporation minus rain.
+    - If ``remora.eminusp = true`` and ``remora.EminusP_from_netcdf = true``,
+       NetCDF ``EminusP`` is used directly.
+
+    Consistency constraints enforced at runtime:
+
+    - ``remora.eminusp = true`` requires ``remora.bulk_fluxes = true``.
+    - ``remora.eminusp_correct_ssh = true`` requires
+       ``remora.bulk_fluxes = true``.
+
+    When ``remora.eminusp_correct_ssh = true``, SSH correction uses the active
+    E-P source: NetCDF ``EminusP`` when both ``remora.eminusp = true`` and
+    ``remora.EminusP_from_netcdf = true``; otherwise diagnostic evaporation
+    minus rain is used.
 
 .. note::
 
