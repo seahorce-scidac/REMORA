@@ -100,10 +100,12 @@ REMORA::WritePlotFile (int istep_for_plot)
 
     // Array of MultiFabs for nodal data
     Vector<MultiFab> mf_nd(finest_level+1);
-    for (int lev = 0; lev <= finest_level; ++lev) {
-        BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
-        mf_nd[lev].define(nodal_grids, dmap[lev], AMREX_SPACEDIM, 0);
-        mf_nd[lev].setVal(0.);
+    if (plot_nodal_data) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
+            mf_nd[lev].define(nodal_grids, dmap[lev], AMREX_SPACEDIM, 0);
+            mf_nd[lev].setVal(0.);
+        }
     }
 
     // Vector of MultiFabs for face-centered velocity
@@ -371,21 +373,23 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
 #endif
 
-        MultiFab::Copy(mf_nd[lev],*vec_z_phys_nd[lev],0,2,1,0);
-        Real dz = Geom()[lev].CellSizeArray()[2];
-        int N = Geom()[lev].Domain().size()[2];
+        if (plot_nodal_data) {
+            MultiFab::Copy(mf_nd[lev],*vec_z_phys_nd[lev],0,2,1,0);
+            Real dz = Geom()[lev].CellSizeArray()[2];
+            int N = Geom()[lev].Domain().size()[2];
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-        for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
-        {
-            const Box& bx = mfi.tilebox();
-            Array4<Real> mf_arr = mf_nd[lev].array(mfi);
-            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                mf_arr(i,j,k,2) = mf_arr(i,j,k,2) + (N-k) * dz;
-            });
-        } // mfi
+            for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+                const Box& bx = mfi.tilebox();
+                Array4<Real> mf_arr = mf_nd[lev].array(mfi);
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    mf_arr(i,j,k,2) = mf_arr(i,j,k,2) + (N-k) * dz;
+                });
+            } // mfi
+        }
     } // lev
 
     if (plotfile_type == PlotfileType::amrex)
@@ -648,9 +652,11 @@ REMORA::WritePlotFile (int istep_for_plot)
             VisMF::AsyncWrite(*mf[level],
                               MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix),
                               true);
-            VisMF::AsyncWrite(*mf_nd[level],
-                              MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix),
-                              true);
+            if (plot_nodal_data) {
+                VisMF::AsyncWrite(*mf_nd[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix),
+                                  true);
+            }
             if (plot_staggered_vels) {
                 VisMF::AsyncWrite(*mf_u[level],
                                   MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_uface_prefix),
@@ -691,7 +697,9 @@ REMORA::WritePlotFile (int istep_for_plot)
                 data = mf[level];
             }
             VisMF::Write(*data       , MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix));
-            VisMF::Write(*mf_nd[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix));
+            if (plot_nodal_data) {
+                VisMF::Write(*mf_nd[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix));
+            }
             if (plot_staggered_vels) {
                 VisMF::Write(*mf_u[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_uface_prefix));
                 VisMF::Write(*mf_v[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_vface_prefix));

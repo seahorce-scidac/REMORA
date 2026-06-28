@@ -100,6 +100,16 @@ List of Parameters
 |                                        |                                   |                       |            |
 |                                        | multifab. Not used for netCDF     |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
+| **remora.plot_nodal_data**             | whether to output nodal data      | false or true         | true       |
+|                                        |                                   |                       |            |
+|                                        | (3D coordinates at nodes).        |                       |            |
+|                                        |                                   |                       |            |
+|                                        | Includes amrexvec_nu_x,           |                       |            |
+|                                        |                                   |                       |            |
+|                                        | amrexvec_nu_y, amrexvec_nu_z.    |                       |            |
+|                                        |                                   |                       |            |
+|                                        | Not used for netCDF               |                       |            |
++----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.expand_plotvars_to_unif_rr**  | whether to expand a multilevel    | false or true         | false      |
 |                                        |                                   |                       |            |
 |                                        | plotfile to have a uniform        |                       |            |
@@ -215,10 +225,20 @@ Examples of Usage
 -  **remora.plot_int** = 10
 
    means that native plot files (actually directories) starting with the prefix
-   “*plt_run*” will be generated every 10 level-0 time steps in the directory
+   "*plt_run*" will be generated every 10 level-0 time steps in the directory
    `out`. If using
    amrex format, that directory names will be *plt_run00000*, *plt_run00010*,
    *plt_run00020*, etc. If using NetCDF format, the names will have ".nc" appended.
 
    AMReX plotfiles will contain data at all of the refinement levels. NetCDF files
    will not be output if there is more than one level.
+
+-  **remora.plot_nodal_data** = *false*
+
+   To reduce plotfile size by excluding nodal coordinate data (amrexvec_nu_x, amrexvec_nu_y, amrexvec_nu_z),
+   set this parameter to false. By default, nodal data is included (true).
+
+-  **remora.plot_staggered_vels** = *true*
+
+   To include velocity components on cell faces (UFace, VFace, WFace multifabs) in the plotfile,
+   set this parameter to true. By default, velocities are not included on faces (false).
