@@ -7,25 +7,6 @@
 
 using namespace amrex;
 
-std::unique_ptr<ProblemBase>
-amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
-{
-    return std::make_unique<Problem>(problo, probhi);
-}
-
-Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
-{
-    // Parse params
-    ParmParse pp("remora.prob");
-
-    // Add problem-specific parameters below, e.g.
-
-    /*
-    pp.query("u_0", parms.u_0);
-    pp.query("v_0", parms.v_0);
-    */
-}
-
 // DELETE ANY UNUSED FUNCTIONS
 /**
  * \brief Initializes bathymetry h and surface height Zeta

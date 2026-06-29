@@ -8,26 +8,6 @@
 
 using namespace amrex;
 
-ProbParm parms;
-
-std::unique_ptr<ProblemBase>
-amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
-{
-    return std::make_unique<Problem>(problo, probhi);
-}
-
-Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
-{
-    // Parse params
-    ParmParse pp("remora.prob");
-
-    pp.query("u_0", parms.u_0);
-    pp.query("v_0", parms.v_0);
-    pp.query("z0", parms.z0);
-    pp.query("zRef", parms.zRef);
-    pp.query("velRef", parms.velRef);
-}
-
 /**
  * \brief Initializes bathymetry h and surface height Zeta
  */
@@ -165,6 +145,13 @@ void Problem::init_analytic_prob(
         amrex::MultiFab& mf_xvel,
         amrex::MultiFab& mf_yvel)
 {
+    ParmParse pp("remora.prob");
+    Real u_0     = Real(0.0); pp.query("u_0", u_0);
+    Real v_0     = Real(0.0); pp.query("v_0", v_0);
+    Real z0      = Real(0.1); pp.query("z0",  z0);        // Surface Roughness
+    Real zRef    = Real(80.); pp.query("zRef", zRef);     // Reference Height
+    Real velRef  = Real(0.0); pp.query("velRef", velRef); // Reference Wind Speed
+
     bool l_use_salt = m_solverChoice.use_salt;
 
     auto geomdata = geom.data();
@@ -217,11 +204,8 @@ void Problem::init_analytic_prob(
         const Box& ybx = surroundingNodes(bx,1);
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-      //      x_vel(i, j, k) = 0.0_rt;
             const Real z = -z_r(i,j,k);
-            x_vel(i, j, k) = parms.u_0 + parms.velRef *
-                             std::log((z + parms.z0)/parms.z0)/
-                             std::log((parms.zRef +parms.z0)/parms.z0);
+            x_vel(i, j, k) = u_0 + velRef * std::log((z + z0)/z0) / std::log((zRef +z0)/z0);
         });
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {

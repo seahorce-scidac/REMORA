@@ -61,9 +61,6 @@ public:
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& remora,
         amrex::MultiFab& mf_Uwind, amrex::MultiFab& mf_Vwind) override;
-
-private:
-    [[maybe_unused]] ProbParm parms;
 };
 
 #endif

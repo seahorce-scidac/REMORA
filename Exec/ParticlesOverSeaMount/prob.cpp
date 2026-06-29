@@ -8,26 +8,6 @@
 
 using namespace amrex;
 
-ProbParm parms;
-
-std::unique_ptr<ProblemBase>
-amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
-{
-    return std::make_unique<Problem>(problo, probhi);
-}
-
-Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
-{
-    // Parse params
-    ParmParse pp("remora.prob");
-
-    pp.query("u_0", parms.u_0);
-    pp.query("v_0", parms.v_0);
-    pp.query("z0", parms.z0);
-    pp.query("zRef", parms.zRef);
-    pp.query("uRef", parms.uRef);
-}
-
 /**
  * \brief Initializes bathymetry h and surface height Zeta
  */
@@ -113,6 +93,13 @@ void Problem::init_analytic_prob(
         amrex::MultiFab& mf_xvel,
         amrex::MultiFab& mf_yvel)
 {
+    ParmParse pp("remora.prob");
+    Real u_0  = 0.0; pp.query("u_0", u_0);
+    Real v_0  = 0.0; pp.query("v_0", v_0);
+    Real z0   = 0.1;  pp.query("z0", z0);     // Surface Roughness
+    Real zRef = 80.0; pp.query("zRef", zRef); // Reference Height
+    Real uRef = 0.0;  pp.query("uRef", uRef); // Reference Wind Speed
+
     auto geomdata = geom.data();
     const int khi = geomdata.Domain().bigEnd()[2];
 
@@ -155,20 +142,12 @@ void Problem::init_analytic_prob(
         // Construct a box that is on x-faces
         const Box& xbx = surroundingNodes(bx,0);
         // Set the x-velocity
-        ParallelFor(xbx, [=, parms=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-              // const auto prob_lo         = geomdata.ProbLo();
-              // const auto dx              = geomdata.CellSize();
+            const Real z = -z_r(i,j,k);
 
-              // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
-              // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              const Real z = -z_r(i,j,k);
-
-              // Set the x-velocity
-              x_vel(i, j, k) = parms.u_0 + parms.uRef *
-                               std::log((z + parms.z0)/parms.z0)/
-                               std::log((parms.zRef +parms.z0)/parms.z0);
-              //x_vel(i, j, k) = 0.0;
+            // Set the x-velocity
+            x_vel(i, j, k) = u_0 + uRef * std::log((z + z0)/z0) / std::log((zRef +z0)/z0);
         });
 
         // Construct a box that is on y-faces
@@ -177,12 +156,7 @@ void Problem::init_analytic_prob(
         // Set the y-velocity
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-              // const auto prob_lo         = geomdata.ProbLo();
-              // const auto dx              = geomdata.CellSize();
-
-              // const Real x = prob_lo[0] + (i + 0.5) * dx[0];
-              // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
-              y_vel(i, j, k) = 0.0_rt;
+            y_vel(i, j, k) = 0.0_rt;
         });
     }
     Gpu::streamSynchronize();

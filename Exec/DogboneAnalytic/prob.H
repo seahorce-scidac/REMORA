@@ -4,10 +4,6 @@
 #include "AMReX_REAL.H"
 #include "REMORA_prob_common.H"
 
-struct ProbParm {
-    bool traditional = true;
-}; // namespace ProbParm
-
 class Problem : public ProblemBase
 {
 public:
@@ -64,8 +60,6 @@ public:
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& remora,
         amrex::MultiFab& mf_mskr) override;
-private:
-    ProbParm parms;
 };
 
 #endif

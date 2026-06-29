@@ -8,23 +8,6 @@
 
 using namespace amrex;
 
-ProbParm parms;
-
-std::unique_ptr<ProblemBase>
-amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
-{
-    return std::make_unique<Problem>(problo, probhi);
-}
-
-Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
-{
-    // Parse params
-    ParmParse pp("remora.prob");
-
-    pp.query("u_0", parms.u_0);
-    pp.query("v_0", parms.v_0);
-}
-
 /**
  * \brief Initializes bathymetry h and surface height Zeta
  */
@@ -74,6 +57,10 @@ void Problem::init_analytic_prob(
         amrex::MultiFab& mf_xvel,
         amrex::MultiFab& mf_yvel)
 {
+    ParmParse pp("remora.prob");
+    Real u_0 = 0.0; pp.query("u_0", u_0);
+    Real v_0 = 0.0; pp.query("v_0", v_0);
+
     bool l_use_salt = m_solverChoice.use_salt;
 
     auto geomdata = geom.data();
@@ -127,18 +114,18 @@ void Problem::init_analytic_prob(
         // Construct a box that is on x-faces
         const Box& xbx = surroundingNodes(bx,0);
         // Set the x-velocity
-        ParallelFor(xbx, [=, parms_gpu=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-              x_vel(i, j, k) = parms_gpu.u_0;
+              x_vel(i, j, k) = u_0;
         });
 
         // Construct a box that is on y-faces
         const Box& ybx = surroundingNodes(bx,1);
 
         // Set the y-velocity
-        ParallelFor(ybx, [=, parms_gpu=parms] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-              y_vel(i, j, k) = parms_gpu.v_0;
+              y_vel(i, j, k) = v_0;
         });
     }
     Gpu::streamSynchronize();

@@ -8,21 +8,6 @@
 
 using namespace amrex;
 
-ProbParm parms;
-
-std::unique_ptr<ProblemBase>
-amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
-{
-    return std::make_unique<Problem>(problo, probhi);
-}
-
-Problem::Problem(const amrex::Real* /*problo*/, const amrex::Real* /*probhi*/)
-{
-    ParmParse pp("remora.prob");
-
-    pp.query("traditional", parms.traditional);
-}
-
 /**
  * \brief Initializes bathymetry h and surface height Zeta
  */
@@ -32,7 +17,11 @@ void Problem::init_analytic_bathymetry (
         REMORA const& remora,
         amrex::MultiFab& mf_h)
 {
-    if (parms.traditional) {
+    ParmParse pp("remora.prob");
+    bool traditional = true;
+    pp.query("traditional", traditional);
+
+    if (traditional) {
         mf_h.setVal(10.0_rt);
     } else {
         mf_h.setVal(0.0_rt);
@@ -87,6 +76,10 @@ void Problem::init_analytic_prob(
         amrex::MultiFab& mf_xvel,
         amrex::MultiFab& mf_yvel)
 {
+    ParmParse pp("remora.prob");
+    bool traditional = true;
+    pp.query("traditional", traditional);
+
     bool l_use_salt = m_solverChoice.use_salt;
 
     auto geomdata = geom.data();
@@ -101,7 +94,7 @@ void Problem::init_analytic_prob(
         Array4<      Real> const& y_vel = mf_yvel.array(mfi);
 
         Array4<const Real> const& x_r = remora.vec_xr[lev]->const_array(mfi);
-        if (parms.traditional) {
+        if (traditional) {
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
             {
                 if (l_use_salt) {

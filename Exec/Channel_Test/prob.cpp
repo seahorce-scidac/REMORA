@@ -8,14 +8,6 @@
 
 using namespace amrex;
 
-ProbParm parms;
-
-std::unique_ptr<ProblemBase>
-amrex_probinit(const amrex_real* problo, const amrex_real* probhi)
-{
-    return std::make_unique<Problem>(problo, probhi);
-}
-
 /**
  * \brief Initializes bathymetry h and surface height Zeta
  */

@@ -77,9 +77,6 @@ public:
         SolverChoice const& m_solverChoice,
         REMORA const& remora,
         amrex::MultiFab& mf_fcor) override;
-
-private:
-    ProbParm parms;
 };
 
 #endif

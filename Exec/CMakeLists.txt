@@ -1,10 +1,14 @@
 set(remora_lib_name remora_srclib)
+
 add_library(${remora_lib_name} OBJECT)
 if (BUILD_SHARED_LIBS)
   set_target_properties(${remora_lib_name} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
+
 include(${PROJECT_SOURCE_DIR}/CMake/BuildREMORAExe.cmake)
+
 build_remora_lib(${remora_lib_name})
+
 if(REMORA_BUILD_EXECUTABLES)
   add_subdirectory(Seamount)
   add_subdirectory(Advection)
