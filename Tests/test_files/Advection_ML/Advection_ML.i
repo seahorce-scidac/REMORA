@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = Advection
+
 remora.max_step = 10
 remora.stop_time = 300000.0
 

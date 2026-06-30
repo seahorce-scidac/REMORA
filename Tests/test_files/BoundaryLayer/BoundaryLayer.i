@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = BoundaryLayer
+
 max_step = 10
 
 remora.omp_tile_size = 1024 1024 1024
