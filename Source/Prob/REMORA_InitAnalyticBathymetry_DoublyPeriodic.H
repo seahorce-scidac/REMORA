@@ -19,8 +19,7 @@
 
       if(!m_solverChoice.flat_bathymetry) {
           Gpu::streamSynchronize();
-          amrex::ParallelFor(gbx2D,
-          [=] AMREX_GPU_DEVICE (int i, int j, int )
+          ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
           {
               Real val1;
               [[maybe_unused]] Real val2;
@@ -45,8 +44,7 @@
           });
       } else { // Flat
           Gpu::streamSynchronize();
-          amrex::ParallelFor(gbx2,
-          [=] AMREX_GPU_DEVICE (int i, int j, int k)
+          ParallelFor(gbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
           {
               h(i,j,0,0) = -geomdata.ProbLo(2);
               if (k==0) {

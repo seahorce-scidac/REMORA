@@ -116,6 +116,9 @@ void Problem::init_analytic_prob(
     std::string my_prob_name; pp.get("prob_name",my_prob_name);
     std::string my_prob_name_ci = amrex::toLower(my_prob_name);
 
+    // Initialize to zero to ensure any otherwise uninitialized tracers are 0
+    mf_cons.setVal(0.0);
+
     // This is currently the only case that does anything but set mf_zeta to 0
     if (my_prob_name_ci == "advection") {
 #include "Prob/REMORA_InitAnalyticProb_Advection.H"
@@ -159,10 +162,10 @@ void Problem::init_analytic_prob(
 }
 
 void Problem::init_analytic_vmix(
-        int /*lev*/,
+        int lev,
         const amrex::Geometry& /*geom*/,
         SolverChoice const& m_solverChoice,
-        REMORA const& /*remora*/,
+        REMORA const& remora,
         MultiFab& mf_Akv, MultiFab& mf_Akt)
 {
     ParmParse pp("remora");
@@ -173,6 +176,40 @@ void Problem::init_analytic_vmix(
          (my_prob_name_ci == "dogboneanalytic") ) {
         mf_Akv.setVal(m_solverChoice.Akv_bak);
         mf_Akt.setVal(m_solverChoice.Akt_bak);
+
+    } else if (my_prob_name_ci == "advection") {
+#include "Prob/REMORA_InitAnalyticVMix_Advection.H"
+
+    } else if (my_prob_name_ci == "boundarylayer") {
+#include "Prob/REMORA_InitAnalyticVMix_BoundaryLayer.H"
+
+    } else if (my_prob_name_ci == "channeltest") {
+#include "Prob/REMORA_InitAnalyticVMix_ChannelTest.H"
+
+    } else if (my_prob_name_ci == "doublegyre") {
+#include "Prob/REMORA_InitAnalyticVMix_DoubleGyre.H"
+
+    } else if (my_prob_name_ci == "doublyperiodic") {
+#include "Prob/REMORA_InitAnalyticVMix_DoublyPeriodic.H"
+
+    } else if (my_prob_name_ci == "idealminigrid") {
+#include "Prob/REMORA_InitAnalyticVMix_IdealMiniGrid.H"
+
+    } else if (my_prob_name_ci == "idealrivgrid") {
+#include "Prob/REMORA_InitAnalyticVMix_IdealRivGrid.H"
+
+    } else if (my_prob_name_ci == "particlesoverseamount") {
+#include "Prob/REMORA_InitAnalyticVMix_ParticlesOverSeamount.H"
+
+    } else if (my_prob_name_ci == "seamount") {
+#include "Prob/REMORA_InitAnalyticVMix_Seamount.H"
+
+    } else if ( (my_prob_name_ci == "upwelling") ||
+                (my_prob_name_ci == "upwellingcoupling") ) {
+#include "Prob/REMORA_InitAnalyticVMix_Upwelling.H"
+
+    } else if (my_prob_name_ci == "upwellingml") {
+#include "Prob/REMORA_InitAnalyticVMix_Upwelling_ML.H"
     }
 
     Gpu::streamSynchronize();
@@ -270,7 +307,6 @@ void Problem::init_analytic_smflux(
 
     } else if (my_prob_name_ci == "particlesoverseamount") {
 #include "Prob/REMORA_InitAnalyticSMFlux_ParticlesOverSeamount.H"
-
     } else if (my_prob_name_ci == "upwelling") {
 #include "Prob/REMORA_InitAnalyticSMFlux_Upwelling.H"
 

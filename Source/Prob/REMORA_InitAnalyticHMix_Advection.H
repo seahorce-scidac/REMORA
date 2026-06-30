@@ -9,7 +9,7 @@
 
       int ncomp = mf_diff2.nComp();
 
-      amrex::ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+      ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
       {
         visc2_p(i,j,0) = 5.0;
         visc2_r(i,j,0) = 5.0;

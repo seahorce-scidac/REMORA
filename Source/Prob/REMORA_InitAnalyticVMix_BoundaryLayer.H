@@ -7,8 +7,7 @@
       Box bx = mfi.tilebox();
       bx.grow(IntVect(NGROW,NGROW,0));
       Gpu::streamSynchronize();
-      amrex::ParallelFor(bx,
-      [=] AMREX_GPU_DEVICE (int i, int j, int k)
+      ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
         Akv(i,j,k) = 2.0e-03_rt+8.0e-03_rt*std::exp(z_w(i,j,k)/150.0_rt);
 

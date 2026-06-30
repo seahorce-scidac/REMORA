@@ -6,8 +6,7 @@
       Array4<Real> const& h  = (mf_h).array(mfi);
 
       Gpu::streamSynchronize();
-      amrex::ParallelFor(Box(h),
-      [=] AMREX_GPU_DEVICE (int i, int j, int k)
+      ParallelFor(Box(h), [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
           h(i,j,0,0) = -geomdata.ProbLo(2);
           if (k==0) {

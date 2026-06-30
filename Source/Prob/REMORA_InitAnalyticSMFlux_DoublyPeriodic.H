@@ -3,6 +3,7 @@
     Real tdays=remora.get_t_old(lev)/Real(24.0*60.0*60.0);
     Real dstart=0.0_rt;
     Real windamp;
+
     //It's possible these should be set to be nonzero only at the boundaries they affect
     if (NSPeriodic) {
         mf_sustr.setVal(0.0_rt);
@@ -24,3 +25,6 @@
     else if(EWPeriodic) {
         mf_svstr.setVal(0.0_rt);
     }
+
+        mf_sustr.setVal(0.0_rt);
+        mf_svstr.setVal(0.0_rt);

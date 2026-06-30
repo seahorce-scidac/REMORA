@@ -10,7 +10,7 @@
       int ncomp = mf_diff2.nComp(); // temperature and salt and tracer
       Gpu::streamSynchronize();
 
-      amrex::ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+      ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
       {
           visc2_p_arr(i,j,0) = 5.0e0;
           visc2_r_arr(i,j,0) = 5.0e0;
