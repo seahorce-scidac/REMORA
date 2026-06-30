@@ -7,7 +7,7 @@
     for (MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box &bx = mfi.tilebox();
-	amrex::Print() << "Box is " << bx << "comparing to khi+1 " << khi+1 << std::endl;
+    amrex::Print() << "Box is " << bx << "comparing to khi+1 " << khi+1 << std::endl;
         AMREX_ALWAYS_ASSERT(bx.length()[2] == khi+1);
 
         Array4<Real> const& state = mf_cons.array(mfi);
