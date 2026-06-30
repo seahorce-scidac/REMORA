@@ -2,7 +2,7 @@
     {
       Array4<Real> const& Akv = (mf_Akv).array(mfi);
       Array4<Real> const& Akt = (mf_Akt).array(mfi);
-      Array4<const Real> const& z_w = remora.vec_z_w[lev]->const_array(mfi);
+      // Array4<const Real> const& z_w = remora.vec_z_w[lev]->const_array(mfi);
       Box bx = mfi.tilebox();
       bx.grow(IntVect(NGROW,NGROW,0));
 
