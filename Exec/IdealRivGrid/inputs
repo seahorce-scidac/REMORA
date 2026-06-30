@@ -1,5 +1,5 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-remora.prob_name = IdealMiniRiv
+remora.prob_name = IdealRivGrid
 
 remora.max_step = 10
 
