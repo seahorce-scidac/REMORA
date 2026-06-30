@@ -25,19 +25,10 @@ DEBUG = TRUE
 TEST = TRUE
 USE_ASSERTION = TRUE
 
-# Enable NETCDF support (required for WRFInput or MetGrid initialization)
-USE_NETCDF = TRUE
+# Enable PNETCDF support
+USE_PNETCDF = TRUE
 
-# Enable FFT Poisson solver
-USE_FFT = TRUE
-
-# Enable NOAH LSM
-USE_NOAHMP = FALSE
-
-# Enable NOAH LSM
-USE_NATIVE_SHOC = FALSE
-
-# Enable particles (required for ParticleTests, MultiSpeciesBubble or inputs_SDM in RICO)  
+# Enable particles
 USE_PARTICLES = TRUE
 
 # GNU Make
