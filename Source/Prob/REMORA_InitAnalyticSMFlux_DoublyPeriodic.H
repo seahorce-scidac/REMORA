@@ -25,6 +25,3 @@
     else if(EWPeriodic) {
         mf_svstr.setVal(0.0_rt);
     }
-
-        mf_sustr.setVal(0.0_rt);
-        mf_svstr.setVal(0.0_rt);
