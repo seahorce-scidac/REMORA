@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = ChannelTest
+
 remora.max_step = 100
 remora.max_step = 0
 

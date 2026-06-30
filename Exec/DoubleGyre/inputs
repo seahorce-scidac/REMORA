@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = DoubleGyre
+
 remora.max_step = 100 #129600
 
 # PROBLEM SIZE & GEOMETRY

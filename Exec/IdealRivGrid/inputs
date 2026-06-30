@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = IdealMiniRiv
+
 remora.max_step = 10
 
 remora.omp_tile_size=8 8 1024
