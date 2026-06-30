@@ -9,7 +9,7 @@
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Akv(i,j,k) = 1.0e-5_rt;
-  
+
             Akt(i,j,k,Temp_comp) = 1.0e-6_rt;
             Akt(i,j,k,Salt_comp) = 1.0e-6_rt;
             Akt(i,j,k,Tracer_comp) = 0.0_rt;
