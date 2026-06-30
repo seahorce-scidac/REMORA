@@ -292,7 +292,7 @@ void Problem::init_analytic_smflux(
         (my_prob_name_ci == "dogboneanalytic") ||
         (my_prob_name_ci == "idealminigrid")   ||
         (my_prob_name_ci == "idealrivgrid")    ||
-        (my_prob_name_ci == "seamount")        || 
+        (my_prob_name_ci == "seamount")        ||
         (my_prob_name_ci == "upwellingcoupling") ) {
         mf_sustr.setVal(0.0);
         mf_svstr.setVal(0.0);
