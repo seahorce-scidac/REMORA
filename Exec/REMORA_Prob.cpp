@@ -292,7 +292,8 @@ void Problem::init_analytic_smflux(
         (my_prob_name_ci == "dogboneanalytic") ||
         (my_prob_name_ci == "idealminigrid")   ||
         (my_prob_name_ci == "idealrivgrid")    ||
-        (my_prob_name_ci == "seamount") ) {
+        (my_prob_name_ci == "seamount")        || 
+        (my_prob_name_ci == "upwellingcoupling") ) {
         mf_sustr.setVal(0.0);
         mf_svstr.setVal(0.0);
 
@@ -309,9 +310,6 @@ void Problem::init_analytic_smflux(
 #include "Prob/REMORA_InitAnalyticSMFlux_ParticlesOverSeamount.H"
     } else if (my_prob_name_ci == "upwelling") {
 #include "Prob/REMORA_InitAnalyticSMFlux_Upwelling.H"
-
-    } else if (my_prob_name_ci == "upwellingcoupling") {
-#include "Prob/REMORA_InitAnalyticSMFlux_UpwellingCoupling.H"
 
     } else if (my_prob_name_ci == "upwellingml") {
 #include "Prob/REMORA_InitAnalyticSMFlux_UpwellingML.H"

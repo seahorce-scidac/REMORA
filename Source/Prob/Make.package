@@ -23,6 +23,13 @@ CEXE_headers += REMORA_InitAnalyticProb_Upwelling_Coupling.H
 CEXE_headers += REMORA_InitAnalyticProb_Upwelling.H
 CEXE_headers += REMORA_InitAnalyticProb_Upwelling_ML.H
 
+CEXE_headers += REMORA_InitAnalyticSMFlux_ChannelTest.H  
+CEXE_headers += REMORA_InitAnalyticSMFlux_DoublyPeriodic.H         
+CEXE_headers += REMORA_InitAnalyticSMFlux_Upwelling.H
+CEXE_headers += REMORA_InitAnalyticSMFlux_DoubleGyre.H   
+CEXE_headers += REMORA_InitAnalyticSMFlux_ParticlesOverSeamount.H  
+CEXE_headers += REMORA_InitAnalyticSMFlux_UpwellingML.H
+
 CEXE_headers += REMORA_InitAnalyticZeta_DogboneAnalytic.H
 
 CEXE_headers += REMORA_InitAnalyticHMix_Advection.H
