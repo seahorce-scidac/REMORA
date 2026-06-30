@@ -220,5 +220,4 @@ REMORA::stretch_transform (int lev)
     // already filled z_phys_nd on the grown boxes, but we enforce periodicity just in case
     vec_z_phys_nd[lev]->FillBoundary(geom[lev].periodicity());
 }
-
 #endif

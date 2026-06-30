@@ -1,4 +1,5 @@
 #include "REMORA_Prob.H"
+#include "REMORA_DepthStretchTransform.H"
 
 using namespace amrex;
 
