@@ -8,6 +8,24 @@ set(FCOMPARE_GOLD_FILES_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/REMORA_Gold_Files)
 #=============================================================================
 # Functions for adding tests / Categories of tests
 #=============================================================================
+function(resolve_test_exe TEST_DIR TEST_EXE OUT_VAR)
+    if(WIN32)
+        # Multi-config generators place binaries in a config subdir.
+        set(${OUT_VAR} "${CMAKE_BINARY_DIR}/Exec/${TEST_DIR}/*/${TEST_EXE}.exe" PARENT_SCOPE)
+    else()
+        set(_exe_in_subdir "${CMAKE_BINARY_DIR}/Exec/${TEST_DIR}/${TEST_EXE}${CMAKE_EXECUTABLE_SUFFIX}")
+        set(_exe_in_root  "${CMAKE_BINARY_DIR}/Exec/${TEST_EXE}${CMAKE_EXECUTABLE_SUFFIX}")
+        if(EXISTS "${_exe_in_subdir}")
+            set(${OUT_VAR} "${_exe_in_subdir}" PARENT_SCOPE)
+        elseif(EXISTS "${_exe_in_root}")
+            set(${OUT_VAR} "${_exe_in_root}" PARENT_SCOPE)
+        else()
+            # Keep the historical path so the error message is still informative.
+            set(${OUT_VAR} "${_exe_in_subdir}" PARENT_SCOPE)
+        endif()
+    endif()
+endfunction()
+
 macro(setup_test)
     set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${TEST_NAME})
     set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
@@ -33,9 +51,11 @@ endmacro(setup_test)
 
 # Standard regression test
 function(add_test_r TEST_NAME TEST_EXE PLTFILE)
+
     setup_test()
 
-    set(TEST_EXE ${CMAKE_BINARY_DIR}/Exec/${TEST_EXE})
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
     set(FCOMPARE_TOLERANCE "-r 1e-11 --abs_tol 1.0e-11")
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${PLOT_GOLD} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
@@ -54,7 +74,8 @@ endfunction(add_test_r)
 function(add_test_r_hitol TEST_NAME TEST_EXE PLTFILE)
     setup_test()
 
-    set(TEST_EXE ${CMAKE_BINARY_DIR}/Exec/${TEST_EXE})
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
     set(FCOMPARE_TOLERANCE "-r 1e-5 --abs_tol 1.0e-5")
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${PLOT_GOLD} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
@@ -74,7 +95,8 @@ endfunction(add_test_r_hitol)
 function(add_test_0 TEST_NAME TEST_EXE PLTFILE)
     setup_test()
 
-    set(TEST_EXE ${CMAKE_BINARY_DIR}/Exec/${TEST_EXE})
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
     set(FCOMPARE_TOLERANCE "-r 1e-14 --abs_tol 1.0e-14")
     set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
     set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i erf.input_sounding_file=${CURRENT_TEST_BINARY_DIR}/input_sounding ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${CURRENT_TEST_BINARY_DIR}/plt00000 ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
@@ -93,7 +115,11 @@ endfunction(add_test_0)
 # Standard unit test
 function(add_test_u TEST_NAME)
     setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
     add_test(${TEST_NAME} sh -c "${MPI_COMMANDS} ${CMAKE_BINARY_DIR}/${amr_wind_unit_test_exe_name}")
+
     set_tests_properties(${TEST_NAME}
         PROPERTIES
         TIMEOUT 500
@@ -112,41 +138,22 @@ endfunction(add_test_u)
 # Regression tests
 #=============================================================================
 
-if(WIN32)
-  add_test_r(DoublyPeriodic               "remora_exe" "plt00010")
-  add_test_r(DoublyPeriodic_bathy         "remora_exe" "plt00010")
-  add_test_r(Seamount                     "remora_exe" "plt00010")
-  add_test_r(Advection                    "remora_exe" "plt00010")
-  add_test_r(Advection_ML                 "remora_exe" "plt00010")
-  add_test_r(Upwelling                    "remora_exe" "plt00010")
-  add_test_r(Upwelling_GLS                "remora_exe" "plt00010")
-  add_test_r(Upwelling_NLEOS              "remora_exe" "plt00010")
-  add_test_r(Upwelling_qdrag              "remora_exe" "plt00010")
-  add_test_r(Upwelling_logdrag            "remora_exe" "plt00010")
-  add_test_r(Channel_Test                 "remora_exe" "plt00010")
-  add_test_r(DoubleGyre                   "remora_exe" "plt00010")
-  add_test_r_hitol(BoundaryLayer          "remora_exe" "plt00010")
-  add_test_r(DogboneAnalytic              "remora_exe" "plt00010")
-  add_test_r(DogboneAnalytic_MLvel        "remora_exe" "plt_ml00010")
-  add_test_r(DogboneAnalytic_MLquad       "remora_exe" "plt_ml_quad00010")
-else()
-  add_test_r(DoublyPeriodic               "remora_exec" "plt00010")
-  add_test_r(DoublyPeriodic_bathy         "remora_exec" "plt00010")
-  add_test_r(Seamount                     "remora_exec" "plt00010")
-  add_test_r(Advection                    "remora_exec" "plt00010")
-  add_test_r(Advection_ML                 "remora_exec" "plt00010")
-  add_test_r(Upwelling                    "remora_exec" "plt00010")
-  add_test_r(Upwelling_GLS                "remora_exec" "plt00010")
-  add_test_r(Upwelling_NLEOS              "remora_exec" "plt00010")
-  add_test_r(Upwelling_qdrag              "remora_exec" "plt00010")
-  add_test_r(Upwelling_logdrag            "remora_exec" "plt00010")
-  add_test_r(Channel_Test                 "remora_exec" "plt00010")
-  add_test_r(DoubleGyre                   "remora_exec" "plt00010")
-  add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
-  add_test_r(DogboneAnalytic              "remora_exec" "plt00010")
-  add_test_r(DogboneAnalytic_MLvel        "remora_exec" "plt_ml00010")
-  add_test_r(DogboneAnalytic_MLquad       "remora_exec" "plt_ml_quad00010")
-endif()
+add_test_r(DoublyPeriodic               "remora_exec" "plt00010")
+add_test_r(DoublyPeriodic_bathy         "remora_exec" "plt00010")
+add_test_r(Seamount                     "remora_exec" "plt00010")
+add_test_r(Advection                    "remora_exec" "plt00010")
+add_test_r(Advection_ML                 "remora_exec" "plt00010")
+add_test_r(Upwelling                    "remora_exec" "plt00010")
+add_test_r(Upwelling_GLS                "remora_exec" "plt00010")
+add_test_r(Upwelling_NLEOS              "remora_exec" "plt00010")
+add_test_r(Upwelling_qdrag              "remora_exec" "plt00010")
+add_test_r(Upwelling_logdrag            "remora_exec" "plt00010")
+add_test_r(Channel_Test                 "remora_exec" "plt00010")
+add_test_r(DoubleGyre                   "remora_exec" "plt00010")
+add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
+add_test_r(DogboneAnalytic              "remora_exec" "plt00010")
+add_test_r(DogboneAnalytic_MLvel        "remora_exec" "plt_ml00010")
+add_test_r(DogboneAnalytic_MLquad       "remora_exec" "plt_ml_quad00010")
 
 #=============================================================================
 # Performance tests
