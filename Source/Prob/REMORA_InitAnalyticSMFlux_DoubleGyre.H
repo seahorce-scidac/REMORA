@@ -16,6 +16,7 @@
         Array4<Real> const& sustr = mf_sustr.array(mfi);
         ParallelFor(xbx2, [=] AMREX_GPU_DEVICE(int i, int j, int /*k*/) noexcept
         {
+            const auto prob_lo = geomdata.ProbLo();
             const auto dx = geomdata.CellSize();
 
             const Real y  = prob_lo[1] + (j + 0.5) * dx[1];// - ycent;
