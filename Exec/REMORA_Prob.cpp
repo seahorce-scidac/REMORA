@@ -261,7 +261,8 @@ void Problem::init_analytic_hmix(
     } else if (my_prob_name_ci == "seamount") {
 #include "Prob/REMORA_InitAnalyticHMix_Seamount.H"
 
-    } else if (my_prob_name_ci == "upwelling") {
+    } else if ( (my_prob_name_ci == "upwelling") ||
+                (my_prob_name_ci == "upwellingcoupling") ) {
 #include "Prob/REMORA_InitAnalyticHMix_Upwelling.H"
 
     } else if (my_prob_name_ci == "upwellingml") {
