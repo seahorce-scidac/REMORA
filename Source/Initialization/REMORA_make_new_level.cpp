@@ -455,12 +455,17 @@ void REMORA::resize_stuff(int lev)
     vec_ubar.resize(lev+1);
     vec_vbar.resize(lev+1);
     vec_zeta.resize(lev+1);
+    vec_zeta_full_domain.resize(hires_init_level+1);
     vec_mskr.resize(lev+1);
     vec_msku.resize(lev+1);
     vec_mskv.resize(lev+1);
     vec_mskp.resize(lev+1);
     vec_mskr3d.resize(lev+1);
     vec_sstore.resize(lev+1);
+
+    vec_cons_full_domain.resize(hires_init_level+1);
+    vec_xvel_full_domain.resize(hires_init_level+1);
+    vec_yvel_full_domain.resize(hires_init_level+1);
 
     vec_pm.resize(lev+1);
     vec_pn.resize(lev+1);
@@ -862,14 +867,22 @@ REMORA::set_zeta_to_Ztavg (int lev)
             Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
             Array4<const Real> const& evap = vec_evap[lev]->const_array(mfi);
             Array4<const Real> const& rain = vec_rain[lev]->const_array(mfi);
+            Array4<const Real> const& EminusP = vec_EminusP[lev]->const_array(mfi);
+            bool use_EminusP_from_file = solverChoice.eminusp && solverChoice.EminusP_from_netcdf;
 
             Box  bx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));// bx2.grow(IntVect(NGROW,NGROW,0));
 
             Real cff = dt[lev] / rhow;
+            Real dt_lev = dt[lev];
 
             ParallelFor(bx2, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Zt_avg1(i,j,0) = Zt_avg1(i,j,0) - (evap(i,j,0) - rain(i,j,0)) * cff;
+                if (use_EminusP_from_file) {
+                    // EminusP is treated as a kinematic freshwater flux (m/s).
+                    Zt_avg1(i,j,0) = Zt_avg1(i,j,0) - EminusP(i,j,0) * dt_lev;
+                } else {
+                    Zt_avg1(i,j,0) = Zt_avg1(i,j,0) - (evap(i,j,0) - rain(i,j,0)) * cff;
+                }
             });
         }
     }

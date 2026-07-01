@@ -89,8 +89,8 @@ They must be set to a list of four conditions in the order West, South, East, No
 - clamped
 - chapman
 - flather
-- orlanski
-- orlanski_nudg
+- orlanski_rad
+- orlanski_rad_nudg
 
 The corresponding ROMS conditions are indicated in the tables below.
 
@@ -214,7 +214,7 @@ state data.
 Nudging options
 ---------------
 
-When using ``orlanski_nudg``, the nudging strength is specified by input parameters. When climatology nudging is turned on, timescales will instead be read from the file specified in ``remora.nc_clim_coeff_file``. ``remora.obcfac`` will still be used.
+When using ``orlanski_rad_nudg``, the nudging strength is specified by input parameters. When climatology nudging is turned on, timescales will instead be read from the file specified in ``remora.nc_clim_coeff_file``. ``remora.obcfac`` will still be used.
 
 +-------------------+-------------------------+-------------------+---------------+
 | Parameter         | Definition              | Acceptable Values | Default       |

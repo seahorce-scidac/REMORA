@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = IdealMiniGrid
+
 remora.max_step = 100
 
 # PROBLEM SIZE & GEOMETRY

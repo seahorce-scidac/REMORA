@@ -1,0 +1,58 @@
+
+CEXE_headers += REMORA_InitAnalyticBathymetry_Advection.H
+CEXE_headers += REMORA_InitAnalyticBathymetry_BoundaryLayer.H
+CEXE_headers += REMORA_InitAnalyticBathymetry_ChannelTest.H
+CEXE_headers += REMORA_InitAnalyticBathymetry_DogboneAnalytic.H
+CEXE_headers += REMORA_InitAnalyticBathymetry_DoublyPeriodic.H
+CEXE_headers += REMORA_InitAnalyticBathymetry_ParticlesOverSeamount.H
+CEXE_headers += REMORA_InitAnalyticBathymetry_Seamount.H
+CEXE_headers += REMORA_InitAnalyticBathymetry_Upwelling_Coupling.H
+CEXE_headers += REMORA_InitAnalyticBathymetry_Upwelling.H
+CEXE_headers += REMORA_InitAnalyticBathymetry_DogboneAnalytic.H
+
+CEXE_headers += REMORA_InitAnalyticProb_Advection.H
+CEXE_headers += REMORA_InitAnalyticProb_BoundaryLayer.H
+CEXE_headers += REMORA_InitAnalyticProb_ChannelTest.H
+CEXE_headers += REMORA_InitAnalyticProb_CoupleToERF.H
+CEXE_headers += REMORA_InitAnalyticProb_DogboneAnalytic.H
+CEXE_headers += REMORA_InitAnalyticProb_DoubleGyre.H
+CEXE_headers += REMORA_InitAnalyticProb_DoublyPeriodic.H
+CEXE_headers += REMORA_InitAnalyticProb_ParticlesOverSeamount.H
+CEXE_headers += REMORA_InitAnalyticProb_Seamount.H
+CEXE_headers += REMORA_InitAnalyticProb_Upwelling_Coupling.H
+CEXE_headers += REMORA_InitAnalyticProb_Upwelling.H
+CEXE_headers += REMORA_InitAnalyticProb_Upwelling_ML.H
+
+CEXE_headers += REMORA_InitAnalyticSMFlux_ChannelTest.H  
+CEXE_headers += REMORA_InitAnalyticSMFlux_DoublyPeriodic.H         
+CEXE_headers += REMORA_InitAnalyticSMFlux_Upwelling.H
+CEXE_headers += REMORA_InitAnalyticSMFlux_DoubleGyre.H   
+CEXE_headers += REMORA_InitAnalyticSMFlux_ParticlesOverSeamount.H  
+CEXE_headers += REMORA_InitAnalyticSMFlux_UpwellingML.H
+
+CEXE_headers += REMORA_InitAnalyticZeta_DogboneAnalytic.H
+
+CEXE_headers += REMORA_InitAnalyticHMix_Advection.H
+CEXE_headers += REMORA_InitAnalyticVMix_Advection.H
+CEXE_headers += REMORA_InitAnalyticHMix_BoundaryLayer.H
+CEXE_headers += REMORA_InitAnalyticVMix_BoundaryLayer.H
+CEXE_headers += REMORA_InitAnalyticHMix_DoubleGyre.H      
+CEXE_headers += REMORA_InitAnalyticVMix_DoubleGyre.H      
+CEXE_headers += REMORA_InitAnalyticHMix_IdealRivGrid.H           
+CEXE_headers += REMORA_InitAnalyticVMix_DoubleGyre.H      
+CEXE_headers += REMORA_InitAnalyticHMix_Upwelling.H
+CEXE_headers += REMORA_InitAnalyticVMix_DoubleGyre.H      
+CEXE_headers += REMORA_InitAnalyticHMix_BoundaryLayer.H  
+CEXE_headers += REMORA_InitAnalyticVMix_BoundaryLayer.H  
+CEXE_headers += REMORA_InitAnalyticHMix_DoublyPeriodic.H  
+CEXE_headers += REMORA_InitAnalyticVMix_DoublyPeriodic.H  
+CEXE_headers += REMORA_InitAnalyticHMix_ParticlesOverSeamount.H  
+CEXE_headers += REMORA_InitAnalyticVMix_ParticlesOverSeamount.H  
+CEXE_headers += REMORA_InitAnalyticHMix_UpwellingML.H
+CEXE_headers += REMORA_InitAnalyticVMix_UpwellingML.H
+CEXE_headers += REMORA_InitAnalyticHMix_ChannelTest.H    
+CEXE_headers += REMORA_InitAnalyticVMix_ChannelTest.H    
+CEXE_headers += REMORA_InitAnalyticHMix_IdealMiniGrid.H   
+CEXE_headers += REMORA_InitAnalyticVMix_IdealMiniGrid.H   
+CEXE_headers += REMORA_InitAnalyticHMix_Seamount.H
+CEXE_headers += REMORA_InitAnalyticVMix_IdealMiniGrid.H   

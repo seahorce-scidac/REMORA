@@ -60,6 +60,30 @@ namespace BdyVars {
     };
 }
 
+/**
+ * \brief Index constants for driver_atmos_state_from_driver and the
+ *        matching atmospheric forcing MultiFab vector passed to
+ *        REMORA::ApplyAtmosphericStates.
+ *
+ * Order mirrors AtmosToOceanIndex (state lanes 0-8) from
+ * ERFRemoraCouplingContract.H; Pair uses REMORA's internal naming
+ * convention rather than the contract's Patm.
+ */
+namespace AtmosState {
+    enum {
+        Uwind = 0, ///< 10-m zonal wind [m/s]
+        Vwind,     ///< 10-m meridional wind [m/s]
+        Pair,      ///< atmospheric pressure [Pa from driver, mb in REMORA]
+        Qair,      ///< specific humidity [kg/kg]
+        Tair,      ///< air temperature [K from driver, degC in REMORA]
+        Cloud,     ///< cloud fraction [0-1]
+        Rain,      ///< precipitation rate [kg/m^2/s]
+        SWrad,     ///< downward shortwave radiation [W/m^2]
+        LWrad,     ///< downward longwave radiation [W/m^2]
+        NumTypes
+    };
+}
+
 enum struct REMORA_BC {
     symmetry, inflow, outflow, no_slip_wall, slip_wall, periodic,
     clamped, chapman, flather, orlanski_rad, orlanski_rad_nudge, undefined

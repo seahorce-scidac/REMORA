@@ -57,25 +57,20 @@ function(build_remora_lib remora_lib_name)
   target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_FUNWAVE_FORT)
   endif()
 
-  # In library-only superbuild mode there is no Exec/prob.cpp translation unit
-  # to instantiate these out-of-line member definitions.
-  if(NOT REMORA_BUILD_EXECUTABLES)
+  if((NOT REMORA_BUILD_EXECUTABLES) OR REMORA_BUILD_LIBRARY_ONLY)
+    # In library-only superbuild mode, archive extraction + weak amrex_probinit
+    # requires a forced reference path (see REMORA.cpp/REMORA_Prob.cpp link anchor).
     # Avoid cross-application symbol collision when REMORA and ERF are linked
     # into one parent executable by forcing explicit REMORA-prefixed names.
     target_compile_definitions(${remora_lib_name} PRIVATE
+                   ERF_REMORA_FORCE_PROBINIT_LINK=1
                    amrex_probinit=remora_probinit)
     target_compile_definitions(${remora_lib_name} PRIVATE
                    Problem=REMORAProblem
                    ProblemBase=REMORAProblemBase
                    SolverChoice=REMORASolverChoice)
-    set(remora_library_prob "${PROJECT_SOURCE_DIR}/Exec/${REMORA_LIBRARY_PROBLEM}/prob.cpp")
-    if(NOT EXISTS "${remora_library_prob}")
-      message(FATAL_ERROR
-              "REMORA library mode requested REMORA_LIBRARY_PROBLEM='${REMORA_LIBRARY_PROBLEM}', "
-              "but '${remora_library_prob}' does not exist.")
-    endif()
     target_sources(${remora_lib_name} PRIVATE
-                   ${remora_library_prob})
+                   ${PROJECT_SOURCE_DIR}/Exec/REMORA_Prob.cpp)
   endif()
 
   # Coupling source is present only on coupling branches.

@@ -1,0 +1,14 @@
+version: 2
+
+updates:
+  - package-ecosystem: gitsubmodule
+    schedule:
+        interval: "monthly"
+    directory: /
+    allow:
+      - dependency-name: "Submodules/AMReX"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "development"

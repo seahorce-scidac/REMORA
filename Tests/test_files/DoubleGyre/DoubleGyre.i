@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = DoubleGyre
+
 remora.max_step = 10
 
 amrex.fpe_trap_invalid = 1

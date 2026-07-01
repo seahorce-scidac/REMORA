@@ -54,6 +54,8 @@ source_suffix = '.rst'
 # The master toctree document.
 master_doc = 'index'
 
+linkcheck_ignore = ['https://www.myroms.org/']
+
 # General information about the project.
 project   = u'REMORA'
 copyright = u' '

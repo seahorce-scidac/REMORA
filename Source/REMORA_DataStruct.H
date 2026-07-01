@@ -248,11 +248,23 @@ struct SolverChoice {
             amrex::Warning("remora.longwave_netcdf_varname is set but remora.longwave_down_from_netcdf is false; the value will be ignored.");
         }
 
-        if (eminusp_correct_ssh and !eminusp) {
-            amrex::Abort("If evaporation minus precipitation (E-P) sea surface height correct in is on, E-P must be on as well (remora.eminusp=true)");
+        if (eminusp_correct_ssh and !bulk_fluxes) {
+            amrex::Abort("If evaporation minus precipitation (E-P) sea surface height correction is on, bulk fluxes must be on as well (remora.bulk_fluxes=true)");
         }
         if (eminusp and !bulk_fluxes) {
             amrex::Abort("Evaporation minus precipitation (E-P) requires bulk flux parametrizations (remora.bulk_fluxes=true)");
+        }
+
+        {
+            static bool printed_ep_source = false;
+            if (!printed_ep_source) {
+                printed_ep_source = true;
+                if (bulk_fluxes && eminusp && EminusP_from_netcdf) {
+                    amrex::Print() << "[REMORA] Active E-P source: NetCDF EminusP (remora.EminusP_from_netcdf=true).\n";
+                } else {
+                    amrex::Print() << "[REMORA] Active E-P source: bulk evap-rain diagnostic.\n";
+                }
+            }
         }
 
         //Read in linear eos parameters

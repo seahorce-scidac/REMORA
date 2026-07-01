@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = DoublyPeriodic
+
 remora.max_step = 10
 remora.stop_time = 30000.0
 

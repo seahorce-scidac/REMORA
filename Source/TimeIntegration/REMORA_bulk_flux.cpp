@@ -65,6 +65,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<const Real> const& msku  = vec_msku[lev]->const_array(mfi);
         Array4<const Real> const& mskv  = vec_mskv[lev]->const_array(mfi);
         Array4<const Real> const& rain  = vec_rain[lev]->const_array(mfi);
+        Array4<const Real> const& EminusP = vec_EminusP[lev]->const_array(mfi);
         Array4<const Real> const& cloud_arr = vec_cloud[lev]->const_array(mfi);
 
         Real Hscale = solverChoice.rho0 * Cp;
@@ -76,6 +77,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         bool use_longwave_down = solverChoice.longwave_down;
         bool longwave_netcdf_is_net = solverChoice.longwave_netcdf_is_net;
         bool have_longwave_from_file = (mf_longwave_down != nullptr);
+        bool use_EminusP_from_file = solverChoice.eminusp && solverChoice.EminusP_from_netcdf;
 
         Real eps = 1e-20_rt;
 
@@ -389,7 +391,12 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             // Note: srflx from NetCDF is in W/m², convert to degC m/s by multiplying by Hscale2
             stflux(i,j,0,Temp_comp)=(srflux*Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
             evap(i,j,0) = (LHeat / Hlv+eps) * mskr(i,j,0);
-            stflux(i,j,0,Salt_comp) = mskr(i,j,0) * (evap(i,j,0)-rain(i,j,0)) / rhow;
+            if (use_EminusP_from_file) {
+                // Match ROMS BULK_FLUXES + !EMINUSP behavior: use NetCDF E-P directly (m/s).
+                stflux(i,j,0,Salt_comp) = mskr(i,j,0) * EminusP(i,j,0);
+            } else {
+                stflux(i,j,0,Salt_comp) = mskr(i,j,0) * (evap(i,j,0)-rain(i,j,0)) / rhow;
+            }
         });
 
         Real cff_rho = 0.5_rt / solverChoice.rho0;

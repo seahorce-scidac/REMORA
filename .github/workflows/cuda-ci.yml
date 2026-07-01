@@ -21,10 +21,10 @@ jobs:
             cuda_pkg: 12-6
     steps:
       - name: Cancel previous runs
-        uses: styfle/cancel-workflow-action@0.6.0
+        uses: styfle/cancel-workflow-action@0.13.1
         with:
           access_token: ${{github.token}}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
       - name: Free up disk space
@@ -34,7 +34,7 @@ jobs:
       - name: Install CCache
         run: Submodules/AMReX/.github/workflows/dependencies/dependencies_ccache.sh
       - name: Set Up Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ccache
           key: ccache-${{ github.workflow }}-${{ github.job }}-git-${{ github.sha }}

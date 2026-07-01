@@ -29,8 +29,7 @@ public:
         REMORA const& /*remora*/,
         amrex::MultiFab& /*mf_cons*/,
         amrex::MultiFab& /*mf_xvel*/,
-        amrex::MultiFab& /*mf_yvel*/,
-        amrex::MultiFab& /*mf_zvel*/) {
+        amrex::MultiFab& /*mf_yvel*/) {
           amrex::Error("Initialization set to analytic but init_analytic_prob not defined in prob.cpp");
     }
 
