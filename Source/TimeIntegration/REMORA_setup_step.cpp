@@ -464,6 +464,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             coriolis(xbx, ybx, uold, vold, ru, rv, Hz, fomn, nrhs, nrhs);
         }
 
+        if (solverChoice.use_curvilinear_grid) {
+            Array4<Real const> const& dndx = vec_dndx[lev]->const_array(mfi);
+            Array4<Real const> const& dmde = vec_dmde[lev]->const_array(mfi);
+            curvilinear(bx, xbx, ybx, uold, vold, ru, rv, Hz, dndx, dmde, nrhs, nrhs);
+        }
+
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_m3_clim_nudg) {
             Array4<const Real> const& uclim = u_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);

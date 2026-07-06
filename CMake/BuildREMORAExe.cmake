@@ -114,6 +114,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/TimeIntegration/REMORA_advance_3d_ml.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_apply_clim_nudg.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_bulk_flux.cpp
+       ${SRC_DIR}/TimeIntegration/REMORA_curvilinear.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_setup_step.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_rho_eos.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_gls.cpp

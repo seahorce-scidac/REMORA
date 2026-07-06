@@ -203,6 +203,9 @@ public:
     /** \brief Set x/y coords on level lev based on pm and pn */
     void set_grid_coords_from_grid_scale (int lev);
 
+    /** \brief Set curvilinear derivative terms on level lev based on pm and pn */
+    void set_curvilinear_terms_from_grid_scale (int lev);
+
     /** \brief Set pm/pn by averaging down from higher-resolution grid */
     void set_grid_vars_averaged_down (int lev);
 
@@ -475,7 +478,6 @@ public:
     /** \brief horizontal scaling factor: 1 / dy (2D) on whole domain */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn_full_domain;
 
-
     /** \brief coriolis factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_fcor;
 
@@ -498,6 +500,11 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xp;
     /** \brief y_grid on psi-points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yp;
+
+    /** \brief d(1/n)/d(xi) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_dndx;
+    /** \brief d(1/m)/d(eta) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_dmde;
 
     /** \brief additional scratch space for calculations on temp, salt, etc */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sstore;
@@ -920,6 +927,19 @@ public:
                    const amrex::Array4<amrex::Real const>& fomn,
                    int nrhs, int nr);
 
+    /** \brief Calculate curvilinear advection terms */
+    void curvilinear (const amrex::Box& bx,
+                   const amrex::Box& xbx,
+                   const amrex::Box& ybx,
+                   const amrex::Array4<amrex::Real const>& uold,
+                   const amrex::Array4<amrex::Real const>& vold,
+                   const amrex::Array4<amrex::Real      >& ru,
+                   const amrex::Array4<amrex::Real      >& rv,
+                   const amrex::Array4<amrex::Real const>& Hz,
+                   const amrex::Array4<amrex::Real const>& dndx,
+                   const amrex::Array4<amrex::Real const>& dmde,
+                   int nrhs, int nr);
+
     /** \brief Apply climatology nudging */
     void apply_clim_nudg (const amrex::Box& bx,
                    int ioff, int joff,
@@ -1105,10 +1125,15 @@ public:
     void init_bathymetry_from_netcdf (int lev);
     /** \brief Full domain high-res bathymetry data initialization from NetCDF file */
     void init_bathymetry_full_domain_from_netcdf ();
+
     /** \brief Grid variable initialization from NetCDF file */
     void init_grid_vars_from_netcdf (int lev);
     /** \brief Full domain high-res grid variable initialization from NetCDF file */
     void init_grid_vars_full_domain_from_netcdf ();
+
+    /** \brief Extrapolate grid metrics to edge of MultiFab */
+    void extrapolate_metric_to_physical_boundaries(amrex::MultiFab& mf, const amrex::Geometry& geom);
+
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);
     /** \brief Full-domain high res sea-surface height data initialization from NetCDF file */

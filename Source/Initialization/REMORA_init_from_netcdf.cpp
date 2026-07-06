@@ -391,53 +391,10 @@ REMORA::init_grid_vars_from_netcdf (int lev)
     vec_xp[lev]->FillBoundary(geom[lev].periodicity());
     vec_yp[lev]->FillBoundary(geom[lev].periodicity());
 
-    for ( MFIter mfi(*vec_pm[lev]); mfi.isValid(); ++mfi )
-    {
-        Box bx   = mfi.tilebox();
-
-        auto pm_fab = vec_pm[lev]->array(mfi);
-        auto pn_fab = vec_pn[lev]->array(mfi);
-
-        Box gbx_lox = adjCellLo(bx,0,ng); gbx_lox.grow(1,ng); gbx_lox.setBig  (0,dom_lo.x-2);
-        Box gbx_hix = adjCellHi(bx,0,ng); gbx_hix.grow(1,ng); gbx_hix.setSmall(0,dom_hi.x+2);
-        Box gbx_loy = adjCellLo(bx,1,ng); gbx_loy.grow(0,ng); gbx_loy.setBig  (1,dom_lo.y-2);
-        Box gbx_hiy = adjCellHi(bx,1,ng); gbx_hiy.grow(0,ng); gbx_hiy.setSmall(1,dom_hi.y+2);
-
-        // if (gbx_lox.ok()) amrex::AllPrint() << "GBX_XLO " << gbx_lox << std::endl;
-        // if (gbx_hix.ok()) amrex::AllPrint() << "GBX_XHI " << gbx_hix << std::endl;
-        // if (gbx_loy.ok()) amrex::AllPrint() << "GBX_YLO " << gbx_loy << std::endl;
-        // if (gbx_hiy.ok()) amrex::AllPrint() << "GBX_YHI " << gbx_hiy << std::endl;
-
-        if (gbx_lox.ok()) {
-            ParallelFor(gbx_lox, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                pm_fab(i,j,k,0) = pm_fab(dom_lo.x-1,j,k,0);
-                pn_fab(i,j,k,0) = pn_fab(dom_lo.x-1,j,k,0);
-            });
-        }
-        if (gbx_hix.ok()) {
-            ParallelFor(gbx_hix, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                pm_fab(i,j,k,0) = pm_fab(dom_hi.x+1,j,k,0);
-                pn_fab(i,j,k,0) = pn_fab(dom_hi.x+1,j,k,0);
-            });
-        }
-        if (gbx_loy.ok()) {
-            ParallelFor(gbx_loy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                pm_fab(i,j,k,0) = pm_fab(i,dom_lo.y-1,k,0);
-                pn_fab(i,j,k,0) = pn_fab(i,dom_lo.y-1,k,0);
-            });
-        }
-        if (gbx_hiy.ok()) {
-            ParallelFor(gbx_hiy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                pm_fab(i,j,k,0) = pm_fab(i,dom_hi.y+1,k,0);
-                pn_fab(i,j,k,0) = pn_fab(i,dom_hi.y+1,k,0);
-            });
-        }
-    } // mfi
+    extrapolate_metric_to_physical_boundaries(*vec_pm[lev], geom[lev]);
+    extrapolate_metric_to_physical_boundaries(*vec_pn[lev], geom[lev]);
 }
+
 /**
  * @param lev Integer specifying the current level
  */
@@ -851,58 +808,59 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
     }
 
     for (int lev=0; lev<=hires_grid_level; lev++) {
-        int ng = vec_pm_full_domain[lev]->nGrow();
-
-        const auto& dom_lo = amrex::lbound(geom[lev].Domain());
-        const auto& dom_hi = amrex::ubound(geom[lev].Domain());
-
-        for ( MFIter mfi(*vec_pm_full_domain[lev]); mfi.isValid(); ++mfi )
-        {
-            Box bx   = mfi.tilebox();
-
-            auto pm_fab = vec_pm_full_domain[lev]->array(mfi);
-            auto pn_fab = vec_pn_full_domain[lev]->array(mfi);
-
-            Box gbx_lox = adjCellLo(bx,0,ng); gbx_lox.grow(1,ng); gbx_lox.setBig  (0,dom_lo.x-2);
-            Box gbx_hix = adjCellHi(bx,0,ng); gbx_hix.grow(1,ng); gbx_hix.setSmall(0,dom_hi.x+2);
-            Box gbx_loy = adjCellLo(bx,1,ng); gbx_loy.grow(0,ng); gbx_loy.setBig  (1,dom_lo.y-2);
-            Box gbx_hiy = adjCellHi(bx,1,ng); gbx_hiy.grow(0,ng); gbx_hiy.setSmall(1,dom_hi.y+2);
-
-            // if (gbx_lox.ok()) amrex::AllPrint() << "GBX_XLO " << gbx_lox << std::endl;
-            // if (gbx_hix.ok()) amrex::AllPrint() << "GBX_XHI " << gbx_hix << std::endl;
-            // if (gbx_loy.ok()) amrex::AllPrint() << "GBX_YLO " << gbx_loy << std::endl;
-            // if (gbx_hiy.ok()) amrex::AllPrint() << "GBX_YHI " << gbx_hiy << std::endl;
-
-            if (gbx_lox.ok()) {
-                ParallelFor(gbx_lox, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                {
-                    pm_fab(i,j,k,0) = pm_fab(dom_lo.x-1,j,k,0);
-                    pn_fab(i,j,k,0) = pn_fab(dom_lo.x-1,j,k,0);
-                });
-            }
-            if (gbx_hix.ok()) {
-                ParallelFor(gbx_hix, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                {
-                    pm_fab(i,j,k,0) = pm_fab(dom_hi.x+1,j,k,0);
-                    pn_fab(i,j,k,0) = pn_fab(dom_hi.x+1,j,k,0);
-                });
-            }
-            if (gbx_loy.ok()) {
-                ParallelFor(gbx_loy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                {
-                    pm_fab(i,j,k,0) = pm_fab(i,dom_lo.y-1,k,0);
-                    pn_fab(i,j,k,0) = pn_fab(i,dom_lo.y-1,k,0);
-                });
-            }
-            if (gbx_hiy.ok()) {
-                ParallelFor(gbx_hiy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-                {
-                    pm_fab(i,j,k,0) = pm_fab(i,dom_hi.y+1,k,0);
-                    pn_fab(i,j,k,0) = pn_fab(i,dom_hi.y+1,k,0);
-                });
-            }
-        } // mfi
+        extrapolate_metric_to_physical_boundaries(*vec_pm_full_domain[lev], geom[lev]);
+        extrapolate_metric_to_physical_boundaries(*vec_pn_full_domain[lev], geom[lev]);
     }
+}
+
+/**
+ * @param[inout] mf    multifab of data to extrapolate on
+ * @param[in   ] geom  geometry
+ */
+void
+REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry& geom)
+{
+    const IntVect ng = mf.nGrowVect();
+
+    const auto& dom_lo = amrex::lbound(geom.Domain());
+    const auto& dom_hi = amrex::ubound(geom.Domain());
+
+    for ( MFIter mfi(mf); mfi.isValid(); ++mfi )
+    {
+        Box bx = mfi.tilebox();
+
+        auto mf_arr = mf.array(mfi);
+
+        Box gbx_lox = adjCellLo(bx,0,ng[0]); gbx_lox.grow(1,ng[1]); gbx_lox.setBig  (0,dom_lo.x-2);
+        Box gbx_hix = adjCellHi(bx,0,ng[0]); gbx_hix.grow(1,ng[1]); gbx_hix.setSmall(0,dom_hi.x+2);
+        Box gbx_loy = adjCellLo(bx,1,ng[1]); gbx_loy.grow(0,ng[0]); gbx_loy.setBig  (1,dom_lo.y-2);
+        Box gbx_hiy = adjCellHi(bx,1,ng[1]); gbx_hiy.grow(0,ng[0]); gbx_hiy.setSmall(1,dom_hi.y+2);
+
+        if (gbx_lox.ok()) {
+            ParallelFor(gbx_lox, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                mf_arr(i,j,k,0) = mf_arr(dom_lo.x-1,j,k,0);
+            });
+        }
+        if (gbx_hix.ok()) {
+            ParallelFor(gbx_hix, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                mf_arr(i,j,k,0) = mf_arr(dom_hi.x+1,j,k,0);
+            });
+        }
+        if (gbx_loy.ok()) {
+            ParallelFor(gbx_loy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                mf_arr(i,j,k,0) = mf_arr(i,dom_lo.y-1,k,0);
+            });
+        }
+        if (gbx_hiy.ok()) {
+            ParallelFor(gbx_hiy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                mf_arr(i,j,k,0) = mf_arr(i,dom_hi.y+1,k,0);
+            });
+        }
+    } // mfi
 }
 
 #endif // REMORA_USE_NETCDF
