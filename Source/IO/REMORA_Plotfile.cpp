@@ -50,6 +50,17 @@ REMORA::WritePlotFile (int istep_for_plot)
                  ncomp_mf_2d_rho++;
              }
          }
+         for (int n = 0; n < ncons; ++n) {
+             const std::string stflux_name = std::string("stflux_") + cons_names[n];
+             if (plot_name == stflux_name) {
+                 varnames_2d_rho.push_back(plot_name);
+                 ncomp_mf_2d_rho++;
+             }
+         }
+         if (plot_name == "lrflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "lhflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "srflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "shflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
@@ -163,88 +174,125 @@ REMORA::WritePlotFile (int istep_for_plot)
     int icomp_rho = 0;
     for (auto plot_name : varnames_2d_rho)
     {
-         if (plot_name == "zeta" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_Zt_avg1[lev],0,icomp_rho,1,0); }
-             icomp_rho++;
-         }
-         if (plot_name == "h" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); }
-             icomp_rho++;
-         }
-         if (plot_name == "f" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_fcor[lev],0,icomp_rho,1,0); }
-             icomp_rho++;
-         }
-         if (plot_name == "visc2" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) {
-                 if (vec_visc2_r[lev]->contains_nan(0, 1, 0, true) || vec_visc2_r[lev]->contains_inf(0, 1, 0, true)) {
-                     amrex::Abort("Found while writing output: visc2 contains nan or inf");
-                 }
-                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                     const Box& bx = mfi.validbox();
-                     const int K = mfi.index();
-                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
-                     auto src = vec_visc2_r[lev]->const_array(K);
-                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+        if (plot_name == "zeta" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_Zt_avg1[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "h" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "f" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_fcor[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "visc2" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) {
+                if (vec_visc2_r[lev]->contains_nan(0, 1, 0, true) || vec_visc2_r[lev]->contains_inf(0, 1, 0, true)) {
+                    amrex::Abort("Found while writing output: visc2 contains nan or inf");
+                }
+                for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                    const Box& bx = mfi.validbox();
+                    const int K = mfi.index();
+                    auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                    auto src = vec_visc2_r[lev]->const_array(K);
+                    ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
                         dst(i,j,0) = src(i,j,0);
-                    });
-                 }
-             }
-             icomp_rho++;
-         }
-         for (int n = 0; n < ncons; ++n) {
-             const std::string diff2_name = std::string("diff2_") + cons_names[n];
-             if (plot_name == diff2_name) {
-                 for (int lev = 0; lev <= finest_level; ++lev) {
-                     for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                         const Box& bx = mfi.validbox();
-                         const int K = mfi.index();
-                         auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
-                         auto src = vec_diff2[lev]->const_array(K);
-                         ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
-                             dst(i,j,0) = src(i,j,0,n);
-                         });
-                     }
-                 }
-                 icomp_rho++;
-             }
-         }
+                   });
+                }
+            }
+            icomp_rho++;
+        }
+        for (int n = 0; n < ncons; ++n) {
+            const std::string diff2_name = std::string("diff2_") + cons_names[n];
+            if (plot_name == diff2_name) {
+                for (int lev = 0; lev <= finest_level; ++lev) {
+                    for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                        const Box& bx = mfi.validbox();
+                        const int K = mfi.index();
+                        auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                        auto src = vec_diff2[lev]->const_array(K);
+                        ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                            dst(i,j,0) = src(i,j,0,n);
+                        });
+                    }
+                }
+                icomp_rho++;
+            }
+        }
+        for (int n = 0; n < ncons; ++n) {
+            const std::string stflux_name = std::string("stflux_") + cons_names[n];
+            if (plot_name == stflux_name) {
+                for (int lev = 0; lev <= finest_level; ++lev) {
+                    MultiFab::Copy(mf_2d_rho[lev],*vec_stflux[lev],n,icomp_rho,1,0);
+                }
+                icomp_rho++;
+            }
+        }
+        if (plot_name == "lrflux" ) {
+            if (!solverChoice.bulk_fluxes) {
+                amrex::Abort("Attempting to write longwave radiation flux to plotfile. Variable not allocated when bulk_fluxes turned off");
+            }
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_lrflx[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "lhflux" ) {
+            if (!solverChoice.bulk_fluxes) {
+                amrex::Abort("Attempting to write latent heat flux to plotfile. Variable not allocated when bulk_fluxes turned off");
+            }
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_lhflx[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "srflux" ) {
+            if (!solverChoice.bulk_fluxes) {
+                amrex::Abort("Attempting to write shortwave radiation flux to plotfile. Variable not allocated when bulk_fluxes turned off");
+            }
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_srflx[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "shflux" ) {
+            if (!solverChoice.bulk_fluxes) {
+                amrex::Abort("Attempting to write sensible heat flux to plotfile. Variable not allocated when bulk_fluxes turned off");
+            }
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_shflx[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
     }
 
     int icomp_u   = 0;
     for (auto plot_name : varnames_2d_u)
     {
-         if (plot_name == "ubar" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) {
-                 MultiFab::Copy(mf_2d_u[lev],*vec_DU_avg1[lev],0,icomp_u,1,0);
-             }
-             icomp_u++;
-         }
-         if (plot_name == "sustr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_sustr[lev],0,icomp_u,1,0); }
-             icomp_u++;
-         }
-         if (plot_name == "bustr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_bustr[lev],0,icomp_u,1,0); }
-             icomp_u++;
-         }
+        if (plot_name == "ubar" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) {
+                MultiFab::Copy(mf_2d_u[lev],*vec_DU_avg1[lev],0,icomp_u,1,0);
+            }
+            icomp_u++;
+        }
+        if (plot_name == "sustr" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_sustr[lev],0,icomp_u,1,0); }
+            icomp_u++;
+        }
+        if (plot_name == "bustr" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_bustr[lev],0,icomp_u,1,0); }
+            icomp_u++;
+        }
     }
 
     int icomp_v   = 0;
     for (auto plot_name : varnames_2d_v)
     {
-         if (plot_name == "vbar" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_DV_avg1[lev],0,icomp_v,1,0); }
-             icomp_v++;
-         }
-         if (plot_name == "svstr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_svstr[lev],0,icomp_v,1,0); }
-             icomp_v++;
-         }
-         if (plot_name == "bvstr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_bvstr[lev],0,icomp_v,1,0); }
-             icomp_v++;
-         }
+        if (plot_name == "vbar" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_DV_avg1[lev],0,icomp_v,1,0); }
+            icomp_v++;
+        }
+        if (plot_name == "svstr" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_svstr[lev],0,icomp_v,1,0); }
+            icomp_v++;
+        }
+        if (plot_name == "bvstr" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_bvstr[lev],0,icomp_v,1,0); }
+            icomp_v++;
+        }
     }
 
     for (int lev = 0; lev <= finest_level; ++lev)
