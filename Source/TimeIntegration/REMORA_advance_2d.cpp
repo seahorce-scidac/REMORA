@@ -562,6 +562,13 @@ REMORA::advance_2d (int lev,
             //
             coriolis(xbxD, ybxD, ubar_const, vbar_const, rhs_ubar, rhs_vbar, Drhs, fomn, krhs, 0);
         }
+
+        if (solverChoice.use_curvilinear_grid) {
+            Array4<Real const> const& dndx = vec_dndx[lev]->const_array(mfi);
+            Array4<Real const> const& dmde = vec_dmde[lev]->const_array(mfi);
+            curvilinear(bxD, xbxD, ybxD, ubar_const, vbar_const, rhs_ubar, rhs_vbar, Drhs, dndx, dmde, krhs, 0);
+        }
+
         //-----------------------------------------------------------------------
         //Add in horizontal harmonic viscosity.
         // Consider generalizing or copying uv3dmix, where Drhs is used instead of Hz and u=>ubar v=>vbar, drop dt terms

@@ -482,6 +482,9 @@ void REMORA::resize_stuff(int lev)
     vec_xp.resize(lev+1);
     vec_yp.resize(lev+1);
 
+    vec_dndx.resize(lev+1);
+    vec_dmde.resize(lev+1);
+
     vec_rhoS.resize(lev+1);
     vec_rhoA.resize(lev+1);
     vec_bvf.resize(lev+1);
@@ -633,6 +636,10 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_xp[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
     vec_yp[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
+    if (solverChoice.use_curvilinear_grid) {
+        vec_dndx[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+        vec_dmde[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    }
 
     // tempstore, saltstore, etc
     vec_sstore[lev].reset(new MultiFab(ba,dm,ncons,IntVect(NGROW,NGROW,0)));
@@ -805,6 +812,9 @@ REMORA::set_grid_scale (int lev)
         }
 #endif
     }
+    if (solverChoice.use_curvilinear_grid) {
+        set_curvilinear_terms_from_grid_scale(lev);
+    }
 }
 
 /**
@@ -848,6 +858,27 @@ REMORA::set_grid_coords_from_grid_scale (int lev) {
         {
             xp(i,j,0) = i / pm(i,j,0);
             yp(i,j,0) = j / pn(i,j,0);
+        });
+    }
+}
+
+/**
+ * @param[in   ]lev   level to operate on
+ */
+void
+REMORA::set_curvilinear_terms_from_grid_scale (int lev) {
+    for ( MFIter mfi(*vec_dndx[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<const Real> const& pm = vec_pm[lev]->const_array(mfi);
+        Array4<const Real> const& pn = vec_pn[lev]->const_array(mfi);
+        Array4<Real> const& dndx = vec_dndx[lev]->array(mfi);
+        Array4<Real> const& dmde = vec_dmde[lev]->array(mfi);
+
+        Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            dndx(i,j,0) = 0.5_rt * (1.0_rt / pn(i+1,j  ,0) - 1.0_rt / pn(i-1,j  ,0));
+            dmde(i,j,0) = 0.5_rt * (1.0_rt / pm(i  ,j+1,0) - 1.0_rt / pn(i  ,j-1,0));
         });
     }
 }

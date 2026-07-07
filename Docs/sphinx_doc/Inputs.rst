@@ -627,6 +627,10 @@ List of Parameters
 +----------------------------------+-----------------------------+-------------------+-------------+
 | **remora.flat_bathymetry**       | Use flat bathymetry.        | true / false      | false       |
 +----------------------------------+-----------------------------+-------------------+-------------+
+| **remora.use_curvilinear_grid**  | Add curvilinear grid terms  | true / false      | false       |
+|                                  |                             |                   |             |
+|                                  | for advection               |                   |             |
++----------------------------------+-----------------------------+-------------------+-------------+
 | **remora.use_prestep**           | Do prestep terms. Only for  |  true / false     | true        |
 |                                  |                             |                   |             |
 |                                  | debugging purposes.         |                   |             |
@@ -768,7 +772,9 @@ List of Parameters
 |                                          | ``horizontal_mixing_type`` is          |                        |                |
 |                                          |                                        |                        |                |
 |                                          | ``constant`` or ``scaled_to_grid``     |                        |                |
+|                                          |                                        |                        |                |
 |                                          | (in this case, it is the maximum       |                        |                |
+|                                          |                                        |                        |                |
 |                                          | viscosity over the domain).            |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.tnu2_salt**                     | Constant horizontal diffusivity,       | Real number            | 0.0            |
@@ -780,7 +786,9 @@ List of Parameters
 |                                          | ``horizontal_mixing_type`` is          |                        |                |
 |                                          |                                        |                        |                |
 |                                          | ``constant`` or ``scaled_to_grid``     |                        |                |
+|                                          |                                        |                        |                |
 |                                          | (in this case, it is the maximum       |                        |                |
+|                                          |                                        |                        |                |
 |                                          | salt diffusivity over the domain).     |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.tnu2_temp**                     | Constant horizontal diffusivity,       | Real number            | 0.0            |
@@ -792,12 +800,17 @@ List of Parameters
 |                                          | ``horizontal_mixing_type``             |                        |                |
 |                                          |                                        |                        |                |
 |                                          | is ``constant`` or ``scaled_to_grid``  |                        |                |
+|                                          |                                        |                        |                |
 |                                          | (in this case, it is the maximum       |                        |                |
+|                                          |                                        |                        |                |
 |                                          | temperature diffusivity over the       |                        |                |
+|                                          |                                        |                        |                |
 |                                          | domain).                               |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.nscalar**                       | Number of passive scalars              | Integer >= 1           | 1              |
+|                                          |                                        |                        |                |
 |                                          | in addition to temperature             |                        |                |
+|                                          |                                        |                        |                |
 |                                          | and salinity.                          |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.tnu2_scalar**                   | Constant horizontal diffusivity,       | Real number            | 0.0            |
@@ -809,7 +822,9 @@ List of Parameters
 |                                          | ``horizontal_mixing_type``             |                        |                |
 |                                          |                                        |                        |                |
 |                                          | is ``constant`` or ``scaled_to_grid``  |                        |                |
+|                                          |                                        |                        |                |
 |                                          | (in this case, it is the maximum       |                        |                |
+|                                          |                                        |                        |                |
 |                                          | scalar diffusivity over the domain).   |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.harmonic_mixing_type**          | Whether harmonic mixing (tracers)      | ``s`` /                | ``s``          |

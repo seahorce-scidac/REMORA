@@ -147,6 +147,8 @@ struct SolverChoice {
         //This accounts for the main 2d loop but may not include coupling and copying properly
         pp.queryAdd("use_barotropic", use_barotropic);
 
+        pp.queryAdd("use_curvilinear_grid", use_curvilinear_grid);
+
         // Whether to do rivers. By default, rivers are temp and salt sources. Rivers
         // have to be momentum sources.
         pp.queryAdd("do_rivers", do_rivers);
@@ -618,6 +620,8 @@ struct SolverChoice {
     bool        use_uv3dmix           = true;
     bool        use_baroclinic        = true;
     bool        use_barotropic        = true;
+
+    bool        use_curvilinear_grid  = false;
 
     bool        bulk_fluxes           = false;
 
