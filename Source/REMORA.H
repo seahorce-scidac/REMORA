@@ -163,6 +163,18 @@ public:
      */
     void ApplyAtmosphericStates (const amrex::Vector<amrex::MultiFab*>& states, amrex::Real time);
 
+    /**
+     * \brief Receives atmospheric flux lanes from the driver and assembles REMORA flux inputs.
+     *
+     * Expected active-lane order matches the driver FluxPassing contract:
+     * tau_x, tau_y, SHflux, LHflux, SWrad, LWrad, rain, evap.
+     *
+     * This routine copies imported forcing lanes into REMORA's existing flux arrays
+     * and assembles vec_stflux directly from those imported values. It intentionally
+     * leaves the downstream salt_old multiplication to setup_step().
+     */
+    void ApplyAtmosphericFluxes (const amrex::Vector<amrex::MultiFab*>& states, amrex::Real time);
+
     // Diagnostics
 
     /** \brief Integrate conserved quantities for diagnostics */
