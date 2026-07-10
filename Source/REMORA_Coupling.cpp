@@ -376,7 +376,20 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     vec_lrflx[0]->FillBoundary(geom[0].periodicity());
     vec_lhflx[0]->FillBoundary(geom[0].periodicity());
     vec_shflx[0]->FillBoundary(geom[0].periodicity());
+    vec_stflux[0]->FillBoundary(geom[0].periodicity());
     vec_rain[0]->FillBoundary(geom[0].periodicity());
     vec_evap[0]->FillBoundary(geom[0].periodicity());
     vec_stflux[0]->FillBoundary(geom[0].periodicity());
+
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        amrex::Print() << "REMORA ApplyAtmosphericFluxes validation:\n"
+                       << "  sustr: min=" << vec_sustr[0]->min(0) << " max=" << vec_sustr[0]->max(0) << "\n"
+                       << "  svstr: min=" << vec_svstr[0]->min(0) << " max=" << vec_svstr[0]->max(0) << "\n"
+                       << "  stflux(Temp): min=" << vec_stflux[0]->min(Temp_comp) << " max=" << vec_stflux[0]->max(Temp_comp) << "\n"
+                       << "  stflux(Salt): min=" << vec_stflux[0]->min(Salt_comp) << " max=" << vec_stflux[0]->max(Salt_comp) << "\n"
+                       << "  srflx: min=" << vec_srflx[0]->min(0) << " max=" << vec_srflx[0]->max(0) << "\n"
+                       << "  lrflx: min=" << vec_lrflx[0]->min(0) << " max=" << vec_lrflx[0]->max(0) << "\n"
+                       << "  lhflx: min=" << vec_lhflx[0]->min(0) << " max=" << vec_lhflx[0]->max(0) << "\n"
+                       << "  shflx: min=" << vec_shflx[0]->min(0) << " max=" << vec_shflx[0]->max(0) << "\n";
+    }
 }
