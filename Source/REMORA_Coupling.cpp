@@ -285,3 +285,111 @@ REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
     }
 
 }
+
+void
+REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
+{
+    driver_atmos_state_from_driver.fill(false);
+    if (finest_level < 0) { return; }
+
+    if (states.size() <= AtmosFluxes::Evap ||
+        states[AtmosFluxes::TauX] == nullptr ||
+        states[AtmosFluxes::TauY] == nullptr ||
+        states[AtmosFluxes::SHflux] == nullptr ||
+        states[AtmosFluxes::LHflux] == nullptr ||
+        states[AtmosFluxes::SWrad] == nullptr ||
+        states[AtmosFluxes::LWrad] == nullptr ||
+        states[AtmosFluxes::Rain] == nullptr ||
+        states[AtmosFluxes::Evap] == nullptr ||
+        vec_sustr[0] == nullptr || vec_svstr[0] == nullptr ||
+        vec_stflux[0] == nullptr || vec_mskr[0] == nullptr ||
+        vec_msku[0] == nullptr || vec_mskv[0] == nullptr ||
+        vec_srflx[0] == nullptr || vec_lrflx[0] == nullptr ||
+        vec_lhflx[0] == nullptr || vec_shflx[0] == nullptr ||
+        vec_rain[0] == nullptr || vec_evap[0] == nullptr) {
+        return;
+    }
+
+    const Real Hscale2 = 1.0_rt / (solverChoice.rho0 * Cp);
+
+    vec_srflx[0]->ParallelCopy(*states[AtmosFluxes::SWrad], 0, 0, 1);
+    vec_rain[0]->ParallelCopy(*states[AtmosFluxes::Rain], 0, 0, 1);
+    vec_evap[0]->ParallelCopy(*states[AtmosFluxes::Evap], 0, 0, 1);
+
+    for (MFIter mfi(*vec_stflux[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        Array4<Real> const& stflux = vec_stflux[0]->array(mfi);
+        Array4<Real> const& sustr = vec_sustr[0]->array(mfi);
+        Array4<Real> const& svstr = vec_svstr[0]->array(mfi);
+        Array4<Real> const& lrflx = vec_lrflx[0]->array(mfi);
+        Array4<Real> const& lhflx = vec_lhflx[0]->array(mfi);
+        Array4<Real> const& shflx = vec_shflx[0]->array(mfi);
+        Array4<const Real> const& mskr = vec_mskr[0]->const_array(mfi);
+        Array4<const Real> const& msku = vec_msku[0]->const_array(mfi);
+        Array4<const Real> const& mskv = vec_mskv[0]->const_array(mfi);
+        Array4<const Real> const& srflx = vec_srflx[0]->const_array(mfi);
+        Array4<const Real> const& rain = vec_rain[0]->const_array(mfi);
+        Array4<const Real> const& evap = vec_evap[0]->const_array(mfi);
+        Array4<const Real> const& tau_x = states[AtmosFluxes::TauX]->const_array(mfi);
+        Array4<const Real> const& tau_y = states[AtmosFluxes::TauY]->const_array(mfi);
+        Array4<const Real> const& shflux = states[AtmosFluxes::SHflux]->const_array(mfi);
+        Array4<const Real> const& lhflux = states[AtmosFluxes::LHflux]->const_array(mfi);
+        Array4<const Real> const& lwflux = states[AtmosFluxes::LWrad]->const_array(mfi);
+
+        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+        Box gbx2D = gbx2;
+        gbx2D.makeSlab(2,0);
+        Box ubx = mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0));
+        Box ubxD = ubx;
+        ubxD.makeSlab(2,0);
+        Box vbx = mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0));
+        Box vbxD = vbx;
+        vbxD.makeSlab(2,0);
+
+        ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+            sustr(i,j,0) = Real(0.5) / solverChoice.rho0
+                         * (tau_x(i-1,j,0) + tau_x(i,j,0))
+                         * msku(i,j,0);
+        });
+
+        ParallelFor(vbxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+            svstr(i,j,0) = Real(0.5) / solverChoice.rho0
+                         * (tau_y(i,j-1,0) + tau_y(i,j,0))
+                         * mskv(i,j,0);
+        });
+
+        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+            // ERF exports flux lanes in native surface-flux units; convert once at ingest.
+            lrflx(i,j,0) = lwflux(i,j,0) * Hscale2;
+            lhflx(i,j,0) = -lhflux(i,j,0) * Hscale2;
+            shflx(i,j,0) = -shflux(i,j,0) * Hscale2;
+            stflux(i,j,0,Temp_comp) =
+                (srflx(i,j,0) * Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0))
+                * mskr(i,j,0);
+            stflux(i,j,0,Salt_comp) =
+                mskr(i,j,0) * (evap(i,j,0) - rain(i,j,0)) / rhow;
+        });
+    }
+
+    vec_sustr[0]->FillBoundary(geom[0].periodicity());
+    vec_svstr[0]->FillBoundary(geom[0].periodicity());
+    vec_srflx[0]->FillBoundary(geom[0].periodicity());
+    vec_lrflx[0]->FillBoundary(geom[0].periodicity());
+    vec_lhflx[0]->FillBoundary(geom[0].periodicity());
+    vec_shflx[0]->FillBoundary(geom[0].periodicity());
+    vec_stflux[0]->FillBoundary(geom[0].periodicity());
+    vec_rain[0]->FillBoundary(geom[0].periodicity());
+    vec_evap[0]->FillBoundary(geom[0].periodicity());
+    vec_stflux[0]->FillBoundary(geom[0].periodicity());
+
+    if (amrex::ParallelDescriptor::IOProcessor()) {
+        amrex::Print() << "REMORA ApplyAtmosphericFluxes validation:\n"
+                       << "  sustr: min=" << vec_sustr[0]->min(0) << " max=" << vec_sustr[0]->max(0) << "\n"
+                       << "  svstr: min=" << vec_svstr[0]->min(0) << " max=" << vec_svstr[0]->max(0) << "\n"
+                       << "  stflux(Temp): min=" << vec_stflux[0]->min(Temp_comp) << " max=" << vec_stflux[0]->max(Temp_comp) << "\n"
+                       << "  stflux(Salt): min=" << vec_stflux[0]->min(Salt_comp) << " max=" << vec_stflux[0]->max(Salt_comp) << "\n"
+                       << "  srflx: min=" << vec_srflx[0]->min(0) << " max=" << vec_srflx[0]->max(0) << "\n"
+                       << "  lrflx: min=" << vec_lrflx[0]->min(0) << " max=" << vec_lrflx[0]->max(0) << "\n"
+                       << "  lhflx: min=" << vec_lhflx[0]->min(0) << " max=" << vec_lhflx[0]->max(0) << "\n"
+                       << "  shflx: min=" << vec_shflx[0]->min(0) << " max=" << vec_shflx[0]->max(0) << "\n";
+    }
+}

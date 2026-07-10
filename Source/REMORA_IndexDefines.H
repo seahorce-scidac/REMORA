@@ -84,6 +84,27 @@ namespace AtmosState {
     };
 }
 
+/**
+ * \brief Index constants for the driver ATM->OCN flux-passing active view.
+ *
+ * Order mirrors AtmosToOceanActiveIndices(FluxPassing) from
+ * ERFRemoraCouplingContract.H:
+ * tau_x, tau_y, SHflux, LHflux, SWrad, LWrad, rain, evap.
+ */
+namespace AtmosFluxes {
+    enum {
+        TauX = 0,  ///< surface zonal stress lane
+        TauY,      ///< surface meridional stress lane
+        SHflux,    ///< sensible heat flux lane
+        LHflux,    ///< latent heat flux lane
+        SWrad,     ///< shortwave radiation lane
+        LWrad,     ///< longwave flux lane
+        Rain,      ///< precipitation rate lane
+        Evap,      ///< evaporation rate lane
+        NumTypes
+    };
+}
+
 enum struct REMORA_BC {
     symmetry, inflow, outflow, no_slip_wall, slip_wall, periodic,
     clamped, chapman, flather, orlanski_rad, orlanski_rad_nudge, undefined

@@ -661,7 +661,7 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_stflux[lev].reset(new MultiFab(ba2d,dm,ncons,IntVect(NGROW,NGROW,0)));
     vec_btflux[lev].reset(new MultiFab(ba2d,dm,ncons,IntVect(NGROW,NGROW,0)));
 
-    if (solverChoice.bulk_fluxes) {
+    if (solverChoice.bulk_fluxes || solverChoice.atm2ocn_flux_mode) {
         vec_uwind[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind u
         vec_vwind[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, surface wind v
         vec_Tair[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));  //2d, air temperature

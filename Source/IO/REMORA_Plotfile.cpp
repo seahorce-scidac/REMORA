@@ -230,28 +230,28 @@ REMORA::WritePlotFile (int istep_for_plot)
             }
         }
         if (plot_name == "lrflux" ) {
-            if (!solverChoice.bulk_fluxes) {
+            if (!solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
                 amrex::Abort("Attempting to write longwave radiation flux to plotfile. Variable not allocated when bulk_fluxes turned off");
             }
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_lrflx[lev],0,icomp_rho,1,0); }
             icomp_rho++;
         }
         if (plot_name == "lhflux" ) {
-            if (!solverChoice.bulk_fluxes) {
+            if (!solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
                 amrex::Abort("Attempting to write latent heat flux to plotfile. Variable not allocated when bulk_fluxes turned off");
             }
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_lhflx[lev],0,icomp_rho,1,0); }
             icomp_rho++;
         }
         if (plot_name == "srflux" ) {
-            if (!solverChoice.bulk_fluxes) {
+            if (!solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
                 amrex::Abort("Attempting to write shortwave radiation flux to plotfile. Variable not allocated when bulk_fluxes turned off");
             }
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_srflx[lev],0,icomp_rho,1,0); }
             icomp_rho++;
         }
         if (plot_name == "shflux" ) {
-            if (!solverChoice.bulk_fluxes) {
+            if (!solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
                 amrex::Abort("Attempting to write sensible heat flux to plotfile. Variable not allocated when bulk_fluxes turned off");
             }
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_shflx[lev],0,icomp_rho,1,0); }

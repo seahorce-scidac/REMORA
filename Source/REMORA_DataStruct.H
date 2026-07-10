@@ -191,7 +191,16 @@ struct SolverChoice {
         pp.queryAdd("rho0", rho0);
 
         pp.queryAdd("bulk_fluxes",bulk_fluxes);
-        if (bulk_fluxes) {
+        pp.queryAdd("atm2ocn_flux_mode", atm2ocn_flux_mode);
+        {
+            amrex::ParmParse pp_driver("driver");
+            std::string driver_atm2ocn_mode = "state";
+            pp_driver.query("atm2ocn_mode", driver_atm2ocn_mode);
+            if (amrex::toLower(driver_atm2ocn_mode) == "flux") {
+                atm2ocn_flux_mode = true;
+            }
+        }
+        if (bulk_fluxes || atm2ocn_flux_mode) {
             do_salt_flux = true;
             do_temp_flux = true;
         }
@@ -624,6 +633,7 @@ struct SolverChoice {
     bool        use_curvilinear_grid  = false;
 
     bool        bulk_fluxes           = false;
+    bool        atm2ocn_flux_mode     = false;
 
     bool        output_forcing        = false;
     bool        do_temp_flux          = false;

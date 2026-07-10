@@ -109,7 +109,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // If we're not doing bulk fluxes, set surface momentum fluxes directly.
     // Otherwise, calculate them from winds, so those need to be set
-    if (!solverChoice.bulk_fluxes) {
+    if (solverChoice.atm2ocn_flux_mode) {
+        // Surface stress and heat/moisture fluxes were already populated from the driver.
+    } else if (!solverChoice.bulk_fluxes) {
         set_smflux(lev);
     } else {
         set_wind(lev);
@@ -135,8 +137,10 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real      > const& rhoA  = mf_rhoA->array(mfi);
         Array4<Real      > const& rhoS  = mf_rhoS->array(mfi);
         Array4<Real      > const& bvf   = mf_bvf->array(mfi);
-        Array4<Real      > const& alpha = (solverChoice.bulk_fluxes) ? vec_alpha[lev]->array(mfi) : Array4<Real>();
-        Array4<Real      > const& beta  = (solverChoice.bulk_fluxes) ? vec_beta[lev]->array(mfi)  : Array4<Real>();
+        Array4<Real      > const& alpha = (solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode)
+                                            ? vec_alpha[lev]->array(mfi) : Array4<Real>();
+        Array4<Real      > const& beta  = (solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode)
+                                            ? vec_beta[lev]->array(mfi)  : Array4<Real>();
 
         Array4<Real const> const& pm = mf_pm->const_array(mfi);
         Array4<Real const> const& pn = mf_pn->const_array(mfi);
@@ -192,7 +196,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     if (solverChoice.longwave_down_from_netcdf)
         lw_ptr = vec_longwave_down[lev].get();
-    if (solverChoice.bulk_fluxes) {
+    if (solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
         bulk_fluxes(lev, cons_old[lev],vec_uwind[lev].get(),vec_vwind[lev].get(),
                     vec_Tair[lev].get(),vec_qair[lev].get(),vec_Pair[lev].get(),
                     vec_srflx[lev].get(),
