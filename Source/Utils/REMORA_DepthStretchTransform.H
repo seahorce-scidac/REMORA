@@ -115,7 +115,9 @@ REMORA::stretch_transform (int lev)
 
         auto N = nz; // Number of vertical "levels" aka, NZ
         //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
-        Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
+
+        Real hc = -min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
+
         Real ds = 1.0_rt / Real(N);
 
         amrex::ParallelFor(wgbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -128,36 +130,31 @@ REMORA::stretch_transform (int lev)
 
         amrex::ParallelFor(wgbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real sc_r=ds*(k-N+0.5_rt);
-            Real sc_w=ds*(k-N);
+            if (k < N) {
+                Real sc_r=ds*(k-N+0.5_rt);
+                Real sc_w=ds*(k-N);
+                Real cff_r = hc*sc_r;
+                Real cff1_r = Cs_r_dat[k];
+                Real cff_w=hc*sc_w;
+                Real cff1_w=Cs_w_dat[k];
+                Real hwater=h(i,j,0);
+    
+                Real hinv=1.0_rt/(hc+hwater);
+                Real cff2_r=(cff_r+cff1_r*hwater)*hinv;
+                Real cff2_w=(cff_w+cff1_w*hwater)*hinv;
 
-            Real cff_r=hc*sc_r;
-            Real cff1_r=Cs_r_dat[k];
+                if (k==0) {
+                    h(i,j,0,1) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+                    z_w(i,j,0) = h(i,j,0,1);
+                } else {
+                    z_w(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+                }
 
-            Real cff_w=hc*sc_w;
-            Real cff1_w=Cs_w_dat[k];
+                z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
 
-            Real hwater=h(i,j,0);
-
-            Real hinv=1.0_rt/(hc+hwater);
-            Real cff2_r=(cff_r+cff1_r*hwater)*hinv;
-            Real cff2_w=(cff_w+cff1_w*hwater)*hinv;
-
-            if(k==N) {
-            // HACK: should actually be the normal expression with coeffs evaluated at k=N-1
+            } else { // k == N
+                // HACK: should actually be the normal expression with coeffs evaluated at k=N-1
                 z_w(i,j,N)=Zt_avg1(i,j,0);
-
-            } else if (k==0) {
-                  h(i,j,0,1) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
-                  z_w(i,j,0) = h(i,j,0,1);
-
-            } else {
-                  z_w(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
-
-            }
-
-            if(k!=N) {
-                  z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
             }
         });
 
@@ -167,6 +164,7 @@ REMORA::stretch_transform (int lev)
         {
               Hz(i,j,k)=z_w(i,j,k+1)-z_w(i,j,k);
         });
+
     } // mfi
 
     vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
