@@ -114,7 +114,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     } else if (!solverChoice.bulk_fluxes) {
         set_smflux(lev);
     } else {
-        set_wind(lev);
+        set_surface_state(lev);
     }
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
@@ -184,18 +184,11 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     const Real Cdb_min = solverChoice.Cdb_min;
     const Real Cdb_max = solverChoice.Cdb_max;
 
-    if (solverChoice.longwave_netcdf_is_net && !solverChoice.longwave_down_from_netcdf) {
-        amrex::Abort("remora.longwave_netcdf_is_net=true requires remora.longwave_down_from_netcdf=true");
-    }
-
-    if (solverChoice.longwave_down && !solverChoice.longwave_down_from_netcdf) {
-        amrex::Abort("remora.longwave_down=true currently requires remora.longwave_down_from_netcdf=true");
-    }
-
     MultiFab* lw_ptr = nullptr;
 
-    if (solverChoice.longwave_down_from_netcdf)
+    if (solverChoice.bulk_flux_type[BulkFlux::LWrad] != BulkForcingType::computed) {
         lw_ptr = vec_longwave_down[lev].get();
+    }
     if (solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
         bulk_fluxes(lev, cons_old[lev],vec_uwind[lev].get(),vec_vwind[lev].get(),
                     vec_Tair[lev].get(),vec_qair[lev].get(),vec_Pair[lev].get(),

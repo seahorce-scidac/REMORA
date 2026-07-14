@@ -668,7 +668,7 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_qair[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));  //2d, specific humidity
         vec_Pair[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));  //2d, air pressure
         vec_srflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, shortwave radiation flux
-        vec_longwave_down[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, downward longwave radiation flux
+        vec_longwave_down[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, external longwave radiation flux
         vec_cloud[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, cloud cover fraction
         vec_EminusP[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); //2d, evaporation minus precipitation
         vec_alpha[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
@@ -678,12 +678,15 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_shflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_rain[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_evap[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_uwind[lev]->setVal(solverChoice.Uwind);
+        vec_vwind[lev]->setVal(solverChoice.Vwind);
         vec_Tair[lev]->setVal(solverChoice.Tair);
         vec_qair[lev]->setVal(solverChoice.Hair); // Hair can be specific humidity or RH
         vec_Pair[lev]->setVal(solverChoice.Pair);
         vec_srflx[lev]->setVal(solverChoice.srflux);
+        vec_longwave_down[lev]->setVal(solverChoice.longwave_rad);
         vec_cloud[lev]->setVal(solverChoice.cloud);
-        vec_EminusP[lev]->setVal(0.0_rt);
+        vec_EminusP[lev]->setVal(solverChoice.EminusP);
         vec_lhflx[lev]->setVal(0.0_rt);
         vec_shflx[lev]->setVal(0.0_rt);
         vec_rain[lev]->setVal(solverChoice.rain);
@@ -899,7 +902,8 @@ REMORA::set_zeta_to_Ztavg (int lev)
             Array4<const Real> const& evap = vec_evap[lev]->const_array(mfi);
             Array4<const Real> const& rain = vec_rain[lev]->const_array(mfi);
             Array4<const Real> const& EminusP = vec_EminusP[lev]->const_array(mfi);
-            bool use_EminusP_from_file = solverChoice.eminusp && solverChoice.EminusP_from_netcdf;
+            bool use_EminusP_from_input = solverChoice.eminusp &&
+                solverChoice.bulk_flux_type[BulkFlux::EminusP] != BulkForcingType::computed;
 
             Box  bx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));// bx2.grow(IntVect(NGROW,NGROW,0));
 
@@ -908,7 +912,7 @@ REMORA::set_zeta_to_Ztavg (int lev)
 
             ParallelFor(bx2, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                if (use_EminusP_from_file) {
+                if (use_EminusP_from_input) {
                     // EminusP is treated as a kinematic freshwater flux (m/s).
                     Zt_avg1(i,j,0) = Zt_avg1(i,j,0) - EminusP(i,j,0) * dt_lev;
                 } else {

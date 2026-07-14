@@ -1027,8 +1027,8 @@ public:
     /** \brief Initialize or calculate surface momentum flux from file or analytic */
     void set_smflux (int lev);
 
-    /** \brief Initialize or calculate wind speed from file or analytic */
-    void set_wind (int lev);
+    /** \brief Initialize or calculate wind speed and other surface state vars from file or analytic */
+    void set_surface_state (int lev);
 
     /** \brief Initialize horizontal mixing coefficients */
     void set_hmixcoef (int lev);

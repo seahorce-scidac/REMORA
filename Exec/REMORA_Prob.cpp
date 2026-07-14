@@ -337,29 +337,6 @@ void Problem::init_analytic_grid_scale (
     Gpu::streamSynchronize();
 }
 
-void Problem::init_analytic_wind(
-        int lev,
-        const amrex::Geometry& /*geom*/,
-        SolverChoice const& /*m_solverChoice*/,
-        REMORA const& remora,
-        amrex::MultiFab& mf_Uwind, amrex::MultiFab& mf_Vwind)
-{
-    ParmParse pp("remora");
-    std::string my_prob_name; pp.get("prob_name",my_prob_name);
-    std::string my_prob_name_ci = amrex::toLower(my_prob_name);
-
-    if ( (my_prob_name_ci == "coupletoerf")   ||
-         (my_prob_name_ci == "dogbone")     ) {
-        mf_Uwind.setVal(0.0_rt);
-        mf_Vwind.setVal(0.0_rt);
-
-    } else if (my_prob_name_ci == "boundarylayer")  {
-#include "Prob/REMORA_InitAnalyticWind_BoundaryLayer.H"
-    }
-
-    Gpu::streamSynchronize();
-}
-
 void Problem::init_analytic_masks(
         int lev,
         const amrex::Geometry& /*geom*/,
@@ -385,4 +362,36 @@ void Problem::init_analytic_coriolis (
         REMORA const& /*remora*/,
         amrex::MultiFab& /*mf_fcor*/)
 {
+}
+
+void Problem::init_analytic_surface_var (
+        int lev,
+        const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& remora,
+        amrex::MultiFab& mf_Uwind,
+        amrex::MultiFab& mf_Vwind,
+        amrex::MultiFab& /*mf_Tair*/,
+        amrex::MultiFab& /*mf_qair*/,
+        amrex::MultiFab& /*mf_Pair*/,
+        amrex::MultiFab& /*mf_srflx*/,
+        amrex::MultiFab& /*mf_longwave_down*/,
+        amrex::MultiFab& /*mf_rain*/,
+        amrex::MultiFab& /*mf_cloud*/,
+        amrex::MultiFab& /*mf_EminusP*/)
+{
+    ParmParse pp("remora");
+    std::string my_prob_name; pp.get("prob_name",my_prob_name);
+    std::string my_prob_name_ci = amrex::toLower(my_prob_name);
+
+    if ( (my_prob_name_ci == "coupletoerf")   ||
+         (my_prob_name_ci == "dogbone")     ) {
+        mf_Uwind.setVal(0.0_rt);
+        mf_Vwind.setVal(0.0_rt);
+
+    } else if (my_prob_name_ci == "boundarylayer")  {
+#include "Prob/REMORA_InitAnalyticSurfaceVar_BoundaryLayer.H"
+    }
+
+    Gpu::streamSynchronize();
 }

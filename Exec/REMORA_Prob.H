@@ -63,13 +63,6 @@ public:
         amrex::MultiFab& mf_sustr,
         amrex::MultiFab& mf_svstr) override;
 
-    void init_analytic_wind(
-        int lev,
-        const amrex::Geometry& geom,
-        SolverChoice const& m_solverChoice,
-        REMORA const& remora,
-        amrex::MultiFab& mf_Uwind, amrex::MultiFab& mf_Vwind) override;
-
     void init_analytic_grid_scale (
         int lev, const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
@@ -81,6 +74,21 @@ public:
         SolverChoice const& m_solverChoice,
         REMORA const& remora,
         amrex::MultiFab& mf_fcor) override;
+
+    void init_analytic_surface_var (
+        int lev, const amrex::Geometry& geom,
+        SolverChoice const& m_solverChoice,
+        REMORA const& remora,
+        amrex::MultiFab& mf_Uwind,
+        amrex::MultiFab& mf_Vwind,
+        amrex::MultiFab& mf_Tair,
+        amrex::MultiFab& mf_qair,
+        amrex::MultiFab& mf_Pair,
+        amrex::MultiFab& mf_srflx,
+        amrex::MultiFab& mf_longwave_down,
+        amrex::MultiFab& mf_rain,
+        amrex::MultiFab& mf_cloud,
+        amrex::MultiFab& mf_EminusP) override;
 };
 
 #endif

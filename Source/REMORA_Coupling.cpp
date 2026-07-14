@@ -311,6 +311,7 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     }
 
     const Real Hscale2 = 1.0_rt / (solverChoice.rho0 * Cp);
+    const Real rho0 = solverChoice.rho0;
 
     vec_srflx[0]->ParallelCopy(*states[AtmosFluxes::SWrad], 0, 0, 1);
     vec_rain[0]->ParallelCopy(*states[AtmosFluxes::Rain], 0, 0, 1);
@@ -346,13 +347,13 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         vbxD.makeSlab(2,0);
 
         ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            sustr(i,j,0) = Real(0.5) / solverChoice.rho0
+            sustr(i,j,0) = Real(0.5) / rho0
                          * (tau_x(i-1,j,0) + tau_x(i,j,0))
                          * msku(i,j,0);
         });
 
         ParallelFor(vbxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            svstr(i,j,0) = Real(0.5) / solverChoice.rho0
+            svstr(i,j,0) = Real(0.5) / rho0
                          * (tau_y(i,j-1,0) + tau_y(i,j,0))
                          * mskv(i,j,0);
         });

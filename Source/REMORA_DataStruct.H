@@ -3,6 +3,7 @@
 
 #include <string>
 #include <iostream>
+#include <array>
 
 #include <AMReX_ParmParse.H>
 #include <AMReX_Print.H>
@@ -98,6 +99,30 @@ enum class HarmonicMixingType {
 
 struct SolverChoice {
   public:
+    static BulkForcingType parse_bulk_forcing_type(const std::string& type_string,
+                                                   const std::string& param_name,
+                                                   bool allow_computed)
+    {
+        const std::string type = amrex::toLower(type_string);
+        if (type == "constant" || type == "const") {
+            return BulkForcingType::constant;
+        } else if (type == "custom") {
+            amrex::Warning((param_name + " uses 'custom'; use 'analytic' instead.").c_str());
+            return BulkForcingType::analytic;
+        } else if (type == "analytic" || type == "analytical") {
+            return BulkForcingType::analytic;
+        } else if (type == "netcdf" || type == "file" || type == "nc") {
+            return BulkForcingType::netcdf;
+        } else if (type == "computed") {
+            if (!allow_computed) {
+                amrex::Abort((param_name + " does not accept 'computed'; only remora.lwrad_type and remora.eminusp_type do.").c_str());
+            }
+            return BulkForcingType::computed;
+        }
+        amrex::Abort(("Don't know this " + param_name).c_str());
+        return BulkForcingType::constant;
+    }
+
     /** \brief read in and initialize parameters */
     void init_params(int ncons)
     {
@@ -210,35 +235,114 @@ struct SolverChoice {
         pp.queryAdd("air_temperature",Tair);
         pp.queryAdd("air_humidity",Hair);
         pp.queryAdd("surface_radiation_flux",srflux);
-        pp.queryAdd("srflx_from_netcdf",srflx_from_netcdf);
+        pp.queryAdd("uwind", Uwind);
+        pp.queryAdd("vwind", Vwind);
+        pp.queryAdd("longwave_radiation_flux", longwave_rad);
+        pp.query("lwrad", longwave_rad);
         pp.queryAdd("longwave_down", longwave_down);
-        pp.queryAdd("longwave_down_from_netcdf",longwave_down_from_netcdf);
-        pp.queryAdd("longwave_netcdf_is_net", longwave_netcdf_is_net);
+        pp.queryAdd("longwave_is_net", longwave_is_net);
         pp.queryAdd("longwave_netcdf_varname", longwave_netcdf_varname);
         pp.queryAdd("cloud",cloud);
         pp.queryAdd("rain",rain);
+        pp.queryAdd("EminusP", EminusP);
+        pp.query("eminusp_value", EminusP);
         pp.queryAdd("blk_ZQ",blk_ZQ);
         pp.queryAdd("blk_ZT",blk_ZT);
         pp.queryAdd("blk_ZW",blk_ZW);
         pp.queryAdd("eminusp",eminusp);
         pp.queryAdd("eminusp_correct_ssh",eminusp_correct_ssh);
-        // Control flags for loading atmospheric variables from NetCDF
-        pp.queryAdd("Tair_from_netcdf",Tair_from_netcdf);
-        pp.queryAdd("qair_from_netcdf",qair_from_netcdf);
         pp.queryAdd("qair_is_percent",qair_is_percent);
-        pp.queryAdd("Pair_from_netcdf",Pair_from_netcdf);
-        pp.queryAdd("rain_from_netcdf",rain_from_netcdf);
-        pp.queryAdd("cloud_from_netcdf",cloud_from_netcdf);
-        pp.queryAdd("EminusP_from_netcdf",EminusP_from_netcdf);
 
-        if (longwave_netcdf_is_net) {
-            // If user provides net longwave from NetCDF, force use of file-based longwave.
-            longwave_down = true;
-            longwave_down_from_netcdf = true;
+        struct BulkTypeInput {
+            const char* name;
+            int idx;
+            const char* default_type;
+            bool allow_computed;
+        };
+
+        const BulkTypeInput bulk_type_inputs[] = {
+            {"uwind_type", BulkFlux::Uwind, "analytic", false},
+            {"vwind_type", BulkFlux::Vwind, "analytic", false},
+            {"tair_type", BulkFlux::Tair, "constant", false},
+            {"qair_type", BulkFlux::Qair, "constant", false},
+            {"pair_type", BulkFlux::Pair, "constant", false},
+            {"swrad_type", BulkFlux::SWrad, "constant", false},
+            {"lwrad_type", BulkFlux::LWrad, "computed", true},
+            {"rain_type", BulkFlux::Rain, "constant", false},
+            {"cloud_type", BulkFlux::Cloud, "constant", false},
+            {"eminusp_type", BulkFlux::EminusP, "computed", true},
+        };
+
+        bool uwind_type_specified = false;
+        bool vwind_type_specified = false;
+        for (const BulkTypeInput& input : bulk_type_inputs) {
+            std::string type_string = input.default_type;
+            const bool type_specified = pp.queryAdd(input.name, type_string);
+            if (type_specified) {
+                bulk_flux_type[input.idx] = parse_bulk_forcing_type(type_string,
+                                                                     "remora." + std::string(input.name),
+                                                                     input.allow_computed);
+                if (input.idx == BulkFlux::Uwind) {
+                    uwind_type_specified = true;
+                } else if (input.idx == BulkFlux::Vwind) {
+                    vwind_type_specified = true;
+                }
+            }
         }
 
-        if (!longwave_down_from_netcdf && longwave_netcdf_varname != "lwrad") {
-            amrex::Warning("remora.longwave_netcdf_varname is set but remora.longwave_down_from_netcdf is false; the value will be ignored.");
+        struct BulkTypeAlias {
+            const char* name;
+            int idx;
+            bool allow_computed;
+        };
+
+        const BulkTypeAlias bulk_type_aliases[] = {
+            {"srflx_type", BulkFlux::SWrad, false},
+            {"longwave_type", BulkFlux::LWrad, true},
+            {"longwave_down_type", BulkFlux::LWrad, true},
+        };
+
+        for (const BulkTypeAlias& input : bulk_type_aliases) {
+            std::string type_string;
+            if (pp.query(input.name, type_string)) {
+                bulk_flux_type[input.idx] = parse_bulk_forcing_type(type_string,
+                                                                     "remora." + std::string(input.name),
+                                                                     input.allow_computed);
+            }
+        }
+
+        const BulkTypeAlias legacy_netcdf_flags[] = {
+            {"Tair_from_netcdf", BulkFlux::Tair, false},
+            {"qair_from_netcdf", BulkFlux::Qair, false},
+            {"Pair_from_netcdf", BulkFlux::Pair, false},
+            {"srflx_from_netcdf", BulkFlux::SWrad, false},
+            {"longwave_down_from_netcdf", BulkFlux::LWrad, false},
+            {"rain_from_netcdf", BulkFlux::Rain, false},
+            {"cloud_from_netcdf", BulkFlux::Cloud, false},
+            {"EminusP_from_netcdf", BulkFlux::EminusP, false},
+        };
+
+        for (const BulkTypeAlias& input : legacy_netcdf_flags) {
+            bool from_netcdf = false;
+            if (pp.query(input.name, from_netcdf) && from_netcdf) {
+                bulk_flux_type[input.idx] = BulkForcingType::netcdf;
+            }
+        }
+
+        bool legacy_longwave_netcdf_is_net = false;
+        if (pp.query("longwave_netcdf_is_net", legacy_longwave_netcdf_is_net) && legacy_longwave_netcdf_is_net) {
+            longwave_is_net = true;
+            if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::computed) {
+                bulk_flux_type[BulkFlux::LWrad] = BulkForcingType::netcdf;
+            }
+        }
+
+        if (bulk_flux_type[BulkFlux::LWrad] != BulkForcingType::computed) {
+            longwave_down = !longwave_is_net;
+        }
+
+        if (bulk_flux_type[BulkFlux::LWrad] != BulkForcingType::netcdf && longwave_netcdf_varname != "lwrad") {
+            amrex::Warning("remora.longwave_netcdf_varname is set but remora.lwrad_type is not netcdf; the value will be ignored.");
         }
 
         if (eminusp_correct_ssh and !bulk_fluxes) {
@@ -248,19 +352,33 @@ struct SolverChoice {
             amrex::Abort("Evaporation minus precipitation (E-P) requires bulk flux parametrizations (remora.bulk_fluxes=true)");
         }
 
+        const bool use_external_lwrad =
+            bulk_flux_type[BulkFlux::LWrad] != BulkForcingType::computed;
+
+        if (longwave_is_net && !use_external_lwrad) {
+            amrex::Abort("remora.longwave_is_net=true requires remora.lwrad_type to be constant, analytic, or netcdf");
+        }
+
+        if (longwave_down && !use_external_lwrad) {
+            amrex::Abort("remora.longwave_down=true requires remora.lwrad_type to be constant, analytic, or netcdf");
+        }
+
         {
             static bool printed_ep_source = false;
             if (!printed_ep_source) {
                 printed_ep_source = true;
-                if (bulk_fluxes && eminusp && EminusP_from_netcdf) {
-                    amrex::Print() << "[REMORA] Active E-P source: NetCDF EminusP (remora.EminusP_from_netcdf=true).\n";
+                if (bulk_fluxes && eminusp && bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
+                    amrex::Print() << "[REMORA] Active E-P source: NetCDF EminusP (remora.eminusp_type=netcdf).\n";
+                } else if (bulk_fluxes && eminusp && bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::analytic) {
+                    amrex::Print() << "[REMORA] Active E-P source: analytic EminusP (remora.eminusp_type=analytic).\n";
+                } else if (bulk_fluxes && eminusp && bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::constant) {
+                    amrex::Print() << "[REMORA] Active E-P source: constant EminusP (remora.eminusp_type=constant).\n";
                 } else {
                     amrex::Print() << "[REMORA] Active E-P source: bulk evap-rain diagnostic.\n";
                 }
             }
         }
 
-        //Read in linear eos parameters
         //Grid stretching
         pp.queryAdd("theta_s",theta_s);
         pp.queryAdd("theta_b",theta_b);
@@ -369,6 +487,17 @@ struct SolverChoice {
             wind_type = WindType::netcdf;
         } else {
             amrex::Abort("Don't know this smflux_type");
+        }
+
+        if (wind_specified) {
+            const auto specified_wind_bulk_type = (wind_type == WindType::netcdf) ?
+                BulkForcingType::netcdf : BulkForcingType::analytic;
+            if (!uwind_type_specified) {
+                bulk_flux_type[BulkFlux::Uwind] = specified_wind_bulk_type;
+            }
+            if (!vwind_type_specified) {
+                bulk_flux_type[BulkFlux::Vwind] = specified_wind_bulk_type;
+            }
         }
 
         if (wind_specified && smflux_specified) {
@@ -640,16 +769,19 @@ struct SolverChoice {
     bool        do_salt_flux          = false;
     bool        longwave_down         = false;
 
-    // Control flags for loading atmospheric variables from NetCDF
-    bool        Tair_from_netcdf      = false;
-    bool        qair_from_netcdf      = false;
-    bool        Pair_from_netcdf      = false;
-    bool        srflx_from_netcdf     = false;
-    bool        longwave_down_from_netcdf          = false;
-    bool        longwave_netcdf_is_net = false;
-    bool        rain_from_netcdf      = false;
-    bool        cloud_from_netcdf     = false;
-    bool        EminusP_from_netcdf   = false;
+    std::array<BulkForcingType, BulkFlux::NumTypes> bulk_flux_type {{
+        BulkForcingType::analytic, // Uwind
+        BulkForcingType::analytic, // Vwind
+        BulkForcingType::constant, // Pair
+        BulkForcingType::constant, // Qair
+        BulkForcingType::constant, // Tair
+        BulkForcingType::constant, // Cloud
+        BulkForcingType::constant, // Rain
+        BulkForcingType::constant, // SWrad
+        BulkForcingType::computed, // LWrad defaults to the internal longwave formula
+        BulkForcingType::computed  // EminusP defaults to bulk evap-rain diagnostic
+    }};
+    bool        longwave_is_net      = false;
     bool        qair_is_percent       = false;
     std::string longwave_netcdf_varname = "lwrad";
 
@@ -752,6 +884,13 @@ struct SolverChoice {
 
     // Surface radiation flux
     amrex::Real srflux = amrex::Real(0.0);
+    // Surface wind speed
+    amrex::Real Uwind = amrex::Real(0.0);
+    amrex::Real Vwind = amrex::Real(0.0);
+    // External longwave radiation flux
+    amrex::Real longwave_rad = amrex::Real(0.0);
+    // Prescribed evaporation minus precipitation
+    amrex::Real EminusP = amrex::Real(0.0);
 
     // Spatial discretization
     int         spatial_order = 2;
