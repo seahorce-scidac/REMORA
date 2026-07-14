@@ -109,12 +109,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // If we're not doing bulk fluxes, set surface momentum fluxes directly.
     // Otherwise, calculate them from winds, so those need to be set
-    if (solverChoice.atm2ocn_flux_mode) {
+    if (running_with_coupling_driver) {
         // Surface stress and heat/moisture fluxes were already populated from the driver.
     } else if (!solverChoice.bulk_fluxes) {
-        set_smflux(lev);
-    } else {
         set_surface_state(lev);
+    } else {
+        set_smflux(lev);
     }
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
@@ -137,9 +137,13 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real      > const& rhoA  = mf_rhoA->array(mfi);
         Array4<Real      > const& rhoS  = mf_rhoS->array(mfi);
         Array4<Real      > const& bvf   = mf_bvf->array(mfi);
-        Array4<Real      > const& alpha = (solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode)
+        Array4<Real      > const& alpha =    (solverChoice.bulk_fluxes &&
+                                             (!running_with_coupling_driver ||
+                                              DriverUsesStateForcing(driver_atmos_forcing_mode)))
                                             ? vec_alpha[lev]->array(mfi) : Array4<Real>();
-        Array4<Real      > const& beta  = (solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode)
+        Array4<Real      > const& beta  =   (solverChoice.bulk_fluxes &&
+                                             (!running_with_coupling_driver ||
+                                              DriverUsesStateForcing(driver_atmos_forcing_mode)))
                                             ? vec_beta[lev]->array(mfi)  : Array4<Real>();
 
         Array4<Real const> const& pm = mf_pm->const_array(mfi);
@@ -189,7 +193,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     if (solverChoice.bulk_flux_type[BulkFlux::LWrad] != BulkForcingType::computed) {
         lw_ptr = vec_longwave_down[lev].get();
     }
-    if (solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
+    if (solverChoice.bulk_fluxes &&
+        (!running_with_coupling_driver ||
+         DriverUsesStateForcing(driver_atmos_forcing_mode))) {
         bulk_fluxes(lev, cons_old[lev],vec_uwind[lev].get(),vec_vwind[lev].get(),
                     vec_Tair[lev].get(),vec_qair[lev].get(),vec_Pair[lev].get(),
                     vec_srflx[lev].get(),

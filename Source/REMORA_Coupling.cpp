@@ -206,6 +206,8 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
 void
 REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
 {
+    running_with_coupling_driver = true;
+    driver_atmos_forcing_mode = DriverAtmosForcingMode::State;
     driver_atmos_state_from_driver.fill(false);
     if (finest_level < 0) { return; }
 
@@ -289,6 +291,8 @@ REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
 void
 REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
 {
+    running_with_coupling_driver = true;
+    driver_atmos_forcing_mode = DriverAtmosForcingMode::Flux;
     driver_atmos_state_from_driver.fill(false);
     if (finest_level < 0) { return; }
 
@@ -347,14 +351,12 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         vbxD.makeSlab(2,0);
 
         ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            sustr(i,j,0) = Real(0.5) / rho0
-                         * (tau_x(i-1,j,0) + tau_x(i,j,0))
+            sustr(i,j,0) = tau_x(i,j,0) / rho0
                          * msku(i,j,0);
         });
 
         ParallelFor(vbxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            svstr(i,j,0) = Real(0.5) / rho0
-                         * (tau_y(i,j-1,0) + tau_y(i,j,0))
+            svstr(i,j,0) = tau_y(i,j,0) / rho0
                          * mskv(i,j,0);
         });
 

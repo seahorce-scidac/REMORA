@@ -90,6 +90,15 @@ class REMORA
     : public amrex::AmrCore
 {
 public:
+    enum class DriverAtmosForcingMode : int {
+        State = 0,
+        Flux
+    };
+
+    static constexpr bool DriverUsesStateForcing (DriverAtmosForcingMode mode) noexcept
+    {
+        return mode == DriverAtmosForcingMode::State;
+    }
 
     REMORA ();
     REMORA (const amrex::RealBox& rb, int max_level_in, const amrex::Vector<int>& n_cell_in, int coord, const amrex::Vector<amrex::IntVect>& ref_ratio, const amrex::Array<int,AMREX_SPACEDIM>& is_per, std::string prefix);
@@ -439,6 +448,10 @@ public:
 
     /** \brief provenance flags for driver-supplied atmospheric forcing lanes */
     std::array<bool, AtmosState::NumTypes> driver_atmos_state_from_driver {};
+    /** \brief True once REMORA has received forcing through the coupling driver. */
+    bool running_with_coupling_driver = false;
+    /** \brief Active atmosphere-to-ocean forcing contract on the most recent driver apply. */
+    DriverAtmosForcingMode driver_atmos_forcing_mode = DriverAtmosForcingMode::State;
 
     /** \brief Linear drag coefficient [m/s], defined at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;
