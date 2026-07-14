@@ -105,6 +105,39 @@ namespace AtmosFluxes {
     };
 }
 
+/**
+ * \brief Source type for bulk-flux atmospheric forcing variables.
+ *
+ * computed is used for diagnostics/parameterizations that are evaluated by
+ * REMORA rather than prescribed as an input field, e.g. Berliand longwave or
+ * bulk evaporation minus precipitation.
+ */
+enum class BulkForcingType {
+    constant,
+    analytic,
+    netcdf,
+    computed
+};
+
+/**
+ * \brief Index constants for SolverChoice::bulk_flux_type.
+ */
+namespace BulkFlux {
+    enum {
+        Uwind = 0,  ///< 10-m zonal wind [m/s]
+        Vwind,     ///< 10-m meridional wind [m/s]
+        Pair,      ///< atmospheric pressure [mb]
+        Qair,      ///< specific humidity or relative humidity [kg/kg or fraction]
+        Tair,      ///< air temperature [degC]
+        Cloud,     ///< cloud fraction [0-1]
+        Rain,      ///< precipitation rate [kg/m^2/s]
+        SWrad,     ///< downward shortwave radiation [W/m^2]
+        LWrad,     ///< longwave radiation [W/m^2]
+        EminusP,   ///< evaporation minus precipitation [m/s]
+        NumTypes
+    };
+}
+
 enum struct REMORA_BC {
     symmetry, inflow, outflow, no_slip_wall, slip_wall, periodic,
     clamped, chapman, flather, orlanski_rad, orlanski_rad_nudge, undefined

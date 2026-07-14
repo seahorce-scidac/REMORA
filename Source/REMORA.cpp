@@ -1144,106 +1144,136 @@ REMORA::set_smflux(int lev)
  * @param[in   ] lev    level to operate on
  */
 void
-REMORA::set_wind(int lev)
+REMORA::set_surface_state (int lev)
 {
-    BL_PROFILE("REMORA::set_wind()");
-    const bool driver_has_uwind = driver_atmos_state_from_driver[0];
-    const bool driver_has_vwind = driver_atmos_state_from_driver[1];
+    BL_PROFILE("REMORA::set_surface_state()");
 
-    if (solverChoice.wind_type == WindType::analytic) {
-        // The analytic wind initializer writes both components together, so only
-        // invoke it when the driver has not already provided the wind pair.
-        if (!(driver_has_uwind && driver_has_vwind)) {
-            prob->init_analytic_wind(lev,geom[lev], solverChoice, *this, *vec_uwind[lev], *vec_vwind[lev]);
-        }
-        if (vec_uwind[lev] != nullptr) { vec_uwind[lev]->FillBoundary(geom[lev].periodicity()); }
-        if (vec_vwind[lev] != nullptr) { vec_vwind[lev]->FillBoundary(geom[lev].periodicity()); }
-    } else if (solverChoice.wind_type == WindType::netcdf) {
-#ifdef REMORA_USE_NETCDF
-        if (!driver_has_uwind) {
-            Uwind_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_uwind[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_uwind[lev], GetVecOfPtrs(vec_uwind),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        } else {
-            if (vec_uwind[lev] != nullptr) { vec_uwind[lev]->FillBoundary(geom[lev].periodicity()); }
-        }
-        if (!driver_has_vwind) {
-            Vwind_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_vwind[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_vwind[lev], GetVecOfPtrs(vec_vwind),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        } else {
-            if (vec_vwind[lev] != nullptr) { vec_vwind[lev]->FillBoundary(geom[lev].periodicity()); }
-        }
+    auto& bulk_flux_type = solverChoice.bulk_flux_type;
 
-        // Conditionally update atmospheric fields if loaded from NetCDF
-        if (solverChoice.Tair_from_netcdf && !driver_atmos_state_from_driver[4]) {
-            Tair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_Tair[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_Tair[lev], GetVecOfPtrs(vec_Tair),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        } else if (vec_Tair[lev]) {
-            vec_Tair[lev]->FillBoundary(geom[lev].periodicity());
+    for (int n=0; n < AtmosState::NumTypes; n++) {
+        if (driver_atmos_state_from_driver[n]) {
+            amrex::Abort("Reached set_surface_state() but variables have already been specified from driver!");
         }
-        if (solverChoice.qair_from_netcdf && !driver_atmos_state_from_driver[3]) {
-            qair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_qair[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_qair[lev], GetVecOfPtrs(vec_qair),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-
-            // Convert qair from percentage (0-100) to specific humidity (0-1) if needed
-            if (solverChoice.qair_is_percent) {
-                vec_qair[lev]->mult(0.01);
-
-                // Update ghost cells after modification
-                vec_qair[lev]->FillBoundary(geom[lev].periodicity());
-            }
-        } else if (vec_qair[lev]) {
-            vec_qair[lev]->FillBoundary(geom[lev].periodicity());
-        }
-        if (solverChoice.Pair_from_netcdf && !driver_atmos_state_from_driver[2]) {
-            Pair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_Pair[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_Pair[lev], GetVecOfPtrs(vec_Pair),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        } else if (vec_Pair[lev]) {
-            vec_Pair[lev]->FillBoundary(geom[lev].periodicity());
-        }
-        if (solverChoice.srflx_from_netcdf && !driver_atmos_state_from_driver[7]) {
-            srflx_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_srflx[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_srflx[lev], GetVecOfPtrs(vec_srflx),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        } else if (vec_srflx[lev]) {
-            vec_srflx[lev]->FillBoundary(geom[lev].periodicity());
-        }
-        if (solverChoice.longwave_down_from_netcdf && !driver_atmos_state_from_driver[8]) {
-            longwave_down_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_longwave_down[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_longwave_down[lev], GetVecOfPtrs(vec_longwave_down),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        } else if (vec_longwave_down[lev]) {
-            vec_longwave_down[lev]->FillBoundary(geom[lev].periodicity());
-        }
-        if (solverChoice.rain_from_netcdf && !driver_atmos_state_from_driver[6]) {
-            rain_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_rain[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_rain[lev], GetVecOfPtrs(vec_rain),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        } else if (vec_rain[lev]) {
-            vec_rain[lev]->FillBoundary(geom[lev].periodicity());
-        }
-        if (solverChoice.cloud_from_netcdf && !driver_atmos_state_from_driver[5]) {
-            cloud_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_cloud[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_cloud[lev], GetVecOfPtrs(vec_cloud),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        } else if (vec_cloud[lev]) {
-            vec_cloud[lev]->FillBoundary(geom[lev].periodicity());
-        }
-        if (solverChoice.EminusP_from_netcdf) {
-            EminusP_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_EminusP[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_EminusP[lev], GetVecOfPtrs(vec_EminusP),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        } else if (vec_EminusP[lev]) {
-            vec_EminusP[lev]->FillBoundary(geom[lev].periodicity());
-        }
-#endif
-    } else {
-        amrex::Abort("Unknown wind_type in REMORA::set_wind()");
     }
+//    const bool driver_has_uwind = driver_atmos_state_from_driver[AtmosState::Uwind];
+//    const bool driver_has_vwind = driver_atmos_state_from_driver[AtmosState::Vwind];
+//
+//    const bool use_analytic_uwind = bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::analytic &&
+//                                    !driver_has_uwind;
+//    const bool use_analytic_vwind = bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::analytic &&
+//                                    !driver_has_vwind;
+//
+//    if (use_analytic_uwind || use_analytic_vwind) {
+//        std::unique_ptr<MultiFab> tmp_uwind;
+//        std::unique_ptr<MultiFab> tmp_vwind;
+//        MultiFab* analytic_uwind = vec_uwind[lev].get();
+//        MultiFab* analytic_vwind = vec_vwind[lev].get();
+//
+//        if (!use_analytic_uwind) {
+//            tmp_uwind.reset(new MultiFab(vec_uwind[lev]->boxArray(), vec_uwind[lev]->DistributionMap(),
+//                                         1, vec_uwind[lev]->nGrowVect()));
+//            analytic_uwind = tmp_uwind.get();
+//        }
+//        if (!use_analytic_vwind) {
+//            tmp_vwind.reset(new MultiFab(vec_vwind[lev]->boxArray(), vec_vwind[lev]->DistributionMap(),
+//                                         1, vec_vwind[lev]->nGrowVect()));
+//            analytic_vwind = tmp_vwind.get();
+//        }
+//
+//        prob->init_analytic_wind(lev, geom[lev], solverChoice, *this, *analytic_uwind, *analytic_vwind);
+//    }
+
+#ifdef REMORA_USE_NETCDF
+    auto update_from_netcdf = [&](std::unique_ptr<NCTimeSeries>& data_from_file,
+                                  Vector<std::unique_ptr<MultiFab>>& mf_vec) {
+        data_from_file->update_interpolated_to_time(t_old[lev], lev, mf_vec[lev].get(), geom, ref_ratio);
+        FillPatch(lev, t_old[lev], *mf_vec[lev], GetVecOfPtrs(mf_vec),
+                  foextrap_periodic_bc(), BdyVars::null, 0, false);
+    };
+
+    if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Uwind]) {
+        update_from_netcdf(Uwind_data_from_file, vec_uwind);
+    }
+    if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Vwind]) {
+        update_from_netcdf(Vwind_data_from_file, vec_vwind);
+    }
+
+    if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Tair]) {
+        update_from_netcdf(Tair_data_from_file, vec_Tair);
+    }
+    if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Qair]) {
+        update_from_netcdf(qair_data_from_file, vec_qair);
+        if (solverChoice.qair_is_percent) {
+            vec_qair[lev]->mult(0.01_rt);
+        }
+    }
+    if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Pair]) {
+        update_from_netcdf(Pair_data_from_file, vec_Pair);
+    }
+    if (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::SWrad]) {
+        update_from_netcdf(srflx_data_from_file, vec_srflx);
+    }
+    if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::LWrad]) {
+        update_from_netcdf(longwave_down_data_from_file, vec_longwave_down);
+    }
+    if (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Rain]) {
+        update_from_netcdf(rain_data_from_file, vec_rain);
+    }
+    if (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Cloud]) {
+        update_from_netcdf(cloud_data_from_file, vec_cloud);
+    }
+    if (bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
+        update_from_netcdf(EminusP_data_from_file, vec_EminusP);
+    }
+#else
+    for (int idx = 0; idx < BulkFlux::NumTypes; ++idx) {
+        if (bulk_flux_type[idx] == BulkForcingType::netcdf) {
+            amrex::Abort("NetCDF bulk-flux forcing requires building with NetCDF");
+        }
+    }
+#endif
+
+    MultiFab* analytic_uwind = (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Uwind]) ? vec_uwind[lev].get() : nullptr;
+    MultiFab* analytic_vwind = (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Vwind]) ? vec_vwind[lev].get() : nullptr;
+    MultiFab* analytic_Tair = (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Tair]) ? vec_Tair[lev].get() : nullptr;
+    MultiFab* analytic_qair = (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Qair]) ? vec_qair[lev].get() : nullptr;
+    MultiFab* analytic_Pair = (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Pair]) ? vec_Pair[lev].get() : nullptr;
+    MultiFab* analytic_srflx = (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::analytic &&
+                                !driver_atmos_state_from_driver[AtmosState::SWrad]) ? vec_srflx[lev].get() : nullptr;
+    MultiFab* analytic_lwrad = (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::analytic &&
+                                !driver_atmos_state_from_driver[AtmosState::LWrad]) ? vec_longwave_down[lev].get() : nullptr;
+    MultiFab* analytic_rain = (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Rain]) ? vec_rain[lev].get() : nullptr;
+    MultiFab* analytic_cloud = (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::analytic &&
+                                !driver_atmos_state_from_driver[AtmosState::Cloud]) ? vec_cloud[lev].get() : nullptr;
+    MultiFab* analytic_EminusP = bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::analytic ? vec_EminusP[lev].get() : nullptr;
+
+    if (analytic_uwind != nullptr || analytic_vwind != nullptr ||
+        analytic_Tair != nullptr || analytic_qair != nullptr || analytic_Pair != nullptr ||
+        analytic_srflx != nullptr || analytic_lwrad != nullptr || analytic_rain != nullptr ||
+        analytic_cloud != nullptr || analytic_EminusP != nullptr) {
+        prob->init_analytic_surface_var(lev, geom[lev], solverChoice, *this,
+                                        *analytic_uwind, *analytic_vwind,
+                                        *analytic_Tair, *analytic_qair, *analytic_Pair,
+                                        *analytic_srflx, *analytic_lwrad, *analytic_rain,
+                                        *analytic_cloud, *analytic_EminusP);
+    }
+
+    if (vec_uwind[lev] != nullptr) { vec_uwind[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_vwind[lev] != nullptr) { vec_vwind[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_Tair[lev] != nullptr) { vec_Tair[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_qair[lev] != nullptr) { vec_qair[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_Pair[lev] != nullptr) { vec_Pair[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_srflx[lev] != nullptr) { vec_srflx[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_longwave_down[lev] != nullptr) { vec_longwave_down[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_rain[lev] != nullptr) { vec_rain[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_cloud[lev] != nullptr) { vec_cloud[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_EminusP[lev] != nullptr) { vec_EminusP[lev]->FillBoundary(geom[lev].periodicity()); }
 }
 
 /**
@@ -1319,20 +1349,7 @@ REMORA::init_only (int lev, Real time)
     }
 
     // This will be a non-op if forcings specified analytically
-    if (solverChoice.wind_type == WindType::netcdf) {
-        if (lev==0) {
-            if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
-                amrex::Error("NetCDF forcing file name must be provided via input for winds");
-            }
-            Uwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false));
-            Vwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false));
-            Uwind_data_from_file->Initialize();
-            Vwind_data_from_file->Initialize();
-        } else {
-            FillCoarsePatch(lev, time, vec_uwind[lev].get(), vec_uwind[lev-1].get(), foextrap_bc());
-            FillCoarsePatch(lev, time, vec_vwind[lev].get(), vec_vwind[lev-1].get(), foextrap_bc());
-        }
-    } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
+    if (solverChoice.smflux_type == SMFluxType::netcdf) {
         if (lev==0) {
             if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
                 amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
@@ -1347,68 +1364,87 @@ REMORA::init_only (int lev, Real time)
         }
     }
 
-    // Conditionally load atmospheric forcing fields from NetCDF based on user flags
+    // Conditionally load atmospheric forcing fields from NetCDF based on source type.
+    const auto& bulk_flux_type = solverChoice.bulk_flux_type;
+    bool any_bulk_netcdf = false;
+    for (int idx = 0; idx < BulkFlux::NumTypes; ++idx) {
+        any_bulk_netcdf = any_bulk_netcdf || bulk_flux_type[idx] == BulkForcingType::netcdf;
+    }
+    if (lev == 0 && any_bulk_netcdf && (nc_frc_file.empty() || nc_frc_file[0].empty())) {
+        amrex::Error("NetCDF forcing file name must be provided via input for bulk-flux atmospheric forcing");
+    }
+
     if (lev==0) {
-        if (solverChoice.Tair_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf) {
+            Uwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false));
+            Uwind_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf) {
+            Vwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false));
+            Vwind_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf) {
             Tair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false));
             Tair_data_from_file->Initialize();
         }
-        if (solverChoice.qair_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf) {
             qair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "qair", frc_time_varname, geom[lev].Domain(),vec_qair[lev].get(), true, false));
             qair_data_from_file->Initialize();
         }
-        if (solverChoice.Pair_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf) {
             Pair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Pair", frc_time_varname, geom[lev].Domain(),vec_Pair[lev].get(), true, false));
             Pair_data_from_file->Initialize();
         }
-        if (solverChoice.srflx_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::netcdf) {
             srflx_data_from_file.reset(new NCTimeSeries(nc_frc_file, "swrad", frc_time_varname, geom[lev].Domain(),vec_srflx[lev].get(), true, false));
             srflx_data_from_file->Initialize();
         }
-        if (solverChoice.rain_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::netcdf) {
             rain_data_from_file.reset(new NCTimeSeries(nc_frc_file, "rain", frc_time_varname, geom[lev].Domain(),vec_rain[lev].get(), true, false));
             rain_data_from_file->Initialize();
         }
-        if (solverChoice.cloud_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::netcdf) {
             cloud_data_from_file.reset(new NCTimeSeries(nc_frc_file, "cloud", frc_time_varname, geom[lev].Domain(),vec_cloud[lev].get(), true, false));
             cloud_data_from_file->Initialize();
         }
-        if (solverChoice.EminusP_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
             EminusP_data_from_file.reset(new NCTimeSeries(nc_frc_file, "EminusP", frc_time_varname, geom[lev].Domain(),vec_EminusP[lev].get(), true, false));
             EminusP_data_from_file->Initialize();
         }
-    } else {
-        if (solverChoice.Tair_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_Tair[lev].get(), vec_Tair[lev-1].get(), foextrap_bc());
-        }
-        if (solverChoice.qair_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_qair[lev].get(), vec_qair[lev-1].get(), foextrap_bc());
-        }
-        if (solverChoice.Pair_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_Pair[lev].get(), vec_Pair[lev-1].get(), foextrap_bc());
-        }
-        if (solverChoice.srflx_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_srflx[lev].get(), vec_srflx[lev-1].get(), foextrap_bc());
-        }
-        if (solverChoice.rain_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_rain[lev].get(), vec_rain[lev-1].get(), foextrap_bc());
-        }
-        if (solverChoice.cloud_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_cloud[lev].get(), vec_cloud[lev-1].get(), foextrap_bc());
-        }
-        if (solverChoice.EminusP_from_netcdf) {
-            FillCoarsePatch(lev, time, vec_EminusP[lev].get(), vec_EminusP[lev-1].get(), foextrap_bc());
-        }
-    }
-    if (solverChoice.longwave_down_from_netcdf) {
-        if (lev==0) {
-            if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
-                amrex::Error("NetCDF forcing file name must be provided via input for longwave radiation");
-            }
+        if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::netcdf) {
             longwave_down_data_from_file.reset(new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
                                                                 geom[lev].Domain(), vec_longwave_down[lev].get(), true, false));
             longwave_down_data_from_file->Initialize();
-        } else {
+        }
+    } else {
+        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_uwind[lev].get(), vec_uwind[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_vwind[lev].get(), vec_vwind[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_Tair[lev].get(), vec_Tair[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_qair[lev].get(), vec_qair[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_Pair[lev].get(), vec_Pair[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_srflx[lev].get(), vec_srflx[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_rain[lev].get(), vec_rain[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_cloud[lev].get(), vec_cloud[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_EminusP[lev].get(), vec_EminusP[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::netcdf) {
             FillCoarsePatch(lev, time, vec_longwave_down[lev].get(), vec_longwave_down[lev-1].get(), foextrap_bc());
         }
     }

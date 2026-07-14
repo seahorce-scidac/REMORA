@@ -11,7 +11,7 @@ using namespace amrex;
  * @param[in   ] mf_qair        specific humidity [kg/kg]
  * @param[in   ] mf_Pair        air pressure [mb]
  * @param[in   ] mf_srflx       shortwave radiation flux [W/m²]
- * @param[in   ] mf_longwave_down longwave radiation flux [W/m²]
+ * @param[in   ] mf_longwave_down external longwave radiation flux [W/m²]
  * @param[inout] mf_evap        evaporation rate
  * @param[  out] mf_sustr       u-direction surface momentum stress
  * @param[  out] mf_svstr       v-direction surface momentum stress
@@ -75,9 +75,10 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Real blk_ZW = solverChoice.blk_ZW;
 
         bool use_longwave_down = solverChoice.longwave_down;
-        bool longwave_netcdf_is_net = solverChoice.longwave_netcdf_is_net;
-        bool have_longwave_from_file = (mf_longwave_down != nullptr);
-        bool use_EminusP_from_file = solverChoice.eminusp && solverChoice.EminusP_from_netcdf;
+        bool longwave_is_net = solverChoice.longwave_is_net;
+        bool have_external_longwave = (mf_longwave_down != nullptr);
+        bool use_EminusP_from_input = solverChoice.eminusp &&
+            solverChoice.bulk_flux_type[BulkFlux::EminusP] != BulkForcingType::computed;
 
         Real eps = 1e-20_rt;
 
@@ -115,19 +116,20 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             /*-----------------------------------------------------------------------
                Compute outward or net longwave radiation (W/m2), LRad.
              -----------------------------------------------------------------------
-               If given downward longwave radiation, compute net longwave radiation as
-               Ldown - Lemit, where Lemit is computed from the model SST and an emissivity.
-               Or use Berliand (1952) formula to calculate net longwave radiation.
+               If external longwave radiation is net, use it directly. If it is
+               downward, compute net longwave radiation as Ldown - Lemit, where
+               Lemit is computed from the model SST and an emissivity. Otherwise,
+               use Berliand (1952) formula to calculate net longwave radiation.
                The equation for saturation vapor pressure is from Gill (Atmosphere-
                Ocean Dynamics, pp 606). Here the coefficient in the cloud term
                is assumed constant, but it is a function of latitude varying from
                1.0 at poles to 0.5 at the Equator).
 
             */
-            if (have_longwave_from_file && longwave_netcdf_is_net) {
-                // File provides net longwave directly (W/m2), no additional conversion.
+            if (have_external_longwave && longwave_is_net) {
+                // External forcing provides net longwave directly (W/m2).
                 LRad = longwave_down_arr(i,j,0);
-            } else if (use_longwave_down) {
+            } else if (have_external_longwave && use_longwave_down) {
                 Real Ldown = longwave_down_arr(i,j,0);
                 Real Lemit = emmiss * StefBo * std::pow(TseaK,4);
                 LRad = Ldown - Lemit;
@@ -391,8 +393,8 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             // Note: srflx from NetCDF is in W/m², convert to degC m/s by multiplying by Hscale2
             stflux(i,j,0,Temp_comp)=(srflux*Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
             evap(i,j,0) = (LHeat / Hlv+eps) * mskr(i,j,0);
-            if (use_EminusP_from_file) {
-                // Match ROMS BULK_FLUXES + !EMINUSP behavior: use NetCDF E-P directly (m/s).
+            if (use_EminusP_from_input) {
+                // Use prescribed E-P directly
                 stflux(i,j,0,Salt_comp) = mskr(i,j,0) * EminusP(i,j,0);
             } else {
                 stflux(i,j,0,Salt_comp) = mskr(i,j,0) * (evap(i,j,0)-rain(i,j,0)) / rhow;
