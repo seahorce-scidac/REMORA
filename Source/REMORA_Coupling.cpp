@@ -54,6 +54,31 @@ make_internal_bcs (int ncomp)
     }
     return bcs;
 }
+
+void
+CopyDriverSlabToRemoraLayout (const MultiFab& src,
+                              MultiFab& dst,
+                              const Geometry& geom,
+                              const char* context)
+{
+    const Box src_domain = enclosedCells(src.boxArray().minimalBox());
+    const Box dst_domain = enclosedCells(dst.boxArray().minimalBox());
+
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        src.boxArray().ixType() == dst.boxArray().ixType(),
+        context);
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        src_domain.smallEnd(0) == dst_domain.smallEnd(0) &&
+        src_domain.smallEnd(1) == dst_domain.smallEnd(1) &&
+        src_domain.length(0) == dst_domain.length(0) &&
+        src_domain.length(1) == dst_domain.length(1) &&
+        src_domain.length(2) == dst_domain.length(2),
+        context);
+
+    dst.setVal(0.0_rt);
+    dst.ParallelCopy(src, 0, 0, dst.nComp(), IntVect(0), IntVect(0), geom.periodicity());
+    dst.FillBoundary(geom.periodicity());
+}
 }
 
 amrex::Real
@@ -317,48 +342,78 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     const Real Hscale2 = 1.0_rt / (solverChoice.rho0 * Cp);
     const Real rho0 = solverChoice.rho0;
 
-    vec_srflx[0]->ParallelCopy(*states[AtmosFluxes::SWrad], 0, 0, 1);
-    vec_rain[0]->ParallelCopy(*states[AtmosFluxes::Rain], 0, 0, 1);
-    vec_evap[0]->ParallelCopy(*states[AtmosFluxes::Evap], 0, 0, 1);
+    MultiFab tau_x_tmp(vec_sustr[0]->boxArray(), vec_sustr[0]->DistributionMap(), 1,
+                       vec_sustr[0]->nGrowVect());
+    MultiFab tau_y_tmp(vec_svstr[0]->boxArray(), vec_svstr[0]->DistributionMap(), 1,
+                       vec_svstr[0]->nGrowVect());
+    MultiFab shflux_tmp(vec_shflx[0]->boxArray(), vec_shflx[0]->DistributionMap(), 1,
+                        vec_shflx[0]->nGrowVect());
+    MultiFab lhflux_tmp(vec_lhflx[0]->boxArray(), vec_lhflx[0]->DistributionMap(), 1,
+                        vec_lhflx[0]->nGrowVect());
+    MultiFab lwflux_tmp(vec_lrflx[0]->boxArray(), vec_lrflx[0]->DistributionMap(), 1,
+                        vec_lrflx[0]->nGrowVect());
 
-    for (MFIter mfi(*vec_stflux[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-        Array4<Real> const& stflux = vec_stflux[0]->array(mfi);
+    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::TauX], tau_x_tmp, geom[0],
+                                 "REMORA::ApplyAtmosphericFluxes expected TauX slab to match REMORA u-face layout.");
+    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::TauY], tau_y_tmp, geom[0],
+                                 "REMORA::ApplyAtmosphericFluxes expected TauY slab to match REMORA v-face layout.");
+    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::SHflux], shflux_tmp, geom[0],
+                                 "REMORA::ApplyAtmosphericFluxes expected SHflux slab to match REMORA rho layout.");
+    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::LHflux], lhflux_tmp, geom[0],
+                                 "REMORA::ApplyAtmosphericFluxes expected LHflux slab to match REMORA rho layout.");
+    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::LWrad], lwflux_tmp, geom[0],
+                                 "REMORA::ApplyAtmosphericFluxes expected LWrad slab to match REMORA rho layout.");
+    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::SWrad], *vec_srflx[0], geom[0],
+                                 "REMORA::ApplyAtmosphericFluxes expected SWrad slab to match REMORA rho layout.");
+    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::Rain], *vec_rain[0], geom[0],
+                                 "REMORA::ApplyAtmosphericFluxes expected rain slab to match REMORA rho layout.");
+    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::Evap], *vec_evap[0], geom[0],
+                                 "REMORA::ApplyAtmosphericFluxes expected evap slab to match REMORA rho layout.");
+
+    for (MFIter mfi(*vec_sustr[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& sustr = vec_sustr[0]->array(mfi);
-        Array4<Real> const& svstr = vec_svstr[0]->array(mfi);
-        Array4<Real> const& lrflx = vec_lrflx[0]->array(mfi);
-        Array4<Real> const& lhflx = vec_lhflx[0]->array(mfi);
-        Array4<Real> const& shflx = vec_shflx[0]->array(mfi);
-        Array4<const Real> const& mskr = vec_mskr[0]->const_array(mfi);
         Array4<const Real> const& msku = vec_msku[0]->const_array(mfi);
-        Array4<const Real> const& mskv = vec_mskv[0]->const_array(mfi);
-        Array4<const Real> const& srflx = vec_srflx[0]->const_array(mfi);
-        Array4<const Real> const& rain = vec_rain[0]->const_array(mfi);
-        Array4<const Real> const& evap = vec_evap[0]->const_array(mfi);
-        Array4<const Real> const& tau_x = states[AtmosFluxes::TauX]->const_array(mfi);
-        Array4<const Real> const& tau_y = states[AtmosFluxes::TauY]->const_array(mfi);
-        Array4<const Real> const& shflux = states[AtmosFluxes::SHflux]->const_array(mfi);
-        Array4<const Real> const& lhflux = states[AtmosFluxes::LHflux]->const_array(mfi);
-        Array4<const Real> const& lwflux = states[AtmosFluxes::LWrad]->const_array(mfi);
+        Array4<const Real> const& tau_x = tau_x_tmp.const_array(mfi);
 
-        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
-        Box gbx2D = gbx2;
-        gbx2D.makeSlab(2,0);
         Box ubx = mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0));
         Box ubxD = ubx;
         ubxD.makeSlab(2,0);
+
+        ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+            sustr(i,j,0) = tau_x(i,j,0) / rho0 * msku(i,j,0);
+        });
+    }
+
+    for (MFIter mfi(*vec_svstr[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        Array4<Real> const& svstr = vec_svstr[0]->array(mfi);
+        Array4<const Real> const& mskv = vec_mskv[0]->const_array(mfi);
+        Array4<const Real> const& tau_y = tau_y_tmp.const_array(mfi);
+
         Box vbx = mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0));
         Box vbxD = vbx;
         vbxD.makeSlab(2,0);
 
-        ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            sustr(i,j,0) = tau_x(i,j,0) / rho0
-                         * msku(i,j,0);
-        });
-
         ParallelFor(vbxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            svstr(i,j,0) = tau_y(i,j,0) / rho0
-                         * mskv(i,j,0);
+            svstr(i,j,0) = tau_y(i,j,0) / rho0 * mskv(i,j,0);
         });
+    }
+
+    for (MFIter mfi(*vec_stflux[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        Array4<Real> const& stflux = vec_stflux[0]->array(mfi);
+        Array4<Real> const& lrflx = vec_lrflx[0]->array(mfi);
+        Array4<Real> const& lhflx = vec_lhflx[0]->array(mfi);
+        Array4<Real> const& shflx = vec_shflx[0]->array(mfi);
+        Array4<const Real> const& mskr = vec_mskr[0]->const_array(mfi);
+        Array4<const Real> const& srflx = vec_srflx[0]->const_array(mfi);
+        Array4<const Real> const& rain = vec_rain[0]->const_array(mfi);
+        Array4<const Real> const& evap = vec_evap[0]->const_array(mfi);
+        Array4<const Real> const& shflux = shflux_tmp.const_array(mfi);
+        Array4<const Real> const& lhflux = lhflux_tmp.const_array(mfi);
+        Array4<const Real> const& lwflux = lwflux_tmp.const_array(mfi);
+
+        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
+        Box gbx2D = gbx2;
+        gbx2D.makeSlab(2,0);
 
         ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
             // ERF exports flux lanes in native surface-flux units; convert once at ingest.
