@@ -138,7 +138,7 @@ REMORA::stretch_transform (int lev)
                 Real cff_w=hc*sc_w;
                 Real cff1_w=Cs_w_dat[k];
                 Real hwater=h(i,j,0);
-    
+
                 Real hinv=1.0_rt/(hc+hwater);
                 Real cff2_r=(cff_r+cff1_r*hwater)*hinv;
                 Real cff2_w=(cff_w+cff1_w*hwater)*hinv;

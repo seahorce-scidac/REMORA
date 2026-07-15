@@ -418,16 +418,18 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
                                  "REMORA::ApplyAtmosphericFluxes expected rain slab to match REMORA rho layout.");
     CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::Evap], *vec_evap[0], geom[0],
                                  "REMORA::ApplyAtmosphericFluxes expected evap slab to match REMORA rho layout.");
+    vec_lrflx[0]->setVal(0.0);
+    vec_lhflx[0]->setVal(0.0);
+    vec_shflx[0]->setVal(0.0);
+    vec_stflux[0]->setVal(0.0);
 
     for (MFIter mfi(*vec_sustr[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& sustr = vec_sustr[0]->array(mfi);
         Array4<const Real> const& msku = vec_msku[0]->const_array(mfi);
         Array4<const Real> const& tau_x = tau_x_tmp.const_array(mfi);
-
         Box ubx = mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0));
         Box ubxD = ubx;
         ubxD.makeSlab(2,0);
-
         ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
             sustr(i,j,0) = tau_x(i,j,0) / rho0 * msku(i,j,0);
         });
@@ -437,7 +439,6 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         Array4<Real> const& svstr = vec_svstr[0]->array(mfi);
         Array4<const Real> const& mskv = vec_mskv[0]->const_array(mfi);
         Array4<const Real> const& tau_y = tau_y_tmp.const_array(mfi);
-
         Box vbx = mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0));
         Box vbxD = vbx;
         vbxD.makeSlab(2,0);
