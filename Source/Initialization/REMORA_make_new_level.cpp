@@ -678,6 +678,7 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_shflx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_rain[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
         vec_evap[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+
         vec_uwind[lev]->setVal(solverChoice.Uwind);
         vec_vwind[lev]->setVal(solverChoice.Vwind);
         vec_Tair[lev]->setVal(solverChoice.Tair);
@@ -687,9 +688,15 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_longwave_down[lev]->setVal(solverChoice.longwave_rad);
         vec_cloud[lev]->setVal(solverChoice.cloud);
         vec_EminusP[lev]->setVal(solverChoice.EminusP);
+        vec_rain[lev]->setVal(solverChoice.rain);
+
+        // Set flux vars that will be computed in bulk_fluxes to zero so initial plotting works
+        vec_stflx[lev]->setVal(0.0_rt);
+        vec_sustr[lev]->setVal(0.0_rt);
+        vec_svstr[lev]->setVal(0.0_rt);
         vec_lhflx[lev]->setVal(0.0_rt);
         vec_shflx[lev]->setVal(0.0_rt);
-        vec_rain[lev]->setVal(solverChoice.rain);
+        vec_lrflx[lev]->setVal(0.0_rt); // possibly this should be set to longwave_rad like longwave_down
     }
 
     if (solverChoice.do_rivers) {
