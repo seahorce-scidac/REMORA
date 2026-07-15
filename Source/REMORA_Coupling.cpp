@@ -110,6 +110,55 @@ REMORA::EvolveOneStep (amrex::Real /*time*/, amrex::Real /*dt_request*/)
     return dt[0];
 }
 
+void
+REMORA::ConfigureDriverAtmosToOceanCoupling (bool use_coupling_driver,
+                                             bool use_two_way_coupling,
+                                             DriverAtmosForcingMode active_mode)
+{
+    running_with_coupling_driver = use_coupling_driver;
+    driver_uses_two_way_coupling = use_two_way_coupling;
+    driver_atmos_forcing_mode = active_mode;
+}
+
+void
+REMORA::SetDriverAtmosToOceanForcingMode (DriverAtmosForcingMode mode)
+{
+    driver_atmos_forcing_mode = mode;
+}
+
+void
+REMORA::GetAtmosToOceanRhoLayout (amrex::BoxArray& ba,
+                                  amrex::DistributionMapping& dm) const
+{
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        !vec_srflx.empty() && vec_srflx[0] != nullptr,
+        "REMORA::GetAtmosToOceanRhoLayout requires post-InitData rho-point forcing storage.");
+    ba = vec_srflx[0]->boxArray();
+    dm = vec_srflx[0]->DistributionMap();
+}
+
+void
+REMORA::GetAtmosToOceanUFaceLayout (amrex::BoxArray& ba,
+                                    amrex::DistributionMapping& dm) const
+{
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        !vec_sustr.empty() && vec_sustr[0] != nullptr,
+        "REMORA::GetAtmosToOceanUFaceLayout requires post-InitData u-face forcing storage.");
+    ba = vec_sustr[0]->boxArray();
+    dm = vec_sustr[0]->DistributionMap();
+}
+
+void
+REMORA::GetAtmosToOceanVFaceLayout (amrex::BoxArray& ba,
+                                    amrex::DistributionMapping& dm) const
+{
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        !vec_svstr.empty() && vec_svstr[0] != nullptr,
+        "REMORA::GetAtmosToOceanVFaceLayout requires post-InitData v-face forcing storage.");
+    ba = vec_svstr[0]->boxArray();
+    dm = vec_svstr[0]->DistributionMap();
+}
+
 /*
  * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
  *
