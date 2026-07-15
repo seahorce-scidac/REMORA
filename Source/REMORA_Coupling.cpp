@@ -321,6 +321,12 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     vec_rain[0]->ParallelCopy(*states[AtmosFluxes::Rain], 0, 0, 1);
     vec_evap[0]->ParallelCopy(*states[AtmosFluxes::Evap], 0, 0, 1);
 
+    vec_lrflx[0]->setVal(0.0);
+    vec_lhflx[0]->setVal(0.0);
+    vec_shflx[0]->setVal(0.0);
+
+    vec_stflux[0]->setVal(0.0);
+
     for (MFIter mfi(*vec_stflux[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& stflux = vec_stflux[0]->array(mfi);
         Array4<Real> const& sustr = vec_sustr[0]->array(mfi);
@@ -328,14 +334,16 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         Array4<Real> const& lrflx = vec_lrflx[0]->array(mfi);
         Array4<Real> const& lhflx = vec_lhflx[0]->array(mfi);
         Array4<Real> const& shflx = vec_shflx[0]->array(mfi);
+
         Array4<const Real> const& mskr = vec_mskr[0]->const_array(mfi);
         Array4<const Real> const& msku = vec_msku[0]->const_array(mfi);
         Array4<const Real> const& mskv = vec_mskv[0]->const_array(mfi);
         Array4<const Real> const& srflx = vec_srflx[0]->const_array(mfi);
         Array4<const Real> const& rain = vec_rain[0]->const_array(mfi);
         Array4<const Real> const& evap = vec_evap[0]->const_array(mfi);
-        Array4<const Real> const& tau_x = states[AtmosFluxes::TauX]->const_array(mfi);
-        Array4<const Real> const& tau_y = states[AtmosFluxes::TauY]->const_array(mfi);
+
+        Array4<const Real> const& tau_x  = states[AtmosFluxes::TauX]->const_array(mfi);
+        Array4<const Real> const& tau_y  = states[AtmosFluxes::TauY]->const_array(mfi);
         Array4<const Real> const& shflux = states[AtmosFluxes::SHflux]->const_array(mfi);
         Array4<const Real> const& lhflux = states[AtmosFluxes::LHflux]->const_array(mfi);
         Array4<const Real> const& lwflux = states[AtmosFluxes::LWrad]->const_array(mfi);
@@ -343,9 +351,15 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         Box gbx2D = gbx2;
         gbx2D.makeSlab(2,0);
+
+        Box bx = mfi.tilebox();
+        Box bx2D = bx;
+        bx2D.makeSlab(2,0);
+
         Box ubx = mfi.grownnodaltilebox(0, IntVect(NGROW,NGROW,0));
         Box ubxD = ubx;
         ubxD.makeSlab(2,0);
+
         Box vbx = mfi.grownnodaltilebox(1, IntVect(NGROW,NGROW,0));
         Box vbxD = vbx;
         vbxD.makeSlab(2,0);
@@ -360,7 +374,7 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
                          * mskv(i,j,0);
         });
 
-        ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+        ParallelFor(bx2D, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
             // ERF exports flux lanes in native surface-flux units; convert once at ingest.
             lrflx(i,j,0) = lwflux(i,j,0) * Hscale2;
             lhflx(i,j,0) = -lhflux(i,j,0) * Hscale2;
