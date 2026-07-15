@@ -376,6 +376,13 @@ void
 REMORA::InitData ()
 {
     BL_PROFILE("REMORA::InitData()");
+    if (running_with_coupling_driver) {
+        amrex::Print() << "REMORA InitData: driver-managed atm2ocn coupling enabled"
+                       << " two_way=" << (driver_uses_two_way_coupling ? 1 : 0)
+                       << " active_contract="
+                       << (DriverUsesStateForcing(driver_atmos_forcing_mode) ? "state" : "flux")
+                       << "\n";
+    }
     // Initialize the start time for our CPU-time tracker
     startCPUTime = Real(ParallelDescriptor::second());
 

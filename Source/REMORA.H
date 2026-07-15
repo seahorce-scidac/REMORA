@@ -120,6 +120,20 @@ public:
     void InitData ();
     amrex::Real EvolveOneStep (amrex::Real time, amrex::Real dt_request);
 
+    void ConfigureDriverAtmosToOceanCoupling (bool use_coupling_driver,
+                                              bool use_two_way_coupling,
+                                              DriverAtmosForcingMode active_mode);
+    void SetDriverAtmosToOceanForcingMode (DriverAtmosForcingMode mode);
+    // Driver currently consumes BoxArray/DistributionMapping only. If we later
+    // need exact copy semantics, promote these to expose IndexType/ngrow
+    // explicitly or return the underlying MultiFab pointer/reference instead.
+    void GetAtmosToOceanRhoLayout (amrex::BoxArray& ba,
+                                   amrex::DistributionMapping& dm) const;
+    void GetAtmosToOceanUFaceLayout (amrex::BoxArray& ba,
+                                     amrex::DistributionMapping& dm) const;
+    void GetAtmosToOceanVFaceLayout (amrex::BoxArray& ba,
+                                     amrex::DistributionMapping& dm) const;
+
     /** \brief Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);
 
@@ -450,6 +464,8 @@ public:
     std::array<bool, AtmosState::NumTypes> driver_atmos_state_from_driver {};
     /** \brief True once REMORA has received forcing through the coupling driver. */
     bool running_with_coupling_driver = false;
+    /** \brief Driver-level direction flag copied in before InitData. */
+    bool driver_uses_two_way_coupling = false;
     /** \brief Active atmosphere-to-ocean forcing contract on the most recent driver apply. */
     DriverAtmosForcingMode driver_atmos_forcing_mode = DriverAtmosForcingMode::State;
 

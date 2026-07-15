@@ -107,11 +107,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
     }
 
-    // If we're not doing bulk fluxes, set surface momentum fluxes directly.
-    // Otherwise, calculate them from winds, so those need to be set
+    // If we're running in coupled mode, surface state and fluxes were already set
+    // Otherwise, if doing bulk fluxes, set winds/temp/etc
+    // And if not doing bulk fluxes, directly set surface fluxes
     if (running_with_coupling_driver) {
         // Surface stress and heat/moisture fluxes were already populated from the driver.
-    } else if (!solverChoice.bulk_fluxes) {
+    } else if (solverChoice.bulk_fluxes) {
         set_surface_state(lev);
     } else {
         set_smflux(lev);
