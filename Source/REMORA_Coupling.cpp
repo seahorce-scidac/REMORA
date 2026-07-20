@@ -431,7 +431,8 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         Box ubxD = ubx;
         ubxD.makeSlab(2,0);
         ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            sustr(i,j,0) = tau_x(i,j,0) / rho0 * msku(i,j,0);
+            // Sign on stress is flipped relative to ERF
+            sustr(i,j,0) = -tau_x(i,j,0) / rho0 * msku(i,j,0);
         });
     }
 
@@ -444,7 +445,8 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         vbxD.makeSlab(2,0);
 
         ParallelFor(vbxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            svstr(i,j,0) = tau_y(i,j,0) / rho0 * mskv(i,j,0);
+            // Sign on stress is flipped relative to ERF
+            svstr(i,j,0) = -tau_y(i,j,0) / rho0 * mskv(i,j,0);
         });
     }
 
