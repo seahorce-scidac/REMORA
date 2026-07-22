@@ -43,8 +43,8 @@ REMORA::init_beta_plane_coriolis (int lev)
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real y = prob_lo + (j + 0.5_rt) * dx;
-            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - 0.5_rt * Esize);
+            Real y = prob_lo + (j + half) * dx;
+            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - half * Esize);
         });
     } //mfi
 
@@ -83,8 +83,8 @@ REMORA::set_2darrays (int lev)
 {
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
-    vec_ubar[lev]->setVal(0.0_rt);
-    vec_vbar[lev]->setVal(0.0_rt);
+    vec_ubar[lev]->setVal(zero);
+    vec_vbar[lev]->setVal(zero);
 
     MultiFab* U_old = xvel_new[lev];
     MultiFab* V_old = yvel_new[lev];
@@ -108,11 +108,11 @@ REMORA::set_2darrays (int lev)
 
         ParallelFor(makeSlab(ubx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real CF = 0.;
-            Real sum_of_hz = 0.;
+            Real CF = zero;
+            Real sum_of_hz = zero;
 
             for (int k=0; k<=N; k++) {
-                Real avg_hz = 0.5_rt*(Hz(i,j,k)+Hz(i-1,j,k));
+                Real avg_hz = half*(Hz(i,j,k)+Hz(i-1,j,k));
                 sum_of_hz += avg_hz;
                 CF += avg_hz*u(i,j,k,nstp);
             }
@@ -121,11 +121,11 @@ REMORA::set_2darrays (int lev)
 
         ParallelFor(makeSlab(vbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real CF = 0.;
-            Real sum_of_hz = 0.;
+            Real CF = zero;
+            Real sum_of_hz = zero;
 
             for(int k=0; k<=N; k++) {
-                Real avg_hz = 0.5_rt*(Hz(i,j,k)+Hz(i,j-1,k));
+                Real avg_hz = half*(Hz(i,j,k)+Hz(i,j-1,k));
                 sum_of_hz += avg_hz;
                 CF += avg_hz*v(i,j,k,nstp);
             }
@@ -133,8 +133,8 @@ REMORA::set_2darrays (int lev)
         });
     }
 
-    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar,0,false,false,0,0,0.0,*vec_ubar[lev]);
-    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar,0,false,false,0,0,0.0,*vec_vbar[lev]);
+    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar,0,false,false,0,0,zero,*vec_ubar[lev]);
+    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar,0,false,false,0,0,zero,*vec_vbar[lev]);
 }
 
 /**
@@ -146,7 +146,7 @@ REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
 {
     vec_tke[lev]->setVal(solver_choice.gls_Kmin);
     vec_gls[lev]->setVal(solver_choice.gls_Pmin);
-    vec_Lscale[lev]->setVal(0.0_rt);
+    vec_Lscale[lev]->setVal(zero);
     vec_Akk[lev]->setVal(solver_choice.Akk_bak);
     vec_Akp[lev]->setVal(solver_choice.Akp_bak);
     vec_Akv[lev]->setVal(solver_choice.Akv_bak);
@@ -166,17 +166,17 @@ REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
 
         ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Akk(i,j, 0) = 0.0_rt;
-            Akk(i,j, N+1) = 0.0_rt;
+            Akk(i,j, 0) = zero;
+            Akk(i,j, N+1) = zero;
 
-            Akp(i,j, 0) = 0.0_rt;
-            Akp(i,j, N+1) = 0.0_rt;
+            Akp(i,j, 0) = zero;
+            Akp(i,j, N+1) = zero;
 
-            Akv(i,j, 0) = 0.0_rt;
-            Akv(i,j, N+1) = 0.0_rt;
+            Akv(i,j, 0) = zero;
+            Akv(i,j, N+1) = zero;
 
-            Akt(i,j, 0) = 0.0_rt;
-            Akt(i,j, N+1) = 0.0_rt;
+            Akt(i,j, 0) = zero;
+            Akt(i,j, N+1) = zero;
         });
     }
 }

@@ -149,7 +149,7 @@ REMORA::init_data_from_netcdf (int lev)
     } // omp
 
     if (nscalar > 1) {
-        cons_new[lev]->setVal(0.0_rt, Tracer_comp + 1, nscalar - 1, cons_new[lev]->nGrowVect());
+        cons_new[lev]->setVal(zero, Tracer_comp + 1, nscalar - 1, cons_new[lev]->nGrowVect());
     }
 }
 
@@ -190,9 +190,9 @@ REMORA::init_data_full_domain_from_netcdf ()
     } // mf
     } // omp
 
-    vec_cons_full_domain[hires_init_level]->setVal(0.0_rt, Tracer_comp, 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
+    vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp, 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
     if (nscalar > 1) {
-        vec_cons_full_domain[hires_init_level]->setVal(0.0_rt, Tracer_comp + 1, nscalar - 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
+        vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp + 1, nscalar - 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
     }
 
     // Average down to fill levels below hires_grid_level. Use a special average_down so
@@ -249,7 +249,7 @@ REMORA::init_zeta_from_netcdf (int lev)
     }
     if (lev>0) {
         FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
-                  0, false,false,0,0,0.0,*vec_zeta[lev]);
+                  0, false,false,0,0,zero,*vec_zeta[lev]);
     }
 //    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
 //    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
@@ -356,7 +356,7 @@ REMORA::init_grid_vars_from_netcdf (int lev)
         } // omp
     } // idx
 
-    Real dummy_time = 0.0_rt;
+    Real dummy_time = zero;
     if (lev > 0) {
         FillPatch(lev,dummy_time,*vec_pm[lev],GetVecOfPtrs(vec_pm),
                 foextrap_periodic_bc(),
@@ -429,7 +429,7 @@ REMORA::init_bathymetry_from_netcdf (int lev)
         } // omp
     } // idx
 
-    const double dummy_time = 0.0_rt;
+    const double dummy_time = zero;
     // Unconditional foextrap will overwrite periodicity, but EnforcePeriodicity will
     // be called on h afterwards
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
@@ -725,7 +725,7 @@ REMORA::init_riv_pos_from_netcdf (int lev)
  */
 void
 REMORA::convert_inv_days_to_inv_s (MultiFab* mf) {
-    Real inv_days_to_inv_s = 1.0_rt / (3600._rt * 24._rt);
+    Real inv_days_to_inv_s = one / (Real(3600.0) * Real(24.0));
 
     for ( MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
