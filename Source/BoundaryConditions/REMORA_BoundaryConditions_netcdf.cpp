@@ -47,7 +47,7 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
     AMREX_ALWAYS_ASSERT(Temp_comp == 0);
     AMREX_ALWAYS_ASSERT(Salt_comp == 1);
 
-    const Real eps= 1.0e-20_rt;
+    const Real eps= Real(1.0e-20);
     const bool null_mf_calc = (!mf_calc.ok());
 
     for (int icomp = 0; icomp < ncomp; icomp++) // This is to do both temp and salt if doing scalars
@@ -180,19 +180,19 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         dest_arr(i,j,k,icomp+icomp_to_fill) = bry_val * mask_arr(i,j,0);
                     } else if (bcr.lo(0) == REMORABCType::flather) {
                         Real bry_val_zeta = bdatxlo_zeta(ubound(xlo).x-1,j,k,0);
-                        Real cff = 1.0_rt / (0.5_rt * (h_arr(dom_lo.x-1,j,0) + zeta_arr(dom_lo.x-1,j,0,icomp_calc)
+                        Real cff = one / (half * (h_arr(dom_lo.x-1,j,0) + zeta_arr(dom_lo.x-1,j,0,icomp_calc)
                                                      + h_arr(dom_lo.x,j,0) + zeta_arr(dom_lo.x,j,0,icomp_calc)));
                         Real Cx = std::sqrt(g * cff);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = (bry_val
-                                - Cx * (0.5_rt * (zeta_arr(dom_lo.x-1,j,0,icomp_calc) + zeta_arr(dom_lo.x,j,0,icomp_calc))
+                                - Cx * (half * (zeta_arr(dom_lo.x-1,j,0,icomp_calc) + zeta_arr(dom_lo.x,j,0,icomp_calc))
                                     - bry_val_zeta)) * mask_arr(i,j,0);
                     } else if (bcr.lo(0) == REMORABCType::chapman) {
-                        Real cff = dt_calc * 0.5_rt * (pm(dom_lo.x,j-mf_index_type[1],0) + pm(dom_lo.x,j,0));
-                        Real cff1 = std::sqrt(g * 0.5_rt * (h_arr(dom_lo.x,j-mf_index_type[1],0)
+                        Real cff = dt_calc * half * (pm(dom_lo.x,j-mf_index_type[1],0) + pm(dom_lo.x,j,0));
+                        Real cff1 = std::sqrt(g * half * (h_arr(dom_lo.x,j-mf_index_type[1],0)
                                     + zeta_arr(dom_lo.x,j-mf_index_type[1],0,icomp_calc) + h_arr(dom_lo.x,j,0)
                                     + zeta_arr(dom_lo.x,j,0,icomp_calc)));
                         Real Cx = cff * cff1;
-                        Real cff2 = 1.0_rt / (1.0_rt + Cx);
+                        Real cff2 = one / (one + Cx);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = cff2 * (dest_arr(dom_lo.x-1,j,k,icomp_calc)
                                 + Cx * dest_arr(dom_lo.x,j,k,icomp+icomp_to_fill)) * mask_arr(i,j,0);
                     } else if (bcr.lo(0) == REMORABCType::orlanski_rad_nudge) {
@@ -210,14 +210,14 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         Real dTdx = dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_lo.x+mf_index_type[0]+1,j,k,icomp+icomp_to_fill);
                         Real tau;
                         Real nudg_coeff_out_local = (nudg_coeff_out(i-mf_index_type[0],j-mf_index_type[1],k) +
-                                                     nudg_coeff_out(i,j,k)) * 0.5_rt;
-                        if (dTdt*dTdx < 0.0_rt) {
+                                                     nudg_coeff_out(i,j,k)) * half;
+                        if (dTdt*dTdx < zero) {
                             tau = nudg_coeff_out_local * obcfac * dt_calc;
-                            dTdt = 0.0_rt;
+                            dTdt = zero;
                         } else {
                             tau = nudg_coeff_out_local * dt_calc;
                         }
-                        Real dTde = (dTdt * (grad_lo+grad_lo_jp1) > 0.0_rt) ? grad_lo : grad_lo_jp1;
+                        Real dTde = (dTdt * (grad_lo+grad_lo_jp1) > zero) ? grad_lo : grad_lo_jp1;
                         Real cff = std::max(dTdx*dTdx+dTde*dTde,eps);
                         Real Cx = dTdt * dTdx;
                         dest_arr(i,j,k,icomp+icomp_to_fill) = (cff * calc_arr(dom_lo.x-1+mf_index_type[0],j,k,icomp+icomp_to_fill_calc) + Cx * dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill)) / (cff+Cx);
@@ -239,19 +239,19 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         dest_arr(i,j,k,icomp+icomp_to_fill) = bry_val * mask_arr(i,j,0);
                     } else if (bcr.hi(0) == REMORABCType::flather) {
                         Real bry_val_zeta = bdatxhi_zeta(lbound(xhi).x,j,k,0);
-                        Real cff = 1.0_rt / (0.5_rt * (h_arr(dom_hi.x-1,j,0) + zeta_arr(dom_hi.x-1,j,0,icomp_calc)
+                        Real cff = one / (half * (h_arr(dom_hi.x-1,j,0) + zeta_arr(dom_hi.x-1,j,0,icomp_calc)
                                                      + h_arr(dom_hi.x,j,0) + zeta_arr(dom_hi.x,j,0,icomp_calc)));
                         Real Cx = std::sqrt(g * cff);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = (bry_val
-                                + Cx * (0.5_rt * (zeta_arr(dom_hi.x-1,j,0,icomp_calc) + zeta_arr(dom_hi.x,j,0,icomp_calc))
+                                + Cx * (half * (zeta_arr(dom_hi.x-1,j,0,icomp_calc) + zeta_arr(dom_hi.x,j,0,icomp_calc))
                                     - bry_val_zeta)) * mask_arr(i,j,0);
                     } else if (bcr.hi(0) == REMORABCType::chapman) {
-                        Real cff = dt_calc * 0.5_rt * (pm(dom_hi.x,j-mf_index_type[1],0) + pm(dom_hi.x,j,0));
-                        Real cff1 = std::sqrt(g * 0.5_rt * (h_arr(dom_hi.x,j-mf_index_type[1],0)
+                        Real cff = dt_calc * half * (pm(dom_hi.x,j-mf_index_type[1],0) + pm(dom_hi.x,j,0));
+                        Real cff1 = std::sqrt(g * half * (h_arr(dom_hi.x,j-mf_index_type[1],0)
                                     + zeta_arr(dom_hi.x,j-mf_index_type[1],0,icomp_calc) + h_arr(dom_hi.x,j,0)
                                     + zeta_arr(dom_hi.x,j,0,icomp_calc)));
                         Real Cx = cff * cff1;
-                        Real cff2 = 1.0_rt / (1.0_rt + Cx);
+                        Real cff2 = one / (one + Cx);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = cff2 * (dest_arr(dom_hi.x+1,j,k,icomp_calc)
                                 + Cx * dest_arr(dom_hi.x,j,k,icomp+icomp_to_fill)) * mask_arr(i,j,0);
                     } else if (bcr.hi(0) == REMORABCType::orlanski_rad_nudge) {
@@ -269,15 +269,15 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         Real dTdx = dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_hi.x-mf_index_type[0]-1,j,k,icomp+icomp_to_fill);
                         Real tau;
                         Real nudg_coeff_out_local = (nudg_coeff_out(i-mf_index_type[0],j-mf_index_type[1],k) +
-                                                     nudg_coeff_out(i,j,k)) * 0.5_rt;
-                        if (dTdt*dTdx < 0.0_rt) {
+                                                     nudg_coeff_out(i,j,k)) * half;
+                        if (dTdt*dTdx < zero) {
                             tau = nudg_coeff_out_local * obcfac * dt_calc;
-                            dTdt = 0.0_rt;
+                            dTdt = zero;
                         } else {
                             tau = nudg_coeff_out_local * dt_calc;
                         }
-                        if (dTdt * dTdx < 0.0_rt) dTdt = 0.0_rt;
-                        Real dTde = (dTdt * (grad_hi + grad_hi_jp1) > 0.0_rt) ? grad_hi : grad_hi_jp1;
+                        if (dTdt * dTdx < zero) dTdt = zero;
+                        Real dTde = (dTdt * (grad_hi + grad_hi_jp1) > zero) ? grad_hi : grad_hi_jp1;
                         Real cff = std::max(dTdx*dTdx + dTde*dTde,eps);
                         Real Cx = dTdt * dTdx;
                         dest_arr(i,j,k,icomp+icomp_to_fill) = (cff * calc_arr(dom_hi.x+1-mf_index_type[0],j,k,icomp+icomp_to_fill_calc) + Cx * dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill)) * mask_arr(i,j,0) / (cff+Cx);
@@ -299,19 +299,19 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         dest_arr(i,j,k,icomp+icomp_to_fill) = bry_val * mask_arr(i,j,0);
                     } else if (bcr.lo(1) == REMORABCType::flather) {
                         Real bry_val_zeta = bdatylo_zeta(i,ubound(ylo).y-1,k,0);
-                        Real cff = 1.0_rt / (0.5_rt * (h_arr(i,dom_lo.y-1,0) + zeta_arr(i,dom_lo.y-1,0,icomp_calc)
+                        Real cff = one / (half * (h_arr(i,dom_lo.y-1,0) + zeta_arr(i,dom_lo.y-1,0,icomp_calc)
                                                      + h_arr(i,dom_lo.y,0) + zeta_arr(i,dom_lo.y,0,icomp_calc)));
                         Real Ce = std::sqrt(g * cff);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = (bry_val
-                                - Ce * (0.5_rt * (zeta_arr(i,dom_lo.y-1,0,icomp_calc) + zeta_arr(i,dom_lo.y,0,icomp_calc))
+                                - Ce * (half * (zeta_arr(i,dom_lo.y-1,0,icomp_calc) + zeta_arr(i,dom_lo.y,0,icomp_calc))
                                     - bry_val_zeta)) * mask_arr(i,j,0);
                     } else if (bcr.lo(1) == REMORABCType::chapman) {
-                        Real cff = dt_calc * 0.5_rt * (pn(i-mf_index_type[0],dom_lo.y,0) + pn(i,dom_lo.y,0));
-                        Real cff1 = std::sqrt(g * 0.5_rt * (h_arr(i-mf_index_type[0],dom_lo.y,0) +
+                        Real cff = dt_calc * half * (pn(i-mf_index_type[0],dom_lo.y,0) + pn(i,dom_lo.y,0));
+                        Real cff1 = std::sqrt(g * half * (h_arr(i-mf_index_type[0],dom_lo.y,0) +
                                     zeta_arr(i-mf_index_type[0],dom_lo.y,0,icomp_calc) + h_arr(i,dom_lo.y,0)
                                     + zeta_arr(i,dom_lo.y,0,icomp_calc)));
                         Real Ce = cff * cff1;
-                        Real cff2 = 1.0_rt / (1.0_rt + Ce);
+                        Real cff2 = one / (one + Ce);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = cff2 * (dest_arr(i,dom_lo.y-1,k,icomp_calc)
                                 + Ce * dest_arr(i,dom_lo.y,k,icomp+icomp_to_fill)) * mask_arr(i,j,0);
                     } else if (bcr.lo(1) == REMORABCType::orlanski_rad_nudge) {
@@ -329,15 +329,15 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         Real dTde = dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_lo.y+1+mf_index_type[1],k,icomp+icomp_to_fill);
                         Real tau;
                         Real nudg_coeff_out_local = (nudg_coeff_out(i-mf_index_type[0],j-mf_index_type[1],k) +
-                                                     nudg_coeff_out(i,j,k)) * 0.5_rt;
-                        if (dTdt*dTde < 0.0_rt) {
+                                                     nudg_coeff_out(i,j,k)) * half;
+                        if (dTdt*dTde < zero) {
                             tau = nudg_coeff_out_local * obcfac * dt_calc;
-                            dTdt = 0.0_rt;
+                            dTdt = zero;
                         } else {
                             tau = nudg_coeff_out_local * dt_calc;
                         }
-                        if (dTdt * dTde < 0.0_rt) dTdt = 0.0_rt;
-                        Real dTdx = (dTdt * (grad_lo + grad_lo_ip1) > 0.0_rt) ? grad_lo : grad_lo_ip1;
+                        if (dTdt * dTde < zero) dTdt = zero;
+                        Real dTdx = (dTdt * (grad_lo + grad_lo_ip1) > zero) ? grad_lo : grad_lo_ip1;
                         Real cff = std::max(dTdx*dTdx + dTde*dTde, eps);
                         Real Ce = dTdt*dTde;
                         dest_arr(i,j,k,icomp+icomp_to_fill) = (cff * calc_arr(i,dom_lo.y-1+mf_index_type[1],k,icomp+icomp_to_fill_calc) + Ce * dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill)) / (cff+Ce);
@@ -359,19 +359,19 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         dest_arr(i,j,k,icomp+icomp_to_fill) = bry_val * mask_arr(i,j,0);
                     } else if (bcr.hi(1) == REMORABCType::flather) {
                         Real bry_val_zeta = bdatyhi_zeta(i,lbound(yhi).y,k,0);
-                        Real cff = 1.0_rt / (0.5_rt * (h_arr(i,dom_hi.y-1,0) + zeta_arr(i,dom_hi.y-1,0,icomp_calc)
+                        Real cff = one / (half * (h_arr(i,dom_hi.y-1,0) + zeta_arr(i,dom_hi.y-1,0,icomp_calc)
                                                      + h_arr(i,dom_hi.y,0) + zeta_arr(i,dom_hi.y,0,icomp_calc)));
                         Real Ce = std::sqrt(g * cff);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = (bry_val
-                                + Ce * (0.5_rt * (zeta_arr(i,dom_hi.y-1,0,icomp_calc) + zeta_arr(i,dom_hi.y,0,icomp_calc))
+                                + Ce * (half * (zeta_arr(i,dom_hi.y-1,0,icomp_calc) + zeta_arr(i,dom_hi.y,0,icomp_calc))
                                     - bry_val_zeta)) * mask_arr(i,j,0);
                     } else if (bcr.hi(1) == REMORABCType::chapman) {
-                        Real cff = dt_calc * 0.5_rt * (pn(i-mf_index_type[0],dom_hi.y,0) + pn(i,dom_hi.y,0));
-                        Real cff1 = std::sqrt(g * 0.5_rt * (h_arr(i-mf_index_type[0],dom_hi.y,0)
+                        Real cff = dt_calc * half * (pn(i-mf_index_type[0],dom_hi.y,0) + pn(i,dom_hi.y,0));
+                        Real cff1 = std::sqrt(g * half * (h_arr(i-mf_index_type[0],dom_hi.y,0)
                                                           + zeta_arr(i-mf_index_type[0],dom_hi.y,0,icomp_calc) +
                                                             h_arr(i,dom_hi.y,0) + zeta_arr(i,dom_hi.y,0,icomp_calc)));
                         Real Ce = cff * cff1;
-                        Real cff2 = 1.0_rt / (1.0_rt + Ce);
+                        Real cff2 = one / (one + Ce);
                         dest_arr(i,j,k,icomp+icomp_to_fill) = cff2 * (dest_arr(i,dom_hi.y+1,k,icomp_calc)
                                 + Ce * dest_arr(i,dom_hi.y,k,icomp+icomp_to_fill)) * mask_arr(i,j,0);
                     } else if (bcr.hi(1) == REMORABCType::orlanski_rad_nudge) {
@@ -389,15 +389,15 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         Real dTde = dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_hi.y-1-mf_index_type[1],k,icomp+icomp_to_fill);
                         Real tau;
                         Real nudg_coeff_out_local = (nudg_coeff_out(i-mf_index_type[0],j-mf_index_type[1],k) +
-                                                     nudg_coeff_out(i,j,k)) * 0.5_rt;
-                        if (dTdt*dTde < 0.0_rt) {
+                                                     nudg_coeff_out(i,j,k)) * half;
+                        if (dTdt*dTde < zero) {
                             tau = nudg_coeff_out_local * obcfac * dt_calc;
-                            dTdt = 0.0_rt;
+                            dTdt = zero;
                         } else {
                             tau = nudg_coeff_out_local * dt_calc;
                         }
-                        if (dTdt * dTde < 0.0_rt) dTdt = 0.0_rt;
-                        Real dTdx = (dTdt * (grad_hi + grad_hi_ip1) > 0.0_rt) ? grad_hi : grad_hi_ip1;
+                        if (dTdt * dTde < zero) dTdt = zero;
+                        Real dTdx = (dTdt * (grad_hi + grad_hi_ip1) > zero) ? grad_hi : grad_hi_ip1;
                         Real cff = std::max(dTdx*dTdx + dTde*dTde, eps);
                         Real Ce = dTdt*dTde;
                         dest_arr(i,j,k,icomp+icomp_to_fill) = (cff*calc_arr(i,dom_hi.y+1-mf_index_type[1],k,icomp+icomp_to_fill_calc) + Ce*dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill)) * mask_arr(i,j,0) / (cff+Ce);
@@ -414,28 +414,28 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
             if (!xlo_ylo.isEmpty() && (apply_west || apply_south)) {
                 ParallelFor(xlo_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill)
+                    dest_arr(i,j,k,icomp+icomp_to_fill) = half * (dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill)
                                                                + dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill));
                 });
             }
             if (!xlo_yhi.isEmpty() && (apply_west || apply_north)) {
                 ParallelFor(xlo_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill)
+                    dest_arr(i,j,k,icomp+icomp_to_fill) = half * (dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill)
                                                                + dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill));
                 });
             }
             if (!xhi_ylo.isEmpty() && (apply_east || apply_south)) {
                 ParallelFor(xhi_ylo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill)
+                    dest_arr(i,j,k,icomp+icomp_to_fill) = half * (dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill)
                                                                + dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill));
                 });
             }
             if (!xhi_yhi.isEmpty() && (apply_east || apply_north)) {
                 ParallelFor(xhi_yhi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
                 {
-                    dest_arr(i,j,k,icomp+icomp_to_fill) = 0.5 * (dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill)
+                    dest_arr(i,j,k,icomp+icomp_to_fill) = half * (dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill)
                                                                + dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill));
                 });
             }

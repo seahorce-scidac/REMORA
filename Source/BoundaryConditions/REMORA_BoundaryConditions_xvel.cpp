@@ -48,7 +48,7 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
     GeometryData const& geomdata = m_geom.data();
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
-    const Real eps= 1.0e-20_rt;
+    const Real eps= Real(1.0e-20);
 
 
     Box dest_arr_box = growHi(convert(Box(dest_arr),IntVect(1,0,0)),0,-1);
@@ -71,8 +71,8 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
                     Real grad_lo_ijp1 = calc_arr(dom_lo.x+1,j+1,k) - calc_arr(dom_lo.x+1,j  ,k);
                     Real dUdt = calc_arr(dom_lo.x+1,j,k) - dest_arr(dom_lo.x+1,j,k);
                     Real dUdx = dest_arr(dom_lo.x+1,j,k) - dest_arr(dom_lo.x+2,j,k);
-                    if (dUdt * dUdx < 0.0_rt) dUdt = 0.0_rt;
-                    Real dUde = (dUdt * (grad_lo_ip1 + grad_lo_ijp1) > 0.0_rt) ? grad_lo_ip1 : grad_lo_ijp1;
+                    if (dUdt * dUdx < zero) dUdt = zero;
+                    Real dUde = (dUdt * (grad_lo_ip1 + grad_lo_ijp1) > zero) ? grad_lo_ip1 : grad_lo_ijp1;
                     Real cff = std::max(dUdx*dUdx+dUde*dUde,eps);
                     Real Cx = dUdt*dUdx;
                     dest_arr(i,j,k) = (cff * calc_arr(i,j,k) + Cx * dest_arr(dom_lo.x+1,j,k)) * msku(i,j,0) / (cff+Cx);
@@ -105,8 +105,8 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
                     Real grad_hi_jp1  = calc_arr(dom_hi.x  ,j+1,k) - calc_arr(dom_hi.x  ,j  ,k);
                     Real dUdt = calc_arr(dom_hi.x,j,k) - dest_arr(dom_hi.x  ,j,k);
                     Real dUdx = dest_arr(dom_hi.x,j,k) - dest_arr(dom_hi.x-1,j,k);
-                    if (dUdt * dUdx < 0.0_rt) dUdt = 0.0_rt;
-                    Real dUde = (dUdt * (grad_hi + grad_hi_jp1) > 0.0_rt) ? grad_hi : grad_hi_jp1;
+                    if (dUdt * dUdx < zero) dUdt = zero;
+                    Real dUde = (dUdt * (grad_hi + grad_hi_jp1) > zero) ? grad_hi : grad_hi_jp1;
                     Real cff = std::max(dUdx*dUdx+dUde*dUde,eps);
                     Real Cx = dUdt * dUdx;
                     dest_arr(i,j,k) = (cff * calc_arr(dom_hi.x+1,j,k) + Cx * dest_arr(dom_hi.x,j,k)) * msku(i,j,0) / (cff + Cx);
@@ -146,8 +146,8 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
                     Real grad_lo_im1  = calc_arr(i  ,dom_lo.y  ,k) - calc_arr(i-1,dom_lo.y  ,k);
                     Real dUdt = calc_arr(i,dom_lo.y,k) - dest_arr(i,dom_lo.y  ,k);
                     Real dUde = dest_arr(i,dom_lo.y,k) - dest_arr(i,dom_lo.y+1,k);
-                    if (dUdt * dUde < 0.0_rt) dUdt = 0.0_rt;
-                    Real dUdx = (dUdt * (grad_lo_im1 + grad_lo) > 0.0_rt) ? grad_lo_im1 : grad_lo;
+                    if (dUdt * dUde < zero) dUdt = zero;
+                    Real dUdx = (dUdt * (grad_lo_im1 + grad_lo) > zero) ? grad_lo_im1 : grad_lo;
                     Real cff = std::max(dUdx * dUdx + dUde * dUde, eps);
                     Real Ce = dUdt * dUde;
                     dest_arr(i,j,k) = (cff * calc_arr(i,dom_lo.y-1,k) + Ce * dest_arr(i,dom_lo.y,k)) * msku(i,j,0) / (cff + Ce);
@@ -168,8 +168,8 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
                     Real grad_hi_im1   = calc_arr(i  ,dom_hi.y  ,k) - calc_arr(i-1,dom_hi.y  ,k);
                     Real dUdt = calc_arr(i,dom_hi.y,k) - dest_arr(i,dom_hi.y  ,k);
                     Real dUde = dest_arr(i,dom_hi.y,k) - dest_arr(i,dom_hi.y-1,k);
-                    if (dUdt * dUde < 0.0_rt) dUdt = 0.0_rt;
-                    Real dUdx = (dUdt * (grad_hi_im1 + grad_hi) > 0.0_rt) ? grad_hi_im1 : grad_hi;
+                    if (dUdt * dUde < zero) dUdt = zero;
+                    Real dUdx = (dUdt * (grad_hi_im1 + grad_hi) > zero) ? grad_hi_im1 : grad_hi;
                     Real cff = std::max(dUdx*dUdx+dUde*dUde,eps);
                     Real Ce = dUdt * dUde;
                     dest_arr(i,j,k) = (cff * calc_arr(i,dom_hi.y+1,k) + Ce * dest_arr(i,dom_hi.y,k)) * msku(i,j,0) / (cff+Ce);
@@ -233,25 +233,25 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
         if (!clamp_west && !clamp_south) {
             ParallelFor(xlo_ylo & dest_arr_box, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_lo.x+1,j,k));
+                dest_arr(i,j,k) = half * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_lo.x+1,j,k));
             });
         }
         if (!clamp_west && !clamp_north) {
             ParallelFor(xlo_yhi & dest_arr_box, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_lo.x+1,j,k));
+                dest_arr(i,j,k) = half * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_lo.x+1,j,k));
             });
         }
         if (!clamp_east && !clamp_south) {
             ParallelFor(xhi_ylo & dest_arr_box, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_hi.x,j,k));
+                dest_arr(i,j,k) = half * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_hi.x,j,k));
             });
         }
         if (!clamp_east && !clamp_north) {
             ParallelFor(xhi_yhi & dest_arr_box, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                dest_arr(i,j,k) = 0.5 * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_hi.x,j,k));
+                dest_arr(i,j,k) = half * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_hi.x,j,k));
             });
         }
     }

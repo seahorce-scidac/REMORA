@@ -43,7 +43,7 @@ struct TimeInterpolatedData {
         // clear internal memory
         m_data.clear();
         m_owns_data.clear();
-        m_time = 0.;
+        m_time = zero;
     }
 
     const int owning = 1;
