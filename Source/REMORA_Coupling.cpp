@@ -79,6 +79,63 @@ CopyDriverSlabToRemoraLayout (const MultiFab& src,
     dst.ParallelCopy(src, 0, 0, dst.nComp(), IntVect(0), IntVect(0), geom.periodicity());
     dst.FillBoundary(geom.periodicity());
 }
+
+void
+AverageDownThenParallelCopy (const MultiFab& src,
+                             MultiFab& dst)
+{
+    using namespace amrex;
+
+    AMREX_ALWAYS_ASSERT(src.boxArray().ixType() == dst.boxArray().ixType());
+
+    const Box src_cells = enclosedCells(src.boxArray().minimalBox());
+    const Box dst_cells = enclosedCells(dst.boxArray().minimalBox());
+    const IntVect src_len = src_cells.length();
+    const IntVect dst_len = dst_cells.length();
+
+    const bool same_layout =
+        (src.boxArray() == dst.boxArray()) &&
+        (src.DistributionMap() == dst.DistributionMap());
+    if (same_layout) {
+        dst.ParallelCopy(src, 0, 0, dst.nComp());
+        return;
+    }
+
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        src_len[2] == 1 && dst_len[2] == 1,
+        "AverageDownThenParallelCopy expects one-cell-thick source and destination slabs.");
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        src_cells.smallEnd(0) == dst_cells.smallEnd(0) &&
+        src_cells.smallEnd(1) == dst_cells.smallEnd(1),
+        "AverageDownThenParallelCopy requires aligned source/destination slab origins.");
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        src_len[0] >= dst_len[0] && src_len[1] >= dst_len[1] &&
+        src_len[0] % dst_len[0] == 0 && src_len[1] % dst_len[1] == 0,
+        "AverageDownThenParallelCopy requires source/destination slab extents to be integer-ratio compatible.");
+
+    const IntVect ratio(src_len[0] / dst_len[0], src_len[1] / dst_len[1], 1);
+
+    BoxArray coarsened_src_ba = src.boxArray();
+    for (int i = 0; i < coarsened_src_ba.size(); ++i) {
+        const Box original = coarsened_src_ba[i];
+        Box coarsened = original;
+        coarsened.coarsen(ratio);
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+            coarsened.refine(ratio) == original,
+            "AverageDownThenParallelCopy source boxes are not evenly coarsenable by the source/destination ratio.");
+    }
+    coarsened_src_ba.coarsen(ratio);
+
+    const bool direct_average_down_safe = (coarsened_src_ba == dst.boxArray());
+
+    if (direct_average_down_safe) {
+        amrex::average_down(src, dst, 0, dst.nComp(), ratio);
+    } else {
+        MultiFab dst_avg(coarsened_src_ba, src.DistributionMap(), dst.nComp(), 0);
+        amrex::average_down(src, dst_avg, 0, dst.nComp(), ratio);
+        dst.ParallelCopy(dst_avg, 0, 0, dst.nComp());
+    }
+}
 }
 
 amrex::Real
@@ -246,8 +303,7 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
     }
 
     if (dst_coarser) {
-        const IntVect ratio(src_len[0] / dst_len[0], src_len[1] / dst_len[1], 1);
-        amrex::average_down(tmp, dst, 0, 1, ratio);
+        AverageDownThenParallelCopy(tmp, dst);
         return;
     }
 
@@ -431,7 +487,8 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         Box ubxD = ubx;
         ubxD.makeSlab(2,0);
         ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            sustr(i,j,0) = tau_x(i,j,0) / rho0 * msku(i,j,0);
+            // Sign on stress is flipped relative to ERF
+            sustr(i,j,0) = -tau_x(i,j,0) / rho0 * msku(i,j,0);
         });
     }
 
@@ -444,7 +501,8 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         vbxD.makeSlab(2,0);
 
         ParallelFor(vbxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            svstr(i,j,0) = tau_y(i,j,0) / rho0 * mskv(i,j,0);
+            // Sign on stress is flipped relative to ERF
+            svstr(i,j,0) = -tau_y(i,j,0) / rho0 * mskv(i,j,0);
         });
     }
 
@@ -489,15 +547,30 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     vec_evap[0]->FillBoundary(geom[0].periodicity());
     vec_stflux[0]->FillBoundary(geom[0].periodicity());
 
-    if (amrex::ParallelDescriptor::IOProcessor()) {
-        amrex::Print() << "REMORA ApplyAtmosphericFluxes validation:\n"
-                       << "  sustr: min=" << vec_sustr[0]->min(0) << " max=" << vec_sustr[0]->max(0) << "\n"
-                       << "  svstr: min=" << vec_svstr[0]->min(0) << " max=" << vec_svstr[0]->max(0) << "\n"
-                       << "  stflux(Temp): min=" << vec_stflux[0]->min(Temp_comp) << " max=" << vec_stflux[0]->max(Temp_comp) << "\n"
-                       << "  stflux(Salt): min=" << vec_stflux[0]->min(Salt_comp) << " max=" << vec_stflux[0]->max(Salt_comp) << "\n"
-                       << "  srflx: min=" << vec_srflx[0]->min(0) << " max=" << vec_srflx[0]->max(0) << "\n"
-                       << "  lrflx: min=" << vec_lrflx[0]->min(0) << " max=" << vec_lrflx[0]->max(0) << "\n"
-                       << "  lhflx: min=" << vec_lhflx[0]->min(0) << " max=" << vec_lhflx[0]->max(0) << "\n"
-                       << "  shflx: min=" << vec_shflx[0]->min(0) << " max=" << vec_shflx[0]->max(0) << "\n";
-    }
+    const Real sustr_min = vec_sustr[0]->min(0);
+    const Real sustr_max = vec_sustr[0]->max(0);
+    const Real svstr_min = vec_svstr[0]->min(0);
+    const Real svstr_max = vec_svstr[0]->max(0);
+    const Real stflux_temp_min = vec_stflux[0]->min(Temp_comp);
+    const Real stflux_temp_max = vec_stflux[0]->max(Temp_comp);
+    const Real stflux_salt_min = vec_stflux[0]->min(Salt_comp);
+    const Real stflux_salt_max = vec_stflux[0]->max(Salt_comp);
+    const Real srflx_min = vec_srflx[0]->min(0);
+    const Real srflx_max = vec_srflx[0]->max(0);
+    const Real lrflx_min = vec_lrflx[0]->min(0);
+    const Real lrflx_max = vec_lrflx[0]->max(0);
+    const Real lhflx_min = vec_lhflx[0]->min(0);
+    const Real lhflx_max = vec_lhflx[0]->max(0);
+    const Real shflx_min = vec_shflx[0]->min(0);
+    const Real shflx_max = vec_shflx[0]->max(0);
+
+    amrex::Print() << "REMORA ApplyAtmosphericFluxes validation:\n"
+                   << "  sustr: min=" << sustr_min << " max=" << sustr_max << "\n"
+                   << "  svstr: min=" << svstr_min << " max=" << svstr_max << "\n"
+                   << "  stflux(Temp): min=" << stflux_temp_min << " max=" << stflux_temp_max << "\n"
+                   << "  stflux(Salt): min=" << stflux_salt_min << " max=" << stflux_salt_max << "\n"
+                   << "  srflx: min=" << srflx_min << " max=" << srflx_max << "\n"
+                   << "  lrflx: min=" << lrflx_min << " max=" << lrflx_max << "\n"
+                   << "  lhflx: min=" << lhflx_min << " max=" << lhflx_max << "\n"
+                   << "  shflx: min=" << shflx_min << " max=" << shflx_max << "\n";
 }
