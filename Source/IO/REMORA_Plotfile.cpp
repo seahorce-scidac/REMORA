@@ -82,7 +82,7 @@ REMORA::WritePlotFile (int istep_for_plot)
     }
 
     for (int lev = 0; lev <= finest_level; ++lev) {
-        mask_arrays_for_write(lev, plotfile_fill_value, 0.0_rt);
+        mask_arrays_for_write(lev, plotfile_fill_value, zero);
     }
 
     // Array of 3D MultiFabs to hold the plotfile data
@@ -115,7 +115,7 @@ REMORA::WritePlotFile (int istep_for_plot)
         for (int lev = 0; lev <= finest_level; ++lev) {
             BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
             mf_nd[lev].define(nodal_grids, dmap[lev], AMREX_SPACEDIM, 0);
-            mf_nd[lev].setVal(0.);
+            mf_nd[lev].setVal(zero);
         }
     }
 
@@ -147,7 +147,7 @@ REMORA::WritePlotFile (int istep_for_plot)
 
         for (int lev = 0; lev <= finest_level; ++lev) {
             mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(1,1,0));
-            mf_cc_vel[lev].setVal(0.0_rt); // zero out velocity in case we have any wall boundaries
+            mf_cc_vel[lev].setVal(zero); // zero out velocity in case we have any wall boundaries
             average_face_to_cellcenter(mf_cc_vel[lev],0,
                                        Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]},IntVect(1,1,0));
             mf_cc_vel[lev].FillBoundary(geom[lev].periodicity());
@@ -383,9 +383,9 @@ REMORA::WritePlotFile (int istep_for_plot)
                 const Array4<Real const> zp_arr = vec_z_phys_nd[lev]->const_array(mfi);
 
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                    loc_arr(i,j,k,0) = (i+0.5_rt) * dx;
-                    loc_arr(i,j,k,1) = (j+0.5_rt) * dy;
-                    loc_arr(i,j,k,2) = 0.125_rt * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
+                    loc_arr(i,j,k,0) = (i+half) * dx;
+                    loc_arr(i,j,k,1) = (j+half) * dy;
+                    loc_arr(i,j,k,2) = Real(0.125) * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
                                                    zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
                                                    zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +
                                                    zp_arr(i,j+1,k+1) + zp_arr(i+1,j+1,k+1) );
@@ -581,7 +581,7 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
     } // end multi-level
     for (int lev = 0; lev <= finest_level; ++lev) {
-        mask_arrays_for_write(lev, 0.0_rt, plotfile_fill_value);
+        mask_arrays_for_write(lev, zero, plotfile_fill_value);
     }
 
     }
@@ -961,20 +961,20 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 
         ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
+            if (mskr(i,j,0) == zero) {  // Explicitly compare to 0.0
                 Zt_avg1(i,j,0) = fill_value;
             }
         });
         ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
+            if (mskr(i,j,0) == zero) {  // Explicitly compare to 0.0
                 temp(i,j,k) = fill_value;
                 salt(i,j,k) = fill_value;
             }
         });
         ParallelFor(makeSlab(gbx_coeff,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
+            if (mskr(i,j,0) == zero) {  // Explicitly compare to 0.0
                 visc2(i,j,0) = fill_value;
                 for (int n = 0; n < ncons_local; ++n) {
                     diff2(i,j,0,n) = fill_value;
@@ -983,25 +983,25 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
         });
         ParallelFor(makeSlab(ubx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {
-            if (msku(i,j,0) == 0.0 && ubar(i,j,0)==fill_where) {  // Explicitly compare to 0.0
+            if (msku(i,j,0) == zero && ubar(i,j,0)==fill_where) {  // Explicitly compare to 0.0
                 ubar(i,j,0,n) = fill_value;
             }
         });
         ParallelFor(makeSlab(vbx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {
-            if (mskv(i,j,0) == 0.0 && vbar(i,j,0)==fill_where) {  // Explicitly compare to 0.0
+            if (mskv(i,j,0) == zero && vbar(i,j,0)==fill_where) {  // Explicitly compare to 0.0
                 vbar(i,j,0,n) = fill_value;
             }
         });
         ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (msku(i,j,0) == 0.0 && xvel(i,j,k)==fill_where) {  // Explicitly compare to 0.0
+            if (msku(i,j,0) == zero && xvel(i,j,k)==fill_where) {  // Explicitly compare to 0.0
                 xvel(i,j,k) = fill_value;
             }
         });
         ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (mskv(i,j,0) == 0.0 && yvel(i,j,k)==fill_where) {  // Explicitly compare to 0.0
+            if (mskv(i,j,0) == zero && yvel(i,j,k)==fill_where) {  // Explicitly compare to 0.0
                 yvel(i,j,k) = fill_value;
             }
         });

@@ -461,8 +461,8 @@ void NCTimeSeriesBoundary::interp_fab(amrex::FArrayBox& dat_crse, amrex::FArrayB
     int rx = m_rx;
     int ry = m_ry;
 
-    amrex::Real xfac = 1.0 / static_cast<amrex::Real>(rx);
-    amrex::Real yfac = 1.0 / static_cast<amrex::Real>(ry);
+    amrex::Real xfac = one / static_cast<amrex::Real>(rx);
+    amrex::Real yfac = one / static_cast<amrex::Real>(ry);
 
     // Doing box on x-face
     if (dat_crse.box().length(0) == 1) {
