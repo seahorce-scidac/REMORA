@@ -9,18 +9,18 @@
 
 using namespace amrex;
 
-amrex::Real REMORA::startCPUTime        = 0.0_rt;
-amrex::Real REMORA::previousCPUTimeUsed = 0.0_rt;
+amrex::Real REMORA::startCPUTime        = zero;
+amrex::Real REMORA::previousCPUTimeUsed = zero;
 
 Vector<AMRErrorTag> REMORA::ref_tags;
 
 SolverChoice REMORA::solverChoice;
 
 // Time step control
-amrex::Real REMORA::cfl           =  0.8_rt;
-amrex::Real REMORA::fixed_dt      = -1.0_rt;
-amrex::Real REMORA::fixed_fast_dt = -1.0_rt;
-amrex::Real REMORA::change_max    =  1.1_rt;
+amrex::Real REMORA::cfl           =  Real(0.8);
+amrex::Real REMORA::fixed_dt      = -one;
+amrex::Real REMORA::fixed_fast_dt = -one;
+amrex::Real REMORA::change_max    =  Real(1.1);
 
 int   REMORA::fixed_ndtfast_ratio = 0;
 
@@ -29,7 +29,7 @@ int         REMORA::verbose       = 0;
 
 // Frequency of diagnostic output
 int         REMORA::sum_interval  = -1;
-amrex::Real REMORA::sum_per       = -1.0_rt;
+amrex::Real REMORA::sum_per       = -one;
 
 // Minimum number of digits in plotfile name
 int         REMORA::file_min_digits = 5;
@@ -108,9 +108,9 @@ REMORA::REMORA ()
 
     physbcs.resize(nlevs_max);
 
-    t_new.resize(nlevs_max, 0.0_rt);
-    t_old.resize(nlevs_max, -1.e100_rt);
-    dt.resize(nlevs_max, 1.e100_rt);
+    t_new.resize(nlevs_max, zero);
+    t_old.resize(nlevs_max, -bogus_large_value);
+    dt.resize(nlevs_max, bogus_large_value);
 
     cons_new.resize(nlevs_max);
     cons_old.resize(nlevs_max);
@@ -193,9 +193,9 @@ REMORA::REMORA (const amrex::RealBox& rb, int max_level_in, const amrex::Vector<
 
     physbcs.resize(nlevs_max);
 
-    t_new.resize(nlevs_max, 0.0_rt);
-    t_old.resize(nlevs_max, -1.e100_rt);
-    dt.resize(nlevs_max, 1.e100_rt);
+    t_new.resize(nlevs_max, zero);
+    t_old.resize(nlevs_max, -bogus_large_value);
+    dt.resize(nlevs_max, bogus_large_value);
 
     cons_new.resize(nlevs_max);
     cons_old.resize(nlevs_max);
@@ -304,13 +304,13 @@ void
 REMORA::WriteAtFinalTime()
 {
 
-    if ( (plot_int > 0 || plot_int_time > 0.0) && istep[0] > last_plot_file_step)
+    if ( (plot_int > 0 || plot_int_time > zero) && istep[0] > last_plot_file_step)
     {
         WritePlotFile(istep[0]);
         history_count++;
     }
 
-    if ((check_int > 0 || check_int_time > 0.0) && istep[0] > last_check_file_step) {
+    if ((check_int > 0 || check_int_time > zero) && istep[0] > last_check_file_step) {
         WriteCheckpointFile();
     }
 }
@@ -395,8 +395,8 @@ REMORA::InitData ()
 
     last_plot_file_step = -1;
     last_check_file_step = -1;
-    last_plot_file_time = -1.0_rt;
-    last_check_file_time = -1.0_rt;
+    last_plot_file_time = -one;
+    last_check_file_time = -one;
 
     if (restart_chkfile == "") {
         // start simulation from the beginning
@@ -435,9 +435,9 @@ REMORA::InitData ()
         }
 
         if (restart_chkfile == "") {
-            FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,0.0,*cons_new[lev]);
-            FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,0.0,*xvel_new[lev]);
-            FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,0.0,*yvel_new[lev]);
+            FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,zero,*cons_new[lev]);
+            FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,zero,*xvel_new[lev]);
+            FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,zero,*yvel_new[lev]);
             FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null, 0, true, false);
 
             // Copy from new into old just in case when initializing from scratch
@@ -455,7 +455,7 @@ REMORA::InitData ()
     const std::string& pv3d = "plot_vars_3d"; append3DPlotVariables(pv3d);
     const std::string& pv2d = "plot_vars_2d"; append2DPlotVariables(pv2d);
 
-    if (restart_chkfile == "" && (check_int > 0 || check_int_time > 0.0_rt))
+    if (restart_chkfile == "" && (check_int > 0 || check_int_time > zero))
     {
         WriteCheckpointFile();
         last_check_file_step = 0;
@@ -464,7 +464,7 @@ REMORA::InitData ()
     if ( (restart_chkfile == "") ||
          (restart_chkfile != "" && plot_file_on_restart) )
     {
-        if (plot_int > 0 || plot_int_time > 0.0)
+        if (plot_int > 0 || plot_int_time > zero)
         {
             int step0 = 0;
             WritePlotFile(step0);
@@ -619,7 +619,7 @@ REMORA::set_zeta (int lev)
         // is analytic, interpolate from level below. Otherwise, copy over the bathymetry
         // data that has been averaged down
         if (lev > hires_init_level) {
-            Real dummy_time = 0.0_rt;
+            Real dummy_time = zero;
             FillCoarsePatch(lev,dummy_time,vec_zeta[lev].get(), vec_zeta[lev-1].get(),BCVars::cons_bc);
         } else {
             set_zeta_averaged_down(lev);
@@ -671,7 +671,7 @@ REMORA::set_bathymetry (int lev)
         // is analytic, interpolate from level below. Otherwise, copy over the bathymetry
         // data that has been averaged down
         if (lev > hires_grid_level) {
-            Real dummy_time = 0.0_rt;
+            Real dummy_time = zero;
             FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
         } else {
             set_bathymetry_averaged_down(lev);
@@ -687,7 +687,7 @@ REMORA::set_bathymetry (int lev)
  */
 void
 REMORA::set_bathymetry_averaged_down (int lev) {
-    Real dummy_time = 0.0_rt;
+    Real dummy_time = zero;
     // Note: don't understand why the grow vector args aren't vec_h and then vec_h_full_domain
     ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
     ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
@@ -704,7 +704,7 @@ REMORA::set_bathymetry_averaged_down (int lev) {
  */
 void
 REMORA::set_grid_vars_averaged_down (int lev) {
-    Real dummy_time = 0.0_rt;
+    Real dummy_time = zero;
     ParallelCopy(*vec_pm[lev].get(), *vec_pm_full_domain[lev].get(), 0, 0, 1,
             vec_pm_full_domain[lev]->nGrowVect(),vec_pm[lev]->nGrowVect());
     ParallelCopy(*vec_pn[lev].get(), *vec_pn_full_domain[lev].get(), 0, 0, 1,
@@ -725,7 +725,7 @@ REMORA::set_zeta_averaged_down (int lev) {
     ParallelCopy(*vec_zeta[lev].get(), *vec_zeta_full_domain[lev].get(), 0, 0, 1,
             vec_zeta_full_domain[lev]->nGrowVect(),vec_zeta[lev]->nGrowVect());
     FillPatch(lev, t_new[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
-                  0, false,false,0,0,0.0,*vec_zeta[lev]);
+                  0, false,false,0,0,zero,*vec_zeta[lev]);
 }
 
 /**
@@ -740,9 +740,9 @@ REMORA::set_init_data_averaged_down (int lev) {
     ParallelCopy(*yvel_new[lev], *vec_yvel_full_domain[lev], 0, 0, 1,
             vec_yvel_full_domain[lev]->nGrowVect(),yvel_new[lev]->nGrowVect());
 
-    FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,0.0,*cons_new[lev]);
-    FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,0.0,*xvel_new[lev]);
-    FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,0.0,*yvel_new[lev]);
+    FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,zero,*cons_new[lev]);
+    FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,zero,*xvel_new[lev]);
+    FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,zero,*yvel_new[lev]);
 }
 
 /**
@@ -763,7 +763,7 @@ REMORA::set_coriolis(int lev) {
                 init_coriolis_from_netcdf(lev);
                 amrex::Print() << "Coriolis loaded from netcdf file \n" << std::endl;
             } else {
-                Real dummy_time = 0.0_rt;
+                Real dummy_time = zero;
                 FillCoarsePatch(lev,dummy_time,vec_fcor[lev].get(), vec_fcor[lev-1].get(),BCVars::cons_bc);
             }
 #endif
@@ -771,7 +771,7 @@ REMORA::set_coriolis(int lev) {
             Abort("Don't know this coriolis_type!");
         }
 
-        Real time = 0.0_rt;
+        Real time = zero;
         FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor), foextrap_bc());
         vec_fcor[lev]->EnforcePeriodicity(geom[lev].periodicity());
     }
@@ -797,7 +797,7 @@ REMORA::init_set_vmix(int lev) {
 void
 REMORA::set_analytic_vmix(int lev) {
     BL_PROFILE("REMORA::set_analytic_vmix()");
-    Real time = 0.0_rt;
+    Real time = zero;
     vec_Akv[lev]->setVal(solverChoice.Akv_bak);
     vec_Akt[lev]->setVal(solverChoice.Akt_bak);
     prob->init_analytic_vmix(lev, geom[lev], solverChoice, *this,*vec_Akv[lev], *vec_Akt[lev]);
@@ -823,7 +823,7 @@ REMORA::set_masks(int lev)
             init_masks_from_netcdf(lev);
             amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
         } else {
-            Real dummy_time = 0.0_rt;
+            Real dummy_time = zero;
             FillCoarsePatchPC(lev, dummy_time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
                     foextrap_bc());
             calculate_nodal_masks(lev);
@@ -844,13 +844,13 @@ REMORA::set_hmixcoef(int lev)
     // Optional AMR scaling: decrease coefficients on refined levels linearly
     // with grid size (i.e., proportional to sqrt(cell area)). For a horizontal
     // refinement ratio rx x ry, the effective scale factor is 1/sqrt(rx*ry).
-    Real lev_scale = 1.0_rt;
+    Real lev_scale = one;
     if ((solverChoice.scaled_to_grid_amr_scaling == ScaledToGridAMRScaling::linear) && (lev > 0)) {
-        Real rf = 1.0_rt;
+        Real rf = one;
         for (int l = 0; l < lev; ++l) {
             rf *= std::sqrt(static_cast<Real>(ref_ratio[l][0]) * static_cast<Real>(ref_ratio[l][1]));
         }
-        lev_scale = 1.0_rt / rf;
+        lev_scale = one / rf;
     }
 
     if (solverChoice.horiz_mixing_type == HorizMixingType::analytic) {
@@ -907,7 +907,7 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& pm,
                                       Array4<Real const> const& pn) -> Real
             {
-                Real local_min = 1.0e200_rt;
+                Real local_min = bogus_large_value;
                 amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
                 {
                     local_min = amrex::min(local_min, pm(i,j,0) * pn(i,j,0));
@@ -916,7 +916,7 @@ REMORA::set_hmixcoef(int lev)
             });
 
         ParallelDescriptor::ReduceRealMin(denom_min);
-        if (denom_min <= 0.0_rt) {
+        if (denom_min <= zero) {
             Abort("scaled_to_grid: found non-positive pm*pn (grid metrics must be > 0)");
         }
 
@@ -925,12 +925,12 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& pm,
                                       Array4<Real const> const& pn) -> Real
             {
-                Real local_max = 0.0_rt;
+                Real local_max = zero;
                 amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
                 {
                     Real denom = pm(i,j,0) * pn(i,j,0);
-                    if (denom > 0.0_rt) {
-                        Real G = std::sqrt(1.0_rt / denom);
+                    if (denom > zero) {
+                        Real G = std::sqrt(one / denom);
                         local_max = amrex::max(local_max, G);
                     }
                 });
@@ -938,20 +938,20 @@ REMORA::set_hmixcoef(int lev)
             });
 
         ParallelDescriptor::ReduceRealMax(grdmax);
-        if (grdmax <= 0.0_rt) {
+        if (grdmax <= zero) {
             Abort("scaled_to_grid: grdmax <= 0");
         }
 
         // Optional AMR scaling: decrease coefficients on refined levels linearly
         // with grid size (i.e., proportional to sqrt(cell area)). For a horizontal
         // refinement ratio rx x ry, the effective scale factor is 1/sqrt(rx*ry).
-        lev_scale = 1.0_rt;
+        lev_scale = one;
         if ((solverChoice.scaled_to_grid_amr_scaling == ScaledToGridAMRScaling::linear) && (lev > 0)) {
-            Real rf = 1.0_rt;
+            Real rf = one;
             for (int l = 0; l < lev; ++l) {
                 rf *= std::sqrt(static_cast<Real>(ref_ratio[l][0]) * static_cast<Real>(ref_ratio[l][1]));
             }
-            lev_scale = 1.0_rt / rf;
+            lev_scale = one / rf;
         }
 
         Real visc0 = solverChoice.visc2 * lev_scale;
@@ -978,7 +978,7 @@ REMORA::set_hmixcoef(int lev)
             ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
             {
                 Real denom  = pm(i,j,0) * pn(i,j,0);
-                Real grdscl = (denom > 0.0_rt) ? std::sqrt(1.0_rt / denom) : 0.0_rt;
+                Real grdscl = (denom > zero) ? std::sqrt(one / denom) : zero;
                 visc2_r(i,j,0) = cff * grdscl;
 
                 for (int n = 0; n < ncons_local; n++) {
@@ -988,7 +988,7 @@ REMORA::set_hmixcoef(int lev)
         }
 
         // Fill ghost cells for rho coefficients BEFORE psi averaging
-        Real time = 0.0_rt;
+        Real time = zero;
         FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), foextrap_periodic_bc());
 
         // ------------------------------------------------------------
@@ -1002,7 +1002,7 @@ REMORA::set_hmixcoef(int lev)
 
             ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
             {
-                visc2_p(i,j,0) = 0.25_rt * (
+                visc2_p(i,j,0) = fourth * (
                     visc2_r(i-1,j-1,0) +
                     visc2_r(i  ,j-1,0) +
                     visc2_r(i-1,j  ,0) +
@@ -1029,10 +1029,10 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& visc2,
                                       Array4<Real const> const& mskr) -> Real
             {
-                Real local_min = 1.0e200_rt;
+                Real local_min = bogus_large_value;
                 amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
                 {
-                    if (mskr(i,j,0) > 0.0_rt) {
+                    if (mskr(i,j,0) > zero) {
                         local_min = amrex::min(local_min, visc2(i,j,0));
                     }
                 });
@@ -1045,10 +1045,10 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& visc2,
                                       Array4<Real const> const& mskr) -> Real
             {
-                Real local_max = -1.0e200_rt;
+                Real local_max = -bogus_large_value;
                 amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
                 {
-                    if (mskr(i,j,0) > 0.0_rt) {
+                    if (mskr(i,j,0) > zero) {
                         local_max = amrex::max(local_max, visc2(i,j,0));
                     }
                 });
@@ -1062,10 +1062,10 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& visc2,
                                       Array4<Real const> const& mskr) -> Real
             {
-                Real local_min = 1.0e200_rt;
+                Real local_min = bogus_large_value;
                 amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
                 {
-                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,0) : 0.0_rt;
+                    const Real v = (mskr(i,j,0) > zero) ? visc2(i,j,0) : zero;
                     local_min = amrex::min(local_min, v);
                 });
                 return local_min;
@@ -1077,10 +1077,10 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& visc2,
                                       Array4<Real const> const& mskr) -> Real
             {
-                Real local_max = -1.0e200_rt;
+                Real local_max = -bogus_large_value;
                 amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
                 {
-                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,0) : 0.0_rt;
+                    const Real v = (mskr(i,j,0) > zero) ? visc2(i,j,0) : zero;
                     local_max = amrex::max(local_max, v);
                 });
                 return local_max;
@@ -1109,7 +1109,7 @@ REMORA::set_hmixcoef(int lev)
     }
 
     // Final FillPatch for all fields
-    Real time = 0.0_rt;
+    Real time = zero;
     FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), foextrap_periodic_bc());
     FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), foextrap_periodic_bc());
     for (int n = 0; n < ncons; n++) {
@@ -1211,7 +1211,7 @@ REMORA::set_surface_state (int lev)
     if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Qair]) {
         update_from_netcdf(qair_data_from_file, vec_qair);
         if (solverChoice.qair_is_percent) {
-            vec_qair[lev]->mult(0.01_rt);
+            vec_qair[lev]->mult(amrex::Real(0.01));
         }
     }
     if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Pair]) {
@@ -1292,22 +1292,22 @@ REMORA::init_only (int lev, Real time)
 {
     BL_PROFILE("REMORA::init_only()");
     t_new[lev] = time;
-    t_old[lev] = time - 1.e200_rt;
+    t_old[lev] = time - bogus_large_value;
 
-    cons_new[lev]->setVal(0.0_rt);
-    xvel_new[lev]->setVal(0.0_rt);
-    yvel_new[lev]->setVal(0.0_rt);
-    zvel_new[lev]->setVal(0.0_rt);
+    cons_new[lev]->setVal(zero);
+    xvel_new[lev]->setVal(zero);
+    yvel_new[lev]->setVal(zero);
+    zvel_new[lev]->setVal(zero);
 
-    xvel_old[lev]->setVal(0.0_rt);
-    yvel_old[lev]->setVal(0.0_rt);
-    zvel_old[lev]->setVal(0.0_rt);
+    xvel_old[lev]->setVal(zero);
+    yvel_old[lev]->setVal(zero);
+    zvel_old[lev]->setVal(zero);
 
-    vec_ru[lev]->setVal(0.0_rt);
-    vec_rv[lev]->setVal(0.0_rt);
+    vec_ru[lev]->setVal(zero);
+    vec_rv[lev]->setVal(zero);
 
-    vec_ru2d[lev]->setVal(0.0_rt);
-    vec_rv2d[lev]->setVal(0.0_rt);
+    vec_ru2d[lev]->setVal(zero);
+    vec_rv2d[lev]->setVal(zero);
 
     if (solverChoice.ic_type == IC_Type::analytic) {
         set_grid_scale(lev);
@@ -1687,10 +1687,12 @@ REMORA::ReadParameters ()
         int nx = dom.length(0) + 2;
         int ny = dom.length(1) + 2;
         int nz = dom.length(2);
+        Real two_gb = Real(1.6e10);
+        Real double_bits = Real(64.0);
         if (write_history_file and chunk_history_file and (steps_per_history_file <= 0)) {
             // Estimate number of steps that will fit into a 2GB file.
-            steps_per_history_file = int((1.6e10 - NCH2D * nx * ny * 64.0_rt)
-                    / (nx * ny * 64.0_rt * (NC3D*nz + NC2D)));
+            steps_per_history_file = int((two_gb - NCH2D * nx * ny * double_bits)
+                    / (nx * ny * double_bits * (NC3D*nz + NC2D)));
             // If we calculate that a single step will exceed 2GB and the user has
             // requested automatic history file sizing, warn about a possible impending
             // error, and set steps_per_history_file = 1 to attempt output anyway.
@@ -1701,8 +1703,8 @@ REMORA::ReadParameters ()
         } else if (write_history_file and !chunk_history_file) {
             // Estimate number of output steps we'll need
             int nt_out = int((max_step) / plot_int) + 1;
-            Real est_hist_file_size = NCH2D * nx * ny * 64.0_rt + nt_out * nx * ny * 64.0_rt * (NC3D*nz + NC2D);
-            if (est_hist_file_size > 1.6e10) {
+            Real est_hist_file_size = NCH2D * nx * ny * double_bits + nt_out * nx * ny * double_bits * (NC3D*nz + NC2D);
+            if (est_hist_file_size > two_gb) {
                 amrex::Warning("WARNING: NetCDF history file may be larger than 2GB limit. Consider setting remora.chunk_history_file=true");
             }
         }
