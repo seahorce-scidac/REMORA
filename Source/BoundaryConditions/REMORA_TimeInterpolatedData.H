@@ -1,6 +1,7 @@
 #ifndef REMORA_TIME_INTERP_DATA_H_
 #define REMORA_TIME_INTERP_DATA_H_
 
+#include <REMORA_Constants.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_Vector.H>
 #include <AMReX_REAL.H>

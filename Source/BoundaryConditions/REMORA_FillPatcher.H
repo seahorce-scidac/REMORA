@@ -1,6 +1,7 @@
 #ifndef REMORA_FILLPATCHER_H_
 #define REMORA_FILLPATCHER_H_
 
+#include <REMORA_Constants.H>
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_Interp_C.H>
 #include <AMReX_MFInterp_C.H>
