@@ -997,7 +997,7 @@ public:
                    const amrex::Array4<amrex::Real const>& Hz,
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& pn,
-                   const amrex::Real dt_lev = amrex::Real(0.0));
+                   const amrex::Real dt_lev = zero);
 
     /** \brief Set 2D momentum arrays from 3D momentum */
     void set_2darrays (int lev);
@@ -1085,7 +1085,7 @@ public:
                     const bool fill_set=true,
                     const int  n_not_fill=0,
                     const int icomp_calc=0,
-                    const amrex::Real dt = amrex::Real(0.0),
+                    const amrex::Real dt = zero,
                     const amrex::MultiFab& mf_calc = amrex::MultiFab());
 
     /** \brief Fill a new MultiFab by copying in phi from valid region and filling ghost cells without applying boundary conditions */
@@ -1106,7 +1106,7 @@ public:
                             const int icomp_to_fill,
                             const int icomp_calc = 0,
                             const amrex::MultiFab& mf_calc = amrex::MultiFab(),
-                            const amrex::Real = amrex::Real(0.0));
+                            const amrex::Real = zero);
 
     /** \brief fill an entire multifab by interpolating from the coarser level
      *         using the piecewise constant interpolater */
@@ -1118,7 +1118,7 @@ public:
                 const bool fill_all = true,
                 const int  n_not_fill=0,
                 const int icomp_calc=0,
-                const amrex::Real dt = amrex::Real(0.0),
+                const amrex::Real dt = zero,
                 const amrex::MultiFab& mf_calc = amrex::MultiFab());
 
     /** \brief fill an entire multifab by interpolating from the coarser level */
@@ -1130,7 +1130,7 @@ public:
                 const bool fill_all = true,
                 const int  n_not_fill=0,
                 const int icomp_calc=0,
-                const amrex::Real dt = amrex::Real(0.0),
+                const amrex::Real dt = zero,
                 const amrex::MultiFab& mf_calc = amrex::MultiFab());
 
     /** \brief fill an entire multifab by interpolating from the coarser level,
@@ -1143,7 +1143,7 @@ public:
                 const bool fill_all = true,
                 const int  n_not_fill=0,
                 const int icomp_calc=0,
-                const amrex::Real dt = amrex::Real(0.0),
+                const amrex::Real dt = zero,
                 const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                       amrex::Interpolater* mapper = nullptr);
 
@@ -1498,7 +1498,7 @@ private:
     amrex::Real stop_time = std::numeric_limits<amrex::Real>::max();
 
     /** \brief Time of the start of the simulation, in seconds */
-    amrex::Real start_time = 0.0;
+    amrex::Real start_time = zero;
 
     /** \brief If set, restart from this checkpoint file */
     std::string restart_chkfile = "";
@@ -1534,13 +1534,13 @@ private:
     /** \brief Plotfile output interval in iterations */
     int plot_int = -1;
     /** \brief Plotfile output interval in seconds */
-    amrex::Real plot_int_time = amrex::Real(-1.0);
+    amrex::Real plot_int_time = amrex::Real(-one);
     /** \brief Checkpoint file prefix */
     std::string check_file {"chk"};
     /** \brief Checkpoint output interval in iterations */
     int check_int = -1;
     /** \brief Checkpoint output interval in seconds */
-    amrex::Real check_int_time = amrex::Real(-1.0);
+    amrex::Real check_int_time = amrex::Real(-one);
 
     /** \brief Whether to chunk netcdf history file */
     bool chunk_history_file = false;
@@ -1569,7 +1569,7 @@ private:
     bool expand_plotvars_to_unif_rr = false;
 
     /** \brief fill value for masked arrays in amrex plotfiles */
-    amrex::Real plotfile_fill_value = amrex::Real(0.0);
+    amrex::Real plotfile_fill_value = zero;
     /** \brief fill value for masked arrays in netcdf output */
     amrex::Real netcdf_fill_value = amrex::Real(1.0e37);
 
@@ -1788,27 +1788,27 @@ public:
         using namespace amrex;
 
         Real psiu;
-        if (ZoL < 0.0_rt) {
+        if (ZoL < zero) {
             // Unstable conditions.
-            Real x    = std::pow(1.0_rt-15.0_rt*ZoL,0.25_rt);
-            Real psik = 2.0_rt*std::log(0.5_rt*(1.0_rt+x))+
-                        std::log(0.5_rt*(1.0_rt+x*x))-
-                        2.0_rt*std::atan(x)+0.5_rt*PI;
+            Real x    = std::pow(one-Real(15.0)*ZoL,fourth);
+            Real psik = two*std::log(half*(one+x))+
+                        std::log(half*(one+x*x))-
+                        two*std::atan(x)+half*PI;
             //  For very unstable conditions, use free-convection (Fairall).
-            Real sqrt3 = std::sqrt(3.0_rt);
-            Real y = std::pow(1.0_rt-10.15_rt*ZoL,1.0_rt/3.0_rt);
-            Real psic = 1.5_rt*std::log(1.0_rt/3.0_rt*(1.0_rt+y+y*y))-
-                   sqrt3*std::atan((1.0_rt+2.0_rt*y)/sqrt3)+PI/sqrt3;
+            Real sqrt3 = std::sqrt(three);
+            Real y = std::pow(one-Real(10.15)*ZoL,third);
+            Real psic = Real(1.5)*std::log(one/Real(three)*(one+y+y*y))-
+                   sqrt3*std::atan((one+two*y)/sqrt3)+PI/sqrt3;
             //  Match Kansas and free-convection forms with weighting Fw.
             Real Zol2 = ZoL*ZoL;
-            Real Fw = Zol2/(1.0_rt+Zol2);
+            Real Fw = Zol2/(one+Zol2);
 
-            psiu =  (1.0_rt-Fw)*psik+Fw*psic;
+            psiu =  (one-Fw)*psik+Fw*psic;
         } else {
             // Stable conditions
-            Real cff=std::min(50.0_rt,0.35_rt*ZoL);
-            psiu = -((1.0_rt+ZoL)+0.6667_rt*(ZoL-14.28_rt)/
-                     std::exp(cff)+8.525_rt);
+            Real cff=std::min(Real(50.0),Real(0.35)*ZoL);
+            psiu = -((one+ZoL)+Real(0.6667)*(ZoL-Real(14.28))/
+                     std::exp(cff)+Real(8.525));
         }
         return psiu;
     }
@@ -1820,25 +1820,25 @@ public:
         using namespace amrex;
 
         Real psit;
-        if (ZoL < 0.0_rt) {
+        if (ZoL < zero) {
             // Unstable conditions.
-            Real x = std::pow(1.0_rt-15.0_rt*ZoL,0.5_rt);
-            Real psik = 2.0_rt*std::log(0.5_rt*(1.0_rt+x));
+            Real x = std::pow(one-Real(15.0)*ZoL,half);
+            Real psik = two*std::log(half*(one+x));
             //  For very unstable conditions, use free-convection (Fairall).
-            Real sqrt3=std::sqrt(3.0_rt);
-            Real y=std::pow(1.0_rt-34.15_rt*ZoL,1.0_rt/3.0_rt);
-            Real psic=1.5_rt*std::log(1.0_rt/3.0_rt*(1.0_rt+y+y*y))-
-                sqrt3*std::atan((1.0_rt+2.0_rt*y)/sqrt3)+PI/sqrt3;
+            Real sqrt3=std::sqrt(three);
+            Real y=std::pow(one-Real(34.15)*ZoL,one/three);
+            Real psic=Real(1.5)*std::log(one/three*(one+y+y*y))-
+                sqrt3*std::atan((one+two*y)/sqrt3)+PI/sqrt3;
 
             // Match Kansas and free-convection forms with weighting Fw.
             Real ZoL2=ZoL*ZoL;
-            Real Fw=ZoL2/(1.0_rt+ZoL2);
-            psit = (1.0_rt-Fw)*psik+Fw*psic;
+            Real Fw=ZoL2/(one+ZoL2);
+            psit = (one-Fw)*psik+Fw*psic;
         } else {
             //  Stable conditions.
-            Real cff=std::min(50.0_rt,0.35_rt*ZoL);
-            psit=-(std::pow(1.0_rt+2.0_rt*ZoL,1.5_rt)+
-                    0.6667_rt*(ZoL-14.28_rt)/std::exp(cff)+8.525_rt);
+            Real cff=std::min(Real(50.0),Real(0.35)*ZoL);
+            psit=-(std::pow(one+two*ZoL,Real(1.5))+
+                    Real(0.6667)*(ZoL-Real(14.28))/std::exp(cff)+Real(8.525));
         }
         return psit;
     }

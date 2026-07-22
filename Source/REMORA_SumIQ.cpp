@@ -18,16 +18,16 @@ REMORA::sum_integrated_quantities(Real time)
     int datwidth = 14;
     int datprecision = 6;
 
-    Real scalar = 0.0_rt;
-    Real kineng = 0.0_rt;
-    Real volume = 0.0_rt;
-    Real max_vel = 0.0_rt;
+    Real scalar = zero;
+    Real kineng = zero;
+    Real volume = zero;
+    Real max_vel = zero;
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
         MultiFab kineng_mf(grids[lev], dmap[lev], 1, 0);
         MultiFab ones_mf(grids[lev], dmap[lev], 1, 0);
-        ones_mf.setVal(1.0_rt);
+        ones_mf.setVal(one);
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -40,13 +40,13 @@ REMORA::sum_integrated_quantities(Real time)
             ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                 // This is the same expression for kinetic energy that is used in ROMS
-                kineng_arr(i,j,k) = 0.25_rt * ( xvel_u_arr(i,j,k)*xvel_u_arr(i,j,k) + xvel_u_arr(i+1,j,k)*xvel_u_arr(i+1,j,k) +
+                kineng_arr(i,j,k) = fourth * ( xvel_u_arr(i,j,k)*xvel_u_arr(i,j,k) + xvel_u_arr(i+1,j,k)*xvel_u_arr(i+1,j,k) +
                                                 yvel_v_arr(i,j,k)*yvel_v_arr(i,j,k) + yvel_v_arr(i  ,j+1,k)*yvel_v_arr(i,j+1,k));
             });
         } // mfi
 
         const int icomp = 0;
-        Real max_vel_local = std::sqrt(2.0_rt * kineng_mf.max(icomp));
+        Real max_vel_local = std::sqrt(two * kineng_mf.max(icomp));
 
         scalar += volWgtSumMF(lev,*cons_new[lev],Tracer_comp,false,true);
         kineng += volWgtSumMF(lev,kineng_mf     ,             0,false,true);
@@ -85,7 +85,7 @@ REMORA::sum_integrated_quantities(Real time)
             if (NumDataLogs() > 0) {
                 std::ostream& data_log1 = DataLog(0);
                 if (data_log1.good()) {
-                    if (time == 0.0_rt) {
+                    if (time == zero) {
                         data_log1 << std::setw(datwidth) << "          time";
                         data_log1 << std::setw(datwidth) << "        scalar";
                         data_log1 << std::setw(datwidth) << "        kineng";
@@ -122,7 +122,7 @@ REMORA::volWgtSumMF(int lev, const MultiFab& mf, int comp, bool local, bool fine
 {
     BL_PROFILE("REMORA::volWgtSumMF()");
 
-    Real sum = 0.0_rt;
+    Real sum = zero;
     MultiFab tmp(grids[lev], dmap[lev], 1, 0);
     MultiFab::Copy(tmp, mf, comp, 0, 1, 0);
 
@@ -169,7 +169,7 @@ REMORA::build_fine_mask(int level)
 
     // TODO -- we should make a vector of these a member of REMORA class
     fine_mask.define(cba, cdm, 1, 0, MFInfo());
-    fine_mask.setVal(1.0_rt);
+    fine_mask.setVal(one);
 
     BoxArray fba = grids[level];
     iMultiFab ifine_mask = makeFineMask(cba, cdm, fba, ref_ratio[level-1], 1, 0);
@@ -199,7 +199,7 @@ REMORA::is_it_time_for_action(int nstep, Real time, Real dtlev, int action_inter
   bool int_test = (action_interval > 0 && nstep % action_interval == 0);
 
   bool per_test = false;
-  if (action_per > 0.0_rt) {
+  if (action_per > zero) {
     const int num_per_old = static_cast<int>(amrex::Math::floor((time - dtlev) / action_per));
     const int num_per_new = static_cast<int>(amrex::Math::floor((time) / action_per));
 
