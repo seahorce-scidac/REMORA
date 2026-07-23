@@ -29,19 +29,19 @@
             const Real z = z_r(i,j,k);
 
             // Create bounding box for x and y to make spatially-dependent T and S
-            const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
-            [[maybe_unused]] const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
+            const Real xcent = half*(prob_lo[0] + prob_hi[0]);
+            [[maybe_unused]] const Real ycent = half*(prob_lo[1] + prob_hi[1]);
 
-            [[maybe_unused]] const Real x  = prob_lo[0] + (i + 0.5) * dx[0] - xcent;
-            const Real y  = prob_lo[1] + (j + 0.5) * dx[1];
+            [[maybe_unused]] const Real x  = prob_lo[0] + (i + half) * dx[0] - xcent;
+            const Real y  = prob_lo[1] + (j + half) * dx[1];
 
-            state(i,j,k,Temp_comp)=T0 + z / (9.8_rt * 1.7_rt);
+            state(i,j,k,Temp_comp)=T0 + z / (Real(9.8) * Real(1.7));
             if (l_use_salt) {
-                state(i,j,k,Salt_comp)=S0 + y / (9.8_rt * 760.0_rt);
+                state(i,j,k,Salt_comp)=S0 + y / (Real(9.8) * Real(760.0));
             }
 
             // Set tracer = 0 everywhere
-            state(i, j, k, Tracer_comp) = 0.0_rt;
+            state(i, j, k, Tracer_comp) = zero;
         });
 
         const Box& xbx = surroundingNodes(bx,0);
@@ -53,23 +53,23 @@
             const auto prob_hi         = geomdata.ProbHi();
             const auto dx              = geomdata.CellSize();
 
-            [[maybe_unused]] const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
-            [[maybe_unused]] const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
+            [[maybe_unused]] const Real xcent = half*(prob_lo[0] + prob_hi[0]);
+            [[maybe_unused]] const Real ycent = half*(prob_lo[1] + prob_hi[1]);
 
             const Real z = z_r(i,j,k);
             // h(i,j,0) = -geomdata.ProbLo(2);
-            const Real depth = 50.0_rt;
+            const Real depth = Real(50.0);
 
-            const Real x  = prob_lo[0] + (i + 0.5) * dx[0];// - xcent;
-            const Real y  = prob_lo[1] + (j + 0.5) * dx[1];// - ycent;
+            const Real x  = prob_lo[0] + (i + half) * dx[0];// - xcent;
+            const Real y  = prob_lo[1] + (j + half) * dx[1];// - ycent;
 
-            const Real val1  = x * 6.28318530718_rt * 1.0e-5_rt;
-            const Real val2  = y * 6.28318530718_rt * 1.0e-5_rt;
-            x_vel(i, j, k) = (depth + z) * 0.01_rt + 0.05_rt * std::sin(val1) * std::sin(val2);
+            const Real val1  = x * Real(6.28318530718) * Real(1.0e-5);
+            const Real val2  = y * Real(6.28318530718) * Real(1.0e-5);
+            x_vel(i, j, k) = (depth + z) * Real(0.01) + Real(0.05) * std::sin(val1) * std::sin(val2);
         });
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            y_vel(i, j, k) = 0.0_rt;
+            y_vel(i, j, k) = zero;
         });
     }
     Gpu::streamSynchronize();

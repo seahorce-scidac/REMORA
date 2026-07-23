@@ -12,11 +12,11 @@
 
       ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
       {
-          visc2_p_arr(i,j,0) = 5.0e0;
-          visc2_r_arr(i,j,0) = 5.0e0;
+          visc2_p_arr(i,j,0) = Real(5.0);
+          visc2_r_arr(i,j,0) = Real(5.0);
 
           for (int n = 0; n < ncomp; n++) {
-              diff2_arr(i,j,0,n) = 5.0e3;
+              diff2_arr(i,j,0,n) = Real(5.0e3);
           }
       });
     } // mfi

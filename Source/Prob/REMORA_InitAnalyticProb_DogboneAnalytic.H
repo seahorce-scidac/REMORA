@@ -21,13 +21,13 @@
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
             {
                 if (l_use_salt) {
-                    state(i, j, k, Salt_comp) = 35.0_rt;
+                    state(i, j, k, Salt_comp) = Real(35.0);
                 }
 
-                state(i,j,k,Temp_comp)= (x_r(i,j,0) < 1000._rt) ? 5.0_rt : 10.0_rt;
+                state(i,j,k,Temp_comp)= (x_r(i,j,0) < Real(1000.)) ? Real(5.0) : Real(10.0);
 
                 // Set tracer = 0 everywhere
-                state(i, j, k, Tracer_comp) = 0.0_rt;
+                state(i, j, k, Tracer_comp) = zero;
             });
         } else {
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
@@ -35,13 +35,13 @@
                 [[maybe_unused]] const Real x = x_r(i,j,0);
 
                 if (l_use_salt) {
-                    state(i, j, k, Salt_comp) = 10.0_rt - 10.0_rt * (x_r(i,j,0) - 8400.0_rt) / 8400.0_rt;
+                    state(i, j, k, Salt_comp) = Real(10.0) - Real(10.0) * (x_r(i,j,0) - Real(8400.0)) / Real(8400.0);
                 }
 
-                state(i,j,k,Temp_comp)= 10.0_rt;
+                state(i,j,k,Temp_comp)= Real(10.0);
 
                 // Set tracer = 0 everywhere
-                state(i, j, k, Tracer_comp) = 0.0_rt;
+                state(i, j, k, Tracer_comp) = zero;
             });
         }
 
@@ -49,11 +49,11 @@
         const Box& ybx = surroundingNodes(bx,1);
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            x_vel(i, j, k) = 0.0_rt;
+            x_vel(i, j, k) = zero;
         });
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            y_vel(i, j, k) = 0.0_rt;
+            y_vel(i, j, k) = zero;
         });
     }
     Gpu::streamSynchronize();

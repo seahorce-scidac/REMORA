@@ -18,28 +18,28 @@
         ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
             // Convert model z coordinate to positive depth below the surface.
-            const Real depth = amrex::max(0.0_rt, -z_r(i, j, k));
+            const Real depth = amrex::max(zero, -z_r(i, j, k));
 
-            Real temp = 6.5_rt;
-            if (depth <= 20.0_rt) {
-                temp = 14.0_rt;
-            } else if (depth <= 50.0_rt) {
-                const Real alpha = (depth - 20.0_rt) / (50.0_rt - 20.0_rt);
-                temp = 14.0_rt + alpha * (10.0_rt - 14.0_rt);
-            } else if (depth <= 300.0_rt) {
-                const Real alpha = (depth - 50.0_rt) / (300.0_rt - 50.0_rt);
-                temp = 10.0_rt + alpha * (6.5_rt - 10.0_rt);
+            Real temp = Real(6.5);
+            if (depth <= Real(20.0)) {
+                temp = Real(14.0);
+            } else if (depth <= Real(50.0)) {
+                const Real alpha = (depth - Real(20.0)) / (Real(50.0) - Real(20.0));
+                temp = Real(14.0) + alpha * (Real(10.0) - Real(14.0));
+            } else if (depth <= Real(300.0)) {
+                const Real alpha = (depth - Real(50.0)) / (Real(300.0) - Real(50.0));
+                temp = Real(10.0) + alpha * (Real(6.5) - Real(10.0));
             }
 
-            Real salt = 33.5_rt;
-            if (depth <= 50.0_rt) {
-                salt = 33.5_rt;
-            } else if (depth <= 150.0_rt) {
-                const Real alpha = (depth - 50.0_rt) / (150.0_rt - 50.0_rt);
-                salt = 33.5_rt + alpha * (34.3_rt - 33.5_rt);
+            Real salt = Real(33.5);
+            if (depth <= Real(50.0)) {
+                salt = Real(33.5);
+            } else if (depth <= Real(150.0)) {
+                const Real alpha = (depth - Real(50.0)) / (Real(150.0) - Real(50.0));
+                salt = Real(33.5) + alpha * (Real(34.3) - Real(33.5));
             } else {
-                const Real alpha = amrex::min((depth - 150.0_rt) / (300.0_rt - 150.0_rt), 1.0_rt);
-                salt = 34.3_rt + alpha * (34.6_rt - 34.3_rt);
+                const Real alpha = amrex::min((depth - Real(150.0)) / (Real(300.0) - Real(150.0)), one);
+                salt = Real(34.3) + alpha * (Real(34.6) - Real(34.3));
             }
 
             state(i, j, k, Temp_comp) = temp;
@@ -47,7 +47,7 @@
                 state(i, j, k, Salt_comp) = salt;
             }
 
-            state(i, j, k, Tracer_comp) = 0.0_rt;
+            state(i, j, k, Tracer_comp) = zero;
         });
 
         const Box& xbx = surroundingNodes(bx,0);
@@ -55,10 +55,10 @@
 
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            x_vel(i, j, k) = 0.0_rt;
+            x_vel(i, j, k) = zero;
         });
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            y_vel(i, j, k) = 0.0_rt;
+            y_vel(i, j, k) = zero;
         });
     }

@@ -25,8 +25,8 @@
 
       ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
       {
-          Real val1 = (xr(i,j,0) + 500.0_rt) / 15000.0_rt;
-          h(i,j,0) = 14.0_rt + 25.0_rt * (1.0_rt - std::exp(-PI * xr(i,j,0) * 1.0e-5_rt)) - 8.0_rt * std::exp(-val1 * val1);
+          Real val1 = (xr(i,j,0) + Real(500.0)) / Real(15000.0);
+          h(i,j,0) = Real(14.0) + Real(25.0) * (one - std::exp(-PI * xr(i,j,0) * Real(1.0e-5))) - Real(8.0) * std::exp(-val1 * val1);
       });
 
     } // mfi

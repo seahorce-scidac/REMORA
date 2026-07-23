@@ -26,20 +26,20 @@
               int iFort = i+1;
               int jFort = j+1;
               if (NSPeriodic) {
-                  if (iFort<=Lm/2.0) {
+                  if (iFort<=Lm/two) {
                       val1=iFort;
                   } else {
                       val1=Lm+1-iFort;
                   }
-              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1-10.0_rt)/7.0_rt)));
+              h(i,j,0) = std::min(-geomdata.ProbLo(2),(Real(84.5)+Real(66.526)*std::tanh((val1-Real(10.0))/Real(7.0))));
               }
               else if(EWPeriodic) {
-                  if (jFort<=Mm/2.0) {
+                  if (jFort<=Mm/two) {
                       val1=jFort;
                   } else {
                       val1=Mm+1-jFort;
                   }
-              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1-10.0_rt)/7.0_rt)));
+              h(i,j,0) = std::min(-geomdata.ProbLo(2),(Real(84.5)+Real(66.526)*std::tanh((val1-Real(10.0))/Real(7.0))));
               }
           });
       } else { // Flat

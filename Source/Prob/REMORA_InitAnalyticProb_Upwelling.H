@@ -23,25 +23,25 @@
         {
             const Real z = z_r(i,j,k);
 
-            state(i, j, k, Temp_comp) = 1.;
+            state(i, j, k, Temp_comp) = one;
 
-            state(i,j,k,Temp_comp)=T0+8.0_rt*std::exp(z/50.0_rt);
+            state(i,j,k,Temp_comp)=T0+Real(8.0)*std::exp(z/Real(50.0));
             if (l_use_salt) {
                 state(i,j,k,Salt_comp)=S0;
             }
 
             // Set tracer = 0 everywhere
-            state(i, j, k, Tracer_comp) = 0.0_rt;
+            state(i, j, k, Tracer_comp) = zero;
         });
 
         const Box& xbx = surroundingNodes(bx,0);
         const Box& ybx = surroundingNodes(bx,1);
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            x_vel(i, j, k) = 0.0_rt;
+            x_vel(i, j, k) = zero;
         });
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            y_vel(i, j, k) = 0.0_rt;
+            y_vel(i, j, k) = zero;
         });
     }

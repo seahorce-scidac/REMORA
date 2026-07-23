@@ -1,10 +1,10 @@
 
     ParmParse pp_prob("remora.prob");
-    Real u_0  = 0.0; pp_prob.query("u_0", u_0);
-    Real v_0  = 0.0; pp_prob.query("v_0", v_0);
-    Real z0   = 0.1; pp_prob.query("z0", z0);     // Surface Roughness
-    Real zRef = 80.; pp_prob.query("zRef", zRef); // Reference Height
-    Real uRef = 0.0; pp_prob.query("uRef", uRef); // Reference Wind Speed
+    Real u_0  = Real(0.0); pp_prob.query("u_0", u_0);
+    Real v_0  = Real(0.0); pp_prob.query("v_0", v_0);
+    Real z0   = Real(0.1); pp_prob.query("z0", z0);     // Surface Roughness
+    Real zRef = Real(80.); pp_prob.query("zRef", zRef); // Reference Height
+    Real uRef = Real(0.0); pp_prob.query("uRef", uRef); // Reference Wind Speed
 
     auto geomdata = geom.data();
     const int khi = geomdata.Domain().bigEnd()[2];
@@ -34,15 +34,15 @@
             // const Real y = prob_lo[1] + (j + 0.5) * dx[1];
             const Real z = z_r(i,j,k);
 
-            state(i, j, k, Temp_comp) = 1.;
+            state(i, j, k, Temp_comp) = one;
 
-            state(i,j,k,Temp_comp)=T0+8.0_rt*std::exp(z/50.0_rt);
+            state(i,j,k,Temp_comp)=T0+Real(8.0)*std::exp(z/Real(50.0));
             if (l_use_salt) {
                 state(i,j,k,Salt_comp)=S0;
             }
 
             // Set tracer = 0 everywhere
-            state(i, j, k, Tracer_comp) = 0.0_rt;
+            state(i, j, k, Tracer_comp) = zero;
         });
 
         // Construct a box that is on x-faces
@@ -62,6 +62,6 @@
         // Set the y-velocity
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            y_vel(i, j, k) = 0.0_rt;
+            y_vel(i, j, k) = zero;
         });
     }

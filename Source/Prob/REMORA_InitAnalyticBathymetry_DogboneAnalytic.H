@@ -4,9 +4,9 @@
     pp_prob.query("traditional", traditional);
 
     if (traditional) {
-        mf_h.setVal(10.0_rt);
+        mf_h.setVal(Real(10.0));
     } else {
-        mf_h.setVal(0.0_rt);
+        mf_h.setVal(zero);
         for (MFIter mfi(mf_h, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
             const Box &bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
@@ -17,8 +17,8 @@
 
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int ) noexcept
             {
-                h(i,j,0) = 10.0_rt + (x_r(i,j,0) - 4200._rt) * (x_r(i,j,0) - 4200._rt) * 5.0_rt / (4200.0_rt * 4200.0_rt) -
-                            (y_r(i,j,0) - 375._rt) * (y_r(i,j,0) - 375._rt) * 5.0_rt / (375._rt * 375._rt);
+                h(i,j,0) = Real(10.0) + (x_r(i,j,0) - Real(4200.0)) * (x_r(i,j,0) - Real(4200.0)) * Real(5.0) / (Real(4200.0) * Real(4200.0)) -
+                            (y_r(i,j,0) - Real(375.0)) * (y_r(i,j,0) - Real(375.0)) * Real(5.0) / (Real(375.0) * Real(375.0));
             });
         }
     }

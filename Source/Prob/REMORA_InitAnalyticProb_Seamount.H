@@ -23,19 +23,19 @@
             // const auto prob_lo         = geomdata.ProbLo();
             // const auto dx              = geomdata.CellSize();
 
-            // const Real x = prob_lo[0] + (i + 0.5_rt) * dx[0];
-            // const Real y = prob_lo[1] + (j + 0.5_rt) * dx[1];
+            // const Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
+            // const Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
             const Real z = z_r(i,j,k);
 
-            state(i, j, k, Temp_comp) = 1.;
+            state(i, j, k, Temp_comp) = one;
 
-            state(i,j,k,Temp_comp)=T0+7.5_rt*std::exp(z/1000.0_rt);
+            state(i,j,k,Temp_comp)=T0+Real(7.5)*std::exp(z/Real(1000.0));
             if (l_use_salt) {
                 state(i,j,k,Salt_comp)=S0;
             }
 
             // Set tracer = 0 everywhere
-            state(i, j, k, Tracer_comp) = 0.0;
+            state(i, j, k, Tracer_comp) = zero;
         });
 
         // Construct a box that is on x-faces
@@ -44,7 +44,7 @@
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
               // Set the x-velocity
-              x_vel(i, j, k) = 0.0;
+              x_vel(i, j, k) = zero;
         });
 
         // Construct a box that is on y-faces
@@ -53,6 +53,6 @@
         // Set the y-velocity
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-              y_vel(i, j, k) = 0.0;
+              y_vel(i, j, k) = zero;
         });
     }

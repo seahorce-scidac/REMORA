@@ -9,9 +9,9 @@
         // mskr is 1 everywhere already
         ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int ) noexcept
         {
-            if ((x_r(i,j,0) > 2800.0_rt && x_r(i,j,0) < 5600.0_rt) &&
-                (y_r(i,j,0) < 250.0_rt || y_r(i,j,0) > 500.0_rt)) {
-                mskr(i,j,0) = 0.0_rt;
+            if ((x_r(i,j,0) > Real(2800.0) && x_r(i,j,0) < Real(5600.0)) &&
+                (y_r(i,j,0) < Real(250.0) || y_r(i,j,0) > Real(500.0))) {
+                mskr(i,j,0) = zero;
             }
         });
     }
