@@ -49,12 +49,12 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     utbxD.makeSlab(2,0);
     vtbxD.makeSlab(2,0);
 
-    const Real OneFifth = 0.2_rt;
-    const Real OneTwelfth = 1.0_rt/12.0_rt;
-    const Real eps = 1.0E-10_rt;
+    const Real OneFifth = Real(0.2);
+    const Real OneTwelfth = one/Real(12.0);
+    const Real eps = Real(1.0e-10);
     Real GRho     = g/solverChoice.rho0;
-    Real GRho0    = 1000.0_rt * GRho;
-    Real HalfGRho = 0.5_rt    * GRho;
+    Real GRho0    = Real(1000.0) * GRho;
+    Real HalfGRho = half    * GRho;
 
     int ncomp = 0;
     int P_comp = ncomp++;
@@ -90,22 +90,22 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--) {
-            Real cff= k>0 ? 2.0_rt*dR(i,j,k)*dR(i,j,k-1) : 2.0_rt*dR(i,j,k)*dR(i,j,k);
+            Real cff= k>0 ? two*dR(i,j,k)*dR(i,j,k-1) : two*dR(i,j,k)*dR(i,j,k);
             if (cff>eps) {
                 dR(i,j,k)= k>0 ? cff/(dR(i,j,k)+dR(i,j,k-1)) : cff/(dR(i,j,k)+dR(i,j,k));
             } else {
-                dR(i,j,k)=0.0_rt;
+                dR(i,j,k)=zero;
             }
-            dZ(i,j,k)= k>0 ? 2.0_rt*dZ(i,j,k)*dZ(i,j,k-1)/(dZ(i,j,k)+dZ(i,j,k-1)) :
-                             2.0_rt*dZ(i,j,k)*dZ(i,j,k)/(dZ(i,j,k)+dZ(i,j,k));
+            dZ(i,j,k)= k>0 ? two*dZ(i,j,k)*dZ(i,j,k-1)/(dZ(i,j,k)+dZ(i,j,k-1)) :
+                             two*dZ(i,j,k)*dZ(i,j,k)/(dZ(i,j,k)+dZ(i,j,k));
         }
     });
 
     ParallelFor(phi_bxD,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-        Real cff1=1.0_rt/(z_r(i,j,N)-z_r(i,j,N-1));
-        Real cff2=0.5_rt*(rho(i,j,N)-rho(i,j,N-1))*(z_w(i,j,N+1)-z_r(i,j,N))*cff1;
+        Real cff1=one/(z_r(i,j,N)-z_r(i,j,N-1));
+        Real cff2=half*(rho(i,j,N)-rho(i,j,N-1))*(z_w(i,j,N+1)-z_r(i,j,N))*cff1;
 
         P(i,j,N)=GRho0*z_w(i,j,N+1)+GRho*(rho(i,j,N)+cff2)*(z_w(i,j,N+1)-z_r(i,j,N));
 
@@ -136,19 +136,19 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--) {
-            Real cff= 2.0_rt*aux(i,j,k)*aux(i+1,j,k);
+            Real cff= two*aux(i,j,k)*aux(i+1,j,k);
             if (cff>eps) {
-                Real cff1= 1.0_rt/(aux(i+1,j,k)+aux(i,j,k));
+                Real cff1= one/(aux(i+1,j,k)+aux(i,j,k));
                 dZx(i,j,k)=cff*cff1;
             } else {
-                dZx(i,j,k)=0.0_rt;
+                dZx(i,j,k)=zero;
             }
-            Real cff1= 2.0_rt*FC(i,j,k)*FC(i+1,j,k);
+            Real cff1= two*FC(i,j,k)*FC(i+1,j,k);
             if (cff1>eps) {
-                Real cff2= 1.0_rt/(FC(i,j,k)+FC(i+1,j,k));
+                Real cff2= one/(FC(i,j,k)+FC(i+1,j,k));
                 dRx(i,j,k)=cff1*cff2;
             } else {
-                dRx(i,j,k)=0.0_rt;
+                dRx(i,j,k)=zero;
             }
         }
     });
@@ -160,9 +160,9 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
         {
             Real rho_diff   = rho(i,j,k)-rho(i-1,j,k)- OneTwelfth* (dRx(i,j,k)+dRx(i-1,j,k));
             Real z_r_diff   = z_r(i,j,k)-z_r(i-1,j,k)- OneTwelfth* (dZx(i,j,k)+dZx(i-1,j,k));
-            Real   Hz_avg   = 0.5_rt * (Hz(i,j,k)+Hz(i-1,j,k));
+            Real   Hz_avg   = half * (Hz(i,j,k)+Hz(i-1,j,k));
 
-            Real on_u = 2.0_rt / (pn(i-1,j,0)+pn(i,j,0));
+            Real on_u = two / (pn(i-1,j,0)+pn(i,j,0));
             ru(i,j,k,nrhs) = on_u * Hz_avg * (
                             P(i-1,j,k) - P(i,j,k) - HalfGRho *
                             ( (rho(i,j,k)+rho(i-1,j,k))*(z_r(i,j,k)-z_r(i-1,j,k))-
@@ -183,19 +183,19 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     ParallelFor(phi_bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         for(int k=N;k>=0;k--) {
-            Real cff= 2.0_rt*aux(i,j,k)*aux(i,j+1,k);
+            Real cff= two*aux(i,j,k)*aux(i,j+1,k);
             if (cff>eps) {
-                Real cff1= 1.0_rt/(aux(i,j+1,k)+aux(i,j,k));
+                Real cff1= one/(aux(i,j+1,k)+aux(i,j,k));
                 dZx(i,j,k)=cff*cff1;
             } else {
-                dZx(i,j,k)=0.0_rt;
+                dZx(i,j,k)=zero;
             }
-            Real cff1= 2.0_rt*FC(i,j,k)*FC(i,j+1,k);
+            Real cff1= two*FC(i,j,k)*FC(i,j+1,k);
             if (cff1>eps) {
-                Real cff2= 1.0_rt/(FC(i,j,k)+FC(i,j+1,k));
+                Real cff2= one/(FC(i,j,k)+FC(i,j+1,k));
                 dRx(i,j,k)=cff1*cff2;
             } else {
-                dRx(i,j,k)=0.0_rt;
+                dRx(i,j,k)=zero;
             }
         }
     });
@@ -207,9 +207,9 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
         {
             Real rho_diff   = rho(i,j,k)-rho(i,j-1,k)- OneTwelfth* (dRx(i,j,k)+dRx(i,j-1,k));
             Real z_r_diff   = z_r(i,j,k)-z_r(i,j-1,k)- OneTwelfth* (dZx(i,j,k)+dZx(i,j-1,k));
-            Real   Hz_avg   = 0.5_rt * (Hz(i,j,k)+Hz(i,j-1,k));
+            Real   Hz_avg   = half * (Hz(i,j,k)+Hz(i,j-1,k));
 
-            Real om_v = 2.0_rt / (pm(i,j-1,0)+pm(i,j,0));
+            Real om_v = two / (pm(i,j-1,0)+pm(i,j,0));
             rv(i,j,k,nrhs) = om_v * Hz_avg * (
                             P(i,j-1,k) - P(i,j,k) - HalfGRho *
                             ( (rho(i,j,k)+rho(i,j-1,k))*(z_r(i,j,k)-z_r(i,j-1,k))-

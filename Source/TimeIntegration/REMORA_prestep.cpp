@@ -101,7 +101,7 @@ REMORA::prestep (int lev,
         Array4<Real const> const& msku  = mf_msku->const_array(mfi);
         Array4<Real const> const& mskv  = mf_mskv->const_array(mfi);
 
-        Real lambda = 1.0_rt;
+        Real lambda = one;
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();

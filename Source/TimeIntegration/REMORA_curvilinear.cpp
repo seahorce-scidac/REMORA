@@ -49,8 +49,8 @@ REMORA::curvilinear (const Box& bx,
     ParallelFor(grow(bx,IntVect(1,1,0)),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Real cff1 = 0.5_rt * (vold(i,j,k,nrhs) + vold(i  ,j+1,k,nrhs));
-        Real cff2 = 0.5_rt * (uold(i,j,k,nrhs) + uold(i+1,j  ,k,nrhs));
+        Real cff1 = half * (vold(i,j,k,nrhs) + vold(i  ,j+1,k,nrhs));
+        Real cff2 = half * (uold(i,j,k,nrhs) + uold(i+1,j  ,k,nrhs));
         Real cff3 = cff1 * dndx(i,j,0);
         Real cff4 = cff2 * dmde(i,j,0);
         Real cff = Hz(i,j,k) * (cff3 - cff4);
@@ -61,12 +61,12 @@ REMORA::curvilinear (const Box& bx,
     ParallelFor(xbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        ru(i,j,k,nr) += 0.5_rt * (UFx(i,j,k) + UFx(i-1,j,k));
+        ru(i,j,k,nr) += half * (UFx(i,j,k) + UFx(i-1,j,k));
     });
 
     ParallelFor(ybx,
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        rv(i,j,k,nr) -= 0.5_rt * (VFe(i,j,k) + VFe(i,j-1,k));
+        rv(i,j,k,nr) -= half * (VFe(i,j,k) + VFe(i,j-1,k));
     });
 }
