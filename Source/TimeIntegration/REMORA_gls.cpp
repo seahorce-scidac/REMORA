@@ -803,18 +803,18 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             gls(i,j,k,nnew) = std::max(gls(i,j,k,nnew),gls_Pmin);
             Real gls_comparison = gls_fac5 *
                                     std::pow(tke(i,j,k,nnew),tke_exp4)*
-                                    std::pow(std::sqrt(std::max(zero,
+                                    std::pow(std::sqrt(std::max(Real(0.0),
                                           buoy2(i,j,k)))+eps,-gls_n);
-            gls(i,j,k,nnew) = (gls_n >= zero) ? std::min(gls(i,j,k,nnew),gls_comparison) : std::max(gls(i,j,k,nnew),gls_comparison);
+            gls(i,j,k,nnew) = (gls_n >= Real(0.0)) ? std::min(gls(i,j,k,nnew),gls_comparison) : std::max(gls(i,j,k,nnew),gls_comparison);
             Real Ls_lmt;
             Real Ls_unlmt=std::max(eps,
                                    std::pow(gls(i,j,k,nnew),( gls_exp1))*cmu_fac1*
                                    std::pow(tke(i,j,k,nnew),(-tke_exp1)));
             // Some problems are very sensitive to this condition (ultimate cause of
             // some discrepancies in BoundaryLayer test between CPU and GPU)
-            Ls_lmt = (buoy2(i,j,k) > zero) ? std::min(Ls_unlmt,
+            Ls_lmt = (buoy2(i,j,k) > Real(0.0)) ? std::min(Ls_unlmt,
                                                 std::sqrt(Real(0.56)*tke(i,j,k,nnew)/
-                                                (std::max(zero,buoy2(i,j,k))+eps))) : Ls_unlmt;
+                                                (std::max(Real(0.0),buoy2(i,j,k))+eps))) : Ls_unlmt;
             //
             //  Recompute gls based on limited length scale
             //
@@ -849,8 +849,8 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                     gls_b5*gls_fac6*gls_fac6*Gm*Gm;
                 Sm=(gls_s0-gls_s1*gls_fac6*Gh+gls_s2*gls_fac6*Gm)/stab_cff;
                 Sh=(gls_s4-gls_s5*gls_fac6*Gh+gls_s6*gls_fac6*Gm)/stab_cff;
-                Sm=std::max(Sm,zero);
-                Sh=std::max(Sh,zero);
+                Sm=std::max(Sm,Real(0.0));
+                Sh=std::max(Sh,Real(0.0));
 
                 //
                 //  Relate Canuto stability to ROMS notation

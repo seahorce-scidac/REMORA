@@ -194,7 +194,7 @@ REMORA::nonlin_eos (const Box& bx,
     {
         Real Tt = std::max(Real(-2.5), state(i,j,k,Temp_comp));
         Tt = std::min(Real(40.0), Tt);
-        Real Ts = std::max(zero, state(i,j,k,Salt_comp));
+        Real Ts = std::max(Real(0.0), state(i,j,k,Salt_comp));
         Ts = std::min(Real(100.0), Ts);
         Real sqrtTs = std::sqrt(Ts);
 
@@ -287,8 +287,8 @@ REMORA::nonlin_eos (const Box& bx,
 
     ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
-        bvf(i,j,0) = zero;
-        bvf(i,j,N+1) = zero;
+        bvf(i,j,0) = Real(0.0);
+        bvf(i,j,N+1) = Real(0.0);
         for (int k=0; k<=N-1; k++) {
             Real bulk_up = bulk0(i,j,k+1) - (z_w(i,j,k+1) * (bulk1(i,j,k+1) - bulk2(i,j,k+1)*z_w(i,j,k+1)));
             Real bulk_dn = bulk0(i,j,k  ) - (z_w(i,j,k+1) * (bulk1(i,j,k  ) - bulk2(i,j,k  )*z_w(i,j,k+1)));

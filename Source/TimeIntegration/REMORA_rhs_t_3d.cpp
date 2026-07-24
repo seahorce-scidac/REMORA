@@ -126,8 +126,8 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
 
             ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real max_Huon = std::max(Huon(i,j,k),zero);
-                Real min_Huon = std::min(Huon(i,j,k),zero);
+                Real max_Huon = std::max(Huon(i,j,k),Real(0.0));
+                Real min_Huon = std::min(Huon(i,j,k),Real(0.0));
                 FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i-1,j,k))+
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
@@ -163,8 +163,8 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
             //HACK to avoid using the wrong index of t (using upstream3)
             ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real max_Huon = std::max(Huon(i,j,k),zero);
-                Real min_Huon = std::min(Huon(i,j,k),zero);
+                Real max_Huon = std::max(Huon(i,j,k),Real(0.0));
+                Real min_Huon = std::min(Huon(i,j,k),Real(0.0));
                 FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i-1,j,k))-
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
@@ -222,8 +222,8 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
 
             ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real max_Hvom = std::max(Hvom(i,j,k),zero);
-                Real min_Hvom = std::min(Hvom(i,j,k),zero);
+                Real max_Hvom = std::max(Hvom(i,j,k),Real(0.0));
+                Real min_Hvom = std::min(Hvom(i,j,k),Real(0.0));
 
                 FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i,j-1,k))+
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
@@ -257,8 +257,8 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
 
             ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                Real max_Hvom = std::max(Hvom(i,j,k),zero);
-                Real min_Hvom = std::min(Hvom(i,j,k),zero);
+                Real max_Hvom = std::max(Hvom(i,j,k),Real(0.0));
+                Real min_Hvom = std::min(Hvom(i,j,k),Real(0.0));
 
                 FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i,j-1,k))-
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
@@ -350,7 +350,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
             FC(i,j,k)=( cff2*(sstore(i  ,j,k-1)+ sstore(i,j,k))
                         -cff3*(sstore(i  ,j,k-2)+ sstore(i,j,k+1)) ) * ( W(i,j,k));
         } else if (k==N+1) {
-            FC(i,j,N+1)=zero;
+            FC(i,j,N+1)=Real(0.0);
         } else if (k==N) {
             FC(i,j,N)=( cff2*sstore(i  ,j,N-1)+ cff1*sstore(i,j,N  )
                          -cff3*sstore(i  ,j,N-2) ) * ( W(i  ,j,N));
@@ -358,7 +358,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
             FC(i,j,1)=( cff2*sstore(i  ,j,1)+ cff1*sstore(i,j,0)
                        -cff3*sstore(i  ,j,2) ) * ( W(i  ,j,1));
         } else if (k==0) {
-            FC(i,j,0) = zero;
+            FC(i,j,0) = Real(0.0);
         }
     });
 
