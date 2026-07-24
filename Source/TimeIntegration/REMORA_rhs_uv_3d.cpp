@@ -116,7 +116,7 @@ REMORA::rhs_uv_3d (int lev,
 
             Real Huon_avg = (Huon(i,j,k) + Huon(i+1,j,k));
 
-            UFx(i,j,k) = Real(0.25)*(cff1+Gadv*cff) * ( Huon_avg + half*Gadv*(Huxx_i + Huxx_ip1) );
+            UFx(i,j,k) = Real(0.25)*(cff1+Gadv*cff) * ( Huon_avg + Real(0.5)*Gadv*(Huxx_i + Huxx_ip1) );
         });
 
         //
@@ -142,7 +142,7 @@ REMORA::rhs_uv_3d (int lev,
             Real Hvxx_i   = Hvom(i-1,j,k)-Real(2.0)*Hvom(i  ,j,k)+Hvom(i+1,j,k);
             Real Hvxx_im1 = Hvom(i-2,j,k)-Real(2.0)*Hvom(i-1,j,k)+Hvom(i  ,j,k);
 
-            UFe(i,j,k) = Real(0.25) * (cff1+Gadv*cff)* (cff2+Gadv*half*(Hvxx_i + Hvxx_im1));
+            UFe(i,j,k) = Real(0.25) * (cff1+Gadv*cff)* (cff2+Gadv*Real(0.5)*(Hvxx_i + Hvxx_im1));
         });
     } else if (uv_hadv_scheme == AdvectionScheme::centered2) {
         ParallelFor(growLo(xbx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -271,7 +271,7 @@ REMORA::rhs_uv_3d (int lev,
             Real Huee_j   = Huon(i,j-1,k)-Real(2.0)*Huon(i,j  ,k)+Huon(i,j+1,k);
             Real Huee_jm1 = Huon(i,j-2,k)-Real(2.0)*Huon(i,j-1,k)+Huon(i,j  ,k);
 
-            VFx(i,j,k) = Real(0.25)*(cff1+Gadv*cff)* (cff2+Gadv*half*(Huee_j + Huee_jm1));
+            VFx(i,j,k) = Real(0.25)*(cff1+Gadv*cff)* (cff2+Gadv*Real(0.5)*(Huee_j + Huee_jm1));
         });
 
         // Grow ybx by one in low y-direction
@@ -296,7 +296,7 @@ REMORA::rhs_uv_3d (int lev,
             }
             Real cff = (cff1 > zero) ? vee_j : vee_jp1;
 
-            VFe(i,j,k) = Real(0.25) * (cff1+Gadv*cff) * ( Hvom(i,j  ,k)+ Hvom(i,j+1,k) + half * Gadv * (Hvee_j + Hvee_jp1) );
+            VFe(i,j,k) = Real(0.25) * (cff1+Gadv*cff) * ( Hvom(i,j  ,k)+ Hvom(i,j+1,k) + Real(0.5) * Gadv * (Hvee_j + Hvee_jp1) );
         });
     } else if (uv_hadv_scheme == AdvectionScheme::centered2) {
         ParallelFor(growHi(ybx,0,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)

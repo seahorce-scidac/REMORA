@@ -54,7 +54,7 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     const Real eps = Real(1.0e-10);
     Real GRho     = g/solverChoice.rho0;
     Real GRho0    = Real(1000.0) * GRho;
-    Real HalfGRho = half    * GRho;
+    Real HalfGRho = Real(0.5)    * GRho;
 
     int ncomp = 0;
     int P_comp = ncomp++;
@@ -105,7 +105,7 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
     [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff1=one/(z_r(i,j,N)-z_r(i,j,N-1));
-        Real cff2=half*(rho(i,j,N)-rho(i,j,N-1))*(z_w(i,j,N+1)-z_r(i,j,N))*cff1;
+        Real cff2=Real(0.5)*(rho(i,j,N)-rho(i,j,N-1))*(z_w(i,j,N+1)-z_r(i,j,N))*cff1;
 
         P(i,j,N)=GRho0*z_w(i,j,N+1)+GRho*(rho(i,j,N)+cff2)*(z_w(i,j,N+1)-z_r(i,j,N));
 
@@ -160,7 +160,7 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
         {
             Real rho_diff   = rho(i,j,k)-rho(i-1,j,k)- OneTwelfth* (dRx(i,j,k)+dRx(i-1,j,k));
             Real z_r_diff   = z_r(i,j,k)-z_r(i-1,j,k)- OneTwelfth* (dZx(i,j,k)+dZx(i-1,j,k));
-            Real   Hz_avg   = half * (Hz(i,j,k)+Hz(i-1,j,k));
+            Real   Hz_avg   = Real(0.5) * (Hz(i,j,k)+Hz(i-1,j,k));
 
             Real on_u = two / (pn(i-1,j,0)+pn(i,j,0));
             ru(i,j,k,nrhs) = on_u * Hz_avg * (
@@ -207,7 +207,7 @@ REMORA::prsgrd (const Box& phi_bx, const Box& phi_gbx,
         {
             Real rho_diff   = rho(i,j,k)-rho(i,j-1,k)- OneTwelfth* (dRx(i,j,k)+dRx(i,j-1,k));
             Real z_r_diff   = z_r(i,j,k)-z_r(i,j-1,k)- OneTwelfth* (dZx(i,j,k)+dZx(i,j-1,k));
-            Real   Hz_avg   = half * (Hz(i,j,k)+Hz(i,j-1,k));
+            Real   Hz_avg   = Real(0.5) * (Hz(i,j,k)+Hz(i,j-1,k));
 
             Real om_v = two / (pm(i,j-1,0)+pm(i,j,0));
             rv(i,j,k,nrhs) = om_v * Hz_avg * (

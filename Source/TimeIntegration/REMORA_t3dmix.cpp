@@ -164,13 +164,13 @@ REMORA::t3dmix2_geo(const Box& bx,
 
     ParallelFor(xbx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real cff = half * (pm(i,j,0) + pm(i-1,j,0)) * msku(i,j,0);
+        Real cff = Real(0.5) * (pm(i,j,0) + pm(i-1,j,0)) * msku(i,j,0);
         dZdx(i,j,k,n) = cff * (z_r(i,j,k) - z_r(i-1,j,k));
         dTdx(i,j,k,n)=cff*(state_rhs(i  ,j,k,n)-state_rhs(i-1,j,k,n));
     });
     ParallelFor(ybx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real cff = half * (pn(i,j,0) + pn(i,j-1,0)) * mskv(i,j,0);
+        Real cff = Real(0.5) * (pn(i,j,0) + pn(i,j-1,0)) * mskv(i,j,0);
         dZde(i,j,k,n) = cff * (z_r(i,j,k) - z_r(i,j-1,k));
         dTde(i,j,k,n)=cff*(state_rhs(i,j,k,n)-state_rhs(i,j-1,k,n));
     });
@@ -196,7 +196,7 @@ REMORA::t3dmix2_geo(const Box& bx,
         FX(i,j,k,n) = cff *
                        (Hz(i,j,k)+Hz(i-1,j,k))*
                        (dTdx(i,j,k,n)-
-                        half*(std::min(dZdx(i,j,k,n),zero)*
+                        Real(0.5)*(std::min(dZdx(i,j,k,n),zero)*
                                    (dTdz(i-1,j,k  ,n)+
                                     dTdz(i  ,j,k+1,n))+
                                 std::max(dZdx(i,j,k,n),zero)*
@@ -210,7 +210,7 @@ REMORA::t3dmix2_geo(const Box& bx,
         FE(i,j,k,n) = cff *
                        (Hz(i,j,k)+Hz(i,j-1,k))*
                        (dTde(i,j,k,n)-
-                        half*(std::min(dZde(i,j,k,n),zero)*
+                        Real(0.5)*(std::min(dZde(i,j,k,n),zero)*
                                    (dTdz(i,j-1,k  ,n)+
                                     dTdz(i,j  ,k+1,n))+
                                 std::max(dZde(i,j,k,n),zero)*
@@ -219,7 +219,7 @@ REMORA::t3dmix2_geo(const Box& bx,
     });
     ParallelFor(grow(zbx,IntVect(0,0,-1)), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real cff = half * diff2(i,j,0,n);
+        Real cff = Real(0.5) * diff2(i,j,0,n);
         Real cff1=std::min(dZdx(i  ,j,k-1,n),zero);
         Real cff2=std::min(dZdx(i+1,j,k  ,n),zero);
         Real cff3=std::max(dZdx(i  ,j,k  ,n),zero);

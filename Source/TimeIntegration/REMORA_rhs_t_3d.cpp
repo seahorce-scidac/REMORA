@@ -128,7 +128,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
             {
                 Real max_Huon = std::max(Huon(i,j,k),zero);
                 Real min_Huon = std::min(Huon(i,j,k),zero);
-                FX(i,j,k)=Huon(i,j,k)*half*(sstore(i,j,k)+sstore(i-1,j,k))+
+                FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i-1,j,k))+
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
 
@@ -137,12 +137,12 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
             ParallelFor(tbxp1x, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Centered4
-                grad(i,j,k)=half*(FX(i,j,k)+FX(i+1,j,k));
+                grad(i,j,k)=Real(0.5)*(FX(i,j,k)+FX(i+1,j,k));
             });
 
             ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FX(i,j,k)=Huon(i,j,k)*half*(sstore(i,j,k)+sstore(i-1,j,k))+
+                FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i-1,j,k))+
                     cffb*(grad(i,j,k)+ grad(i-1,j,k));
             });
 
@@ -165,7 +165,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
             {
                 Real max_Huon = std::max(Huon(i,j,k),zero);
                 Real min_Huon = std::min(Huon(i,j,k),zero);
-                FX(i,j,k)=Huon(i,j,k)*half*(sstore(i,j,k)+sstore(i-1,j,k))-
+                FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i-1,j,k))-
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
 
@@ -174,12 +174,12 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
             ParallelFor(tbxp1x, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Centered4
-                grad(i,j,k)=half*(FX(i,j,k)+FX(i+1,j,k));
+                grad(i,j,k)=Real(0.5)*(FX(i,j,k)+FX(i+1,j,k));
             });
 
             ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FX(i,j,k)=Huon(i,j,k)*half*(sstore(i,j,k)+sstore(i-1,j,k)-
+                FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i-1,j,k)-
                                            cffb*(grad(i,j,k)- grad(i-1,j,k)));
             });
 
@@ -225,7 +225,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
                 Real max_Hvom = std::max(Hvom(i,j,k),zero);
                 Real min_Hvom = std::min(Hvom(i,j,k),zero);
 
-                FE(i,j,k)=Hvom(i,j,k)*half*(sstore(i,j,k)+sstore(i,j-1,k))+
+                FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i,j-1,k))+
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
             });
 
@@ -233,12 +233,12 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
 
             ParallelFor(tbxp1y, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                grad(i,j,k)=half*(FE(i,j,k)+FE(i,j+1,k));
+                grad(i,j,k)=Real(0.5)*(FE(i,j,k)+FE(i,j+1,k));
             });
 
             ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FE(i,j,k)=Hvom(i,j,k)*half*(sstore(i,j,k)+sstore(i,j-1,k))+
+                FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i,j-1,k))+
                     cffb*(grad(i,j,k)+ grad(i,j-1,k));
             });
 
@@ -260,7 +260,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
                 Real max_Hvom = std::max(Hvom(i,j,k),zero);
                 Real min_Hvom = std::min(Hvom(i,j,k),zero);
 
-                FE(i,j,k)=Hvom(i,j,k)*half*(sstore(i,j,k)+sstore(i,j-1,k))-
+                FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i,j-1,k))-
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
             });
 
@@ -268,12 +268,12 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
 
             ParallelFor(tbxp1y, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                grad(i,j,k)=half*(FE(i,j,k)+FE(i,j+1,k));
+                grad(i,j,k)=Real(0.5)*(FE(i,j,k)+FE(i,j+1,k));
             });
 
             ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FE(i,j,k)=Hvom(i,j,k)*half*(sstore(i,j,k)+sstore(i,j-1,k)-
+                FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(sstore(i,j,k)+sstore(i,j-1,k)-
                                            cffb*(grad(i,j,k)- grad(i,j-1,k)));
             });
 
@@ -341,7 +341,7 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
         //  Add in vertical advection.
         //-----------------------------------------------------------------------
 
-        Real cff1=half;
+        Real cff1=Real(0.5);
         Real cff2=Real(7.0)/Real(12.0);
         Real cff3=one/Real(12.0);
 

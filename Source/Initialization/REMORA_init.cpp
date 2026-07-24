@@ -43,8 +43,8 @@ REMORA::init_beta_plane_coriolis (int lev)
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real y = prob_lo + (j + half) * dx;
-            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - half * Esize);
+            Real y = prob_lo + (j + Real(0.5)) * dx;
+            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - Real(0.5) * Esize);
         });
     } //mfi
 
@@ -112,7 +112,7 @@ REMORA::set_2darrays (int lev)
             Real sum_of_hz = zero;
 
             for (int k=0; k<=N; k++) {
-                Real avg_hz = half*(Hz(i,j,k)+Hz(i-1,j,k));
+                Real avg_hz = Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k));
                 sum_of_hz += avg_hz;
                 CF += avg_hz*u(i,j,k,nstp);
             }
@@ -125,7 +125,7 @@ REMORA::set_2darrays (int lev)
             Real sum_of_hz = zero;
 
             for(int k=0; k<=N; k++) {
-                Real avg_hz = half*(Hz(i,j,k)+Hz(i,j-1,k));
+                Real avg_hz = Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k));
                 sum_of_hz += avg_hz;
                 CF += avg_hz*v(i,j,k,nstp);
             }

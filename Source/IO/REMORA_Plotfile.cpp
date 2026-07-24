@@ -383,8 +383,8 @@ REMORA::WritePlotFile (int istep_for_plot)
                 const Array4<Real const> zp_arr = vec_z_phys_nd[lev]->const_array(mfi);
 
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                    loc_arr(i,j,k,0) = (i+half) * dx;
-                    loc_arr(i,j,k,1) = (j+half) * dy;
+                    loc_arr(i,j,k,0) = (i+Real(0.5)) * dx;
+                    loc_arr(i,j,k,1) = (j+Real(0.5)) * dy;
                     loc_arr(i,j,k,2) = Real(0.125) * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
                                                    zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
                                                    zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +

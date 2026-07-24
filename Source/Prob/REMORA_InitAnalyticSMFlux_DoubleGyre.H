@@ -19,7 +19,7 @@
         Array4<Real> const& sustr = mf_sustr.array(mfi);
         ParallelFor(xbx2, [=] AMREX_GPU_DEVICE(int i, int j, int /*k*/) noexcept
         {
-            const Real y  = prob_lo_y + (j + half) * dy;// - ycent;
+            const Real y  = prob_lo_y + (j + Real(0.5)) * dy;// - ycent;
 
             sustr(i,j,0) = windamp * std::cos(val1 * y);
         });

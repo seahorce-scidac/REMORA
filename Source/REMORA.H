@@ -1791,9 +1791,9 @@ public:
         if (ZoL < zero) {
             // Unstable conditions.
             Real x    = std::pow(one-Real(15.0)*ZoL,fourth);
-            Real psik = two*std::log(half*(one+x))+
-                        std::log(half*(one+x*x))-
-                        two*std::atan(x)+half*PI;
+            Real psik = two*std::log(Real(0.5)*(one+x))+
+                        std::log(Real(0.5)*(one+x*x))-
+                        two*std::atan(x)+Real(0.5)*PI;
             //  For very unstable conditions, use free-convection (Fairall).
             Real sqrt3 = std::sqrt(three);
             Real y = std::pow(one-Real(10.15)*ZoL,third);
@@ -1822,8 +1822,8 @@ public:
         Real psit;
         if (ZoL < zero) {
             // Unstable conditions.
-            Real x = std::pow(one-Real(15.0)*ZoL,half);
-            Real psik = two*std::log(half*(one+x));
+            Real x = std::pow(one-Real(15.0)*ZoL,Real(0.5));
+            Real psik = two*std::log(Real(0.5)*(one+x));
             //  For very unstable conditions, use free-convection (Fairall).
             Real sqrt3=std::sqrt(three);
             Real y=std::pow(one-Real(34.15)*ZoL,one/three);

@@ -30,11 +30,11 @@ REMORA::apply_clim_nudg (const Box& bx,
     BL_PROFILE("REMORA::apply_clim_nudg()");
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Real cff = half * (clim_coeff(i-ioff,j-joff,k) + clim_coeff(i,j,k));
+        Real cff = Real(0.5) * (clim_coeff(i-ioff,j-joff,k) + clim_coeff(i,j,k));
         if (ioff==1 || joff==1) {
             Real om = two / (pm(i-ioff,j-joff,0)+pm(i,j,0));
             Real on = two / (pn(i-ioff,j-joff,0)+pn(i,j,0));
-            cff *= half * (Hz(i-ioff,j-joff,k) + Hz(i,j,k)) * om * on;
+            cff *= Real(0.5) * (Hz(i-ioff,j-joff,k) + Hz(i,j,k)) * om * on;
         } else {
             cff *= dt_lev;
         }

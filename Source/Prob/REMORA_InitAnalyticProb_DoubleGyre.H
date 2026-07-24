@@ -25,7 +25,7 @@
             const auto prob_hi         = geomdata.ProbHi();
             const auto dx              = geomdata.CellSize();
 
-            const Real y  = prob_lo[1] + (j + Real(half)) * dx[1];
+            const Real y  = prob_lo[1] + (j + Real(Real(0.5))) * dx[1];
             const Real z = z_r(i,j,k);
             const Real yextent = prob_hi[1] - prob_lo[1];
 

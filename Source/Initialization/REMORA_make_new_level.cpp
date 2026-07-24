@@ -848,19 +848,19 @@ REMORA::set_grid_coords_from_grid_scale (int lev) {
         Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xr(i,j,0) = (i + half) / pm(i,j,0);
-            yr(i,j,0) = (j + half) / pn(i,j,0);
+            xr(i,j,0) = (i + Real(0.5)) / pm(i,j,0);
+            yr(i,j,0) = (j + Real(0.5)) / pn(i,j,0);
         });
 
         ParallelFor(grow(convert(bx,IntVect(1,0,0)),IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             xu(i,j,0) = i / pm(i,j,0);
-            yu(i,j,0) = (j + half) / pn(i,j,0);
+            yu(i,j,0) = (j + Real(0.5)) / pn(i,j,0);
         });
 
         ParallelFor(grow(convert(bx,IntVect(0,1,0)),IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xv(i,j,0) = (i + half) / pm(i,j,0);
+            xv(i,j,0) = (i + Real(0.5)) / pm(i,j,0);
             yv(i,j,0) = j / pn(i,j,0);
         });
 
@@ -887,8 +887,8 @@ REMORA::set_curvilinear_terms_from_grid_scale (int lev) {
         Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            dndx(i,j,0) = half * (one / pn(i+1,j  ,0) - one / pn(i-1,j  ,0));
-            dmde(i,j,0) = half * (one / pm(i  ,j+1,0) - one / pn(i  ,j-1,0));
+            dndx(i,j,0) = Real(0.5) * (one / pn(i+1,j  ,0) - one / pn(i-1,j  ,0));
+            dmde(i,j,0) = Real(0.5) * (one / pm(i  ,j+1,0) - one / pn(i  ,j-1,0));
         });
     }
 }
@@ -963,23 +963,23 @@ REMORA::update_mskp (int lev)
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            if ((mskr(i-1,j,0) > half) and (mskr(i,j,0) > half) and (mskr(i-1,j-1,0) > half) and (mskr(i,j-1,0) > half)) {
+            if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = one;
-            } else if ((mskr(i-1,j,0) < half) and (mskr(i,j,0) > half) and (mskr(i-1,j-1,0) > half) and (mskr(i,j-1,0) > half)) {
+            } else if ((mskr(i-1,j,0) < Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = cff1;
-            } else if ((mskr(i-1,j,0) > half) and (mskr(i,j,0) < half) and (mskr(i-1,j-1,0) > half) and (mskr(i,j-1,0) > half)) {
+            } else if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) < Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = cff1;
-            } else if ((mskr(i-1,j,0) > half) and (mskr(i,j,0) > half) and (mskr(i-1,j-1,0) < half) and (mskr(i,j-1,0) > half)) {
+            } else if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) < Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = cff1;
-            } else if ((mskr(i-1,j,0) > half) and (mskr(i,j,0) > half) and (mskr(i-1,j-1,0) > half) and (mskr(i,j-1,0) < half)) {
+            } else if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) < Real(0.5))) {
                 mskp(i,j,0) = cff1;
-            } else if ((mskr(i-1,j,0) > half) and (mskr(i,j,0) < half) and (mskr(i-1,j-1,0) > half) and (mskr(i,j-1,0) < half)) {
+            } else if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) < Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) < Real(0.5))) {
                 mskp(i,j,0) = cff2;
-            } else if ((mskr(i-1,j,0) < half) and (mskr(i,j,0) > half) and (mskr(i-1,j-1,0) < half) and (mskr(i,j-1,0) > half)) {
+            } else if ((mskr(i-1,j,0) < Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) < Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = cff2;
-            } else if ((mskr(i-1,j,0) > half) and (mskr(i,j,0) > half) and (mskr(i-1,j-1,0) < half) and (mskr(i,j-1,0) < half)) {
+            } else if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) < Real(0.5)) and (mskr(i,j-1,0) < Real(0.5))) {
                 mskp(i,j,0) = cff2;
-            } else if ((mskr(i-1,j,0) < half) and (mskr(i,j,0) < half) and (mskr(i-1,j-1,0) > half) and (mskr(i,j-1,0) > half)) {
+            } else if ((mskr(i-1,j,0) < Real(0.5)) and (mskr(i,j,0) < Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = cff2;
             } else {
                 mskp(i,j,0) = zero;

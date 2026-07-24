@@ -61,8 +61,8 @@ remora_dervort(
 
     ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
     {
-        Real d2x = half / pm(i-1,j,  0) + one / pm(i,j,0) + half / pm(i+1,j,0);
-        Real d2y = half / pn(i,  j-1,0) + one / pn(i,j,0) + half / pn(i,j+1,0);
+        Real d2x = Real(0.5) / pm(i-1,j,  0) + one / pm(i,j,0) + Real(0.5) / pm(i+1,j,0);
+        Real d2y = Real(0.5) / pn(i,  j-1,0) + one / pn(i,j,0) + Real(0.5) / pn(i,j+1,0);
         tfab(i,j,k,dcomp) = (dat(i+1,j,k,1) - dat(i-1,j,k,1)) / (d2x)  // dv/dx
                           - (dat(i,j+1,k,0) - dat(i,j-1,k,0)) / (d2y); // du/dy
         /*TODO: Add masking to vorticity. Need to calculate psi mask first.*/

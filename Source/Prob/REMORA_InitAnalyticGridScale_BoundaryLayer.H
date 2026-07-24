@@ -16,7 +16,7 @@
         Gpu::streamSynchronize();
         ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real dx = half * (Real(4000.0) / (Lm + 1)) * (i+1) + Real(675.0);
+            Real dx = Real(0.5) * (Real(4000.0) / (Lm + 1)) * (i+1) + Real(675.0);
             pm(i,j,0) = one / dx;
         });
     }

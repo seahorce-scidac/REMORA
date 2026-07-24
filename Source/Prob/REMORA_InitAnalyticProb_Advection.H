@@ -31,11 +31,11 @@
             state(i,j,k,Temp_comp)=T0; //+8.0*std::exp(z/Real(50.0));
 
             // Set tracer = 0 everywhere
-            const Real xcent = half*(prob_lo[0] + prob_hi[0]);
-            const Real ycent = half*(prob_lo[1] + prob_hi[1]);
+            const Real xcent = Real(0.5)*(prob_lo[0] + prob_hi[0]);
+            const Real ycent = Real(0.5)*(prob_lo[1] + prob_hi[1]);
 
-            const Real x  = prob_lo[0] + (i + half) * dx[0] - xcent;
-            const Real y  = prob_lo[1] + (j + half) * dx[1] - ycent;
+            const Real x  = prob_lo[0] + (i + Real(0.5)) * dx[0] - xcent;
+            const Real y  = prob_lo[1] + (j + Real(0.5)) * dx[1] - ycent;
             const Real r2 = x*x + y*y;
             const Real rad = Real(0.1) * (prob_hi[0]-prob_lo[0]);
             const Real radsq = rad*rad;

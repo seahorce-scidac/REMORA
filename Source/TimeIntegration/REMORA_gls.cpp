@@ -101,10 +101,10 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 gradL_ip1 = gls(i,j,k,nstp) - gls(i-1,j,k,nstp);
             }
             Real cff = one/Real(6.0);
-            XF(i,j,k) = half * (Huon(i,j,k) + Huon(i,j,k-1));
-            FX(i,j,k) = XF(i,j,k) * half * (tke(i-1,j,k,nstp) + tke(i,j,k,nstp) -
+            XF(i,j,k) = Real(0.5) * (Huon(i,j,k) + Huon(i,j,k-1));
+            FX(i,j,k) = XF(i,j,k) * Real(0.5) * (tke(i-1,j,k,nstp) + tke(i,j,k,nstp) -
                 cff * (grad_ip1 - grad_im1));
-            FXL(i,j,k) = XF(i,j,k) * half * (gls(i-1,j,k,nstp) + gls(i,j,k,nstp) -
+            FXL(i,j,k) = XF(i,j,k) * Real(0.5) * (gls(i-1,j,k,nstp) + gls(i,j,k,nstp) -
                 cff * (gradL_ip1 - gradL_im1));
         });
 
@@ -128,10 +128,10 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                 gradL_jp1 = gls(i,j,k,nstp) - gls(i,j-1,k,nstp);
             }
             Real cff = one/Real(6.0);
-            EF(i,j,k) = half * (Hvom(i,j,k) + Hvom(i,j,k-1));
-            FE(i,j,k) = EF(i,j,k) * half * (tke(i,j-1,k,nstp) + tke(i,j,k,nstp) -
+            EF(i,j,k) = Real(0.5) * (Hvom(i,j,k) + Hvom(i,j,k-1));
+            FE(i,j,k) = EF(i,j,k) * Real(0.5) * (tke(i,j-1,k,nstp) + tke(i,j,k,nstp) -
                 cff * (grad_jp1 - grad_jm1));
-            FEL(i,j,k) = EF(i,j,k) * half * (gls(i,j-1,k,nstp) + gls(i,j,k,nstp) -
+            FEL(i,j,k) = EF(i,j,k) * Real(0.5) * (gls(i,j-1,k,nstp) + gls(i,j,k,nstp) -
                 cff * (gradL_jp1 - gradL_jm1));
         });
 
@@ -142,11 +142,11 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         if (iic == ntfirst) {
             cff1 = one;
             cff2 = zero;
-            cff3 = half * dt_lev;
+            cff3 = Real(0.5) * dt_lev;
             indx = nstp;
         } else {
-            cff1 = half + gamma;
-            cff2 = half - gamma;
+            cff1 = Real(0.5) + gamma;
+            cff2 = Real(0.5) - gamma;
             cff3 = (one - gamma) * dt_lev;
             indx = 1 - nstp;
         }
@@ -156,7 +156,7 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         // need EF/FE/FEL from  [xlo to xhi  ] by [ylo to yhi+1]
         ParallelFor(grow(bx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real cff = half * (Hz(i,j,k) + Hz(i,j,k-1));
+            Real cff = Real(0.5) * (Hz(i,j,k) + Hz(i,j,k-1));
             Real cff4 = cff3 * pm(i,j,0) * pn(i,j,0);
             Hz_half(i,j,k) = cff - cff4 * (XF(i+1,j,k)-XF(i,j,k)+EF(i,j+1,k)-EF(i,j,k));
             tke(i,j,k,2) = cff * (cff1*tke(i,j,k,nstp) + cff2*tke(i,j,k,indx)) -
@@ -172,7 +172,7 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         ParallelFor(convert(bx,IntVect(0,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             // CF and FC/FCL are on rho points
-            CF(i,j,k) = half * (W(i,j,k+1) + W(i,j,k));
+            CF(i,j,k) = Real(0.5) * (W(i,j,k+1) + W(i,j,k));
             if (k == 0) {
                 Real cff1_vadv = one / Real(3.0);
                 Real cff2_vadv = Real(5.0) / Real(6.0);
@@ -205,7 +205,7 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
 
         // Time-step vertical advection
         if (iic == ntfirst) {
-            cff3 = half * dt_lev;
+            cff3 = Real(0.5) * dt_lev;
         } else {
             cff3 = (one - gamma) * dt_lev;
         }
@@ -295,13 +295,13 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     Real gls_fac2 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p)*solverChoice.gls_n*std::pow(vonKar,solverChoice.gls_n);
     Real gls_fac3 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p)*solverChoice.gls_n;
     Real gls_fac4 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p);
-    Real gls_fac5 = std::pow(Real(0.56),half*solverChoice.gls_n)*std::pow(solverChoice.gls_cmu0,solverChoice.gls_p);
+    Real gls_fac5 = std::pow(Real(0.56),Real(0.5)*solverChoice.gls_n)*std::pow(solverChoice.gls_cmu0,solverChoice.gls_p);
     Real gls_fac6 = Real(8.0)/std::pow(solverChoice.gls_cmu0,Real(6.0));
 
     Real gls_exp1 = one/solverChoice.gls_n;
     Real tke_exp1 = solverChoice.gls_m/solverChoice.gls_n;
-    Real tke_exp2 = half+solverChoice.gls_m/solverChoice.gls_n;
-    Real tke_exp4 = solverChoice.gls_m+half*solverChoice.gls_n;
+    Real tke_exp2 = Real(0.5)+solverChoice.gls_m/solverChoice.gls_n;
+    Real tke_exp4 = solverChoice.gls_m+Real(0.5)*solverChoice.gls_n;
 
     Real cmu0_exp_p = std::pow(gls_cmu0, gls_p);
     Real gls_cmu0_cube = gls_cmu0 * gls_cmu0 * gls_cmu0;
@@ -330,7 +330,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         gls_s5=two*solverChoice.gls_L4;
         gls_s6=two/Real(3.0)*solverChoice.gls_L5
             *(Real(3.0)*solverChoice.gls_L3*solverChoice.gls_L3-solverChoice.gls_L2*solverChoice.gls_L2)-
-                    half*solverChoice.gls_L5*solverChoice.gls_L1*(Real(3.0)*solverChoice.gls_L3-solverChoice.gls_L2)+
+                    Real(0.5)*solverChoice.gls_L5*solverChoice.gls_L1*(Real(3.0)*solverChoice.gls_L3-solverChoice.gls_L2)+
                     Real(3.0)/Real(4.0)*solverChoice.gls_L1*(solverChoice.gls_L6-solverChoice.gls_L7);
         gls_b0=Real(3.0)*solverChoice.gls_L5*solverChoice.gls_L5;
         gls_b1=solverChoice.gls_L5*(Real(7.0)*solverChoice.gls_L4+Real(3.0)*solverChoice.gls_L8);
@@ -569,12 +569,12 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
         ParallelFor(grow(xbx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real cff = half * (Huon(i,j,k) + Huon(i,j,k-1));
+            Real cff = Real(0.5) * (Huon(i,j,k) + Huon(i,j,k-1));
             Real cff1 = (cff > zero) ? curvK(i-1,j,k) : curvK(i,j,k);
             Real cff2 = (cff > zero) ? curvP(i-1,j,k) : curvP(i,j,k);
 
-            FXK(i,j,k) = cff * half * (tke(i-1,j,k,2)+tke(i,j,k,2)-Gadv*cff1);
-            FXP(i,j,k) = cff * half * (gls(i-1,j,k,2)+gls(i,j,k,2)-Gadv*cff2);
+            FXK(i,j,k) = cff * Real(0.5) * (tke(i-1,j,k,2)+tke(i,j,k,2)-Gadv*cff1);
+            FXP(i,j,k) = cff * Real(0.5) * (gls(i-1,j,k,2)+gls(i,j,k,2)-Gadv*cff2);
         });
 
         //Time step advective terms
@@ -599,12 +599,12 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         });
         ParallelFor(grow(ybx,IntVect(0,0,-1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real cff = half * (Hvom(i,j,k) + Hvom(i,j,k-1));
+            Real cff = Real(0.5) * (Hvom(i,j,k) + Hvom(i,j,k-1));
             Real cff1 = (cff > zero) ? curvK(i,j-1,k) : curvK(i,j,k);
             Real cff2 = (cff > zero) ? curvP(i,j-1,k) : curvP(i,j,k);
 
-            FEK(i,j,k) = cff * half * (tke(i,j-1,k,2)+tke(i,j,k,2)-Gadv*cff1);
-            FEP(i,j,k) = cff * half * (gls(i,j-1,k,2)+gls(i,j,k,2)-Gadv*cff2);
+            FEK(i,j,k) = cff * Real(0.5) * (tke(i,j-1,k,2)+tke(i,j,k,2)-Gadv*cff1);
+            FEP(i,j,k) = cff * Real(0.5) * (gls(i,j-1,k,2)+gls(i,j,k,2)-Gadv*cff2);
         });
 
         Real gls_Kmin = solverChoice.gls_Kmin;
@@ -627,7 +627,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Real cff1 = Real(7.0) / Real(12.0);
             Real cff2 = one / Real(12.0);
             for (int k=1; k<=N-1; k++) {
-                Real cff = half * (W(i,j,k+1)+W(i,j,k));
+                Real cff = Real(0.5) * (W(i,j,k+1)+W(i,j,k));
                 FCK(i,j,k) = cff * (cff1 * (tke(i,j,k  ,2)+tke(i,j,k+1,2))-
                                     cff2 * (tke(i,j,k-1,2)+tke(i,j,k+2,2)));
                 FCP(i,j,k) = cff * (cff1 * (gls(i,j,k  ,2)+gls(i,j,k+1,2))-
@@ -636,10 +636,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             cff1 = one/Real(3.0);
             cff2 = Real(5.0)/Real(6.0);
             Real cff3 = one / Real(6.0);
-            Real cff = half * (W(i,j,0)+W(i,j,1));
+            Real cff = Real(0.5) * (W(i,j,0)+W(i,j,1));
             FCK(i,j,0) = cff * (cff1 * tke(i,j,0,2)+cff2 * tke(i,j,1,2)-cff3 * tke(i,j,2,2));
             FCP(i,j,0) = cff * (cff1 * gls(i,j,0,2)+cff2 * gls(i,j,1,2)-cff3 * gls(i,j,2,2));
-            cff = half * (W(i,j,N+1)+W(i,j,N));
+            cff = Real(0.5) * (W(i,j,N+1)+W(i,j,N));
             FCK(i,j,N) = cff * (cff1 * tke(i,j,N+1,2)+cff2*tke(i,j,N,2)-cff3*tke(i,j,N-1,2));
             FCP(i,j,N) = cff * (cff1 * gls(i,j,N+1,2)+cff2*gls(i,j,N,2)-cff3*gls(i,j,N-1,2));
         });
@@ -657,7 +657,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         // Compute vertical mixing, turbulent production and turbulent
         // dissipation.
         //
-        Real cff = -half * dt_lev;
+        Real cff = -Real(0.5) * dt_lev;
         ParallelFor(convert(bx,IntVect(0,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             if (k==0 or k==N) {
@@ -687,7 +687,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Kprod = (Kprod < zero) ? Kprod + strat2*(Akt(i,j,k,Temp_comp)-Akt_bak) : Kprod;
             Pprod = (Pprod < zero) ? Pprod + gls_c3*strat2*(Akt(i,j,k,Temp_comp)-Akt_bak) : Pprod;
             // Time-step shear and buoyancy production terms.
-            Real cff_Hz = half * (Hz(i,j,k) + Hz(i,j,k-1));
+            Real cff_Hz = Real(0.5) * (Hz(i,j,k) + Hz(i,j,k-1));
             tke(i,j,k,nnew) = tke(i,j,k,nnew)+dt_lev * cff_Hz * Kprod;
             gls(i,j,k,nnew) = gls(i,j,k,nnew)+dt_lev
                                 *cff_Hz*Pprod*gls(i,j,k,nstp) / std::max(tke(i,j,k,nstp),gls_Kmin);
@@ -738,11 +738,11 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             // Banner wave breaking surface flux, if appropriate.
 
 
-            tke(i,j,N+1,nnew)=std::max(cmu_fac3*half*
+            tke(i,j,N+1,nnew)=std::max(cmu_fac3*Real(0.5)*
                                      std::sqrt((sustr(i,j,0)+sustr(i+1,j,0))*(sustr(i,j,0)+sustr(i+1,j,0))+
                                           (svstr(i,j,0)+svstr(i,j+1,0))*(svstr(i,j,0)+svstr(i,j+1,0))),
                                      gls_Kmin);
-            tke(i,j,0,nnew)=std::max(cmu_fac3*half*
+            tke(i,j,0,nnew)=std::max(cmu_fac3*Real(0.5)*
                                  std::sqrt((bustr(i,j,0)+bustr(i+1,j,0))*(bustr(i,j,0)+bustr(i+1,j,0))+
                                       (bvstr(i,j,0)+bvstr(i,j+1,0))*(bvstr(i,j,0)+bvstr(i,j+1,0))),
                                         gls_Kmin);
@@ -773,15 +773,15 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             }
 
             // Solve tri-diagonal system for generic statistical field.
-            Real cff_tke = half * (tke(i,j,N+1,nnew) + tke(i,j,N,nnew));
+            Real cff_tke = Real(0.5) * (tke(i,j,N+1,nnew) + tke(i,j,N,nnew));
             Real gls_fluxt = dt_lev*gls_fac3*std::pow(cff_tke,gls_m)*
                              std::pow(L_sft,(gls_n))*
-                             std::pow(Zos_eff+half*Hz(i,j,N),gls_n-one)*
-                             half*(Akp(i,j,N+1)+Akp(i,j,N));
-            cff_tke=half*(tke(i,j,0,nnew)+tke(i,j,1,nnew));
+                             std::pow(Zos_eff+Real(0.5)*Hz(i,j,N),gls_n-one)*
+                             Real(0.5)*(Akp(i,j,N+1)+Akp(i,j,N));
+            cff_tke=Real(0.5)*(tke(i,j,0,nnew)+tke(i,j,1,nnew));
             Real gls_fluxb = dt_lev*gls_fac2*std::pow(cff_tke,gls_m)*
-                              std::pow(half*Hz(i,j,0)+Zob_min,gls_n-one)*
-                              half*(Akp(i,j,0)+Akp(i,j,1));
+                              std::pow(Real(0.5)*Hz(i,j,0)+Zob_min,gls_n-one)*
+                              Real(0.5)*(Akp(i,j,0)+Akp(i,j,1));
             Real cff_BCP = one / BCP(i,j,N);
             CF(i,j,N) = cff_BCP * FCP(i,j,N-1);
             gls(i,j,N,nnew)=cff_BCP*(gls(i,j,N,nnew)-gls_fluxt);
@@ -870,7 +870,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             //  tracers.  Average ql over the two timesteps rather than using
             //  the new Lscale and just averaging tke.
 
-            Real ql=sqrt2*half*(Ls_lmt*std::sqrt(tke(i,j,k,nnew))+
+            Real ql=sqrt2*Real(0.5)*(Ls_lmt*std::sqrt(tke(i,j,k,nnew))+
                                   Lscale(i,j,k)*std::sqrt(tke(i,j,k,nstp)));
             Akv(i,j,k)=Akv_bak+Sm*ql;
             for (int n=0; n<ncons_local; n++) {

@@ -51,7 +51,7 @@ REMORA::calc_stretch_coeffs ()
         }
 
         if (k<N) {
-            s_r_dat[k]=ds*(k-N+half);
+            s_r_dat[k]=ds*(k-N+Real(0.5));
 
             if (local_theta_s > zero) {
                 Csur=(one-std::cosh(local_theta_s*s_r_dat[k]))/
@@ -131,7 +131,7 @@ REMORA::stretch_transform (int lev)
         amrex::ParallelFor(wgbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             if (k < N) {
-                Real sc_r=ds*(k-N+half);
+                Real sc_r=ds*(k-N+Real(0.5));
                 Real sc_w=ds*(k-N);
                 Real cff_r = hc*sc_r;
                 Real cff1_r = Cs_r_dat[k];

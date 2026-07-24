@@ -150,12 +150,12 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
         ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
-                        half*(tempold(i-1,j,k)+tempold(i  ,j,k)) : Real(1e34);
+                        Real(0.5)*(tempold(i-1,j,k)+tempold(i  ,j,k)) : Real(1e34);
         });
         ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
-                        half*(tempold(i,j-1,k)+tempold(i,j,k)) : Real(1e34);
+                        Real(0.5)*(tempold(i,j-1,k)+tempold(i,j,k)) : Real(1e34);
         });
 
     } else {
@@ -217,7 +217,7 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
                 Real max_Huon = std::max(Huon(i,j,k),zero);
                 Real min_Huon = std::min(Huon(i,j,k),zero);
 
-                FX(i,j,k)=Huon(i,j,k)*half*(tempold(i,j,k)+tempold(i-1,j,k))-
+                FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i-1,j,k))-
                     cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
             });
 
@@ -226,12 +226,12 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
                 //Centered4
-                grad(i,j,k)=half*(FX(i,j,k)+FX(i+1,j,k));
+                grad(i,j,k)=Real(0.5)*(FX(i,j,k)+FX(i+1,j,k));
             });
 
             ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FX(i,j,k)=Huon(i,j,k)*half*(tempold(i,j,k)+tempold(i-1,j,k)-
+                FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i-1,j,k)-
                                            cffb*(grad(i,j,k)-grad(i-1,j,k)));
             });
         } else {
@@ -250,7 +250,7 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
                 Real max_Hvom = std::max(Hvom(i,j,k),zero);
                 Real min_Hvom = std::min(Hvom(i,j,k),zero);
 
-                FE(i,j,k)=Hvom(i,j,k)*half*(tempold(i,j,k)+tempold(i,j-1,k))-
+                FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i,j-1,k))-
                     cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
             });
 
@@ -258,12 +258,12 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
 
             ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                grad(i,j,k)=half*(FE(i,j,k)+FE(i,j+1,k));
+                grad(i,j,k)=Real(0.5)*(FE(i,j,k)+FE(i,j+1,k));
             });
 
             ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                FE(i,j,k)=Hvom(i,j,k)*half*(tempold(i,j,k)+tempold(i,j-1,k)-
+                FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i,j-1,k)-
                                            cffb*(grad(i,j,k)- grad(i,j-1,k)));
             });
         } else {
@@ -297,13 +297,13 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
 
     if (iic==ntfirst)
     {
-        cff=half*dt_lev;
+        cff=Real(0.5)*dt_lev;
         cff1=one;
         cff2=zero;
     } else {
         cff=(one-GammaT)*dt_lev;
-        cff1=half+GammaT;
-        cff2=half-GammaT;
+        cff1=Real(0.5)+GammaT;
+        cff2=Real(0.5)-GammaT;
     }
 
     ParallelFor(tbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
@@ -314,7 +314,7 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
                                                                    FE(i,j+1,k)-FE(i,j,k));
     });
 
-    Real c1=half;
+    Real c1=Real(0.5);
     Real c2=Real(7.0)/Real(12.0);
     Real c3=one/Real(12.0);
 

@@ -175,14 +175,14 @@ REMORA::advance_2d (int lev,
         ParallelFor(makeSlab(xgbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real on_u = two / (pn(i,j,0)+pn(i-1,j,0));
-            Real cff1= half * on_u *(Drhs(i,j,0)+Drhs(i-1,j,0));
+            Real cff1= Real(0.5) * on_u *(Drhs(i,j,0)+Drhs(i-1,j,0));
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
 
         ParallelFor(makeSlab(ygbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             Real om_v = two / (pm(i,j,0)+pm(i,j-1,0));
-            Real cff1= half * om_v * (Drhs(i,j,0)+Drhs(i,j-1,0));
+            Real cff1= Real(0.5) * om_v * (Drhs(i,j,0)+Drhs(i,j-1,0));
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
          });
     }
@@ -423,7 +423,7 @@ REMORA::advance_2d (int lev,
                 Dnew(i,j,0) = zeta_new(i,j,0)+h(i,j,0);
 
                 //Pressure gradient terms:
-                zwrk(i,j,0)=half*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
+                zwrk(i,j,0)=Real(0.5)*(zeta(i,j,0,kstp)+zeta_new(i,j,0));
                 gzeta(i,j,0)=(fac+rhoS(i,j,0))*zwrk(i,j,0);
                 gzeta2(i,j,0)=gzeta(i,j,0)*zwrk(i,j,0);
                 gzetaSA(i,j,0)=zwrk(i,j,0)*(rhoS(i,j,0)-rhoA(i,j,0));
@@ -509,7 +509,7 @@ REMORA::advance_2d (int lev,
 !-----------------------------------------------------------------------
 !
 */
-        Real cff1 = half * g;
+        Real cff1 = Real(0.5) * g;
         Real cff2 = one / Real(3.0);
         ParallelFor(xbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -695,7 +695,7 @@ REMORA::advance_2d (int lev,
         //  step is Leap-frog and the corrector step is Adams-Moulton.
         //
         if (my_iif==0) {
-            cff1=half*dtfast_lev;
+            cff1=Real(0.5)*dtfast_lev;
             ParallelFor(xbxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
@@ -739,9 +739,9 @@ REMORA::advance_2d (int lev,
 
         } else if ((!predictor_2d_step)) {
 
-            cff1=half*dtfast_lev*Real(5.0)/Real(12.0);
-            cff2=half*dtfast_lev*Real(8.0)/Real(12.0);
-            Real cff3=half*dtfast_lev*one/Real(12.0);
+            cff1=Real(0.5)*dtfast_lev*Real(5.0)/Real(12.0);
+            cff2=Real(0.5)*dtfast_lev*Real(8.0)/Real(12.0);
+            Real cff3=Real(0.5)*dtfast_lev*one/Real(12.0);
             ParallelFor(xbxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
@@ -834,12 +834,12 @@ REMORA::advance_2d (int lev,
                     if (iriver >= 0) {
                         if (river_direction_d[iriver] == 0) {
                             Real on_u = two / (pn(i,j,0)+pn(i-1,j,0));
-                            Real cff = one / (on_u * half * (zeta(i-1,j,0,knew) + h(i-1,j,0) +
+                            Real cff = one / (on_u * Real(0.5) * (zeta(i-1,j,0,knew) + h(i-1,j,0) +
                                         zeta(i,j,0,knew) + h(i,j,0)));
                             ubar(i,j,0,knew) = river_transportbar(iriver,0,0) * cff;
                         } else {
                             Real om_v = two / (pm(i,j,0)+pm(i,j-1,0));
-                            Real cff = one / (om_v * half * (zeta(i,j-1,0,knew) + h(i,j-1,0) +
+                            Real cff = one / (om_v * Real(0.5) * (zeta(i,j-1,0,knew) + h(i,j-1,0) +
                                         zeta(i,j,0,knew) + h(i,j,0)));
                             vbar(i,j,0,knew) = river_transportbar(iriver,0,0) * cff;
                         }

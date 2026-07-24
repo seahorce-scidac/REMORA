@@ -288,7 +288,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                       bc_ptr[n].lo(0) == REMORABCType::chapman || bc_ptr[n].lo(0) == REMORABCType::orlanski_rad_nudge)
                  && !(bc_ptr[n].lo(1) == REMORABCType::clamped || bc_ptr[n].lo(1) == REMORABCType::flather ||
                       bc_ptr[n].lo(1) == REMORABCType::chapman || bc_ptr[n].lo(1) == REMORABCType::orlanski_rad_nudge)) {
-                    dest_arr(i,j,k,icomp+n) = half * (dest_arr(i,dom_lo.y,k,icomp+n)
+                    dest_arr(i,j,k,icomp+n) = Real(0.5) * (dest_arr(i,dom_lo.y,k,icomp+n)
                                                     + dest_arr(dom_lo.x,j,k,icomp+n));
                 }
             });
@@ -300,7 +300,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                       bc_ptr[n].lo(0) == REMORABCType::chapman || bc_ptr[n].lo(0) == REMORABCType::orlanski_rad_nudge)
                  && !(bc_ptr[n].hi(1) == REMORABCType::clamped || bc_ptr[n].hi(1) == REMORABCType::flather ||
                       bc_ptr[n].hi(1) == REMORABCType::chapman || bc_ptr[n].hi(1) == REMORABCType::orlanski_rad_nudge)) {
-                    dest_arr(i,j,k,icomp+n) = half * (dest_arr(i,dom_hi.y,k,icomp+n)
+                    dest_arr(i,j,k,icomp+n) = Real(0.5) * (dest_arr(i,dom_hi.y,k,icomp+n)
                                                     + dest_arr(dom_lo.x,j,k,icomp+n));
                 }
             });
@@ -312,7 +312,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                       bc_ptr[n].hi(0) == REMORABCType::chapman || bc_ptr[n].hi(0) == REMORABCType::orlanski_rad_nudge)
                  && !(bc_ptr[n].lo(1) == REMORABCType::clamped || bc_ptr[n].lo(1) == REMORABCType::flather ||
                       bc_ptr[n].lo(1) == REMORABCType::chapman || bc_ptr[n].lo(1) == REMORABCType::orlanski_rad_nudge)) {
-                    dest_arr(i,j,k,icomp+n) = half * (dest_arr(i,dom_lo.y,k,icomp+n)
+                    dest_arr(i,j,k,icomp+n) = Real(0.5) * (dest_arr(i,dom_lo.y,k,icomp+n)
                                                      + dest_arr(dom_hi.x,j,k,icomp+n));
                 }
             });
@@ -324,7 +324,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                       bc_ptr[n].hi(0) == REMORABCType::chapman || bc_ptr[n].hi(0) == REMORABCType::orlanski_rad_nudge)
                  && !(bc_ptr[n].hi(1) == REMORABCType::clamped || bc_ptr[n].hi(1) == REMORABCType::flather ||
                       bc_ptr[n].hi(1) == REMORABCType::chapman || bc_ptr[n].hi(1) == REMORABCType::orlanski_rad_nudge)) {
-                    dest_arr(i,j,k,icomp+n) = half * (dest_arr(i,dom_hi.y,k,icomp+n)
+                    dest_arr(i,j,k,icomp+n) = Real(0.5) * (dest_arr(i,dom_hi.y,k,icomp+n)
                                                     + dest_arr(dom_hi.x,j,k,icomp+n));
                 }
             });

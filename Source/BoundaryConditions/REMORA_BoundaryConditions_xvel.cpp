@@ -233,25 +233,25 @@ void REMORAPhysBCFunct::impose_xvel_bcs (const Array4<Real>& dest_arr, const Box
         if (!clamp_west && !clamp_south) {
             ParallelFor(xlo_ylo & dest_arr_box, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                dest_arr(i,j,k) = half * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_lo.x+1,j,k));
+                dest_arr(i,j,k) = Real(0.5) * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_lo.x+1,j,k));
             });
         }
         if (!clamp_west && !clamp_north) {
             ParallelFor(xlo_yhi & dest_arr_box, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                dest_arr(i,j,k) = half * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_lo.x+1,j,k));
+                dest_arr(i,j,k) = Real(0.5) * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_lo.x+1,j,k));
             });
         }
         if (!clamp_east && !clamp_south) {
             ParallelFor(xhi_ylo & dest_arr_box, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                dest_arr(i,j,k) = half * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_hi.x,j,k));
+                dest_arr(i,j,k) = Real(0.5) * (dest_arr(i,dom_lo.y,k) + dest_arr(dom_hi.x,j,k));
             });
         }
         if (!clamp_east && !clamp_north) {
             ParallelFor(xhi_yhi & dest_arr_box, [=] AMREX_GPU_DEVICE (int i, int j, int k)
             {
-                dest_arr(i,j,k) = half * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_hi.x,j,k));
+                dest_arr(i,j,k) = Real(0.5) * (dest_arr(i,dom_hi.y,k) + dest_arr(dom_hi.x,j,k));
             });
         }
     }

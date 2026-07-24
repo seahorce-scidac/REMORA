@@ -67,7 +67,7 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
     {
         Real om_v_or_on_u = two / (pm_or_pn(i,j,0) + pm_or_pn(i-ioff,j-joff,0));
 
-        DC(i,j,k) = half * om_v_or_on_u * (Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+        DC(i,j,k) = Real(0.5) * om_v_or_on_u * (Hz(i,j,k)+Hz(i-ioff,j-joff,k));
     });
 
     ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -97,7 +97,7 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
         }
 
         for (int k=0; k<=N; k++) {
-            Hphi(i,j,k) = half * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
+            Hphi(i,j,k) = Real(0.5) * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
             FC(i,j,0)  += Hphi(i,j,k);
         } // k
 

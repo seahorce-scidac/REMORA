@@ -109,7 +109,7 @@ REMORA::lin_eos (const Box& bx,
     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff0 = rho(i,j,N)*Hz(i,j,N);
-        rhoS(i,j,0) = half*cff0*Hz(i,j,N);
+        rhoS(i,j,0) = Real(0.5)*cff0*Hz(i,j,N);
         rhoA(i,j,0) = cff0;
 
         for (int k = 1; k <= N; ++k) {
@@ -269,7 +269,7 @@ REMORA::nonlin_eos (const Box& bx,
     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
         Real cff0 = den(i,j,N)*Hz(i,j,N);
-        rhoS(i,j,0) = half*cff0*Hz(i,j,N);
+        rhoS(i,j,0) = Real(0.5)*cff0*Hz(i,j,N);
         rhoA(i,j,0) = cff0;
 
         for (int k = 1; k <= N; ++k) {
@@ -296,7 +296,7 @@ REMORA::nonlin_eos (const Box& bx,
             Real cff2 = one / (bulk_dn + Real(0.1) * z_w(i,j,k+1));
             Real den_up = cff1 * (den1(i,j,k+1) * bulk_up);
             Real den_dn = cff2 * (den1(i,j,k  ) * bulk_dn);
-            bvf(i,j,k+1) = -g * (den_up - den_dn) / (half * (den_up+den_dn) * (z_r(i,j,k+1) - z_r(i,j,k)));
+            bvf(i,j,k+1) = -g * (den_up - den_dn) / (Real(0.5) * (den_up+den_dn) * (z_r(i,j,k+1) - z_r(i,j,k)));
         }
     });
 

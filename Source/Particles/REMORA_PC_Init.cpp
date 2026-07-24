@@ -90,8 +90,8 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
             const auto height_arr = (*a_height_ptr)[mfi].array();
             ParallelFor(tile_box, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                Real x = plo[0] + (i + half)*dx[0];
-                Real y = plo[1] + (j + half)*dx[1];
+                Real x = plo[0] + (i + Real(0.5))*dx[0];
+                Real y = plo[1] + (j + Real(0.5))*dx[1];
                 Real z = Real(0.125) * (height_arr(i,j  ,k  ) + height_arr(i+1,j  ,k  ) +
                                   height_arr(i,j+1,k  ) + height_arr(i+1,j+1,k  ) +
                                   height_arr(i,j  ,k+1) + height_arr(i+1,j  ,k+1) +
@@ -104,9 +104,9 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
         } else {
             ParallelFor(tile_box, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                Real x = plo[0] + (i + half)*dx[0];
-                Real y = plo[1] + (j + half)*dx[1];
-                Real z = plo[2] + (k + half)*dx[2];
+                Real x = plo[0] + (i + Real(0.5))*dx[0];
+                Real y = plo[1] + (j + Real(0.5))*dx[1];
+                Real z = plo[2] + (k + Real(0.5))*dx[2];
                 if (particle_init_domain.contains(RealVect(x,y,z))) {
                     num_particles_arr(i,j,k) = particles_per_cell;
                 }

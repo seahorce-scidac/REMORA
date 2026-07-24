@@ -233,7 +233,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             //  Assume that wind is measured relative to sea surface and include
             //  gustiness.
 
-            Real Wgus=half;
+            Real Wgus=Real(0.5);
             Real delW=std::sqrt(wind_mag*wind_mag+Wgus*Wgus);
             Real delQ=Qsea-Q;
             Real delT=cons(i,j,N,Temp_comp)-TairC;
@@ -402,7 +402,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             }
         });
 
-        Real cff_rho = half / solverChoice.rho0;
+        Real cff_rho = Real(0.5) / solverChoice.rho0;
         ParallelFor(makeSlab(ubx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
             sustr(i,j,0) = cff_rho*(Taux(i-1,j,0) + Taux(i,j,0)) * msku(i,j,0);
         });

@@ -237,11 +237,11 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                 if (iriver >= 0) {
                     if (river_direction_d[iriver] == 0) {
                         Real on_u = two / (pn(i,j,0)+pn(i-1,j,0));
-                        Real cff = one / (on_u * half * (z_w(i-1,j,k+1) - z_w(i-1,j,k) + z_w(i,j,k+1) - z_w(i,j,k)));
+                        Real cff = one / (on_u * Real(0.5) * (z_w(i-1,j,k+1) - z_w(i-1,j,k) + z_w(i,j,k+1) - z_w(i,j,k)));
                         u(i,j,k) = cff * river_transport(iriver,0,k);
                     } else {
                         Real om_v = two / (pm(i,j,0)+pm(i,j-1,0));
-                        Real cff = one / (om_v * half * (z_w(i,j-1,k+1) - z_w(i,j-1,k) + z_w(i,j,k+1) - z_w(i,j,k)));
+                        Real cff = one / (om_v * Real(0.5) * (z_w(i,j-1,k+1) - z_w(i,j-1,k) + z_w(i,j,k+1) - z_w(i,j,k)));
                         v(i,j,k) = cff * river_transport(iriver,0,k);
                     }
                 }

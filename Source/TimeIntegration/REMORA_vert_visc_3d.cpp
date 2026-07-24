@@ -41,7 +41,7 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
 
     ParallelFor(phi_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Hzk(i,j,k)=half*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
+        Hzk(i,j,k)=Real(0.5)*(Hz(i-ioff,j-joff,k)+Hz(i,j,k));
     });
 
     //
@@ -49,7 +49,7 @@ REMORA::vert_visc_3d (const Box& phi_bx, const int ioff, const int joff,
     //
     ParallelFor(surroundingNodes(phi_bx,2), [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        AK(i,j,k) = half * (Akv(i-ioff,j-joff,k)+Akv(i,j,k));
+        AK(i,j,k) = Real(0.5) * (Akv(i-ioff,j-joff,k)+Akv(i,j,k));
     });
 
     Gpu::streamSynchronize();

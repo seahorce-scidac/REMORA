@@ -19,12 +19,12 @@
               const auto prob_lo         = geomdata.ProbLo();
               const auto dx              = geomdata.CellSize();
 
-              const Real x = prob_lo[0] + (i + half) * dx[0];
-              const Real y = prob_lo[1] + (j + half) * dx[1];
+              const Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
+              const Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
 
               Real val1, val2;
-              val1 = (x-half*Xsize)/Real(40000.0);
-              val2 = (y-half*Esize)/Real(40000.0);
+              val1 = (x-Real(0.5)*Xsize)/Real(40000.0);
+              val2 = (y-Real(0.5)*Esize)/Real(40000.0);
               h(i,j,0) = depth - Real(4500.0) * std::exp(-(val1*val1+val2*val2));
           });
 
