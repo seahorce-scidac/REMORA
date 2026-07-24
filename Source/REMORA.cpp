@@ -1650,14 +1650,14 @@ REMORA::ReadParameters ()
     pp.queryAdd("fixed_fast_dt", fixed_fast_dt);
     pp.queryAdd("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
 
-    if (fixed_dt > 0. && fixed_fast_dt > 0. && fixed_ndtfast_ratio > 0) {
+    if (fixed_dt > zero && fixed_fast_dt > zero && fixed_ndtfast_ratio > 0) {
         if (fixed_dt / fixed_fast_dt != fixed_ndtfast_ratio) {
             amrex::Abort("Dt is over-specfied");
         }
-    } else if (fixed_dt > 0. && fixed_fast_dt > 0. && fixed_ndtfast_ratio <= 0) {
+    } else if (fixed_dt > zero && fixed_fast_dt > zero && fixed_ndtfast_ratio <= 0) {
         fixed_ndtfast_ratio = static_cast<int>(fixed_dt / fixed_fast_dt);
     }
-    AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
+    AMREX_ASSERT(cfl > zero || fixed_dt > zero);
 
     num_files_at_level.resize(max_level + 1, 0);
     num_boxes_at_level.resize(max_level + 1, 0);

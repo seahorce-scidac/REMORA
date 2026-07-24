@@ -55,7 +55,7 @@ void Problem::init_analytic_bathymetry (
 #include "Prob/REMORA_InitAnalyticBathymetry_DogboneAnalytic.H"
 
     } else if (my_prob_name_ci == "doublegyre") {
-        mf_h.setVal(500.0_rt);
+        mf_h.setVal(Real(500.0));
 
     } else if (my_prob_name_ci == "doublyperiodic") {
 #include "Prob/REMORA_InitAnalyticBathymetry_DoublyPeriodic.H"
@@ -97,7 +97,7 @@ void Problem::init_analytic_zeta (
 #include "Prob/REMORA_InitAnalyticZeta_DogboneAnalytic.H"
 
     } else {
-        mf_zeta.setVal(0.0_rt);
+        mf_zeta.setVal(zero);
     }
 
     Gpu::streamSynchronize();
@@ -117,7 +117,7 @@ void Problem::init_analytic_prob(
     std::string my_prob_name_ci = amrex::toLower(my_prob_name);
 
     // Initialize to zero to ensure any otherwise uninitialized tracers are 0
-    mf_cons.setVal(0.0);
+    mf_cons.setVal(zero);
 
     // This is currently the only case that does anything but set mf_zeta to 0
     if (my_prob_name_ci == "advection") {
@@ -230,9 +230,9 @@ void Problem::init_analytic_hmix(
 
     if ( (my_prob_name_ci == "dogbone") ||
          (my_prob_name_ci == "dogboneanalytic") ) {
-        mf_visc2_p.setVal(0.0_rt);
-        mf_visc2_r.setVal(0.0_rt);
-        mf_diff2.setVal(0.0_rt);
+        mf_visc2_p.setVal(zero);
+        mf_visc2_r.setVal(zero);
+        mf_diff2.setVal(zero);
 
     } else if (my_prob_name_ci == "advection") {
 #include "Prob/REMORA_InitAnalyticHMix_Advection.H"
@@ -295,8 +295,8 @@ void Problem::init_analytic_smflux(
         (my_prob_name_ci == "idealrivgrid")    ||
         (my_prob_name_ci == "seamount")        ||
         (my_prob_name_ci == "upwellingcoupling") ) {
-        mf_sustr.setVal(0.0);
-        mf_svstr.setVal(0.0);
+        mf_sustr.setVal(zero);
+        mf_svstr.setVal(zero);
 
     } else if (my_prob_name_ci == "channeltest") {
 #include "Prob/REMORA_InitAnalyticSMFlux_ChannelTest.H"
@@ -386,8 +386,8 @@ void Problem::init_analytic_surface_var (
 
     if ( (my_prob_name_ci == "coupletoerf")   ||
          (my_prob_name_ci == "dogbone")     ) {
-        mf_Uwind.setVal(0.0_rt);
-        mf_Vwind.setVal(0.0_rt);
+        mf_Uwind.setVal(zero);
+        mf_Vwind.setVal(zero);
 
     } else if (my_prob_name_ci == "boundarylayer")  {
 #include "Prob/REMORA_InitAnalyticSurfaceVar_BoundaryLayer.H"

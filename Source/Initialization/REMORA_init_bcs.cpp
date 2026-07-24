@@ -236,7 +236,7 @@ void REMORA::init_bcs ()
         m_bc_extdir_vals[BCVars::Temp_bc_comp  ][ori] = Real(1.e19);
         m_bc_extdir_vals[BCVars::Salt_bc_comp  ][ori] = Real(1.e20);
         for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
-            m_bc_extdir_vals[icomp][ori] = 1.e21_rt + static_cast<Real>(icomp - Tracer_comp);
+            m_bc_extdir_vals[icomp][ori] = Real(1.e21) + static_cast<Real>(icomp - Tracer_comp);
         }
 
         m_bc_extdir_vals[xvel_bc_idx][ori] = zero; // default
