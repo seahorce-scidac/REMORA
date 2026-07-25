@@ -51,11 +51,38 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+function(remora_normalize_cuda_arch_list input output_var)
+  set(_normalized)
+  foreach(_arch IN LISTS ${input})
+    set(_entry "${_arch}")
+    string(REPLACE "+PTX" "" _entry "${_entry}")
+    string(REPLACE "." "" _entry "${_entry}")
+    if(_entry)
+      list(APPEND _normalized "${_entry}")
+    endif()
+  endforeach()
+  set(${output_var} "${_normalized}" PARENT_SCOPE)
+endfunction()
+
 if(REMORA_ENABLE_CUDA)
   enable_language(CUDA)
   if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "9.0")
     message(FATAL_ERROR "Your nvcc version is ${CMAKE_CUDA_COMPILER_VERSION} which is unsupported."
       "Please use CUDA toolkit version 9.0 or newer.")
+  endif()
+  if(DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(_remora_cmake_cuda_archs "${CMAKE_CUDA_ARCHITECTURES}")
+    remora_normalize_cuda_arch_list(_remora_cmake_cuda_archs _remora_cmake_cuda_archs_normalized)
+
+    foreach(_arch IN LISTS _remora_cmake_cuda_archs_normalized)
+      if(_arch LESS 60)
+        message(WARNING
+          "Your CMAKE_CUDA_ARCHITECTURES value is ${CMAKE_CUDA_ARCHITECTURES}, which includes "
+          "unsupported architecture ${_arch}."
+          "Please use AMReX_CUDA_ARCH 6.0 or newer.")
+        break()
+      endif()
+    endforeach()
   endif()
 endif()
 
