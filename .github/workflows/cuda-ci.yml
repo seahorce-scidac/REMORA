@@ -19,6 +19,7 @@ jobs:
         include:
           - cuda_ver: "12.6"
             cuda_pkg: 12-6
+            cuda_arch: "8.0"
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.13.1
@@ -59,6 +60,7 @@ jobs:
             -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache \
             -DAMReX_CUDA_ERROR_CROSS_EXECUTION_SPACE_CALL=ON \
             -DAMReX_CUDA_ERROR_CAPTURE_THIS=ON \
+            -DAMReX_CUDA_ARCH=${{matrix.cuda_arch}} \
             -DREMORA_DIM:STRING=3 \
             -DREMORA_ENABLE_MPI:BOOL=OFF \
             -DREMORA_ENABLE_CUDA:BOOL=ON .
