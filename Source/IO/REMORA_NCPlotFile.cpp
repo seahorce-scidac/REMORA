@@ -320,14 +320,14 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 
         ncf.def_var("Cs_r", ncutils::NCDType::Real, {nz_r_name});
         ncf.var("Cs_r").put_attr("long_name", "S-coordinate stretching curves at RHO points");
-        ncf.var("Cs_r").put_attr("valid_min",std::vector({-1.}));
-        ncf.var("Cs_r").put_attr("valid_max",std::vector({0.}));
+        ncf.var("Cs_r").put_attr("valid_min",std::vector({-one}));
+        ncf.var("Cs_r").put_attr("valid_max",std::vector({zero}));
         ncf.var("Cs_r").put_attr("field","Cs_r, scalar");
 
         ncf.def_var("Cs_w", ncutils::NCDType::Real, {nz_w_name});
         ncf.var("Cs_w").put_attr("long_name", "S-coordinate stretching curves at W points");
-        ncf.var("Cs_w").put_attr("valid_min",std::vector({-1.}));
-        ncf.var("Cs_w").put_attr("valid_max",std::vector({0.}));
+        ncf.var("Cs_w").put_attr("valid_min",std::vector({-one}));
+        ncf.var("Cs_w").put_attr("valid_max",std::vector({zero}));
         ncf.var("Cs_w").put_attr("field","Cs_w, scalar");
 
         ncf.def_var("h", ncutils::NCDType::Real, { ny_r_name, nx_r_name });
@@ -689,7 +689,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     // do all independent writes
     //ncmpi_end_indep_data(ncf.ncid);
 
-    mask_arrays_for_write(lev, (Real) netcdf_fill_value, 0.0_rt);
+    mask_arrays_for_write(lev, (Real) netcdf_fill_value, zero);
 
     // Check whether there are any nans or infs in variables that we will write out
     if (vec_Zt_avg1[lev]->contains_nan() || vec_Zt_avg1[lev]->contains_inf()) {
@@ -1385,7 +1385,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         } // in subdomain
     } // mfi
 
-    mask_arrays_for_write(lev, 0.0_rt, netcdf_fill_value);
+    mask_arrays_for_write(lev, zero, netcdf_fill_value);
 
     ncf.close();
 

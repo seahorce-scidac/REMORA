@@ -25,7 +25,7 @@ void REMORAPC::massDensity ( MultiFab&  a_mf,
     const auto dxi = geom.InvCellSizeArray();
 
     const Real inv_cell_volume = dxi[0]*dxi[1]*dxi[2];
-    a_mf.setVal(0.0);
+    a_mf.setVal(zero);
 
     ParticleToMesh( *this, a_mf, a_lev,
         [=] AMREX_GPU_DEVICE (  const REMORAPC::ParticleTileType::ConstParticleTileDataType& ptd,

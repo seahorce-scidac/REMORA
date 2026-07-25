@@ -56,7 +56,7 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
     bxD.makeSlab(2,0);
     bx_g1z.grow(IntVect(0,0,1));
 
-    FArrayBox fab_CF(bxD,1,amrex::The_Async_Arena()); fab_CF.template setVal<RunOn::Device>(0.);
+    FArrayBox fab_CF(bxD,1,amrex::The_Async_Arena()); fab_CF.template setVal<RunOn::Device>(zero);
     auto CF=fab_CF.array();
 
     //Copied depth of water column calculation from DepthStretchTransform
@@ -65,9 +65,9 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
     //This takes advantage of Hz being an extra grow cell size
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Real om_v_or_on_u = 2.0_rt / (pm_or_pn(i,j,0) + pm_or_pn(i-ioff,j-joff,0));
+        Real om_v_or_on_u = two / (pm_or_pn(i,j,0) + pm_or_pn(i-ioff,j-joff,0));
 
-        DC(i,j,k) = 0.5_rt * om_v_or_on_u * (Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+        DC(i,j,k) = Real(0.5) * om_v_or_on_u * (Hz(i,j,k)+Hz(i-ioff,j-joff,k));
     });
 
     ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -77,7 +77,7 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
             CF(i,j,0) += DC(i,j,k) * phi(i,j,k,nnew);
         }
 
-        DC(i,j,-1) = 1.0_rt / DC(i,j,-1);
+        DC(i,j,-1) = one / DC(i,j,-1);
         CF(i,j,0)  = DC(i,j,-1) * (CF(i,j,0) - Dphi_avg1(i,j,0));
 
         for (int k=0; k<=N; k++) {
@@ -97,7 +97,7 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
         }
 
         for (int k=0; k<=N; k++) {
-            Hphi(i,j,k) = 0.5_rt * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
+            Hphi(i,j,k) = Real(0.5) * (Hphi(i,j,k)+phi(i,j,k,nnew)*DC(i,j,k));
             FC(i,j,0)  += Hphi(i,j,k);
         } // k
 

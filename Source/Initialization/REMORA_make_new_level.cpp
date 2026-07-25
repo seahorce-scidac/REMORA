@@ -59,30 +59,30 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     vec_rv2d[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,2,IntVect(NGROW,NGROW,0))); // RHS v for 2d
 
     t_new[lev] = time;
-    t_old[lev] = time - 1.e200_rt;
+    t_old[lev] = time - bogus_large_value;
 
     init_masks(lev, ba, dm);
 
     init_stuff(lev, ba, dm);
 
-    cons_new[lev]->setVal(0.0_rt);
-    xvel_new[lev]->setVal(0.0_rt);
-    yvel_new[lev]->setVal(0.0_rt);
-    zvel_new[lev]->setVal(0.0_rt);
+    cons_new[lev]->setVal(zero);
+    xvel_new[lev]->setVal(zero);
+    yvel_new[lev]->setVal(zero);
+    zvel_new[lev]->setVal(zero);
 
-    cons_old[lev]->setVal(0.0_rt);
-    xvel_old[lev]->setVal(0.0_rt);
-    yvel_old[lev]->setVal(0.0_rt);
-    zvel_old[lev]->setVal(0.0_rt);
+    cons_old[lev]->setVal(zero);
+    xvel_old[lev]->setVal(zero);
+    yvel_old[lev]->setVal(zero);
+    zvel_old[lev]->setVal(zero);
 
-    vec_ru[lev]->setVal(0.0_rt);
-    vec_rv[lev]->setVal(0.0_rt);
+    vec_ru[lev]->setVal(zero);
+    vec_rv[lev]->setVal(zero);
 
-    vec_ru2d[lev]->setVal(0.0_rt);
-    vec_rv2d[lev]->setVal(0.0_rt);
+    vec_ru2d[lev]->setVal(zero);
+    vec_rv2d[lev]->setVal(zero);
 
-    vec_ubar[lev]->setVal(0.0_rt);
-    vec_vbar[lev]->setVal(0.0_rt);
+    vec_ubar[lev]->setVal(zero);
+    vec_vbar[lev]->setVal(zero);
 
 
     FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1],BCVars::Temp_bc_comp,BdyVars::t);
@@ -209,30 +209,30 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     init_masks(lev, ba, dm);
 
-    tmp_cons_new.setVal(0.0_rt);
-    tmp_xvel_new.setVal(0.0_rt);
-    tmp_yvel_new.setVal(0.0_rt);
-    tmp_zvel_new.setVal(0.0_rt);
+    tmp_cons_new.setVal(zero);
+    tmp_xvel_new.setVal(zero);
+    tmp_yvel_new.setVal(zero);
+    tmp_zvel_new.setVal(zero);
 
-    tmp_cons_old.setVal(0.0_rt);
-    tmp_xvel_old.setVal(0.0_rt);
-    tmp_yvel_old.setVal(0.0_rt);
-    tmp_zvel_old.setVal(0.0_rt);
+    tmp_cons_old.setVal(zero);
+    tmp_xvel_old.setVal(zero);
+    tmp_yvel_old.setVal(zero);
+    tmp_zvel_old.setVal(zero);
 
-    tmp_ru_new.setVal(0.0_rt);
-    tmp_rv_new.setVal(0.0_rt);
+    tmp_ru_new.setVal(zero);
+    tmp_rv_new.setVal(zero);
 
-    tmp_ru2d_new.setVal(0.0_rt);
-    tmp_rv2d_new.setVal(0.0_rt);
+    tmp_ru2d_new.setVal(zero);
+    tmp_rv2d_new.setVal(zero);
 
-    tmp_ubar_new.setVal(0.0_rt);
-    tmp_vbar_new.setVal(0.0_rt);
+    tmp_ubar_new.setVal(zero);
+    tmp_vbar_new.setVal(zero);
 
 
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
     FillPatch(lev, time, tmp_cons_new, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false);
-    FillPatch(lev, time, tmp_xvel_new, xvel_new, xvel_bc(), BdyVars::u,0,true,false,0,0,0.0,tmp_xvel_new);
-    FillPatch(lev, time, tmp_yvel_new, yvel_new, yvel_bc(), BdyVars::v,0,true,false,0,0,0.0,tmp_yvel_new);
+    FillPatch(lev, time, tmp_xvel_new, xvel_new, xvel_bc(), BdyVars::u,0,true,false,0,0,zero,tmp_xvel_new);
+    FillPatch(lev, time, tmp_yvel_new, yvel_new, yvel_bc(), BdyVars::v,0,true,false,0,0,zero,tmp_yvel_new);
     FillPatch(lev, time, tmp_zvel_new, zvel_new, zvel_bc(), BdyVars::null,0,true,false);
     FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), zeta_bc(), BdyVars::null,0,true,false);
 
@@ -279,7 +279,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     }
 
     t_new[lev] = time;
-    t_old[lev] = time - 1.e200_rt;
+    t_old[lev] = time - bogus_large_value;
 
     init_masks(lev, ba, dm);
     FillCoarsePatchPC(lev, time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
@@ -528,12 +528,12 @@ void REMORA::init_masks (int lev, const BoxArray& ba, const DistributionMapping&
 
     vec_mskr3d[lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
-    vec_mskr[lev]->setVal(1.0_rt);
-    vec_msku[lev]->setVal(1.0_rt);
-    vec_mskv[lev]->setVal(1.0_rt);
-    vec_mskp[lev]->setVal(1.0_rt);
+    vec_mskr[lev]->setVal(one);
+    vec_msku[lev]->setVal(one);
+    vec_mskv[lev]->setVal(one);
+    vec_mskp[lev]->setVal(one);
 
-    vec_mskr3d[lev]->setVal(1.0_rt);
+    vec_mskr3d[lev]->setVal(one);
 }
 
 /**
@@ -691,12 +691,12 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_rain[lev]->setVal(solverChoice.rain);
 
         // Set flux vars that will be computed in bulk_fluxes to zero so initial plotting works
-        vec_stflx[lev]->setVal(0.0_rt);
-        vec_sustr[lev]->setVal(0.0_rt);
-        vec_svstr[lev]->setVal(0.0_rt);
-        vec_lhflx[lev]->setVal(0.0_rt);
-        vec_shflx[lev]->setVal(0.0_rt);
-        vec_lrflx[lev]->setVal(0.0_rt); // possibly this should be set to longwave_rad like longwave_down
+        vec_stflx[lev]->setVal(zero);
+        vec_sustr[lev]->setVal(zero);
+        vec_svstr[lev]->setVal(zero);
+        vec_lhflx[lev]->setVal(zero);
+        vec_shflx[lev]->setVal(zero);
+        vec_lrflx[lev]->setVal(zero); // possibly this should be set to longwave_rad like longwave_down
     }
 
     if (solverChoice.do_rivers) {
@@ -714,26 +714,26 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 
     set_weights(lev);
 
-    vec_DU_avg1[lev]->setVal(0.0_rt);
-    vec_DU_avg2[lev]->setVal(0.0_rt);
-    vec_DV_avg1[lev]->setVal(0.0_rt);
-    vec_DV_avg2[lev]->setVal(0.0_rt);
-    vec_rubar[lev]->setVal(0.0_rt);
-    vec_rvbar[lev]->setVal(0.0_rt);
-    vec_rzeta[lev]->setVal(0.0_rt);
+    vec_DU_avg1[lev]->setVal(zero);
+    vec_DU_avg2[lev]->setVal(zero);
+    vec_DV_avg1[lev]->setVal(zero);
+    vec_DV_avg2[lev]->setVal(zero);
+    vec_rubar[lev]->setVal(zero);
+    vec_rvbar[lev]->setVal(zero);
+    vec_rzeta[lev]->setVal(zero);
 
     // Initialize these vars even if we aren't using GLS to
     // avoid issues on e.g. checkpoint
     vec_tke[lev]->setVal(solverChoice.gls_Kmin);
     vec_gls[lev]->setVal(solverChoice.gls_Pmin);
-    vec_Lscale[lev]->setVal(0.0_rt);
+    vec_Lscale[lev]->setVal(zero);
     vec_Akk[lev]->setVal(solverChoice.Akk_bak);
     vec_Akp[lev]->setVal(solverChoice.Akp_bak);
 
-    vec_stflx[lev]->setVal(0.0_rt);
-    vec_btflx[lev]->setVal(0.0_rt);
-    vec_stflux[lev]->setVal(0.0_rt);
-    vec_btflux[lev]->setVal(0.0_rt);
+    vec_stflx[lev]->setVal(zero);
+    vec_btflx[lev]->setVal(zero);
+    vec_stflux[lev]->setVal(zero);
+    vec_btflux[lev]->setVal(zero);
 
     // NOTE: Used to set vec_pm and vec_pn to 1e34 here to make foextrap work
     // when init_type = real. However, this does not appear to be necessary so removing
@@ -795,7 +795,7 @@ REMORA::set_grid_scale (int lev)
         if (lev == 0 && hires_grid_level < 0) {
             init_grid_vars_from_netcdf(lev);
         } else if (lev > hires_grid_level) {
-            Real dummy_time = 0.0_rt;
+            Real dummy_time = zero;
             FillCoarsePatch(lev,dummy_time,vec_pm[lev].get(), vec_pm[lev-1].get(), foextrap_bc());
             FillCoarsePatch(lev,dummy_time,vec_pn[lev].get(), vec_pn[lev-1].get(), foextrap_bc());
 
@@ -848,19 +848,19 @@ REMORA::set_grid_coords_from_grid_scale (int lev) {
         Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xr(i,j,0) = (i + 0.5_rt) / pm(i,j,0);
-            yr(i,j,0) = (j + 0.5_rt) / pn(i,j,0);
+            xr(i,j,0) = (i + Real(0.5)) / pm(i,j,0);
+            yr(i,j,0) = (j + Real(0.5)) / pn(i,j,0);
         });
 
         ParallelFor(grow(convert(bx,IntVect(1,0,0)),IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             xu(i,j,0) = i / pm(i,j,0);
-            yu(i,j,0) = (j + 0.5_rt) / pn(i,j,0);
+            yu(i,j,0) = (j + Real(0.5)) / pn(i,j,0);
         });
 
         ParallelFor(grow(convert(bx,IntVect(0,1,0)),IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            xv(i,j,0) = (i + 0.5_rt) / pm(i,j,0);
+            xv(i,j,0) = (i + Real(0.5)) / pm(i,j,0);
             yv(i,j,0) = j / pn(i,j,0);
         });
 
@@ -887,8 +887,8 @@ REMORA::set_curvilinear_terms_from_grid_scale (int lev) {
         Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            dndx(i,j,0) = 0.5_rt * (1.0_rt / pn(i+1,j  ,0) - 1.0_rt / pn(i-1,j  ,0));
-            dmde(i,j,0) = 0.5_rt * (1.0_rt / pm(i  ,j+1,0) - 1.0_rt / pn(i  ,j-1,0));
+            dndx(i,j,0) = Real(0.5) * (one / pn(i+1,j  ,0) - one / pn(i-1,j  ,0));
+            dmde(i,j,0) = Real(0.5) * (one / pm(i  ,j+1,0) - one / pn(i  ,j-1,0));
         });
     }
 }
@@ -958,31 +958,31 @@ REMORA::update_mskp (int lev)
 
         Box bx = mfi.tilebox(); bx.grow(IntVect(1,1,0)); bx.makeSlab(2,0);
 
-        Real cff1 = 1.0_rt;
-        Real cff2 = 2.0_rt;
+        Real cff1 = one;
+        Real cff2 = two;
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) > 0.5)) {
-                mskp(i,j,0) = 1.0_rt;
-            } else if ((mskr(i-1,j,0) < 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) > 0.5)) {
+            if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
+                mskp(i,j,0) = one;
+            } else if ((mskr(i-1,j,0) < Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = cff1;
-            } else if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) < 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) > 0.5)) {
+            } else if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) < Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = cff1;
-            } else if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) < 0.5) and (mskr(i,j-1,0) > 0.5)) {
+            } else if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) < Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = cff1;
-            } else if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) < 0.5)) {
+            } else if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) < Real(0.5))) {
                 mskp(i,j,0) = cff1;
-            } else if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) < 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) < 0.5)) {
+            } else if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) < Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) < Real(0.5))) {
                 mskp(i,j,0) = cff2;
-            } else if ((mskr(i-1,j,0) < 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) < 0.5) and (mskr(i,j-1,0) > 0.5)) {
+            } else if ((mskr(i-1,j,0) < Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) < Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = cff2;
-            } else if ((mskr(i-1,j,0) > 0.5) and (mskr(i,j,0) > 0.5) and (mskr(i-1,j-1,0) < 0.5) and (mskr(i,j-1,0) < 0.5)) {
+            } else if ((mskr(i-1,j,0) > Real(0.5)) and (mskr(i,j,0) > Real(0.5)) and (mskr(i-1,j-1,0) < Real(0.5)) and (mskr(i,j-1,0) < Real(0.5))) {
                 mskp(i,j,0) = cff2;
-            } else if ((mskr(i-1,j,0) < 0.5) and (mskr(i,j,0) < 0.5) and (mskr(i-1,j-1,0) > 0.5) and (mskr(i,j-1,0) > 0.5)) {
+            } else if ((mskr(i-1,j,0) < Real(0.5)) and (mskr(i,j,0) < Real(0.5)) and (mskr(i-1,j-1,0) > Real(0.5)) and (mskr(i,j-1,0) > Real(0.5))) {
                 mskp(i,j,0) = cff2;
             } else {
-                mskp(i,j,0) = 0.0_rt;
+                mskp(i,j,0) = zero;
             }
 
         });

@@ -3,6 +3,6 @@
 
     mf_cons.setVal(T0,Temp_comp,1);
     mf_cons.setVal(S0,Salt_comp,1);
-    mf_cons.setVal(0.0_rt,Tracer_comp,1);
-    mf_xvel.setVal(0.0_rt);
-    mf_yvel.setVal(0.0_rt);
+    mf_cons.setVal(zero,Tracer_comp,1);
+    mf_xvel.setVal(zero);
+    mf_yvel.setVal(zero);

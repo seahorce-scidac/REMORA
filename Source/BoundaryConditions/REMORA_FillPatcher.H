@@ -1,6 +1,7 @@
 #ifndef REMORA_FILLPATCHER_H_
 #define REMORA_FILLPATCHER_H_
 
+#include <REMORA_Constants.H>
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_Interp_C.H>
 #include <AMReX_MFInterp_C.H>
@@ -130,7 +131,7 @@ REMORAFillPatcher::Fill (amrex::MultiFab& mf, amrex::Real time,
 
     // Time interpolation factors
     amrex::Real fac_new = (time - m_crse_times[0]) / m_dt_crse;
-    amrex::Real fac_old = 1.0 - fac_new;
+    amrex::Real fac_old = one - fac_new;
 
     // Boundary condition operator
     cbc(*(m_cf_crse_data_old), 0, m_ncomp, amrex::IntVect(0), time, 0);

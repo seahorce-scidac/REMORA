@@ -86,17 +86,17 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // We need to set these because otherwise in the first call to remora_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
-    mf_rho.setVal(0.e34_rt,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_rhoS->setVal(0.e34_rt,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_rhoA->setVal(0.e34_rt,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_DC.setVal(0);
+    mf_rho.setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_rhoS->setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_rhoA->setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
+    mf_DC.setVal(zero);
 
     FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t);
     FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u);
     FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v);
 
-    mf_rufrc->setVal(0);
-    mf_rvfrc->setVal(0);
+    mf_rufrc->setVal(zero);
+    mf_rvfrc->setVal(zero);
 
     int iic = istep[lev];
     int ntfirst = 0;
@@ -172,14 +172,14 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         //
         ParallelFor(ugbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real on_u = 2.0_rt / (pn(i-1,j,0)+pn(i,j,0));
-            Huon(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k)* on_u;
+            Real on_u = two / (pn(i-1,j,0)+pn(i,j,0));
+            Huon(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k)* on_u;
         });
 
         ParallelFor(vgbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real om_v= 2.0_rt / (pm(i,j-1,0)+pm(i,j,0));
-            Hvom(i,j,k)=0.5_rt*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k)* om_v;
+            Real om_v= two / (pm(i,j-1,0)+pm(i,j,0));
+            Hvom(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k)* om_v;
         });
 
         Array4<Real const> const& state_old = S_old.const_array(mfi);
@@ -267,45 +267,45 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             Array4<Real const> const& rdrag = mf_rdrag->const_array(mfi);
             ParallelFor(ubx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                bustr(i,j,0) = 0.5_rt * (rdrag(i-1,j,0)+rdrag(i,j,0))*(uold(i,j,0));
+                bustr(i,j,0) = Real(0.5) * (rdrag(i-1,j,0)+rdrag(i,j,0))*(uold(i,j,0));
             });
             ParallelFor(vbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                bvstr(i,j,0) = 0.5_rt * (rdrag(i,j-1,0)+rdrag(i,j,0))*(vold(i,j,0));
+                bvstr(i,j,0) = Real(0.5) * (rdrag(i,j-1,0)+rdrag(i,j,0))*(vold(i,j,0));
             });
         } else if (solverChoice.bottom_stress_type == BottomStressType::quadratic) {
             Array4<Real const> const& rdrag2 = mf_rdrag2->const_array(mfi);
             ParallelFor(ubx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real avg_v = 0.25_rt * (vold(i,j,0) + vold(i,j+1,0) + vold(i-1,j,0) + vold(i-1,j+1,0));
+                Real avg_v = Real(0.25) * (vold(i,j,0) + vold(i,j+1,0) + vold(i-1,j,0) + vold(i-1,j+1,0));
                 Real vel_mag = std::sqrt(uold(i,j,0)*uold(i,j,0) + avg_v * avg_v);
-                bustr(i,j,0) = 0.5_rt * (rdrag2(i-1,j,0) + rdrag2(i,j,0)) * uold(i,j,0) * vel_mag;
+                bustr(i,j,0) = Real(0.5) * (rdrag2(i-1,j,0) + rdrag2(i,j,0)) * uold(i,j,0) * vel_mag;
             });
             ParallelFor(vbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real avg_u = 0.25_rt * (uold(i,j,0) + uold(i+1,j,0) + uold(i,j-1,0) + uold(i+1,j-1,0));
+                Real avg_u = Real(0.25) * (uold(i,j,0) + uold(i+1,j,0) + uold(i,j-1,0) + uold(i+1,j-1,0));
                 Real vel_mag = std::sqrt(avg_u * avg_u + vold(i,j,0) * vold(i,j,0));
-                bvstr(i,j,0) = 0.5_rt * (rdrag2(i,j-1,0) + rdrag2(i,j,0)) * vold(i,j,0) * vel_mag;
+                bvstr(i,j,0) = Real(0.5) * (rdrag2(i,j-1,0) + rdrag2(i,j,0)) * vold(i,j,0) * vel_mag;
             });
         } else if (solverChoice.bottom_stress_type == BottomStressType::logarithmic) {
             Array4<Real const> const& ZoBot = mf_ZoBot->const_array(mfi);
             ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real logz = 1.0_rt / (std::log((z_r(i,j,0) - z_w(i,j,0)) / ZoBot(i,j,0)));
+                Real logz = one / (std::log((z_r(i,j,0) - z_w(i,j,0)) / ZoBot(i,j,0)));
                 Real cff = vonKar * vonKar * logz * logz;
                 logdrg_tmp(i,j,0) = std::min(Cdb_max,std::max(Cdb_min,cff));
             });
             ParallelFor(ubx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real avg_v = 0.25_rt * (vold(i,j,0) + vold(i,j+1,0) + vold(i-1,j,0) + vold(i-1,j+1,0));
+                Real avg_v = Real(0.25) * (vold(i,j,0) + vold(i,j+1,0) + vold(i-1,j,0) + vold(i-1,j+1,0));
                 Real vel_mag = std::sqrt(uold(i,j,0)*uold(i,j,0) + avg_v * avg_v);
-                bustr(i,j,0) = 0.5_rt * (logdrg_tmp(i-1,j,0)+logdrg_tmp(i,j,0)) * uold(i,j,0) * vel_mag;
+                bustr(i,j,0) = Real(0.5) * (logdrg_tmp(i-1,j,0)+logdrg_tmp(i,j,0)) * uold(i,j,0) * vel_mag;
             });
             ParallelFor(vbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real avg_u = 0.25_rt * (uold(i,j,0) + uold(i+1,j,0) + uold(i,j-1,0) + uold(i+1,j-1,0));
+                Real avg_u = Real(0.25) * (uold(i,j,0) + uold(i+1,j,0) + uold(i,j-1,0) + uold(i+1,j-1,0));
                 Real vel_mag = std::sqrt(avg_u * avg_u + vold(i,j,0) * vold(i,j,0));
-                bvstr(i,j,0) = 0.5_rt * (logdrg_tmp(i,j-1,0) + logdrg_tmp(i,j,0)) * vold(i,j,0) * vel_mag;
+                bvstr(i,j,0) = Real(0.5) * (logdrg_tmp(i,j-1,0) + logdrg_tmp(i,j,0)) * vold(i,j,0) * vel_mag;
             });
         }
     }
@@ -320,7 +320,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     set_zeta_to_Ztavg(lev);
 
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
-    mf_W.setVal(0.0_rt);
+    mf_W.setVal(zero);
 
 
     if (solverChoice.use_prestep) {
@@ -434,13 +434,13 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         if (solverChoice.use_coriolis) {
             ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
             {
-                fomn(i,j,0) = fcor(i,j,0)*(1.0_rt/(pm(i,j,0)*pn(i,j,0)));
+                fomn(i,j,0) = fcor(i,j,0)*(one/(pm(i,j,0)*pn(i,j,0)));
             });
         }
 
         ParallelFor(gbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            FC(i,j,k)=0.0_rt;
+            FC(i,j,k)=zero;
         });
 
         prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,pn,pm,rho,FC,Hz,z_r,z_w,msku,mskv,nrhs,N);

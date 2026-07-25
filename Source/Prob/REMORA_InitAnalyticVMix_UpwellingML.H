@@ -8,10 +8,10 @@
 
       ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-        Akv(i,j,k) = 0.0; //2.0e-03_rt+8.0e-03_rt*std::exp(z_w(i,j,k)/150.0_rt);
+        Akv(i,j,k) = zero; //Real(2.0e-03)+8.0e-Real(03)*std::exp(z_w(i,j,k)/Real(150.0));
 
-        Akt(i,j,k,Temp_comp) = 0.0; // 1.0e-6_rt;
-        Akt(i,j,k,Salt_comp) = 0.0; // 1.0e-6_rt;
-        Akt(i,j,k,Tracer_comp) = 0.0_rt;
+        Akt(i,j,k,Temp_comp) = zero; // Real(1.0e-6);
+        Akt(i,j,k,Salt_comp) = zero; // Real(1.0e-6);
+        Akt(i,j,k,Tracer_comp) = zero;
       });
     }

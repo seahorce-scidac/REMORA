@@ -1,10 +1,10 @@
     Real time = remora.get_t_old(lev);
-    Real tdays = time/Real(24.0*60.0*60.0);
-    Real dstart = 0.0_rt;
+    Real tdays = time/(Real(24.0)*Real(60.0)*Real(60.0));
+    Real dstart = zero;
 
-    mf_Uwind.setVal(0.0_rt);
-    if (tdays - dstart <= 6.0_rt) {
-        mf_Vwind.setVal(10.0_rt);
+    mf_Uwind.setVal(zero);
+    if (tdays - dstart <= Real(6.0)) {
+        mf_Vwind.setVal(Real(10.0));
     } else {
-        mf_Vwind.setVal(0.0_rt);
+        mf_Vwind.setVal(zero);
     }

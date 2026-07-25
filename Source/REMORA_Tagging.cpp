@@ -87,7 +87,7 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             //      then come back at the next regridding
             //
             const auto& particles_namelist( particleData.getNames() );
-            mf->setVal(0.0);
+            mf->setVal(zero);
             for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++)
             {
                 std::string tmp_string(particles_namelist[i]+"_count");
@@ -384,7 +384,7 @@ REMORA::refinement_criteria_setup ()
         // Untag anywhere we have masks
         AMRErrorTagInfo info;
         info.SetDerefine(1);
-        Real value = 0.5_rt;
+        Real value = Real(0.5);
         ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,"mask",info));
     } // if max_level > 0
 }

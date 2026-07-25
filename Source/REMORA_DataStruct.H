@@ -532,9 +532,9 @@ struct SolverChoice {
             amrex::Abort("Don't know this bottom_stress_type");
         }
 
-        amrex::Real tnu2_salt = amrex::Real(0.0);
-        amrex::Real tnu2_temp = amrex::Real(0.0);
-        amrex::Real tnu2_scalar = amrex::Real(0.0);
+        amrex::Real tnu2_salt = zero;
+        amrex::Real tnu2_temp = zero;
+        amrex::Real tnu2_scalar = zero;
         static std::string horiz_mixing_type_string = "analytic";
         pp.queryAdd("horizontal_mixing_type", horiz_mixing_type_string);
         if (amrex::toLower(horiz_mixing_type_string) == "analytical" ||
@@ -633,7 +633,7 @@ struct SolverChoice {
                 gls_L4 = amrex::Real(0.12);
                 gls_L5 = amrex::Real(11.9);
                 gls_L6 = amrex::Real(0.4);
-                gls_L7 = amrex::Real(0.0);
+                gls_L7 = zero;
                 gls_L8 = amrex::Real(0.48);
             } else if (gls_stability_type == GLS_StabilityType::Canuto_B) {
                 gls_Gh0 = amrex::Real(0.0444); // 0.044 GOTM, 0.0673 Burchard
@@ -644,7 +644,7 @@ struct SolverChoice {
                 gls_L4 = amrex::Real(0.101);
                 gls_L5 = amrex::Real(11.2);
                 gls_L6 = amrex::Real(0.4);
-                gls_L7 = amrex::Real(0.0);
+                gls_L7 = zero;
                 gls_L8 = amrex::Real(0.318);
             } else {
                 gls_Gh0 = amrex::Real(0.028);
@@ -654,10 +654,10 @@ struct SolverChoice {
 
         // Read and compute inverse nudging coeffs from inputs given in days,
         // and store in a vector corresponding to BdyVars enum
-        amrex::Real tnudg =  amrex::Real(0.0);
-        amrex::Real znudg =  amrex::Real(0.0);
-        amrex::Real m2nudg = amrex::Real(0.0);
-        amrex::Real m3nudg = amrex::Real(0.0);
+        amrex::Real tnudg =  zero;
+        amrex::Real znudg =  zero;
+        amrex::Real m2nudg = zero;
+        amrex::Real m3nudg = zero;
         pp.queryAdd("tnudg",tnudg);
         pp.queryAdd("znudg",znudg);
         pp.queryAdd("m2nudg",m2nudg);
@@ -665,13 +665,13 @@ struct SolverChoice {
         pp.queryAdd("obcfac",obcfac);
 
         nudg_coeff.resize(BdyVars::NumTypes);
-        nudg_coeff[BdyVars::u    ] = (m3nudg > 0.0) ? amrex::Real(1.0) / (m3nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::u
-        nudg_coeff[BdyVars::v    ] = (m3nudg > 0.0) ? amrex::Real(1.0) / (m3nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::v
-        nudg_coeff[BdyVars::t    ] = ( tnudg > 0.0) ? amrex::Real(1.0) / ( tnudg * amrex::Real(86400.0)) : 0.0;//BdyVars::t
-        nudg_coeff[BdyVars::s    ] = ( tnudg > 0.0) ? amrex::Real(1.0) / ( tnudg * amrex::Real(86400.0)) : 0.0;//BdyVars::s
-        nudg_coeff[BdyVars::ubar ] = (m2nudg > 0.0) ? amrex::Real(1.0) / (m2nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::ubar
-        nudg_coeff[BdyVars::vbar ] = (m2nudg > 0.0) ? amrex::Real(1.0) / (m2nudg * amrex::Real(86400.0)) : 0.0;//BdyVars::vbar
-        nudg_coeff[BdyVars::zeta ] = ( znudg > 0.0) ? amrex::Real(1.0) / ( znudg * amrex::Real(86400.0)) : 0.0;//BdyVars::zeta
+        nudg_coeff[BdyVars::u    ] = (m3nudg > zero) ? one / (m3nudg * amrex::Real(86400.0)) : zero;//BdyVars::u
+        nudg_coeff[BdyVars::v    ] = (m3nudg > zero) ? one / (m3nudg * amrex::Real(86400.0)) : zero;//BdyVars::v
+        nudg_coeff[BdyVars::t    ] = ( tnudg > zero) ? one / ( tnudg * amrex::Real(86400.0)) : zero;//BdyVars::t
+        nudg_coeff[BdyVars::s    ] = ( tnudg > zero) ? one / ( tnudg * amrex::Real(86400.0)) : zero;//BdyVars::s
+        nudg_coeff[BdyVars::ubar ] = (m2nudg > zero) ? one / (m2nudg * amrex::Real(86400.0)) : zero;//BdyVars::ubar
+        nudg_coeff[BdyVars::vbar ] = (m2nudg > zero) ? one / (m2nudg * amrex::Real(86400.0)) : zero;//BdyVars::vbar
+        nudg_coeff[BdyVars::zeta ] = ( znudg > zero) ? one / ( znudg * amrex::Real(86400.0)) : zero;//BdyVars::zeta
 
         pp.queryAdd("do_m3_clim_nudg", do_m3_clim_nudg);
         pp.queryAdd("do_m2_clim_nudg", do_m2_clim_nudg);
@@ -837,7 +837,7 @@ struct SolverChoice {
 
     // Stretching and depth parameters which may need to be read from inputs
     amrex::Real theta_s = amrex::Real(3.0);
-    amrex::Real theta_b = amrex::Real(0.0);
+    amrex::Real theta_b = zero;
     amrex::Real tcline  = amrex::Real(150.0);
 
     // Linear drag coefficient [m/s]
@@ -857,12 +857,12 @@ struct SolverChoice {
     amrex::Real S0 = amrex::Real(35.0); // background salinity (nondimensional) constant
     amrex::Real T0 = amrex::Real(5.0); // background potential temperature (Celsius) constant
     amrex::Real Tcoef = amrex::Real(1.7e-4); // linear equation of state parameter (1/Celsius)
-    amrex::Real Scoef = amrex::Real(0.0); // linear equation of state parameter (nondimensional)
+    amrex::Real Scoef = zero; // linear equation of state parameter (nondimensional)
     amrex::Real rho0 = amrex::Real(1025.0); // Mean density (Kg/m3) used when Boussinesq approx is inferred
 
     // Coriolis forcing
-    amrex::Real coriolis_f0 = amrex::Real(0.0); // f-plane constant (1/s)
-    amrex::Real coriolis_beta = amrex::Real(0.0); // beta-plane constant (1/s/m)
+    amrex::Real coriolis_f0 = zero; // f-plane constant (1/s)
+    amrex::Real coriolis_beta = zero; // beta-plane constant (1/s/m)
 
     // Air pressure
     amrex::Real Pair = amrex::Real(1013.48);
@@ -871,9 +871,9 @@ struct SolverChoice {
     // Relative humidity (air)
     amrex::Real Hair = amrex::Real(0.776);
     // Cloud cover fraction (0=clear sky, 1=overcast)
-    amrex::Real cloud = amrex::Real(0.0);
+    amrex::Real cloud = zero;
     // Precipitation rate (kg/m2/s)
-    amrex::Real rain = amrex::Real(0.0);
+    amrex::Real rain = zero;
     // Height (m) of atmospheric measurements for Bulk fluxes parametrization
     amrex::Real blk_ZQ = amrex::Real(10.0); // air humidity
     amrex::Real blk_ZT = amrex::Real(10.0); // air temperature
@@ -883,20 +883,20 @@ struct SolverChoice {
     bool eminusp_correct_ssh = false;
 
     // Surface radiation flux
-    amrex::Real srflux = amrex::Real(0.0);
+    amrex::Real srflux = zero;
     // Surface wind speed
-    amrex::Real Uwind = amrex::Real(0.0);
-    amrex::Real Vwind = amrex::Real(0.0);
+    amrex::Real Uwind = zero;
+    amrex::Real Vwind = zero;
     // External longwave radiation flux
-    amrex::Real longwave_rad = amrex::Real(0.0);
+    amrex::Real longwave_rad = zero;
     // Prescribed evaporation minus precipitation
-    amrex::Real EminusP = amrex::Real(0.0);
+    amrex::Real EminusP = zero;
 
     // Spatial discretization
     int         spatial_order = 2;
 
     // Horizontal mixing parameters
-    amrex::Real visc2 = amrex::Real(0.0);
+    amrex::Real visc2 = zero;
     amrex::Vector<amrex::Real> tnu2;
 
     // GLS params
@@ -910,8 +910,8 @@ struct SolverChoice {
     amrex::Real gls_c1 = amrex::Real(1.44);
     amrex::Real gls_c2 = amrex::Real(1.92);
     amrex::Real gls_c3m = amrex::Real(-0.4);
-    amrex::Real gls_c3p = amrex::Real(1.0);
-    amrex::Real gls_sigk = amrex::Real(1.0);
+    amrex::Real gls_c3p = one;
+    amrex::Real gls_sigk = one;
     amrex::Real gls_sigp = amrex::Real(1.3);
 
     // Turbulence closure
@@ -956,7 +956,7 @@ struct SolverChoice {
 
     // Factor between passive (outflow) and active (inflow) open boundary
     // conditions.
-    amrex::Real obcfac = amrex::Real(0.0);
+    amrex::Real obcfac = zero;
 
     // Whether to do climatoogy nudging
     bool do_m2_clim_nudg = false;

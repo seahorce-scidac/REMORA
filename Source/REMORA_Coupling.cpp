@@ -35,8 +35,8 @@ constexpr int SSTIndex = 0;
 Geometry
 make_unit_slab_geometry (Box const& domain)
 {
-    static constexpr Real lo[AMREX_SPACEDIM] = {0.0_rt, 0.0_rt, 0.0_rt};
-    static constexpr Real hi[AMREX_SPACEDIM] = {1.0_rt, 1.0_rt, 1.0_rt};
+    static constexpr Real lo[AMREX_SPACEDIM] = {zero, zero, zero};
+    static constexpr Real hi[AMREX_SPACEDIM] = {one, one, one};
     static constexpr int periodicity[AMREX_SPACEDIM] = {0, 0, 0};
     RealBox rb(lo, hi);
     return Geometry(domain, &rb, CoordSys::cartesian, periodicity);
@@ -75,7 +75,7 @@ CopyDriverSlabToRemoraLayout (const MultiFab& src,
         src_domain.length(2) == dst_domain.length(2),
         context);
 
-    dst.setVal(0.0_rt);
+    dst.setVal(zero);
     dst.ParallelCopy(src, 0, 0, dst.nComp(), IntVect(0), IntVect(0), geom.periodicity());
     dst.FillBoundary(geom.periodicity());
 }
@@ -145,7 +145,7 @@ REMORA::EvolveOneStep (amrex::Real /*time*/, amrex::Real /*dt_request*/)
     const int step = istep[0];
 
     if (cur_time >= stop_time) {
-        return Real(0.0);
+        return zero;
     }
 
     ComputeDt();
@@ -254,7 +254,7 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
         Box bx = makeSlab(mfi.validbox(), 2, k_sfc);
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int) {
             // Write to k=0 in tmp (ba2d range); convert Celsius → Kelvin.
-            t(i, j, 0) = c(i, j, k_sfc, Temp_comp) + 273.15_rt;
+            t(i, j, 0) = c(i, j, k_sfc, Temp_comp) + Real(273.15);
         });
     }
 
@@ -361,7 +361,7 @@ REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
     if (vec_Pair[0] != nullptr) {
         if (states.size() > AtmosState::Pair && states[AtmosState::Pair] != nullptr) {
             vec_Pair[0]->ParallelCopy(*states[AtmosState::Pair], 0, 0, 1);
-            vec_Pair[0]->mult(0.01_rt, 0, 1);
+            vec_Pair[0]->mult(Real(0.01), 0, 1);
             vec_Pair[0]->FillBoundary(geom[0].periodicity());
             driver_atmos_state_from_driver[AtmosState::Pair] = true;
         }
@@ -380,7 +380,7 @@ REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
     if (vec_Tair[0] != nullptr) {
         if (states.size() > AtmosState::Tair && states[AtmosState::Tair] != nullptr) {
             vec_Tair[0]->ParallelCopy(*states[AtmosState::Tair], 0, 0, 1);
-            vec_Tair[0]->plus(-273.15_rt, 0, 1);
+            vec_Tair[0]->plus(Real(-273.15), 0, 1);
             vec_Tair[0]->FillBoundary(geom[0].periodicity());
             driver_atmos_state_from_driver[AtmosState::Tair] = true;
         }
@@ -444,7 +444,7 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         return;
     }
 
-    const Real Hscale2 = 1.0_rt / (solverChoice.rho0 * Cp);
+    const Real Hscale2 = one / (solverChoice.rho0 * Cp);
     const Real rho0 = solverChoice.rho0;
 
     MultiFab tau_x_tmp(vec_sustr[0]->boxArray(), vec_sustr[0]->DistributionMap(), 1,
@@ -474,10 +474,10 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
                                  "REMORA::ApplyAtmosphericFluxes expected rain slab to match REMORA rho layout.");
     CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::Evap], *vec_evap[0], geom[0],
                                  "REMORA::ApplyAtmosphericFluxes expected evap slab to match REMORA rho layout.");
-    vec_lrflx[0]->setVal(0.0);
-    vec_lhflx[0]->setVal(0.0);
-    vec_shflx[0]->setVal(0.0);
-    vec_stflux[0]->setVal(0.0);
+    vec_lrflx[0]->setVal(zero);
+    vec_lhflx[0]->setVal(zero);
+    vec_shflx[0]->setVal(zero);
+    vec_stflux[0]->setVal(zero);
 
     for (MFIter mfi(*vec_sustr[0], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& sustr = vec_sustr[0]->array(mfi);

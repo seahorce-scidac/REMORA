@@ -1,7 +1,7 @@
 
     ParmParse pp_prob("remora.prob");
-    Real u_0 = 0.0; pp_prob.query("u_0", u_0);
-    Real v_0 = 0.0; pp_prob.query("v_0", v_0);
+    Real u_0 = zero; pp_prob.query("u_0", u_0);
+    Real v_0 = zero; pp_prob.query("v_0", v_0);
 
     bool l_use_salt = m_solverChoice.use_salt;
 
@@ -26,20 +26,20 @@
             const auto prob_hi         = geomdata.ProbHi();
             const auto dx              = geomdata.CellSize();
 
-            state(i, j, k, Temp_comp) = 1.;
+            state(i, j, k, Temp_comp) = one;
 
-            state(i,j,k,Temp_comp)=T0; //+8.0*std::exp(z/50.0_rt);
+            state(i,j,k,Temp_comp)=T0; //+8.0*std::exp(z/Real(50.0));
 
             // Set tracer = 0 everywhere
-            const Real xcent = 0.5*(prob_lo[0] + prob_hi[0]);
-            const Real ycent = 0.5*(prob_lo[1] + prob_hi[1]);
+            const Real xcent = Real(0.5)*(prob_lo[0] + prob_hi[0]);
+            const Real ycent = Real(0.5)*(prob_lo[1] + prob_hi[1]);
 
-            const Real x  = prob_lo[0] + (i + 0.5) * dx[0] - xcent;
-            const Real y  = prob_lo[1] + (j + 0.5) * dx[1] - ycent;
+            const Real x  = prob_lo[0] + (i + Real(0.5)) * dx[0] - xcent;
+            const Real y  = prob_lo[1] + (j + Real(0.5)) * dx[1] - ycent;
             const Real r2 = x*x + y*y;
-            const Real rad = 0.1 * (prob_hi[0]-prob_lo[0]);
+            const Real rad = Real(0.1) * (prob_hi[0]-prob_lo[0]);
             const Real radsq = rad*rad;
-            const Real rad_inner = 0.05 * (prob_hi[0]-prob_lo[0]);
+            const Real rad_inner = Real(0.05) * (prob_hi[0]-prob_lo[0]);
             [[maybe_unused]] const Real rad_inner_sq = rad_inner*rad_inner;
 
             if (l_use_salt) {

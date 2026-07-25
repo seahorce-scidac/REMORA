@@ -5,8 +5,8 @@
     const int khi = geomdata.Domain().bigEnd()[2];
 
     auto T0 = m_solverChoice.T0;
-    Real val1 = (44.69_rt / 39.382_rt) * (44.69_rt / 39.382_rt);
-    Real val2 = val1 * (m_solverChoice.rho0 * 100.0_rt/g) * (5.0e-5_rt/((42.689_rt/44.69_rt) * (42.689_rt/44.69_rt)));
+    Real val1 = (Real(44.69) / Real(39.382)) * (Real(44.69) / Real(39.382));
+    Real val2 = val1 * (m_solverChoice.rho0 * Real(100.0)/g) * (Real(5.0e-5)/((Real(42.689)/Real(44.69)) * (Real(42.689)/Real(44.69))));
 
     for (MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
@@ -25,31 +25,31 @@
             const auto prob_hi         = geomdata.ProbHi();
             const auto dx              = geomdata.CellSize();
 
-            const Real y  = prob_lo[1] + (j + 0.5_rt) * dx[1];
+            const Real y  = prob_lo[1] + (j + Real(Real(0.5))) * dx[1];
             const Real z = z_r(i,j,k);
             const Real yextent = prob_hi[1] - prob_lo[1];
 
-            const Real val3 = T0 + val2 * std::exp(z/100.0_rt) * (10.0_rt - 0.4_rt * std::tanh(z / 100.0_rt));
+            const Real val3 = T0 + val2 * std::exp(z/Real(100.0)) * (Real(10.0) - Real(0.4) * std::tanh(z / Real(100.0)));
             const Real val4 = y / yextent;
 
-            state(i,j,k,Temp_comp)=val3 - 3.0_rt * val4;
+            state(i,j,k,Temp_comp)=val3 - Real(3.0) * val4;
             if (l_use_salt) {
-                state(i,j,k,Salt_comp)=34.5_rt - 0.001_rt * z - val4;
+                state(i,j,k,Salt_comp)=Real(34.5) - Real(0.001) * z - val4;
             }
 
             // Set scalar = 0 everywhere
-            state(i, j, k, Tracer_comp) = 0.0_rt;
+            state(i, j, k, Tracer_comp) = zero;
         });
 
         const Box& xbx = surroundingNodes(bx,0);
         const Box& ybx = surroundingNodes(bx,1);
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            x_vel(i,j,k) = 0.0_rt;
+            x_vel(i,j,k) = zero;
         });
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            y_vel(i, j, k) = 0.0_rt;
+            y_vel(i, j, k) = zero;
         });
     }
     Gpu::streamSynchronize();

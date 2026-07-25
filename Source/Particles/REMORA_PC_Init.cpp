@@ -90,9 +90,9 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
             const auto height_arr = (*a_height_ptr)[mfi].array();
             ParallelFor(tile_box, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                Real x = plo[0] + (i + 0.5)*dx[0];
-                Real y = plo[1] + (j + 0.5)*dx[1];
-                Real z = 0.125 * (height_arr(i,j  ,k  ) + height_arr(i+1,j  ,k  ) +
+                Real x = plo[0] + (i + Real(0.5))*dx[0];
+                Real y = plo[1] + (j + Real(0.5))*dx[1];
+                Real z = Real(0.125) * (height_arr(i,j  ,k  ) + height_arr(i+1,j  ,k  ) +
                                   height_arr(i,j+1,k  ) + height_arr(i+1,j+1,k  ) +
                                   height_arr(i,j  ,k+1) + height_arr(i+1,j  ,k+1) +
                                   height_arr(i,j+1,k+1) + height_arr(i+1,j+1,k  ) );
@@ -104,9 +104,9 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
         } else {
             ParallelFor(tile_box, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
-                Real x = plo[0] + (i + 0.5)*dx[0];
-                Real y = plo[1] + (j + 0.5)*dx[1];
-                Real z = plo[2] + (k + 0.5)*dx[2];
+                Real x = plo[0] + (i + Real(0.5))*dx[0];
+                Real y = plo[1] + (j + Real(0.5))*dx[1];
+                Real z = plo[2] + (k + Real(0.5))*dx[2];
                 if (particle_init_domain.contains(RealVect(x,y,z))) {
                     num_particles_arr(i,j,k) = particles_per_cell;
                 }
@@ -168,21 +168,21 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
                 int start = offset_arr(i,j,k);
                 for (int n = start; n < start+num_particles_arr(i,j,k); n++) {
                     Real r[3] = {Random(rnd_engine), Random(rnd_engine), Random(rnd_engine)};
-                    Real v[3] = {0.0, 0.0, 0.0};
+                    Real v[3] = {zero, zero, zero};
 
                     Real x = plo[0] + (i + r[0])*dx[0];
                     Real y = plo[1] + (j + r[1])*dx[1];
 
-                    Real sx[] = { amrex::Real(1.) - r[0], r[0]};
-                    Real sy[] = { amrex::Real(1.) - r[1], r[1]};
+                    Real sx[] = {one - r[0], r[0]};
+                    Real sy[] = {one - r[1], r[1]};
 
-                    Real height_at_pxy_lo = 0.;
+                    Real height_at_pxy_lo = zero;
                     for (int ii = 0; ii < 2; ++ii) {
                         for (int jj = 0; jj < 2; ++jj) {
                             height_at_pxy_lo += sx[ii] * sy[jj] * height_arr(i+ii,j+jj,k);
                         }
                     }
-                    Real height_at_pxy_hi = 0.;
+                    Real height_at_pxy_hi = zero;
                     for (int ii = 0; ii < 2; ++ii) {
                         for (int jj = 0; jj < 2; ++jj) {
                             height_at_pxy_hi += sx[ii] * sy[jj] * height_arr(i+ii,j+jj,k+1);
@@ -201,7 +201,7 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
 
                     vx_ptr[n] = v[0]; vy_ptr[n] = v[1]; vz_ptr[n] = v[2];
 
-                    mass_ptr[n] = 1.0e-6;
+                    mass_ptr[n] = Real(1.0e-6);
                }
             });
 
@@ -213,22 +213,22 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
             {
                 int start = offset_arr(i,j,k);
                 for (int n = start; n < start+num_particles_arr(i,j,k); n++) {
-                    Real r[3] = {0.3, 0.7, 0.25};
-                    Real v[3] = {0.0, 0.0, 0.0};
+                    Real r[3] = {Real(0.3), Real(0.7), Real(0.25)};
+                    Real v[3] = {zero, zero, zero};
 
                     Real x = plo[0] + (i + r[0])*dx[0];
                     Real y = plo[1] + (j + r[1])*dx[1];
 
-                    Real sx[] = { amrex::Real(1.) - r[0], r[0]};
-                    Real sy[] = { amrex::Real(1.) - r[1], r[1]};
+                    Real sx[] = { one - r[0], r[0]};
+                    Real sy[] = { one - r[1], r[1]};
 
-                    Real height_at_pxy_lo = 0.;
+                    Real height_at_pxy_lo = zero;
                     for (int ii = 0; ii < 2; ++ii) {
                         for (int jj = 0; jj < 2; ++jj) {
                             height_at_pxy_lo += sx[ii] * sy[jj] * height_arr(i+ii,j+jj,k);
                         }
                     }
-                    Real height_at_pxy_hi = 0.;
+                    Real height_at_pxy_hi = zero;
                     for (int ii = 0; ii < 2; ++ii) {
                         for (int jj = 0; jj < 2; ++jj) {
                             height_at_pxy_hi += sx[ii] * sy[jj] * height_arr(i+ii,j+jj,k+1);
@@ -247,7 +247,7 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
 
                     vx_ptr[n] = v[0]; vy_ptr[n] = v[1]; vz_ptr[n] = v[2];
 
-                    mass_ptr[n] = 1.0e-6;
+                    mass_ptr[n] = Real(1.0e-6);
                }
             });
 
@@ -259,7 +259,7 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
                 int start = offset_arr(i,j,k);
                 for (int n = start; n < start+num_particles_arr(i,j,k); n++) {
                     Real r[3] = {Random(rnd_engine), Random(rnd_engine), Random(rnd_engine)};
-                    Real v[3] = {0.0, 0.0, 0.0};
+                    Real v[3] = {zero, zero, zero};
 
                     Real x = plo[0] + (i + r[0])*dx[0];
                     Real y = plo[1] + (j + r[1])*dx[1];
@@ -275,7 +275,7 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
 
                     vx_ptr[n] = v[0]; vy_ptr[n] = v[1]; vz_ptr[n] = v[2];
 
-                    mass_ptr[n] = 1.0e-6;
+                    mass_ptr[n] = Real(1.0e-6);
                }
             });
 
@@ -285,8 +285,8 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
             {
                 int start = offset_arr(i,j,k);
                 for (int n = start; n < start+num_particles_arr(i,j,k); n++) {
-                    Real r[3] = {0.3, 0.7, 0.25};
-                    Real v[3] = {0.0, 0.0, 0.0};
+                    Real r[3] = {Real(0.3), Real(0.7), Real(0.25)};
+                    Real v[3] = {zero, zero, zero};
 
                     Real x = plo[0] + (i + r[0])*dx[0];
                     Real y = plo[1] + (j + r[1])*dx[1];
@@ -302,7 +302,7 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
 
                     vx_ptr[n] = v[0]; vy_ptr[n] = v[1]; vz_ptr[n] = v[2];
 
-                    mass_ptr[n] = 1.0e-6;
+                    mass_ptr[n] = Real(1.0e-6);
                }
             });
         }

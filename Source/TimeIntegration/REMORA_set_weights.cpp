@@ -17,9 +17,9 @@ void REMORA::set_weights (int /*lev*/) {
     int ndtfast=fixed_ndtfast_ratio>0 ? fixed_ndtfast_ratio : static_cast<int>(fixed_fast_dt / fixed_dt);
 
     //From mod_scalars
-    Real Falpha = 2.0_rt;
-    Real Fbeta = 4.0_rt;
-    Real Fgamma = 0.284_rt;
+    Real Falpha = two;
+    Real Fbeta = Real(4.0);
+    Real Fgamma = Real(0.284);
 
     vec_weight1.resize(2*ndtfast+1);
     vec_weight2.resize(2*ndtfast+1);
@@ -36,8 +36,8 @@ void REMORA::set_weights (int /*lev*/) {
 //
     nfast=0;
     for(int i=1;i<=2*ndtfast;i++) {
-        weight1[i-1]=0.0_rt;
-        weight2[i-1]=0.0_rt;
+        weight1[i-1]=zero;
+        weight2[i-1]=zero;
     }
 //
 //-----------------------------------------------------------------------
@@ -54,14 +54,14 @@ void REMORA::set_weights (int /*lev*/) {
 //  resulting in overall second-order temporal accuracy for time-averaged
 //  barotropic motions resolved by baroclinic time step.
 //
-    scale=(Falpha+1.0_rt)*(Falpha+Fbeta+1.0_rt) /
-        ((Falpha+2.0_rt)*(Falpha+Fbeta+2.0_rt)*Real(ndtfast));
+    scale=(Falpha+one)*(Falpha+Fbeta+one) /
+        ((Falpha+two)*(Falpha+Fbeta+two)*Real(ndtfast));
     //
     //  Find center of gravity of the primary weighting shape function and
     //  iteratively adjust "scale" to place the  centroid exactly at
     //  "ndtfast".
     //
-    gamma = Fgamma*max(0.0_rt, 1.0_rt-10.0_rt/Real(ndtfast));
+    gamma = Fgamma*max(zero, one-Real(10.0)/Real(ndtfast));
 
     for (int iter=1;iter<=16;iter++) {
         nfast=0;
@@ -70,16 +70,16 @@ void REMORA::set_weights (int /*lev*/) {
 
             weight1[i-1]=Real(pow(cff,Falpha)-pow(cff,(Falpha+Fbeta)))-gamma*cff;
 
-            if (weight1[i-1] > 0.0_rt) {
+            if (weight1[i-1] > zero) {
                 nfast=i;
             }
 
-            if ( (nfast>0) && (weight1[i-1] < 0.0_rt) ) {
-                weight1[i-1] = 0.0_rt;
+            if ( (nfast>0) && (weight1[i-1] < zero) ) {
+                weight1[i-1] = zero;
             }
         }
-        wsum  = 0.0_rt;
-        shift = 0.0_rt;
+        wsum  = zero;
+        shift = zero;
         for(int i=1;i<=nfast;i++) {
             wsum=wsum+weight1[i-1];
             shift=shift+weight1[i-1]*Real(i);
@@ -104,8 +104,8 @@ void REMORA::set_weights (int /*lev*/) {
 //  calculate the mismatch to be compensated.
 //
     for (int iter=1;iter<=ndtfast;iter++) {
-        wsum  = 0.0_rt;
-        shift = 0.0_rt;
+        wsum  = zero;
+        shift = zero;
         for(int i=1;i<=nfast;i++) {
             wsum=wsum+weight1[i-1];
             shift=shift+Real(i)*weight1[i-1];
@@ -116,26 +116,26 @@ void REMORA::set_weights (int /*lev*/) {
         //  Apply advection step using either whole, or fractional shifts.
         //  Notice that none of the four loops here is reversible.
         //
-        if (cff > 1.0_rt) {
+        if (cff > one) {
             nfast=nfast+1;
             for (int i=nfast;i>=2;i--) {
                 weight1[i-1]=weight1[i-1-1];
             }
-            weight1[1-1] = 0.0_rt;
-        } else if (cff> 0.0_rt) {
-            wsum=1.0_rt-cff;
+            weight1[1-1] = zero;
+        } else if (cff> zero) {
+            wsum=one-cff;
             for (int i=nfast;i>=2;i--) {
                 weight1[i-1]=wsum*weight1[i-1]+cff*weight1[i-1-1];
             }
             weight1[1-1]=wsum*weight1[1-1];
-        } else if (cff < -1.0_rt) {
+        } else if (cff < Real(-1.0)) {
             nfast=nfast-1;
             for (int i=1;i<=nfast;i++) {
                 weight1[i-1]=weight1[i+1-1];
             }
-            weight1[nfast+1-1] = 0.0_rt;
-        } else if (cff < 0.0_rt) {
-            wsum=1.0_rt+cff;
+            weight1[nfast+1-1] = zero;
+        } else if (cff < zero) {
+            wsum=one+cff;
             for (int i=1;i<=nfast-1;i++) {
                 weight1[i-1]=wsum*weight1[i-1]-cff*weight1[i+1-1];
             }
@@ -156,46 +156,18 @@ void REMORA::set_weights (int /*lev*/) {
     //
     //  Normalize both set of weights.
     //
-    wsum = 0.0_rt;
-    cff  = 0.0_rt;
+    wsum = zero;
+    cff  = zero;
     for(int i=1;i<=nfast;i++) {
         wsum=wsum+weight1[i-1];
         cff=cff+weight2[i-1];
     }
 
-    wsum = 1.0_rt / wsum;
-    cff  = 1.0_rt / cff;
+    wsum = one / wsum;
+    cff  = one / cff;
 
     for(int i=1;i<=nfast;i++) {
         weight1[i-1]=wsum*weight1[i-1];
         weight2[i-1]=cff*weight2[i-1];
     }
-//
-//  Report weights.
-//
-#if 0
-    Real cff1, cff2;
-    if (ParallelDescriptor::IOProcessor()) {
-        Print().SetPrecision(18)<<ParallelDescriptor::NProcs()<<"  "<<ndtfast<<"  "<<nfast<<"  "<<wsum<<std::endl;
-        cff=0.0_rt;
-        cff1=0.0_rt;
-        cff2=0.0_rt;
-        wsum=0.0_rt;
-        shift=0.0_rt;
-        for(int i=1;i<=nfast;i++) {
-          cff=cff+weight1[i-1];
-          cff1=cff1+weight1[i-1]*Real(i);
-          cff2=cff2+weight1[i-1]*Real(i*i);
-          wsum=wsum+weight2[i-1];
-          shift=shift+weight2[i-1]*(Real(i)-0.5_rt);
-          Print().SetPrecision(18)<<"i="<<i<<"  "<<weight1[i-1]<<"  "<<weight2[i-1]<<"  "<<cff<<"  "<<wsum<<std::endl;
-        }
-        cff1=cff1/Real(ndtfast);
-        cff2=cff2/(Real(ndtfast)*Real(ndtfast));
-        shift=shift/Real(ndtfast);
-        Print().SetPrecision(18)<<ndtfast <<"  "<< nfast<<"  "<<Real(nfast)/Real(ndtfast)<<std::endl;
-        Print().SetPrecision(18)<<cff1<<"  "<<cff2<<"  "<<shift<<"  "<<cff<<"  "<<wsum<<"  "<<Fgamma<<"  "<<gamma<<std::endl;
-      if (cff2<1.0_rt001_rt) Print()<<"\n\n\n"<<std::endl;
-      }
-#endif
 }

@@ -130,49 +130,49 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Real cff;
         if (iic==ntfirst) {
-            cff=0.25_rt*dt_lev;
+            cff=Real(0.25)*dt_lev;
         } else if (iic==ntfirst+1) {
-            cff=0.25_rt*dt_lev*3.0_rt/2.0_rt;
+            cff=Real(0.25)*dt_lev*Real(3.0)/Real(2.0);
         } else {
-            cff=0.25_rt*dt_lev*23.0_rt/12.0_rt;
+            cff=Real(0.25)*dt_lev*Real(23.0)/Real(12.0);
         }
 
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             u(i,j,k) += cff * (pm(i,j,0)+pm(i-1,j,0)) * (pn(i,j,0)+pn(i-1,j,0)) * ru(i,j,k,nrhs);
-            u(i,j,k) *= 2.0_rt / (Hz(i-1,j,k) + Hz(i,j,k));
+            u(i,j,k) *= two / (Hz(i-1,j,k) + Hz(i,j,k));
         });
 
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             v(i,j,k) += cff * (pm(i,j,0)+pm(i,j-1,0)) * (pn(i,j,0)+pn(i,j-1,0)) * rv(i,j,k,nrhs);
-            v(i,j,k) *= 2.0_rt / (Hz(i,j-1,k) + Hz(i,j,k));
+            v(i,j,k) *= two / (Hz(i,j-1,k) + Hz(i,j,k));
         });
 
         // NOTE: DC is only used as scratch in vert_visc_3d -- no need to pass or return a value
         // NOTE: may not actually need to set these to zero
 
         // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,xbx);
-        fab_CF.template     setVal<RunOn::Device>(0.,xbx);
+        mf_DC[mfi].template setVal<RunOn::Device>(zero,xbx);
+        fab_CF.template     setVal<RunOn::Device>(zero,xbx);
 
         vert_visc_3d(xbx,1,0,u,Hz,Hzk,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
         // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,ybx);
-        fab_CF.template     setVal<RunOn::Device>(0.,ybx);
+        mf_DC[mfi].template setVal<RunOn::Device>(zero,ybx);
+        fab_CF.template     setVal<RunOn::Device>(zero,ybx);
 
         vert_visc_3d(ybx,0,1,v,Hz,Hzk,AK,Akv,BC,DC,FC,CF,nnew,N,dt_lev);
 
         // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,xbx);
-        fab_CF.template     setVal<RunOn::Device>(0.,xbx);
+        mf_DC[mfi].template setVal<RunOn::Device>(zero,xbx);
+        fab_CF.template     setVal<RunOn::Device>(zero,xbx);
 
         vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,pn,msku,nnew,N);
 
         // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,ybx);
-        fab_CF.template     setVal<RunOn::Device>(0.,ybx);
+        mf_DC[mfi].template setVal<RunOn::Device>(zero,ybx);
+        fab_CF.template     setVal<RunOn::Device>(zero,ybx);
 
         vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,pm,mskv,nnew,N);
     }
@@ -236,12 +236,12 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                 int iriver = river_pos(i,j,0);
                 if (iriver >= 0) {
                     if (river_direction_d[iriver] == 0) {
-                        Real on_u = 2.0_rt / (pn(i,j,0)+pn(i-1,j,0));
-                        Real cff = 1.0_rt / (on_u * 0.5_rt * (z_w(i-1,j,k+1) - z_w(i-1,j,k) + z_w(i,j,k+1) - z_w(i,j,k)));
+                        Real on_u = two / (pn(i,j,0)+pn(i-1,j,0));
+                        Real cff = one / (on_u * Real(0.5) * (z_w(i-1,j,k+1) - z_w(i-1,j,k) + z_w(i,j,k+1) - z_w(i,j,k)));
                         u(i,j,k) = cff * river_transport(iriver,0,k);
                     } else {
-                        Real om_v = 2.0_rt / (pm(i,j,0)+pm(i,j-1,0));
-                        Real cff = 1.0_rt / (om_v * 0.5_rt * (z_w(i,j-1,k+1) - z_w(i,j-1,k) + z_w(i,j,k+1) - z_w(i,j,k)));
+                        Real om_v = two / (pm(i,j,0)+pm(i,j-1,0));
+                        Real cff = one / (om_v * Real(0.5) * (z_w(i,j-1,k+1) - z_w(i,j-1,k) + z_w(i,j,k+1) - z_w(i,j,k)));
                         v(i,j,k) = cff * river_transport(iriver,0,k);
                     }
                 }
@@ -251,27 +251,27 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
 #if 0
         // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(xbx,IntVect(0,0,1)));
-        fab_CF.template     setVal<RunOn::Device>(0.,grow(xbx,IntVect(0,0,1)));
+        mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(xbx,IntVect(0,0,1)));
+        fab_CF.template     setVal<RunOn::Device>(zero,grow(xbx,IntVect(0,0,1)));
 
         update_massflux_3d(xbx,1,0,u,ubar,Huon,Hz,pn,DU_avg1,DU_avg2,DC,FC,nnew);
 
         // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(ybx,IntVect(0,0,1)));
-        fab_CF.template     setVal<RunOn::Device>(0.,grow(ybx,IntVect(0,0,1)));
+        mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(ybx,IntVect(0,0,1)));
+        fab_CF.template     setVal<RunOn::Device>(zero,grow(ybx,IntVect(0,0,1)));
 
         update_massflux_3d(ybx,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,nnew);
 
 #else
 
         // Reset to zero on the box on which they'll be used
-        fab_FC.template setVal<RunOn::Device>(0.,gbx2);
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
+        fab_FC.template setVal<RunOn::Device>(zero,gbx2);
+        mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(gbx2,IntVect(0,0,1)));
         update_massflux_3d(lev,gbx2,1,0,u,ubar,Huon,Hz,pn,DU_avg1,DU_avg2,DC,FC,msku,nnew);
 
         // Reset to zero on the box on which they'll be used
-        fab_FC.template     setVal<RunOn::Device>(0.,gbx2);
-        mf_DC[mfi].template setVal<RunOn::Device>(0.,grow(gbx2,IntVect(0,0,1)));
+        fab_FC.template     setVal<RunOn::Device>(zero,gbx2);
+        mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(gbx2,IntVect(0,0,1)));
         update_massflux_3d(lev,gbx2,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,mskv,nnew);
 
 #endif
@@ -286,7 +286,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     // ************************************************************************
 
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
-    mf_W.setVal(0.0_rt);
+    mf_W.setVal(zero);
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& Huon = mf_Huon->array(mfi);
@@ -346,7 +346,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         });
         ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            W(i,j,N+1) = 0.0_rt;
+            W(i,j,N+1) = zero;
         });
     }
 

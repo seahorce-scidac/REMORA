@@ -20,22 +20,22 @@
         ParallelFor(grow(bx,IntVect(1,1,0)), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
             const Real z = z_r(i,j,k);
-            Real val1 = std::tanh(1.1_rt * z + 11.0_rt);
-            state(i,j,k,Temp_comp)=T0+6.25_rt*val1;
-            state(i,j,k,Salt_comp)=S0-0.75_rt*val1;
+            Real val1 = std::tanh(Real(1.1) * z + Real(11.0));
+            state(i,j,k,Temp_comp)=T0+Real(6.25)*val1;
+            state(i,j,k,Salt_comp)=S0-Real(0.75)*val1;
 
-            state(i, j, k, Tracer_comp) = 0.0_rt;
+            state(i, j, k, Tracer_comp) = zero;
         });
 
         const Box& xbx = surroundingNodes(bx,0);
         const Box& ybx = surroundingNodes(bx,1);
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            x_vel(i, j, k) = 0.0_rt;
+            x_vel(i, j, k) = zero;
         });
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
-            y_vel(i, j, k) = 0.0_rt;
+            y_vel(i, j, k) = zero;
         });
     }
     Gpu::streamSynchronize();

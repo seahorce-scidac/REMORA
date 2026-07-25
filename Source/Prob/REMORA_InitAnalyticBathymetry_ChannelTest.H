@@ -4,7 +4,7 @@
     AMREX_ALWAYS_ASSERT( !m_solverChoice.flat_bathymetry);
 
     // mf_h.setVal(geomdata.ProbHi(2));
-    mf_h.setVal(50.0_rt);
+    mf_h.setVal(Real(50.0));
 
     for ( MFIter mfi(mf_h, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
@@ -19,7 +19,7 @@
 
         ParallelForRNG(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int , auto /*engine*/)
         {
-            h(i,j,0) = 50.0_rt;
+            h(i,j,0) = Real(50.0);
         });
 
     } // mfi

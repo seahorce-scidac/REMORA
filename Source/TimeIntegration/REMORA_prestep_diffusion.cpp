@@ -59,14 +59,14 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
 
     //
     //  Weighting coefficient for the newest (implicit) time step derivatives
-    //  using either a Crank-Nicolson implicit scheme (lambda=0.5_rt) or a
-    //  backward implicit scheme (lambda=1.0_rt).
+    //  using either a Crank-Nicolson implicit scheme (lambda=Real(0.5)) or a
+    //  backward implicit scheme (lambda=one).
     //
 
-    Real oml_dt = dt_lev*(1.0_rt-lambda);
+    Real oml_dt = dt_lev*(one-lambda);
     //N is one less than ROMS
 
-    //  Except the commented out part means lambda is always 1.0_rt
+    //  Except the commented out part means lambda is always one
     if (verbose > 1) {
         amrex::Print() << "in update_vel_3d with box " << vel_bx << std::endl;
         Print() << "vel old " << Box(vel_old) << std::endl;
@@ -75,7 +75,7 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
     ParallelFor(grow(surroundingNodes(vel_bx,2),IntVect(0,0,-1)),
     [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-            Real cff = 1.0_rt / ( z_r(i,j,k)+z_r(i-ioff,j-joff,k)
+            Real cff = one / ( z_r(i,j,k)+z_r(i-ioff,j-joff,k)
                               -z_r(i,j,k-1)-z_r(i-ioff,j-joff,k-1));
             FC(i,j,k) = oml_dt * cff * (vel_old(i,j,k,nstp)-vel_old(i,j,k-1,nstp)) *
                                            (Akv(i,j,k)     +Akv(i-ioff,j-joff,k));
@@ -89,7 +89,7 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
         ParallelFor(gbxvel,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real cff1=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+            Real cff1=vel_old(i,j,k,nstp)*Real(0.5)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
             Real cff2=FC(i,j,k+1)-FC(i,j,k);
             vel(i,j,k,nnew)=cff1+cff2;
         });
@@ -97,11 +97,11 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
         ParallelFor(gbxvel,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real cff1=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+            Real cff1=vel_old(i,j,k,nstp)*Real(0.5)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
             Real cff2=FC(i,j,k+1)-FC(i,j,k);
-            Real DC = 0.25_rt * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
+            Real DC = Real(0.25) * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
                                   * (pn(i,j,0)+pn(i-ioff,j-joff,0));
-            Real cff3 = DC * 0.5_rt;
+            Real cff3 = DC * Real(0.5);
             int indx=nrhs ? 0 : 1;
             Real r_swap= rvel(i,j,k,indx);
             rvel(i,j,k,indx) = rvel(i,j,k,nrhs);
@@ -112,11 +112,11 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
         ParallelFor(gbxvel,
         [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real cff1 =  5.0_rt/12.0_rt;
-            Real cff2 = 16.0_rt/12.0_rt;
-            Real cff3=vel_old(i,j,k,nstp)*0.5_rt*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+            Real cff1 =  Real(5.0)/Real(12.0);
+            Real cff2 = Real(16.0)/Real(12.0);
+            Real cff3=vel_old(i,j,k,nstp)*Real(0.5)*(Hz(i,j,k)+Hz(i-ioff,j-joff,k));
             Real cff4=FC(i,j,k+1)-FC(i,j,k);
-            Real DC = 0.25_rt * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
+            Real DC = Real(0.25) * dt_lev * (pm(i,j,0)+pm(i-ioff,j-joff,0))
                                   * (pn(i,j,0)+pn(i-ioff,j-joff,0));
 
             int indx=nrhs ? 0 : 1;
@@ -126,7 +126,7 @@ REMORA::prestep_diffusion (const Box& vel_bx, const Box& gbx,
 
             vel(i,j,k,nnew) = cff3 + DC*(cff1*rvel(i,j,k,nrhs)-
                                                 cff2*rvel(i,j,k,indx))+cff4;
-            rvel(i,j,k,nrhs) = 0.0_rt;
+            rvel(i,j,k,nrhs) = zero;
         });
     }
 }

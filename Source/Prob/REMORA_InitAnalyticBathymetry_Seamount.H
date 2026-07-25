@@ -8,9 +8,9 @@
       Box bx = mfi.tilebox();
       Box gbx2 = grow(bx,IntVect(NGROW+1,NGROW+1,0));
 
-      amrex::Real Xsize = 320000.0_rt;
-      amrex::Real Esize = 320000.0_rt;
-      amrex::Real depth = 5000.0_rt;
+      amrex::Real Xsize = Real(320000.0);
+      amrex::Real Esize = Real(320000.0);
+      amrex::Real depth = Real(5000.0);
 
       if(!m_solverChoice.flat_bathymetry)
       {
@@ -19,13 +19,13 @@
               const auto prob_lo         = geomdata.ProbLo();
               const auto dx              = geomdata.CellSize();
 
-              const Real x = prob_lo[0] + (i + 0.5_rt) * dx[0];
-              const Real y = prob_lo[1] + (j + 0.5_rt) * dx[1];
+              const Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
+              const Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
 
               Real val1, val2;
-              val1 = (x-0.5_rt*Xsize)/40000.0_rt;
-              val2 = (y-0.5_rt*Esize)/40000.0_rt;
-              h(i,j,0) = depth - 4500.0_rt * std::exp(-(val1*val1+val2*val2));
+              val1 = (x-Real(0.5)*Xsize)/Real(40000.0);
+              val2 = (y-Real(0.5)*Esize)/Real(40000.0);
+              h(i,j,0) = depth - Real(4500.0) * std::exp(-(val1*val1+val2*val2));
           });
 
       } else {

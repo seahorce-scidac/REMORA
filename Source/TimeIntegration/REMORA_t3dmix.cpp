@@ -81,7 +81,7 @@ REMORA::t3dmix2_s (const Box& bx,
     {
         const Real pmon_u = (pm(i-1,j,0)+pm(i,j,0))/(pn(i-1,j,0)+pn(i,j,0));
 
-        const Real cff = 0.25_rt * (diff2(i,j,0,n) + diff2(i-1,j,0,n)) * pmon_u;
+        const Real cff = Real(0.25) * (diff2(i,j,0,n) + diff2(i-1,j,0,n)) * pmon_u;
         FX(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i-1,j,k)) * (state_rhs(i,j,k,n)-state_rhs(i-1,j,k,n));
         FX(i,j,k,n) *= msku(i,j,0);
     });
@@ -90,7 +90,7 @@ REMORA::t3dmix2_s (const Box& bx,
     {
         const Real pnom_v = (pn(i,j-1,0)+pn(i,j,0))/(pm(i,j-1,0)+pm(i,j,0));
 
-        const Real cff = 0.25_rt*(diff2(i,j,0,n)+diff2(i,j-1,0,n)) * pnom_v;
+        const Real cff = Real(0.25)*(diff2(i,j,0,n)+diff2(i,j-1,0,n)) * pnom_v;
         FE(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i,j-1,k)) * (state_rhs(i,j,k,n) - state_rhs(i,j-1,k,n));
         FE(i,j,k,n) *= mskv(i,j,0);
     });
@@ -164,26 +164,26 @@ REMORA::t3dmix2_geo(const Box& bx,
 
     ParallelFor(xbx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real cff = 0.5_rt * (pm(i,j,0) + pm(i-1,j,0)) * msku(i,j,0);
+        Real cff = Real(0.5) * (pm(i,j,0) + pm(i-1,j,0)) * msku(i,j,0);
         dZdx(i,j,k,n) = cff * (z_r(i,j,k) - z_r(i-1,j,k));
         dTdx(i,j,k,n)=cff*(state_rhs(i  ,j,k,n)-state_rhs(i-1,j,k,n));
     });
     ParallelFor(ybx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real cff = 0.5_rt * (pn(i,j,0) + pn(i,j-1,0)) * mskv(i,j,0);
+        Real cff = Real(0.5) * (pn(i,j,0) + pn(i,j-1,0)) * mskv(i,j,0);
         dZde(i,j,k,n) = cff * (z_r(i,j,k) - z_r(i,j-1,k));
         dTde(i,j,k,n)=cff*(state_rhs(i,j,k,n)-state_rhs(i,j-1,k,n));
     });
     ParallelFor(makeSlab(grow(bx,IntVect(1,1,0)),2,0), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
     {
-        dTdz(i,j,0,n) = 0.0_rt;
-        dTdz(i,j,N+1,n) = 0.0_rt;
-        FS(i,j,0,n) = 0.0_rt;
-        FS(i,j,N+1,n) = 0.0_rt;
+        dTdz(i,j,0,n) = Real(0.0);
+        dTdz(i,j,N+1,n) = Real(0.0);
+        FS(i,j,0,n) = Real(0.0);
+        FS(i,j,N+1,n) = Real(0.0);
     });
     ParallelFor(grow(zbx,IntVect(1,1,-1)), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real cff = 1.0_rt / (z_r(i,j,k)-z_r(i,j,k-1));
+        Real cff = one / (z_r(i,j,k)-z_r(i,j,k-1));
         dTdz(i,j,k,n) = cff * (state_rhs(i,j,k,n) - state_rhs(i,j,k-1,n));
     });
 
@@ -191,48 +191,48 @@ REMORA::t3dmix2_geo(const Box& bx,
     //  geopotential surfaces.
     ParallelFor(xbx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real on_u = 2.0_rt / (pn(i,j,0) + pn(i-1,j,0));
-        Real cff = 0.25_rt * (diff2(i,j,0,n)+diff2(i-1,j,0,n)) * on_u;
+        Real on_u = two / (pn(i,j,0) + pn(i-1,j,0));
+        Real cff = Real(0.25) * (diff2(i,j,0,n)+diff2(i-1,j,0,n)) * on_u;
         FX(i,j,k,n) = cff *
                        (Hz(i,j,k)+Hz(i-1,j,k))*
                        (dTdx(i,j,k,n)-
-                        0.5_rt*(std::min(dZdx(i,j,k,n),0.0_rt)*
+                        Real(0.5)*(std::min(dZdx(i,j,k,n),Real(0.0))*
                                    (dTdz(i-1,j,k  ,n)+
                                     dTdz(i  ,j,k+1,n))+
-                                std::max(dZdx(i,j,k,n),0.0_rt)*
+                                std::max(dZdx(i,j,k,n),Real(0.0))*
                                    (dTdz(i-1,j,k+1,n)+
                                     dTdz(i  ,j,k  ,n))));
     });
     ParallelFor(ybx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real om_v = 2.0_rt / (pm(i,j,0) + pm(i,j-1,0));
-        Real cff = 0.25_rt * (diff2(i,j,0,n)+diff2(i,j-1,0,n)) * om_v;
+        Real om_v = two / (pm(i,j,0) + pm(i,j-1,0));
+        Real cff = Real(0.25) * (diff2(i,j,0,n)+diff2(i,j-1,0,n)) * om_v;
         FE(i,j,k,n) = cff *
                        (Hz(i,j,k)+Hz(i,j-1,k))*
                        (dTde(i,j,k,n)-
-                        0.5_rt*(std::min(dZde(i,j,k,n),0.0_rt)*
+                        Real(0.5)*(std::min(dZde(i,j,k,n),Real(0.0))*
                                    (dTdz(i,j-1,k  ,n)+
                                     dTdz(i,j  ,k+1,n))+
-                                std::max(dZde(i,j,k,n),0.0_rt)*
+                                std::max(dZde(i,j,k,n),Real(0.0))*
                                    (dTdz(i,j-1,k+1,n)+
                                     dTdz(i,j  ,k  ,n))));
     });
     ParallelFor(grow(zbx,IntVect(0,0,-1)), ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real cff = 0.5_rt * diff2(i,j,0,n);
-        Real cff1=std::min(dZdx(i  ,j,k-1,n),0.0_rt);
-        Real cff2=std::min(dZdx(i+1,j,k  ,n),0.0_rt);
-        Real cff3=std::max(dZdx(i  ,j,k  ,n),0.0_rt);
-        Real cff4=std::max(dZdx(i+1,j,k-1,n),0.0_rt);
+        Real cff = Real(0.5) * diff2(i,j,0,n);
+        Real cff1=std::min(dZdx(i  ,j,k-1,n),Real(0.0));
+        Real cff2=std::min(dZdx(i+1,j,k  ,n),Real(0.0));
+        Real cff3=std::max(dZdx(i  ,j,k  ,n),Real(0.0));
+        Real cff4=std::max(dZdx(i+1,j,k-1,n),Real(0.0));
         FS(i,j,k,n) = cff *
                         (cff1*(cff1*dTdz(i,j,k,n)-dTdx(i  ,j,k-1,n))+
                          cff2*(cff2*dTdz(i,j,k,n)-dTdx(i+1,j,k  ,n))+
                          cff3*(cff3*dTdz(i,j,k,n)-dTdx(i  ,j,k  ,n))+
                          cff4*(cff4*dTdz(i,j,k,n)-dTdx(i+1,j,k-1,n)));
-        cff1=std::min(dZde(i,j  ,k-1,n),0.0_rt);
-        cff2=std::min(dZde(i,j+1,k  ,n),0.0_rt);
-        cff3=std::max(dZde(i,j  ,k  ,n),0.0_rt);
-        cff4=std::max(dZde(i,j+1,k-1,n),0.0_rt);
+        cff1=std::min(dZde(i,j  ,k-1,n),Real(0.0));
+        cff2=std::min(dZde(i,j+1,k  ,n),Real(0.0));
+        cff3=std::max(dZde(i,j  ,k  ,n),Real(0.0));
+        cff4=std::max(dZde(i,j+1,k-1,n),Real(0.0));
         FS(i,j,k,n)=FS(i,j,k,n)+
                             cff*
                             (cff1*(cff1*dTdz(i,j,k,n)-dTde(i,j  ,k-1,n))+

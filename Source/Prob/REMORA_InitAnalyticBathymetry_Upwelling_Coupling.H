@@ -22,10 +22,10 @@
             const auto dx = geomdata.CellSize();
 
             const Real x0 = prob_lo[0];
-            const Real x  = x0 + (i + 0.5_rt) * dx[0];
+            const Real x  = x0 + (i + Real(0.5)) * dx[0];
             const Real x1 = geomdata.ProbHi(0);
-            const Real h0 = 300.0_rt;
-            const Real h1 = 10.0_rt;
+            const Real h0 = Real(300.0);
+            const Real h1 = Real(10.0);
 
             Real depth = h0 + (h1 - h0) * (x - x0) / (x1 - x0);
             depth = amrex::min(amrex::max(depth, h1), h0);

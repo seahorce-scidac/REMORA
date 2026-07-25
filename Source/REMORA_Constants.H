@@ -3,10 +3,32 @@
 
 #include <AMReX_REAL.H>
 
-constexpr amrex::Real PI = amrex::Real(3.14159265358979323846264338327950288);
+constexpr amrex::Real zero         = amrex::Real(0.0);
+constexpr amrex::Real one          = amrex::Real(1.0);
+constexpr amrex::Real two          = amrex::Real(2.0);
+constexpr amrex::Real three        = amrex::Real(3.0);
+constexpr amrex::Real four         = amrex::Real(4.0);
+constexpr amrex::Real myhalf       = amrex::Real(0.5);
+constexpr amrex::Real fourth       = amrex::Real(0.25);
+constexpr amrex::Real third        = amrex::Real(1.0/3.0);
+constexpr amrex::Real eightthirds  = amrex::Real(8.0/3.0);
+
 //Note that amrex source code uses fewer digits of pi:
 //     constexpr Real pi = Real(3.1415926535897932);
 //
+constexpr amrex::Real PI = amrex::Real(3.14159265358979323846264338327950288);
+
+// Safe overly large value to fill data so that it is not uninitialized
+//      but we can easily identify if the value is used in a computation
+// Would like to use the following but std::sqrt will not be allowable
+//       in constexpr until C++26
+// const amrex::Real bogus_large_value = std::sqrt(std::numeric_limits<amrex::Real>::max());
+#ifdef AMREX_USE_FLOAT
+constexpr amrex::Real bogus_large_value = amrex::Real(1.e18);
+#else
+constexpr amrex::Real bogus_large_value = amrex::Real(1.e150);
+#endif
+
 constexpr amrex::Real Cp           = amrex::Real(3985.0);              // Specific heat of seawater [Joules/kg/degC]
 constexpr amrex::Real Csolar       = amrex::Real(1353.0);              // Solar irradiation constant [1360-1380 W/m2]
 constexpr amrex::Real Eradius      = amrex::Real(6371315.0);           // Earth equatorial radius [m]

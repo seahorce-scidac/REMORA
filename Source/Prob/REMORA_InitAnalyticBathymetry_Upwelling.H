@@ -27,11 +27,11 @@
           {
               int iFort = i+1; // (+1 is to match the Fortran indexing in ROMS)
 
-              Real val1 = (iFort <= Lm/2.0) ? iFort : Lm+1-iFort;
-              val1 -= 0.5;
-              Real adj = geomdata.CellSize()[1]/1000.0_rt;
+              Real val1 = (iFort <= Lm/two) ? iFort : Lm+1-iFort;
+              val1 -= Real(0.5);
+              Real adj = geomdata.CellSize()[1]/Real(1000.0);
 
-              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1*adj-10.0_rt)/7.0_rt)));
+              h(i,j,0) = std::min(-geomdata.ProbLo(2),(Real(84.5)+Real(66.526)*std::tanh((val1*adj-Real(10.0))/Real(7.0))));
           });
 
       } else if (EWPeriodic) {
@@ -40,11 +40,11 @@
           {
               int jFort = j+1; // (+1 is to match the Fortran indexing in ROMS)
 
-              Real val1 = (jFort<=Mm/2.0) ? jFort : Mm+1-jFort;
-              val1 -= 0.5;
-              Real adj = geomdata.CellSize()[0]/1000.0_rt;
+              Real val1 = (jFort<=Mm/two) ? jFort : Mm+1-jFort;
+              val1 -= Real(0.5);
+              Real adj = geomdata.CellSize()[0]/Real(1000.0);
 
-              h(i,j,0) = std::min(-geomdata.ProbLo(2),(84.5_rt+66.526_rt*std::tanh((val1*adj-10.0_rt)/7.0_rt)));
+              h(i,j,0) = std::min(-geomdata.ProbLo(2),(Real(84.5)+Real(66.526)*std::tanh((val1*adj-Real(10.0))/Real(7.0))));
           });
       }
     } // mfi
