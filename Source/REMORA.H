@@ -1082,7 +1082,7 @@ public:
                     const int bdy_var_type = BdyVars::null,
                     const int icomp=0,
                     const bool fill_all=true,
-                    const bool fill_set=true,
+                    const bool fill_set=false,
                     const int  n_not_fill=0,
                     const int icomp_calc=0,
                     const amrex::Real dt = zero,
@@ -1095,7 +1095,7 @@ public:
                     const int bdy_var_type = BdyVars::null,
                     const int icomp=0,
                     const bool fill_all=true,
-                    const bool fill_set=true);
+                    const bool fill_set=false);
     /** \brief Fill boundary data from netcdf file */
     void fill_from_bdyfiles (int lev,
                              amrex::MultiFab& mf_to_fill,

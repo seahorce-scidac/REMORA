@@ -26,10 +26,10 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     [[maybe_unused]] int nvars = S_old.nComp();
 
     // Fill ghost cells/faces at old time
-    FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t);
-    FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u);
-    FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v);
-    FillPatch(lev, time, *zvel_old[lev], zvel_old, zvel_bc(), BdyVars::null);
+    FillPatchNoBC(lev, time, *cons_old[lev], cons_old, BdyVars::t,0,true,true);
+    FillPatchNoBC(lev, time, *xvel_old[lev], xvel_old, BdyVars::u,0,true,true);
+    FillPatchNoBC(lev, time, *yvel_old[lev], yvel_old, BdyVars::v,0,true,true);
+    FillPatch(lev, time, *zvel_old[lev], zvel_old, zvel_bc(), BdyVars::null,0,true,true);
 
     //////////    //pre_step3d corrections to boundaries
 
@@ -91,9 +91,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     mf_rhoA->setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
     mf_DC.setVal(zero);
 
-    FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t);
-    FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u);
-    FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v);
+    FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t,0,true,true);
+    FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u,0,true,true);
+    FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v,0,true,true);
 
     mf_rufrc->setVal(zero);
     mf_rvfrc->setVal(zero);
