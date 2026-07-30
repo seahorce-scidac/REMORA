@@ -360,10 +360,10 @@ REMORA::init_grid_vars_from_netcdf (int lev)
     if (lev > 0) {
         FillPatch(lev,dummy_time,*vec_pm[lev],GetVecOfPtrs(vec_pm),
                 foextrap_periodic_bc(),
-                BdyVars::null,0,false,true);
+                BdyVars::null,0,false);
         FillPatch(lev,dummy_time,*vec_pn[lev],GetVecOfPtrs(vec_pn),
                 foextrap_periodic_bc(),
-                BdyVars::null,0,false,true);
+                BdyVars::null,0,false);
     }
 
 
@@ -434,10 +434,10 @@ REMORA::init_bathymetry_from_netcdf (int lev)
     // be called on h afterwards
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
             foextrap_periodic_bc(),
-            BdyVars::null,0,false,true,1);
+            BdyVars::null,0,false,false,1);
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
             foextrap_periodic_bc(),
-            BdyVars::null,1,false,true,1);
+            BdyVars::null,1,false,false,1);
 
     vec_h[lev]->FillBoundary(geom[lev].periodicity());
 }

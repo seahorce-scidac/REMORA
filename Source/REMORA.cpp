@@ -693,10 +693,10 @@ REMORA::set_bathymetry_averaged_down (int lev) {
     ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
             foextrap_periodic_bc(),
-            BdyVars::null,0,false,true,1);
+            BdyVars::null,0,false,false,1);
     FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
             foextrap_periodic_bc(),
-            BdyVars::null,1,false,true,1);
+            BdyVars::null,1,false,false,1);
 }
 
 /**
@@ -711,10 +711,10 @@ REMORA::set_grid_vars_averaged_down (int lev) {
             vec_pn_full_domain[lev]->nGrowVect(),vec_pn[lev]->nGrowVect());
     FillPatch(lev,dummy_time,*vec_pm[lev],GetVecOfPtrs(vec_pm),
             foextrap_periodic_bc(),
-            BdyVars::null,0,false,true);
+            BdyVars::null,0,false);
     FillPatch(lev,dummy_time,*vec_pn[lev],GetVecOfPtrs(vec_pn),
             foextrap_periodic_bc(),
-            BdyVars::null,0,false,true);
+            BdyVars::null,0,false);
 }
 
 /**
@@ -1141,8 +1141,8 @@ REMORA::set_smflux(int lev)
 #ifdef REMORA_USE_NETCDF
         sustr_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_sustr[lev].get(), geom, ref_ratio);
         svstr_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_svstr[lev].get(), geom, ref_ratio);
-        FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr), foextrap_periodic_bc(), BdyVars::null,0,false);
-        FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr), foextrap_periodic_bc(), BdyVars::null,0,false);
+        FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr), foextrap_periodic_bc(), BdyVars::null,0,false,false);
+        FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr), foextrap_periodic_bc(), BdyVars::null,0,false,false);
 #endif
     }
 }
