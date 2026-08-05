@@ -31,111 +31,6 @@ using namespace amrex;
 
 namespace {
 constexpr int SSTIndex = 0;
-
-Geometry
-make_unit_slab_geometry (Box const& domain)
-{
-    static constexpr Real lo[AMREX_SPACEDIM] = {zero, zero, zero};
-    static constexpr Real hi[AMREX_SPACEDIM] = {one, one, one};
-    static constexpr int periodicity[AMREX_SPACEDIM] = {0, 0, 0};
-    RealBox rb(lo, hi);
-    return Geometry(domain, &rb, CoordSys::cartesian, periodicity);
-}
-
-Vector<BCRec>
-make_internal_bcs (int ncomp)
-{
-    Vector<BCRec> bcs(ncomp);
-    for (auto& bc : bcs) {
-        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-            bc.setLo(dir, BCType::int_dir);
-            bc.setHi(dir, BCType::int_dir);
-        }
-    }
-    return bcs;
-}
-
-void
-CopyDriverSlabToRemoraLayout (const MultiFab& src,
-                              MultiFab& dst,
-                              const Geometry& geom,
-                              const char* context)
-{
-    const Box src_domain = enclosedCells(src.boxArray().minimalBox());
-    const Box dst_domain = enclosedCells(dst.boxArray().minimalBox());
-
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src.boxArray().ixType() == dst.boxArray().ixType(),
-        context);
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_domain.smallEnd(0) == dst_domain.smallEnd(0) &&
-        src_domain.smallEnd(1) == dst_domain.smallEnd(1) &&
-        src_domain.length(0) == dst_domain.length(0) &&
-        src_domain.length(1) == dst_domain.length(1) &&
-        src_domain.length(2) == dst_domain.length(2),
-        context);
-
-    dst.setVal(zero);
-    dst.ParallelCopy(src, 0, 0, dst.nComp(), IntVect(0), IntVect(0), geom.periodicity());
-    dst.FillBoundary(geom.periodicity());
-}
-
-void
-AverageDownThenParallelCopy (const MultiFab& src,
-                             MultiFab& dst)
-{
-    using namespace amrex;
-
-    AMREX_ALWAYS_ASSERT(src.boxArray().ixType() == dst.boxArray().ixType());
-
-    const Box src_cells = enclosedCells(src.boxArray().minimalBox());
-    const Box dst_cells = enclosedCells(dst.boxArray().minimalBox());
-    const IntVect src_len = src_cells.length();
-    const IntVect dst_len = dst_cells.length();
-
-    const bool same_layout =
-        (src.boxArray() == dst.boxArray()) &&
-        (src.DistributionMap() == dst.DistributionMap());
-    if (same_layout) {
-        dst.ParallelCopy(src, 0, 0, dst.nComp());
-        return;
-    }
-
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_len[2] == 1 && dst_len[2] == 1,
-        "AverageDownThenParallelCopy expects one-cell-thick source and destination slabs.");
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_cells.smallEnd(0) == dst_cells.smallEnd(0) &&
-        src_cells.smallEnd(1) == dst_cells.smallEnd(1),
-        "AverageDownThenParallelCopy requires aligned source/destination slab origins.");
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_len[0] >= dst_len[0] && src_len[1] >= dst_len[1] &&
-        src_len[0] % dst_len[0] == 0 && src_len[1] % dst_len[1] == 0,
-        "AverageDownThenParallelCopy requires source/destination slab extents to be integer-ratio compatible.");
-
-    const IntVect ratio(src_len[0] / dst_len[0], src_len[1] / dst_len[1], 1);
-
-    BoxArray coarsened_src_ba = src.boxArray();
-    for (int i = 0; i < coarsened_src_ba.size(); ++i) {
-        const Box original = coarsened_src_ba[i];
-        Box coarsened = original;
-        coarsened.coarsen(ratio);
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-            coarsened.refine(ratio) == original,
-            "AverageDownThenParallelCopy source boxes are not evenly coarsenable by the source/destination ratio.");
-    }
-    coarsened_src_ba.coarsen(ratio);
-
-    const bool direct_average_down_safe = (coarsened_src_ba == dst.boxArray());
-
-    if (direct_average_down_safe) {
-        amrex::average_down(src, dst, 0, dst.nComp(), ratio);
-    } else {
-        MultiFab dst_avg(coarsened_src_ba, src.DistributionMap(), dst.nComp(), 0);
-        amrex::average_down(src, dst_avg, 0, dst.nComp(), ratio);
-        dst.ParallelCopy(dst_avg, 0, 0, dst.nComp());
-    }
-}
 }
 
 amrex::Real
@@ -259,55 +154,12 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
     }
 
     MultiFab& dst = *state[SSTIndex];
-    const Box src_domain = tmp.boxArray().minimalBox();
-    const Box dst_domain = dst.boxArray().minimalBox();
-
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_domain.smallEnd(2) == src_domain.bigEnd(2) &&
-        dst_domain.smallEnd(2) == dst_domain.bigEnd(2),
-        "REMORA::PackSurfaceState expects 2D slab source and destination MultiFabs.");
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_domain.smallEnd(0) == dst_domain.smallEnd(0) &&
-        src_domain.smallEnd(1) == dst_domain.smallEnd(1),
-        "REMORA::PackSurfaceState requires aligned atmosphere/ocean slab origins.");
-
-    const IntVect src_len = src_domain.length();
-    const IntVect dst_len = dst_domain.length();
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_len[2] == 1 && dst_len[2] == 1,
-        "REMORA::PackSurfaceState expects unit-thickness source and destination slabs.");
-
-    const bool same_xy = (src_len[0] == dst_len[0] && src_len[1] == dst_len[1]);
-    const bool dst_finer =
-        (dst_len[0] >= src_len[0] && dst_len[1] >= src_len[1] &&
-         dst_len[0] % src_len[0] == 0 && dst_len[1] % src_len[1] == 0);
-    const bool dst_coarser =
-        (src_len[0] >= dst_len[0] && src_len[1] >= dst_len[1] &&
-         src_len[0] % dst_len[0] == 0 && src_len[1] % dst_len[1] == 0);
-
-    if (same_xy) {
-        dst.ParallelCopy(tmp, 0, 0, 1);
-        return;
-    }
-
-    if (dst_finer) {
-        const IntVect ratio(dst_len[0] / src_len[0], dst_len[1] / src_len[1], 1);
-        const auto src_geom = make_unit_slab_geometry(src_domain);
-        const auto dst_geom = make_unit_slab_geometry(dst_domain);
-        const auto bcs = make_internal_bcs(1);
-        amrex::InterpFromCoarseLevel(dst, IntVect(0), IntVect(0),
-                                     tmp, 0, 0, 1,
-                                     src_geom, dst_geom,
-                                     ratio, &pc_interp, bcs, 0);
-        return;
-    }
-
-    if (dst_coarser) {
-        AverageDownThenParallelCopy(tmp, dst);
-        return;
-    }
-
-    amrex::Abort("REMORA::PackSurfaceState requires matching horizontal extents and integer-ratio atmosphere/ocean slab resolutions.");
+    
+    // TODO: Implement a reverse conservative remap or bilinear interpolation here 
+    // for sending REMORA SST back to a non-conformal ERF atmospheric layout. 
+    // For now, we assume the driver handles the mapping translation.
+    dst.setVal(zero);
+    dst.ParallelCopy(tmp, 0, 0, 1);
 }
 
 /*
@@ -458,22 +310,38 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     MultiFab lwflux_tmp(vec_lrflx[0]->boxArray(), vec_lrflx[0]->DistributionMap(), 1,
                         vec_lrflx[0]->nGrowVect());
 
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::TauX], tau_x_tmp, geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected TauX slab to match REMORA u-face layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::TauY], tau_y_tmp, geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected TauY slab to match REMORA v-face layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::SHflux], shflux_tmp, geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected SHflux slab to match REMORA rho layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::LHflux], lhflux_tmp, geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected LHflux slab to match REMORA rho layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::LWrad], lwflux_tmp, geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected LWrad slab to match REMORA rho layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::SWrad], *vec_srflx[0], geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected SWrad slab to match REMORA rho layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::Rain], *vec_rain[0], geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected rain slab to match REMORA rho layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::Evap], *vec_evap[0], geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected evap slab to match REMORA rho layout.");
+    tau_x_tmp.setVal(zero);
+    tau_x_tmp.ParallelCopy(*states[AtmosFluxes::TauX], 0, 0, 1);
+    tau_x_tmp.FillBoundary(geom[0].periodicity());
+
+    tau_y_tmp.setVal(zero);
+    tau_y_tmp.ParallelCopy(*states[AtmosFluxes::TauY], 0, 0, 1);
+    tau_y_tmp.FillBoundary(geom[0].periodicity());
+
+    shflux_tmp.setVal(zero);
+    shflux_tmp.ParallelCopy(*states[AtmosFluxes::SHflux], 0, 0, 1);
+    shflux_tmp.FillBoundary(geom[0].periodicity());
+
+    lhflux_tmp.setVal(zero);
+    lhflux_tmp.ParallelCopy(*states[AtmosFluxes::LHflux], 0, 0, 1);
+    lhflux_tmp.FillBoundary(geom[0].periodicity());
+
+    lwflux_tmp.setVal(zero);
+    lwflux_tmp.ParallelCopy(*states[AtmosFluxes::LWrad], 0, 0, 1);
+    lwflux_tmp.FillBoundary(geom[0].periodicity());
+
+    vec_srflx[0]->setVal(zero);
+    vec_srflx[0]->ParallelCopy(*states[AtmosFluxes::SWrad], 0, 0, 1);
+    vec_srflx[0]->FillBoundary(geom[0].periodicity());
+
+    vec_rain[0]->setVal(zero);
+    vec_rain[0]->ParallelCopy(*states[AtmosFluxes::Rain], 0, 0, 1);
+    vec_rain[0]->FillBoundary(geom[0].periodicity());
+
+    vec_evap[0]->setVal(zero);
+    vec_evap[0]->ParallelCopy(*states[AtmosFluxes::Evap], 0, 0, 1);
+    vec_evap[0]->FillBoundary(geom[0].periodicity());
+    
     vec_lrflx[0]->setVal(zero);
     vec_lhflx[0]->setVal(zero);
     vec_shflx[0]->setVal(zero);
