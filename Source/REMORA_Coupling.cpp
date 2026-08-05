@@ -7,6 +7,7 @@
 #include <AMReX_Interpolater.H>
 #include <AMReX_MFIter.H>
 #include <AMReX_MultiFabUtil.H>
+#include <AMReX_iMultiFab.H>
 #include <AMReX_Print.H>
 
 using namespace amrex;
@@ -31,6 +32,51 @@ using namespace amrex;
 
 namespace {
 constexpr int SSTIndex = 0;
+
+// -------------------------------------------------------------------------
+// NEW: Conservative Sparse Matrix Remap Engine (Reverse: OCN -> ATM)
+// -------------------------------------------------------------------------
+void
+ApplyConservativeRemap (const amrex::MultiFab& src,
+                        amrex::MultiFab& dst,
+                        const amrex::MultiFab& weight_mf,
+                        const amrex::iMultiFab& index_mf,
+                        int max_stencil_size)
+{
+    using namespace amrex;
+
+    // 1. Data Routing: Route REMORA SST data onto the ERF atmospheric layout.
+    MultiFab src_on_dst(dst.boxArray(), dst.DistributionMap(), src.nComp(), 4);
+    src_on_dst.setVal(0.0);
+    src_on_dst.ParallelCopy(src);
+
+    dst.setVal(0.0);
+
+    // 2. Stencil Application: Execute the local sparse dot product
+    for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        Box bx = mfi.tilebox();
+
+        auto const& w_arr   = weight_mf.const_array(mfi);
+        auto const& idx_arr = index_mf.const_array(mfi);
+        auto const& src_arr = src_on_dst.const_array(mfi);
+        auto        dst_arr = dst.array(mfi);
+
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+            Real sum = 0.0;
+            for (int m = 0; m < max_stencil_size; ++m) {
+                Real w = w_arr(i, j, k, m);
+                if (w > 0.0) {
+                    int src_i = idx_arr(i, j, k, m * 3);
+                    int src_j = idx_arr(i, j, k, m * 3 + 1);
+                    int src_k = idx_arr(i, j, k, m * 3 + 2);
+
+                    sum += w * src_arr(src_i, src_j, src_k);
+                }
+            }
+            dst_arr(i, j, k) = sum;
+        });
+    }
+}
 }
 
 amrex::Real
@@ -115,20 +161,14 @@ REMORA::GetAtmosToOceanVFaceLayout (amrex::BoxArray& ba,
  * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
  *
  * Reads Temp_comp at the top water-column cell (k_sfc), converts from
- * Celsius to Kelvin, and copies the result into state[SSTIndex].
- *
- * @param[in,out] state  OCN2ATM slab buffer sized by the driver (one MultiFab
- *                       per ocean-to-atmosphere export layer). state[SSTIndex]
- *                       (index 0) is overwritten with sea-surface temperature
- *                       (SST) sampled from the Temp_comp tracer at the uppermost
- *                       sigma level (k = Nz) and converted from degrees Celsius
- *                       to Kelvin for the atmospheric driver. An empty vector or
- *                       null state[0] is treated as a no-op.
- * @param[in    ] time   Current ocean model time (unused; retained for driver
- *                       interface conformance).
+ * Celsius to Kelvin, and conservatively remaps the result into state[SSTIndex].
  */
 void
-REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
+REMORA::PackSurfaceState (Vector<MultiFab*>& state,
+                          Real /*time*/,
+                          const amrex::MultiFab* weight_o2a_mf,
+                          const amrex::iMultiFab* index_o2a_mf,
+                          int max_stencil_size)
 {
     if (state.empty() || state[SSTIndex] == nullptr) { return; }
     const int lev = 0;
@@ -137,7 +177,6 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
     const int k_sfc = cons_new[lev]->boxArray().minimalBox().bigEnd(2);
 
     // Build a temp MultiFab on REMORA's ba2d (k=0) derived from cons_new's BoxArray.
-    // Same DistributionMap ensures each box is local; we fill at k=0 from cons at k=k_sfc.
     BoxList bl2d = cons_new[lev]->boxArray().boxList();
     for (auto& b : bl2d) { b.setRange(2, 0); }
     BoxArray ba2d(std::move(bl2d));
@@ -154,36 +193,19 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
     }
 
     MultiFab& dst = *state[SSTIndex];
-    
-    // TODO: Implement a reverse conservative remap or bilinear interpolation here 
-    // for sending REMORA SST back to a non-conformal ERF atmospheric layout. 
-    // For now, we assume the driver handles the mapping translation.
-    dst.setVal(zero);
-    dst.ParallelCopy(tmp, 0, 0, 1);
+
+    if (weight_o2a_mf != nullptr && index_o2a_mf != nullptr) {
+        // Execute sparse conservative remap from REMORA SST to ERF layout
+        ApplyConservativeRemap(tmp, dst, *weight_o2a_mf, *index_o2a_mf, max_stencil_size);
+    } else {
+        // Fallback for un-stenciled or synthetic runs
+        dst.setVal(zero);
+        dst.ParallelCopy(tmp, 0, 0, 1);
+    }
 }
 
 /*
  * \brief Receives atmospheric states from the driver and applies unit conversions.
- *
- * Fills REMORA's internal forcing MultiFabs from states and records which
- * lanes were successfully updated in driver_atmos_state_from_driver.
- * Unit conversions applied: Pair Pa to mb; Tair K to Celsius.
- *
- * @param[in] states  ATM2OCN forcing slab buffer from the driver (Warner et al.
- *                    2010, Block B state-passing contract), indexed by AtmosState.
- *                    Expected units per lane:
- *                    Uwind/Vwind: 10-m winds [m/s];
- *                    Pair: mean sea-level pressure [Pa, converted to mb];
- *                    Qair: near-surface specific humidity [kg/kg];
- *                    Tair: 2-m air temperature [K, converted to degC];
- *                    Cloud: cloud fraction [0-1];
- *                    Rain: precipitation rate [kg/m^2/s];
- *                    SWrad/LWrad: downwelling shortwave/longwave radiation [W/m^2].
- *                    Missing lanes (null pointer or index out of range) are skipped;
- *                    driver_atmos_state_from_driver tracks populated lanes for the
- *                    bulk-flux parameterization fallback logic.
- * @param[in] time    Current ocean model time (unused; retained for driver
- *                    interface conformance).
  */
 void
 REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
@@ -355,7 +377,6 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         Box ubxD = ubx;
         ubxD.makeSlab(2,0);
         ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            // Sign on stress is flipped relative to ERF
             sustr(i,j,0) = -tau_x(i,j,0) / rho0 * msku(i,j,0);
         });
     }
@@ -369,7 +390,6 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         vbxD.makeSlab(2,0);
 
         ParallelFor(vbxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            // Sign on stress is flipped relative to ERF
             svstr(i,j,0) = -tau_y(i,j,0) / rho0 * mskv(i,j,0);
         });
     }
@@ -392,7 +412,6 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         gbx2D.makeSlab(2,0);
 
         ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            // ERF exports flux lanes in native surface-flux units; convert once at ingest.
             lrflx(i,j,0) = lwflux(i,j,0) * Hscale2;
             lhflx(i,j,0) = -lhflux(i,j,0) * Hscale2;
             shflx(i,j,0) = -shflux(i,j,0) * Hscale2;
