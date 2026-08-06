@@ -164,7 +164,10 @@ public:
      * @param[in    ] time   Current ocean model time (unused; retained for driver
      *                       interface conformance).
      */
-    void PackSurfaceState (amrex::Vector<amrex::MultiFab*>& state, amrex::Real time);
+    void PackSurfaceState (amrex::Vector<amrex::MultiFab*>& state, amrex::Real time,
+                          const amrex::MultiFab* weight_o2a_mf,
+                          const amrex::iMultiFab* index_o2a_mf,
+                          int max_stencil_size);
 
     /**
      * \brief Receives atmospheric states from the driver and applies unit conversions.
