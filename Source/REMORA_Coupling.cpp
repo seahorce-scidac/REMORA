@@ -41,7 +41,9 @@ ApplyConservativeRemap (const amrex::MultiFab& src,
                         amrex::MultiFab& dst,
                         const amrex::MultiFab& weight_mf,
                         const amrex::iMultiFab& index_mf,
-                        int max_stencil_size)
+                        int max_stencil_size,
+                        const amrex::MultiFab* dst_mask = nullptr,
+                        const amrex::iMultiFab* dst_land_mask = nullptr)
 {
     using namespace amrex;
 
@@ -60,6 +62,12 @@ ApplyConservativeRemap (const amrex::MultiFab& src,
         auto const& idx_arr = index_mf.const_array(mfi);
         auto const& src_arr = src_on_dst.const_array(mfi);
         auto        dst_arr = dst.array(mfi);
+        const bool has_mask = (dst_mask != nullptr);
+        auto const& mask_arr = has_mask ? dst_mask->const_array(mfi) : Array4<const Real>{};
+        // ERF land mask: 1 = land, 0 = water. Destination cells over land are
+        // zeroed out (wet/dry masking only, no vector rotation).
+        const bool has_land_mask = (dst_land_mask != nullptr);
+        auto const& land_arr = has_land_mask ? dst_land_mask->const_array(mfi) : Array4<const int>{};
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
             Real sum = 0.0;
@@ -73,6 +81,8 @@ ApplyConservativeRemap (const amrex::MultiFab& src,
                     sum += w * src_arr(src_i, src_j, src_k);
                 }
             }
+            if (has_mask) { sum *= mask_arr(i, j, k); }
+            if (has_land_mask && land_arr(i, j, k) == 1) { sum = Real(0.0); }
             dst_arr(i, j, k) = sum;
         });
     }
@@ -171,6 +181,16 @@ REMORA::GetAtmosToOceanPsiCoordinates (const amrex::MultiFab*& x_psi,
     y_psi = vec_yp[0].get();
 }
 
+void
+REMORA::GetLandSeaMasks (const amrex::MultiFab*& mskr,
+                         const amrex::MultiFab*& msku,
+                         const amrex::MultiFab*& mskv) const
+{
+    mskr = (!vec_mskr.empty() && vec_mskr[0]) ? vec_mskr[0].get() : nullptr;
+    msku = (!vec_msku.empty() && vec_msku[0]) ? vec_msku[0].get() : nullptr;
+    mskv = (!vec_mskv.empty() && vec_mskv[0]) ? vec_mskv[0].get() : nullptr;
+}
+
 /*
  * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
  *
@@ -182,7 +202,8 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state,
                           Real /*time*/,
                           const amrex::MultiFab* weight_o2a_mf,
                           const amrex::iMultiFab* index_o2a_mf,
-                          int max_stencil_size)
+                          int max_stencil_size,
+                          const amrex::iMultiFab* dst_land_mask)
 {
     if (state.empty() || state[SSTIndex] == nullptr) { return; }
     const int lev = 0;
@@ -210,7 +231,8 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state,
 
     if (weight_o2a_mf != nullptr && index_o2a_mf != nullptr) {
         // Execute sparse conservative remap from REMORA SST to ERF layout
-        ApplyConservativeRemap(tmp, dst, *weight_o2a_mf, *index_o2a_mf, max_stencil_size);
+        ApplyConservativeRemap(tmp, dst, *weight_o2a_mf, *index_o2a_mf, max_stencil_size,
+                               nullptr, dst_land_mask);
     } else {
         // Fallback for un-stenciled or synthetic runs
         dst.setVal(zero);

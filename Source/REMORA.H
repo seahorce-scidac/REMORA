@@ -139,6 +139,13 @@ public:
     void GetAtmosToOceanPsiCoordinates (const amrex::MultiFab*& x_psi,
                                         const amrex::MultiFab*& y_psi) const;
 
+    // Returns the level-0 wet/dry masks (1 = wet, 0 = land) at rho, u-face,
+    // and v-face points, used by the driver to exclude land cells from
+    // remap destination stencils. Sets pointers to nullptr if unavailable.
+    void GetLandSeaMasks (const amrex::MultiFab*& mskr,
+                          const amrex::MultiFab*& msku,
+                          const amrex::MultiFab*& mskv) const;
+
     /** \brief Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);
 
@@ -164,10 +171,14 @@ public:
      * @param[in    ] time   Current ocean model time (unused; retained for driver
      *                       interface conformance).
      */
+    // dst_land_mask is the ERF land mask (1 = land, 0 = water) on the
+    // destination (ERF) layout; destination cells over land are zeroed.
+    // Pass nullptr to skip masking.
     void PackSurfaceState (amrex::Vector<amrex::MultiFab*>& state, amrex::Real time,
                           const amrex::MultiFab* weight_o2a_mf,
                           const amrex::iMultiFab* index_o2a_mf,
-                          int max_stencil_size);
+                          int max_stencil_size,
+                          const amrex::iMultiFab* dst_land_mask = nullptr);
 
     /**
      * \brief Receives atmospheric states from the driver and applies unit conversions.
