@@ -133,6 +133,11 @@ public:
                                      amrex::DistributionMapping& dm) const;
     void GetAtmosToOceanVFaceLayout (amrex::BoxArray& ba,
                                      amrex::DistributionMapping& dm) const;
+    // Returns pointers to level-0 psi-point coordinate MultiFabs (vec_xp/vec_yp)
+    // used to build atmos->ocean remap weights. Sets both to nullptr if
+    // unavailable in the current configuration rather than aborting.
+    void GetAtmosToOceanPsiCoordinates (const amrex::MultiFab*& x_psi,
+                                        const amrex::MultiFab*& y_psi) const;
 
     /** \brief Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);

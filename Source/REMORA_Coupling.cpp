@@ -157,6 +157,20 @@ REMORA::GetAtmosToOceanVFaceLayout (amrex::BoxArray& ba,
     dm = vec_svstr[0]->DistributionMap();
 }
 
+void
+REMORA::GetAtmosToOceanPsiCoordinates (const amrex::MultiFab*& x_psi,
+                                       const amrex::MultiFab*& y_psi) const
+{
+    if (vec_xp.empty() || vec_yp.empty() ||
+        vec_xp[0] == nullptr || vec_yp[0] == nullptr) {
+        x_psi = nullptr;
+        y_psi = nullptr;
+        return;
+    }
+    x_psi = vec_xp[0].get();
+    y_psi = vec_yp[0].get();
+}
+
 /*
  * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
  *
