@@ -11,10 +11,6 @@ remora.prob_hi     =   8400.  750.       0.
 
 remora.n_cell           =  42 15 16
 
-amr.blocking_factor_z = 16
-
-amr.max_grid_size_z = 1024
-
 remora.is_periodic = 0 0 0
 
 remora.bc.xlo.type = "slipwall"
