@@ -11,7 +11,9 @@ REMORA allows both static and dynamic mesh refinement, as well as the choice of 
 
 Note that any tagged region will be covered by one or more boxes.  The user may
 specify the refinement criteria and/or region to be covered, but not the decomposition of the region into
-individual grids.
+individual grids. REMORA enforces that all refinement spans the entire vertical direction. Tagging criteria
+are ignored in masked regions and on land-sea boundaries. These regions may still be refined in order to
+accomodate adjacent tagged regions.
 
 See the `Gridding`_ section of the AMReX documentation for details of how individual grids are created.
 
@@ -22,7 +24,7 @@ Static Mesh Refinement
 
 For static refinement, we control the placement of grids by specifying
 the low and high extents (in physical space) of each box in the lateral
-directions. REMORA enforces that all refinement spans the entire vertical direction.
+directions.
 
 The following example demonstrates how to tag regions for static refinement.
 In this first example, all cells in the region :math:`[0.15,0.25,\texttt{prob_lo_z}] \times [0.35,0.45,\texttt{prob_hi_z}]`
@@ -120,7 +122,7 @@ Dynamic Mesh Refinement
 
 Dynamically created tagging functions are based on runtime data specified in the inputs file.
 These dynamically generated functions test on either state variables or derived variables
-defined in REMORA_derive.cpp and included in the derive_list in Setup.cpp.
+defined in REMORA_derive.cpp.
 
 Available tests include
 
@@ -162,6 +164,12 @@ and ``vorticity``.
           remora.lo_vort.field_name = vorticity
           remora.lo_vort.in_box_lo = .25 .25
           remora.lo_vort.in_box_hi = .75 .75
+
+Masked Regions and Tagging
+--------------------------
+
+Masked cells and the land-sea boundary are untagged for refinement even if they otherwise meet
+refinement criteria. They may still be refined, but they will not be forced to be refined.
 
 Coupling Types
 --------------

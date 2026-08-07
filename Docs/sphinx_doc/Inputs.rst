@@ -309,15 +309,14 @@ List of Parameters
 |                                  | already tagged   |                    |                   |
 |                                  | cells            |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
-| **amr.n_error_buf_{x,y,z}**      | radius of        | Integer >= 0;      | 1                 |
+| **amr.n_error_buf_{x,y}**        | radius of        | Integer >= 0;      | 1                 |
 |                                  | additional       |                    |                   |
 |                                  |                  | Can specify up     |                   |
 |                                  | tagging around   |                    |                   |
 |                                  |                  |                    |                   |
 |                                  | already tagged   | to one per         |                   |
 |                                  |                  | ref. level         |                   |
-|                                  | cells in x, y,   |                    |                   |
-|                                  | or z             |                    |                   |
+|                                  | cells in x or y  |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.blocking_factor**          | grid size must   | Integer > 0        | 2                 |
 |                                  |                  |                    |                   |
@@ -330,14 +329,6 @@ List of Parameters
 |                                  | {x,y} must be    | Can specify up to  |                   |
 |                                  |                  |                    |                   |
 |                                  | multiple of this | one per ref. level |                   |
-+----------------------------------+------------------+--------------------+-------------------+
-| **amr.blocking_factor_z**        | grid size in     | Integer > 0;       | 1                 |
-|                                  |                  |                    |                   |
-|                                  | z must be        | In AMR problems,   |                   |
-|                                  |                  |                    |                   |
-|                                  | multiple of this | recommend it equal |                   |
-|                                  |                  |                    |                   |
-|                                  |                  | ``n_cell`` in z    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.refine_grid_layout**       | refine grids     | 0 if false, 1      | 1                 |
 |                                  | more if          | if true            |                   |
@@ -374,6 +365,9 @@ Notes
 -  **amr.max_grid_size** at every level must be even
 
 -  **amr.blocking_factor** at every level must be a power of 2
+
+-  The blocking factor in the z-direction will be forced to a large value automatically to
+   guarantee the domain will not be decomposed in the z-direction
 
 -  the domain size **remora.n_cell** must be a multiple of
    **amr.blocking_factor** at level 0
