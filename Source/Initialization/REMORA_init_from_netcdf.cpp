@@ -693,13 +693,35 @@ REMORA::init_riv_pos_from_netcdf (int lev)
     amrex::Gpu::DeviceVector<int> xpos_d(nriv);
     amrex::Gpu::DeviceVector<int> ypos_d(nriv);
     river_direction.resize(nriv);
+
+    int rrx = (lev > 0) ? cum_ref_ratios[lev][0] : 1;
+    int rry = (lev > 0) ? cum_ref_ratios[lev][1] : 1;
+
+    // Map river source indices to the target AMR level while keeping one source
+    // point per river so total prescribed transport is unchanged.
+    amrex::Vector<int> river_pos_x_lev(nriv);
+    amrex::Vector<int> river_pos_y_lev(nriv);
+    for (int iriv = 0; iriv < nriv; ++iriv) {
+        int x0 = river_pos_x[iriv] - 1;
+        int y0 = river_pos_y[iriv] - 1;
+
+        if (river_direction_tmp[iriv] == 0) {
+            // u-face aligned in x, centered in y within the refined coarse cell.
+            river_pos_x_lev[iriv] = x0 * rrx;
+            river_pos_y_lev[iriv] = y0 * rry + (rry - 1) / 2;
+        } else {
+            // v-face aligned in y, centered in x within the refined coarse cell.
+            river_pos_x_lev[iriv] = x0 * rrx + (rrx - 1) / 2;
+            river_pos_y_lev[iriv] = y0 * rry;
+        }
+    }
 #ifdef AMREX_USE_GPU
-    Gpu::htod_memcpy(xpos_d.data(), river_pos_x.data(), sizeof(int)*nriv);
-    Gpu::htod_memcpy(ypos_d.data(), river_pos_y.data(), sizeof(int)*nriv);
+    Gpu::htod_memcpy(xpos_d.data(), river_pos_x_lev.data(), sizeof(int)*nriv);
+    Gpu::htod_memcpy(ypos_d.data(), river_pos_y_lev.data(), sizeof(int)*nriv);
     Gpu::htod_memcpy(river_direction.data(), river_direction_tmp.data(), sizeof(int)*nriv);
 #else
-    std::memcpy(xpos_d.data(), river_pos_x.data(), sizeof(int)*nriv);
-    std::memcpy(ypos_d.data(), river_pos_y.data(), sizeof(int)*nriv);
+    std::memcpy(xpos_d.data(), river_pos_x_lev.data(), sizeof(int)*nriv);
+    std::memcpy(ypos_d.data(), river_pos_y_lev.data(), sizeof(int)*nriv);
     std::memcpy(river_direction.data(), river_direction_tmp.data(), sizeof(int)*nriv);
 #endif
     const int* xpos_ptr = xpos_d.data();
@@ -710,13 +732,27 @@ REMORA::init_riv_pos_from_netcdf (int lev)
         auto river_pos = vec_river_position[lev]->array(mfi);
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
             for (int iriv=0; iriv < nriv; iriv++) {
-                int xriv = xpos_ptr[iriv]-1;
-                int yriv = ypos_ptr[iriv]-1;
+                int xriv = xpos_ptr[iriv];
+                int yriv = ypos_ptr[iriv];
                 if (i==xriv && j==yriv) {
                     river_pos(i,j,0) = iriv;
                 }
             }
         });
+    }
+
+    if (ParallelDescriptor::IOProcessor()) {
+        amrex::Print() << "[river-debug] lev=" << lev
+                       << " ref_ratio=(" << rrx << "," << rry << ")"
+                       << " nriv=" << nriv << '\n';
+        int nprint = (nriv < 8) ? nriv : 8;
+        for (int iriv = 0; iriv < nprint; ++iriv) {
+            amrex::Print() << "[river-debug]  river " << iriv
+                           << " dir=" << river_direction_tmp[iriv]
+                           << " nc=(" << river_pos_x[iriv] << "," << river_pos_y[iriv] << ")"
+                           << " lev=(" << river_pos_x_lev[iriv] + 1 << "," << river_pos_y_lev[iriv] + 1 << ")"
+                           << '\n';
+        }
     }
 }
 
