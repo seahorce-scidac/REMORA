@@ -37,6 +37,13 @@ if(DEFINED REMORA_ENABLE_NETCDF)
 endif()
 option(REMORA_ENABLE_FCOMPARE "Enable building fcompare when not testing" OFF)
 set(REMORA_PRECISION "DOUBLE" CACHE STRING "Floating point precision SINGLE or DOUBLE")
+set(REMORA_PRECISION_VALUES SINGLE DOUBLE)
+set_property(CACHE REMORA_PRECISION PROPERTY STRINGS ${REMORA_PRECISION_VALUES})
+if(NOT REMORA_PRECISION IN_LIST REMORA_PRECISION_VALUES)
+  message(FATAL_ERROR
+    "REMORA_PRECISION=${REMORA_PRECISION} is not supported. "
+    "Must be one of: ${REMORA_PRECISION_VALUES}")
+endif()
 
 #Options for performance
 option(REMORA_ENABLE_MPI    "Enable MPI"    OFF)
@@ -122,7 +129,7 @@ else()
     endif()
   else()
     set(CMAKE_PREFIX_PATH ${AMReX_DIR} ${CMAKE_PREFIX_PATH})
-    list(APPEND AMREX_COMPONENTS "3D" "DOUBLE")
+    list(APPEND AMREX_COMPONENTS "3D" "${REMORA_PRECISION}")
     if (REMORA_ENABLE_MPI)
       list(APPEND AMREX_COMPONENTS "MPI")
     endif()
