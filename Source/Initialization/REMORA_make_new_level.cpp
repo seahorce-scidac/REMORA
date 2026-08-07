@@ -1024,7 +1024,7 @@ REMORA::fill_3d_masks (int lev)
         Array4<const Real> const& mskr = vec_mskr[lev]->const_array(mfi);
         Array4<      Real> const& mskr3d = vec_mskr3d[lev]->array(mfi);
 
-        Box bx = mfi.tilebox(); bx.grow(IntVect(1,1,0)); bx.makeSlab(2,0);
+        Box bx = mfi.tilebox(); bx.grow(IntVect(1,1,0));
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {

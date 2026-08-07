@@ -88,6 +88,18 @@ REMORA::REMORA ()
 
     ReadParameters();
 
+    // Blocking factor in z set to very large value to be > nz
+    // This guarantees that there will be no domain decomposition in the z-direction
+    // We have to set this by hand here because setting it in the input file will
+    // cause checks in the AmrCore constructor to fail.
+    Vector<IntVect> blocking_factor_vec = Vector<IntVect>();
+    blocking_factor_vec.resize(max_level+1);
+    for (int lev = 0; lev <= max_level; ++lev) {
+        blocking_factor_vec[lev] = blockingFactor(lev);
+        blocking_factor_vec[lev][2] = 4096;
+    }
+    SetBlockingFactor(blocking_factor_vec);
+
     const std::string& pv3d = "plot_vars_3d"; set3DPlotVariables(pv3d);
     const std::string& pv2d = "plot_vars_2d"; set2DPlotVariables(pv2d);
 
