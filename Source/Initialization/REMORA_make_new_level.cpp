@@ -131,6 +131,12 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     set_zeta_to_Ztavg(lev);
     // Previously set smflux
 
+#ifdef REMORA_USE_NETCDF
+    if (solverChoice.do_rivers) {
+        init_riv_pos_from_netcdf(lev);
+    }
+#endif
+
     // ********************************************************************************************
     // If we are making a new level then the FillPatcher for this level hasn't been allocated yet
     // ********************************************************************************************
@@ -296,6 +302,12 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     set_coriolis(lev);
     set_zeta_to_Ztavg(lev);
     // Previously set smflux here
+
+#ifdef REMORA_USE_NETCDF
+    if (solverChoice.do_rivers) {
+        init_riv_pos_from_netcdf(lev);
+    }
+#endif
 
     // We need to re-define the FillPatcher if the grids have changed
     if (lev > 0 && cf_width >= 0) {
