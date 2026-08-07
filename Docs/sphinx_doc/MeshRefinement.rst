@@ -13,7 +13,7 @@ Note that any tagged region will be covered by one or more boxes.  The user may
 specify the refinement criteria and/or region to be covered, but not the decomposition of the region into
 individual grids. REMORA enforces that all refinement spans the entire vertical direction. Tagging criteria
 are ignored in masked regions and on land-sea boundaries. These regions may still be refined in order to
-accomodate adjacent tagged regions.
+accommodate adjacent tagged regions.
 
 See the `Gridding`_ section of the AMReX documentation for details of how individual grids are created.
 
