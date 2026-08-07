@@ -741,12 +741,11 @@ REMORA::init_riv_pos_from_netcdf (int lev)
         });
     }
 
-    if (ParallelDescriptor::IOProcessor()) {
+    if (verbose) {
         amrex::Print() << "[river-debug] lev=" << lev
                        << " ref_ratio=(" << rrx << "," << rry << ")"
                        << " nriv=" << nriv << '\n';
-        int nprint = (nriv < 8) ? nriv : 8;
-        for (int iriv = 0; iriv < nprint; ++iriv) {
+        for (int iriv = 0; iriv < nriv; ++iriv) {
             amrex::Print() << "[river-debug]  river " << iriv
                            << " dir=" << river_direction_tmp[iriv]
                            << " nc=(" << river_pos_x[iriv] << "," << river_pos_y[iriv] << ")"
