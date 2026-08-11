@@ -5,9 +5,9 @@
         Array4<const Real> const& temp = mf_cons.array(mfi,Temp_comp);
         Array4<      Real> const& cons = mf_cons.array(mfi);
 
-        bx = mfi.growntilebox(mf_cons.nGrowVect());
+        Box bx = mfi.growntilebox(mf_cons.nGrowVect());
 
-        ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
             Real SiO4;
             if (temp(i,j,k) < Real(8.0)) {
                 SiO4 = Real(30.0);
@@ -33,9 +33,10 @@
                 cons(i,j,k,bio_comp.oxyg)=Real(10.0)/Real(0.02241);
             }
             if (m_fennel_params.carbon) {
-                t(i,j,k,bio_comp.tic)=Real(2100.0);
-                t(i,j,k,bio_comp.talk)=Real(2350.0);
-                t(i,j,k,bio_comp.ldec)=Real(0.002);
-                t(i,j,k,bio_comp.sdec)=Real(0.06);
+                cons(i,j,k,bio_comp.tic)=Real(2100.0);
+                cons(i,j,k,bio_comp.talk)=Real(2350.0);
+                cons(i,j,k,bio_comp.ldec)=Real(0.002);
+                cons(i,j,k,bio_comp.sdec)=Real(0.06);
             }
         });
+    }

@@ -399,14 +399,14 @@ void Problem::init_analytic_surface_var (
 void Problem::init_analytic_biology (
         int /*lev*/, const amrex::Geometry& geom,
         SolverChoice const& /*m_solverChoice*/,
-        REMORABiology::FennelParameters const& /*m_fennel_params*/,
+        REMORABiology::FennelParameters const& m_fennel_params,
         REMORA const& /*remora*/,
         amrex::MultiFab& mf_cons)
 {
     ParmParse pp("remora");
     std::string my_prob_name; pp.get("prob_name",my_prob_name);
     std::string my_prob_name_ci = amrex::toLower(my_prob_name);
-    const auto bio_comp = REMORABiology::Fennel::components(remora->fennel_params);
+    const auto bio_comp = REMORABiology::Fennel::components(m_fennel_params);
     if (my_prob_name_ci == "biotoy") {
 #include "Prob/REMORA_InitAnalyticBiology_BioToy.H"
     }
