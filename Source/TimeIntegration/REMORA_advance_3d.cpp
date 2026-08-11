@@ -358,6 +358,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                   vec_msku[lev].get(), vec_mskv[lev].get(),
                   nstp, nnew, N, dt_lev);
     }
+    advance_biology(lev, *cons_old[lev], mf_cons, N, dt_lev);
     nnew = 0;
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )

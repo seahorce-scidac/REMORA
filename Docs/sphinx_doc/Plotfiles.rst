@@ -106,7 +106,7 @@ List of Parameters
 |                                        |                                   |                       |            |
 |                                        | Includes amrexvec_nu_x,           |                       |            |
 |                                        |                                   |                       |            |
-|                                        | amrexvec_nu_y, amrexvec_nu_z.    |                       |            |
+|                                        | amrexvec_nu_y, amrexvec_nu_z.     |                       |            |
 |                                        |                                   |                       |            |
 |                                        | Not used for netCDF               |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
@@ -152,7 +152,11 @@ Notes
 -  File prefixes can include directories.
 
 -  If both ``remora.plot_int`` and ``remora.plot_int_time`` have been set, plotfile output will occur
-  ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
+   ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
+
+-  When Fennel biology is enabled, active biology tracers can be requested by
+   name in ``remora.plot_vars_3d``. See :ref:`sec:Fennel` for tracer names and
+   component options.
 
 3D Plotfile Field Options
 --------------------------

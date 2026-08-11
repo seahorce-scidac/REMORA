@@ -148,9 +148,7 @@ REMORA::init_data_from_netcdf (int lev)
     } // mf
     } // omp
 
-    if (nscalar > 1) {
-        cons_new[lev]->setVal(zero, Tracer_comp + 1, nscalar - 1, cons_new[lev]->nGrowVect());
-    }
+    cons_new[lev]->setVal(zero, Tracer_comp, nscalar, cons_new[lev]->nGrowVect());
 }
 
 void
@@ -190,10 +188,7 @@ REMORA::init_data_full_domain_from_netcdf ()
     } // mf
     } // omp
 
-    vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp, 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
-    if (nscalar > 1) {
-        vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp + 1, nscalar - 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
-    }
+    vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp, nscalar, vec_cons_full_domain[hires_init_level]->nGrowVect());
 
     // Average down to fill levels below hires_grid_level. Use a special average_down so
     // grow cells get populated by averaged down fine data

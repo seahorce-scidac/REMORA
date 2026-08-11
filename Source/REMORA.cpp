@@ -249,10 +249,20 @@ REMORA::init_scalar_metadata ()
     cons_names.reserve(ncons);
     cons_names.emplace_back("temp");
     cons_names.emplace_back("salt");
-    cons_names.emplace_back("tracer");
-    for (int i = 1; i < nscalar; ++i) {
-        cons_names.emplace_back("tracer_" + std::to_string(i));
+
+    if (REMORABiology::has_biology(biology_model)) {
+        const auto bio_names = REMORABiology::tracer_names(biology_model, fennel_params);
+        for (const auto& name : bio_names) {
+            cons_names.emplace_back(name);
+        }
+    } else {
+        cons_names.emplace_back("tracer");
+        for (int i = 1; i < nscalar; ++i) {
+            cons_names.emplace_back("tracer_" + std::to_string(i));
+        }
     }
+
+    AMREX_ALWAYS_ASSERT(static_cast<int>(cons_names.size()) == ncons);
 }
 
 void
@@ -1616,9 +1626,27 @@ REMORA::ReadParameters ()
     ParmParse pp(pp_prefix);
 
     // Common physics and simulation parameters
-    pp.queryAdd("nscalar", nscalar);
-    if (nscalar < 1) {
-        amrex::Abort("remora.nscalar must be at least 1");
+    std::string biology_model_string = REMORABiology::biology_model_name(biology_model);
+    pp.queryAdd("biology_model", biology_model_string);
+    biology_model = REMORABiology::parse_biology_model(biology_model_string);
+
+    if (REMORABiology::has_biology(biology_model)) {
+        fennel_params.init_params(pp_prefix);
+        const int nbio = static_cast<int>(REMORABiology::tracer_names(biology_model, fennel_params).size());
+        if (pp.contains("nscalar")) {
+            int requested_nscalar = nscalar;
+            pp.get("nscalar", requested_nscalar);
+            if (requested_nscalar != nbio) {
+                amrex::Abort("remora.nscalar must match the active biology tracer count for remora.biology_model="
+                             + biology_model_string);
+            }
+        }
+        nscalar = nbio;
+    } else {
+        pp.queryAdd("nscalar", nscalar);
+        if (nscalar < 1) {
+            amrex::Abort("remora.nscalar must be at least 1");
+        }
     }
     ncons = Tracer_comp + nscalar;
     init_scalar_metadata();

@@ -347,54 +347,31 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("zeta").put_attr("coordinates","x_rho y_rho ocean_time");
         ncf.var("zeta").put_attr("field","free-surface, scalar, series");
 
-        {
+        for (int n = 0; n < ncons; ++n) {
             int comp = -1;
             for (int i = 0; i < plot_var_names_3d.size(); i++) {
-                if (plot_var_names_3d[i] == "temp") comp = i;
+                if (plot_var_names_3d[i] == cons_names[n]) comp = i;
             }
             if (comp >= 0) {
-                ncf.def_var_fill("temp", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
-                ncf.var("temp").put_attr("long_name","potential temperature");
-                ncf.var("temp").put_attr("units","Celsius");
-                ncf.var("temp").put_attr("time","ocean_time");
-                ncf.var("temp").put_attr("grid","grid");
-                ncf.var("temp").put_attr("location","face");
-                ncf.var("temp").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
-                ncf.var("temp").put_attr("field","temperature, scalar, series");
+                const std::string& nm = cons_names[n];
+                ncf.def_var_fill(nm, ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
+                if (n == Temp_comp) {
+                    ncf.var(nm).put_attr("long_name", "potential temperature");
+                    ncf.var(nm).put_attr("units", "Celsius");
+                    ncf.var(nm).put_attr("field", "temperature, scalar, series");
+                } else if (n == Salt_comp) {
+                    ncf.var(nm).put_attr("long_name", "salinity");
+                    ncf.var(nm).put_attr("field", "salinity, scalar, series");
+                } else {
+                    ncf.var(nm).put_attr("long_name", nm);
+                    ncf.var(nm).put_attr("field", nm + ", scalar, series");
+                }
+                ncf.var(nm).put_attr("time", "ocean_time");
+                ncf.var(nm).put_attr("grid", "grid");
+                ncf.var(nm).put_attr("location", "face");
+                ncf.var(nm).put_attr("coordinates", "x_rho y_rho s_rho ocean_time");
             }
-        } // end temp
-
-        {
-            int comp = -1;
-            for (int i = 0; i < plot_var_names_3d.size(); i++) {
-                if (plot_var_names_3d[i] == "salt") comp = i;
-            }
-            if (comp >= 0) {
-                ncf.def_var_fill("salt", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
-                ncf.var("salt").put_attr("long_name","salinity");
-                ncf.var("salt").put_attr("time","ocean_time");
-                ncf.var("salt").put_attr("grid","grid");
-                ncf.var("salt").put_attr("location","face");
-                ncf.var("salt").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
-                ncf.var("salt").put_attr("field","salinity, scalar, series");
-            }
-        } // end salt
-
-        {
-            int comp = -1;
-            for (int i = 0; i < plot_var_names_3d.size(); i++) {
-                if (plot_var_names_3d[i] == "tracer") comp = i;
-            }
-            if (comp >= 0) {
-                ncf.def_var_fill("tracer", ncutils::NCDType::Real, { nt_name, nz_r_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
-                ncf.var("tracer").put_attr("long_name","passive tracer");
-                ncf.var("tracer").put_attr("time","ocean_time");
-                ncf.var("tracer").put_attr("grid","grid");
-                ncf.var("tracer").put_attr("location","face");
-                ncf.var("tracer").put_attr("coordinates","x_rho y_rho s_rho ocean_time");
-                ncf.var("tracer").put_attr("field","tracer, scalar, series");
-            }
-        } // end tracer
+        }
 
         {
             int comp = -1;
@@ -422,7 +399,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("visc2").put_attr("coordinates","x_rho y_rho");
             ncf.var("visc2").put_attr("field","visc2, scalar");
 
-            for (int n = 0; n < Tracer_comp + 1; ++n) {
+            for (int n = 0; n < ncons; ++n) {
                 const std::string nm = std::string("diff2_") + cons_names[n];
                 ncf.def_var_fill(nm, ncutils::NCDType::Real, { ny_r_name, nx_r_name }, &netcdf_fill_value);
                 ncf.var(nm).put_attr("long_name", std::string("horizontal harmonic diffusivity coefficient for ") + cons_names[n] + " at RHO-points");
@@ -1053,10 +1030,10 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             } // end output forcing
 
             // **************************************************************************
-            { // Temp
+            for (int n = 0; n < ncons; ++n) {
                 int comp = -1;
                 for (int i = 0; i < plot_var_names_3d.size(); i++) {
-                    if (plot_var_names_3d[i] == "temp") comp = i;
+                    if (plot_var_names_3d[i] == cons_names[n]) comp = i;
                 }
                 if (comp >= 0) {
                     FArrayBox tmp;
@@ -1064,49 +1041,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var(plot_var_names_3d[comp]);
+                    auto nc_plot_var = ncf.var(cons_names[n]);
                     nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
                             local_nz, local_ny, local_nx });
-                } // if temp exists in plotMF
-            } // end temp
-            // **************************************************************************
-
-            // **************************************************************************
-            { // Salt
-                int comp = -1;
-                for (int i = 0; i < plot_var_names_3d.size(); i++) {
-                    if (plot_var_names_3d[i] == "salt") comp = i;
                 }
-                if (comp >= 0) {
-                    FArrayBox tmp;
-                    tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                    tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
-                    Gpu::streamSynchronize();
-
-                    auto nc_plot_var = ncf.var(plot_var_names_3d[comp]);
-                    nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
-                            local_nz, local_ny, local_nx });
-                } // if salt exists in plotMF
-            } // end salt
-            // **************************************************************************
-
-            // **************************************************************************
-            { // Tracer
-                int comp = -1;
-                for (int i = 0; i < plot_var_names_3d.size(); i++) {
-                    if (plot_var_names_3d[i] == "tracer") comp = i;
-                }
-                if (comp >= 0) {
-                    FArrayBox tmp;
-                    tmp.resize(tmp_bx, 1, amrex::The_Pinned_Arena());
-                    tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
-                    Gpu::streamSynchronize();
-
-                    auto nc_plot_var = ncf.var(plot_var_names_3d[comp]);
-                    nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
-                            local_nz, local_ny, local_nx });
-                } // if tracer exists in plotMF
-            } // end tracer
+            }
             // **************************************************************************
 
             // **************************************************************************
@@ -1144,7 +1083,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 }
 
                 // diff2_*
-                for (int n = 0; n < Tracer_comp + 1; ++n) {
+                for (int n = 0; n < ncons; ++n) {
                     const std::string nm = std::string("diff2_") + cons_names[n];
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());

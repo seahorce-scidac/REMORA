@@ -35,6 +35,7 @@
 #include <REMORA_TimeInterpolatedData.H>
 #include <REMORA_DataStruct.H>
 #include <REMORA_Derive.H>
+#include <REMORA_Biology.H>
 #include "REMORA_prob_common.H"
 
 #ifdef REMORA_USE_PARTICLES
@@ -659,6 +660,11 @@ public:
                      amrex::MultiFab const* mf_mskv,
                      const int N,
                      const amrex::Real dt_lev);
+
+    /** \brief Apply biological tracer source/sink terms */
+    void advance_biology (int lev, amrex::MultiFab const& mf_cons_old,
+                          amrex::MultiFab& mf_cons_new,
+                          int N, amrex::Real dt_lev);
 
     /** \brief Calculate bulk temperature, salinity, wind fluxes */
     void bulk_fluxes (int lev,
@@ -1503,10 +1509,14 @@ private:
     /** \brief If set, restart from this checkpoint file */
     std::string restart_chkfile = "";
 
-    /** \brief Number of passive scalars carried in the state */
+    /** \brief Number of non-temperature/salinity scalars carried in the state */
     int nscalar = 1;
-    /** \brief Number of conserved scalars in the state (temperature + salt + passive scalars) */
+    /** \brief Number of conserved scalars in the state (temperature + salt + extra scalars) */
     int ncons = Tracer_comp + 1;
+    /** \brief Active biology package */
+    REMORABiology::BiologyModel biology_model = REMORABiology::BiologyModel::none;
+    /** \brief Runtime parameters for the Fennel biology package */
+    REMORABiology::FennelParameters fennel_params;
 
     // Time step controls
     /** \brief CFL condition */

@@ -43,6 +43,7 @@ In addition to this documentation, there is API documentation for REMORA generat
 
    GettingStarted.rst
    Inputs.rst
+   Fennel.rst
    ProblemSetup.rst
    testing.rst
 
