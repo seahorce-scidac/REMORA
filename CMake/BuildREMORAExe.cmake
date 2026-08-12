@@ -126,6 +126,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/TimeIntegration/REMORA_scale_rhs_vars.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_vert_visc_3d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_update_massflux_3d.cpp
+       ${SRC_DIR}/TimeIntegration/REMORA_update_rivers.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_vert_mean_3d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_ComputeTimestep.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_TimeStep.cpp
