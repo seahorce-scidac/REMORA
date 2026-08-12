@@ -18,6 +18,10 @@ REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycl
 {
     BL_PROFILE("REMORA::Advance()");
 
+    if (solverChoice.do_rivers) {
+        update_rivers(time);
+    }
+
     setup_step(lev, time, dt_lev);
 
     if (solverChoice.use_barotropic)

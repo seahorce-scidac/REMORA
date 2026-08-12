@@ -812,7 +812,6 @@ REMORA::advance_2d (int lev,
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_rivers) {
-            river_source_transportbar->update_interpolated_to_time(t_old[lev]);
             int* river_direction_d = river_direction.data();
             for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
             {

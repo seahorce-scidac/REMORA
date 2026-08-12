@@ -189,9 +189,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             fill_from_bdyfiles(lev, mf_v,*mf_mskv,t_old[lev],yvel_bc(),BdyVars::v,0,0,*yvel_old[lev],dt_lev);
         }
 
-    if (solverChoice.do_rivers) {
-        river_source_transport->update_interpolated_to_time(t_old[lev]);
-    }
 #endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {

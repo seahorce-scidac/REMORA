@@ -999,6 +999,9 @@ public:
                    const amrex::Array4<amrex::Real const>& pn,
                    const amrex::Real dt_lev = zero);
 
+    /** \brief Update all river variables at a time */
+    void update_rivers (amrex::Real time);
+
     /** \brief Set 2D momentum arrays from 3D momentum */
     void set_2darrays (int lev);
 
