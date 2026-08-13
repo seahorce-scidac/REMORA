@@ -38,13 +38,9 @@ remora.Cdb_max = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.Cdb_min = <UNKNOWN_DEFAULT>
 
-# Load evaporation minus
-# type=bool; method=queryAdd
-remora.EminusP_from_netcdf = <UNKNOWN_DEFAULT>
-
-# Control flags for loading atmospheric variables from NetCDF
-# type=bool; method=queryAdd
-remora.Pair_from_netcdf = <UNKNOWN_DEFAULT>
+# Constant prescribed E-P [kg/m^2/s]
+# type=Real; method=queryAdd
+remora.EminusP = <UNKNOWN_DEFAULT>
 
 # Background density [kg/m^3]
 # type=Real; method=queryAdd
@@ -61,10 +57,6 @@ remora.Scoef = 0.0
 # Background temperature
 # type=Real; method=queryAdd
 remora.T0 = 10.0
-
-# Control flags for loading atmospheric variables from NetCDF
-# type=bool; method=queryAdd
-remora.Tair_from_netcdf = <UNKNOWN_DEFAULT>
 
 # Linear EOS parameter
 # type=Real; method=queryAdd
@@ -90,19 +82,23 @@ remora.air_pressure = 1013.48
 # type=Real; method=queryAdd
 remora.air_temperature = 23.567
 
+# source: Source/REMORA_DataStruct.H:219
+# type=bool; method=queryAdd
+remora.atm2ocn_flux_mode = <UNKNOWN_DEFAULT>
+
 # Default z directions to slipwall
 # type=string; method=queryAdd
 remora.bc.bcid.type = slipwall
 
-# source: Source/Initialization/REMORA_init_bcs.cpp:203
+# source: Source/Initialization/REMORA_init_bcs.cpp:215
 # type=std::vector<std::string>; method=queryarr
 remora.bc.varname.type = outflow outflow outflow outflow
 
-# source: Source/REMORA.cpp:1523
+# source: Source/REMORA.cpp:1803
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_salt_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1522
+# source: Source/REMORA.cpp:1802
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_temp_time_varname = <UNKNOWN_DEFAULT>
 
@@ -110,35 +106,35 @@ remora.bdy_temp_time_varname = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.bdy_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1524
+# source: Source/REMORA.cpp:1804
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_u_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1526
+# source: Source/REMORA.cpp:1806
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_ubar_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1525
+# source: Source/REMORA.cpp:1805
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_v_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1527
+# source: Source/REMORA.cpp:1807
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_vbar_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1528
+# source: Source/REMORA.cpp:1808
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_zeta_time_varname = <UNKNOWN_DEFAULT>
 
-# Height [m] of atmospheric
+# Height [m] of humidity measurements
 # type=Real; method=queryAdd
 remora.blk_ZQ = <UNKNOWN_DEFAULT>
 
-# Height [m] of atmospheric
+# Height [m] of temperature measurements
 # type=Real; method=queryAdd
 remora.blk_ZT = <UNKNOWN_DEFAULT>
 
-# Height [m] of atmospheric wind
+# Height [m] of wind measurements
 # type=Real; method=queryAdd
 remora.blk_ZW = <UNKNOWN_DEFAULT>
 
@@ -154,27 +150,27 @@ remora.boundary_per_variable = false
 # type=bool; method=queryAdd
 remora.bulk_fluxes = true
 
-# Time step controls
+# CFL number for
 # type=Real; method=queryAdd
 remora.cfl = <UNKNOWN_DEFAULT>
 
-# Time step controls
+# factor by which
 # type=Real; method=queryAdd
 remora.change_max = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1327
+# source: Source/REMORA.cpp:1626
 # type=string; method=queryAdd
 remora.check_file = chk
 
-# source: Source/REMORA.cpp:1328
+# source: Source/REMORA.cpp:1627
 # type=int; method=queryAdd
 remora.check_int = -57600
 
-# source: Source/REMORA.cpp:1330
+# source: Source/REMORA.cpp:1628
 # type=Real; method=queryAdd
 remora.check_int_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1423
+# source: Source/REMORA.cpp:1695
 # type=bool; method=queryAdd
 remora.chunk_history_file = <UNKNOWN_DEFAULT>
 
@@ -202,13 +198,9 @@ remora.clim_v_time_varname = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.clim_vbar_time_varname = <UNKNOWN_DEFAULT>
 
-# Cloud cover fraction (0=clear sky,
+# Constant cloud cover fraction
 # type=Real; method=queryAdd
 remora.cloud = 0.5
-
-# Load cloud cover from NetCDF
-# type=bool; method=queryAdd
-remora.cloud_from_netcdf = <UNKNOWN_DEFAULT>
 
 # coriolis factor
 # type=Real; method=queryAdd
@@ -226,7 +218,7 @@ remora.coriolis_type = beta_plane
 # type=string; method=queryAdd
 remora.coupling_type = TwoWay
 
-# source: Source/REMORA.cpp:1347
+# source: Source/REMORA.cpp:1645
 # type=Vector<std::string>; method=queryarr
 remora.data_log = <UNKNOWN_DEFAULT>
 
@@ -262,37 +254,41 @@ remora.do_salt_clim_nudg = <UNKNOWN_DEFAULT>
 # type=bool; method=queryAdd
 remora.do_temp_clim_nudg = <UNKNOWN_DEFAULT>
 
-# Whether to do E-P prescription for
+# source: Source/REMORA_DataStruct.H:252
 # type=bool; method=queryAdd
 remora.eminusp = true
 
-# Whether to adjust sea surface
+# Adjust sea surface height for active
 # type=bool; method=queryAdd
 remora.eminusp_correct_ssh = true
+
+# source: Source/REMORA_DataStruct.H:248
+# type=Real; method=query
+remora.eminusp_value = <UNKNOWN_DEFAULT>
 
 # Which equation of state to use.
 # type=string; method=queryAdd
 remora.eos_type = linear
 
-# source: Source/REMORA.cpp:1333
+# source: Source/REMORA.cpp:1629
 # type=bool; method=queryAdd
 remora.expand_plotvars_to_unif_rr = <UNKNOWN_DEFAULT>
 
-# Frequency of diagnostic output
+# source: Source/REMORA.cpp:1653
 # type=int; method=queryAdd
-remora.file_min_digits = <UNKNOWN_DEFAULT>
+remora.file_min_digits = 5
 
-# Time step controls
+# set level 0 dt
 # type=Real; method=queryAdd
 remora.fixed_dt = 300.0
 
-# Time step controls
+# set fast dt as this
 # type=Real; method=queryAdd
 remora.fixed_fast_dt = 10.0
 
-# source: Source/REMORA.cpp:1371
+# source: Source/REMORA.cpp:1663
 # type=int; method=queryAdd
-remora.fixed_ndtfast_ratio = 30
+remora.fixed_ndtfast_ratio = 0
 
 # \brief read in and initialize parameters
 # type=bool; method=queryAdd
@@ -318,35 +314,35 @@ remora.gls_N = -1.0
 # type=Real; method=queryAdd
 remora.gls_P = 3.0
 
-# source: Source/REMORA_DataStruct.H:469
+# source: Source/REMORA_DataStruct.H:618
 # type=Real; method=queryAdd
 remora.gls_Pmin = 1.0e-12
 
-# source: Source/REMORA_DataStruct.H:472
+# source: Source/REMORA_DataStruct.H:621
 # type=Real; method=queryAdd
 remora.gls_c1 = 1.44
 
-# source: Source/REMORA_DataStruct.H:473
+# source: Source/REMORA_DataStruct.H:622
 # type=Real; method=queryAdd
 remora.gls_c2 = 1.92
 
-# source: Source/REMORA_DataStruct.H:474
+# source: Source/REMORA_DataStruct.H:623
 # type=Real; method=queryAdd
 remora.gls_c3m = -0.4
 
-# source: Source/REMORA_DataStruct.H:475
+# source: Source/REMORA_DataStruct.H:624
 # type=Real; method=queryAdd
 remora.gls_c3p = 1.0
 
-# source: Source/REMORA_DataStruct.H:471
+# source: Source/REMORA_DataStruct.H:620
 # type=Real; method=queryAdd
 remora.gls_cmu0 = 0.5477
 
-# source: Source/REMORA_DataStruct.H:476
+# source: Source/REMORA_DataStruct.H:625
 # type=Real; method=queryAdd
 remora.gls_sigk = 1.0
 
-# source: Source/REMORA_DataStruct.H:477
+# source: Source/REMORA_DataStruct.H:626
 # type=Real; method=queryAdd
 remora.gls_sigp = 1.3
 
@@ -354,7 +350,7 @@ remora.gls_sigp = 1.3
 # type=string; method=queryAdd
 remora.gls_stability_type = Canuto_A
 
-# source: Source/REMORA_DataStruct.H:258
+# source: Source/REMORA_DataStruct.H:396
 # type=string; method=queryAdd
 remora.grid_scale_type = constant
 
@@ -362,11 +358,19 @@ remora.grid_scale_type = constant
 # type=string; method=queryAdd
 remora.harmonic_mixing_type = s
 
+# level where high-resolution
+# type=int; method=queryAdd
+remora.hires_grid_level = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA.cpp:1833
+# type=int; method=queryAdd
+remora.hires_init_level = <UNKNOWN_DEFAULT>
+
 # Horizontal mixing type.
 # type=string; method=queryAdd
 remora.horizontal_mixing_type = analytic
 
-# source: Source/REMORA_DataStruct.H:272
+# source: Source/REMORA_DataStruct.H:410
 # type=string; method=queryAdd
 remora.ic_bc_type = analytic
 
@@ -374,55 +378,47 @@ remora.ic_bc_type = analytic
 # type=string; method=queryAdd
 remora.ic_type = analytic
 
-# source: Source/REMORA_DataStruct.H:170
+# source: Source/REMORA_DataStruct.H:195
 # type=bool; method=queryAdd
 remora.init_ana_T = true
 
-# source: Source/REMORA_DataStruct.H:169
-# type=bool; method=queryAdd
-remora.init_ana_h = true
-
-# source: Source/REMORA_DataStruct.H:173
+# source: Source/REMORA_DataStruct.H:197
 # type=bool; method=queryAdd
 remora.init_l0int_T = false
 
-# source: Source/REMORA_DataStruct.H:172
-# type=bool; method=queryAdd
-remora.init_l0int_h = false
-
-# source: Source/REMORA_DataStruct.H:167
+# source: Source/REMORA_DataStruct.H:193
 # type=bool; method=queryAdd
 remora.init_l1ad_T = false
-
-# source: Source/REMORA_DataStruct.H:166
-# type=bool; method=queryAdd
-remora.init_l1ad_h = false
 
 # is the domain
 # type=Vector<int>; method=queryarr
 remora.is_periodic = 1 1 0
 
-# Use file-provided downward longwave
+# Treat external longwave as downward
 # type=bool; method=queryAdd
 remora.longwave_down = <UNKNOWN_DEFAULT>
 
-# Load longwave field from NetCDF
+# Interpret external longwave as net
 # type=bool; method=queryAdd
-remora.longwave_down_from_netcdf = <UNKNOWN_DEFAULT>
-
-# Interpret the NetCDF longwave field
-# type=bool; method=queryAdd
-remora.longwave_netcdf_is_net = <UNKNOWN_DEFAULT>
+remora.longwave_is_net = <UNKNOWN_DEFAULT>
 
 # Name of the NetCDF longwave variable
 # type=string; method=queryAdd
 remora.longwave_netcdf_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA_DataStruct.H:514
+# Constant external longwave [W/m^2]
+# type=Real; method=queryAdd
+remora.longwave_radiation_flux = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA_DataStruct.H:241
+# type=Real; method=query
+remora.lwrad = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA_DataStruct.H:663
 # type=Real; method=queryAdd
 remora.m2nudg = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA_DataStruct.H:515
+# source: Source/REMORA_DataStruct.H:664
 # type=Real; method=queryAdd
 remora.m3nudg = <UNKNOWN_DEFAULT>
 
@@ -464,7 +460,7 @@ remora.n_cell = 41 80 16
 
 # We only read boundary data at level 0
 # type=Vector<std::string>; method=queryarr
-remora.nc_bdry_file = "idmini_bry_Salt_classic64.nc"
+remora.nc_bdry_file = ""
 
 # NetCDF file name for
 # type=string; method=queryAdd
@@ -478,19 +474,27 @@ remora.nc_clim_his_file = <UNKNOWN_DEFAULT>
 # type=Vector<std::string>; method=queryarr
 remora.nc_frc_file = <UNKNOWN_DEFAULT>
 
+# high-resolution grid data NetCDF
+# type=string; method=queryAdd
+remora.nc_grid_file_hires = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA.cpp:1771
+# type=string; method=queryAdd
+remora.nc_init_file_hires = <UNKNOWN_DEFAULT>
+
 # Get river file
 # type=Vector<std::string>; method=queryarr
 remora.nc_river_file = "idRiv_riv_v0.2_classic64.nc"
 
-# source: Source/REMORA.cpp:1336
+# source: Source/REMORA.cpp:1631
 # type=Real; method=query
 remora.netcdf_fill_value = <UNKNOWN_DEFAULT>
 
-# Number of passive scalars
+# Common physics and simulation parameters
 # type=int; method=queryAdd
 remora.nscalar = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA_DataStruct.H:516
+# source: Source/REMORA_DataStruct.H:665
 # type=Real; method=queryAdd
 remora.obcfac = <UNKNOWN_DEFAULT>
 
@@ -502,29 +506,61 @@ remora.omp_tile_size = 8 8 1024000
 # type=bool; method=queryAdd
 remora.output_forcing = <UNKNOWN_DEFAULT>
 
-# Plotfile name and frequency
+# source: Source/REMORA.cpp:1681
 # type=string; method=queryAdd
 remora.plot_file = plt
 
-# Plotfile name and frequency
+# source: Source/REMORA.cpp:1682
 # type=int; method=queryAdd
 remora.plot_int = 100
 
-# Plotfile name and frequency
+# source: Source/REMORA.cpp:1683
 # type=Real; method=queryAdd
 remora.plot_int_time = <UNKNOWN_DEFAULT>
 
-# Should we plot the staggered face velocities (without averaging to cell centers)
-# type=int; method=queryAdd
-remora.plot_staggered_vels = <UNKNOWN_DEFAULT>
+# source: Source/REMORA.cpp:1685
+# type=bool; method=query
+remora.plot_nodal_data = true
 
-# source: Source/REMORA.cpp:1335
+# source: Source/REMORA.cpp:1684
+# type=bool; method=query
+remora.plot_staggered_vels = false
+
+# source: Source/REMORA.cpp:1630
 # type=Real; method=query
 remora.plotfile_fill_value = <UNKNOWN_DEFAULT>
 
-# Output format
+# source: Source/REMORA.cpp:1688
 # type=string; method=queryAdd
 remora.plotfile_type = amrex
+
+# source: Source/Prob/REMORA_InitAnalyticBathymetry_DogboneAnalytic.H:4
+# type=bool; method=query
+remora.prob.traditional = true
+
+# Reference Wind Speed
+# type=Real; method=query
+remora.prob.uRef = 8.0e-3
+
+# source: Source/Prob/REMORA_InitAnalyticProb_Advection.H:3
+# type=Real; method=query
+remora.prob.u_0 = 0.0
+
+# source: Source/Prob/REMORA_InitAnalyticProb_Advection.H:4
+# type=Real; method=query
+remora.prob.v_0 = 0.0
+
+# Reference Wind Speed
+# type=Real; method=query
+remora.prob.velRef = <UNKNOWN_DEFAULT>
+
+# Surface Roughness
+# type=Real; method=query
+remora.prob.z0 = 0.1
+
+# Reference Height
+# type=Real; method=query
+remora.prob.zRef = 80.0e-3
 
 # physical
 # type=Vector<Real>; method=queryarr
@@ -534,21 +570,13 @@ remora.prob_hi = 320000. 320000. 0.
 # type=Vector<Real>; method=queryarr
 remora.prob_lo = 0. 0. -150.
 
-# Control flags for loading atmospheric variables from NetCDF
-# type=bool; method=queryAdd
-remora.qair_from_netcdf = <UNKNOWN_DEFAULT>
-
-# Control flags for loading atmospheric variables from NetCDF
+# Convert NetCDF qair from 0-100 percent
 # type=bool; method=queryAdd
 remora.qair_is_percent = <UNKNOWN_DEFAULT>
 
-# Precipitation rate [kg/m^2/s]
+# Constant precipitation rate [kg/m^2/s]
 # type=Real; method=queryAdd
 remora.rain = 0.002
-
-# Control flags for loading atmospheric variables from NetCDF
-# type=bool; method=queryAdd
-remora.rain_from_netcdf = <UNKNOWN_DEFAULT>
 
 # Linear drag coefficient (used if
 # type=Real; method=queryAdd
@@ -558,63 +586,63 @@ remora.rdrag = 0.0
 # type=Real; method=queryAdd
 remora.rdrag2 = 3.0e-3
 
-# source: Source/REMORA_Tagging.cpp:134
+# source: Source/REMORA_Tagging.cpp:159
 # type=Vector<std::string>; method=queryarr
 remora.refinement_indicators = bx1
 
-# source: Source/REMORA_Tagging.cpp:373
+# source: Source/REMORA_Tagging.cpp:397
 # type=Real; method=getarr
 remora.refinement_indicators_.adjacent_difference_greater = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:348
+# source: Source/REMORA_Tagging.cpp:372
 # type=Real; method=get
 remora.refinement_indicators_.end_time = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:360
+# source: Source/REMORA_Tagging.cpp:384
 # type=string; method=get
 remora.refinement_indicators_.field_name = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:172
+# source: Source/REMORA_Tagging.cpp:196
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:229
+# source: Source/REMORA_Tagging.cpp:253
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi_indices = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:306
+# source: Source/REMORA_Tagging.cpp:330
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi_indices_crse = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:171
+# source: Source/REMORA_Tagging.cpp:195
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:228
+# source: Source/REMORA_Tagging.cpp:252
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo_indices = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:305
+# source: Source/REMORA_Tagging.cpp:329
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo_indices_crse = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:168
+# source: Source/REMORA_Tagging.cpp:192
 # type=int; method=get
 remora.refinement_indicators_.max_level = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:344
+# source: Source/REMORA_Tagging.cpp:368
 # type=Real; method=get
 remora.refinement_indicators_.start_time = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:359
+# source: Source/REMORA_Tagging.cpp:383
 # type=Real; method=getarr
 remora.refinement_indicators_.value_greater = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:366
+# source: Source/REMORA_Tagging.cpp:390
 # type=Real; method=getarr
 remora.refinement_indicators_.value_less = <REQUIRED>
 
-# source: Source/REMORA.cpp:1338
+# source: Source/REMORA.cpp:1632
 # type=string; method=queryAdd
 remora.restart = <UNKNOWN_DEFAULT>
 
@@ -634,15 +662,11 @@ remora.scaled_to_grid_amr_scaling = none
 # type=string; method=queryAdd
 remora.smflux_type = analytic
 
-# Load shortwave radiation flux
-# type=bool; method=queryAdd
-remora.srflx_from_netcdf = <UNKNOWN_DEFAULT>
-
 # initial simulation
 # type=Real; method=queryAdd
 remora.start_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1424
+# source: Source/REMORA.cpp:1696
 # type=int; method=queryAdd
 remora.steps_per_history_file = <UNKNOWN_DEFAULT>
 
@@ -650,11 +674,11 @@ remora.steps_per_history_file = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.stop_time = 30000.0
 
-# Frequency of diagnostic output
+# how often (in
 # type=int; method=queryAdd
-remora.sum_interval = 1
+remora.sum_interval = -1
 
-# Frequency of diagnostic output
+# source: Source/REMORA.cpp:1652
 # type=Real; method=queryAdd
 remora.sum_period = <UNKNOWN_DEFAULT>
 
@@ -662,15 +686,15 @@ remora.sum_period = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.surface_radiation_flux = <UNKNOWN_DEFAULT>
 
-# Read in linear eos parameters Grid stretching
+# Grid stretching
 # type=Real; method=queryAdd
 remora.tcline = 25.0
 
-# Read in linear eos parameters Grid stretching
+# Grid stretching
 # type=Real; method=queryAdd
 remora.theta_b = 0.0
 
-# Read in linear eos parameters Grid stretching
+# Grid stretching
 # type=Real; method=queryAdd
 remora.theta_s = 5.0
 
@@ -702,6 +726,10 @@ remora.use_barotropic = <UNKNOWN_DEFAULT>
 # type=bool; method=queryAdd
 remora.use_coriolis = true
 
+# This accounts for the main 2d loop but may not include coupling and copying properly
+# type=bool; method=queryAdd
+remora.use_curvilinear_grid = <UNKNOWN_DEFAULT>
+
 # Include prestep / lagged predictor / corrections
 # type=bool; method=queryAdd
 remora.use_prestep = <UNKNOWN_DEFAULT>
@@ -718,7 +746,11 @@ remora.use_uv3dmix = true
 # type=string; method=queryAdd
 remora.uv_horizontal_advection_scheme = upstream3
 
-# Verbosity
+# Constant u-direction wind [m/s
+# type=Real; method=queryAdd
+remora.uwind = <UNKNOWN_DEFAULT>
+
+# If amr.v is not specified, set it equal to remora.v
 # type=int; method=queryAdd
 remora.v = 0
 
@@ -730,22 +762,26 @@ remora.vertical_mixing_type = analytic
 # type=Real; method=queryAdd
 remora.visc2 = 0.0
 
+# Constant v-direction wind [m/s]
+# type=Real; method=queryAdd
+remora.vwind = <UNKNOWN_DEFAULT>
+
 # Input format for surface wind speed,
 # type=string; method=queryAdd
 remora.wind_type = analytic
 
-# source: Source/REMORA.cpp:1422
+# source: Source/REMORA.cpp:1694
 # type=bool; method=queryAdd
-remora.write_history_file = <UNKNOWN_DEFAULT>
+remora.write_history_file = true
 
-# source: Source/REMORA_DataStruct.H:513
+# source: Source/REMORA_DataStruct.H:662
 # type=Real; method=queryAdd
 remora.znudg = <UNKNOWN_DEFAULT>
 
 #==============================================================================
 # AMR PARAMETERS
 #==============================================================================
-# source: Src/Amr/AMReX_Amr.cpp:3348
+# source: Src/Amr/AMReX_Amr.cpp:3358
 # type=bool; method=query
 amr.abort_on_stream_retry_failure = false
 
@@ -753,67 +789,63 @@ amr.abort_on_stream_retry_failure = false
 # type=int; method=queryAdd
 amr.blocking_factor = 1
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:296
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:297
 # type=Vector<int>; method=getarr
 amr.blocking_factor_x = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:311
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:312
 # type=Vector<int>; method=getarr
 amr.blocking_factor_y = <REQUIRED>
 
-# grid size in
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:328
 # type=Vector<int>; method=getarr
 amr.blocking_factor_z = <REQUIRED>
 
-# source: Src/Amr/AMReX_Amr.cpp:3284
+# source: Src/Amr/AMReX_Amr.cpp:3294
 # type=string; method=queryAdd
 amr.check_file = chk
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:378
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:379
 # type=bool; method=queryAdd
 amr.check_input = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1329
+# source: Src/Amr/AMReX_Amr.cpp:3297
 # type=int; method=queryAdd
-amr.check_int = <UNKNOWN_DEFAULT>
+amr.check_int = -1
 
-# source: Source/REMORA.cpp:1331
-# type=Real; method=queryAdd
-amr.check_int_time = <UNKNOWN_DEFAULT>
-
-# source: Src/Amr/AMReX_Amr.cpp:3290
+# source: Src/Amr/AMReX_Amr.cpp:3300
 # type=Real; method=queryAdd
 amr.check_per = -1.0
 
-# source: Src/Amr/AMReX_Amr.cpp:3272
+# source: Src/Amr/AMReX_Amr.cpp:3282
 # type=bool; method=queryAdd
-amr.checkpoint_files_output = <UNKNOWN_DEFAULT>
+amr.checkpoint_files_output = true
 
-# source: Src/Amr/AMReX_Amr.cpp:3358
+# source: Src/Amr/AMReX_Amr.cpp:3368
 # type=unknown; method=query
 amr.checkpoint_headerversion = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:3276
+# source: Src/Amr/AMReX_Amr.cpp:3286
 # type=int; method=queryAdd
-amr.checkpoint_nfiles = <UNKNOWN_DEFAULT>
+amr.checkpoint_nfiles = 64
 
-# source: Src/Amr/AMReX_Amr.cpp:303
+# source: Src/Amr/AMReX_Amr.cpp:313
 # type=bool; method=queryAdd
 amr.checkpoint_on_restart = false
 
-# source: Src/Amr/AMReX_Amr.cpp:305
+# source: Src/Amr/AMReX_Amr.cpp:315
 # type=bool; method=queryAdd
 amr.compute_new_dt_on_regrid = false
 
-# source: Src/Amr/AMReX_Amr.cpp:345
+# source: Src/Amr/AMReX_Amr.cpp:355
 # type=Vector<std::string>; method=queryarr
 amr.data_log = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_AmrLevel.cpp:1940
+# source: Src/Amr/AMReX_AmrLevel.cpp:1943
 # type=string; method=get
 amr.derive_plot_vars = <REQUIRED>
 
-# source: Src/Amr/AMReX_AmrLevel.cpp:2000
+# source: Src/Amr/AMReX_AmrLevel.cpp:2003
 # type=string; method=get
 amr.derive_small_plot_vars = <REQUIRED>
 
@@ -821,7 +853,7 @@ amr.derive_small_plot_vars = <REQUIRED>
 # type=int; method=queryAdd
 amr.do_substep = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:314
+# source: Src/Amr/AMReX_Amr.cpp:324
 # type=int; method=queryAdd
 amr.file_name_digits = 5
 
@@ -833,31 +865,31 @@ amr.force_regrid_level_zero = false
 # type=Real; method=queryAdd
 amr.grid_eff = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:336
+# source: Src/Amr/AMReX_Amr.cpp:346
 # type=string; method=get
 amr.grid_log = <REQUIRED>
 
-# source: Src/Amr/AMReX_Amr.cpp:316
+# source: Src/Amr/AMReX_Amr.cpp:326
 # type=string; method=queryAdd
 amr.initial_grid_file = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:302
+# source: Src/Amr/AMReX_Amr.cpp:312
 # type=bool; method=query
 amr.insitu_on_restart = false
 
-# source: Src/Amr/AMReX_Amr.cpp:548
+# source: Src/Amr/AMReX_Amr.cpp:558
 # type=int; method=query
 amr.loadbalance_level0_int = 2
 
-# source: Src/Amr/AMReX_Amr.cpp:551
+# source: Src/Amr/AMReX_Amr.cpp:561
 # type=Real; method=query
 amr.loadbalance_max_fac = 1.5
 
-# source: Src/Amr/AMReX_Amr.cpp:545
+# source: Src/Amr/AMReX_Amr.cpp:555
 # type=int; method=query
 amr.loadbalance_with_workestimates = 0
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:379
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:380
 # type=int; method=queryAdd
 amr.max_grid_iterations = <UNKNOWN_DEFAULT>
 
@@ -865,15 +897,15 @@ amr.max_grid_iterations = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 amr.max_grid_size = 2048
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:240
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:241
 # type=Vector<int>; method=getarr
 amr.max_grid_size_x = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:255
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:256
 # type=Vector<int>; method=getarr
 amr.max_grid_size_y = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:271
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:272
 # type=Vector<int>; method=getarr
 amr.max_grid_size_z = <REQUIRED>
 
@@ -881,31 +913,31 @@ amr.max_grid_size_z = <REQUIRED>
 # type=int; method=query
 amr.max_level = 0
 
-# source: Src/Amr/AMReX_Amr.cpp:319
+# source: Src/Amr/AMReX_Amr.cpp:329
 # type=int; method=queryAdd
 amr.message_int = 10
 
-# source: Src/Amr/AMReX_Amr.cpp:307
+# source: Src/Amr/AMReX_Amr.cpp:317
 # type=int; method=query
-amr.mffile_nstreams = <UNKNOWN_DEFAULT>
+amr.mffile_nstreams = 1
 
 # Inject variables into ParmParse database with the prefixes AMReX expects This allows a REMORA user to use the remora. prefix for some AMReX-specific options
 # type=Vector<int>; method=queryAdd
 amr.n_cell = <UNKNOWN_DEFAULT>
 
-# This will set the default value of blocking_factor to be 1, but will allow the user to override it in the inputs file or on command line
-# type=unknown; method=add
-amr.n_error_buf = <REQUIRED>
+# Default error buf of 0, user can override. Note that the whole column will be tagged if any one cell is tagged, even if n_error_buf_z = 0
+# type=int; method=queryAdd
+amr.n_error_buf = 0
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:124
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:125
 # type=Vector<int>; method=getarr
 amr.n_error_buf_x = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:139
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:140
 # type=Vector<int>; method=getarr
 amr.n_error_buf_y = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:155
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:156
 # type=Vector<int>; method=getarr
 amr.n_error_buf_z = <REQUIRED>
 
@@ -913,43 +945,43 @@ amr.n_error_buf_z = <REQUIRED>
 # type=unknown; method=add
 amr.n_proper = <REQUIRED>
 
-# source: Src/Amr/AMReX_Amr.cpp:3179
+# source: Src/Amr/AMReX_Amr.cpp:3189
 # type=int; method=query
 amr.nosub = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:3300
+# source: Src/Amr/AMReX_Amr.cpp:3310
 # type=string; method=queryAdd
 amr.plot_file = plt
 
-# source: Src/Amr/AMReX_Amr.cpp:3273
+# source: Src/Amr/AMReX_Amr.cpp:3283
 # type=bool; method=queryAdd
-amr.plot_files_output = <UNKNOWN_DEFAULT>
+amr.plot_files_output = true
 
-# source: Src/Amr/AMReX_Amr.cpp:3354
+# source: Src/Amr/AMReX_Amr.cpp:3364
 # type=int; method=query
 amr.plot_headerversion = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:3303
+# source: Src/Amr/AMReX_Amr.cpp:3313
 # type=int; method=queryAdd
 amr.plot_int = -1
 
-# source: Src/Amr/AMReX_Amr.cpp:3309
+# source: Src/Amr/AMReX_Amr.cpp:3319
 # type=Real; method=queryAdd
 amr.plot_log_per = -1.0
 
-# source: Src/Amr/AMReX_Amr.cpp:3319
+# source: Src/Amr/AMReX_Amr.cpp:3329
 # type=int; method=queryAdd
 amr.plot_max_level = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:3275
+# source: Src/Amr/AMReX_Amr.cpp:3285
 # type=int; method=queryAdd
-amr.plot_nfiles = <UNKNOWN_DEFAULT>
+amr.plot_nfiles = 64
 
-# source: Src/Amr/AMReX_Amr.cpp:3306
+# source: Src/Amr/AMReX_Amr.cpp:3316
 # type=Real; method=queryAdd
 amr.plot_per = -1.0
 
-# source: Src/Amr/AMReX_AmrLevel.cpp:1913
+# source: Src/Amr/AMReX_AmrLevel.cpp:1916
 # type=string; method=get
 amr.plot_vars = <REQUIRED>
 
@@ -957,23 +989,23 @@ amr.plot_vars = <REQUIRED>
 # type=bool; method=queryAdd
 amr.plotfile_on_restart = false
 
-# source: Src/Amr/AMReX_Amr.cpp:3350
+# source: Src/Amr/AMReX_Amr.cpp:3360
 # type=bool; method=query
-amr.precreateDirectories = <UNKNOWN_DEFAULT>
+amr.precreateDirectories = true
 
-# source: Src/Amr/AMReX_Amr.cpp:3351
+# source: Src/Amr/AMReX_Amr.cpp:3361
 # type=bool; method=query
-amr.prereadFAHeaders = <UNKNOWN_DEFAULT>
+amr.prereadFAHeaders = true
 
 # Make "probin" the default
 # type=string; method=get
 amr.probin_file = probin
 
-# source: Src/Amr/AMReX_Amr.cpp:310
+# source: Src/Amr/AMReX_Amr.cpp:320
 # type=int; method=query
-amr.probinit_natonce = <UNKNOWN_DEFAULT>
+amr.probinit_natonce = 512
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:177
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:178
 # type=Vector<int>; method=queryarr
 amr.ref_ratio = <UNKNOWN_DEFAULT>
 
@@ -1009,7 +1041,7 @@ amr.regrid_int = <UNKNOWN_DEFAULT>
 # type=bool; method=queryAdd
 amr.regrid_on_restart = false
 
-# source: Source/REMORA.cpp:1339
+# If set, then restart from checkpoint file.
 # type=string; method=queryAdd
 amr.restart = <UNKNOWN_DEFAULT>
 
@@ -1017,35 +1049,35 @@ amr.restart = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 amr.restart_from_plotfile = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:324
+# source: Src/Amr/AMReX_Amr.cpp:334
 # type=string; method=get
 amr.run_log = <REQUIRED>
 
-# source: Src/Amr/AMReX_Amr.cpp:330
+# source: Src/Amr/AMReX_Amr.cpp:340
 # type=string; method=get
 amr.run_log_terse = <REQUIRED>
 
-# source: Src/Amr/AMReX_Amr.cpp:3322
+# source: Src/Amr/AMReX_Amr.cpp:3332
 # type=string; method=queryAdd
 amr.small_plot_file = smallplt
 
-# source: Src/Amr/AMReX_Amr.cpp:3325
+# source: Src/Amr/AMReX_Amr.cpp:3335
 # type=int; method=queryAdd
 amr.small_plot_int = -1
 
-# source: Src/Amr/AMReX_Amr.cpp:3331
+# source: Src/Amr/AMReX_Amr.cpp:3341
 # type=Real; method=queryAdd
 amr.small_plot_log_per = -1.0
 
-# source: Src/Amr/AMReX_Amr.cpp:3328
+# source: Src/Amr/AMReX_Amr.cpp:3338
 # type=Real; method=queryAdd
 amr.small_plot_per = -1.0
 
-# source: Src/Amr/AMReX_AmrLevel.cpp:1973
+# source: Src/Amr/AMReX_AmrLevel.cpp:1976
 # type=string; method=get
 amr.small_plot_vars = <REQUIRED>
 
-# source: Src/Amr/AMReX_Amr.cpp:3344
+# source: Src/Amr/AMReX_Amr.cpp:3354
 # type=int; method=query
 amr.stream_max_tries = 4
 
@@ -1053,11 +1085,11 @@ amr.stream_max_tries = 4
 # type=int; method=get
 amr.subcycling_iterations = 0
 
-# source: Src/Amr/AMReX_Amr.cpp:3188
+# source: Src/Amr/AMReX_Amr.cpp:3198
 # type=string; method=queryAdd
 amr.subcycling_mode = None
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:384
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:385
 # type=bool; method=queryAdd
 amr.use_bittree = <UNKNOWN_DEFAULT>
 
@@ -1069,7 +1101,7 @@ amr.use_efficient_regrid = false
 # type=int; method=query
 amr.v = 0
 
-# source: Src/Amr/AMReX_Amr.cpp:3341
+# source: Src/Amr/AMReX_Amr.cpp:3351
 # type=bool; method=queryAdd
 amr.write_plotfile_with_checkpoint = true
 
@@ -1080,7 +1112,7 @@ amr.write_plotfile_with_checkpoint = true
 # type=int; method=queryAdd
 geometry.coord_sys = 0
 
-# source: Source/main.cpp:74
+# source: Source/main.cpp:77
 # type=Vector<int>; method=queryAdd
 geometry.is_periodic = <UNKNOWN_DEFAULT>
 
@@ -1088,11 +1120,11 @@ geometry.is_periodic = <UNKNOWN_DEFAULT>
 # type=unknown; method=queryarr
 geometry.prob_extent = <UNKNOWN_DEFAULT>
 
-# source: Source/main.cpp:73
+# source: Source/main.cpp:76
 # type=Vector<Real>; method=queryAdd
 geometry.prob_hi = <UNKNOWN_DEFAULT>
 
-# source: Source/main.cpp:72
+# source: Source/main.cpp:75
 # type=Vector<Real>; method=queryAdd
 geometry.prob_lo = <UNKNOWN_DEFAULT>
 
@@ -1107,77 +1139,77 @@ fabarray.comm_tile_size = <UNKNOWN_DEFAULT>
 # type=class; method=query
 fabarray.maxcomp = <UNKNOWN_DEFAULT>
 
-# source: Source/main.cpp:83
+# source: Source/main.cpp:86
 # type=Vector<int>; method=queryAdd
 fabarray.mfiter_tile_size = 8 8 1024000
 
 #==============================================================================
 # VISMF PARAMETERS
 #==============================================================================
-# source: Src/Base/AMReX_VisMF.cpp:141
+# source: Src/Base/AMReX_VisMF.cpp:142
 # type=AMREX_EXPORT bool; method=query
 vismf.allowsparsewrites = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:143
+# source: Src/Base/AMReX_VisMF.cpp:144
 # type=AMREX_EXPORT bool; method=query
 vismf.barrierafterlevel = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:136
+# source: Src/Base/AMReX_VisMF.cpp:137
 # type=AMREX_EXPORT bool; method=query
 vismf.checkfilepositions = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:132
+# source: Src/Base/AMReX_VisMF.cpp:133
 # type=bool; method=query
 vismf.groupsets = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:127
+# source: Src/Base/AMReX_VisMF.cpp:128
 # type=int; method=query
 vismf.headerversion = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:140
+# source: Src/Base/AMReX_VisMF.cpp:141
 # type=AMREX_EXPORT Long; method=query
 vismf.iobuffersize = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:142
+# source: Src/Base/AMReX_VisMF.cpp:143
 # type=AMREX_EXPORT bool; method=query
 vismf.noflushafterwrite = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:133
+# source: Src/Base/AMReX_VisMF.cpp:134
 # type=bool; method=query
 vismf.setbuf = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:139
+# source: Src/Base/AMReX_VisMF.cpp:140
 # type=AMREX_EXPORT bool; method=query
 vismf.usedynamicsetselection = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:137
+# source: Src/Base/AMReX_VisMF.cpp:138
 # type=AMREX_EXPORT bool; method=query
 vismf.usepersistentifstreams = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:134
+# source: Src/Base/AMReX_VisMF.cpp:135
 # type=AMREX_EXPORT bool; method=query
 vismf.usesingleread = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:135
+# source: Src/Base/AMReX_VisMF.cpp:136
 # type=AMREX_EXPORT bool; method=query
 vismf.usesinglewrite = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:138
+# source: Src/Base/AMReX_VisMF.cpp:139
 # type=AMREX_EXPORT bool; method=query
 vismf.usesynchronousreads = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_VisMF.cpp:124
+# source: Src/Base/AMReX_VisMF.cpp:125
 # type=int; method=query
 vismf.v = <UNKNOWN_DEFAULT>
 
 #==============================================================================
 # AMREX BASE PARAMETERS
 #==============================================================================
-# source: Src/Base/AMReX_Arena.cpp:435
+# source: Src/Base/AMReX_Arena.cpp:462
 # type=bool; method=queryAdd
-amrex.abort_on_out_of_gpu_memory = <UNKNOWN_DEFAULT>
+amrex.abort_on_out_of_gpu_memory = false
 
-# source: Src/Base/AMReX.cpp:570
+# source: Src/Base/AMReX.cpp:574
 # type=unknown; method=queryAdd
 amrex.abort_on_unused_inputs = <UNKNOWN_DEFAULT>
 
@@ -1189,7 +1221,7 @@ amrex.async_out = false
 # type=int; method=queryAdd
 amrex.async_out_nfiles = 64
 
-# source: Src/Base/AMReX.cpp:569
+# source: Src/Base/AMReX.cpp:573
 # type=unknown; method=query
 amrex.call_addr2line = <UNKNOWN_DEFAULT>
 
@@ -1209,45 +1241,45 @@ amrex.fpe_trap_overflow = false
 # type=unknown; method=queryAdd
 amrex.fpe_trap_zero = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:586
+# source: Src/Base/AMReX.cpp:590
 # type=unknown; method=queryAdd
 amrex.handle_sigabrt = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:587
+# source: Src/Base/AMReX.cpp:591
 # type=unknown; method=queryAdd
 amrex.handle_sigfpe = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:588
+# source: Src/Base/AMReX.cpp:592
 # type=unknown; method=queryAdd
 amrex.handle_sigill = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:585
+# source: Src/Base/AMReX.cpp:589
 # type=unknown; method=queryAdd
 amrex.handle_sigint = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:583
+# source: Src/Base/AMReX.cpp:587
 # type=unknown; method=queryAdd
 amrex.handle_sigsegv = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:584
+# source: Src/Base/AMReX.cpp:588
 # type=unknown; method=queryAdd
 amrex.handle_sigterm = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:679
+# source: Src/Base/AMReX.cpp:683
 # type=bool; method=queryAdd
-amrex.hypre_spgemm_use_vendor = <UNKNOWN_DEFAULT>
+amrex.hypre_spgemm_use_vendor = false
 
-# source: Src/Base/AMReX.cpp:680
+# source: Src/Base/AMReX.cpp:684
 # type=bool; method=queryAdd
-amrex.hypre_spmv_use_vendor = <UNKNOWN_DEFAULT>
+amrex.hypre_spmv_use_vendor = false
+
+# source: Src/Base/AMReX.cpp:685
+# type=bool; method=queryAdd
+amrex.hypre_sptrans_use_vendor = false
 
 # source: Src/Base/AMReX.cpp:681
 # type=bool; method=queryAdd
-amrex.hypre_sptrans_use_vendor = <UNKNOWN_DEFAULT>
-
-# source: Src/Base/AMReX.cpp:677
-# type=bool; method=queryAdd
-amrex.init_hypre = <UNKNOWN_DEFAULT>
+amrex.init_hypre = true
 
 # system::verbose = 0;
 # type=unknown; method=queryAdd
@@ -1269,7 +1301,7 @@ amrex.mf.alloc_single_chunk = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 amrex.omp_threads = system
 
-# source: Src/Base/AMReX_ParmParse.cpp:1310
+# source: Src/Base/AMReX_ParmParse.cpp:1737
 # type=namespace; method=query
 amrex.parmparse.v = <UNKNOWN_DEFAULT>
 
@@ -1277,11 +1309,11 @@ amrex.parmparse.v = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 amrex.pout_int = 1
 
-# source: Src/Base/AMReX.cpp:566
+# source: Src/Base/AMReX.cpp:570
 # type=unknown; method=query
 amrex.regtest_reduction = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:567
+# source: Src/Base/AMReX.cpp:571
 # type=unknown; method=queryAdd
 amrex.signal_handling = <UNKNOWN_DEFAULT>
 
@@ -1293,77 +1325,77 @@ amrex.team.reduce = 0
 # type=int; method=query
 amrex.team.size = 1
 
-# source: Src/Base/AMReX_Arena.cpp:429
+# source: Src/Base/AMReX_Arena.cpp:456
 # type=bool; method=queryAdd
-amrex.the_arena_defragmentation = <UNKNOWN_DEFAULT>
+amrex.the_arena_defragmentation = true
 
-# source: Src/Base/AMReX_Arena.cpp:419
+# source: Src/Base/AMReX_Arena.cpp:446
 # type=Long; method=queryAdd
 amrex.the_arena_init_size = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_Arena.cpp:434
+# source: Src/Base/AMReX_Arena.cpp:461
 # type=bool; method=queryAdd
-amrex.the_arena_is_managed = <UNKNOWN_DEFAULT>
+amrex.the_arena_is_managed = false
 
-# source: Src/Base/AMReX_Arena.cpp:424
+# source: Src/Base/AMReX_Arena.cpp:451
 # type=Long; method=queryAdd
 amrex.the_arena_release_threshold = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_Arena.cpp:433
+# source: Src/Base/AMReX_Arena.cpp:460
 # type=bool; method=queryAdd
-amrex.the_comms_arena_defragmentation = <UNKNOWN_DEFAULT>
+amrex.the_comms_arena_defragmentation = true
 
-# source: Src/Base/AMReX_Arena.cpp:423
+# source: Src/Base/AMReX_Arena.cpp:450
 # type=Long; method=queryAdd
 amrex.the_comms_arena_init_size = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_Arena.cpp:428
+# source: Src/Base/AMReX_Arena.cpp:455
 # type=Long; method=queryAdd
 amrex.the_comms_arena_release_threshold = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_Arena.cpp:430
+# source: Src/Base/AMReX_Arena.cpp:457
 # type=bool; method=queryAdd
-amrex.the_device_arena_defragmentation = <UNKNOWN_DEFAULT>
+amrex.the_device_arena_defragmentation = true
 
-# source: Src/Base/AMReX_Arena.cpp:420
+# source: Src/Base/AMReX_Arena.cpp:447
 # type=Long; method=queryAdd
 amrex.the_device_arena_init_size = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_Arena.cpp:425
+# source: Src/Base/AMReX_Arena.cpp:452
 # type=Long; method=queryAdd
 amrex.the_device_arena_release_threshold = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_Arena.cpp:431
+# source: Src/Base/AMReX_Arena.cpp:458
 # type=bool; method=queryAdd
-amrex.the_managed_arena_defragmentation = <UNKNOWN_DEFAULT>
+amrex.the_managed_arena_defragmentation = true
 
-# source: Src/Base/AMReX_Arena.cpp:421
+# source: Src/Base/AMReX_Arena.cpp:448
 # type=Long; method=queryAdd
 amrex.the_managed_arena_init_size = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_Arena.cpp:426
+# source: Src/Base/AMReX_Arena.cpp:453
 # type=Long; method=queryAdd
 amrex.the_managed_arena_release_threshold = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_Arena.cpp:432
+# source: Src/Base/AMReX_Arena.cpp:459
 # type=bool; method=queryAdd
-amrex.the_pinned_arena_defragmentation = <UNKNOWN_DEFAULT>
+amrex.the_pinned_arena_defragmentation = true
 
-# source: Src/Base/AMReX_Arena.cpp:422
+# source: Src/Base/AMReX_Arena.cpp:449
 # type=Long; method=queryAdd
 amrex.the_pinned_arena_init_size = 0
 
-# source: Src/Base/AMReX_Arena.cpp:427
+# source: Src/Base/AMReX_Arena.cpp:454
 # type=Long; method=queryAdd
 amrex.the_pinned_arena_release_threshold = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:568
+# source: Src/Base/AMReX.cpp:572
 # type=unknown; method=queryAdd
 amrex.throw_exception = <UNKNOWN_DEFAULT>
 
 # source: Src/Base/AMReX_ParallelDescriptor.cpp:1583
 # type=bool; method=queryAdd
-amrex.use_gpu_aware_mpi = <UNKNOWN_DEFAULT>
+amrex.use_gpu_aware_mpi = false
 
 # source: Src/Base/AMReX_BLProfiler.cpp:1737
 # type=class; method=queryAdd
@@ -1380,23 +1412,23 @@ amrex.vector_growth_factor = 1.5
 #==============================================================================
 # INTEGRATION PARAMETERS
 #==============================================================================
-# source: Src/Base/AMReX_IntegratorBase.H:174
+# source: Src/Base/AMReX_IntegratorBase.H:177
 # type=Real; method=query
 integration.abs_tol = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_IntegratorBase.H:176
+# source: Src/Base/AMReX_IntegratorBase.H:179
 # type=Real; method=query
 integration.fast_abs_tol = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_IntegratorBase.H:175
+# source: Src/Base/AMReX_IntegratorBase.H:178
 # type=Real; method=query
 integration.fast_rel_tol = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_IntegratorBase.H:172
+# source: Src/Base/AMReX_IntegratorBase.H:175
 # type=Real; method=query
 integration.fast_time_step = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_IntegratorBase.H:173
+# source: Src/Base/AMReX_IntegratorBase.H:176
 # type=Real; method=query
 integration.rel_tol = <UNKNOWN_DEFAULT>
 
@@ -1420,7 +1452,7 @@ integration.rk.type = 0
 # type=Vector<Real>; method=getarr
 integration.rk.weights = 1./6. 1./3. 1./3. 1./6.
 
-# source: Src/Base/AMReX_IntegratorBase.H:170
+# source: Src/Base/AMReX_IntegratorBase.H:173
 # type=Real; method=query
 integration.time_step = <UNKNOWN_DEFAULT>
 
@@ -1428,11 +1460,11 @@ integration.time_step = <UNKNOWN_DEFAULT>
 # type=string; method=get
 integration.type = <REQUIRED>
 
-# source: Src/Base/AMReX_IntegratorBase.H:171
+# source: Src/Base/AMReX_IntegratorBase.H:174
 # type=bool; method=query
 integration.use_adaptive_fast_time_step = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_IntegratorBase.H:169
+# source: Src/Base/AMReX_IntegratorBase.H:172
 # type=bool; method=query
 integration.use_adaptive_time_step = <UNKNOWN_DEFAULT>
 
@@ -1447,61 +1479,61 @@ device.graph_init = 0
 # type=int; method=query
 device.graph_init_nodes = 10000
 
-# source: Src/Base/AMReX_GpuDevice.cpp:237
+# source: Src/Base/AMReX_GpuDevice.cpp:246
 # type=int; method=query
 device.v = 0
 
 #==============================================================================
 # TINY PROFILER PARAMETERS
 #==============================================================================
-# source: Src/Base/AMReX_TinyProfiler.cpp:318
+# source: Src/Base/AMReX_TinyProfiler.cpp:324
 # type=bool; method=queryAdd
-tiny_profiler.device_synchronize_around_region = <UNKNOWN_DEFAULT>
+tiny_profiler.device_synchronize_around_region = false
 
 # Specify the maximum percentage of inclusive time that the "Other" section in the output can have (default 1%)
 # type=bool; method=queryAdd
-tiny_profiler.enabled = <UNKNOWN_DEFAULT>
+tiny_profiler.enabled = true
 
-# source: Src/Base/AMReX_TinyProfiler.cpp:343
+# source: Src/Base/AMReX_TinyProfiler.cpp:355
 # type=bool; method=queryAdd
-tiny_profiler.memprof_enabled = <UNKNOWN_DEFAULT>
+tiny_profiler.memprof_enabled = true
 
-# source: Src/Base/AMReX_TinyProfiler.cpp:1028
+# the timer and memory reports (both opened in append mode) coexist.
 # type=return; method=query
 tiny_profiler.output_file = <UNKNOWN_DEFAULT>
 
 # Specify the maximum percentage of inclusive time that the "Other" section in the output can have (default 1%)
 # type=Real; method=queryAdd
-tiny_profiler.print_threshold = <UNKNOWN_DEFAULT>
+tiny_profiler.print_threshold = 1.0
 
 # safe. Also note that this is controlled by verbose already.
 # type=int; method=query
-tiny_profiler.v = <UNKNOWN_DEFAULT>
+tiny_profiler.v = 0
 
 #==============================================================================
 # DISTRIBUTION MAPPING PARAMETERS
 #==============================================================================
-# source: Src/Base/AMReX_DistributionMapping.cpp:124
+# source: Src/Base/AMReX_DistributionMapping.cpp:126
 # type=Real; method=query
 DistributionMapping.efficiency = 0.9
 
-# source: Src/Base/AMReX_DistributionMapping.cpp:126
+# source: Src/Base/AMReX_DistributionMapping.cpp:128
 # type=int; method=query
 DistributionMapping.node_size = 0
 
-# source: Src/Base/AMReX_DistributionMapping.cpp:125
+# source: Src/Base/AMReX_DistributionMapping.cpp:127
 # type=int; method=query
 DistributionMapping.sfc_threshold = 0
 
-# source: Src/Base/AMReX_DistributionMapping.cpp:131
+# source: Src/Base/AMReX_DistributionMapping.cpp:133
 # type=string; method=query
 DistributionMapping.strategy = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_DistributionMapping.cpp:121
+# source: Src/Base/AMReX_DistributionMapping.cpp:123
 # type=int; method=query
 DistributionMapping.v = 0
 
-# source: Src/Base/AMReX_DistributionMapping.cpp:127
+# source: Src/Base/AMReX_DistributionMapping.cpp:129
 # type=int; method=query
 DistributionMapping.verbose_mapper = 0
 
@@ -1521,7 +1553,7 @@ plot.var = 0
 #==============================================================================
 # source: Src/Base/AMReX_FArrayBox.cpp:425
 # type=return; method=query
-fab.do_initval = <UNKNOWN_DEFAULT>
+fab.do_initval = false
 
 # This block can legitimately set FAB output format.
 # type=string; method=query
@@ -1542,9 +1574,9 @@ fab.ordering = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 max_step = <UNKNOWN_DEFAULT>
 
-# source: Source/Initialization/REMORA_init_bcs.cpp:68
+# source: Source/Initialization/REMORA_init_bcs.cpp:80
 # type=Real; method=queryAdd
-scalar = 0.0
+scalar = <UNKNOWN_DEFAULT>
 
 # Traditionally, max_step and stop_time do not have prefix, so allow it for now.
 # type=Real; method=queryAdd
@@ -1554,7 +1586,7 @@ stop_time = <UNKNOWN_DEFAULT>
 # type=std::vector<T>; method=get
 val = <REQUIRED>
 
-# source: Source/Initialization/REMORA_init_bcs.cpp:64
+# source: Source/Initialization/REMORA_init_bcs.cpp:76
 # type=std::vector<Real>; method=getarr
 velocity = <REQUIRED>
 
@@ -1567,50 +1599,57 @@ blprofiler.prof_csflushsize = <UNKNOWN_DEFAULT>
 
 # source: Src/Base/AMReX_BLProfiler.cpp:278
 # type=unknown; method=queryAdd
-blprofiler.prof_flushinterval = <UNKNOWN_DEFAULT>
+blprofiler.prof_flushinterval = -1
 
 # source: Src/Base/AMReX_BLProfiler.cpp:280
 # type=bool; method=queryAdd
-blprofiler.prof_flushprint = <UNKNOWN_DEFAULT>
+blprofiler.prof_flushprint = true
 
 # source: Src/Base/AMReX_BLProfiler.cpp:279
 # type=Real; method=queryAdd
-blprofiler.prof_flushtimeinterval = <UNKNOWN_DEFAULT>
+blprofiler.prof_flushtimeinterval = -1.0
 
 # source: Src/Base/AMReX_BLProfiler.cpp:275
 # type=unknown; method=queryAdd
-blprofiler.prof_nfiles = <UNKNOWN_DEFAULT>
+blprofiler.prof_nfiles = 256
 
 # source: Src/Base/AMReX_BLProfiler.cpp:277
 # type=unknown; method=queryAdd
 blprofiler.prof_traceflushsize = <UNKNOWN_DEFAULT>
 
 #==============================================================================
+# DRIVER PARAMETERS
+#==============================================================================
+# source: Source/REMORA_DataStruct.H:223
+# type=string; method=query
+driver.atm2ocn_mode = state
+
+#==============================================================================
 # NUMBLOCKS PARAMETERS
 #==============================================================================
-# source: Src/Base/AMReX_GpuDevice.cpp:653
+# source: Src/Base/AMReX_GpuDevice.cpp:662
 # type=int; method=query
 numBlocks.x = 0
 
-# source: Src/Base/AMReX_GpuDevice.cpp:654
+# source: Src/Base/AMReX_GpuDevice.cpp:663
 # type=int; method=query
 numBlocks.y = 0
 
-# source: Src/Base/AMReX_GpuDevice.cpp:655
+# source: Src/Base/AMReX_GpuDevice.cpp:664
 # type=int; method=query
 numBlocks.z = 0
 
 #==============================================================================
 # NUMTHREADS PARAMETERS
 #==============================================================================
-# source: Src/Base/AMReX_GpuDevice.cpp:641
+# source: Src/Base/AMReX_GpuDevice.cpp:650
 # type=int; method=query
 numThreads.x = 0
 
-# source: Src/Base/AMReX_GpuDevice.cpp:642
+# source: Src/Base/AMReX_GpuDevice.cpp:651
 # type=int; method=query
 numThreads.y = 0
 
-# source: Src/Base/AMReX_GpuDevice.cpp:643
+# source: Src/Base/AMReX_GpuDevice.cpp:652
 # type=int; method=query
 numThreads.z = 0

@@ -385,7 +385,13 @@ def extract_default(var_name: str, lines: list[str], line_idx: int) -> Any:
         return None
 
     assign_pat = re.compile(rf"\b{re.escape(var_name)}\s*=\s*([^;]+);")
-    for j in range(line_idx - 1, max(-1, line_idx - 180), -1):
+    # Scan back to the start of the file rather than a fixed window: a
+    # parameter-backing variable is often declared at file scope and assigned its
+    # default in a different function than the ParmParse call, so the distance
+    # between the two moves whenever unrelated code is inserted. Because the first
+    # match walking backwards wins, widening the range can only resolve defaults
+    # that were previously unknown; it cannot change one already found.
+    for j in range(line_idx - 1, -1, -1):
         m = assign_pat.search(lines[j])
         if not m:
             continue
