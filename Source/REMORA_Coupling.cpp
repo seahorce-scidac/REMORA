@@ -9,6 +9,9 @@
 #include <AMReX_MultiFabUtil.H>
 #include <AMReX_iMultiFab.H>
 #include <AMReX_Print.H>
+#include <AMReX_Reduce.H>
+
+#include <limits>
 
 using namespace amrex;
 
@@ -36,6 +39,86 @@ constexpr int SSTIndex = 0;
 // -------------------------------------------------------------------------
 // NEW: Conservative Sparse Matrix Remap Engine (Reverse: OCN -> ATM)
 // -------------------------------------------------------------------------
+
+// Source index region each destination box's stencils actually reference.
+//
+// The entries in index_mf are *source* indices, and for non-conformal grids they
+// routinely fall far outside the destination box's own index range, so staging the
+// source on `dst.boxArray()` plus a fixed ghost halo leaves those reads outside
+// the valid region - zero at best, out of bounds at worst. Mirror of the same
+// helper on the ERF side of the coupling.
+//
+// The result becomes a BoxArray, which must be globally consistent, hence the
+// reduction.
+amrex::BoxArray
+StagedSourceBoxArray (const amrex::MultiFab& src,
+                      const amrex::MultiFab& dst,
+                      const amrex::iMultiFab& index_mf,
+                      int max_stencil_size)
+{
+    using namespace amrex;
+
+    const Box src_domain = src.boxArray().minimalBox();
+    const int nboxes = static_cast<int>(dst.boxArray().size());
+    constexpr int int_big = std::numeric_limits<int>::max();
+
+    Vector<int> lo(2 * nboxes,  int_big);
+    Vector<int> hi(2 * nboxes, -int_big);
+
+    for (MFIter mfi(dst); mfi.isValid(); ++mfi) {
+        const int b = mfi.index();
+        const Box bx = mfi.validbox();
+        auto const& idx = index_mf.const_array(mfi);
+
+        ReduceOps<ReduceOpMin, ReduceOpMin, ReduceOpMax, ReduceOpMax> reduce_op;
+        ReduceData<int, int, int, int> reduce_data(reduce_op);
+        using ReduceTuple = typename decltype(reduce_data)::Type;
+
+        reduce_op.eval(bx, reduce_data,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
+        {
+            int i_min = int_big, j_min = int_big, i_max = -int_big, j_max = -int_big;
+            for (int m = 0; m < max_stencil_size; ++m) {
+                const int si = idx(i, j, k, m * 3);
+                const int sj = idx(i, j, k, m * 3 + 1);
+                if (si < 0 || sj < 0) { continue; }   // -1 marks an unused slot
+                i_min = amrex::min(i_min, si); i_max = amrex::max(i_max, si);
+                j_min = amrex::min(j_min, sj); j_max = amrex::max(j_max, sj);
+            }
+            return {i_min, j_min, i_max, j_max};
+        });
+
+        auto const& hv = reduce_data.value(reduce_op);
+        lo[2*b  ] = amrex::get<0>(hv); lo[2*b+1] = amrex::get<1>(hv);
+        hi[2*b  ] = amrex::get<2>(hv); hi[2*b+1] = amrex::get<3>(hv);
+    }
+
+    ParallelDescriptor::ReduceIntMin(lo.dataPtr(), static_cast<int>(lo.size()));
+    ParallelDescriptor::ReduceIntMax(hi.dataPtr(), static_cast<int>(hi.size()));
+
+    // The staged boxes must carry the source's index type from the start:
+    // intersecting a cell-centered box with a staggered one trips
+    // Box::operator&='s sameType assertion.
+    const IndexType src_ixtype = src.boxArray().ixType();
+
+    BoxList bl(src_ixtype);
+    for (int b = 0; b < nboxes; ++b) {
+        Box need;
+        if (lo[2*b] > hi[2*b] || lo[2*b+1] > hi[2*b+1]) {
+            // No stencil anywhere in this destination box. A BoxArray cannot hold
+            // an empty box, so stage a single cell; nothing reads it.
+            need = Box(src_domain.smallEnd(), src_domain.smallEnd(), src_ixtype);
+        } else {
+            need = Box(IntVect(lo[2*b], lo[2*b+1], src_domain.smallEnd(2)),
+                       IntVect(hi[2*b], hi[2*b+1], src_domain.bigEnd(2)),
+                       src_ixtype);
+            need &= src_domain;
+        }
+        bl.push_back(need);
+    }
+    return BoxArray(std::move(bl));
+}
+
 void
 ApplyConservativeRemap (const amrex::MultiFab& src,
                         amrex::MultiFab& dst,
@@ -47,8 +130,10 @@ ApplyConservativeRemap (const amrex::MultiFab& src,
 {
     using namespace amrex;
 
-    // 1. Data Routing: Route REMORA SST data onto the ERF atmospheric layout.
-    MultiFab src_on_dst(dst.boxArray(), dst.DistributionMap(), src.nComp(), 4);
+    // 1. Data Routing: Route REMORA SST data onto the ERF atmospheric layout,
+    // staging exactly the source region the stencils reference.
+    MultiFab src_on_dst(StagedSourceBoxArray(src, dst, index_mf, max_stencil_size),
+                        dst.DistributionMap(), src.nComp(), 0);
     src_on_dst.setVal(0.0);
     src_on_dst.ParallelCopy(src);
 
@@ -179,6 +264,20 @@ REMORA::GetAtmosToOceanPsiCoordinates (const amrex::MultiFab*& x_psi,
     }
     x_psi = vec_xp[0].get();
     y_psi = vec_yp[0].get();
+}
+
+void
+REMORA::GetAtmosToOceanPsiLonLat (const amrex::MultiFab*& lon_psi,
+                                  const amrex::MultiFab*& lat_psi) const
+{
+    if (vec_lonp.empty() || vec_latp.empty() ||
+        vec_lonp[0] == nullptr || vec_latp[0] == nullptr) {
+        lon_psi = nullptr;
+        lat_psi = nullptr;
+        return;
+    }
+    lon_psi = vec_lonp[0].get();
+    lat_psi = vec_latp[0].get();
 }
 
 void

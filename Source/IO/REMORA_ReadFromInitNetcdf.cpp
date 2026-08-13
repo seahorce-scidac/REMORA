@@ -190,6 +190,48 @@ read_grid_vars_from_netcdf (int /*lev*/,
 }
 
 /**
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param NC_lonp_fab     container for lon_psi data
+ * @param NC_latp_fab     container for lat_psi data
+ * @returns whether the file carried spherical psi coordinates and they were read
+ *
+ * ROMS grid files for spherical grids carry lon_psi/lat_psi alongside
+ * x_psi/y_psi, and those degree-valued corner arrays are what a coupled driver
+ * needs when the two components do not share a projected Cartesian frame
+ * (SCRIP/COAWST selects the same way; see Lib/SCRIP_COAWST/read_roms.f).
+ * Idealized grid files carry no spherical coordinates, so this read is optional
+ * and reports whether it happened rather than aborting.
+ */
+bool
+read_spherical_grid_vars_from_netcdf (int /*lev*/,
+                                      const Box& domain,
+                                      const std::string& fname,
+                                      FArrayBox& NC_lonp_fab, FArrayBox& NC_latp_fab)
+{
+    Vector<std::string> NC_names;
+    NC_names.push_back("lon_psi");
+    NC_names.push_back("lat_psi");
+
+    if (!QueryNetCDFHasVars(fname, NC_names)) {
+        amrex::Print() << "Grid file " << fname << " has no lon_psi/lat_psi; "
+                       << "spherical psi coordinates unavailable" << std::endl;
+        return false;
+    }
+
+    amrex::Print() << "Loading spherical psi coordinates from NetCDF file " << fname << std::endl;
+
+    Vector<FArrayBox*> NC_fabs;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    NC_fabs.push_back(&NC_lonp_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
+    NC_fabs.push_back(&NC_latp_fab) ; NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
+
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    return true;
+}
+
+/**
  * @param domain          simulation domain at nc_hires_grid_level
  * @param fname           file name to read from
  * @param NC_h_fab        container for bathymetry data
