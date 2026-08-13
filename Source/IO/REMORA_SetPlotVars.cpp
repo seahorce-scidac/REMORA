@@ -44,6 +44,16 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
         plot_var_names_3d.clear();
     }
 
+    const bool expand_fennel = containerHasElement(plot_var_names_3d, "fennel") &&
+                               REMORABiology::has_biology(biology_model);
+    if (expand_fennel) {
+        for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+            if (!containerHasElement(plot_var_names_3d, cons_names[icomp])) {
+                plot_var_names_3d.push_back(cons_names[icomp]);
+            }
+        }
+    }
+
     // Get state variables in the same order as we define them,
     // since they may be in any order in the input list
     Vector<std::string> tmp_plot_names;
@@ -90,6 +100,9 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
 
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_3d) {
+      if (plot_name == "fennel" && expand_fennel) {
+          continue;
+      }
       if (!containerHasElement(tmp_plot_names, plot_name)) {
            Warning("\nWARNING: Requested to plot variable '" + plot_name + "' in 3D list but it is not available");
       }
@@ -208,6 +221,16 @@ REMORA::append3DPlotVariables (const std::string& pp_plot_var_names_3d)
         int nPltVars = pp.countval(pp_plot_var_names_3d.c_str());
         for (int i = 0; i < nPltVars; i++) {
             pp.get(pp_plot_var_names_3d.c_str(), nm, i);
+            if (nm == "fennel") {
+                if (REMORABiology::has_biology(biology_model)) {
+                    for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+                        if (!containerHasElement(plot_var_names_3d, cons_names[icomp])) {
+                            plot_var_names_3d.push_back(cons_names[icomp]);
+                        }
+                    }
+                }
+                continue;
+            }
             // Add the named variable to our list of plot variables
             // if it is not already in the list
             if (!containerHasElement(plot_var_names_3d, nm)) {

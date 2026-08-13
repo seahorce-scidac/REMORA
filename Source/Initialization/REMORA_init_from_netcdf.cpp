@@ -24,6 +24,18 @@ read_data_full_domain_from_netcdf (int /*lev*/, const Box& domain, const std::st
                        FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
                        IntVect ngrow);
 
+/** \brief helper function for reading in initial biology data from netcdf */
+void
+read_biology_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
+                          const Vector<std::string>& biology_names,
+                          Vector<FArrayBox>& NC_biology_fab);
+
+/** \brief helper function for reading in full domain high-resolution initial biology data from netcdf */
+void
+read_biology_full_domain_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
+                                      const Vector<std::string>& biology_names,
+                                      Vector<FArrayBox>& NC_biology_fab, IntVect ngrow);
+
 /** \brief helper function for reading in land-sea masks from netcdf */
 void
 read_masks_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
@@ -50,6 +62,11 @@ init_state_from_netcdf (int lev,
                         const Vector<FArrayBox>& NC_salt_fab,
                         const Vector<FArrayBox>& NC_xvel_fab,
                         const Vector<FArrayBox>& NC_yvel_fab);
+
+/** \brief helper function to initialize biology tracer state from netcdf */
+void
+init_biology_state_from_netcdf (int lev, FArrayBox& biology_fab,
+                                const Vector<Vector<FArrayBox>>& NC_biology_fab);
 
 /** \brief helper function to read bathymetry from netcdf */
 void
@@ -152,6 +169,43 @@ REMORA::init_data_from_netcdf (int lev)
 }
 
 void
+REMORA::init_biology_from_netcdf (int lev)
+{
+    if (!REMORABiology::has_biology(biology_model)) {
+        return;
+    }
+
+    Vector<std::string> biology_names;
+    biology_names.reserve(nscalar);
+    for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+        biology_names.push_back(cons_names[icomp]);
+    }
+
+    Vector<Vector<FArrayBox>> NC_biology_fab;
+    NC_biology_fab.resize(num_boxes_at_level[lev]);
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
+    {
+        NC_biology_fab[idx].resize(biology_names.size());
+        read_biology_from_netcdf(lev, boxes_at_level[lev][idx], nc_init_file[lev][idx],
+                                 biology_names, NC_biology_fab[idx]);
+    }
+
+    MultiFab mf_biology(*cons_new[lev], make_alias, Tracer_comp, nscalar);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    {
+    // Dont tile this since we are operating on full FABs in this routine
+    for (MFIter mfi(mf_biology, false); mfi.isValid(); ++mfi)
+    {
+        FArrayBox& biology_fab = mf_biology[mfi];
+        init_biology_state_from_netcdf(lev, biology_fab, NC_biology_fab);
+    }
+    }
+}
+
+void
 REMORA::init_data_full_domain_from_netcdf ()
 {
     // *** FArrayBox's at this level for holding the INITIAL data
@@ -196,6 +250,47 @@ REMORA::init_data_full_domain_from_netcdf ()
         average_down_with_grow_cells(lev, vec_cons_full_domain);
         average_down_with_grow_cells(lev, vec_xvel_full_domain);
         average_down_with_grow_cells(lev, vec_yvel_full_domain);
+    }
+}
+
+/** \brief Biology initialization from full-domain NetCDF file */
+void
+REMORA::init_biology_full_domain_from_netcdf ()
+{
+    if (!REMORABiology::has_biology(biology_model)) {
+        return;
+    }
+
+    Vector<std::string> biology_names;
+    biology_names.reserve(nscalar);
+    for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+        biology_names.push_back(cons_names[icomp]);
+    }
+
+    Vector<Vector<FArrayBox>> NC_biology_fab;
+    NC_biology_fab.resize(1);
+    NC_biology_fab[0].resize(biology_names.size());
+
+    read_biology_full_domain_from_netcdf(hires_init_level, nc_hires_init_box, nc_init_file_hires,
+                                         biology_names, NC_biology_fab[0],
+                                         cum_ref_ratios[hires_init_level]);
+
+    MultiFab mf_biology(*vec_cons_full_domain[hires_init_level], make_alias, Tracer_comp, nscalar);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    {
+    // Dont tile this since we are operating on full FABs in this routine
+    for (MFIter mfi(mf_biology, false); mfi.isValid(); ++mfi)
+    {
+        FArrayBox& biology_fab = mf_biology[mfi];
+        init_biology_state_from_netcdf(hires_init_level, biology_fab, NC_biology_fab);
+    }
+    }
+
+    for (int lev=hires_init_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_cons_full_domain);
     }
 }
 
@@ -588,6 +683,20 @@ init_state_from_netcdf (int /*lev*/,
         x_vel_fab.template copy<RunOn::Device>(NC_xvel_fab[idx]);
         y_vel_fab.template copy<RunOn::Device>(NC_yvel_fab[idx]);
     } // idx
+}
+
+void
+init_biology_state_from_netcdf (int /*lev*/, FArrayBox& biology_fab,
+                                const Vector<Vector<FArrayBox>>& NC_biology_fab)
+{
+    int nboxes = NC_biology_fab.size();
+    for (int idx = 0; idx < nboxes; idx++)
+    {
+        AMREX_ALWAYS_ASSERT(static_cast<int>(NC_biology_fab[idx].size()) == biology_fab.nComp());
+        for (int ibio = 0; ibio < biology_fab.nComp(); ++ibio) {
+            biology_fab.template copy<RunOn::Device>(NC_biology_fab[idx][ibio], 0, ibio, 1);
+        }
+    }
 }
 
 /**

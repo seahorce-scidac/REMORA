@@ -154,9 +154,10 @@ Notes
 -  If both ``remora.plot_int`` and ``remora.plot_int_time`` have been set, plotfile output will occur
    ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
 
--  When Fennel biology is enabled, active biology tracers can be requested by
-   name in ``remora.plot_vars_3d``. See :ref:`sec:Fennel` for tracer names and
-   component options.
+-  When Fennel biology is enabled, ``fennel`` in ``remora.plot_vars_3d``
+   expands to all active biology tracers. Active biology tracers can also be
+   requested by name. See :ref:`sec:Fennel` for tracer names and component
+   options.
 
 3D Plotfile Field Options
 --------------------------

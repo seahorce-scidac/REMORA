@@ -1168,8 +1168,12 @@ public:
     void set_init_data_averaged_down (int lev);
     /** \brief Problem initialization from NetCDF file */
     void init_data_from_netcdf (int lev);
+    /** \brief Biology initialization from NetCDF file */
+    void init_biology_from_netcdf (int lev);
     /** \brief High resolution roblem initialization from NetCDF file */
     void init_data_full_domain_from_netcdf ();
+    /** \brief Full-domain high-res biology initialization from NetCDF file */
+    void init_biology_full_domain_from_netcdf ();
     /** \brief Boundary data initialization from NetCDF file */
     void init_bdry_from_netcdf (int lev);
     /** \brief Mask data initialization from NetCDF file */

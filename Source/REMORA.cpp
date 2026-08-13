@@ -1517,6 +1517,9 @@ REMORA::init_only (int lev, Real time)
         amrex::Print() << "Reading high resolution initial data" << std::endl;
         allocate_init_full_domain();
         init_data_full_domain_from_netcdf();
+        if (REMORABiology::has_biology(biology_model)) {
+            init_biology_full_domain_from_netcdf();
+        }
         init_zeta_full_domain_from_netcdf();
         amrex::Print() << "Done reading in high resolution initial data" << std::endl;
     }
@@ -1555,6 +1558,9 @@ REMORA::init_only (int lev, Real time)
 #ifdef REMORA_USE_NETCDF
                 amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
                 init_data_from_netcdf(lev);
+                if (REMORABiology::has_biology(biology_model)) {
+                    init_biology_from_netcdf(lev);
+                }
                 set_zeta_to_Ztavg(lev);
                 amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
 #endif
@@ -1562,7 +1568,7 @@ REMORA::init_only (int lev, Real time)
                 amrex::Abort("Unknown IC_Type");
             }
         } else {
-            set_init_data_averaged_down(lev);
+            set_init_data_averaged_down(lev); // also sets biology data
             set_zeta_to_Ztavg(lev); // MAYBE???
             // Since set_grid_scale is usually called from init_analytic for analytic problems
             if (solverChoice.ic_type == IC_Type::analytic) {
@@ -1576,7 +1582,7 @@ REMORA::init_only (int lev, Real time)
             FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
             FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1], zvel_bc(), BdyVars::null);
         } else {
-            set_init_data_averaged_down(lev);
+            set_init_data_averaged_down(lev); // also sets biology data
             set_zeta_to_Ztavg(lev); // MAYBE???
             if (solverChoice.ic_type == IC_Type::analytic) {
                 // Since set_grid_scale is usually called from init_analytic for analytic problems

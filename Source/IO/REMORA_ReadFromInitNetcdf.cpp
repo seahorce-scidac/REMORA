@@ -69,6 +69,57 @@ read_data_full_domain_from_netcdf (int /*lev*/,
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
 }
 
+void
+read_biology_from_netcdf (int /*lev*/,
+                          const Box& domain,
+                          const std::string& fname,
+                          const Vector<std::string>& biology_names,
+                          Vector<FArrayBox>& NC_biology_fab)
+{
+    if (biology_names.empty()) {
+        return;
+    }
+
+    amrex::Print() << "Loading initial biology data from NetCDF file " << fname << std::endl;
+
+    NC_biology_fab.resize(biology_names.size());
+    Vector<FArrayBox*> NC_fabs;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    for (int ibio = 0; ibio < static_cast<int>(biology_names.size()); ++ibio) {
+        NC_fabs.push_back(&NC_biology_fab[ibio]);
+        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
+    }
+
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, biology_names, NC_dim_types, NC_fabs);
+}
+
+void
+read_biology_full_domain_from_netcdf (int /*lev*/,
+                                      const Box& domain,
+                                      const std::string& fname,
+                                      const Vector<std::string>& biology_names,
+                                      Vector<FArrayBox>& NC_biology_fab,
+                                      IntVect ngrow)
+{
+    if (biology_names.empty()) {
+        return;
+    }
+
+    amrex::Print() << "Loading high resolution biology data from NetCDF file " << fname << std::endl;
+
+    NC_biology_fab.resize(biology_names.size());
+    Vector<FArrayBox*> NC_fabs;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    for (int ibio = 0; ibio < static_cast<int>(biology_names.size()); ++ibio) {
+        NC_fabs.push_back(&NC_biology_fab[ibio]);
+        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
+    }
+
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, biology_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+}
+
 /**
  * @param lev             level of data to read
  * @param domain          simulation domain
