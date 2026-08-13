@@ -125,15 +125,17 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
             //                   << " while filling the array for " << vname_to_write << std::endl;
 
             std::vector<MPI_Offset> shape = ncf.var(vname_to_read).shape();
-            arrays[n]                 = NDArray<DType>(vname_to_read,shape);
-            DType* dataPtr            = arrays[n].get_data();
-
             std::vector<MPI_Offset> start(shape.size(), 0);
             // If only reading one time step, adjust start and shape accordingly
             if (one_time) {
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(!shape.empty(),
+                    "Cannot read one time step from a scalar NetCDF variable");
                 start[0] = fill_time;
                 shape[0] = 1;
             }
+
+            arrays[n]                 = NDArray<DType>(vname_to_read,shape);
+            DType* dataPtr            = arrays[n].get_data();
 
             // auto numPts               = arrays[n].ndim();
             // amrex::Print() << "NetCDF Variable name = " << vname_to_read << std::endl;

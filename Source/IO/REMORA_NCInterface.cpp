@@ -1,4 +1,7 @@
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
+#include <string>
 
 #include "REMORA_NCInterface.H"
 #include <AMReX.H>
@@ -17,6 +20,44 @@ void check_ncmpi_error(int ierr) {
         printf("\n%s\n\n", ncmpi_strerror(ierr));
         abort_func("Encountered NetCDF error; aborting");
     }
+}
+
+std::string lowercase(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return value;
+}
+
+int inq_varid_case_insensitive(int ncid, const std::string& name, int* varid) {
+    int ierr = ncmpi_inq_varid(ncid, name.data(), varid);
+    if (ierr == NC_NOERR) {
+        return ierr;
+    }
+
+    int nvars = 0;
+    check_ncmpi_error(ncmpi_inq(ncid, NULL, &nvars, NULL, NULL));
+
+    const std::string name_lower = lowercase(name);
+    int matched_varid = -1;
+    int nmatches = 0;
+    for (int i = 0; i < nvars; ++i) {
+        check_ncmpi_error(ncmpi_inq_varname(ncid, i, recname));
+        if (lowercase(std::string(recname)) == name_lower) {
+            matched_varid = i;
+            ++nmatches;
+        }
+    }
+
+    if (nmatches == 1) {
+        *varid = matched_varid;
+        return NC_NOERR;
+    }
+
+    if (nmatches > 1) {
+        abort_func("Ambiguous case-insensitive NetCDF variable lookup for " + name);
+    }
+
+    return ierr;
 }
 } // namespace
 
@@ -312,7 +353,7 @@ NCVar NCFile::def_array_fill(const std::string &name, const nc_type dtype, const
 
 NCVar NCFile::var(const std::string &name) const {
     int varid;
-    check_ncmpi_error(ncmpi_inq_varid(ncid, name.data(), &varid));
+    check_ncmpi_error(inq_varid_case_insensitive(ncid, name, &varid));
     return NCVar { ncid, varid };
 }
 
@@ -341,7 +382,7 @@ bool NCFile::has_dim(const std::string &name) const {
 
 bool NCFile::has_var(const std::string &name) const {
     int rh_id = 0;
-    int ierr = ncmpi_inq_varid(ncid, name.data(), &rh_id);
+    int ierr = inq_varid_case_insensitive(ncid, name, &rh_id);
     return (ierr == NC_NOERR);
 }
 

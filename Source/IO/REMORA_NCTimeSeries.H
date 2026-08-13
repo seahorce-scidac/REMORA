@@ -45,6 +45,8 @@ class NCTimeSeries
 
         /// File names to read from
         amrex::Vector<std::string> file_names;
+        /// Whether each file stores this field as one value per time record
+        amrex::Vector<int> file_is_spatially_uniform;
         /// Field name in netcdf file
         std::string field_name;
         /// Field name for time series in netcdf file
@@ -70,6 +72,10 @@ class NCTimeSeries
         amrex::Real time_before;
         /// Time in ocean_times immediately after the last time interpolated to
         amrex::Real time_after;
+        /// Whether the time series is a cycle
+        bool is_cycle;
+        /// If a cycle, what is the cycle length?
+        amrex::Real cycle_length;
 
         /// Multifab to store data at time_before
         amrex::MultiFab* mf_before;
