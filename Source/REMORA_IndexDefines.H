@@ -60,6 +60,84 @@ namespace BdyVars {
     };
 }
 
+/**
+ * \brief Index constants for driver_atmos_state_from_driver and the
+ *        matching atmospheric forcing MultiFab vector passed to
+ *        REMORA::ApplyAtmosphericStates.
+ *
+ * Order mirrors AtmosToOceanIndex (state lanes 0-8) from
+ * ERFRemoraCouplingContract.H; Pair uses REMORA's internal naming
+ * convention rather than the contract's Patm.
+ */
+namespace AtmosState {
+    enum {
+        Uwind = 0, ///< 10-m zonal wind [m/s]
+        Vwind,     ///< 10-m meridional wind [m/s]
+        Pair,      ///< atmospheric pressure [Pa from driver, mb in REMORA]
+        Qair,      ///< specific humidity [kg/kg]
+        Tair,      ///< air temperature [K from driver, degC in REMORA]
+        Cloud,     ///< cloud fraction [0-1]
+        Rain,      ///< precipitation rate [kg/m^2/s]
+        SWrad,     ///< downward shortwave radiation [W/m^2]
+        LWrad,     ///< downward longwave radiation [W/m^2]
+        NumTypes
+    };
+}
+
+/**
+ * \brief Index constants for the driver ATM->OCN flux-passing active view.
+ *
+ * Order mirrors AtmosToOceanActiveIndices(FluxPassing) from
+ * ERFRemoraCouplingContract.H:
+ * tau_x, tau_y, SHflux, LHflux, SWrad, LWrad, rain, evap.
+ */
+namespace AtmosFluxes {
+    enum {
+        TauX = 0,  ///< surface zonal stress lane
+        TauY,      ///< surface meridional stress lane
+        SHflux,    ///< sensible heat flux lane
+        LHflux,    ///< latent heat flux lane
+        SWrad,     ///< shortwave radiation lane
+        LWrad,     ///< longwave flux lane
+        Rain,      ///< precipitation rate lane
+        Evap,      ///< evaporation rate lane
+        NumTypes
+    };
+}
+
+/**
+ * \brief Source type for bulk-flux atmospheric forcing variables.
+ *
+ * computed is used for diagnostics/parameterizations that are evaluated by
+ * REMORA rather than prescribed as an input field, e.g. Berliand longwave or
+ * bulk evaporation minus precipitation.
+ */
+enum class BulkForcingType {
+    constant,
+    analytic,
+    netcdf,
+    computed
+};
+
+/**
+ * \brief Index constants for SolverChoice::bulk_flux_type.
+ */
+namespace BulkFlux {
+    enum {
+        Uwind = 0,  ///< 10-m zonal wind [m/s]
+        Vwind,     ///< 10-m meridional wind [m/s]
+        Pair,      ///< atmospheric pressure [mb]
+        Qair,      ///< specific humidity or relative humidity [kg/kg or fraction]
+        Tair,      ///< air temperature [degC]
+        Cloud,     ///< cloud fraction [0-1]
+        Rain,      ///< precipitation rate [kg/m^2/s]
+        SWrad,     ///< downward shortwave radiation [W/m^2]
+        LWrad,     ///< longwave radiation [W/m^2]
+        EminusP,   ///< evaporation minus precipitation [m/s]
+        NumTypes
+    };
+}
+
 enum struct REMORA_BC {
     symmetry, inflow, outflow, no_slip_wall, slip_wall, periodic,
     clamped, chapman, flather, orlanski_rad, orlanski_rad_nudge, undefined

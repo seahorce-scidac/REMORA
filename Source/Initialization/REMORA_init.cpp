@@ -14,7 +14,7 @@ using namespace amrex;
 void
 REMORA::init_analytic(int lev)
 {
-    prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, *cons_new[lev], *xvel_new[lev], *yvel_new[lev], *zvel_new[lev]);
+    prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, *cons_new[lev], *xvel_new[lev], *yvel_new[lev]);
 
     set_grid_scale(lev);
 }
@@ -43,8 +43,8 @@ REMORA::init_beta_plane_coriolis (int lev)
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real y = prob_lo + (j + 0.5_rt) * dx;
-            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - 0.5_rt * Esize);
+            Real y = prob_lo + (j + Real(0.5)) * dx;
+            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - Real(0.5) * Esize);
         });
     } //mfi
 
@@ -83,8 +83,8 @@ REMORA::set_2darrays (int lev)
 {
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
-    vec_ubar[lev]->setVal(0.0_rt);
-    vec_vbar[lev]->setVal(0.0_rt);
+    vec_ubar[lev]->setVal(zero);
+    vec_vbar[lev]->setVal(zero);
 
     MultiFab* U_old = xvel_new[lev];
     MultiFab* V_old = yvel_new[lev];
@@ -108,11 +108,11 @@ REMORA::set_2darrays (int lev)
 
         ParallelFor(makeSlab(ubx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real CF = 0.;
-            Real sum_of_hz = 0.;
+            Real CF = zero;
+            Real sum_of_hz = zero;
 
             for (int k=0; k<=N; k++) {
-                Real avg_hz = 0.5_rt*(Hz(i,j,k)+Hz(i-1,j,k));
+                Real avg_hz = Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k));
                 sum_of_hz += avg_hz;
                 CF += avg_hz*u(i,j,k,nstp);
             }
@@ -121,11 +121,11 @@ REMORA::set_2darrays (int lev)
 
         ParallelFor(makeSlab(vbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real CF = 0.;
-            Real sum_of_hz = 0.;
+            Real CF = zero;
+            Real sum_of_hz = zero;
 
             for(int k=0; k<=N; k++) {
-                Real avg_hz = 0.5_rt*(Hz(i,j,k)+Hz(i,j-1,k));
+                Real avg_hz = Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k));
                 sum_of_hz += avg_hz;
                 CF += avg_hz*v(i,j,k,nstp);
             }
@@ -133,8 +133,8 @@ REMORA::set_2darrays (int lev)
         });
     }
 
-    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar,0,false,false,0,0,0.0,*vec_ubar[lev]);
-    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar,0,false,false,0,0,0.0,*vec_vbar[lev]);
+    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar,0,false,false,0,0,zero,*vec_ubar[lev]);
+    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar,0,false,false,0,0,zero,*vec_vbar[lev]);
 }
 
 /**
@@ -146,7 +146,7 @@ REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
 {
     vec_tke[lev]->setVal(solver_choice.gls_Kmin);
     vec_gls[lev]->setVal(solver_choice.gls_Pmin);
-    vec_Lscale[lev]->setVal(0.0_rt);
+    vec_Lscale[lev]->setVal(zero);
     vec_Akk[lev]->setVal(solver_choice.Akk_bak);
     vec_Akp[lev]->setVal(solver_choice.Akp_bak);
     vec_Akv[lev]->setVal(solver_choice.Akv_bak);
@@ -166,17 +166,17 @@ REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
 
         ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Akk(i,j, 0) = 0.0_rt;
-            Akk(i,j, N+1) = 0.0_rt;
+            Akk(i,j, 0) = zero;
+            Akk(i,j, N+1) = zero;
 
-            Akp(i,j, 0) = 0.0_rt;
-            Akp(i,j, N+1) = 0.0_rt;
+            Akp(i,j, 0) = zero;
+            Akp(i,j, N+1) = zero;
 
-            Akv(i,j, 0) = 0.0_rt;
-            Akv(i,j, N+1) = 0.0_rt;
+            Akv(i,j, 0) = zero;
+            Akv(i,j, N+1) = zero;
 
-            Akt(i,j, 0) = 0.0_rt;
-            Akt(i,j, N+1) = 0.0_rt;
+            Akt(i,j, 0) = zero;
+            Akt(i,j, N+1) = zero;
         });
     }
 }
@@ -213,4 +213,99 @@ REMORA::init_stretch_coeffs () {
     Cs_w.resize(nz+1);
 
     calc_stretch_coeffs();
+}
+
+void REMORA::allocate_bathymetry_grid_vars_full_domain () {
+    // Make fake boxArray that covers the whole domain on level 0
+    BoxArray ba;
+    ba.define(makeSlab(geom[0].Domain(),2,0));
+    Box refined_domain = makeSlab(geom[0].Domain(),2,0);
+
+    DistributionMapping dm(ba);
+    vec_h_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
+    vec_pm_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
+    vec_pn_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
+
+    auto h_growvect = vec_h[0]->nGrowVect();
+    auto pm_growvect = vec_pm[0]->nGrowVect();
+    auto pn_growvect = vec_pn[0]->nGrowVect();
+    for (int lev=1; lev <= hires_grid_level; lev++) {
+        ba = ba.refine(refRatio(lev-1));
+        refined_domain.refine(refRatio(lev-1));
+
+        // Always allocate at least as many grow cells as there are in the level's normal variable multifab
+        // This makes copying and boundary filling much easier
+        vec_h_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],h_growvect)));
+        vec_pm_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],pm_growvect)));
+        vec_pn_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],pn_growvect)));
+    }
+    nc_hires_grid_box = refined_domain;
+}
+
+void
+REMORA::init_bathymetry_full_domain_from_analytic ()
+{
+    // init_analytic_bathymetry needs to be able to handle the full number of grow cells that vec_h_full_domain has
+    prob->init_analytic_bathymetry(hires_grid_level, Geom(hires_grid_level), solverChoice, *this, *vec_h_full_domain[hires_grid_level]);
+    // Average down to fill levels below hires_grid_level. Use a special average_down so grow cells
+    // get populated by averaged down fine data
+    for (int lev=hires_grid_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_h_full_domain);
+    }
+}
+
+void REMORA::allocate_init_full_domain () {
+    // Make fake boxArray that covers the whole domain on level 0
+    BoxArray ba;
+    ba.define(geom[0].Domain());
+    BoxArray ba2d;
+    ba2d.define(makeSlab(geom[0].Domain(),2,0));
+    Box refined_domain = geom[0].Domain();
+
+    DistributionMapping dm(ba);
+    vec_cons_full_domain[0].reset(new MultiFab(ba, dm, ncons, IntVect(1,1,0)));
+    vec_xvel_full_domain[0].reset(new MultiFab(convert(ba,IntVect(1,0,0)), dm, 1, IntVect(0,1,0)));
+    vec_yvel_full_domain[0].reset(new MultiFab(convert(ba,IntVect(0,1,0)), dm, 1, IntVect(1,0,0)));
+    vec_zeta_full_domain[0].reset(new MultiFab(ba2d, dm, 1, IntVect(1,1,0)));
+
+
+    auto cons_growvect = cons_new[0]->nGrowVect();
+    auto xvel_growvect = xvel_new[0]->nGrowVect();
+    auto yvel_growvect = yvel_new[0]->nGrowVect();
+    auto zeta_growvect = vec_zeta[0]->nGrowVect();
+    for (int lev=1; lev <= hires_init_level; lev++) {
+        ba = ba.refine(refRatio(lev-1));
+        ba2d = ba2d.refine(refRatio(lev-1));
+        refined_domain.refine(refRatio(lev-1));
+
+        // Always allocate at least as many grow cells as there are in the level's normal variable multifab
+        // This makes copying and boundary filling much easier
+        vec_cons_full_domain[lev].reset(new MultiFab(ba, dm, ncons, max(cum_ref_ratios[lev],cons_growvect)));
+        vec_xvel_full_domain[lev].reset(new MultiFab(convert(ba,IntVect(1,0,0)), dm, 1, max(cum_ref_ratios[lev],xvel_growvect) - IntVect(1,0,0)));
+        vec_yvel_full_domain[lev].reset(new MultiFab(convert(ba,IntVect(0,1,0)), dm, 1, max(cum_ref_ratios[lev],yvel_growvect) - IntVect(0,1,0)));
+        vec_zeta_full_domain[lev].reset(new MultiFab(ba2d, dm, 1, max(cum_ref_ratios[lev],zeta_growvect)));
+    }
+    nc_hires_init_box = refined_domain;
+}
+
+void
+REMORA::init_full_domain_from_analytic ()
+{
+    prob->init_analytic_prob(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_cons_full_domain[hires_init_level], *vec_xvel_full_domain[hires_init_level], *vec_yvel_full_domain[hires_init_level]);
+
+    for (int lev=hires_init_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_cons_full_domain);
+        average_down_with_grow_cells(lev, vec_xvel_full_domain);
+        average_down_with_grow_cells(lev, vec_yvel_full_domain);
+    }
+}
+
+void
+REMORA::init_full_domain_zeta_from_analytic ()
+{
+    prob->init_analytic_zeta(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_zeta_full_domain[hires_init_level]);
+
+    for (int lev=hires_init_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_zeta_full_domain);
+    }
 }

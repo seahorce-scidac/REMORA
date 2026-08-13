@@ -1,6 +1,7 @@
 #ifndef REMORA_TIME_INTERP_DATA_H_
 #define REMORA_TIME_INTERP_DATA_H_
 
+#include <REMORA_Constants.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_Vector.H>
 #include <AMReX_REAL.H>
@@ -43,7 +44,7 @@ struct TimeInterpolatedData {
         // clear internal memory
         m_data.clear();
         m_owns_data.clear();
-        m_time = 0.;
+        m_time = zero;
     }
 
     const int owning = 1;

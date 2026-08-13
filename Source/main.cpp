@@ -39,7 +39,10 @@ void add_par () {
     int blocking_factor = 1;
     pp.queryAdd("blocking_factor",blocking_factor);
 
-    pp.add("n_error_buf",0);
+    // Default error buf of 0, user can override. Note that the whole column will be tagged
+    // if any one cell is tagged, even if n_error_buf_z = 0
+    int n_error_buf = 0;
+    pp.queryAdd("n_error_buf",n_error_buf);
 
     // Inject variables into ParmParse database with the prefixes AMReX expects
     // This allows a REMORA user to use the remora. prefix for some AMReX-specific options

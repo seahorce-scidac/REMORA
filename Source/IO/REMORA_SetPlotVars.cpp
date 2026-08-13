@@ -170,6 +170,17 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
             tmp_plot_names.push_back(nm);
         }
     }
+    for (int n = 0; n < ncons; ++n) {
+        const std::string nm = std::string("stflux_") + cons_names[n];
+        if (containerHasElement(plot_var_names_2d, nm)) {
+            tmp_plot_names.push_back(nm);
+        }
+    }
+
+    if (containerHasElement(plot_var_names_2d, "lrflux")) tmp_plot_names.push_back("lrflux");
+    if (containerHasElement(plot_var_names_2d, "lhflux")) tmp_plot_names.push_back("lhflux");
+    if (containerHasElement(plot_var_names_2d, "srflux")) tmp_plot_names.push_back("srflux");
+    if (containerHasElement(plot_var_names_2d, "shflux")) tmp_plot_names.push_back("shflux");
 
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_2d) {

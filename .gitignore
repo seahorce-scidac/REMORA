@@ -15,6 +15,7 @@ Docs/*.out
 Docs/*.ps
 Docs/*.pdf
 Docs/*/*.pdf
+Exec/*/*.nc
 UsersGuide/*.out
 UsersGuide/*.pdf
 

@@ -87,7 +87,7 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             //      then come back at the next regridding
             //
             const auto& particles_namelist( particleData.getNames() );
-            mf->setVal(0.0);
+            mf->setVal(zero);
             for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++)
             {
                 std::string tmp_string(particles_namelist[i]+"_count");
@@ -119,6 +119,31 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 
         ref_tags[j](tags,mf.get(),clearval,tagval,time,levc,geom[levc]);
     }
+
+    // Promote any tagged cell to a full local z-column.
+    for (MFIter mfi(tags, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.validbox();
+        auto const& tag = tags.array(mfi);
+
+        const int klo = bx.smallEnd(2);
+        const int khi = bx.bigEnd(2);
+
+        amrex::ParallelFor(makeSlab(bx, 2, 0),
+        [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
+        {
+            bool refine_col = false;
+            for (int k = klo; k <= khi; ++k) {
+                refine_col = refine_col || (tag(i,j,k) != TagBox::CLEAR);
+            }
+
+            if (refine_col) {
+                for (int k = klo; k <= khi; ++k) {
+                    tag(i,j,k) = TagBox::SET;
+                }
+            }
+        });
+    }
 }
 
 /**
@@ -132,7 +157,6 @@ REMORA::refinement_criteria_setup ()
         ParmParse pp(pp_prefix);
         Vector<std::string> refinement_indicators;
         pp.queryarr("refinement_indicators",refinement_indicators,0,pp.countval("refinement_indicators"));
-
         for (int i=0; i<refinement_indicators.size(); ++i)
         {
             std::string ref_prefix = pp_prefix + "." + refinement_indicators[i];
@@ -381,10 +405,19 @@ REMORA::refinement_criteria_setup ()
                 Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
             }
         } // loop over criteria
-        // Untag anywhere we have masks
-        AMRErrorTagInfo info;
-        info.SetDerefine(1);
-        Real value = 0.5_rt;
-        ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,"mask",info));
+        {
+            // Untag anywhere we have masks
+            AMRErrorTagInfo info;
+            info.SetDerefine(1);
+            Real value = Real(0.5);
+            ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,"mask",info));
+        }
+        {
+            // Also untag at mask-water boundaries
+            AMRErrorTagInfo info;
+            info.SetDerefine(1);
+            Real value = Real(0.5);
+            ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::GRAD,"mask",info));
+        }
     } // if max_level > 0
 }

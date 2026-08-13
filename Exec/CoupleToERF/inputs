@@ -1,0 +1,58 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = CoupleToERF
+
+remora.max_step = 10
+remora.stop_time = 30000.0
+
+amrex.fpe_trap_invalid=1
+
+# INITIALIZATION
+remora.ic_type = analytic
+remora.grid_scale_type = constant
+
+# PROBLEM SIZE & GEOMETRY
+remora.prob_lo     =      0.     0.    -150.
+remora.prob_hi     =   1600.  1600.       0.
+
+remora.n_cell           = 16     16      32
+
+remora.is_periodic = 1 1 0
+
+remora.flat_bathymetry = true
+
+# TIME STEP CONTROL
+remora.fixed_dt       = 300.0 # Timestep size (seconds)
+remora.fixed_ndtfast_ratio  = 30 # Baratropic timestep size (seconds)
+
+# DIAGNOSTICS & VERBOSITY
+remora.sum_interval   = 10       # timesteps between integrated/max quantities, if remora.v > 0
+remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
+
+# CHECKPOINT FILES
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
+
+# PLOTFILES
+remora.plot_file     = plt        # prefix of plotfile name
+remora.plot_int      = 100          # number of timesteps between plotfiles
+remora.plot_vars_3d  = salt temp tracer x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+
+# BULK FLUXES
+remora.bulk_fluxes = true
+remora.air_temperature = 23.567
+remora.air_humidity = 0.776
+remora.air_pressure = 1013.48
+remora.cloud = 0.5
+remora.rain = 0.002
+remora.eminusp = true
+remora.eminusp_correct_ssh = true
+
+# VERTICAL MIXING; WILL MAKE PROB MORE STABLE
+remora.vertical_mixing_type="gls"
+remora.Akt_bak = 1.0e-6
+remora.Akv_bak = 1.0e-5
+
+remora.horizontal_mixing_type = "constant"
+remora.visc2 = 5.0
+

@@ -30,3 +30,24 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
     ncf.close();
     return attr_val;
 }
+
+/**
+ * @param fname Name of NetCDF file
+ * @param var_name Name of variable
+ * @param attr_name Name of attribute to read
+ * @returns whether attribute was found
+ */
+bool QueryNetCDFVarAttrStr (const std::string& fname,
+                            const std::string& var_name,
+                            const std::string& attr_name)
+{
+    bool has_var;
+    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
+    ncmpi_begin_indep_data(ncf.ncid);
+    if (amrex::ParallelDescriptor::IOProcessor())
+    {
+        has_var = ncf.var(var_name).has_attr(attr_name);
+    }
+    ncf.close();
+    return has_var;
+}

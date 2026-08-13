@@ -42,7 +42,7 @@ Currently, by default, the particles are initialized at cell centers, one per ce
 Caveat: the particle information is currently output when using the AMReX-native plotfile format, but not
 when using netcdf.  Writing particles into the netcdf files is a WIP.
 
-To see an example of using the particle functionality, build the executable using gmake in Exec/ParticlesOverSeaMount.
+To see an example of using the particle functionality, build the executable using gmake in Exec and cd into ParticlesOverSeaMount to run.
 
 To visualize the number of particles per cell as a mesh-based variable, add ``tracer_particle_count`` to the line in the inputs file
 

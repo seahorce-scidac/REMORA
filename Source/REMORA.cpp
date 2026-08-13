@@ -9,18 +9,18 @@
 
 using namespace amrex;
 
-amrex::Real REMORA::startCPUTime        = 0.0_rt;
-amrex::Real REMORA::previousCPUTimeUsed = 0.0_rt;
+amrex::Real REMORA::startCPUTime        = zero;
+amrex::Real REMORA::previousCPUTimeUsed = zero;
 
 Vector<AMRErrorTag> REMORA::ref_tags;
 
 SolverChoice REMORA::solverChoice;
 
 // Time step control
-amrex::Real REMORA::cfl           =  0.8_rt;
-amrex::Real REMORA::fixed_dt      = -1.0_rt;
-amrex::Real REMORA::fixed_fast_dt = -1.0_rt;
-amrex::Real REMORA::change_max    =  1.1_rt;
+amrex::Real REMORA::cfl           =  Real(0.8);
+amrex::Real REMORA::fixed_dt      = -one;
+amrex::Real REMORA::fixed_fast_dt = -one;
+amrex::Real REMORA::change_max    =  Real(1.1);
 
 int   REMORA::fixed_ndtfast_ratio = 0;
 
@@ -29,13 +29,16 @@ int         REMORA::verbose       = 0;
 
 // Frequency of diagnostic output
 int         REMORA::sum_interval  = -1;
-amrex::Real REMORA::sum_per       = -1.0_rt;
+amrex::Real REMORA::sum_per       = -one;
 
 // Minimum number of digits in plotfile name
 int         REMORA::file_min_digits = 5;
 
 // Do we include staggered velocities in the plotfile?
-int         REMORA::plot_staggered_vels = 0;
+bool        REMORA::plot_staggered_vels = false;
+
+// Do we include nodal data (Nu_nd) in the plotfile?
+bool        REMORA::plot_nodal_data = true;
 
 // Native AMReX vs NetCDF
 PlotfileType REMORA::plotfile_type    = PlotfileType::amrex;
@@ -53,8 +56,6 @@ amrex::Vector<amrex::Vector<std::string>> REMORA::nc_init_file = {{""}}; // Must
 amrex::Vector<amrex::Vector<std::string>> REMORA::nc_grid_file = {{""}}; // Must provide via input
 #endif
 
-amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
-
 /**
  * constructor:
  * - reads in parameters from inputs file
@@ -64,6 +65,109 @@ amrex::Vector<std::string> BCNames = {"xlo", "ylo", "zlo", "xhi", "yhi", "zhi"};
 REMORA::REMORA ()
 {
     BL_PROFILE("REMORA::REMORA()");
+
+    if (ParallelDescriptor::IOProcessor()) {
+        const char* remora_hash = amrex::buildInfoGetGitHash(1);
+        const char* amrex_hash = amrex::buildInfoGetGitHash(2);
+        const char* buildgithash = amrex::buildInfoGetBuildGitHash();
+        const char* buildgitname = amrex::buildInfoGetBuildGitName();
+
+        if (strlen(remora_hash) > 0) {
+          amrex::Print() << "\n"
+                         << "REMORA git hash: " << remora_hash << "\n";
+        }
+        if (strlen(amrex_hash) > 0) {
+          amrex::Print() << "AMReX git hash: " << amrex_hash << "\n";
+        }
+        if (strlen(buildgithash) > 0) {
+          amrex::Print() << buildgitname << " git hash: " << buildgithash << "\n";
+        }
+
+        amrex::Print() << "\n";
+    }
+
+    ReadParameters();
+
+    // Blocking factor in z set to very large value to be > nz
+    // This guarantees that there will be no domain decomposition in the z-direction
+    // We have to set this by hand here because setting it in the input file will
+    // cause checks in the AmrCore constructor to fail.
+    Vector<IntVect> blocking_factor_vec = Vector<IntVect>();
+    blocking_factor_vec.resize(max_level+1);
+    for (int lev = 0; lev <= max_level; ++lev) {
+        blocking_factor_vec[lev] = blockingFactor(lev);
+        blocking_factor_vec[lev][2] = 4096;
+    }
+    SetBlockingFactor(blocking_factor_vec);
+
+    const std::string& pv3d = "plot_vars_3d"; set3DPlotVariables(pv3d);
+    const std::string& pv2d = "plot_vars_2d"; set2DPlotVariables(pv2d);
+
+    prob = amrex_probinit(geom[0].ProbLo(),geom[0].ProbHi());
+
+    // Geometry on all levels has been defined already.
+
+    // No valid BoxArray and DistributionMapping have been defined.
+    // But the arrays for them have been resized.
+
+    int nlevs_max = max_level + 1;
+
+    istep.resize(nlevs_max, 0);
+    nsubsteps.resize(nlevs_max, 1);
+    for (int lev = 1; lev <= max_level; ++lev) {
+        nsubsteps[lev] = do_substep ? MaxRefRatio(lev-1) : 1;
+    }
+
+    physbcs.resize(nlevs_max);
+
+    t_new.resize(nlevs_max, zero);
+    t_old.resize(nlevs_max, -bogus_large_value);
+    dt.resize(nlevs_max, bogus_large_value);
+
+    cons_new.resize(nlevs_max);
+    cons_old.resize(nlevs_max);
+    xvel_new.resize(nlevs_max);
+    xvel_old.resize(nlevs_max);
+    yvel_new.resize(nlevs_max);
+    yvel_old.resize(nlevs_max);
+    zvel_new.resize(nlevs_max);
+    zvel_old.resize(nlevs_max);
+
+    advflux_reg.resize(nlevs_max);
+
+    // Initialize tagging criteria for mesh refinement
+    refinement_criteria_setup();
+
+    IntVect cum_ref_ratio = IntVect(1,1,0);
+    cum_ref_ratios.push_back(cum_ref_ratio);
+    // We have already read in the ref_Ratio (via amr.ref_ratio =) but we need to enforce
+    //     that there is no refinement in the vertical so we test on that here.
+    for (int lev = 0; lev < max_level; ++lev)
+    {
+       amrex::Print() << "Refinement ratio at level " << lev << " set to be " <<
+          ref_ratio[lev][0]  << " " << ref_ratio[lev][1]  <<  " " << ref_ratio[lev][2] << std::endl;
+
+       if (ref_ratio[lev][2] != 1)
+       {
+           amrex::Print() << "********************************************************************************" << std::endl;
+           amrex::Print() << "We don't allow refinement in the vertical -- make sure to set ref_ratio = 1 in z" << std::endl;
+           amrex::Print() << "It's possible you set amr.ref_ratio when you meant to set amr.ref_ratio_vect    " << std::endl;
+           amrex::Print() << "********************************************************************************" << std::endl;
+           amrex::Abort();
+       }
+
+       cum_ref_ratio[0] *= ref_ratio[lev][0];
+       cum_ref_ratio[1] *= ref_ratio[lev][1];
+       cum_ref_ratios.push_back(cum_ref_ratio);
+    }
+}
+
+REMORA::REMORA (const amrex::RealBox& rb, int max_level_in, const amrex::Vector<int>& n_cell_in, int coord, const amrex::Vector<amrex::IntVect>& ref_ratio_in, const amrex::Array<int,AMREX_SPACEDIM>& is_per, std::string prefix)
+    : amrex::AmrCore (rb, max_level_in, n_cell_in, coord, ref_ratio_in, is_per)
+{
+    BL_PROFILE("REMORA::REMORA(explicit)");
+    pp_prefix = prefix;
+
     if (ParallelDescriptor::IOProcessor()) {
         const char* remora_hash = amrex::buildInfoGetGitHash(1);
         const char* amrex_hash = amrex::buildInfoGetGitHash(2);
@@ -91,11 +195,6 @@ REMORA::REMORA ()
 
     prob = amrex_probinit(geom[0].ProbLo(),geom[0].ProbHi());
 
-    // Geometry on all levels has been defined already.
-
-    // No valid BoxArray and DistributionMapping have been defined.
-    // But the arrays for them have been resized.
-
     int nlevs_max = max_level + 1;
 
     istep.resize(nlevs_max, 0);
@@ -106,9 +205,9 @@ REMORA::REMORA ()
 
     physbcs.resize(nlevs_max);
 
-    t_new.resize(nlevs_max, 0.0_rt);
-    t_old.resize(nlevs_max, -1.e100_rt);
-    dt.resize(nlevs_max, 1.e100_rt);
+    t_new.resize(nlevs_max, zero);
+    t_old.resize(nlevs_max, -bogus_large_value);
+    dt.resize(nlevs_max, bogus_large_value);
 
     cons_new.resize(nlevs_max);
     cons_old.resize(nlevs_max);
@@ -121,11 +220,8 @@ REMORA::REMORA ()
 
     advflux_reg.resize(nlevs_max);
 
-    // Initialize tagging criteria for mesh refinement
     refinement_criteria_setup();
 
-    // We have already read in the ref_Ratio (via amr.ref_ratio =) but we need to enforce
-    //     that there is no refinement in the vertical so we test on that here.
     for (int lev = 0; lev < max_level; ++lev)
     {
        amrex::Print() << "Refinement ratio at level " << lev << " set to be " <<
@@ -162,7 +258,7 @@ REMORA::init_scalar_metadata ()
 void
 REMORA::Evolve ()
 {
-    BL_PROFILE("REMORA::Evolve()");
+    BL_PROFILE_VAR("REMORA::Evolve()",evolve);
     Real cur_time = t_new[0];
 
     // Take one coarse timestep by calling timeStep -- which recursively calls timeStep
@@ -175,6 +271,7 @@ REMORA::Evolve ()
 
         int lev = 0;
         int iteration = 1;
+        auto dEvolveTime0 = amrex::second();
 
         if (max_level == 0) {
             timeStep(lev, cur_time, iteration);
@@ -188,21 +285,14 @@ REMORA::Evolve ()
         amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
                        << " DT = " << dt[0]  << std::endl;
 
-        if ( (plot_int > 0      && (step+1 - last_plot_file_step) == plot_int         ) ||
-             (plot_int_time > 0 && (cur_time >= (last_plot_file_time + plot_int_time))) )
+        if (verbose > 0)
         {
-            last_plot_file_step = step+1;
-            last_plot_file_time = cur_time;
-            WritePlotFile(step+1);
-            history_count++;
+            auto dEvolveTime = amrex::second() - dEvolveTime0;
+            ParallelDescriptor::ReduceRealMax(dEvolveTime,ParallelDescriptor::IOProcessorNumber());
+            amrex::Print() << "Timestep time = " << dEvolveTime << " seconds." << '\n';
         }
 
-        if ((check_int > 0 && (step+1 - last_check_file_step) == check_int)
-                || (check_int_time > 0 && cur_time >= (last_check_file_time + check_int_time))) {
-            last_check_file_step = step+1;
-            last_check_file_time = cur_time;
-            WriteCheckpointFile();
-        }
+        WriteAtIntermediateTime(step, cur_time);
 
         post_timestep(step, cur_time, dt[0]);
 
@@ -217,13 +307,42 @@ REMORA::Evolve ()
         if (cur_time >= stop_time - 1.e-6*dt[0]) break;
     }
 
-    if ( (plot_int > 0 || plot_int_time > 0.0) && istep[0] > last_plot_file_step)
+    BL_PROFILE_VAR_STOP(evolve);
+
+    WriteAtFinalTime();
+}
+
+void
+REMORA::WriteAtFinalTime()
+{
+
+    if ( (plot_int > 0 || plot_int_time > zero) && istep[0] > last_plot_file_step)
     {
         WritePlotFile(istep[0]);
         history_count++;
     }
 
-    if ((check_int > 0 || check_int_time > 0.0) && istep[0] > last_check_file_step) {
+    if ((check_int > 0 || check_int_time > zero) && istep[0] > last_check_file_step) {
+        WriteCheckpointFile();
+    }
+}
+
+void
+REMORA::WriteAtIntermediateTime(int step, amrex::Real cur_time)
+{
+    if ( (plot_int > 0      && (step+1 - last_plot_file_step) == plot_int         ) ||
+         (plot_int_time > 0 && (cur_time >= (last_plot_file_time + plot_int_time))) )
+    {
+        last_plot_file_step = step+1;
+        last_plot_file_time = cur_time;
+        WritePlotFile(step+1);
+        history_count++;
+    }
+
+    if ((check_int > 0 && (step+1 - last_check_file_step) == check_int)
+            || (check_int_time > 0 && cur_time >= (last_check_file_time + check_int_time))) {
+        last_check_file_step = step+1;
+        last_check_file_time = cur_time;
         WriteCheckpointFile();
     }
 }
@@ -269,6 +388,13 @@ void
 REMORA::InitData ()
 {
     BL_PROFILE("REMORA::InitData()");
+    if (running_with_coupling_driver) {
+        amrex::Print() << "REMORA InitData: driver-managed atm2ocn coupling enabled"
+                       << " two_way=" << (driver_uses_two_way_coupling ? 1 : 0)
+                       << " active_contract="
+                       << (DriverUsesStateForcing(driver_atmos_forcing_mode) ? "state" : "flux")
+                       << "\n";
+    }
     // Initialize the start time for our CPU-time tracker
     startCPUTime = Real(ParallelDescriptor::second());
 
@@ -281,8 +407,8 @@ REMORA::InitData ()
 
     last_plot_file_step = -1;
     last_check_file_step = -1;
-    last_plot_file_time = -1.0_rt;
-    last_check_file_time = -1.0_rt;
+    last_plot_file_time = -one;
+    last_check_file_time = -one;
 
     if (restart_chkfile == "") {
         // start simulation from the beginning
@@ -321,9 +447,9 @@ REMORA::InitData ()
         }
 
         if (restart_chkfile == "") {
-            FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,0.0,*cons_new[lev]);
-            FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,0.0,*xvel_new[lev]);
-            FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,0.0,*yvel_new[lev]);
+            FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,zero,*cons_new[lev]);
+            FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,zero,*xvel_new[lev]);
+            FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,zero,*yvel_new[lev]);
             FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null, 0, true, false);
 
             // Copy from new into old just in case when initializing from scratch
@@ -341,7 +467,7 @@ REMORA::InitData ()
     const std::string& pv3d = "plot_vars_3d"; append3DPlotVariables(pv3d);
     const std::string& pv2d = "plot_vars_2d"; append2DPlotVariables(pv2d);
 
-    if (restart_chkfile == "" && (check_int > 0 || check_int_time > 0.0_rt))
+    if (restart_chkfile == "" && (check_int > 0 || check_int_time > zero))
     {
         WriteCheckpointFile();
         last_check_file_step = 0;
@@ -350,7 +476,7 @@ REMORA::InitData ()
     if ( (restart_chkfile == "") ||
          (restart_chkfile != "" && plot_file_on_restart) )
     {
-        if (plot_int > 0 || plot_int_time > 0.0)
+        if (plot_int > 0 || plot_int_time > zero)
         {
             int step0 = 0;
             WritePlotFile(step0);
@@ -483,24 +609,35 @@ void
 REMORA::set_zeta (int lev)
 {
     BL_PROFILE("REMORA::set_zeta()");
-    if (solverChoice.ic_type == IC_Type::analytic) {
-        prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, *vec_zeta[lev]);
-
+    if (lev==0) {
+        if (hires_init_level < 0) {
+            if (solverChoice.ic_type == IC_Type::analytic) {
+                prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, *vec_zeta[lev]);
+            } else if (solverChoice.ic_type == IC_Type::netcdf) {
 #ifdef REMORA_USE_NETCDF
-    } else if (solverChoice.ic_type == IC_Type::netcdf) {
-        if (lev == 0) {
-            amrex::Print() << "Calling init_zeta_from_netcdf on level " << lev << std::endl;
-            init_zeta_from_netcdf(lev);
-            amrex::Print() << "Sea surface height loaded from netcdf file \n " << std::endl;
-        } else {
-            Real dummy_time = 0.0_rt;
-            FillCoarsePatch(lev,dummy_time,vec_zeta[lev].get(), vec_zeta[lev-1].get(),BCVars::cons_bc);
-        }
+                amrex::Print() << "Calling init_zeta_from_netcdf on level " << lev << std::endl;
+                init_zeta_from_netcdf(lev);
+                amrex::Print() << "Sea surface height loaded from netcdf file \n " << std::endl;
 #endif
+            } else {
+                amrex::Abort("Unknown IC_Type");
+            }
+        } else {
+            set_zeta_averaged_down(lev);
+        }
+        vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
     } else {
-        Abort("Don't know this ic_type!");
+        // If our level is higher than the high resolution grid or initialization
+        // is analytic, interpolate from level below. Otherwise, copy over the bathymetry
+        // data that has been averaged down
+        if (lev > hires_init_level) {
+            Real dummy_time = zero;
+            FillCoarsePatch(lev,dummy_time,vec_zeta[lev].get(), vec_zeta[lev-1].get(),BCVars::cons_bc);
+        } else {
+            set_zeta_averaged_down(lev);
+            vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
+        }
     }
-    vec_zeta[lev]->FillBoundary(geom[lev].periodicity());
     set_zeta_average(lev);
 }
 
@@ -512,85 +649,112 @@ REMORA::set_bathymetry (int lev)
 {
     BL_PROFILE("REMORA::bathymetry()");
     // Only set bathymetry on level 0, and interpolate for finer levels
-    if (solverChoice.init_l0int_h) {
-        if (lev==0) {
+    if (lev==0) {
+        if (solverChoice.flat_bathymetry) {
+            init_flat_bathymetry(lev);
+        // If grid data is not defined on a level > 0 (negative level) then
+        // initialize from low-resolution grid normally. Otherwise use high-resolution
+        // grid data averaged down to level 0
+        } else if (hires_grid_level < 0) {
             if (solverChoice.ic_type == IC_Type::analytic) {
-                if (!solverChoice.flat_bathymetry) {
-                    prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_h[lev]);
-                } else {
-                    init_flat_bathymetry(lev);
-                }
-#ifdef REMORA_USE_NETCDF
-            } else if (solverChoice.ic_type == IC_Type::netcdf) {
-                if (!solverChoice.flat_bathymetry) {
-                    amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
-                    init_bathymetry_from_netcdf(lev);
-                    amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
-                } else {
-                    init_flat_bathymetry(lev);
-                }
-#endif
-            } else {
-                Abort("Don't know this ic_type!");
-            }
-            // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
-            // to make sure ghost cells in the domain corners are consistent.
-            vec_h[lev]->FillBoundary(geom[lev].periodicity());
-            vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
-        } else {
-            Real dummy_time = 0.0_rt;
-            FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
-            if (solverChoice.ic_type == IC_Type::netcdf) {
-                set_grid_scale(lev);
-            }
-        }
-    } else if (solverChoice.init_ana_h) {
-        if (solverChoice.ic_type == IC_Type::analytic) {
-            if (!solverChoice.flat_bathymetry) {
-                prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this,*vec_h[lev]);
-            } else {
-                init_flat_bathymetry(lev);
-            }
-#ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.ic_type == IC_Type::netcdf) {
-            amrex::Print() << "Calling init_bathymetry_from_netcdf level " << lev << std::endl;
-            init_bathymetry_from_netcdf(lev);
-            amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
-#endif
-        } else {
-            Abort("Don't know this ic_type!");
-        }
-        // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
-        // to make sure ghost cells in the domain corners are consistent.
-        vec_h[lev]->FillBoundary(geom[lev].periodicity());
-        vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
-    } else if (solverChoice.init_l1ad_h) {
-        if (solverChoice.ic_type == IC_Type::analytic) {
-            if (!solverChoice.flat_bathymetry) {
                 prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_h[lev]);
-            } else {
-                init_flat_bathymetry(lev);
-            }
+            } else if (solverChoice.ic_type == IC_Type::netcdf) {
 #ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.ic_type == IC_Type::netcdf) {
-            if (!solverChoice.flat_bathymetry) {
                 amrex::Print() << "Calling init_bathymetry_from_netcdf " << std::endl;
                 init_bathymetry_from_netcdf(lev);
                 amrex::Print() << "Bathymetry loaded from netcdf file \n " << std::endl;
-            } else {
-                init_flat_bathymetry(lev);
-            }
+                amrex::Print() << "Calling init_grid_vars_from_netcdf " << std::endl;
+                init_grid_vars_from_netcdf(lev);
+                amrex::Print() << "Grid variables loaded from netcdf file \n " << std::endl;
 #endif
+            } else {
+                amrex::Abort("Unknown IC_Type");
+            }
         } else {
-            Abort("Don't know this ic_type!");
+            set_bathymetry_averaged_down(lev);
+            set_grid_vars_averaged_down(lev);
         }
         // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
         // to make sure ghost cells in the domain corners are consistent.
         vec_h[lev]->FillBoundary(geom[lev].periodicity());
         vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
     } else {
-        amrex::Abort("Don't know this h init type");
+        // If our level is higher than the high resolution grid or initialization
+        // is analytic, interpolate from level below. Otherwise, copy over the bathymetry
+        // data that has been averaged down
+        if (lev > hires_grid_level) {
+            Real dummy_time = zero;
+            FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
+        } else {
+            set_bathymetry_averaged_down(lev);
+            vec_h[lev]->FillBoundary(geom[lev].periodicity());
+            vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
+        }
     }
+    set_grid_scale(lev);
+}
+
+/**
+ * @param[in   ] lev   level to operate on
+ */
+void
+REMORA::set_bathymetry_averaged_down (int lev) {
+    Real dummy_time = zero;
+    // Note: don't understand why the grow vector args aren't vec_h and then vec_h_full_domain
+    ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
+    ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
+    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
+            foextrap_periodic_bc(),
+            BdyVars::null,0,false,false,1);
+    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
+            foextrap_periodic_bc(),
+            BdyVars::null,1,false,false,1);
+}
+
+/**
+ * @param[in   ] lev   level to operate on
+ */
+void
+REMORA::set_grid_vars_averaged_down (int lev) {
+    Real dummy_time = zero;
+    ParallelCopy(*vec_pm[lev].get(), *vec_pm_full_domain[lev].get(), 0, 0, 1,
+            vec_pm_full_domain[lev]->nGrowVect(),vec_pm[lev]->nGrowVect());
+    ParallelCopy(*vec_pn[lev].get(), *vec_pn_full_domain[lev].get(), 0, 0, 1,
+            vec_pn_full_domain[lev]->nGrowVect(),vec_pn[lev]->nGrowVect());
+    FillPatch(lev,dummy_time,*vec_pm[lev],GetVecOfPtrs(vec_pm),
+            foextrap_periodic_bc(),
+            BdyVars::null,0,false);
+    FillPatch(lev,dummy_time,*vec_pn[lev],GetVecOfPtrs(vec_pn),
+            foextrap_periodic_bc(),
+            BdyVars::null,0,false);
+}
+
+/**
+ * @param[in   ] lev   level to operate on
+ */
+void
+REMORA::set_zeta_averaged_down (int lev) {
+    ParallelCopy(*vec_zeta[lev].get(), *vec_zeta_full_domain[lev].get(), 0, 0, 1,
+            vec_zeta_full_domain[lev]->nGrowVect(),vec_zeta[lev]->nGrowVect());
+    FillPatch(lev, t_new[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
+                  0, false,false,0,0,zero,*vec_zeta[lev]);
+}
+
+/**
+ * @param[in   ] lev   level to operate on
+ */
+void
+REMORA::set_init_data_averaged_down (int lev) {
+    ParallelCopy(*cons_new[lev], *vec_cons_full_domain[lev], 0, 0, ncons,
+            vec_cons_full_domain[lev]->nGrowVect(),cons_new[lev]->nGrowVect());
+    ParallelCopy(*xvel_new[lev], *vec_xvel_full_domain[lev], 0, 0, 1,
+            vec_xvel_full_domain[lev]->nGrowVect(),xvel_new[lev]->nGrowVect());
+    ParallelCopy(*yvel_new[lev], *vec_yvel_full_domain[lev], 0, 0, 1,
+            vec_yvel_full_domain[lev]->nGrowVect(),yvel_new[lev]->nGrowVect());
+
+    FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,zero,*cons_new[lev]);
+    FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,zero,*xvel_new[lev]);
+    FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,zero,*yvel_new[lev]);
 }
 
 /**
@@ -611,7 +775,7 @@ REMORA::set_coriolis(int lev) {
                 init_coriolis_from_netcdf(lev);
                 amrex::Print() << "Coriolis loaded from netcdf file \n" << std::endl;
             } else {
-                Real dummy_time = 0.0_rt;
+                Real dummy_time = zero;
                 FillCoarsePatch(lev,dummy_time,vec_fcor[lev].get(), vec_fcor[lev-1].get(),BCVars::cons_bc);
             }
 #endif
@@ -619,7 +783,7 @@ REMORA::set_coriolis(int lev) {
             Abort("Don't know this coriolis_type!");
         }
 
-        Real time = 0.0_rt;
+        Real time = zero;
         FillPatch(lev, time, *vec_fcor[lev], GetVecOfPtrs(vec_fcor), foextrap_bc());
         vec_fcor[lev]->EnforcePeriodicity(geom[lev].periodicity());
     }
@@ -645,7 +809,7 @@ REMORA::init_set_vmix(int lev) {
 void
 REMORA::set_analytic_vmix(int lev) {
     BL_PROFILE("REMORA::set_analytic_vmix()");
-    Real time = 0.0_rt;
+    Real time = zero;
     vec_Akv[lev]->setVal(solverChoice.Akv_bak);
     vec_Akt[lev]->setVal(solverChoice.Akt_bak);
     prob->init_analytic_vmix(lev, geom[lev], solverChoice, *this,*vec_Akv[lev], *vec_Akt[lev]);
@@ -671,7 +835,7 @@ REMORA::set_masks(int lev)
             init_masks_from_netcdf(lev);
             amrex::Print() << "Masks loaded from netcdf file \n " << std::endl;
         } else {
-            Real dummy_time = 0.0_rt;
+            Real dummy_time = zero;
             FillCoarsePatchPC(lev, dummy_time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
                     foextrap_bc());
             calculate_nodal_masks(lev);
@@ -692,13 +856,13 @@ REMORA::set_hmixcoef(int lev)
     // Optional AMR scaling: decrease coefficients on refined levels linearly
     // with grid size (i.e., proportional to sqrt(cell area)). For a horizontal
     // refinement ratio rx x ry, the effective scale factor is 1/sqrt(rx*ry).
-    Real lev_scale = 1.0_rt;
+    Real lev_scale = one;
     if ((solverChoice.scaled_to_grid_amr_scaling == ScaledToGridAMRScaling::linear) && (lev > 0)) {
-        Real rf = 1.0_rt;
+        Real rf = one;
         for (int l = 0; l < lev; ++l) {
             rf *= std::sqrt(static_cast<Real>(ref_ratio[l][0]) * static_cast<Real>(ref_ratio[l][1]));
         }
-        lev_scale = 1.0_rt / rf;
+        lev_scale = one / rf;
     }
 
     if (solverChoice.horiz_mixing_type == HorizMixingType::analytic) {
@@ -755,7 +919,7 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& pm,
                                       Array4<Real const> const& pn) -> Real
             {
-                Real local_min = 1.0e200_rt;
+                Real local_min = bogus_large_value;
                 amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
                 {
                     local_min = amrex::min(local_min, pm(i,j,0) * pn(i,j,0));
@@ -764,7 +928,7 @@ REMORA::set_hmixcoef(int lev)
             });
 
         ParallelDescriptor::ReduceRealMin(denom_min);
-        if (denom_min <= 0.0_rt) {
+        if (denom_min <= zero) {
             Abort("scaled_to_grid: found non-positive pm*pn (grid metrics must be > 0)");
         }
 
@@ -773,12 +937,12 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& pm,
                                       Array4<Real const> const& pn) -> Real
             {
-                Real local_max = 0.0_rt;
+                Real local_max = zero;
                 amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
                 {
                     Real denom = pm(i,j,0) * pn(i,j,0);
-                    if (denom > 0.0_rt) {
-                        Real G = std::sqrt(1.0_rt / denom);
+                    if (denom > zero) {
+                        Real G = std::sqrt(one / denom);
                         local_max = amrex::max(local_max, G);
                     }
                 });
@@ -786,20 +950,20 @@ REMORA::set_hmixcoef(int lev)
             });
 
         ParallelDescriptor::ReduceRealMax(grdmax);
-        if (grdmax <= 0.0_rt) {
+        if (grdmax <= zero) {
             Abort("scaled_to_grid: grdmax <= 0");
         }
 
         // Optional AMR scaling: decrease coefficients on refined levels linearly
         // with grid size (i.e., proportional to sqrt(cell area)). For a horizontal
         // refinement ratio rx x ry, the effective scale factor is 1/sqrt(rx*ry).
-        lev_scale = 1.0_rt;
+        lev_scale = one;
         if ((solverChoice.scaled_to_grid_amr_scaling == ScaledToGridAMRScaling::linear) && (lev > 0)) {
-            Real rf = 1.0_rt;
+            Real rf = one;
             for (int l = 0; l < lev; ++l) {
                 rf *= std::sqrt(static_cast<Real>(ref_ratio[l][0]) * static_cast<Real>(ref_ratio[l][1]));
             }
-            lev_scale = 1.0_rt / rf;
+            lev_scale = one / rf;
         }
 
         Real visc0 = solverChoice.visc2 * lev_scale;
@@ -826,7 +990,7 @@ REMORA::set_hmixcoef(int lev)
             ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
             {
                 Real denom  = pm(i,j,0) * pn(i,j,0);
-                Real grdscl = (denom > 0.0_rt) ? std::sqrt(1.0_rt / denom) : 0.0_rt;
+                Real grdscl = (denom > zero) ? std::sqrt(one / denom) : zero;
                 visc2_r(i,j,0) = cff * grdscl;
 
                 for (int n = 0; n < ncons_local; n++) {
@@ -836,7 +1000,7 @@ REMORA::set_hmixcoef(int lev)
         }
 
         // Fill ghost cells for rho coefficients BEFORE psi averaging
-        Real time = 0.0_rt;
+        Real time = zero;
         FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), foextrap_periodic_bc());
 
         // ------------------------------------------------------------
@@ -850,7 +1014,7 @@ REMORA::set_hmixcoef(int lev)
 
             ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
             {
-                visc2_p(i,j,0) = 0.25_rt * (
+                visc2_p(i,j,0) = fourth * (
                     visc2_r(i-1,j-1,0) +
                     visc2_r(i  ,j-1,0) +
                     visc2_r(i-1,j  ,0) +
@@ -877,10 +1041,10 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& visc2,
                                       Array4<Real const> const& mskr) -> Real
             {
-                Real local_min = 1.0e200_rt;
+                Real local_min = bogus_large_value;
                 amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
                 {
-                    if (mskr(i,j,0) > 0.0_rt) {
+                    if (mskr(i,j,0) > zero) {
                         local_min = amrex::min(local_min, visc2(i,j,0));
                     }
                 });
@@ -893,10 +1057,10 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& visc2,
                                       Array4<Real const> const& mskr) -> Real
             {
-                Real local_max = -1.0e200_rt;
+                Real local_max = -bogus_large_value;
                 amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
                 {
-                    if (mskr(i,j,0) > 0.0_rt) {
+                    if (mskr(i,j,0) > zero) {
                         local_max = amrex::max(local_max, visc2(i,j,0));
                     }
                 });
@@ -910,10 +1074,10 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& visc2,
                                       Array4<Real const> const& mskr) -> Real
             {
-                Real local_min = 1.0e200_rt;
+                Real local_min = bogus_large_value;
                 amrex::Loop(bx, [=,&local_min] (int i, int j, int) noexcept
                 {
-                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,0) : 0.0_rt;
+                    const Real v = (mskr(i,j,0) > zero) ? visc2(i,j,0) : zero;
                     local_min = amrex::min(local_min, v);
                 });
                 return local_min;
@@ -925,10 +1089,10 @@ REMORA::set_hmixcoef(int lev)
                                       Array4<Real const> const& visc2,
                                       Array4<Real const> const& mskr) -> Real
             {
-                Real local_max = -1.0e200_rt;
+                Real local_max = -bogus_large_value;
                 amrex::Loop(bx, [=,&local_max] (int i, int j, int) noexcept
                 {
-                    const Real v = (mskr(i,j,0) > 0.0_rt) ? visc2(i,j,0) : 0.0_rt;
+                    const Real v = (mskr(i,j,0) > zero) ? visc2(i,j,0) : zero;
                     local_max = amrex::max(local_max, v);
                 });
                 return local_max;
@@ -957,7 +1121,7 @@ REMORA::set_hmixcoef(int lev)
     }
 
     // Final FillPatch for all fields
-    Real time = 0.0_rt;
+    Real time = zero;
     FillPatch(lev, time, *vec_visc2_p[lev], GetVecOfPtrs(vec_visc2_p), foextrap_periodic_bc());
     FillPatch(lev, time, *vec_visc2_r[lev], GetVecOfPtrs(vec_visc2_r), foextrap_periodic_bc());
     for (int n = 0; n < ncons; n++) {
@@ -989,8 +1153,8 @@ REMORA::set_smflux(int lev)
 #ifdef REMORA_USE_NETCDF
         sustr_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_sustr[lev].get(), geom, ref_ratio);
         svstr_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_svstr[lev].get(), geom, ref_ratio);
-        FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr), foextrap_periodic_bc(), BdyVars::null,0,false);
-        FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr), foextrap_periodic_bc(), BdyVars::null,0,false);
+        FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr), foextrap_periodic_bc(), BdyVars::null,0,false,false);
+        FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr), foextrap_periodic_bc(), BdyVars::null,0,false,false);
 #endif
     }
 }
@@ -999,71 +1163,136 @@ REMORA::set_smflux(int lev)
  * @param[in   ] lev    level to operate on
  */
 void
-REMORA::set_wind(int lev)
+REMORA::set_surface_state (int lev)
 {
-    BL_PROFILE("REMORA::set_wind()");
-    if (solverChoice.wind_type == WindType::analytic) {
-        prob->init_analytic_wind(lev,geom[lev], solverChoice, *this, *vec_uwind[lev], *vec_vwind[lev]);
-    } else if (solverChoice.wind_type == WindType::netcdf) {
-#ifdef REMORA_USE_NETCDF
-        Uwind_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_uwind[lev].get(), geom, ref_ratio);
-        Vwind_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_vwind[lev].get(), geom, ref_ratio);
-        FillPatch(lev, t_old[lev], *vec_uwind[lev], GetVecOfPtrs(vec_uwind),
-                  foextrap_periodic_bc(),BdyVars::null,0,false);
-        FillPatch(lev, t_old[lev], *vec_vwind[lev], GetVecOfPtrs(vec_vwind),
-                  foextrap_periodic_bc(),BdyVars::null,0,false);
+    BL_PROFILE("REMORA::set_surface_state()");
 
-        // Conditionally update atmospheric fields if loaded from NetCDF
-        if (solverChoice.Tair_from_netcdf) {
-            Tair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_Tair[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_Tair[lev], GetVecOfPtrs(vec_Tair),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        }
-        if (solverChoice.qair_from_netcdf) {
-            qair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_qair[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_qair[lev], GetVecOfPtrs(vec_qair),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
+    auto& bulk_flux_type = solverChoice.bulk_flux_type;
 
-            // Convert qair from percentage (0-100) to specific humidity (0-1) if needed
-            if (solverChoice.qair_is_percent) {
-                vec_qair[lev]->mult(0.01);
-
-                // Update ghost cells after modification
-                vec_qair[lev]->FillBoundary(geom[lev].periodicity());
-            }
+    for (int n=0; n < AtmosState::NumTypes; n++) {
+        if (driver_atmos_state_from_driver[n]) {
+            amrex::Abort("Reached set_surface_state() but variables have already been specified from driver!");
         }
-        if (solverChoice.Pair_from_netcdf) {
-            Pair_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_Pair[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_Pair[lev], GetVecOfPtrs(vec_Pair),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        }
-        if (solverChoice.srflx_from_netcdf) {
-            srflx_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_srflx[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_srflx[lev], GetVecOfPtrs(vec_srflx),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        }
-        if (solverChoice.longwave_down_from_netcdf) {
-            longwave_down_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_longwave_down[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_longwave_down[lev], GetVecOfPtrs(vec_longwave_down),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        }
-        if (solverChoice.rain_from_netcdf) {
-            rain_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_rain[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_rain[lev], GetVecOfPtrs(vec_rain),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        }
-        if (solverChoice.cloud_from_netcdf) {
-            cloud_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_cloud[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_cloud[lev], GetVecOfPtrs(vec_cloud),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        }
-        if (solverChoice.EminusP_from_netcdf) {
-            EminusP_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_EminusP[lev].get(), geom, ref_ratio);
-            FillPatch(lev, t_old[lev], *vec_EminusP[lev], GetVecOfPtrs(vec_EminusP),
-                      foextrap_periodic_bc(),BdyVars::null,0,false);
-        }
-#endif
     }
+//    const bool driver_has_uwind = driver_atmos_state_from_driver[AtmosState::Uwind];
+//    const bool driver_has_vwind = driver_atmos_state_from_driver[AtmosState::Vwind];
+//
+//    const bool use_analytic_uwind = bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::analytic &&
+//                                    !driver_has_uwind;
+//    const bool use_analytic_vwind = bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::analytic &&
+//                                    !driver_has_vwind;
+//
+//    if (use_analytic_uwind || use_analytic_vwind) {
+//        std::unique_ptr<MultiFab> tmp_uwind;
+//        std::unique_ptr<MultiFab> tmp_vwind;
+//        MultiFab* analytic_uwind = vec_uwind[lev].get();
+//        MultiFab* analytic_vwind = vec_vwind[lev].get();
+//
+//        if (!use_analytic_uwind) {
+//            tmp_uwind.reset(new MultiFab(vec_uwind[lev]->boxArray(), vec_uwind[lev]->DistributionMap(),
+//                                         1, vec_uwind[lev]->nGrowVect()));
+//            analytic_uwind = tmp_uwind.get();
+//        }
+//        if (!use_analytic_vwind) {
+//            tmp_vwind.reset(new MultiFab(vec_vwind[lev]->boxArray(), vec_vwind[lev]->DistributionMap(),
+//                                         1, vec_vwind[lev]->nGrowVect()));
+//            analytic_vwind = tmp_vwind.get();
+//        }
+//
+//        prob->init_analytic_wind(lev, geom[lev], solverChoice, *this, *analytic_uwind, *analytic_vwind);
+//    }
+
+#ifdef REMORA_USE_NETCDF
+    auto update_from_netcdf = [&](std::unique_ptr<NCTimeSeries>& data_from_file,
+                                  Vector<std::unique_ptr<MultiFab>>& mf_vec) {
+        data_from_file->update_interpolated_to_time(t_old[lev], lev, mf_vec[lev].get(), geom, ref_ratio);
+        FillPatch(lev, t_old[lev], *mf_vec[lev], GetVecOfPtrs(mf_vec),
+                  foextrap_periodic_bc(), BdyVars::null, 0, false);
+    };
+
+    if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Uwind]) {
+        update_from_netcdf(Uwind_data_from_file, vec_uwind);
+    }
+    if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Vwind]) {
+        update_from_netcdf(Vwind_data_from_file, vec_vwind);
+    }
+
+    if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Tair]) {
+        update_from_netcdf(Tair_data_from_file, vec_Tair);
+    }
+    if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Qair]) {
+        update_from_netcdf(qair_data_from_file, vec_qair);
+        if (solverChoice.qair_is_percent) {
+            vec_qair[lev]->mult(amrex::Real(0.01));
+        }
+    }
+    if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Pair]) {
+        update_from_netcdf(Pair_data_from_file, vec_Pair);
+    }
+    if (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::SWrad]) {
+        update_from_netcdf(srflx_data_from_file, vec_srflx);
+    }
+    if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::LWrad]) {
+        update_from_netcdf(longwave_down_data_from_file, vec_longwave_down);
+    }
+    if (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Rain]) {
+        update_from_netcdf(rain_data_from_file, vec_rain);
+    }
+    if (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::netcdf && !driver_atmos_state_from_driver[AtmosState::Cloud]) {
+        update_from_netcdf(cloud_data_from_file, vec_cloud);
+    }
+    if (bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
+        update_from_netcdf(EminusP_data_from_file, vec_EminusP);
+    }
+#else
+    for (int idx = 0; idx < BulkFlux::NumTypes; ++idx) {
+        if (bulk_flux_type[idx] == BulkForcingType::netcdf) {
+            amrex::Abort("NetCDF bulk-flux forcing requires building with NetCDF");
+        }
+    }
+#endif
+
+    MultiFab* analytic_uwind = (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Uwind]) ? vec_uwind[lev].get() : nullptr;
+    MultiFab* analytic_vwind = (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Vwind]) ? vec_vwind[lev].get() : nullptr;
+    MultiFab* analytic_Tair = (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Tair]) ? vec_Tair[lev].get() : nullptr;
+    MultiFab* analytic_qair = (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Qair]) ? vec_qair[lev].get() : nullptr;
+    MultiFab* analytic_Pair = (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Pair]) ? vec_Pair[lev].get() : nullptr;
+    MultiFab* analytic_srflx = (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::analytic &&
+                                !driver_atmos_state_from_driver[AtmosState::SWrad]) ? vec_srflx[lev].get() : nullptr;
+    MultiFab* analytic_lwrad = (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::analytic &&
+                                !driver_atmos_state_from_driver[AtmosState::LWrad]) ? vec_longwave_down[lev].get() : nullptr;
+    MultiFab* analytic_rain = (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::analytic &&
+                               !driver_atmos_state_from_driver[AtmosState::Rain]) ? vec_rain[lev].get() : nullptr;
+    MultiFab* analytic_cloud = (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::analytic &&
+                                !driver_atmos_state_from_driver[AtmosState::Cloud]) ? vec_cloud[lev].get() : nullptr;
+    MultiFab* analytic_EminusP = bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::analytic ? vec_EminusP[lev].get() : nullptr;
+
+    if (analytic_uwind != nullptr || analytic_vwind != nullptr ||
+        analytic_Tair != nullptr || analytic_qair != nullptr || analytic_Pair != nullptr ||
+        analytic_srflx != nullptr || analytic_lwrad != nullptr || analytic_rain != nullptr ||
+        analytic_cloud != nullptr || analytic_EminusP != nullptr) {
+        prob->init_analytic_surface_var(lev, geom[lev], solverChoice, *this,
+                                        *analytic_uwind, *analytic_vwind,
+                                        *analytic_Tair, *analytic_qair, *analytic_Pair,
+                                        *analytic_srflx, *analytic_lwrad, *analytic_rain,
+                                        *analytic_cloud, *analytic_EminusP);
+    }
+
+    if (vec_uwind[lev] != nullptr) { vec_uwind[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_vwind[lev] != nullptr) { vec_vwind[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_Tair[lev] != nullptr) { vec_Tair[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_qair[lev] != nullptr) { vec_qair[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_Pair[lev] != nullptr) { vec_Pair[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_srflx[lev] != nullptr) { vec_srflx[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_longwave_down[lev] != nullptr) { vec_longwave_down[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_rain[lev] != nullptr) { vec_rain[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_cloud[lev] != nullptr) { vec_cloud[lev]->FillBoundary(geom[lev].periodicity()); }
+    if (vec_EminusP[lev] != nullptr) { vec_EminusP[lev]->FillBoundary(geom[lev].periodicity()); }
 }
 
 /**
@@ -1075,22 +1304,22 @@ REMORA::init_only (int lev, Real time)
 {
     BL_PROFILE("REMORA::init_only()");
     t_new[lev] = time;
-    t_old[lev] = time - 1.e200_rt;
+    t_old[lev] = time - bogus_large_value;
 
-    cons_new[lev]->setVal(0.0_rt);
-    xvel_new[lev]->setVal(0.0_rt);
-    yvel_new[lev]->setVal(0.0_rt);
-    zvel_new[lev]->setVal(0.0_rt);
+    cons_new[lev]->setVal(zero);
+    xvel_new[lev]->setVal(zero);
+    yvel_new[lev]->setVal(zero);
+    zvel_new[lev]->setVal(zero);
 
-    xvel_old[lev]->setVal(0.0_rt);
-    yvel_old[lev]->setVal(0.0_rt);
-    zvel_old[lev]->setVal(0.0_rt);
+    xvel_old[lev]->setVal(zero);
+    yvel_old[lev]->setVal(zero);
+    zvel_old[lev]->setVal(zero);
 
-    vec_ru[lev]->setVal(0.0_rt);
-    vec_rv[lev]->setVal(0.0_rt);
+    vec_ru[lev]->setVal(zero);
+    vec_rv[lev]->setVal(zero);
 
-    vec_ru2d[lev]->setVal(0.0_rt);
-    vec_rv2d[lev]->setVal(0.0_rt);
+    vec_ru2d[lev]->setVal(zero);
+    vec_rv2d[lev]->setVal(zero);
 
     if (solverChoice.ic_type == IC_Type::analytic) {
         set_grid_scale(lev);
@@ -1139,62 +1368,108 @@ REMORA::init_only (int lev, Real time)
     }
 
     // This will be a non-op if forcings specified analytically
-    if (solverChoice.wind_type == WindType::netcdf && lev == 0) {
-        if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
-            amrex::Error("NetCDF forcing file name must be provided via input for winds");
+    if (solverChoice.smflux_type == SMFluxType::netcdf) {
+        if (lev==0) {
+            if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
+                amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
+            }
+            sustr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),vec_sustr[lev].get(), true, false));
+            svstr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),vec_svstr[lev].get(), true, false));
+            sustr_data_from_file->Initialize();
+            svstr_data_from_file->Initialize();
+        } else {
+            FillCoarsePatch(lev, time, vec_sustr[lev].get(), vec_sustr[lev-1].get(), foextrap_bc());
+            FillCoarsePatch(lev, time, vec_svstr[lev].get(), vec_svstr[lev-1].get(), foextrap_bc());
         }
-        Uwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false));
-        Vwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false));
-        Uwind_data_from_file->Initialize();
-        Vwind_data_from_file->Initialize();
+    }
 
-        // Conditionally load atmospheric forcing fields from NetCDF based on user flags
-        if (solverChoice.Tair_from_netcdf) {
+    // Conditionally load atmospheric forcing fields from NetCDF based on source type.
+    const auto& bulk_flux_type = solverChoice.bulk_flux_type;
+    bool any_bulk_netcdf = false;
+    for (int idx = 0; idx < BulkFlux::NumTypes; ++idx) {
+        any_bulk_netcdf = any_bulk_netcdf || bulk_flux_type[idx] == BulkForcingType::netcdf;
+    }
+    if (lev == 0 && any_bulk_netcdf && (nc_frc_file.empty() || nc_frc_file[0].empty())) {
+        amrex::Error("NetCDF forcing file name must be provided via input for bulk-flux atmospheric forcing");
+    }
+
+    if (lev==0) {
+        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf) {
+            Uwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Uwind", frc_time_varname, geom[lev].Domain(),vec_uwind[lev].get(), true, false));
+            Uwind_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf) {
+            Vwind_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Vwind", frc_time_varname, geom[lev].Domain(),vec_vwind[lev].get(), true, false));
+            Vwind_data_from_file->Initialize();
+        }
+        if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf) {
             Tair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Tair", frc_time_varname, geom[lev].Domain(),vec_Tair[lev].get(), true, false));
             Tair_data_from_file->Initialize();
         }
-        if (solverChoice.qair_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf) {
             qair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "qair", frc_time_varname, geom[lev].Domain(),vec_qair[lev].get(), true, false));
             qair_data_from_file->Initialize();
         }
-        if (solverChoice.Pair_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf) {
             Pair_data_from_file.reset(new NCTimeSeries(nc_frc_file, "Pair", frc_time_varname, geom[lev].Domain(),vec_Pair[lev].get(), true, false));
             Pair_data_from_file->Initialize();
         }
-        if (solverChoice.srflx_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::netcdf) {
             srflx_data_from_file.reset(new NCTimeSeries(nc_frc_file, "swrad", frc_time_varname, geom[lev].Domain(),vec_srflx[lev].get(), true, false));
             srflx_data_from_file->Initialize();
         }
-        if (solverChoice.rain_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::netcdf) {
             rain_data_from_file.reset(new NCTimeSeries(nc_frc_file, "rain", frc_time_varname, geom[lev].Domain(),vec_rain[lev].get(), true, false));
             rain_data_from_file->Initialize();
         }
-        if (solverChoice.cloud_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::netcdf) {
             cloud_data_from_file.reset(new NCTimeSeries(nc_frc_file, "cloud", frc_time_varname, geom[lev].Domain(),vec_cloud[lev].get(), true, false));
             cloud_data_from_file->Initialize();
         }
-        if (solverChoice.EminusP_from_netcdf) {
+        if (bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
             EminusP_data_from_file.reset(new NCTimeSeries(nc_frc_file, "EminusP", frc_time_varname, geom[lev].Domain(),vec_EminusP[lev].get(), true, false));
             EminusP_data_from_file->Initialize();
         }
-    } else if (solverChoice.smflux_type == SMFluxType::netcdf && lev == 0) {
-        if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
-            amrex::Error("NetCDF forcing file name must be provided via input for surface momentum fluxes");
-        }
-        sustr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "sustr", frc_time_varname, geom[lev].Domain(),vec_sustr[lev].get(), true, false));
-        svstr_data_from_file.reset(new NCTimeSeries(nc_frc_file, "svstr", frc_time_varname, geom[lev].Domain(),vec_svstr[lev].get(), true, false));
-        sustr_data_from_file->Initialize();
-        svstr_data_from_file->Initialize();
-    }
-    if (solverChoice.longwave_down_from_netcdf && lev == 0) {
-        if (nc_frc_file.empty() || nc_frc_file[0].empty()) {
-            amrex::Error("NetCDF forcing file name must be provided via input for longwave radiation");
-        }
+        if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::netcdf) {
             longwave_down_data_from_file.reset(new NCTimeSeries(nc_frc_file, solverChoice.longwave_netcdf_varname, frc_time_varname,
-                                                            geom[lev].Domain(), vec_longwave_down[lev].get(), true, false));
-        longwave_down_data_from_file->Initialize();
+                                                                geom[lev].Domain(), vec_longwave_down[lev].get(), true, false));
+            longwave_down_data_from_file->Initialize();
+        }
+    } else {
+        if (bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_uwind[lev].get(), vec_uwind[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_vwind[lev].get(), vec_vwind[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Tair] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_Tair[lev].get(), vec_Tair[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Qair] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_qair[lev].get(), vec_qair[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Pair] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_Pair[lev].get(), vec_Pair[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::SWrad] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_srflx[lev].get(), vec_srflx[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Rain] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_rain[lev].get(), vec_rain[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::Cloud] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_cloud[lev].get(), vec_cloud[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::EminusP] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_EminusP[lev].get(), vec_EminusP[lev-1].get(), foextrap_bc());
+        }
+        if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::netcdf) {
+            FillCoarsePatch(lev, time, vec_longwave_down[lev].get(), vec_longwave_down[lev-1].get(), foextrap_bc());
+        }
     }
 
+    // Only need to read in rivers on level 0
+    // Will need to be on higher levels eventually
     if (solverChoice.do_rivers) {
         if (nc_riv_file.empty() || nc_riv_file[0].empty()) {
             amrex::Error("NetCDF river file name must be provided via input for rivers");
@@ -1202,7 +1477,6 @@ REMORA::init_only (int lev, Real time)
         auto dom = geom[0].Domain();
         int nz = dom.length(2);
         river_source_cons.resize(ncons);
-        Print() << solverChoice.do_rivers_cons[0] << std::endl;
         if ((bool) solverChoice.do_rivers_cons[Salt_comp]) {
             river_source_cons[Salt_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz));
             river_source_cons[Salt_comp]->Initialize();
@@ -1221,6 +1495,21 @@ REMORA::init_only (int lev, Real time)
         river_source_transportbar->Initialize();
         init_riv_pos_from_netcdf(lev);
     }
+
+    if (lev==0 and hires_grid_level > 0 and solverChoice.ic_type == IC_Type::netcdf) {
+        amrex::Print() << "Reading high resolution bathymetry and grid data" << std::endl;
+        allocate_bathymetry_grid_vars_full_domain();
+        init_bathymetry_full_domain_from_netcdf();
+        init_grid_vars_full_domain_from_netcdf();
+        amrex::Print() << "Done reading in high resolution bathymetry and grid data" << std::endl;
+    }
+    if (lev==0 and hires_init_level > 0 and solverChoice.ic_type == IC_Type::netcdf) {
+        amrex::Print() << "Reading high resolution initial data" << std::endl;
+        allocate_init_full_domain();
+        init_data_full_domain_from_netcdf();
+        init_zeta_full_domain_from_netcdf();
+        amrex::Print() << "Done reading in high resolution initial data" << std::endl;
+    }
 #else
     if (solverChoice.boundary_from_netcdf) {
         Abort("Not compiled with NetCDF, but selected boundary conditions require NetCDF");
@@ -1230,49 +1519,60 @@ REMORA::init_only (int lev, Real time)
     }
 #endif
 
+    if (lev==0 and hires_grid_level > 0 and solverChoice.ic_type == IC_Type::analytic) {
+        allocate_bathymetry_grid_vars_full_domain();
+        init_bathymetry_full_domain_from_analytic();
+    }
+
+    if (lev==0 and hires_init_level > 0 and solverChoice.ic_type == IC_Type::analytic) {
+        allocate_init_full_domain();
+        init_full_domain_zeta_from_analytic();
+    }
+
     set_bathymetry(lev);
     set_zeta(lev);
     stretch_transform(lev);
 
-    if (solverChoice.init_l0int_T) {
-        if (lev==0) {
-            if (solverChoice.ic_type == IC_Type::analytic)
-            {
+    if (lev==0 and hires_init_level > 0 and solverChoice.ic_type == IC_Type::analytic) {
+        init_full_domain_from_analytic();
+    }
+
+    if (lev==0) {
+        if (hires_init_level < 0) {
+            if (solverChoice.ic_type == IC_Type::analytic) {
                 init_analytic(lev);
-#ifdef REMORA_USE_NETCDF
             } else if (solverChoice.ic_type == IC_Type::netcdf) {
+#ifdef REMORA_USE_NETCDF
                 amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
                 init_data_from_netcdf(lev);
                 set_zeta_to_Ztavg(lev);
                 amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
-
 #endif
             } else {
-                Abort("Need to specify ic_type");
+                amrex::Abort("Unknown IC_Type");
             }
         } else {
+            set_init_data_averaged_down(lev);
+            set_zeta_to_Ztavg(lev); // MAYBE???
+            // Since set_grid_scale is usually called from init_analytic for analytic problems
+            if (solverChoice.ic_type == IC_Type::analytic) {
+                set_grid_scale(lev);
+            }
+        }
+    } else {
+        if (lev > hires_init_level) {
             FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1],BCVars::Temp_bc_comp,BdyVars::t);
             FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1], xvel_bc(), BdyVars::u);
             FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
             FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1], zvel_bc(), BdyVars::null);
-        }
-    } else if (solverChoice.init_ana_T || solverChoice.init_l1ad_T) {
-        if (solverChoice.ic_type == IC_Type::analytic)
-        {
-            init_analytic(lev);
-#ifdef REMORA_USE_NETCDF
-        } else if (solverChoice.ic_type == IC_Type::netcdf) {
-            amrex::Print() << "Calling init_data_from_netcdf on level " << lev << std::endl;
-            init_data_from_netcdf(lev);
-            set_zeta_to_Ztavg(lev);
-            amrex::Print() << "Initial data loaded from netcdf file on level " << lev << std::endl;
-
-#endif
         } else {
-            Abort("Need to specify ic_type");
+            set_init_data_averaged_down(lev);
+            set_zeta_to_Ztavg(lev); // MAYBE???
+            if (solverChoice.ic_type == IC_Type::analytic) {
+                // Since set_grid_scale is usually called from init_analytic for analytic problems
+                set_grid_scale(lev);
+            }
         }
-    } else {
-        amrex::Abort("Need to specify T init procedure");
     }
 
     // Ensure that the face-based data are the same on both sides of a periodic domain.
@@ -1314,246 +1614,253 @@ REMORA::ReadParameters ()
     }
 
     ParmParse pp(pp_prefix);
-    ParmParse pp_amr("amr");
-    {
-        pp.queryAdd("nscalar", nscalar);
-        if (nscalar < 1) {
-            amrex::Abort("remora.nscalar must be at least 1");
+
+    // Common physics and simulation parameters
+    pp.queryAdd("nscalar", nscalar);
+    if (nscalar < 1) {
+        amrex::Abort("remora.nscalar must be at least 1");
+    }
+    ncons = Tracer_comp + nscalar;
+    init_scalar_metadata();
+
+    pp.queryAdd("check_file", check_file);
+    pp.queryAdd("check_int", check_int);
+    pp.queryAdd("check_int_time", check_int_time);
+    pp.queryAdd("expand_plotvars_to_unif_rr", expand_plotvars_to_unif_rr);
+    pp.query("plotfile_fill_value", plotfile_fill_value);
+    pp.query("netcdf_fill_value", netcdf_fill_value);
+    pp.queryAdd("restart", restart_chkfile);
+    pp.queryAdd("start_time", start_time);
+
+    num_boxes_at_level.resize(max_level + 1, 0);
+    boxes_at_level.resize(max_level + 1);
+    num_boxes_at_level[0] = 1;
+    boxes_at_level[0].resize(1);
+    boxes_at_level[0][0] = geom[0].Domain();
+
+    if (pp.contains("data_log")) {
+        int num_datalogs = pp.countval("data_log");
+        datalog.resize(num_datalogs);
+        datalogname.resize(num_datalogs);
+        pp.queryarr("data_log", datalogname, 0, num_datalogs);
+        for (int i = 0; i < num_datalogs; i++)
+            setRecordDataInfo(i, datalogname[i]);
+    }
+
+    pp.queryAdd("v", verbose);
+    pp.queryAdd("sum_interval", sum_interval);
+    pp.queryAdd("sum_period", sum_per);
+    pp.queryAdd("file_min_digits", file_min_digits);
+
+    if (file_min_digits < 0) {
+        amrex::Abort("remora.file_min_digits must be non-negative");
+    }
+
+    pp.queryAdd("cfl", cfl);
+    pp.queryAdd("change_max", change_max);
+    pp.queryAdd("fixed_dt", fixed_dt);
+    pp.queryAdd("fixed_fast_dt", fixed_fast_dt);
+    pp.queryAdd("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
+
+    if (fixed_dt > zero && fixed_fast_dt > zero && fixed_ndtfast_ratio > 0) {
+        if (fixed_dt / fixed_fast_dt != fixed_ndtfast_ratio) {
+            amrex::Abort("Dt is over-specfied");
         }
-        ncons = Tracer_comp + nscalar;
-        init_scalar_metadata();
+    } else if (fixed_dt > zero && fixed_fast_dt > zero && fixed_ndtfast_ratio <= 0) {
+        fixed_ndtfast_ratio = static_cast<int>(fixed_dt / fixed_fast_dt);
+    }
+    AMREX_ASSERT(cfl > zero || fixed_dt > zero);
 
-        pp_amr.queryAdd("regrid_int", regrid_int);
-        pp.queryAdd("check_file", check_file);
-        pp.queryAdd("check_int", check_int);
-        pp_amr.queryAdd("check_int", check_int);
-        pp.queryAdd("check_int_time", check_int_time);
-        pp_amr.queryAdd("check_int_time", check_int_time);
+    num_files_at_level.resize(max_level + 1, 0);
+    num_boxes_at_level.resize(max_level + 1, 0);
+    boxes_at_level.resize(max_level + 1);
+    num_boxes_at_level[0] = 1;
+    boxes_at_level[0].resize(1);
+    boxes_at_level[0][0] = geom[0].Domain();
 
-        pp.queryAdd("expand_plotvars_to_unif_rr", expand_plotvars_to_unif_rr);
+    pp.queryAdd("plot_file", plot_file_name);
+    pp.queryAdd("plot_int", plot_int);
+    pp.queryAdd("plot_int_time", plot_int_time);
+    pp.query("plot_staggered_vels", plot_staggered_vels);
+    pp.query("plot_nodal_data", plot_nodal_data);
 
-        pp.query("plotfile_fill_value", plotfile_fill_value);
-        pp.query("netcdf_fill_value", netcdf_fill_value);
-
-        pp.queryAdd("restart", restart_chkfile);
-        pp_amr.queryAdd("restart", restart_chkfile);
-        pp.queryAdd("start_time",start_time);
-
-        if (pp.contains("data_log"))
-        {
-            int num_datalogs = pp.countval("data_log");
-            datalog.resize(num_datalogs);
-            datalogname.resize(num_datalogs);
-            pp.queryarr("data_log",datalogname,0,num_datalogs);
-            for (int i = 0; i < num_datalogs; i++)
-                setRecordDataInfo(i,datalogname[i]);
-        }
-
-        // Verbosity
-        pp.queryAdd("v", verbose);
-
-        // Frequency of diagnostic output
-        pp.queryAdd("sum_interval", sum_interval);
-        pp.queryAdd("sum_period"  , sum_per);
-        pp.queryAdd("file_min_digits", file_min_digits);
-
-        if (file_min_digits < 0) {
-            amrex::Abort("remora.file_min_digits must be non-negative");
-        }
-
-        // Time step controls
-        pp.queryAdd("cfl", cfl);
-        pp.queryAdd("change_max", change_max);
-
-        pp.queryAdd("fixed_dt", fixed_dt);
-        pp.queryAdd("fixed_fast_dt", fixed_fast_dt);
-
-        pp.queryAdd("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
-
-        // If all three are specified, they must be consistent
-        if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio > 0)
-        {
-            if (fixed_dt / fixed_fast_dt != fixed_ndtfast_ratio)
-            {
-                amrex::Abort("Dt is over-specfied");
+    std::string plotfile_type_str = "amrex";
+    pp.queryAdd("plotfile_type", plotfile_type_str);
+    if (plotfile_type_str == "amrex") {
+        plotfile_type = PlotfileType::amrex;
+    } else if (plotfile_type_str == "netcdf" || plotfile_type_str == "NetCDF") {
+        plotfile_type = PlotfileType::netcdf;
+#ifdef REMORA_USE_NETCDF
+        pp.queryAdd("write_history_file",write_history_file);
+        pp.queryAdd("chunk_history_file",chunk_history_file);
+        pp.queryAdd("steps_per_history_file",steps_per_history_file);
+        // Estimate size of domain for one timestep of netcdf
+        auto dom = geom[0].Domain();
+        int nx = dom.length(0) + 2;
+        int ny = dom.length(1) + 2;
+        int nz = dom.length(2);
+        Real two_gb = Real(1.6e10);
+        Real double_bits = Real(64.0);
+        if (write_history_file and chunk_history_file and (steps_per_history_file <= 0)) {
+            // Estimate number of steps that will fit into a 2GB file.
+            steps_per_history_file = int((two_gb - NCH2D * nx * ny * double_bits)
+                    / (nx * ny * double_bits * (NC3D*nz + NC2D)));
+            // If we calculate that a single step will exceed 2GB and the user has
+            // requested automatic history file sizing, warn about a possible impending
+            // error, and set steps_per_history_file = 1 to attempt output anyway.
+            if (steps_per_history_file == 0) {
+                amrex::Warning("NetCDF output for a single timestep appears to exceed 2GB. NetCDF output may not work. See Documentation for information about tested MPICH versions.");
+                steps_per_history_file = 1;
+            }
+        } else if (write_history_file and !chunk_history_file) {
+            // Estimate number of output steps we'll need
+            int nt_out = int((max_step) / plot_int) + 1;
+            Real est_hist_file_size = NCH2D * nx * ny * double_bits + nt_out * nx * ny * double_bits * (NC3D*nz + NC2D);
+            if (est_hist_file_size > two_gb) {
+                amrex::Warning("WARNING: NetCDF history file may be larger than 2GB limit. Consider setting remora.chunk_history_file=true");
             }
         }
-        // If two are specified, initialize fixed_ndtfast_ratio
-        else if (fixed_dt > 0. && fixed_fast_dt > 0. &&  fixed_ndtfast_ratio <= 0)
-        {
-            fixed_ndtfast_ratio = static_cast<int>(fixed_dt / fixed_fast_dt);
+        if (write_history_file and chunk_history_file) {
+            Print() << "NetCDF history files will have " << steps_per_history_file << " steps per file." << std::endl;
         }
+#endif
+    } else {
+        amrex::Print() << "User selected plotfile_type = " << plotfile_type_str << std::endl;
+        amrex::Abort("Dont know this plotfile_type");
+    }
+#ifndef REMORA_USE_NETCDF
+    if (plotfile_type == PlotfileType::netcdf)
+    {
+        amrex::Abort("Please compile with NetCDF in order to enable NetCDF plotfiles");
+    }
 
-        AMREX_ASSERT(cfl > 0. || fixed_dt > 0.);
+#endif
+#ifdef REMORA_USE_NETCDF
+    nc_init_file.resize(max_level+1);
+    nc_grid_file.resize(max_level+1);
+    num_files_at_level.resize(max_level + 1, 0);
 
+    boundary_series.resize(max_level+1);
+
+
+    // NetCDF initialization files -- possibly multiple files at each of multiple levels
+    //        but we always have exactly one file at level 0
+    for (int lev = 0; lev <= max_level; lev++)
+    {
+        const std::string nc_file_names = amrex::Concatenate("nc_init_file_",lev,1);
+        const std::string nc_bathy_file_names = amrex::Concatenate("nc_grid_file_",lev,1);
+
+        if (pp.contains(nc_file_names.c_str()))
+        {
+            int num_files = pp.countval(nc_file_names.c_str());
+            int num_bathy_files = pp.countval(nc_bathy_file_names.c_str());
+            if (num_files != num_bathy_files) {
+                amrex::Error("Must have same number of netcdf files for grid info as for solution");
+            }
+
+            num_files_at_level[lev] = num_files;
+            nc_init_file[lev].resize(num_files);
+            nc_grid_file[lev].resize(num_files);
+
+            pp.queryarr(nc_file_names.c_str()      , nc_init_file[lev]     ,0,num_files);
+            pp.queryarr(nc_bathy_file_names.c_str(), nc_grid_file[lev],0,num_files);
+        }
+    }
+
+    pp.queryAdd("nc_grid_file_hires", nc_grid_file_hires);
+    pp.queryAdd("nc_init_file_hires", nc_init_file_hires);
+
+    // We only read boundary data at level 0
+    pp.queryarr("nc_bdry_file", nc_bdry_file);
+
+    // Also only read forcings at level 0 (for now)
+    if (pp.contains("nc_frc_file")) {
+        int num_files = pp.countval("nc_frc_file");
+        nc_frc_file.resize(num_files);
+        pp.queryarr("nc_frc_file", nc_frc_file, 0, num_files);
+    }
+
+    // Get river file
+    if (pp.contains("nc_river_file")) {
+        int num_files = pp.countval("nc_river_file");
+        nc_riv_file.resize(num_files);
+        pp.queryarr("nc_river_file", nc_riv_file, 0, num_files);
+    }
+
+    // Read in file names for climatology history and nudging weights
+    if (pp.contains("nc_clim_his_file")) {
+        int num_files = pp.countval("nc_clim_his_file");
+        nc_clim_his_file.resize(num_files);
+        pp.queryarr("nc_clim_his_file", nc_clim_his_file, 0, num_files);
+    }
+    pp.queryAdd("nc_clim_coeff_file", nc_clim_coeff_file);
+
+    for (int i=0; i<BdyVars::NumTypes; i++) {
+        bdry_time_name_byvar.push_back("");
+    }
+    pp.queryAdd("bdy_time_varname",bdry_time_varname);
+    pp.queryAdd("bdy_temp_time_varname",bdry_time_name_byvar[BdyVars::t]);
+    pp.queryAdd("bdy_salt_time_varname",bdry_time_name_byvar[BdyVars::s]);
+    pp.queryAdd("bdy_u_time_varname",bdry_time_name_byvar[BdyVars::u]);
+    pp.queryAdd("bdy_v_time_varname",bdry_time_name_byvar[BdyVars::v]);
+    pp.queryAdd("bdy_ubar_time_varname",bdry_time_name_byvar[BdyVars::ubar]);
+    pp.queryAdd("bdy_vbar_time_varname",bdry_time_name_byvar[BdyVars::vbar]);
+    pp.queryAdd("bdy_zeta_time_varname",bdry_time_name_byvar[BdyVars::zeta]);
+
+    // If not specified per variable, populate with the default
+    for (int i=0; i<BdyVars::NumTypes; i++) {
+        if (bdry_time_name_byvar[i] == "") {
+            bdry_time_name_byvar[i] = bdry_time_varname;
+        }
+    }
+
+    pp.queryAdd("frc_time_varname",frc_time_varname);
+
+    pp.queryAdd("riv_time_varname",riv_time_varname);
+
+    pp.queryAdd("clim_ubar_time_varname",clim_ubar_time_varname);
+    pp.queryAdd("clim_vbar_time_varname",clim_vbar_time_varname);
+    pp.queryAdd("clim_u_time_varname",clim_u_time_varname);
+    pp.queryAdd("clim_v_time_varname",clim_v_time_varname);
+    pp.queryAdd("clim_salt_time_varname",clim_salt_time_varname);
+    pp.queryAdd("clim_temp_time_varname",clim_temp_time_varname);
+
+#endif
+    pp.queryAdd("hires_grid_level", hires_grid_level);
+    if (hires_grid_level > max_level) {
+        amrex::Abort("hires_grid_level must be less than or equal to amr.max_level");
+    }
+    pp.queryAdd("hires_init_level", hires_init_level);
+    if (hires_init_level > max_level) {
+        amrex::Abort("hires_init_level must be less than or equal to amr.max_level");
+    }
+#ifdef REMORA_USE_PARTICLES
+    readTracersParams();
+#endif
+
+    {
+        ParmParse pp_amr("amr");
+        pp_amr.queryAdd("regrid_int", regrid_int);
         pp_amr.queryAdd("do_substep", do_substep);
         if (do_substep) {
             amrex::Abort("Time substepping is not yet implemented. amr.do_substep must be 0");
         }
 
-        // We use this to keep track of how many boxes we read in from WRF initialization
-        num_files_at_level.resize(max_level+1,0);
+    }
+    solverChoice.init_params(ncons);
 
-        // We use this to keep track of how many boxes are specified thru the refinement indicators
-        num_boxes_at_level.resize(max_level+1,0);
-            boxes_at_level.resize(max_level+1);
-
-        // We always have exactly one file at level 0
-        num_boxes_at_level[0] = 1;
-        boxes_at_level[0].resize(1);
-        boxes_at_level[0][0] = geom[0].Domain();
-
-        // Plotfile name and frequency
-        pp.queryAdd("plot_file", plot_file_name);
-        pp.queryAdd("plot_int", plot_int);
-        pp.queryAdd("plot_int_time", plot_int_time);
-
-        // Should we plot the staggered face velocities (without averaging to cell centers)
-        pp.queryAdd("plot_staggered_vels", plot_staggered_vels);
-
-        // Output format
-        std::string plotfile_type_str = "amrex";
-        pp.queryAdd("plotfile_type", plotfile_type_str);
-        if (plotfile_type_str == "amrex") {
-            plotfile_type = PlotfileType::amrex;
-        } else if (plotfile_type_str == "netcdf" || plotfile_type_str == "NetCDF") {
-            plotfile_type = PlotfileType::netcdf;
-#ifdef REMORA_USE_NETCDF
-            pp.queryAdd("write_history_file",write_history_file);
-            pp.queryAdd("chunk_history_file",chunk_history_file);
-            pp.queryAdd("steps_per_history_file",steps_per_history_file);
-            // Estimate size of domain for one timestep of netcdf
-            auto dom = geom[0].Domain();
-            int nx = dom.length(0) + 2;
-            int ny = dom.length(1) + 2;
-            int nz = dom.length(2);
-            if (write_history_file and chunk_history_file and (steps_per_history_file <= 0)) {
-                // Estimate number of steps that will fit into a 2GB file.
-                steps_per_history_file = int((1.6e10 - NCH2D * nx * ny * 64.0_rt)
-                        / (nx * ny * 64.0_rt * (NC3D*nz + NC2D)));
-                // If we calculate that a single step will exceed 2GB and the user has
-                // requested automatic history file sizing, warn about a possible impending
-                // error, and set steps_per_history_file = 1 to attempt output anyway.
-                if (steps_per_history_file == 0) {
-                    amrex::Warning("NetCDF output for a single timestep appears to exceed 2GB. NetCDF output may not work. See Documentation for information about tested MPICH versions.");
-                    steps_per_history_file = 1;
-                }
-            } else if (write_history_file and !chunk_history_file) {
-                // Estimate number of output steps we'll need
-                int nt_out = int((max_step) / plot_int) + 1;
-                Real est_hist_file_size = NCH2D * nx * ny * 64.0_rt + nt_out * nx * ny * 64.0_rt * (NC3D*nz + NC2D);
-                if (est_hist_file_size > 1.6e10) {
-                    amrex::Warning("WARNING: NetCDF history file may be larger than 2GB limit. Consider setting remora.chunk_history_file=true");
-                }
-            }
-            if (write_history_file and chunk_history_file) {
-                Print() << "NetCDF history files will have " << steps_per_history_file << " steps per file." << std::endl;
-            }
-#endif
-        } else {
-            amrex::Print() << "User selected plotfile_type = " << plotfile_type_str << std::endl;
-            amrex::Abort("Dont know this plotfile_type");
-        }
-#ifndef REMORA_USE_NETCDF
-        if (plotfile_type == PlotfileType::netcdf)
-        {
-            amrex::Abort("Please compile with NetCDF in order to enable NetCDF plotfiles");
-        }
-
-#endif
-#ifdef REMORA_USE_NETCDF
-        nc_init_file.resize(max_level+1);
-        nc_grid_file.resize(max_level+1);
-
-        boundary_series.resize(max_level+1);
-
-        // NetCDF initialization files -- possibly multiple files at each of multiple levels
-        //        but we always have exactly one file at level 0
-        for (int lev = 0; lev <= max_level; lev++)
-        {
-            const std::string nc_file_names = amrex::Concatenate("nc_init_file_",lev,1);
-            const std::string nc_bathy_file_names = amrex::Concatenate("nc_grid_file_",lev,1);
-
-            if (pp.contains(nc_file_names.c_str()))
-            {
-                int num_files = pp.countval(nc_file_names.c_str());
-                int num_bathy_files = pp.countval(nc_bathy_file_names.c_str());
-                if (num_files != num_bathy_files) {
-                    amrex::Error("Must have same number of netcdf files for grid info as for solution");
-                }
-
-                num_files_at_level[lev] = num_files;
-                nc_init_file[lev].resize(num_files);
-                nc_grid_file[lev].resize(num_files);
-
-                pp.queryarr(nc_file_names.c_str()      , nc_init_file[lev]     ,0,num_files);
-                pp.queryarr(nc_bathy_file_names.c_str(), nc_grid_file[lev],0,num_files);
-            }
-        }
-        // We only read boundary data at level 0
-        pp.queryarr("nc_bdry_file", nc_bdry_file);
-
-        // Also only read forcings at level 0 (for now)
-        if (pp.contains("nc_frc_file")) {
-            int num_files = pp.countval("nc_frc_file");
-            nc_frc_file.resize(num_files);
-            pp.queryarr("nc_frc_file", nc_frc_file, 0, num_files);
-        }
-
-        // Get river file
-        if (pp.contains("nc_river_file")) {
-            int num_files = pp.countval("nc_river_file");
-            nc_riv_file.resize(num_files);
-            pp.queryarr("nc_river_file", nc_riv_file, 0, num_files);
-        }
-
-        // Read in file names for climatology history and nudging weights
-        if (pp.contains("nc_clim_his_file")) {
-            int num_files = pp.countval("nc_clim_his_file");
-            nc_clim_his_file.resize(num_files);
-            pp.queryarr("nc_clim_his_file", nc_clim_his_file, 0, num_files);
-        }
-        pp.queryAdd("nc_clim_coeff_file", nc_clim_coeff_file);
-
-        for (int i=0; i<BdyVars::NumTypes; i++) {
-            bdry_time_name_byvar.push_back("");
-        }
-        pp.queryAdd("bdy_time_varname",bdry_time_varname);
-        pp.queryAdd("bdy_temp_time_varname",bdry_time_name_byvar[BdyVars::t]);
-        pp.queryAdd("bdy_salt_time_varname",bdry_time_name_byvar[BdyVars::s]);
-        pp.queryAdd("bdy_u_time_varname",bdry_time_name_byvar[BdyVars::u]);
-        pp.queryAdd("bdy_v_time_varname",bdry_time_name_byvar[BdyVars::v]);
-        pp.queryAdd("bdy_ubar_time_varname",bdry_time_name_byvar[BdyVars::ubar]);
-        pp.queryAdd("bdy_vbar_time_varname",bdry_time_name_byvar[BdyVars::vbar]);
-        pp.queryAdd("bdy_zeta_time_varname",bdry_time_name_byvar[BdyVars::zeta]);
-
-        // If not specified per variable, populate with the default
-        for (int i=0; i<BdyVars::NumTypes; i++) {
-            if (bdry_time_name_byvar[i] == "") {
-                bdry_time_name_byvar[i] = bdry_time_varname;
-            }
-        }
-
-        pp.queryAdd("frc_time_varname",frc_time_varname);
-
-        pp.queryAdd("riv_time_varname",riv_time_varname);
-
-        pp.queryAdd("clim_ubar_time_varname",clim_ubar_time_varname);
-        pp.queryAdd("clim_vbar_time_varname",clim_vbar_time_varname);
-        pp.queryAdd("clim_u_time_varname",clim_u_time_varname);
-        pp.queryAdd("clim_v_time_varname",clim_v_time_varname);
-        pp.queryAdd("clim_salt_time_varname",clim_salt_time_varname);
-        pp.queryAdd("clim_temp_time_varname",clim_temp_time_varname);
-
-#endif
-
-#ifdef REMORA_USE_PARTICLES
-        readTracersParams();
-#endif
+    // NOTE: This feature is not yet implemented because it will require passing x,y,z to prob functions.
+    // Currently these are accessed by passing a pointer to the REMORA class. However, this requires the
+    // coordinates at hires_init_level to already exist (and specifically for the hires_init_level level
+    // to already be initialized), which is generally not the case. A solution is to create a separate
+    // coordinates object that is passed to the prob functions instead of the REMORA object. Then x,y,z
+    // coordinates can be calculated at any level without the corresponding level having been created.
+    if (hires_init_level >= 0 and solverChoice.ic_type == IC_Type::analytic) {
+        amrex::Abort("Cannot do high-resolution initialization for analytic initial conditions. Not yet implemented");
     }
 
-    solverChoice.init_params(ncons);
 }
+
 
 void
 REMORA::AverageDown ()
@@ -1590,6 +1897,42 @@ REMORA::AverageDownTo (int crse_lev)
     average_down_faces(GetArrOfConstPtrs(faces_fine), faces_crse,
                        refRatio(crse_lev),geom[crse_lev]);
     stretch_transform(crse_lev);
+}
+
+/**
+ * @param[in   ] crse_lev   level to average data down to
+ * @param[inout] vec_mf     vector over levels of multifabs containing data to average
+ */
+void
+REMORA::average_down_with_grow_cells (int crse_lev, Vector<std::unique_ptr<MultiFab>>& vec_mf)
+{
+    auto const& crsema = vec_mf[crse_lev]->arrays();
+    auto const& finema = vec_mf[crse_lev+1]->const_arrays();
+    auto ref_ratio_crse = refRatio(crse_lev);
+    auto index_type = (vec_mf[crse_lev]->boxArray().ixType()).toIntVect();
+    auto nghost_crse = cum_ref_ratios[crse_lev] - index_type;
+    if (index_type[0]==0 and index_type[1]==0) {
+        ParallelFor(*vec_mf[crse_lev], nghost_crse, vec_mf[crse_lev]->nComp(),
+                [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k, int n) noexcept
+        {
+            amrex_avgdown(i,j,k,n,crsema[box_no],finema[box_no],0,0,ref_ratio_crse);
+        });
+    } else if (index_type[0]==1 and index_type[1]==0) {
+        ParallelFor(*vec_mf[crse_lev], nghost_crse, 1,
+                [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k, int n) noexcept
+        {
+            amrex_avgdown_faces(i,j,k,n,crsema[box_no],finema[box_no],0,0,ref_ratio_crse,0);
+        });
+    } else if (index_type[0]==0 and index_type[1]==1) {
+        ParallelFor(*vec_mf[crse_lev], nghost_crse, 1,
+                [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k, int n) noexcept
+        {
+            amrex_avgdown_faces(i,j,k,n,crsema[box_no],finema[box_no],0,0,ref_ratio_crse,1);
+        });
+    } else {
+        amrex::Abort("Unexpected nodality in average_down_with_grow_cells");
+    }
+    Gpu::streamSynchronize();
 }
 
 /**

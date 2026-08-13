@@ -20,6 +20,18 @@ void REMORA::init_bcs ()
     const int u2d_simple_bc_idx = u2d_simple_bc();
     const int v2d_simple_bc_idx = v2d_simple_bc();
 
+    std::vector<std::string> bcvar_names(BCVars::NumTypes(ncons),"");
+    bcvar_names[BCVars::Temp_bc_comp] = "temp";
+    bcvar_names[BCVars::Salt_bc_comp] = "salt";
+    bcvar_names[BCVars::Scalar_bc_comp] = "scalar";
+    bcvar_names[xvel_bc_idx] = "u";
+    bcvar_names[yvel_bc_idx] = "v";
+    bcvar_names[zvel_bc_idx] = "w";
+    bcvar_names[ubar_bc_idx] = "ubar";
+    bcvar_names[vbar_bc_idx] = "vbar";
+    bcvar_names[zeta_bc_idx] = "zeta";
+    bcvar_names[tke_bc_idx] = "tke";
+
     phys_bc_type.assign(num_bc_vars(), {});
     m_bc_extdir_vals.assign(num_bc_vars(), {});
 
@@ -27,11 +39,11 @@ void REMORA::init_bcs ()
         return bcvar_type == xvel_bc_idx || bcvar_type == yvel_bc_idx || bcvar_type == zvel_bc_idx;
     };
 
-    auto uses_scalar_input = [=] (int bcvar_type) noexcept {
+    auto uses_scalar_input = [this] (int bcvar_type) noexcept {
         return bcvar_type >= Tracer_comp && bcvar_type < ncons;
     };
 
-    auto f_set_var_bc = [this, uses_velocity_input, uses_scalar_input, xvel_bc_idx, zeta_bc_idx, ubar_bc_idx, vbar_bc_idx]
+    auto f_set_var_bc = [this, uses_velocity_input, uses_scalar_input, xvel_bc_idx, zeta_bc_idx, ubar_bc_idx, vbar_bc_idx, bcvar_names]
         (ParmParse& pp, int bcvar_type, Orientation ori, std::string bc_type_string) {
         // const bool requires_file_data =
         //     (bc_type_string == "clamped") || (bc_type_string == "chapman") ||
@@ -64,7 +76,7 @@ void REMORA::init_bcs ()
                 pp.getarr("velocity", v, 0, AMREX_SPACEDIM);
                 m_bc_extdir_vals[bcvar_type][ori] = v[bcvar_type - xvel_bc_idx];
             } else if (uses_scalar_input(bcvar_type)) {
-                Real scalar_in = 0.;
+                Real scalar_in = zero;
                 if (pp.queryAdd("scalar", scalar_in)) {
                     m_bc_extdir_vals[bcvar_type][ori] = scalar_in;
                 }
@@ -83,7 +95,7 @@ void REMORA::init_bcs ()
                 // But if we find "velocity" in the inputs file, use those values instead.
                 if (pp.queryarr("velocity", v, 0, AMREX_SPACEDIM))
                 {
-                    v[ori.coordDir()] = 0.0_rt;
+                    v[ori.coordDir()] = zero;
                     m_bc_extdir_vals[bcvar_type][ori] = v[bcvar_type - xvel_bc_idx];
                 }
             }
@@ -165,7 +177,7 @@ void REMORA::init_bcs ()
 
         if (phys_bc_type[bcvar_type][ori] == REMORA_BC::undefined)
         {
-             amrex::Print() << "BC Type specified for fac is " << bc_type_string << std::endl;
+             amrex::Print() << "BC Type specified for variable " << bcvar_names[bcvar_type] << " is " << bc_type_string << std::endl;
              amrex::Abort("This BC type is unknown");
         }
     };
@@ -221,20 +233,20 @@ void REMORA::init_bcs ()
     for (OrientationIter oit; oit; ++oit) {
         Orientation ori = oit();
         // These are simply defaults for Dirichlet faces -- they should be over-written below if needed
-        m_bc_extdir_vals[BCVars::Temp_bc_comp  ][ori] = 1.e19_rt;
-        m_bc_extdir_vals[BCVars::Salt_bc_comp  ][ori] = 1.e20_rt;
+        m_bc_extdir_vals[BCVars::Temp_bc_comp  ][ori] = Real(1.e19);
+        m_bc_extdir_vals[BCVars::Salt_bc_comp  ][ori] = Real(1.e20);
         for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
-            m_bc_extdir_vals[icomp][ori] = 1.e21_rt + static_cast<Real>(icomp - Tracer_comp);
+            m_bc_extdir_vals[icomp][ori] = Real(1.e21) + static_cast<Real>(icomp - Tracer_comp);
         }
 
-        m_bc_extdir_vals[xvel_bc_idx][ori] = 0.0_rt; // default
-        m_bc_extdir_vals[yvel_bc_idx][ori] = 0.0_rt;
-        m_bc_extdir_vals[zvel_bc_idx][ori] = 0.0_rt;
+        m_bc_extdir_vals[xvel_bc_idx][ori] = zero; // default
+        m_bc_extdir_vals[yvel_bc_idx][ori] = zero;
+        m_bc_extdir_vals[zvel_bc_idx][ori] = zero;
 
-        m_bc_extdir_vals[ubar_bc_idx][ori] = 0.0_rt; // default
-        m_bc_extdir_vals[vbar_bc_idx][ori] = 0.0_rt;
-        m_bc_extdir_vals[u2d_simple_bc_idx][ori] = 0.0_rt;
-        m_bc_extdir_vals[v2d_simple_bc_idx][ori] = 0.0_rt;
+        m_bc_extdir_vals[ubar_bc_idx][ori] = zero; // default
+        m_bc_extdir_vals[vbar_bc_idx][ori] = zero;
+        m_bc_extdir_vals[u2d_simple_bc_idx][ori] = zero;
+        m_bc_extdir_vals[v2d_simple_bc_idx][ori] = zero;
     }
 
     // Whether to specify boundary conditions by variable (then side).
@@ -243,6 +255,25 @@ void REMORA::init_bcs ()
 
     ParmParse pp("remora");
     pp.queryAdd("boundary_per_variable", set_bcs_by_var);
+    // Check whether variable specification matches flag in inputs file
+    if (!set_bcs_by_var && (pp.contains("bc.temp.type") ||
+                pp.contains("bc.salt.type") ||
+                pp.contains("bc.scalar.type") ||
+                pp.contains("bc.u.type") ||
+                pp.contains("bc.v.type") ||
+                pp.contains("bc.w.type") ||
+                pp.contains("bc.ubar.type") ||
+                pp.contains("bc.vbar.type") ||
+                pp.contains("bc.zeta.type") ||
+                pp.contains("bc.tke.type"))) {
+        amrex::Abort("boundary_per_variable set to false, but per-variable boundary conditions are specified. Use bc.{x,y}{lo,hi}.type instead");
+    }
+    if (set_bcs_by_var && (pp.contains("bc.xlo.type") ||
+                pp.contains("bc.xhi.type") ||
+                pp.contains("bc.ylo.type") ||
+                pp.contains("bc.yhi.type"))) {
+        amrex::Abort("boundary_per_variable set to true, but per-side boundary conditions are specified. Use bc.{temp,salt,etc}.type instead");
+    }
     if (!set_bcs_by_var) {
         f_by_side("xlo", Orientation(Direction::x,Orientation::low));
         f_by_side("xhi", Orientation(Direction::x,Orientation::high));

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <limits>
+#include <array>
 #include <memory>
 
 #ifdef _OPENMP
@@ -89,18 +90,49 @@ class REMORA
     : public amrex::AmrCore
 {
 public:
+    enum class DriverAtmosForcingMode : int {
+        State = 0,
+        Flux
+    };
+
+    static constexpr bool DriverUsesStateForcing (DriverAtmosForcingMode mode) noexcept
+    {
+        return mode == DriverAtmosForcingMode::State;
+    }
 
     REMORA ();
+    REMORA (const amrex::RealBox& rb, int max_level_in, const amrex::Vector<int>& n_cell_in, int coord, const amrex::Vector<amrex::IntVect>& ref_ratio, const amrex::Array<int,AMREX_SPACEDIM>& is_per, std::string prefix);
     virtual ~REMORA ();
 
     /** \brief Advance solution to final time */
     void Evolve ();
+
+    /** \brief Write checkpoint and plotfiles at end of simulation */
+    void WriteAtFinalTime ();
+
+    /** \brief Write checkpoint and plotfiles at intermediate point of simulation, if needed */
+    void WriteAtIntermediateTime (int step, amrex::Real cur_time);
 
     /** \brief Tag cells for refinement */
     virtual void ErrorEst (int lev, amrex::TagBoxArray& tags, amrex::Real time, int ngrow) override;
 
     /** \brief Initialize multilevel data */
     void InitData ();
+    amrex::Real EvolveOneStep (amrex::Real time, amrex::Real dt_request);
+
+    void ConfigureDriverAtmosToOceanCoupling (bool use_coupling_driver,
+                                              bool use_two_way_coupling,
+                                              DriverAtmosForcingMode active_mode);
+    void SetDriverAtmosToOceanForcingMode (DriverAtmosForcingMode mode);
+    // Driver currently consumes BoxArray/DistributionMapping only. If we later
+    // need exact copy semantics, promote these to expose IndexType/ngrow
+    // explicitly or return the underlying MultiFab pointer/reference instead.
+    void GetAtmosToOceanRhoLayout (amrex::BoxArray& ba,
+                                   amrex::DistributionMapping& dm) const;
+    void GetAtmosToOceanUFaceLayout (amrex::BoxArray& ba,
+                                     amrex::DistributionMapping& dm) const;
+    void GetAtmosToOceanVFaceLayout (amrex::BoxArray& ba,
+                                     amrex::DistributionMapping& dm) const;
 
     /** \brief Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);
@@ -110,6 +142,61 @@ public:
 
     /** \brief Called after every level 0 timestep */
     void post_timestep (int nstep, amrex::Real time, amrex::Real dt_lev);
+
+    /**
+     * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
+     *
+     * Reads Temp_comp at the top water-column cell (k_sfc), converts from
+     * Celsius to Kelvin, and copies the result into state[SSTIndex].
+     *
+     * @param[in,out] state  OCN2ATM slab buffer sized by the driver (one MultiFab
+     *                       per ocean-to-atmosphere export layer). state[SSTIndex]
+     *                       (index 0) is overwritten with sea-surface temperature
+     *                       (SST) sampled from the Temp_comp tracer at the uppermost
+     *                       sigma level (k = Nz) and converted from degrees Celsius
+     *                       to Kelvin for the atmospheric driver. An empty vector or
+     *                       null state[0] is treated as a no-op.
+     * @param[in    ] time   Current ocean model time (unused; retained for driver
+     *                       interface conformance).
+     */
+    void PackSurfaceState (amrex::Vector<amrex::MultiFab*>& state, amrex::Real time);
+
+    /**
+     * \brief Receives atmospheric states from the driver and applies unit conversions.
+     *
+     * Fills REMORA's internal forcing MultiFabs from states and records which
+     * lanes were successfully updated in driver_atmos_state_from_driver.
+     * Unit conversions applied: Pair Pa to mb; Tair K to Celsius.
+     *
+     * @param[in] states  ATM2OCN forcing slab buffer from the driver (Warner et al.
+     *                    2010, Block B state-passing contract), indexed by AtmosState.
+     *                    Expected units per lane:
+     *                    Uwind/Vwind: 10-m winds [m/s];
+     *                    Pair: mean sea-level pressure [Pa, converted to mb];
+     *                    Qair: near-surface specific humidity [kg/kg];
+     *                    Tair: 2-m air temperature [K, converted to degC];
+     *                    Cloud: cloud fraction [0-1];
+     *                    Rain: precipitation rate [kg/m^2/s];
+     *                    SWrad/LWrad: downwelling shortwave/longwave radiation [W/m^2].
+     *                    Missing lanes (null pointer or index out of range) are skipped;
+     *                    driver_atmos_state_from_driver tracks populated lanes for the
+     *                    bulk-flux parameterization fallback logic.
+     * @param[in] time    Current ocean model time (unused; retained for driver
+     *                    interface conformance).
+     */
+    void ApplyAtmosphericStates (const amrex::Vector<amrex::MultiFab*>& states, amrex::Real time);
+
+    /**
+     * \brief Receives atmospheric flux lanes from the driver and assembles REMORA flux inputs.
+     *
+     * Expected active-lane order matches the driver FluxPassing contract:
+     * tau_x, tau_y, SHflux, LHflux, SWrad, LWrad, rain, evap.
+     *
+     * This routine copies imported forcing lanes into REMORA's existing flux arrays
+     * and assembles vec_stflux directly from those imported values. It intentionally
+     * leaves the downstream salt_old multiplication to setup_step().
+     */
+    void ApplyAtmosphericFluxes (const amrex::Vector<amrex::MultiFab*>& states, amrex::Real time);
 
     // Diagnostics
 
@@ -151,8 +238,17 @@ public:
     virtual void MakeNewLevelFromScratch (int lev, amrex::Real time, const amrex::BoxArray& ba,
                       const amrex::DistributionMapping& dm) override;
 
-    /** \brief Set pm and pn arrays on level lev. Only works if using analytic initialization */
+    /** \brief Set pm and pn arrays and x/y coords on level lev */
     void set_grid_scale (int lev);
+
+    /** \brief Set x/y coords on level lev based on pm and pn */
+    void set_grid_coords_from_grid_scale (int lev);
+
+    /** \brief Set curvilinear derivative terms on level lev based on pm and pn */
+    void set_curvilinear_terms_from_grid_scale (int lev);
+
+    /** \brief Set pm/pn by averaging down from higher-resolution grid */
+    void set_grid_vars_averaged_down (int lev);
 
     /** \brief Set zeta components to be equal to time-averaged Zt_avg1 */
     void set_zeta_to_Ztavg (int lev);
@@ -209,6 +305,7 @@ public:
                                                 const amrex::Vector<std::string>& extra_dirs = amrex::Vector<std::string>()) const;
 
 
+
     /** \brief write out header data for an AMReX plotfile */
     void WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                    int nlevels,
@@ -246,11 +343,22 @@ public:
     /** \brief multilevel data container for current step's z velocities (largely unused; W stored separately) */
     amrex::Vector<amrex::MultiFab*> zvel_new;
 
+    /** \brief multilevel data container for high res initial data: temperature, salinity, passive tracer  */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_cons_full_domain;
+    /** \brief multilevel data container for high res initial x velocities (u in ROMS) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xvel_full_domain;
+    /** \brief multilevel data container for high res initial y velocities (v in ROMS) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yvel_full_domain;
+    /** \brief multilevel data container for current step's z velocities (largely unused; W stored separately) */
+
     // Program state data is represented by vectors of pointers to AMReX Multifabs.
     // There is one pointer per level
 
     /** \brief Bathymetry data (2D, positive valued, h in ROMS) **/
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_h;
+
+    /** \brief Bathymetry data on the whole domain at each potential level **/
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_h_full_domain;
 
     /** \brief Width of cells in the vertical (z-) direction (3D, Hz in ROMS) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Hz;
@@ -352,6 +460,15 @@ public:
     /** \brief evaporation minus precipitation [kg/m^2/s], defined at rho-points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_EminusP;
 
+    /** \brief provenance flags for driver-supplied atmospheric forcing lanes */
+    std::array<bool, AtmosState::NumTypes> driver_atmos_state_from_driver {};
+    /** \brief True once REMORA has received forcing through the coupling driver. */
+    bool running_with_coupling_driver = false;
+    /** \brief Driver-level direction flag copied in before InitData. */
+    bool driver_uses_two_way_coupling = false;
+    /** \brief Active atmosphere-to-ocean forcing contract on the most recent driver apply. */
+    DriverAtmosForcingMode driver_atmos_forcing_mode = DriverAtmosForcingMode::State;
+
     /** \brief Linear drag coefficient [m/s], defined at rho points */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rdrag;
     /** \brief Quadratic drag coefficient [unitless], defined at rho points */
@@ -385,6 +502,9 @@ public:
     /** \brief free surface height (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_zeta;
 
+    /** \brief high resolution initial free surface height (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_zeta_full_domain;
+
     /** \brief land/sea mask at cell centers (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_mskr;
     /** \brief land/sea mask at x-faces (2D) */
@@ -400,6 +520,10 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm;
     /** \brief horizontal scaling factor: 1 / dy (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn;
+    /** \brief horizontal scaling factor: 1 / dx (2D) on whole domain */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pm_full_domain;
+    /** \brief horizontal scaling factor: 1 / dy (2D) on whole domain */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn_full_domain;
 
     /** \brief coriolis factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_fcor;
@@ -423,6 +547,11 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xp;
     /** \brief y_grid on psi-points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yp;
+
+    /** \brief d(1/n)/d(xi) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_dndx;
+    /** \brief d(1/m)/d(eta) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_dmde;
 
     /** \brief additional scratch space for calculations on temp, salt, etc */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_sstore;
@@ -845,6 +974,19 @@ public:
                    const amrex::Array4<amrex::Real const>& fomn,
                    int nrhs, int nr);
 
+    /** \brief Calculate curvilinear advection terms */
+    void curvilinear (const amrex::Box& bx,
+                   const amrex::Box& xbx,
+                   const amrex::Box& ybx,
+                   const amrex::Array4<amrex::Real const>& uold,
+                   const amrex::Array4<amrex::Real const>& vold,
+                   const amrex::Array4<amrex::Real      >& ru,
+                   const amrex::Array4<amrex::Real      >& rv,
+                   const amrex::Array4<amrex::Real const>& Hz,
+                   const amrex::Array4<amrex::Real const>& dndx,
+                   const amrex::Array4<amrex::Real const>& dmde,
+                   int nrhs, int nr);
+
     /** \brief Apply climatology nudging */
     void apply_clim_nudg (const amrex::Box& bx,
                    int ioff, int joff,
@@ -855,7 +997,7 @@ public:
                    const amrex::Array4<amrex::Real const>& Hz,
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& pn,
-                   const amrex::Real dt_lev = amrex::Real(0.0));
+                   const amrex::Real dt_lev = zero);
 
     /** \brief Set 2D momentum arrays from 3D momentum */
     void set_2darrays (int lev);
@@ -866,8 +1008,15 @@ public:
     /** \brief Initialize zeta from file or analytic */
     void set_zeta (int lev);
 
+    /** \brief Copy over zeta data that has been averaged down from high res */
+    void set_zeta_averaged_down (int lev);
+
     /** \brief Initialize bathymetry from file or analytic */
     void set_bathymetry (int lev);
+
+    /** \brief Copy over bathymetry data that has been averaged down from high resolution
+     * input netcdf file */
+    void set_bathymetry_averaged_down (int lev);
 
     /** \brief Initialize Coriolis factor from file or analytic */
     void set_coriolis (int lev);
@@ -907,8 +1056,8 @@ public:
     /** \brief Initialize or calculate surface momentum flux from file or analytic */
     void set_smflux (int lev);
 
-    /** \brief Initialize or calculate wind speed from file or analytic */
-    void set_wind (int lev);
+    /** \brief Initialize or calculate wind speed and other surface state vars from file or analytic */
+    void set_surface_state (int lev);
 
     /** \brief Initialize horizontal mixing coefficients */
     void set_hmixcoef (int lev);
@@ -933,10 +1082,10 @@ public:
                     const int bdy_var_type = BdyVars::null,
                     const int icomp=0,
                     const bool fill_all=true,
-                    const bool fill_set=true,
+                    const bool fill_set=false,
                     const int  n_not_fill=0,
                     const int icomp_calc=0,
-                    const amrex::Real dt = amrex::Real(0.0),
+                    const amrex::Real dt = zero,
                     const amrex::MultiFab& mf_calc = amrex::MultiFab());
 
     /** \brief Fill a new MultiFab by copying in phi from valid region and filling ghost cells without applying boundary conditions */
@@ -946,7 +1095,7 @@ public:
                     const int bdy_var_type = BdyVars::null,
                     const int icomp=0,
                     const bool fill_all=true,
-                    const bool fill_set=true);
+                    const bool fill_set=false);
     /** \brief Fill boundary data from netcdf file */
     void fill_from_bdyfiles (int lev,
                              amrex::MultiFab& mf_to_fill,
@@ -957,7 +1106,7 @@ public:
                             const int icomp_to_fill,
                             const int icomp_calc = 0,
                             const amrex::MultiFab& mf_calc = amrex::MultiFab(),
-                            const amrex::Real = amrex::Real(0.0));
+                            const amrex::Real = zero);
 
     /** \brief fill an entire multifab by interpolating from the coarser level
      *         using the piecewise constant interpolater */
@@ -969,7 +1118,7 @@ public:
                 const bool fill_all = true,
                 const int  n_not_fill=0,
                 const int icomp_calc=0,
-                const amrex::Real dt = amrex::Real(0.0),
+                const amrex::Real dt = zero,
                 const amrex::MultiFab& mf_calc = amrex::MultiFab());
 
     /** \brief fill an entire multifab by interpolating from the coarser level */
@@ -981,7 +1130,7 @@ public:
                 const bool fill_all = true,
                 const int  n_not_fill=0,
                 const int icomp_calc=0,
-                const amrex::Real dt = amrex::Real(0.0),
+                const amrex::Real dt = zero,
                 const amrex::MultiFab& mf_calc = amrex::MultiFab());
 
     /** \brief fill an entire multifab by interpolating from the coarser level,
@@ -994,7 +1143,7 @@ public:
                 const bool fill_all = true,
                 const int  n_not_fill=0,
                 const int icomp_calc=0,
-                const amrex::Real dt = amrex::Real(0.0),
+                const amrex::Real dt = zero,
                 const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                       amrex::Interpolater* mapper = nullptr);
 
@@ -1006,16 +1155,36 @@ public:
     /** \brief Calculate Coriolis parameters from beta plane parametrization */
     void init_beta_plane_coriolis (int lev);
 
+    /** \brief Full domain bathymetry data initialization from analytic */
+    void init_bathymetry_full_domain_from_analytic ();
+
+    /** \brief Problem initialization from averaged-down high resolution data */
+    void set_init_data_averaged_down (int lev);
     /** \brief Problem initialization from NetCDF file */
     void init_data_from_netcdf (int lev);
+    /** \brief High resolution roblem initialization from NetCDF file */
+    void init_data_full_domain_from_netcdf ();
     /** \brief Boundary data initialization from NetCDF file */
     void init_bdry_from_netcdf (int lev);
     /** \brief Mask data initialization from NetCDF file */
     void init_masks_from_netcdf (int lev);
     /** \brief Bathymetry data initialization from NetCDF file */
     void init_bathymetry_from_netcdf (int lev);
+    /** \brief Full domain high-res bathymetry data initialization from NetCDF file */
+    void init_bathymetry_full_domain_from_netcdf ();
+
+    /** \brief Grid variable initialization from NetCDF file */
+    void init_grid_vars_from_netcdf (int lev);
+    /** \brief Full domain high-res grid variable initialization from NetCDF file */
+    void init_grid_vars_full_domain_from_netcdf ();
+
+    /** \brief Extrapolate grid metrics to edge of MultiFab */
+    void extrapolate_metric_to_physical_boundaries(amrex::MultiFab& mf, const amrex::Geometry& geom);
+
     /** \brief Sea-surface height data initialization from NetCDF file */
     void init_zeta_from_netcdf (int lev);
+    /** \brief Full-domain high res sea-surface height data initialization from NetCDF file */
+    void init_zeta_full_domain_from_netcdf ();
     /** \brief Coriolis parameter data initialization from NetCDF file */
     void init_coriolis_from_netcdf (int lev);
     /** \brief Climatology nudging coefficient initialization from NetCDF file */
@@ -1024,11 +1193,19 @@ public:
     void init_clim_nudg_coeff (int lev);
     void init_riv_pos_from_netcdf (int lev);
 
+    /** \brief Allocate multifabs for storing full-domain bathymetry and grid vars data */
+    void allocate_bathymetry_grid_vars_full_domain ();
+    /** \brief Allocate multifabs for storing full-domain high resolution initial data */
+    void allocate_init_full_domain ();
+
     /** \brief Convert data in a multifab from inverse days to inverse seconds */
     void convert_inv_days_to_inv_s (amrex::MultiFab*);
 
     /** \brief Mask data arrays before writing output */
     void mask_arrays_for_write (int lev, amrex::Real fill_value, amrex::Real fill_where);
+
+    /** \brief Average down from level lev+1 to lev in mf, including grow cells */
+    void average_down_with_grow_cells(int lev, amrex::Vector<std::unique_ptr<amrex::MultiFab>>& mf);
 
     int xvel_bc () const noexcept { return BCVars::xvel_bc(ncons); }
     int yvel_bc () const noexcept { return BCVars::yvel_bc(ncons); }
@@ -1068,6 +1245,11 @@ private:
 
     /** \brief Initialize initial problem data from analytic functions */
     void init_analytic(int lev);
+    /** \brief Initialize high resolution initial problem data from analytic functions */
+    void init_full_domain_from_analytic();
+
+    /** \brief Initialize high resolution initial sea surface height from analytic functions */
+    void init_full_domain_zeta_from_analytic();
 
     /** \brief Allocate MultiFabs for state and evolution variables */
     void init_stuff (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
@@ -1316,7 +1498,7 @@ private:
     amrex::Real stop_time = std::numeric_limits<amrex::Real>::max();
 
     /** \brief Time of the start of the simulation, in seconds */
-    amrex::Real start_time = 0.0;
+    amrex::Real start_time = zero;
 
     /** \brief If set, restart from this checkpoint file */
     std::string restart_chkfile = "";
@@ -1352,13 +1534,13 @@ private:
     /** \brief Plotfile output interval in iterations */
     int plot_int = -1;
     /** \brief Plotfile output interval in seconds */
-    amrex::Real plot_int_time = amrex::Real(-1.0);
+    amrex::Real plot_int_time = amrex::Real(-one);
     /** \brief Checkpoint file prefix */
     std::string check_file {"chk"};
     /** \brief Checkpoint output interval in iterations */
     int check_int = -1;
     /** \brief Checkpoint output interval in seconds */
-    amrex::Real check_int_time = amrex::Real(-1.0);
+    amrex::Real check_int_time = amrex::Real(-one);
 
     /** \brief Whether to chunk netcdf history file */
     bool chunk_history_file = false;
@@ -1387,7 +1569,7 @@ private:
     bool expand_plotvars_to_unif_rr = false;
 
     /** \brief fill value for masked arrays in amrex plotfiles */
-    amrex::Real plotfile_fill_value = amrex::Real(0.0);
+    amrex::Real plotfile_fill_value = zero;
     /** \brief fill value for masked arrays in netcdf output */
     amrex::Real netcdf_fill_value = amrex::Real(1.0e37);
 
@@ -1427,11 +1609,14 @@ private:
     /** \brief Minimum number of digits in plotfile name or chunked history file */
     static int file_min_digits;
 
-    /** \brief Whether to write the staggered velocities (not averaged to cell centers) */
-    static int plot_staggered_vels;
+      /** \brief Whether to write the staggered velocities (not averaged to cell centers) */
+      static bool plot_staggered_vels;
 
-    /** \brief Native or NetCDF plotfile output */
-    static PlotfileType plotfile_type;
+      /** \brief Whether to write nodal data (Nu_nd) to plotfiles */
+      static bool plot_nodal_data;
+
+     /** \brief Native or NetCDF plotfile output */
+     static PlotfileType plotfile_type;
 
     /** \brief NetCDF initialization file */
     static amrex::Vector<amrex::Vector<std::string>> nc_init_file;
@@ -1439,6 +1624,23 @@ private:
     static amrex::Vector<amrex::Vector<std::string>> nc_grid_file;
     /** \brief NetCDF boundary data */
     static amrex::Vector<std::string> nc_bdry_file;
+
+    /** \brief Which level the high resolution bathymetry is at */
+    int hires_grid_level = -1;
+    /** \brief Grid file for high resolution bathymetry */
+    std::string nc_grid_file_hires;
+    /** \brief Box for the full domain at nc_hires_grid_level */
+    amrex::Box nc_hires_grid_box;
+
+    /** \brief Which level the high resolution initialization data is at */
+    int hires_init_level = -1;
+    /** \brief Init file for high resolution */
+    std::string nc_init_file_hires;
+    /** \brief Box for the full domain at nc_hires_init_level */
+    amrex::Box nc_hires_init_box;
+
+    /** \brief Cumulative refinement ratio between level 0 and level i */
+    amrex::Vector<amrex::IntVect> cum_ref_ratios;
 
     /** \brief NetCDF forcing file(s) */
     amrex::Vector<std::string> nc_frc_file;
@@ -1471,7 +1673,6 @@ private:
     std::string riv_time_varname = "river_time";
     /** \brief Name of time field for forcing data */
     std::string frc_time_varname = "";
-
 
     /** \brief Set refinement criteria */
     void refinement_criteria_setup();
@@ -1587,27 +1788,27 @@ public:
         using namespace amrex;
 
         Real psiu;
-        if (ZoL < 0.0_rt) {
+        if (ZoL < zero) {
             // Unstable conditions.
-            Real x    = std::pow(1.0_rt-15.0_rt*ZoL,0.25_rt);
-            Real psik = 2.0_rt*std::log(0.5_rt*(1.0_rt+x))+
-                        std::log(0.5_rt*(1.0_rt+x*x))-
-                        2.0_rt*std::atan(x)+0.5_rt*PI;
+            Real x    = std::pow(one-Real(15.0)*ZoL,fourth);
+            Real psik = two*std::log(Real(0.5)*(one+x))+
+                        std::log(Real(0.5)*(one+x*x))-
+                        two*std::atan(x)+Real(0.5)*PI;
             //  For very unstable conditions, use free-convection (Fairall).
-            Real sqrt3 = std::sqrt(3.0_rt);
-            Real y = std::pow(1.0_rt-10.15_rt*ZoL,1.0_rt/3.0_rt);
-            Real psic = 1.5_rt*std::log(1.0_rt/3.0_rt*(1.0_rt+y+y*y))-
-                   sqrt3*std::atan((1.0_rt+2.0_rt*y)/sqrt3)+PI/sqrt3;
+            Real sqrt3 = std::sqrt(three);
+            Real y = std::pow(one-Real(10.15)*ZoL,third);
+            Real psic = Real(1.5)*std::log(one/Real(three)*(one+y+y*y))-
+                   sqrt3*std::atan((one+two*y)/sqrt3)+PI/sqrt3;
             //  Match Kansas and free-convection forms with weighting Fw.
             Real Zol2 = ZoL*ZoL;
-            Real Fw = Zol2/(1.0_rt+Zol2);
+            Real Fw = Zol2/(one+Zol2);
 
-            psiu =  (1.0_rt-Fw)*psik+Fw*psic;
+            psiu =  (one-Fw)*psik+Fw*psic;
         } else {
             // Stable conditions
-            Real cff=std::min(50.0_rt,0.35_rt*ZoL);
-            psiu = -((1.0_rt+ZoL)+0.6667_rt*(ZoL-14.28_rt)/
-                     std::exp(cff)+8.525_rt);
+            Real cff=std::min(Real(50.0),Real(0.35)*ZoL);
+            psiu = -((one+ZoL)+Real(0.6667)*(ZoL-Real(14.28))/
+                     std::exp(cff)+Real(8.525));
         }
         return psiu;
     }
@@ -1619,25 +1820,25 @@ public:
         using namespace amrex;
 
         Real psit;
-        if (ZoL < 0.0_rt) {
+        if (ZoL < zero) {
             // Unstable conditions.
-            Real x = std::pow(1.0_rt-15.0_rt*ZoL,0.5_rt);
-            Real psik = 2.0_rt*std::log(0.5_rt*(1.0_rt+x));
+            Real x = std::pow(one-Real(15.0)*ZoL,Real(0.5));
+            Real psik = two*std::log(Real(0.5)*(one+x));
             //  For very unstable conditions, use free-convection (Fairall).
-            Real sqrt3=std::sqrt(3.0_rt);
-            Real y=std::pow(1.0_rt-34.15_rt*ZoL,1.0_rt/3.0_rt);
-            Real psic=1.5_rt*std::log(1.0_rt/3.0_rt*(1.0_rt+y+y*y))-
-                sqrt3*std::atan((1.0_rt+2.0_rt*y)/sqrt3)+PI/sqrt3;
+            Real sqrt3=std::sqrt(three);
+            Real y=std::pow(one-Real(34.15)*ZoL,one/three);
+            Real psic=Real(1.5)*std::log(one/three*(one+y+y*y))-
+                sqrt3*std::atan((one+two*y)/sqrt3)+PI/sqrt3;
 
             // Match Kansas and free-convection forms with weighting Fw.
             Real ZoL2=ZoL*ZoL;
-            Real Fw=ZoL2/(1.0_rt+ZoL2);
-            psit = (1.0_rt-Fw)*psik+Fw*psic;
+            Real Fw=ZoL2/(one+ZoL2);
+            psit = (one-Fw)*psik+Fw*psic;
         } else {
             //  Stable conditions.
-            Real cff=std::min(50.0_rt,0.35_rt*ZoL);
-            psit=-(std::pow(1.0_rt+2.0_rt*ZoL,1.5_rt)+
-                    0.6667_rt*(ZoL-14.28_rt)/std::exp(cff)+8.525_rt);
+            Real cff=std::min(Real(50.0),Real(0.35)*ZoL);
+            psit=-(std::pow(one+two*ZoL,Real(1.5))+
+                    Real(0.6667)*(ZoL-Real(14.28))/std::exp(cff)+Real(8.525));
         }
         return psit;
     }

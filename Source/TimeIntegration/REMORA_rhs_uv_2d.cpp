@@ -80,11 +80,11 @@ REMORA::rhs_uv_2d (int lev, const Box& xbx, const Box& ybx,
         ParallelFor(growLo(xbx,0,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real uxx_i   = ubar(i-1,j,0,krhs)-2.0_rt*ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
-            Real uxx_ip1 = ubar(i  ,j,0,krhs)-2.0_rt*ubar(i+1,j,0,krhs)+ubar(i+2,j,0,krhs);
+            Real uxx_i   = ubar(i-1,j,0,krhs)-two*ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
+            Real uxx_ip1 = ubar(i  ,j,0,krhs)-two*ubar(i+1,j,0,krhs)+ubar(i+2,j,0,krhs);
 
-            Real Huxx_i   = DUon(i-1,j,0)-2.0_rt*DUon(i  ,j,0)+DUon(i+1,j,0);
-            Real Huxx_ip1 = DUon(i  ,j,0)-2.0_rt*DUon(i+1,j,0)+DUon(i+2,j,0);
+            Real Huxx_i   = DUon(i-1,j,0)-two*DUon(i  ,j,0)+DUon(i+1,j,0);
+            Real Huxx_ip1 = DUon(i  ,j,0)-two*DUon(i+1,j,0)+DUon(i+2,j,0);
 
             if (i == dlo.x && !is_periodic_in_x) {
                 uxx_i = uxx_ip1;
@@ -95,10 +95,10 @@ REMORA::rhs_uv_2d (int lev, const Box& xbx, const Box& ybx,
                 Huxx_ip1 = Huxx_i;
             }
 
-            Real cff=1.0_rt/6.0_rt;
+            Real cff=one/Real(6.0);
             Real ubar_avg = ubar(i  ,j,0,krhs)+ubar(i+1,j,0,krhs);
 
-            UFx(i,j,0)=0.25_rt*(ubar_avg-cff*(uxx_i+uxx_ip1)) * (DUon(i,j,0)+ DUon(i+1,j,0)-cff*(Huxx_i+ Huxx_ip1));
+            UFx(i,j,0)=Real(0.25)*(ubar_avg-cff*(uxx_i+uxx_ip1)) * (DUon(i,j,0)+ DUon(i+1,j,0)-cff*(Huxx_i+ Huxx_ip1));
         });
 
         //
@@ -108,11 +108,11 @@ REMORA::rhs_uv_2d (int lev, const Box& xbx, const Box& ybx,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             //should not include grow cells
-            Real uee_j   = ubar(i,j-1,0,krhs)-2.0_rt*ubar(i,j  ,0,krhs)+ubar(i,j+1,0,krhs);
-            Real uee_jm1 = ubar(i,j-2,0,krhs)-2.0_rt*ubar(i,j-1,0,krhs)+ubar(i,j  ,0,krhs);
+            Real uee_j   = ubar(i,j-1,0,krhs)-two*ubar(i,j  ,0,krhs)+ubar(i,j+1,0,krhs);
+            Real uee_jm1 = ubar(i,j-2,0,krhs)-two*ubar(i,j-1,0,krhs)+ubar(i,j  ,0,krhs);
 
-            Real Hvxx_i   = DVom(i-1,j,0)-2.0_rt*DVom(i  ,j,0)+DVom(i+1,j,0);
-            Real Hvxx_im1 = DVom(i-2,j,0)-2.0_rt*DVom(i-1,j,0)+DVom(i  ,j,0);
+            Real Hvxx_i   = DVom(i-1,j,0)-two*DVom(i  ,j,0)+DVom(i+1,j,0);
+            Real Hvxx_im1 = DVom(i-2,j,0)-two*DVom(i-1,j,0)+DVom(i  ,j,0);
 
             if (j == dlo.y and !is_periodic_in_y) {
                 uee_jm1 = uee_j;
@@ -120,24 +120,24 @@ REMORA::rhs_uv_2d (int lev, const Box& xbx, const Box& ybx,
                 uee_j = uee_jm1;
             }
 
-            Real cff=1.0_rt/6.0_rt;
+            Real cff=one/Real(6.0);
             Real cff1=ubar(i,j  ,0,krhs)+ubar(i,j-1,0,krhs);
             Real cff2=DVom(i,j,0)+DVom(i-1,j,0);
 
-            UFe(i,j,0)=0.25_rt*(cff1-(uee_j+uee_jm1)*cff)*
+            UFe(i,j,0)=Real(0.25)*(cff1-(uee_j+uee_jm1)*cff)*
               (cff2-cff*(Hvxx_i+Hvxx_im1));
         });
     } else if (uv_hadv_scheme == AdvectionScheme::centered2) {
         ParallelFor(growLo(xbx,0,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            UFx(i,j,0) = 0.25_rt * (DUon(i,j,0)+DUon(i+1,j,0)) * (ubar(i,j,0,krhs)+ubar(i+1,j,0,krhs));
+            UFx(i,j,0) = Real(0.25) * (DUon(i,j,0)+DUon(i+1,j,0)) * (ubar(i,j,0,krhs)+ubar(i+1,j,0,krhs));
         });
 
         ParallelFor(growHi(xbx,1,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            UFe(i,j,0) = 0.25_rt * (DVom(i,j,0)+DVom(i-1,j,0)) * (ubar(i,j,0,krhs)+ubar(i,j-1,0,krhs));
+            UFe(i,j,0) = Real(0.25) * (DVom(i,j,0)+DVom(i-1,j,0)) * (ubar(i,j,0,krhs)+ubar(i,j-1,0,krhs));
         });
     }
 
@@ -171,12 +171,12 @@ REMORA::rhs_uv_2d (int lev, const Box& xbx, const Box& ybx,
         ParallelFor(growHi(ybx,0,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real cff=1.0_rt/6.0_rt;
-            Real vxx_i   = vbar(i-1,j,0,krhs)-2.0_rt*vbar(i  ,j,0,krhs)+vbar(i+1,j,0,krhs);
-            Real vxx_im1 = vbar(i-2,j,0,krhs)-2.0_rt*vbar(i-1,j,0,krhs)+vbar(i  ,j,0,krhs);
+            Real cff=one/Real(6.0);
+            Real vxx_i   = vbar(i-1,j,0,krhs)-two*vbar(i  ,j,0,krhs)+vbar(i+1,j,0,krhs);
+            Real vxx_im1 = vbar(i-2,j,0,krhs)-two*vbar(i-1,j,0,krhs)+vbar(i  ,j,0,krhs);
 
-            Real Huee_j   = DUon(i,j-1,0)-2.0_rt*DUon(i,j  ,0)+DUon(i,j+1,0);
-            Real Huee_jm1 = DUon(i,j-2,0)-2.0_rt*DUon(i,j-1,0)+DUon(i,j  ,0);
+            Real Huee_j   = DUon(i,j-1,0)-two*DUon(i,j  ,0)+DUon(i,j+1,0);
+            Real Huee_jm1 = DUon(i,j-2,0)-two*DUon(i,j-1,0)+DUon(i,j  ,0);
 
             if (i == dlo.x and !is_periodic_in_x) {
                 vxx_im1 = vxx_i;
@@ -187,17 +187,17 @@ REMORA::rhs_uv_2d (int lev, const Box& xbx, const Box& ybx,
             Real cff1=vbar(i  ,j,0,krhs)+vbar(i-1,j,0,krhs);
             Real cff2=DUon(i,j,0)+DUon(i,j-1,0);
 
-            VFx(i,j,0)=0.25_rt*(cff1-(vxx_i + vxx_im1)*cff)* (cff2-cff*(Huee_j+ Huee_jm1));
+            VFx(i,j,0)=Real(0.25)*(cff1-(vxx_i + vxx_im1)*cff)* (cff2-cff*(Huee_j+ Huee_jm1));
         });
 
         ParallelFor(growLo(ybx,1,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            Real vee_j    = vbar(i,j-1,0,krhs)-2.0_rt*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
-            Real vee_jp1  = vbar(i,j  ,0,krhs)-2.0_rt*vbar(i,j+1,0,krhs)+vbar(i,j+2,0,krhs);
+            Real vee_j    = vbar(i,j-1,0,krhs)-two*vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
+            Real vee_jp1  = vbar(i,j  ,0,krhs)-two*vbar(i,j+1,0,krhs)+vbar(i,j+2,0,krhs);
 
-            Real Hvee_j   = DVom(i,j-1,0)-2.0_rt*DVom(i,j  ,0)+DVom(i,j+1,0);
-            Real Hvee_jp1 = DVom(i,j  ,0)-2.0_rt*DVom(i,j+1,0)+DVom(i,j+2,0);
+            Real Hvee_j   = DVom(i,j-1,0)-two*DVom(i,j  ,0)+DVom(i,j+1,0);
+            Real Hvee_jp1 = DVom(i,j  ,0)-two*DVom(i,j+1,0)+DVom(i,j+2,0);
 
             if (j == dlo.y and !is_periodic_in_y) {
                 vee_j = vee_jp1;
@@ -208,22 +208,22 @@ REMORA::rhs_uv_2d (int lev, const Box& xbx, const Box& ybx,
                 Hvee_jp1 = Hvee_j;
             }
 
-            Real cff=1.0_rt/6.0_rt;
+            Real cff=one/Real(6.0);
             Real cff1=vbar(i,j  ,0,krhs)+vbar(i,j+1,0,krhs);
 
-            VFe(i,j,0) = 0.25_rt * (cff1-(vee_j + vee_jp1)*cff) * (DVom(i,j  ,0)+ DVom(i,j+1,0) -
+            VFe(i,j,0) = Real(0.25) * (cff1-(vee_j + vee_jp1)*cff) * (DVom(i,j  ,0)+ DVom(i,j+1,0) -
                                                cff  * (Hvee_j+ Hvee_jp1));
         });
     } else if (uv_hadv_scheme == AdvectionScheme::centered2) {
         ParallelFor(growHi(ybx,0,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            VFx(i,j,0) = 0.25_rt * (DUon(i,j,0) + DUon(i,j-1,0))*(vbar(i,j,0,krhs)+vbar(i-1,j,0,krhs));
+            VFx(i,j,0) = Real(0.25) * (DUon(i,j,0) + DUon(i,j-1,0))*(vbar(i,j,0,krhs)+vbar(i-1,j,0,krhs));
         });
         ParallelFor(growLo(ybx,1,1),
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            VFe(i,j,0) = 0.25_rt * (DVom(i,j,0) + DVom(i,j+1,0))*(vbar(i,j,0,krhs)+vbar(i,j+1,0,krhs));
+            VFe(i,j,0) = Real(0.25) * (DVom(i,j,0) + DVom(i,j+1,0))*(vbar(i,j,0,krhs)+vbar(i,j+1,0,krhs));
         });
     }
 

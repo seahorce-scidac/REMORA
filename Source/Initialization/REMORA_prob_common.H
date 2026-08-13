@@ -29,8 +29,7 @@ public:
         REMORA const& /*remora*/,
         amrex::MultiFab& /*mf_cons*/,
         amrex::MultiFab& /*mf_xvel*/,
-        amrex::MultiFab& /*mf_yvel*/,
-        amrex::MultiFab& /*mf_zvel*/) {
+        amrex::MultiFab& /*mf_yvel*/) {
           amrex::Error("Initialization set to analytic but init_analytic_prob not defined in prob.cpp");
     }
 
@@ -102,13 +101,21 @@ public:
     }
 
     virtual void
-    init_analytic_wind (
+    init_analytic_surface_var (
         int /*lev*/, const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& /*remora*/,
-        amrex::MultiFab& /*mf_uwind*/,
-        amrex::MultiFab& /*mf_vwind*/) {
-          amrex::Error("Doing analytic wind, but not defined in prob.cpp");
+        amrex::MultiFab& /*mf_Uwind*/,
+        amrex::MultiFab& /*mf_Vwind*/,
+        amrex::MultiFab& /*mf_Tair*/,
+        amrex::MultiFab& /*mf_qair*/,
+        amrex::MultiFab& /*mf_Pair*/,
+        amrex::MultiFab& /*mf_srflx*/,
+        amrex::MultiFab& /*mf_longwave_down*/,
+        amrex::MultiFab& /*mf_rain*/,
+        amrex::MultiFab& /*mf_cloud*/,
+        amrex::MultiFab& /*mf_EminusP*/) {
+          amrex::Error("Doing analytic surface variables (used to calculate bulk-flux atmospheric forcing, but not defined in prob.cpp");
     }
 
     virtual void

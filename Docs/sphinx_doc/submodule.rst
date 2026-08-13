@@ -23,4 +23,4 @@ The following example demonstrates setting defaults in the config file for the r
               # This option will override any configuration and not update the submodule
               git pull --no-recurse-submodules
 
-These example also apply to ``git checkout``. For more details see _`Git Tools Submodules`: https://git-scm.com/book/en/v2/Git-Tools-Submodules
+These example also apply to ``git checkout``. For more details see `Git Tools Submodules <https://git-scm.com/book/en/v2/Git-Tools-Submodules>`_.

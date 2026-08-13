@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = Advection
+
 remora.max_step = 10
 remora.stop_time = 300000.0
 
@@ -24,7 +26,6 @@ amr.v                = 1       # verbosity in Amr.cpp
 # REFINEMENT / REGRIDDING
 amr.max_level       = 1       # maximum level number allowed
 amr.ref_ratio_vect = 2 2 1
-amr.n_error_buf = 3 3
 amr.regrid_int=1
 
 # CHECKPOINT FILES

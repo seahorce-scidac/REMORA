@@ -4,7 +4,7 @@
 
 using namespace amrex;
 
-PhysBCFunctNoOp null_bc_for_fill;
+static PhysBCFunctNoOp null_bc_for_fill;
 
 template<typename V, typename T>
 bool containerHasElement(const V& iterable, const T& query) {
@@ -50,6 +50,17 @@ REMORA::WritePlotFile (int istep_for_plot)
                  ncomp_mf_2d_rho++;
              }
          }
+         for (int n = 0; n < ncons; ++n) {
+             const std::string stflux_name = std::string("stflux_") + cons_names[n];
+             if (plot_name == stflux_name) {
+                 varnames_2d_rho.push_back(plot_name);
+                 ncomp_mf_2d_rho++;
+             }
+         }
+         if (plot_name == "lrflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "lhflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "srflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "shflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
@@ -71,7 +82,7 @@ REMORA::WritePlotFile (int istep_for_plot)
     }
 
     for (int lev = 0; lev <= finest_level; ++lev) {
-        mask_arrays_for_write(lev, plotfile_fill_value, 0.0_rt);
+        mask_arrays_for_write(lev, plotfile_fill_value, zero);
     }
 
     // Array of 3D MultiFabs to hold the plotfile data
@@ -100,10 +111,12 @@ REMORA::WritePlotFile (int istep_for_plot)
 
     // Array of MultiFabs for nodal data
     Vector<MultiFab> mf_nd(finest_level+1);
-    for (int lev = 0; lev <= finest_level; ++lev) {
-        BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
-        mf_nd[lev].define(nodal_grids, dmap[lev], AMREX_SPACEDIM, 0);
-        mf_nd[lev].setVal(0.);
+    if (plot_nodal_data) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            BoxArray nodal_grids(grids[lev]); nodal_grids.surroundingNodes();
+            mf_nd[lev].define(nodal_grids, dmap[lev], AMREX_SPACEDIM, 0);
+            mf_nd[lev].setVal(zero);
+        }
     }
 
     // Vector of MultiFabs for face-centered velocity
@@ -134,7 +147,7 @@ REMORA::WritePlotFile (int istep_for_plot)
 
         for (int lev = 0; lev <= finest_level; ++lev) {
             mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(1,1,0));
-            mf_cc_vel[lev].setVal(0.0_rt); // zero out velocity in case we have any wall boundaries
+            mf_cc_vel[lev].setVal(zero); // zero out velocity in case we have any wall boundaries
             average_face_to_cellcenter(mf_cc_vel[lev],0,
                                        Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]},IntVect(1,1,0));
             mf_cc_vel[lev].FillBoundary(geom[lev].periodicity());
@@ -161,88 +174,125 @@ REMORA::WritePlotFile (int istep_for_plot)
     int icomp_rho = 0;
     for (auto plot_name : varnames_2d_rho)
     {
-         if (plot_name == "zeta" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_Zt_avg1[lev],0,icomp_rho,1,0); }
-             icomp_rho++;
-         }
-         if (plot_name == "h" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); }
-             icomp_rho++;
-         }
-         if (plot_name == "f" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_fcor[lev],0,icomp_rho,1,0); }
-             icomp_rho++;
-         }
-         if (plot_name == "visc2" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) {
-                 if (vec_visc2_r[lev]->contains_nan(0, 1, 0, true) || vec_visc2_r[lev]->contains_inf(0, 1, 0, true)) {
-                     amrex::Abort("Found while writing output: visc2 contains nan or inf");
-                 }
-                 for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                     const Box& bx = mfi.validbox();
-                     const int K = mfi.index();
-                     auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
-                     auto src = vec_visc2_r[lev]->const_array(K);
-                     ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+        if (plot_name == "zeta" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_Zt_avg1[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "h" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_h[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "f" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_fcor[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "visc2" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) {
+                if (vec_visc2_r[lev]->contains_nan(0, 1, 0, true) || vec_visc2_r[lev]->contains_inf(0, 1, 0, true)) {
+                    amrex::Abort("Found while writing output: visc2 contains nan or inf");
+                }
+                for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                    const Box& bx = mfi.validbox();
+                    const int K = mfi.index();
+                    auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                    auto src = vec_visc2_r[lev]->const_array(K);
+                    ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
                         dst(i,j,0) = src(i,j,0);
-                    });
-                 }
-             }
-             icomp_rho++;
-         }
-         for (int n = 0; n < ncons; ++n) {
-             const std::string diff2_name = std::string("diff2_") + cons_names[n];
-             if (plot_name == diff2_name) {
-                 for (int lev = 0; lev <= finest_level; ++lev) {
-                     for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                         const Box& bx = mfi.validbox();
-                         const int K = mfi.index();
-                         auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
-                         auto src = vec_diff2[lev]->const_array(K);
-                         ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
-                             dst(i,j,0) = src(i,j,0,n);
-                         });
-                     }
-                 }
-                 icomp_rho++;
-             }
-         }
+                   });
+                }
+            }
+            icomp_rho++;
+        }
+        for (int n = 0; n < ncons; ++n) {
+            const std::string diff2_name = std::string("diff2_") + cons_names[n];
+            if (plot_name == diff2_name) {
+                for (int lev = 0; lev <= finest_level; ++lev) {
+                    for (MFIter mfi(mf_2d_rho[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                        const Box& bx = mfi.validbox();
+                        const int K = mfi.index();
+                        auto dst = mf_2d_rho[lev].array(mfi, icomp_rho);
+                        auto src = vec_diff2[lev]->const_array(K);
+                        ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept {
+                            dst(i,j,0) = src(i,j,0,n);
+                        });
+                    }
+                }
+                icomp_rho++;
+            }
+        }
+        for (int n = 0; n < ncons; ++n) {
+            const std::string stflux_name = std::string("stflux_") + cons_names[n];
+            if (plot_name == stflux_name) {
+                for (int lev = 0; lev <= finest_level; ++lev) {
+                    MultiFab::Copy(mf_2d_rho[lev],*vec_stflux[lev],n,icomp_rho,1,0);
+                }
+                icomp_rho++;
+            }
+        }
+        if (plot_name == "lrflux" ) {
+            if (!solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
+                amrex::Abort("Attempting to write longwave radiation flux to plotfile. Variable not allocated when bulk_fluxes turned off");
+            }
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_lrflx[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "lhflux" ) {
+            if (!solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
+                amrex::Abort("Attempting to write latent heat flux to plotfile. Variable not allocated when bulk_fluxes turned off");
+            }
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_lhflx[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "srflux" ) {
+            if (!solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
+                amrex::Abort("Attempting to write shortwave radiation flux to plotfile. Variable not allocated when bulk_fluxes turned off");
+            }
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_srflx[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (plot_name == "shflux" ) {
+            if (!solverChoice.bulk_fluxes && !solverChoice.atm2ocn_flux_mode) {
+                amrex::Abort("Attempting to write sensible heat flux to plotfile. Variable not allocated when bulk_fluxes turned off");
+            }
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_shflx[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
     }
 
     int icomp_u   = 0;
     for (auto plot_name : varnames_2d_u)
     {
-         if (plot_name == "ubar" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) {
-                 MultiFab::Copy(mf_2d_u[lev],*vec_DU_avg1[lev],0,icomp_u,1,0);
-             }
-             icomp_u++;
-         }
-         if (plot_name == "sustr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_sustr[lev],0,icomp_u,1,0); }
-             icomp_u++;
-         }
-         if (plot_name == "bustr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_bustr[lev],0,icomp_u,1,0); }
-             icomp_u++;
-         }
+        if (plot_name == "ubar" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) {
+                MultiFab::Copy(mf_2d_u[lev],*vec_DU_avg1[lev],0,icomp_u,1,0);
+            }
+            icomp_u++;
+        }
+        if (plot_name == "sustr" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_sustr[lev],0,icomp_u,1,0); }
+            icomp_u++;
+        }
+        if (plot_name == "bustr" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_bustr[lev],0,icomp_u,1,0); }
+            icomp_u++;
+        }
     }
 
     int icomp_v   = 0;
     for (auto plot_name : varnames_2d_v)
     {
-         if (plot_name == "vbar" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_DV_avg1[lev],0,icomp_v,1,0); }
-             icomp_v++;
-         }
-         if (plot_name == "svstr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_svstr[lev],0,icomp_v,1,0); }
-             icomp_v++;
-         }
-         if (plot_name == "bvstr" ) {
-             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_bvstr[lev],0,icomp_v,1,0); }
-             icomp_v++;
-         }
+        if (plot_name == "vbar" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_DV_avg1[lev],0,icomp_v,1,0); }
+            icomp_v++;
+        }
+        if (plot_name == "svstr" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_svstr[lev],0,icomp_v,1,0); }
+            icomp_v++;
+        }
+        if (plot_name == "bvstr" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_bvstr[lev],0,icomp_v,1,0); }
+            icomp_v++;
+        }
     }
 
     for (int lev = 0; lev <= finest_level; ++lev)
@@ -333,9 +383,9 @@ REMORA::WritePlotFile (int istep_for_plot)
                 const Array4<Real const> zp_arr = vec_z_phys_nd[lev]->const_array(mfi);
 
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                    loc_arr(i,j,k,0) = (i+0.5_rt) * dx;
-                    loc_arr(i,j,k,1) = (j+0.5_rt) * dy;
-                    loc_arr(i,j,k,2) = 0.125_rt * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
+                    loc_arr(i,j,k,0) = (i+Real(0.5)) * dx;
+                    loc_arr(i,j,k,1) = (j+Real(0.5)) * dy;
+                    loc_arr(i,j,k,2) = Real(0.125) * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
                                                    zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
                                                    zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +
                                                    zp_arr(i,j+1,k+1) + zp_arr(i+1,j+1,k+1) );
@@ -371,21 +421,23 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
 #endif
 
-        MultiFab::Copy(mf_nd[lev],*vec_z_phys_nd[lev],0,2,1,0);
-        Real dz = Geom()[lev].CellSizeArray()[2];
-        int N = Geom()[lev].Domain().size()[2];
+        if (plot_nodal_data) {
+            MultiFab::Copy(mf_nd[lev],*vec_z_phys_nd[lev],0,2,1,0);
+            Real dz = Geom()[lev].CellSizeArray()[2];
+            int N = Geom()[lev].Domain().size()[2];
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-        for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
-        {
-            const Box& bx = mfi.tilebox();
-            Array4<Real> mf_arr = mf_nd[lev].array(mfi);
-            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                mf_arr(i,j,k,2) = mf_arr(i,j,k,2) + (N-k) * dz;
-            });
-        } // mfi
+            for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+                const Box& bx = mfi.tilebox();
+                Array4<Real> mf_arr = mf_nd[lev].array(mfi);
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    mf_arr(i,j,k,2) = mf_arr(i,j,k,2) + (N-k) * dz;
+                });
+            } // mfi
+        }
     } // lev
 
     if (plotfile_type == PlotfileType::amrex)
@@ -529,7 +581,7 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
     } // end multi-level
     for (int lev = 0; lev <= finest_level; ++lev) {
-        mask_arrays_for_write(lev, 0.0_rt, plotfile_fill_value);
+        mask_arrays_for_write(lev, zero, plotfile_fill_value);
     }
 
     }
@@ -610,7 +662,9 @@ REMORA::WritePlotFile (int istep_for_plot)
             boxArrays[level] = mf[level]->boxArray();
         }
 
-        auto f = [=]() {
+        auto f = [this, plotfilename, nlevels, boxArrays, varnames_3d,
+                  varnames_2d_rho, varnames_2d_u, varnames_2d_v, my_geom,
+                  time, level_steps, rr, versionName, levelPrefix, mfPrefix]() {
             VisMF::IO_Buffer io_buffer(VisMF::IO_Buffer_Size);
             std::string HeaderFileName(plotfilename + "/Header");
             std::ofstream HeaderFile;
@@ -646,9 +700,11 @@ REMORA::WritePlotFile (int istep_for_plot)
             VisMF::AsyncWrite(*mf[level],
                               MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix),
                               true);
-            VisMF::AsyncWrite(*mf_nd[level],
-                              MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix),
-                              true);
+            if (plot_nodal_data) {
+                VisMF::AsyncWrite(*mf_nd[level],
+                                  MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix),
+                                  true);
+            }
             if (plot_staggered_vels) {
                 VisMF::AsyncWrite(*mf_u[level],
                                   MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_uface_prefix),
@@ -689,7 +745,9 @@ REMORA::WritePlotFile (int istep_for_plot)
                 data = mf[level];
             }
             VisMF::Write(*data       , MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix));
-            VisMF::Write(*mf_nd[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix));
+            if (plot_nodal_data) {
+                VisMF::Write(*mf_nd[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_nodal_prefix));
+            }
             if (plot_staggered_vels) {
                 VisMF::Write(*mf_u[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_uface_prefix));
                 VisMF::Write(*mf_v[level], MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mf_vface_prefix));
@@ -903,20 +961,20 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 
         ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
+            if (mskr(i,j,0) == zero) {  // Explicitly compare to 0.0
                 Zt_avg1(i,j,0) = fill_value;
             }
         });
         ParallelFor(gbx1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
+            if (mskr(i,j,0) == zero) {  // Explicitly compare to 0.0
                 temp(i,j,k) = fill_value;
                 salt(i,j,k) = fill_value;
             }
         });
         ParallelFor(makeSlab(gbx_coeff,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            if (mskr(i,j,0) == 0.0) {  // Explicitly compare to 0.0
+            if (mskr(i,j,0) == zero) {  // Explicitly compare to 0.0
                 visc2(i,j,0) = fill_value;
                 for (int n = 0; n < ncons_local; ++n) {
                     diff2(i,j,0,n) = fill_value;
@@ -925,25 +983,25 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
         });
         ParallelFor(makeSlab(ubx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {
-            if (msku(i,j,0) == 0.0 && ubar(i,j,0)==fill_where) {  // Explicitly compare to 0.0
+            if (msku(i,j,0) == zero && ubar(i,j,0)==fill_where) {  // Explicitly compare to 0.0
                 ubar(i,j,0,n) = fill_value;
             }
         });
         ParallelFor(makeSlab(vbx,2,0), 3, [=] AMREX_GPU_DEVICE (int i, int j, int , int n)
         {
-            if (mskv(i,j,0) == 0.0 && vbar(i,j,0)==fill_where) {  // Explicitly compare to 0.0
+            if (mskv(i,j,0) == zero && vbar(i,j,0)==fill_where) {  // Explicitly compare to 0.0
                 vbar(i,j,0,n) = fill_value;
             }
         });
         ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (msku(i,j,0) == 0.0 && xvel(i,j,k)==fill_where) {  // Explicitly compare to 0.0
+            if (msku(i,j,0) == zero && xvel(i,j,k)==fill_where) {  // Explicitly compare to 0.0
                 xvel(i,j,k) = fill_value;
             }
         });
         ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            if (mskv(i,j,0) == 0.0 && yvel(i,j,k)==fill_where) {  // Explicitly compare to 0.0
+            if (mskv(i,j,0) == zero && yvel(i,j,k)==fill_where) {  // Explicitly compare to 0.0
                 yvel(i,j,k) = fill_value;
             }
         });

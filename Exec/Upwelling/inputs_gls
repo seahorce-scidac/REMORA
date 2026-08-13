@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = Upwelling 
+
 remora.max_step = 10
 
 # PROBLEM SIZE & GEOMETRY

@@ -17,17 +17,25 @@ REMORA::sum_integrated_quantities(Real time)
 
     int datwidth = 14;
     int datprecision = 6;
+    bool local = true;
 
-    Real scalar = 0.0_rt;
-    Real kineng = 0.0_rt;
-    Real volume = 0.0_rt;
-    Real max_vel = 0.0_rt;
+    Real scalar_ml = zero;
+    Real kineng_ml = zero;
+    Real volume_ml = zero;
+    Real max_vel_ml = zero;
+
+    Real scalar_sl = zero;
+    Real kineng_sl = zero;
+    Real volume_sl = zero;
+    Real max_vel_sl = zero;
+
+    scalar_sl = volWgtSumMF(0,*cons_new[0],Tracer_comp   ,local,false);
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
         MultiFab kineng_mf(grids[lev], dmap[lev], 1, 0);
         MultiFab ones_mf(grids[lev], dmap[lev], 1, 0);
-        ones_mf.setVal(1.0_rt);
+        ones_mf.setVal(one);
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -40,26 +48,32 @@ REMORA::sum_integrated_quantities(Real time)
             ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                 // This is the same expression for kinetic energy that is used in ROMS
-                kineng_arr(i,j,k) = 0.25_rt * ( xvel_u_arr(i,j,k)*xvel_u_arr(i,j,k) + xvel_u_arr(i+1,j,k)*xvel_u_arr(i+1,j,k) +
+                kineng_arr(i,j,k) = fourth * ( xvel_u_arr(i,j,k)*xvel_u_arr(i,j,k) + xvel_u_arr(i+1,j,k)*xvel_u_arr(i+1,j,k) +
                                                 yvel_v_arr(i,j,k)*yvel_v_arr(i,j,k) + yvel_v_arr(i  ,j+1,k)*yvel_v_arr(i,j+1,k));
             });
         } // mfi
 
         const int icomp = 0;
-        Real max_vel_local = std::sqrt(2.0_rt * kineng_mf.max(icomp));
+        Real max_vel_local = std::sqrt(two * kineng_mf.max(icomp));
 
-        scalar += volWgtSumMF(lev,*cons_new[lev],Tracer_comp,false,true);
-        kineng += volWgtSumMF(lev,kineng_mf     ,             0,false,true);
-        volume += volWgtSumMF(lev,ones_mf       ,             0,false,true);
-        max_vel = std::max(max_vel, max_vel_local);
+        if (lev==0) {
+          kineng_sl = volWgtSumMF(lev,kineng_mf,0,local,false);
+          volume_sl = volWgtSumMF(lev,ones_mf  ,0,local,false);
+          max_vel_sl = max_vel_local;
+        }
+
+        scalar_ml += volWgtSumMF(lev,*cons_new[lev],Tracer_comp   ,local,true);
+        kineng_ml += volWgtSumMF(lev,kineng_mf     ,             0,local,true);
+        volume_ml += volWgtSumMF(lev,ones_mf       ,             0,local,true);
+        max_vel_ml = std::max(max_vel_ml, max_vel_local);
     }
 
     if (verbose > 0) {
-        const int n_sum_vars = 3;
-        Real sum_vars[n_sum_vars] = {scalar,kineng,volume};
+        const int n_sum_vars = 6;
+        Real sum_vars[n_sum_vars] = {scalar_sl,kineng_sl,volume_sl,scalar_ml,kineng_ml,volume_ml};
 
-        const int n_max_vars = 1;
-        Real max_vars[n_max_vars] = {max_vel};
+        const int n_max_vars = 2;
+        Real max_vars[n_max_vars] = {max_vel_sl, max_vel_ml};
 #ifdef AMREX_LAZY
         Lazy::QueueReduction([=]() mutable {
 #endif
@@ -70,22 +84,45 @@ REMORA::sum_integrated_quantities(Real time)
 
           if (ParallelDescriptor::IOProcessor()) {
             int i = 0;
-            scalar = sum_vars[i++];
-            kineng = sum_vars[i++];
-            volume = sum_vars[i++];
+            scalar_sl = sum_vars[i++];
+            kineng_sl = sum_vars[i++];
+            volume_sl = sum_vars[i++];
+            scalar_ml = sum_vars[i++];
+            kineng_ml = sum_vars[i++];
+            volume_ml = sum_vars[i++];
             int j = 0;
-            max_vel = max_vars[j++];
+            max_vel_sl = max_vars[j++];
+            max_vel_ml = max_vars[j++];
 
-            amrex::Print() << '\n';
-            amrex::Print() << "TIME= " << time << " SCALAR      = " << scalar  << '\n';
-            amrex::Print() << "TIME= " << time << " KIN. ENG.   = " << kineng  << '\n';
-            amrex::Print() << "TIME= " << time << " VOLUME      = " << volume  << '\n';
-            amrex::Print() << "TIME= " << time << " MAX. VEL.   = " << max_vel << '\n';
+            if (finest_level == 0) {
+                amrex::Print() << '\n';
+                amrex::Print() << "TIME      = " << std::setw(datwidth) << std::setprecision(datprecision) << time << '\n';
+                amrex::Print() << "SCALAR    = " << std::setw(datwidth) << std::setprecision(datprecision) << scalar_sl  << '\n';
+                amrex::Print() << "KIN. ENG. = " << std::setw(datwidth) << std::setprecision(datprecision) << kineng_sl  << '\n';
+                amrex::Print() << "VOLUME    = " << std::setw(datwidth) << std::setprecision(datprecision) << volume_sl  << '\n';
+                amrex::Print() << "MAX. VEL. = " << std::setw(datwidth) << std::setprecision(datprecision) << max_vel_sl << '\n';
+            } else {
+                amrex::Print() << '\n';
+                amrex::Print() << "TIME            = " << std::setw(datwidth) << std::setprecision(datprecision) << time << '\n';
+                amrex::Print() << "SCALAR    SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << scalar_sl  << ' '
+                                                       << std::setw(datwidth) << std::setprecision(datprecision) << scalar_ml << '\n';
+                amrex::Print() << "KIN. ENG. SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << kineng_sl  << ' '
+                                                       << std::setw(datwidth) << std::setprecision(datprecision) << kineng_ml << '\n';
+                amrex::Print() << "VOLUME    SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << volume_sl  << ' '
+                                                       << std::setw(datwidth) << std::setprecision(datprecision) << volume_ml << '\n';
+                amrex::Print() << "MAX. VEL. SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << max_vel_sl << ' '
+                                                       << std::setw(datwidth) << std::setprecision(datprecision) << max_vel_ml << '\n';
+
+//                amrex::Print() << "TIME= " << time << " SCALAR      SL/ML = " << scalar_sl  << " " << scalar_ml  << '\n';
+//                amrex::Print() << "TIME= " << time << " KIN. ENG.   SL/ML = " << kineng_sl  << " " << kineng_ml  << '\n';
+//                amrex::Print() << "TIME= " << time << " VOLUME      SL/ML = " << volume_sl  << " " << volume_ml  << '\n';
+//                amrex::Print() << "TIME= " << time << " MAX. VEL.   SL/ML = " << max_vel_sl << " " << max_vel_ml << '\n';
+            }
 
             if (NumDataLogs() > 0) {
                 std::ostream& data_log1 = DataLog(0);
                 if (data_log1.good()) {
-                    if (time == 0.0_rt) {
+                    if (time == zero) {
                         data_log1 << std::setw(datwidth) << "          time";
                         data_log1 << std::setw(datwidth) << "        scalar";
                         data_log1 << std::setw(datwidth) << "        kineng";
@@ -97,9 +134,13 @@ REMORA::sum_integrated_quantities(Real time)
                   // Write the quantities at this time
                   data_log1 << std::setw(datwidth) << time;
                   data_log1 << std::setw(datwidth) << std::setprecision(datprecision)
-                            << scalar;
+                            << scalar_ml;
                   data_log1 << std::setw(datwidth) << std::setprecision(datprecision)
-                            << kineng;
+                            << kineng_ml;
+                  data_log1 << std::setw(datwidth) << std::setprecision(datprecision)
+                            << volume_ml;
+                  data_log1 << std::setw(datwidth) << std::setprecision(datprecision)
+                            << max_vel_ml;
                   data_log1 << std::endl;
               }
             }
@@ -122,7 +163,7 @@ REMORA::volWgtSumMF(int lev, const MultiFab& mf, int comp, bool local, bool fine
 {
     BL_PROFILE("REMORA::volWgtSumMF()");
 
-    Real sum = 0.0_rt;
+    Real sum = zero;
     MultiFab tmp(grids[lev], dmap[lev], 1, 0);
     MultiFab::Copy(tmp, mf, comp, 0, 1, 0);
 
@@ -169,7 +210,7 @@ REMORA::build_fine_mask(int level)
 
     // TODO -- we should make a vector of these a member of REMORA class
     fine_mask.define(cba, cdm, 1, 0, MFInfo());
-    fine_mask.setVal(1.0_rt);
+    fine_mask.setVal(one);
 
     BoxArray fba = grids[level];
     iMultiFab ifine_mask = makeFineMask(cba, cdm, fba, ref_ratio[level-1], 1, 0);
@@ -199,7 +240,7 @@ REMORA::is_it_time_for_action(int nstep, Real time, Real dtlev, int action_inter
   bool int_test = (action_interval > 0 && nstep % action_interval == 0);
 
   bool per_test = false;
-  if (action_per > 0.0_rt) {
+  if (action_per > zero) {
     const int num_per_old = static_cast<int>(amrex::Math::floor((time - dtlev) / action_per));
     const int num_per_new = static_cast<int>(amrex::Math::floor((time) / action_per));
 

@@ -1,4 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = DogboneAnalytic
+
 remora.max_step = 10
 
 amrex.fpe_trap_invalid=1
@@ -8,10 +10,6 @@ remora.prob_lo     =   0.       0.  -10.
 remora.prob_hi     =   8400.  750.       0.
 
 remora.n_cell           =  42 15 16
-
-amr.blocking_factor_z = 16
-
-amr.max_grid_size_z = 1024
 
 remora.is_periodic = 0 0 0
 

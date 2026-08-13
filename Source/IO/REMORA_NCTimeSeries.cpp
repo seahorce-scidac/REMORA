@@ -1,3 +1,4 @@
+#include "REMORA_Constants.H"
 #include "REMORA_NCTimeSeries.H"
 #include "REMORA_NCFile.H"
 
@@ -163,7 +164,7 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time, int lev,
 
     amrex::MultiFab* mf_to_fill_lev = mf_lev;
     if (save_interpolated) {
-        if (mf_interpolated_lev.size() <= static_cast<std::size_t>(lev)) {
+        if (mf_interpolated_lev.size() <= static_cast<amrex::Long>(lev)) {
             mf_interpolated_lev.resize(lev+1);
         }
         if (!mf_interpolated_lev[lev] ||
@@ -195,7 +196,7 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time, int lev,
         mapper = &amrex::face_cons_linear_interp;
     }
 
-    amrex::InterpFromCoarseLevel(*mf_to_fill_lev, amrex::Real(0.0), *mf_interp_lev0,
+    amrex::InterpFromCoarseLevel(*mf_to_fill_lev, zero, *mf_interp_lev0,
                                  0, 0, 1,
                                  geom[0], geom[lev],
                                  null_bc_for_fill, 0, null_bc_for_fill, 0,

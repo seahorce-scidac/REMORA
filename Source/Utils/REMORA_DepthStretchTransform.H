@@ -15,7 +15,7 @@ REMORA::calc_stretch_coeffs ()
     int nz = geom[0].Domain().length(2);
 
     auto N = nz; // Number of vertical "levels" aka, NZ
-    Real ds = 1.0_rt / Real(N);
+    Real ds = one / Real(N);
 
     Box bx(IntVect(0,0,0),IntVect(0,0,N));
     const auto local_theta_s = solverChoice.theta_s;
@@ -35,34 +35,34 @@ REMORA::calc_stretch_coeffs ()
         Real Csur,Cbot;
 
         s_w_dat[k]=ds*(k-N);
-        if (local_theta_s > 0.0_rt) {
-            Csur=(1.0_rt-std::cosh(local_theta_s*s_w_dat[k]))/
-                (std::cosh(local_theta_s)-1.0_rt);
+        if (local_theta_s > zero) {
+            Csur=(one-std::cosh(local_theta_s*s_w_dat[k]))/
+                (std::cosh(local_theta_s)-one);
         } else {
             Csur=-s_w_dat[k]*s_w_dat[k];
         }
 
-        if (local_theta_b > 0.0_rt) {
-            Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
-                (1.0_rt-std::exp(-local_theta_b));
+        if (local_theta_b > zero) {
+            Cbot=(std::exp(local_theta_b*Csur)-one)/
+                (one-std::exp(-local_theta_b));
             Cs_w_dat[k]=Cbot;
         } else {
             Cs_w_dat[k]=Csur;
         }
 
         if (k<N) {
-            s_r_dat[k]=ds*(k-N+0.5_rt);
+            s_r_dat[k]=ds*(k-N+Real(0.5));
 
-            if (local_theta_s > 0.0_rt) {
-                Csur=(1.0_rt-std::cosh(local_theta_s*s_r_dat[k]))/
-                    (std::cosh(local_theta_s)-1.0_rt);
+            if (local_theta_s > zero) {
+                Csur=(one-std::cosh(local_theta_s*s_r_dat[k]))/
+                    (std::cosh(local_theta_s)-one);
             } else {
                 Csur=-s_r_dat[k]*s_r_dat[k];
             }
 
-            if (local_theta_b > 0.0_rt) {
-                Cbot=(std::exp(local_theta_b*Csur)-1.0_rt)/
-                    (1.0_rt-std::exp(-local_theta_b));
+            if (local_theta_b > zero) {
+                Cbot=(std::exp(local_theta_b*Csur)-one)/
+                    (one-std::exp(-local_theta_b));
                 Cs_r_dat[k]=Cbot;
             } else {
                 Cs_r_dat[k]=Csur;
@@ -115,8 +115,10 @@ REMORA::stretch_transform (int lev)
 
         auto N = nz; // Number of vertical "levels" aka, NZ
         //forcing tcline to be the same as probhi for now, one in DataStruct.H other in inputs
-        Real hc=-min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
-        Real ds = 1.0_rt / Real(N);
+
+        Real hc = -min(geomdata.ProbHi(2),-solverChoice.tcline); // Do we need to enforce min here?
+
+        Real ds = one / Real(N);
 
         amrex::ParallelFor(wgbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
@@ -128,36 +130,31 @@ REMORA::stretch_transform (int lev)
 
         amrex::ParallelFor(wgbx3, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real sc_r=ds*(k-N+0.5_rt);
-            Real sc_w=ds*(k-N);
+            if (k < N) {
+                Real sc_r=ds*(k-N+Real(0.5));
+                Real sc_w=ds*(k-N);
+                Real cff_r = hc*sc_r;
+                Real cff1_r = Cs_r_dat[k];
+                Real cff_w=hc*sc_w;
+                Real cff1_w=Cs_w_dat[k];
+                Real hwater=h(i,j,0);
 
-            Real cff_r=hc*sc_r;
-            Real cff1_r=Cs_r_dat[k];
+                Real hinv=one/(hc+hwater);
+                Real cff2_r=(cff_r+cff1_r*hwater)*hinv;
+                Real cff2_w=(cff_w+cff1_w*hwater)*hinv;
 
-            Real cff_w=hc*sc_w;
-            Real cff1_w=Cs_w_dat[k];
+                if (k==0) {
+                    h(i,j,0,1) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+                    z_w(i,j,0) = h(i,j,0,1);
+                } else {
+                    z_w(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+                }
 
-            Real hwater=h(i,j,0);
+                z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
 
-            Real hinv=1.0_rt/(hc+hwater);
-            Real cff2_r=(cff_r+cff1_r*hwater)*hinv;
-            Real cff2_w=(cff_w+cff1_w*hwater)*hinv;
-
-            if(k==N) {
-            // HACK: should actually be the normal expression with coeffs evaluated at k=N-1
+            } else { // k == N
+                // HACK: should actually be the normal expression with coeffs evaluated at k=N-1
                 z_w(i,j,N)=Zt_avg1(i,j,0);
-
-            } else if (k==0) {
-                  h(i,j,0,1) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
-                  z_w(i,j,0) = h(i,j,0,1);
-
-            } else {
-                  z_w(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
-
-            }
-
-            if(k!=N) {
-                  z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
             }
         });
 
@@ -167,6 +164,7 @@ REMORA::stretch_transform (int lev)
         {
               Hz(i,j,k)=z_w(i,j,k+1)-z_w(i,j,k);
         });
+
     } // mfi
 
     vec_z_w[lev]->FillBoundary(geom[lev].periodicity());
@@ -199,7 +197,7 @@ REMORA::stretch_transform (int lev)
             //     we will enforce periodicity below
             if ( i >= lo.x && i <= hi.x-1 && j >= lo.y && j <= hi.y-1 )
             {
-                z_phys_nd(i,j,k)=0.25_rt*( z_w(i,j  ,k) + z_w(i+1,j  ,k) +
+                z_phys_nd(i,j,k)=Real(0.25)*( z_w(i,j  ,k) + z_w(i+1,j  ,k) +
                                          z_w(i,j+1,k) + z_w(i+1,j+1,k) );
             } else {
                 int ii = std::min(std::max(i, lo.x), hi.x);
@@ -212,7 +210,7 @@ REMORA::stretch_transform (int lev)
         int klo = -1;
         ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            z_phys_nd(i,j,klo) = 2.0_rt * z_phys_nd(i,j,klo+1) - z_phys_nd(i,j,klo+2);
+            z_phys_nd(i,j,klo) = two * z_phys_nd(i,j,klo+1) - z_phys_nd(i,j,klo+2);
         });
     } // mf
 
@@ -220,5 +218,4 @@ REMORA::stretch_transform (int lev)
     // already filled z_phys_nd on the grown boxes, but we enforce periodicity just in case
     vec_z_phys_nd[lev]->FillBoundary(geom[lev].periodicity());
 }
-
 #endif
