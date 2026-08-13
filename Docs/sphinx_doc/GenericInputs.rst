@@ -45,4 +45,16 @@ CI Validation
 -------------
 
 GitHub Actions workflow ``generic-inputs-validate.yml`` regenerates
-``Exec/Generic/inputs_generic`` and reports when the file is stale.
+``Exec/Generic/inputs_generic`` and reports when the file is stale. The check
+itself is ``.github/workflows/style/check_generic_inputs.sh``, which prints the
+stale diff along with the command that fixes it. To clear the failure, run that
+same script locally and commit the result:
+
+.. code-block:: bash
+
+   .github/workflows/style/check_generic_inputs.sh
+   git add Exec/Generic/inputs_generic
+
+Because the schema records source file line numbers, a branch that is behind
+``development`` will report a stale file even with no local source changes.
+Merge ``development`` first, then regenerate.

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -38,6 +39,12 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=script_dir / "inputs_generic",
         help="Output inputs file path",
+    )
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=repo_root,
+        help="Repository root, used to keep the recorded schema path relative",
     )
     return parser.parse_args()
 
@@ -91,6 +98,20 @@ def parse_docs_descriptions(path: Path) -> dict[str, str]:
         descs.setdefault(param, desc)
 
     return descs
+
+
+def display_schema_path(schema_path: Path, repo_root: Path) -> str:
+    """Record the schema location relative to the repo so output is machine independent.
+
+    abspath rather than resolve: the schema default is a symlink whose target name
+    carries a git hash, which would also make the rendered file environment specific.
+    """
+    abs_schema = Path(os.path.abspath(schema_path))
+    abs_root = Path(os.path.abspath(repo_root))
+    try:
+        return abs_schema.relative_to(abs_root).as_posix()
+    except ValueError:
+        return abs_schema.as_posix()
 
 
 def section_for_param(name: str) -> str:
@@ -189,7 +210,7 @@ def choose_comment(name: str, param: dict[str, Any], docs_desc: dict[str, str]) 
     return ""
 
 
-def render_text(schema: dict[str, Any], hints: dict[str, Any], docs_desc: dict[str, str], schema_path: Path) -> str:
+def render_text(schema: dict[str, Any], hints: dict[str, Any], docs_desc: dict[str, str], schema_path: str) -> str:
     params: dict[str, dict[str, Any]] = schema["parameters"]
     keys = sorted(params)
 
@@ -241,7 +262,7 @@ def main() -> int:
     hints = load_value_hints(args.value_hints)
     docs_desc = parse_docs_descriptions(args.docs_inputs)
 
-    text = render_text(schema, hints, docs_desc, args.schema)
+    text = render_text(schema, hints, docs_desc, display_schema_path(args.schema, args.repo_root))
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(text, encoding="utf-8")

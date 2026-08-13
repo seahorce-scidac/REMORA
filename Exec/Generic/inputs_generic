@@ -4,7 +4,7 @@
 # Regenerate with:
 #   bash Exec/Generic/build_schema_remora.sh
 #   python3 Exec/Generic/render_inputs_generic.py
-# Schema: /home/jmsexton/codes/REMORA/Exec/Generic/.generated/remora_schema_current.json
+# Schema: Exec/Generic/.generated/remora_schema_current.json
 #
 # Value precedence:
 #   1) schema default
