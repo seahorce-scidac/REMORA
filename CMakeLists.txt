@@ -2,7 +2,7 @@
 
 cmake_minimum_required (VERSION 3.20 FATAL_ERROR)
 
-if(REMORA_ENABLE_FUNWAVE_FORT)
+if(REMORA_ENABLE_FUNWAVE_FORT OR REMORA_ENABLE_FENNEL_FORT)
   project(REMORA CXX C Fortran)
 else()
   project(REMORA CXX C)
@@ -19,6 +19,16 @@ option(REMORA_ENABLE_ALL_WARNINGS  "Enable all compiler warnings" OFF)
 option(REMORA_ENABLE_TESTS         "Enable regression and unit tests" OFF)
 option(REMORA_ENABLE_PNETCDF        "Enable PNetCDF IO" OFF)
 option(REMORA_USE_INTERNAL_AMREX   "Add AMReX as subproject" ON)
+
+# Fennel biology validation. Mirrors GNUmake USE_FENNEL_FORT and
+# USE_BIOLOGY_DIAG. See Source/Biology/Fortran/README.md.
+#
+# REMORA_ENABLE_FENNEL_FORT must be set on the command line to take effect,
+# because project() above consults it before this point to decide whether to
+# enable the Fortran language. The option() call here exists so it appears in
+# ccmake/cmake-gui and gets a cache entry with help text.
+option(REMORA_ENABLE_FENNEL_FORT   "Build the ROMS Fennel Fortran bridge (validation oracle)" OFF)
+option(REMORA_ENABLE_BIOLOGY_DIAG  "Compile in the Fennel parity tag diagnostics" OFF)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   set(REMORA_BUILD_EXECUTABLES_DEFAULT ON)

@@ -20,6 +20,84 @@ REMORA::init_analytic(int lev)
 }
 
 /**
+ * \brief Initialize the biology tracers from whichever source
+ *        remora.biology_ic_type selects.
+ *
+ * Deliberately decoupled from remora.ic_type. A NetCDF initial file supplies
+ * only the tracers it happens to contain -- the BioToy file has `oxygen` but
+ * no `PO4` or `ODU` -- so validating an option set the file does not cover
+ * would otherwise mean regenerating binary input that no fresh clone can
+ * reproduce. With biology_ic_type = analytic the physical fields still come
+ * from NetCDF while biology comes from the problem's analytic profile.
+ *
+ * Must be called after the physical fields are initialized: the analytic
+ * biology profiles are functions of temperature.
+ *
+ * @param[in   ] lev     level to initialize on
+ */
+void
+REMORA::init_biology_ic (int lev)
+{
+    if (!REMORABiology::has_biology(biology_model)) {
+        return;
+    }
+
+    const bool use_analytic =
+        (biology_ic_type == REMORABiology::BiologyICType::analytic) ||
+        (biology_ic_type == REMORABiology::BiologyICType::follow_ic_type &&
+         solverChoice.ic_type != IC_Type::netcdf);
+
+    if (use_analytic) {
+        // The base-class hook in REMORA_prob_common.H is an amrex::Error, so a
+        // problem that enables biology without providing an analytic biology
+        // IC fails loudly rather than starting from uninitialized tracers.
+        prob->init_analytic_biology(lev, geom[lev], solverChoice, fennel_params,
+                                    *this, *cons_new[lev]);
+    } else {
+#ifdef REMORA_USE_NETCDF
+        init_biology_from_netcdf(lev);
+#else
+        amrex::Abort("remora.biology_ic_type = netcdf requires a NetCDF build");
+#endif
+    }
+}
+
+/**
+ * \brief Full-domain counterpart of init_biology_ic, for the hires_init_level
+ *        path where initial data is specified on a high-resolution level and
+ *        averaged down.
+ *
+ * Fills the biology components of vec_cons_full_domain[hires_init_level].
+ * Must be called after the physical fields on that level are set (the
+ * analytic profiles are functions of temperature) and before whatever
+ * averages vec_cons_full_domain down.
+ */
+void
+REMORA::init_biology_ic_full_domain ()
+{
+    if (!REMORABiology::has_biology(biology_model)) {
+        return;
+    }
+
+    const bool use_analytic =
+        (biology_ic_type == REMORABiology::BiologyICType::analytic) ||
+        (biology_ic_type == REMORABiology::BiologyICType::follow_ic_type &&
+         solverChoice.ic_type != IC_Type::netcdf);
+
+    if (use_analytic) {
+        prob->init_analytic_biology(hires_init_level, geom[hires_init_level],
+                                    solverChoice, fennel_params, *this,
+                                    *vec_cons_full_domain[hires_init_level]);
+    } else {
+#ifdef REMORA_USE_NETCDF
+        init_biology_full_domain_from_netcdf();
+#else
+        amrex::Abort("remora.biology_ic_type = netcdf requires a NetCDF build");
+#endif
+    }
+}
+
+/**
  * @param[in   ] lev     level to initialize on
  */
 void
@@ -292,6 +370,11 @@ void
 REMORA::init_full_domain_from_analytic ()
 {
     prob->init_analytic_prob(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_cons_full_domain[hires_init_level], *vec_xvel_full_domain[hires_init_level], *vec_yvel_full_domain[hires_init_level]);
+
+    // Biology must be filled on the hires level before the average-down loop
+    // below, or the biology components of vec_cons_full_domain are averaged
+    // down uninitialized.
+    init_biology_ic_full_domain();
 
     for (int lev=hires_init_level-1; lev >= 0; lev--) {
         average_down_with_grow_cells(lev, vec_cons_full_domain);

@@ -1,0 +1,10 @@
+ifeq ($(USE_FENNEL_FORT),TRUE)
+     CEXE_sources += REMORA_FennelBridge.cpp
+     CEXE_headers += REMORA_Fennel_Fortran_Interface.H
+     FEXE_sources += REMORA_fennel_roms.F
+     FEXE_headers += REMORA_fennel.h
+     FEXE_headers += REMORA_fennel_mod.h
+     FEXE_headers += remora_bio_cppdefs.h
+     FEXE_headers += set_bounds.h
+     FEXE_headers += tile.h
+endif

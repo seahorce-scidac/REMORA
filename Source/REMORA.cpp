@@ -1517,9 +1517,11 @@ REMORA::init_only (int lev, Real time)
         amrex::Print() << "Reading high resolution initial data" << std::endl;
         allocate_init_full_domain();
         init_data_full_domain_from_netcdf();
-        if (REMORABiology::has_biology(biology_model)) {
-            init_biology_full_domain_from_netcdf();
-        }
+        // Biology source is chosen by remora.biology_ic_type, not by ic_type,
+        // so this goes through the same dispatcher as the per-level path.
+        // Must follow init_data_full_domain_from_netcdf: the analytic biology
+        // profiles read temperature.
+        init_biology_ic_full_domain();
         init_zeta_full_domain_from_netcdf();
         amrex::Print() << "Done reading in high resolution initial data" << std::endl;
     }
@@ -1558,15 +1560,16 @@ REMORA::init_only (int lev, Real time)
 #ifdef REMORA_USE_NETCDF
                 amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
                 init_data_from_netcdf(lev);
-                if (REMORABiology::has_biology(biology_model)) {
-                    init_biology_from_netcdf(lev);
-                }
                 set_zeta_to_Ztavg(lev);
                 amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
 #endif
             } else {
                 amrex::Abort("Unknown IC_Type");
             }
+            // Biology last, and outside the ic_type branches: its source is
+            // chosen independently by remora.biology_ic_type, and the analytic
+            // profiles need the physical fields already in place.
+            init_biology_ic(lev);
         } else {
             set_init_data_averaged_down(lev); // also sets biology data
             set_zeta_to_Ztavg(lev); // MAYBE???
@@ -1638,6 +1641,39 @@ REMORA::ReadParameters ()
 
     if (REMORABiology::has_biology(biology_model)) {
         fennel_params.init_params(pp_prefix);
+
+        // Bridge-vs-native selection and diagnostic verbosity are runtime
+        // controls so a parity comparison never requires a rebuild. Both
+        // parse unconditionally; without USE_FENNEL_FORT there is no bridge
+        // to select, so asking for it is an error rather than a silent
+        // fallback to the path being validated.
+        // Source of the biology initial condition, independent of ic_type.
+        // Default "follow" reproduces the previous behaviour exactly.
+        std::string biology_ic_string = REMORABiology::biology_ic_type_name(biology_ic_type);
+        pp.queryAdd("biology_ic_type", biology_ic_string);
+        biology_ic_type = REMORABiology::parse_biology_ic_type(biology_ic_string);
+
+        pp.queryAdd("use_biology_cpp_answer", use_biology_cpp_answer);
+        pp.queryAdd("biology_debug", biology_debug);
+        pp.queryAdd("biology_debug_i", biology_debug_i);
+        pp.queryAdd("biology_debug_j", biology_debug_j);
+#ifndef REMORA_USE_FENNEL_FORT
+        if (use_biology_cpp_answer == 0) {
+            amrex::Abort("remora.use_biology_cpp_answer = 0 selects the ROMS "
+                         "Fennel Fortran bridge, which is not compiled in. "
+                         "Rebuild with USE_FENNEL_FORT=TRUE (GNUmake) or "
+                         "-DREMORA_ENABLE_FENNEL_FORT=ON (CMake).");
+        }
+#endif
+#ifndef REMORA_USE_BIOLOGY_DIAG
+        if (biology_debug > 0) {
+            amrex::Abort("remora.biology_debug > 0 requests the Fennel parity "
+                         "diagnostics, which are not compiled in. Rebuild with "
+                         "USE_BIOLOGY_DIAG=TRUE (GNUmake) or "
+                         "-DREMORA_ENABLE_BIOLOGY_DIAG=ON (CMake).");
+        }
+#endif
+
         const int nbio = static_cast<int>(REMORABiology::tracer_names(biology_model, fennel_params).size());
         if (pp.contains("nscalar")) {
             int requested_nscalar = nscalar;

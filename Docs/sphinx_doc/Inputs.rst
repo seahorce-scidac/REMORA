@@ -12,7 +12,10 @@ Inputs
 The REMORA executable reads run-time information from an “inputs” file which you put on the command line.
 This section describes the inputs which can be specified either in the inputs file or on the command line.
 If a value is specified on the command line, that value will override a value specified in the inputs file.
-Fennel biology runtime options are documented in :ref:`sec:Fennel`.
+Biology options are documented in :ref:`sec:Fennel`. That section covers the
+``remora.fennel.*`` parameters, biology initial-condition selection
+(``remora.biology_ic_type``), and the options used to validate the port against
+ROMS (``remora.use_biology_cpp_answer``, ``remora.biology_debug``).
 
 .. _geometry-parameters:
 

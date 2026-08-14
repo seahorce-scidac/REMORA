@@ -666,6 +666,15 @@ public:
                           amrex::MultiFab& mf_cons_new,
                           int N, amrex::Real dt_lev);
 
+#ifdef REMORA_USE_FENNEL_FORT
+    /** \brief Path A oracle: apply biological source/sink terms through the
+     *         ROMS Fennel Fortran kernel. Selected at run time by
+     *         remora.use_biology_cpp_answer = 0. */
+    void advance_biology_fortran (int lev, amrex::MultiFab const& mf_cons_old,
+                                  amrex::MultiFab& mf_cons_new,
+                                  int N, amrex::Real dt_lev);
+#endif
+
     /** \brief Calculate bulk temperature, salinity, wind fluxes */
     void bulk_fluxes (int lev,
                       amrex::MultiFab* mf_cons,
@@ -1170,6 +1179,15 @@ public:
     void init_data_from_netcdf (int lev);
     /** \brief Biology initialization from NetCDF file */
     void init_biology_from_netcdf (int lev);
+
+    /** \brief Initialize biology tracers from whichever source
+     *         remora.biology_ic_type selects. Call after the physical fields
+     *         exist: the analytic profiles are functions of temperature. */
+    void init_biology_ic (int lev);
+
+    /** \brief Full-domain counterpart of init_biology_ic, for the
+     *         hires_init_level average-down path. */
+    void init_biology_ic_full_domain ();
     /** \brief High resolution roblem initialization from NetCDF file */
     void init_data_full_domain_from_netcdf ();
     /** \brief Full-domain high-res biology initialization from NetCDF file */
@@ -1521,6 +1539,21 @@ private:
     REMORABiology::BiologyModel biology_model = REMORABiology::BiologyModel::none;
     /** \brief Runtime parameters for the Fennel biology package */
     REMORABiology::FennelParameters fennel_params;
+    /** \brief Source of the biology tracer initial condition, independent of
+     *         remora.ic_type. Default follows ic_type. */
+    REMORABiology::BiologyICType biology_ic_type = REMORABiology::BiologyICType::follow_ic_type;
+    /** \brief Select the native C++ biology kernel (1) or the ROMS Fortran
+     *         bridge oracle (0). Only meaningful when built with
+     *         USE_FENNEL_FORT=TRUE; ignored otherwise. Runtime-controlled so
+     *         the two paths can be compared without a rebuild. */
+    int use_biology_cpp_answer = 1;
+    /** \brief Biology diagnostic verbosity: 0 off, 1 target column, 2 all
+     *         columns. See Source/Biology/Fortran/tag_map.md. */
+    int biology_debug = 0;
+    /** \brief Target column i index for biology_debug = 1 */
+    int biology_debug_i = 2;
+    /** \brief Target column j index for biology_debug = 1 */
+    int biology_debug_j = 2;
 
     // Time step controls
     /** \brief CFL condition */
