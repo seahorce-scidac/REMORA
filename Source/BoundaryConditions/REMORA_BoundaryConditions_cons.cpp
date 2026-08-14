@@ -55,6 +55,17 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
     const Real eps= Real(1.0e-20);
+    const bool have_calc = calc_arr.ok();
+
+    for (int n=0; n < ncomp; ++n) {
+        for (int d=0; d < AMREX_SPACEDIM; ++d) {
+            if ((bc_ptr[n].lo(d) == REMORABCType::orlanski_rad ||
+                bc_ptr[n].hi(d) == REMORABCType::orlanski_rad) &&
+                    !have_calc) {
+                Abort("Requested radiation boundary condition but calc_arr is not defined");
+            }
+        }
+    }
 
     // If we're doing zeta, then calc_arr only has a single component
     // corresponding to the component to be used in calculating the boundary

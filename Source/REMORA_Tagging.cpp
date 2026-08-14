@@ -27,7 +27,7 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         if (ref_tags[j].Field() == "tracer" || ref_tags[j].Field() == "temp" ||
             ref_tags[j].Field() == "salt") {
             FillPatch(levc, time, *cons_new[levc], cons_new, BCVars::cons_bc, BdyVars::t,
-                0,true,false);
+                0,true,false,0,0,zero,*cons_new[levc]);
         }
         // This allows dynamic refinement based on the value of the tracer
         if (ref_tags[j].Field() == "tracer")
@@ -38,10 +38,10 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         } else if (ref_tags[j].Field() == "salt") {
             MultiFab::Copy(*mf,*cons_new[levc],Salt_comp,0,1,1);
         } else if (ref_tags[j].Field() == "x_velocity") {
-            FillPatch(levc, time, *xvel_new[levc], xvel_new, xvel_bc(), BdyVars::u,0,true,true);
+            FillPatch(levc, time, *xvel_new[levc], xvel_new, xvel_bc(), BdyVars::u,0,true,true,0,0,zero,*xvel_new[levc]);
             MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,1);
         } else if (ref_tags[j].Field() == "y_velocity") {
-            FillPatch(levc, time, *yvel_new[levc], yvel_new, yvel_bc(), BdyVars::v,0,true,true);
+            FillPatch(levc, time, *yvel_new[levc], yvel_new, yvel_bc(), BdyVars::v,0,true,true,0,0,zero,*yvel_new[levc]);
             MultiFab::Copy(*mf,*yvel_new[levc],0,0,1,1);
         } else if (ref_tags[j].Field() == "z_velocity") {
             FillPatch(levc, time, *zvel_new[levc], zvel_new, zvel_bc(), BdyVars::null,0,true,true);
