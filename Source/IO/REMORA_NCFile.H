@@ -162,6 +162,15 @@ std::string ReadNetCDFVarAttrStr (const std::string& fname,
 bool QueryNetCDFVarAttrStr (const std::string& fname,
                             const std::string& var_name,
                             const std::string& attr_name);
+
+/**
+ * \brief Helper function for testing whether a file carries every named variable.
+ *
+ * Call this before reading optional variables: ReadNetCDFFile() dereferences
+ * ncf.var(name) unconditionally, so a missing name is a hard failure.
+ */
+bool QueryNetCDFHasVars (const std::string& fname,
+                         const amrex::Vector<std::string>& var_names);
 /**
  * \brief Helper function for reading data from NetCDF file into a
  * provided FAB.
@@ -234,7 +243,8 @@ fill_fab_from_arrays (int iv,
         my_box.setBig(amrex::IntVect(nsx-2,nsy-1,nsz-1));
         my_box.setType(amrex::IndexType(amrex::IntVect(0,1,0)));
     }
-    else if (var_name == "mask_psi" || var_name == "x_psi" || var_name == "y_psi")
+    else if (var_name == "mask_psi" || var_name == "x_psi" || var_name == "y_psi" ||
+          var_name == "lon_psi" || var_name == "lat_psi")
     {
         my_box.setSmall(amrex::IntVect(0,0,0));
         my_box.setBig(amrex::IntVect(nsx-1,nsy-1,nsz-1));

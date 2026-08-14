@@ -493,6 +493,8 @@ void REMORA::resize_stuff(int lev)
     vec_yv.resize(lev+1);
     vec_xp.resize(lev+1);
     vec_yp.resize(lev+1);
+    vec_lonp.resize(lev+1);
+    vec_latp.resize(lev+1);
 
     vec_dndx.resize(lev+1);
     vec_dmde.resize(lev+1);

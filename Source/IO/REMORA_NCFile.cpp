@@ -51,3 +51,30 @@ bool QueryNetCDFVarAttrStr (const std::string& fname,
     ncf.close();
     return has_var;
 }
+
+/**
+ * @param fname Name of NetCDF file
+ * @param var_names Names of the variables to test for
+ * @returns whether every named variable is present in the file
+ *
+ * Use this before calling BuildFABsFromNetCDFFile() on optional variables:
+ * ReadNetCDFFile() calls ncf.var(name) unconditionally, so a missing variable
+ * is a hard failure rather than a recoverable one. The answer is broadcast so
+ * every rank agrees before any collective read is attempted.
+ */
+bool QueryNetCDFHasVars (const std::string& fname,
+                         const amrex::Vector<std::string>& var_names)
+{
+    int has_all = 1;
+    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
+    ncmpi_begin_indep_data(ncf.ncid);
+    if (amrex::ParallelDescriptor::IOProcessor())
+    {
+        for (const auto& var_name : var_names) {
+            if (!ncf.has_var(var_name)) { has_all = 0; break; }
+        }
+    }
+    ncf.close();
+    amrex::ParallelDescriptor::Bcast(&has_all, 1, amrex::ParallelDescriptor::IOProcessorNumber());
+    return (has_all != 0);
+}
