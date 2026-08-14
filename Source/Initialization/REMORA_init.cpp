@@ -211,8 +211,8 @@ REMORA::set_2darrays (int lev)
         });
     }
 
-    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar,0,false,false,0,0,zero,*vec_ubar[lev]);
-    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar,0,false,false,0,0,zero,*vec_vbar[lev]);
+    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),0,false,false,0,0,zero,*vec_ubar[lev]);
+    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),0,false,false,0,0,zero,*vec_vbar[lev]);
 }
 
 /**
@@ -268,11 +268,12 @@ REMORA::init_clim_nudg_coeff (int lev) {
     // with coeffs read from file if using
     vec_nudg_coeff[BdyVars::u][lev]->setVal(solverChoice.nudg_coeff[BdyVars::u]);
     vec_nudg_coeff[BdyVars::v][lev]->setVal(solverChoice.nudg_coeff[BdyVars::v]);
-    vec_nudg_coeff[BdyVars::t][lev]->setVal(solverChoice.nudg_coeff[BdyVars::t]);
-    vec_nudg_coeff[BdyVars::s][lev]->setVal(solverChoice.nudg_coeff[BdyVars::s]);
-    vec_nudg_coeff[BdyVars::ubar][lev]->setVal(solverChoice.nudg_coeff[BdyVars::ubar]);
-    vec_nudg_coeff[BdyVars::vbar][lev]->setVal(solverChoice.nudg_coeff[BdyVars::vbar]);
-    vec_nudg_coeff[BdyVars::zeta][lev]->setVal(solverChoice.nudg_coeff[BdyVars::zeta]);
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        vec_nudg_coeff[BdyVars::cons(icomp)][lev]->setVal(solverChoice.nudg_coeff[BdyVars::cons(icomp)]);
+    }
+    vec_nudg_coeff[bdy_ubar()][lev]->setVal(solverChoice.nudg_coeff[bdy_ubar()]);
+    vec_nudg_coeff[bdy_vbar()][lev]->setVal(solverChoice.nudg_coeff[bdy_vbar()]);
+    vec_nudg_coeff[bdy_zeta()][lev]->setVal(solverChoice.nudg_coeff[bdy_zeta()]);
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_any_clim_nudg) {
         amrex::Print() << "Calling init_clim_nudg_coeff_from_netcdf \n " << std::endl;

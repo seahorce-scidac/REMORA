@@ -43,21 +43,29 @@ namespace BCVars {
 /**
  * \brief These are only for the variables read in from netcdf boundary condition files
  *
- * Note that the salt component must be one greater than the temp component for the
- * logic in fill_from_bdyfiles to work
+ * The cell-centered tracers occupy a contiguous block of slots starting at t, laid
+ * out in the same order as the components of the cons MultiFab. So slot t is temp,
+ * slot t+1 is salt, and slot t+n is cons component n for every additional scalar
+ * (passive tracers, biology tracers). Use cons(icomp) rather than hardcoding this,
+ * and note that the logic in fill_from_bdyfiles relies on the block being contiguous
+ * and in component order.
+ *
+ * Like BCVars, everything above the tracer block is a function of ncons rather than a
+ * compile-time constant. With ncons == 2 these reduce to the historical fixed values
+ * (ubar 4, vbar 5, zeta 6, NumTypes 7).
  */
 namespace BdyVars {
-    enum {
-       null  = -1,
-       u     =  0,
-       v     =  1,
-       t     =  2,
-       s     =  3,
-       ubar      ,
-       vbar      ,
-       zeta      ,
-       NumTypes
-    };
+    static constexpr int null =  -1;
+    static constexpr int u    =   0;
+    static constexpr int v    =   1;
+    static constexpr int t    =   2; ///< cons component Temp_comp
+    static constexpr int s    =   3; ///< cons component Salt_comp
+
+    inline int cons (int icomp) noexcept { return t + icomp; }
+    inline int ubar (int ncons) noexcept { return t + ncons;     }
+    inline int vbar (int ncons) noexcept { return t + ncons + 1; }
+    inline int zeta (int ncons) noexcept { return t + ncons + 2; }
+    inline int NumTypes (int ncons) noexcept { return t + ncons + 3; }
 }
 
 /**

@@ -47,7 +47,16 @@ void NCTimeSeriesBoundary::Initialize()
 #endif
 
     // open file
-    amrex::Print() << "Setting up boundary data for " << field_name << " coming from NetCDF file " << std::endl;
+    // Only announce the variables that will really be read. A series is constructed for
+    // every boundary variable, but most of them typically sit on a local boundary
+    // condition and never touch the file.
+    bool any_side_needs_data = false;
+    for (int ori = 0; ori < AMREX_SPACEDIM*2; ++ori) {
+        any_side_needs_data = any_side_needs_data || var_need_data[ori];
+    }
+    if (any_side_needs_data) {
+        amrex::Print() << "Setting up boundary data for " << field_name << " coming from NetCDF file " << std::endl;
+    }
 
     // The time field can have any number of names, depending on the field.
     // If not specified in input file (time_name.empty()) then set it by default
@@ -160,6 +169,29 @@ void NCTimeSeriesBoundary::Initialize()
     if (var_need_data[amrex::Orientation(amrex::Direction::y,amrex::Orientation::high)] == true) {
         nc_var_names.push_back(field_name + "_north");
     }
+
+    // Nothing to check for a variable that reads no boundary data at all, and skipping
+    // keeps a run with many tracers from opening the file once per inert tracer
+    if (nc_var_names.empty()) {
+        return;
+    }
+
+    // Fail early and by name. read_in_at_time dereferences each variable unconditionally,
+    // so a file that is missing e.g. NO3_west would otherwise fail deep inside the reader
+    // with nothing to say which variable, which file, or which input asked for it.
+    for (const auto& file_name : file_names) {
+        if (!QueryNetCDFHasVars(file_name, nc_var_names)) {
+            std::string msg = "Boundary file " + file_name + " does not contain all of:";
+            for (const auto& var_name : nc_var_names) {
+                msg += " " + var_name;
+            }
+            msg += ". The boundary condition requested for " + field_name +
+                   " reads from file (clamped, chapman, flather, or orlanski_rad_nudg)."
+                   " Either add the missing variable(s) to the file, or give " + field_name +
+                   " a boundary condition that needs no file data, such as outflow.";
+            amrex::Abort(msg);
+        }
+    }
 }
 
 /**
@@ -167,6 +199,14 @@ void NCTimeSeriesBoundary::Initialize()
  */
 void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
 {
+    // Nothing in the file for this variable, so there is nothing to read or
+    // interpolate. Returning here also keeps the reader from announcing that it is
+    // reading a variable the file does not contain: the caller updates every tracer
+    // in one sweep, and most of them are typically on a local boundary condition.
+    if (nc_var_names.empty()) {
+        return;
+    }
+
     // Initialize Fabs
     amrex::Arena* Arena_Used = amrex::The_Arena();
 #ifdef AMREX_USE_GPU

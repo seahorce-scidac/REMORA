@@ -100,9 +100,9 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get(),BCVars::cons_bc);
     for (int icomp=0; icomp<3; icomp++) {
         FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(), ubar_bc(),
-                BdyVars::ubar,icomp,false);
+                bdy_ubar(),icomp,false);
         FillCoarsePatch(lev, time, vec_vbar[lev].get(), vec_vbar[lev-1].get(), vbar_bc(),
-                BdyVars::vbar,icomp,false);
+                bdy_vbar(),icomp,false);
     }
     for (int icomp=0; icomp<2; icomp++) {
         FillCoarsePatch(lev, time, vec_ru[lev].get(), vec_ru[lev-1].get(), xvel_bc(),
@@ -243,8 +243,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), zeta_bc(), BdyVars::null,0,true,false);
 
     for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar, icomp,false,false);
-        FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar, icomp,false,false);
+        FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(), icomp,false,false);
+        FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(), icomp,false,false);
     }
     for (int icomp=0; icomp<2; icomp++) {
         FillPatch(lev, time, tmp_ru_new, GetVecOfPtrs(vec_ru), xvel_bc(), BdyVars::null, icomp,false,false);
@@ -511,15 +511,16 @@ void REMORA::resize_stuff(int lev)
 
     vec_river_position.resize(lev+1);
 
-    if (lev==0) vec_nudg_coeff.resize(BdyVars::NumTypes);
+    if (lev==0) vec_nudg_coeff.resize(num_bdy_vars());
 
     vec_nudg_coeff[BdyVars::u].resize(lev+1);
     vec_nudg_coeff[BdyVars::v].resize(lev+1);
-    vec_nudg_coeff[BdyVars::t].resize(lev+1);
-    vec_nudg_coeff[BdyVars::s].resize(lev+1);
-    vec_nudg_coeff[BdyVars::ubar].resize(lev+1);
-    vec_nudg_coeff[BdyVars::vbar].resize(lev+1);
-    vec_nudg_coeff[BdyVars::zeta].resize(lev+1);
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        vec_nudg_coeff[BdyVars::cons(icomp)].resize(lev+1);
+    }
+    vec_nudg_coeff[bdy_ubar()].resize(lev+1);
+    vec_nudg_coeff[bdy_vbar()].resize(lev+1);
+    vec_nudg_coeff[bdy_zeta()].resize(lev+1);
 }
 
 /**
@@ -720,11 +721,12 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 
     vec_nudg_coeff[BdyVars::u][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
     vec_nudg_coeff[BdyVars::v][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_nudg_coeff[BdyVars::t][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_nudg_coeff[BdyVars::s][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_nudg_coeff[BdyVars::ubar][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_nudg_coeff[BdyVars::vbar][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_nudg_coeff[BdyVars::zeta][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        vec_nudg_coeff[BdyVars::cons(icomp)][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    }
+    vec_nudg_coeff[bdy_ubar()][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_nudg_coeff[bdy_vbar()][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_nudg_coeff[bdy_zeta()][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
     set_weights(lev);
 

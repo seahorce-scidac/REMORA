@@ -161,11 +161,11 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   | for variable {var} (one           |                 |                                 |
 |                                   |                                   |                 |                                 |
-|                                   | of ``temp``, ``salt``, ``u``,     |                 |                                 |
+|                                   | of ``u``, ``v``, ``ubar``,        |                 |                                 |
 |                                   |                                   |                 |                                 |
-|                                   | ``v``, ``ubar``, ``vbar``,        |                 |                                 |
+|                                   | ``vbar``, ``zeta``, or any        |                 |                                 |
 |                                   |                                   |                 |                                 |
-|                                   | ``zeta``)                         |                 |                                 |
+|                                   | tracer name)                      |                 |                                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.frc_time_varname**       | name of time variable             | string          | ``wind_time`` for wind,         |
 |                                   |                                   |                 |                                 |
@@ -183,6 +183,10 @@ Notes
 
 -  The time variables in the boundary files may be different for each boundary variable. Any that are not individually specified with
    ``remora.bdy_{var}_time_varname`` will default to the variable name given by ``bdy_time_varname``.
+
+-  Every cell-centered tracer has its own boundary variable, named for the tracer itself: ``temp``, ``salt``, and then either the
+   active biology tracer names or ``tracer``, ``tracer_1``, ... So a run carrying nitrate reads ``NO3_west`` and friends from the
+   boundary file and accepts ``remora.bdy_NO3_time_varname``. See :ref:`sec:bc-per-tracer`.
 
 Resolution and Tiling
 =====================

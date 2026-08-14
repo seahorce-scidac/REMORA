@@ -42,17 +42,6 @@ read_masks_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname
                        FArrayBox& NC_mskr_fab, FArrayBox& NC_msku_fab,
                        FArrayBox& NC_mskv_fab);
 
-/** \brief helper function for reading boundary data from netcdf */
-Real
-read_bdry_from_netcdf (const Box& domain, const std::string& fname,
-                       Vector<Vector<FArrayBox>>& bdy_data_xlo,
-                       Vector<Vector<FArrayBox>>& bdy_data_xhi,
-                       Vector<Vector<FArrayBox>>& bdy_data_ylo,
-                       Vector<Vector<FArrayBox>>& bdy_data_yhi,
-                       int& width, amrex::Real& start_bdy_time,
-                       std::string bdry_time_varname,
-                       amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1>&);
-
 /** \brief helper function to initialize state from netcdf */
 void
 init_state_from_netcdf (int lev,
@@ -339,15 +328,15 @@ REMORA::init_zeta_from_netcdf (int lev)
 
     if (solverChoice.boundary_from_netcdf) {
         Real told = t_new[lev];
-        fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, zeta_bc(),BdyVars::zeta,0,0,
+        fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, zeta_bc(),bdy_zeta(),0,0,
                            *vec_zeta[lev]);
     }
     if (lev>0) {
-        FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
+        FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
                   0, false,false,0,0,zero,*vec_zeta[lev]);
     }
-//    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
-//    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
+//    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,bdy_zeta(),1,1);
+//    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,bdy_zeta(),2,2);
 }
 
 void
@@ -663,12 +652,27 @@ REMORA::init_bdry_from_netcdf (int lev)
         amrex::Error("NetCDF boundary file name must be provided via input");
     }
 
-    amrex::Vector<std::string> field_name  = {"u", "v", "temp", "salt", "ubar", "vbar", "zeta"};
-    amrex::Vector<IntVect    > index_types = {IntVect(1,0,0), IntVect(0,1,0),
-                                             IntVect(0,0,0), IntVect(0,0,0),
-                                             IntVect(1,0,0), IntVect(0,1,0),
-                                             IntVect(0,0,0)};
-    std::vector<bool       > is_2d       = {false, false, false, false, true, true, true};
+    // One boundary series per BdyVars slot. Every cell-centered tracer gets one, named
+    // for the variable itself ("temp", "salt", "NO3", ...), so the file is expected to
+    // hold e.g. NO3_west following the same convention ROMS uses. A series whose
+    // variable needs no boundary data reads nothing -- NCTimeSeriesBoundary only asks
+    // for the sides flagged in phys_bc_need_data -- so tracers left on a local BC do
+    // not require the file to contain anything for them.
+    amrex::Vector<std::string> field_name (num_bdy_vars());
+    amrex::Vector<IntVect    > index_types(num_bdy_vars());
+    std::vector<bool         > is_2d      (num_bdy_vars());
+
+    field_name[BdyVars::u] = "u"; index_types[BdyVars::u] = IntVect(1,0,0); is_2d[BdyVars::u] = false;
+    field_name[BdyVars::v] = "v"; index_types[BdyVars::v] = IntVect(0,1,0); is_2d[BdyVars::v] = false;
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        const int ibdy = BdyVars::cons(icomp);
+        field_name[ibdy]  = cons_names[icomp];
+        index_types[ibdy] = IntVect(0,0,0);
+        is_2d[ibdy]       = false;
+    }
+    field_name[bdy_ubar()] = "ubar"; index_types[bdy_ubar()] = IntVect(1,0,0); is_2d[bdy_ubar()] = true;
+    field_name[bdy_vbar()] = "vbar"; index_types[bdy_vbar()] = IntVect(0,1,0); is_2d[bdy_vbar()] = true;
+    field_name[bdy_zeta()] = "zeta"; index_types[bdy_zeta()] = IntVect(0,0,0); is_2d[bdy_zeta()] = true;
 
     amrex::Print() << "DOING INIT AT LEVEL " << lev << std::endl;
     int rx = 1; int ry = 1;
@@ -678,7 +682,7 @@ REMORA::init_bdry_from_netcdf (int lev)
             ry *= ref_ratio[k][1];
         }
     }
-    for (int ivar = 0; ivar < BdyVars::NumTypes; ivar++) {
+    for (int ivar = 0; ivar < num_bdy_vars(); ivar++) {
         boundary_series[lev].push_back(std::unique_ptr<NCTimeSeriesBoundary>(new NCTimeSeriesBoundary(lev, geom, nc_bdry_file, field_name[ivar],
                                                                 bdry_time_name_byvar[ivar],
                                                                 index_types[ivar],
@@ -768,9 +772,9 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
         for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
         {
             if (solverChoice.do_m2_clim_nudg) {
-                FArrayBox &ubarNC_fab  = (*vec_nudg_coeff[BdyVars::ubar][lev])[mfi];
+                FArrayBox &ubarNC_fab  = (*vec_nudg_coeff[bdy_ubar()][lev])[mfi];
                 ubarNC_fab.template    copy<RunOn::Device>(NC_M2NC_fab[idx]);
-                FArrayBox &vbarNC_fab  = (*vec_nudg_coeff[BdyVars::vbar][lev])[mfi];
+                FArrayBox &vbarNC_fab  = (*vec_nudg_coeff[bdy_vbar()][lev])[mfi];
                 vbarNC_fab.template    copy<RunOn::Device>(NC_M2NC_fab[idx]);
             }
             if (solverChoice.do_m3_clim_nudg) {
@@ -793,10 +797,10 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
     } // idx
 
     if (solverChoice.do_m2_clim_nudg) {
-        vec_nudg_coeff[BdyVars::ubar][lev]->FillBoundary(geom[lev].periodicity());
-        vec_nudg_coeff[BdyVars::vbar][lev]->FillBoundary(geom[lev].periodicity());
-        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::ubar][lev].get());
-        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::vbar][lev].get());
+        vec_nudg_coeff[bdy_ubar()][lev]->FillBoundary(geom[lev].periodicity());
+        vec_nudg_coeff[bdy_vbar()][lev]->FillBoundary(geom[lev].periodicity());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[bdy_ubar()][lev].get());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[bdy_vbar()][lev].get());
     }
     if (solverChoice.do_m3_clim_nudg) {
         vec_nudg_coeff[BdyVars::u][lev]->FillBoundary(geom[lev].periodicity());

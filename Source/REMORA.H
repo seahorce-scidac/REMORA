@@ -1285,6 +1285,15 @@ public:
     int v2d_simple_bc () const noexcept { return BCVars::v2d_simple_bc(ncons); }
     int num_bc_vars () const noexcept { return BCVars::NumTypes(ncons); }
 
+    ///@{
+    /** \brief Accessors for the ncons-dependent entries of BdyVars */
+    int bdy_cons (int icomp) const noexcept { return BdyVars::cons(icomp); }
+    int bdy_ubar () const noexcept { return BdyVars::ubar(ncons); }
+    int bdy_vbar () const noexcept { return BdyVars::vbar(ncons); }
+    int bdy_zeta () const noexcept { return BdyVars::zeta(ncons); }
+    int num_bdy_vars () const noexcept { return BdyVars::NumTypes(ncons); }
+    ///@}
+
 
 #ifdef REMORA_USE_NETCDF
     static int total_nc_plot_file_step;
@@ -1533,8 +1542,12 @@ private:
     /** \brief Array holding the "physical" boundary condition types (e.g. "inflow") */
     amrex::Vector<amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2>> phys_bc_type;
 
-    /** \brief These are flags that indicate whether we need to read in boundary data from file */
-    amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1> phys_bc_need_data;
+    /** \brief These are flags that indicate whether we need to read in boundary data from file.
+     *
+     * Sized num_bdy_vars()+1; the extra trailing slot is a scratch entry that variables with
+     * no NetCDF boundary lane (see bdy_index) write into and nothing reads.
+     */
+    amrex::Vector<amrex::GpuArray<bool, AMREX_SPACEDIM*2>> phys_bc_need_data;
 
     /** \brief Container to connect boundary data being read in boundary condition containers.
      *

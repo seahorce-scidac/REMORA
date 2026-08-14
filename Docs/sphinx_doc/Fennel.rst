@@ -220,10 +220,18 @@ with the same Fennel component options used to create the checkpoint. Changing
 layout and is not supported unless the checkpoint was produced with a compatible
 layout.
 
-Boundary conditions for biological tracers currently use the scalar tracer
-boundary-condition configuration. For example, when per-variable boundary
-conditions are enabled, ``remora.bc.scalar.type`` applies to active Fennel
-tracers.
+Boundary conditions for the Fennel tracers offer the same options as temperature
+and salinity, including the file-driven ``clamped`` and ``orlanski_rad_nudg``
+conditions. When per-variable boundary conditions are enabled, each tracer can be
+addressed by its own name -- ``remora.bc.NO3.type``, ``remora.bc.oxygen.type``,
+and so on -- and a tracer with no entry of its own falls back to
+``remora.bc.scalar.type``. A tracer clamped or nudged to file data reads
+``<name>_west``, ``<name>_east``, ``<name>_south``, and ``<name>_north`` from the
+boundary NetCDF file, following the ROMS naming convention, and only for the sides
+that need it. Driving a Fennel tracer from file requires per-variable mode
+(``remora.boundary_per_variable = true``); a per-side keyword applies the
+file-driven condition to temperature and salinity only. See
+:ref:`sec:bc-per-tracer` for details.
 
 Validation Against ROMS
 =======================

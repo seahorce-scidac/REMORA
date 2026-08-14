@@ -746,7 +746,7 @@ void
 REMORA::set_zeta_averaged_down (int lev) {
     ParallelCopy(*vec_zeta[lev].get(), *vec_zeta_full_domain[lev].get(), 0, 0, 1,
             vec_zeta_full_domain[lev]->nGrowVect(),vec_zeta[lev]->nGrowVect());
-    FillPatch(lev, t_new[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
+    FillPatch(lev, t_new[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
                   0, false,false,0,0,zero,*vec_zeta[lev]);
 }
 
@@ -1865,20 +1865,25 @@ REMORA::ReadParameters ()
     }
     pp.queryAdd("nc_clim_coeff_file", nc_clim_coeff_file);
 
-    for (int i=0; i<BdyVars::NumTypes; i++) {
+    for (int i=0; i<BdyVars::NumTypes(ncons); i++) {
         bdry_time_name_byvar.push_back("");
     }
     pp.queryAdd("bdy_time_varname",bdry_time_varname);
-    pp.queryAdd("bdy_temp_time_varname",bdry_time_name_byvar[BdyVars::t]);
-    pp.queryAdd("bdy_salt_time_varname",bdry_time_name_byvar[BdyVars::s]);
+    // Every tracer takes its time-axis name from its own variable name, so temp and salt
+    // keep bdy_temp_time_varname / bdy_salt_time_varname and a biology tracer uses e.g.
+    // bdy_NO3_time_varname
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        pp.queryAdd(("bdy_"+cons_names[icomp]+"_time_varname").c_str(),
+                    bdry_time_name_byvar[BdyVars::cons(icomp)]);
+    }
     pp.queryAdd("bdy_u_time_varname",bdry_time_name_byvar[BdyVars::u]);
     pp.queryAdd("bdy_v_time_varname",bdry_time_name_byvar[BdyVars::v]);
-    pp.queryAdd("bdy_ubar_time_varname",bdry_time_name_byvar[BdyVars::ubar]);
-    pp.queryAdd("bdy_vbar_time_varname",bdry_time_name_byvar[BdyVars::vbar]);
-    pp.queryAdd("bdy_zeta_time_varname",bdry_time_name_byvar[BdyVars::zeta]);
+    pp.queryAdd("bdy_ubar_time_varname",bdry_time_name_byvar[BdyVars::ubar(ncons)]);
+    pp.queryAdd("bdy_vbar_time_varname",bdry_time_name_byvar[BdyVars::vbar(ncons)]);
+    pp.queryAdd("bdy_zeta_time_varname",bdry_time_name_byvar[BdyVars::zeta(ncons)]);
 
     // If not specified per variable, populate with the default
-    for (int i=0; i<BdyVars::NumTypes; i++) {
+    for (int i=0; i<BdyVars::NumTypes(ncons); i++) {
         if (bdry_time_name_byvar[i] == "") {
             bdry_time_name_byvar[i] = bdry_time_varname;
         }

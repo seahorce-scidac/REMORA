@@ -664,14 +664,18 @@ struct SolverChoice {
         pp.queryAdd("m3nudg",m3nudg);
         pp.queryAdd("obcfac",obcfac);
 
-        nudg_coeff.resize(BdyVars::NumTypes);
-        nudg_coeff[BdyVars::u    ] = (m3nudg > zero) ? one / (m3nudg * amrex::Real(86400.0)) : zero;//BdyVars::u
-        nudg_coeff[BdyVars::v    ] = (m3nudg > zero) ? one / (m3nudg * amrex::Real(86400.0)) : zero;//BdyVars::v
-        nudg_coeff[BdyVars::t    ] = ( tnudg > zero) ? one / ( tnudg * amrex::Real(86400.0)) : zero;//BdyVars::t
-        nudg_coeff[BdyVars::s    ] = ( tnudg > zero) ? one / ( tnudg * amrex::Real(86400.0)) : zero;//BdyVars::s
-        nudg_coeff[BdyVars::ubar ] = (m2nudg > zero) ? one / (m2nudg * amrex::Real(86400.0)) : zero;//BdyVars::ubar
-        nudg_coeff[BdyVars::vbar ] = (m2nudg > zero) ? one / (m2nudg * amrex::Real(86400.0)) : zero;//BdyVars::vbar
-        nudg_coeff[BdyVars::zeta ] = ( znudg > zero) ? one / ( znudg * amrex::Real(86400.0)) : zero;//BdyVars::zeta
+        nudg_coeff.resize(BdyVars::NumTypes(ncons));
+        nudg_coeff[BdyVars::u          ] = (m3nudg > zero) ? one / (m3nudg * amrex::Real(86400.0)) : zero;//BdyVars::u
+        nudg_coeff[BdyVars::v          ] = (m3nudg > zero) ? one / (m3nudg * amrex::Real(86400.0)) : zero;//BdyVars::v
+        // Every cell-centered tracer -- temp, salt, and any additional passive or
+        // biology scalar -- nudges on the single tracer timescale tnudg, as in ROMS
+        // where Tnudg defaults to the same value for all tracers.
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            nudg_coeff[BdyVars::cons(icomp)] = (tnudg > zero) ? one / (tnudg * amrex::Real(86400.0)) : zero;
+        }
+        nudg_coeff[BdyVars::ubar(ncons)] = (m2nudg > zero) ? one / (m2nudg * amrex::Real(86400.0)) : zero;//BdyVars::ubar
+        nudg_coeff[BdyVars::vbar(ncons)] = (m2nudg > zero) ? one / (m2nudg * amrex::Real(86400.0)) : zero;//BdyVars::vbar
+        nudg_coeff[BdyVars::zeta(ncons)] = ( znudg > zero) ? one / ( znudg * amrex::Real(86400.0)) : zero;//BdyVars::zeta
 
         pp.queryAdd("do_m3_clim_nudg", do_m3_clim_nudg);
         pp.queryAdd("do_m2_clim_nudg", do_m2_clim_nudg);

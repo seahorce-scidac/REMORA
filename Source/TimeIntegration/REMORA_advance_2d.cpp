@@ -583,8 +583,8 @@ REMORA::advance_2d (int lev,
             Array4<Real      > const& vbar_krhs    = mf_vbar->array(mfi, krhs);
             Array4<const Real> const& ubar_clim = ubar_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
             Array4<const Real> const& vbar_clim = vbar_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
-            Array4<const Real> const& ubar_nudg_coeff = vec_nudg_coeff[BdyVars::ubar][lev]->const_array(mfi);
-            Array4<const Real> const& vbar_nudg_coeff = vec_nudg_coeff[BdyVars::vbar][lev]->const_array(mfi);
+            Array4<const Real> const& ubar_nudg_coeff = vec_nudg_coeff[bdy_ubar()][lev]->const_array(mfi);
+            Array4<const Real> const& vbar_nudg_coeff = vec_nudg_coeff[bdy_vbar()][lev]->const_array(mfi);
             // Boxes are like this to match ROMS
             apply_clim_nudg(xbxD_adj, 1, 0, rhs_ubar, ubar_krhs, ubar_clim, ubar_nudg_coeff, Drhs_const, pm, pn);
             apply_clim_nudg(ybxD_adj, 0, 1, rhs_vbar, vbar_krhs, vbar_clim, vbar_nudg_coeff, Drhs_const, pm, pn);
@@ -803,11 +803,11 @@ REMORA::advance_2d (int lev,
         MultiFab ubar_know(*vec_ubar[lev], make_alias, know, 1);
         MultiFab vbar_know(*vec_vbar[lev], make_alias, know, 1);
         MultiFab zeta_know(*vec_zeta[lev], make_alias, know, 1);
-        FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar,
+        FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
                   knew, false,true, 0,know, dt2d, ubar_know);
-        FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar,
+        FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
                   knew, false,true, 0,know, dt2d, vbar_know);
-        FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
+        FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
                   knew, false,false, 0,know, dt2d, zeta_know);
 
 #ifdef REMORA_USE_NETCDF
@@ -847,9 +847,9 @@ REMORA::advance_2d (int lev,
                 });
             }
         }
-        FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), BdyVars::ubar,
+        FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),
                   knew, false,false);
-        FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), BdyVars::vbar,
+        FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),
                   knew, false,false);
 #endif
     }

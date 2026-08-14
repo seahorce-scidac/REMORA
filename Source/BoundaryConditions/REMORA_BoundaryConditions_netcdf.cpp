@@ -36,9 +36,12 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
 
     int ncomp;
 
-    // If we are doing the scalars then do salt as well as temp
+    // A call for the cell-centered tracers covers every component of cons: temp, salt,
+    // and any additional passive or biology scalar. This relies on the BdyVars tracer
+    // slots being contiguous from BdyVars::t in cons component order, so that
+    // boundary_series[lev][ivar+icomp] is the series for cons component icomp.
     if (ivar == BdyVars::t) {
-        ncomp = 2;
+        ncomp = ncons;
     } else {
         ncomp = 1;
     }
@@ -46,11 +49,13 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
     // This must be true for the logic below to work
     AMREX_ALWAYS_ASSERT(Temp_comp == 0);
     AMREX_ALWAYS_ASSERT(Salt_comp == 1);
+    AMREX_ALWAYS_ASSERT(BdyVars::cons(Temp_comp) == BdyVars::t);
+    AMREX_ALWAYS_ASSERT(mf_to_fill.nComp() >= icomp_to_fill + ncomp);
 
     const Real eps= Real(1.0e-20);
     const bool null_mf_calc = (!mf_calc.ok());
 
-    for (int icomp = 0; icomp < ncomp; icomp++) // This is to do both temp and salt if doing scalars
+    for (int icomp = 0; icomp < ncomp; icomp++) // This covers every tracer if doing scalars
     {
         // If we're doing zeta, ubar, or vbar, then calc_arr only has a single component
         // corresponding to the component to be used in calculating the boundary
@@ -76,16 +81,16 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
             domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather ||
             domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::flather ||
             domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::flather) {
-            boundary_series[lev][BdyVars::zeta]->update_interpolated_to_time(time);
+            boundary_series[lev][bdy_zeta()]->update_interpolated_to_time(time);
         }
         const auto& bdatxlo_zeta = domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather ?
-                                   boundary_series[lev][BdyVars::zeta]->xlo_dat_interp.const_array() : Array4<Real>();
+                                   boundary_series[lev][bdy_zeta()]->xlo_dat_interp.const_array() : Array4<Real>();
         const auto& bdatxhi_zeta = domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather ?
-                                   boundary_series[lev][BdyVars::zeta]->xhi_dat_interp.const_array() : Array4<Real>();
+                                   boundary_series[lev][bdy_zeta()]->xhi_dat_interp.const_array() : Array4<Real>();
         const auto& bdatylo_zeta = domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::flather ?
-                                   boundary_series[lev][BdyVars::zeta]->ylo_dat_interp.const_array() : Array4<Real>();
+                                   boundary_series[lev][bdy_zeta()]->ylo_dat_interp.const_array() : Array4<Real>();
         const auto& bdatyhi_zeta = domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::flather ?
-                                   boundary_series[lev][BdyVars::zeta]->yhi_dat_interp.const_array() : Array4<Real>();
+                                   boundary_series[lev][bdy_zeta()]->yhi_dat_interp.const_array() : Array4<Real>();
 
         const bool apply_west  = (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::clamped) ||
                                  (domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather) ||

@@ -16,7 +16,10 @@ remora.boundary_per_variable = 1
 ##                       WEST     SOUTH    EAST     NORTH
 remora.bc.temp.type   =  clamped  clamped  clamped  clamped
 remora.bc.salt.type   =  clamped  clamped  clamped  clamped
-remora.bc.scalar.type =  clamped  clamped  clamped  clamped
+## The passive scalar has no data in the boundary file, so it uses a local
+## condition. This is what it did in practice before tracers gained their own
+## file-driven boundary lane; a file-driven type here now requires tracer_west etc.
+remora.bc.scalar.type =  outflow  outflow  outflow  outflow
 remora.bc.u.type      =  clamped  clamped  clamped  clamped
 remora.bc.v.type      =  clamped  clamped  clamped  clamped
 remora.bc.ubar.type   =  flather  flather  flather  flather
