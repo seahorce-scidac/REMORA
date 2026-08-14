@@ -43,6 +43,9 @@ In addition to this documentation, there is API documentation for REMORA generat
 
    GettingStarted.rst
    Inputs.rst
+   GenericInputs.rst
+   AgenticWorkFlow.rst
+   Context7.rst
    ProblemSetup.rst
    testing.rst
 
