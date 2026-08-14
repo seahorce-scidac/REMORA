@@ -689,6 +689,16 @@ REMORA::init_riv_pos_from_netcdf (int lev)
     read_vec_from_netcdf(lev, nc_riv_file, river_y_name, river_pos_y);
     read_vec_from_netcdf(lev, nc_riv_file, river_dir_name, river_direction_tmp);
 
+    if (river_pos_x.empty() ||
+        river_pos_y.size() != river_pos_x.size() ||
+        river_direction_tmp.size() != river_pos_x.size())
+    {
+        amrex::Abort("River metadata arrays must be nonempty and have matching lengths: " +
+                     river_x_name + "=" + std::to_string(river_pos_x.size()) + ", " +
+                     river_y_name + "=" + std::to_string(river_pos_y.size()) + ", " +
+                     river_dir_name + "=" + std::to_string(river_direction_tmp.size()));
+    }
+
     int nriv = river_pos_x.size();
     amrex::Gpu::DeviceVector<int> xpos_d(nriv);
     amrex::Gpu::DeviceVector<int> ypos_d(nriv);
