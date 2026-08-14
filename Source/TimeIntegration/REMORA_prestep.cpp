@@ -72,6 +72,16 @@ REMORA::prestep (int lev,
     MultiFab::Copy(mf_saltcache,S_new,Salt_comp,0,1,IntVect(NGROW,NGROW,0));
     MultiFab::Copy(mf_tempcache,S_new,Temp_comp,0,1,IntVect(NGROW,NGROW,0));
 
+#ifdef REMORA_USE_NETCDF
+    // These do MPI-collective NetCDF reads, so they must be called by every rank,
+    // including ranks that own no boxes, and therefore cannot be inside the MFIter loop
+    for (int i_comp=0; i_comp < ncons; i_comp++) {
+        if (solverChoice.do_rivers_cons[i_comp]) {
+            river_source_cons[i_comp]->update_interpolated_to_time(t_old[lev]);
+        }
+    }
+#endif
+
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
@@ -146,7 +156,6 @@ REMORA::prestep (int lev,
 #ifdef REMORA_USE_NETCDF
             FArrayBox* fab_river_source;
             if (solverChoice.do_rivers_cons[i_comp]) {
-                river_source_cons[i_comp]->update_interpolated_to_time(t_old[lev]);
                 fab_river_source = river_source_cons[i_comp]->fab_interp;
             }
             const Array4<const int>& river_pos = (solverChoice.do_rivers) ? vec_river_position[lev]->const_array(mfi) : Array4<const int>();
