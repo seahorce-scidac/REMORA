@@ -158,9 +158,10 @@ on the local zero-gradient condition, printing a note to that effect. Use per-va
 drive a tracer from the boundary file.
 
 Nudging for ``orlanski_rad_nudg`` uses the tracer timescale ``remora.tnudg`` for every tracer,
-matching the ROMS default of a single ``Tnudg`` shared across tracers. The spatially varying
-nudging coefficients read from ``remora.nc_clim_coeff_file`` apply to temperature and salinity
-only; other tracers use the constant derived from ``remora.tnudg``.
+matching the ROMS default of a single ``Tnudg`` shared across tracers. A tracer picks up a
+spatially varying coefficient instead when climatology nudging is turned on for it and
+``remora.nc_clim_coeff_file`` carries a ``{var}_NudgeCoef`` field for that tracer; otherwise it
+keeps the constant derived from ``remora.tnudg``. See :ref:`sec:clim-per-tracer`.
 
 .. _sec:bc-options:
 

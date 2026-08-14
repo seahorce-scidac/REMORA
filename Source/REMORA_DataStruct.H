@@ -124,7 +124,7 @@ struct SolverChoice {
     }
 
     /** \brief read in and initialize parameters */
-    void init_params(int ncons)
+    void init_params(int ncons, const amrex::Vector<std::string>& cons_names)
     {
         amrex::ParmParse pp(pp_prefix);
 
@@ -679,11 +679,27 @@ struct SolverChoice {
 
         pp.queryAdd("do_m3_clim_nudg", do_m3_clim_nudg);
         pp.queryAdd("do_m2_clim_nudg", do_m2_clim_nudg);
-        pp.queryAdd("do_temp_clim_nudg", do_temp_clim_nudg);
-        pp.queryAdd("do_salt_clim_nudg", do_salt_clim_nudg);
 
-        if (do_m3_clim_nudg || do_m2_clim_nudg || do_temp_clim_nudg || do_salt_clim_nudg) {
+        // Every cell-centered tracer -- temp, salt, and any additional passive or biology
+        // scalar -- can be nudged toward its own climatology. The flag is keyed by the
+        // variable's own name, so temp and salt keep do_temp_clim_nudg / do_salt_clim_nudg
+        // and a biology tracer uses e.g. do_NO3_clim_nudg.
+        do_cons_clim_nudg.assign(ncons, 0);
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            bool do_nudg = false;
+            pp.queryAdd(("do_" + cons_names[icomp] + "_clim_nudg").c_str(), do_nudg);
+            do_cons_clim_nudg[icomp] = do_nudg ? 1 : 0;
+            if (do_nudg) { do_any_cons_clim_nudg = true; }
+        }
+
+        if (do_m3_clim_nudg || do_m2_clim_nudg || do_any_cons_clim_nudg) {
             do_any_clim_nudg = true;
+        }
+        // The climatology series are only built along the NetCDF initialization path,
+        // so asking for nudging with analytic initial conditions would leave them
+        // unallocated. Say so here rather than failing later inside the time step.
+        if (do_any_clim_nudg && ic_type != IC_Type::netcdf) {
+            amrex::Abort("Climatology nudging requires remora.ic_type = netcdf");
         }
 #ifndef REMORA_USE_NETCDF
         if (do_any_clim_nudg) {
@@ -965,8 +981,10 @@ struct SolverChoice {
     // Whether to do climatoogy nudging
     bool do_m2_clim_nudg = false;
     bool do_m3_clim_nudg = false;
-    bool do_temp_clim_nudg = false;
-    bool do_salt_clim_nudg = false;
+    // Per cell-centered tracer, whether to nudge toward climatology. Indexed by
+    // cons component, so entry Temp_comp is the old do_temp_clim_nudg.
+    amrex::Vector<int> do_cons_clim_nudg;
+    bool do_any_cons_clim_nudg = false;
     bool do_any_clim_nudg = false;
 
     bool boundary_from_netcdf = false;

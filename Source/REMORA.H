@@ -1428,10 +1428,10 @@ private:
     std::unique_ptr<NCTimeSeries> u_clim_data_from_file;
     /** \brief Data container for v-velocity climatology data read from file */
     std::unique_ptr<NCTimeSeries> v_clim_data_from_file;
-    /** \brief Data container for temperature climatology data read from file */
-    std::unique_ptr<NCTimeSeries> temp_clim_data_from_file;
-    /** \brief Data container for salinity climatology data read from file */
-    std::unique_ptr<NCTimeSeries> salt_clim_data_from_file;
+    /** \brief Vector over cons components of climatology data read from file.
+     *
+     * Entry icomp is null unless solverChoice.do_cons_clim_nudg[icomp] is set. */
+    amrex::Vector<std::unique_ptr<NCTimeSeries>> cons_clim_data_from_file;
 
     /** \brief Vector of data containers for scalar data in rivers */
     amrex::Vector<std::unique_ptr<NCTimeSeriesRiver>> river_source_cons;
@@ -1762,10 +1762,9 @@ private:
     std::string clim_u_time_varname = "ocean_time";
     /** \brief Name of time field for v climatology data */
     std::string clim_v_time_varname = "ocean_time";
-    /** \brief Name of time field for salinity climatology data */
-    std::string clim_salt_time_varname = "ocean_time";
-    /** \brief Name of time field for temperature climatology data */
-    std::string clim_temp_time_varname = "ocean_time";
+    /** \brief Vector over cons components of the name of the time field for that
+     * tracer's climatology data */
+    amrex::Vector<std::string> clim_cons_time_varname;
     /** \brief Name of time field for river time */
     std::string riv_time_varname = "river_time";
     /** \brief Name of time field for forcing data */

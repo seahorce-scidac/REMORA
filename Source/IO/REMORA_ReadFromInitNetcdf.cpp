@@ -391,12 +391,13 @@ read_masks_from_netcdf (int /*lev*/,
  * @param fname               file name to read from
  * @param do_m2_clim_nudg     whether to do 2d momentum climatology nudging
  * @param do_m3_clim_nudg     whether to do 3d momentum climatology nudging
- * @param do_temp_clim_nudg   whether to do temperature climatology nudging
- * @param do_salt_clim_nudg   whether to do salinity climatology nudging
+ * @param do_cons_clim_nudg   per cons component, whether to do climatology nudging
+ * @param cons_names          per cons component, name of the tracer
  * @param NC_M2NC_fab         container for 2d momentum climatology data
  * @param NC_M3NC_fab         container for 3d momentum climatology data
- * @param NC_TempNC_fab       container for temperature climatology data
- * @param NC_SaltNC_fab       container for salinity climatology data
+ * @param NC_ConsNC_fab       per cons component, container for tracer climatology data
+ * @param cons_coeff_in_file  filled on output: per cons component, whether a spatially
+ *                            varying coefficient was found in the file
  */
 void
 read_clim_nudg_coeff_from_netcdf (int /*lev*/,
@@ -404,14 +405,16 @@ read_clim_nudg_coeff_from_netcdf (int /*lev*/,
                         const std::string& fname,
                         bool do_m2_clim_nudg,
                         bool do_m3_clim_nudg,
-                        bool do_temp_clim_nudg,
-                        bool do_salt_clim_nudg,
+                        const amrex::Vector<int>& do_cons_clim_nudg,
+                        const amrex::Vector<std::string>& cons_names,
                         FArrayBox& NC_M2NC_fab,
                         FArrayBox& NC_M3NC_fab,
-                        FArrayBox& NC_TempNC_fab,
-                        FArrayBox& NC_SaltNC_fab)
+                        amrex::Vector<FArrayBox>& NC_ConsNC_fab,
+                        amrex::Vector<int>& cons_coeff_in_file)
 {
     amrex::Print() << "Loading nudging coefficients from NetCDF file " << fname << std::endl;
+
+    const int l_ncons = do_cons_clim_nudg.size();
 
     Vector<FArrayBox*> NC_fabs;
     Vector<std::string> NC_names;
@@ -423,12 +426,29 @@ read_clim_nudg_coeff_from_netcdf (int /*lev*/,
     if (do_m2_clim_nudg) {
         NC_fabs.push_back(&NC_M2NC_fab ); NC_names.push_back("M2_NudgeCoef"); NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
     }
-    if (do_temp_clim_nudg) {
-        NC_fabs.push_back(&NC_TempNC_fab ); NC_names.push_back("temp_NudgeCoef"); NC_dim_types.push_back(NC_Data_Dims_Type::BT_SN_WE);
+    // Each tracer's spatially varying coefficient is stored under its own name, as in
+    // ROMS: temp_NudgeCoef, salt_NudgeCoef, NO3_NudgeCoef, ... A tracer whose field is
+    // absent from the file keeps the constant coefficient derived from remora.tnudg, so
+    // a file written for temp and salt alone still works when biology tracers are nudged.
+    cons_coeff_in_file.assign(l_ncons, 0);
+    Vector<std::string> missing;
+    for (int icomp = 0; icomp < l_ncons; ++icomp) {
+        if (!do_cons_clim_nudg[icomp]) { continue; }
+        const std::string coeff_name = cons_names[icomp] + "_NudgeCoef";
+        if (!QueryNetCDFHasVars(fname, {coeff_name})) {
+            missing.push_back(coeff_name);
+            continue;
+        }
+        cons_coeff_in_file[icomp] = 1;
+        NC_fabs.push_back(&NC_ConsNC_fab[icomp]); NC_names.push_back(coeff_name); NC_dim_types.push_back(NC_Data_Dims_Type::BT_SN_WE);
     }
-    if (do_salt_clim_nudg) {
-        NC_fabs.push_back(&NC_SaltNC_fab ); NC_names.push_back("salt_NudgeCoef"); NC_dim_types.push_back(NC_Data_Dims_Type::BT_SN_WE);
+    if (!missing.empty()) {
+        amrex::Print() << "Nudging coefficient file " << fname << " does not contain";
+        for (const auto& name : missing) { amrex::Print() << " " << name; }
+        amrex::Print() << "; those tracers will use the constant coefficient from remora.tnudg"
+                       << std::endl;
     }
+
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }

@@ -106,12 +106,12 @@ void
 read_clim_nudg_coeff_from_netcdf (int lev, const Box& domain, const std::string& fname,
                                   bool do_m2_clim_nudg,
                                   bool do_m3_clim_nudg,
-                                  bool do_temp_clim_nudg,
-                                  bool do_salt_clim_nudg,
+                                  const amrex::Vector<int>& do_cons_clim_nudg,
+                                  const amrex::Vector<std::string>& cons_names,
                                   FArrayBox& NC_M2NC_fab,
                                   FArrayBox& NC_M3NC_fab,
-                                  FArrayBox& NC_TempNC_fab,
-                                  FArrayBox& NC_SaltNC_fab);
+                                  amrex::Vector<FArrayBox>& NC_ConsNC_fab,
+                                  amrex::Vector<int>& cons_coeff_in_file);
 
 /** \brief helper function to read in vector of data from netcdf */
 void read_vec_from_netcdf (int lev, const amrex::Vector<std::string>& fnames, const std::string& field_name, amrex::Vector<int>& vec_dat);
@@ -751,18 +751,26 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_M2NC_fab     ; NC_M2NC_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_M3NC_fab     ; NC_M3NC_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_TempNC_fab   ; NC_TempNC_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_SaltNC_fab   ; NC_SaltNC_fab.resize(num_boxes_at_level[lev]);
+    // One coefficient FAB per cons component per box
+    Vector<Vector<FArrayBox>> NC_ConsNC_fab(num_boxes_at_level[lev]);
+    // Per box, whether each tracer's coefficient was actually present in the file
+    Vector<Vector<int>> cons_coeff_in_file(num_boxes_at_level[lev]);
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++) {
+        NC_ConsNC_fab[idx].resize(ncons);
+        cons_coeff_in_file[idx].assign(ncons, 0);
+    }
+    // Aggregated over boxes: whether each tracer's coefficient came from the file
+    Vector<int> cons_coeff_read(ncons, 0);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         read_clim_nudg_coeff_from_netcdf(lev,boxes_at_level[lev][idx], nc_clim_coeff_file,
                                          solverChoice.do_m2_clim_nudg,
                                          solverChoice.do_m3_clim_nudg,
-                                         solverChoice.do_temp_clim_nudg,
-                                         solverChoice.do_salt_clim_nudg,
+                                         solverChoice.do_cons_clim_nudg,
+                                         cons_names,
                                          NC_M2NC_fab[idx],NC_M3NC_fab[idx],
-                                         NC_TempNC_fab[idx],NC_SaltNC_fab[idx]);
+                                         NC_ConsNC_fab[idx],cons_coeff_in_file[idx]);
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -783,17 +791,18 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
                 FArrayBox &vNC_fab  = (*vec_nudg_coeff[BdyVars::v][lev])[mfi];
                 vNC_fab.template    copy<RunOn::Device>(NC_M3NC_fab[idx]);
             }
-            if (solverChoice.do_temp_clim_nudg) {
-                FArrayBox &TempNC_fab  = (*vec_nudg_coeff[BdyVars::t][lev])[mfi];
-                TempNC_fab.template    copy<RunOn::Device>(NC_TempNC_fab[idx]);
-            }
-            if (solverChoice.do_salt_clim_nudg) {
-                FArrayBox &SaltNC_fab  = (*vec_nudg_coeff[BdyVars::s][lev])[mfi];
-                SaltNC_fab.template    copy<RunOn::Device>(NC_SaltNC_fab[idx]);
+            for (int icomp = 0; icomp < ncons; ++icomp) {
+                if (!cons_coeff_in_file[idx][icomp]) { continue; }
+                FArrayBox &ConsNC_fab  = (*vec_nudg_coeff[BdyVars::cons(icomp)][lev])[mfi];
+                ConsNC_fab.template    copy<RunOn::Device>(NC_ConsNC_fab[idx][icomp]);
             }
 
         } // mf
         } // omp
+
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            cons_coeff_read[icomp] = cons_coeff_read[icomp] || cons_coeff_in_file[idx][icomp];
+        }
     } // idx
 
     if (solverChoice.do_m2_clim_nudg) {
@@ -808,13 +817,12 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
         convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::u][lev].get());
         convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::v][lev].get());
     }
-    if (solverChoice.do_temp_clim_nudg) {
-        vec_nudg_coeff[BdyVars::t][lev]->FillBoundary(geom[lev].periodicity());
-        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::t][lev].get());
-    }
-    if (solverChoice.do_salt_clim_nudg) {
-        vec_nudg_coeff[BdyVars::s][lev]->FillBoundary(geom[lev].periodicity());
-        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::s][lev].get());
+    // Only convert the tracers whose coefficient actually came from the file: the rest
+    // still hold the constant set by init_clim_nudg_coeff, which is already in 1/s.
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        if (!cons_coeff_read[icomp]) { continue; }
+        vec_nudg_coeff[BdyVars::cons(icomp)][lev]->FillBoundary(geom[lev].periodicity());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::cons(icomp)][lev].get());
     }
 }
 

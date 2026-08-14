@@ -5,6 +5,10 @@
 #include <REMORA_prob_common.H>
 #include <REMORA.H>
 
+#ifdef REMORA_USE_NETCDF
+#include "REMORA_NCFile.H"
+#endif
+
 #include <AMReX_buildInfo.H>
 
 using namespace amrex;
@@ -1360,13 +1364,23 @@ REMORA::init_only (int lev, Real time)
             }
             // Since the NCTimeSeries object isn't filling the cons_new MultiFab directly, we don't have to specify a component.
             // It just needs to know the shape of the MultiFab
-            if (solverChoice.do_temp_clim_nudg) {
-                temp_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "temp", clim_temp_time_varname,geom[lev].Domain(),cons_new[lev],false,true));
-                temp_clim_data_from_file->Initialize();
-            }
-            if (solverChoice.do_salt_clim_nudg) {
-                salt_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "salt", clim_salt_time_varname,geom[lev].Domain(),cons_new[lev],false,true));
-                salt_clim_data_from_file->Initialize();
+            cons_clim_data_from_file.resize(ncons);
+            for (int icomp = 0; icomp < ncons; ++icomp) {
+                if (!solverChoice.do_cons_clim_nudg[icomp]) { continue; }
+                // A tracer's climatology is stored in the file under the tracer's own
+                // name, following the same convention ROMS uses. Check up front rather
+                // than letting the read fail deep inside NCTimeSeries.
+                for (const auto& fname : nc_clim_his_file) {
+                    if (!QueryNetCDFHasVars(fname, {cons_names[icomp]})) {
+                        amrex::Abort("Climatology file " + fname + " does not contain '" +
+                                     cons_names[icomp] + "', which is required by remora.do_" +
+                                     cons_names[icomp] + "_clim_nudg. Either add it to the file "
+                                     "or turn that flag off.");
+                    }
+                }
+                cons_clim_data_from_file[icomp].reset(new NCTimeSeries(nc_clim_his_file, cons_names[icomp],
+                            clim_cons_time_varname[icomp],geom[lev].Domain(),cons_new[lev],false,true));
+                cons_clim_data_from_file[icomp]->Initialize();
             }
         }
     }
@@ -1897,8 +1911,14 @@ REMORA::ReadParameters ()
     pp.queryAdd("clim_vbar_time_varname",clim_vbar_time_varname);
     pp.queryAdd("clim_u_time_varname",clim_u_time_varname);
     pp.queryAdd("clim_v_time_varname",clim_v_time_varname);
-    pp.queryAdd("clim_salt_time_varname",clim_salt_time_varname);
-    pp.queryAdd("clim_temp_time_varname",clim_temp_time_varname);
+    // As for the boundary data, each tracer takes its climatology time-axis name from its
+    // own variable name, so temp and salt keep clim_temp_time_varname /
+    // clim_salt_time_varname and a biology tracer uses e.g. clim_NO3_time_varname
+    clim_cons_time_varname.assign(ncons, "ocean_time");
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        pp.queryAdd(("clim_"+cons_names[icomp]+"_time_varname").c_str(),
+                    clim_cons_time_varname[icomp]);
+    }
 
 #endif
     pp.queryAdd("hires_grid_level", hires_grid_level);
@@ -1922,7 +1942,7 @@ REMORA::ReadParameters ()
         }
 
     }
-    solverChoice.init_params(ncons);
+    solverChoice.init_params(ncons, cons_names);
 
     // NOTE: This feature is not yet implemented because it will require passing x,y,z to prob functions.
     // Currently these are accessed by passing a pointer to the REMORA class. However, this requires the

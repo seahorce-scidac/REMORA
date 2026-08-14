@@ -276,9 +276,18 @@ REMORA::init_clim_nudg_coeff (int lev) {
     vec_nudg_coeff[bdy_zeta()][lev]->setVal(solverChoice.nudg_coeff[bdy_zeta()]);
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_any_clim_nudg) {
-        amrex::Print() << "Calling init_clim_nudg_coeff_from_netcdf \n " << std::endl;
-        init_clim_nudg_coeff_from_netcdf(lev);
-        amrex::Print() << "Climatology weights loaded from netcdf file \n " << std::endl;
+        // A coefficient file is optional. Without one every variable keeps the constant
+        // timescale set above, which is a reasonable setup for tracers nudged on the
+        // single remora.tnudg timescale.
+        if (nc_clim_coeff_file.empty()) {
+            amrex::Print() << "No remora.nc_clim_coeff_file given; climatology nudging will use "
+                              "the constant timescales from remora.tnudg, m2nudg, and m3nudg"
+                           << std::endl;
+        } else {
+            amrex::Print() << "Calling init_clim_nudg_coeff_from_netcdf \n " << std::endl;
+            init_clim_nudg_coeff_from_netcdf(lev);
+            amrex::Print() << "Climatology weights loaded from netcdf file \n " << std::endl;
+        }
     }
 #endif
 }

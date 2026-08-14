@@ -1340,17 +1340,15 @@ List of Parameters
 |                                       |                             |              |                           |
 |                                       | to climatology              |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.do_temp_clim_nudg**          | Whether to nudge            | true / false | false                     |
+| **remora.do_{var}_clim_nudg**         | Whether to nudge tracer     | true / false | false                     |
 |                                       |                             |              |                           |
-|                                       | temperature                 |              |                           |
+|                                       | ``{var}`` to climatology.   |              |                           |
 |                                       |                             |              |                           |
-|                                       | to climatology              |              |                           |
-+---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.do_salt_clim_nudg**          | Whether to nudge            | true / false | false                     |
+|                                       | ``{var}`` is any tracer     |              |                           |
 |                                       |                             |              |                           |
-|                                       | salinity                    |              |                           |
+|                                       | name: ``temp``, ``salt``,   |              |                           |
 |                                       |                             |              |                           |
-|                                       | to climatology              |              |                           |
+|                                       | ``NO3``, ...                |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
 | **remora.nc_clim_his_file**           | NetCDF file name(s) for     | string or    | must be set if one of     |
 |                                       |                             |              |                           |
@@ -1380,17 +1378,11 @@ List of Parameters
 |                                       |                             |              |                           |
 |                                       | for v climatology           |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.clim_temp_time_varname**     | name of time variable       | string       | ``ocean_time``            |
+| **remora.clim_{var}_time_varname**    | name of time variable       | string       | ``ocean_time``            |
 |                                       |                             |              |                           |
-|                                       | for temperature             |              |                           |
+|                                       | for the climatology of      |              |                           |
 |                                       |                             |              |                           |
-|                                       | climatology                 |              |                           |
-+---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.clim_salt_time_varname**     | name of time variable       | string       | ``ocean_time``            |
-|                                       |                             |              |                           |
-|                                       | for salinity                |              |                           |
-|                                       |                             |              |                           |
-|                                       | climatology                 |              |                           |
+|                                       | tracer ``{var}``            |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
 
 .. note::
@@ -1400,6 +1392,39 @@ List of Parameters
    levels for nudging updates. ``remora.nc_clim_his_file`` may be a single file
    or a space-separated list of files. When multiple files are provided, they
    must be listed in time series order.
+
+.. _sec:clim-per-tracer:
+
+Climatology nudging for individual tracers
+------------------------------------------
+
+Every cell-centered tracer can be nudged toward its own climatology, not just
+temperature and salinity. The flag is keyed by the tracer's own name, so a run
+carrying nitrate uses
+
+.. code-block:: python
+
+   remora.do_NO3_clim_nudg = true
+
+exactly as temperature uses ``remora.do_temp_clim_nudg``. Each tracer turned on
+this way needs two things in the input files:
+
+- A 3D field named for the tracer in ``remora.nc_clim_his_file``: ``temp``,
+  ``salt``, ``NO3``, and so on. This is the ROMS convention, and it is the same
+  name the variable carries elsewhere. If the field is missing, REMORA aborts and
+  names it rather than failing deep inside the NetCDF reader.
+- Optionally, a spatially varying nudging coefficient named
+  ``{var}_NudgeCoef`` in ``remora.nc_clim_coeff_file`` (in inverse days), again
+  following ROMS: ``temp_NudgeCoef``, ``salt_NudgeCoef``, ``NO3_NudgeCoef``.
+
+The coefficient is optional in a way the climatology field is not. A tracer with
+no ``{var}_NudgeCoef`` in the file falls back to the constant coefficient derived
+from ``remora.tnudg``, and REMORA prints which tracers fell back. This means a
+nudging coefficient file written for temperature and salinity alone still works
+when biology tracers are nudged: those tracers simply use the uniform timescale.
+
+Each tracer may also take its own climatology time axis via
+``remora.clim_{var}_time_varname``, which defaults to ``ocean_time``.
 
 Rivers (point sources)
 ======================
