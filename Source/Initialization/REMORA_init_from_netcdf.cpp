@@ -82,6 +82,11 @@ read_grid_vars_from_netcdf  (int lev, const Box& domain, const std::string& fnam
                              FArrayBox& NC_xv_fab, FArrayBox& NC_yv_fab,
                              FArrayBox& NC_xp_fab, FArrayBox& NC_yp_fab);
 
+/** \brief helper function to read optional spherical psi coordinates from netcdf */
+bool
+read_spherical_grid_vars_from_netcdf (int lev, const Box& domain, const std::string& fname,
+                                      FArrayBox& NC_lonp_fab, FArrayBox& NC_latp_fab);
+
 /** \brief helper function to read full-domain high resolution bathymetry from netcdf */
 void
 read_bathymetry_full_domain_from_netcdf (const Box& domain, const std::string& fname,
@@ -399,6 +404,11 @@ REMORA::init_grid_vars_from_netcdf (int lev)
     Vector<FArrayBox> NC_xp_fab    ; NC_xp_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_yp_fab    ; NC_yp_fab.resize(num_boxes_at_level[lev]);
 
+    // Optional spherical psi coordinates (see read_spherical_grid_vars_from_netcdf)
+    Vector<FArrayBox> NC_lonp_fab  ; NC_lonp_fab.resize(num_boxes_at_level[lev]);
+    Vector<FArrayBox> NC_latp_fab  ; NC_latp_fab.resize(num_boxes_at_level[lev]);
+    bool have_spherical_psi = true;
+
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         read_grid_vars_from_netcdf(lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
@@ -407,6 +417,20 @@ REMORA::init_grid_vars_from_netcdf (int lev)
                                     NC_xu_fab[idx], NC_yu_fab[idx],
                                     NC_xv_fab[idx], NC_yv_fab[idx],
                                     NC_xp_fab[idx], NC_yp_fab[idx]);
+
+        // All boxes at this level must agree: a partial set would leave holes in
+        // the corner mesh that a conservative remap cannot detect.
+        have_spherical_psi = read_spherical_grid_vars_from_netcdf(
+                                 lev, boxes_at_level[lev][idx], nc_grid_file[lev][idx],
+                                 NC_lonp_fab[idx], NC_latp_fab[idx]) && have_spherical_psi;
+
+        // Mirror vec_xp exactly: same nodal psi BoxArray, DistributionMap and ngrow.
+        if (have_spherical_psi && vec_lonp[lev] == nullptr) {
+            vec_lonp[lev].reset(new MultiFab(vec_xp[lev]->boxArray(), vec_xp[lev]->DistributionMap(),
+                                             1, vec_xp[lev]->nGrowVect()));
+            vec_latp[lev].reset(new MultiFab(vec_xp[lev]->boxArray(), vec_xp[lev]->DistributionMap(),
+                                             1, vec_xp[lev]->nGrowVect()));
+        }
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -442,9 +466,20 @@ REMORA::init_grid_vars_from_netcdf (int lev)
             yv_fab.template    copy<RunOn::Device>(NC_yv_fab[idx]);
             xp_fab.template    copy<RunOn::Device>(NC_xp_fab[idx]);
             yp_fab.template    copy<RunOn::Device>(NC_yp_fab[idx]);
+
+            if (have_spherical_psi) {
+                (*vec_lonp[lev])[mfi].template copy<RunOn::Device>(NC_lonp_fab[idx]);
+                (*vec_latp[lev])[mfi].template copy<RunOn::Device>(NC_latp_fab[idx]);
+            }
         } // mf
         } // omp
     } // idx
+
+    // Drop any partial allocation so the getter's null contract stays honest.
+    if (!have_spherical_psi) {
+        vec_lonp[lev].reset();
+        vec_latp[lev].reset();
+    }
 
     Real dummy_time = zero;
     if (lev > 0) {
@@ -480,6 +515,10 @@ REMORA::init_grid_vars_from_netcdf (int lev)
     vec_yv[lev]->FillBoundary(geom[lev].periodicity());
     vec_xp[lev]->FillBoundary(geom[lev].periodicity());
     vec_yp[lev]->FillBoundary(geom[lev].periodicity());
+    if (vec_lonp[lev] != nullptr) {
+        vec_lonp[lev]->FillBoundary(geom[lev].periodicity());
+        vec_latp[lev]->FillBoundary(geom[lev].periodicity());
+    }
 
     extrapolate_metric_to_physical_boundaries(*vec_pm[lev], geom[lev]);
     extrapolate_metric_to_physical_boundaries(*vec_pn[lev], geom[lev]);
@@ -792,6 +831,16 @@ REMORA::init_riv_pos_from_netcdf (int lev)
     read_vec_from_netcdf(lev, nc_riv_file, river_x_name, river_pos_x);
     read_vec_from_netcdf(lev, nc_riv_file, river_y_name, river_pos_y);
     read_vec_from_netcdf(lev, nc_riv_file, river_dir_name, river_direction_tmp);
+
+    if (river_pos_x.empty() ||
+        river_pos_y.size() != river_pos_x.size() ||
+        river_direction_tmp.size() != river_pos_x.size())
+    {
+        amrex::Abort("River metadata arrays must be nonempty and have matching lengths: " +
+                     river_x_name + "=" + std::to_string(river_pos_x.size()) + ", " +
+                     river_y_name + "=" + std::to_string(river_pos_y.size()) + ", " +
+                     river_dir_name + "=" + std::to_string(river_direction_tmp.size()));
+    }
 
     int nriv = river_pos_x.size();
     amrex::Gpu::DeviceVector<int> xpos_d(nriv);

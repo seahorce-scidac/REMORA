@@ -43,7 +43,9 @@ In addition to this documentation, there is API documentation for REMORA generat
 
    GettingStarted.rst
    Inputs.rst
-   Fennel.rst
+   GenericInputs.rst
+   AgenticWorkFlow.rst
+   Context7.rst
    ProblemSetup.rst
    testing.rst
 
@@ -66,6 +68,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    BoundaryConditions.rst
    Checkpoint.rst
    Climatology.rst
+   Fennel.rst
    MeshRefinement.rst
    Numerical_Solution_Technique.rst
    Particles.rst

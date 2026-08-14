@@ -7,7 +7,11 @@
 #include <AMReX_Interpolater.H>
 #include <AMReX_MFIter.H>
 #include <AMReX_MultiFabUtil.H>
+#include <AMReX_iMultiFab.H>
 #include <AMReX_Print.H>
+#include <AMReX_Reduce.H>
+
+#include <limits>
 
 using namespace amrex;
 
@@ -32,108 +36,140 @@ using namespace amrex;
 namespace {
 constexpr int SSTIndex = 0;
 
-Geometry
-make_unit_slab_geometry (Box const& domain)
-{
-    static constexpr Real lo[AMREX_SPACEDIM] = {zero, zero, zero};
-    static constexpr Real hi[AMREX_SPACEDIM] = {one, one, one};
-    static constexpr int periodicity[AMREX_SPACEDIM] = {0, 0, 0};
-    RealBox rb(lo, hi);
-    return Geometry(domain, &rb, CoordSys::cartesian, periodicity);
-}
+// -------------------------------------------------------------------------
+// NEW: Conservative Sparse Matrix Remap Engine (Reverse: OCN -> ATM)
+// -------------------------------------------------------------------------
 
-Vector<BCRec>
-make_internal_bcs (int ncomp)
-{
-    Vector<BCRec> bcs(ncomp);
-    for (auto& bc : bcs) {
-        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
-            bc.setLo(dir, BCType::int_dir);
-            bc.setHi(dir, BCType::int_dir);
-        }
-    }
-    return bcs;
-}
-
-void
-CopyDriverSlabToRemoraLayout (const MultiFab& src,
-                              MultiFab& dst,
-                              const Geometry& geom,
-                              const char* context)
-{
-    const Box src_domain = enclosedCells(src.boxArray().minimalBox());
-    const Box dst_domain = enclosedCells(dst.boxArray().minimalBox());
-
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src.boxArray().ixType() == dst.boxArray().ixType(),
-        context);
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_domain.smallEnd(0) == dst_domain.smallEnd(0) &&
-        src_domain.smallEnd(1) == dst_domain.smallEnd(1) &&
-        src_domain.length(0) == dst_domain.length(0) &&
-        src_domain.length(1) == dst_domain.length(1) &&
-        src_domain.length(2) == dst_domain.length(2),
-        context);
-
-    dst.setVal(zero);
-    dst.ParallelCopy(src, 0, 0, dst.nComp(), IntVect(0), IntVect(0), geom.periodicity());
-    dst.FillBoundary(geom.periodicity());
-}
-
-void
-AverageDownThenParallelCopy (const MultiFab& src,
-                             MultiFab& dst)
+// Source index region each destination box's stencils actually reference.
+//
+// The entries in index_mf are *source* indices, and for non-conformal grids they
+// routinely fall far outside the destination box's own index range, so staging the
+// source on `dst.boxArray()` plus a fixed ghost halo leaves those reads outside
+// the valid region - zero at best, out of bounds at worst. Mirror of the same
+// helper on the ERF side of the coupling.
+//
+// The result becomes a BoxArray, which must be globally consistent, hence the
+// reduction.
+amrex::BoxArray
+StagedSourceBoxArray (const amrex::MultiFab& src,
+                      const amrex::MultiFab& dst,
+                      const amrex::iMultiFab& index_mf,
+                      int max_stencil_size)
 {
     using namespace amrex;
 
-    AMREX_ALWAYS_ASSERT(src.boxArray().ixType() == dst.boxArray().ixType());
+    const Box src_domain = src.boxArray().minimalBox();
+    const int nboxes = static_cast<int>(dst.boxArray().size());
+    constexpr int int_big = std::numeric_limits<int>::max();
 
-    const Box src_cells = enclosedCells(src.boxArray().minimalBox());
-    const Box dst_cells = enclosedCells(dst.boxArray().minimalBox());
-    const IntVect src_len = src_cells.length();
-    const IntVect dst_len = dst_cells.length();
+    Vector<int> lo(2 * nboxes,  int_big);
+    Vector<int> hi(2 * nboxes, -int_big);
 
-    const bool same_layout =
-        (src.boxArray() == dst.boxArray()) &&
-        (src.DistributionMap() == dst.DistributionMap());
-    if (same_layout) {
-        dst.ParallelCopy(src, 0, 0, dst.nComp());
-        return;
+    for (MFIter mfi(dst); mfi.isValid(); ++mfi) {
+        const int b = mfi.index();
+        const Box bx = mfi.validbox();
+        auto const& idx = index_mf.const_array(mfi);
+
+        ReduceOps<ReduceOpMin, ReduceOpMin, ReduceOpMax, ReduceOpMax> reduce_op;
+        ReduceData<int, int, int, int> reduce_data(reduce_op);
+        using ReduceTuple = typename decltype(reduce_data)::Type;
+
+        reduce_op.eval(bx, reduce_data,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
+        {
+            int i_min = int_big, j_min = int_big, i_max = -int_big, j_max = -int_big;
+            for (int m = 0; m < max_stencil_size; ++m) {
+                const int si = idx(i, j, k, m * 3);
+                const int sj = idx(i, j, k, m * 3 + 1);
+                if (si < 0 || sj < 0) { continue; }   // -1 marks an unused slot
+                i_min = amrex::min(i_min, si); i_max = amrex::max(i_max, si);
+                j_min = amrex::min(j_min, sj); j_max = amrex::max(j_max, sj);
+            }
+            return {i_min, j_min, i_max, j_max};
+        });
+
+        auto const& hv = reduce_data.value(reduce_op);
+        lo[2*b  ] = amrex::get<0>(hv); lo[2*b+1] = amrex::get<1>(hv);
+        hi[2*b  ] = amrex::get<2>(hv); hi[2*b+1] = amrex::get<3>(hv);
     }
 
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_len[2] == 1 && dst_len[2] == 1,
-        "AverageDownThenParallelCopy expects one-cell-thick source and destination slabs.");
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_cells.smallEnd(0) == dst_cells.smallEnd(0) &&
-        src_cells.smallEnd(1) == dst_cells.smallEnd(1),
-        "AverageDownThenParallelCopy requires aligned source/destination slab origins.");
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_len[0] >= dst_len[0] && src_len[1] >= dst_len[1] &&
-        src_len[0] % dst_len[0] == 0 && src_len[1] % dst_len[1] == 0,
-        "AverageDownThenParallelCopy requires source/destination slab extents to be integer-ratio compatible.");
+    ParallelDescriptor::ReduceIntMin(lo.dataPtr(), static_cast<int>(lo.size()));
+    ParallelDescriptor::ReduceIntMax(hi.dataPtr(), static_cast<int>(hi.size()));
 
-    const IntVect ratio(src_len[0] / dst_len[0], src_len[1] / dst_len[1], 1);
+    // The staged boxes must carry the source's index type from the start:
+    // intersecting a cell-centered box with a staggered one trips
+    // Box::operator&='s sameType assertion.
+    const IndexType src_ixtype = src.boxArray().ixType();
 
-    BoxArray coarsened_src_ba = src.boxArray();
-    for (int i = 0; i < coarsened_src_ba.size(); ++i) {
-        const Box original = coarsened_src_ba[i];
-        Box coarsened = original;
-        coarsened.coarsen(ratio);
-        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-            coarsened.refine(ratio) == original,
-            "AverageDownThenParallelCopy source boxes are not evenly coarsenable by the source/destination ratio.");
+    BoxList bl(src_ixtype);
+    for (int b = 0; b < nboxes; ++b) {
+        Box need;
+        if (lo[2*b] > hi[2*b] || lo[2*b+1] > hi[2*b+1]) {
+            // No stencil anywhere in this destination box. A BoxArray cannot hold
+            // an empty box, so stage a single cell; nothing reads it.
+            need = Box(src_domain.smallEnd(), src_domain.smallEnd(), src_ixtype);
+        } else {
+            need = Box(IntVect(lo[2*b], lo[2*b+1], src_domain.smallEnd(2)),
+                       IntVect(hi[2*b], hi[2*b+1], src_domain.bigEnd(2)),
+                       src_ixtype);
+            need &= src_domain;
+        }
+        bl.push_back(need);
     }
-    coarsened_src_ba.coarsen(ratio);
+    return BoxArray(std::move(bl));
+}
 
-    const bool direct_average_down_safe = (coarsened_src_ba == dst.boxArray());
+void
+ApplyConservativeRemap (const amrex::MultiFab& src,
+                        amrex::MultiFab& dst,
+                        const amrex::MultiFab& weight_mf,
+                        const amrex::iMultiFab& index_mf,
+                        int max_stencil_size,
+                        const amrex::MultiFab* dst_mask = nullptr,
+                        const amrex::iMultiFab* dst_land_mask = nullptr)
+{
+    using namespace amrex;
 
-    if (direct_average_down_safe) {
-        amrex::average_down(src, dst, 0, dst.nComp(), ratio);
-    } else {
-        MultiFab dst_avg(coarsened_src_ba, src.DistributionMap(), dst.nComp(), 0);
-        amrex::average_down(src, dst_avg, 0, dst.nComp(), ratio);
-        dst.ParallelCopy(dst_avg, 0, 0, dst.nComp());
+    // 1. Data Routing: Route REMORA SST data onto the ERF atmospheric layout,
+    // staging exactly the source region the stencils reference.
+    MultiFab src_on_dst(StagedSourceBoxArray(src, dst, index_mf, max_stencil_size),
+                        dst.DistributionMap(), src.nComp(), 0);
+    src_on_dst.setVal(0.0);
+    src_on_dst.ParallelCopy(src);
+
+    dst.setVal(0.0);
+
+    // 2. Stencil Application: Execute the local sparse dot product
+    for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        Box bx = mfi.tilebox();
+
+        auto const& w_arr   = weight_mf.const_array(mfi);
+        auto const& idx_arr = index_mf.const_array(mfi);
+        auto const& src_arr = src_on_dst.const_array(mfi);
+        auto        dst_arr = dst.array(mfi);
+        const bool has_mask = (dst_mask != nullptr);
+        auto const& mask_arr = has_mask ? dst_mask->const_array(mfi) : Array4<const Real>{};
+        // ERF land mask: 1 = land, 0 = water. Destination cells over land are
+        // zeroed out (wet/dry masking only, no vector rotation).
+        const bool has_land_mask = (dst_land_mask != nullptr);
+        auto const& land_arr = has_land_mask ? dst_land_mask->const_array(mfi) : Array4<const int>{};
+
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+            Real sum = 0.0;
+            for (int m = 0; m < max_stencil_size; ++m) {
+                Real w = w_arr(i, j, k, m);
+                if (w > 0.0) {
+                    int src_i = idx_arr(i, j, k, m * 3);
+                    int src_j = idx_arr(i, j, k, m * 3 + 1);
+                    int src_k = idx_arr(i, j, k, m * 3 + 2);
+
+                    sum += w * src_arr(src_i, src_j, src_k);
+                }
+            }
+            if (has_mask) { sum *= mask_arr(i, j, k); }
+            if (has_land_mask && land_arr(i, j, k) == 1) { sum = Real(0.0); }
+            dst_arr(i, j, k) = sum;
+        });
     }
 }
 }
@@ -216,24 +252,57 @@ REMORA::GetAtmosToOceanVFaceLayout (amrex::BoxArray& ba,
     dm = vec_svstr[0]->DistributionMap();
 }
 
+void
+REMORA::GetAtmosToOceanPsiCoordinates (const amrex::MultiFab*& x_psi,
+                                       const amrex::MultiFab*& y_psi) const
+{
+    if (vec_xp.empty() || vec_yp.empty() ||
+        vec_xp[0] == nullptr || vec_yp[0] == nullptr) {
+        x_psi = nullptr;
+        y_psi = nullptr;
+        return;
+    }
+    x_psi = vec_xp[0].get();
+    y_psi = vec_yp[0].get();
+}
+
+void
+REMORA::GetAtmosToOceanPsiLonLat (const amrex::MultiFab*& lon_psi,
+                                  const amrex::MultiFab*& lat_psi) const
+{
+    if (vec_lonp.empty() || vec_latp.empty() ||
+        vec_lonp[0] == nullptr || vec_latp[0] == nullptr) {
+        lon_psi = nullptr;
+        lat_psi = nullptr;
+        return;
+    }
+    lon_psi = vec_lonp[0].get();
+    lat_psi = vec_latp[0].get();
+}
+
+void
+REMORA::GetLandSeaMasks (const amrex::MultiFab*& mskr,
+                         const amrex::MultiFab*& msku,
+                         const amrex::MultiFab*& mskv) const
+{
+    mskr = (!vec_mskr.empty() && vec_mskr[0]) ? vec_mskr[0].get() : nullptr;
+    msku = (!vec_msku.empty() && vec_msku[0]) ? vec_msku[0].get() : nullptr;
+    mskv = (!vec_mskv.empty() && vec_mskv[0]) ? vec_mskv[0].get() : nullptr;
+}
+
 /*
  * \brief Extracts SST from the 3D conservative state for the atmospheric driver.
  *
  * Reads Temp_comp at the top water-column cell (k_sfc), converts from
- * Celsius to Kelvin, and copies the result into state[SSTIndex].
- *
- * @param[in,out] state  OCN2ATM slab buffer sized by the driver (one MultiFab
- *                       per ocean-to-atmosphere export layer). state[SSTIndex]
- *                       (index 0) is overwritten with sea-surface temperature
- *                       (SST) sampled from the Temp_comp tracer at the uppermost
- *                       sigma level (k = Nz) and converted from degrees Celsius
- *                       to Kelvin for the atmospheric driver. An empty vector or
- *                       null state[0] is treated as a no-op.
- * @param[in    ] time   Current ocean model time (unused; retained for driver
- *                       interface conformance).
+ * Celsius to Kelvin, and conservatively remaps the result into state[SSTIndex].
  */
 void
-REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
+REMORA::PackSurfaceState (Vector<MultiFab*>& state,
+                          Real /*time*/,
+                          const amrex::MultiFab* weight_o2a_mf,
+                          const amrex::iMultiFab* index_o2a_mf,
+                          int max_stencil_size,
+                          const amrex::iMultiFab* dst_land_mask)
 {
     if (state.empty() || state[SSTIndex] == nullptr) { return; }
     const int lev = 0;
@@ -242,7 +311,6 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
     const int k_sfc = cons_new[lev]->boxArray().minimalBox().bigEnd(2);
 
     // Build a temp MultiFab on REMORA's ba2d (k=0) derived from cons_new's BoxArray.
-    // Same DistributionMap ensures each box is local; we fill at k=0 from cons at k=k_sfc.
     BoxList bl2d = cons_new[lev]->boxArray().boxList();
     for (auto& b : bl2d) { b.setRange(2, 0); }
     BoxArray ba2d(std::move(bl2d));
@@ -259,79 +327,20 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state, Real /*time*/)
     }
 
     MultiFab& dst = *state[SSTIndex];
-    const Box src_domain = tmp.boxArray().minimalBox();
-    const Box dst_domain = dst.boxArray().minimalBox();
 
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_domain.smallEnd(2) == src_domain.bigEnd(2) &&
-        dst_domain.smallEnd(2) == dst_domain.bigEnd(2),
-        "REMORA::PackSurfaceState expects 2D slab source and destination MultiFabs.");
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_domain.smallEnd(0) == dst_domain.smallEnd(0) &&
-        src_domain.smallEnd(1) == dst_domain.smallEnd(1),
-        "REMORA::PackSurfaceState requires aligned atmosphere/ocean slab origins.");
-
-    const IntVect src_len = src_domain.length();
-    const IntVect dst_len = dst_domain.length();
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        src_len[2] == 1 && dst_len[2] == 1,
-        "REMORA::PackSurfaceState expects unit-thickness source and destination slabs.");
-
-    const bool same_xy = (src_len[0] == dst_len[0] && src_len[1] == dst_len[1]);
-    const bool dst_finer =
-        (dst_len[0] >= src_len[0] && dst_len[1] >= src_len[1] &&
-         dst_len[0] % src_len[0] == 0 && dst_len[1] % src_len[1] == 0);
-    const bool dst_coarser =
-        (src_len[0] >= dst_len[0] && src_len[1] >= dst_len[1] &&
-         src_len[0] % dst_len[0] == 0 && src_len[1] % dst_len[1] == 0);
-
-    if (same_xy) {
+    if (weight_o2a_mf != nullptr && index_o2a_mf != nullptr) {
+        // Execute sparse conservative remap from REMORA SST to ERF layout
+        ApplyConservativeRemap(tmp, dst, *weight_o2a_mf, *index_o2a_mf, max_stencil_size,
+                               nullptr, dst_land_mask);
+    } else {
+        // Fallback for un-stenciled or synthetic runs
+        dst.setVal(zero);
         dst.ParallelCopy(tmp, 0, 0, 1);
-        return;
     }
-
-    if (dst_finer) {
-        const IntVect ratio(dst_len[0] / src_len[0], dst_len[1] / src_len[1], 1);
-        const auto src_geom = make_unit_slab_geometry(src_domain);
-        const auto dst_geom = make_unit_slab_geometry(dst_domain);
-        const auto bcs = make_internal_bcs(1);
-        amrex::InterpFromCoarseLevel(dst, IntVect(0), IntVect(0),
-                                     tmp, 0, 0, 1,
-                                     src_geom, dst_geom,
-                                     ratio, &pc_interp, bcs, 0);
-        return;
-    }
-
-    if (dst_coarser) {
-        AverageDownThenParallelCopy(tmp, dst);
-        return;
-    }
-
-    amrex::Abort("REMORA::PackSurfaceState requires matching horizontal extents and integer-ratio atmosphere/ocean slab resolutions.");
 }
 
 /*
  * \brief Receives atmospheric states from the driver and applies unit conversions.
- *
- * Fills REMORA's internal forcing MultiFabs from states and records which
- * lanes were successfully updated in driver_atmos_state_from_driver.
- * Unit conversions applied: Pair Pa to mb; Tair K to Celsius.
- *
- * @param[in] states  ATM2OCN forcing slab buffer from the driver (Warner et al.
- *                    2010, Block B state-passing contract), indexed by AtmosState.
- *                    Expected units per lane:
- *                    Uwind/Vwind: 10-m winds [m/s];
- *                    Pair: mean sea-level pressure [Pa, converted to mb];
- *                    Qair: near-surface specific humidity [kg/kg];
- *                    Tair: 2-m air temperature [K, converted to degC];
- *                    Cloud: cloud fraction [0-1];
- *                    Rain: precipitation rate [kg/m^2/s];
- *                    SWrad/LWrad: downwelling shortwave/longwave radiation [W/m^2].
- *                    Missing lanes (null pointer or index out of range) are skipped;
- *                    driver_atmos_state_from_driver tracks populated lanes for the
- *                    bulk-flux parameterization fallback logic.
- * @param[in] time    Current ocean model time (unused; retained for driver
- *                    interface conformance).
  */
 void
 REMORA::ApplyAtmosphericStates (const Vector<MultiFab*>& states, Real /*time*/)
@@ -458,22 +467,38 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     MultiFab lwflux_tmp(vec_lrflx[0]->boxArray(), vec_lrflx[0]->DistributionMap(), 1,
                         vec_lrflx[0]->nGrowVect());
 
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::TauX], tau_x_tmp, geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected TauX slab to match REMORA u-face layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::TauY], tau_y_tmp, geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected TauY slab to match REMORA v-face layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::SHflux], shflux_tmp, geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected SHflux slab to match REMORA rho layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::LHflux], lhflux_tmp, geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected LHflux slab to match REMORA rho layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::LWrad], lwflux_tmp, geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected LWrad slab to match REMORA rho layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::SWrad], *vec_srflx[0], geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected SWrad slab to match REMORA rho layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::Rain], *vec_rain[0], geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected rain slab to match REMORA rho layout.");
-    CopyDriverSlabToRemoraLayout(*states[AtmosFluxes::Evap], *vec_evap[0], geom[0],
-                                 "REMORA::ApplyAtmosphericFluxes expected evap slab to match REMORA rho layout.");
+    tau_x_tmp.setVal(zero);
+    tau_x_tmp.ParallelCopy(*states[AtmosFluxes::TauX], 0, 0, 1);
+    tau_x_tmp.FillBoundary(geom[0].periodicity());
+
+    tau_y_tmp.setVal(zero);
+    tau_y_tmp.ParallelCopy(*states[AtmosFluxes::TauY], 0, 0, 1);
+    tau_y_tmp.FillBoundary(geom[0].periodicity());
+
+    shflux_tmp.setVal(zero);
+    shflux_tmp.ParallelCopy(*states[AtmosFluxes::SHflux], 0, 0, 1);
+    shflux_tmp.FillBoundary(geom[0].periodicity());
+
+    lhflux_tmp.setVal(zero);
+    lhflux_tmp.ParallelCopy(*states[AtmosFluxes::LHflux], 0, 0, 1);
+    lhflux_tmp.FillBoundary(geom[0].periodicity());
+
+    lwflux_tmp.setVal(zero);
+    lwflux_tmp.ParallelCopy(*states[AtmosFluxes::LWrad], 0, 0, 1);
+    lwflux_tmp.FillBoundary(geom[0].periodicity());
+
+    vec_srflx[0]->setVal(zero);
+    vec_srflx[0]->ParallelCopy(*states[AtmosFluxes::SWrad], 0, 0, 1);
+    vec_srflx[0]->FillBoundary(geom[0].periodicity());
+
+    vec_rain[0]->setVal(zero);
+    vec_rain[0]->ParallelCopy(*states[AtmosFluxes::Rain], 0, 0, 1);
+    vec_rain[0]->FillBoundary(geom[0].periodicity());
+
+    vec_evap[0]->setVal(zero);
+    vec_evap[0]->ParallelCopy(*states[AtmosFluxes::Evap], 0, 0, 1);
+    vec_evap[0]->FillBoundary(geom[0].periodicity());
+    
     vec_lrflx[0]->setVal(zero);
     vec_lhflx[0]->setVal(zero);
     vec_shflx[0]->setVal(zero);
@@ -487,7 +512,6 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         Box ubxD = ubx;
         ubxD.makeSlab(2,0);
         ParallelFor(ubxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            // Sign on stress is flipped relative to ERF
             sustr(i,j,0) = -tau_x(i,j,0) / rho0 * msku(i,j,0);
         });
     }
@@ -501,7 +525,6 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         vbxD.makeSlab(2,0);
 
         ParallelFor(vbxD, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            // Sign on stress is flipped relative to ERF
             svstr(i,j,0) = -tau_y(i,j,0) / rho0 * mskv(i,j,0);
         });
     }
@@ -524,7 +547,6 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
         gbx2D.makeSlab(2,0);
 
         ParallelFor(gbx2D, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
-            // ERF exports flux lanes in native surface-flux units; convert once at ingest.
             lrflx(i,j,0) = lwflux(i,j,0) * Hscale2;
             lhflx(i,j,0) = -lhflux(i,j,0) * Hscale2;
             shflx(i,j,0) = -shflux(i,j,0) * Hscale2;

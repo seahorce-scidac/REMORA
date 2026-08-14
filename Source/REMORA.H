@@ -120,6 +120,7 @@ public:
     /** \brief Initialize multilevel data */
     void InitData ();
     amrex::Real EvolveOneStep (amrex::Real time, amrex::Real dt_request);
+    void SetStartTime (amrex::Real time) noexcept { start_time = time; }
 
     void ConfigureDriverAtmosToOceanCoupling (bool use_coupling_driver,
                                               bool use_two_way_coupling,
@@ -134,6 +135,28 @@ public:
                                      amrex::DistributionMapping& dm) const;
     void GetAtmosToOceanVFaceLayout (amrex::BoxArray& ba,
                                      amrex::DistributionMapping& dm) const;
+    // Returns pointers to level-0 psi-point coordinate MultiFabs (vec_xp/vec_yp)
+    // used to build atmos->ocean remap weights. Sets both to nullptr if
+    // unavailable in the current configuration rather than aborting.
+    void GetAtmosToOceanPsiCoordinates (const amrex::MultiFab*& x_psi,
+                                        const amrex::MultiFab*& y_psi) const;
+
+    // Returns pointers to level-0 psi-point spherical coordinate MultiFabs
+    // (vec_lonp/vec_latp, degrees east/north). These are the corner arrays a
+    // coupled driver needs when the two solvers do not share a projected
+    // Cartesian frame: SCRIP/COAWST likewise remaps in lon/lat and reads
+    // lon_psi/lat_psi for spherical ROMS grids (see COAWST
+    // Lib/SCRIP_COAWST/read_roms.f). Sets both to nullptr when the grid file
+    // carried no spherical coordinates rather than aborting.
+    void GetAtmosToOceanPsiLonLat (const amrex::MultiFab*& lon_psi,
+                                   const amrex::MultiFab*& lat_psi) const;
+
+    // Returns the level-0 wet/dry masks (1 = wet, 0 = land) at rho, u-face,
+    // and v-face points, used by the driver to exclude land cells from
+    // remap destination stencils. Sets pointers to nullptr if unavailable.
+    void GetLandSeaMasks (const amrex::MultiFab*& mskr,
+                          const amrex::MultiFab*& msku,
+                          const amrex::MultiFab*& mskv) const;
 
     /** \brief Init (NOT restart or regrid) */
     void init_only (int lev, amrex::Real time);
@@ -160,7 +183,14 @@ public:
      * @param[in    ] time   Current ocean model time (unused; retained for driver
      *                       interface conformance).
      */
-    void PackSurfaceState (amrex::Vector<amrex::MultiFab*>& state, amrex::Real time);
+    // dst_land_mask is the ERF land mask (1 = land, 0 = water) on the
+    // destination (ERF) layout; destination cells over land are zeroed.
+    // Pass nullptr to skip masking.
+    void PackSurfaceState (amrex::Vector<amrex::MultiFab*>& state, amrex::Real time,
+                          const amrex::MultiFab* weight_o2a_mf,
+                          const amrex::iMultiFab* index_o2a_mf,
+                          int max_stencil_size,
+                          const amrex::iMultiFab* dst_land_mask = nullptr);
 
     /**
      * \brief Receives atmospheric states from the driver and applies unit conversions.
@@ -548,6 +578,13 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_xp;
     /** \brief y_grid on psi-points (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_yp;
+
+    /** \brief longitude on psi-points (2D, degrees east); only filled when the
+     *         grid NetCDF file carries lon_psi */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_lonp;
+    /** \brief latitude on psi-points (2D, degrees north); only filled when the
+     *         grid NetCDF file carries lat_psi */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_latp;
 
     /** \brief d(1/n)/d(xi) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_dndx;

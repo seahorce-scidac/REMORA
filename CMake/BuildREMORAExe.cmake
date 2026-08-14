@@ -101,10 +101,12 @@ function(build_remora_lib remora_lib_name)
     # In library-only superbuild mode, archive extraction + weak amrex_probinit
     # requires a forced reference path (see REMORA.cpp/REMORA_Prob.cpp link anchor).
     # Avoid cross-application symbol collision when REMORA and ERF are linked
-    # into one parent executable by forcing explicit REMORA-prefixed names.
+    # into one parent executable by forcing explicit REMORA-prefixed names,
+    # including the shared NetCDF utility namespace.
     target_compile_definitions(${remora_lib_name} PRIVATE
                    ERF_REMORA_FORCE_PROBINIT_LINK=1
-                   amrex_probinit=remora_probinit)
+                   amrex_probinit=remora_probinit
+                   ncutils=remora_ncutils)
     target_compile_definitions(${remora_lib_name} PRIVATE
                    Problem=REMORAProblem
                    ProblemBase=REMORAProblemBase
