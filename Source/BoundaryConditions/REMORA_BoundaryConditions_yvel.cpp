@@ -43,6 +43,7 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
     std::memcpy(bcrs_d.data(), bcrs.data(), sizeof(BCRec)*ncomp);
 #endif
     const amrex::BCRec* bc_ptr = bcrs_d.data();
+    const amrex::BCRec* bc_ptr_host = bcrs.data();
     const auto* bc_extdir_vals_ptr = m_bc_extdir_vals_d.data();
 
     GeometryData const& geomdata = m_geom.data();
@@ -54,8 +55,8 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
 
     for (int n=0; n < ncomp; ++n) {
         for (int d=0; d < AMREX_SPACEDIM; ++d) {
-            if ((bc_ptr[n].lo(d) == REMORABCType::orlanski_rad ||
-                bc_ptr[n].hi(d) == REMORABCType::orlanski_rad) &&
+            if ((bc_ptr_host[n].lo(d) == REMORABCType::orlanski_rad ||
+                bc_ptr_host[n].hi(d) == REMORABCType::orlanski_rad) &&
                     !have_calc) {
                 Abort("Requested radiation boundary condition but calc_arr is not defined");
             }
