@@ -159,7 +159,10 @@ REMORA::init_data_from_netcdf (int lev)
     } // mf
     } // omp
 
-    cons_new[lev]->setVal(zero, Tracer_comp, nscalar, cons_new[lev]->nGrowVect());
+    // Zero every tracer past salinity. The passive scalars stay zero unless a problem
+    // sets them; the biology block is overwritten by init_biology_ic immediately after,
+    // so zeroing it here only guards against a partially filled biology IC.
+    cons_new[lev]->setVal(zero, Tracer_comp, ncons - Tracer_comp, cons_new[lev]->nGrowVect());
 }
 
 void
@@ -170,8 +173,8 @@ REMORA::init_biology_from_netcdf (int lev)
     }
 
     Vector<std::string> biology_names;
-    biology_names.reserve(nscalar);
-    for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+    biology_names.reserve(nbio);
+    for (int icomp = Bio_comp; icomp < ncons; ++icomp) {
         biology_names.push_back(cons_names[icomp]);
     }
 
@@ -184,7 +187,7 @@ REMORA::init_biology_from_netcdf (int lev)
                                  biology_names, NC_biology_fab[idx]);
     }
 
-    MultiFab mf_biology(*cons_new[lev], make_alias, Tracer_comp, nscalar);
+    MultiFab mf_biology(*cons_new[lev], make_alias, Bio_comp, nbio);
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -236,7 +239,7 @@ REMORA::init_data_full_domain_from_netcdf ()
     } // mf
     } // omp
 
-    vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp, nscalar, vec_cons_full_domain[hires_init_level]->nGrowVect());
+    vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp, ncons - Tracer_comp, vec_cons_full_domain[hires_init_level]->nGrowVect());
 
     // Average down to fill levels below hires_grid_level. Use a special average_down so
     // grow cells get populated by averaged down fine data
@@ -256,8 +259,8 @@ REMORA::init_biology_full_domain_from_netcdf ()
     }
 
     Vector<std::string> biology_names;
-    biology_names.reserve(nscalar);
-    for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+    biology_names.reserve(nbio);
+    for (int icomp = Bio_comp; icomp < ncons; ++icomp) {
         biology_names.push_back(cons_names[icomp]);
     }
 
@@ -269,7 +272,7 @@ REMORA::init_biology_full_domain_from_netcdf ()
                                          biology_names, NC_biology_fab[0],
                                          cum_ref_ratios[hires_init_level]);
 
-    MultiFab mf_biology(*vec_cons_full_domain[hires_init_level], make_alias, Tracer_comp, nscalar);
+    MultiFab mf_biology(*vec_cons_full_domain[hires_init_level], make_alias, Bio_comp, nbio);
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())

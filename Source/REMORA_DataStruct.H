@@ -124,7 +124,7 @@ struct SolverChoice {
     }
 
     /** \brief read in and initialize parameters */
-    void init_params(int ncons, const amrex::Vector<std::string>& cons_names)
+    void init_params(int ncons, int nscalar, const amrex::Vector<std::string>& cons_names)
     {
         amrex::ParmParse pp(pp_prefix);
 
@@ -186,8 +186,18 @@ struct SolverChoice {
         // If we aren't doing rivers, set all of these flags to false
         do_rivers_cons[Temp_comp  ] = do_rivers ? do_rivers_temp : false;
         do_rivers_cons[Salt_comp  ] = do_rivers ? do_rivers_salt : false;
-        for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+        // do_rivers_scalar applies to the passive (dye) scalars only. Biology tracers sit
+        // past them in the state and have no river source: the river file carries a single
+        // river_scalar and no per-biology-tracer equivalent.
+        for (int icomp = Tracer_comp; icomp < Tracer_comp + nscalar; ++icomp) {
             do_rivers_cons[icomp] = do_rivers ? do_rivers_scalar : false;
+        }
+        // Only the first passive scalar has a series built for it (from river_scalar), so
+        // asking for river input on additional dye tracers would dereference a null series.
+        if (do_rivers && do_rivers_scalar && nscalar > 1) {
+            amrex::Abort("remora.do_rivers_scalar is only supported for a single passive "
+                         "scalar; the river file provides one river_scalar field but "
+                         "remora.nscalar is " + std::to_string(nscalar));
         }
 
         pp.queryAdd("init_l1ad_T", init_l1ad_T);

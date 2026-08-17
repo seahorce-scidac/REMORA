@@ -35,7 +35,7 @@
             }
 
             // Set tracer = 0 everywhere
-            state(i, j, k, Tracer_comp) = zero;
+            if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = zero; }
         });
 
         // Construct a box that is on x-faces

@@ -21,10 +21,21 @@ Enable the module in the inputs file with:
 
    remora.biology_model = fennel
 
-The values ``none`` and ``off`` disable biology. When Fennel is enabled,
-REMORA sets ``remora.nscalar`` from the active Fennel tracer set. Users usually
-should not set ``remora.nscalar`` manually. If it is set, it must match the
-active Fennel tracer count or REMORA will abort during initialization.
+The values ``none`` and ``off`` disable biology. The biology tracer count is set by
+the active Fennel tracer set and is independent of ``remora.nscalar``, which counts
+passive (dye) scalars only. A run may carry both: the state is laid out as
+temperature, salinity, the passive scalars, then the biology tracers. With biology
+active ``remora.nscalar`` defaults to 0, so a Fennel run carries no dye unless it
+asks for some.
+
+.. warning::
+
+   ``remora.nscalar`` previously had to equal the biology tracer count and was a
+   consistency check. It now counts dye scalars *in addition to* biology, so an
+   input file carrying ``remora.nscalar = 11`` alongside Fennel will now allocate
+   eleven dye tracers on top of the biology ones. Remove the setting to get the
+   previous state layout. REMORA prints the full component list whenever a run
+   carries both dye and biology.
 
 A minimal nitrogen-only configuration is:
 
@@ -86,8 +97,8 @@ The tracer count is additive:
 
 .. code:: text
 
-   nscalar = 7 + (po4 ? 1 : 0) + (carbon ? 4 : 0) + (oxygen ? 1 : 0) + (odu ? 1 : 0)
-   ncons = Tracer_comp + nscalar
+   nbio  = 7 + (po4 ? 1 : 0) + (carbon ? 4 : 0) + (oxygen ? 1 : 0) + (odu ? 1 : 0)
+   ncons = Tracer_comp + remora.nscalar + nbio
 
 For example, nitrogen-only Fennel uses 7 biology tracers, PO4-only Fennel uses
 8, carbon+oxygen+ODU uses 13, and all four optional tracer groups use 14.

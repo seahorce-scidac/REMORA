@@ -431,8 +431,9 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
     const bool use_salt = use_oxygen || use_carbon;
     const bool do_bulk_flux = solverChoice.bulk_fluxes;
 
-    // Set biological tracer component identifiers.
-    const auto bio_comp = REMORABiology::Fennel::components(parms);
+    // Set biological tracer component identifiers. The biology block starts after the
+    // passive scalars, so this is Tracer_comp only when the run carries no dye.
+    const auto bio_comp = REMORABiology::Fennel::components(parms, Bio_comp);
 
 #ifdef REMORA_USE_BIOLOGY_DIAG
     // Path B half of the frozen diagnostic contract. Tag names, field order

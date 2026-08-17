@@ -809,11 +809,13 @@ List of Parameters
 |                                          |                                        |                        |                |
 |                                          | domain).                               |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
-| **remora.nscalar**                       | Number of passive scalars              | Integer >= 1           | 1              |
+| **remora.nscalar**                       | Number of passive (dye) scalars        | Integer >= 0           | 1, or 0 when   |
 |                                          |                                        |                        |                |
-|                                          | in addition to temperature             |                        |                |
+|                                          | in addition to temperature and         |                        | a biology      |
 |                                          |                                        |                        |                |
-|                                          | and salinity.                          |                        |                |
+|                                          | salinity. Does not count biology       |                        | model is       |
+|                                          |                                        |                        |                |
+|                                          | tracers.                               |                        | active         |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.tnu2_scalar**                   | Constant horizontal diffusivity,       | Real number            | 0.0            |
 |                                          |                                        |                        |                |
@@ -860,16 +862,22 @@ Passive scalars
 ---------------
 
 REMORA always includes temperature and salinity as the first two conserved
-state variables. Passive scalars begin at component ``Tracer_comp = 2``.
+state variables. Passive scalars begin at component ``Tracer_comp = 2``, and the
+biology tracers, if any, follow them:
+
+.. code:: text
+
+   temp  salt  | tracer  tracer_1  ...  | NO3  NH4  ...
+   0     1     | Tracer_comp = 2        | Bio_comp = 2 + nscalar
 
 The total number of conserved components is
 
 .. math::
 
-   ncons = 2 + \texttt{remora.nscalar}
+   ncons = 2 + \texttt{remora.nscalar} + n_{bio}
 
-so ``remora.nscalar`` counts only the passive scalars, not temperature or
-salinity.
+so ``remora.nscalar`` counts only the passive scalars — not temperature,
+salinity, or biology tracers.
 
 For example:
 
@@ -878,6 +886,29 @@ For example:
 
 Additional passive scalars continue with the names ``tracer_2``,
 ``tracer_3``, and so on.
+
+``remora.nscalar`` defaults to 1, or to 0 when a biology model is active: the
+default of 1 exists so that a run always carries something beyond temperature and
+salinity, and biology already satisfies that. Zero is a valid setting on its own,
+giving a run with temperature and salinity only. Dye and biology coexist freely, so
+``remora.nscalar = 2`` with a Fennel model carrying 11 tracers gives 15 components
+in the order shown above. See :ref:`sec:Fennel`.
+
+All passive scalars share their mixing parameters: ``remora.tnu2_scalar`` for
+horizontal diffusivity. The current analytic vertical-mixing hooks in ``Source/Prob/``
+assign the same ``Akt`` to every dye tracer, but this can be changed in other problems.
+The current analytic *initial condition* hooks seed the first dye
+tracer only, so with more than one dye the rest start at zero. Again, this can be
+changed by the user in other problems as needed.
+
+.. note::
+
+   A few features act on the first passive scalar specifically rather than on all
+   of them: the ``remora.sum_interval`` scalar diagnostic, refinement on the field
+   name ``tracer``, and the NaN check in the NetCDF plotfile writer.
+   ``remora.do_rivers_scalar`` also supports a single passive scalar only, and
+   aborts if ``remora.nscalar`` is greater than one, because the river file
+   supplies one ``river_scalar`` field.
 
 Scaled-to-grid horizontal mixing
 --------------------------------

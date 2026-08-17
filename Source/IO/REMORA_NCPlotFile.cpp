@@ -678,7 +678,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     if (plotMF->contains_nan(Salt_comp,1) || plotMF->contains_inf(Salt_comp,1)) {
         amrex::Abort("Found while writing output: Salinity contains nan or inf");
     }
-    if (plotMF->contains_nan(Tracer_comp,1) || plotMF->contains_inf(Tracer_comp,1)) {
+    if (nscalar > 0 && plotMF->nComp() > Tracer_comp &&
+        (plotMF->contains_nan(Tracer_comp,1) || plotMF->contains_inf(Tracer_comp,1))) {
         amrex::Abort("Found while writing output: Passive tracer contains nan or inf");
     }
     if (xvel_new[lev]->contains_nan() || xvel_new[lev]->contains_inf()) {

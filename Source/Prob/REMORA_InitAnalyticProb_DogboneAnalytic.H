@@ -27,7 +27,7 @@
                 state(i,j,k,Temp_comp)= (x_r(i,j,0) < Real(1000.)) ? Real(5.0) : Real(10.0);
 
                 // Set tracer = 0 everywhere
-                state(i, j, k, Tracer_comp) = zero;
+                if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = zero; }
             });
         } else {
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
@@ -41,7 +41,7 @@
                 state(i,j,k,Temp_comp)= Real(10.0);
 
                 // Set tracer = 0 everywhere
-                state(i, j, k, Tracer_comp) = zero;
+                if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = zero; }
             });
         }
 

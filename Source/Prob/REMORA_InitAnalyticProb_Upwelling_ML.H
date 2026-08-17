@@ -47,7 +47,7 @@
             const Real radsq = rad*rad;
 
             // Set tracer = 0 everywhere
-            state(i, j, k, Tracer_comp) = std::exp(-r2/(two*radsq));
+            if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = std::exp(-r2/(two*radsq)); }
         });
 
         const Box& xbx = surroundingNodes(bx,0);

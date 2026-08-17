@@ -29,7 +29,10 @@ REMORA::sum_integrated_quantities(Real time)
     Real volume_sl = zero;
     Real max_vel_sl = zero;
 
-    scalar_sl = volWgtSumMF(0,*cons_new[0],Tracer_comp   ,local,false);
+    // Tracer_comp only exists when the run carries at least one passive scalar
+    if (nscalar > 0) {
+        scalar_sl = volWgtSumMF(0,*cons_new[0],Tracer_comp   ,local,false);
+    }
 
     for (int lev = 0; lev <= finest_level; lev++)
     {
@@ -62,7 +65,9 @@ REMORA::sum_integrated_quantities(Real time)
           max_vel_sl = max_vel_local;
         }
 
-        scalar_ml += volWgtSumMF(lev,*cons_new[lev],Tracer_comp   ,local,true);
+        if (nscalar > 0) {
+            scalar_ml += volWgtSumMF(lev,*cons_new[lev],Tracer_comp   ,local,true);
+        }
         kineng_ml += volWgtSumMF(lev,kineng_mf     ,             0,local,true);
         volume_ml += volWgtSumMF(lev,ones_mf       ,             0,local,true);
         max_vel_ml = std::max(max_vel_ml, max_vel_local);

@@ -47,7 +47,7 @@
             }
 
             // Single circle of tracer (default)
-            state(i, j, k, Tracer_comp) = std::exp(-r2/(2.*radsq));
+            if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = std::exp(-r2/(2.*radsq)); }
 
             // Donut of tracer
             //state(i, j, k, Tracer_comp) = 1.25 * (std::exp(-r2/(2.*radsq)) - std::exp(-r2/(2*rad_inner_sq)));

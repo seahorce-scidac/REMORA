@@ -254,15 +254,19 @@ REMORA::init_scalar_metadata ()
     cons_names.emplace_back("temp");
     cons_names.emplace_back("salt");
 
+    // Passive (dye) scalars come first, then the biology block, matching the component
+    // layout: temp, salt, tracer, tracer_1, ..., NO3, NH4, ...
+    if (nscalar > 0) {
+        cons_names.emplace_back("tracer");
+        for (int i = 1; i < nscalar; ++i) {
+            cons_names.emplace_back("tracer_" + std::to_string(i));
+        }
+    }
+
     if (REMORABiology::has_biology(biology_model)) {
         const auto bio_names = REMORABiology::tracer_names(biology_model, fennel_params);
         for (const auto& name : bio_names) {
             cons_names.emplace_back(name);
-        }
-    } else {
-        cons_names.emplace_back("tracer");
-        for (int i = 1; i < nscalar; ++i) {
-            cons_names.emplace_back("tracer_" + std::to_string(i));
         }
     }
 
@@ -1509,7 +1513,9 @@ REMORA::init_only (int lev, Real time)
             river_source_cons[Temp_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz));
             river_source_cons[Temp_comp]->Initialize();
         }
-        if (solverChoice.do_rivers_cons[Tracer_comp]) {
+        // Guarded on nscalar because with no passive scalar Tracer_comp is the first
+        // biology tracer, which must not be fed from river_scalar.
+        if (nscalar > 0 && solverChoice.do_rivers_cons[Tracer_comp]) {
             river_source_cons[Tracer_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz));
             river_source_cons[Tracer_comp]->Initialize();
         }
@@ -1688,24 +1694,35 @@ REMORA::ReadParameters ()
         }
 #endif
 
-        const int nbio = static_cast<int>(REMORABiology::tracer_names(biology_model, fennel_params).size());
-        if (pp.contains("nscalar")) {
-            int requested_nscalar = nscalar;
-            pp.get("nscalar", requested_nscalar);
-            if (requested_nscalar != nbio) {
-                amrex::Abort("remora.nscalar must match the active biology tracer count for remora.biology_model="
-                             + biology_model_string);
-            }
-        }
-        nscalar = nbio;
-    } else {
+        // Biology tracers are counted separately from the passive scalars, so a run can
+        // carry dye and biology at once. Without an explicit remora.nscalar a biology run
+        // gets no dye: the historical default of one exists so that a run always carries
+        // something beyond temp and salt, and biology already satisfies that.
+        nbio = static_cast<int>(REMORABiology::tracer_names(biology_model, fennel_params).size());
+        nscalar = 0;
         pp.queryAdd("nscalar", nscalar);
-        if (nscalar < 1) {
-            amrex::Abort("remora.nscalar must be at least 1");
+    } else {
+        nbio = 0;
+        pp.queryAdd("nscalar", nscalar);
+    }
+    if (nscalar < 0) {
+        amrex::Abort("remora.nscalar must be non-negative");
+    }
+    Bio_comp = Tracer_comp + nscalar;
+    ncons = Tracer_comp + nscalar + nbio;
+    init_scalar_metadata();
+
+    // remora.nscalar used to be required to equal the biology tracer count; it now counts
+    // dye only and adds to it. Print the layout so a run carrying both is unmistakable,
+    // and an input written against the old meaning is caught by eye rather than by a
+    // surprising component count much later.
+    if (nbio > 0 && nscalar > 0) {
+        amrex::Print() << "Carrying " << nscalar << " passive scalar(s) and " << nbio
+                       << " biology tracer(s), for " << ncons << " cell-centered components: ";
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            amrex::Print() << cons_names[icomp] << (icomp + 1 < ncons ? " " : "\n");
         }
     }
-    ncons = Tracer_comp + nscalar;
-    init_scalar_metadata();
 
     pp.queryAdd("check_file", check_file);
     pp.queryAdd("check_int", check_int);
@@ -1942,7 +1959,7 @@ REMORA::ReadParameters ()
         }
 
     }
-    solverChoice.init_params(ncons, cons_names);
+    solverChoice.init_params(ncons, nscalar, cons_names);
 
     // NOTE: This feature is not yet implemented because it will require passing x,y,z to prob functions.
     // Currently these are accessed by passing a pointer to the REMORA class. However, this requires the

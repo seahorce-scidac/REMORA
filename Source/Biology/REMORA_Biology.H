@@ -185,9 +185,15 @@ struct Components {
     int odu = -1;
 };
 
-inline Components components (FennelParameters const& parameters) noexcept
+/** \brief Map the Fennel tracers onto cons components starting at \p base.
+ *
+ * \p base is REMORA::bio_comp_start(), which is Tracer_comp plus the number of passive
+ * (dye) scalars. Passing it explicitly keeps biology working when a run carries dye as
+ * well, since the biology block then no longer starts at Tracer_comp.
+ */
+inline Components components (FennelParameters const& parameters, int base) noexcept
 {
-    int comp = Tracer_comp;
+    int comp = base;
     Components c;
     c.no3 = comp++;
     c.nh4 = comp++;

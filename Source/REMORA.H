@@ -1581,9 +1581,17 @@ private:
     /** \brief If set, restart from this checkpoint file */
     std::string restart_chkfile = "";
 
-    /** \brief Number of non-temperature/salinity scalars carried in the state */
+    /** \brief Number of passive (dye) scalars carried in the state, beyond temperature
+     *         and salinity. Does not count biology tracers. */
     int nscalar = 1;
-    /** \brief Number of conserved scalars in the state (temperature + salt + extra scalars) */
+    /** \brief Number of biology tracers, set by the active biology model. Zero when no
+     *         biology model is active. */
+    int nbio = 0;
+    /** \brief First cons component of the biology block, i.e. Tracer_comp + nscalar.
+     *         The state is laid out as temp, salt, the passive scalars, then biology. */
+    int Bio_comp = Tracer_comp;
+    /** \brief Number of conserved scalars in the state
+     *         (temperature + salt + passive scalars + biology tracers) */
     int ncons = Tracer_comp + 1;
     /** \brief Active biology package */
     REMORABiology::BiologyModel biology_model = REMORABiology::BiologyModel::none;
@@ -1876,6 +1884,15 @@ public:
 
     /** \brief Accessor method for t_old to expose to outside classes */
     amrex::Real get_t_old(int lev) const;
+
+    /** \brief First cons component of the biology block. Problem setups need this to
+     *         write biology initial conditions, since the passive scalars sit between
+     *         salinity and the biology tracers. */
+    int bio_comp_start () const noexcept { return Bio_comp; }
+    /** \brief Number of biology tracers carried in the state */
+    int num_bio () const noexcept { return nbio; }
+    /** \brief Number of passive (dye) scalars carried in the state */
+    int num_scalar () const noexcept { return nscalar; }
 
     /** \brief Evaluate stability function psi for wind speed */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE

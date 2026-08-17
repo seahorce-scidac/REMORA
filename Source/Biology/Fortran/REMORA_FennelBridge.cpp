@@ -66,12 +66,20 @@ REMORA::advance_biology_fortran (int lev, MultiFab const& mf_cons_old,
                      "uwind/vwind (bulk_fluxes) or sustr/svstr");
     }
 
-    // ROMS tracer index equals REMORA component index plus one throughout:
-    // itemp=1/Temp_comp=0, isalt=2/Salt_comp=1, iNO3_=3/Tracer_comp=2. The
-    // Fennel tracer ordering in REMORA_Biology.H::components() matches
-    // fennel_mod.h:527-561 exactly, so a single offset covers all of them.
+    // The ROMS buffer is temperature, salinity, then the biology tracers packed
+    // contiguously: buffer slot 0 is itemp, slot 1 is isalt, slot 2 is iNO3_, and so on.
+    // REMORA may carry passive (dye) scalars between salinity and the biology block, so
+    // the buffer slot maps to a REMORA component through cons_comp_for_slot below rather
+    // than being the component itself. The Fennel ordering in
+    // REMORA_Biology.H::components() matches fennel_mod.h:527-561 exactly, so one rule
+    // covers every biology tracer.
     const int nbt  = REMORABiology::Fennel::num_tracers(parms);
     const int ntrc = nbt + 2;
+
+    const int l_bio_comp = Bio_comp;
+    auto cons_comp_for_slot = [l_bio_comp] (int slot) noexcept {
+        return (slot < Tracer_comp) ? slot : l_bio_comp + (slot - Tracer_comp);
+    };
 
     // ROMS N(ng) is a level count; REMORA N is the last valid k index.
     const int nz = N + 1;
@@ -185,9 +193,9 @@ REMORA::advance_biology_fortran (int lev, MultiFab const& mf_cons_old,
             }
         }
 
-        // Buffer slot n is ROMS tracer n+1, which is REMORA component n.
+        // Buffer slot n is ROMS tracer n+1; cons_comp_for_slot skips any dye scalars.
         for (int n = 0; n < ntrc; ++n) {
-            const int comp = n;
+            const int comp = cons_comp_for_slot(n);
             for (int k = 0; k < nz; ++k) {
                 for (int j = jlo; j <= jhi; ++j) {
                     for (int i = ilo; i <= ihi; ++i) {
@@ -235,7 +243,7 @@ REMORA::advance_biology_fortran (int lev, MultiFab const& mf_cons_old,
         // biology_tile updates only the biology tracers, so only those are
         // written back; temperature and salinity in cons_new stay untouched.
         for (int n = Tracer_comp; n < ntrc; ++n) {
-            const int comp = n;
+            const int comp = cons_comp_for_slot(n);
             for (int k = 0; k < nz; ++k) {
                 for (int j = jlo; j <= jhi; ++j) {
                     for (int i = ilo; i <= ihi; ++i) {

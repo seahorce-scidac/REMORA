@@ -41,7 +41,7 @@
             }
 
             // Set tracer = 0 everywhere
-            state(i, j, k, Tracer_comp) = zero;
+            if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = zero; }
         });
 
         const Box& xbx = surroundingNodes(bx,0);

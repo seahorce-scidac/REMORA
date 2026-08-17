@@ -49,7 +49,7 @@
             const Real rad = Real(0.1) * (prob_hi[0]-prob_lo[0]);
             const Real radsq = rad*rad;
 
-            state(i, j, k, Tracer_comp) = (r2 < radsq) ? one : zero;
+            if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = (r2 < radsq) ? one : zero; }
         });
 
         // Construct a box that is on x-faces

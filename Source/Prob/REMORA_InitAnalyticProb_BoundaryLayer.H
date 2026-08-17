@@ -24,7 +24,7 @@
             state(i,j,k,Temp_comp)=T0+Real(6.25)*val1;
             state(i,j,k,Salt_comp)=S0-Real(0.75)*val1;
 
-            state(i, j, k, Tracer_comp) = zero;
+            if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = zero; }
         });
 
         const Box& xbx = surroundingNodes(bx,0);

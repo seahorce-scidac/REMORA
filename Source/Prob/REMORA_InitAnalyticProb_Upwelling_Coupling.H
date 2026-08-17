@@ -47,7 +47,7 @@
                 state(i, j, k, Salt_comp) = salt;
             }
 
-            state(i, j, k, Tracer_comp) = Real(0.0);
+            if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = Real(0.0); }
         });
 
         const Box& xbx = surroundingNodes(bx,0);

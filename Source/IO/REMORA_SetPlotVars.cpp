@@ -47,7 +47,8 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
     const bool expand_fennel = containerHasElement(plot_var_names_3d, "fennel") &&
                                REMORABiology::has_biology(biology_model);
     if (expand_fennel) {
-        for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+        // "fennel" means the biology tracers only, not any passive scalars ahead of them
+        for (int icomp = Bio_comp; icomp < ncons; ++icomp) {
             if (!containerHasElement(plot_var_names_3d, cons_names[icomp])) {
                 plot_var_names_3d.push_back(cons_names[icomp]);
             }
@@ -223,7 +224,8 @@ REMORA::append3DPlotVariables (const std::string& pp_plot_var_names_3d)
             pp.get(pp_plot_var_names_3d.c_str(), nm, i);
             if (nm == "fennel") {
                 if (REMORABiology::has_biology(biology_model)) {
-                    for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+                    // "fennel" means the biology tracers only, not the passive scalars
+                    for (int icomp = Bio_comp; icomp < ncons; ++icomp) {
                         if (!containerHasElement(plot_var_names_3d, cons_names[icomp])) {
                             plot_var_names_3d.push_back(cons_names[icomp]);
                         }
