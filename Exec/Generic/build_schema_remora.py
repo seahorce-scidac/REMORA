@@ -665,6 +665,7 @@ class SchemaBuilder:
         string_vars: dict[str, str] = {
             # Common REMORA member prefix variables.
             "pp_prefix": "remora",
+            "remora_prefix": "remora",
         }
 
         string_assign = re.compile(
