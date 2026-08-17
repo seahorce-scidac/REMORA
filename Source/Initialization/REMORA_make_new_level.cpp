@@ -92,7 +92,9 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     if (lev > hires_grid_level) {
         FillCoarsePatch(lev, time, vec_h[lev].get(), vec_h[lev-1].get(),
-                        foextrap_bc());
+                        foextrap_periodic_bc(),BdyVars::null,0,false);
+        FillCoarsePatch(lev, time, vec_h[lev].get(), vec_h[lev-1].get(),
+                        foextrap_periodic_bc(),BdyVars::null,1,false);
     } else {
         set_bathymetry_averaged_down(lev);
     }
@@ -277,8 +279,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     // Handle bathymetry separately
     if (lev > hires_grid_level) {
-        FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), foextrap_bc(), BdyVars::null,0,false,false);
-        FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), foextrap_bc(), BdyVars::null,1,false,false);
+        FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), foextrap_periodic_bc(), BdyVars::null,0,false,false);
+        FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), foextrap_periodic_bc(), BdyVars::null,1,false,false);
         std::swap(tmp_h,           *vec_h[lev]);
     } else {
         set_bathymetry_averaged_down(lev);

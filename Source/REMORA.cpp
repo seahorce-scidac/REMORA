@@ -684,7 +684,10 @@ REMORA::set_bathymetry (int lev)
         // data that has been averaged down
         if (lev > hires_grid_level) {
             Real dummy_time = zero;
-            FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),BCVars::cons_bc);
+            FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),
+                    foextrap_periodic_bc(),BdyVars::null,0,false);
+            FillCoarsePatch(lev,dummy_time,vec_h[lev].get(), vec_h[lev-1].get(),
+                    foextrap_periodic_bc(),BdyVars::null,1,false);
         } else {
             set_bathymetry_averaged_down(lev);
             vec_h[lev]->FillBoundary(geom[lev].periodicity());
