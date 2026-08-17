@@ -867,15 +867,17 @@ List of Parameters
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.Akt_bak**                       | Minimum/initial value of Akt, applied  | Real number            | 1.0e-6         |
 |                                          |                                        |                        |                |
-|                                          | to every tracer.                       |                        |                |
+|                                          | to temperature and salinity.           |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
-| **remora.Akt_bak_{var}**                 | Minimum/initial value of Akt for one   | Real number            | value of       |
+| **remora.Akt_bak_temp**                  | Minimum/initial value of Akt for       | Real number            | value of       |
 |                                          |                                        |                        |                |
-|                                          | named tracer, overriding ``Akt_bak``.  |                        | ``Akt_bak``    |
+|                                          | temperature, overriding ``Akt_bak``.   |                        | ``Akt_bak``    |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.Akt_bak_salt**                  | Minimum/initial value of Akt for       | Real number            | value of       |
 |                                          |                                        |                        |                |
-|                                          | ``{var}`` is a tracer name: ``temp``,  |                        |                |
+|                                          | salinity, overriding ``Akt_bak``.      |                        | ``Akt_bak``    |
 |                                          |                                        |                        |                |
-|                                          | ``salt``, ``tracer``, ``NO3``, ...     |                        |                |
+|                                          | Passive tracers mix with this value.   |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.bulk_fluxes**                   | Whether to use bulk fluxes             | true / false           | false          |
 |                                          |                                        |                        |                |
@@ -918,28 +920,42 @@ giving a run with temperature and salinity only. Dye and biology coexist freely,
 ``remora.nscalar = 2`` with a Fennel model carrying 11 tracers gives 15 components
 in the order shown above. See :ref:`sec:Fennel`.
 
-Mixing coefficients are per tracer, as they are in ROMS. ``remora.tnu2_scalar`` and
-``remora.Akt_bak`` set the value every tracer takes by default -- biology tracers
-included -- and ``remora.tnu2_{var}`` / ``remora.Akt_bak_{var}`` override a single
-tracer by name:
+Horizontal and vertical mixing coefficients follow different rules, as they do in ROMS.
+
+*Horizontal* diffusivity is per tracer. ``remora.tnu2_scalar`` sets the value every
+tracer takes by default -- biology tracers included -- and ``remora.tnu2_{var}``
+overrides a single tracer by name:
 
 .. code:: python
 
    remora.tnu2_scalar  = 5.0      # every dye and biology tracer
    remora.tnu2_NO3     = 50.0     # except NO3
-   remora.Akt_bak      = 1.0e-6   # every tracer
-   remora.Akt_bak_temp = 1.0e-5   # except temperature
 
 ``remora.tnu2_temp`` and ``remora.tnu2_salt`` are the pre-existing spelling of the same
 per-name form for the first two components, and they still default to zero rather than
 to ``tnu2_scalar``.
 
+*Vertical* diffusivity is not. ROMS computes and stores ``Akt`` for the active tracers
+alone, and every passive tracer -- dye and biology alike -- mixes with the salinity
+coefficient (``ltrc=MIN(itrc,NAT)`` in ``pre_step3d`` and ``step3d_t``). REMORA does the
+same: ``vec_Akt`` has two components, and ``akt_comp()`` in ``REMORA_IndexDefines.H``
+performs the mapping.
+
+.. code:: python
+
+   remora.Akt_bak      = 1.0e-6   # temperature and salinity
+   remora.Akt_bak_temp = 1.0e-5   # except temperature
+   remora.Akt_bak_salt = 1.0e-6   # salinity, and every passive tracer with it
+
+There is deliberately no ``remora.Akt_bak_{var}`` for a passive tracer; supplying one
+is an error rather than a silent no-op, since it would name a coefficient that no part
+of the vertical diffusion reads.
+
 Note that ``tnu2`` is only consulted when ``remora.horizontal_mixing_type`` is
 ``constant`` or ``scaled_to_grid``; under the default ``analytic`` the problem's
 ``init_analytic_hmix`` hook sets the coefficients itself. The same is true of ``Akt``
-and ``init_analytic_vmix``. The analytic vertical-mixing hooks in ``Source/Prob/``
-assign the same ``Akt`` to every dye tracer and leave the biology tracers at
-``Akt_bak``, but this can be changed in other problems.
+and ``init_analytic_vmix``; the hooks in ``Source/Prob/`` set the two active-tracer
+components directly and ignore ``Akt_bak``, but this can be changed in other problems.
 
 The current analytic *initial condition* hooks seed the first dye tracer only, so with
 more than one dye the rest start at zero. Again, this can be changed by the user in

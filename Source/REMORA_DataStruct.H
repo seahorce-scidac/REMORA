@@ -396,8 +396,9 @@ struct SolverChoice {
         pp.queryAdd("coriolis_beta",coriolis_beta);
 
         pp.queryAdd("Akv_bak",Akv_bak);
-        // Minimum/initial vertical diffusivity for every tracer. Override one tracer with
-        // remora.Akt_bak_{var}; those keys are resolved below, once cons_names is in scope.
+        // Minimum/initial vertical diffusivity for both active tracers. Override one of them
+        // with remora.Akt_bak_temp or remora.Akt_bak_salt; those keys are resolved below,
+        // once cons_names is in scope.
         pp.queryAdd("Akt_bak",Akt_bak_all);
 
 
@@ -573,10 +574,9 @@ struct SolverChoice {
             amrex::Abort("Don't know this scaled_to_grid_amr_scaling option");
         }
 
-        // ROMS carries both tnu2 and Akt_bak as vectors with one entry per tracer, so mirror
-        // that here. remora.tnu2_scalar and remora.Akt_bak set the group default, and
-        // remora.tnu2_{var} / remora.Akt_bak_{var} override a single tracer by name --
-        // remora.tnu2_NO3, remora.Akt_bak_tracer_1, and so on.
+        // Horizontal diffusivity is per tracer in ROMS, so mirror that here:
+        // remora.tnu2_scalar sets the group default and remora.tnu2_{var} overrides a single
+        // tracer by name -- remora.tnu2_NO3, remora.tnu2_tracer_1, and so on.
         //
         // tnu2_temp and tnu2_salt are the pre-existing spelling of that per-name form for the
         // first two components. They keep their own defaults of zero rather than inheriting
@@ -589,12 +589,29 @@ struct SolverChoice {
         if (ncons > Salt_comp) {
             tnu2[Salt_comp] = tnu2_salt;
         }
-        Akt_bak.assign(ncons, Akt_bak_all);
-        for (int icomp = 0; icomp < ncons; ++icomp) {
-            if (icomp >= Tracer_comp) {
-                pp.queryAdd(("tnu2_" + cons_names[icomp]).c_str(), tnu2[icomp]);
-            }
+        for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+            pp.queryAdd(("tnu2_" + cons_names[icomp]).c_str(), tnu2[icomp]);
+        }
+
+        // Vertical diffusivity is not. ROMS computes and stores Akt for the active tracers
+        // only, and every passive tracer -- dye and biology alike -- mixes with the salinity
+        // coefficient, so Akt_bak has NAT entries: remora.Akt_bak sets both and
+        // remora.Akt_bak_temp / remora.Akt_bak_salt override one.
+        Akt_bak.assign(NAT, Akt_bak_all);
+        for (int icomp = 0; icomp < NAT; ++icomp) {
             pp.queryAdd(("Akt_bak_" + cons_names[icomp]).c_str(), Akt_bak[icomp]);
+        }
+        // A per-tracer key would name a coefficient nothing reads, and reading as though it
+        // had been applied is worse than not offering it, so say so rather than ignoring it.
+        for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+            const std::string key = "Akt_bak_" + cons_names[icomp];
+            if (pp.contains(key.c_str())) {
+                amrex::Abort("remora." + key + " has no effect: vertical diffusivity is carried"
+                             " for temperature and salinity only, and every passive tracer mixes"
+                             " with the salinity value. Set remora.Akt_bak_salt instead, or"
+                             " remora.tnu2_" + cons_names[icomp] + " if you meant the horizontal"
+                             " diffusivity.");
+            }
         }
 
         static std::string harmonic_mixing_type_string = "s";
@@ -963,9 +980,10 @@ struct SolverChoice {
     amrex::Real Akk_bak = amrex::Real(5.0e-6);
     amrex::Real Akp_bak = amrex::Real(5.0e-6);
     amrex::Real Akv_bak = amrex::Real(5.0e-6);
-    // remora.Akt_bak: the value every tracer takes unless overridden by name.
+    // remora.Akt_bak: the value both active tracers take unless overridden by name.
     amrex::Real Akt_bak_all = amrex::Real(1.0e-6);
-    // One entry per cons component, as ROMS carries Akt_bak(itrc).
+    // NAT entries -- temperature and salinity -- to match the components of vec_Akt.
+    // Passive tracers mix with entry Salt_comp; see akt_comp().
     amrex::Vector<amrex::Real> Akt_bak;
 
     // Params for stability functions.

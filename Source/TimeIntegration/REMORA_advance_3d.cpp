@@ -449,7 +449,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         for (int i_comp=0; i_comp < ncons; i_comp++) {
             vert_visc_3d(bx,0,0,mf_cons.array(mfi,i_comp),Hz,Hzk,
-                    AK,mf_Akt->array(mfi,i_comp),BC,DC,FC,CF,nnew,N,dt_lev);
+                    AK,mf_Akt->array(mfi,akt_comp(i_comp)),BC,DC,FC,CF,nnew,N,dt_lev);
         }
     } // MFiter
     FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);

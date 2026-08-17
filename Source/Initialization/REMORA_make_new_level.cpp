@@ -591,7 +591,9 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_Hvom[lev].reset               (new MultiFab(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
 
     vec_Akv[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
-    vec_Akt[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,ncons,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
+    // NAT components, not ncons: vertical mixing coefficients exist for the active tracers
+    // alone, and passive tracers mix with the salinity one. See akt_comp().
+    vec_Akt[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,NAT,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
 
     // check dimensionality
     vec_visc2_p[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?

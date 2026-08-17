@@ -829,12 +829,12 @@ REMORA::set_analytic_vmix(int lev) {
     BL_PROFILE("REMORA::set_analytic_vmix()");
     Real time = zero;
     vec_Akv[lev]->setVal(solverChoice.Akv_bak);
-    for (int n = 0; n < ncons; n++) {
+    for (int n = 0; n < NAT; n++) {
         vec_Akt[lev]->setVal(solverChoice.Akt_bak[n], n, 1);
     }
     prob->init_analytic_vmix(lev, geom[lev], solverChoice, *this,*vec_Akv[lev], *vec_Akt[lev]);
     FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv), zvel_bc(), BdyVars::null,0,true,false);
-    for (int n = 0; n < ncons; n++) {
+    for (int n = 0; n < NAT; n++) {
         FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null,n,false,false);
     }
 }

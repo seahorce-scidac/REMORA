@@ -280,12 +280,12 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     Real Akp_bak = solverChoice.Akp_bak;
     Real Akk_bak = solverChoice.Akk_bak;
 
-    // Akt_bak has one entry per tracer, so it has to reach the device as an array. The
-    // stratification terms below are specifically the temperature ones, and use
+    // Akt_bak has one entry per active tracer, so it has to reach the device as an array.
+    // The stratification terms below are specifically the temperature ones, and use
     // Akt_bak[Temp_comp] to match the Akt component they are paired with.
-    Gpu::DeviceVector<Real> Akt_bak_d(ncons);
+    Gpu::DeviceVector<Real> Akt_bak_d(NAT);
     Gpu::copy(Gpu::hostToDevice, solverChoice.Akt_bak.begin(),
-              solverChoice.Akt_bak.begin() + ncons, Akt_bak_d.begin());
+              solverChoice.Akt_bak.begin() + NAT, Akt_bak_d.begin());
     Real const* Akt_bak = Akt_bak_d.data();
 
     Real gls_c1 = solverChoice.gls_c1;
@@ -650,8 +650,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             FCK(i,j,N) = cff * (cff1 * tke(i,j,N+1,2)+cff2*tke(i,j,N,2)-cff3*tke(i,j,N-1,2));
             FCP(i,j,N) = cff * (cff1 * gls(i,j,N+1,2)+cff2*gls(i,j,N,2)-cff3*gls(i,j,N-1,2));
         });
-        const int ncons_local = ncons;
-
         ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
@@ -880,7 +878,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Real ql=sqrt2*Real(0.5)*(Ls_lmt*std::sqrt(tke(i,j,k,nnew))+
                                   Lscale(i,j,k)*std::sqrt(tke(i,j,k,nstp)));
             Akv(i,j,k)=Akv_bak+Sm*ql;
-            for (int n=0; n<ncons_local; n++) {
+            for (int n=0; n<NAT; n++) {
                 Akt(i,j,k,n)=Akt_bak[n]+Sh*ql;
             }
 
@@ -907,7 +905,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Akp(i,j,N+1)=Akp_bak+Akv(i,j,N+1)*ogls_sigp;
             Akp(i,j,0)=Akp_bak+Akv(i,j,0)/gls_sigp_cb;
 
-            for (int n=0; n<ncons_local; n++) {
+            for (int n=0; n<NAT; n++) {
                 Akt(i,j,N+1,n)  = Akt_bak[n];
                 Akt(i,j,0,n) = Akt_bak[n];
             }
@@ -918,7 +916,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         FillPatch(lev, t_old[lev], *mf_tke, GetVecOfPtrs(vec_tke), zvel_bc(), BdyVars::null, icomp, false, false);
         FillPatch(lev, t_old[lev], *mf_gls, GetVecOfPtrs(vec_gls), zvel_bc(), BdyVars::null, icomp, false, false);
     }
-    for (int icomp=0; icomp<ncons; icomp++) {
+    for (int icomp=0; icomp<NAT; icomp++) {
         FillPatch(lev, t_old[lev], *mf_Akt, GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null, icomp, false, false);
     }
     FillPatchNoBC(lev, t_old[lev], *mf_Akv, GetVecOfPtrs(vec_Akv), BdyVars::null);

@@ -175,8 +175,8 @@ void Problem::init_analytic_vmix(
     if ( (my_prob_name_ci == "dogbone") ||
          (my_prob_name_ci == "dogboneanalytic") ) {
         mf_Akv.setVal(m_solverChoice.Akv_bak);
-        // Akt_bak is per tracer, so leave the per-component values REMORA already set
-        // rather than flattening every tracer to a single number.
+        // Akt_bak has one value per active tracer, so leave the per-component values REMORA
+        // already set rather than flattening temperature and salinity to a single number.
 
     } else if (my_prob_name_ci == "advection") {
 #include "Prob/REMORA_InitAnalyticVMix_Advection.H"
