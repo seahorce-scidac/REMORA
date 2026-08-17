@@ -397,7 +397,7 @@ void Problem::init_analytic_surface_var (
 }
 
 void Problem::init_analytic_biology (
-        int /*lev*/, const amrex::Geometry& geom,
+        int /*lev*/, const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
         REMORABiology::FennelParameters const& m_fennel_params,
         REMORA const& remora,
