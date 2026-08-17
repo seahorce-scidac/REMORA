@@ -396,7 +396,9 @@ struct SolverChoice {
         pp.queryAdd("coriolis_beta",coriolis_beta);
 
         pp.queryAdd("Akv_bak",Akv_bak);
-        pp.queryAdd("Akt_bak",Akt_bak);
+        // Minimum/initial vertical diffusivity for every tracer. Override one tracer with
+        // remora.Akt_bak_{var}; those keys are resolved below, once cons_names is in scope.
+        pp.queryAdd("Akt_bak",Akt_bak_all);
 
 
         static std::string grid_scale_type_string = "constant";
@@ -571,12 +573,28 @@ struct SolverChoice {
             amrex::Abort("Don't know this scaled_to_grid_amr_scaling option");
         }
 
+        // ROMS carries both tnu2 and Akt_bak as vectors with one entry per tracer, so mirror
+        // that here. remora.tnu2_scalar and remora.Akt_bak set the group default, and
+        // remora.tnu2_{var} / remora.Akt_bak_{var} override a single tracer by name --
+        // remora.tnu2_NO3, remora.Akt_bak_tracer_1, and so on.
+        //
+        // tnu2_temp and tnu2_salt are the pre-existing spelling of that per-name form for the
+        // first two components. They keep their own defaults of zero rather than inheriting
+        // tnu2_scalar, so every existing input file means exactly what it did before, and the
+        // loop below skips them to avoid querying the same key twice.
         tnu2.assign(ncons, tnu2_scalar);
         if (ncons > Temp_comp) {
             tnu2[Temp_comp] = tnu2_temp;
         }
         if (ncons > Salt_comp) {
             tnu2[Salt_comp] = tnu2_salt;
+        }
+        Akt_bak.assign(ncons, Akt_bak_all);
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            if (icomp >= Tracer_comp) {
+                pp.queryAdd(("tnu2_" + cons_names[icomp]).c_str(), tnu2[icomp]);
+            }
+            pp.queryAdd(("Akt_bak_" + cons_names[icomp]).c_str(), Akt_bak[icomp]);
         }
 
         static std::string harmonic_mixing_type_string = "s";
@@ -945,7 +963,10 @@ struct SolverChoice {
     amrex::Real Akk_bak = amrex::Real(5.0e-6);
     amrex::Real Akp_bak = amrex::Real(5.0e-6);
     amrex::Real Akv_bak = amrex::Real(5.0e-6);
-    amrex::Real Akt_bak = amrex::Real(1.0e-6); // Note: this is a vector with one component per tracer in ROMS
+    // remora.Akt_bak: the value every tracer takes unless overridden by name.
+    amrex::Real Akt_bak_all = amrex::Real(1.0e-6);
+    // One entry per cons component, as ROMS carries Akt_bak(itrc).
+    amrex::Vector<amrex::Real> Akt_bak;
 
     // Params for stability functions.
     amrex::Real gls_Gh0;

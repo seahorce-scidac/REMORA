@@ -175,7 +175,8 @@ void Problem::init_analytic_vmix(
     if ( (my_prob_name_ci == "dogbone") ||
          (my_prob_name_ci == "dogboneanalytic") ) {
         mf_Akv.setVal(m_solverChoice.Akv_bak);
-        mf_Akt.setVal(m_solverChoice.Akt_bak);
+        // Akt_bak is per tracer, so leave the per-component values REMORA already set
+        // rather than flattening every tracer to a single number.
 
     } else if (my_prob_name_ci == "advection") {
 #include "Prob/REMORA_InitAnalyticVMix_Advection.H"
@@ -407,8 +408,19 @@ void Problem::init_analytic_biology (
     std::string my_prob_name; pp.get("prob_name",my_prob_name);
     std::string my_prob_name_ci = amrex::toLower(my_prob_name);
     const auto bio_comp = REMORABiology::Fennel::components(m_fennel_params, remora.bio_comp_start());
-    if (my_prob_name_ci == "biotoy") {
+    // Upwelling reuses BioToy's profile, which is ROMS ana_biology.h: it is a function of
+    // temperature alone, so it carries over to any problem that stratifies temperature.
+    if ((my_prob_name_ci == "biotoy") || (my_prob_name_ci == "upwelling")) {
 #include "Prob/REMORA_InitAnalyticBiology_BioToy.H"
+
+    } else {
+        // Falling through would leave the biology tracers at whatever cons_new was zeroed
+        // to, and a Fennel run starting from all-zero tracers looks plausible rather than
+        // broken. The base-class hook in REMORA_prob_common.H errors for the same reason;
+        // this override has to do so too, or that guard is dead.
+        amrex::Error("remora.prob_name = " + my_prob_name + " has no analytic biology initial"
+                     " condition. Add one to Source/Prob/ and a branch for it in"
+                     " Problem::init_analytic_biology, or set remora.biology_ic_type = netcdf.");
     }
 }
 

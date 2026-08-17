@@ -831,6 +831,20 @@ List of Parameters
 |                                          |                                        |                        |                |
 |                                          | scalar diffusivity over the domain).   |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.tnu2_{var}**                    | Constant horizontal diffusivity for    | Real number            | value of       |
+|                                          |                                        |                        |                |
+|                                          | one named tracer, overriding           |                        | ``tnu2_scalar``|
+|                                          |                                        |                        |                |
+|                                          | ``tnu2_scalar``. ``{var}`` is a tracer |                        |                |
+|                                          |                                        |                        |                |
+|                                          | name: ``tracer``, ``tracer_1``,        |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``NO3``, and so on. ``tnu2_temp`` and  |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``tnu2_salt`` above are this same form |                        |                |
+|                                          |                                        |                        |                |
+|                                          | for the first two components.          |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.harmonic_mixing_type**          | Whether harmonic mixing (tracers)      | ``s`` /                | ``s``          |
 |                                          |                                        |                        |                |
 |                                          | is calculated along s- or geopotential | ``geopotential``       |                |
@@ -851,7 +865,17 @@ List of Parameters
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.Akv_bak**                       | Minimum/initial value of Akv           | Real number            | 5.0e-6         |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
-| **remora.Akt_bak**                       | Minimum/initial value of Akt           | Real number            | 1.0e-6         |
+| **remora.Akt_bak**                       | Minimum/initial value of Akt, applied  | Real number            | 1.0e-6         |
+|                                          |                                        |                        |                |
+|                                          | to every tracer.                       |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.Akt_bak_{var}**                 | Minimum/initial value of Akt for one   | Real number            | value of       |
+|                                          |                                        |                        |                |
+|                                          | named tracer, overriding ``Akt_bak``.  |                        | ``Akt_bak``    |
+|                                          |                                        |                        |                |
+|                                          | ``{var}`` is a tracer name: ``temp``,  |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``salt``, ``tracer``, ``NO3``, ...     |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.bulk_fluxes**                   | Whether to use bulk fluxes             | true / false           | false          |
 |                                          |                                        |                        |                |
@@ -894,18 +918,44 @@ giving a run with temperature and salinity only. Dye and biology coexist freely,
 ``remora.nscalar = 2`` with a Fennel model carrying 11 tracers gives 15 components
 in the order shown above. See :ref:`sec:Fennel`.
 
-All passive scalars share their mixing parameters: ``remora.tnu2_scalar`` for
-horizontal diffusivity. The current analytic vertical-mixing hooks in ``Source/Prob/``
-assign the same ``Akt`` to every dye tracer, but this can be changed in other problems.
-The current analytic *initial condition* hooks seed the first dye
-tracer only, so with more than one dye the rest start at zero. Again, this can be
-changed by the user in other problems as needed.
+Mixing coefficients are per tracer, as they are in ROMS. ``remora.tnu2_scalar`` and
+``remora.Akt_bak`` set the value every tracer takes by default -- biology tracers
+included -- and ``remora.tnu2_{var}`` / ``remora.Akt_bak_{var}`` override a single
+tracer by name:
+
+.. code:: python
+
+   remora.tnu2_scalar  = 5.0      # every dye and biology tracer
+   remora.tnu2_NO3     = 50.0     # except NO3
+   remora.Akt_bak      = 1.0e-6   # every tracer
+   remora.Akt_bak_temp = 1.0e-5   # except temperature
+
+``remora.tnu2_temp`` and ``remora.tnu2_salt`` are the pre-existing spelling of the same
+per-name form for the first two components, and they still default to zero rather than
+to ``tnu2_scalar``.
+
+Note that ``tnu2`` is only consulted when ``remora.horizontal_mixing_type`` is
+``constant`` or ``scaled_to_grid``; under the default ``analytic`` the problem's
+``init_analytic_hmix`` hook sets the coefficients itself. The same is true of ``Akt``
+and ``init_analytic_vmix``. The analytic vertical-mixing hooks in ``Source/Prob/``
+assign the same ``Akt`` to every dye tracer and leave the biology tracers at
+``Akt_bak``, but this can be changed in other problems.
+
+The current analytic *initial condition* hooks seed the first dye tracer only, so with
+more than one dye the rest start at zero. Again, this can be changed by the user in
+other problems as needed.
 
 The ``remora.sum_interval`` diagnostic reports a volume-weighted sum for every
 tracer, labelled by name. Both plotfile writers check every tracer they are about
 to write for NaN and inf, and name the offending tracer if one is found; a tracer
-absent from ``remora.plot_vars_3d`` is not checked. Refinement accepts any tracer
-name as its ``field_name``, so a biology tracer can drive AMR:
+absent from ``remora.plot_vars_3d`` is not checked. Both writers also accept
+``stflux_{var}`` in ``remora.plot_vars_2d`` for any tracer, so the surface flux array
+can be inspected per tracer. Only the temperature and salinity entries are ever filled,
+by the bulk-flux or coupling paths; the rest read zero, because Fennel's air-sea gas
+exchange acts on the tracer directly rather than through that array.
+
+Refinement accepts any tracer name as its ``field_name``, so a biology tracer can
+drive AMR:
 
 .. code:: python
 
@@ -964,7 +1014,7 @@ as 2D (vertically homogeneous) fields:
 - additional passive scalars appear as ``diff2_tracer_1``, ``diff2_tracer_2``, and so on
 
 Geopotential rotated harmonic tracer diffusion
--------------------------------------
+----------------------------------------------
 
 Harmonic tracer diffusion can be rotated along geopotential (constant-:math:`z`)
 surfaces when ``remora.harmonic_mixing_type = "geopotential"``. This formulation
