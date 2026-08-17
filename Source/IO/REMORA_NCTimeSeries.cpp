@@ -179,7 +179,7 @@ void NCTimeSeries::Initialize() {
         // If we're in a cycle, hack the lists to close the loop on the IOProc rank
         if (is_cycle) {
             ocean_times.insert(ocean_times.begin(),ocean_times[ocean_times.size()-1]-cycle_length);
-            // "first time" is now at index 1 because we already aadded to the front.
+            // "first time" is now at index 1 because we already added to the front.
             ocean_times.insert(ocean_times.end(), ocean_times[1]+cycle_length);
             file_for_time.insert(file_for_time.begin(),file_for_time[file_for_time.size()-1]);
             file_for_time.insert(file_for_time.end(), file_for_time[1]);
