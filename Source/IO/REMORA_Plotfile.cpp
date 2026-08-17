@@ -299,13 +299,24 @@ REMORA::WritePlotFile (int istep_for_plot)
     {
         int mf_comp = 0;
 
-        // First, copy any of the conserved state variables into the output plotfile
         AMREX_ALWAYS_ASSERT(cons_names.size() == ncons);
+
+        // Check each tracer we are about to write, so the abort can name the offender.
+        // One pass per component, rather than an all-component scan repeated once for
+        // every variable in the plot list. nGrowVect() keeps the ghost-cell coverage the
+        // previous no-argument contains_nan() had.
+        for (int i = 0; i < ncons; ++i) {
+            if (!containerHasElement(plot_var_names_3d, cons_names[i])) { continue; }
+            const IntVect ng = cons_new[lev]->nGrowVect();
+            if (cons_new[lev]->contains_nan(i,1,ng) || cons_new[lev]->contains_inf(i,1,ng)) {
+                amrex::Abort("Found while writing output: " + cons_names[i] +
+                             " contains nan or inf");
+            }
+        }
+
+        // First, copy any of the conserved state variables into the output plotfile
         for (int i = 0; i < ncons; ++i) {
             if (containerHasElement(plot_var_names_3d, cons_names[i])) {
-                if (cons_new[lev]->contains_nan() || cons_new[lev]->contains_inf()) {
-                    amrex::Abort("Found while writing output: Cons (salt, temp, or tracer, etc) contains nan or inf");
-                }
                 MultiFab::Copy(plotMF[lev],*cons_new[lev],i,mf_comp,1,ngrow_vars);
                 mf_comp++;
             }

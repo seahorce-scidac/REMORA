@@ -902,9 +902,10 @@ tracer only, so with more than one dye the rest start at zero. Again, this can b
 changed by the user in other problems as needed.
 
 The ``remora.sum_interval`` diagnostic reports a volume-weighted sum for every
-tracer, labelled by name, and the NaN/inf check in the NetCDF plotfile writer
-covers every tracer being written. Refinement accepts any tracer name as its
-``field_name``, so a biology tracer can drive AMR:
+tracer, labelled by name. Both plotfile writers check every tracer they are about
+to write for NaN and inf, and name the offending tracer if one is found; a tracer
+absent from ``remora.plot_vars_3d`` is not checked. Refinement accepts any tracer
+name as its ``field_name``, so a biology tracer can drive AMR:
 
 .. code:: python
 
