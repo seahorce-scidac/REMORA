@@ -221,6 +221,14 @@ an error. For analytic biology initialization, the problem must
 provide an analytic biology routine; problems that enable biology without one
 abort during initialization rather than starting from uninitialized tracers.
 
+``BioToy`` and ``Upwelling`` ship with such a routine, both using the profile from
+ROMS ``ana_biology.h``: nitrate follows a cubic in a temperature-derived silicate
+proxy, and the remaining tracers start uniform. To add one for another problem, write
+a ``Source/Prob/REMORA_InitAnalyticBiology_<Problem>.H`` and give it a branch in
+``Problem::init_analytic_biology`` in ``Exec/REMORA_Prob.cpp``. Because that profile
+is a function of temperature alone, it carries over unchanged to any problem that
+stratifies temperature.
+
 When initial data is specified on a high-resolution level and averaged down
 (``remora.hires_init_level``), biology is initialized on that level before the
 average-down, using the same ``remora.biology_ic_type`` selection.

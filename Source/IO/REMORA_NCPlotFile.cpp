@@ -18,6 +18,23 @@
 
 using namespace amrex;
 
+namespace {
+/**
+ * \brief Was this 2D field named in remora.plot_vars_2d?
+ *
+ * Mirrors the name test the AMReX plotfile writer does when it walks plot_var_names_2d,
+ * so both writers answer to the same input key.
+ */
+bool
+plot_2d_var_requested (const amrex::Vector<std::string>& names, const std::string& nm)
+{
+    for (int i = 0; i < names.size(); ++i) {
+        if (names[i] == nm) { return true; }
+    }
+    return false;
+}
+} // namespace
+
 /**
  * @param which_step   current step for output
  */
@@ -465,6 +482,27 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("svstr").put_attr("coordinates","x_v y_v ocean_time");
         ncf.var("svstr").put_attr("field","surface v-momentum stress, scalar, series");
 
+        // Surface tracer fluxes, one per cell-centered tracer, matching what the AMReX
+        // plotfile writer already offers and requested through the same remora.plot_vars_2d
+        // key. vec_stflux is ncons wide and unconditionally allocated, so any tracer can be
+        // named. Components past temp and salt read zero unless something fills them --
+        // Fennel's air-sea gas exchange acts on the tracer directly rather than through this
+        // array -- so they show what the solver actually applied, which may be nothing.
+        for (int n = 0; n < ncons; ++n) {
+            const std::string nm = std::string("stflux_") + cons_names[n];
+            if (!plot_2d_var_requested(plot_var_names_2d, nm)) { continue; }
+            ncf.def_var_fill(nm, ncutils::NCDType::Real, { nt_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
+            ncf.var(nm).put_attr("long_name", std::string("surface flux of ") + cons_names[n]);
+            // Kinematic, as ssflux is: the tracer's own units times meter second-1.
+            ncf.var(nm).put_attr("units", (n == Temp_comp) ? "Celsius meter second-1"
+                                                           : "meter second-1");
+            ncf.var(nm).put_attr("time","ocean_time");
+            ncf.var(nm).put_attr("grid","grid");
+            ncf.var(nm).put_attr("location","face");
+            ncf.var(nm).put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.var(nm).put_attr("field", nm + ", scalar, series");
+        }
+
         if (solverChoice.output_forcing) {
             // Surface air temperature (Celsius)
             ncf.def_var("Tair", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
@@ -884,6 +922,20 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 auto nc_plot_var = ncf.var("zeta");
                 nc_plot_var.put(tmp_zeta.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
                         local_nx });
+            }
+
+            // stflux_*, one per tracer. Defined above under the same condition.
+            for (int n = 0; n < ncons; ++n) {
+                const std::string nm = std::string("stflux_") + cons_names[n];
+                if (!plot_2d_var_requested(plot_var_names_2d, nm)) { continue; }
+                FArrayBox tmp;
+                tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                tmp.template copy<RunOn::Device>((*vec_stflux[lev])[mfi.index()], n, 0, 1);
+                Gpu::streamSynchronize();
+
+                auto nc_var = ncf.var(nm);
+                nc_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x },
+                                          { local_nt,       local_ny,       local_nx });
             }
 
             if (solverChoice.output_forcing)
