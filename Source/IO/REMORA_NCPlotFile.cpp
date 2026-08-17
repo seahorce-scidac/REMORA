@@ -672,15 +672,20 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     if (vec_Zt_avg1[lev]->contains_nan() || vec_Zt_avg1[lev]->contains_inf()) {
         amrex::Abort("Found while writing output: zeta contains nan or inf");
     }
-    if (plotMF->contains_nan(Temp_comp,1) || plotMF->contains_inf(Temp_comp,1)) {
-        amrex::Abort("Found while writing output: Temperature contains nan or inf");
-    }
-    if (plotMF->contains_nan(Salt_comp,1) || plotMF->contains_inf(Salt_comp,1)) {
-        amrex::Abort("Found while writing output: Salinity contains nan or inf");
-    }
-    if (nscalar > 0 && plotMF->nComp() > Tracer_comp &&
-        (plotMF->contains_nan(Tracer_comp,1) || plotMF->contains_inf(Tracer_comp,1))) {
-        amrex::Abort("Found while writing output: Passive tracer contains nan or inf");
+    // Check every cell-centered tracer that is actually being written: temperature,
+    // salinity, the passive scalars and the biology tracers. plotMF is indexed by
+    // position in plot_var_names_3d, not by cons component, so look the name up the
+    // same way the write loops below do.
+    for (int n = 0; n < ncons; ++n) {
+        int comp = -1;
+        for (int i = 0; i < plot_var_names_3d.size(); i++) {
+            if (plot_var_names_3d[i] == cons_names[n]) comp = i;
+        }
+        if (comp < 0) { continue; }
+        if (plotMF->contains_nan(comp,1) || plotMF->contains_inf(comp,1)) {
+            amrex::Abort("Found while writing output: " + cons_names[n] +
+                         " contains nan or inf");
+        }
     }
     if (xvel_new[lev]->contains_nan() || xvel_new[lev]->contains_inf()) {
         amrex::Abort("Found while writing output: velocity u contains nan or inf");

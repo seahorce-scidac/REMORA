@@ -19,19 +19,22 @@ REMORA::sum_integrated_quantities(Real time)
     int datprecision = 6;
     bool local = true;
 
-    Real scalar_ml = zero;
+    // One sum per cell-centered tracer past salinity: the passive scalars and the
+    // biology tracers. Empty when the run carries neither.
+    const int n_tracers = ncons - Tracer_comp;
+
+    Vector<Real> tracer_ml(n_tracers, zero);
     Real kineng_ml = zero;
     Real volume_ml = zero;
     Real max_vel_ml = zero;
 
-    Real scalar_sl = zero;
+    Vector<Real> tracer_sl(n_tracers, zero);
     Real kineng_sl = zero;
     Real volume_sl = zero;
     Real max_vel_sl = zero;
 
-    // Tracer_comp only exists when the run carries at least one passive scalar
-    if (nscalar > 0) {
-        scalar_sl = volWgtSumMF(0,*cons_new[0],Tracer_comp   ,local,false);
+    for (int t = 0; t < n_tracers; ++t) {
+        tracer_sl[t] = volWgtSumMF(0,*cons_new[0],Tracer_comp+t,local,false);
     }
 
     for (int lev = 0; lev <= finest_level; lev++)
@@ -65,8 +68,8 @@ REMORA::sum_integrated_quantities(Real time)
           max_vel_sl = max_vel_local;
         }
 
-        if (nscalar > 0) {
-            scalar_ml += volWgtSumMF(lev,*cons_new[lev],Tracer_comp   ,local,true);
+        for (int t = 0; t < n_tracers; ++t) {
+            tracer_ml[t] += volWgtSumMF(lev,*cons_new[lev],Tracer_comp+t,local,true);
         }
         kineng_ml += volWgtSumMF(lev,kineng_mf     ,             0,local,true);
         volume_ml += volWgtSumMF(lev,ones_mf       ,             0,local,true);
@@ -74,8 +77,17 @@ REMORA::sum_integrated_quantities(Real time)
     }
 
     if (verbose > 0) {
-        const int n_sum_vars = 6;
-        Real sum_vars[n_sum_vars] = {scalar_sl,kineng_sl,volume_sl,scalar_ml,kineng_ml,volume_ml};
+        // Layout: every tracer's single-level sum, then kineng/volume, then the same
+        // for the multi-level sums. Unpacked below in the same order.
+        Vector<Real> sum_vars;
+        sum_vars.reserve(2*n_tracers + 4);
+        for (int t = 0; t < n_tracers; ++t) { sum_vars.push_back(tracer_sl[t]); }
+        sum_vars.push_back(kineng_sl);
+        sum_vars.push_back(volume_sl);
+        for (int t = 0; t < n_tracers; ++t) { sum_vars.push_back(tracer_ml[t]); }
+        sum_vars.push_back(kineng_ml);
+        sum_vars.push_back(volume_ml);
+        const int n_sum_vars = static_cast<int>(sum_vars.size());
 
         const int n_max_vars = 2;
         Real max_vars[n_max_vars] = {max_vel_sl, max_vel_ml};
@@ -83,63 +95,83 @@ REMORA::sum_integrated_quantities(Real time)
         Lazy::QueueReduction([=]() mutable {
 #endif
         ParallelDescriptor::ReduceRealSum(
-            sum_vars, n_sum_vars, ParallelDescriptor::IOProcessorNumber());
+            sum_vars.data(), n_sum_vars, ParallelDescriptor::IOProcessorNumber());
         ParallelDescriptor::ReduceRealMax(
             max_vars, n_max_vars, ParallelDescriptor::IOProcessorNumber());
 
           if (ParallelDescriptor::IOProcessor()) {
             int i = 0;
-            scalar_sl = sum_vars[i++];
+            for (int t = 0; t < n_tracers; ++t) { tracer_sl[t] = sum_vars[i++]; }
             kineng_sl = sum_vars[i++];
             volume_sl = sum_vars[i++];
-            scalar_ml = sum_vars[i++];
+            for (int t = 0; t < n_tracers; ++t) { tracer_ml[t] = sum_vars[i++]; }
             kineng_ml = sum_vars[i++];
             volume_ml = sum_vars[i++];
             int j = 0;
             max_vel_sl = max_vars[j++];
             max_vel_ml = max_vars[j++];
 
+            // Label field is as wide as the widest tracer name so the columns line up
+            // whether the run carries "tracer" or "phytoplankton"
+            int namewidth = 9;
+            for (int t = 0; t < n_tracers; ++t) {
+                namewidth = std::max(namewidth, static_cast<int>(cons_names[Tracer_comp+t].size()));
+            }
+
             if (finest_level == 0) {
                 amrex::Print() << '\n';
-                amrex::Print() << "TIME      = " << std::setw(datwidth) << std::setprecision(datprecision) << time << '\n';
-                amrex::Print() << "SCALAR    = " << std::setw(datwidth) << std::setprecision(datprecision) << scalar_sl  << '\n';
-                amrex::Print() << "KIN. ENG. = " << std::setw(datwidth) << std::setprecision(datprecision) << kineng_sl  << '\n';
-                amrex::Print() << "VOLUME    = " << std::setw(datwidth) << std::setprecision(datprecision) << volume_sl  << '\n';
-                amrex::Print() << "MAX. VEL. = " << std::setw(datwidth) << std::setprecision(datprecision) << max_vel_sl << '\n';
+                amrex::Print() << std::setw(namewidth) << std::left << "TIME" << std::right
+                               << " = " << std::setw(datwidth) << std::setprecision(datprecision) << time << '\n';
+                for (int t = 0; t < n_tracers; ++t) {
+                    amrex::Print() << std::setw(namewidth) << std::left << cons_names[Tracer_comp+t] << std::right
+                                   << " = " << std::setw(datwidth) << std::setprecision(datprecision) << tracer_sl[t] << '\n';
+                }
+                amrex::Print() << std::setw(namewidth) << std::left << "KIN. ENG." << std::right
+                               << " = " << std::setw(datwidth) << std::setprecision(datprecision) << kineng_sl  << '\n';
+                amrex::Print() << std::setw(namewidth) << std::left << "VOLUME" << std::right
+                               << " = " << std::setw(datwidth) << std::setprecision(datprecision) << volume_sl  << '\n';
+                amrex::Print() << std::setw(namewidth) << std::left << "MAX. VEL." << std::right
+                               << " = " << std::setw(datwidth) << std::setprecision(datprecision) << max_vel_sl << '\n';
             } else {
                 amrex::Print() << '\n';
-                amrex::Print() << "TIME            = " << std::setw(datwidth) << std::setprecision(datprecision) << time << '\n';
-                amrex::Print() << "SCALAR    SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << scalar_sl  << ' '
-                                                       << std::setw(datwidth) << std::setprecision(datprecision) << scalar_ml << '\n';
-                amrex::Print() << "KIN. ENG. SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << kineng_sl  << ' '
-                                                       << std::setw(datwidth) << std::setprecision(datprecision) << kineng_ml << '\n';
-                amrex::Print() << "VOLUME    SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << volume_sl  << ' '
-                                                       << std::setw(datwidth) << std::setprecision(datprecision) << volume_ml << '\n';
-                amrex::Print() << "MAX. VEL. SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << max_vel_sl << ' '
-                                                       << std::setw(datwidth) << std::setprecision(datprecision) << max_vel_ml << '\n';
-
-//                amrex::Print() << "TIME= " << time << " SCALAR      SL/ML = " << scalar_sl  << " " << scalar_ml  << '\n';
-//                amrex::Print() << "TIME= " << time << " KIN. ENG.   SL/ML = " << kineng_sl  << " " << kineng_ml  << '\n';
-//                amrex::Print() << "TIME= " << time << " VOLUME      SL/ML = " << volume_sl  << " " << volume_ml  << '\n';
-//                amrex::Print() << "TIME= " << time << " MAX. VEL.   SL/ML = " << max_vel_sl << " " << max_vel_ml << '\n';
+                amrex::Print() << std::setw(namewidth) << std::left << "TIME" << std::right
+                               << "       = " << std::setw(datwidth) << std::setprecision(datprecision) << time << '\n';
+                for (int t = 0; t < n_tracers; ++t) {
+                    amrex::Print() << std::setw(namewidth) << std::left << cons_names[Tracer_comp+t] << std::right
+                                   << " SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << tracer_sl[t] << ' '
+                                                  << std::setw(datwidth) << std::setprecision(datprecision) << tracer_ml[t] << '\n';
+                }
+                amrex::Print() << std::setw(namewidth) << std::left << "KIN. ENG." << std::right
+                               << " SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << kineng_sl  << ' '
+                                              << std::setw(datwidth) << std::setprecision(datprecision) << kineng_ml << '\n';
+                amrex::Print() << std::setw(namewidth) << std::left << "VOLUME" << std::right
+                               << " SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << volume_sl  << ' '
+                                              << std::setw(datwidth) << std::setprecision(datprecision) << volume_ml << '\n';
+                amrex::Print() << std::setw(namewidth) << std::left << "MAX. VEL." << std::right
+                               << " SL/ML = " << std::setw(datwidth) << std::setprecision(datprecision) << max_vel_sl << ' '
+                                              << std::setw(datwidth) << std::setprecision(datprecision) << max_vel_ml << '\n';
             }
 
             if (NumDataLogs() > 0) {
                 std::ostream& data_log1 = DataLog(0);
                 if (data_log1.good()) {
                     if (time == zero) {
-                        data_log1 << std::setw(datwidth) << "          time";
-                        data_log1 << std::setw(datwidth) << "        scalar";
-                        data_log1 << std::setw(datwidth) << "        kineng";
-                        data_log1 << std::setw(datwidth) << "        volume";
-                        data_log1 << std::setw(datwidth) << "       max_vel";
+                        data_log1 << std::setw(datwidth) << "time";
+                        for (int t = 0; t < n_tracers; ++t) {
+                            data_log1 << std::setw(datwidth) << cons_names[Tracer_comp+t];
+                        }
+                        data_log1 << std::setw(datwidth) << "kineng";
+                        data_log1 << std::setw(datwidth) << "volume";
+                        data_log1 << std::setw(datwidth) << "max_vel";
                         data_log1 << std::endl;
                     }
 
                   // Write the quantities at this time
                   data_log1 << std::setw(datwidth) << time;
-                  data_log1 << std::setw(datwidth) << std::setprecision(datprecision)
-                            << scalar_ml;
+                  for (int t = 0; t < n_tracers; ++t) {
+                      data_log1 << std::setw(datwidth) << std::setprecision(datprecision)
+                                << tracer_ml[t];
+                  }
                   data_log1 << std::setw(datwidth) << std::setprecision(datprecision)
                             << kineng_ml;
                   data_log1 << std::setw(datwidth) << std::setprecision(datprecision)

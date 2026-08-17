@@ -901,14 +901,23 @@ The current analytic *initial condition* hooks seed the first dye
 tracer only, so with more than one dye the rest start at zero. Again, this can be
 changed by the user in other problems as needed.
 
+The ``remora.sum_interval`` diagnostic reports a volume-weighted sum for every
+tracer, labelled by name, and the NaN/inf check in the NetCDF plotfile writer
+covers every tracer being written. Refinement accepts any tracer name as its
+``field_name``, so a biology tracer can drive AMR:
+
+.. code:: python
+
+   remora.refinement_indicators = hi_no3
+   remora.hi_no3.max_level      = 1
+   remora.hi_no3.field_name     = NO3
+   remora.hi_no3.value_greater  = 15.0
+
 .. note::
 
-   A few features act on the first passive scalar specifically rather than on all
-   of them: the ``remora.sum_interval`` scalar diagnostic, refinement on the field
-   name ``tracer``, and the NaN check in the NetCDF plotfile writer.
-   ``remora.do_rivers_scalar`` also supports a single passive scalar only, and
-   aborts if ``remora.nscalar`` is greater than one, because the river file
-   supplies one ``river_scalar`` field.
+   ``remora.do_rivers_scalar`` supports a single passive scalar only, and aborts if
+   ``remora.nscalar`` is greater than one, because the river file supplies one
+   ``river_scalar`` field.
 
 Scaled-to-grid horizontal mixing
 --------------------------------
