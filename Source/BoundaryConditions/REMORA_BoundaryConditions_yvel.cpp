@@ -9,13 +9,13 @@ using namespace amrex;
  * @param[in   ] domain        domain box
  * @param[in   ] dxInv         pm or pn
  * @param[in   ] mskv          land-sea mask on v-points
- * @param[in   ] calc_arr      data to use in the RHS of calculations
+ * @param[in   ] calc_arr_in   data to use in the RHS of calculations
  * @param[in   ] time          current time
  * @param[in   ] bccomp        index into both domain_bcs_type_bcr and bc_extdir_vals for icomp=0
  */
 void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& domain,
                                         const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/, const Array4<const Real>& mskv,
-                                        const Array4<const Real>& calc_arr,
+                                        const Array4<const Real>& calc_arr_in,
                                         Real /*time*/, int bccomp)
 {
     BL_PROFILE_VAR("impose_yvel_bcs()",impose_yvel_bcs);
@@ -49,6 +49,9 @@ void REMORAPhysBCFunct::impose_yvel_bcs (const Array4<Real>& dest_arr, const Box
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
     const Real eps= Real(1.0e-20);
+    // If calc_arr isn't passed in, we actually just want to use dest_arr values instead.
+    // That matches ROMS.
+    Array4<const Real> calc_arr = calc_arr_in.ok() ? calc_arr_in : Array4<const Real>(dest_arr);
 
     Box dest_arr_box = growHi(convert(Box(dest_arr),IntVect(0,1,0)),1,-1);
     // First do all ext_dir bcs

@@ -12,7 +12,7 @@ using namespace amrex;
  * @param[in   ] mskr          land-sea mask on rho-points
  * @param[in   ] msku          land-sea mask on u-points
  * @param[in   ] mskv          land-sea mask on v-points
- * @param[in   ] calc_arr      data to use in the RHS of calculations
+ * @param[in   ] calc_arr_in   data to use in the RHS of calculations
  * @param[in   ] icomp         component to update
  * @param[in   ] ncomp         number of components to update, starting from icomp
  * @param[in   ] time          current time
@@ -22,7 +22,7 @@ using namespace amrex;
 void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box& bx, const Box& valid_bx, const Box& domain,
                                         const GpuArray<Real,AMREX_SPACEDIM> /*dxInv*/, const Array4<const Real>& mskr,
                                         const Array4<const Real>& msku, const Array4<const Real>& mskv,
-                                        const Array4<const Real>& calc_arr,
+                                        const Array4<const Real>& calc_arr_in,
                                         int icomp, int ncomp, Real /*time*/, int bccomp, int n_not_fill)
 {
     BL_PROFILE_VAR("impose_cons_bcs()",impose_cons_bcs);
@@ -55,6 +55,9 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     bool is_periodic_in_x = geomdata.isPeriodic(0);
     bool is_periodic_in_y = geomdata.isPeriodic(1);
     const Real eps= Real(1.0e-20);
+    // If calc_arr isn't passed in, we actually just want to use dest_arr values instead.
+    // That matches ROMS.
+    Array4<const Real> calc_arr = calc_arr_in.ok() ? calc_arr_in : Array4<const Real>(dest_arr);
 
     // If we're doing zeta, then calc_arr only has a single component
     // corresponding to the component to be used in calculating the boundary
