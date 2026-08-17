@@ -182,22 +182,19 @@ struct SolverChoice {
         pp.queryAdd("do_rivers_salt", do_rivers_salt);
         pp.queryAdd("do_rivers_scalar", do_rivers_scalar);
 
+        // Every tracer may take river input, keyed by its own name, so temp and salt keep
+        // do_rivers_temp / do_rivers_salt and other tracers use e.g. do_rivers_NO3 or
+        // do_rivers_tracer_1. The passive scalars default to do_rivers_scalar; biology
+        // tracers default off, since a river concentration for them has to be a deliberate
+        // choice. If we aren't doing rivers at all, every flag ends up false.
         do_rivers_cons.assign(ncons, 0);
-        // If we aren't doing rivers, set all of these flags to false
-        do_rivers_cons[Temp_comp  ] = do_rivers ? do_rivers_temp : false;
-        do_rivers_cons[Salt_comp  ] = do_rivers ? do_rivers_salt : false;
-        // do_rivers_scalar applies to the passive (dye) scalars only. Biology tracers sit
-        // past them in the state and have no river source: the river file carries a single
-        // river_scalar and no per-biology-tracer equivalent.
-        for (int icomp = Tracer_comp; icomp < Tracer_comp + nscalar; ++icomp) {
-            do_rivers_cons[icomp] = do_rivers ? do_rivers_scalar : false;
-        }
-        // Only the first passive scalar has a series built for it (from river_scalar), so
-        // asking for river input on additional dye tracers would dereference a null series.
-        if (do_rivers && do_rivers_scalar && nscalar > 1) {
-            amrex::Abort("remora.do_rivers_scalar is only supported for a single passive "
-                         "scalar; the river file provides one river_scalar field but "
-                         "remora.nscalar is " + std::to_string(nscalar));
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            bool flag = (icomp == Temp_comp) ? do_rivers_temp
+                      : (icomp == Salt_comp) ? do_rivers_salt
+                      : (icomp <  Tracer_comp + nscalar) ? do_rivers_scalar
+                      : false;
+            pp.queryAdd(("do_rivers_" + cons_names[icomp]).c_str(), flag);
+            do_rivers_cons[icomp] = (do_rivers && flag) ? 1 : 0;
         }
 
         pp.queryAdd("init_l1ad_T", init_l1ad_T);

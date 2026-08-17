@@ -1504,20 +1504,27 @@ REMORA::init_only (int lev, Real time)
         }
         auto dom = geom[0].Domain();
         int nz = dom.length(2);
+        // Every cell-centered tracer can take river input. The field is named for the
+        // tracer, as in ROMS: river_temp, river_salt, river_tracer, river_NO3, ...
         river_source_cons.resize(ncons);
-        if ((bool) solverChoice.do_rivers_cons[Salt_comp]) {
-            river_source_cons[Salt_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz));
-            river_source_cons[Salt_comp]->Initialize();
-        }
-        if (solverChoice.do_rivers_cons[Temp_comp]) {
-            river_source_cons[Temp_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz));
-            river_source_cons[Temp_comp]->Initialize();
-        }
-        // Guarded on nscalar because with no passive scalar Tracer_comp is the first
-        // biology tracer, which must not be fed from river_scalar.
-        if (nscalar > 0 && solverChoice.do_rivers_cons[Tracer_comp]) {
-            river_source_cons[Tracer_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz));
-            river_source_cons[Tracer_comp]->Initialize();
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            if (!solverChoice.do_rivers_cons[icomp]) { continue; }
+
+            const std::string field = "river_" + cons_names[icomp];
+            for (const auto& fname : nc_riv_file) {
+                if (!QueryNetCDFHasVars(fname, {field})) {
+                    // The flag may have come from remora.do_rivers_scalar rather than the
+                    // per-tracer key, so name the tracer and the key that switches it off.
+                    amrex::Abort("River file " + fname + " does not contain '" + field +
+                                 "', but river input is enabled for tracer '" +
+                                 cons_names[icomp] + "'. Either add that variable to the "
+                                 "file, or set remora.do_rivers_" + cons_names[icomp] +
+                                 " = false.");
+                }
+            }
+
+            river_source_cons[icomp].reset(new NCTimeSeriesRiver(nc_riv_file, field, riv_time_varname, nz));
+            river_source_cons[icomp]->Initialize();
         }
         river_source_transport.reset(new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz));
         river_source_transport->Initialize();

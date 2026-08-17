@@ -914,11 +914,7 @@ name as its ``field_name``, so a biology tracer can drive AMR:
    remora.hi_no3.field_name     = NO3
    remora.hi_no3.value_greater  = 15.0
 
-.. note::
-
-   ``remora.do_rivers_scalar`` supports a single passive scalar only, and aborts if
-   ``remora.nscalar`` is greater than one, because the river file supplies one
-   ``river_scalar`` field.
+River sources also work per tracer; see :ref:`sec:rivers`.
 
 Scaled-to-grid horizontal mixing
 --------------------------------
@@ -1501,7 +1497,15 @@ These parameters are used to configure NetCDF-specified river-like point sources
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
 | **remora.do_rivers_scalar** | Whether rivers are passive       | true / false | false; only used                  |
 |                             |                                  |              |                                   |
-|                             | scalar sources                   |              | if ``do_rivers``                  |
+|                             | scalar sources. Default for      |              | if ``do_rivers``                  |
+|                             |                                  |              |                                   |
+|                             | every dye tracer.                |              |                                   |
++-----------------------------+----------------------------------+--------------+-----------------------------------+
+| **remora.do_rivers_{var}**  | Whether rivers are a source of   | true / false | see below                         |
+|                             |                                  |              |                                   |
+|                             | tracer ``{var}``. Overrides the  |              |                                   |
+|                             |                                  |              |                                   |
+|                             | defaults above.                  |              |                                   |
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
 
 .. note::
@@ -1509,6 +1513,31 @@ These parameters are used to configure NetCDF-specified river-like point sources
    ``remora.nc_river_file`` may be either a single file or a space-separated
    list of files. If multiple river files are provided, they must be listed in
    time series order.
+
+.. _sec:rivers:
+
+River input for individual tracers
+----------------------------------
+
+Any cell-centered tracer can take river input, keyed by the tracer's own name, so
+temperature and salinity keep ``remora.do_rivers_temp`` and
+``remora.do_rivers_salt`` and a biology tracer uses
+
+.. code:: python
+
+   remora.do_rivers_NO3 = true
+
+The defaults are: temperature and salinity on, every passive (dye) scalar following
+``remora.do_rivers_scalar``, and biology tracers off. Biology defaults off because a
+river concentration for a biogeochemical tracer has to be a deliberate choice, not
+something inherited from a dye setting. All of these are ignored unless
+``remora.do_rivers`` is true.
+
+Each enabled tracer needs a field named for it in ``remora.nc_river_file``, with
+dimensions ``(river_time, s_rho, river)``, following the ROMS convention:
+``river_temp``, ``river_salt``, ``river_tracer``, ``river_NO3``, and so on. If the
+field is missing REMORA aborts and names it, rather than failing inside the NetCDF
+reader.
 
 Runtime Error Checking
 ======================
