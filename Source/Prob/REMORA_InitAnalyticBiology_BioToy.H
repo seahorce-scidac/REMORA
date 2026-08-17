@@ -17,7 +17,7 @@
                 SiO4 = Real(10.0) - ((temp(i,j,k) - Real(11.0))*Real(4.0));
             } else if ((temp(i,j,k) > Real(13.0)) && (temp(i,j,k) <= Real(16.0))) {
                 SiO4 = Real(2.0) - ((temp(i,j,k) - Real(13.0))*cff2);
-            } else if (temp(i,j,k) > Real(16.0)) {
+            } else { //else if (temp(i,j,k) > Real(16.0))
                 SiO4 = Real(0.0);
             }
             cons(i,j,k,bio_comp.no3)=Real(1.67)+Real(0.5873)*SiO4+
