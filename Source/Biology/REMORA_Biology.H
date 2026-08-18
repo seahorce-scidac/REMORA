@@ -212,8 +212,8 @@ struct FennelParameters {
 
     // remora.fennel.pco2air_type: constant / data / secular. The two
     // time-dependent forms date the model clock through REMORA_DateClock.H,
-    // which is ROMS caldate with time_ref = 0: model time zero is 0001-01-01,
-    // and a run is placed at a real date through remora.start_time.
+    // which is ROMS caldate: remora.time_ref names the reference date and the
+    // calendar it belongs to, and remora.start_time the offset from it.
     PCO2AirType pco2air_type = PCO2AirType::constant;
 
     // remora.fennel.co2_schmidt / remora.fennel.oxygen_schmidt.

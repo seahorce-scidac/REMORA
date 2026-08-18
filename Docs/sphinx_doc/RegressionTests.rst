@@ -4,7 +4,7 @@
 Regression Tests
 ================
 
-There are currently 12 accuracy tests which are run as part of every PR on a range of architectures.
+There are currently 17 accuracy tests which are run as part of every PR on a range of architectures.
 The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
 instructions in :ref:`Testing<Testing>`.
@@ -83,6 +83,22 @@ The following problems are currently tested in the CI. More details about the pr
 | Upwelling               | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
 |                         |          |           |          |                                 |
 |                         |          |           |          | non-flat bathymetry             |
++-------------------------+----------+-----------+----------+---------------------------------+
+| Upwelling_Fennel        | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
+|                         |          |           |          |                                 |
+|                         |          |           |          | bulk fluxes                     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | Fennel biology, analytic IC     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | carbon, oxygen, river DON       |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-conservative alkalinity     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | dated atmospheric pCO2          |
+|                         |          |           |          |                                 |
+|                         |          |           |          | Wanninkhof (2014) gas transfer  |
 +-------------------------+----------+-----------+----------+---------------------------------+
 | Upwelling_GLS           | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
 |                         |          |           |          |                                 |
