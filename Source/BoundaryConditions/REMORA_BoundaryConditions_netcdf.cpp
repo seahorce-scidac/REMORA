@@ -158,7 +158,10 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
             const Array4<const Real>& msku = vec_msku[lev]->const_array(mfi);
             const Array4<const Real>& mskv = vec_mskv[lev]->const_array(mfi);
 
-            const Array4<const Real> nudg_coeff_out = vec_nudg_coeff[bdy_var_type][lev]->const_array(mfi);
+            // Same ivar+icomp mapping as boundary_series above: the BdyVars tracer slots
+            // are contiguous from BdyVars::t in cons component order, so this is the
+            // nudging coefficient for cons component icomp rather than temperature's.
+            const Array4<const Real> nudg_coeff_out = vec_nudg_coeff[ivar+icomp][lev]->const_array(mfi);
 
             //
             // We are inside a loop over components so we do one at a time here
