@@ -282,7 +282,7 @@ public:
     void set_grid_vars_averaged_down (int lev);
 
     /** \brief Set zeta components to be equal to time-averaged Zt_avg1 */
-    void set_zeta_to_Ztavg (int lev);
+    void set_zeta_to_Ztavg (int lev, bool apply_eminusp=true);
 
     /** \brief Calculate u-, v-, and psi-point masks based on rho-point masks after analytic initialization */
     void calculate_nodal_masks (int lev);
