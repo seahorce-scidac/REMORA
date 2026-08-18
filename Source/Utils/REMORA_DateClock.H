@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <type_traits>
 
 #include <AMReX_REAL.H>
 #include <AMReX_Extension.H>
@@ -347,6 +348,26 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 bool remora_time_ref_is_valid (amrex::Real time_ref) noexcept
 {
     return static_cast<int>(time_ref) >= -2;
+}
+
+/**
+ * \brief Whether \p time_ref survives a round trip through amrex::Real.
+ *
+ * A yyyymmdd.dd date carries eight significant integer digits, and remora_ref_datenum
+ * pulls the year, month, and day back out of them arithmetically. That needs those digits
+ * to be exact. A single-precision Real has a 24-bit mantissa, so integers above 2^24
+ * (16777216) are not representable and every date from year 1678 on rounds to a
+ * neighbouring value -- which then decodes to a different calendar date with nothing to
+ * flag it. The three sentinel calendars (0, -1, -2) are small integers and are always
+ * fine.
+ */
+AMREX_FORCE_INLINE
+bool remora_time_ref_is_representable (amrex::Real time_ref) noexcept
+{
+    if (time_ref <= amrex::Real(0.0)) {
+        return true;
+    }
+    return std::is_same<amrex::Real, double>::value;
 }
 
 #endif
