@@ -1,4 +1,8 @@
 
+    // Whether this run carries a passive dye tracer. nComp() cannot answer this: with
+    // biology active and no dye, Tracer_comp is the first biology component, so testing
+    // nComp() would write the dye initial value into NO3.
+    const bool l_do_dye = (remora.num_passive_scalars() > 0);
     ParmParse pp_prob("remora.prob");
     Real u_0 = zero; pp_prob.query("u_0", u_0);
     Real v_0 = zero; pp_prob.query("v_0", v_0);
@@ -47,7 +51,7 @@
             }
 
             // Single circle of tracer (default)
-            if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = std::exp(-r2/(2.*radsq)); }
+            if (l_do_dye) { state(i, j, k,Tracer_comp) = std::exp(-r2/(2.*radsq)); }
 
             // Donut of tracer
             //state(i, j, k, Tracer_comp) = 1.25 * (std::exp(-r2/(2.*radsq)) - std::exp(-r2/(2*rad_inner_sq)));

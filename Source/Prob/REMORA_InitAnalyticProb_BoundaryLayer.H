@@ -1,4 +1,8 @@
 
+    // Whether this run carries a passive dye tracer. nComp() cannot answer this: with
+    // biology active and no dye, Tracer_comp is the first biology component, so testing
+    // nComp() would write the dye initial value into NO3.
+    const bool l_do_dye = (remora.num_passive_scalars() > 0);
     auto T0 = m_solverChoice.T0;
     auto S0 = m_solverChoice.S0;
 
@@ -24,7 +28,7 @@
             state(i,j,k,Temp_comp)=T0+Real(6.25)*val1;
             state(i,j,k,Salt_comp)=S0-Real(0.75)*val1;
 
-            if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = zero; }
+            if (l_do_dye) { state(i, j, k,Tracer_comp) = zero; }
         });
 
         const Box& xbx = surroundingNodes(bx,0);

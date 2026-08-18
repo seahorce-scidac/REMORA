@@ -1294,6 +1294,14 @@ public:
     int num_bdy_vars () const noexcept { return BdyVars::NumTypes(ncons); }
     ///@}
 
+    /** \brief Number of passive (dye) scalars in the state, not counting biology tracers.
+     *
+     * Zero means the state has no dye component at all, so Tracer_comp is either the first
+     * biology tracer or one past the end of cons. Problem setups that initialize a dye have
+     * to test this rather than nComp(), which cannot tell a dye apart from a biology tracer.
+     */
+    int num_passive_scalars () const noexcept { return nscalar; }
+
 
 #ifdef REMORA_USE_NETCDF
     static int total_nc_plot_file_step;

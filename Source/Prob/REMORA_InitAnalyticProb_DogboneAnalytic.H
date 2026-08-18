@@ -1,4 +1,8 @@
 
+    // Whether this run carries a passive dye tracer. nComp() cannot answer this: with
+    // biology active and no dye, Tracer_comp is the first biology component, so testing
+    // nComp() would write the dye initial value into NO3.
+    const bool l_do_dye = (remora.num_passive_scalars() > 0);
     ParmParse pp_prob("remora.prob");
     bool traditional = true;
     pp_prob.query("traditional", traditional);
@@ -27,7 +31,7 @@
                 state(i,j,k,Temp_comp)= (x_r(i,j,0) < Real(1000.)) ? Real(5.0) : Real(10.0);
 
                 // Set tracer = 0 everywhere
-                if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = zero; }
+                if (l_do_dye) { state(i, j, k,Tracer_comp) = zero; }
             });
         } else {
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
@@ -41,7 +45,7 @@
                 state(i,j,k,Temp_comp)= Real(10.0);
 
                 // Set tracer = 0 everywhere
-                if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = zero; }
+                if (l_do_dye) { state(i, j, k,Tracer_comp) = zero; }
             });
         }
 

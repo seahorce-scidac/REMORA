@@ -1,4 +1,8 @@
 
+    // Whether this run carries a passive dye tracer. nComp() cannot answer this: with
+    // biology active and no dye, Tracer_comp is the first biology component, so testing
+    // nComp() would write the dye initial value into NO3.
+    const bool l_do_dye = (remora.num_passive_scalars() > 0);
     ParmParse pp_prob("remora.prob");
     Real u_0  = Real(0.0); pp_prob.query("u_0", u_0);
     Real v_0  = Real(0.0); pp_prob.query("v_0", v_0);
@@ -42,7 +46,7 @@
             }
 
             // Set tracer = 0 everywhere
-            if (state.nComp() > Tracer_comp) { state(i, j, k,Tracer_comp) = zero; }
+            if (l_do_dye) { state(i, j, k,Tracer_comp) = zero; }
         });
 
         // Construct a box that is on x-faces
