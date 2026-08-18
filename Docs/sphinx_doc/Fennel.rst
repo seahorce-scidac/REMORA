@@ -24,9 +24,9 @@ Enable the module in the inputs file with:
 The values ``none`` and ``off`` disable biology. The biology tracer count is set by
 the active Fennel tracer set and is independent of ``remora.nscalar``, which counts
 passive (dye) scalars only. A run may carry both: the state is laid out as
-temperature, salinity, the passive scalars, then the biology tracers. With biology
-active ``remora.nscalar`` defaults to 0, so a Fennel run carries no dye unless it
-asks for some.
+temperature, salinity, the passive scalars, then the biology tracers.
+``remora.nscalar`` defaults to 0, so a Fennel run carries no dye unless it asks for
+some.
 
 .. warning::
 
@@ -344,10 +344,11 @@ and so on -- and a tracer with no entry of its own falls back to
 ``remora.bc.scalar.type``. A tracer clamped or nudged to file data reads
 ``<name>_west``, ``<name>_east``, ``<name>_south``, and ``<name>_north`` from the
 boundary NetCDF file, following the ROMS naming convention, and only for the sides
-that need it. Driving a Fennel tracer from file requires per-variable mode
-(``remora.boundary_per_variable = true``); a per-side keyword applies the
-file-driven condition to temperature and salinity only. See
-:ref:`sec:bc-per-tracer` for details.
+that need it. A per-side keyword applies the file-driven condition to every
+tracer alike, Fennel tracers included, so a per-side ``clamped`` run needs
+``NO3_west`` and the rest in the boundary file; per-variable mode is what lets a
+biology tracer keep a local condition such as ``outflow`` while temperature and
+salinity are clamped. See :ref:`sec:bc-per-tracer` for details.
 
 Validation Against ROMS
 =======================

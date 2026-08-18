@@ -1710,16 +1710,14 @@ REMORA::ReadParameters ()
 #endif
 
         // Biology tracers are counted separately from the passive scalars, so a run can
-        // carry dye and biology at once. Without an explicit remora.nscalar a biology run
-        // gets no dye: the historical default of one exists so that a run always carries
-        // something beyond temp and salt, and biology already satisfies that.
+        // carry dye and biology at once.
         nbio = static_cast<int>(REMORABiology::tracer_names(biology_model, fennel_params).size());
-        nscalar = 0;
-        pp.queryAdd("nscalar", nscalar);
     } else {
         nbio = 0;
-        pp.queryAdd("nscalar", nscalar);
     }
+    // Dye is opt-in, biology or not: a component nothing asked for is one more thing to
+    // advect, diffuse, and explain in every plotfile and boundary file.
+    pp.queryAdd("nscalar", nscalar);
     if (nscalar < 0) {
         amrex::Abort("remora.nscalar must be non-negative");
     }

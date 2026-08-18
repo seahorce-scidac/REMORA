@@ -51,18 +51,15 @@ void REMORA::init_bcs ()
     };
 
     auto f_set_var_bc = [this, uses_velocity_input, uses_scalar_input, xvel_bc_idx, zeta_bc_idx, ubar_bc_idx, vbar_bc_idx, bcvar_names]
-        (ParmParse& pp, int bcvar_type, Orientation ori, std::string bc_type_string) {
-        // Per-side mode applies one keyword to every variable at once, and a ROMS
-        // boundary file carries temp and salt but not the additional scalars. Rather
-        // than demand tracer boundary data that cannot exist, fall back to the local
-        // zero-gradient condition for those components -- which is what they
-        // effectively got before tracers had a boundary lane of their own. Naming a
-        // tracer in per-variable mode is a specific request and is honoured (or fails
-        // loudly if the file has no data for it).
-        if (!set_bcs_by_var && bcvar_type >= Tracer_comp && bcvar_type < ncons &&
-            (bc_type_string == "clamped" || bc_type_string == "orlanski_rad_nudg")) {
-            bc_type_string = "outflow";
-        }
+        (ParmParse& pp, int bcvar_type, Orientation ori, const std::string& bc_type_string) {
+        // A side keyword means the same thing for every variable it covers: no tracer,
+        // dye or biology, is quietly given a different condition than the one asked
+        // for. A file-driven side therefore expects boundary data for each tracer the
+        // run carries, named as ROMS names it (tracer_west, NO3_west, ...), and
+        // NCTimeSeriesBoundary aborts by name if the file has none. Runs whose
+        // boundary file covers temp and salt alone either drop the extra tracers
+        // (remora.nscalar = 0) or move to remora.boundary_per_variable = true, where
+        // each tracer's condition is stated outright.
 
         if (bc_type_string == "symmetry")
         {
@@ -306,23 +303,6 @@ void REMORA::init_bcs ()
         f_by_side("xhi", Orientation(Direction::x,Orientation::high));
         f_by_side("ylo", Orientation(Direction::y,Orientation::low));
         f_by_side("yhi", Orientation(Direction::y,Orientation::high));
-
-        // Say so rather than leaving the fallback above to be discovered
-        if (ncons > Tracer_comp) {
-            bool any_file_driven = false;
-            for (OrientationIter oit; oit; ++oit) {
-                auto const bct = phys_bc_type[BCVars::Temp_bc_comp][oit()];
-                any_file_driven = any_file_driven || (bct == REMORA_BC::clamped)
-                                                  || (bct == REMORA_BC::orlanski_rad_nudge);
-            }
-            if (any_file_driven) {
-                amrex::Print() << "Note: boundary conditions are specified per side, so a "
-                                  "file-driven condition applies to temp and salt only; the "
-                                  "additional scalars use zero-gradient. Set "
-                                  "remora.boundary_per_variable = true to drive a tracer from "
-                                  "the boundary file." << std::endl;
-            }
-        }
     } else {
         f_by_var("temp", BCVars::Temp_bc_comp);
         f_by_var("salt", BCVars::Salt_bc_comp);

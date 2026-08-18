@@ -95,6 +95,8 @@ Currently, if initial or grid files are specified, they both must be. Boundary c
 
 By default, bathymetry is specified at level 0 and interpolated to the finer levels, like with any other variable. Bathymetry may also be specified at level ``remora.hires_grid_level > 0`` in file ``remora.nc_grid_file_hires``. Bathymetry on levels ``< remora.hires_grid_level`` is set by averaging down the given bathymetry. Bathymetry on higher levels is set by interpolating. High resolution bathymetry data must be given with a number of grow cells equal to the cumulative refinement ratio between level 0 and ``remora.hires_grid_level``. That is, the refined grid must fully cover the level 0 grid plus one level 0 grow cell. For example, in a problem with ``hires_grid_level = 2``, a refinement ratio of 2 between levels 0 and 1, and 3 between levels 1 and 2, ``nc_grid_file_hires`` must have 6 grow cells on each side of the domain.
 
+Initial data may be specified on a high-resolution level the same way, at level ``remora.hires_init_level > 0`` in file ``remora.nc_init_file_hires``, and averaged down to the levels below. The grow cell rule is the same as for bathymetry, applied to this level: the file must have as many grow cells as the cumulative refinement ratio between level 0 and ``remora.hires_init_level``. The fields it supplies are the ones a level 0 initial file supplies, on the same terms: ``temp``, ``salt``, ``u``, ``v``, and ``zeta``, plus each dye the run carries (optional, as at level 0) and the biology tracers when ``remora.biology_ic_type`` selects NetCDF. High-resolution initialization requires ``remora.ic_type = netcdf``; it is not implemented for analytic initial conditions.
+
 List of Parameters
 ------------------
 
@@ -121,7 +123,7 @@ List of Parameters
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.nc_grid_file_hires**     | high-resolution grid data NetCDF  | string          | must be set if                  |
 |                                   |                                   |                 |                                 |
-|                                   |                                   |                 | ``remora.nc_hires_grid_level``  |
+|                                   |                                   |                 | ``remora.hires_grid_level``     |
 |                                   |                                   |                 |                                 |
 |                                   | file name                         |                 | is valid (greater than -1)      |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
@@ -130,6 +132,18 @@ List of Parameters
 |                                   | grid data is specified, either    |                 | be specified at level 0         |
 |                                   |                                   |                 |                                 |
 |                                   | in NetCDF file or analytically    |                 |                                 |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.nc_init_file_hires**     | high-resolution initial data      | string          | must be set if                  |
+|                                   |                                   |                 |                                 |
+|                                   | NetCDF file name                  |                 | ``remora.hires_init_level``     |
+|                                   |                                   |                 |                                 |
+|                                   |                                   |                 | is valid (greater than -1)      |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.hires_init_level**       | level where high-resolution       | integer         | -1, meaning initial data        |
+|                                   |                                   |                 |                                 |
+|                                   | initial data is specified         |                 | will be specified at level 0    |
+|                                   |                                   |                 |                                 |
+|                                   | in a NetCDF file                  |                 |                                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.nc_bdry_file**           | boundary data NetCDF              | string or list  | must be set if                  |
 |                                   |                                   |                 |                                 |
@@ -852,13 +866,13 @@ List of Parameters
 |                                          |                                        |                        |                |
 |                                          | domain).                               |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
-| **remora.nscalar**                       | Number of passive (dye) scalars        | Integer >= 0           | 1, or 0 when   |
+| **remora.nscalar**                       | Number of passive (dye) scalars        | Integer >= 0           | 0              |
 |                                          |                                        |                        |                |
-|                                          | in addition to temperature and         |                        | a biology      |
+|                                          | in addition to temperature and         |                        |                |
 |                                          |                                        |                        |                |
-|                                          | salinity. Does not count biology       |                        | model is       |
+|                                          | salinity. Does not count biology       |                        |                |
 |                                          |                                        |                        |                |
-|                                          | tracers.                               |                        | active         |
+|                                          | tracers.                               |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.tnu2_scalar**                   | Constant horizontal diffusivity,       | Real number            | 0.0            |
 |                                          |                                        |                        |                |
@@ -956,12 +970,36 @@ For example:
 Additional passive scalars continue with the names ``tracer_2``,
 ``tracer_3``, and so on.
 
-``remora.nscalar`` defaults to 1, or to 0 when a biology model is active: the
-default of 1 exists so that a run always carries something beyond temperature and
-salinity, and biology already satisfies that. Zero is a valid setting on its own,
-giving a run with temperature and salinity only. Dye and biology coexist freely, so
-``remora.nscalar = 2`` with a Fennel model carrying 11 tracers gives 15 components
-in the order shown above. See :ref:`sec:Fennel`.
+``remora.nscalar`` defaults to 0, so dye is opt-in: a run carries temperature and
+salinity only until an input asks for more. A tracer nothing asked for is still
+advected and diffused every step, and still has to be accounted for in plotfiles and
+in boundary and climatology files, so carrying one by default made runs that never
+mentioned dye behave as though they had.
+
+Dye and biology coexist freely, so ``remora.nscalar = 2`` with a Fennel model carrying
+11 tracers gives 15 components in the order shown above. See :ref:`sec:Fennel`.
+
+With ``remora.ic_type = netcdf`` each dye's initial field is read from the initial
+file under its own name -- ``tracer``, ``tracer_1``, and so on -- stored with the
+same ``(ocean_time, s_rho, eta_rho, xi_rho)`` layout ROMS uses for ``temp`` and
+``salt``. The read is the last thing ``init_data_from_netcdf`` does: dye follows
+``remora.ic_type`` along with the physical fields rather than having an
+initialization-source flag of its own the way biology does.
+
+Unlike ``temp`` and ``salt``, these fields are optional. A dye whose variable the
+initial file does not carry starts at zero, and the run prints the names it did not
+find, so an initial file written before the run carried dye still works unchanged and
+an idealized file need only carry the dyes it actually wants to specify. The same read
+runs on ``remora.nc_init_file_hires`` when initial data is given on a high-resolution
+level.
+
+A dye's other file-driven inputs follow the same naming convention -- ``tracer_west``
+and friends for boundary data, ``tracer`` for a climatology field, and
+``tracer_NudgeCoef`` for a spatially varying nudging coefficient -- but unlike the
+initial field they are not optional. A boundary condition or nudging flag that calls
+for data the file does not have stops the run and names what is missing; only
+``tracer_NudgeCoef`` falls back, to the constant derived from ``remora.tnudg``. See
+:ref:`sec:bc-per-tracer` and :ref:`sec:clim-per-tracer`.
 
 Horizontal and vertical mixing coefficients follow different rules, as they do in ROMS.
 

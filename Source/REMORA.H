@@ -1216,6 +1216,10 @@ public:
     void init_data_from_netcdf (int lev);
     /** \brief Biology initialization from NetCDF file */
     void init_biology_from_netcdf (int lev);
+    /** \brief Passive (dye) scalar initialization from NetCDF file. Called from
+     *         init_data_from_netcdf: dye follows remora.ic_type rather than having
+     *         a source flag of its own. */
+    void init_scalars_from_netcdf (int lev);
 
     /** \brief Initialize biology tracers from whichever source
      *         remora.biology_ic_type selects. Call after the physical fields
@@ -1229,6 +1233,8 @@ public:
     void init_data_full_domain_from_netcdf ();
     /** \brief Full-domain high-res biology initialization from NetCDF file */
     void init_biology_full_domain_from_netcdf ();
+    /** \brief Full-domain high-res passive (dye) scalar initialization from NetCDF file */
+    void init_scalars_full_domain_from_netcdf ();
     /** \brief Boundary data initialization from NetCDF file */
     void init_bdry_from_netcdf (int lev);
     /** \brief Mask data initialization from NetCDF file */
@@ -1590,8 +1596,9 @@ private:
     std::string restart_chkfile = "";
 
     /** \brief Number of passive (dye) scalars carried in the state, beyond temperature
-     *         and salinity. Does not count biology tracers. */
-    int nscalar = 1;
+     *         and salinity. Does not count biology tracers. Dye is opt-in: a run
+     *         carries one only when remora.nscalar asks for it. */
+    int nscalar = 0;
     /** \brief Number of biology tracers, set by the active biology model. Zero when no
      *         biology model is active. */
     int nbio = 0;

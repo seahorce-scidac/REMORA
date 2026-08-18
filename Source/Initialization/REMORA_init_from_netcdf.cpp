@@ -36,6 +36,20 @@ read_biology_full_domain_from_netcdf (int /*lev*/, const Box& domain, const std:
                                       const Vector<std::string>& biology_names,
                                       Vector<FArrayBox>& NC_biology_fab, IntVect ngrow);
 
+/** \brief helper function for reading in initial passive (dye) scalar data from netcdf */
+void
+read_scalars_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
+                          const Vector<std::string>& scalar_names,
+                          Vector<FArrayBox>& NC_scalar_fab,
+                          Vector<int>& scalar_in_file);
+
+/** \brief helper function for reading in full domain high-resolution initial passive (dye) scalar data from netcdf */
+void
+read_scalars_full_domain_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
+                                      const Vector<std::string>& scalar_names,
+                                      Vector<FArrayBox>& NC_scalar_fab,
+                                      Vector<int>& scalar_in_file, IntVect ngrow);
+
 /** \brief helper function for reading in land-sea masks from netcdf */
 void
 read_masks_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
@@ -56,6 +70,12 @@ init_state_from_netcdf (int lev,
 void
 init_biology_state_from_netcdf (int lev, FArrayBox& biology_fab,
                                 const Vector<Vector<FArrayBox>>& NC_biology_fab);
+
+/** \brief helper function to initialize passive (dye) scalar state from netcdf */
+void
+init_scalar_state_from_netcdf (int lev, FArrayBox& scalar_fab,
+                               const Vector<Vector<FArrayBox>>& NC_scalar_fab,
+                               const Vector<Vector<int>>& scalar_in_file);
 
 /** \brief helper function to read bathymetry from netcdf */
 void
@@ -159,10 +179,65 @@ REMORA::init_data_from_netcdf (int lev)
     } // mf
     } // omp
 
-    // Zero every tracer past salinity. The passive scalars stay zero unless a problem
-    // sets them; the biology block is overwritten by init_biology_ic immediately after,
-    // so zeroing it here only guards against a partially filled biology IC.
+    // Zero every tracer past salinity. This is the starting point for the passive
+    // scalars, which the read below overwrites for each dye the file carries; the
+    // biology block is overwritten by init_biology_ic immediately after, so zeroing it
+    // here only guards against a partially filled biology IC.
     cons_new[lev]->setVal(zero, Tracer_comp, ncons - Tracer_comp, cons_new[lev]->nGrowVect());
+
+    // Passive scalars come from the same file, and from the same remora.ic_type that
+    // brought us here, so they are read here rather than through a source flag of
+    // their own the way biology is.
+    init_scalars_from_netcdf(lev);
+}
+
+/**
+ * \brief Initialize the passive (dye) scalars from the initial NetCDF file.
+ *
+ * Unlike biology, dye has no initialization-source flag of its own: it follows
+ * remora.ic_type along with temperature, salinity, and velocity, so this is called
+ * from init_data_from_netcdf rather than from a dispatcher. Each dye whose variable
+ * the file carries is read into its own component; the rest keep the zero written
+ * just before the call.
+ *
+ * @param lev Integer specifying the current level
+ */
+void
+REMORA::init_scalars_from_netcdf (int lev)
+{
+    if (nscalar == 0) {
+        return;
+    }
+
+    Vector<std::string> scalar_names;
+    scalar_names.reserve(nscalar);
+    for (int icomp = Tracer_comp; icomp < Bio_comp; ++icomp) {
+        scalar_names.push_back(cons_names[icomp]);
+    }
+
+    // One FAB and one presence flag per dye per box
+    Vector<Vector<FArrayBox>> NC_scalar_fab(num_boxes_at_level[lev]);
+    Vector<Vector<int>>       scalar_in_file(num_boxes_at_level[lev]);
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
+    {
+        NC_scalar_fab[idx].resize(scalar_names.size());
+        read_scalars_from_netcdf(lev, boxes_at_level[lev][idx], nc_init_file[lev][idx],
+                                 scalar_names, NC_scalar_fab[idx], scalar_in_file[idx]);
+    }
+
+    MultiFab mf_scalar(*cons_new[lev], make_alias, Tracer_comp, nscalar);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    {
+    // Don't tile this since we are operating on full FABs in this routine
+    for (MFIter mfi(mf_scalar, false); mfi.isValid(); ++mfi)
+    {
+        FArrayBox& scalar_fab = mf_scalar[mfi];
+        init_scalar_state_from_netcdf(lev, scalar_fab, NC_scalar_fab, scalar_in_file);
+    }
+    }
 }
 
 void
@@ -241,12 +316,58 @@ REMORA::init_data_full_domain_from_netcdf ()
 
     vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp, ncons - Tracer_comp, vec_cons_full_domain[hires_init_level]->nGrowVect());
 
+    // Passive scalars, before the average down below carries this level's data to the
+    // levels beneath it. Biology is filled separately by init_biology_ic_full_domain,
+    // which does its own average down.
+    init_scalars_full_domain_from_netcdf();
+
     // Average down to fill levels below hires_grid_level. Use a special average_down so
     // grow cells get populated by averaged down fine data
     for (int lev=hires_init_level-1; lev >= 0; lev--) {
         average_down_with_grow_cells(lev, vec_cons_full_domain);
         average_down_with_grow_cells(lev, vec_xvel_full_domain);
         average_down_with_grow_cells(lev, vec_yvel_full_domain);
+    }
+}
+
+/**
+ * \brief Full-domain counterpart of init_scalars_from_netcdf, for the hires_init_level
+ *        average-down path. Called from init_data_full_domain_from_netcdf before that
+ *        routine averages vec_cons_full_domain down, so no average down is needed here.
+ */
+void
+REMORA::init_scalars_full_domain_from_netcdf ()
+{
+    if (nscalar == 0) {
+        return;
+    }
+
+    Vector<std::string> scalar_names;
+    scalar_names.reserve(nscalar);
+    for (int icomp = Tracer_comp; icomp < Bio_comp; ++icomp) {
+        scalar_names.push_back(cons_names[icomp]);
+    }
+
+    Vector<Vector<FArrayBox>> NC_scalar_fab(1);
+    Vector<Vector<int>>       scalar_in_file(1);
+    NC_scalar_fab[0].resize(scalar_names.size());
+
+    read_scalars_full_domain_from_netcdf(hires_init_level, nc_hires_init_box, nc_init_file_hires,
+                                         scalar_names, NC_scalar_fab[0], scalar_in_file[0],
+                                         cum_ref_ratios[hires_init_level]);
+
+    MultiFab mf_scalar(*vec_cons_full_domain[hires_init_level], make_alias, Tracer_comp, nscalar);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    {
+    // Don't tile this since we are operating on full FABs in this routine
+    for (MFIter mfi(mf_scalar, false); mfi.isValid(); ++mfi)
+    {
+        FArrayBox& scalar_fab = mf_scalar[mfi];
+        init_scalar_state_from_netcdf(hires_init_level, scalar_fab, NC_scalar_fab, scalar_in_file);
+    }
     }
 }
 
@@ -741,6 +862,25 @@ init_biology_state_from_netcdf (int /*lev*/, FArrayBox& biology_fab,
         AMREX_ALWAYS_ASSERT(static_cast<int>(NC_biology_fab[idx].size()) == biology_fab.nComp());
         for (int ibio = 0; ibio < biology_fab.nComp(); ++ibio) {
             biology_fab.template copy<RunOn::Device>(NC_biology_fab[idx][ibio], 0, ibio, 1);
+        }
+    }
+}
+
+void
+init_scalar_state_from_netcdf (int /*lev*/, FArrayBox& scalar_fab,
+                               const Vector<Vector<FArrayBox>>& NC_scalar_fab,
+                               const Vector<Vector<int>>& scalar_in_file)
+{
+    int nboxes = NC_scalar_fab.size();
+    for (int idx = 0; idx < nboxes; idx++)
+    {
+        AMREX_ALWAYS_ASSERT(static_cast<int>(NC_scalar_fab[idx].size())  == scalar_fab.nComp());
+        AMREX_ALWAYS_ASSERT(static_cast<int>(scalar_in_file[idx].size()) == scalar_fab.nComp());
+        for (int iscal = 0; iscal < scalar_fab.nComp(); ++iscal) {
+            // A dye the file does not carry has no FAB built for it, so leave the zero
+            // that was written before the read.
+            if (!scalar_in_file[idx][iscal]) { continue; }
+            scalar_fab.template copy<RunOn::Device>(NC_scalar_fab[idx][iscal], 0, iscal, 1);
         }
     }
 }

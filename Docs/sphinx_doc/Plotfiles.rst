@@ -159,6 +159,11 @@ Notes
    requested by name. See :ref:`sec:Fennel` for tracer names and component
    options.
 
+-  Passive dye is opt-in: ``tracer`` is only available when ``remora.nscalar`` is at
+   least 1 (see :ref:`sec:Inputs`). Naming a field the run does not carry is not fatal
+   -- REMORA warns that the variable is not available and writes the plotfile without
+   it -- so a missing dye shows up as a missing column rather than a failed run.
+
 3D Plotfile Field Options
 --------------------------
 
@@ -170,7 +175,10 @@ Notes
 +--------------------------------+---------------------------+
 | **temp**                       | temperature               |
 +--------------------------------+---------------------------+
-| **scalar**                     | passive scalar            |
+| **tracer**                     | passive dye; also         |
+|                                | ``tracer_1``,             |
+|                                | ``tracer_2``, ... for     |
+|                                | additional dyes           |
 +--------------------------------+---------------------------+
 | **x_velocity**                 | velocity in x-direction   |
 +--------------------------------+---------------------------+

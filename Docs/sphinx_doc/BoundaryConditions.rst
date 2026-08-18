@@ -150,12 +150,14 @@ time axis for a tracer's boundary data can be named with ``remora.bdy_<name>_tim
 example ``remora.bdy_NO3_time_varname``), defaulting to ``remora.bdy_time_varname`` as for the
 other variables.
 
-This applies to per-variable mode, where naming a tracer (or ``scalar``) is a specific request.
-Per-side mode is different: one keyword there covers every variable at once, and a ROMS boundary
-file carries temperature and salinity but not the additional scalars. So a per-side ``clamped`` or
-``orlanski_rad_nudg`` drives temperature and salinity from file and leaves the additional scalars
-on the local zero-gradient condition, printing a note to that effect. Use per-variable mode to
-drive a tracer from the boundary file.
+This holds in per-side mode as well: a side keyword covers every variable at once, tracers
+included, so a per-side ``clamped`` or ``orlanski_rad_nudg`` drives every tracer the run carries
+from file, not temperature and salinity alone. A ROMS boundary file that carries temperature and
+salinity but nothing for the extra tracers will stop the run at setup, naming the variables it
+lacks. Either give the file the missing fields, drop the extra tracers (``remora.nscalar = 0``),
+or switch to per-variable mode and state each tracer's condition outright -- ``outflow`` for a
+tracer with no boundary data of its own. ``remora.nscalar`` defaults to 0, so this only comes
+up for a run that asks for dye or turns on a biology model.
 
 Nudging for ``orlanski_rad_nudg`` uses the tracer timescale ``remora.tnudg`` for every tracer,
 matching the ROMS default of a single ``Tnudg`` shared across tracers. A tracer picks up a

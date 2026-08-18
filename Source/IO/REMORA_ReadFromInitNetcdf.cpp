@@ -121,6 +121,106 @@ read_biology_full_domain_from_netcdf (int /*lev*/,
 }
 
 /**
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param scalar_names    per passive scalar, name of the variable in the file
+ * @param NC_scalar_fab   per passive scalar, container for the dye data
+ * @param scalar_in_file  filled on output: per passive scalar, whether the variable was
+ *                        found in the file and its FAB was built
+ * @param full_domain     whether this is the high resolution full-domain read, which
+ *                        needs ngrow grow cells rather than the reader's default
+ * @param ngrow           number of grow cells to read, for the full-domain read
+ *
+ * A passive scalar's initial field is optional. Initial files written for runs that
+ * carry no dye -- which is every ROMS initial file predating the dye variables, and
+ * most idealized ones -- have no "tracer" variable, and remora.nscalar defaults to 1,
+ * so requiring the field would break every existing NetCDF-initialized run. Each name
+ * the file does carry is read; the rest keep the zero that init_data_from_netcdf set,
+ * which is the behavior those runs had before this read existed.
+ *
+ * Shared by the per-box and full-domain entry points below: the presence testing is
+ * the same for both, and only the grow cells and the wording of the log differ.
+ */
+namespace {
+void
+read_scalars_impl (const Box& domain,
+                   const std::string& fname,
+                   const Vector<std::string>& scalar_names,
+                   Vector<FArrayBox>& NC_scalar_fab,
+                   Vector<int>& scalar_in_file,
+                   bool full_domain,
+                   IntVect ngrow)
+{
+    scalar_in_file.assign(scalar_names.size(), 0);
+    if (scalar_names.empty()) {
+        return;
+    }
+
+    NC_scalar_fab.resize(scalar_names.size());
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+    Vector<std::string> missing;
+
+    for (int iscal = 0; iscal < static_cast<int>(scalar_names.size()); ++iscal) {
+        if (!QueryNetCDFHasVars(fname, {scalar_names[iscal]})) {
+            missing.push_back(scalar_names[iscal]);
+            continue;
+        }
+        scalar_in_file[iscal] = 1;
+        NC_fabs.push_back(&NC_scalar_fab[iscal]);
+        NC_names.push_back(scalar_names[iscal]);
+        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
+    }
+
+    if (!missing.empty()) {
+        amrex::Print() << "Initial file " << fname << " does not contain";
+        for (const auto& name : missing) { amrex::Print() << " " << name; }
+        amrex::Print() << "; those passive scalars start at zero" << std::endl;
+    }
+    if (NC_names.empty()) {
+        return;
+    }
+
+    amrex::Print() << "Loading " << (full_domain ? "high resolution " : "initial ")
+                   << "passive scalar data from NetCDF file " << fname << std::endl;
+
+    // Read the netcdf file and fill these FABs. The per-box read takes the reader's
+    // default grow cells, as the temperature and salinity read does.
+    if (full_domain) {
+        BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+    } else {
+        BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    }
+}
+} // namespace
+
+void
+read_scalars_from_netcdf (int /*lev*/,
+                          const Box& domain,
+                          const std::string& fname,
+                          const Vector<std::string>& scalar_names,
+                          Vector<FArrayBox>& NC_scalar_fab,
+                          Vector<int>& scalar_in_file)
+{
+    read_scalars_impl(domain, fname, scalar_names, NC_scalar_fab, scalar_in_file,
+                      false, IntVect(0,0,0));
+}
+
+void
+read_scalars_full_domain_from_netcdf (int /*lev*/,
+                                      const Box& domain,
+                                      const std::string& fname,
+                                      const Vector<std::string>& scalar_names,
+                                      Vector<FArrayBox>& NC_scalar_fab,
+                                      Vector<int>& scalar_in_file,
+                                      IntVect ngrow)
+{
+    read_scalars_impl(domain, fname, scalar_names, NC_scalar_fab, scalar_in_file,
+                      true, ngrow);
+}
+
+/**
  * @param lev             level of data to read
  * @param domain          simulation domain
  * @param fname           file name to read from
