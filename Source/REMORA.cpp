@@ -1548,7 +1548,8 @@ REMORA::init_only (int lev, Real time)
 #ifdef REMORA_USE_NETCDF
                 amrex::Print() << "Calling init_data_from_netcdf " << std::endl;
                 init_data_from_netcdf(lev);
-                set_zeta_to_Ztavg(lev);
+                bool apply_eminusp = false;
+                set_zeta_to_Ztavg(lev, apply_eminusp);
                 amrex::Print() << "Initial data loaded from netcdf file \n " << std::endl;
 #endif
             } else {
@@ -1556,7 +1557,8 @@ REMORA::init_only (int lev, Real time)
             }
         } else {
             set_init_data_averaged_down(lev);
-            set_zeta_to_Ztavg(lev); // MAYBE???
+            bool apply_eminusp = false;
+            set_zeta_to_Ztavg(lev, apply_eminusp);
             // Since set_grid_scale is usually called from init_analytic for analytic problems
             if (solverChoice.ic_type == IC_Type::analytic) {
                 set_grid_scale(lev);
@@ -1570,7 +1572,8 @@ REMORA::init_only (int lev, Real time)
             FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1], zvel_bc(), BdyVars::null);
         } else {
             set_init_data_averaged_down(lev);
-            set_zeta_to_Ztavg(lev); // MAYBE???
+            bool apply_eminusp = false;
+            set_zeta_to_Ztavg(lev, apply_eminusp);
             if (solverChoice.ic_type == IC_Type::analytic) {
                 // Since set_grid_scale is usually called from init_analytic for analytic problems
                 set_grid_scale(lev);

@@ -130,7 +130,8 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
-    set_zeta_to_Ztavg(lev);
+    bool apply_eminusp = false;
+    set_zeta_to_Ztavg(lev,apply_eminusp);
     // Previously set smflux
 
 #ifdef REMORA_USE_NETCDF
@@ -302,7 +303,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
-    set_zeta_to_Ztavg(lev);
+    bool apply_eminusp = false;
+    set_zeta_to_Ztavg(lev,apply_eminusp);
     // Previously set smflux here
 
 #ifdef REMORA_USE_NETCDF
@@ -911,14 +913,15 @@ REMORA::set_curvilinear_terms_from_grid_scale (int lev) {
 
 /**
  * @param[in   ] lev    level to operate on
+ * @param[in   ] apply_eminusp    whether to apply the evaporation-minus-precipitation correction to Zt_avg1
  */
 void
-REMORA::set_zeta_to_Ztavg (int lev)
+REMORA::set_zeta_to_Ztavg (int lev, bool apply_eminusp)
 {
     BL_PROFILE("REMORA::set_zeta_to_Ztavg()");
     std::unique_ptr<MultiFab>& mf_zeta = vec_zeta[lev];
     std::unique_ptr<MultiFab>& mf_Zt_avg1  = vec_Zt_avg1[lev];
-    if (solverChoice.eminusp_correct_ssh) {
+    if (solverChoice.eminusp_correct_ssh && apply_eminusp) {
         for ( MFIter mfi(*vec_zeta[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Array4<Real> const& Zt_avg1 = (mf_Zt_avg1)->array(mfi);
