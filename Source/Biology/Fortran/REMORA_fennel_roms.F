@@ -247,6 +247,10 @@
      &                          Bio(i,k,iLDeN))
           CALL fennel_tag_line (tag, iter, i, j, k, 'SDEN',
      &                          Bio(i,k,iSDeN))
+#ifdef RIVER_DON
+          CALL fennel_tag_line (tag, iter, i, j, k, 'RDEN',
+     &                          Bio(i,k,iRDeN))
+#endif
 #ifdef PO4
           CALL fennel_tag_line (tag, iter, i, j, k, 'PO4 ',
      &                          Bio(i,k,iPO4_))
@@ -260,6 +264,10 @@
      &                          Bio(i,k,iTIC_))
           CALL fennel_tag_line (tag, iter, i, j, k, 'TALK',
      &                          Bio(i,k,iTAlk))
+# ifdef RIVER_DON
+          CALL fennel_tag_line (tag, iter, i, j, k, 'RDEC',
+     &                          Bio(i,k,iRDeC))
+# endif
 #endif
 #ifdef OXYGEN
           CALL fennel_tag_line (tag, iter, i, j, k, 'OXYG',
@@ -315,6 +323,10 @@
      &                          t(i,j,k,nnew,iLDeN))
           CALL fennel_tag_line (tag, iter, i, j, k, 'SDEN',
      &                          t(i,j,k,nnew,iSDeN))
+#ifdef RIVER_DON
+          CALL fennel_tag_line (tag, iter, i, j, k, 'RDEN',
+     &                          t(i,j,k,nnew,iRDeN))
+#endif
 #ifdef PO4
           CALL fennel_tag_line (tag, iter, i, j, k, 'PO4 ',
      &                          t(i,j,k,nnew,iPO4_))
@@ -328,6 +340,10 @@
      &                          t(i,j,k,nnew,iTIC_))
           CALL fennel_tag_line (tag, iter, i, j, k, 'TALK',
      &                          t(i,j,k,nnew,iTAlk))
+# ifdef RIVER_DON
+          CALL fennel_tag_line (tag, iter, i, j, k, 'RDEC',
+     &                          t(i,j,k,nnew,iRDeC))
+# endif
 #endif
 #ifdef OXYGEN
           CALL fennel_tag_line (tag, iter, i, j, k, 'OXYG',
@@ -481,6 +497,15 @@
       SUBROUTINE caldate (CurrentTime, yy_i, yd_i, mm_i, dd_i,
      &                    h_i, m_i, s_r, yd_dp)
 !
+!  Stub.  fennel.h calls caldate only to date the atmospheric pCO2, and the
+!  bridge is built with neither PCO2AIR_DATA nor PCO2AIR_SECULAR, so the
+!  return value is unused and a fixed date is honest.  fennel_check_config
+!  refuses a run whose pco2air_type is not constant, which keeps it that way.
+!  A lane that does define one of those options must implement this properly.
+!  Source/Utils/dateclock.F is the ROMS original and Source/Utils/
+!  REMORA_DateClock.H is the C++ port of its time_ref = 0 branch, which is what
+!  the native path uses; either could back a real implementation here.
+!
       real(dp), intent(in) :: CurrentTime
       integer, intent(out), optional :: yy_i, yd_i, mm_i, dd_i
       integer, intent(out), optional :: h_i, m_i
@@ -552,13 +577,16 @@
      &    istr_in, iend_in, jstr_in, jend_in,
      &    use_po4, use_carbon, use_oxygen, use_odu,
      &    use_denit, use_biosed, use_bulk,
+     &    use_rivdon, use_talknc,
+     &    pco2air_kind, co2_sc_kind, o2_sc_kind,
      &    bioiter_in, dt_sec, rho0_in, cp_in,
      &    p_AttSW, p_AttChl, p_PARfrac, p_Vp0, p_I_thNH4, p_D_p5NH4,
      &    p_NitriR, p_K_NO3, p_K_NH4, p_K_PO4, p_K_Phy, p_Chl2C_m,
      &    p_ChlMin, p_PhyCN, p_R_P2N, p_PhyIP, p_PhyIS, p_PhyMin,
      &    p_PhyMR, p_ZooAE_N, p_ZooCN, p_ZooBM, p_ZooER, p_ZooGR,
      &    p_ZooMin, p_ZooMR, p_LDeRRN, p_LDeRRC, p_CoagR, p_SDeRRN,
-     &    p_SDeRRC, p_wPhy, p_wLDet, p_wSDet, p_pCO2air,
+     &    p_SDeRRC, p_RDeRRN, p_RDeRRC,
+     &    p_wPhy, p_wLDet, p_wSDet, p_pCO2air,
      &    rmask, Hz, z_r, z_w, srflx, sustr, svstr, uwind, vwind, pH,
      &    t_nstp, t_nnew,
      &    dbg_level, dbg_i, dbg_j)
@@ -578,6 +606,9 @@
       integer(C_INT), VALUE, intent(in) :: use_oxygen, use_odu
       integer(C_INT), VALUE, intent(in) :: use_denit, use_biosed
       integer(C_INT), VALUE, intent(in) :: use_bulk
+      integer(C_INT), VALUE, intent(in) :: use_rivdon, use_talknc
+      integer(C_INT), VALUE, intent(in) :: pco2air_kind
+      integer(C_INT), VALUE, intent(in) :: co2_sc_kind, o2_sc_kind
       integer(C_INT), VALUE, intent(in) :: bioiter_in
       real(C_DOUBLE), VALUE, intent(in) :: dt_sec, rho0_in, cp_in
       real(C_DOUBLE), VALUE, intent(in) :: p_AttSW, p_AttChl, p_PARfrac
@@ -590,7 +621,9 @@
       real(C_DOUBLE), VALUE, intent(in) :: p_ZooBM, p_ZooER, p_ZooGR
       real(C_DOUBLE), VALUE, intent(in) :: p_ZooMin, p_ZooMR, p_LDeRRN
       real(C_DOUBLE), VALUE, intent(in) :: p_LDeRRC, p_CoagR, p_SDeRRN
-      real(C_DOUBLE), VALUE, intent(in) :: p_SDeRRC, p_wPhy, p_wLDet
+      real(C_DOUBLE), VALUE, intent(in) :: p_SDeRRC
+      real(C_DOUBLE), VALUE, intent(in) :: p_RDeRRN, p_RDeRRC
+      real(C_DOUBLE), VALUE, intent(in) :: p_wPhy, p_wLDet
       real(C_DOUBLE), VALUE, intent(in) :: p_wSDet, p_pCO2air
       integer(C_INT), VALUE, intent(in) :: dbg_level, dbg_i, dbg_j
 !
@@ -657,7 +690,9 @@
 !
       CALL fennel_check_config (nbt_in, use_po4, use_carbon,
      &                          use_oxygen, use_odu, use_denit,
-     &                          use_biosed, use_bulk)
+     &                          use_biosed, use_bulk, use_rivdon,
+     &                          use_talknc, pco2air_kind,
+     &                          co2_sc_kind, o2_sc_kind)
 !
 !-----------------------------------------------------------------------
 !  Copy the parameter set.  Order here mirrors the FennelParameters struct
@@ -697,6 +732,8 @@
       CoagR(ng)=REAL(p_CoagR,r8)
       SDeRRN(ng)=REAL(p_SDeRRN,r8)
       SDeRRC(ng)=REAL(p_SDeRRC,r8)
+      RDeRRN(ng)=REAL(p_RDeRRN,r8)
+      RDeRRC(ng)=REAL(p_RDeRRC,r8)
       wPhy(ng)=REAL(p_wPhy,r8)
       wLDet(ng)=REAL(p_wLDet,r8)
       wSDet(ng)=REAL(p_wSDet,r8)
@@ -770,7 +807,9 @@
 !
       SUBROUTINE fennel_check_config (nbt_in, use_po4, use_carbon,
      &                                use_oxygen, use_odu, use_denit,
-     &                                use_biosed, use_bulk)
+     &                                use_biosed, use_bulk, use_rivdon,
+     &                                use_talknc, pco2air_kind,
+     &                                co2_sc_kind, o2_sc_kind)
 !
 !  ROMS resolves biology options at compile time; REMORA resolves them at
 !  run time.  A bridge built for one option set and run against a case
@@ -780,11 +819,15 @@
       integer, intent(in) :: nbt_in
       integer, intent(in) :: use_po4, use_carbon, use_oxygen, use_odu
       integer, intent(in) :: use_denit, use_biosed, use_bulk
+      integer, intent(in) :: use_rivdon, use_talknc
+      integer, intent(in) :: pco2air_kind, co2_sc_kind, o2_sc_kind
 !
       logical :: bad
 !
       integer :: want_po4, want_carbon, want_oxygen, want_odu
       integer :: want_denit, want_biosed, want_bulk
+      integer :: want_rivdon, want_talknc
+      integer :: want_pco2air, want_co2_sc, want_o2_sc
 !
       want_po4=0
       want_carbon=0
@@ -793,6 +836,36 @@
       want_denit=0
       want_biosed=0
       want_bulk=0
+      want_rivdon=0
+      want_talknc=0
+!
+!  Ordinals, matching REMORABiology::PCO2AirType, CO2SchmidtType and
+!  O2SchmidtType in Source/Biology/REMORA_Biology.H.  ROMS spells the same
+!  choices as mutually exclusive CPP defines, and the default in each family
+!  is the one with no define, hence zero.
+!
+      want_pco2air=0
+      want_co2_sc=0
+      want_o2_sc=0
+#ifdef RIVER_DON
+      want_rivdon=1
+#endif
+#ifdef TALK_NONCONSERV
+      want_talknc=1
+#endif
+#if defined PCO2AIR_DATA
+      want_pco2air=1
+#elif defined PCO2AIR_SECULAR
+      want_pco2air=2
+#endif
+#ifdef RW14_CO2_SC
+      want_co2_sc=1
+#endif
+#if defined RW14_OXYGEN_SC
+      want_o2_sc=1
+#elif defined OCMIP_OXYGEN_SC
+      want_o2_sc=2
+#endif
 #ifdef PO4
       want_po4=1
 #endif
@@ -823,6 +896,11 @@
       IF (use_denit.ne.want_denit) bad=.TRUE.
       IF (use_biosed.ne.want_biosed) bad=.TRUE.
       IF (use_bulk.ne.want_bulk) bad=.TRUE.
+      IF (use_rivdon.ne.want_rivdon) bad=.TRUE.
+      IF (use_talknc.ne.want_talknc) bad=.TRUE.
+      IF (pco2air_kind.ne.want_pco2air) bad=.TRUE.
+      IF (co2_sc_kind.ne.want_co2_sc) bad=.TRUE.
+      IF (o2_sc_kind.ne.want_o2_sc) bad=.TRUE.
       IF (nbt_in.ne.NBT) bad=.TRUE.
 !
       IF (bad) THEN
@@ -835,6 +913,14 @@
      &                          want_denit)
         CALL fennel_config_row ('bio_sediment', use_biosed, want_biosed)
         CALL fennel_config_row ('bulk_fluxes', use_bulk, want_bulk)
+        CALL fennel_config_row ('river_don', use_rivdon, want_rivdon)
+        CALL fennel_config_row ('talk_nonconserv', use_talknc,
+     &                          want_talknc)
+        CALL fennel_config_row ('pco2air_type', pco2air_kind,
+     &                          want_pco2air)
+        CALL fennel_config_row ('co2_schmidt', co2_sc_kind, want_co2_sc)
+        CALL fennel_config_row ('oxygen_schmidt', o2_sc_kind,
+     &                          want_o2_sc)
         CALL fennel_config_row ('tracer count', nbt_in, NBT)
         write (6,30)
 !

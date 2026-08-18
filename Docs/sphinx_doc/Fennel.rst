@@ -76,6 +76,25 @@ All Fennel options use the ``remora.fennel`` prefix.
 | ``remora.fennel.bio_sediment``     | true    | Returns sinking particulate material at the   |
 |                                    |         | bottom.                                       |
 +------------------------------------+---------+-----------------------------------------------+
+| ``remora.fennel.river_don``        | false   | Adds a river dissolved organic nitrogen pool  |
+|                                    |         | that remineralizes to ``NH4``, plus a carbon  |
+|                                    |         | counterpart when ``carbon`` is on. Neither    |
+|                                    |         | sinks.                                        |
++------------------------------------+---------+-----------------------------------------------+
+| ``remora.fennel.talk_nonconserv``  | false   | Makes alkalinity prognostic instead of a      |
+|                                    |         | function of salinity. Requires ``carbon``.    |
++------------------------------------+---------+-----------------------------------------------+
+| ``remora.fennel.pco2air_type``     |constant | Source of the atmospheric CO2 partial         |
+|                                    |         | pressure: ``constant``, ``data``, or          |
+|                                    |         | ``secular``. See below.                       |
++------------------------------------+---------+-----------------------------------------------+
+| ``remora.fennel.co2_schmidt``      | ``w92`` | Schmidt-number relation for the CO2 transfer  |
+|                                    |         | velocity: ``wanninkhof1992`` (alias ``w92``)  |
+|                                    |         | or ``wanninkhof2014`` (alias ``rw14``).       |
++------------------------------------+---------+-----------------------------------------------+
+| ``remora.fennel.oxygen_schmidt``   | ``w92`` | Same for O2, with the additional choice       |
+|                                    |         | ``ocmip`` (Keeling et al. 1998).              |
++------------------------------------+---------+-----------------------------------------------+
 
 The core nitrogen tracers are always present, in this order:
 
@@ -87,21 +106,26 @@ The core nitrogen tracers are always present, in this order:
 6. ``LdetritusN``
 7. ``SdetritusN``
 
-When ``po4`` is true, ``PO4`` is appended after ``SdetritusN``.
+When ``river_don`` is true, ``RdetritusN`` is appended after ``SdetritusN``.
+When ``po4`` is true, ``PO4`` follows it.
 When ``carbon`` is true, the following tracers are appended after optional
-``PO4``: ``LdetritusC``, ``SdetritusC``, ``TIC``, and ``alkalinity``.
+``PO4``: ``LdetritusC``, ``SdetritusC``, ``TIC``, and ``alkalinity``, then
+``RdetritusC`` if ``river_don`` is also true.
 When ``oxygen`` is true, ``oxygen`` is appended after the carbon tracers, if
-present. When ``odu`` is true, ``ODU`` is appended last.
+present. When ``odu`` is true, ``ODU`` is appended last. This is the order ROMS
+uses in ``initialize_biology``, so a NetCDF file written for either code reads
+into the same tracers.
 
 The tracer count is additive:
 
 .. code:: text
 
    nbio  = 7 + (po4 ? 1 : 0) + (carbon ? 4 : 0) + (oxygen ? 1 : 0) + (odu ? 1 : 0)
+           + (river_don ? 1 : 0) + (river_don && carbon ? 1 : 0)
    ncons = Tracer_comp + remora.nscalar + nbio
 
 For example, nitrogen-only Fennel uses 7 biology tracers, PO4-only Fennel uses
-8, carbon+oxygen+ODU uses 13, and all four optional tracer groups use 14.
+8, carbon+oxygen+ODU uses 13, and every optional tracer group at once uses 16.
 
 The oxygen and carbon options use surface gas-exchange terms and therefore
 require surface forcing fields for the transfer velocity: 10-m winds
@@ -182,14 +206,87 @@ The following parameters can be overridden in the inputs file as
 +-----------------+-------------+---------------------------------------------+
 | ``SDeRRC``      | 0.03        | Small carbon detritus remineralization      |
 +-----------------+-------------+---------------------------------------------+
+| ``RDeRRN``      | 0.03        | River nitrogen detritus remineralization    |
+|                 |             | [day-1]. Used only with ``river_don``.      |
++-----------------+-------------+---------------------------------------------+
+| ``RDeRRC``      | 0.03        | River carbon detritus remineralization      |
+|                 |             | [day-1]. Used only with ``river_don``.      |
++-----------------+-------------+---------------------------------------------+
 | ``wPhy``        | 0.1         | Phytoplankton sinking velocity [m/day]      |
 +-----------------+-------------+---------------------------------------------+
 | ``wLDet``       | 1.0         | Large detritus sinking velocity [m/day]     |
 +-----------------+-------------+---------------------------------------------+
 | ``wSDet``       | 0.1         | Small detritus sinking velocity [m/day]     |
 +-----------------+-------------+---------------------------------------------+
-| ``pCO2air``     | 370.0       | Atmospheric CO2 partial pressure [ppmv]     |
+| ``pCO2air``     | 370.0       | Atmospheric CO2 partial pressure [ppmv].    |
+|                 |             | Used when ``pco2air_type = constant``.      |
 +-----------------+-------------+---------------------------------------------+
+
+Alkalinity
+==========
+
+By default alkalinity is diagnostic: at every biology iteration it is
+overwritten with :math:`587.05 + 50.56\,S` following Brewer et al. (1986), so
+it is a relabelled salinity field and carries no memory of the biology.
+
+With ``remora.fennel.talk_nonconserv = true`` it becomes prognostic. The
+overwrite is dropped and alkalinity instead responds to nitrate uptake
+(:math:`+`), ammonium uptake (:math:`-`), nitrification (:math:`-2` per mole of
+:math:`NH_4`), zooplankton metabolism and excretion (:math:`+`),
+remineralization (:math:`+`), and the sediment return (:math:`+`, except under
+``denitrification``). Alkalinity feeds the pCO2 solver, so this changes the
+air-sea CO2 flux and hence TIC; it changes nothing else.
+
+Atmospheric CO2
+===============
+
+``remora.fennel.pco2air_type`` selects where the atmospheric CO2 partial
+pressure used by the surface gas exchange comes from:
+
+``constant``
+    ``remora.fennel.pCO2air``, unchanging. The default.
+
+``data``
+    The annual climatology of Laurent et al. (2017),
+    :math:`380.464 + 9.321 \sin(2\pi\, \mathrm{yday}/365.25 + 1.068)`.
+
+``secular``
+    A linear trend plus three harmonics, referenced to 1951.
+
+The two time-dependent forms need a calendar. REMORA dates the model clock with
+``remora_caldate`` in ``Source/Utils/REMORA_DateClock.H``, a port of ROMS
+``caldate``: ``remora.time_ref`` gives the reference date and selects the
+calendar, and model time is elapsed time from there. See :ref:`calendar`.
+
+Either of these places a run on 1 January 2020, the first by naming the date and
+the second by offsetting the default 0001-01-01 epoch:
+
+.. code:: shell
+
+   remora.fennel.pco2air_type = secular
+   remora.time_ref            = 20200101
+
+.. code:: shell
+
+   remora.fennel.pco2air_type = secular
+   remora.start_time          = 63713433600   # 2020-01-01, with time_ref = 0
+
+Getting this right matters for ``secular``. Its fit is anchored to 1951, and
+extrapolating far back from there gives a negative partial pressure -- at the
+0001-01-01 epoch it returns about -2648 ppmv, which would draw CO2 out of the
+ocean for the whole run. REMORA aborts on a non-positive value rather than
+running with it. ``data`` is an annual climatology with no year dependence, so it
+is unaffected, though it still needs the calendar to know the season.
+
+Gas transfer
+============
+
+``remora.fennel.co2_schmidt`` and ``remora.fennel.oxygen_schmidt`` select the
+Schmidt-number relation for the transfer velocity. Each choice also carries its
+own leading rate coefficient -- 0.31 for Wanninkhof (1992), 0.251 for
+Wanninkhof (2014) -- so the two move together and are not settable separately.
+``ocmip``, available for oxygen only, is Keeling et al. (1998) and pairs with
+the 1992 rate coefficient, as it does in ROMS.
 
 Initial Data and Restarts
 =========================

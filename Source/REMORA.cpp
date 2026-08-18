@@ -1677,17 +1677,17 @@ REMORA::ReadParameters ()
     if (REMORABiology::has_biology(biology_model)) {
         fennel_params.init_params(pp_prefix);
 
-        // Bridge-vs-native selection and diagnostic verbosity are runtime
-        // controls so a parity comparison never requires a rebuild. Both
-        // parse unconditionally; without USE_FENNEL_FORT there is no bridge
-        // to select, so asking for it is an error rather than a silent
-        // fallback to the path being validated.
         // Source of the biology initial condition, independent of ic_type.
         // Default "follow" reproduces the previous behaviour exactly.
         std::string biology_ic_string = REMORABiology::biology_ic_type_name(biology_ic_type);
         pp.queryAdd("biology_ic_type", biology_ic_string);
         biology_ic_type = REMORABiology::parse_biology_ic_type(biology_ic_string);
 
+        // Bridge-vs-native selection and diagnostic verbosity are runtime
+        // controls so a parity comparison never requires a rebuild. Both
+        // parse unconditionally; without USE_FENNEL_FORT there is no bridge
+        // to select, so asking for it is an error rather than a silent
+        // fallback to the path being validated.
         pp.queryAdd("use_biology_cpp_answer", use_biology_cpp_answer);
         pp.queryAdd("biology_debug", biology_debug);
         pp.queryAdd("biology_debug_i", biology_debug_i);
