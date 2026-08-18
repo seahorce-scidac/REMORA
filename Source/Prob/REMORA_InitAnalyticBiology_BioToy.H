@@ -38,6 +38,18 @@
                 cons(i,j,k,bio_comp.ldec)=Real(0.002);
                 cons(i,j,k,bio_comp.sdec)=Real(0.06);
             }
+            if (m_fennel_params.river_don) {
+                // ROMS ana_biology.h has no river DON profile, so pick values
+                // that make the pool visible: 0.05 mmol_N/m3 is the same order
+                // as SdetritusN above, so its remineralization to NH4 is a
+                // real contribution rather than a rounding artifact, and a
+                // zero start would leave the whole option a no-op no matter
+                // whether the terms are right.
+                cons(i,j,k,bio_comp.rden)=Real(0.05);
+                if (m_fennel_params.carbon) {
+                    cons(i,j,k,bio_comp.rdec)=Real(0.3);
+                }
+            }
             if (m_fennel_params.po4) {
                 // 0.5 mmol_P/m3: a plausible coastal subsurface value, far
                 // above the 1e-6 MinVal floor that would otherwise mask the

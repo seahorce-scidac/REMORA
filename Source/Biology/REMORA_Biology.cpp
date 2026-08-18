@@ -9,6 +9,8 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_Utility.H>
 
+#include <REMORA_DateClock.H>
+
 using namespace amrex;
 
 
@@ -234,6 +236,54 @@ Real fennel_pco2_water (Real T, Real S, Real TIC, Real TAlk) noexcept
     return CO2star * Real(1000000.0) / ff;
 }
 
+/**
+ * Atmospheric pCO2 (ppmv) for the surface CO2 gas exchange.
+ *
+ * \p time_seconds is the current model time and \p time_ref the reference date
+ * and calendar it is measured against, both handed to remora_caldate. The two
+ * time-dependent forms are ROMS's PCO2AIR_DATA and PCO2AIR_SECULAR; neither
+ * varies in space, so this is evaluated once per call on the host and the
+ * result handed to the kernel.
+ */
+Real
+fennel_pco2_air (REMORABiology::PCO2AirType type, Real time_ref, Real time_seconds,
+                 Real pco2air_constant) noexcept
+{
+    if (type == REMORABiology::PCO2AirType::constant) {
+        return pco2air_constant;
+    }
+
+    constexpr Real pi2 = Real(6.2831853071796);
+
+    int year = 0;
+    Real yday = Real(0.0);
+    remora_caldate(time_ref, time_seconds / Real(86400.0), year, yday);
+
+    if (type == REMORABiology::PCO2AirType::data) {
+        // Annual climatology of Laurent et al. (2017).
+        return Real(380.464) + Real(9.321) *
+               std::sin(pi2 * yday / Real(365.25) + Real(1.068));
+    }
+
+    // Secular trend. ROMS names this pmonth but computes years since 1951 and
+    // multiplies by 12 in the linear term; keep both, so the coefficients are
+    // the published ones.
+    constexpr Real D0 = Real(282.6);
+    constexpr Real D1 = Real(0.125);
+    constexpr Real D2 = Real(-7.18);
+    constexpr Real D3 = Real(0.86);
+    constexpr Real D4 = Real(-0.99);
+    constexpr Real D5 = Real(0.28);
+    constexpr Real D6 = Real(-0.80);
+    constexpr Real D7 = Real(0.06);
+
+    const Real pmonth = Real(year) - Real(1951.0) + yday / Real(365.0);
+    return D0 + D1 * pmonth * Real(12.0) +
+           D2 * std::sin(pi2 * pmonth + D3) +
+           D4 * std::sin(pi2 * pmonth + D5) +
+           D6 * std::sin(pi2 * pmonth + D7);
+}
+
 }
 
 namespace REMORABiology {
@@ -275,6 +325,8 @@ FennelParameters::init_params (const std::string& remora_prefix)
     pp.queryAdd("CoagR", CoagR);
     pp.queryAdd("SDeRRN", SDeRRN);
     pp.queryAdd("SDeRRC", SDeRRC);
+    pp.queryAdd("RDeRRN", RDeRRN);
+    pp.queryAdd("RDeRRC", RDeRRC);
     pp.queryAdd("wPhy", wPhy);
     pp.queryAdd("wLDet", wLDet);
     pp.queryAdd("wSDet", wSDet);
@@ -285,6 +337,56 @@ FennelParameters::init_params (const std::string& remora_prefix)
     pp.queryAdd("odu", odu);
     pp.queryAdd("denitrification", denitrification);
     pp.queryAdd("bio_sediment", bio_sediment);
+    pp.queryAdd("river_don", river_don);
+    pp.queryAdd("talk_nonconserv", talk_nonconserv);
+
+    // Alkalinity only exists as a tracer under carbon, so every term this
+    // option adds would have nowhere to go. ROMS would not compile in this
+    // combination; say so rather than silently ignoring the request.
+    if (talk_nonconserv && !carbon) {
+        amrex::Abort("remora.fennel.talk_nonconserv requires remora.fennel.carbon: "
+                     "alkalinity is a carbon-block tracer");
+    }
+
+    static std::string pco2air_type_string = "constant";
+    pp.queryAdd("pco2air_type", pco2air_type_string);
+    const std::string pco2air_type_ci = amrex::toLower(pco2air_type_string);
+    if (pco2air_type_ci == "constant") {
+        pco2air_type = PCO2AirType::constant;
+    } else if (pco2air_type_ci == "data") {
+        pco2air_type = PCO2AirType::data;
+    } else if (pco2air_type_ci == "secular") {
+        pco2air_type = PCO2AirType::secular;
+    } else {
+        amrex::Abort("Unknown remora.fennel.pco2air_type: " + pco2air_type_string +
+                     ". Expected constant, data, or secular.");
+    }
+
+    static std::string co2_schmidt_string = "wanninkhof1992";
+    pp.queryAdd("co2_schmidt", co2_schmidt_string);
+    const std::string co2_schmidt_ci = amrex::toLower(co2_schmidt_string);
+    if (co2_schmidt_ci == "wanninkhof1992" || co2_schmidt_ci == "w92") {
+        co2_schmidt = CO2SchmidtType::wanninkhof1992;
+    } else if (co2_schmidt_ci == "wanninkhof2014" || co2_schmidt_ci == "rw14") {
+        co2_schmidt = CO2SchmidtType::wanninkhof2014;
+    } else {
+        amrex::Abort("Unknown remora.fennel.co2_schmidt: " + co2_schmidt_string +
+                     ". Expected wanninkhof1992 or wanninkhof2014.");
+    }
+
+    static std::string o2_schmidt_string = "wanninkhof1992";
+    pp.queryAdd("oxygen_schmidt", o2_schmidt_string);
+    const std::string o2_schmidt_ci = amrex::toLower(o2_schmidt_string);
+    if (o2_schmidt_ci == "wanninkhof1992" || o2_schmidt_ci == "w92") {
+        o2_schmidt = O2SchmidtType::wanninkhof1992;
+    } else if (o2_schmidt_ci == "wanninkhof2014" || o2_schmidt_ci == "rw14") {
+        o2_schmidt = O2SchmidtType::wanninkhof2014;
+    } else if (o2_schmidt_ci == "ocmip") {
+        o2_schmidt = O2SchmidtType::ocmip;
+    } else {
+        amrex::Abort("Unknown remora.fennel.oxygen_schmidt: " + o2_schmidt_string +
+                     ". Expected wanninkhof1992, wanninkhof2014, or ocmip.");
+    }
 }
 
 BiologyModel
@@ -359,6 +461,9 @@ tracer_names (BiologyModel model, FennelParameters const& fennel_parameters)
     case BiologyModel::fennel: {
         Vector<std::string> names = {"NO3", "NH4", "chlorophyll", "phytoplankton",
                                      "zooplankton", "LdetritusN", "SdetritusN"};
+        if (fennel_parameters.river_don) {
+            names.emplace_back("RdetritusN");
+        }
         if (fennel_parameters.po4) {
             names.emplace_back("PO4");
         }
@@ -367,6 +472,9 @@ tracer_names (BiologyModel model, FennelParameters const& fennel_parameters)
             names.emplace_back("SdetritusC");
             names.emplace_back("TIC");
             names.emplace_back("alkalinity");
+            if (fennel_parameters.river_don) {
+                names.emplace_back("RdetritusC");
+            }
         }
         if (fennel_parameters.oxygen) {
             names.emplace_back("oxygen");
@@ -428,12 +536,75 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
     const bool use_oxygen = parms.oxygen;
     const bool use_odu = parms.odu;
     const bool use_denitrification = parms.denitrification;
+    const bool use_river_don = parms.river_don;
+    const bool use_river_don_c = parms.river_don && parms.carbon;
+    const bool use_talk_nonconserv = parms.talk_nonconserv;
     const bool use_salt = use_oxygen || use_carbon;
     const bool do_bulk_flux = solverChoice.bulk_fluxes;
 
     // Set biological tracer component identifiers. The biology block starts after the
     // passive scalars, so this is Tracer_comp only when the run carries no dye.
     const auto bio_comp = REMORABiology::Fennel::components(parms, Bio_comp);
+
+    // Schmidt-number coefficients and the leading rate coefficient for the gas
+    // transfer velocity. Each pair belongs to one published relation, so they
+    // are selected together rather than independently; ROMS makes the same
+    // pairings with RW14_OXYGEN_SC, OCMIP_OXYGEN_SC and RW14_CO2_SC.
+    Real A_O2 = Real(1953.4);       // Schmidt number
+    Real B_O2 = Real(128.0);        // coefficients from
+    Real C_O2 = Real(3.9918);       // Wanninkhof (1992)
+    Real D_O2 = Real(0.050091);
+    Real E_O2 = Real(0.0);
+    Real o2_rate = Real(0.31);
+    if (parms.o2_schmidt == REMORABiology::O2SchmidtType::wanninkhof2014) {
+        A_O2 = Real(1920.4);
+        B_O2 = Real(135.6);
+        C_O2 = Real(5.2122);
+        D_O2 = Real(0.10939);
+        E_O2 = Real(0.00093777);
+        o2_rate = Real(0.251);
+    } else if (parms.o2_schmidt == REMORABiology::O2SchmidtType::ocmip) {
+        // Keeling et al. (1998); Sc is slightly smaller up to about 35C. ROMS
+        // pairs this set with the 1992 rate coefficient, not the 2014 one.
+        A_O2 = Real(1638.0);
+        B_O2 = Real(81.83);
+        C_O2 = Real(1.483);
+        D_O2 = Real(0.008004);
+        E_O2 = Real(0.0);
+    }
+
+    Real A_CO2 = Real(2073.1);      // Schmidt number
+    Real B_CO2 = Real(125.62);      // coefficients from
+    Real C_CO2 = Real(3.6276);      // Wanninkhof (1992)
+    Real D_CO2 = Real(0.043219);
+    Real E_CO2 = Real(0.0);
+    Real co2_rate = Real(0.31);
+    if (parms.co2_schmidt == REMORABiology::CO2SchmidtType::wanninkhof2014) {
+        A_CO2 = Real(2116.8);
+        B_CO2 = Real(136.25);
+        C_CO2 = Real(4.7353);
+        D_CO2 = Real(0.092307);
+        E_CO2 = Real(0.0007555);
+        co2_rate = Real(0.251);
+    }
+
+    // Atmospheric pCO2 varies in time but not in space, so evaluate it once
+    // here rather than once per column. t_old is the time at the start of the
+    // step, which is the state the kernel reads.
+    const Real pco2air = fennel_pco2_air(parms.pco2air_type, solverChoice.time_ref,
+                                         t_old[lev], parms.pCO2air);
+
+    // The secular fit is anchored to 1951 and extrapolates to a negative partial
+    // pressure well before it, so a run whose clock sits near the origin of its
+    // calendar silently draws CO2 out of the ocean for its whole length. That is
+    // the default with remora.time_ref = 0, whose epoch is 0001-01-01.
+    if (pco2air <= zero) {
+        amrex::Abort("remora.fennel.pco2air_type = secular gives a non-positive atmospheric"
+                     " pCO2 (" + std::to_string(pco2air) + " ppmv) at this model time. The"
+                     " secular trend is fitted around 1951, so put the run in a real year:"
+                     " set remora.time_ref to the reference date and remora.start_time to"
+                     " the offset from it.");
+    }
 
 #ifdef REMORA_USE_BIOLOGY_DIAG
     // Path B half of the frozen diagnostic contract. Tag names, field order
@@ -455,11 +626,13 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
     const int sc_zoop = ncell++;
     const int sc_lden = ncell++;
     const int sc_sden = ncell++;
+    const int sc_rden = use_river_don ? ncell++ : -1;
     const int sc_po4 = use_po4 ? ncell++ : -1;
     const int sc_ldec = use_carbon ? ncell++ : -1;
     const int sc_sdec = use_carbon ? ncell++ : -1;
     const int sc_tic = use_carbon ? ncell++ : -1;
     const int sc_talk = use_carbon ? ncell++ : -1;
+    const int sc_rdec = use_river_don_c ? ncell++ : -1;
     const int sc_oxyg = use_oxygen ? ncell++ : -1;
     const int sc_odu = use_odu ? ncell++ : -1;
     const int sc_temp = ncell++;
@@ -494,6 +667,10 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
         auto zoop = fab_cell.array(sc_zoop);
         auto lden = fab_cell.array(sc_lden);
         auto sden = fab_cell.array(sc_sden);
+        Array4<Real> rden;
+        if (use_river_don) {
+            rden = fab_cell.array(sc_rden);
+        }
         Array4<Real> po4;
         if (use_po4) {
             po4 = fab_cell.array(sc_po4);
@@ -507,6 +684,10 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
             sdec = fab_cell.array(sc_sdec);
             tic = fab_cell.array(sc_tic);
             talk = fab_cell.array(sc_talk);
+        }
+        Array4<Real> rdec;
+        if (use_river_don_c) {
+            rdec = fab_cell.array(sc_rdec);
         }
         Array4<Real> oxyg;
         if (use_oxygen) {
@@ -563,13 +744,6 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
             constexpr Real minval = Real(1.0e-6);
             constexpr Real cff_weno = Real(1.0e-14);
 
-            // Schmidt number coefficients using the formulation of
-            // Wanninkhof (1992).
-            constexpr Real A_O2 = Real(1953.4);
-            constexpr Real B_O2 = Real(128.0);
-            constexpr Real C_O2 = Real(3.9918);
-            constexpr Real D_O2 = Real(0.050091);
-            constexpr Real E_O2 = Real(0.0);
             constexpr Real OA0 = Real(2.00907);       // Oxygen
             constexpr Real OA1 = Real(3.22014);       // saturation
             constexpr Real OA2 = Real(4.05010);       // coefficients
@@ -586,13 +760,6 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
             constexpr Real rOxNH4Denit = Real(115.0) / Real(16.0);
             constexpr Real denitrification_NH4_fraction = Real(4.0) / Real(16.0);
             constexpr Real l2mol = Real(1000.0) / Real(22.3916); // liter to mol
-
-            // Schmidt number transfer coefficients for CO2.
-            constexpr Real A_CO2 = Real(2073.1);
-            constexpr Real B_CO2 = Real(125.62);
-            constexpr Real C_CO2 = Real(3.6276);
-            constexpr Real D_CO2 = Real(0.043219);
-            constexpr Real E_CO2 = Real(0.0);
 
             constexpr Real A1 = Real(-60.2409);       // surface
             constexpr Real A2 = Real(93.4517);        // CO2
@@ -617,6 +784,9 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                 zoop(i,j,k) = amrex::max(zero, state_old(i,j,k,bio_comp.zoop));
                 lden(i,j,k) = amrex::max(zero, state_old(i,j,k,bio_comp.lden));
                 sden(i,j,k) = amrex::max(zero, state_old(i,j,k,bio_comp.sden));
+                if (use_river_don) {
+                    rden(i,j,k) = amrex::max(zero, state_old(i,j,k,bio_comp.rden));
+                }
                 if (use_po4) {
                     po4(i,j,k) = amrex::max(zero, state_old(i,j,k,bio_comp.po4));
                 }
@@ -627,6 +797,9 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                     tic(i,j,k) = amrex::min(tic(i,j,k), Real(3000.0));
                     tic(i,j,k) = amrex::max(tic(i,j,k), Real(400.0));
                     talk(i,j,k) = amrex::max(zero, state_old(i,j,k,bio_comp.talk));
+                    if (use_river_don) {
+                        rdec(i,j,k) = amrex::max(zero, state_old(i,j,k,bio_comp.rdec));
+                    }
                 }
                 if (use_oxygen) {
                     oxyg(i,j,k) = amrex::max(zero, state_old(i,j,k,bio_comp.oxyg));
@@ -675,6 +848,9 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                     remora_fennel_tag(tag, it, i, j, k, "ZOOP", zoop(i,j,k));
                     remora_fennel_tag(tag, it, i, j, k, "LDEN", lden(i,j,k));
                     remora_fennel_tag(tag, it, i, j, k, "SDEN", sden(i,j,k));
+                    if (use_river_don) {
+                        remora_fennel_tag(tag, it, i, j, k, "RDEN", rden(i,j,k));
+                    }
                     if (use_po4) {
                         remora_fennel_tag(tag, it, i, j, k, "PO4 ", po4(i,j,k));
                     }
@@ -683,6 +859,9 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                         remora_fennel_tag(tag, it, i, j, k, "SDEC", sdec(i,j,k));
                         remora_fennel_tag(tag, it, i, j, k, "TIC ", tic(i,j,k));
                         remora_fennel_tag(tag, it, i, j, k, "TALK", talk(i,j,k));
+                        if (use_river_don) {
+                            remora_fennel_tag(tag, it, i, j, k, "RDEC", rdec(i,j,k));
+                        }
                     }
                     if (use_oxygen) {
                         remora_fennel_tag(tag, it, i, j, k, "OXYG", oxyg(i,j,k));
@@ -796,6 +975,10 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                             const Real cff1_carbon = parms.PhyCN *
                                                      (N_Flux_NewProd + N_Flux_RegProd);
                             tic(i,j,k) -= cff1_carbon;
+                            if (use_talk_nonconserv) {
+                                // Account for the uptake of NO3 on total alkalinity.
+                                talk(i,j,k) += N_Flux_NewProd - N_Flux_RegProd;
+                            }
                         }
 
                         // The Nitrification of NH4 ==> NO3 is thought to
@@ -829,6 +1012,9 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                         if (use_oxygen) {
                             oxyg(i,j,k) -= two * N_Flux_Nitrifi;
                         }
+                        if (use_talk_nonconserv) {
+                            talk(i,j,k) -= two * N_Flux_Nitrifi;
+                        }
 
                         // Light attenuation at the bottom of the grid cell.
                         // It is the starting PAR value for the next deeper
@@ -845,6 +1031,9 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                         no3(i,j,k) += N_Flux_Nitrifi;
                         if (use_oxygen) {
                             oxyg(i,j,k) -= two * N_Flux_Nitrifi;
+                        }
+                        if (use_talk_nonconserv) {
+                            talk(i,j,k) -= two * N_Flux_Nitrifi;
                         }
                     }
                 }
@@ -923,6 +1112,9 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                     if (use_carbon) {
                         sdec(i,j,k) += parms.ZooCN * N_Flux_Zmortal;
                         tic(i,j,k) += parms.ZooCN * (N_Flux_Zmetabo + N_Flux_Zexcret);
+                        if (use_talk_nonconserv) {
+                            talk(i,j,k) += N_Flux_Zmetabo + N_Flux_Zexcret;
+                        }
                     }
                 }
 
@@ -966,12 +1158,31 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                             po4(i,j,k) += parms.R_P2N * (N_Flux_RemineS + N_Flux_RemineL);
                         }
                         oxyg(i,j,k) -= (N_Flux_RemineS + N_Flux_RemineL) * rOxNH4;
+                        if (use_talk_nonconserv) {
+                            talk(i,j,k) += N_Flux_RemineS + N_Flux_RemineL;
+                        }
+                        if (use_river_don) {
+                            const Real remin_r = dtdays * parms.RDeRRN * fac2;
+                            const Real remin_r_consume = one / (one + remin_r);
+                            rden(i,j,k) *= remin_r_consume;
+                            const Real N_Flux_RemineR = rden(i,j,k) * remin_r;
+                            nh4(i,j,k) += N_Flux_RemineR;
+                            if (use_po4) {
+                                po4(i,j,k) += parms.R_P2N * N_Flux_RemineR;
+                            }
+                            oxyg(i,j,k) -= N_Flux_RemineR * rOxNH4;
+                            if (use_talk_nonconserv) {
+                                talk(i,j,k) += N_Flux_RemineR;
+                            }
+                        }
                     }
                 } else {
                     const Real remin_s = dtdays * parms.SDeRRN;
                     const Real remin_l = dtdays * parms.LDeRRN;
                     const Real remin_s_consume = one / (one + remin_s);
                     const Real remin_l_consume = one / (one + remin_l);
+                    const Real remin_r = dtdays * parms.RDeRRN;
+                    const Real remin_r_consume = one / (one + remin_r);
                     for (int k = 0; k <= N; ++k) {
                         sden(i,j,k) *= remin_s_consume;
                         lden(i,j,k) *= remin_l_consume;
@@ -980,6 +1191,20 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                         nh4(i,j,k) += N_Flux_RemineS + N_Flux_RemineL;
                         if (use_po4) {
                             po4(i,j,k) += parms.R_P2N * (N_Flux_RemineS + N_Flux_RemineL);
+                        }
+                        if (use_talk_nonconserv) {
+                            talk(i,j,k) += N_Flux_RemineS + N_Flux_RemineL;
+                        }
+                        if (use_river_don) {
+                            rden(i,j,k) *= remin_r_consume;
+                            const Real N_Flux_RemineR = rden(i,j,k) * remin_r;
+                            nh4(i,j,k) += N_Flux_RemineR;
+                            if (use_po4) {
+                                po4(i,j,k) += parms.R_P2N * N_Flux_RemineR;
+                            }
+                            if (use_talk_nonconserv) {
+                                talk(i,j,k) += N_Flux_RemineR;
+                            }
                         }
                     }
                 }
@@ -991,7 +1216,7 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                     //
                     // Compute surface O2 gas exchange.
                     const Real cff1 = rho0 * Real(550.0);
-                    const Real cff2 = dtdays * Real(0.31) * Real(24.0) / Real(100.0);
+                    const Real cff2 = dtdays * o2_rate * Real(24.0) / Real(100.0);
                     const int k = N;
 
                     Real u10squ;
@@ -1036,18 +1261,29 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                     const Real remin_sc_consume = one / (one + remin_sc);
                     const Real remin_lc = dtdays * parms.LDeRRC;
                     const Real remin_lc_consume = one / (one + remin_lc);
+                    const Real remin_rc = dtdays * parms.RDeRRC;
+                    const Real remin_rc_consume = one / (one + remin_rc);
                     for (int k = 0; k <= N; ++k) {
                         sdec(i,j,k) *= remin_sc_consume;
                         ldec(i,j,k) *= remin_lc_consume;
                         const Real C_Flux_RemineS = sdec(i,j,k) * remin_sc;
                         const Real C_Flux_RemineL = ldec(i,j,k) * remin_lc;
                         tic(i,j,k) += C_Flux_RemineS + C_Flux_RemineL;
+                        if (use_river_don_c) {
+                            rdec(i,j,k) *= remin_rc_consume;
+                            tic(i,j,k) += rdec(i,j,k) * remin_rc;
+                        }
                     }
 
-                    // Alkalinity is treated as a diagnostic variable. TAlk =
-                    // f(S[PSU]) following Brewer et al. (1986).
-                    for (int k = 0; k <= N; ++k) {
-                        talk(i,j,k) = Real(587.05) + Real(50.56) * salt(i,j,k);
+                    if (!use_talk_nonconserv) {
+                        // Alkalinity is treated as a diagnostic variable. TAlk =
+                        // f(S[PSU]) following Brewer et al. (1986). Under
+                        // talk_nonconserv it is prognostic instead, and the
+                        // increments accumulated above are what carry it, so
+                        // overwriting here would discard every one of them.
+                        for (int k = 0; k <= N; ++k) {
+                            talk(i,j,k) = Real(587.05) + Real(50.56) * salt(i,j,k);
+                        }
                     }
 
                     tag_state("G07_REMINC", iter + 1);
@@ -1062,7 +1298,7 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
 
                     // Compute surface CO2 gas exchange.
                     const Real cff1 = rho0 * Real(550.0);
-                    const Real cff2 = dtdays * Real(0.31) * Real(24.0) / Real(100.0);
+                    const Real cff2 = dtdays * co2_rate * Real(24.0) / Real(100.0);
 
                     // Compute CO2 transfer velocity: u10squared (u10 in m/s).
                     Real u10squ;
@@ -1090,7 +1326,7 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                                                   salt(i,j,k) * (B1 + TempK * (B2 + B3 * TempK)));
 
                     // Add in CO2 gas exchange.
-                    const Real CO2_Flux = cff3 * CO2_sol * (parms.pCO2air - pCO2);
+                    const Real CO2_Flux = cff3 * CO2_sol * (pco2air - pCO2);
                     tic(i,j,k) += CO2_Flux * inv_hz(i,j,k);
 
                     tag_state("G08_CO2FLX", iter + 1);
@@ -1268,6 +1504,9 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                                 if (use_oxygen) {
                                     oxyg(i,j,0) -= cff1 * rOxNH4;
                                 }
+                                if (use_talk_nonconserv) {
+                                    talk(i,j,0) += cff1;
+                                }
                             }
                             if (use_po4) {
                                 po4(i,j,0) += cff1 * parms.R_P2N;
@@ -1286,8 +1525,11 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
 
             // Emitted at the same semantic point as the Fortran path: right
             // after ITER_LOOP and before anything else touches the scratch
-            // state. ROMS has no post-loop TIC clamp, so if the clamp below
-            // is spurious G10 will match and G11 will not, which localizes it.
+            // state, so it brackets the post-loop TIC clamp below. ROMS applies
+            // that same clamp in the same place (fennel.h, just before "Update
+            // global tracer variables"), so a divergence that appears between
+            // G10 and G11 is in the clamp or the increment, not in whether the
+            // clamp belongs there.
             tag_state("G10_POST  ", parms.BioIter);
 
             if (use_carbon) {
@@ -1320,6 +1562,14 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                 const Real old_zoop = amrex::max(zero, state_old(i,j,k,bio_comp.zoop));
                 const Real old_lden = amrex::max(zero, state_old(i,j,k,bio_comp.lden));
                 const Real old_sden = amrex::max(zero, state_old(i,j,k,bio_comp.sden));
+                Real old_rden = zero;
+                if (use_river_don) {
+                    old_rden = amrex::max(zero, state_old(i,j,k,bio_comp.rden));
+                }
+                Real old_rdec = zero;
+                if (use_river_don_c) {
+                    old_rdec = amrex::max(zero, state_old(i,j,k,bio_comp.rdec));
+                }
                 Real old_ldec = zero;
                 Real old_sdec = zero;
                 Real old_tic = zero;
@@ -1351,11 +1601,17 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                 state_new(i,j,k,bio_comp.zoop) += (zoop(i,j,k) - old_zoop) * rmask * Hz(i,j,k);
                 state_new(i,j,k,bio_comp.lden) += (lden(i,j,k) - old_lden) * rmask * Hz(i,j,k);
                 state_new(i,j,k,bio_comp.sden) += (sden(i,j,k) - old_sden) * rmask * Hz(i,j,k);
+                if (use_river_don) {
+                    state_new(i,j,k,bio_comp.rden) += (rden(i,j,k) - old_rden) * rmask * Hz(i,j,k);
+                }
                 if (use_carbon) {
                     state_new(i,j,k,bio_comp.ldec) += (ldec(i,j,k) - old_ldec) * rmask * Hz(i,j,k);
                     state_new(i,j,k,bio_comp.sdec) += (sdec(i,j,k) - old_sdec) * rmask * Hz(i,j,k);
                     state_new(i,j,k,bio_comp.tic) += (tic(i,j,k) - old_tic) * rmask * Hz(i,j,k);
                     state_new(i,j,k,bio_comp.talk) += (talk(i,j,k) - old_talk) * rmask * Hz(i,j,k);
+                    if (use_river_don) {
+                        state_new(i,j,k,bio_comp.rdec) += (rdec(i,j,k) - old_rdec) * rmask * Hz(i,j,k);
+                    }
                 }
                 if (use_oxygen) {
                     state_new(i,j,k,bio_comp.oxyg) += (oxyg(i,j,k) - old_oxyg) * rmask * Hz(i,j,k);
@@ -1388,6 +1644,10 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                                       state_new(i,j,k,bio_comp.lden));
                     remora_fennel_tag("G11_UPDATE", it, i, j, k, "SDEN",
                                       state_new(i,j,k,bio_comp.sden));
+                    if (use_river_don) {
+                        remora_fennel_tag("G11_UPDATE", it, i, j, k, "RDEN",
+                                          state_new(i,j,k,bio_comp.rden));
+                    }
                     if (use_po4) {
                         remora_fennel_tag("G11_UPDATE", it, i, j, k, "PO4 ",
                                           state_new(i,j,k,bio_comp.po4));
@@ -1401,6 +1661,10 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
                                           state_new(i,j,k,bio_comp.tic));
                         remora_fennel_tag("G11_UPDATE", it, i, j, k, "TALK",
                                           state_new(i,j,k,bio_comp.talk));
+                        if (use_river_don) {
+                            remora_fennel_tag("G11_UPDATE", it, i, j, k, "RDEC",
+                                              state_new(i,j,k,bio_comp.rdec));
+                        }
                     }
                     if (use_oxygen) {
                         remora_fennel_tag("G11_UPDATE", it, i, j, k, "OXYG",

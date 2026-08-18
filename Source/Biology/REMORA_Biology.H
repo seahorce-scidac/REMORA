@@ -32,6 +32,37 @@ enum class BiologyICType {
     netcdf
 };
 
+/**
+ * Source of the atmospheric pCO2 used by the surface CO2 gas exchange.
+ *
+ * ROMS picks one of these with PCO2AIR_DATA / PCO2AIR_SECULAR or neither. The
+ * two time-dependent forms date the model clock with remora_caldate.
+ */
+enum class PCO2AirType {
+    constant,  //!< remora.fennel.pCO2air, unchanging
+    data,      //!< annual climatology of Laurent et al. (2017)
+    secular    //!< secular trend plus harmonics, referenced to 1951
+};
+
+/**
+ * Schmidt-number formulation for the air-sea gas transfer velocity.
+ *
+ * CO2 offers the Wanninkhof (1992) and (2014) coefficient sets; O2 adds the
+ * Keeling et al. (1998) OCMIP set. The choice also selects the leading rate
+ * coefficient, 0.31 for 1992 and 0.251 for 2014, so the two must move
+ * together and are not independently settable.
+ */
+enum class CO2SchmidtType {
+    wanninkhof1992,
+    wanninkhof2014
+};
+
+enum class O2SchmidtType {
+    wanninkhof1992,
+    wanninkhof2014,
+    ocmip
+};
+
 struct FennelParameters {
     // Maximum number of iterations to achieve convergence of the nonlinear solution.
     int BioIter = 1;
@@ -138,7 +169,14 @@ struct FennelParameters {
     // Vertical sinking velocity for small detritus [m/day].
     amrex::Real wSDet = amrex::Real(0.1);
 
-    // CO2 partial pressure in the air (parts per million by volume).
+    // River nitrogen detritus remineralization rate [1/day].
+    amrex::Real RDeRRN = amrex::Real(0.03);
+
+    // River carbon detritus remineralization rate [1/day].
+    amrex::Real RDeRRC = amrex::Real(0.03);
+
+    // CO2 partial pressure in the air (parts per million by volume). Used when
+    // pco2air_type is constant; otherwise the value is computed from the date.
     amrex::Real pCO2air = amrex::Real(370.0);
 
     // Enable ROMS PO4 option, adding phosphate as an active biological tracer.
@@ -161,6 +199,27 @@ struct FennelParameters {
     // Runtime analogue of ROMS BIO_SEDIMENT bottom remineralization option.
     bool bio_sediment = true;
 
+    // Enable ROMS RIVER_DON option, adding a river dissolved organic nitrogen
+    // pool that remineralizes to NH4, plus its carbon counterpart when carbon
+    // is on. Neither pool sinks, matching ROMS.
+    bool river_don = false;
+
+    // Enable ROMS TALK_NONCONSERV option. Alkalinity is otherwise diagnostic,
+    // a function of salinity alone; with this on it responds to nitrate
+    // uptake, nitrification, zooplankton metabolism and remineralization.
+    // Requires carbon, since alkalinity is a carbon-block tracer.
+    bool talk_nonconserv = false;
+
+    // remora.fennel.pco2air_type: constant / data / secular. The two
+    // time-dependent forms date the model clock through REMORA_DateClock.H,
+    // which is ROMS caldate with time_ref = 0: model time zero is 0001-01-01,
+    // and a run is placed at a real date through remora.start_time.
+    PCO2AirType pco2air_type = PCO2AirType::constant;
+
+    // remora.fennel.co2_schmidt / remora.fennel.oxygen_schmidt.
+    CO2SchmidtType co2_schmidt = CO2SchmidtType::wanninkhof1992;
+    O2SchmidtType o2_schmidt = O2SchmidtType::wanninkhof1992;
+
     void init_params (const std::string& remora_prefix);
 };
 
@@ -176,11 +235,13 @@ struct Components {
     int zoop = -1;
     int lden = -1;
     int sden = -1;
+    int rden = -1;
     int po4 = -1;
     int ldec = -1;
     int sdec = -1;
     int tic = -1;
     int talk = -1;
+    int rdec = -1;
     int oxyg = -1;
     int odu = -1;
 };
@@ -202,11 +263,13 @@ inline Components components (FennelParameters const& parameters, int base) noex
     c.zoop = comp++;
     c.lden = comp++;
     c.sden = comp++;
+    c.rden = parameters.river_don ? comp++ : -1;
     c.po4 = parameters.po4 ? comp++ : -1;
     c.ldec = parameters.carbon ? comp++ : -1;
     c.sdec = parameters.carbon ? comp++ : -1;
     c.tic = parameters.carbon ? comp++ : -1;
     c.talk = parameters.carbon ? comp++ : -1;
+    c.rdec = (parameters.carbon && parameters.river_don) ? comp++ : -1;
     c.oxyg = parameters.oxygen ? comp++ : -1;
     c.odu = parameters.odu ? comp++ : -1;
     return c;
@@ -216,6 +279,8 @@ inline int num_tracers (FennelParameters const& parameters) noexcept
 {
     return NumBaseTracers + (parameters.po4 ? 1 : 0) +
            (parameters.carbon ? NumCarbonTracers : 0) +
+           (parameters.river_don ? 1 : 0) +
+           ((parameters.river_don && parameters.carbon) ? 1 : 0) +
            (parameters.oxygen ? 1 : 0) + (parameters.odu ? 1 : 0);
 }
 }

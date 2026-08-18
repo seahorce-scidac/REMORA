@@ -10,6 +10,7 @@
 #include <AMReX_Gpu.H>
 
 #include <REMORA_Constants.H>
+#include <REMORA_DateClock.H>
 #include "REMORA_IndexDefines.H"
 
 /** \brief Type of coupling between levels in AMR */
@@ -221,6 +222,17 @@ struct SolverChoice {
         pp.queryAdd("S0",S0);
         pp.queryAdd("T0",T0);
         pp.queryAdd("rho0", rho0);
+
+        // Reference date for the model clock, and with it the calendar, as ROMS
+        // TIME_REF: a yyyymmdd.dd date, or 0 for 0001-01-01, -1 for the 360-day
+        // calendar, -2 for truncated Julian days. See REMORA_DateClock.H.
+        pp.queryAdd("time_ref", time_ref);
+        if (!remora_time_ref_is_valid(time_ref)) {
+            // ROMS's own calendar dispatch has no final else, so a value below
+            // -2 leaves the date uninitialized rather than failing.
+            amrex::Abort("remora.time_ref = " + std::to_string(time_ref) +
+                         " names no calendar. Use a yyyymmdd.dd date, or 0, -1, or -2.");
+        }
 
         pp.queryAdd("bulk_fluxes",bulk_fluxes);
         pp.queryAdd("atm2ocn_flux_mode", atm2ocn_flux_mode);
@@ -921,6 +933,11 @@ struct SolverChoice {
     amrex::Real Tcoef = amrex::Real(1.7e-4); // linear equation of state parameter (1/Celsius)
     amrex::Real Scoef = zero; // linear equation of state parameter (nondimensional)
     amrex::Real rho0 = amrex::Real(1025.0); // Mean density (Kg/m3) used when Boussinesq approx is inferred
+
+    // remora.time_ref: reference date of the model clock (yyyymmdd.dd), or one
+    // of the special values 0, -1, -2. Selects the calendar; see
+    // Source/Utils/REMORA_DateClock.H.
+    amrex::Real time_ref = amrex::Real(0.0);
 
     // Coriolis forcing
     amrex::Real coriolis_f0 = zero; // f-plane constant (1/s)

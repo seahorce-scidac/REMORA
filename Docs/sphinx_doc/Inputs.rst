@@ -467,6 +467,49 @@ List of Parameters
 | **remora.start_time**  | initial simulation        | Real >= 0    | 0.0     |
 |                        | time                      |              |         |
 +------------------------+---------------------------+--------------+---------+
+| **remora.time_ref**    | reference date of the     | ``yyyymmdd`` | 0.0     |
+|                        |                           |              |         |
+|                        | model clock, and with it  | ``.dd``, or  |         |
+|                        |                           |              |         |
+|                        | the calendar. See below.  | 0, -1, -2    |         |
++------------------------+---------------------------+--------------+---------+
+
+.. _calendar:
+
+Reference date and calendar
+---------------------------
+
+``remora.time_ref`` is the reference date the model clock is measured from, and
+it also selects the calendar, exactly as ROMS ``TIME_REF`` does:
+
++----------------+-----------------------+-----------------------+-------------+
+| ``time_ref``   | calendar              | epoch                 | year length |
++================+=======================+=======================+=============+
+| ``yyyymmdd.dd``| proleptic Gregorian   | the date given        | 365.2425 d  |
++----------------+-----------------------+-----------------------+-------------+
+| ``0``          | proleptic Gregorian   | 0001-01-01 00:00:00   | 365.2425 d  |
++----------------+-----------------------+-----------------------+-------------+
+| ``-1``         | 360_day: twelve       | 0000-12-30 00:00:00   | 360 d       |
+|                | 30-day months, no     |                       |             |
+|                | leap years            |                       |             |
++----------------+-----------------------+-----------------------+-------------+
+| ``-2``         | Gregorian, as a       | 1968-05-23 00:00:00   | 365.25 d    |
+|                | truncated Julian day  |                       |             |
++----------------+-----------------------+-----------------------+-------------+
+
+The fractional part of a positive value is a time of day, so
+``remora.time_ref = 20020115.5`` is 15 January 2002 at 12:00. A value below
+``-2`` names no calendar and is an error.
+
+Model time is elapsed time since that epoch, so ``remora.start_time`` offsets
+the run within the calendar the way ROMS ``DSTART`` does. With the default
+``time_ref = 0``, a run starting on 1 January 2020 sets
+``remora.start_time = 63713433600``.
+
+Only features that need a date consult this: at present the time-dependent
+atmospheric CO2 options of the Fennel biology model, see :ref:`sec:Fennel`. The
+conversion is ``remora_caldate`` in ``Source/Utils/REMORA_DateClock.H``, a port
+of ROMS ``caldate``.
 
 .. _notes-3:
 
