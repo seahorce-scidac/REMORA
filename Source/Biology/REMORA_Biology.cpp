@@ -738,6 +738,14 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
         ParallelFor(bx2d, [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
         {
             constexpr Real zero = Real(0.0);
+            // Land columns contribute nothing: the increment below is scaled by rmask.
+            // Skip them outright rather than evaluating the chemistry and multiplying the
+            // result away -- a masked column may hold a NetCDF fill value, and the logs
+            // and square roots in the pCO2 and oxygen-saturation blocks would turn that
+            // into a NaN that survives the rmask factor (NaN * 0 is NaN) and lands in
+            // cons_new. ROMS guards pCO2_water with #ifdef MASKING for the same reason.
+            if (mskr(i,j,0) == zero) return;
+
             constexpr Real one = Real(1.0);
             constexpr Real two = Real(2.0);
             constexpr Real eps = Real(1.0e-20);
