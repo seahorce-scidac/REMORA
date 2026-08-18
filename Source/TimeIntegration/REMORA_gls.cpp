@@ -283,10 +283,15 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     // Akt_bak has one entry per active tracer, so it has to reach the device as an array.
     // The stratification terms below are specifically the temperature ones, and use
     // Akt_bak[Temp_comp] to match the Akt component they are paired with.
-    Gpu::DeviceVector<Real> Akt_bak_d(NAT);
-    Gpu::copy(Gpu::hostToDevice, solverChoice.Akt_bak.begin(),
-              solverChoice.Akt_bak.begin() + NAT, Akt_bak_d.begin());
-    Real const* Akt_bak = Akt_bak_d.data();
+    //
+    // A GpuArray captured by value rather than a device allocation: NAT is a compile-time
+    // constant, and a Gpu::DeviceVector here would be freed at function exit while the
+    // kernels launched below could still be reading it -- arena frees are not stream
+    // ordered.
+    GpuArray<Real, NAT> Akt_bak{};
+    for (int n = 0; n < NAT; ++n) {
+        Akt_bak[n] = solverChoice.Akt_bak[n];
+    }
 
     Real gls_c1 = solverChoice.gls_c1;
     Real gls_c2 = solverChoice.gls_c2;
