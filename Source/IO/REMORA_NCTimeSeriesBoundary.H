@@ -24,7 +24,7 @@ class NCTimeSeriesBoundary
                               const std::string a_field_name,
                               const std::string a_time_name,
                               const amrex::IntVect a_index_type,
-                              const amrex::GpuArray<bool, AMREX_SPACEDIM*2>* a_var_need_data,
+                              const amrex::GpuArray<bool, AMREX_SPACEDIM*2>& a_var_need_data,
                               bool a_is2d, int rx, int ry);
 
         /** \brief Read in time array from file and allocate data arrays */

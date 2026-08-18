@@ -22,7 +22,7 @@ NCTimeSeriesBoundary::NCTimeSeriesBoundary (int a_lev, const amrex::Vector<amrex
                                             const amrex::Vector<std::string>& a_file_names, const std::string a_field_name,
                                             const std::string a_time_name,
                                             const amrex::IntVect a_index_type,
-                                            const amrex::GpuArray<bool, AMREX_SPACEDIM*2>* a_var_need_data,
+                                            const amrex::GpuArray<bool, AMREX_SPACEDIM*2>& a_var_need_data,
                                             bool a_is2d, int a_rx, int a_ry)
 {
     m_lev = a_lev;
@@ -32,7 +32,9 @@ NCTimeSeriesBoundary::NCTimeSeriesBoundary (int a_lev, const amrex::Vector<amrex
     field_name = a_field_name;
     domain = a_geom[a_lev].Domain();
     index_type = a_index_type;
-    var_need_data = *a_var_need_data;
+    // Copied, not aliased: the caller's array (REMORA::phys_bc_need_data) is an
+    // amrex::Vector element, whose address is not stable across a resize.
+    var_need_data = a_var_need_data;
     is2d = a_is2d;
     m_rx = a_rx;
     m_ry = a_ry;
