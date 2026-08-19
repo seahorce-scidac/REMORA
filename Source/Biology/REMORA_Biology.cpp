@@ -44,7 +44,6 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 Real fennel_pco2_water (Real T, Real S, Real TIC, Real TAlk) noexcept
 {
     constexpr Real zero = Real(0.0);
-    constexpr Real half = Real(0.5);
     constexpr int IbrackMax = 30;
 
     // Determine coefficients for surface carbon chemistry.
@@ -168,7 +167,7 @@ Real fennel_pco2_water (Real T, Real S, Real TIC, Real TAlk) noexcept
     // Bracket and bisection method.
     Real X_lo = std::pow(Real(10.0), -Real(10.0));
     Real X_hi = std::pow(Real(10.0), -Real(5.0));
-    Real X_mid = half * (X_lo + X_hi);
+    Real X_mid = Real(0.5) * (X_lo + X_hi);
     Real X = X_mid;
     const Real K12 = K1 * K2;
     const Real K12p = K1p * K2p;
@@ -217,7 +216,7 @@ Real fennel_pco2_water (Real T, Real S, Real TIC, Real TAlk) noexcept
         } else {
             X_lo = X_mid;
         }
-        X_mid = half * (X_lo + X_hi);
+        X_mid = Real(0.5) * (X_lo + X_hi);
     }
 
     // Last iteration gives value.

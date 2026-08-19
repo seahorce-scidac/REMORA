@@ -245,6 +245,14 @@ REMORA::init_scalars_from_netcdf (int lev)
     }
 }
 
+/**
+ * \brief Initialize the biological tracers from the initial NetCDF file.
+ *
+ * Called from init_biology_ic, which chooses between this and the analytic
+ * profile on remora.biology_ic_type rather than on remora.ic_type.
+ *
+ * @param lev Integer specifying the current level
+ */
 void
 REMORA::init_biology_from_netcdf (int lev)
 {
@@ -468,8 +476,6 @@ REMORA::init_zeta_from_netcdf (int lev)
         FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
                   0, false,false,0,0,zero,*vec_zeta[lev]);
     }
-//    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,bdy_zeta(),1,1);
-//    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,bdy_zeta(),2,2);
 }
 
 void
@@ -867,6 +873,12 @@ init_state_from_netcdf (int /*lev*/,
     } // idx
 }
 
+/**
+ * @param lev Integer specifying current level
+ * @param biology_fab FArrayBox object holding the biology components we initialize
+ * @param NC_biology_fab Vector of FArrayBox objects with the REMORA dataset specifying
+ *                       each biological tracer, one per component per box
+ */
 void
 init_biology_state_from_netcdf (int /*lev*/, FArrayBox& biology_fab,
                                 const Vector<Vector<FArrayBox>>& NC_biology_fab)
@@ -881,6 +893,14 @@ init_biology_state_from_netcdf (int /*lev*/, FArrayBox& biology_fab,
     }
 }
 
+/**
+ * @param lev Integer specifying current level
+ * @param scalar_fab FArrayBox object holding the passive scalar components we initialize
+ * @param NC_scalar_fab Vector of FArrayBox objects with the REMORA dataset specifying
+ *                      each dye, one per component per box
+ * @param scalar_in_file Per box and component, whether the file carried that dye; a dye
+ *                       the file omits keeps the zero written before the read
+ */
 void
 init_scalar_state_from_netcdf (int /*lev*/, FArrayBox& scalar_fab,
                                const Vector<Vector<FArrayBox>>& NC_scalar_fab,

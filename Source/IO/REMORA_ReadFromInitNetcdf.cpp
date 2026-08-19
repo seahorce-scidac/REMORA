@@ -69,6 +69,13 @@ read_data_full_domain_from_netcdf (int /*lev*/,
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
 }
 
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param biology_names   names of the biological tracer variables to read
+ * @param NC_biology_fab  containers for the biological tracer data, one per name
+ */
 void
 read_biology_from_netcdf (int /*lev*/,
                           const Box& domain,
@@ -94,6 +101,14 @@ read_biology_from_netcdf (int /*lev*/,
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, biology_names, NC_dim_types, NC_fabs);
 }
 
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param biology_names   names of the biological tracer variables to read
+ * @param NC_biology_fab  containers for the biological tracer data, one per name
+ * @param ngrow           number of grow cells to read
+ */
 void
 read_biology_full_domain_from_netcdf (int /*lev*/,
                                       const Box& domain,
@@ -189,10 +204,10 @@ check_hires_dims_from_netcdf (const std::string& fname,
  *
  * A passive scalar's initial field is optional. Initial files written for runs that
  * carry no dye -- which is every ROMS initial file predating the dye variables, and
- * most idealized ones -- have no "tracer" variable, and remora.nscalar defaults to 1,
- * so requiring the field would break every existing NetCDF-initialized run. Each name
- * the file does carry is read; the rest keep the zero that init_data_from_netcdf set,
- * which is the behavior those runs had before this read existed.
+ * most idealized ones -- have no "tracer" variable, so requiring the field would break
+ * every existing NetCDF-initialized run. Each name the file does carry is read; the rest
+ * keep the zero that init_data_from_netcdf set, which is the behavior those runs had
+ * before this read existed.
  *
  * Shared by the per-box and full-domain entry points below: the presence testing is
  * the same for both, and only the grow cells and the wording of the log differ.
@@ -251,6 +266,14 @@ read_scalars_impl (const Box& domain,
 }
 } // namespace
 
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param scalar_names    names of the passive scalar variables to look for
+ * @param NC_scalar_fab   containers for the passive scalar data, one per name
+ * @param scalar_in_file  set per name to whether the file carried that variable
+ */
 void
 read_scalars_from_netcdf (int /*lev*/,
                           const Box& domain,
@@ -263,6 +286,15 @@ read_scalars_from_netcdf (int /*lev*/,
                       false, IntVect(0,0,0));
 }
 
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param scalar_names    names of the passive scalar variables to look for
+ * @param NC_scalar_fab   containers for the passive scalar data, one per name
+ * @param scalar_in_file  set per name to whether the file carried that variable
+ * @param ngrow           number of grow cells to read
+ */
 void
 read_scalars_full_domain_from_netcdf (int /*lev*/,
                                       const Box& domain,

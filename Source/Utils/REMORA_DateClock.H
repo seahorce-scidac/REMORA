@@ -290,12 +290,12 @@ void remora_datevec (amrex::Real time_ref, amrex::Real date_number, bool is_day_
 /**
  * \brief Model time in days to calendar date. ROMS `caldate`.
  *
- * \param[in]  time_ref           remora.time_ref; see the table at the top
- * \param[in]  current_time_days  model time in days, as ROMS `tdays`
- * \param[out] year               year including century
- * \param[out] month              month of the year, 1 = January
- * \param[out] day                day of the month
- * \param[out] yday               day of the year, including the day fraction,
+ * @param[in]  time_ref           remora.time_ref; see the table at the top
+ * @param[in]  current_time_days  model time in days, as ROMS `tdays`
+ * @param[out] year               year including century
+ * @param[out] month              month of the year, 1 = January
+ * @param[out] day                day of the month
+ * @param[out] yday               day of the year, including the day fraction,
  *                                so 00:00 on the first day of the year is
  *                                exactly 1.0
  */

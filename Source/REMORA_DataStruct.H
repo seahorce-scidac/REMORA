@@ -125,7 +125,7 @@ struct SolverChoice {
     }
 
     /** \brief read in and initialize parameters */
-    void init_params(int ncons, int nscalar, const amrex::Vector<std::string>& cons_names)
+    void init_params (int ncons, int nscalar, const amrex::Vector<std::string>& cons_names)
     {
         amrex::ParmParse pp(pp_prefix);
 

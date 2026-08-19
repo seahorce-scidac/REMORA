@@ -22,13 +22,13 @@ void check_ncmpi_error(int ierr) {
     }
 }
 
-std::string lowercase(std::string value) {
+std::string lowercase (std::string value) {
     std::transform(value.begin(), value.end(), value.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value;
 }
 
-int inq_varid_case_insensitive(int ncid, const std::string& name, int* varid) {
+int inq_varid_case_insensitive (int ncid, const std::string& name, int* varid) {
     int ierr = ncmpi_inq_varid(ncid, name.data(), varid);
     if (ierr == NC_NOERR) {
         return ierr;
