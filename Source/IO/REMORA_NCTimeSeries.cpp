@@ -209,19 +209,40 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time, int lev,
                                                 const amrex::Vector<amrex::Geometry>& geom,
                                                 const amrex::Vector<amrex::IntVect>& ref_ratio) {
 
-    amrex::Real l_time = is_cycle ? std::fmod(time,cycle_length) : time;
-    AMREX_ASSERT(l_time >= ocean_times[0]);
-    AMREX_ASSERT(l_time <= ocean_times[ocean_times.size()-1]);
+    // Wrap into [ocean_times[0], ocean_times[0]+cycle_length], which the padded time
+    // array always covers. The phase is taken relative to the first stored time rather
+    // than to zero because a cycling file is free to carry an absolute time axis (days
+    // since some epoch) alongside its cycle length; fmod(time,cycle_length) would then
+    // land far below every time the file stores.
+    amrex::Real l_time = time;
+    if (is_cycle) {
+        const amrex::Real t_lo = ocean_times[0];
+        l_time = t_lo + std::fmod(time - t_lo, cycle_length);
+        if (l_time < t_lo) l_time += cycle_length;
+    }
     // Figure out time index:
     int i_time_before_old = i_time_before;
+    int i_time_new = -1;
     for (int nt=0; nt < ocean_times.size()-1; nt++) {
         if ((ocean_times[nt] <= l_time) and (ocean_times[nt+1] >= l_time)) {
-            i_time_before = nt;
-            time_before = ocean_times[nt];
-            time_after = ocean_times[nt+1];
+            i_time_new = nt;
             break;
         }
     }
+    // Bracketing must succeed: falling through with the dummy index would read the
+    // time series at a negative offset. This is a runtime check, not an assert,
+    // because the failure is a mismatch between the file and the run.
+    if (i_time_new < 0) {
+        amrex::Abort("Time " + std::to_string(time) + " (mapped to " + std::to_string(l_time)
+                     + ") is not spanned by the time series for '" + field_name + "', which covers ["
+                     + std::to_string(ocean_times[0]) + ", "
+                     + std::to_string(ocean_times[ocean_times.size()-1])
+                     + "]. Extend the forcing file to cover the run, or give its time variable a"
+                     + " cycle_length attribute so it repeats.");
+    }
+    i_time_before = i_time_new;
+    time_before = ocean_times[i_time_before];
+    time_after = ocean_times[i_time_before+1];
     int i_time_after = i_time_before + 1;
 
     if (i_time_before_old + 1 == i_time_before) {
