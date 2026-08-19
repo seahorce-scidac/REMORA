@@ -214,6 +214,17 @@ REMORA::ConfigureDriverAtmosToOceanCoupling (bool use_coupling_driver,
 }
 
 void
+REMORA::SetLongwaveFromDriver ()
+{
+    // "constant" is any non-computed type: it makes setup_step pass
+    // vec_longwave_down to bulk_fluxes instead of leaving lw_ptr null. The two
+    // flags below are what ReadParameters would have derived for that type.
+    solverChoice.bulk_flux_type[BulkFlux::LWrad] = BulkForcingType::constant;
+    solverChoice.longwave_down   = true;
+    solverChoice.longwave_is_net = false;
+}
+
+void
 REMORA::SetDriverAtmosToOceanForcingMode (DriverAtmosForcingMode mode)
 {
     driver_atmos_forcing_mode = mode;

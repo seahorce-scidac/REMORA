@@ -125,6 +125,13 @@ public:
                                               bool use_two_way_coupling,
                                               DriverAtmosForcingMode active_mode);
     void SetDriverAtmosToOceanForcingMode (DriverAtmosForcingMode mode);
+
+    // Consume the driver-supplied DOWNWARD longwave on vec_longwave_down instead
+    // of computing longwave internally. Set programmatically rather than through
+    // ParmParse so a coupled run's job_info still reflects the deck rather than
+    // driver-injected keys. Safe any time before the first step: the lane is
+    // allocated whenever bulk fluxes are on, independent of lwrad_type.
+    void SetLongwaveFromDriver ();
     // Driver currently consumes BoxArray/DistributionMapping only. If we later
     // need exact copy semantics, promote these to expose IndexType/ngrow
     // explicitly or return the underlying MultiFab pointer/reference instead.
