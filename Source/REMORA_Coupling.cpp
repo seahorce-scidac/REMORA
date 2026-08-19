@@ -509,7 +509,7 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     vec_evap[0]->setVal(zero);
     vec_evap[0]->ParallelCopy(*states[AtmosFluxes::Evap], 0, 0, 1);
     vec_evap[0]->FillBoundary(geom[0].periodicity());
-    
+
     vec_lrflx[0]->setVal(zero);
     vec_lhflx[0]->setVal(zero);
     vec_shflx[0]->setVal(zero);
