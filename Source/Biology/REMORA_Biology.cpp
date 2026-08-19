@@ -594,16 +594,24 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
     const Real pco2air = fennel_pco2_air(parms.pco2air_type, solverChoice.time_ref,
                                          t_old[lev], parms.pCO2air);
 
-    // The secular fit is anchored to 1951 and extrapolates to a negative partial
-    // pressure well before it, so a run whose clock sits near the origin of its
-    // calendar silently draws CO2 out of the ocean for its whole length. That is
-    // the default with remora.time_ref = 0, whose epoch is 0001-01-01.
-    if (pco2air <= zero) {
-        amrex::Abort("remora.fennel.pco2air_type = secular gives a non-positive atmospheric"
-                     " pCO2 (" + std::to_string(pco2air) + " ppmv) at this model time. The"
-                     " secular trend is fitted around 1951, so put the run in a real year:"
-                     " set remora.time_ref to the reference date and remora.start_time to"
-                     " the offset from it.");
+    // A non-positive atmospheric pCO2 reverses the sign of the air-sea flux for the
+    // whole run. Only the surface CO2 exchange reads pco2air, so a run without carbon
+    // is unaffected by its value and must not be stopped on account of it.
+    if (use_carbon && pco2air <= zero) {
+        if (parms.pco2air_type == REMORABiology::PCO2AirType::constant) {
+            amrex::Abort("remora.fennel.pCO2air must be a positive partial pressure; got "
+                         + std::to_string(pco2air) + " ppmv.");
+        } else {
+            // The secular fit is anchored to 1951 and extrapolates to a negative partial
+            // pressure well before it, so a run whose clock sits near the origin of its
+            // calendar silently draws CO2 out of the ocean for its whole length. That is
+            // the default with remora.time_ref = 0, whose epoch is 0001-01-01.
+            amrex::Abort("remora.fennel.pco2air_type gives a non-positive atmospheric pCO2 ("
+                         + std::to_string(pco2air) + " ppmv) at this model time. The secular"
+                         " trend is fitted around 1951, so put the run in a real year: set"
+                         " remora.time_ref to the reference date and remora.start_time to the"
+                         " offset from it.");
+        }
     }
 
 #ifdef REMORA_USE_BIOLOGY_DIAG
