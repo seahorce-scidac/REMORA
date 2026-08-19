@@ -82,6 +82,25 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 
         } else if (ref_tags[j].Field() == "mask") {
             MultiFab::Copy(*mf,*vec_mskr3d[levc],0,0,1,IntVect(1,1,0));
+            // vec_mskr3d has no z ghost cells, so this copy leaves mf's top and bottom
+            // ghost planes unwritten, and the GRAD test differences in z -- reading them
+            // uninitialized, which traps FE_INVALID in a Debug build. The mask is constant
+            // down a column, so fill them from the adjacent valid plane: the vertical
+            // gradient is then identically zero.
+            for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+                const Box& vbx = mfi.validbox();
+                const int klo = vbx.smallEnd(2);
+                const int khi = vbx.bigEnd(2);
+                Box gbx = mfi.growntilebox();
+                gbx.setSmall(2, klo-1); gbx.setBig(2, khi+1);
+                auto arr = mf->array(mfi);
+                ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+                {
+                    if (k < klo) { arr(i,j,k) = arr(i,j,klo); }
+                    else if (k > khi) { arr(i,j,k) = arr(i,j,khi); }
+                });
+            }
 #ifdef REMORA_USE_PARTICLES
         } else {
             //
