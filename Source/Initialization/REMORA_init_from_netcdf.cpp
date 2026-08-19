@@ -50,6 +50,11 @@ read_scalars_full_domain_from_netcdf (int /*lev*/, const Box& domain, const std:
                                       Vector<FArrayBox>& NC_scalar_fab,
                                       Vector<int>& scalar_in_file, IntVect ngrow);
 
+/** \brief helper function checking that a high-resolution file covers the refined domain plus grow cells */
+void
+check_hires_dims_from_netcdf (const std::string& fname, const std::string& var_name,
+                              const Box& domain, const IntVect& ngrow);
+
 /** \brief helper function for reading in land-sea masks from netcdf */
 void
 read_masks_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
@@ -280,6 +285,12 @@ REMORA::init_biology_from_netcdf (int lev)
 void
 REMORA::init_data_full_domain_from_netcdf ()
 {
+    if (nc_init_file_hires.empty()) {
+        Abort("Must specify high-resolution initial file when initializing from NetCDF and hires_init_level > 0");
+    }
+    check_hires_dims_from_netcdf(nc_init_file_hires, "temp", nc_hires_init_box,
+                                 cum_ref_ratios[hires_init_level]);
+
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_temp_fab ; NC_temp_fab.resize(1);
     Vector<FArrayBox> NC_salt_fab ; NC_salt_fab.resize(1);
@@ -407,9 +418,7 @@ REMORA::init_biology_full_domain_from_netcdf ()
     }
     }
 
-    for (int lev=hires_init_level-1; lev >= 0; lev--) {
-        average_down_with_grow_cells(lev, vec_cons_full_domain);
-    }
+    // The average-down lives in init_biology_ic_full_domain, which owns both sources.
 }
 
 /**
@@ -466,6 +475,12 @@ REMORA::init_zeta_from_netcdf (int lev)
 void
 REMORA::init_zeta_full_domain_from_netcdf ()
 {
+    if (nc_init_file_hires.empty()) {
+        Abort("Must specify high-resolution initial file when initializing from NetCDF and hires_init_level > 0");
+    }
+    check_hires_dims_from_netcdf(nc_init_file_hires, "zeta", nc_hires_init_box,
+                                 cum_ref_ratios[hires_init_level]);
+
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_zeta_fab     ; NC_zeta_fab.resize(1);
 
@@ -1087,6 +1102,9 @@ REMORA::init_bathymetry_full_domain_from_netcdf ()
     if (nc_grid_file_hires.empty()) {
         Abort("Must specify high-resolution grid file when initializing from NetCDF and hires_grid_level > 0");
     }
+    check_hires_dims_from_netcdf(nc_grid_file_hires, "h", nc_hires_grid_box,
+                                 cum_ref_ratios[hires_grid_level]);
+
     Vector<FArrayBox> NC_h_fab     ; NC_h_fab.resize(1);
     read_bathymetry_full_domain_from_netcdf(nc_hires_grid_box, nc_grid_file_hires, NC_h_fab[0],cum_ref_ratios[hires_grid_level]);
 
@@ -1110,6 +1128,9 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
     if (nc_grid_file_hires.empty()) {
         Abort("Must specify high-resolution grid file when initializing from NetCDF and hires_grid_level > 0");
     }
+    check_hires_dims_from_netcdf(nc_grid_file_hires, "pm", nc_hires_grid_box,
+                                 cum_ref_ratios[hires_grid_level]);
+
     Vector<FArrayBox> NC_pm_fab    ; NC_pm_fab.resize(1);
     Vector<FArrayBox> NC_pn_fab    ; NC_pn_fab.resize(1);
 

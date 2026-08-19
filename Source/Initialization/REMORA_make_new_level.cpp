@@ -284,6 +284,13 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
         FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), foextrap_periodic_bc(), BdyVars::null,1,false,false);
         std::swap(tmp_h,           *vec_h[lev]);
     } else {
+        // Swap first: vec_h[lev] is still on the pre-regrid BoxArray at this point, and the
+        // branch above is what moves it onto the new one. set_bathymetry_averaged_down takes
+        // its data from vec_h_full_domain rather than from the old grids, so the old contents
+        // are not needed -- but its FillPatch uses the land masks, which init_masks has
+        // already rebuilt on the new BoxArray, so leaving vec_h[lev] on the old one mixes two
+        // BoxArrays inside REMORAPhysBCFunct.
+        std::swap(tmp_h,           *vec_h[lev]);
         set_bathymetry_averaged_down(lev);
     }
 

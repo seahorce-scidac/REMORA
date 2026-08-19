@@ -690,7 +690,12 @@ REMORA::set_bathymetry (int lev)
             }
         } else {
             set_bathymetry_averaged_down(lev);
-            set_grid_vars_averaged_down(lev);
+            // Only the netcdf path fills vec_pm/pn_full_domain; with analytic initialization
+            // init_bathymetry_full_domain_from_analytic fills h alone, and set_grid_scale
+            // below derives pm/pn from the geometry.
+            if (solverChoice.ic_type == IC_Type::netcdf) {
+                set_grid_vars_averaged_down(lev);
+            }
         }
         // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
         // to make sure ghost cells in the domain corners are consistent.
@@ -1558,6 +1563,13 @@ REMORA::init_only (int lev, Real time)
         amrex::Print() << "Done reading in high resolution initial data" << std::endl;
     }
 #else
+    if (solverChoice.ic_type == IC_Type::netcdf) {
+        Abort("Not compiled with NetCDF, but remora.ic_type = netcdf reads initial and grid data from file");
+    }
+    // No guard on hires_grid_level here: with analytic initialization it needs no NetCDF at all --
+    // the bathymetry comes from prob->init_analytic_bathymetry evaluated at the fine level and
+    // averaged down. hires_init_level needs no guard either: it is rejected for analytic
+    // initialization in ReadParameters, and the netcdf case is caught just above.
     if (solverChoice.boundary_from_netcdf) {
         Abort("Not compiled with NetCDF, but selected boundary conditions require NetCDF");
     }
@@ -1951,13 +1963,23 @@ REMORA::ReadParameters ()
     }
 
 #endif
+    // A hires level of 0 is not "level 0 is the hires level", it is a null pointer: the
+    // full-domain arrays are only allocated for lev > 0 (see allocate_init_full_domain and
+    // allocate_bathymetry_grid_vars_full_domain), while every consumer branch tests < 0 and
+    // so would take the averaged-down path against an unallocated MultiFab. -1 means off.
     pp.queryAdd("hires_grid_level", hires_grid_level);
     if (hires_grid_level > max_level) {
         amrex::Abort("hires_grid_level must be less than or equal to amr.max_level");
     }
+    if (hires_grid_level == 0) {
+        amrex::Abort("hires_grid_level must be greater than 0; use -1 to specify grid data at level 0");
+    }
     pp.queryAdd("hires_init_level", hires_init_level);
     if (hires_init_level > max_level) {
         amrex::Abort("hires_init_level must be less than or equal to amr.max_level");
+    }
+    if (hires_init_level == 0) {
+        amrex::Abort("hires_init_level must be greater than 0; use -1 to specify initial data at level 0");
     }
 #ifdef REMORA_USE_PARTICLES
     readTracersParams();
@@ -1982,6 +2004,15 @@ REMORA::ReadParameters ()
     // coordinates can be calculated at any level without the corresponding level having been created.
     if (hires_init_level >= 0 and solverChoice.ic_type == IC_Type::analytic) {
         amrex::Abort("Cannot do high-resolution initialization for analytic initial conditions. Not yet implemented");
+    }
+
+    // flat_bathymetry takes precedence at level 0 (see set_bathymetry), so a run asking for
+    // both would silently ignore the high-resolution bathymetry it was given. The flat branch
+    // of several analytic bathymetry hooks also writes h's second component, which the
+    // one-component vec_h_full_domain does not have.
+    if (hires_grid_level > 0 and solverChoice.flat_bathymetry) {
+        amrex::Abort("remora.flat_bathymetry is incompatible with hires_grid_level > 0: flat bathymetry "
+                     "would override the high-resolution bathymetry at level 0. Use one or the other");
     }
 
 }

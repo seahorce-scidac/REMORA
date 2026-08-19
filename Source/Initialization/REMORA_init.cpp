@@ -95,6 +95,14 @@ REMORA::init_biology_ic_full_domain ()
         amrex::Abort("remora.biology_ic_type = netcdf requires a NetCDF build");
 #endif
     }
+
+    // Average down here, after the branch, rather than inside one of the two sources. When
+    // this loop lived in the NetCDF reader, the analytic branch filled hires_init_level and
+    // nothing else, so every level below it -- including level 0, the one the run actually
+    // integrates -- kept the zeros that init_data_full_domain_from_netcdf had written.
+    for (int lev = hires_init_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_cons_full_domain);
+    }
 }
 
 /**
@@ -329,6 +337,14 @@ void REMORA::allocate_bathymetry_grid_vars_full_domain () {
         vec_pm_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],pm_growvect)));
         vec_pn_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],pn_growvect)));
     }
+    // A NetCDF read covers only as many grow cells as the file carries, and the analytic
+    // bathymetry hook fills h alone, so parts of these arrays can reach the average-down
+    // unwritten. Zero them so what lands at level 0 does not depend on the arena.
+    for (int lev = 0; lev <= hires_grid_level; lev++) {
+        vec_h_full_domain[lev]->setVal(0.0);
+        vec_pm_full_domain[lev]->setVal(0.0);
+        vec_pn_full_domain[lev]->setVal(0.0);
+    }
     nc_hires_grid_box = refined_domain;
 }
 
@@ -374,6 +390,14 @@ void REMORA::allocate_init_full_domain () {
         vec_xvel_full_domain[lev].reset(new MultiFab(convert(ba,IntVect(1,0,0)), dm, 1, max(cum_ref_ratios[lev],xvel_growvect) - IntVect(1,0,0)));
         vec_yvel_full_domain[lev].reset(new MultiFab(convert(ba,IntVect(0,1,0)), dm, 1, max(cum_ref_ratios[lev],yvel_growvect) - IntVect(0,1,0)));
         vec_zeta_full_domain[lev].reset(new MultiFab(ba2d, dm, 1, max(cum_ref_ratios[lev],zeta_growvect)));
+    }
+    // See the note in allocate_bathymetry_grid_vars_full_domain: the vertical grow cells in
+    // particular are never covered by the read, since cum_ref_ratios has no z component.
+    for (int lev = 0; lev <= hires_init_level; lev++) {
+        vec_cons_full_domain[lev]->setVal(0.0);
+        vec_xvel_full_domain[lev]->setVal(0.0);
+        vec_yvel_full_domain[lev]->setVal(0.0);
+        vec_zeta_full_domain[lev]->setVal(0.0);
     }
     nc_hires_init_box = refined_domain;
 }

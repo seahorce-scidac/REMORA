@@ -1,0 +1,84 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+#
+# High-resolution grid AND initial data from synthetic NetCDF files, exercising the
+# remora.hires_grid_level / remora.hires_init_level paths on data whose metrics are known to be
+# self-consistent (unlike GS_toyGrd_lev1_v1.1.nc -- see README.rst).
+#
+# Generate the two files first:
+#
+#   python3 ../../Tests/tools/make_hires_test_data.py --dir . --n-cell 10 10 4 --ref-ratio 3
+#
+# With both hires levels set, and with coriolis and masks off, the level-0 NetCDF files are never
+# dereferenced: bathymetry, metrics, state and zeta all arrive by averaging down from level 1. So
+# this lane needs only the two hires files.
+
+remora.prob_name = IdealMiniGrid
+
+remora.max_step = 10
+
+# PROBLEM SIZE & GEOMETRY
+# dx = dy = 512 m at level 0, matching the generator's default, so pm = 1/512 exactly.
+remora.prob_lo     =      0.      0.  -600.
+remora.prob_hi     =   5120.   5120.     0.
+
+remora.n_cell      =  10 10 4
+
+remora.is_periodic = 0 0 0
+
+remora.bc.xlo.type = "outflow"
+remora.bc.xhi.type = "outflow"
+remora.bc.ylo.type = "outflow"
+remora.bc.yhi.type = "outflow"
+
+# TIME STEP CONTROL
+remora.fixed_dt            = 10.0
+remora.fixed_ndtfast_ratio = 10
+
+# REFINEMENT
+# Level 1 has to exist for the high-resolution data to live on. No refinement indicator is set,
+# so level 1 is never actually created: what runs is the read, the average-down, and 10 steps on
+# level 0.
+amr.max_level      = 1
+amr.ref_ratio_vect = 3 3 1
+remora.expand_plotvars_to_unif_rr = 1
+
+# HIGH-RESOLUTION INPUT
+remora.ic_type            = "netcdf"
+remora.nc_grid_file_hires = "hires_grd.nc"
+remora.nc_init_file_hires = "hires_ini.nc"
+remora.hires_grid_level   = 1
+remora.hires_init_level   = 1
+
+# Masks default to netcdf when ic_type is netcdf, and coriolis would want `f` from a level-0
+# grid file. Turning both off is what lets this lane run on the two hires files alone.
+remora.mask_type    = "none"
+remora.use_coriolis = false
+
+# DIAGNOSTICS & VERBOSITY
+# sum_precision = 15 so VOLUME can be compared against a reference rather than just eyeballed:
+# at t = 0, sum_k Hz == zeta + h exactly, so VOLUME is a direct readout of the averaged-down
+# bathymetry and metrics. Compare it against sum h/(pm*pn) over the hires file's interior.
+remora.v             = 1
+remora.sum_interval  = 1
+remora.sum_precision = 15
+
+# PLOTFILES
+remora.plot_file     = plt
+remora.plot_int      = 10
+remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
+remora.plot_vars_2d  = h
+remora.plotfile_type = amrex
+
+# SOLVER CHOICE
+remora.tracer_horizontal_advection_scheme = "upstream3"
+
+remora.theta_s = 5.0
+remora.theta_b = 0.5
+remora.tcline  = 100.
+
+remora.R0    = 1027.0
+remora.S0    = 35.0
+remora.T0    = 14.0
+remora.Tcoef = 1.7e-4
+remora.Scoef = 0.0
+remora.rho0  = 1025.0

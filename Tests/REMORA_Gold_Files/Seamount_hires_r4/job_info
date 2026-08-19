@@ -1,0 +1,260 @@
+===============================================================================
+ REMORA Job Information
+===============================================================================
+inputs file: Seamount_hires_r4.i
+
+number of MPI processes: 2
+
+CPU time used since start of simulation (CPU-hours): 0.000270834
+
+===============================================================================
+ Plotfile Information
+===============================================================================
+output data / time: Wed Aug 19 09:55:49 2026
+output dir:         /tmp/claude-95021/-home-klion-software-REMORA-codex/68605636-decb-401f-9ae4-f512712c5366/scratchpad/gold_gen/Seamount_hires_r4
+
+
+===============================================================================
+ Build Information
+===============================================================================
+build date:    Aug 19 2026 09:51:57
+build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
+build dir:     /tmp/claude-95021/-home-klion-software-REMORA-codex/68605636-decb-401f-9ae4-f512712c5366/scratchpad/BuildNC/Exec
+AMReX dir:     /home/klion/software/REMORA_codex/Submodules/AMReX
+
+COMP:          GNU
+COMP version:  13.3.0
+
+
+REMORA       git hash: v1.6-174-gcbbcd5cf84ea-dirty
+AMReX       git hash: 26.07-55-gd1b9e4ec5555
+
+
+===============================================================================
+ Grid Information
+===============================================================================
+ level: 0
+   number of boxes = 3
+   maximum zones   = 49 48 13 
+
+ Boundary conditions
+   -x: Periodic
+   +x: Periodic
+   -y: Periodic
+   +y: Periodic
+   -z: SlipWall
+   +z: SlipWall
+
+
+===============================================================================
+ Inputs File Parameters
+===============================================================================
+DistributionMapping.verbose = 0
+amr.blocking_factor = 1
+amr.check_input = true
+amr.do_substep = 0
+amr.grid_eff = 0.69999999999999996
+amr.max_grid_iterations = 4
+amr.max_grid_size = 2048
+amr.max_level = 1
+amr.n_cell = 49 48 13
+amr.n_error_buf = 0
+amr.n_proper = 2
+amr.ref_ratio_vect = 4 4 1
+amr.refine_grid_layout = true
+amr.refine_grid_layout_x = 1
+amr.refine_grid_layout_y = 1
+amr.refine_grid_layout_z = 0
+amr.regrid_int = 2
+amr.v = 1
+amrex.abort_on_out_of_gpu_memory = false
+amrex.abort_on_unused_inputs = false
+amrex.async_out = false
+amrex.async_out_nfiles = 64
+amrex.fpe_trap_invalid = 1
+amrex.fpe_trap_overflow = false
+amrex.fpe_trap_zero = false
+amrex.handle_sigabrt = true
+amrex.handle_sigfpe = true
+amrex.handle_sigill = true
+amrex.handle_sigint = true
+amrex.handle_sigsegv = true
+amrex.handle_sigterm = false
+amrex.init_snan = false
+amrex.mf.alloc_single_chunk = false
+amrex.signal_handling = true
+amrex.the_arena_defragmentation = true
+amrex.the_arena_init_size = 8388608
+amrex.the_arena_is_managed = false
+amrex.the_arena_release_threshold = 9223372036854775807
+amrex.the_comms_arena_defragmentation = true
+amrex.the_comms_arena_init_size = 8388608
+amrex.the_comms_arena_release_threshold = 9223372036854775807
+amrex.the_device_arena_defragmentation = true
+amrex.the_device_arena_init_size = 8388608
+amrex.the_device_arena_release_threshold = 9223372036854775807
+amrex.the_managed_arena_defragmentation = true
+amrex.the_managed_arena_init_size = 8388608
+amrex.the_managed_arena_release_threshold = 9223372036854775807
+amrex.the_pinned_arena_defragmentation = true
+amrex.the_pinned_arena_init_size = 8388608
+amrex.the_pinned_arena_release_threshold = 9223372036854775807
+amrex.throw_exception = false
+amrex.use_gpu_aware_mpi = false
+amrex.vector_growth_factor = 1.5
+amrex.verbose = 1
+fabarray.comm_tile_size = 1024000 1024000 1024000
+fabarray.mfiter_tile_size = 8 8 1024000
+geometry.coord_sys = 0
+geometry.is_periodic = 1 1 0
+geometry.prob_hi = 320000.0 320000.0 0.0
+geometry.prob_lo = 0.0 0.0 -5000.0
+max_step = 2147483647
+remora.Akk_bak = 5.0000000000000004e-06
+remora.Akp_bak = 5.0000000000000004e-06
+remora.Akt_bak = 9.9999999999999995e-07
+remora.Akt_bak_salt = 9.9999999999999995e-07
+remora.Akt_bak_temp = 9.9999999999999995e-07
+remora.Akv_bak = 5.0000000000000004e-06
+remora.Cdb_max = 0.5
+remora.Cdb_min = 9.9999999999999995e-07
+remora.EminusP = 0.0
+remora.R0 = 1027.0
+remora.S0 = 32.0
+remora.Scoef = 0.0
+remora.T0 = 10.0
+remora.Tcoef = 1.7e-4
+remora.Zob = 0.02
+remora.Zos = 0.02
+remora.air_humidity = 0.77600000000000002
+remora.air_pressure = 1013.48
+remora.air_temperature = 23.567
+remora.atm2ocn_flux_mode = false
+remora.bc.xhi.type = "null"
+remora.bc.xlo.type = "null"
+remora.bc.yhi.type = "null"
+remora.bc.ylo.type = "null"
+remora.bc.zhi.type = "slipwall"
+remora.bc.zlo.type = "slipwall"
+remora.bdy_time_varname = "ocean_time"
+remora.biology_model = "none"
+remora.blk_ZQ = 10.0
+remora.blk_ZT = 10.0
+remora.blk_ZW = 10.0
+remora.bottom_stress_type = "linear"
+remora.boundary_per_variable = false
+remora.bulk_fluxes = false
+remora.cfl = 0.80000000000000004
+remora.change_max = 1.1000000000000001
+remora.check_file = chk
+remora.check_int = -57600
+remora.check_int_time = -1.0
+remora.clim_salt_time_varname = "ocean_time"
+remora.clim_temp_time_varname = "ocean_time"
+remora.clim_u_time_varname = "ocean_time"
+remora.clim_ubar_time_varname = "ocean_time"
+remora.clim_v_time_varname = "ocean_time"
+remora.clim_vbar_time_varname = "ocean_time"
+remora.cloud = 0.0
+remora.cloud_type = "constant"
+remora.coriolis_beta = 0.0
+remora.coriolis_f0 = 1.0e-4
+remora.coriolis_type = "beta_plane"
+remora.coupling_type = "TwoWay"
+remora.do_m2_clim_nudg = false
+remora.do_m3_clim_nudg = false
+remora.do_rivers = false
+remora.do_rivers_salt = true
+remora.do_rivers_scalar = false
+remora.do_rivers_temp = true
+remora.do_salt_clim_nudg = false
+remora.do_temp_clim_nudg = false
+remora.eminusp = false
+remora.eminusp_correct_ssh = false
+remora.eminusp_type = "computed"
+remora.eos_type = "linear"
+remora.expand_plotvars_to_unif_rr = 1
+remora.file_min_digits = 5
+remora.fixed_dt = 60.0
+remora.fixed_fast_dt = -1.0
+remora.fixed_ndtfast_ratio = 20
+remora.flat_bathymetry = 0
+remora.gls_stability_type = "Canuto_A"
+remora.grid_scale_type = "constant"
+remora.harmonic_mixing_type = "s"
+remora.hires_grid_level = 1
+remora.hires_init_level = -1
+remora.horizontal_advection_scheme(nvals = 1)  :: [upstream3]
+remora.horizontal_mixing_type = "analytic"
+remora.ic_bc_type = "analytic"
+remora.ic_type = "analytic"
+remora.init_ana_T = false
+remora.init_l0int_T = true
+remora.init_l1ad_T = false
+remora.is_periodic = 1 1 0
+remora.longwave_down = false
+remora.longwave_is_net = false
+remora.longwave_netcdf_varname = "lwrad"
+remora.longwave_radiation_flux = 0.0
+remora.lwrad_type = "computed"
+remora.m2nudg = 0.0
+remora.m3nudg = 0.0
+remora.mask_type = "none"
+remora.max_step = 10
+remora.n_cell = 49 48 13
+remora.nscalar = 0
+remora.obcfac = 0.0
+remora.output_forcing = false
+remora.pair_type = "constant"
+remora.plot_file = plt
+remora.plot_int = 1
+remora.plot_int_time = -1.0
+remora.plot_vars_3d = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+remora.prob_hi = 320000. 320000. 0.
+remora.prob_lo = 0. 0. -5000.
+remora.prob_name = Seamount
+remora.qair_is_percent = false
+remora.qair_type = "constant"
+remora.rain = 0.0
+remora.rain_type = "constant"
+remora.rdrag = 0.00029999999999999997
+remora.rdrag2 = 0.0030000000000000001
+remora.rho0 = 1025.0
+remora.riv_time_varname = "river_time"
+remora.scaled_to_grid_amr_scaling = "none"
+remora.smflux_type = "analytic"
+remora.spatial_order(nvals = 1)  :: [2]
+remora.start_time = 0.0
+remora.stop_time = 30000.0
+remora.sum_interval = 1
+remora.sum_period = -1.0
+remora.surface_radiation_flux = 0.0
+remora.swrad_type = "constant"
+remora.tair_type = "constant"
+remora.tcline = 100.
+remora.theta_b = 2.0
+remora.theta_s = 6.5
+remora.time_ref = 0.0
+remora.tnu2_salt = 0.0
+remora.tnu2_scalar = 0.0
+remora.tnu2_temp = 0.0
+remora.tnudg = 0.0
+remora.tracer_horizontal_advection_scheme = "upstream3"
+remora.use_barotropic = true
+remora.use_coriolis = true
+remora.use_curvilinear_grid = false
+remora.use_prestep = true
+remora.use_salt = true
+remora.use_uv3dmix = true
+remora.uv_horizontal_advection_scheme = "upstream3"
+remora.uwind = 0.0
+remora.uwind_type = "analytic"
+remora.v = 0
+remora.vertical_mixing_type = "analytic"
+remora.visc2 = 0.0
+remora.vwind = 0.0
+remora.vwind_type = "analytic"
+remora.wind_type = "analytic"
+remora.znudg = 0.0
+stop_time = 1.7976931348623157e+308

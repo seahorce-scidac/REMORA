@@ -83,3 +83,59 @@ regression test will refer to should be placed in ``Tests/REMORA_Gold_Files/<tes
 to the list. Note that there are different categories of tests and if your test falls outside of these
 categories, a new function to add the test will need to be created. After these steps, your test will be
 automatically added to the test suite database when doing the CMake configure with the testing suite enabled.
+
+Because the copy happens at CMake *configure* time via ``file(GLOB)``, adding or changing a file in a test
+directory does not reach the working directory on an incremental ``cmake --build``. Re-run ``cmake`` after
+adding a test or editing its input.
+
+Kinds of test
+~~~~~~~~~~~~~
+
+The functions in ``Tests/CTestList.cmake`` cover several kinds of assertion. A snapshot against a gold file
+is the default, but it only says "this run still does what it did when the baseline was blessed" -- it cannot
+say the baseline was right, and it cannot notice a feature that has silently stopped doing anything.
+
+``add_test_r``, ``add_test_r_hitol``
+    Snapshot against ``Tests/REMORA_Gold_Files/<test_name>``, at 1e-11 and 1e-5 respectively.
+
+``add_test_r_gold``
+    Snapshot against *another* test's gold file. Use it when a run is expected to reproduce an existing
+    baseline exactly -- for instance a high-resolution-bathymetry lane over a problem whose bathymetry is
+    constant, where the average-down has to be a no-op. Costs no new gold data.
+
+``add_test_r_differ``
+    Must agree with its own gold **and** disagree with another one. This is the shape to use for a feature
+    whose purpose is to change the answer: a lane that stops taking effect (a misspelled parameter, a dropped
+    branch) still matches its own snapshot, and only the disagreement clause catches it. Both clauses are
+    needed, since ``fcompare`` aborts outright on a level-count mismatch and a bare disagreement test would
+    then pass for the wrong reason.
+
+``add_test_extrema``
+    Assert a variable's min and max against values known from outside REMORA -- a closed-form reference, or
+    a constant an initial condition must reproduce. Takes any number of ``<var> <min> <max>`` triples after
+    the tolerance, all checked against one model run. Unlike a gold file this says what the number should
+    *be*, so it also catches a baseline that was wrong when it was blessed, and it needs no baseline bytes.
+
+``add_test_abort``
+    Assert that a misconfigured input fails, and fails for the stated reason. The run must exit nonzero and
+    the log must contain the given plain-text substring, so a successful run, a different abort, and a
+    segfault all fail the test. Prefer this to ``WILL_FAIL``, which any nonzero exit satisfies.
+
+Cheap lanes are worth adding: ``remora.max_step = 0`` with ``remora.plot_int = 1`` is a legal
+initialize-and-dump run of about a second, which is enough for ``add_test_extrema`` to pin an initial
+condition with no time stepper in the way.
+
+Regenerating gold files
+~~~~~~~~~~~~~~~~~~~~~~~
+
+A gold file is only meaningful if what produced it is known, so when regenerating one:
+
+#. Work from a clean tree. ``git status --porcelain`` must be empty -- a plotfile's ``job_info`` records the
+   REMORA git hash, and a ``-dirty`` hash makes the baseline unreproducible.
+#. Delete the build directory first, or ``AMReX_buildInfo.cpp`` may be stale and record a build date and
+   hash from an older configure.
+#. Record what is not in ``job_info``: the number of MPI ranks used, and the SHA-256 of every input file
+   the run read, including NetCDF data. Gold files are shared between the serial and 2-rank paths, so a
+   baseline is only valid if the run is rank-invariant to the accepted tolerance.
+#. Treat a change to any input datum as invalidating the baseline: the same commit should update the data,
+   the gold file, and the recorded checksums together.

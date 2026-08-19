@@ -458,6 +458,17 @@ struct SolverChoice {
             amrex::Error("Don't know this ic_type");
         }
 
+#ifndef REMORA_USE_NETCDF
+        // Without this the netcdf branches are compiled out one by one and the run integrates
+        // uninitialized state instead of failing: the #ifdef in REMORA::init_only sits inside
+        // the ic_type == netcdf branch rather than around it. mask_type below defaults to
+        // netcdf for a netcdf run, which would be silently skipped the same way.
+        if (ic_type == IC_Type::netcdf) {
+            amrex::Abort("remora.ic_type = netcdf requires a NetCDF build. Rebuild with "
+                         "USE_PNETCDF=TRUE (GNUmake) or -DREMORA_ENABLE_PNETCDF=ON (CMake)");
+        }
+#endif
+
         // Which type of refinement
         static std::string coupling_type_string = "TwoWay";
         pp.queryAdd("coupling_type",coupling_type_string);

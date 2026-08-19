@@ -6,7 +6,9 @@
       Array4<Real> const& h  = (mf_h).array(mfi);
 
       Box bx = mfi.tilebox();
-      Box gbx2 = grow(bx,IntVect(NGROW+1,NGROW+1,0));
+      // Grow to whatever the target actually has: with hires_grid_level this fab is
+      // vec_h_full_domain, whose grow cells are max(cum_ref_ratios[lev], NGROW+1).
+      Box gbx2 = grow(bx,mf_h.nGrowVect());
 
       amrex::Real Xsize = Real(320000.0);
       amrex::Real Esize = Real(320000.0);

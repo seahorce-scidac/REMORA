@@ -121,6 +121,62 @@ read_biology_full_domain_from_netcdf (int /*lev*/,
 }
 
 /**
+ * @param fname     file name the hires data will be read from
+ * @param var_name  a rho-point variable in that file whose horizontal extent is checked
+ * @param domain    the refined full-domain box the data has to cover
+ * @param ngrow     grow cells the read asks for, i.e. cum_ref_ratios[hires_*_level]
+ *
+ * A high-resolution file has to carry the refined domain plus ngrow rings on every side
+ * (Docs/sphinx_doc/Inputs.rst). Checking that up front is not a nicety: BuildFABsFromNetCDFFile
+ * copies on intersection and fill_fab_from_arrays only asserts that the destination box is big
+ * enough for the source, so a file with too FEW grow cells reads cleanly and silently leaves
+ * the outer rings of the FAB at whatever they held -- which then gets averaged down into
+ * level 0. Only rho-point variables are checked; that is enough to catch an undersized file,
+ * and it avoids re-deriving the staggered offsets here.
+ */
+void
+check_hires_dims_from_netcdf (const std::string& fname,
+                              const std::string& var_name,
+                              const Box& domain,
+                              const IntVect& ngrow)
+{
+    int too_small = 0;
+    long found_x = 0, found_y = 0;
+    const long need_x = static_cast<long>(domain.length(0)) + 2L * ngrow[0];
+    const long need_y = static_cast<long>(domain.length(1)) + 2L * ngrow[1];
+
+    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
+    ncmpi_begin_indep_data(ncf.ncid);
+    if (amrex::ParallelDescriptor::IOProcessor() && ncf.has_var(var_name))
+    {
+        // Whatever the leading time or vertical dimensions are, the last two are (eta, xi).
+        const std::vector<MPI_Offset> shape = ncf.var(var_name).shape();
+        if (shape.size() >= 2) {
+            found_y = static_cast<long>(shape[shape.size()-2]);
+            found_x = static_cast<long>(shape[shape.size()-1]);
+            too_small = (found_x < need_x || found_y < need_y) ? 1 : 0;
+        }
+    }
+    ncf.close();
+
+    const int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
+    amrex::ParallelDescriptor::Bcast(&too_small, 1, ioproc);
+    amrex::ParallelDescriptor::Bcast(&found_x, 1, ioproc);
+    amrex::ParallelDescriptor::Bcast(&found_y, 1, ioproc);
+
+    if (too_small) {
+        amrex::Abort("High-resolution file " + fname + " is too small: " + var_name + " is "
+                     + std::to_string(found_x) + " x " + std::to_string(found_y)
+                     + " (xi x eta) but covering the refined domain ("
+                     + std::to_string(domain.length(0)) + " x " + std::to_string(domain.length(1))
+                     + " cells) with " + std::to_string(ngrow[0]) + " x " + std::to_string(ngrow[1])
+                     + " grow cells requires at least " + std::to_string(need_x) + " x "
+                     + std::to_string(need_y) + ". Regenerate the file with the grow cells the "
+                     "cumulative refinement ratio implies, or lower the refinement ratio.");
+    }
+}
+
+/**
  * @param domain          simulation domain
  * @param fname           file name to read from
  * @param scalar_names    per passive scalar, name of the variable in the file

@@ -16,7 +16,12 @@ REMORA::sum_integrated_quantities(Real time)
       return;
 
     int datwidth = 14;
+    // Six digits is enough to watch a run by eye but not to compare two runs: an averaged-down
+    // bathymetry shifts the volume by ~1e-5 relative. Raise it when the sums are being used as
+    // a diagnostic to assert on rather than to read.
     int datprecision = 6;
+    amrex::ParmParse pp("remora");
+    pp.queryAdd("sum_precision", datprecision);
     bool local = true;
 
     // One sum per cell-centered tracer past salinity: the passive scalars and the
