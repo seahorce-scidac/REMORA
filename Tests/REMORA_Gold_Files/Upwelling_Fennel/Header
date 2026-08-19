@@ -1,5 +1,5 @@
 HyperCLaw-V1.1
-13
+20
 temp
 salt
 tracer
@@ -10,6 +10,13 @@ phytoplankton
 zooplankton
 LdetritusN
 SdetritusN
+RdetritusN
+LdetritusC
+SdetritusC
+TIC
+alkalinity
+RdetritusC
+oxygen
 x_velocity
 y_velocity
 z_velocity

@@ -87,6 +87,22 @@ The following problems are currently tested in the CI. More details about the pr
 |                         |          |           |          |                                 |
 |                         |          |           |          | non-flat bathymetry             |
 +-------------------------+----------+-----------+----------+---------------------------------+
+| Upwelling_Fennel        | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
+|                         |          |           |          |                                 |
+|                         |          |           |          | bulk fluxes                     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | Fennel biology, analytic IC     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | carbon, oxygen, river DON       |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-conservative alkalinity     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | dated atmospheric pCO2          |
+|                         |          |           |          |                                 |
+|                         |          |           |          | Wanninkhof (2014) gas transfer  |
++-------------------------+----------+-----------+----------+---------------------------------+
 | Upwelling_GLS           | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
 |                         |          |           |          |                                 |
 |                         |          |           |          | non-flat bathymetry             |

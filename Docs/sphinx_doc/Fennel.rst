@@ -449,3 +449,56 @@ building REMORA with PnetCDF enabled; see :ref:`sec:Plotfiles`.
 Biology diagnostic variables such as primary productivity, nitrification flux,
 air-sea CO2 flux, air-sea O2 flux, and denitrification flux are not currently
 implemented as separate output variables.
+
+Regression Coverage
+===================
+
+One CI test carries biology: ``Upwelling_Fennel``
+(``Tests/test_files/Upwelling_Fennel/Upwelling_Fennel.i``), 41x80x16 for ten
+baroclinic steps with analytic physics and analytic biology, so it needs no
+NetCDF input. Its option set is deliberately wide, since one gold file is all
+the coverage there is:
+
++---------------------------------+------------------------+
+| Option                          | Value in the test      |
++=================================+========================+
+| ``carbon``                      | ``true``               |
++---------------------------------+------------------------+
+| ``oxygen``                      | ``true``               |
++---------------------------------+------------------------+
+| ``river_don``                   | ``true``               |
++---------------------------------+------------------------+
+| ``talk_nonconserv``             | ``true``               |
++---------------------------------+------------------------+
+| ``pco2air_type``                | ``secular``            |
++---------------------------------+------------------------+
+| ``co2_schmidt``                 | ``rw14``               |
++---------------------------------+------------------------+
+| ``oxygen_schmidt``              | ``rw14``               |
++---------------------------------+------------------------+
+| ``denitrification``             | ``false``              |
++---------------------------------+------------------------+
+| ``bio_sediment``                | ``true`` (default)     |
++---------------------------------+------------------------+
+| ``BioIter``                     | ``1`` (default)        |
++---------------------------------+------------------------+
+
+Where an option has a default and an alternative, the test generally takes the
+alternative. The defaults are the settings the Fortran-bridge comparison in
+``Source/Biology/Fortran`` runs on, so they are already checked against ROMS
+itself; the gold file is more useful covering the paths that comparison does
+not reach. ``denitrification`` is the exception, and is off for a reason: the
+alkalinity increment from the sediment remineralization return only exists in
+the branch ROMS takes when ``BIO_SEDIMENT`` is on and ``DENITRIFICATION`` is
+off, so turning it on would leave that increment untested.
+
+Because ``pco2air_type = secular`` reads the model clock, the test also sets
+``remora.time_ref = 20200301``. That places the run just after 29 February of a
+leap year, so the day-of-year handed to the trend depends on the leap-day branch
+of the calendar; moving the run one day changes the gold file by about 3e-8
+relative, comfortably above the test's 1e-11 tolerance.
+
+Not covered by any gold file, and left to the Fortran-bridge lanes:
+``po4``, ``odu``, ``denitrification``, ``bio_sediment = false``,
+``BioIter > 1``, the ``data`` form of ``pco2air_type``, the ``w92`` and
+``ocmip`` Schmidt sets, and NetCDF biology initialization.
