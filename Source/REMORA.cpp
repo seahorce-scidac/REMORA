@@ -1996,6 +1996,19 @@ REMORA::ReadParameters ()
     }
     solverChoice.init_params(ncons, nscalar, cons_names);
 
+    // The biology IC source is chosen independently of ic_type, but only one of the two
+    // mixed combinations works: NetCDF physics with analytic biology. The reverse has no
+    // file to read from -- nc_init_file is only populated on the netcdf path -- so catch
+    // it here instead of failing inside PnetCDF on an empty file name.
+    if (REMORABiology::has_biology(biology_model) and
+        biology_ic_type == REMORABiology::BiologyICType::netcdf and
+        solverChoice.ic_type != IC_Type::netcdf) {
+        amrex::Abort("remora.biology_ic_type = netcdf requires remora.ic_type = netcdf: the biology "
+                     "initial data is read from the same files as the physical initial data, and no "
+                     "such file is given for analytic initial conditions. Use "
+                     "remora.biology_ic_type = analytic (or follow) instead.");
+    }
+
     // NOTE: This feature is not yet implemented because it will require passing x,y,z to prob functions.
     // Currently these are accessed by passing a pointer to the REMORA class. However, this requires the
     // coordinates at hires_init_level to already exist (and specifically for the hires_init_level level
