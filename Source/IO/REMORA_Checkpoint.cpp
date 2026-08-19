@@ -249,7 +249,13 @@ REMORA::ReadCheckpointFile ()
     is >> chk_ncomp;
     GotoNextLine(is);
     if (chk_ncomp != ncons) {
-        amrex::Abort("Checkpoint scalar component count does not match remora.nscalar");
+        // The tracer count comes from remora.nscalar or, when a biology model is
+        // active, from that model's tracer list, so name both rather than only the
+        // input a biology run never sets.
+        amrex::Abort("Checkpoint holds " + std::to_string(chk_ncomp) +
+                     " cell-centered components but this run has " + std::to_string(ncons) +
+                     ". The count is set by remora.nscalar and by remora.biology_model; "
+                     "both must match the run the checkpoint came from.");
     }
 
     // x-velocity on faces

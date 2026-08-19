@@ -11,6 +11,5 @@
 
         Akt(i,j,k,Temp_comp) = one;
         Akt(i,j,k,Salt_comp) = one;
-        Akt(i,j,k,Tracer_comp) = zero;
       });
     }

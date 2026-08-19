@@ -1,0 +1,109 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+# NOTE: remora.max_step used to share this line with the banner above, so ParmParse read it
+# as part of the comment -- and this file has no remora.prob_name either, which aborts in
+# init_analytic_vmix. Both are set explicitly now.
+remora.prob_name = IdealMiniGrid
+remora.max_step = 100
+
+remora.start_time = 757382400
+
+amrex.fpe_trap_invalid=1
+
+# PROBLEM SIZE & GEOMETRY
+remora.prob_lo     =   -67.95   40.05   -3000.
+remora.prob_hi     =   -67.05   40.95       0.
+remora.n_cell           =  31 9 100
+remora.is_periodic = 0 0 0
+
+remora.boundary_per_variable = 1
+##                      WEST              SOUTH             EAST              NORTH
+remora.bc.temp.type   =  outflow outflow outflow outflow #orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+remora.bc.salt.type   =  outflow outflow outflow outflow #orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+remora.bc.scalar.type =  outflow outflow outflow outflow #orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+remora.bc.u.type      =  outflow outflow outflow outflow #orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+remora.bc.v.type      =  outflow outflow outflow outflow #orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg orlanski_rad_nudg
+remora.bc.ubar.type   =  outflow outflow outflow outflow #flather           flather           flather          flather
+remora.bc.vbar.type   =  outflow outflow outflow outflow #flather           flather           flather          flather
+remora.bc.zeta.type   =  outflow outflow outflow outflow #chapman           chapman           chapman          chapman
+remora.bc.tke.type    =  outflow           outflow           outflow          outflow
+
+# TIME STEP CONTROL
+remora.fixed_dt            = 40.0 # Timestep size (seconds)
+remora.fixed_ndtfast_ratio = 20 # Baratropic timestep size (seconds)
+
+remora.flat_bathymetry=0
+
+# REFINEMENT / REGRIDDING
+# Level 1 has to exist for the high-resolution data to be evaluated on and averaged down from,
+# even though no refinement indicator is set here so level 1 is never actually created.
+amr.max_level       = 1       # maximum level number allowed
+amr.ref_ratio_vect = 3 3  1
+
+# DIAGNOSTICS & VERBOSITY
+remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
+remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
+
+# CHECKPOINT FILES
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
+
+# PLOTFILES
+remora.plot_file     = plt        # prefix of plotfile name
+remora.plot_int      = 1          # number of timesteps between plotfiles
+remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
+remora.plot_vars_2d  = h
+remora.plotfile_type = amrex
+
+# SOLVER CHOICE
+remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+
+remora.use_coriolis  = true
+remora.coriolis_type = netcdf
+remora.coriolis_f0   = 1.0e-4
+
+remora.theta_s = 5.0
+remora.theta_b = 0.5
+remora.tcline = 100.
+
+# PROBLEM PARAMETERS (optional)
+remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+remora.S0    = 32.0    # background salinity (nondimensional) constant
+remora.T0    = 10.0    # background potential temperature (Celsius) constant
+remora.Tcoef = 0.0  # linear equation of state parameter (1/Celsius)
+remora.Scoef = 0.0     # linear equation of state parameter (nondimensional)
+remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
+
+# These files can be found at https://github.com/seahorce-scidac/REMORA-data
+remora.ic_bc_type         = "netcdf"
+remora.nc_init_file_0     = "GS_toyIni_lev0_v1.3.nc"
+remora.nc_grid_file_0     = "GS_toyGrd_lev0_v1.3.nc"
+remora.nc_grid_file_hires = "GS_toyGrd_lev1_v1.1.nc"
+remora.nc_init_file_hires = "GS_toyIni_lev1_v1.3.nc"
+#remora.nc_bdry_file       = "5km_bc_gulf_test_classic64.nc"
+
+# High-resolution grid AND initial data, both averaged down to level 0. The GS toy files are
+# sized for exactly this: level 0 is xi_rho = 33, eta_rho = 11 (interior 31 x 9, matching
+# remora.n_cell below) and level 1 is 99 x 33, which is 31*3 + 2*3 and 9*3 + 2*3 -- the refined
+# domain plus the three grow rings the cumulative refinement ratio requires. GS_toyIni_lev1
+# carries h, pm and pn as well as temp, salt, u, v and zeta, so it could serve as the hires grid
+# file too.
+remora.hires_grid_level = 1
+remora.hires_init_level = 1
+
+#nudging timescales, given in days
+remora.tnudg = 0.05
+remora.m3nudg = 0.05
+remora.obcfac = 1.0
+
+remora.expand_plotvars_to_unif_rr = 1
+
+remora.use_curvilinear_grid=true
+
+#remora.refinement_indicators = middle
+remora.coupling_type = "TwoWay"
+remora.middle.max_level=1
+#remora.middle.in_box_lo = -67.7 40.3
+remora.middle.in_box_lo = -100 -100
+#remora.middle.in_box_hi = -67.3 40.7
+remora.middle.in_box_hi = -50 50
+remora.middle.start_time = 10.

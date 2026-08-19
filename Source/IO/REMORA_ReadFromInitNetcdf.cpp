@@ -73,6 +73,245 @@ read_data_full_domain_from_netcdf (int /*lev*/,
  * @param lev             level of data to read
  * @param domain          simulation domain
  * @param fname           file name to read from
+ * @param biology_names   names of the biological tracer variables to read
+ * @param NC_biology_fab  containers for the biological tracer data, one per name
+ */
+void
+read_biology_from_netcdf (int /*lev*/,
+                          const Box& domain,
+                          const std::string& fname,
+                          const Vector<std::string>& biology_names,
+                          Vector<FArrayBox>& NC_biology_fab)
+{
+    if (biology_names.empty()) {
+        return;
+    }
+
+    amrex::Print() << "Loading initial biology data from NetCDF file " << fname << std::endl;
+
+    NC_biology_fab.resize(biology_names.size());
+    Vector<FArrayBox*> NC_fabs;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    for (int ibio = 0; ibio < static_cast<int>(biology_names.size()); ++ibio) {
+        NC_fabs.push_back(&NC_biology_fab[ibio]);
+        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
+    }
+
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, biology_names, NC_dim_types, NC_fabs);
+}
+
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param biology_names   names of the biological tracer variables to read
+ * @param NC_biology_fab  containers for the biological tracer data, one per name
+ * @param ngrow           number of grow cells to read
+ */
+void
+read_biology_full_domain_from_netcdf (int /*lev*/,
+                                      const Box& domain,
+                                      const std::string& fname,
+                                      const Vector<std::string>& biology_names,
+                                      Vector<FArrayBox>& NC_biology_fab,
+                                      IntVect ngrow)
+{
+    if (biology_names.empty()) {
+        return;
+    }
+
+    amrex::Print() << "Loading high resolution biology data from NetCDF file " << fname << std::endl;
+
+    NC_biology_fab.resize(biology_names.size());
+    Vector<FArrayBox*> NC_fabs;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+
+    for (int ibio = 0; ibio < static_cast<int>(biology_names.size()); ++ibio) {
+        NC_fabs.push_back(&NC_biology_fab[ibio]);
+        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
+    }
+
+    BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, biology_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+}
+
+/**
+ * @param fname     file name the hires data will be read from
+ * @param var_name  a rho-point variable in that file whose horizontal extent is checked
+ * @param domain    the refined full-domain box the data has to cover
+ * @param ngrow     grow cells the read asks for, i.e. cum_ref_ratios[hires_*_level]
+ *
+ * A high-resolution file has to carry the refined domain plus ngrow rings on every side
+ * (Docs/sphinx_doc/Inputs.rst). Checking that up front is not a nicety: BuildFABsFromNetCDFFile
+ * copies on intersection and fill_fab_from_arrays only asserts that the destination box is big
+ * enough for the source, so a file with too FEW grow cells reads cleanly and silently leaves
+ * the outer rings of the FAB at whatever they held -- which then gets averaged down into
+ * level 0. Only rho-point variables are checked; that is enough to catch an undersized file,
+ * and it avoids re-deriving the staggered offsets here.
+ */
+void
+check_hires_dims_from_netcdf (const std::string& fname,
+                              const std::string& var_name,
+                              const Box& domain,
+                              const IntVect& ngrow)
+{
+    int too_small = 0;
+    long found_x = 0, found_y = 0;
+    const long need_x = static_cast<long>(domain.length(0)) + 2L * ngrow[0];
+    const long need_y = static_cast<long>(domain.length(1)) + 2L * ngrow[1];
+
+    auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
+    ncmpi_begin_indep_data(ncf.ncid);
+    if (amrex::ParallelDescriptor::IOProcessor() && ncf.has_var(var_name))
+    {
+        // Whatever the leading time or vertical dimensions are, the last two are (eta, xi).
+        const std::vector<MPI_Offset> shape = ncf.var(var_name).shape();
+        if (shape.size() >= 2) {
+            found_y = static_cast<long>(shape[shape.size()-2]);
+            found_x = static_cast<long>(shape[shape.size()-1]);
+            too_small = (found_x < need_x || found_y < need_y) ? 1 : 0;
+        }
+    }
+    ncf.close();
+
+    const int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
+    amrex::ParallelDescriptor::Bcast(&too_small, 1, ioproc);
+    amrex::ParallelDescriptor::Bcast(&found_x, 1, ioproc);
+    amrex::ParallelDescriptor::Bcast(&found_y, 1, ioproc);
+
+    if (too_small) {
+        amrex::Abort("High-resolution file " + fname + " is too small: " + var_name + " is "
+                     + std::to_string(found_x) + " x " + std::to_string(found_y)
+                     + " (xi x eta) but covering the refined domain ("
+                     + std::to_string(domain.length(0)) + " x " + std::to_string(domain.length(1))
+                     + " cells) with " + std::to_string(ngrow[0]) + " x " + std::to_string(ngrow[1])
+                     + " grow cells requires at least " + std::to_string(need_x) + " x "
+                     + std::to_string(need_y) + ". Regenerate the file with the grow cells the "
+                     "cumulative refinement ratio implies, or lower the refinement ratio.");
+    }
+}
+
+/**
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param scalar_names    per passive scalar, name of the variable in the file
+ * @param NC_scalar_fab   per passive scalar, container for the dye data
+ * @param scalar_in_file  filled on output: per passive scalar, whether the variable was
+ *                        found in the file and its FAB was built
+ * @param full_domain     whether this is the high resolution full-domain read, which
+ *                        needs ngrow grow cells rather than the reader's default
+ * @param ngrow           number of grow cells to read, for the full-domain read
+ *
+ * A passive scalar's initial field is optional. Initial files written for runs that
+ * carry no dye -- which is every ROMS initial file predating the dye variables, and
+ * most idealized ones -- have no "tracer" variable, so requiring the field would break
+ * every existing NetCDF-initialized run. Each name the file does carry is read; the rest
+ * keep the zero that init_data_from_netcdf set, which is the behavior those runs had
+ * before this read existed.
+ *
+ * Shared by the per-box and full-domain entry points below: the presence testing is
+ * the same for both, and only the grow cells and the wording of the log differ.
+ */
+namespace {
+void
+read_scalars_impl (const Box& domain,
+                   const std::string& fname,
+                   const Vector<std::string>& scalar_names,
+                   Vector<FArrayBox>& NC_scalar_fab,
+                   Vector<int>& scalar_in_file,
+                   bool full_domain,
+                   IntVect ngrow)
+{
+    scalar_in_file.assign(scalar_names.size(), 0);
+    if (scalar_names.empty()) {
+        return;
+    }
+
+    NC_scalar_fab.resize(scalar_names.size());
+    Vector<FArrayBox*> NC_fabs;
+    Vector<std::string> NC_names;
+    Vector<enum NC_Data_Dims_Type> NC_dim_types;
+    Vector<std::string> missing;
+
+    for (int iscal = 0; iscal < static_cast<int>(scalar_names.size()); ++iscal) {
+        if (!QueryNetCDFHasVars(fname, {scalar_names[iscal]})) {
+            missing.push_back(scalar_names[iscal]);
+            continue;
+        }
+        scalar_in_file[iscal] = 1;
+        NC_fabs.push_back(&NC_scalar_fab[iscal]);
+        NC_names.push_back(scalar_names[iscal]);
+        NC_dim_types.push_back(NC_Data_Dims_Type::Time_BT_SN_WE);
+    }
+
+    if (!missing.empty()) {
+        amrex::Print() << "Initial file " << fname << " does not contain";
+        for (const auto& name : missing) { amrex::Print() << " " << name; }
+        amrex::Print() << "; those passive scalars start at zero" << std::endl;
+    }
+    if (NC_names.empty()) {
+        return;
+    }
+
+    amrex::Print() << "Loading " << (full_domain ? "high resolution " : "initial ")
+                   << "passive scalar data from NetCDF file " << fname << std::endl;
+
+    // Read the netcdf file and fill these FABs. The per-box read takes the reader's
+    // default grow cells, as the temperature and salinity read does.
+    if (full_domain) {
+        BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs, false, 0, ngrow);
+    } else {
+        BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
+    }
+}
+} // namespace
+
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param scalar_names    names of the passive scalar variables to look for
+ * @param NC_scalar_fab   containers for the passive scalar data, one per name
+ * @param scalar_in_file  set per name to whether the file carried that variable
+ */
+void
+read_scalars_from_netcdf (int /*lev*/,
+                          const Box& domain,
+                          const std::string& fname,
+                          const Vector<std::string>& scalar_names,
+                          Vector<FArrayBox>& NC_scalar_fab,
+                          Vector<int>& scalar_in_file)
+{
+    read_scalars_impl(domain, fname, scalar_names, NC_scalar_fab, scalar_in_file,
+                      false, IntVect(0,0,0));
+}
+
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
+ * @param scalar_names    names of the passive scalar variables to look for
+ * @param NC_scalar_fab   containers for the passive scalar data, one per name
+ * @param scalar_in_file  set per name to whether the file carried that variable
+ * @param ngrow           number of grow cells to read
+ */
+void
+read_scalars_full_domain_from_netcdf (int /*lev*/,
+                                      const Box& domain,
+                                      const std::string& fname,
+                                      const Vector<std::string>& scalar_names,
+                                      Vector<FArrayBox>& NC_scalar_fab,
+                                      Vector<int>& scalar_in_file,
+                                      IntVect ngrow)
+{
+    read_scalars_impl(domain, fname, scalar_names, NC_scalar_fab, scalar_in_file,
+                      true, ngrow);
+}
+
+/**
+ * @param lev             level of data to read
+ * @param domain          simulation domain
+ * @param fname           file name to read from
  * @param NC_zeta_fab     container for sea surface height data
  */
 void
@@ -340,12 +579,13 @@ read_masks_from_netcdf (int /*lev*/,
  * @param fname               file name to read from
  * @param do_m2_clim_nudg     whether to do 2d momentum climatology nudging
  * @param do_m3_clim_nudg     whether to do 3d momentum climatology nudging
- * @param do_temp_clim_nudg   whether to do temperature climatology nudging
- * @param do_salt_clim_nudg   whether to do salinity climatology nudging
+ * @param do_cons_clim_nudg   per cons component, whether to do climatology nudging
+ * @param cons_names          per cons component, name of the tracer
  * @param NC_M2NC_fab         container for 2d momentum climatology data
  * @param NC_M3NC_fab         container for 3d momentum climatology data
- * @param NC_TempNC_fab       container for temperature climatology data
- * @param NC_SaltNC_fab       container for salinity climatology data
+ * @param NC_ConsNC_fab       per cons component, container for tracer climatology data
+ * @param cons_coeff_in_file  filled on output: per cons component, whether a spatially
+ *                            varying coefficient was found in the file
  */
 void
 read_clim_nudg_coeff_from_netcdf (int /*lev*/,
@@ -353,14 +593,16 @@ read_clim_nudg_coeff_from_netcdf (int /*lev*/,
                         const std::string& fname,
                         bool do_m2_clim_nudg,
                         bool do_m3_clim_nudg,
-                        bool do_temp_clim_nudg,
-                        bool do_salt_clim_nudg,
+                        const amrex::Vector<int>& do_cons_clim_nudg,
+                        const amrex::Vector<std::string>& cons_names,
                         FArrayBox& NC_M2NC_fab,
                         FArrayBox& NC_M3NC_fab,
-                        FArrayBox& NC_TempNC_fab,
-                        FArrayBox& NC_SaltNC_fab)
+                        amrex::Vector<FArrayBox>& NC_ConsNC_fab,
+                        amrex::Vector<int>& cons_coeff_in_file)
 {
     amrex::Print() << "Loading nudging coefficients from NetCDF file " << fname << std::endl;
+
+    const int l_ncons = do_cons_clim_nudg.size();
 
     Vector<FArrayBox*> NC_fabs;
     Vector<std::string> NC_names;
@@ -372,12 +614,29 @@ read_clim_nudg_coeff_from_netcdf (int /*lev*/,
     if (do_m2_clim_nudg) {
         NC_fabs.push_back(&NC_M2NC_fab ); NC_names.push_back("M2_NudgeCoef"); NC_dim_types.push_back(NC_Data_Dims_Type::SN_WE);
     }
-    if (do_temp_clim_nudg) {
-        NC_fabs.push_back(&NC_TempNC_fab ); NC_names.push_back("temp_NudgeCoef"); NC_dim_types.push_back(NC_Data_Dims_Type::BT_SN_WE);
+    // Each tracer's spatially varying coefficient is stored under its own name, as in
+    // ROMS: temp_NudgeCoef, salt_NudgeCoef, NO3_NudgeCoef, ... A tracer whose field is
+    // absent from the file keeps the constant coefficient derived from remora.tnudg, so
+    // a file written for temp and salt alone still works when biology tracers are nudged.
+    cons_coeff_in_file.assign(l_ncons, 0);
+    Vector<std::string> missing;
+    for (int icomp = 0; icomp < l_ncons; ++icomp) {
+        if (!do_cons_clim_nudg[icomp]) { continue; }
+        const std::string coeff_name = cons_names[icomp] + "_NudgeCoef";
+        if (!QueryNetCDFHasVars(fname, {coeff_name})) {
+            missing.push_back(coeff_name);
+            continue;
+        }
+        cons_coeff_in_file[icomp] = 1;
+        NC_fabs.push_back(&NC_ConsNC_fab[icomp]); NC_names.push_back(coeff_name); NC_dim_types.push_back(NC_Data_Dims_Type::BT_SN_WE);
     }
-    if (do_salt_clim_nudg) {
-        NC_fabs.push_back(&NC_SaltNC_fab ); NC_names.push_back("salt_NudgeCoef"); NC_dim_types.push_back(NC_Data_Dims_Type::BT_SN_WE);
+    if (!missing.empty()) {
+        amrex::Print() << "Nudging coefficient file " << fname << " does not contain";
+        for (const auto& name : missing) { amrex::Print() << " " << name; }
+        amrex::Print() << "; those tracers will use the constant coefficient from remora.tnudg"
+                       << std::endl;
     }
+
     // Read the netcdf file and fill these FABs
     BuildFABsFromNetCDFFile<FArrayBox,Real>(domain, fname, NC_names, NC_dim_types, NC_fabs);
 }

@@ -86,7 +86,6 @@ REMORA::prestep (int lev,
     {
         Array4<Real> const& DC = mf_DC.array(mfi);
         Array4<Real> const& Akv   = vec_Akv[lev]->array(mfi);
-        Array4<Real> const& Akt   = vec_Akt[lev]->array(mfi);
         Array4<Real> const& Hz    = vec_Hz[lev]->array(mfi);
         Array4<Real> const& Huon  = vec_Huon[lev]->array(mfi);
         Array4<Real> const& Hvom  = vec_Hvom[lev]->array(mfi);
@@ -171,10 +170,12 @@ REMORA::prestep (int lev,
                                 nrhs, N, dt_lev);
         }
 
-        // Only do diffusion for salt and temperature, not other tracer(s)
+        // akt_comp maps each tracer onto the vertical diffusivity it mixes with: its own for
+        // temperature and salinity, salinity's for every passive tracer.
         for (int i_comp=0; i_comp < ncons; i_comp++) {
             const Array4<Real const>& stflx = vec_stflx[lev]->const_array(mfi,i_comp);
             const Array4<Real const>& btflx = vec_btflx[lev]->const_array(mfi,i_comp);
+            const Array4<Real const>& Akt = vec_Akt[lev]->const_array(mfi,akt_comp(i_comp));
             prestep_diffusion(bx,gbx,0,0,S_new.array(mfi,i_comp), S_old.array(mfi,i_comp), ru,
                               Hz, Akt, FC, stflx, btflx, z_r, pm, pn, iic, iic, nnew, nstp,
                               nrhs, N, lambda, dt_lev);

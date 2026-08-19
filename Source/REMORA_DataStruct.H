@@ -10,6 +10,7 @@
 #include <AMReX_Gpu.H>
 
 #include <REMORA_Constants.H>
+#include <REMORA_DateClock.H>
 #include "REMORA_IndexDefines.H"
 
 /** \brief Type of coupling between levels in AMR */
@@ -124,7 +125,7 @@ struct SolverChoice {
     }
 
     /** \brief read in and initialize parameters */
-    void init_params(int ncons)
+    void init_params (int ncons, int nscalar, const amrex::Vector<std::string>& cons_names)
     {
         amrex::ParmParse pp(pp_prefix);
 
@@ -182,12 +183,19 @@ struct SolverChoice {
         pp.queryAdd("do_rivers_salt", do_rivers_salt);
         pp.queryAdd("do_rivers_scalar", do_rivers_scalar);
 
+        // Every tracer may take river input, keyed by its own name, so temp and salt keep
+        // do_rivers_temp / do_rivers_salt and other tracers use e.g. do_rivers_NO3 or
+        // do_rivers_tracer_1. The passive scalars default to do_rivers_scalar; biology
+        // tracers default off, since a river concentration for them has to be a deliberate
+        // choice. If we aren't doing rivers at all, every flag ends up false.
         do_rivers_cons.assign(ncons, 0);
-        // If we aren't doing rivers, set all of these flags to false
-        do_rivers_cons[Temp_comp  ] = do_rivers ? do_rivers_temp : false;
-        do_rivers_cons[Salt_comp  ] = do_rivers ? do_rivers_salt : false;
-        for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
-            do_rivers_cons[icomp] = do_rivers ? do_rivers_scalar : false;
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            bool flag = (icomp == Temp_comp) ? do_rivers_temp
+                      : (icomp == Salt_comp) ? do_rivers_salt
+                      : (icomp <  Tracer_comp + nscalar) ? do_rivers_scalar
+                      : false;
+            pp.queryAdd(("do_rivers_" + cons_names[icomp]).c_str(), flag);
+            do_rivers_cons[icomp] = (do_rivers && flag) ? 1 : 0;
         }
 
         pp.queryAdd("init_l1ad_T", init_l1ad_T);
@@ -214,6 +222,25 @@ struct SolverChoice {
         pp.queryAdd("S0",S0);
         pp.queryAdd("T0",T0);
         pp.queryAdd("rho0", rho0);
+
+        // Reference date for the model clock, and with it the calendar, as ROMS
+        // TIME_REF: a yyyymmdd.dd date, or 0 for 0001-01-01, -1 for the 360-day
+        // calendar, -2 for truncated Julian days. See REMORA_DateClock.H.
+        pp.queryAdd("time_ref", time_ref);
+        if (!remora_time_ref_is_valid(time_ref)) {
+            // ROMS's own calendar dispatch has no final else, so a value below
+            // -2 leaves the date uninitialized rather than failing.
+            amrex::Abort("remora.time_ref = " + std::to_string(time_ref) +
+                         " names no calendar. Use a yyyymmdd.dd date, or 0, -1, or -2.");
+        }
+        if (!remora_time_ref_is_representable(time_ref)) {
+            // Fail loudly rather than run on a silently shifted calendar: see
+            // remora_time_ref_is_representable.
+            amrex::Abort("remora.time_ref = " + std::to_string(time_ref) +
+                         " is a yyyymmdd.dd date, which needs eight exact digits and so"
+                         " cannot be represented in a single-precision build. Build in"
+                         " double precision, or use time_ref = 0, -1, or -2.");
+        }
 
         pp.queryAdd("bulk_fluxes",bulk_fluxes);
         pp.queryAdd("atm2ocn_flux_mode", atm2ocn_flux_mode);
@@ -389,7 +416,10 @@ struct SolverChoice {
         pp.queryAdd("coriolis_beta",coriolis_beta);
 
         pp.queryAdd("Akv_bak",Akv_bak);
-        pp.queryAdd("Akt_bak",Akt_bak);
+        // Minimum/initial vertical diffusivity for both active tracers. Override one of them
+        // with remora.Akt_bak_temp or remora.Akt_bak_salt; those keys are resolved below,
+        // once cons_names is in scope.
+        pp.queryAdd("Akt_bak",Akt_bak_all);
 
 
         static std::string grid_scale_type_string = "constant";
@@ -427,6 +457,17 @@ struct SolverChoice {
         } else {
             amrex::Error("Don't know this ic_type");
         }
+
+#ifndef REMORA_USE_NETCDF
+        // Without this the netcdf branches are compiled out one by one and the run integrates
+        // uninitialized state instead of failing: the #ifdef in REMORA::init_only sits inside
+        // the ic_type == netcdf branch rather than around it. mask_type below defaults to
+        // netcdf for a netcdf run, which would be silently skipped the same way.
+        if (ic_type == IC_Type::netcdf) {
+            amrex::Abort("remora.ic_type = netcdf requires a NetCDF build. Rebuild with "
+                         "USE_PNETCDF=TRUE (GNUmake) or -DREMORA_ENABLE_PNETCDF=ON (CMake)");
+        }
+#endif
 
         // Which type of refinement
         static std::string coupling_type_string = "TwoWay";
@@ -564,12 +605,44 @@ struct SolverChoice {
             amrex::Abort("Don't know this scaled_to_grid_amr_scaling option");
         }
 
+        // Horizontal diffusivity is per tracer in ROMS, so mirror that here:
+        // remora.tnu2_scalar sets the group default and remora.tnu2_{var} overrides a single
+        // tracer by name -- remora.tnu2_NO3, remora.tnu2_tracer_1, and so on.
+        //
+        // tnu2_temp and tnu2_salt are the pre-existing spelling of that per-name form for the
+        // first two components. They keep their own defaults of zero rather than inheriting
+        // tnu2_scalar, so every existing input file means exactly what it did before, and the
+        // loop below skips them to avoid querying the same key twice.
         tnu2.assign(ncons, tnu2_scalar);
         if (ncons > Temp_comp) {
             tnu2[Temp_comp] = tnu2_temp;
         }
         if (ncons > Salt_comp) {
             tnu2[Salt_comp] = tnu2_salt;
+        }
+        for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+            pp.queryAdd(("tnu2_" + cons_names[icomp]).c_str(), tnu2[icomp]);
+        }
+
+        // Vertical diffusivity is not. ROMS computes and stores Akt for the active tracers
+        // only, and every passive tracer -- dye and biology alike -- mixes with the salinity
+        // coefficient, so Akt_bak has NAT entries: remora.Akt_bak sets both and
+        // remora.Akt_bak_temp / remora.Akt_bak_salt override one.
+        Akt_bak.assign(NAT, Akt_bak_all);
+        for (int icomp = 0; icomp < NAT; ++icomp) {
+            pp.queryAdd(("Akt_bak_" + cons_names[icomp]).c_str(), Akt_bak[icomp]);
+        }
+        // A per-tracer key would name a coefficient nothing reads, and reading as though it
+        // had been applied is worse than not offering it, so say so rather than ignoring it.
+        for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
+            const std::string key = "Akt_bak_" + cons_names[icomp];
+            if (pp.contains(key.c_str())) {
+                amrex::Abort("remora." + key + " has no effect: vertical diffusivity is carried"
+                             " for temperature and salinity only, and every passive tracer mixes"
+                             " with the salinity value. Set remora.Akt_bak_salt instead, or"
+                             " remora.tnu2_" + cons_names[icomp] + " if you meant the horizontal"
+                             " diffusivity.");
+            }
         }
 
         static std::string harmonic_mixing_type_string = "s";
@@ -664,22 +737,42 @@ struct SolverChoice {
         pp.queryAdd("m3nudg",m3nudg);
         pp.queryAdd("obcfac",obcfac);
 
-        nudg_coeff.resize(BdyVars::NumTypes);
-        nudg_coeff[BdyVars::u    ] = (m3nudg > zero) ? one / (m3nudg * amrex::Real(86400.0)) : zero;//BdyVars::u
-        nudg_coeff[BdyVars::v    ] = (m3nudg > zero) ? one / (m3nudg * amrex::Real(86400.0)) : zero;//BdyVars::v
-        nudg_coeff[BdyVars::t    ] = ( tnudg > zero) ? one / ( tnudg * amrex::Real(86400.0)) : zero;//BdyVars::t
-        nudg_coeff[BdyVars::s    ] = ( tnudg > zero) ? one / ( tnudg * amrex::Real(86400.0)) : zero;//BdyVars::s
-        nudg_coeff[BdyVars::ubar ] = (m2nudg > zero) ? one / (m2nudg * amrex::Real(86400.0)) : zero;//BdyVars::ubar
-        nudg_coeff[BdyVars::vbar ] = (m2nudg > zero) ? one / (m2nudg * amrex::Real(86400.0)) : zero;//BdyVars::vbar
-        nudg_coeff[BdyVars::zeta ] = ( znudg > zero) ? one / ( znudg * amrex::Real(86400.0)) : zero;//BdyVars::zeta
+        nudg_coeff.resize(BdyVars::NumTypes(ncons));
+        nudg_coeff[BdyVars::u          ] = (m3nudg > zero) ? one / (m3nudg * amrex::Real(86400.0)) : zero;//BdyVars::u
+        nudg_coeff[BdyVars::v          ] = (m3nudg > zero) ? one / (m3nudg * amrex::Real(86400.0)) : zero;//BdyVars::v
+        // Every cell-centered tracer -- temp, salt, and any additional passive or
+        // biology scalar -- nudges on the single tracer timescale tnudg, as in ROMS
+        // where Tnudg defaults to the same value for all tracers.
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            nudg_coeff[BdyVars::cons(icomp)] = (tnudg > zero) ? one / (tnudg * amrex::Real(86400.0)) : zero;
+        }
+        nudg_coeff[BdyVars::ubar(ncons)] = (m2nudg > zero) ? one / (m2nudg * amrex::Real(86400.0)) : zero;//BdyVars::ubar
+        nudg_coeff[BdyVars::vbar(ncons)] = (m2nudg > zero) ? one / (m2nudg * amrex::Real(86400.0)) : zero;//BdyVars::vbar
+        nudg_coeff[BdyVars::zeta(ncons)] = ( znudg > zero) ? one / ( znudg * amrex::Real(86400.0)) : zero;//BdyVars::zeta
 
         pp.queryAdd("do_m3_clim_nudg", do_m3_clim_nudg);
         pp.queryAdd("do_m2_clim_nudg", do_m2_clim_nudg);
-        pp.queryAdd("do_temp_clim_nudg", do_temp_clim_nudg);
-        pp.queryAdd("do_salt_clim_nudg", do_salt_clim_nudg);
 
-        if (do_m3_clim_nudg || do_m2_clim_nudg || do_temp_clim_nudg || do_salt_clim_nudg) {
+        // Every cell-centered tracer -- temp, salt, and any additional passive or biology
+        // scalar -- can be nudged toward its own climatology. The flag is keyed by the
+        // variable's own name, so temp and salt keep do_temp_clim_nudg / do_salt_clim_nudg
+        // and a biology tracer uses e.g. do_NO3_clim_nudg.
+        do_cons_clim_nudg.assign(ncons, 0);
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            bool do_nudg = false;
+            pp.queryAdd(("do_" + cons_names[icomp] + "_clim_nudg").c_str(), do_nudg);
+            do_cons_clim_nudg[icomp] = do_nudg ? 1 : 0;
+            if (do_nudg) { do_any_cons_clim_nudg = true; }
+        }
+
+        if (do_m3_clim_nudg || do_m2_clim_nudg || do_any_cons_clim_nudg) {
             do_any_clim_nudg = true;
+        }
+        // The climatology series are only built along the NetCDF initialization path,
+        // so asking for nudging with analytic initial conditions would leave them
+        // unallocated. Say so here rather than failing later inside the time step.
+        if (do_any_clim_nudg && ic_type != IC_Type::netcdf) {
+            amrex::Abort("Climatology nudging requires remora.ic_type = netcdf");
         }
 #ifndef REMORA_USE_NETCDF
         if (do_any_clim_nudg) {
@@ -860,6 +953,11 @@ struct SolverChoice {
     amrex::Real Scoef = zero; // linear equation of state parameter (nondimensional)
     amrex::Real rho0 = amrex::Real(1025.0); // Mean density (Kg/m3) used when Boussinesq approx is inferred
 
+    // remora.time_ref: reference date of the model clock (yyyymmdd.dd), or one
+    // of the special values 0, -1, -2. Selects the calendar; see
+    // Source/Utils/REMORA_DateClock.H.
+    amrex::Real time_ref = amrex::Real(0.0);
+
     // Coriolis forcing
     amrex::Real coriolis_f0 = zero; // f-plane constant (1/s)
     amrex::Real coriolis_beta = zero; // beta-plane constant (1/s/m)
@@ -918,7 +1016,11 @@ struct SolverChoice {
     amrex::Real Akk_bak = amrex::Real(5.0e-6);
     amrex::Real Akp_bak = amrex::Real(5.0e-6);
     amrex::Real Akv_bak = amrex::Real(5.0e-6);
-    amrex::Real Akt_bak = amrex::Real(1.0e-6); // Note: this is a vector with one component per tracer in ROMS
+    // remora.Akt_bak: the value both active tracers take unless overridden by name.
+    amrex::Real Akt_bak_all = amrex::Real(1.0e-6);
+    // NAT entries -- temperature and salinity -- to match the components of vec_Akt.
+    // Passive tracers mix with entry Salt_comp; see akt_comp().
+    amrex::Vector<amrex::Real> Akt_bak;
 
     // Params for stability functions.
     amrex::Real gls_Gh0;
@@ -961,8 +1063,10 @@ struct SolverChoice {
     // Whether to do climatoogy nudging
     bool do_m2_clim_nudg = false;
     bool do_m3_clim_nudg = false;
-    bool do_temp_clim_nudg = false;
-    bool do_salt_clim_nudg = false;
+    // Per cell-centered tracer, whether to nudge toward climatology. Indexed by
+    // cons component, so entry Temp_comp is the old do_temp_clim_nudg.
+    amrex::Vector<int> do_cons_clim_nudg;
+    bool do_any_cons_clim_nudg = false;
     bool do_any_clim_nudg = false;
 
     bool boundary_from_netcdf = false;

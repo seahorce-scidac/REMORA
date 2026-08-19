@@ -89,6 +89,13 @@ public:
         amrex::MultiFab& mf_rain,
         amrex::MultiFab& mf_cloud,
         amrex::MultiFab& mf_EminusP) override;
+
+    void init_analytic_biology (
+        int lev, const amrex::Geometry& geom,
+        SolverChoice const& m_solverChoice,
+        REMORABiology::FennelParameters const& m_fennel_params,
+        REMORA const& remora,
+        amrex::MultiFab& mf_cons) override;
 };
 
 #endif

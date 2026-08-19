@@ -13,6 +13,5 @@
 
         Akt(i,j,k,Temp_comp) = Real(1.0e-6);
         Akt(i,j,k,Salt_comp) = Real(1.0e-6);
-        Akt(i,j,k,Tracer_comp) = zero;
       });
     }

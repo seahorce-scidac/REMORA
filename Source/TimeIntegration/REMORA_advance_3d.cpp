@@ -358,6 +358,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                   vec_msku[lev].get(), vec_mskv[lev].get(),
                   nstp, nnew, N, dt_lev);
     }
+    advance_biology(lev, *cons_old[lev], mf_cons, N, dt_lev);
     nnew = 0;
 
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -448,42 +449,30 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         for (int i_comp=0; i_comp < ncons; i_comp++) {
             vert_visc_3d(bx,0,0,mf_cons.array(mfi,i_comp),Hz,Hzk,
-                    AK,mf_Akt->array(mfi,i_comp),BC,DC,FC,CF,nnew,N,dt_lev);
+                    AK,mf_Akt->array(mfi,akt_comp(i_comp)),BC,DC,FC,CF,nnew,N,dt_lev);
         }
     } // MFiter
     FillPatch(lev, t_old[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
 
 #ifdef REMORA_USE_NETCDF
-    if (solverChoice.do_temp_clim_nudg) {
-        temp_clim_data_from_file->update_interpolated_to_time(t_old[lev], lev, cons_new[lev], geom, ref_ratio);
+    // Nudge every tracer that was given a climatology toward it. temp and salt are just
+    // components 0 and 1 of this loop, so their behavior is unchanged.
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        if (!solverChoice.do_cons_clim_nudg[icomp]) { continue; }
+
+        cons_clim_data_from_file[icomp]->update_interpolated_to_time(t_old[lev], lev, cons_new[lev], geom, ref_ratio);
 
         for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Box bx = mfi.growntilebox(IntVect(1,1,0));
-            Array4<const Real> const& temp_nudg_coeff = vec_nudg_coeff[BdyVars::t][lev]->const_array(mfi);
-            Array4<const Real> const& temp_clim = temp_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
-            Array4<      Real> const& temp = cons_new[lev]->array(mfi, Temp_comp);
+            Array4<const Real> const& cons_nudg_coeff = vec_nudg_coeff[BdyVars::cons(icomp)][lev]->const_array(mfi);
+            Array4<const Real> const& cons_clim = cons_clim_data_from_file[icomp]->get_interpolated_mf(lev)->const_array(mfi);
+            Array4<      Real> const& cons = cons_new[lev]->array(mfi, icomp);
             Array4<const Real> const& Hz   = vec_Hz[lev]->const_array(mfi);
             Array4<const Real> const& pm   = vec_pm[lev]->const_array(mfi);
             Array4<const Real> const& pn   = vec_pn[lev]->const_array(mfi);
 
-            apply_clim_nudg(bx, 0, 0, temp, temp, temp_clim, temp_nudg_coeff, Hz, pm, pn, dt_lev);
-        }
-    }
-    if (solverChoice.do_salt_clim_nudg) {
-        salt_clim_data_from_file->update_interpolated_to_time(t_old[lev], lev, cons_new[lev], geom, ref_ratio);
-
-        for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
-        {
-            Box bx = mfi.growntilebox(IntVect(1,1,0));
-            Array4<const Real> const& salt_nudg_coeff = vec_nudg_coeff[BdyVars::s][lev]->const_array(mfi);
-            Array4<const Real> const& salt_clim = salt_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
-            Array4<      Real> const& salt = cons_new[lev]->array(mfi, Salt_comp);
-            Array4<const Real> const& Hz   = vec_Hz[lev]->const_array(mfi);
-            Array4<const Real> const& pm   = vec_pm[lev]->const_array(mfi);
-            Array4<const Real> const& pn   = vec_pn[lev]->const_array(mfi);
-
-            apply_clim_nudg(bx, 0, 0, salt, salt, salt_clim, salt_nudg_coeff, Hz, pm, pn, dt_lev);
+            apply_clim_nudg(bx, 0, 0, cons, cons, cons_clim, cons_nudg_coeff, Hz, pm, pn, dt_lev);
         }
     }
 #endif

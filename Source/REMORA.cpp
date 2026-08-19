@@ -5,6 +5,10 @@
 #include <REMORA_prob_common.H>
 #include <REMORA.H>
 
+#ifdef REMORA_USE_NETCDF
+#include "REMORA_NCFile.H"
+#endif
+
 #include <AMReX_buildInfo.H>
 
 using namespace amrex;
@@ -249,10 +253,24 @@ REMORA::init_scalar_metadata ()
     cons_names.reserve(ncons);
     cons_names.emplace_back("temp");
     cons_names.emplace_back("salt");
-    cons_names.emplace_back("tracer");
-    for (int i = 1; i < nscalar; ++i) {
-        cons_names.emplace_back("tracer_" + std::to_string(i));
+
+    // Passive (dye) scalars come first, then the biology block, matching the component
+    // layout: temp, salt, tracer, tracer_1, ..., NO3, NH4, ...
+    if (nscalar > 0) {
+        cons_names.emplace_back("tracer");
+        for (int i = 1; i < nscalar; ++i) {
+            cons_names.emplace_back("tracer_" + std::to_string(i));
+        }
     }
+
+    if (REMORABiology::has_biology(biology_model)) {
+        const auto bio_names = REMORABiology::tracer_names(biology_model, fennel_params);
+        for (const auto& name : bio_names) {
+            cons_names.emplace_back(name);
+        }
+    }
+
+    AMREX_ALWAYS_ASSERT(static_cast<int>(cons_names.size()) == ncons);
 }
 
 void
@@ -672,7 +690,12 @@ REMORA::set_bathymetry (int lev)
             }
         } else {
             set_bathymetry_averaged_down(lev);
-            set_grid_vars_averaged_down(lev);
+            // Only the netcdf path fills vec_pm/pn_full_domain; with analytic initialization
+            // init_bathymetry_full_domain_from_analytic fills h alone, and set_grid_scale
+            // below derives pm/pn from the geometry.
+            if (solverChoice.ic_type == IC_Type::netcdf) {
+                set_grid_vars_averaged_down(lev);
+            }
         }
         // Need FillBoundary to fill at grid-grid boundaries, and EnforcePeriodicity
         // to make sure ghost cells in the domain corners are consistent.
@@ -739,7 +762,7 @@ void
 REMORA::set_zeta_averaged_down (int lev) {
     ParallelCopy(*vec_zeta[lev].get(), *vec_zeta_full_domain[lev].get(), 0, 0, 1,
             vec_zeta_full_domain[lev]->nGrowVect(),vec_zeta[lev]->nGrowVect());
-    FillPatch(lev, t_new[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
+    FillPatch(lev, t_new[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
                   0, false,false,0,0,zero,*vec_zeta[lev]);
 }
 
@@ -814,10 +837,12 @@ REMORA::set_analytic_vmix(int lev) {
     BL_PROFILE("REMORA::set_analytic_vmix()");
     Real time = zero;
     vec_Akv[lev]->setVal(solverChoice.Akv_bak);
-    vec_Akt[lev]->setVal(solverChoice.Akt_bak);
+    for (int n = 0; n < NAT; n++) {
+        vec_Akt[lev]->setVal(solverChoice.Akt_bak[n], n, 1);
+    }
     prob->init_analytic_vmix(lev, geom[lev], solverChoice, *this,*vec_Akv[lev], *vec_Akt[lev]);
     FillPatch(lev, time, *vec_Akv[lev], GetVecOfPtrs(vec_Akv), zvel_bc(), BdyVars::null,0,true,false);
-    for (int n = 0; n < ncons; n++) {
+    for (int n = 0; n < NAT; n++) {
         FillPatch(lev, time, *vec_Akt[lev], GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null,n,false,false);
     }
 }
@@ -1353,13 +1378,23 @@ REMORA::init_only (int lev, Real time)
             }
             // Since the NCTimeSeries object isn't filling the cons_new MultiFab directly, we don't have to specify a component.
             // It just needs to know the shape of the MultiFab
-            if (solverChoice.do_temp_clim_nudg) {
-                temp_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "temp", clim_temp_time_varname,geom[lev].Domain(),cons_new[lev],false,true));
-                temp_clim_data_from_file->Initialize();
-            }
-            if (solverChoice.do_salt_clim_nudg) {
-                salt_clim_data_from_file.reset(new NCTimeSeries(nc_clim_his_file, "salt", clim_salt_time_varname,geom[lev].Domain(),cons_new[lev],false,true));
-                salt_clim_data_from_file->Initialize();
+            cons_clim_data_from_file.resize(ncons);
+            for (int icomp = 0; icomp < ncons; ++icomp) {
+                if (!solverChoice.do_cons_clim_nudg[icomp]) { continue; }
+                // A tracer's climatology is stored in the file under the tracer's own
+                // name, following the same convention ROMS uses. Check up front rather
+                // than letting the read fail deep inside NCTimeSeries.
+                for (const auto& fname : nc_clim_his_file) {
+                    if (!QueryNetCDFHasVars(fname, {cons_names[icomp]})) {
+                        amrex::Abort("Climatology file " + fname + " does not contain '" +
+                                     cons_names[icomp] + "', which is required by remora.do_" +
+                                     cons_names[icomp] + "_clim_nudg. Either add it to the file "
+                                     "or turn that flag off.");
+                    }
+                }
+                cons_clim_data_from_file[icomp].reset(new NCTimeSeries(nc_clim_his_file, cons_names[icomp],
+                            clim_cons_time_varname[icomp],geom[lev].Domain(),cons_new[lev],false,true));
+                cons_clim_data_from_file[icomp]->Initialize();
             }
         }
     }
@@ -1479,18 +1514,27 @@ REMORA::init_only (int lev, Real time)
         }
         auto dom = geom[0].Domain();
         int nz = dom.length(2);
+        // Every cell-centered tracer can take river input. The field is named for the
+        // tracer, as in ROMS: river_temp, river_salt, river_tracer, river_NO3, ...
         river_source_cons.resize(ncons);
-        if ((bool) solverChoice.do_rivers_cons[Salt_comp]) {
-            river_source_cons[Salt_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_salt", riv_time_varname, nz));
-            river_source_cons[Salt_comp]->Initialize();
-        }
-        if (solverChoice.do_rivers_cons[Temp_comp]) {
-            river_source_cons[Temp_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_temp", riv_time_varname, nz));
-            river_source_cons[Temp_comp]->Initialize();
-        }
-        if (solverChoice.do_rivers_cons[Tracer_comp]) {
-            river_source_cons[Tracer_comp].reset(new NCTimeSeriesRiver(nc_riv_file, "river_scalar", riv_time_varname, nz));
-            river_source_cons[Tracer_comp]->Initialize();
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            if (!solverChoice.do_rivers_cons[icomp]) { continue; }
+
+            const std::string field = "river_" + cons_names[icomp];
+            for (const auto& fname : nc_riv_file) {
+                if (!QueryNetCDFHasVars(fname, {field})) {
+                    // The flag may have come from remora.do_rivers_scalar rather than the
+                    // per-tracer key, so name the tracer and the key that switches it off.
+                    amrex::Abort("River file " + fname + " does not contain '" + field +
+                                 "', but river input is enabled for tracer '" +
+                                 cons_names[icomp] + "'. Either add that variable to the "
+                                 "file, or set remora.do_rivers_" + cons_names[icomp] +
+                                 " = false.");
+                }
+            }
+
+            river_source_cons[icomp].reset(new NCTimeSeriesRiver(nc_riv_file, field, riv_time_varname, nz));
+            river_source_cons[icomp]->Initialize();
         }
         river_source_transport.reset(new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz));
         river_source_transport->Initialize();
@@ -1510,10 +1554,22 @@ REMORA::init_only (int lev, Real time)
         amrex::Print() << "Reading high resolution initial data" << std::endl;
         allocate_init_full_domain();
         init_data_full_domain_from_netcdf();
+        // Biology source is chosen by remora.biology_ic_type, not by ic_type,
+        // so this goes through the same dispatcher as the per-level path.
+        // Must follow init_data_full_domain_from_netcdf: the analytic biology
+        // profiles read temperature.
+        init_biology_ic_full_domain();
         init_zeta_full_domain_from_netcdf();
         amrex::Print() << "Done reading in high resolution initial data" << std::endl;
     }
 #else
+    if (solverChoice.ic_type == IC_Type::netcdf) {
+        Abort("Not compiled with NetCDF, but remora.ic_type = netcdf reads initial and grid data from file");
+    }
+    // No guard on hires_grid_level here: with analytic initialization it needs no NetCDF at all --
+    // the bathymetry comes from prob->init_analytic_bathymetry evaluated at the fine level and
+    // averaged down. hires_init_level needs no guard either: it is rejected for analytic
+    // initialization in ReadParameters, and the netcdf case is caught just above.
     if (solverChoice.boundary_from_netcdf) {
         Abort("Not compiled with NetCDF, but selected boundary conditions require NetCDF");
     }
@@ -1555,8 +1611,12 @@ REMORA::init_only (int lev, Real time)
             } else {
                 amrex::Abort("Unknown IC_Type");
             }
+            // Biology last, and outside the ic_type branches: its source is
+            // chosen independently by remora.biology_ic_type, and the analytic
+            // profiles need the physical fields already in place.
+            init_biology_ic(lev);
         } else {
-            set_init_data_averaged_down(lev);
+            set_init_data_averaged_down(lev); // also sets biology data
             bool apply_eminusp = false;
             set_zeta_to_Ztavg(lev, apply_eminusp);
             // Since set_grid_scale is usually called from init_analytic for analytic problems
@@ -1571,7 +1631,7 @@ REMORA::init_only (int lev, Real time)
             FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
             FillCoarsePatch(lev, time, zvel_new[lev], zvel_new[lev-1], zvel_bc(), BdyVars::null);
         } else {
-            set_init_data_averaged_down(lev);
+            set_init_data_averaged_down(lev); // also sets biology data
             bool apply_eminusp = false;
             set_zeta_to_Ztavg(lev, apply_eminusp);
             if (solverChoice.ic_type == IC_Type::analytic) {
@@ -1622,12 +1682,72 @@ REMORA::ReadParameters ()
     ParmParse pp(pp_prefix);
 
     // Common physics and simulation parameters
-    pp.queryAdd("nscalar", nscalar);
-    if (nscalar < 1) {
-        amrex::Abort("remora.nscalar must be at least 1");
+    std::string biology_model_string = REMORABiology::biology_model_name(biology_model);
+    pp.queryAdd("biology_model", biology_model_string);
+    biology_model = REMORABiology::parse_biology_model(biology_model_string);
+
+    if (REMORABiology::has_biology(biology_model)) {
+        fennel_params.init_params(pp_prefix);
+
+        // Source of the biology initial condition, independent of ic_type.
+        // Default "follow" reproduces the previous behaviour exactly.
+        std::string biology_ic_string = REMORABiology::biology_ic_type_name(biology_ic_type);
+        pp.queryAdd("biology_ic_type", biology_ic_string);
+        biology_ic_type = REMORABiology::parse_biology_ic_type(biology_ic_string);
+
+        // Bridge-vs-native selection and diagnostic verbosity are runtime
+        // controls so a parity comparison never requires a rebuild. Both
+        // parse unconditionally; without USE_FENNEL_FORT there is no bridge
+        // to select, so asking for it is an error rather than a silent
+        // fallback to the path being validated.
+        pp.queryAdd("use_biology_cpp_answer", use_biology_cpp_answer);
+        pp.queryAdd("biology_debug", biology_debug);
+        pp.queryAdd("biology_debug_i", biology_debug_i);
+        pp.queryAdd("biology_debug_j", biology_debug_j);
+#ifndef REMORA_USE_FENNEL_FORT
+        if (use_biology_cpp_answer == 0) {
+            amrex::Abort("remora.use_biology_cpp_answer = 0 selects the ROMS "
+                         "Fennel Fortran bridge, which is not compiled in. "
+                         "Rebuild with USE_FENNEL_FORT=TRUE (GNUmake) or "
+                         "-DREMORA_ENABLE_FENNEL_FORT=ON (CMake).");
+        }
+#endif
+#ifndef REMORA_USE_BIOLOGY_DIAG
+        if (biology_debug > 0) {
+            amrex::Abort("remora.biology_debug > 0 requests the Fennel parity "
+                         "diagnostics, which are not compiled in. Rebuild with "
+                         "USE_BIOLOGY_DIAG=TRUE (GNUmake) or "
+                         "-DREMORA_ENABLE_BIOLOGY_DIAG=ON (CMake).");
+        }
+#endif
+
+        // Biology tracers are counted separately from the passive scalars, so a run can
+        // carry dye and biology at once.
+        nbio = static_cast<int>(REMORABiology::tracer_names(biology_model, fennel_params).size());
+    } else {
+        nbio = 0;
     }
-    ncons = Tracer_comp + nscalar;
+    // Dye is opt-in, biology or not: a component nothing asked for is one more thing to
+    // advect, diffuse, and explain in every plotfile and boundary file.
+    pp.queryAdd("nscalar", nscalar);
+    if (nscalar < 0) {
+        amrex::Abort("remora.nscalar must be non-negative");
+    }
+    Bio_comp = Tracer_comp + nscalar;
+    ncons = Tracer_comp + nscalar + nbio;
     init_scalar_metadata();
+
+    // remora.nscalar used to be required to equal the biology tracer count; it now counts
+    // dye only and adds to it. Print the layout so a run carrying both is unmistakable,
+    // and an input written against the old meaning is caught by eye rather than by a
+    // surprising component count much later.
+    if (nbio > 0 && nscalar > 0) {
+        amrex::Print() << "Carrying " << nscalar << " passive scalar(s) and " << nbio
+                       << " biology tracer(s), for " << ncons << " cell-centered components: ";
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            amrex::Print() << cons_names[icomp] << (icomp + 1 < ncons ? " " : "\n");
+        }
+    }
 
     pp.queryAdd("check_file", check_file);
     pp.queryAdd("check_int", check_int);
@@ -1801,20 +1921,25 @@ REMORA::ReadParameters ()
     }
     pp.queryAdd("nc_clim_coeff_file", nc_clim_coeff_file);
 
-    for (int i=0; i<BdyVars::NumTypes; i++) {
+    for (int i=0; i<BdyVars::NumTypes(ncons); i++) {
         bdry_time_name_byvar.push_back("");
     }
     pp.queryAdd("bdy_time_varname",bdry_time_varname);
-    pp.queryAdd("bdy_temp_time_varname",bdry_time_name_byvar[BdyVars::t]);
-    pp.queryAdd("bdy_salt_time_varname",bdry_time_name_byvar[BdyVars::s]);
+    // Every tracer takes its time-axis name from its own variable name, so temp and salt
+    // keep bdy_temp_time_varname / bdy_salt_time_varname and a biology tracer uses e.g.
+    // bdy_NO3_time_varname
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        pp.queryAdd(("bdy_"+cons_names[icomp]+"_time_varname").c_str(),
+                    bdry_time_name_byvar[BdyVars::cons(icomp)]);
+    }
     pp.queryAdd("bdy_u_time_varname",bdry_time_name_byvar[BdyVars::u]);
     pp.queryAdd("bdy_v_time_varname",bdry_time_name_byvar[BdyVars::v]);
-    pp.queryAdd("bdy_ubar_time_varname",bdry_time_name_byvar[BdyVars::ubar]);
-    pp.queryAdd("bdy_vbar_time_varname",bdry_time_name_byvar[BdyVars::vbar]);
-    pp.queryAdd("bdy_zeta_time_varname",bdry_time_name_byvar[BdyVars::zeta]);
+    pp.queryAdd("bdy_ubar_time_varname",bdry_time_name_byvar[BdyVars::ubar(ncons)]);
+    pp.queryAdd("bdy_vbar_time_varname",bdry_time_name_byvar[BdyVars::vbar(ncons)]);
+    pp.queryAdd("bdy_zeta_time_varname",bdry_time_name_byvar[BdyVars::zeta(ncons)]);
 
     // If not specified per variable, populate with the default
-    for (int i=0; i<BdyVars::NumTypes; i++) {
+    for (int i=0; i<BdyVars::NumTypes(ncons); i++) {
         if (bdry_time_name_byvar[i] == "") {
             bdry_time_name_byvar[i] = bdry_time_varname;
         }
@@ -1828,17 +1953,33 @@ REMORA::ReadParameters ()
     pp.queryAdd("clim_vbar_time_varname",clim_vbar_time_varname);
     pp.queryAdd("clim_u_time_varname",clim_u_time_varname);
     pp.queryAdd("clim_v_time_varname",clim_v_time_varname);
-    pp.queryAdd("clim_salt_time_varname",clim_salt_time_varname);
-    pp.queryAdd("clim_temp_time_varname",clim_temp_time_varname);
+    // As for the boundary data, each tracer takes its climatology time-axis name from its
+    // own variable name, so temp and salt keep clim_temp_time_varname /
+    // clim_salt_time_varname and a biology tracer uses e.g. clim_NO3_time_varname
+    clim_cons_time_varname.assign(ncons, "ocean_time");
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        pp.queryAdd(("clim_"+cons_names[icomp]+"_time_varname").c_str(),
+                    clim_cons_time_varname[icomp]);
+    }
 
 #endif
+    // A hires level of 0 is not "level 0 is the hires level", it is a null pointer: the
+    // full-domain arrays are only allocated for lev > 0 (see allocate_init_full_domain and
+    // allocate_bathymetry_grid_vars_full_domain), while every consumer branch tests < 0 and
+    // so would take the averaged-down path against an unallocated MultiFab. -1 means off.
     pp.queryAdd("hires_grid_level", hires_grid_level);
     if (hires_grid_level > max_level) {
         amrex::Abort("hires_grid_level must be less than or equal to amr.max_level");
     }
+    if (hires_grid_level == 0) {
+        amrex::Abort("hires_grid_level must be greater than 0; use -1 to specify grid data at level 0");
+    }
     pp.queryAdd("hires_init_level", hires_init_level);
     if (hires_init_level > max_level) {
         amrex::Abort("hires_init_level must be less than or equal to amr.max_level");
+    }
+    if (hires_init_level == 0) {
+        amrex::Abort("hires_init_level must be greater than 0; use -1 to specify initial data at level 0");
     }
 #ifdef REMORA_USE_PARTICLES
     readTracersParams();
@@ -1853,7 +1994,20 @@ REMORA::ReadParameters ()
         }
 
     }
-    solverChoice.init_params(ncons);
+    solverChoice.init_params(ncons, nscalar, cons_names);
+
+    // The biology IC source is chosen independently of ic_type, but only one of the two
+    // mixed combinations works: NetCDF physics with analytic biology. The reverse has no
+    // file to read from -- nc_init_file is only populated on the netcdf path -- so catch
+    // it here instead of failing inside PnetCDF on an empty file name.
+    if (REMORABiology::has_biology(biology_model) and
+        biology_ic_type == REMORABiology::BiologyICType::netcdf and
+        solverChoice.ic_type != IC_Type::netcdf) {
+        amrex::Abort("remora.biology_ic_type = netcdf requires remora.ic_type = netcdf: the biology "
+                     "initial data is read from the same files as the physical initial data, and no "
+                     "such file is given for analytic initial conditions. Use "
+                     "remora.biology_ic_type = analytic (or follow) instead.");
+    }
 
     // NOTE: This feature is not yet implemented because it will require passing x,y,z to prob functions.
     // Currently these are accessed by passing a pointer to the REMORA class. However, this requires the
@@ -1863,6 +2017,15 @@ REMORA::ReadParameters ()
     // coordinates can be calculated at any level without the corresponding level having been created.
     if (hires_init_level >= 0 and solverChoice.ic_type == IC_Type::analytic) {
         amrex::Abort("Cannot do high-resolution initialization for analytic initial conditions. Not yet implemented");
+    }
+
+    // flat_bathymetry takes precedence at level 0 (see set_bathymetry), so a run asking for
+    // both would silently ignore the high-resolution bathymetry it was given. The flat branch
+    // of several analytic bathymetry hooks also writes h's second component, which the
+    // one-component vec_h_full_domain does not have.
+    if (hires_grid_level > 0 and solverChoice.flat_bathymetry) {
+        amrex::Abort("remora.flat_bathymetry is incompatible with hires_grid_level > 0: flat bathymetry "
+                     "would override the high-resolution bathymetry at level 0. Use one or the other");
     }
 
 }

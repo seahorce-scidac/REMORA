@@ -35,6 +35,7 @@
 #include <REMORA_TimeInterpolatedData.H>
 #include <REMORA_DataStruct.H>
 #include <REMORA_Derive.H>
+#include <REMORA_Biology.H>
 #include "REMORA_prob_common.H"
 
 #ifdef REMORA_USE_PARTICLES
@@ -704,6 +705,20 @@ public:
                      const int N,
                      const amrex::Real dt_lev);
 
+    /** \brief Apply biological tracer source/sink terms */
+    void advance_biology (int lev, amrex::MultiFab const& mf_cons_old,
+                          amrex::MultiFab& mf_cons_new,
+                          int N, amrex::Real dt_lev);
+
+#ifdef REMORA_USE_FENNEL_FORT
+    /** \brief Path A oracle: apply biological source/sink terms through the
+     *         ROMS Fennel Fortran kernel. Selected at run time by
+     *         remora.use_biology_cpp_answer = 0. */
+    void advance_biology_fortran (int lev, amrex::MultiFab const& mf_cons_old,
+                                  amrex::MultiFab& mf_cons_new,
+                                  int N, amrex::Real dt_lev);
+#endif
+
     /** \brief Calculate bulk temperature, salinity, wind fluxes */
     void bulk_fluxes (int lev,
                       amrex::MultiFab* mf_cons,
@@ -1206,8 +1221,27 @@ public:
     void set_init_data_averaged_down (int lev);
     /** \brief Problem initialization from NetCDF file */
     void init_data_from_netcdf (int lev);
+    /** \brief Biology initialization from NetCDF file */
+    void init_biology_from_netcdf (int lev);
+    /** \brief Passive (dye) scalar initialization from NetCDF file. Called from
+     *         init_data_from_netcdf: dye follows remora.ic_type rather than having
+     *         a source flag of its own. */
+    void init_scalars_from_netcdf (int lev);
+
+    /** \brief Initialize biology tracers from whichever source
+     *         remora.biology_ic_type selects. Call after the physical fields
+     *         exist: the analytic profiles are functions of temperature. */
+    void init_biology_ic (int lev);
+
+    /** \brief Full-domain counterpart of init_biology_ic, for the
+     *         hires_init_level average-down path. */
+    void init_biology_ic_full_domain ();
     /** \brief High resolution roblem initialization from NetCDF file */
     void init_data_full_domain_from_netcdf ();
+    /** \brief Full-domain high-res biology initialization from NetCDF file */
+    void init_biology_full_domain_from_netcdf ();
+    /** \brief Full-domain high-res passive (dye) scalar initialization from NetCDF file */
+    void init_scalars_full_domain_from_netcdf ();
     /** \brief Boundary data initialization from NetCDF file */
     void init_bdry_from_netcdf (int lev);
     /** \brief Mask data initialization from NetCDF file */
@@ -1263,6 +1297,23 @@ public:
     int u2d_simple_bc () const noexcept { return BCVars::u2d_simple_bc(ncons); }
     int v2d_simple_bc () const noexcept { return BCVars::v2d_simple_bc(ncons); }
     int num_bc_vars () const noexcept { return BCVars::NumTypes(ncons); }
+
+    ///@{
+    /** \brief Accessors for the ncons-dependent entries of BdyVars */
+    int bdy_cons (int icomp) const noexcept { return BdyVars::cons(icomp); }
+    int bdy_ubar () const noexcept { return BdyVars::ubar(ncons); }
+    int bdy_vbar () const noexcept { return BdyVars::vbar(ncons); }
+    int bdy_zeta () const noexcept { return BdyVars::zeta(ncons); }
+    int num_bdy_vars () const noexcept { return BdyVars::NumTypes(ncons); }
+    ///@}
+
+    /** \brief Number of passive (dye) scalars in the state, not counting biology tracers.
+     *
+     * Zero means the state has no dye component at all, so Tracer_comp is either the first
+     * biology tracer or one past the end of cons. Problem setups that initialize a dye have
+     * to test this rather than nComp(), which cannot tell a dye apart from a biology tracer.
+     */
+    int num_passive_scalars () const noexcept { return nscalar; }
 
 
 #ifdef REMORA_USE_NETCDF
@@ -1398,10 +1449,10 @@ private:
     std::unique_ptr<NCTimeSeries> u_clim_data_from_file;
     /** \brief Data container for v-velocity climatology data read from file */
     std::unique_ptr<NCTimeSeries> v_clim_data_from_file;
-    /** \brief Data container for temperature climatology data read from file */
-    std::unique_ptr<NCTimeSeries> temp_clim_data_from_file;
-    /** \brief Data container for salinity climatology data read from file */
-    std::unique_ptr<NCTimeSeries> salt_clim_data_from_file;
+    /** \brief Vector over cons components of climatology data read from file.
+     *
+     * Entry icomp is null unless solverChoice.do_cons_clim_nudg[icomp] is set. */
+    amrex::Vector<std::unique_ptr<NCTimeSeries>> cons_clim_data_from_file;
 
     /** \brief Vector of data containers for scalar data in rivers */
     amrex::Vector<std::unique_ptr<NCTimeSeriesRiver>> river_source_cons;
@@ -1512,8 +1563,12 @@ private:
     /** \brief Array holding the "physical" boundary condition types (e.g. "inflow") */
     amrex::Vector<amrex::GpuArray<REMORA_BC, AMREX_SPACEDIM*2>> phys_bc_type;
 
-    /** \brief These are flags that indicate whether we need to read in boundary data from file */
-    amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1> phys_bc_need_data;
+    /** \brief These are flags that indicate whether we need to read in boundary data from file.
+     *
+     * Sized num_bdy_vars()+1; the extra trailing slot is a scratch entry that variables with
+     * no NetCDF boundary lane (see bdy_index) write into and nothing reads.
+     */
+    amrex::Vector<amrex::GpuArray<bool, AMREX_SPACEDIM*2>> phys_bc_need_data;
 
     /** \brief Container to connect boundary data being read in boundary condition containers.
      *
@@ -1547,10 +1602,38 @@ private:
     /** \brief If set, restart from this checkpoint file */
     std::string restart_chkfile = "";
 
-    /** \brief Number of passive scalars carried in the state */
-    int nscalar = 1;
-    /** \brief Number of conserved scalars in the state (temperature + salt + passive scalars) */
+    /** \brief Number of passive (dye) scalars carried in the state, beyond temperature
+     *         and salinity. Does not count biology tracers. Dye is opt-in: a run
+     *         carries one only when remora.nscalar asks for it. */
+    int nscalar = 0;
+    /** \brief Number of biology tracers, set by the active biology model. Zero when no
+     *         biology model is active. */
+    int nbio = 0;
+    /** \brief First cons component of the biology block, i.e. Tracer_comp + nscalar.
+     *         The state is laid out as temp, salt, the passive scalars, then biology. */
+    int Bio_comp = Tracer_comp;
+    /** \brief Number of conserved scalars in the state
+     *         (temperature + salt + passive scalars + biology tracers) */
     int ncons = Tracer_comp + 1;
+    /** \brief Active biology package */
+    REMORABiology::BiologyModel biology_model = REMORABiology::BiologyModel::none;
+    /** \brief Runtime parameters for the Fennel biology package */
+    REMORABiology::FennelParameters fennel_params;
+    /** \brief Source of the biology tracer initial condition, independent of
+     *         remora.ic_type. Default follows ic_type. */
+    REMORABiology::BiologyICType biology_ic_type = REMORABiology::BiologyICType::follow_ic_type;
+    /** \brief Select the native C++ biology kernel (1) or the ROMS Fortran
+     *         bridge oracle (0). Only meaningful when built with
+     *         USE_FENNEL_FORT=TRUE; ignored otherwise. Runtime-controlled so
+     *         the two paths can be compared without a rebuild. */
+    int use_biology_cpp_answer = 1;
+    /** \brief Biology diagnostic verbosity: 0 off, 1 target column, 2 all
+     *         columns. See Source/Biology/Fortran/tag_map.md. */
+    int biology_debug = 0;
+    /** \brief Target column i index for biology_debug = 1 */
+    int biology_debug_i = 2;
+    /** \brief Target column j index for biology_debug = 1 */
+    int biology_debug_j = 2;
 
     // Time step controls
     /** \brief CFL condition */
@@ -1709,10 +1792,9 @@ private:
     std::string clim_u_time_varname = "ocean_time";
     /** \brief Name of time field for v climatology data */
     std::string clim_v_time_varname = "ocean_time";
-    /** \brief Name of time field for salinity climatology data */
-    std::string clim_salt_time_varname = "ocean_time";
-    /** \brief Name of time field for temperature climatology data */
-    std::string clim_temp_time_varname = "ocean_time";
+    /** \brief Vector over cons components of the name of the time field for that
+     * tracer's climatology data */
+    amrex::Vector<std::string> clim_cons_time_varname;
     /** \brief Name of time field for river time */
     std::string riv_time_varname = "river_time";
     /** \brief Name of time field for forcing data */
@@ -1824,6 +1906,15 @@ public:
 
     /** \brief Accessor method for t_old to expose to outside classes */
     amrex::Real get_t_old(int lev) const;
+
+    /** \brief First cons component of the biology block. Problem setups need this to
+     *         write biology initial conditions, since the passive scalars sit between
+     *         salinity and the biology tracers. */
+    int bio_comp_start () const noexcept { return Bio_comp; }
+    /** \brief Number of biology tracers carried in the state */
+    int num_bio () const noexcept { return nbio; }
+    /** \brief Number of passive (dye) scalars carried in the state */
+    int num_scalar () const noexcept { return nscalar; }
 
     /** \brief Evaluate stability function psi for wind speed */
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE

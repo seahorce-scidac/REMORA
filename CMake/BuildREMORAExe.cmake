@@ -57,6 +57,46 @@ function(build_remora_lib remora_lib_name)
   target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_FUNWAVE_FORT)
   endif()
 
+  # Fennel Fortran bridge (Path A validation oracle). Mirrors the GNUmake
+  # USE_FENNEL_FORT path in Exec/Make.REMORA and Source/Biology/Fortran/Make.package.
+  if(REMORA_ENABLE_FENNEL_FORT)
+    if(NOT CMAKE_Fortran_COMPILER_LOADED)
+      message(FATAL_ERROR
+        "REMORA_ENABLE_FENNEL_FORT requires the Fortran language, which is "
+        "selected in project() before the option is read. Pass it on the "
+        "initial configure command line: cmake -DREMORA_ENABLE_FENNEL_FORT=ON "
+        "(a fresh build directory may be needed).")
+    endif()
+    target_sources(${remora_lib_name}
+       PRIVATE
+         ${SRC_DIR}/Biology/Fortran/REMORA_FennelBridge.cpp
+         ${SRC_DIR}/Biology/Fortran/REMORA_fennel_roms.F)
+    # REMORA_fennel_roms.F is fixed-form and #includes the tracked ROMS
+    # sources. Both carry lines past column 72, and the file relies on the C
+    # preprocessor, so state the format explicitly rather than trusting the
+    # extension.
+    set_source_files_properties(
+      ${SRC_DIR}/Biology/Fortran/REMORA_fennel_roms.F
+      PROPERTIES Fortran_FORMAT FIXED Fortran_PREPROCESS ON)
+    if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+      set_property(SOURCE ${SRC_DIR}/Biology/Fortran/REMORA_fennel_roms.F
+                   APPEND PROPERTY COMPILE_OPTIONS -ffixed-line-length-none)
+    elseif(CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+      set_property(SOURCE ${SRC_DIR}/Biology/Fortran/REMORA_fennel_roms.F
+                   APPEND PROPERTY COMPILE_OPTIONS -extend-source)
+    endif()
+    target_include_directories(${remora_lib_name} PUBLIC
+      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/Biology/Fortran>)
+    target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_FENNEL_FORT)
+  endif()
+
+  # Fennel parity tag diagnostics. Deliberately independent of the bridge
+  # flag: REMORA_Biology.cpp carries tag instrumentation inside its device
+  # lambda whether or not the Fortran oracle is built.
+  if(REMORA_ENABLE_BIOLOGY_DIAG)
+    target_compile_definitions(${remora_lib_name} PUBLIC REMORA_USE_BIOLOGY_DIAG)
+  endif()
+
   if((NOT REMORA_BUILD_EXECUTABLES) OR REMORA_BUILD_LIBRARY_ONLY)
     # In library-only superbuild mode, archive extraction + weak amrex_probinit
     # requires a forced reference path (see REMORA.cpp/REMORA_Prob.cpp link anchor).
@@ -88,6 +128,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/REMORA.cpp
        ${SRC_DIR}/REMORA_SumIQ.cpp
        ${SRC_DIR}/REMORA_Tagging.cpp
+       ${SRC_DIR}/Biology/REMORA_Biology.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_cons.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_xvel.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_yvel.cpp
@@ -174,6 +215,7 @@ function(build_remora_lib remora_lib_name)
 
   #REMORA include directories
   target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/Biology>)
   target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/BoundaryConditions>)
   target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/Initialization>)
   target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/Utils>)

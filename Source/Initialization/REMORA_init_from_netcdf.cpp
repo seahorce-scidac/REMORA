@@ -24,22 +24,42 @@ read_data_full_domain_from_netcdf (int /*lev*/, const Box& domain, const std::st
                        FArrayBox& NC_xvel_fab, FArrayBox& NC_yvel_fab,
                        IntVect ngrow);
 
+/** \brief helper function for reading in initial biology data from netcdf */
+void
+read_biology_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
+                          const Vector<std::string>& biology_names,
+                          Vector<FArrayBox>& NC_biology_fab);
+
+/** \brief helper function for reading in full domain high-resolution initial biology data from netcdf */
+void
+read_biology_full_domain_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
+                                      const Vector<std::string>& biology_names,
+                                      Vector<FArrayBox>& NC_biology_fab, IntVect ngrow);
+
+/** \brief helper function for reading in initial passive (dye) scalar data from netcdf */
+void
+read_scalars_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
+                          const Vector<std::string>& scalar_names,
+                          Vector<FArrayBox>& NC_scalar_fab,
+                          Vector<int>& scalar_in_file);
+
+/** \brief helper function for reading in full domain high-resolution initial passive (dye) scalar data from netcdf */
+void
+read_scalars_full_domain_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
+                                      const Vector<std::string>& scalar_names,
+                                      Vector<FArrayBox>& NC_scalar_fab,
+                                      Vector<int>& scalar_in_file, IntVect ngrow);
+
+/** \brief helper function checking that a high-resolution file covers the refined domain plus grow cells */
+void
+check_hires_dims_from_netcdf (const std::string& fname, const std::string& var_name,
+                              const Box& domain, const IntVect& ngrow);
+
 /** \brief helper function for reading in land-sea masks from netcdf */
 void
 read_masks_from_netcdf (int /*lev*/, const Box& domain, const std::string& fname,
                        FArrayBox& NC_mskr_fab, FArrayBox& NC_msku_fab,
                        FArrayBox& NC_mskv_fab);
-
-/** \brief helper function for reading boundary data from netcdf */
-Real
-read_bdry_from_netcdf (const Box& domain, const std::string& fname,
-                       Vector<Vector<FArrayBox>>& bdy_data_xlo,
-                       Vector<Vector<FArrayBox>>& bdy_data_xhi,
-                       Vector<Vector<FArrayBox>>& bdy_data_ylo,
-                       Vector<Vector<FArrayBox>>& bdy_data_yhi,
-                       int& width, amrex::Real& start_bdy_time,
-                       std::string bdry_time_varname,
-                       amrex::GpuArray<amrex::GpuArray<bool, AMREX_SPACEDIM*2>,BdyVars::NumTypes+1>&);
 
 /** \brief helper function to initialize state from netcdf */
 void
@@ -50,6 +70,17 @@ init_state_from_netcdf (int lev,
                         const Vector<FArrayBox>& NC_salt_fab,
                         const Vector<FArrayBox>& NC_xvel_fab,
                         const Vector<FArrayBox>& NC_yvel_fab);
+
+/** \brief helper function to initialize biology tracer state from netcdf */
+void
+init_biology_state_from_netcdf (int lev, FArrayBox& biology_fab,
+                                const Vector<Vector<FArrayBox>>& NC_biology_fab);
+
+/** \brief helper function to initialize passive (dye) scalar state from netcdf */
+void
+init_scalar_state_from_netcdf (int lev, FArrayBox& scalar_fab,
+                               const Vector<Vector<FArrayBox>>& NC_scalar_fab,
+                               const Vector<Vector<int>>& scalar_in_file);
 
 /** \brief helper function to read bathymetry from netcdf */
 void
@@ -100,12 +131,12 @@ void
 read_clim_nudg_coeff_from_netcdf (int lev, const Box& domain, const std::string& fname,
                                   bool do_m2_clim_nudg,
                                   bool do_m3_clim_nudg,
-                                  bool do_temp_clim_nudg,
-                                  bool do_salt_clim_nudg,
+                                  const amrex::Vector<int>& do_cons_clim_nudg,
+                                  const amrex::Vector<std::string>& cons_names,
                                   FArrayBox& NC_M2NC_fab,
                                   FArrayBox& NC_M3NC_fab,
-                                  FArrayBox& NC_TempNC_fab,
-                                  FArrayBox& NC_SaltNC_fab);
+                                  amrex::Vector<FArrayBox>& NC_ConsNC_fab,
+                                  amrex::Vector<int>& cons_coeff_in_file);
 
 /** \brief helper function to read in vector of data from netcdf */
 void read_vec_from_netcdf (int lev, const amrex::Vector<std::string>& fnames, const std::string& field_name, amrex::Vector<int>& vec_dat);
@@ -153,14 +184,121 @@ REMORA::init_data_from_netcdf (int lev)
     } // mf
     } // omp
 
-    if (nscalar > 1) {
-        cons_new[lev]->setVal(zero, Tracer_comp + 1, nscalar - 1, cons_new[lev]->nGrowVect());
+    // Zero every tracer past salinity. This is the starting point for the passive
+    // scalars, which the read below overwrites for each dye the file carries; the
+    // biology block is overwritten by init_biology_ic immediately after, so zeroing it
+    // here only guards against a partially filled biology IC.
+    cons_new[lev]->setVal(zero, Tracer_comp, ncons - Tracer_comp, cons_new[lev]->nGrowVect());
+
+    // Passive scalars come from the same file, and from the same remora.ic_type that
+    // brought us here, so they are read here rather than through a source flag of
+    // their own the way biology is.
+    init_scalars_from_netcdf(lev);
+}
+
+/**
+ * \brief Initialize the passive (dye) scalars from the initial NetCDF file.
+ *
+ * Unlike biology, dye has no initialization-source flag of its own: it follows
+ * remora.ic_type along with temperature, salinity, and velocity, so this is called
+ * from init_data_from_netcdf rather than from a dispatcher. Each dye whose variable
+ * the file carries is read into its own component; the rest keep the zero written
+ * just before the call.
+ *
+ * @param lev Integer specifying the current level
+ */
+void
+REMORA::init_scalars_from_netcdf (int lev)
+{
+    if (nscalar == 0) {
+        return;
+    }
+
+    Vector<std::string> scalar_names;
+    scalar_names.reserve(nscalar);
+    for (int icomp = Tracer_comp; icomp < Bio_comp; ++icomp) {
+        scalar_names.push_back(cons_names[icomp]);
+    }
+
+    // One FAB and one presence flag per dye per box
+    Vector<Vector<FArrayBox>> NC_scalar_fab(num_boxes_at_level[lev]);
+    Vector<Vector<int>>       scalar_in_file(num_boxes_at_level[lev]);
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
+    {
+        NC_scalar_fab[idx].resize(scalar_names.size());
+        read_scalars_from_netcdf(lev, boxes_at_level[lev][idx], nc_init_file[lev][idx],
+                                 scalar_names, NC_scalar_fab[idx], scalar_in_file[idx]);
+    }
+
+    MultiFab mf_scalar(*cons_new[lev], make_alias, Tracer_comp, nscalar);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    {
+    // Don't tile this since we are operating on full FABs in this routine
+    for (MFIter mfi(mf_scalar, false); mfi.isValid(); ++mfi)
+    {
+        FArrayBox& scalar_fab = mf_scalar[mfi];
+        init_scalar_state_from_netcdf(lev, scalar_fab, NC_scalar_fab, scalar_in_file);
+    }
+    }
+}
+
+/**
+ * \brief Initialize the biological tracers from the initial NetCDF file.
+ *
+ * Called from init_biology_ic, which chooses between this and the analytic
+ * profile on remora.biology_ic_type rather than on remora.ic_type.
+ *
+ * @param lev Integer specifying the current level
+ */
+void
+REMORA::init_biology_from_netcdf (int lev)
+{
+    if (!REMORABiology::has_biology(biology_model)) {
+        return;
+    }
+
+    Vector<std::string> biology_names;
+    biology_names.reserve(nbio);
+    for (int icomp = Bio_comp; icomp < ncons; ++icomp) {
+        biology_names.push_back(cons_names[icomp]);
+    }
+
+    Vector<Vector<FArrayBox>> NC_biology_fab;
+    NC_biology_fab.resize(num_boxes_at_level[lev]);
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
+    {
+        NC_biology_fab[idx].resize(biology_names.size());
+        read_biology_from_netcdf(lev, boxes_at_level[lev][idx], nc_init_file[lev][idx],
+                                 biology_names, NC_biology_fab[idx]);
+    }
+
+    MultiFab mf_biology(*cons_new[lev], make_alias, Bio_comp, nbio);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    {
+    // Dont tile this since we are operating on full FABs in this routine
+    for (MFIter mfi(mf_biology, false); mfi.isValid(); ++mfi)
+    {
+        FArrayBox& biology_fab = mf_biology[mfi];
+        init_biology_state_from_netcdf(lev, biology_fab, NC_biology_fab);
+    }
     }
 }
 
 void
 REMORA::init_data_full_domain_from_netcdf ()
 {
+    if (nc_init_file_hires.empty()) {
+        Abort("Must specify high-resolution initial file when initializing from NetCDF and hires_init_level > 0");
+    }
+    check_hires_dims_from_netcdf(nc_init_file_hires, "temp", nc_hires_init_box,
+                                 cum_ref_ratios[hires_init_level]);
+
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_temp_fab ; NC_temp_fab.resize(1);
     Vector<FArrayBox> NC_salt_fab ; NC_salt_fab.resize(1);
@@ -195,10 +333,12 @@ REMORA::init_data_full_domain_from_netcdf ()
     } // mf
     } // omp
 
-    vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp, 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
-    if (nscalar > 1) {
-        vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp + 1, nscalar - 1, vec_cons_full_domain[hires_init_level]->nGrowVect());
-    }
+    vec_cons_full_domain[hires_init_level]->setVal(zero, Tracer_comp, ncons - Tracer_comp, vec_cons_full_domain[hires_init_level]->nGrowVect());
+
+    // Passive scalars, before the average down below carries this level's data to the
+    // levels beneath it. Biology is filled separately by init_biology_ic_full_domain,
+    // which does its own average down.
+    init_scalars_full_domain_from_netcdf();
 
     // Average down to fill levels below hires_grid_level. Use a special average_down so
     // grow cells get populated by averaged down fine data
@@ -207,6 +347,86 @@ REMORA::init_data_full_domain_from_netcdf ()
         average_down_with_grow_cells(lev, vec_xvel_full_domain);
         average_down_with_grow_cells(lev, vec_yvel_full_domain);
     }
+}
+
+/**
+ * \brief Full-domain counterpart of init_scalars_from_netcdf, for the hires_init_level
+ *        average-down path. Called from init_data_full_domain_from_netcdf before that
+ *        routine averages vec_cons_full_domain down, so no average down is needed here.
+ */
+void
+REMORA::init_scalars_full_domain_from_netcdf ()
+{
+    if (nscalar == 0) {
+        return;
+    }
+
+    Vector<std::string> scalar_names;
+    scalar_names.reserve(nscalar);
+    for (int icomp = Tracer_comp; icomp < Bio_comp; ++icomp) {
+        scalar_names.push_back(cons_names[icomp]);
+    }
+
+    Vector<Vector<FArrayBox>> NC_scalar_fab(1);
+    Vector<Vector<int>>       scalar_in_file(1);
+    NC_scalar_fab[0].resize(scalar_names.size());
+
+    read_scalars_full_domain_from_netcdf(hires_init_level, nc_hires_init_box, nc_init_file_hires,
+                                         scalar_names, NC_scalar_fab[0], scalar_in_file[0],
+                                         cum_ref_ratios[hires_init_level]);
+
+    MultiFab mf_scalar(*vec_cons_full_domain[hires_init_level], make_alias, Tracer_comp, nscalar);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    {
+    // Don't tile this since we are operating on full FABs in this routine
+    for (MFIter mfi(mf_scalar, false); mfi.isValid(); ++mfi)
+    {
+        FArrayBox& scalar_fab = mf_scalar[mfi];
+        init_scalar_state_from_netcdf(hires_init_level, scalar_fab, NC_scalar_fab, scalar_in_file);
+    }
+    }
+}
+
+/** \brief Biology initialization from full-domain NetCDF file */
+void
+REMORA::init_biology_full_domain_from_netcdf ()
+{
+    if (!REMORABiology::has_biology(biology_model)) {
+        return;
+    }
+
+    Vector<std::string> biology_names;
+    biology_names.reserve(nbio);
+    for (int icomp = Bio_comp; icomp < ncons; ++icomp) {
+        biology_names.push_back(cons_names[icomp]);
+    }
+
+    Vector<Vector<FArrayBox>> NC_biology_fab;
+    NC_biology_fab.resize(1);
+    NC_biology_fab[0].resize(biology_names.size());
+
+    read_biology_full_domain_from_netcdf(hires_init_level, nc_hires_init_box, nc_init_file_hires,
+                                         biology_names, NC_biology_fab[0],
+                                         cum_ref_ratios[hires_init_level]);
+
+    MultiFab mf_biology(*vec_cons_full_domain[hires_init_level], make_alias, Bio_comp, nbio);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+    {
+    // Dont tile this since we are operating on full FABs in this routine
+    for (MFIter mfi(mf_biology, false); mfi.isValid(); ++mfi)
+    {
+        FArrayBox& biology_fab = mf_biology[mfi];
+        init_biology_state_from_netcdf(hires_init_level, biology_fab, NC_biology_fab);
+    }
+    }
+
+    // The average-down lives in init_biology_ic_full_domain, which owns both sources.
 }
 
 /**
@@ -249,20 +469,24 @@ REMORA::init_zeta_from_netcdf (int lev)
 
     if (solverChoice.boundary_from_netcdf) {
         Real told = t_new[lev];
-        fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, zeta_bc(),BdyVars::zeta,0,0,
+        fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, zeta_bc(),bdy_zeta(),0,0,
                            *vec_zeta[lev]);
     }
     if (lev>0) {
-        FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), BdyVars::zeta,
+        FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
                   0, false,false,0,0,zero,*vec_zeta[lev]);
     }
-//    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,1,1);
-//    fill_from_bdyfiles(lev, *vec_zeta[lev], *vec_mskr[lev], told, BCVars::zeta_bc,BdyVars::zeta,2,2);
 }
 
 void
 REMORA::init_zeta_full_domain_from_netcdf ()
 {
+    if (nc_init_file_hires.empty()) {
+        Abort("Must specify high-resolution initial file when initializing from NetCDF and hires_init_level > 0");
+    }
+    check_hires_dims_from_netcdf(nc_init_file_hires, "zeta", nc_hires_init_box,
+                                 cum_ref_ratios[hires_init_level]);
+
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_zeta_fab     ; NC_zeta_fab.resize(1);
 
@@ -573,12 +797,27 @@ REMORA::init_bdry_from_netcdf (int lev)
         amrex::Error("NetCDF boundary file name must be provided via input");
     }
 
-    amrex::Vector<std::string> field_name  = {"u", "v", "temp", "salt", "ubar", "vbar", "zeta"};
-    amrex::Vector<IntVect    > index_types = {IntVect(1,0,0), IntVect(0,1,0),
-                                             IntVect(0,0,0), IntVect(0,0,0),
-                                             IntVect(1,0,0), IntVect(0,1,0),
-                                             IntVect(0,0,0)};
-    std::vector<bool       > is_2d       = {false, false, false, false, true, true, true};
+    // One boundary series per BdyVars slot. Every cell-centered tracer gets one, named
+    // for the variable itself ("temp", "salt", "NO3", ...), so the file is expected to
+    // hold e.g. NO3_west following the same convention ROMS uses. A series whose
+    // variable needs no boundary data reads nothing -- NCTimeSeriesBoundary only asks
+    // for the sides flagged in phys_bc_need_data -- so tracers left on a local BC do
+    // not require the file to contain anything for them.
+    amrex::Vector<std::string> field_name (num_bdy_vars());
+    amrex::Vector<IntVect    > index_types(num_bdy_vars());
+    std::vector<bool         > is_2d      (num_bdy_vars());
+
+    field_name[BdyVars::u] = "u"; index_types[BdyVars::u] = IntVect(1,0,0); is_2d[BdyVars::u] = false;
+    field_name[BdyVars::v] = "v"; index_types[BdyVars::v] = IntVect(0,1,0); is_2d[BdyVars::v] = false;
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        const int ibdy = BdyVars::cons(icomp);
+        field_name[ibdy]  = cons_names[icomp];
+        index_types[ibdy] = IntVect(0,0,0);
+        is_2d[ibdy]       = false;
+    }
+    field_name[bdy_ubar()] = "ubar"; index_types[bdy_ubar()] = IntVect(1,0,0); is_2d[bdy_ubar()] = true;
+    field_name[bdy_vbar()] = "vbar"; index_types[bdy_vbar()] = IntVect(0,1,0); is_2d[bdy_vbar()] = true;
+    field_name[bdy_zeta()] = "zeta"; index_types[bdy_zeta()] = IntVect(0,0,0); is_2d[bdy_zeta()] = true;
 
     amrex::Print() << "DOING INIT AT LEVEL " << lev << std::endl;
     int rx = 1; int ry = 1;
@@ -588,11 +827,11 @@ REMORA::init_bdry_from_netcdf (int lev)
             ry *= ref_ratio[k][1];
         }
     }
-    for (int ivar = 0; ivar < BdyVars::NumTypes; ivar++) {
+    for (int ivar = 0; ivar < num_bdy_vars(); ivar++) {
         boundary_series[lev].push_back(std::unique_ptr<NCTimeSeriesBoundary>(new NCTimeSeriesBoundary(lev, geom, nc_bdry_file, field_name[ivar],
                                                                 bdry_time_name_byvar[ivar],
                                                                 index_types[ivar],
-                                                                &phys_bc_need_data[ivar], is_2d[ivar], rx, ry)));
+                                                                phys_bc_need_data[ivar], is_2d[ivar], rx, ry)));
         boundary_series[lev][ivar]->Initialize();
     }
 }
@@ -635,6 +874,53 @@ init_state_from_netcdf (int /*lev*/,
 }
 
 /**
+ * @param lev Integer specifying current level
+ * @param biology_fab FArrayBox object holding the biology components we initialize
+ * @param NC_biology_fab Vector of FArrayBox objects with the REMORA dataset specifying
+ *                       each biological tracer, one per component per box
+ */
+void
+init_biology_state_from_netcdf (int /*lev*/, FArrayBox& biology_fab,
+                                const Vector<Vector<FArrayBox>>& NC_biology_fab)
+{
+    int nboxes = NC_biology_fab.size();
+    for (int idx = 0; idx < nboxes; idx++)
+    {
+        AMREX_ALWAYS_ASSERT(static_cast<int>(NC_biology_fab[idx].size()) == biology_fab.nComp());
+        for (int ibio = 0; ibio < biology_fab.nComp(); ++ibio) {
+            biology_fab.template copy<RunOn::Device>(NC_biology_fab[idx][ibio], 0, ibio, 1);
+        }
+    }
+}
+
+/**
+ * @param lev Integer specifying current level
+ * @param scalar_fab FArrayBox object holding the passive scalar components we initialize
+ * @param NC_scalar_fab Vector of FArrayBox objects with the REMORA dataset specifying
+ *                      each dye, one per component per box
+ * @param scalar_in_file Per box and component, whether the file carried that dye; a dye
+ *                       the file omits keeps the zero written before the read
+ */
+void
+init_scalar_state_from_netcdf (int /*lev*/, FArrayBox& scalar_fab,
+                               const Vector<Vector<FArrayBox>>& NC_scalar_fab,
+                               const Vector<Vector<int>>& scalar_in_file)
+{
+    int nboxes = NC_scalar_fab.size();
+    for (int idx = 0; idx < nboxes; idx++)
+    {
+        AMREX_ALWAYS_ASSERT(static_cast<int>(NC_scalar_fab[idx].size())  == scalar_fab.nComp());
+        AMREX_ALWAYS_ASSERT(static_cast<int>(scalar_in_file[idx].size()) == scalar_fab.nComp());
+        for (int iscal = 0; iscal < scalar_fab.nComp(); ++iscal) {
+            // A dye the file does not carry has no FAB built for it, so leave the zero
+            // that was written before the read.
+            if (!scalar_in_file[idx][iscal]) { continue; }
+            scalar_fab.template copy<RunOn::Device>(NC_scalar_fab[idx][iscal], 0, iscal, 1);
+        }
+    }
+}
+
+/**
  * @param lev Integer specifying the current level
  */
 void
@@ -643,18 +929,26 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
     // *** FArrayBox's at this level for holding the INITIAL data
     Vector<FArrayBox> NC_M2NC_fab     ; NC_M2NC_fab.resize(num_boxes_at_level[lev]);
     Vector<FArrayBox> NC_M3NC_fab     ; NC_M3NC_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_TempNC_fab   ; NC_TempNC_fab.resize(num_boxes_at_level[lev]);
-    Vector<FArrayBox> NC_SaltNC_fab   ; NC_SaltNC_fab.resize(num_boxes_at_level[lev]);
+    // One coefficient FAB per cons component per box
+    Vector<Vector<FArrayBox>> NC_ConsNC_fab(num_boxes_at_level[lev]);
+    // Per box, whether each tracer's coefficient was actually present in the file
+    Vector<Vector<int>> cons_coeff_in_file(num_boxes_at_level[lev]);
+    for (int idx = 0; idx < num_boxes_at_level[lev]; idx++) {
+        NC_ConsNC_fab[idx].resize(ncons);
+        cons_coeff_in_file[idx].assign(ncons, 0);
+    }
+    // Aggregated over boxes: whether each tracer's coefficient came from the file
+    Vector<int> cons_coeff_read(ncons, 0);
 
     for (int idx = 0; idx < num_boxes_at_level[lev]; idx++)
     {
         read_clim_nudg_coeff_from_netcdf(lev,boxes_at_level[lev][idx], nc_clim_coeff_file,
                                          solverChoice.do_m2_clim_nudg,
                                          solverChoice.do_m3_clim_nudg,
-                                         solverChoice.do_temp_clim_nudg,
-                                         solverChoice.do_salt_clim_nudg,
+                                         solverChoice.do_cons_clim_nudg,
+                                         cons_names,
                                          NC_M2NC_fab[idx],NC_M3NC_fab[idx],
-                                         NC_TempNC_fab[idx],NC_SaltNC_fab[idx]);
+                                         NC_ConsNC_fab[idx],cons_coeff_in_file[idx]);
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -664,9 +958,9 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
         for ( MFIter mfi(*cons_new[lev], false); mfi.isValid(); ++mfi )
         {
             if (solverChoice.do_m2_clim_nudg) {
-                FArrayBox &ubarNC_fab  = (*vec_nudg_coeff[BdyVars::ubar][lev])[mfi];
+                FArrayBox &ubarNC_fab  = (*vec_nudg_coeff[bdy_ubar()][lev])[mfi];
                 ubarNC_fab.template    copy<RunOn::Device>(NC_M2NC_fab[idx]);
-                FArrayBox &vbarNC_fab  = (*vec_nudg_coeff[BdyVars::vbar][lev])[mfi];
+                FArrayBox &vbarNC_fab  = (*vec_nudg_coeff[bdy_vbar()][lev])[mfi];
                 vbarNC_fab.template    copy<RunOn::Device>(NC_M2NC_fab[idx]);
             }
             if (solverChoice.do_m3_clim_nudg) {
@@ -675,24 +969,25 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
                 FArrayBox &vNC_fab  = (*vec_nudg_coeff[BdyVars::v][lev])[mfi];
                 vNC_fab.template    copy<RunOn::Device>(NC_M3NC_fab[idx]);
             }
-            if (solverChoice.do_temp_clim_nudg) {
-                FArrayBox &TempNC_fab  = (*vec_nudg_coeff[BdyVars::t][lev])[mfi];
-                TempNC_fab.template    copy<RunOn::Device>(NC_TempNC_fab[idx]);
-            }
-            if (solverChoice.do_salt_clim_nudg) {
-                FArrayBox &SaltNC_fab  = (*vec_nudg_coeff[BdyVars::s][lev])[mfi];
-                SaltNC_fab.template    copy<RunOn::Device>(NC_SaltNC_fab[idx]);
+            for (int icomp = 0; icomp < ncons; ++icomp) {
+                if (!cons_coeff_in_file[idx][icomp]) { continue; }
+                FArrayBox &ConsNC_fab  = (*vec_nudg_coeff[BdyVars::cons(icomp)][lev])[mfi];
+                ConsNC_fab.template    copy<RunOn::Device>(NC_ConsNC_fab[idx][icomp]);
             }
 
         } // mf
         } // omp
+
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            cons_coeff_read[icomp] = cons_coeff_read[icomp] || cons_coeff_in_file[idx][icomp];
+        }
     } // idx
 
     if (solverChoice.do_m2_clim_nudg) {
-        vec_nudg_coeff[BdyVars::ubar][lev]->FillBoundary(geom[lev].periodicity());
-        vec_nudg_coeff[BdyVars::vbar][lev]->FillBoundary(geom[lev].periodicity());
-        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::ubar][lev].get());
-        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::vbar][lev].get());
+        vec_nudg_coeff[bdy_ubar()][lev]->FillBoundary(geom[lev].periodicity());
+        vec_nudg_coeff[bdy_vbar()][lev]->FillBoundary(geom[lev].periodicity());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[bdy_ubar()][lev].get());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[bdy_vbar()][lev].get());
     }
     if (solverChoice.do_m3_clim_nudg) {
         vec_nudg_coeff[BdyVars::u][lev]->FillBoundary(geom[lev].periodicity());
@@ -700,13 +995,12 @@ REMORA::init_clim_nudg_coeff_from_netcdf (int lev)
         convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::u][lev].get());
         convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::v][lev].get());
     }
-    if (solverChoice.do_temp_clim_nudg) {
-        vec_nudg_coeff[BdyVars::t][lev]->FillBoundary(geom[lev].periodicity());
-        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::t][lev].get());
-    }
-    if (solverChoice.do_salt_clim_nudg) {
-        vec_nudg_coeff[BdyVars::s][lev]->FillBoundary(geom[lev].periodicity());
-        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::s][lev].get());
+    // Only convert the tracers whose coefficient actually came from the file: the rest
+    // still hold the constant set by init_clim_nudg_coeff, which is already in 1/s.
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        if (!cons_coeff_read[icomp]) { continue; }
+        vec_nudg_coeff[BdyVars::cons(icomp)][lev]->FillBoundary(geom[lev].periodicity());
+        convert_inv_days_to_inv_s(vec_nudg_coeff[BdyVars::cons(icomp)][lev].get());
     }
 }
 
@@ -828,6 +1122,9 @@ REMORA::init_bathymetry_full_domain_from_netcdf ()
     if (nc_grid_file_hires.empty()) {
         Abort("Must specify high-resolution grid file when initializing from NetCDF and hires_grid_level > 0");
     }
+    check_hires_dims_from_netcdf(nc_grid_file_hires, "h", nc_hires_grid_box,
+                                 cum_ref_ratios[hires_grid_level]);
+
     Vector<FArrayBox> NC_h_fab     ; NC_h_fab.resize(1);
     read_bathymetry_full_domain_from_netcdf(nc_hires_grid_box, nc_grid_file_hires, NC_h_fab[0],cum_ref_ratios[hires_grid_level]);
 
@@ -851,6 +1148,9 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
     if (nc_grid_file_hires.empty()) {
         Abort("Must specify high-resolution grid file when initializing from NetCDF and hires_grid_level > 0");
     }
+    check_hires_dims_from_netcdf(nc_grid_file_hires, "pm", nc_hires_grid_box,
+                                 cum_ref_ratios[hires_grid_level]);
+
     Vector<FArrayBox> NC_pm_fab    ; NC_pm_fab.resize(1);
     Vector<FArrayBox> NC_pn_fab    ; NC_pn_fab.resize(1);
 

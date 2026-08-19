@@ -4,10 +4,13 @@
 Regression Tests
 ================
 
-There are currently 12 accuracy tests which are run as part of every PR on a range of architectures.
+There are currently 27 tests which are run as part of every PR on a range of architectures: 20 accuracy
+tests that compare a plotfile against a stored reference, two that assert values against an external
+reference instead, and five that assert a misconfigured input fails for the stated reason.
 The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
-instructions in :ref:`Testing<Testing>`.
+instructions in :ref:`Testing<Testing>`, which also describes the different kinds of assertion and what
+each is for. All of them run under MPI on two ranks, and are checked to be rank-invariant.
 
 In addition there is a suite of more extensive nightly tests that use GNUMake and use the current
 development branch of AMReX.
@@ -84,6 +87,22 @@ The following problems are currently tested in the CI. More details about the pr
 |                         |          |           |          |                                 |
 |                         |          |           |          | non-flat bathymetry             |
 +-------------------------+----------+-----------+----------+---------------------------------+
+| Upwelling_Fennel        | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-flat bathymetry             |
+|                         |          |           |          |                                 |
+|                         |          |           |          | bulk fluxes                     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | Fennel biology, analytic IC     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | carbon, oxygen, river DON       |
+|                         |          |           |          |                                 |
+|                         |          |           |          | non-conservative alkalinity     |
+|                         |          |           |          |                                 |
+|                         |          |           |          | dated atmospheric pCO2          |
+|                         |          |           |          |                                 |
+|                         |          |           |          | Wanninkhof (2014) gas transfer  |
++-------------------------+----------+-----------+----------+---------------------------------+
 | Upwelling_GLS           | 41 80 16 | Periodic  | SlipWall | Coriolis                        |
 |                         |          |           |          |                                 |
 |                         |          |           |          | non-flat bathymetry             |
@@ -108,6 +127,84 @@ The following problems are currently tested in the CI. More details about the pr
 |                         |          |           |          |                                 |
 |                         |          |           |          | quadratic bottom stress         |
 +-------------------------+----------+-----------+----------+---------------------------------+
+
+.. _sec:ci-hires-tests:
+
+High-resolution initialization tests
+------------------------------------
+
+These cover ``remora.hires_grid_level``: bathymetry evaluated on a refined level and averaged down to
+level 0 (see :ref:`Inputs<sec:Inputs>`). They are analytic, so they need no NetCDF build and no external
+data. ``remora.hires_init_level`` is NetCDF-only and is covered by the developer lanes in
+``Exec/GulfRefinementTest`` instead, described in that directory's ``README.rst``.
+
+The lanes come in three flavours, because "the run completed" is not evidence that an average-down
+happened, let alone that it was right.
+
+*Transparency.* ``ChannelTest`` sets ``h = 50`` and ``DogboneAnalytic`` sets ``h = 10``, both with
+``setVal``, covering every grow cell. The mean over any refined block is then the same constant, so the
+hires path must reproduce the corresponding non-hires baseline exactly. These lanes compare against the
+existing ``Channel_Test`` and ``DogboneAnalytic_MLvel`` reference files rather than storing new ones.
+They deliberately *cannot* detect a hires flag that is being ignored -- that is the next flavour's job.
+
+*Discrimination.* ``Seamount``'s bathymetry is a Gaussian in physical position, so the mean of the
+refined samples in a coarse cell is not the coarse midpoint sample. ``Seamount_hires`` must therefore
+both match its own reference and **differ** from the plain ``Seamount`` one; the difference is about
+16 m at the summit, some 12 orders of magnitude above the comparison tolerance. Without that second
+clause a feature that silently stops taking effect still matches its own snapshot -- which is exactly
+what a misspelled parameter name did in ``Exec/GulfRefinementTest`` before this was tested.
+
+*Misconfiguration.* Five lanes assert that a bad combination fails with the message that names it, rather
+than segfaulting, writing out of bounds, or running on data it quietly ignored.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Channel_Test_hires              | 20 60 50 | constant bathymetry averages down exactly (ratio 3),    |
+|                                 |          |                                                         |
+|                                 |          | compared against the Channel_Test reference             |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLhires         | 42 15 16 | the same, with a live refined level and regridding,     |
+|                                 |          |                                                         |
+|                                 |          | so it also covers the regrid paths and masking          |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_hires                  | 49 48 13 | a Gaussian bathymetry averages down to something        |
+|                                 |          |                                                         |
+|                                 |          | different from the direct level-0 evaluation (ratio 3)  |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_hires_r4               | 49 48 13 | the same at ratio 4, wider than the standard grow       |
+|                                 |          |                                                         |
+|                                 |          | ring, and differing from the ratio-3 result             |
++---------------------------------+----------+---------------------------------------------------------+
+| Upwelling_Fennel_hires_init     | 41 80 16 | biology coexists with an averaged-down bathymetry:      |
+|                                 |          |                                                         |
+|                                 |          | the six constant Fennel tracers and the zero dye are    |
+|                                 |          |                                                         |
+|                                 |          | asserted by value, catching a component-offset error    |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_hires_init_abort       | 49 48 13 | high-resolution *initialization* with analytic initial  |
+|                                 |          |                                                         |
+|                                 |          | conditions is rejected (it is NetCDF-only)              |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_hires_grid_max_abort   | 49 48 13 | a hires level above ``amr.max_level`` is rejected       |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_hires_init_max_abort   | 49 48 13 | the same for the initialization level                   |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_hires_grid_zero_abort  | 49 48 13 | a hires level of 0 is rejected rather than              |
+|                                 |          |                                                         |
+|                                 |          | dereferencing an array only allocated above level 0     |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_hires_flat_abort       | 49 48 13 | ``remora.flat_bathymetry`` combined with a hires level  |
+|                                 |          |                                                         |
+|                                 |          | is rejected instead of silently winning at level 0      |
++---------------------------------+----------+---------------------------------------------------------+
+
+``Upwelling_Fennel_hires_init`` runs to zero steps: it writes the initial plotfile and exits, which takes
+about a second and keeps the time stepper out of an assertion about initialization. The six Fennel
+constants come from the analytic profile in ``Source/Prob/REMORA_InitAnalyticBiology_BioToy.H``, and a
+constant is unchanged by averaging, so the expected level-0 values are known outright rather than
+snapshotted. Asserting the dye is zero alongside them is what catches a regression in the
+``Bio_comp = Tracer_comp + remora.nscalar`` offset, which would shift a biology tracer into the dye slot.
 
 Nightly Regression Tests on CPU
 -------------------------------

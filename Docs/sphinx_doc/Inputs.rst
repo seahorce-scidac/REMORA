@@ -12,6 +12,10 @@ Inputs
 The REMORA executable reads run-time information from an “inputs” file which you put on the command line.
 This section describes the inputs which can be specified either in the inputs file or on the command line.
 If a value is specified on the command line, that value will override a value specified in the inputs file.
+Biology options are documented in :ref:`sec:Fennel`. That section covers the
+``remora.fennel.*`` parameters, biology initial-condition selection
+(``remora.biology_ic_type``), and the options used to validate the port against
+ROMS (``remora.use_biology_cpp_answer``, ``remora.biology_debug``).
 
 .. _geometry-parameters:
 
@@ -91,6 +95,10 @@ Currently, if initial or grid files are specified, they both must be. Boundary c
 
 By default, bathymetry is specified at level 0 and interpolated to the finer levels, like with any other variable. Bathymetry may also be specified at level ``remora.hires_grid_level > 0`` in file ``remora.nc_grid_file_hires``. Bathymetry on levels ``< remora.hires_grid_level`` is set by averaging down the given bathymetry. Bathymetry on higher levels is set by interpolating. High resolution bathymetry data must be given with a number of grow cells equal to the cumulative refinement ratio between level 0 and ``remora.hires_grid_level``. That is, the refined grid must fully cover the level 0 grid plus one level 0 grow cell. For example, in a problem with ``hires_grid_level = 2``, a refinement ratio of 2 between levels 0 and 1, and 3 between levels 1 and 2, ``nc_grid_file_hires`` must have 6 grow cells on each side of the domain.
 
+Both levels must be greater than 0 (``-1`` means the data is specified at level 0 as usual); 0 is rejected, since the full-domain arrays it would need exist only for levels above 0. ``remora.hires_grid_level`` cannot be combined with ``remora.flat_bathymetry``, which would override the high-resolution bathymetry at level 0. A high-resolution file smaller than the rule above is rejected by name rather than read partially, and note that on restart the bathymetry is restored from the checkpoint but ``pm``/``pn`` are re-read, so the high-resolution grid file must still be present.
+
+Initial data may be specified on a high-resolution level the same way, at level ``remora.hires_init_level > 0`` in file ``remora.nc_init_file_hires``, and averaged down to the levels below. The grow cell rule is the same as for bathymetry, applied to this level: the file must have as many grow cells as the cumulative refinement ratio between level 0 and ``remora.hires_init_level``. The fields it supplies are the ones a level 0 initial file supplies, on the same terms: ``temp``, ``salt``, ``u``, ``v``, and ``zeta``, plus each dye the run carries (optional, as at level 0) and the biology tracers when ``remora.biology_ic_type`` selects NetCDF. High-resolution initialization requires ``remora.ic_type = netcdf``; it is not implemented for analytic initial conditions.
+
 List of Parameters
 ------------------
 
@@ -117,7 +125,7 @@ List of Parameters
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.nc_grid_file_hires**     | high-resolution grid data NetCDF  | string          | must be set if                  |
 |                                   |                                   |                 |                                 |
-|                                   |                                   |                 | ``remora.nc_hires_grid_level``  |
+|                                   |                                   |                 | ``remora.hires_grid_level``     |
 |                                   |                                   |                 |                                 |
 |                                   | file name                         |                 | is valid (greater than -1)      |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
@@ -126,6 +134,18 @@ List of Parameters
 |                                   | grid data is specified, either    |                 | be specified at level 0         |
 |                                   |                                   |                 |                                 |
 |                                   | in NetCDF file or analytically    |                 |                                 |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.nc_init_file_hires**     | high-resolution initial data      | string          | must be set if                  |
+|                                   |                                   |                 |                                 |
+|                                   | NetCDF file name                  |                 | ``remora.hires_init_level``     |
+|                                   |                                   |                 |                                 |
+|                                   |                                   |                 | is valid (greater than -1)      |
++-----------------------------------+-----------------------------------+-----------------+---------------------------------+
+| **remora.hires_init_level**       | level where high-resolution       | integer         | -1, meaning initial data        |
+|                                   |                                   |                 |                                 |
+|                                   | initial data is specified         |                 | will be specified at level 0    |
+|                                   |                                   |                 |                                 |
+|                                   | in a NetCDF file                  |                 |                                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.nc_bdry_file**           | boundary data NetCDF              | string or list  | must be set if                  |
 |                                   |                                   |                 |                                 |
@@ -157,11 +177,11 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   | for variable {var} (one           |                 |                                 |
 |                                   |                                   |                 |                                 |
-|                                   | of ``temp``, ``salt``, ``u``,     |                 |                                 |
+|                                   | of ``u``, ``v``, ``ubar``,        |                 |                                 |
 |                                   |                                   |                 |                                 |
-|                                   | ``v``, ``ubar``, ``vbar``,        |                 |                                 |
+|                                   | ``vbar``, ``zeta``, or any        |                 |                                 |
 |                                   |                                   |                 |                                 |
-|                                   | ``zeta``)                         |                 |                                 |
+|                                   | tracer name)                      |                 |                                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.frc_time_varname**       | name of time variable             | string          | ``wind_time`` for wind,         |
 |                                   |                                   |                 |                                 |
@@ -179,6 +199,10 @@ Notes
 
 -  The time variables in the boundary files may be different for each boundary variable. Any that are not individually specified with
    ``remora.bdy_{var}_time_varname`` will default to the variable name given by ``bdy_time_varname``.
+
+-  Every cell-centered tracer has its own boundary variable, named for the tracer itself: ``temp``, ``salt``, and then either the
+   active biology tracer names or ``tracer``, ``tracer_1``, ... So a run carrying nitrate reads ``NO3_west`` and friends from the
+   boundary file and accepts ``remora.bdy_NO3_time_varname``. See :ref:`sec:bc-per-tracer`.
 
 Resolution and Tiling
 =====================
@@ -459,6 +483,49 @@ List of Parameters
 | **remora.start_time**  | initial simulation        | Real >= 0    | 0.0     |
 |                        | time                      |              |         |
 +------------------------+---------------------------+--------------+---------+
+| **remora.time_ref**    | reference date of the     | ``yyyymmdd`` | 0.0     |
+|                        |                           |              |         |
+|                        | model clock, and with it  | ``.dd``, or  |         |
+|                        |                           |              |         |
+|                        | the calendar. See below.  | 0, -1, -2    |         |
++------------------------+---------------------------+--------------+---------+
+
+.. _calendar:
+
+Reference date and calendar
+---------------------------
+
+``remora.time_ref`` is the reference date the model clock is measured from, and
+it also selects the calendar, exactly as ROMS ``TIME_REF`` does:
+
++----------------+-----------------------+-----------------------+-------------+
+| ``time_ref``   | calendar              | epoch                 | year length |
++================+=======================+=======================+=============+
+| ``yyyymmdd.dd``| proleptic Gregorian   | the date given        | 365.2425 d  |
++----------------+-----------------------+-----------------------+-------------+
+| ``0``          | proleptic Gregorian   | 0001-01-01 00:00:00   | 365.2425 d  |
++----------------+-----------------------+-----------------------+-------------+
+| ``-1``         | 360_day: twelve       | 0000-12-30 00:00:00   | 360 d       |
+|                | 30-day months, no     |                       |             |
+|                | leap years            |                       |             |
++----------------+-----------------------+-----------------------+-------------+
+| ``-2``         | Gregorian, as a       | 1968-05-23 00:00:00   | 365.25 d    |
+|                | truncated Julian day  |                       |             |
++----------------+-----------------------+-----------------------+-------------+
+
+The fractional part of a positive value is a time of day, so
+``remora.time_ref = 20020115.5`` is 15 January 2002 at 12:00. A value below
+``-2`` names no calendar and is an error.
+
+Model time is elapsed time since that epoch, so ``remora.start_time`` offsets
+the run within the calendar the way ROMS ``DSTART`` does. With the default
+``time_ref = 0``, a run starting on 1 January 2020 sets
+``remora.start_time = 63713433600``.
+
+Only features that need a date consult this: at present the time-dependent
+atmospheric CO2 options of the Fennel biology model, see :ref:`sec:Fennel`. The
+conversion is ``remora_caldate`` in ``Source/Utils/REMORA_DateClock.H``, a port
+of ROMS ``caldate``.
 
 .. _notes-3:
 
@@ -801,11 +868,13 @@ List of Parameters
 |                                          |                                        |                        |                |
 |                                          | domain).                               |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
-| **remora.nscalar**                       | Number of passive scalars              | Integer >= 1           | 1              |
+| **remora.nscalar**                       | Number of passive (dye) scalars        | Integer >= 0           | 0              |
 |                                          |                                        |                        |                |
-|                                          | in addition to temperature             |                        |                |
+|                                          | in addition to temperature and         |                        |                |
 |                                          |                                        |                        |                |
-|                                          | and salinity.                          |                        |                |
+|                                          | salinity. Does not count biology       |                        |                |
+|                                          |                                        |                        |                |
+|                                          | tracers.                               |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.tnu2_scalar**                   | Constant horizontal diffusivity,       | Real number            | 0.0            |
 |                                          |                                        |                        |                |
@@ -820,6 +889,20 @@ List of Parameters
 |                                          | (in this case, it is the maximum       |                        |                |
 |                                          |                                        |                        |                |
 |                                          | scalar diffusivity over the domain).   |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.tnu2_{var}**                    | Constant horizontal diffusivity for    | Real number            | value of       |
+|                                          |                                        |                        |                |
+|                                          | one named tracer, overriding           |                        | ``tnu2_scalar``|
+|                                          |                                        |                        |                |
+|                                          | ``tnu2_scalar``. ``{var}`` is a tracer |                        |                |
+|                                          |                                        |                        |                |
+|                                          | name: ``tracer``, ``tracer_1``,        |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``NO3``, and so on. ``tnu2_temp`` and  |                        |                |
+|                                          |                                        |                        |                |
+|                                          | ``tnu2_salt`` above are this same form |                        |                |
+|                                          |                                        |                        |                |
+|                                          | for the first two components.          |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.harmonic_mixing_type**          | Whether harmonic mixing (tracers)      | ``s`` /                | ``s``          |
 |                                          |                                        |                        |                |
@@ -841,7 +924,19 @@ List of Parameters
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.Akv_bak**                       | Minimum/initial value of Akv           | Real number            | 5.0e-6         |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
-| **remora.Akt_bak**                       | Minimum/initial value of Akt           | Real number            | 1.0e-6         |
+| **remora.Akt_bak**                       | Minimum/initial value of Akt, applied  | Real number            | 1.0e-6         |
+|                                          |                                        |                        |                |
+|                                          | to temperature and salinity.           |                        |                |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.Akt_bak_temp**                  | Minimum/initial value of Akt for       | Real number            | value of       |
+|                                          |                                        |                        |                |
+|                                          | temperature, overriding ``Akt_bak``.   |                        | ``Akt_bak``    |
++------------------------------------------+----------------------------------------+------------------------+----------------+
+| **remora.Akt_bak_salt**                  | Minimum/initial value of Akt for       | Real number            | value of       |
+|                                          |                                        |                        |                |
+|                                          | salinity, overriding ``Akt_bak``.      |                        | ``Akt_bak``    |
+|                                          |                                        |                        |                |
+|                                          | Passive tracers mix with this value.   |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.bulk_fluxes**                   | Whether to use bulk fluxes             | true / false           | false          |
 |                                          |                                        |                        |                |
@@ -852,16 +947,22 @@ Passive scalars
 ---------------
 
 REMORA always includes temperature and salinity as the first two conserved
-state variables. Passive scalars begin at component ``Tracer_comp = 2``.
+state variables. Passive scalars begin at component ``Tracer_comp = 2``, and the
+biology tracers, if any, follow them:
+
+.. code:: text
+
+   temp  salt  | tracer  tracer_1  ...  | NO3  NH4  ...
+   0     1     | Tracer_comp = 2        | Bio_comp = 2 + nscalar
 
 The total number of conserved components is
 
 .. math::
 
-   ncons = 2 + \texttt{remora.nscalar}
+   ncons = 2 + \texttt{remora.nscalar} + n_{bio}
 
-so ``remora.nscalar`` counts only the passive scalars, not temperature or
-salinity.
+so ``remora.nscalar`` counts only the passive scalars — not temperature,
+salinity, or biology tracers.
 
 For example:
 
@@ -870,6 +971,99 @@ For example:
 
 Additional passive scalars continue with the names ``tracer_2``,
 ``tracer_3``, and so on.
+
+``remora.nscalar`` defaults to 0, so dye is opt-in: a run carries temperature and
+salinity only until an input asks for more. A tracer nothing asked for is still
+advected and diffused every step, and still has to be accounted for in plotfiles and
+in boundary and climatology files, so carrying one by default made runs that never
+mentioned dye behave as though they had.
+
+Dye and biology coexist freely, so ``remora.nscalar = 2`` with a Fennel model carrying
+11 tracers gives 15 components in the order shown above. See :ref:`sec:Fennel`.
+
+With ``remora.ic_type = netcdf`` each dye's initial field is read from the initial
+file under its own name -- ``tracer``, ``tracer_1``, and so on -- stored with the
+same ``(ocean_time, s_rho, eta_rho, xi_rho)`` layout ROMS uses for ``temp`` and
+``salt``. The read is the last thing ``init_data_from_netcdf`` does: dye follows
+``remora.ic_type`` along with the physical fields rather than having an
+initialization-source flag of its own the way biology does.
+
+Unlike ``temp`` and ``salt``, these fields are optional. A dye whose variable the
+initial file does not carry starts at zero, and the run prints the names it did not
+find, so an initial file written before the run carried dye still works unchanged and
+an idealized file need only carry the dyes it actually wants to specify. The same read
+runs on ``remora.nc_init_file_hires`` when initial data is given on a high-resolution
+level.
+
+A dye's other file-driven inputs follow the same naming convention -- ``tracer_west``
+and friends for boundary data, ``tracer`` for a climatology field, and
+``tracer_NudgeCoef`` for a spatially varying nudging coefficient -- but unlike the
+initial field they are not optional. A boundary condition or nudging flag that calls
+for data the file does not have stops the run and names what is missing; only
+``tracer_NudgeCoef`` falls back, to the constant derived from ``remora.tnudg``. See
+:ref:`sec:bc-per-tracer` and :ref:`sec:clim-per-tracer`.
+
+Horizontal and vertical mixing coefficients follow different rules, as they do in ROMS.
+
+*Horizontal* diffusivity is per tracer. ``remora.tnu2_scalar`` sets the value every
+tracer takes by default -- biology tracers included -- and ``remora.tnu2_{var}``
+overrides a single tracer by name:
+
+.. code:: python
+
+   remora.tnu2_scalar  = 5.0      # every dye and biology tracer
+   remora.tnu2_NO3     = 50.0     # except NO3
+
+``remora.tnu2_temp`` and ``remora.tnu2_salt`` are the pre-existing spelling of the same
+per-name form for the first two components, and they still default to zero rather than
+to ``tnu2_scalar``.
+
+*Vertical* diffusivity is not. ROMS computes and stores ``Akt`` for the active tracers
+alone, and every passive tracer -- dye and biology alike -- mixes with the salinity
+coefficient (``ltrc=MIN(itrc,NAT)`` in ``pre_step3d`` and ``step3d_t``). REMORA does the
+same: ``vec_Akt`` has two components, and ``akt_comp()`` in ``REMORA_IndexDefines.H``
+performs the mapping.
+
+.. code:: python
+
+   remora.Akt_bak      = 1.0e-6   # temperature and salinity
+   remora.Akt_bak_temp = 1.0e-5   # except temperature
+   remora.Akt_bak_salt = 1.0e-6   # salinity, and every passive tracer with it
+
+There is deliberately no ``remora.Akt_bak_{var}`` for a passive tracer; supplying one
+is an error rather than a silent no-op, since it would name a coefficient that no part
+of the vertical diffusion reads.
+
+Note that ``tnu2`` is only consulted when ``remora.horizontal_mixing_type`` is
+``constant`` or ``scaled_to_grid``; under the default ``analytic`` the problem's
+``init_analytic_hmix`` hook sets the coefficients itself. The same is true of ``Akt``
+and ``init_analytic_vmix``; the hooks in ``Source/Prob/`` set the two active-tracer
+components directly and ignore ``Akt_bak``, but this can be changed in other problems.
+
+The current analytic *initial condition* hooks seed the first dye tracer only, so with
+more than one dye the rest start at zero. Again, this can be changed by the user in
+other problems as needed.
+
+The ``remora.sum_interval`` diagnostic reports a volume-weighted sum for every
+tracer, labelled by name. Both plotfile writers check every tracer they are about
+to write for NaN and inf, and name the offending tracer if one is found; a tracer
+absent from ``remora.plot_vars_3d`` is not checked. Both writers also accept
+``stflux_{var}`` in ``remora.plot_vars_2d`` for any tracer, so the surface flux array
+can be inspected per tracer. Only the temperature and salinity entries are ever filled,
+by the bulk-flux or coupling paths; the rest read zero, because Fennel's air-sea gas
+exchange acts on the tracer directly rather than through that array.
+
+Refinement accepts any tracer name as its ``field_name``, so a biology tracer can
+drive AMR:
+
+.. code:: python
+
+   remora.refinement_indicators = hi_no3
+   remora.hi_no3.max_level      = 1
+   remora.hi_no3.field_name     = NO3
+   remora.hi_no3.value_greater  = 15.0
+
+River sources also work per tracer; see :ref:`sec:rivers`.
 
 Scaled-to-grid horizontal mixing
 --------------------------------
@@ -919,7 +1113,7 @@ as 2D (vertically homogeneous) fields:
 - additional passive scalars appear as ``diff2_tracer_1``, ``diff2_tracer_2``, and so on
 
 Geopotential rotated harmonic tracer diffusion
--------------------------------------
+----------------------------------------------
 
 Harmonic tracer diffusion can be rotated along geopotential (constant-:math:`z`)
 surfaces when ``remora.harmonic_mixing_type = "geopotential"``. This formulation
@@ -1332,17 +1526,15 @@ List of Parameters
 |                                       |                             |              |                           |
 |                                       | to climatology              |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.do_temp_clim_nudg**          | Whether to nudge            | true / false | false                     |
+| **remora.do_{var}_clim_nudg**         | Whether to nudge tracer     | true / false | false                     |
 |                                       |                             |              |                           |
-|                                       | temperature                 |              |                           |
+|                                       | ``{var}`` to climatology.   |              |                           |
 |                                       |                             |              |                           |
-|                                       | to climatology              |              |                           |
-+---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.do_salt_clim_nudg**          | Whether to nudge            | true / false | false                     |
+|                                       | ``{var}`` is any tracer     |              |                           |
 |                                       |                             |              |                           |
-|                                       | salinity                    |              |                           |
+|                                       | name: ``temp``, ``salt``,   |              |                           |
 |                                       |                             |              |                           |
-|                                       | to climatology              |              |                           |
+|                                       | ``NO3``, ...                |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
 | **remora.nc_clim_his_file**           | NetCDF file name(s) for     | string or    | must be set if one of     |
 |                                       |                             |              |                           |
@@ -1372,17 +1564,11 @@ List of Parameters
 |                                       |                             |              |                           |
 |                                       | for v climatology           |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.clim_temp_time_varname**     | name of time variable       | string       | ``ocean_time``            |
+| **remora.clim_{var}_time_varname**    | name of time variable       | string       | ``ocean_time``            |
 |                                       |                             |              |                           |
-|                                       | for temperature             |              |                           |
+|                                       | for the climatology of      |              |                           |
 |                                       |                             |              |                           |
-|                                       | climatology                 |              |                           |
-+---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.clim_salt_time_varname**     | name of time variable       | string       | ``ocean_time``            |
-|                                       |                             |              |                           |
-|                                       | for salinity                |              |                           |
-|                                       |                             |              |                           |
-|                                       | climatology                 |              |                           |
+|                                       | tracer ``{var}``            |              |                           |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
 
 .. note::
@@ -1392,6 +1578,39 @@ List of Parameters
    levels for nudging updates. ``remora.nc_clim_his_file`` may be a single file
    or a space-separated list of files. When multiple files are provided, they
    must be listed in time series order.
+
+.. _sec:clim-per-tracer:
+
+Climatology nudging for individual tracers
+------------------------------------------
+
+Every cell-centered tracer can be nudged toward its own climatology, not just
+temperature and salinity. The flag is keyed by the tracer's own name, so a run
+carrying nitrate uses
+
+.. code-block:: python
+
+   remora.do_NO3_clim_nudg = true
+
+exactly as temperature uses ``remora.do_temp_clim_nudg``. Each tracer turned on
+this way needs two things in the input files:
+
+- A 3D field named for the tracer in ``remora.nc_clim_his_file``: ``temp``,
+  ``salt``, ``NO3``, and so on. This is the ROMS convention, and it is the same
+  name the variable carries elsewhere. If the field is missing, REMORA aborts and
+  names it rather than failing deep inside the NetCDF reader.
+- Optionally, a spatially varying nudging coefficient named
+  ``{var}_NudgeCoef`` in ``remora.nc_clim_coeff_file`` (in inverse days), again
+  following ROMS: ``temp_NudgeCoef``, ``salt_NudgeCoef``, ``NO3_NudgeCoef``.
+
+The coefficient is optional in a way the climatology field is not. A tracer with
+no ``{var}_NudgeCoef`` in the file falls back to the constant coefficient derived
+from ``remora.tnudg``, and REMORA prints which tracers fell back. This means a
+nudging coefficient file written for temperature and salinity alone still works
+when biology tracers are nudged: those tracers simply use the uniform timescale.
+
+Each tracer may also take its own climatology time axis via
+``remora.clim_{var}_time_varname``, which defaults to ``ocean_time``.
 
 Rivers (point sources)
 ======================
@@ -1427,7 +1646,15 @@ These parameters are used to configure NetCDF-specified river-like point sources
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
 | **remora.do_rivers_scalar** | Whether rivers are passive       | true / false | false; only used                  |
 |                             |                                  |              |                                   |
-|                             | scalar sources                   |              | if ``do_rivers``                  |
+|                             | scalar sources. Default for      |              | if ``do_rivers``                  |
+|                             |                                  |              |                                   |
+|                             | every dye tracer.                |              |                                   |
++-----------------------------+----------------------------------+--------------+-----------------------------------+
+| **remora.do_rivers_{var}**  | Whether rivers are a source of   | true / false | see below                         |
+|                             |                                  |              |                                   |
+|                             | tracer ``{var}``. Overrides the  |              |                                   |
+|                             |                                  |              |                                   |
+|                             | defaults above.                  |              |                                   |
 +-----------------------------+----------------------------------+--------------+-----------------------------------+
 
 .. note::
@@ -1435,6 +1662,31 @@ These parameters are used to configure NetCDF-specified river-like point sources
    ``remora.nc_river_file`` may be either a single file or a space-separated
    list of files. If multiple river files are provided, they must be listed in
    time series order.
+
+.. _sec:rivers:
+
+River input for individual tracers
+----------------------------------
+
+Any cell-centered tracer can take river input, keyed by the tracer's own name, so
+temperature and salinity keep ``remora.do_rivers_temp`` and
+``remora.do_rivers_salt`` and a biology tracer uses
+
+.. code:: python
+
+   remora.do_rivers_NO3 = true
+
+The defaults are: temperature and salinity on, every passive (dye) scalar following
+``remora.do_rivers_scalar``, and biology tracers off. Biology defaults off because a
+river concentration for a biogeochemical tracer has to be a deliberate choice, not
+something inherited from a dye setting. All of these are ignored unless
+``remora.do_rivers`` is true.
+
+Each enabled tracer needs a field named for it in ``remora.nc_river_file``, with
+dimensions ``(river_time, s_rho, river)``, following the ROMS convention:
+``river_temp``, ``river_salt``, ``river_tracer``, ``river_NO3``, and so on. If the
+field is missing REMORA aborts and names it, rather than failing inside the NetCDF
+reader.
 
 Runtime Error Checking
 ======================

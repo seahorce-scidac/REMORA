@@ -102,9 +102,9 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get(),BCVars::cons_bc);
     for (int icomp=0; icomp<3; icomp++) {
         FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(), ubar_bc(),
-                BdyVars::ubar,icomp,false);
+                bdy_ubar(),icomp,false);
         FillCoarsePatch(lev, time, vec_vbar[lev].get(), vec_vbar[lev-1].get(), vbar_bc(),
-                BdyVars::vbar,icomp,false);
+                bdy_vbar(),icomp,false);
     }
     for (int icomp=0; icomp<2; icomp++) {
         FillCoarsePatch(lev, time, vec_ru[lev].get(), vec_ru[lev-1].get(), xvel_bc(),
@@ -246,8 +246,8 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     FillPatch(lev, time, tmp_Zt_avg1_new, GetVecOfPtrs(vec_Zt_avg1), zeta_bc(), BdyVars::null,0,true,false);
 
     for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar, icomp,false,false);
-        FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar, icomp,false,false);
+        FillPatch(lev, time, tmp_ubar_new, GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(), icomp,false,false);
+        FillPatch(lev, time, tmp_vbar_new, GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(), icomp,false,false);
     }
     for (int icomp=0; icomp<2; icomp++) {
         FillPatch(lev, time, tmp_ru_new, GetVecOfPtrs(vec_ru), xvel_bc(), BdyVars::null, icomp,false,false);
@@ -284,6 +284,13 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
         FillPatch(lev, time, tmp_h, GetVecOfPtrs(vec_h), foextrap_periodic_bc(), BdyVars::null,1,false,false);
         std::swap(tmp_h,           *vec_h[lev]);
     } else {
+        // Swap first: vec_h[lev] is still on the pre-regrid BoxArray at this point, and the
+        // branch above is what moves it onto the new one. set_bathymetry_averaged_down takes
+        // its data from vec_h_full_domain rather than from the old grids, so the old contents
+        // are not needed -- but its FillPatch uses the land masks, which init_masks has
+        // already rebuilt on the new BoxArray, so leaving vec_h[lev] on the old one mixes two
+        // BoxArrays inside REMORAPhysBCFunct.
+        std::swap(tmp_h,           *vec_h[lev]);
         set_bathymetry_averaged_down(lev);
     }
 
@@ -515,15 +522,16 @@ void REMORA::resize_stuff(int lev)
 
     vec_river_position.resize(lev+1);
 
-    if (lev==0) vec_nudg_coeff.resize(BdyVars::NumTypes);
+    if (lev==0) vec_nudg_coeff.resize(num_bdy_vars());
 
     vec_nudg_coeff[BdyVars::u].resize(lev+1);
     vec_nudg_coeff[BdyVars::v].resize(lev+1);
-    vec_nudg_coeff[BdyVars::t].resize(lev+1);
-    vec_nudg_coeff[BdyVars::s].resize(lev+1);
-    vec_nudg_coeff[BdyVars::ubar].resize(lev+1);
-    vec_nudg_coeff[BdyVars::vbar].resize(lev+1);
-    vec_nudg_coeff[BdyVars::zeta].resize(lev+1);
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        vec_nudg_coeff[BdyVars::cons(icomp)].resize(lev+1);
+    }
+    vec_nudg_coeff[bdy_ubar()].resize(lev+1);
+    vec_nudg_coeff[bdy_vbar()].resize(lev+1);
+    vec_nudg_coeff[bdy_zeta()].resize(lev+1);
 }
 
 /**
@@ -594,7 +602,9 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_Hvom[lev].reset               (new MultiFab(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0))); // mass flux for v component
 
     vec_Akv[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
-    vec_Akt[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,ncons,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
+    // NAT components, not ncons: vertical mixing coefficients exist for the active tracers
+    // alone, and passive tracers mix with the salinity one. See akt_comp().
+    vec_Akt[lev].reset                (new MultiFab(convert(ba,IntVect(0,0,1)),dm,NAT,IntVect(NGROW,NGROW,0))); // vertical mixing coefficient (.in)
 
     // check dimensionality
     vec_visc2_p[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0))); // harmonic viscosity at psi points -- difference to 3d?
@@ -724,11 +734,12 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 
     vec_nudg_coeff[BdyVars::u][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
     vec_nudg_coeff[BdyVars::v][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_nudg_coeff[BdyVars::t][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_nudg_coeff[BdyVars::s][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_nudg_coeff[BdyVars::ubar][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_nudg_coeff[BdyVars::vbar][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
-    vec_nudg_coeff[BdyVars::zeta][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        vec_nudg_coeff[BdyVars::cons(icomp)][lev].reset(new MultiFab(ba,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    }
+    vec_nudg_coeff[bdy_ubar()][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_nudg_coeff[bdy_vbar()][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
+    vec_nudg_coeff[bdy_zeta()][lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
     set_weights(lev);
 

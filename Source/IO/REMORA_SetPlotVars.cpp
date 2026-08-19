@@ -44,6 +44,17 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
         plot_var_names_3d.clear();
     }
 
+    const bool expand_fennel = containerHasElement(plot_var_names_3d, "fennel") &&
+                               REMORABiology::has_biology(biology_model);
+    if (expand_fennel) {
+        // "fennel" means the biology tracers only, not any passive scalars ahead of them
+        for (int icomp = Bio_comp; icomp < ncons; ++icomp) {
+            if (!containerHasElement(plot_var_names_3d, cons_names[icomp])) {
+                plot_var_names_3d.push_back(cons_names[icomp]);
+            }
+        }
+    }
+
     // Get state variables in the same order as we define them,
     // since they may be in any order in the input list
     Vector<std::string> tmp_plot_names;
@@ -90,6 +101,9 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
 
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_3d) {
+      if (plot_name == "fennel" && expand_fennel) {
+          continue;
+      }
       if (!containerHasElement(tmp_plot_names, plot_name)) {
            Warning("\nWARNING: Requested to plot variable '" + plot_name + "' in 3D list but it is not available");
       }
@@ -203,34 +217,30 @@ REMORA::append3DPlotVariables (const std::string& pp_plot_var_names_3d)
         amrex::Abort("You must use plot_vars_3d rather than plot_vars");
     }
 
+    // This runs after the particle containers are set up, so the only thing it may add is
+    // a particle mesh variable, which set3DPlotVariables could not know about yet. Adding
+    // anything else back would resurrect a name set3DPlotVariables deliberately dropped as
+    // unavailable, and nothing downstream would ever fill it: the plotfile would carry the
+    // uninitialized sentinel from WritePlotFile under a real-looking variable name. The
+    // "fennel" keyword needs no handling here, since set3DPlotVariables already expanded it.
+#ifdef REMORA_USE_PARTICLES
+    Vector<std::string> particle_mesh_plot_names;
+    particleData.GetMeshPlotVarNames( particle_mesh_plot_names );
+
     if (pp.contains(pp_plot_var_names_3d.c_str())) {
         std::string nm;
         int nPltVars = pp.countval(pp_plot_var_names_3d.c_str());
         for (int i = 0; i < nPltVars; i++) {
             pp.get(pp_plot_var_names_3d.c_str(), nm, i);
-            // Add the named variable to our list of plot variables
-            // if it is not already in the list
-            if (!containerHasElement(plot_var_names_3d, nm)) {
+            if (containerHasElement(particle_mesh_plot_names, nm) &&
+                !containerHasElement(plot_var_names_3d, nm)) {
                 plot_var_names_3d.push_back(nm);
             }
         }
     }
-
-    Vector<std::string> tmp_plot_names(0);
-#ifdef REMORA_USE_PARTICLES
-    Vector<std::string> particle_mesh_plot_names;
-    particleData.GetMeshPlotVarNames( particle_mesh_plot_names );
-    for (int i = 0; i < particle_mesh_plot_names.size(); i++) {
-        std::string tmp(particle_mesh_plot_names[i]);
-        if (containerHasElement(plot_var_names_3d, tmp) ) {
-            tmp_plot_names.push_back(tmp);
-        }
-    }
+#else
+    amrex::ignore_unused(pp_plot_var_names_3d);
 #endif
-
-    for (int i = 0; i < tmp_plot_names.size(); i++) {
-        plot_var_names_3d.push_back( tmp_plot_names[i] );
-    }
 }
 
 /**
@@ -239,34 +249,25 @@ REMORA::append3DPlotVariables (const std::string& pp_plot_var_names_3d)
 void
 REMORA::append2DPlotVariables (const std::string& pp_plot_var_names_2d)
 {
+    // Same rule as append3DPlotVariables: only a particle mesh variable may be added back.
+#ifdef REMORA_USE_PARTICLES
     ParmParse pp(pp_prefix);
+
+    Vector<std::string> particle_mesh_plot_names;
+    particleData.GetMeshPlotVarNames( particle_mesh_plot_names );
 
     if (pp.contains(pp_plot_var_names_2d.c_str())) {
         std::string nm;
         int nPltVars = pp.countval(pp_plot_var_names_2d.c_str());
         for (int i = 0; i < nPltVars; i++) {
             pp.get(pp_plot_var_names_2d.c_str(), nm, i);
-            // Add the named variable to our list of plot variables
-            // if it is not already in the list
-            if (!containerHasElement(plot_var_names_2d, nm)) {
+            if (containerHasElement(particle_mesh_plot_names, nm) &&
+                !containerHasElement(plot_var_names_2d, nm)) {
                 plot_var_names_2d.push_back(nm);
             }
         }
     }
-
-    Vector<std::string> tmp_plot_names(0);
-#ifdef REMORA_USE_PARTICLES
-    Vector<std::string> particle_mesh_plot_names;
-    particleData.GetMeshPlotVarNames( particle_mesh_plot_names );
-    for (int i = 0; i < particle_mesh_plot_names.size(); i++) {
-        std::string tmp(particle_mesh_plot_names[i]);
-        if (containerHasElement(plot_var_names_2d, tmp) ) {
-            tmp_plot_names.push_back(tmp);
-        }
-    }
+#else
+    amrex::ignore_unused(pp_plot_var_names_2d);
 #endif
-
-    for (int i = 0; i < tmp_plot_names.size(); i++) {
-        plot_var_names_2d.push_back( tmp_plot_names[i] );
-    }
 }

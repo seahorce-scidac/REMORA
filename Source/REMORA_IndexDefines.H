@@ -3,11 +3,29 @@
 
 #include <AMReX_REAL.H>
 #include <AMReX_Arena.H>
+#include <AMReX_Extension.H>
+#include <AMReX_GpuQualifiers.H>
 
 // Cell-centered state variables
 #define Temp_comp      0
 #define Salt_comp      1
 #define Tracer_comp    2
+
+// Number of active tracers, i.e. the ones that feed back on the density field:
+// temperature and salinity. ROMS carries vertical mixing coefficients for these two
+// alone, so Tracer_comp doubles as the count of them.
+#define NAT            Tracer_comp
+
+/**
+ * The vertical diffusivity component that cons component icomp is mixed with.
+ *
+ * Akt is stored for the active tracers only, and every passive tracer -- dye and biology
+ * alike -- mixes with the salinity coefficient. This is ROMS's ltrc=MIN(itrc,NAT) in
+ * pre_step3d and step3d_t, and it is why vec_Akt has NAT components rather than ncons.
+ * Horizontal diffusivity is a separate story: tnu2 really is per tracer.
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+int akt_comp (int icomp) noexcept { return (icomp < NAT) ? icomp : Salt_comp; }
 
 #define NGROW          2
 
@@ -43,21 +61,29 @@ namespace BCVars {
 /**
  * \brief These are only for the variables read in from netcdf boundary condition files
  *
- * Note that the salt component must be one greater than the temp component for the
- * logic in fill_from_bdyfiles to work
+ * The cell-centered tracers occupy a contiguous block of slots starting at t, laid
+ * out in the same order as the components of the cons MultiFab. So slot t is temp,
+ * slot t+1 is salt, and slot t+n is cons component n for every additional scalar
+ * (passive tracers, biology tracers). Use cons(icomp) rather than hardcoding this,
+ * and note that the logic in fill_from_bdyfiles relies on the block being contiguous
+ * and in component order.
+ *
+ * Like BCVars, everything above the tracer block is a function of ncons rather than a
+ * compile-time constant. With ncons == 2 these reduce to the historical fixed values
+ * (ubar 4, vbar 5, zeta 6, NumTypes 7).
  */
 namespace BdyVars {
-    enum {
-       null  = -1,
-       u     =  0,
-       v     =  1,
-       t     =  2,
-       s     =  3,
-       ubar      ,
-       vbar      ,
-       zeta      ,
-       NumTypes
-    };
+    static constexpr int null =  -1;
+    static constexpr int u    =   0;
+    static constexpr int v    =   1;
+    static constexpr int t    =   2; ///< cons component Temp_comp
+    static constexpr int s    =   3; ///< cons component Salt_comp
+
+    inline int cons (int icomp) noexcept { return t + icomp; }
+    inline int ubar (int ncons) noexcept { return t + ncons;     }
+    inline int vbar (int ncons) noexcept { return t + ncons + 1; }
+    inline int zeta (int ncons) noexcept { return t + ncons + 2; }
+    inline int NumTypes (int ncons) noexcept { return t + ncons + 3; }
 }
 
 /**

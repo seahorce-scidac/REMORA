@@ -106,7 +106,7 @@ List of Parameters
 |                                        |                                   |                       |            |
 |                                        | Includes amrexvec_nu_x,           |                       |            |
 |                                        |                                   |                       |            |
-|                                        | amrexvec_nu_y, amrexvec_nu_z.    |                       |            |
+|                                        | amrexvec_nu_y, amrexvec_nu_z.     |                       |            |
 |                                        |                                   |                       |            |
 |                                        | Not used for netCDF               |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
@@ -152,7 +152,17 @@ Notes
 -  File prefixes can include directories.
 
 -  If both ``remora.plot_int`` and ``remora.plot_int_time`` have been set, plotfile output will occur
-  ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
+   ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
+
+-  When Fennel biology is enabled, ``fennel`` in ``remora.plot_vars_3d``
+   expands to all active biology tracers. Active biology tracers can also be
+   requested by name. See :ref:`sec:Fennel` for tracer names and component
+   options.
+
+-  Passive dye is opt-in: ``tracer`` is only available when ``remora.nscalar`` is at
+   least 1 (see :ref:`sec:Inputs`). Naming a field the run does not carry is not fatal
+   -- REMORA warns that the variable is not available and writes the plotfile without
+   it -- so a missing dye shows up as a missing column rather than a failed run.
 
 3D Plotfile Field Options
 --------------------------
@@ -165,7 +175,10 @@ Notes
 +--------------------------------+---------------------------+
 | **temp**                       | temperature               |
 +--------------------------------+---------------------------+
-| **scalar**                     | passive scalar            |
+| **tracer**                     | passive dye; also         |
+|                                | ``tracer_1``,             |
+|                                | ``tracer_2``, ... for     |
+|                                | additional dyes           |
 +--------------------------------+---------------------------+
 | **x_velocity**                 | velocity in x-direction   |
 +--------------------------------+---------------------------+

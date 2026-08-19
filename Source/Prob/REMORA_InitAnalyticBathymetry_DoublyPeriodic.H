@@ -10,7 +10,8 @@
 
       Box bx = mfi.tilebox();
       Box gbx2 = bx;
-      gbx2.grow(IntVect(NGROW,NGROW,0));
+      // See the note in REMORA_InitAnalyticBathymetry_Seamount.H
+      gbx2.grow(mf_h.nGrowVect());
 
       // auto N = geom.Domain().length(2); // Number of vertical "levels" aka, NZ
 

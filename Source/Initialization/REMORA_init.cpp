@@ -20,6 +20,92 @@ REMORA::init_analytic(int lev)
 }
 
 /**
+ * \brief Initialize the biology tracers from whichever source
+ *        remora.biology_ic_type selects.
+ *
+ * Deliberately decoupled from remora.ic_type. A NetCDF initial file supplies
+ * only the tracers it happens to contain -- the BioToy file has `oxygen` but
+ * no `PO4` or `ODU` -- so validating an option set the file does not cover
+ * would otherwise mean regenerating binary input that no fresh clone can
+ * reproduce. With biology_ic_type = analytic the physical fields still come
+ * from NetCDF while biology comes from the problem's analytic profile.
+ *
+ * Must be called after the physical fields are initialized: the analytic
+ * biology profiles are functions of temperature.
+ *
+ * @param[in   ] lev     level to initialize on
+ */
+void
+REMORA::init_biology_ic (int lev)
+{
+    if (!REMORABiology::has_biology(biology_model)) {
+        return;
+    }
+
+    const bool use_analytic =
+        (biology_ic_type == REMORABiology::BiologyICType::analytic) ||
+        (biology_ic_type == REMORABiology::BiologyICType::follow_ic_type &&
+         solverChoice.ic_type != IC_Type::netcdf);
+
+    if (use_analytic) {
+        // The base-class hook in REMORA_prob_common.H is an amrex::Error, so a
+        // problem that enables biology without providing an analytic biology
+        // IC fails loudly rather than starting from uninitialized tracers.
+        prob->init_analytic_biology(lev, geom[lev], solverChoice, fennel_params,
+                                    *this, *cons_new[lev]);
+    } else {
+#ifdef REMORA_USE_NETCDF
+        init_biology_from_netcdf(lev);
+#else
+        amrex::Abort("remora.biology_ic_type = netcdf requires a NetCDF build");
+#endif
+    }
+}
+
+/**
+ * \brief Full-domain counterpart of init_biology_ic, for the hires_init_level
+ *        path where initial data is specified on a high-resolution level and
+ *        averaged down.
+ *
+ * Fills the biology components of vec_cons_full_domain[hires_init_level].
+ * Must be called after the physical fields on that level are set (the
+ * analytic profiles are functions of temperature) and before whatever
+ * averages vec_cons_full_domain down.
+ */
+void
+REMORA::init_biology_ic_full_domain ()
+{
+    if (!REMORABiology::has_biology(biology_model)) {
+        return;
+    }
+
+    const bool use_analytic =
+        (biology_ic_type == REMORABiology::BiologyICType::analytic) ||
+        (biology_ic_type == REMORABiology::BiologyICType::follow_ic_type &&
+         solverChoice.ic_type != IC_Type::netcdf);
+
+    if (use_analytic) {
+        prob->init_analytic_biology(hires_init_level, geom[hires_init_level],
+                                    solverChoice, fennel_params, *this,
+                                    *vec_cons_full_domain[hires_init_level]);
+    } else {
+#ifdef REMORA_USE_NETCDF
+        init_biology_full_domain_from_netcdf();
+#else
+        amrex::Abort("remora.biology_ic_type = netcdf requires a NetCDF build");
+#endif
+    }
+
+    // Average down here, after the branch, rather than inside one of the two sources. When
+    // this loop lived in the NetCDF reader, the analytic branch filled hires_init_level and
+    // nothing else, so every level below it -- including level 0, the one the run actually
+    // integrates -- kept the zeros that init_data_full_domain_from_netcdf had written.
+    for (int lev = hires_init_level-1; lev >= 0; lev--) {
+        average_down_with_grow_cells(lev, vec_cons_full_domain);
+    }
+}
+
+/**
  * @param[in   ] lev     level to initialize on
  */
 void
@@ -133,8 +219,8 @@ REMORA::set_2darrays (int lev)
         });
     }
 
-    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), BdyVars::ubar,0,false,false,0,0,zero,*vec_ubar[lev]);
-    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), BdyVars::vbar,0,false,false,0,0,zero,*vec_vbar[lev]);
+    FillPatch(lev, t_new[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),0,false,false,0,0,zero,*vec_ubar[lev]);
+    FillPatch(lev, t_new[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),0,false,false,0,0,zero,*vec_vbar[lev]);
 }
 
 /**
@@ -150,7 +236,9 @@ REMORA::init_gls_vmix (int lev, SolverChoice solver_choice)
     vec_Akk[lev]->setVal(solver_choice.Akk_bak);
     vec_Akp[lev]->setVal(solver_choice.Akp_bak);
     vec_Akv[lev]->setVal(solver_choice.Akv_bak);
-    vec_Akt[lev]->setVal(solver_choice.Akt_bak);
+    for (int n = 0; n < NAT; n++) {
+        vec_Akt[lev]->setVal(solver_choice.Akt_bak[n], n, 1);
+    }
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
@@ -190,16 +278,26 @@ REMORA::init_clim_nudg_coeff (int lev) {
     // with coeffs read from file if using
     vec_nudg_coeff[BdyVars::u][lev]->setVal(solverChoice.nudg_coeff[BdyVars::u]);
     vec_nudg_coeff[BdyVars::v][lev]->setVal(solverChoice.nudg_coeff[BdyVars::v]);
-    vec_nudg_coeff[BdyVars::t][lev]->setVal(solverChoice.nudg_coeff[BdyVars::t]);
-    vec_nudg_coeff[BdyVars::s][lev]->setVal(solverChoice.nudg_coeff[BdyVars::s]);
-    vec_nudg_coeff[BdyVars::ubar][lev]->setVal(solverChoice.nudg_coeff[BdyVars::ubar]);
-    vec_nudg_coeff[BdyVars::vbar][lev]->setVal(solverChoice.nudg_coeff[BdyVars::vbar]);
-    vec_nudg_coeff[BdyVars::zeta][lev]->setVal(solverChoice.nudg_coeff[BdyVars::zeta]);
+    for (int icomp = 0; icomp < ncons; ++icomp) {
+        vec_nudg_coeff[BdyVars::cons(icomp)][lev]->setVal(solverChoice.nudg_coeff[BdyVars::cons(icomp)]);
+    }
+    vec_nudg_coeff[bdy_ubar()][lev]->setVal(solverChoice.nudg_coeff[bdy_ubar()]);
+    vec_nudg_coeff[bdy_vbar()][lev]->setVal(solverChoice.nudg_coeff[bdy_vbar()]);
+    vec_nudg_coeff[bdy_zeta()][lev]->setVal(solverChoice.nudg_coeff[bdy_zeta()]);
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_any_clim_nudg) {
-        amrex::Print() << "Calling init_clim_nudg_coeff_from_netcdf \n " << std::endl;
-        init_clim_nudg_coeff_from_netcdf(lev);
-        amrex::Print() << "Climatology weights loaded from netcdf file \n " << std::endl;
+        // A coefficient file is optional. Without one every variable keeps the constant
+        // timescale set above, which is a reasonable setup for tracers nudged on the
+        // single remora.tnudg timescale.
+        if (nc_clim_coeff_file.empty()) {
+            amrex::Print() << "No remora.nc_clim_coeff_file given; climatology nudging will use "
+                              "the constant timescales from remora.tnudg, m2nudg, and m3nudg"
+                           << std::endl;
+        } else {
+            amrex::Print() << "Calling init_clim_nudg_coeff_from_netcdf \n " << std::endl;
+            init_clim_nudg_coeff_from_netcdf(lev);
+            amrex::Print() << "Climatology weights loaded from netcdf file \n " << std::endl;
+        }
     }
 #endif
 }
@@ -238,6 +336,14 @@ void REMORA::allocate_bathymetry_grid_vars_full_domain () {
         vec_h_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],h_growvect)));
         vec_pm_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],pm_growvect)));
         vec_pn_full_domain[lev].reset(new MultiFab(ba, dm, 1, max(cum_ref_ratios[lev],pn_growvect)));
+    }
+    // A NetCDF read covers only as many grow cells as the file carries, and the analytic
+    // bathymetry hook fills h alone, so parts of these arrays can reach the average-down
+    // unwritten. Zero them so what lands at level 0 does not depend on the arena.
+    for (int lev = 0; lev <= hires_grid_level; lev++) {
+        vec_h_full_domain[lev]->setVal(0.0);
+        vec_pm_full_domain[lev]->setVal(0.0);
+        vec_pn_full_domain[lev]->setVal(0.0);
     }
     nc_hires_grid_box = refined_domain;
 }
@@ -285,6 +391,14 @@ void REMORA::allocate_init_full_domain () {
         vec_yvel_full_domain[lev].reset(new MultiFab(convert(ba,IntVect(0,1,0)), dm, 1, max(cum_ref_ratios[lev],yvel_growvect) - IntVect(0,1,0)));
         vec_zeta_full_domain[lev].reset(new MultiFab(ba2d, dm, 1, max(cum_ref_ratios[lev],zeta_growvect)));
     }
+    // See the note in allocate_bathymetry_grid_vars_full_domain: the vertical grow cells in
+    // particular are never covered by the read, since cum_ref_ratios has no z component.
+    for (int lev = 0; lev <= hires_init_level; lev++) {
+        vec_cons_full_domain[lev]->setVal(0.0);
+        vec_xvel_full_domain[lev]->setVal(0.0);
+        vec_yvel_full_domain[lev]->setVal(0.0);
+        vec_zeta_full_domain[lev]->setVal(0.0);
+    }
     nc_hires_init_box = refined_domain;
 }
 
@@ -292,6 +406,11 @@ void
 REMORA::init_full_domain_from_analytic ()
 {
     prob->init_analytic_prob(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_cons_full_domain[hires_init_level], *vec_xvel_full_domain[hires_init_level], *vec_yvel_full_domain[hires_init_level]);
+
+    // Biology must be filled on the hires level before the average-down loop
+    // below, or the biology components of vec_cons_full_domain are averaged
+    // down uninitialized.
+    init_biology_ic_full_domain();
 
     for (int lev=hires_init_level-1; lev >= 0; lev--) {
         average_down_with_grow_cells(lev, vec_cons_full_domain);

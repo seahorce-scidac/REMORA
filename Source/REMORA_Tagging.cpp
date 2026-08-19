@@ -22,21 +22,27 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
     //
     std::unique_ptr<MultiFab> mf = std::make_unique<MultiFab>(grids[levc], dmap[levc], 1, 1);
 
+    // Any cell-centered tracer may drive refinement, named as it is elsewhere: "temp",
+    // "salt", "tracer", "tracer_1", or a biology tracer such as "NO3".
+    auto cons_comp_for_field = [this] (const std::string& field) {
+        for (int icomp = 0; icomp < ncons; ++icomp) {
+            if (cons_names[icomp] == field) { return icomp; }
+        }
+        return -1;
+    };
+
     for (int j=0; j < ref_tags.size(); ++j)
     {
-        if (ref_tags[j].Field() == "tracer" || ref_tags[j].Field() == "temp" ||
-            ref_tags[j].Field() == "salt") {
+        const int cons_comp = cons_comp_for_field(ref_tags[j].Field());
+
+        if (cons_comp >= 0) {
             FillPatch(levc, time, *cons_new[levc], cons_new, BCVars::cons_bc, BdyVars::t,
                 0,true,false);
         }
-        // This allows dynamic refinement based on the value of the tracer
-        if (ref_tags[j].Field() == "tracer")
+        // This allows dynamic refinement based on the value of a tracer
+        if (cons_comp >= 0)
         {
-            MultiFab::Copy(*mf,*cons_new[levc],Tracer_comp,0,1,1);
-        } else if (ref_tags[j].Field() == "temp") {
-            MultiFab::Copy(*mf,*cons_new[levc],Temp_comp,0,1,1);
-        } else if (ref_tags[j].Field() == "salt") {
-            MultiFab::Copy(*mf,*cons_new[levc],Salt_comp,0,1,1);
+            MultiFab::Copy(*mf,*cons_new[levc],cons_comp,0,1,1);
         } else if (ref_tags[j].Field() == "x_velocity") {
             FillPatch(levc, time, *xvel_new[levc], xvel_new, xvel_bc(), BdyVars::u,0,true,true);
             MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,1);
@@ -76,6 +82,25 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 
         } else if (ref_tags[j].Field() == "mask") {
             MultiFab::Copy(*mf,*vec_mskr3d[levc],0,0,1,IntVect(1,1,0));
+            // vec_mskr3d has no z ghost cells, so this copy leaves mf's top and bottom
+            // ghost planes unwritten, and the GRAD test differences in z -- reading them
+            // uninitialized, which traps FE_INVALID in a Debug build. The mask is constant
+            // down a column, so fill them from the adjacent valid plane: the vertical
+            // gradient is then identically zero.
+            for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+                const Box& vbx = mfi.validbox();
+                const int klo = vbx.smallEnd(2);
+                const int khi = vbx.bigEnd(2);
+                Box gbx = mfi.growntilebox();
+                gbx.setSmall(2, klo-1); gbx.setBig(2, khi+1);
+                auto arr = mf->array(mfi);
+                ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+                {
+                    if (k < klo) { arr(i,j,k) = arr(i,j,klo); }
+                    else if (k > khi) { arr(i,j,k) = arr(i,j,khi); }
+                });
+            }
 #ifdef REMORA_USE_PARTICLES
         } else {
             //
@@ -88,11 +113,13 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             //
             const auto& particles_namelist( particleData.getNames() );
             mf->setVal(zero);
+            bool matched_particle_count = false;
             for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++)
             {
                 std::string tmp_string(particles_namelist[i]+"_count");
                 IntVect rr = IntVect::TheUnitVector();
                 if (ref_tags[j].Field() == tmp_string) {
+                    matched_particle_count = true;
                     for (int lev = levc; lev <= finest_level; lev++)
                     {
                         MultiFab temp_dat(grids[lev], dmap[lev], 1, 0); temp_dat.setVal(0);
@@ -113,7 +140,21 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
                 }
             }
 
-
+            // A box-only indicator carries no field name and tags geometrically, so it
+            // never reads mf; only a named field that matched nothing is an error.
+            if (!matched_particle_count && !ref_tags[j].Field().empty()) {
+                amrex::Abort("Unknown refinement field '" + ref_tags[j].Field() +
+                             "'. Use a tracer name, x_velocity, y_velocity, z_velocity, "
+                             "vorticity, mask, or <particle>_count.");
+            }
+#else
+        } else if (!ref_tags[j].Field().empty()) {
+            // mf is uninitialized until something writes it, so an unrecognized named
+            // field would otherwise tag on garbage. A box-only indicator has no field
+            // name, tags geometrically, and never reads mf.
+            amrex::Abort("Unknown refinement field '" + ref_tags[j].Field() +
+                         "'. Use a tracer name, x_velocity, y_velocity, z_velocity, "
+                         "vorticity, or mask.");
 #endif
         }
 

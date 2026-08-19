@@ -70,7 +70,7 @@ If true, conditions must be set for all of the following variables.
 
 - temperature: ``remora.bc.temp.type``
 - salinity: ``remora.bc.salt.type``
-- passive scalar: ``remora.bc.scalar.type``
+- additional scalars: ``remora.bc.scalar.type``, or one entry per tracer (see below)
 - 3D u-velocity: ``remora.bc.u.type``
 - 3D v-velocity: ``remora.bc.v.type``
 - 2D u-velocity: ``remora.bc.ubar.type``
@@ -116,6 +116,54 @@ will define a problem that is periodic on the Western and Eastern sides. Tempera
 3D u-velocity, and 3D v-velocity will be clamped to values given in a NetCDF file specified by
 :ref:`remora.nc_bdry_file_0<icbc-parameters>`. The 2D momentum and zeta BCs are calculated from the
 Chapman/Flather conditions, with nudging towards values given in the boundary NetCDF file.
+
+.. _sec:bc-per-tracer:
+
+Boundary conditions for individual tracers
+------------------------------------------
+
+Every cell-centered tracer can be configured on its own, using the same options and the same
+file-driven data path as temperature and salinity. In per-variable mode, address a tracer by its
+own name rather than by the shared ``scalar`` keyword:
+
+::
+
+    #                              West      South    East      North
+    remora.bc.NO3.type          =  periodic  clamped  periodic  clamped
+    remora.bc.oxygen.type       =  periodic  outflow  periodic  outflow
+
+The tracer names are the same ones used for plotfile output: ``temp`` and ``salt``, then either
+the biology tracer names when :ref:`remora.biology_model<sec:Fennel>` is active
+(``NO3``, ``NH4``, ``chlorophyll``, ...) or ``tracer``, ``tracer_1``, ... otherwise.
+
+``remora.bc.scalar.type`` still works and still applies to every tracer beyond salt. A per-tracer
+entry takes precedence where one is given, so the two can be mixed: set ``scalar`` for the common
+case and override only the tracers that differ.
+
+Tracers configured with ``clamped`` or ``orlanski_rad_nudg`` read their boundary values from the
+NetCDF boundary file, following the same naming convention as temperature and salinity: a tracer
+named ``NO3`` reads ``NO3_west``, ``NO3_east``, ``NO3_south``, and ``NO3_north``. Only the sides
+that actually need data are read, so the file need not contain anything for a tracer left on a
+local condition such as ``outflow`` or ``slipwall``. If a tracer is given a file-driven condition
+and the file does not carry the matching variables, the run stops at setup and names them. The
+time axis for a tracer's boundary data can be named with ``remora.bdy_<name>_time_varname`` (for
+example ``remora.bdy_NO3_time_varname``), defaulting to ``remora.bdy_time_varname`` as for the
+other variables.
+
+This holds in per-side mode as well: a side keyword covers every variable at once, tracers
+included, so a per-side ``clamped`` or ``orlanski_rad_nudg`` drives every tracer the run carries
+from file, not temperature and salinity alone. A ROMS boundary file that carries temperature and
+salinity but nothing for the extra tracers will stop the run at setup, naming the variables it
+lacks. Either give the file the missing fields, drop the extra tracers (``remora.nscalar = 0``),
+or switch to per-variable mode and state each tracer's condition outright -- ``outflow`` for a
+tracer with no boundary data of its own. ``remora.nscalar`` defaults to 0, so this only comes
+up for a run that asks for dye or turns on a biology model.
+
+Nudging for ``orlanski_rad_nudg`` uses the tracer timescale ``remora.tnudg`` for every tracer,
+matching the ROMS default of a single ``Tnudg`` shared across tracers. A tracer picks up a
+spatially varying coefficient instead when climatology nudging is turned on for it and
+``remora.nc_clim_coeff_file`` carries a ``{var}_NudgeCoef`` field for that tracer; otherwise it
+keeps the constant derived from ``remora.tnudg``. See :ref:`sec:clim-per-tracer`.
 
 .. _sec:bc-options:
 
@@ -187,10 +235,12 @@ As an example,
 
     remora.bc.xlo.type                =   "Inflow"
     remora.bc.xlo.velocity            =   1. 0.9  0.
-    remora.bc.xlo.temp                =   15.
     remora.bc.xlo.scalar              =   2.
 
 sets the boundary condition type at the low x face to be an inflow with xlo.type = “Inflow”.
+``scalar`` sets the inflow value for the tracers beyond temperature and salinity; in
+per-variable mode it can be given per tracer, as ``remora.bc.NO3.scalar``. Inflow values for
+temperature and salinity are not currently settable from the inputs file.
 
 We note that ``noslipwall`` allows for non-zero tangential velocities to be specified, such as
 

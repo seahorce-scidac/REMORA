@@ -277,9 +277,21 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     Real gls_Ghmin = solverChoice.gls_Ghmin;
 
     Real Akv_bak = solverChoice.Akv_bak;
-    Real Akt_bak = solverChoice.Akt_bak;
     Real Akp_bak = solverChoice.Akp_bak;
     Real Akk_bak = solverChoice.Akk_bak;
+
+    // Akt_bak has one entry per active tracer, so it has to reach the device as an array.
+    // The stratification terms below are specifically the temperature ones, and use
+    // Akt_bak[Temp_comp] to match the Akt component they are paired with.
+    //
+    // A GpuArray captured by value rather than a device allocation: NAT is a compile-time
+    // constant, and a Gpu::DeviceVector here would be freed at function exit while the
+    // kernels launched below could still be reading it -- arena frees are not stream
+    // ordered.
+    GpuArray<Real, NAT> Akt_bak{};
+    for (int n = 0; n < NAT; ++n) {
+        Akt_bak[n] = solverChoice.Akt_bak[n];
+    }
 
     Real gls_c1 = solverChoice.gls_c1;
     Real gls_c2 = solverChoice.gls_c2;
@@ -643,8 +655,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             FCK(i,j,N) = cff * (cff1 * tke(i,j,N+1,2)+cff2*tke(i,j,N,2)-cff3*tke(i,j,N-1,2));
             FCP(i,j,N) = cff * (cff1 * gls(i,j,N+1,2)+cff2*gls(i,j,N,2)-cff3*gls(i,j,N-1,2));
         });
-        const int ncons_local = ncons;
-
         ParallelFor(grow(bx,2,-1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             Real cff = dt_lev * pm(i,j,0) * pn(i,j,0);
@@ -676,16 +686,16 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Real strat2 = buoy2(i,j,k);
             Real gls_c3 = (strat2 > zero) ? gls_c3m : gls_c3p;
             Real Kprod = shear2(i,j,k) * (Akv(i,j,k)-Akv_bak) -
-                         strat2 * (Akt(i,j,k,Temp_comp)-Akt_bak);
+                         strat2 * (Akt(i,j,k,Temp_comp)-Akt_bak[Temp_comp]);
             Real Pprod = gls_c1 * shear2(i,j,k) * (Akv(i,j,k)-Akv_bak) -
-                         gls_c3 * strat2 * (Akt(i,j,k,Temp_comp)-Akt_bak);
+                         gls_c3 * strat2 * (Akt(i,j,k,Temp_comp)-Akt_bak[Temp_comp]);
 
             // If negative production terms, then add buoyancy to dissipation terms
             // (BCK and BCP) below, using "cff1" and "cff2" as the on/off switch.
             Real cff1 = (Kprod < zero) ? zero : one;
             Real cff2 = (Pprod < zero) ? zero : one;
-            Kprod = (Kprod < zero) ? Kprod + strat2*(Akt(i,j,k,Temp_comp)-Akt_bak) : Kprod;
-            Pprod = (Pprod < zero) ? Pprod + gls_c3*strat2*(Akt(i,j,k,Temp_comp)-Akt_bak) : Pprod;
+            Kprod = (Kprod < zero) ? Kprod + strat2*(Akt(i,j,k,Temp_comp)-Akt_bak[Temp_comp]) : Kprod;
+            Pprod = (Pprod < zero) ? Pprod + gls_c3*strat2*(Akt(i,j,k,Temp_comp)-Akt_bak[Temp_comp]) : Pprod;
             // Time-step shear and buoyancy production terms.
             Real cff_Hz = Real(0.5) * (Hz(i,j,k) + Hz(i,j,k-1));
             tke(i,j,k,nnew) = tke(i,j,k,nnew)+dt_lev * cff_Hz * Kprod;
@@ -713,14 +723,14 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                           gls_exp_mexp1*cmu_fac2*
                           tke_exp_exp2+
                           dt_lev*(one-cff1)*strat2*
-                          (Akt(i,j,k,Temp_comp)-Akt_bak)/
+                          (Akt(i,j,k,Temp_comp)-Akt_bak[Temp_comp])/
                           tke(i,j,k,nstp))-
                           FCK(i,j,k)-FCK(i,j,k-1);
             BCP(i,j,k)=cff_Hz*(one+dt_lev*gls_c2*wall_fac*
                           gls_exp_mexp1*cmu_fac2*
                           tke_exp_exp2+
                           dt_lev*(one-cff2)*gls_c3*strat2*
-                          (Akt(i,j,k,Temp_comp)-Akt_bak)/
+                          (Akt(i,j,k,Temp_comp)-Akt_bak[Temp_comp])/
                           tke(i,j,k,nstp))-
                           FCP(i,j,k)-FCP(i,j,k-1);
         });
@@ -873,8 +883,8 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Real ql=sqrt2*Real(0.5)*(Ls_lmt*std::sqrt(tke(i,j,k,nnew))+
                                   Lscale(i,j,k)*std::sqrt(tke(i,j,k,nstp)));
             Akv(i,j,k)=Akv_bak+Sm*ql;
-            for (int n=0; n<ncons_local; n++) {
-                Akt(i,j,k,n)=Akt_bak+Sh*ql;
+            for (int n=0; n<NAT; n++) {
+                Akt(i,j,k,n)=Akt_bak[n]+Sh*ql;
             }
 
             //  Compute vertical mixing (m2/s) coefficients of turbulent kinetic
@@ -900,9 +910,9 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             Akp(i,j,N+1)=Akp_bak+Akv(i,j,N+1)*ogls_sigp;
             Akp(i,j,0)=Akp_bak+Akv(i,j,0)/gls_sigp_cb;
 
-            for (int n=0; n<ncons_local; n++) {
-                Akt(i,j,N+1,n)  = Akt_bak;
-                Akt(i,j,0,n) = Akt_bak;
+            for (int n=0; n<NAT; n++) {
+                Akt(i,j,N+1,n)  = Akt_bak[n];
+                Akt(i,j,0,n) = Akt_bak[n];
             }
         });
     }
@@ -911,7 +921,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
         FillPatch(lev, t_old[lev], *mf_tke, GetVecOfPtrs(vec_tke), zvel_bc(), BdyVars::null, icomp, false, false);
         FillPatch(lev, t_old[lev], *mf_gls, GetVecOfPtrs(vec_gls), zvel_bc(), BdyVars::null, icomp, false, false);
     }
-    for (int icomp=0; icomp<ncons; icomp++) {
+    for (int icomp=0; icomp<NAT; icomp++) {
         FillPatch(lev, t_old[lev], *mf_Akt, GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null, icomp, false, false);
     }
     FillPatchNoBC(lev, t_old[lev], *mf_Akv, GetVecOfPtrs(vec_Akv), BdyVars::null);

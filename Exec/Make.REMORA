@@ -1,10 +1,33 @@
 AMREX_HOME      ?= $(REMORA_HOME)/Submodules/AMReX
 
-ifeq ($(USE_FUNWAVE_FORT), TRUE) 
+ifeq ($(USE_FUNWAVE_FORT), TRUE)
 DEFINES += -DREMORA_USE_FUNWAVE_FORT
-BL_NO_FORT = FALSE
-else
+endif
+
+# Fennel biology Fortran bridge (Path A validation oracle). Builds the
+# tracked copy of the ROMS Fennel kernel alongside the native C++ port and
+# selects between them at run time via remora.use_biology_cpp_answer, so
+# comparing the two paths never requires a rebuild.
+ifeq ($(USE_FENNEL_FORT), TRUE)
+DEFINES += -DREMORA_USE_FENNEL_FORT
+endif
+
+# Fennel biology parity diagnostics (the Tier-1 tag emitters). Compiled out by
+# default: the C++ emitters live inside the AMREX_GPU_DEVICE column lambda, so
+# leaving them in costs device printf machinery and closure captures in every
+# production build. Independent of USE_FENNEL_FORT on purpose -- the native
+# kernel carries tag instrumentation whether or not the bridge is built.
+# When enabled, remora.biology_debug still selects verbosity at run time.
+ifeq ($(USE_BIOLOGY_DIAG), TRUE)
+DEFINES += -DREMORA_USE_BIOLOGY_DIAG
+endif
+
 BL_NO_FORT = TRUE
+ifeq ($(USE_FUNWAVE_FORT), TRUE)
+BL_NO_FORT = FALSE
+endif
+ifeq ($(USE_FENNEL_FORT), TRUE)
+BL_NO_FORT = FALSE
 endif
 
 include $(AMREX_HOME)/Tools/GNUMake/Make.defs
@@ -23,6 +46,19 @@ include $(REMORA_SOURCE_DIR)/Make.package
 
 VPATH_LOCATIONS   += $(REMORA_SOURCE_DIR)
 INCLUDE_LOCATIONS += $(REMORA_SOURCE_DIR)
+
+REMORA_BIOLOGY_DIR = $(REMORA_SOURCE_DIR)/Biology
+include $(REMORA_BIOLOGY_DIR)/Make.package
+
+VPATH_LOCATIONS   += $(REMORA_BIOLOGY_DIR)
+INCLUDE_LOCATIONS += $(REMORA_BIOLOGY_DIR)
+
+ifeq ($(USE_FENNEL_FORT), TRUE)
+REMORA_FENNEL_FORT_DIR = $(REMORA_BIOLOGY_DIR)/Fortran
+include $(REMORA_FENNEL_FORT_DIR)/Make.package
+VPATH_LOCATIONS   += $(REMORA_FENNEL_FORT_DIR)
+INCLUDE_LOCATIONS += $(REMORA_FENNEL_FORT_DIR)
+endif
 
 REMORA_TIMEINT_DIR = $(REMORA_SOURCE_DIR)/TimeIntegration
 include $(REMORA_TIMEINT_DIR)/Make.package
