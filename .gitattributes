@@ -1,0 +1,12 @@
+# Keep C++ sources LF-normalized in the repository. Source/REMORA_Coupling.cpp
+# was once committed with CRLF endings (88aae58e3), which made every later diff
+# of it read as a whole-file rewrite. It has since been normalized; this keeps
+# it that way.
+#
+# Deliberately scoped to sources rather than "* text=auto":
+# Docs/sphinx_doc/make.bat legitimately wants CRLF, and the AMReX plotfile gold
+# files under Tests/REMORA_Gold_Files carry a text header over binary payload,
+# which Git's heuristic misreads as text.
+*.cpp text eol=lf
+*.H   text eol=lf
+*.h   text eol=lf

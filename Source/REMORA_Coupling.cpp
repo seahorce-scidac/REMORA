@@ -119,6 +119,20 @@ StagedSourceBoxArray (const amrex::MultiFab& src,
     return BoxArray(std::move(bl));
 }
 
+// fallback_val fills destination cells that no source cell overlaps.
+//
+// Zero is the wrong default for a physical field: the receiving model cannot tell
+// "no data here" from "the ocean says zero", and for an intensive quantity zero is
+// not merely inaccurate, it drives the receiver's flux formulas outside their valid
+// domain. This mirrors the rationale on the atmosphere->ocean twin at
+// ERF/Source/Coupling/ERF_to_REMORA.cpp:122.
+//
+// The ocean->atmosphere SST lane deliberately leaves this at zero and relies on the
+// per-cell coverage flag instead: where REMORA does not cover an ERF cell, ERF keeps
+// its own wrflowinp SST rather than consuming a value invented here. That is a
+// withholding contract, not a value, so no climatological constant belongs at that
+// call site. The parameter exists because the mask blend below needs it and because
+// other lanes have a meaningful value to pass.
 void
 ApplyConservativeRemap (const amrex::MultiFab& src,
                         amrex::MultiFab& dst,
@@ -126,7 +140,8 @@ ApplyConservativeRemap (const amrex::MultiFab& src,
                         const amrex::iMultiFab& index_mf,
                         int max_stencil_size,
                         const amrex::MultiFab* dst_mask = nullptr,
-                        const amrex::iMultiFab* dst_land_mask = nullptr)
+                        const amrex::iMultiFab* dst_land_mask = nullptr,
+                        amrex::Real fallback_val = amrex::Real(0.0))
 {
     using namespace amrex;
 
@@ -149,12 +164,23 @@ ApplyConservativeRemap (const amrex::MultiFab& src,
         auto        dst_arr = dst.array(mfi);
         const bool has_mask = (dst_mask != nullptr);
         auto const& mask_arr = has_mask ? dst_mask->const_array(mfi) : Array4<const Real>{};
-        // ERF land mask: 1 = land, 0 = water. Destination cells over land are
-        // zeroed out (wet/dry masking only, no vector rotation).
+        // ERF land mask: 0 = water, anything non-zero is land. Destination cells
+        // over land are zeroed out (wet/dry masking only, no vector rotation).
         const bool has_land_mask = (dst_land_mask != nullptr);
         auto const& land_arr = has_land_mask ? dst_land_mask->const_array(mfi) : Array4<const int>{};
 
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+            // No stencil entry at all means no source cell overlapped this
+            // destination cell. Hand back the fallback rather than an accumulated
+            // zero, and do not apply the masks to it: a masked-out cell still gets
+            // evaluated by the receiving model's flux formulas before the mask is
+            // applied, so it too must hold an admissible value. Mirrors
+            // ERF/Source/Coupling/ERF_to_REMORA.cpp:174.
+            if (idx_arr(i, j, k, 0) < 0) {
+                dst_arr(i, j, k) = fallback_val;
+                return;
+            }
+
             Real sum = 0.0;
             for (int m = 0; m < max_stencil_size; ++m) {
                 Real w = w_arr(i, j, k, m);
@@ -166,8 +192,23 @@ ApplyConservativeRemap (const amrex::MultiFab& src,
                     sum += w * src_arr(src_i, src_j, src_k);
                 }
             }
-            if (has_mask) { sum *= mask_arr(i, j, k); }
-            if (has_land_mask && land_arr(i, j, k) == 1) { sum = Real(0.0); }
+            // Blend toward the fallback rather than multiplying by the mask.
+            // Multiplying drives partially masked cells toward exactly zero, which
+            // is right for a flux lane (fallback_val = 0, so this reduces to
+            // sum *= mask and is bit-identical) but destructive for an intensive
+            // state lane such as SST, where it scales a temperature toward 0 K.
+            // Mirrors ERF/Source/Coupling/ERF_to_REMORA.cpp:202.
+            if (has_mask) {
+                const Real mask = mask_arr(i, j, k);
+                sum = mask * sum + (Real(1.0) - mask) * fallback_val;
+            }
+            // Test against zero, not against 1: ERF stamps lmask = 2 for cells
+            // under ImmersedForcing buildings (ERF/Source/ERF_MakeNewArrays.cpp:890),
+            // so an == 1 test reads every building as water and hands it a remapped
+            // SST. The driver's atmosphere->ocean side already uses the tolerant
+            // form (ERFRemoraMultiBlockContainer.cpp:1767), so == 1 also made the
+            // two directions disagree about the same cell within one timestep.
+            if (has_land_mask && land_arr(i, j, k) != 0) { sum = Real(0.0); }
             dst_arr(i, j, k) = sum;
         });
     }
