@@ -1,16 +1,16 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: Advection_ML.i
+inputs file: Advection.i
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.000703697
+CPU time used since start of simulation (CPU-hours): 0.000400243
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Fri Aug 21 21:46:56 2026
+output data / time: Fri Aug 21 21:46:12 2026
 output dir:         /home/klion/software/REMORA_codex/Exec/Advection
 
 
@@ -35,11 +35,7 @@ AMReX       git hash: 26.07-55-gd1b9e4ec5
 ===============================================================================
  level: 0
    number of boxes = 1
-   maximum zones   = 80 80 16 
-
- level: 1
-   number of boxes = 1
-   maximum zones   = 160 160 16 
+   maximum zones   = 81 81 16 
 
  Boundary conditions
    -x: Periodic
@@ -60,16 +56,15 @@ amr.do_substep = 0
 amr.grid_eff = 0.69999999999999996
 amr.max_grid_iterations = 4
 amr.max_grid_size = 2048
-amr.max_level = 1
-amr.n_cell = 80 80 16
+amr.max_level = 0
+amr.n_cell = 81 81 16
 amr.n_error_buf = 0
 amr.n_proper = 2
-amr.ref_ratio_vect = 2 2 1
 amr.refine_grid_layout = true
 amr.refine_grid_layout_x = 1
 amr.refine_grid_layout_y = 1
 amr.refine_grid_layout_z = 0
-amr.regrid_int = 1
+amr.regrid_int = 2
 amr.v = 1
 amrex.abort_on_out_of_gpu_memory = false
 amrex.abort_on_unused_inputs = false
@@ -111,7 +106,7 @@ fabarray.comm_tile_size = 1024000 1024000 1024000
 fabarray.mfiter_tile_size = 8 8 1024000
 geometry.coord_sys = 0
 geometry.is_periodic = 1 1 0
-geometry.prob_hi = 40000.0 40000.0 0.0
+geometry.prob_hi = 41000.0 41000.0 0.0
 geometry.prob_lo = 0.0 0.0 -150.0
 max_step = 2147483647
 remora.Akk_bak = 5.0000000000000004e-06
@@ -127,7 +122,7 @@ remora.R0 = 1027.0
 remora.S0 = 35.0
 remora.Scoef = 0.0
 remora.T0 = 14.0
-remora.Tcoef = 0.0
+remora.Tcoef = 1.7e-4
 remora.Zob = 0.02
 remora.Zos = 0.02
 remora.air_humidity = 0.77600000000000002
@@ -171,11 +166,11 @@ remora.eminusp = false
 remora.eminusp_correct_ssh = false
 remora.eminusp_type = "computed"
 remora.eos_type = "linear"
-remora.expand_plotvars_to_unif_rr = 1
+remora.expand_plotvars_to_unif_rr = false
 remora.file_min_digits = 5
-remora.fixed_dt = 100.0
-remora.fixed_fast_dt = -1.0
-remora.fixed_ndtfast_ratio = 10
+remora.fixed_dt = 300.0
+remora.fixed_fast_dt = 10.0
+remora.fixed_ndtfast_ratio = 30
 remora.flat_bathymetry = true
 remora.gls_stability_type = "Canuto_A"
 remora.grid_scale_type = "constant"
@@ -198,7 +193,7 @@ remora.m2nudg = 0.0
 remora.m3nudg = 0.0
 remora.mask_type = "none"
 remora.max_step = 10
-remora.n_cell = 80 80 16
+remora.n_cell = 81 81 16
 remora.nscalar = 1
 remora.obcfac = 0.0
 remora.output_forcing = false
@@ -208,28 +203,23 @@ remora.plot_int = 100
 remora.plot_int_time = -1.0
 remora.plot_vars_3d = salt temp tracer x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
-remora.prob.u_0 = 1.0e-0
-remora.prob.v_0 = -1.0e-0
-remora.prob_hi = 40000. 40000. 0.
+remora.prob.u_0 = 1.0e-1
+remora.prob.v_0 = -1.0e-1
+remora.prob_hi = 41000. 41000. 0.
 remora.prob_lo = 0. 0. -150.
 remora.prob_name = Advection
 remora.qair_is_percent = false
 remora.qair_type = "constant"
 remora.rain = 0.0
 remora.rain_type = "constant"
-remora.rdrag = 0.0
+remora.rdrag = 0.00029999999999999997
 remora.rdrag2 = 0.0030000000000000001
-remora.refinement_indicators = scalar
 remora.rho0 = 1025.0
-remora.scalar.field_name = tracer
-remora.scalar.max_level = 1
-remora.scalar.start_time = 200
-remora.scalar.value_greater = 0.5
 remora.scaled_to_grid_amr_scaling = "none"
 remora.smflux_type = "analytic"
 remora.spatial_order(nvals = 1)  :: [2]
 remora.start_time = 0.0
-remora.stop_time = 300000.0
+remora.stop_time = 30000.0
 remora.sum_interval = 10
 remora.sum_period = -1.0
 remora.surface_radiation_flux = 0.0
@@ -244,7 +234,7 @@ remora.tnu2_scalar = 0.0
 remora.tnu2_temp = 0.0
 remora.tnu2_tracer = 0.0
 remora.tnudg = 0.0
-remora.tracer_horizontal_advection_scheme = "centered4"
+remora.tracer_horizontal_advection_scheme = "upstream3"
 remora.use_barotropic = true
 remora.use_coriolis = false
 remora.use_curvilinear_grid = false

@@ -41,7 +41,6 @@ remora.plotfile_type = amrex
 # SOLVER CHOICE
 remora.flat_bathymetry = false
 remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
-remora.spatial_order = 2
 
 # Linear EOS parameters
 remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State

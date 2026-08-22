@@ -44,7 +44,6 @@ remora.plotfile_type = amrex
 # SOLVER CHOICE
 remora.flat_bathymetry = false
 remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
-remora.spatial_order = 2
 
 remora.Zob = 0.02
 remora.Zos = 0.02

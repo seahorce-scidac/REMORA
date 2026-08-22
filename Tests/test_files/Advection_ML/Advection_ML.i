@@ -46,7 +46,6 @@ remora.use_coriolis = false
 remora.flat_bathymetry=true
 remora.use_barotropic=true
 remora.tracer_horizontal_advection_scheme = "centered4" # upstream3 or centered4
-remora.spatial_order = 2
 
 # Linear EOS parameters
 remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
