@@ -407,10 +407,7 @@ REMORA::advance_2d (int lev,
         //  step is Leap-frog and the corrector step is Adams-Moulton.
         //
 
-        // todo: gzeta
-
-        // todo: HACKHACKHACK Should use rho0 from prob.H
-        Real fac=Real(1000.0)/Real(1025.0);
+        Real fac=Real(1000.0)/solverChoice.rho0;
 
         if (my_iif==0) {
             Real cff1=dtfast_lev;
