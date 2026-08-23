@@ -665,8 +665,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_yp[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
     if (solverChoice.use_curvilinear_grid) {
-        vec_dndx[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
-        vec_dmde[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+        vec_dndx[lev].reset(new MultiFab(convert(ba2d,IntVect(0,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+        vec_dmde[lev].reset(new MultiFab(convert(ba2d,IntVect(0,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
     }
 
     // tempstore, saltstore, etc
@@ -917,7 +917,7 @@ REMORA::set_curvilinear_terms_from_grid_scale (int lev) {
         ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             dndx(i,j,0) = Real(0.5) * (one / pn(i+1,j  ,0) - one / pn(i-1,j  ,0));
-            dmde(i,j,0) = Real(0.5) * (one / pm(i  ,j+1,0) - one / pn(i  ,j-1,0));
+            dmde(i,j,0) = Real(0.5) * (one / pm(i  ,j+1,0) - one / pm(i  ,j-1,0));
         });
     }
 }
