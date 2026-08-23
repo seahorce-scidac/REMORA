@@ -41,15 +41,20 @@ bool QueryNetCDFVarAttrStr (const std::string& fname,
                             const std::string& var_name,
                             const std::string& attr_name)
 {
-    bool has_var;
+    int has_var = 0;
     auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
     ncmpi_begin_indep_data(ncf.ncid);
     if (amrex::ParallelDescriptor::IOProcessor())
     {
-        has_var = ncf.var(var_name).has_attr(attr_name);
+        if (!ncf.has_var(var_name)) {
+            amrex::Print() << "Trying to check for attribute " << attr_name << " from variable " << var_name << " that does not exist!" << std::endl;
+        }
+        has_var = ncf.var(var_name).has_attr(attr_name) ? 1 : 0;
     }
     ncf.close();
-    return has_var;
+    int ioproc = amrex::ParallelDescriptor::IOProcessorNumber();
+    amrex::ParallelDescriptor::Bcast(&has_var, 1, ioproc);
+    return (has_var != 0);
 }
 
 /**
