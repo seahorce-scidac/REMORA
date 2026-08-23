@@ -83,9 +83,9 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
         tmp_plot_names.push_back("z_cc");
     }
 
-    for (int i = 0; i < derived_names.size(); ++i) {
-        if ( containerHasElement(plot_var_names_3d, derived_names[i]) ) {
-               tmp_plot_names.push_back(derived_names[i]);
+    for (int i = 0; i < derived_names_3d.size(); ++i) {
+        if ( containerHasElement(plot_var_names_3d, derived_names_3d[i]) ) {
+               tmp_plot_names.push_back(derived_names_3d[i]);
         } // if
     } // i
 
@@ -168,9 +168,9 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
     if (containerHasElement(plot_var_names_2d, "svstr")) tmp_plot_names.push_back("svstr");
     if (containerHasElement(plot_var_names_2d, "bvstr")) tmp_plot_names.push_back("bvstr");
 
-    for (int i = 0; i < derived_names.size(); ++i) {
-        if ( containerHasElement(plot_var_names_2d, derived_names[i]) ) {
-               tmp_plot_names.push_back(derived_names[i]);
+    for (int i = 0; i < derived_names_2d.size(); ++i) {
+        if ( containerHasElement(plot_var_names_2d, derived_names_2d[i]) ) {
+               tmp_plot_names.push_back(derived_names_2d[i]);
         } // if
     } // i
 
