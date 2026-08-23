@@ -665,8 +665,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_yp[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
     if (solverChoice.use_curvilinear_grid) {
-        vec_dndx[lev].reset(new MultiFab(convert(ba2d,IntVect(0,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
-        vec_dmde[lev].reset(new MultiFab(convert(ba2d,IntVect(0,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+        vec_dndx[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
+        vec_dmde[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW,NGROW,0)));
     }
 
     // tempstore, saltstore, etc
