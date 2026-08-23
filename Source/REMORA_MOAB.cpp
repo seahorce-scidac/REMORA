@@ -36,6 +36,7 @@ REMORA::InitMOABMesh()
     int num_vertices   = (nx+1)*(ny+1)*(nz+1);
     int num_cells = nx * ny * nz;
 
+    // NOTE:
     std::vector<double> coords(3*num_cells);// just the center of cells?
     long unsigned goffset = 0;
     long unsigned glen    = 0;
@@ -45,12 +46,15 @@ REMORA::InitMOABMesh()
         if (subdomain.contains(box)) {
             RealBox gridloc = RealBox(grids[lev][i], geom[lev].CellSize(), geom[lev].ProbLo());
 
+            // These were originally not offset by 0.5, but were to make it cell centers.
+            // Before using this, should confirm what MOAB expects the vertex locations to be.
+            // Also should note that this assumes a regular x,y,z grid where points match AMReX logical grid
             for (auto k1 = 0; k1 < grids[lev][i].length(0); ++k1) {
                 for (auto k2 = 0; k2 < grids[lev][i].length(1); ++k2) {
                     for (auto k3 = 0; k3 < grids[lev][i].length(2); ++k3) {
-                        coords[3*icell] = gridloc.lo(0)+geom[lev].CellSize(0)*static_cast<Real>(k1);
-                        coords[3*icell+1] = gridloc.lo(1)+geom[lev].CellSize(1)*static_cast<Real>(k2);
-                        coords[3*icell+2] = gridloc.lo(2)+geom[lev].CellSize(2)*static_cast<Real>(k3);
+                        coords[3*icell] = gridloc.lo(0)+geom[lev].CellSize(0)*(static_cast<Real>(k1)+Real(0.5));
+                        coords[3*icell+1] = gridloc.lo(1)+geom[lev].CellSize(1)*(static_cast<Real>(k2)+Real(0.5));
+                        coords[3*icell+2] = gridloc.lo(2)+geom[lev].CellSize(2)*(static_cast<Real>(k3)+Real(0.5));
                         icell++;
                     }
                 }
