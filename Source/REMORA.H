@@ -1686,8 +1686,10 @@ private:
     /** \brief Names of scalars for plotfile output */
     amrex::Vector<std::string> cons_names {"temp", "salt", "tracer"};
     // Note that the order of variable names here must match the order in PlotFile.cpp
-    /** \brief Names of derived fields for plotfiles */
-    const amrex::Vector<std::string> derived_names {"vorticity"};
+    /** \brief Names of derived fields for 3d plotfile fields */
+    const amrex::Vector<std::string> derived_names_3d {"vorticity"};
+    /** \brief Names of derived fields for 2d plotfile fields */
+    const amrex::Vector<std::string> derived_names_2d {};
 
     /** \brief Container for algorithmic choices */
     static SolverChoice solverChoice;
