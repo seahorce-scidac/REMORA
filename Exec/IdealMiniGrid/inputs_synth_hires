@@ -14,7 +14,7 @@
 
 remora.prob_name = IdealMiniGrid
 
-remora.max_step = 10
+remora.max_step = 100
 
 # PROBLEM SIZE & GEOMETRY
 # dx = dy = 512 m at level 0, matching the generator's default, so pm = 1/512 exactly.
@@ -31,7 +31,7 @@ remora.bc.ylo.type = "outflow"
 remora.bc.yhi.type = "outflow"
 
 # TIME STEP CONTROL
-remora.fixed_dt            = 10.0
+remora.fixed_dt            = 1.0
 remora.fixed_ndtfast_ratio = 10
 
 # REFINEMENT
