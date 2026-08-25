@@ -831,16 +831,16 @@ REMORA::set_grid_scale (int lev)
             int rrx = ref_ratio[lev-1][0];
             int rry = ref_ratio[lev-1][1];
             // pm and pn need to be rescaled by the refinement ratio
-            for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+            for ( MFIter mfi(*vec_pm[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
             {
                 Array4<Real> const& pm   = vec_pm[lev]->array(mfi);
                 Array4<Real> const& pn   = vec_pn[lev]->array(mfi);
                 Box ubx = mfi.growntilebox(IntVect(NGROW+1,NGROW+2,0));
                 Box vbx = mfi.growntilebox(IntVect(NGROW+2,NGROW+1,0));
-                ParallelFor(makeSlab(ubx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+                ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
                     pm(i,j,0) = pm(i,j,0) * (rrx);
                 });
-                ParallelFor(makeSlab(vbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+                ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int ) {
                     pn(i,j,0) = pn(i,j,0) * (rry);
                 });
             }
@@ -881,19 +881,19 @@ REMORA::set_grid_coords_from_grid_scale (int lev) {
             yr(i,j,0) = (j + Real(0.5)) / pn(i,j,0);
         });
 
-        ParallelFor(grow(convert(bx,IntVect(1,0,0)),IntVect(-1,0,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(mfi.tilebox(IntVect(1,0,0),IntVect(NGROW,NGROW,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             xu(i,j,0) = i / pm(i,j,0);
             yu(i,j,0) = (j + Real(0.5)) / pn(i,j,0);
         });
 
-        ParallelFor(grow(convert(bx,IntVect(0,1,0)),IntVect(0,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(mfi.tilebox(IntVect(0,1,0),IntVect(NGROW,NGROW,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             xv(i,j,0) = (i + Real(0.5)) / pm(i,j,0);
             yv(i,j,0) = j / pn(i,j,0);
         });
 
-        ParallelFor(grow(convert(bx,IntVect(1,1,0)),IntVect(-1,-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        ParallelFor(mfi.tilebox(IntVect(1,1,0),IntVect(NGROW,NGROW,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             xp(i,j,0) = i / pm(i,j,0);
             yp(i,j,0) = j / pn(i,j,0);

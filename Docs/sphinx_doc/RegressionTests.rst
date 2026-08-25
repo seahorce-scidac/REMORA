@@ -242,10 +242,10 @@ Based on :ref:`Advection<advection>`:
 |                                        |              |                  |                   | advection: upstream 3rd order    |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
-Based on the ``BioToy`` problem in ``Exec/BioToy``, a small doubly periodic box initialized and forced
-from NetCDF, which always includes PnetCDF, Coriolis, non-flat bathymetry, GLS mixing scheme, a nonlinear
-equation of state, quadratic bottom stress, bulk fluxes from NetCDF surface forcing, and the Fennel biology
-model with carbon, denitrification, and bottom-sediment fluxes:
+Based on :ref:`BioToy<biotoy>`, a small doubly periodic box initialized and forced from NetCDF, which
+always includes PnetCDF, Coriolis, non-flat bathymetry, GLS mixing scheme, a nonlinear equation of state,
+quadratic bottom stress, bulk fluxes from NetCDF surface forcing, and the Fennel biology model with
+carbon, denitrification, and bottom-sediment fluxes:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
@@ -298,18 +298,6 @@ Based on :ref:`Channel Test<channeltest>`, which always includes Coriois, GLS mi
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ChannelTestOrlanski                    | 20 60 50     | Radiation        | Radiation         | MPI                              |
-+----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ChannelTestOrlanski-OMP                | 20 60 50     | Radiation        | Radiation         | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-+----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ChannelTestOrlanski-OMP-1grid-xy       | 20 60 50     | Radiation        | Radiation         | OpenMP                           |
-|                                        |              |                  |                   |                                  |
-+----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ChannelTestOrlanski-xy-restart         | 20 60 50     | Radiation        | Radiation         | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | restart                          |
-+----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
 Based on :ref:`Dogbone<dogbone>`, which always includes PnetCDF and land-sea masking:
 
@@ -330,10 +318,10 @@ Based on :ref:`Dogbone<dogbone>`, which always includes PnetCDF and land-sea mas
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
 
 
-Based on ``DogboneAnalytic``, the analytically initialized version of :ref:`Dogbone<dogbone>` described in
-``Exec/DogboneAnalytic/README.rst``, which always includes land-sea masking, non-flat bathymetry, quadratic
-bottom stress, and one refined level at ratio 3. ``MLquad`` refines a fixed lower-left quadrant of the
-domain, while ``MLvel`` regrids on the cells where the absolute x-velocity exceeds 0.05:
+Based on :ref:`DogboneAnalytic<dogboneanalytic>`, the analytically initialized version of
+:ref:`Dogbone<dogbone>`, which always includes land-sea masking, non-flat bathymetry, quadratic bottom
+stress, and one refined level at ratio 3. ``MLquad`` refines a fixed lower-left quadrant of the domain,
+while ``MLvel`` regrids on the cells where the absolute x-velocity exceeds 0.05:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
@@ -892,10 +880,10 @@ Based on :ref:`Advection<advection>`:
 |                                        |              |                  |                   | advection: upstream 3rd order    |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
-Based on the ``BioToy`` problem in ``Exec/BioToy``, a small doubly periodic box initialized and forced
-from NetCDF, which always includes PnetCDF, Coriolis, non-flat bathymetry, GLS mixing scheme, a nonlinear
-equation of state, quadratic bottom stress, bulk fluxes from NetCDF surface forcing, and the Fennel biology
-model with carbon, denitrification, and bottom-sediment fluxes:
+Based on :ref:`BioToy<biotoy>`, a small doubly periodic box initialized and forced from NetCDF, which
+always includes PnetCDF, Coriolis, non-flat bathymetry, GLS mixing scheme, a nonlinear equation of state,
+quadratic bottom stress, bulk fluxes from NetCDF surface forcing, and the Fennel biology model with
+carbon, denitrification, and bottom-sediment fluxes:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
@@ -911,8 +899,8 @@ model with carbon, denitrification, and bottom-sediment fluxes:
 
 Based on :ref:`Boundary Layer<boundarylayer>`, which always includes Coriolis, GLS mixing scheme, non-flat
 bathymetry, quadratic bottom stress, bulk fluxes, cloud cover, and evaporation/precipitation with sea
-surface height correction. This problem is sensitive enough on GPU that its comparison tolerance is
-loosened to ``2e-5``:
+surface height correction. This problem is sensitive enough on GPU that its comparison
+tolerance is loosened to ``2e-5``:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
@@ -959,10 +947,10 @@ Based on :ref:`Dogbone<dogbone>`, which always includes PnetCDF and land-sea mas
 +----------------------------------------+--------------+------------------+-------------------+-------------+
 
 
-Based on ``DogboneAnalytic``, the analytically initialized version of :ref:`Dogbone<dogbone>` described in
-``Exec/DogboneAnalytic/README.rst``, which always includes land-sea masking, non-flat bathymetry, quadratic
-bottom stress, and one refined level at ratio 3. ``MLquad`` refines a fixed lower-left quadrant of the
-domain, while ``MLvel`` regrids on the cells where the absolute x-velocity exceeds 0.05:
+Based on :ref:`DogboneAnalytic<dogboneanalytic>`, the analytically initialized version of
+:ref:`Dogbone<dogbone>`, which always includes land-sea masking, non-flat bathymetry, quadratic bottom
+stress, and one refined level at ratio 3. ``MLquad`` refines a fixed lower-left quadrant of the domain,
+while ``MLvel`` regrids on the cells where the absolute x-velocity exceeds 0.05:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
