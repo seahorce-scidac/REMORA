@@ -237,9 +237,50 @@ Based on :ref:`Advection<advection>`:
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | multilevel                       |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| Advection-U3-xy                        | 81 81 16     | Periodic         | Periodic          | MPI                              |
+| AdvectionU3-xy                         | 81 81 16     | Periodic         | Periodic          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | advection: upstream 3rd order    |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`BioToy<biotoy>`, a small doubly periodic box initialized and forced from NetCDF, which
+always includes PnetCDF, Coriolis, non-flat bathymetry, GLS mixing scheme, a nonlinear equation of state,
+quadratic bottom stress, bulk fluxes from NetCDF surface forcing, and the Fennel biology model with
+carbon, denitrification, and bottom-sediment fluxes:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| BioToy                                 | 4 4 30       | Periodic         | Periodic          | MPI                              |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| BioToy-1grid                           | 4 4 30       | Periodic         | Periodic          |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| BioToy-restart                         | 4 4 30       | Periodic         | Periodic          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Boundary Layer<boundarylayer>`, which always includes Coriolis, GLS mixing scheme, non-flat
+bathymetry, quadratic bottom stress, bulk fluxes, cloud cover, and evaporation/precipitation with sea
+surface height correction:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| BoundaryLayer                          | 39 4 30      | Radiation        | Periodic          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              | / outflow        |                   |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| BoundaryLayer-OMP                      | 39 4 30      | Radiation        | Periodic          | MPI + OpenMP                     |
+|                                        |              |                  |                   |                                  |
+|                                        |              | / outflow        |                   |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| BoundaryLayer-OMP-1grid                | 39 4 30      | Radiation        | Periodic          | OpenMP                           |
+|                                        |              |                  |                   |                                  |
+|                                        |              | / outflow        |                   |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| BoundaryLayer-restart                  | 39 4 30      | Radiation        | Periodic          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              | / outflow        |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
 Based on :ref:`Channel Test<channeltest>`, which always includes Coriois, GLS mixing scheme, and non-flat bathymetry:
@@ -254,18 +295,6 @@ Based on :ref:`Channel Test<channeltest>`, which always includes Coriois, GLS mi
 | ChannelTest-OMP-1grid-xy               | 20 60 50     | Periodic         | SlipWall          | OpenMP                           |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | ChannelTest-xy-restart                 | 20 60 50     | Periodic         | SlipWall          | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-|                                        |              |                  |                   | restart                          |
-+----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ChannelTestOrlanski                    | 20 60 50     | Radiation        | Radiation         | MPI                              |
-+----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ChannelTestOrlanski-OMP                | 20 60 50     | Radiation        | Radiation         | MPI + OpenMP                     |
-|                                        |              |                  |                   |                                  |
-+----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ChannelTestOrlanski-OMP-1grid-xy       | 20 60 50     | Radiation        | Radiation         | OpenMP                           |
-|                                        |              |                  |                   |                                  |
-+----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ChannelTestOrlanski-xy-restart         | 20 60 50     | Radiation        | Radiation         | MPI + OpenMP                     |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
@@ -289,6 +318,55 @@ Based on :ref:`Dogbone<dogbone>`, which always includes PnetCDF and land-sea mas
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
 
 
+Based on :ref:`DogboneAnalytic<dogboneanalytic>`, the analytically initialized version of
+:ref:`Dogbone<dogbone>`, which always includes land-sea masking, non-flat bathymetry, quadratic bottom
+stress, and one refined level at ratio 3. ``MLquad`` refines a fixed lower-left quadrant of the domain,
+while ``MLvel`` regrids on the cells where the absolute x-velocity exceeds 0.05:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| DogboneAnalytic_MLquad                 | 42 15 16     | SlipWall         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | static multilevel                |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLquad-1grid           | 42 15 16     | SlipWall         | SlipWall          | static multilevel                |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLquad-OMP             | 42 15 16     | SlipWall         | SlipWall          | MPI + OpenMP                     |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | static multilevel                |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLquad-OMP-1grid       | 42 15 16     | SlipWall         | SlipWall          | OpenMP                           |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | static multilevel                |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLquad-restart         | 42 15 16     | SlipWall         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | static multilevel                |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLvel                  | 42 15 16     | SlipWall         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | dynamic multilevel               |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLvel-1grid            | 42 15 16     | SlipWall         | SlipWall          | dynamic multilevel               |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLvel-OMP              | 42 15 16     | SlipWall         | SlipWall          | MPI + OpenMP                     |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | dynamic multilevel               |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLvel-OMP-1grid        | 42 15 16     | SlipWall         | SlipWall          | OpenMP                           |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | dynamic multilevel               |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLvel-restart          | 42 15 16     | SlipWall         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | dynamic multilevel               |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
 Based on :ref:`Double Gyre<doublegyre>`, which always includes Coriolis:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
@@ -300,7 +378,7 @@ Based on :ref:`Double Gyre<doublegyre>`, which always includes Coriolis:
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | DoubleGyre-OMP-1grid-xy                | 54 108 4     | SlipWall         | SlipWall          | OpenMP                           |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| DoubleGyre-OMP-xy-restart              | 54 108 4     | SlipWall         | SlipWall          | MPI + OpenMP                     |
+| DoubleGyre-xy-restart                  | 54 108 4     | SlipWall         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
@@ -438,6 +516,30 @@ Based on :ref:`Ideal Mini Grid<idealminigrid>`, which always includes Coriolis a
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}_synth_hires                         | 10 10 4      | Outflow          | Outflow           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | multilevel (ratio 3)                 |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | high-resolution grid and IC          |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | no Coriolis                          |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}_synth_hires-1grid                   | 10 10 4      | Outflow          | Outflow           | multilevel (ratio 3)                 |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | high-resolution grid and IC          |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | no Coriolis                          |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}_synth_hires-restart                 | 10 10 4      | Outflow          | Outflow           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | multilevel (ratio 3)                 |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | high-resolution grid and IC          |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | no Coriolis                          |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | restart                              |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
 | {}Mask                                 | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | Vary salt at boundary                |
@@ -473,6 +575,12 @@ Based on :ref:`Ideal Mini Grid<idealminigrid>`, which always includes Coriolis a
 |                                        |              |                  |                   | land-sea masking                     |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
 | {}Mask-EWWall-OMP                      | 10 16 20     | SlipWall         | Clamped           | MPI + OpenMP                         |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | Vary salt at boundary                |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | land-sea masking                     |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}Mask-NSWall-OMP                      | 10 16 20     | Clamped          | SlipWall          | MPI + OpenMP                         |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | Vary salt at boundary                |
 |                                        |              |                  |                   |                                      |
@@ -618,9 +726,9 @@ Based on :ref:`Particles Over Seamount<particlesseamount>`, which always include
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
 +========================================+==============+==================+===================+==================================+
-| ParticlesOverSeamount                  | 41 80 16     | Periodic         | Periodic          |                                  |
+| ParticlesOverSeaMount                  | 41 80 16     | Periodic         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ParticlesOverSeamount-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
+| ParticlesOverSeaMount-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
 Based on :ref:`Seamount<seamount-desc>`, which always includes Coriolis and non-flat bathymetry:
@@ -678,11 +786,17 @@ Based on :ref:`Upwelling<upwelling-desc>`, which always includes Coriolis and no
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling64-OMP                        | 328 320 64   | SlipWall         | Periodic          | MPI + OpenMP, large problem      |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| Upwelling64-OMP                        | 328 320 64   | SlipWall         | Periodic          | MPI + OpenMP, large problem      |
-+----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | UpwellingC4                            | 41 80 16     | Periodic         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | advection: centered 4th order    |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling_GeopotentialMixing           | 41 80 16     | Periodic         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | constant horizontal mixing       |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | harmonic tracer diffusion        |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | rotated along geopotential       |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling_GLS                          | 41 80 16     | Periodic         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
@@ -705,6 +819,32 @@ Based on :ref:`Upwelling<upwelling-desc>`, which always includes Coriolis and no
 |                                        |              |                  |                   | GLS mixing scheme                |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | Canuto B stability               |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Upwelling<upwelling-desc>` with the Fennel biology model, which always includes Coriolis,
+non-flat bathymetry, bulk fluxes, and analytically initialized Fennel biology. The tests without ``hires``
+additionally enable carbon, oxygen, river DON, non-conservative alkalinity, a dated atmospheric pCO2, and
+Wanninkhof (2014) gas transfer. The ``hires`` tests instead add one refined level at ratio 3, with the
+level-0 bathymetry averaged down from it:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| Upwelling-Fennel                       | 41 80 16     | Periodic         | SlipWall          | MPI                              |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-Fennel-1grid                 | 41 80 16     | Periodic         | SlipWall          |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-Fennel-hires                 | 41 80 16     | Periodic         | SlipWall          | MPI                              |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-Fennel-hires-1grid           | 41 80 16     | Periodic         | SlipWall          |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-fennel-hires-restart         | 41 80 16     | Periodic         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-fennel-restart               | 41 80 16     | Periodic         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
 Nightly Regression Tests on GPU
@@ -735,9 +875,47 @@ Based on :ref:`Advection<advection>`:
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| Advection-U3-xy                        | 81 81 16     | Periodic         | Periodic          | MPI                              |
+| AdvectionU3-xy                         | 81 81 16     | Periodic         | Periodic          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | advection: upstream 3rd order    |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`BioToy<biotoy>`, a small doubly periodic box initialized and forced from NetCDF, which
+always includes PnetCDF, Coriolis, non-flat bathymetry, GLS mixing scheme, a nonlinear equation of state,
+quadratic bottom stress, bulk fluxes from NetCDF surface forcing, and the Fennel biology model with
+carbon, denitrification, and bottom-sediment fluxes:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| BioToy                                 | 4 4 30       | Periodic         | Periodic          | MPI                              |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| BioToy-1grid                           | 4 4 30       | Periodic         | Periodic          |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| BioToy-restart                         | 4 4 30       | Periodic         | Periodic          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+
+Based on :ref:`Boundary Layer<boundarylayer>`, which always includes Coriolis, GLS mixing scheme, non-flat
+bathymetry, quadratic bottom stress, bulk fluxes, cloud cover, and evaporation/precipitation with sea
+surface height correction. This problem is sensitive enough on GPU that its comparison
+tolerance is loosened to ``2e-5``:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| BoundaryLayer-1grid-xy                 | 39 4 30      | Radiation        | Periodic          |                                  |
+|                                        |              |                  |                   |                                  |
+|                                        |              | / outflow        |                   |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| BoundaryLayer-xy                       | 39 4 30      | Radiation        | Periodic          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              | / outflow        |                   |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| BoundaryLayer-xy-restart               | 39 4 30      | Radiation        | Periodic          | restart                          |
+|                                        |              |                  |                   |                                  |
+|                                        |              | / outflow        |                   |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
 Based on :ref:`Channel Test<channeltest>`, which always includes Coriolis, GLS mixing scheme, and non-flat bathymetry:
@@ -768,6 +946,39 @@ Based on :ref:`Dogbone<dogbone>`, which always includes PnetCDF and land-sea mas
 |                                        |              |                  |                   | restart     |
 +----------------------------------------+--------------+------------------+-------------------+-------------+
 
+
+Based on :ref:`DogboneAnalytic<dogboneanalytic>`, the analytically initialized version of
+:ref:`Dogbone<dogbone>`, which always includes land-sea masking, non-flat bathymetry, quadratic bottom
+stress, and one refined level at ratio 3. ``MLquad`` refines a fixed lower-left quadrant of the domain,
+while ``MLvel`` regrids on the cells where the absolute x-velocity exceeds 0.05:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| DogboneAnalytic_MLquad                 | 42 15 16     | SlipWall         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | static multilevel                |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLquad-1grid           | 42 15 16     | SlipWall         | SlipWall          | static multilevel                |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLquad-restart         | 42 15 16     | SlipWall         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | static multilevel                |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLvel                  | 42 15 16     | SlipWall         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | dynamic multilevel               |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLvel-1grid            | 42 15 16     | SlipWall         | SlipWall          | dynamic multilevel               |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| DogboneAnalytic_MLvel-restart          | 42 15 16     | SlipWall         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | dynamic multilevel               |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
 Based on :ref:`Double Gyre<doublegyre>`, which always includes Coriolis:
 
@@ -865,6 +1076,30 @@ Based on :ref:`Ideal Mini Grid<idealminigrid>`, which always includes Coriolis a
 | {}-restart                             | 10 16 20     | Clamped          | Clamped           | MPI                                  |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | Vary salt at boundary                |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | restart                              |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}_synth_hires                         | 10 10 4      | Outflow          | Outflow           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | multilevel (ratio 3)                 |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | high-resolution grid and IC          |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | no Coriolis                          |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}_synth_hires-1grid                   | 10 10 4      | Outflow          | Outflow           | multilevel (ratio 3)                 |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | high-resolution grid and IC          |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | no Coriolis                          |
++----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
+| {}_synth_hires-restart                 | 10 10 4      | Outflow          | Outflow           | MPI                                  |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | multilevel (ratio 3)                 |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | high-resolution grid and IC          |
+|                                        |              |                  |                   |                                      |
+|                                        |              |                  |                   | no Coriolis                          |
 |                                        |              |                  |                   |                                      |
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
@@ -1022,9 +1257,9 @@ Based on :ref:`Particles Over Seamount<particlesseamount>`, which always include
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
 +========================================+==============+==================+===================+==================================+
-| ParticlesOverSeamount                  | 41 80 16     | Periodic         | Periodic          |                                  |
+| ParticlesOverSeaMount                  | 41 80 16     | Periodic         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ParticlesOverSeamount-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
+| ParticlesOverSeaMount-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
 Based on :ref:`Seamount<seamount-desc>`, which always includes Coriolis and non-flat bathymetry:
@@ -1070,6 +1305,14 @@ Based on :ref:`Upwelling<upwelling-desc>`, which always includes Coriolis and no
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | advection: centered 4th order    |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-GeopotentialMixing           | 41 80 16     | Periodic         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | constant horizontal mixing       |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | harmonic tracer diffusion        |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | rotated along geopotential       |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Upwelling_GLS                          | 41 80 16     | Periodic         | SlipWall          | MPI                              |
 |                                        |              |                  |                   |                                  |
 |                                        |              |                  |                   | GLS mixing scheme                |
@@ -1093,3 +1336,28 @@ Based on :ref:`Upwelling<upwelling-desc>`, which always includes Coriolis and no
 |                                        |              |                  |                   | Canuto B stability               |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
+Based on :ref:`Upwelling<upwelling-desc>` with the Fennel biology model, which always includes Coriolis,
+non-flat bathymetry, bulk fluxes, and analytically initialized Fennel biology. The tests without ``hires``
+additionally enable carbon, oxygen, river DON, non-conservative alkalinity, a dated atmospheric pCO2, and
+Wanninkhof (2014) gas transfer. The ``hires`` tests instead add one refined level at ratio 3, with the
+level-0 bathymetry averaged down from it:
+
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
++========================================+==============+==================+===================+==================================+
+| Upwelling-Fennel                       | 41 80 16     | Periodic         | SlipWall          | MPI                              |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-Fennel-1grid                 | 41 80 16     | Periodic         | SlipWall          |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-Fennel-hires                 | 41 80 16     | Periodic         | SlipWall          | MPI                              |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-Fennel-hires-1grid           | 41 80 16     | Periodic         | SlipWall          |                                  |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-Fennel-hires-restart         | 41 80 16     | Periodic         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+
+| Upwelling-Fennel-restart               | 41 80 16     | Periodic         | SlipWall          | MPI                              |
+|                                        |              |                  |                   |                                  |
+|                                        |              |                  |                   | restart                          |
++----------------------------------------+--------------+------------------+-------------------+----------------------------------+

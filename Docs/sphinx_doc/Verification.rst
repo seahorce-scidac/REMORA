@@ -15,6 +15,13 @@ Advection
 
 .. include:: ../../Exec/Advection/README
 
+.. _biotoy:
+
+BioToy
+------
+
+.. include:: ../../Exec/BioToy/README.rst
+
 .. _boundarylayer:
 
 Boundary Layer
@@ -35,6 +42,13 @@ Dogbone
 -----------
 
 .. include:: ../../Exec/Dogbone/README.rst
+
+.. _dogboneanalytic:
+
+DogboneAnalytic
+---------------
+
+.. include:: ../../Exec/DogboneAnalytic/README.rst
 
 .. _doublegyre:
 
