@@ -2012,6 +2012,12 @@ REMORA::ReadParameters ()
                      "remora.biology_ic_type = analytic (or follow) instead.");
     }
 
+#ifndef REMORA_USE_NETCDF
+    if (solverChoice.ic_type == IC_Type::netcdf) {
+        amrex::Abort("Please compile with NetCDF in order to use remora.ic_type = netcdf");
+    }
+#endif
+
     // NOTE: This feature is not yet implemented because it will require passing x,y,z to prob functions.
     // Currently these are accessed by passing a pointer to the REMORA class. However, this requires the
     // coordinates at hires_init_level to already exist (and specifically for the hires_init_level level
