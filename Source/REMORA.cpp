@@ -1202,33 +1202,6 @@ REMORA::set_surface_state (int lev)
             amrex::Abort("Reached set_surface_state() but variables have already been specified from driver!");
         }
     }
-//    const bool driver_has_uwind = driver_atmos_state_from_driver[AtmosState::Uwind];
-//    const bool driver_has_vwind = driver_atmos_state_from_driver[AtmosState::Vwind];
-//
-//    const bool use_analytic_uwind = bulk_flux_type[BulkFlux::Uwind] == BulkForcingType::analytic &&
-//                                    !driver_has_uwind;
-//    const bool use_analytic_vwind = bulk_flux_type[BulkFlux::Vwind] == BulkForcingType::analytic &&
-//                                    !driver_has_vwind;
-//
-//    if (use_analytic_uwind || use_analytic_vwind) {
-//        std::unique_ptr<MultiFab> tmp_uwind;
-//        std::unique_ptr<MultiFab> tmp_vwind;
-//        MultiFab* analytic_uwind = vec_uwind[lev].get();
-//        MultiFab* analytic_vwind = vec_vwind[lev].get();
-//
-//        if (!use_analytic_uwind) {
-//            tmp_uwind.reset(new MultiFab(vec_uwind[lev]->boxArray(), vec_uwind[lev]->DistributionMap(),
-//                                         1, vec_uwind[lev]->nGrowVect()));
-//            analytic_uwind = tmp_uwind.get();
-//        }
-//        if (!use_analytic_vwind) {
-//            tmp_vwind.reset(new MultiFab(vec_vwind[lev]->boxArray(), vec_vwind[lev]->DistributionMap(),
-//                                         1, vec_vwind[lev]->nGrowVect()));
-//            analytic_vwind = tmp_vwind.get();
-//        }
-//
-//        prob->init_analytic_wind(lev, geom[lev], solverChoice, *this, *analytic_uwind, *analytic_vwind);
-//    }
 
 #ifdef REMORA_USE_NETCDF
     auto update_from_netcdf = [&](std::unique_ptr<NCTimeSeries>& data_from_file,
@@ -1304,11 +1277,32 @@ REMORA::set_surface_state (int lev)
         analytic_Tair != nullptr || analytic_qair != nullptr || analytic_Pair != nullptr ||
         analytic_srflx != nullptr || analytic_lwrad != nullptr || analytic_rain != nullptr ||
         analytic_cloud != nullptr || analytic_EminusP != nullptr) {
+        // Every field has to be passed to init_analytic_surface_var, but only the
+        // analytic ones may be modified: the others hold constant or NetCDF data that is
+        // set once at level creation or interpolated just above. Hand the non-analytic
+        // slots scratch data that is thrown away on return, so the problem code can write
+        // to all ten references unconditionally without clobbering anything.
+        Vector<std::unique_ptr<MultiFab>> scratch_mf;
+        auto analytic_or_scratch = [&] (MultiFab* mf_analytic,
+                                        const std::unique_ptr<MultiFab>& mf_lev) -> MultiFab&
+        {
+            if (mf_analytic != nullptr) { return *mf_analytic; }
+            scratch_mf.emplace_back(new MultiFab(mf_lev->boxArray(), mf_lev->DistributionMap(),
+                                                 mf_lev->nComp(), mf_lev->nGrowVect()));
+            return *scratch_mf.back();
+        };
+
         prob->init_analytic_surface_var(lev, geom[lev], solverChoice, *this,
-                                        *analytic_uwind, *analytic_vwind,
-                                        *analytic_Tair, *analytic_qair, *analytic_Pair,
-                                        *analytic_srflx, *analytic_lwrad, *analytic_rain,
-                                        *analytic_cloud, *analytic_EminusP);
+                                        analytic_or_scratch(analytic_uwind, vec_uwind[lev]),
+                                        analytic_or_scratch(analytic_vwind, vec_vwind[lev]),
+                                        analytic_or_scratch(analytic_Tair, vec_Tair[lev]),
+                                        analytic_or_scratch(analytic_qair, vec_qair[lev]),
+                                        analytic_or_scratch(analytic_Pair, vec_Pair[lev]),
+                                        analytic_or_scratch(analytic_srflx, vec_srflx[lev]),
+                                        analytic_or_scratch(analytic_lwrad, vec_longwave_down[lev]),
+                                        analytic_or_scratch(analytic_rain, vec_rain[lev]),
+                                        analytic_or_scratch(analytic_cloud, vec_cloud[lev]),
+                                        analytic_or_scratch(analytic_EminusP, vec_EminusP[lev]));
     }
 
     if (vec_uwind[lev] != nullptr) { vec_uwind[lev]->FillBoundary(geom[lev].periodicity()); }
