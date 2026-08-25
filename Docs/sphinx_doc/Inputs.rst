@@ -784,21 +784,29 @@ List of Parameters
 |                                          |                                        |                        |                |
 |                                          | Coriolis param                         |                        |                |
 |                                          |                                        |                        |                |
-|                                          | :math:`f = f_0 + \beta y`              |                        |                |
+|                                          | :math:`f = f_0 + \beta (y - y_c)`      |                        |                |
 |                                          |                                        |                        |                |
-|                                          | when using beta plane                  |                        |                |
+|                                          | when using beta plane Coriolis         |                        |                |
 |                                          |                                        |                        |                |
-|                                          | Coriolis type                          |                        |                |
+|                                          | type. :math:`y` is measured from       |                        |                |
+|                                          |                                        |                        |                |
+|                                          | the southern domain boundary,          |                        |                |
+|                                          |                                        |                        |                |
+|                                          | :math:`y_c` is the domain center       |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.coriolis_beta**                 | beta-plane constant for                | Real number            | 0.0            |
 |                                          |                                        |                        |                |
 |                                          | Coriolis param                         |                        |                |
 |                                          |                                        |                        |                |
-|                                          | :math:`f = f_0 + \beta y`              |                        |                |
+|                                          | :math:`f = f_0 + \beta (y - y_c)`      |                        |                |
 |                                          |                                        |                        |                |
-|                                          | when using beta plane                  |                        |                |
+|                                          | when using beta plane Coriolis         |                        |                |
 |                                          |                                        |                        |                |
-|                                          | Coriolis type                          |                        |                |
+|                                          | type. :math:`y` is measured from       |                        |                |
+|                                          |                                        |                        |                |
+|                                          | the southern domain boundary,          |                        |                |
+|                                          |                                        |                        |                |
+|                                          | :math:`y_c` is the domain center       |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.horizontal_mixing_type**        | Horizontal mixing type.                | ``analytic`` /         | ``analytic``   |
 |                                          |                                        |                        |                |

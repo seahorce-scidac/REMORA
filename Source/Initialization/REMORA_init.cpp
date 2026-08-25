@@ -119,18 +119,22 @@ REMORA::init_beta_plane_coriolis (int lev)
 #endif
     for (MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-        Box bx = mfi.growntilebox(IntVect(NGROW+1,NGROW+1,0));
+        // Valid region only, since vec_yr's ghost cells aren't all filled. set_coriolis
+        // FillPatches vec_fcor with foextrap right after this, as for coriolis_type = netcdf.
+        Box bx = mfi.tilebox();
         auto fcor_arr = (mf_fcor)->array(mfi);
+        auto yr_arr = vec_yr[lev]->const_array(mfi);
         Real coriolis_f0 = solverChoice.coriolis_f0;
         Real coriolis_beta = solverChoice.coriolis_beta;
+        // Units: yr is metric (1/pn, or y_rho from the grid file), so beta_plane assumes
+        // prob_lo/prob_hi are too. A domain given in degrees would silently mix the two.
         Real Esize = geomdata.ProbHi()[1] - geomdata.ProbLo()[1];
-        Real prob_lo = geomdata.ProbLo()[1];
-        Real dx = geomdata.CellSize()[1];
 
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int )
+        ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real y = prob_lo + (j + Real(0.5)) * dx;
-            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (y - Real(0.5) * Esize);
+            // yr is measured from the southern edge of the domain (ROMS ana_grid convention), so
+            // f is coriolis_f0 at mid-domain. Adding prob_lo back would shift f by beta*prob_lo.
+            fcor_arr(i,j,0) = coriolis_f0 + coriolis_beta * (yr_arr(i,j,0) - Real(0.5) * Esize);
         });
     } //mfi
 
