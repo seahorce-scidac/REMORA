@@ -32,7 +32,7 @@ remora.bc.yhi.type = slipwall     # North
 remora.boundary_per_variable = 0
 
 # Inflow values for the western face, keyed by variable name since a side covers all of them.
-# "value" is the shared keyword for the tracers past salt, here the dye alone.
+# Every tracer is named outright; there is no keyword covering "the rest".
 #
 # ylo carries the same velocity entry as xlo: per-variable mode has one entry per variable serving
 # every Dirichlet face of it, so the southern noslipwall face there sees this value too. Stating
@@ -40,7 +40,7 @@ remora.boundary_per_variable = 0
 # nonzero, so agreement means more than "both defaulted to zero".
 remora.bc.xlo.temp     = 8.0
 remora.bc.xlo.salt     = 35.5
-remora.bc.xlo.value    = 1.0
+remora.bc.xlo.tracer   = 1.0
 remora.bc.xlo.velocity = 0.1 0. 0.
 remora.bc.ylo.velocity = 0.1 0. 0.
 

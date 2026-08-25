@@ -90,7 +90,7 @@ remora.atm2ocn_flux_mode = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.bc.bcid.type = slipwall
 
-# source: Source/Initialization/REMORA_init_bcs.cpp:252
+# source: Source/Initialization/REMORA_init_bcs.cpp:249
 # type=std::vector<std::string>; method=queryarr
 remora.bc.varname.type = outflow outflow outflow outflow
 
@@ -1785,10 +1785,6 @@ stop_time = <UNKNOWN_DEFAULT>
 # The second constructor is generally used by other classes in the code.  It permits access to the table via a large collection of query functions. Both constructors have an optional prefix argument that narrows the search to entries in the table with the same prefix.  For example, let PlanR be a
 # type=std::vector<T>; method=get
 val = <REQUIRED>
-
-# Value a tracer takes on an inflow face: keyed by the tracer's own name under a side prefix (remora.bc.xlo.temp), and by "value" under a variable prefix.
-# type=Real; method=query
-value = <UNKNOWN_DEFAULT>
 
 # Velocity components at the face, one per dimension. Required on an inflow face; optional on a no-slip wall, where leaving it out keeps the zero default. The normal component is zeroed either way, so only tangential values take effect.
 # type=std::vector<Real>; method=getarr

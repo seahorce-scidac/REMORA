@@ -89,17 +89,14 @@ void REMORA::init_bcs ()
                 pp.getarr("velocity", v, 0, AMREX_SPACEDIM);
                 m_bc_extdir_vals[bcvar_type][ori] = v[bcvar_type - xvel_bc_idx];
             } else if (uses_tracer_input(bcvar_type)) {
-                // A side covers every tracer at once, so it keys by name; a variable prefix names
-                // one already, so the bare keyword serves. Under a side prefix that keyword is
-                // the shared entry for the tracers past salt -- the fallback just below.
+                // A side covers every tracer, so each is named outright and there is no keyword
+                // standing in for "the rest": a value always says which tracer it is for. A
+                // variable prefix names one already, so the bare keyword serves there.
                 std::string const value_key = prefix_is_side ? bcvar_names[bcvar_type] : "value";
                 Real tracer_in = zero;
                 // Value a tracer takes on an inflow face: keyed by the tracer's own name under a
                 // side prefix (remora.bc.xlo.temp), and by "value" under a variable prefix.
                 bool have_value = pp.query(value_key, tracer_in);
-                if (!have_value && prefix_is_side && bcvar_type >= Tracer_comp) {
-                    have_value = pp.query("value", tracer_in);
-                }
                 // Without a value the ext_dir fill would write the placeholder below into the
                 // ghost cells. Velocity inflow already insists on one: the getarr above aborts.
                 if (!have_value) {

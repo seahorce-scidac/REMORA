@@ -240,13 +240,14 @@ As an example,
     remora.bc.xlo.velocity            =   1. 0.9  0.
     remora.bc.xlo.temp                =   15.
     remora.bc.xlo.salt                =   35.
-    remora.bc.xlo.value               =   2.
+    remora.bc.xlo.tracer              =   2.
 
 sets the boundary condition type at the low x face to be an inflow with xlo.type = “Inflow”.
 The velocity components take their value from ``velocity``; each tracer takes one keyed by its
-own name, with ``value`` the shared keyword for the tracers past salt. A tracer named outright
-takes precedence. ``ubar``, ``vbar``, ``zeta`` and ``tke`` have no input of their own and are
-given zero.
+own name. There is no keyword standing in for "the remaining tracers": a side covers all of
+them, so every tracer the run carries -- ``temp``, ``salt``, each dye, each biology tracer --
+needs its own entry on an inflow face, and a value always says which tracer it is for.
+``ubar``, ``vbar``, ``zeta`` and ``tke`` have no input of their own and are given zero.
 
 Because ``ubar`` and ``vbar`` are among those, an inflow face carries no barotropic normal
 velocity, and the barotropic correction holds the net volume flux through the face near zero
@@ -254,13 +255,16 @@ whatever ``velocity`` says. Tracers still enter such a face by horizontal diffus
 inflow values above are what they diffuse from, but ``inflow`` cannot presently be used to drive
 a prescribed advective transport through the boundary.
 
-In per-variable mode the prefix already names the variable, so the keyword sits under it --
+In per-variable mode the prefix already names the variable, so ``value`` sits under it --
 ``remora.bc.temp.value``, ``remora.bc.NO3.value``, ``remora.bc.u.velocity`` -- and applies to
-whichever of that variable's sides are inflow.
+whichever of that variable's sides are inflow. A tracer that takes its condition from the shared
+``remora.bc.scalar.type`` reads ``remora.bc.scalar.value`` along with it; give a tracer its own
+``.type`` to give it its own value.
 
-``value`` is the only spelling for a tracer inflow value; there is no ``scalar`` keyword for it.
-Earlier versions read ``scalar`` under a side prefix for the tracers past salt, and never read
-anything at all for temperature or salinity, so no configuration that ran correctly used it.
+``value`` is read only under a variable prefix, and there is no ``scalar`` keyword for a tracer
+inflow value at all. Earlier versions read ``scalar`` under a side prefix for the tracers past
+salt, and read nothing for temperature or salinity, so no configuration that ran correctly
+used it.
 
 An inflow face missing a tracer value stops the run at setup, naming the input it wants, as a
 missing ``velocity`` always has. There is no default: what a missing entry used to leave behind
