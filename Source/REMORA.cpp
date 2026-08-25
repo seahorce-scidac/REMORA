@@ -491,6 +491,7 @@ REMORA::InitData ()
         last_check_file_step = 0;
     }
 
+    // plot_file_on_restart currently always 1
     if ( (restart_chkfile == "") ||
          (restart_chkfile != "" && plot_file_on_restart) )
     {
@@ -507,7 +508,11 @@ REMORA::InitData ()
         sum_integrated_quantities(t_new[0]);
     }
 
-    ComputeDt();
+    // dt is read from checkpoint on restart so it only needs to be computed if
+    // not restarting
+    if (restart_chkfile == "") {
+        ComputeDt();
+    }
 
 }
 
@@ -618,6 +623,10 @@ REMORA::restart ()
 
     // We set this here so that we don't over-write the checkpoint file we just started from
     last_check_file_step = istep[0];
+    // last_plot_file_step will be updated when plotfile is unconditionally written after restart
+
+    last_plot_file_time  = t_new[0];
+    last_check_file_time = t_new[0];
 }
 
 /**
