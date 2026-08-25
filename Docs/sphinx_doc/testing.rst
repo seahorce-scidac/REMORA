@@ -110,6 +110,15 @@ say the baseline was right, and it cannot notice a feature that has silently sto
     needed, since ``fcompare`` aborts outright on a level-count mismatch and a bare disagreement test would
     then pass for the wrong reason.
 
+``add_test_equiv``
+    Two inputs in one test directory, describing the same configuration by different routes, must agree.
+    Neither run is a baseline, so a translation layer is covered without a gold file blessed by the code
+    under test, and neither route can drift alone. The second input needs a different plotfile prefix,
+    since both runs share a working directory. Agreement is blind to a value that both routes read wrongly
+    in the same way -- two runs that each ignore an input agree perfectly -- so trailing
+    ``<tol> <var> <min> <max> ...`` arguments add a ``check_extrema.sh`` assertion on the first run's
+    plotfile, pinning the magnitude of whatever must not go degenerate.
+
 ``add_test_extrema``
     Assert a variable's min and max against values known from outside REMORA -- a closed-form reference, or
     a constant an initial condition must reproduce. Takes any number of ``<var> <min> <max>`` triples after

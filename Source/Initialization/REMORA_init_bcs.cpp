@@ -46,12 +46,17 @@ void REMORA::init_bcs ()
         return bcvar_type == xvel_bc_idx || bcvar_type == yvel_bc_idx || bcvar_type == zvel_bc_idx;
     };
 
-    auto uses_scalar_input = [this] (int bcvar_type) noexcept {
-        return bcvar_type >= Tracer_comp && bcvar_type < ncons;
+    // Every tracer takes an inflow value; Tracer_comp starts the tracers past salt, not the tracers.
+    auto uses_tracer_input = [this] (int bcvar_type) noexcept {
+        return bcvar_type >= BCVars::cons_bc && bcvar_type < BCVars::cons_bc + ncons;
     };
 
-    auto f_set_var_bc = [this, uses_velocity_input, uses_scalar_input, xvel_bc_idx, zeta_bc_idx, ubar_bc_idx, vbar_bc_idx, bcvar_names]
-        (ParmParse& pp, int bcvar_type, Orientation ori, const std::string& bc_type_string) {
+    // prefix_is_side: pp is prefixed by a side (remora.bc.xlo), not a variable (remora.bc.temp),
+    // which decides how a value under it is keyed. Not set_bcs_by_var -- the z faces take the
+    // side form in both modes.
+    auto f_set_var_bc = [this, uses_velocity_input, uses_tracer_input, xvel_bc_idx, zeta_bc_idx, ubar_bc_idx, vbar_bc_idx, bcvar_names]
+        (ParmParse& pp, int bcvar_type, Orientation ori, const std::string& bc_type_string,
+         bool prefix_is_side) {
         // A side keyword means the same thing for every variable it covers: no tracer,
         // dye or biology, is quietly given a different condition than the one asked
         // for. A file-driven side therefore expects boundary data for each tracer the
@@ -83,11 +88,25 @@ void REMORA::init_bcs ()
                 std::vector<Real> v;
                 pp.getarr("velocity", v, 0, AMREX_SPACEDIM);
                 m_bc_extdir_vals[bcvar_type][ori] = v[bcvar_type - xvel_bc_idx];
-            } else if (uses_scalar_input(bcvar_type)) {
-                Real scalar_in = zero;
-                if (pp.queryAdd("scalar", scalar_in)) {
-                    m_bc_extdir_vals[bcvar_type][ori] = scalar_in;
+            } else if (uses_tracer_input(bcvar_type)) {
+                // A side covers every tracer at once, so it keys by name; a variable prefix names
+                // one already, so the bare keyword serves. Under a side prefix that keyword is
+                // the shared entry for the tracers past salt -- the fallback just below.
+                std::string const value_key = prefix_is_side ? bcvar_names[bcvar_type] : "value";
+                Real tracer_in = zero;
+                // Value a tracer takes on an inflow face: keyed by the tracer's own name under a
+                // side prefix (remora.bc.xlo.temp), and by "value" under a variable prefix.
+                bool have_value = pp.query(value_key, tracer_in);
+                if (!have_value && prefix_is_side && bcvar_type >= Tracer_comp) {
+                    have_value = pp.query("value", tracer_in);
                 }
+                // Without a value the ext_dir fill would write the placeholder below into the
+                // ghost cells. Velocity inflow already insists on one: the getarr above aborts.
+                if (!have_value) {
+                    amrex::Abort("Inflow boundary for " + bcvar_names[bcvar_type] +
+                                 " needs an inflow value: set " + pp.prefixedName(value_key));
+                }
+                m_bc_extdir_vals[bcvar_type][ori] = tracer_in;
             }
         }
         else if (bc_type_string == "noslipwall")
@@ -99,8 +118,9 @@ void REMORA::init_bcs ()
             if (uses_velocity_input(bcvar_type)) {
                 std::vector<Real> v;
 
-                // The values of m_bc_extdir_vals default to 0.
-                // But if we find "velocity" in the inputs file, use those values instead.
+                // Velocity components at the face, one per dimension. Required on an inflow face;
+                // optional on a no-slip wall, where leaving it out keeps the zero default. The
+                // normal component is zeroed either way, so only tangential values take effect.
                 if (pp.queryarr("velocity", v, 0, AMREX_SPACEDIM))
                 {
                     v[ori.coordDir()] = zero;
@@ -200,14 +220,14 @@ void REMORA::init_bcs ()
         std::string bc_type = amrex::toLower(bc_type_in);
 
         for (int icomp = 0; icomp < num_bc_vars(); ++icomp) {
-            f_set_var_bc(pp, icomp, ori, bc_type);
+            f_set_var_bc(pp, icomp, ori, bc_type, true);
         }
     };
 
     auto f_by_var = [this, &f_set_var_bc, zvel_bc_idx] (std::string const& varname, int bcvar_type,
                                                         std::string const& fallback_varname = "")
     {
-        amrex::Vector<Orientation> orientations = {Orientation(Direction::x,Orientation::low), Orientation(Direction::y,Orientation::high),Orientation(Direction::x,Orientation::high),Orientation(Direction::y,Orientation::low)}; // west, south, east, north [matches ROMS]
+        amrex::Vector<Orientation> orientations = {Orientation(Direction::x,Orientation::low), Orientation(Direction::y,Orientation::low),Orientation(Direction::x,Orientation::high),Orientation(Direction::y,Orientation::high)}; // west, south, east, north [matches ROMS]
         std::vector<std::string> bc_types = {"null","null","null","null"};
 
         // Additional scalars are addressable by their own name, but fall back to the
@@ -234,7 +254,7 @@ void REMORA::init_bcs ()
         for (int i=0; i<4; i++) {
             std::string bc_type = amrex::toLower(bc_types[i]);
             auto ori = orientations[i];
-            f_set_var_bc(pp, bcvar_type, ori, bc_type);
+            f_set_var_bc(pp, bcvar_type, ori, bc_type, false);
         }
     };
 
@@ -252,7 +272,8 @@ void REMORA::init_bcs ()
 
     for (OrientationIter oit; oit; ++oit) {
         Orientation ori = oit();
-        // These are simply defaults for Dirichlet faces -- they should be over-written below if needed
+        // These are simply defaults for Dirichlet faces -- they should be over-written below if needed.
+        // Tracers reach ext_dir only through inflow, which now aborts without a value.
         m_bc_extdir_vals[BCVars::Temp_bc_comp  ][ori] = Real(1.e19);
         m_bc_extdir_vals[BCVars::Salt_bc_comp  ][ori] = Real(1.e20);
         for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {
