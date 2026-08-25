@@ -27,7 +27,6 @@
 #include <AMReX_MemProfiler.H>
 #endif
 
-#include <REMORA_Math.H>
 #include <REMORA_PhysBCFunct.H>
 #include <REMORA_FillPatcher.H>
 
