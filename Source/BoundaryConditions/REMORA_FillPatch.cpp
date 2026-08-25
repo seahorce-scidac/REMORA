@@ -593,16 +593,39 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
 
 }
 
+namespace {
 /**
- * @param[in   ] lev    level to fill at
- * @param[in   ] lev    MultiFab of cell-centered velocities
+ * Sign for reflecting one cell-centered velocity component into a ghost cell.
+ * The normal velocity vanishes at a wall or symmetry plane; only a no-slip wall
+ * zeroes the tangential ones too. Anything else copies the adjacent valid cell.
+ *
+ * @param[in   ] bc        physical BC type for that component on that face
+ * @param[in   ] is_normal whether the component is normal to the face
+ */
+Real
+cc_vel_bdy_mult (REMORA_BC bc, bool is_normal)
+{
+    if (is_normal) {
+        return ( (bc == REMORA_BC::slip_wall   ) ||
+                 (bc == REMORA_BC::no_slip_wall) ||
+                 (bc == REMORA_BC::symmetry    ) ) ? -one : one;
+    }
+    return (bc == REMORA_BC::no_slip_wall) ? -one : one;
+}
+} // namespace
+
+/**
+ * Fill boundary ghost cells for cell-centered velocities. Each component takes
+ * the sign implied by its own BC, which with remora.boundary_per_variable can
+ * differ between u, v and w on one face.
+ *
+ * @param[in   ] lev        level to fill at
+ * @param[inout] mf_cc_vel  MultiFab of cell-centered velocities
  */
 void
 REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
 {
     // Impose bc's at domain boundaries
-//    for (int lev = 0; lev <= finest_level; ++lev)
-//    {
     Box domain(Geom(lev).Domain());
 
     int ihi = domain.bigEnd(0);
@@ -611,6 +634,19 @@ REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
 
     // Impose periodicity first
     mf_cc_vel.FillBoundary(geom[lev].periodicity());
+
+    // Sign multipliers per face, per velocity component
+    GpuArray<GpuArray<Real,AMREX_SPACEDIM>,AMREX_SPACEDIM*2> mult;
+    for (OrientationIter oit; oit; ++oit) {
+        Orientation ori = oit();
+        for (int n = 0; n < AMREX_SPACEDIM; ++n) {
+            mult[ori][n] = cc_vel_bdy_mult(phys_bc_type[xvel_bc()+n][ori],
+                                           n == ori.coordDir());
+        }
+    }
+
+    // Callers pass different ghost widths (the plotfile ones carry none in z)
+    const IntVect ng = mf_cc_vel.nGrowVect();
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -622,72 +658,76 @@ REMORA::FillBdyCCVels (int lev, MultiFab& mf_cc_vel)
         const Box& bx = mfi.tilebox();
         const Array4<Real>& vel_arr = mf_cc_vel.array(mfi);
 
-        if (!Geom(lev).isPeriodic(0)) {
+        if (!Geom(lev).isPeriodic(0) && ng[0] > 0) {
             // Low-x side
             if (bx.smallEnd(0) <= domain.smallEnd(0)) {
-                Real mult = (phys_bc_type[xvel_bc()][0] == REMORA_BC::no_slip_wall) ? -one : one;
+                auto const m = mult[Orientation(Direction::x,Orientation::low)];
                 ParallelFor(makeSlab(bx,0,0), [=] AMREX_GPU_DEVICE(int , int j, int k) noexcept
                 {
-                    vel_arr(-1,j,k,1) = mult*vel_arr(0,j,k,1); // v
-                    vel_arr(-1,j,k,2) = mult*vel_arr(0,j,k,2); // w
+                    vel_arr(-1,j,k,0) = m[0]*vel_arr(0,j,k,0); // u
+                    vel_arr(-1,j,k,1) = m[1]*vel_arr(0,j,k,1); // v
+                    vel_arr(-1,j,k,2) = m[2]*vel_arr(0,j,k,2); // w
                 });
             }
 
             // High-x side
             if (bx.bigEnd(0) >= domain.bigEnd(0)) {
-                Real mult = (phys_bc_type[xvel_bc()][3] == REMORA_BC::no_slip_wall) ? -one : one;
+                auto const m = mult[Orientation(Direction::x,Orientation::high)];
                 ParallelFor(makeSlab(bx,0,0), [=] AMREX_GPU_DEVICE(int , int j, int k) noexcept
                 {
-                    vel_arr(ihi+1,j,k,1) = mult*vel_arr(ihi,j,k,1); // v
-                    vel_arr(ihi+1,j,k,2) = mult*vel_arr(ihi,j,k,2); // w
+                    vel_arr(ihi+1,j,k,0) = m[0]*vel_arr(ihi,j,k,0); // u
+                    vel_arr(ihi+1,j,k,1) = m[1]*vel_arr(ihi,j,k,1); // v
+                    vel_arr(ihi+1,j,k,2) = m[2]*vel_arr(ihi,j,k,2); // w
                 });
             }
         } // !periodic
 
-        if (!Geom(lev).isPeriodic(1)) {
+        if (!Geom(lev).isPeriodic(1) && ng[1] > 0) {
             // Low-y side
             if (bx.smallEnd(1) <= domain.smallEnd(1)) {
-                Real mult = (phys_bc_type[yvel_bc()][1] == REMORA_BC::no_slip_wall) ? -one : one;
+                auto const m = mult[Orientation(Direction::y,Orientation::low)];
                 ParallelFor(makeSlab(bx,1,0), [=] AMREX_GPU_DEVICE(int i, int  , int k) noexcept
                 {
-                    vel_arr(i,-1,k,0) = mult*vel_arr(i,0,k,0); // u
-                    vel_arr(i,-1,k,2) = mult*vel_arr(i,0,k,2); // w
+                    vel_arr(i,-1,k,0) = m[0]*vel_arr(i,0,k,0); // u
+                    vel_arr(i,-1,k,1) = m[1]*vel_arr(i,0,k,1); // v
+                    vel_arr(i,-1,k,2) = m[2]*vel_arr(i,0,k,2); // w
                 });
             }
 
             // High-y side
             if (bx.bigEnd(1) >= domain.bigEnd(1)) {
-                Real mult = (phys_bc_type[yvel_bc()][4] == REMORA_BC::no_slip_wall) ? -one : one;
+                auto const m = mult[Orientation(Direction::y,Orientation::high)];
                 ParallelFor(makeSlab(bx,1,0), [=] AMREX_GPU_DEVICE(int i, int , int k) noexcept
                 {
-                    vel_arr(i,jhi+1,k,0) = mult*vel_arr(i,jhi,k,0); // u
-                    vel_arr(i,jhi+1,k,2) = mult*-vel_arr(i,jhi,k,2); // w
+                    vel_arr(i,jhi+1,k,0) = m[0]*vel_arr(i,jhi,k,0); // u
+                    vel_arr(i,jhi+1,k,1) = m[1]*vel_arr(i,jhi,k,1); // v
+                    vel_arr(i,jhi+1,k,2) = m[2]*vel_arr(i,jhi,k,2); // w
                 });
             }
         } // !periodic
 
-        if (!Geom(lev).isPeriodic(2)) {
+        if (!Geom(lev).isPeriodic(2) && ng[2] > 0) {
             // Low-z side
             if (bx.smallEnd(2) <= domain.smallEnd(2)) {
-                Real mult = (phys_bc_type[zvel_bc()][2] == REMORA_BC::no_slip_wall) ? -one : one;
+                auto const m = mult[Orientation(Direction::z,Orientation::low)];
                 ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE(int i, int j, int) noexcept
                 {
-                    vel_arr(i,j,-1,0) = mult*vel_arr(i,j,0,0); // u
-                    vel_arr(i,j,-1,1) = mult*vel_arr(i,j,0,1); // v
+                    vel_arr(i,j,-1,0) = m[0]*vel_arr(i,j,0,0); // u
+                    vel_arr(i,j,-1,1) = m[1]*vel_arr(i,j,0,1); // v
+                    vel_arr(i,j,-1,2) = m[2]*vel_arr(i,j,0,2); // w
                 });
             }
 
             // High-z side
             if (bx.bigEnd(2) >= domain.bigEnd(2)) {
-                Real mult = (phys_bc_type[zvel_bc()][5] == REMORA_BC::no_slip_wall) ? -one : one;
+                auto const m = mult[Orientation(Direction::z,Orientation::high)];
                 ParallelFor(makeSlab(bx,2,0), [=] AMREX_GPU_DEVICE(int i, int j, int) noexcept
                 {
-                    vel_arr(i,j,khi+1,0) = mult*vel_arr(i,j,khi,0); // u
-                    vel_arr(i,j,khi+1,1) = mult*vel_arr(i,j,khi,1); // v
+                    vel_arr(i,j,khi+1,0) = m[0]*vel_arr(i,j,khi,0); // u
+                    vel_arr(i,j,khi+1,1) = m[1]*vel_arr(i,j,khi,1); // v
+                    vel_arr(i,j,khi+1,2) = m[2]*vel_arr(i,j,khi,2); // w
                 });
             }
         } // !periodic
     } // MFIter
-
-//    } // lev
 }

@@ -147,11 +147,15 @@ REMORA::WritePlotFile (int istep_for_plot)
 
         for (int lev = 0; lev <= finest_level; ++lev) {
             mf_cc_vel[lev].define(grids[lev], dmap[lev], AMREX_SPACEDIM, IntVect(1,1,0));
-            mf_cc_vel[lev].setVal(zero); // zero out velocity in case we have any wall boundaries
+            mf_cc_vel[lev].setVal(zero); // FillBdyCCVels below leaves corners alone
             average_face_to_cellcenter(mf_cc_vel[lev],0,
                                        Array<const MultiFab*,3>{xvel_new[lev],yvel_new[lev],zvel_new[lev]},IntVect(1,1,0));
             mf_cc_vel[lev].FillBoundary(geom[lev].periodicity());
         } // lev
+
+        // Fill level 0 before the interpolation below carries its ghost cells onto
+        // the finer levels. Matches the fill the vorticity tagging criterion uses.
+        FillBdyCCVels(0, mf_cc_vel[0]);
 
         // We need ghost cells if computing vorticity
         amrex::Interpolater* mapper = &cell_cons_interp;
@@ -167,6 +171,9 @@ REMORA::WritePlotFile (int istep_for_plot)
                                           t_new[lev], cmf, ctime, fmf, ftime,
                                           0, 0, mf_cc_vel[lev].nComp(), geom[lev-1], geom[lev],
                                           refRatio(lev-1), mapper, domain_bcs_type, foextrap_bc());
+
+                // Redo the reflections foextrap just overwrote at the domain boundary
+                FillBdyCCVels(lev, mf_cc_vel[lev]);
             } // lev
         } // if
     } // if
