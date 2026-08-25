@@ -142,6 +142,42 @@ function(add_test_r_differ TEST_NAME TEST_EXE PLTFILE OTHER_GOLD)
     )
 endfunction(add_test_r_differ)
 
+# Two inputs describing the SAME configuration by different routes must agree. Neither run is a
+# baseline, so a translation layer -- per-side against per-variable boundary specification -- is
+# covered without a gold file blessed by the code under test, and neither route can drift alone.
+# OTHER_INPUT.i sits beside TEST_NAME.i and must use a different plotfile prefix.
+#
+# Agreement alone cannot catch a value that both routes read wrongly in the SAME way: two runs
+# that each ignore an input agree perfectly. Extra arguments, "<tol> <var> <min> <max> ...", add
+# a check_extrema.sh assertion on TEST_NAME's plotfile, to pin the magnitude of something that
+# must not go degenerate. Pick <tol> loose enough to read as an order-of-magnitude claim rather
+# than a blessed digit string.
+function(add_test_equiv TEST_NAME OTHER_INPUT TEST_EXE PLTFILE OTHER_PLTFILE)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(FCOMPARE_TOLERANCE "-r 1e-11 --abs_tol 1.0e-11")
+    set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
+    set(EXTREMA_CLAUSE "")
+    if(NOT "${ARGN}" STREQUAL "")
+        string(REPLACE ";" " " EXTREMA_ARGS "${ARGN}")
+        set(EXTREMA_CLAUSE " && ${CMAKE_CURRENT_SOURCE_DIR}/check_extrema.sh ${FEXTREMA_EXE} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE} ${EXTREMA_ARGS}")
+    endif()
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i > ${TEST_NAME}.log && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${OTHER_INPUT}.i > ${OTHER_INPUT}.log && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${CURRENT_TEST_BINARY_DIR}/${OTHER_PLTFILE} ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}${EXTREMA_CLAUSE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log;${CURRENT_TEST_BINARY_DIR}/${OTHER_INPUT}.log"
+    )
+endfunction(add_test_equiv)
+
 # Test that a misconfigured input aborts, and aborts for the stated reason. The run must exit
 # nonzero AND the log must carry the message, so a successful run, a different abort, and a
 # segfault all fail. Deliberately not WILL_FAIL (which any nonzero exit satisfies) and not
@@ -289,6 +325,30 @@ add_test_abort(Seamount_hires_grid_max_abort  "remora_exec" "hires_grid_level mu
 add_test_abort(Seamount_hires_init_max_abort  "remora_exec" "hires_init_level must be less than or equal to amr.max_level")
 add_test_abort(Seamount_hires_grid_zero_abort "remora_exec" "hires_grid_level must be greater than 0")
 add_test_abort(Seamount_hires_flat_abort      "remora_exec" "flat_bathymetry is incompatible with hires_grid_level")
+
+#=============================================================================
+# Boundary conditions
+#
+# BC_per_variable states four conditions as one West South East North list and must land them on
+# the right faces; BC_per_side names each face outright and cannot get the order wrong.
+#
+# The y pairing is pinned by the VELOCITY conditions: for cell-centered tracers, and for zeta and
+# tke, noslipwall and slipwall both map to foextrap, so South and North are indistinguishable in
+# those fields. Only xvel/yvel and ubar/vbar tell them apart -- no_slip_wall gives ext_dir on both
+# components, slip_wall foextrap tangential and ext_dir normal. Swapping in conditions that look
+# equally distinct but agree for the velocities would silently blind this lane.
+#
+# The dye is zero in the initial condition and enters only through the western inflow value, so it
+# is nonzero only if that value was read. Agreement alone cannot assert that -- two runs that both
+# ignored the value would agree at zero -- so the extrema clause pins its magnitude. The tolerance
+# is deliberately loose: the claim is "order 0.1, and certainly not zero", not a blessed digit
+# string. Entry is by horizontal diffusion; see BC_per_variable.i on why it is not advective.
+#=============================================================================
+
+add_test_equiv(BC_per_variable BC_per_side "remora_exec" "plt00010" "plt_side00010"
+               0.05 tracer 0.0 0.127)
+
+add_test_abort(BC_inflow_no_value "remora_exec" "needs an inflow value")
 
 #=============================================================================
 # Performance tests

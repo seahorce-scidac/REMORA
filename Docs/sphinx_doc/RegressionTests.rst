@@ -206,6 +206,52 @@ constant is unchanged by averaging, so the expected level-0 values are known out
 snapshotted. Asserting the dye is zero alongside them is what catches a regression in the
 ``Bio_comp = Tracer_comp + remora.nscalar`` offset, which would shift a biology tracer into the dye slot.
 
+.. _sec:ci-bc-tests:
+
+Boundary condition tests
+------------------------
+
+These cover the two ways of specifying boundary conditions, per side and per variable (see
+:ref:`Physical/Domain Boundary Conditions<sec:domainBCs>`). Both reach the same per-face state, so the
+assertion is that they agree and neither needs a stored reference.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| BC_per_variable                 | 54 108 4 | a per-variable ``West South East North`` list lands on  |
+|                                 |          |                                                         |
+|                                 |          | the same four faces the per-side keywords name, and     |
+|                                 |          |                                                         |
+|                                 |          | both routes read the same inflow values                 |
++---------------------------------+----------+---------------------------------------------------------+
+| BC_inflow_no_value              | 54 108 4 | an inflow face with no inflow value for one of its      |
+|                                 |          |                                                         |
+|                                 |          | tracers is rejected, naming the input it wants          |
++---------------------------------+----------+---------------------------------------------------------+
+
+``BC_per_variable`` runs both inputs in its test directory and compares the two plotfiles. All four sides
+carry a different condition -- inflow, noslipwall, outflow, slipwall going West, South, East, North -- so
+any other order changes the answer. A y-symmetric case cannot do this, which is why the existing lanes,
+all y-symmetric, missed the South/North transposition this test was added for.
+
+The y pairing is discriminated by the *velocity* conditions specifically. For cell-centered tracers, and
+for ``zeta`` and ``tke``, ``noslipwall`` and ``slipwall`` both translate to ``foextrap``, leaving South and
+North indistinguishable in those fields; only ``u``/``v`` and ``ubar``/``vbar`` separate them, since
+``no_slip_wall`` gives ``ext_dir`` on both components while ``slip_wall`` gives ``foextrap`` tangentially
+and ``ext_dir`` normally. Substituting conditions that look equally distinct but coincide for the
+velocities would blind this lane without changing its appearance.
+
+The dye is a second readout: ``DoubleGyre`` initializes it to zero and the only dye enters through the
+western inflow value, so a nonzero tracer field means that value was read, and an agreeing one means both
+routes read it the same. Agreement alone cannot assert this -- two runs that both ignored the value would
+agree at zero -- so the lane also carries a ``check_extrema.sh`` assertion on the dye's magnitude, with a
+tolerance loose enough to be a claim about order of magnitude rather than a blessed digit string.
+
+The inflow is driven by horizontal diffusion rather than advection. ``ubar`` and ``vbar`` take no inflow
+value of their own, so the barotropic normal velocity at the face stays zero and the barotropic correction
+holds the net flux near zero regardless of the 3D ``velocity`` entry: raising it tenfold moves the dye by
+about 7%. Advective inflow is therefore not covered by either lane.
+
 Nightly Regression Tests on CPU
 -------------------------------
 And the following are currently tested nighly on CPU.
