@@ -360,6 +360,38 @@ REMORA::WritePlotFile (int istep_for_plot)
             mf_comp += 1;
         }
 
+        // Fill cell-centered location
+        Real dx = Geom()[lev].CellSizeArray()[0];
+        Real dy = Geom()[lev].CellSizeArray()[1];
+
+        // Next, check for location names -- if we write one we write all
+        // Note: the locations must be filled before the derived variables, to match
+        //       the order of the names built in set3DPlotVariables
+        if (containerHasElement(plot_var_names_3d, "x_cc") ||
+            containerHasElement(plot_var_names_3d, "y_cc") ||
+            containerHasElement(plot_var_names_3d, "z_cc"))
+        {
+            MultiFab dmf(plotMF[lev], make_alias, mf_comp, AMREX_SPACEDIM);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                const Box& bx = mfi.tilebox();
+                const Array4<Real> loc_arr = dmf.array(mfi);
+                const Array4<Real const> zp_arr = vec_z_phys_nd[lev]->const_array(mfi);
+
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    loc_arr(i,j,k,0) = (i+Real(0.5)) * dx;
+                    loc_arr(i,j,k,1) = (j+Real(0.5)) * dy;
+                    loc_arr(i,j,k,2) = Real(0.125) * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
+                                                   zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
+                                                   zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +
+                                                   zp_arr(i,j+1,k+1) + zp_arr(i+1,j+1,k+1) );
+                });
+            } // mfi
+            mf_comp += AMREX_SPACEDIM;
+        } // if containerHasElement
+
         // Define standard process for calling the functions in Derive.cpp
         auto calculate_derived = [&](const std::string& der_name,
                                      decltype(derived::remora_dernull)& der_function)
@@ -389,36 +421,6 @@ REMORA::WritePlotFile (int istep_for_plot)
 
         // Note: All derived variables must be computed in order of "derived_names" defined in REMORA.H
         calculate_derived("vorticity",  derived::remora_dervort);
-
-        // Fill cell-centered location
-        Real dx = Geom()[lev].CellSizeArray()[0];
-        Real dy = Geom()[lev].CellSizeArray()[1];
-
-        // Next, check for location names -- if we write one we write all
-        if (containerHasElement(plot_var_names_3d, "x_cc") ||
-            containerHasElement(plot_var_names_3d, "y_cc") ||
-            containerHasElement(plot_var_names_3d, "z_cc"))
-        {
-            MultiFab dmf(plotMF[lev], make_alias, mf_comp, AMREX_SPACEDIM);
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-            for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                const Box& bx = mfi.tilebox();
-                const Array4<Real> loc_arr = dmf.array(mfi);
-                const Array4<Real const> zp_arr = vec_z_phys_nd[lev]->const_array(mfi);
-
-                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                    loc_arr(i,j,k,0) = (i+Real(0.5)) * dx;
-                    loc_arr(i,j,k,1) = (j+Real(0.5)) * dy;
-                    loc_arr(i,j,k,2) = Real(0.125) * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
-                                                   zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
-                                                   zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +
-                                                   zp_arr(i,j+1,k+1) + zp_arr(i+1,j+1,k+1) );
-                });
-            } // mfi
-            mf_comp += AMREX_SPACEDIM;
-        } // if containerHasElement
 
 #ifdef REMORA_USE_PARTICLES
         const auto& particles_namelist( particleData.getNames() );
