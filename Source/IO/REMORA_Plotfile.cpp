@@ -836,7 +836,7 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
     AMREX_ASSERT(nlevels <= ref_ratio.size()+1);
     AMREX_ASSERT(nlevels <= level_steps.size());
 
-    int num_extra_mfs = 1; // for nodal, which is always on
+    int num_extra_mfs = plot_nodal_data ? 1 : 0; // for nodal, if it is written
     if (plot_staggered_vels) {
         num_extra_mfs += 3; // for nodal, which is always on
     }
@@ -903,13 +903,15 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
         HeaderFile << MultiFabHeaderPath(level, levelPrefix, mfPrefix) << '\n';
     }
         HeaderFile << num_extra_mfs << "\n";
-        HeaderFile << "3" << "\n";
-        HeaderFile << "amrexvec_nu_x" << "\n";
-        HeaderFile << "amrexvec_nu_y" << "\n";
-        HeaderFile << "amrexvec_nu_z" << "\n";
-        std::string mf_nodal_prefix = "Nu_nd";
-        for (int level = 0; level <= finest_level; ++level) {
-            HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_nodal_prefix) << '\n';
+        if (plot_nodal_data) {
+            HeaderFile << "3" << "\n";
+            HeaderFile << "amrexvec_nu_x" << "\n";
+            HeaderFile << "amrexvec_nu_y" << "\n";
+            HeaderFile << "amrexvec_nu_z" << "\n";
+            std::string mf_nodal_prefix = "Nu_nd";
+            for (int level = 0; level <= finest_level; ++level) {
+                HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_nodal_prefix) << '\n';
+            }
         }
         if (plot_staggered_vels) {
             HeaderFile << "1" << "\n"; // number of components in the multifab
