@@ -109,9 +109,6 @@ REMORA::advance_2d (int lev,
     MultiFab mf_DUon(convert(ba,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0));
     MultiFab mf_DVom(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0));
 
-    const auto dlo = amrex::lbound(Geom(lev).Domain());
-    const auto dhi = amrex::ubound(Geom(lev).Domain());
-
     int ncomp = 0;
     int fomn_comp = ncomp++;
     int Drhs_comp = ncomp++;
@@ -244,28 +241,6 @@ REMORA::advance_2d (int lev,
 
         Box ybxD = mfi.nodaltilebox(1);
         ybxD.makeSlab(2,0);
-
-        Box xbxD_adj = mfi.nodaltilebox(0);
-        xbxD_adj.makeSlab(2,0);
-        Box ybxD_adj = mfi.nodaltilebox(1);
-        ybxD_adj.makeSlab(2,0);
-
-        auto xbxD_lo = lbound(xbxD_adj);
-        auto xbxD_hi = ubound(xbxD_adj);
-        auto ybxD_lo = lbound(ybxD_adj);
-        auto ybxD_hi = ubound(ybxD_adj);
-
-        if (xbxD_lo.x == dlo.x) {
-            xbxD_adj.growLo(0,-1);
-        } else if (xbxD_hi.x == dhi.x) {
-            xbxD_adj.growHi(0,-1);
-        }
-
-        if (ybxD_lo.y == dlo.y) {
-            ybxD_adj.growLo(1,-1);
-        } else if (ybxD_hi.y == dhi.y) {
-            ybxD_adj.growHi(1,-1);
-        }
 
         Box tbxp1  = bx;  tbxp1.grow(IntVect(NGROW-1,NGROW-1,0));
         Box tbxp2  = bx;  tbxp2.grow(IntVect(NGROW,NGROW,0));
@@ -582,7 +557,14 @@ REMORA::advance_2d (int lev,
             Array4<const Real> const& vbar_clim = vbar_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
             Array4<const Real> const& ubar_nudg_coeff = vec_nudg_coeff[bdy_ubar()][lev]->const_array(mfi);
             Array4<const Real> const& vbar_nudg_coeff = vec_nudg_coeff[bdy_vbar()][lev]->const_array(mfi);
-            // Boxes are like this to match ROMS
+            // Boxes are like this to match the ROMS loops i=IstrU..Iend, j=JstrV..Jend, which
+            // exclude the u-face on the west/east domain edges and the v-face on south/north
+            Box xbxD_adj = clim_nudg_momentum_box(mfi.nodaltilebox(0), 0,
+                                                  Geom(lev).Domain(), Geom(lev).isPeriodic(0));
+            xbxD_adj.makeSlab(2,0);
+            Box ybxD_adj = clim_nudg_momentum_box(mfi.nodaltilebox(1), 1,
+                                                  Geom(lev).Domain(), Geom(lev).isPeriodic(1));
+            ybxD_adj.makeSlab(2,0);
             apply_clim_nudg(xbxD_adj, 1, 0, rhs_ubar, ubar_krhs, ubar_clim, ubar_nudg_coeff, Drhs_const, pm, pn);
             apply_clim_nudg(ybxD_adj, 0, 1, rhs_vbar, vbar_krhs, vbar_clim, vbar_nudg_coeff, Drhs_const, pm, pn);
         }
