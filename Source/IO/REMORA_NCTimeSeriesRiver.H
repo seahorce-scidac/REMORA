@@ -15,7 +15,8 @@ class NCTimeSeriesRiver
         NCTimeSeriesRiver (const amrex::Vector<std::string>& a_file_names,
                            const std::string a_field_name,
                            const std::string a_time_name,
-                           const int a_nz, const int a_use_vert_integ=0);
+                           const int a_nz, const int a_use_vert_integ=0,
+                           const int a_is_transport=0);
 
         void Initialize ();
 
@@ -30,12 +31,16 @@ class NCTimeSeriesRiver
         /// Whether to use the depth-integrated value read from file; Used
         /// when !has_z
         int use_vert_integ;
+        /// Whether this field is the river transport, as opposed to a tracer
+        /// concentration. Only the transport is distributed in the vertical by
+        /// river_Vshape (ROMS Qsrc = Qbar*Qshape)
+        int is_transport;
 
         /// FABs to pointers of river data
         amrex::FArrayBox* fab_before;
         amrex::FArrayBox* fab_after;
         /// Vshape data if needed
-        amrex::FArrayBox* fab_vshape;
+        amrex::FArrayBox* fab_vshape = nullptr;
 
         /**
          * Read in data from file at time index itime and fill into FAB

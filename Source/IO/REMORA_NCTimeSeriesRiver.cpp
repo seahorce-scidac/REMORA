@@ -13,15 +13,18 @@
  * @param[in   ] a_time_name          name of time variable in NetCDF file
  * @param[in   ] a_nz                 number of vertical levels in domain
  * @param[in   ] a_use_vert_integ     whether the data in the file is vertically integrated
+ * @param[in   ] a_is_transport       whether the field is the river transport rather than a tracer
  */
 NCTimeSeriesRiver::NCTimeSeriesRiver (const amrex::Vector<std::string>& a_file_names, const std::string a_field_name,
                                       const std::string a_time_name,
-                                      const int a_nz, const int a_use_vert_integ) {
+                                      const int a_nz, const int a_use_vert_integ,
+                                      const int a_is_transport) {
     file_names.assign(a_file_names.begin(), a_file_names.end());
     time_name = a_time_name;
     field_name = a_field_name;
     nz   = a_nz;
     use_vert_integ = a_use_vert_integ;
+    is_transport = a_is_transport;
 }
 
 void NCTimeSeriesRiver::Initialize() {
@@ -100,8 +103,18 @@ void NCTimeSeriesRiver::Initialize() {
     amrex::ParallelDescriptor::Bcast(&has_z, 1, ioproc);
     amrex::ParallelDescriptor::Bcast(&nriv, 1, ioproc);
 
+    // river_Vshape distributes the total transport in the vertical (ROMS Qsrc = Qbar*Qshape),
+    // so it applies only to the transport. A tracer given as (river_time, river) is a
+    // concentration, and is used unscaled at every level.
+    if (!has_z && !is_transport) {
+        amrex::Print() << "Warning: " << field_name << " has no s_rho dimension in "
+                       << file_names[0] << "; the same value will be used at every "
+                       << "vertical level. ROMS expects river tracers to be given as "
+                       << "(river_time, s_rho, river)." << std::endl;
+    }
+
     amrex::Box vshape_box(amrex::IntVect(0,0,0),amrex::IntVect(nriv,0,nz));
-    if (!has_z && !use_vert_integ) {
+    if (!has_z && !use_vert_integ && is_transport) {
         amrex::Vector<amrex::FArrayBox*> NC_fabs;
         amrex::Vector<std::string> NC_names;
         amrex::Vector<enum NC_Data_Dims_Type> NC_dim_types;
@@ -198,10 +211,16 @@ void NCTimeSeriesRiver::read_in_at_time (amrex::FArrayBox* fab_dat, int itime) {
         amrex::ParallelFor(fab_domain, [=] AMREX_GPU_DEVICE (int r, int , int k) {
             dat_array(r,0,k) = tmp_array(r,0,k);
         });
-    } else {
+    } else if (is_transport) {
+        // Distribute the vertically integrated transport over the levels
         auto array_vshape = fab_vshape->const_array();
         amrex::ParallelFor(fab_domain, [=] AMREX_GPU_DEVICE (int r, int , int k) {
             dat_array(r,0,k) = tmp_array(r,0,0) * array_vshape(r,0,k);
+        });
+    } else {
+        // Concentration given only as (river_time, river); use it at every level
+        amrex::ParallelFor(fab_domain, [=] AMREX_GPU_DEVICE (int r, int , int k) {
+            dat_array(r,0,k) = tmp_array(r,0,0);
         });
     }
 }
