@@ -94,8 +94,8 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
                 if (bc_ptr[n].hi(0) == REMORABCType::ext_dir) {
                     dest_arr(i,j,k,icomp+n) = bc_extdir_vals_ptr[bccomp+n][3] * mskr(i,j,0);
                 } else if (bc_ptr[n].hi(0) == REMORABCType::orlanski_rad) {
-                    Real grad_hi      = (calc_arr(dom_hi.x  ,j  ,k,icomp_calc+n) - calc_arr(dom_hi.x  ,j-1,k,icomp_calc+n)) * mskv(dom_lo.x,j  ,0);
-                    Real grad_hi_jp1  = (calc_arr(dom_hi.x  ,j+1,k,icomp_calc+n) - calc_arr(dom_hi.x  ,j  ,k,icomp_calc+n)) * mskv(dom_lo.x,j+1,0);
+                    Real grad_hi      = (calc_arr(dom_hi.x  ,j  ,k,icomp_calc+n) - calc_arr(dom_hi.x  ,j-1,k,icomp_calc+n)) * mskv(dom_hi.x,j  ,0);
+                    Real grad_hi_jp1  = (calc_arr(dom_hi.x  ,j+1,k,icomp_calc+n) - calc_arr(dom_hi.x  ,j  ,k,icomp_calc+n)) * mskv(dom_hi.x,j+1,0);
                     Real dTdt = calc_arr(dom_hi.x,j,k,icomp_calc+n) - dest_arr(dom_hi.x  ,j,k,icomp+n);
                     Real dTdx = dest_arr(dom_hi.x,j,k,icomp+n) - dest_arr(dom_hi.x-1,j,k,icomp+n);
                     if (dTdt * dTdx < zero) dTdt = zero;
