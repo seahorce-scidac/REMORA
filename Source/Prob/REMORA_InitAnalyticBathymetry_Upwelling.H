@@ -29,7 +29,7 @@
 
               Real val1 = (iFort <= Lm/two) ? iFort : Lm+1-iFort;
               val1 -= Real(0.5);
-              Real adj = geomdata.CellSize()[1]/Real(1000.0);
+              Real adj = geomdata.CellSize()[0]/Real(1000.0);
 
               h(i,j,0) = std::min(-geomdata.ProbLo(2),(Real(84.5)+Real(66.526)*std::tanh((val1*adj-Real(10.0))/Real(7.0))));
           });
@@ -42,7 +42,7 @@
 
               Real val1 = (jFort<=Mm/two) ? jFort : Mm+1-jFort;
               val1 -= Real(0.5);
-              Real adj = geomdata.CellSize()[0]/Real(1000.0);
+              Real adj = geomdata.CellSize()[1]/Real(1000.0);
 
               h(i,j,0) = std::min(-geomdata.ProbLo(2),(Real(84.5)+Real(66.526)*std::tanh((val1*adj-Real(10.0))/Real(7.0))));
           });
