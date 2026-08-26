@@ -81,8 +81,16 @@ REMORA::WritePlotFile (int istep_for_plot)
         FillPatchNoBC(lev, t_new[lev], *vec_diff2[lev],   GetVecOfPtrs(vec_diff2),   BdyVars::null,0,true,false);
     }
 
-    for (int lev = 0; lev <= finest_level; ++lev) {
-        mask_arrays_for_write(lev, plotfile_fill_value, zero);
+    if (plotfile_type == PlotfileType::amrex) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            mask_arrays_for_write(lev, plotfile_fill_value, zero);
+        }
+    } else if (plotfile_type == PlotfileType::netcdf) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            mask_arrays_for_write(lev, (Real) netcdf_fill_value, zero);
+        }
+    } else {
+        amrex::Abort("Don't know this plotfile type");
     }
 
     // Array of 3D MultiFabs to hold the plotfile data
@@ -598,9 +606,6 @@ REMORA::WritePlotFile (int istep_for_plot)
             }
         }
     } // end multi-level
-    for (int lev = 0; lev <= finest_level; ++lev) {
-        mask_arrays_for_write(lev, zero, plotfile_fill_value);
-    }
 
     }
 #ifdef REMORA_USE_NETCDF
@@ -613,6 +618,17 @@ REMORA::WritePlotFile (int istep_for_plot)
         WriteNCPlotFile(istep_for_plot,&plotMF[lev]);
     } // end if plotfile_type == netcdf
 #endif
+    if (plotfile_type == PlotfileType::amrex) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            mask_arrays_for_write(lev, zero, plotfile_fill_value);
+        }
+    } else if (plotfile_type == PlotfileType::netcdf) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            mask_arrays_for_write(lev, zero, netcdf_fill_value);
+        }
+    } else {
+        amrex::Abort("Don't know this plotfile type");
+    }
 }
 
 /**

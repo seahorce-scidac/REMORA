@@ -704,8 +704,6 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     // do all independent writes
     //ncmpi_end_indep_data(ncf.ncid);
 
-    mask_arrays_for_write(lev, (Real) netcdf_fill_value, zero);
-
     // Check whether there are any nans or infs in variables that we will write out
     if (vec_Zt_avg1[lev]->contains_nan() || vec_Zt_avg1[lev]->contains_inf()) {
         amrex::Abort("Found while writing output: zeta contains nan or inf");
@@ -1381,8 +1379,6 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             } // header
         } // in subdomain
     } // mfi
-
-    mask_arrays_for_write(lev, zero, netcdf_fill_value);
 
     ncf.close();
 
