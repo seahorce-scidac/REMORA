@@ -279,7 +279,7 @@ REMORA::WritePlotFile (int istep_for_plot)
     {
         if (plot_name == "ubar" ) {
             for (int lev = 0; lev <= finest_level; ++lev) {
-                MultiFab::Copy(mf_2d_u[lev],*vec_DU_avg1[lev],0,icomp_u,1,0);
+                MultiFab::Copy(mf_2d_u[lev],*vec_ubar[lev],0,icomp_u,1,0);
             }
             icomp_u++;
         }
@@ -297,7 +297,7 @@ REMORA::WritePlotFile (int istep_for_plot)
     for (auto plot_name : varnames_2d_v)
     {
         if (plot_name == "vbar" ) {
-            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_DV_avg1[lev],0,icomp_v,1,0); }
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_vbar[lev],0,icomp_v,1,0); }
             icomp_v++;
         }
         if (plot_name == "svstr" ) {
