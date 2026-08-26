@@ -209,10 +209,10 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         Real grad_lo_imjp1 = (calc_arr(dom_lo.x+mf_index_type[0]-1,j+1,k,icomp+icomp_to_fill_calc) - calc_arr(dom_lo.x-1+mf_index_type[0],j  ,k,icomp+icomp_to_fill_calc));
                         Real grad_lo_jp1   = (calc_arr(dom_lo.x+mf_index_type[0]  ,j+1,k,icomp+icomp_to_fill_calc) - calc_arr(dom_lo.x  +mf_index_type[0],j  ,k,icomp+icomp_to_fill_calc));
                         if (cell_centered) {
-                                grad_lo_im1   *= mskv(i,j,0);
-                                grad_lo       *= mskv(i,j,0);
-                                grad_lo_imjp1 *= mskv(i,j,0);
-                                grad_lo_jp1   *= mskv(i,j,0);
+                                grad_lo_im1   *= mskv(dom_lo.x+mf_index_type[0]-1,j  ,0);
+                                grad_lo       *= mskv(dom_lo.x+mf_index_type[0]  ,j  ,0);
+                                grad_lo_imjp1 *= mskv(dom_lo.x+mf_index_type[0]-1,j+1,0);
+                                grad_lo_jp1   *= mskv(dom_lo.x+mf_index_type[0]  ,j+1,0);
                         }
                         Real dTdt = calc_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill_calc) - dest_arr(dom_lo.x+mf_index_type[0]  ,j,k,icomp+icomp_to_fill);
                         Real dTdx = dest_arr(dom_lo.x+mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_lo.x+mf_index_type[0]+1,j,k,icomp+icomp_to_fill);
@@ -268,10 +268,10 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         Real grad_hi_jp1  = (calc_arr(dom_hi.x-mf_index_type[0]  ,j+1,k,icomp+icomp_to_fill_calc) - calc_arr(dom_hi.x-mf_index_type[0]  ,j  ,k,icomp+icomp_to_fill_calc));
                         Real grad_hi_ijp1 = (calc_arr(dom_hi.x-mf_index_type[0]+1,j+1,k,icomp+icomp_to_fill_calc) - calc_arr(dom_hi.x-mf_index_type[0]+1,j  ,k,icomp+icomp_to_fill_calc));
                         if (cell_centered) {
-                            grad_hi      *= mskv(i,j,0);
-                            grad_hi_ip1  *= mskv(i,j,0);
-                            grad_hi_jp1  *= mskv(i,j,0);
-                            grad_hi_ijp1 *= mskv(i,j,0);
+                            grad_hi      *= mskv(dom_hi.x-mf_index_type[0]  ,j  ,0);
+                            grad_hi_ip1  *= mskv(dom_hi.x-mf_index_type[0]+1,j  ,0);
+                            grad_hi_jp1  *= mskv(dom_hi.x-mf_index_type[0]  ,j+1,0);
+                            grad_hi_ijp1 *= mskv(dom_hi.x-mf_index_type[0]+1,j+1,0);
                         }
                         Real dTdt = calc_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill_calc) - dest_arr(dom_hi.x-mf_index_type[0]  ,j,k,icomp+icomp_to_fill);
                         Real dTdx = dest_arr(dom_hi.x-mf_index_type[0],j,k,icomp+icomp_to_fill) - dest_arr(dom_hi.x-mf_index_type[0]-1,j,k,icomp+icomp_to_fill);
@@ -328,10 +328,10 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         Real grad_lo_ip1   = (calc_arr(i+1,dom_lo.y+mf_index_type[1]  ,k,icomp+icomp_to_fill_calc) - calc_arr(i  ,dom_lo.y+mf_index_type[1]  ,k,icomp+icomp_to_fill_calc));
                         Real grad_lo_ipjm1 = (calc_arr(i+1,dom_lo.y+mf_index_type[1]-1,k,icomp+icomp_to_fill_calc) - calc_arr(i  ,dom_lo.y+mf_index_type[1]-1,k,icomp+icomp_to_fill_calc));
                         if (cell_centered) {
-                            grad_lo       *= msku(i,j,0);
-                            grad_lo_jm1   *= msku(i,j,0);
-                            grad_lo_ip1   *= msku(i,j,0);
-                            grad_lo_ipjm1 *= msku(i,j,0);
+                            grad_lo       *= msku(i  ,dom_lo.y+mf_index_type[1]  ,0);
+                            grad_lo_jm1   *= msku(i  ,dom_lo.y+mf_index_type[1]-1,0);
+                            grad_lo_ip1   *= msku(i+1,dom_lo.y+mf_index_type[1]  ,0);
+                            grad_lo_ipjm1 *= msku(i+1,dom_lo.y+mf_index_type[1]-1,0);
                         }
                         Real dTdt = calc_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill_calc) - dest_arr(i,dom_lo.y  +mf_index_type[1],k,icomp+icomp_to_fill);
                         Real dTde = dest_arr(i,dom_lo.y+mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_lo.y+1+mf_index_type[1],k,icomp+icomp_to_fill);
@@ -388,10 +388,10 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
                         Real grad_hi_ip1  = calc_arr(i+1,dom_hi.y-mf_index_type[1]  ,k,icomp+icomp_to_fill_calc) - calc_arr(i  ,dom_hi.y-mf_index_type[1]  ,k,icomp+icomp_to_fill_calc);
                         Real grad_hi_ijp1 = calc_arr(i+1,dom_hi.y-mf_index_type[1]+1,k,icomp+icomp_to_fill_calc) - calc_arr(i  ,dom_hi.y-mf_index_type[1]+1,k,icomp+icomp_to_fill_calc);
                         if (cell_centered) {
-                            grad_hi      *= msku(i,j,0);
-                            grad_hi_jp1  *= msku(i,j,0);
-                            grad_hi_ip1  *= msku(i,j,0);
-                            grad_hi_ijp1 *= msku(i,j,0);
+                            grad_hi      *= msku(i  ,dom_hi.y-mf_index_type[1]  ,0);
+                            grad_hi_jp1  *= msku(i  ,dom_hi.y-mf_index_type[1]+1,0);
+                            grad_hi_ip1  *= msku(i+1,dom_hi.y-mf_index_type[1]  ,0);
+                            grad_hi_ijp1 *= msku(i+1,dom_hi.y-mf_index_type[1]+1,0);
                         }
                         Real dTdt = calc_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill_calc) - dest_arr(i,dom_hi.y  -mf_index_type[1],k,icomp+icomp_to_fill);
                         Real dTde = dest_arr(i,dom_hi.y-mf_index_type[1],k,icomp+icomp_to_fill) - dest_arr(i,dom_hi.y-1-mf_index_type[1],k,icomp+icomp_to_fill);

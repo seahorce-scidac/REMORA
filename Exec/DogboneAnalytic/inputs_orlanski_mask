@@ -1,0 +1,110 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+#
+# Dogbone with a radiating high-x face, arranged so that the orlanski_rad
+# transverse-gradient masking has something to do. See issue #589.
+#
+# The x extent is cut from 8400 to 5600 so the Dogbone land block, which spans
+# 2800 < x < 5600, runs into the high-x face instead of stopping short of it.
+# That puts land in the boundary column itself: along the east face the v-point
+# masks are 0 where the block meets it and 1 across the open channel in the
+# middle, so masking each transverse difference at its own v-face differs from
+# masking it anywhere else. With the stock 8400 domain the boundary column is
+# all water and the masking is a no-op no matter how it is indexed.
+#
+# What this input was used to establish:
+#
+#   * At max_step = 100 the answer does not depend on the transverse gradients
+#     at all -- zeroing both of them outright reproduces the run bit for bit.
+#     dTdt*dTdx is <= 0 over the whole face that early, so dTdt is clamped to
+#     zero, Cx is zero, and the radiation formula collapses to a copy of the
+#     old ghost value. Nothing about the masking can be observed here.
+#   * By max_step = 600 the face is actively radiating and the term dominates:
+#     masking the east gradients at dom_lo.x instead of dom_hi.x moves salt and
+#     temp by about 20% relative, and x_velocity by more than 100%.
+#   * Serial and 2-rank MPI agree bitwise at step 600, so the configuration is
+#     decomposition invariant.
+#
+# Not wired up as a regression lane: over 600 steps the radiating face pushes
+# salt from a uniform 35 to about 43.5 and temp from 10 to 12.4, i.e. it creates
+# extrema that no source in the problem accounts for. That overshoot is present
+# whatever the gradients are masked with -- it is already there at step 100,
+# where the masking provably cannot matter -- so it is a property of the tracer
+# radiation condition here rather than of the masking. Blessing a plotfile from
+# this configuration would enshrine that behavior as expected.
+#
+remora.prob_name = DogboneAnalytic
+
+remora.max_step = 600
+
+# PROBLEM SIZE & GEOMETRY
+remora.prob_lo     =   0.       0.  -10.
+remora.prob_hi     =   5600.  750.       0.
+
+remora.n_cell           =  28 15 16
+
+remora.is_periodic = 0 0 0
+
+# Stated per variable so the radiation condition sits on the tracers and the 3D
+# velocities while the barotropic variables take outflow, as in BoundaryLayer.
+# North and South are both slipwall: this input is about the high-x face, and
+# leaving the y faces identical keeps it insensitive to their ordering.
+remora.boundary_per_variable = 1
+##                      WEST         SOUTH       EAST            NORTH
+remora.bc.temp.type   =  slipwall    slipwall    orlanski_rad    slipwall
+remora.bc.salt.type   =  slipwall    slipwall    orlanski_rad    slipwall
+remora.bc.u.type      =  slipwall    slipwall    orlanski_rad    slipwall
+remora.bc.v.type      =  slipwall    slipwall    orlanski_rad    slipwall
+remora.bc.ubar.type   =  slipwall    slipwall    outflow         slipwall
+remora.bc.vbar.type   =  slipwall    slipwall    outflow         slipwall
+remora.bc.zeta.type   =  slipwall    slipwall    outflow         slipwall
+remora.bc.tke.type    =  slipwall    slipwall    outflow         slipwall
+
+# TIME STEP CONTROL
+# 600 steps at 6 s is 3600 s. The initial free-surface bump in the west needs
+# most of the first 600 s just to cross the basin at sqrt(g*h) ~ 9.9 m/s, and
+# the face does not begin radiating until well after it arrives.
+remora.fixed_dt            = 6.0 # Timestep size (seconds)
+remora.fixed_ndtfast_ratio = 20 # Baratropic timestep size (seconds)
+
+# DIAGNOSTICS & VERBOSITY
+remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
+remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
+
+# CHECKPOINT FILES
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
+
+# PLOTFILES
+remora.plot_file     = plt        # prefix of plotfile name
+remora.plot_int      = 600        # number of timesteps between plotfiles
+remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+
+# SOLVER CHOICE
+remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+
+remora.Akt_bak = 1e-6
+remora.Akv_bak = 1e-5
+
+remora.use_coriolis  = false
+
+remora.theta_s = 0.0
+remora.theta_b = 0.0
+remora.tcline = 1e16
+
+remora.flat_bathymetry = false
+
+remora.bottom_stress_type = "quadratic"
+remora.rdrag2 = 3.0e-3
+
+remora.mask_type = "analytic"
+
+# PROBLEM PARAMETERS (optional)
+remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+remora.S0    = 35.0    # background salinity (nondimensional) constant
+remora.T0    = 10.0    # background potential temperature (Celsius) constant
+remora.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celsius)
+remora.Scoef = 7.6e-4     # linear equation of state parameter (nondimensional)
+remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
+
+remora.ic_type       = "analytic"

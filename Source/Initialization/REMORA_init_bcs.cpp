@@ -247,7 +247,13 @@ void REMORA::init_bcs ()
             }
         }
         pp.queryarr("type", bc_types);
-        AMREX_ASSERT(bc_types.size() == 4);
+        // queryarr resizes bc_types to however many tokens the input carries, and the loop
+        // below reads four of them by position, so a short list would run off the end. It has
+        // to abort rather than assert: assertions are compiled out in this build.
+        if (bc_types.size() != 4) {
+            amrex::Abort(pp.prefixedName("type") + " needs four entries, one per side in the "
+                         "order West South East North; got " + std::to_string(bc_types.size()));
+        }
         for (int i=0; i<4; i++) {
             std::string bc_type = amrex::toLower(bc_types[i]);
             auto ori = orientations[i];
