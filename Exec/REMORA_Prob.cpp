@@ -60,7 +60,7 @@ void Problem::init_analytic_bathymetry (
     } else if (my_prob_name_ci == "doublyperiodic") {
 #include "Prob/REMORA_InitAnalyticBathymetry_DoublyPeriodic.H"
 
-    } else if (my_prob_name_ci == "particles") {
+    } else if (my_prob_name_ci == "particlesoverseamount") {
 #include "Prob/REMORA_InitAnalyticBathymetry_ParticlesOverSeamount.H"
 
     } else if (my_prob_name_ci == "seamount") {
