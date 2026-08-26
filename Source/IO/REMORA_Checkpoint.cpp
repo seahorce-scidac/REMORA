@@ -242,6 +242,10 @@ REMORA::ReadCheckpointFile ()
     is >> finest_level;
     GotoNextLine(is);
 
+    if (finest_level > max_level) {
+        amrex::Abort("Checkpoint file has more levels than amr.max_level");
+    }
+
     // read the number of components
     // for each variable we store
 
@@ -294,7 +298,7 @@ REMORA::ReadCheckpointFile ()
     {
         std::istringstream lis(line);
         int i = 0;
-        while (lis >> word) {
+        while (lis >> word && i < istep.size()) {
             istep[i++] = std::stoi(word);
         }
     }
@@ -304,7 +308,7 @@ REMORA::ReadCheckpointFile ()
     {
         std::istringstream lis(line);
         int i = 0;
-        while (lis >> word) {
+        while (lis >> word && i < dt.size()) {
 #ifdef AMREX_USE_FLOAT
             dt[i++] = std::stof(word);
 #else
@@ -318,7 +322,7 @@ REMORA::ReadCheckpointFile ()
     {
         std::istringstream lis(line);
         int i = 0;
-        while (lis >> word) {
+        while (lis >> word && i < t_new.size()) {
 #ifdef AMREX_USE_FLOAT
             t_new[i++] = std::stof(word);
 #else
