@@ -1841,8 +1841,11 @@ REMORA::ReadParameters ()
                 amrex::Warning("NetCDF output for a single timestep appears to exceed 2GB. NetCDF output may not work. See Documentation for information about tested MPICH versions.");
                 steps_per_history_file = 1;
             }
-        } else if (write_history_file and !chunk_history_file) {
-            // Estimate number of output steps we'll need
+        } else if (write_history_file and !chunk_history_file and plot_int > 0) {
+            // Estimate number of output steps we'll need. Only meaningful when output
+            // is driven by plot_int; plot_int defaults to -1 when plot_int_time is used
+            // instead, and dividing by it would be a divide-by-zero or give a negative
+            // count.
             int nt_out = int((max_step) / plot_int) + 1;
             Real est_hist_file_size = NCH2D * nx * ny * double_bits + nt_out * nx * ny * double_bits * (NC3D*nz + NC2D);
             if (est_hist_file_size > two_gb) {

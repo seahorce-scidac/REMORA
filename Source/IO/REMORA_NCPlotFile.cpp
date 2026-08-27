@@ -143,31 +143,6 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     int ny = subdomain.length(1);
     int nz = subdomain.length(2);
 
-    if (is_history && max_step < 0) {
-        amrex::Abort("Need to know max_step if writing history file");
-    }
-
-    long long int nt;
-    if (is_history) {
-        if (max_step > 0) {
-            nt = static_cast<long long int>(max_step / std::min(plot_int, max_step)) + 1;
-        } else {
-            nt = 1;
-        }
-    } else {
-        nt = 1;
-    }
-
-    if (chunk_history_file) {
-        // First index of the last history file
-        int last_file_index = REMORA::steps_per_history_file * int(nt / REMORA::steps_per_history_file);
-        if (history_count >= last_file_index) {
-            nt = nt - last_file_index;
-        } else {
-            nt = REMORA::steps_per_history_file;
-        }
-    }
-
     n_cells.push_back(nx);
     n_cells.push_back(ny);
     n_cells.push_back(nz);
@@ -198,7 +173,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     if (write_header) {
         ncf.enter_def_mode();
         ncf.put_attr("title", "REMORA data ");
-        ncf.def_dim(nt_name, nt);
+        // The time dimension is unlimited so the record count reflects what was
+        // actually written rather than an up-front estimate from max_step/plot_int.
+        // Note PnetCDF does not prefill record variables, so every element of a
+        // time-varying variable has to be written explicitly (see the loops below).
+        ncf.def_dim(nt_name, NC_UNLIMITED);
         ncf.def_dim(ndim_name, AMREX_SPACEDIM);
 
         ncf.def_dim(nx_r_name, nx + 2);
@@ -696,6 +675,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     long long local_start_nt = (is_history ? static_cast<long long>(adjusted_history_count) : static_cast<long long>(0));
     long long local_nt = 1; // We write data for only one time
 
+    if (amrex::ParallelDescriptor::IOProcessor()) // only master proc
     {
         auto nc_plot_var = ncf.var("ocean_time");
         //nc_plot_var.par_access(NC_COLLECTIVE);
@@ -1379,6 +1359,13 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             } // header
         } // in subdomain
     } // mfi
+
+    // Leaving independent data mode syncs the number of records across ranks and
+    // writes it to the file header. Without this the header only picks up the new
+    // records inside ncmpi_close, so a crash mid-output leaves a truncated file.
+    // This has to happen here rather than right after the ocean_time write: every
+    // put above is an independent, rank-dependent write.
+    ncmpi_end_indep_data(ncf.ncid);
 
     ncf.close();
 
