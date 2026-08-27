@@ -54,13 +54,9 @@ List of Parameters
 |                                        |                                   |                       |            |
 |                                        | steps?                            |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
-| **remora.steps_per_history_file**      | Maximum number of steps per       | integer               | -1         |
+| **remora.steps_per_history_file**      | Time steps per netcdf history     | integer               | -1         |
 |                                        |                                   |                       |            |
-|                                        | netcdf history file. If <=0,      |                       |            |
-|                                        |                                   |                       |            |
-|                                        | calculate automatically such      |                       |            |
-|                                        |                                   |                       |            |
-|                                        | that each file is less than 2GB   |                       |            |
+|                                        | file. Must be > 0 when chunking.  |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.plot_file**                   | prefix for                        | String                | “plt”      |
 |                                        | plotfiles                         |                       |            |
@@ -141,9 +137,9 @@ Notes
 
 -  The write_history_file option is only available if **plotfile_type = netcdf**
 
--  Depending on your PnetCDF build, the code may be unable to write files larger than 2 GB. If the code
-   crashes when writing a NetCDF history file (or a single time step, if you have a particularly large grid),
-   consider building with MPICH v4.2.2 or instead outputting a native AMReX plotfile instead.
+-  REMORA writes CDF-5 files, which have no practical size limit. Some MPI builds still fail on writes
+   larger than 2 GB — a limit of the MPI-IO layer, not the file format. If a large write crashes, see the
+   MPICH note in :ref:`the NetCDF build instructions<netcdf>`, or use a native AMReX plotfile.
 
 -  Velocity components are defined on faces within the REMORA code, but are averaged onto
    cell centers when written in amrex/native plotfiles. They are not averaged when writing

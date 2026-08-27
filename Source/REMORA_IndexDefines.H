@@ -29,12 +29,6 @@ int akt_comp (int icomp) noexcept { return (icomp < NAT) ? icomp : Salt_comp; }
 
 #define NGROW          2
 
-// Number of 3D/2D variables output in netcdf files
-#define NC3D           5
-#define NC2D           5
-// Number of 2D variables in a netcdf file's header
-#define NCH2D          12
-
 /**
  * \brief Boundary fill types
  */

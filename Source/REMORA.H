@@ -1686,12 +1686,9 @@ private:
     /** \brief Checkpoint output interval in seconds */
     amrex::Real check_int_time = amrex::Real(-one);
 
-    /** \brief Whether to chunk netcdf history file */
+    /** \brief Whether to split the netcdf history file into fixed-length chunks */
     bool chunk_history_file = false;
-    /** \brief Number of time steps per netcdf history file.
-     *
-        -1 is the default and means code will automatically compute
-         number of steps per file based on grid size to keep files < 2 GB */
+    /** \brief Time steps per netcdf history file. Must be > 0 if chunk_history_file. */
     int steps_per_history_file = -1;
     /** \brief Counter for which time index we are writing to in the netcdf history file */
     int history_count = 0;
