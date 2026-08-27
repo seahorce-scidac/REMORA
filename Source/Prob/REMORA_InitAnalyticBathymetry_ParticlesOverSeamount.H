@@ -1,39 +1,22 @@
+    // This problem is run over a flat bottom at the base of the domain. The tracer
+    // particles are seeded through the full water column and there is no bed
+    // reflection in REMORAPC::AdvectWithFlow, so a shoaling bottom would leave
+    // particles below the sea floor, outside the terrain-following grid.
+    mf_h.setVal(geomdata.ProbHi(2));
 
-    mf_h.setVal(geom.ProbHi(2));
-    const int Lm = geom.Domain().size()[0];
-    const int Mm = geom.Domain().size()[1];
+    // vec_h has two components, but vec_h_full_domain (used with hires_grid_level) has one
+    const int h_ncomp = mf_h.nComp();
 
     for ( MFIter mfi(mf_h, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
-
       Array4<Real> const& h  = (mf_h).array(mfi);
 
-      Box bx = mfi.tilebox();
-      Box gbx2 = bx;
-      // See the note in REMORA_InitAnalyticBathymetry_Seamount.H
-      gbx2.grow(mf_h.nGrowVect());
-
       Gpu::streamSynchronize();
-
-      ParallelFor(makeSlab(gbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int )
+      ParallelFor(Box(h), [=] AMREX_GPU_DEVICE (int i, int j, int k)
       {
-          Real val1;
-          int iFort = i+1;
-          int jFort = j+1;
-          if(NSPeriodic) {
-              if (iFort<=Lm/two)
-                  val1=iFort;
-              else
-                  val1=Lm+1-iFort;
-          h(i,j,0) = std::min(-geomdata.ProbLo(2),(Real(84.5)+Real(66.526)*std::tanh((val1-Real(10.0))/Real(7.0))));
-
-          } else if(EWPeriodic) {
-
-              if (jFort<=Mm/2.0)
-                  val1=jFort;
-              else
-                  val1=Mm+1-jFort;
-          h(i,j,0) = std::min(-geomdata.ProbLo(2),(Real(84.5)+Real(66.526)*std::tanh((val1-Real(10.0))/Real(7.0))));
+          h(i,j,0,0) = -geomdata.ProbLo(2);
+          if (k==0 && h_ncomp > 1) {
+              h(i,j,0,1) = h(i,j,0,0);
           }
       });
     } // mfi
