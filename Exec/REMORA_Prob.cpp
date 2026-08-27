@@ -62,8 +62,8 @@ void Problem::init_analytic_bathymetry (
     } else if (my_prob_name_ci == "doublyperiodic") {
 #include "Prob/REMORA_InitAnalyticBathymetry_DoublyPeriodic.H"
 
-    } else if (my_prob_name_ci == "particlesoverseamount") {
-#include "Prob/REMORA_InitAnalyticBathymetry_ParticlesOverSeamount.H"
+    } else if (my_prob_name_ci == "particleadvectionflat") {
+#include "Prob/REMORA_InitAnalyticBathymetry_ParticleAdvectionFlat.H"
 
     } else if (my_prob_name_ci == "seamount") {
 #include "Prob/REMORA_InitAnalyticBathymetry_Seamount.H"
@@ -143,8 +143,8 @@ void Problem::init_analytic_prob(
     } else if (my_prob_name_ci == "doublyperiodic") {
 #include "Prob/REMORA_InitAnalyticProb_DoublyPeriodic.H"
 
-    } else if (my_prob_name_ci == "particlesoverseamount") {
-#include "Prob/REMORA_InitAnalyticProb_ParticlesOverSeamount.H"
+    } else if (my_prob_name_ci == "particleadvectionflat") {
+#include "Prob/REMORA_InitAnalyticProb_ParticleAdvectionFlat.H"
 
     } else if (my_prob_name_ci == "seamount") {
 #include "Prob/REMORA_InitAnalyticProb_Seamount.H"
@@ -201,8 +201,8 @@ void Problem::init_analytic_vmix(
     } else if (my_prob_name_ci == "idealrivgrid") {
 #include "Prob/REMORA_InitAnalyticVMix_IdealRivGrid.H"
 
-    } else if (my_prob_name_ci == "particlesoverseamount") {
-#include "Prob/REMORA_InitAnalyticVMix_ParticlesOverSeamount.H"
+    } else if (my_prob_name_ci == "particleadvectionflat") {
+#include "Prob/REMORA_InitAnalyticVMix_ParticleAdvectionFlat.H"
 
     } else if (my_prob_name_ci == "seamount") {
 #include "Prob/REMORA_InitAnalyticVMix_Seamount.H"
@@ -258,8 +258,8 @@ void Problem::init_analytic_hmix(
     } else if (my_prob_name_ci == "idealrivgrid") {
 #include "Prob/REMORA_InitAnalyticHMix_IdealRivGrid.H"
 
-    } else if (my_prob_name_ci == "particlesoverseamount") {
-#include "Prob/REMORA_InitAnalyticHMix_ParticlesOverSeamount.H"
+    } else if (my_prob_name_ci == "particleadvectionflat") {
+#include "Prob/REMORA_InitAnalyticHMix_ParticleAdvectionFlat.H"
 
     } else if (my_prob_name_ci == "seamount") {
 #include "Prob/REMORA_InitAnalyticHMix_Seamount.H"
@@ -310,8 +310,8 @@ void Problem::init_analytic_smflux(
     } else if (my_prob_name_ci == "doublyperiodic") {
 #include "Prob/REMORA_InitAnalyticSMFlux_DoublyPeriodic.H"
 
-    } else if (my_prob_name_ci == "particlesoverseamount") {
-#include "Prob/REMORA_InitAnalyticSMFlux_ParticlesOverSeamount.H"
+    } else if (my_prob_name_ci == "particleadvectionflat") {
+#include "Prob/REMORA_InitAnalyticSMFlux_ParticleAdvectionFlat.H"
     } else if (my_prob_name_ci == "upwelling") {
 #include "Prob/REMORA_InitAnalyticSMFlux_Upwelling.H"
 
