@@ -95,7 +95,7 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
                 Real z = Real(0.125) * (height_arr(i,j  ,k  ) + height_arr(i+1,j  ,k  ) +
                                   height_arr(i,j+1,k  ) + height_arr(i+1,j+1,k  ) +
                                   height_arr(i,j  ,k+1) + height_arr(i+1,j  ,k+1) +
-                                  height_arr(i,j+1,k+1) + height_arr(i+1,j+1,k  ) );
+                                  height_arr(i,j+1,k+1) + height_arr(i+1,j+1,k+1) );
                 if (particle_init_domain.contains(RealVect(x,y,z))) {
                     num_particles_arr(i,j,k) = particles_per_cell;
                 }
@@ -119,6 +119,12 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
                        1, 0 );
     offsets.setVal(0);
 
+    // Define the tiles in serial; the map of tiles is not safe to grow
+    // concurrently in the OpenMP region below. Same as AMReX's addParticles.
+    for(MFIter mfi = MakeMFIter(lev); mfi.isValid(); ++mfi) {
+        DefineAndReturnParticleTile(lev, mfi);
+    }
+
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -138,7 +144,8 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
         }
         auto offset_arr = offsets[mfi].array();
 
-        auto& particle_tile = DefineAndReturnParticleTile(lev, mfi);
+        // already defined in the serial pass above
+        auto& particle_tile = ParticlesAt(lev, mfi);
         particle_tile.resize(np);
         auto aos = &particle_tile.GetArrayOfStructs()[0];
         auto& soa = particle_tile.GetStructOfArrays();
@@ -151,6 +158,9 @@ void REMORAPC::initializeParticlesUniformDistributionInBox (const std::unique_pt
 
         auto my_proc = ParallelDescriptor::MyProc();
         Long pid;
+#ifdef _OPENMP
+#pragma omp critical (remora_particle_nextid)
+#endif
         {
             pid = ParticleType::NextID();
             ParticleType::NextID(pid+np);
