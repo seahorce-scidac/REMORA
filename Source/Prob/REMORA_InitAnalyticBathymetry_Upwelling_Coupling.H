@@ -1,7 +1,6 @@
 
     // Must not be periodic in E-W, and must allow bathymetry
     AMREX_ALWAYS_ASSERT(!EWPeriodic);
-    AMREX_ALWAYS_ASSERT(!m_solverChoice.flat_bathymetry);
 
     mf_h.setVal(geomdata.ProbHi(2));
 

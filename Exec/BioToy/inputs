@@ -49,7 +49,6 @@ remora.fennel.denitrification = 1
 remora.fennel.bio_sediment = 1
 
 # SOLVER CHOICE
-remora.flat_bathymetry = false
 remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 
 remora.horizontal_mixing_type = "constant"

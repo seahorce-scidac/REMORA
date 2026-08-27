@@ -146,130 +146,116 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
 
     //Use FC and DC as intermediate arrays for FX and FE
     //First pass do centered 2d terms
-    if (solverChoice.flat_bathymetry) {
-        ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+
+    ParallelFor(utbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //should be t index 3
+        FX(i,j,k)=(tempold(i,j,k,nrhs)-tempold(i-1,j,k,nrhs)) * msku(i,j,0);
+    });
+
+    Box utbxp1_slab_lo = makeSlab(utbxp1,0,dlo.x-1) & utbxp1;
+    Box utbxp1_slab_hi = makeSlab(utbxp1,0,dhi.x+1) & utbxp1;
+    if (utbxp1_slab_lo.ok() && !is_periodic_in_x) {
+        ParallelFor(utbxp1_slab_lo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            FX(i,j,k)=Box(tempold).contains(i-1,j,k) ? Huon(i,j,k)*
-                        Real(0.5)*(tempold(i-1,j,k)+tempold(i  ,j,k)) : Real(1e34);
+            FX(i,j,k) = FX(i+1,j,k);
         });
+    }
+    if (utbxp1_slab_hi.ok() && !is_periodic_in_x) {
+        ParallelFor(utbxp1_slab_hi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FX(i+1,j,k) = FX(i,j,k);
+        });
+    }
+
+    ParallelFor(vtbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    {
+        //should be t index 3
+        FE(i,j,k)=(tempold(i,j,k,nrhs)-tempold(i,j-1,k,nrhs)) * mskv(i,j,0);
+    });
+
+    Box vtbxp1_slab_lo = makeSlab(vtbxp1,1,dlo.y-1) & vtbxp1;
+    Box vtbxp1_slab_hi = makeSlab(vtbxp1,1,dhi.y+1) & vtbxp1;
+    if (vtbxp1_slab_lo.ok() && !is_periodic_in_y) {
+        ParallelFor(vtbxp1_slab_lo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FE(i,j,k) = FE(i,j+1,k);
+        });
+    }
+    if (vtbxp1_slab_hi.ok() && !is_periodic_in_y) {
+        ParallelFor(vtbxp1_slab_hi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FE(i,j+1,k) = FE(i,j,k);
+        });
+    }
+
+    Real cffa=one/Real(6.0);
+    Real cffb=one/Real(3.0);
+    if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3)
+    {
         ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            FE(i,j,k)=Box(tempold).contains(i,j-1,k) ? Hvom(i,j,k)*
-                        Real(0.5)*(tempold(i,j-1,k)+tempold(i,j,k)) : Real(1e34);
+            //Upstream3
+            curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
         });
 
+        ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real max_Huon = std::max(Huon(i,j,k),Real(0.0));
+            Real min_Huon = std::min(Huon(i,j,k),Real(0.0));
+
+            FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i-1,j,k))-
+                cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
+        });
+
+    } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
+
+        ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            //Centered4
+            grad(i,j,k)=Real(0.5)*(FX(i,j,k)+FX(i+1,j,k));
+        });
+
+        ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i-1,j,k)-
+                                       cffb*(grad(i,j,k)-grad(i-1,j,k)));
+        });
     } else {
+       Error("Not a valid horizontal advection scheme");
+    }
 
-        ParallelFor(utbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+    if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3)
+    {
+        ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            //should be t index 3
-            FX(i,j,k)=(tempold(i,j,k,nrhs)-tempold(i-1,j,k,nrhs)) * msku(i,j,0);
+            curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
         });
 
-        Box utbxp1_slab_lo = makeSlab(utbxp1,0,dlo.x-1) & utbxp1;
-        Box utbxp1_slab_hi = makeSlab(utbxp1,0,dhi.x+1) & utbxp1;
-        if (utbxp1_slab_lo.ok() && !is_periodic_in_x) {
-            ParallelFor(utbxp1_slab_lo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                FX(i,j,k) = FX(i+1,j,k);
-            });
-        }
-        if (utbxp1_slab_hi.ok() && !is_periodic_in_x) {
-            ParallelFor(utbxp1_slab_hi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                FX(i+1,j,k) = FX(i,j,k);
-            });
-        }
-
-        ParallelFor(vtbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            //should be t index 3
-            FE(i,j,k)=(tempold(i,j,k,nrhs)-tempold(i,j-1,k,nrhs)) * mskv(i,j,0);
+            Real max_Hvom = std::max(Hvom(i,j,k),Real(0.0));
+            Real min_Hvom = std::min(Hvom(i,j,k),Real(0.0));
+
+            FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i,j-1,k))-
+                cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
         });
 
-        Box vtbxp1_slab_lo = makeSlab(vtbxp1,1,dlo.y-1) & vtbxp1;
-        Box vtbxp1_slab_hi = makeSlab(vtbxp1,1,dhi.y+1) & vtbxp1;
-        if (vtbxp1_slab_lo.ok() && !is_periodic_in_y) {
-            ParallelFor(vtbxp1_slab_lo, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                FE(i,j,k) = FE(i,j+1,k);
-            });
-        }
-        if (vtbxp1_slab_hi.ok() && !is_periodic_in_y) {
-            ParallelFor(vtbxp1_slab_hi, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                FE(i,j+1,k) = FE(i,j,k);
-            });
-        }
+    } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
 
-        Real cffa=one/Real(6.0);
-        Real cffb=one/Real(3.0);
-        if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3)
+        ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                //Upstream3
-                curv(i,j,k)=-FX(i,j,k)+FX(i+1,j,k);
-            });
+            grad(i,j,k)=Real(0.5)*(FE(i,j,k)+FE(i,j+1,k));
+        });
 
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                Real max_Huon = std::max(Huon(i,j,k),Real(0.0));
-                Real min_Huon = std::min(Huon(i,j,k),Real(0.0));
-
-                FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i-1,j,k))-
-                    cffa*(curv(i,j,k)*min_Huon+ curv(i-1,j,k)*max_Huon);
-            });
-
-        } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
-
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                //Centered4
-                grad(i,j,k)=Real(0.5)*(FX(i,j,k)+FX(i+1,j,k));
-            });
-
-            ParallelFor(ubx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                FX(i,j,k)=Huon(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i-1,j,k)-
-                                           cffb*(grad(i,j,k)-grad(i-1,j,k)));
-            });
-        } else {
-           Error("Not a valid horizontal advection scheme");
-        }
-
-        if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::upstream3)
+        ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                curv(i,j,k)=-FE(i,j,k)+FE(i,j+1,k);
-            });
-
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                Real max_Hvom = std::max(Hvom(i,j,k),Real(0.0));
-                Real min_Hvom = std::min(Hvom(i,j,k),Real(0.0));
-
-                FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i,j-1,k))-
-                    cffa*(curv(i,j,k)*min_Hvom+ curv(i,j-1,k)*max_Hvom);
-            });
-
-        } else if (solverChoice.tracer_Hadv_scheme == AdvectionScheme::centered4) {
-
-            ParallelFor(tbxp1, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                grad(i,j,k)=Real(0.5)*(FE(i,j,k)+FE(i,j+1,k));
-            });
-
-            ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i,j-1,k)-
-                                           cffb*(grad(i,j,k)- grad(i,j-1,k)));
-            });
-        } else {
-            Error("Not a valid horizontal advection scheme");
-        }
-    } // not flat
+            FE(i,j,k)=Hvom(i,j,k)*Real(0.5)*(tempold(i,j,k)+tempold(i,j-1,k)-
+                                       cffb*(grad(i,j,k)- grad(i,j-1,k)));
+        });
+    } else {
+        Error("Not a valid horizontal advection scheme");
+    }
 
     bool do_rivers_cons = (river_source.size() > 0);
     if (solverChoice.do_rivers) {

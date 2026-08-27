@@ -40,7 +40,6 @@ remora.plotfile_type = amrex
 
 # SOLVER CHOICE
 remora.use_coriolis = false
-remora.flat_bathymetry=true
 remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 
 # Linear EOS parameters

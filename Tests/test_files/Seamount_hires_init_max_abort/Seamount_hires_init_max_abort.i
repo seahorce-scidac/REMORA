@@ -22,8 +22,6 @@ remora.fixed_dt       = 60.0 # Timestep size (seconds)
 # remora.fixed_fast_dt  = 300.0 # Baratropic timestep size (seconds) testing value
 remora.fixed_ndtfast_ratio  = 20 # Baratropic timestep size (seconds)
 
-remora.flat_bathymetry=0
-
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval   = 1       # timesteps between computing mass
 remora.v              = 0       # verbosity in REMORA.cpp (0: none, 1: print boxes, etc, 2: print values)

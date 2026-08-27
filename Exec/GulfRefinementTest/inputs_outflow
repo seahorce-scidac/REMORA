@@ -31,8 +31,6 @@ remora.bc.tke.type    =  outflow           outflow           outflow          ou
 remora.fixed_dt            = 40.0 # Timestep size (seconds)
 remora.fixed_ndtfast_ratio = 20 # Baratropic timestep size (seconds)
 
-remora.flat_bathymetry=0
-
 # REFINEMENT / REGRIDDING
 # Level 1 has to exist for the high-resolution data to be evaluated on and averaged down from,
 # even though no refinement indicator is set here so level 1 is never actually created.

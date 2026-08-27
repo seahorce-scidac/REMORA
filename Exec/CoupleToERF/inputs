@@ -18,8 +18,6 @@ remora.n_cell           = 16     16      32
 
 remora.is_periodic = 1 1 0
 
-remora.flat_bathymetry = true
-
 # TIME STEP CONTROL
 remora.fixed_dt       = 300.0 # Timestep size (seconds)
 remora.fixed_ndtfast_ratio  = 30 # Baratropic timestep size (seconds)

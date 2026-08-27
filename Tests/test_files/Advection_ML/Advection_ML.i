@@ -43,7 +43,6 @@ remora.expand_plotvars_to_unif_rr = 1
 
 # SOLVER CHOICE
 remora.use_coriolis = false
-remora.flat_bathymetry=true
 remora.use_barotropic=true
 remora.tracer_horizontal_advection_scheme = "centered4" # upstream3 or centered4
 
