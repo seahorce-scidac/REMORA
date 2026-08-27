@@ -1539,9 +1539,9 @@ REMORA::init_only (int lev, Real time)
             river_source_cons[icomp].reset(new NCTimeSeriesRiver(nc_riv_file, field, riv_time_varname, nz));
             river_source_cons[icomp]->Initialize();
         }
-        river_source_transport.reset(new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz));
+        river_source_transport.reset(new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz, 0, 1));
         river_source_transport->Initialize();
-        river_source_transportbar.reset(new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz, 1));
+        river_source_transportbar.reset(new NCTimeSeriesRiver(nc_riv_file, "river_transport", riv_time_varname, nz, 1, 1));
         river_source_transportbar->Initialize();
         init_riv_pos_from_netcdf(lev);
     }

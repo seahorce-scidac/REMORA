@@ -1696,6 +1696,12 @@ dimensions ``(river_time, s_rho, river)``, following the ROMS convention:
 field is missing REMORA aborts and names it, rather than failing inside the NetCDF
 reader.
 
+Tracer fields are concentrations, so a tracer given without an ``s_rho`` dimension,
+as ``(river_time, river)``, is used unchanged at every vertical level, and REMORA
+prints a warning naming the field. ``river_Vshape`` applies only to
+``river_transport``, where it distributes the total transport over the vertical as
+ROMS does with ``Qsrc = Qbar * Qshape``; it is not applied to tracers.
+
 Runtime Error Checking
 ======================
 
