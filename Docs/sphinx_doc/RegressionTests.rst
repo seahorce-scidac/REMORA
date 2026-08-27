@@ -76,8 +76,6 @@ The following problems are currently tested in the CI. More details about the pr
 | DoubleGyre              | 54 108 4 | SlipWall  | SlipWall | Coriolis                        |
 +-------------------------+----------+-----------+----------+---------------------------------+
 | DoublyPeriodic          | 41 80 16 | Periodic  | Periodic | Coriolis                        |
-+-------------------------+----------+-----------+----------+---------------------------------+
-| DoublyPeriodic_bathy    | 41 80 16 | Periodic  | Periodic | Coriolis                        |
 |                         |          |           |          |                                 |
 |                         |          |           |          | non-flat bathymetry             |
 +-------------------------+----------+-----------+----------+---------------------------------+
@@ -193,10 +191,6 @@ than segfaulting, writing out of bounds, or running on data it quietly ignored.
 | Seamount_hires_grid_zero_abort  | 49 48 13 | a hires level of 0 is rejected rather than              |
 |                                 |          |                                                         |
 |                                 |          | dereferencing an array only allocated above level 0     |
-+---------------------------------+----------+---------------------------------------------------------+
-| Seamount_hires_flat_abort       | 49 48 13 | ``remora.flat_bathymetry`` combined with a hires level  |
-|                                 |          |                                                         |
-|                                 |          | is rejected instead of silently winning at level 0      |
 +---------------------------------+----------+---------------------------------------------------------+
 
 ``Upwelling_Fennel_hires_init`` runs to zero steps: it writes the initial plotfile and exits, which takes

@@ -1,4 +1,4 @@
-
+    // This problem is run over a flat bottom at the base of the domain
     mf_h.setVal(geomdata.ProbHi(2));
 
     // vec_h has two components, but vec_h_full_domain (used with hires_grid_level) has one

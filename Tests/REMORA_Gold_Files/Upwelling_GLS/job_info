@@ -169,7 +169,6 @@ remora.file_min_digits = 5
 remora.fixed_dt = 300.0
 remora.fixed_fast_dt = 10.0
 remora.fixed_ndtfast_ratio = 30
-remora.flat_bathymetry = false
 remora.gls_Kmin = 7.6e-6
 remora.gls_M = 1.5
 remora.gls_N = -1.0

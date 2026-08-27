@@ -57,8 +57,6 @@ remora.rdrag2 = 3.0e-3
 
 remora.mask_type = "analytic"
 
-remora.flat_bathymetry = false
-
 remora.init_l1ad_h =false
 remora.init_l1ad_T =false
 

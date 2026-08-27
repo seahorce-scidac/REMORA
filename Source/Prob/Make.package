@@ -2,6 +2,7 @@
 CEXE_headers += REMORA_InitAnalyticBathymetry_Advection.H
 CEXE_headers += REMORA_InitAnalyticBathymetry_BoundaryLayer.H
 CEXE_headers += REMORA_InitAnalyticBathymetry_ChannelTest.H
+CEXE_headers += REMORA_InitAnalyticBathymetry_CoupleToERF.H
 CEXE_headers += REMORA_InitAnalyticBathymetry_DogboneAnalytic.H
 CEXE_headers += REMORA_InitAnalyticBathymetry_DoublyPeriodic.H
 CEXE_headers += REMORA_InitAnalyticBathymetry_ParticlesOverSeamount.H

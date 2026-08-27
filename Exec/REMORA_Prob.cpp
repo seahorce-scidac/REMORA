@@ -39,11 +39,13 @@ void Problem::init_analytic_bathymetry (
 #include "Prob/REMORA_InitAnalyticBathymetry_Advection.H"
 
     } else if ( (my_prob_name_ci == "blankproblem")   ||
-                (my_prob_name_ci == "coupletoerf")    ||
                 (my_prob_name_ci == "dogbone")        ||
                 (my_prob_name_ci == "idealminigrid")  ||
                 (my_prob_name_ci == "idealminiriv") ) {
 // No initialization of bathymetry occurs with these prob_name's
+
+    } else if (my_prob_name_ci == "coupletoerf") {
+#include "Prob/REMORA_InitAnalyticBathymetry_CoupleToERF.H"
 
     } else if (my_prob_name_ci == "boundarylayer") {
 #include "Prob/REMORA_InitAnalyticBathymetry_BoundaryLayer.H"
