@@ -1045,6 +1045,24 @@ public:
                    const amrex::Array4<amrex::Real const>& dmde,
                    int nrhs, int nr);
 
+    /** \brief Shrink an x- or y-nodal momentum tilebox to the faces ROMS nudges
+     *
+     * ROMS nudges momentum toward climatology over i=IstrU..Iend (j=JstrV..Jend), which
+     * excludes the u-face on the western and eastern domain edges (v-face on the southern
+     * and northern edges). This returns the part of \p nodal_bx that survives that
+     * exclusion. Under EW_PERIODIC (NS_PERIODIC) ROMS sets IstrU=Istr (JstrV=Jstr) and
+     * nudges every face, so a periodic direction is left alone.
+     *
+     * @param[in] nodal_bx    box from MFIter::nodaltilebox(dir)
+     * @param[in] dir         direction the box is nodal in (0 for u, 1 for v)
+     * @param[in] domain      cell-centered problem domain at this level
+     * @param[in] is_periodic whether \p dir is periodic
+     */
+    static amrex::Box clim_nudg_momentum_box (const amrex::Box& nodal_bx,
+                   int dir,
+                   const amrex::Box& domain,
+                   bool is_periodic);
+
     /** \brief Apply climatology nudging */
     void apply_clim_nudg (const amrex::Box& bx,
                    int ioff, int joff,

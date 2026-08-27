@@ -120,9 +120,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
-    const auto dlo = amrex::lbound(Geom(lev).Domain());
-    const auto dhi = amrex::ubound(Geom(lev).Domain());
-
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& h     = vec_h[lev]->const_array(mfi);
@@ -384,25 +381,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Box tbxp2 = bx;
         Box xbx = mfi.nodaltilebox(0);
         Box ybx = mfi.nodaltilebox(1);
-        Box xbx_adj = mfi.nodaltilebox(0);
-        Box ybx_adj = mfi.nodaltilebox(1);
-
-        auto xbx_lo = lbound(xbx_adj);
-        auto xbx_hi = ubound(xbx_adj);
-        auto ybx_lo = lbound(ybx_adj);
-        auto ybx_hi = ubound(ybx_adj);
-
-        if (xbx_lo.x == dlo.x) {
-            xbx_adj.growLo(0,-1);
-        } else if (xbx_hi.x == dhi.x) {
-            xbx_adj.growHi(0,-1);
-        }
-
-        if (ybx_lo.y == dlo.y) {
-            ybx_adj.growLo(1,-1);
-        } else if (ybx_hi.y == dhi.y) {
-            ybx_adj.growHi(1,-1);
-        }
 
         Box gbx1 = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
         Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
@@ -480,7 +458,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             Array4<const Real> const& vclim = v_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
             Array4<const Real> const& u_nudg_coeff = vec_nudg_coeff[BdyVars::u][lev]->const_array(mfi);
             Array4<const Real> const& v_nudg_coeff = vec_nudg_coeff[BdyVars::v][lev]->const_array(mfi);
-            // These boxes are set to match ROMS
+            // These boxes are set to match the ROMS loops i=IstrU..Iend, j=JstrV..Jend, which
+            // exclude the u-face on the west/east domain edges and the v-face on south/north
+            const Box xbx_adj = clim_nudg_momentum_box(mfi.nodaltilebox(0), 0,
+                                                       Geom(lev).Domain(), Geom(lev).isPeriodic(0));
+            const Box ybx_adj = clim_nudg_momentum_box(mfi.nodaltilebox(1), 1,
+                                                       Geom(lev).Domain(), Geom(lev).isPeriodic(1));
             apply_clim_nudg(xbx_adj, 1, 0, ru, uold, uclim, u_nudg_coeff, Hz, pm, pn);
             apply_clim_nudg(ybx_adj, 0, 1, rv, vold, vclim, v_nudg_coeff, Hz, pm, pn);
         }
