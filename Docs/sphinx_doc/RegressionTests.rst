@@ -761,14 +761,14 @@ Based on :ref:`Ideal River Grid<idealrivgrid>`, which always includes Coriolis, 
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
 
-Based on :ref:`Particles Over Seamount<particlesseamount>`, which always include MPI, Coriolis, and tracer particles:
+Based on :ref:`Particle Advection Flat<particleadvectionflat>`, which always include MPI, Coriolis, and tracer particles:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
 +========================================+==============+==================+===================+==================================+
-| ParticlesOverSeaMount                  | 41 80 16     | Periodic         | Periodic          |                                  |
+| ParticleAdvectionFlat                  | 41 80 16     | Periodic         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ParticlesOverSeaMount-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
+| ParticleAdvectionFlat-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
 Based on :ref:`Seamount<seamount-desc>`, which always includes Coriolis and non-flat bathymetry:
@@ -1292,14 +1292,14 @@ Based on :ref:`Ideal River Grid<idealrivgrid>`, which always includes Coriolis, 
 |                                        |              |                  |                   | restart                              |
 +----------------------------------------+--------------+------------------+-------------------+--------------------------------------+
 
-Based on :ref:`Particles Over Seamount<particlesseamount>`, which always includes MPI, Coriolis, and tracer particles:
+Based on :ref:`Particle Advection Flat<particleadvectionflat>`, which always includes MPI, Coriolis, and tracer particles:
 
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 | Test                                   | nx ny nz     | xbc              | ybc               | Other                            |
 +========================================+==============+==================+===================+==================================+
-| ParticlesOverSeaMount                  | 41 80 16     | Periodic         | Periodic          |                                  |
+| ParticleAdvectionFlat                  | 41 80 16     | Periodic         | Periodic          |                                  |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
-| ParticlesOverSeaMount-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
+| ParticleAdvectionFlat-restart          | 41 80 16     | Periodic         | Periodic          | restart                          |
 +----------------------------------------+--------------+------------------+-------------------+----------------------------------+
 
 Based on :ref:`Seamount<seamount-desc>`, which always includes Coriolis and non-flat bathymetry:

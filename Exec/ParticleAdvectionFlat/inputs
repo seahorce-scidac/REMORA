@@ -1,5 +1,5 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-remora.prob_name = ParticlesOverSeamount
+remora.prob_name = ParticleAdvectionFlat
 
 remora.max_step = 80
 remora.stop_time = 30000.0
