@@ -83,6 +83,23 @@ struct NCVar
     put_all(const double* dptr,
         const std::vector<MPI_Offset>& start,
         const std::vector<MPI_Offset>& count) const;
+
+    //! Write out `num` subarrays in a single collective call. Every rank that
+    //! opened the file must call this, in the same order, but `num` may differ
+    //! between ranks and may be zero. `starts[i]`/`counts[i]` describe subarray
+    //! i, and `dptr` holds all subarrays' data concatenated in that order.
+    void
+    put_varn_all(int num,
+        MPI_Offset* const* starts,
+        MPI_Offset* const* counts,
+        const double* dptr) const;
+
+    //! Write out `num` subarrays in a single collective call (float overload)
+    void
+    put_varn_all(int num,
+        MPI_Offset* const* starts,
+        MPI_Offset* const* counts,
+        const float* dptr) const;
     //! Write out a slice of data with with strides (see hyperslab definition in NetCDF)
     void iput(
             const double* dptr,
