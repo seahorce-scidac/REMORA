@@ -16,7 +16,7 @@ remora.is_periodic = 1 1 0
 # TIME STEP CONTROL
 remora.fixed_dt       = 60.0 # Timestep size (seconds)
 # NDTFAST  = 30.0 # Number of baratropic steps => 300.0/30.0 = 10.0
-remora.ndtfast  = 20 # Baratropic timestep size (seconds)
+remora.ndtfast  = 20
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0

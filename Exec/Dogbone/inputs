@@ -18,7 +18,7 @@ remora.bc.yhi.type = "slipwall"
 
 # TIME STEP CONTROL
 remora.fixed_dt            = 6.0 # Timestep size (seconds)
-remora.ndtfast = 20 # Baratropic timestep size (seconds)
+remora.ndtfast = 20
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
