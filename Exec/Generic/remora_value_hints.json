@@ -204,10 +204,6 @@
       "value": "30",
       "count": 35
     },
-    "remora.flat_bathymetry": {
-      "value": "false",
-      "count": 42
-    },
     "remora.gls_Kmin": {
       "value": "7.6e-6",
       "count": 7

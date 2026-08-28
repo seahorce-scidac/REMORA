@@ -677,12 +677,10 @@ REMORA::set_bathymetry (int lev)
     BL_PROFILE("REMORA::bathymetry()");
     // Only set bathymetry on level 0, and interpolate for finer levels
     if (lev==0) {
-        if (solverChoice.flat_bathymetry) {
-            init_flat_bathymetry(lev);
         // If grid data is not defined on a level > 0 (negative level) then
         // initialize from low-resolution grid normally. Otherwise use high-resolution
         // grid data averaged down to level 0
-        } else if (hires_grid_level < 0) {
+        if (hires_grid_level < 0) {
             if (solverChoice.ic_type == IC_Type::analytic) {
                 prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, *vec_h[lev]);
             } else if (solverChoice.ic_type == IC_Type::netcdf) {
@@ -1165,16 +1163,6 @@ REMORA::set_hmixcoef(int lev)
         FillPatch(lev, time, *vec_diff2[lev], GetVecOfPtrs(vec_diff2),
                   foextrap_periodic_bc(), BdyVars::null, n, false);
     }
-}
-
-/**
- * @param[in   ] lev    level to operate on
- */
-void
-REMORA::init_flat_bathymetry(int lev)
-{
-    BL_PROFILE("REMORA::init_flat_bathymetry()");
-    vec_h[lev]->setVal(-geom[0].ProbLo()[2]);
 }
 
 /**
@@ -1842,11 +1830,12 @@ REMORA::ReadParameters ()
                 steps_per_history_file = 1;
             }
         } else if (write_history_file and !chunk_history_file and plot_int > 0) {
-            // Estimate number of output steps we'll need. Only meaningful when output
-            // is driven by plot_int; plot_int defaults to -1 when plot_int_time is used
-            // instead, and dividing by it would be a divide-by-zero or give a negative
-            // count.
-            int nt_out = int((max_step) / plot_int) + 1;
+            // Estimate number of output steps to warn on file size. Only meaningful when
+            // output is driven by plot_int: plot_int stays -1 when plot_int_time is used
+            // instead, and a time-based cadence cannot be predicted from max_step.
+            // Writes happen at step 0, every plot_int steps, and once more at the final
+            // time if max_step is not a multiple of plot_int.
+            int nt_out = max_step / plot_int + 1 + ((max_step % plot_int != 0) ? 1 : 0);
             Real est_hist_file_size = NCH2D * nx * ny * double_bits + nt_out * nx * ny * double_bits * (NC3D*nz + NC2D);
             if (est_hist_file_size > two_gb) {
                 amrex::Warning("WARNING: NetCDF history file may be larger than 2GB limit. Consider setting remora.chunk_history_file=true");
@@ -2029,15 +2018,6 @@ REMORA::ReadParameters ()
     // coordinates can be calculated at any level without the corresponding level having been created.
     if (hires_init_level >= 0 and solverChoice.ic_type == IC_Type::analytic) {
         amrex::Abort("Cannot do high-resolution initialization for analytic initial conditions. Not yet implemented");
-    }
-
-    // flat_bathymetry takes precedence at level 0 (see set_bathymetry), so a run asking for
-    // both would silently ignore the high-resolution bathymetry it was given. The flat branch
-    // of several analytic bathymetry hooks also writes h's second component, which the
-    // one-component vec_h_full_domain does not have.
-    if (hires_grid_level > 0 and solverChoice.flat_bathymetry) {
-        amrex::Abort("remora.flat_bathymetry is incompatible with hires_grid_level > 0: flat bathymetry "
-                     "would override the high-resolution bathymetry at level 0. Use one or the other");
     }
 
 }

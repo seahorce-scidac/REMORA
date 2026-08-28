@@ -65,7 +65,6 @@ remora.plot_vars_3d  = salt temp tracer x_velocity y_velocity z_velocity
 remora.plotfile_type = amrex
 
 # SOLVER CHOICE
-remora.flat_bathymetry = false
 remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
 
 remora.Zob = 0.02

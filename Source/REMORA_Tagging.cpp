@@ -3,6 +3,88 @@
 
 using namespace amrex;
 
+namespace {
+/**
+ * Copy mf's topmost and bottommost valid z-planes into its z-ghost planes.
+ *
+ * Several of the fields ErrorEst tags on live in MultiFabs with no ghost cells in z
+ * (zvel_new, vec_mskr3d), and the vorticity branch only ever computes valid cells, so
+ * mf's k = klo-1 and k = khi+1 planes would otherwise be read uninitialized by the GRAD
+ * (adjacent_difference_greater) test, which unconditionally differences k+-1. There is
+ * no data below k=0 or above k=N to copy, so impose a zero vertical gradient: GRAD then
+ * sees no vertical difference at the surface and bottom cells instead of garbage.
+ *
+ * @param[inout] mf   single-component MultiFab with at least one ghost cell in z
+ */
+void
+fill_z_ghost_planes (MultiFab& mf)
+{
+    AMREX_ALWAYS_ASSERT(mf.nComp() == 1 && mf.nGrowVect()[2] >= 1);
+
+    // Not tiled: each iteration writes the two z-planes of a whole column, so tiling in
+    // z would have several tiles writing the same cell.
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi)
+    {
+        const Box& vbx = mfi.validbox();
+        const int klo = vbx.smallEnd(2);
+        const int khi = vbx.bigEnd(2);
+
+        // Laterally grown as well, so the ghost columns get their z-planes too --
+        // GRAD reads i+-1 and j+-1 in those columns as well as k+-1.
+        const Box& gbx = mfi.fabbox();
+        auto arr = mf.array(mfi);
+
+        ParallelFor(makeSlab(gbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int) noexcept
+        {
+            arr(i,j,klo-1) = arr(i,j,klo);
+            arr(i,j,khi+1) = arr(i,j,khi);
+        });
+    }
+}
+
+/**
+ * Fill mf's lateral ghost cells from the nearest valid cell of the same box.
+ *
+ * Call this *before* FillBoundary: FillBoundary reads only valid regions, so it
+ * overwrites every ghost cell backed by a real same-level or periodic neighbor and
+ * leaves only the physical-boundary and coarse/fine ghosts holding the zero-gradient
+ * value written here. That keeps the GRAD test's i+-1 / j+-1 reads defined and
+ * deterministic everywhere without tagging on a jump we invented.
+ *
+ * @param[inout] mf   single-component MultiFab
+ */
+void
+fill_lateral_ghosts_zero_grad (MultiFab& mf)
+{
+    AMREX_ALWAYS_ASSERT(mf.nComp() == 1);
+    const IntVect ng = mf.nGrowVect();
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& vbx = mfi.validbox();
+        const Box  gbx = mfi.growntilebox(IntVect(ng[0],ng[1],0));
+        auto arr = mf.array(mfi);
+
+        const int ilo = vbx.smallEnd(0); const int ihi = vbx.bigEnd(0);
+        const int jlo = vbx.smallEnd(1); const int jhi = vbx.bigEnd(1);
+
+        ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            if (i < ilo || i > ihi || j < jlo || j > jhi) {
+                arr(i,j,k) = arr(amrex::min(amrex::max(i,ilo),ihi),
+                                 amrex::min(amrex::max(j,jlo),jhi), k);
+            }
+        });
+    }
+}
+} // namespace
+
 /**
  * Function to tag cells for refinement -- this overrides the pure virtual function in AmrCore
  *
@@ -51,13 +133,26 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             MultiFab::Copy(*mf,*yvel_new[levc],0,0,1,1);
         } else if (ref_tags[j].Field() == "z_velocity") {
             FillPatch(levc, time, *zvel_new[levc], zvel_new, zvel_bc(), BdyVars::null,0,true,true);
-            MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,1);
+            // zvel_new has no ghost cells in z, so we can only ask the copy for lateral ones
+            MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,IntVect(1,1,0));
+            fill_z_ghost_planes(*mf);
         } else if (ref_tags[j].Field() == "vorticity") {
-            MultiFab mf_cc_vel(grids[levc],dmap[levc],3,1);
+            // Fill the ghost cells of the face-based velocities -- including at
+            // coarse/fine boundaries, which is what FillPatch's FillPatchTwoLevels
+            // interpolates -- since the cell-centered velocities in those ghost cells
+            // are read when computing vorticity below
+            FillPatch(levc, time, *xvel_new[levc], xvel_new, xvel_bc(), BdyVars::u,0,true,true);
+            FillPatch(levc, time, *yvel_new[levc], yvel_new, yvel_bc(), BdyVars::v,0,true,true);
+            FillPatch(levc, time, *zvel_new[levc], zvel_new, zvel_bc(), BdyVars::null,0,true,true);
+
+            // Vorticity needs no vertical neighbor, and zvel_new has no z ghost cells
+            // to average from, so only grow laterally
+            MultiFab mf_cc_vel(grids[levc],dmap[levc],3,IntVect(1,1,0));
             average_face_to_cellcenter(mf_cc_vel,0,
                                        Array<const MultiFab*,3>{xvel_new[levc],
                                                                 yvel_new[levc],
-                                                                zvel_new[levc]});
+                                                                zvel_new[levc]},
+                                       IntVect(1,1,0));
             // Impose bc's at domain boundaries at all levels
             FillBdyCCVels(levc, mf_cc_vel);
 
@@ -75,32 +170,20 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
                 derived::remora_dervort(bx, dfab, 0, 1, sfab, pm, pn, maskr, Geom(levc), time, nullptr, levc);
             } // mfi
 
-          mf->FillBoundary(geom[levc].periodicity());
-          //
-          // TODO: we may need to fill physical boundaries here before tagging criteria are imposed
-          //
+            // remora_dervort only writes valid cells, so fill mf's own ghosts before the
+            // tagging criteria difference across them. The zero-gradient pass goes first;
+            // FillBoundary then replaces every ghost that has a real same-level or periodic
+            // neighbor, leaving only the physical-boundary and coarse/fine ghosts extrapolated.
+            fill_lateral_ghosts_zero_grad(*mf);
+            mf->FillBoundary(geom[levc].periodicity());
+            fill_z_ghost_planes(*mf);
 
         } else if (ref_tags[j].Field() == "mask") {
-            MultiFab::Copy(*mf,*vec_mskr3d[levc],0,0,1,IntVect(1,1,0));
             // vec_mskr3d has no z ghost cells, so this copy leaves mf's top and bottom
-            // ghost planes unwritten, and the GRAD test differences in z -- reading them
-            // uninitialized, which traps FE_INVALID in a Debug build. The mask is constant
-            // down a column, so fill them from the adjacent valid plane: the vertical
-            // gradient is then identically zero.
-            for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-            {
-                const Box& vbx = mfi.validbox();
-                const int klo = vbx.smallEnd(2);
-                const int khi = vbx.bigEnd(2);
-                Box gbx = mfi.growntilebox();
-                gbx.setSmall(2, klo-1); gbx.setBig(2, khi+1);
-                auto arr = mf->array(mfi);
-                ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
-                {
-                    if (k < klo) { arr(i,j,k) = arr(i,j,klo); }
-                    else if (k > khi) { arr(i,j,k) = arr(i,j,khi); }
-                });
-            }
+            // ghost planes unwritten while the GRAD test differences in z. The mask is
+            // constant down a column, so the zero vertical gradient imposed here is exact.
+            MultiFab::Copy(*mf,*vec_mskr3d[levc],0,0,1,IntVect(1,1,0));
+            fill_z_ghost_planes(*mf);
 #ifdef REMORA_USE_PARTICLES
         } else {
             //

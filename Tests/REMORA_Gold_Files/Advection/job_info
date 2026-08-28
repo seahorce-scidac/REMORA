@@ -171,7 +171,6 @@ remora.file_min_digits = 5
 remora.fixed_dt = 300.0
 remora.fixed_fast_dt = 10.0
 remora.fixed_ndtfast_ratio = 30
-remora.flat_bathymetry = true
 remora.gls_stability_type = "Canuto_A"
 remora.grid_scale_type = "constant"
 remora.harmonic_mixing_type = "s"

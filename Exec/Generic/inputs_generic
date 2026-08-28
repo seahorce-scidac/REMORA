@@ -482,10 +482,6 @@ remora.fixed_fast_dt = 10.0
 # type=int; method=queryAdd
 remora.fixed_ndtfast_ratio = 0
 
-# \brief read in and initialize parameters
-# type=bool; method=queryAdd
-remora.flat_bathymetry = false
-
 # name of time variable
 # type=string; method=queryAdd
 remora.frc_time_varname = <UNKNOWN_DEFAULT>

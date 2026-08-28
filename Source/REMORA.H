@@ -1138,9 +1138,6 @@ public:
     /** \brief Initialize horizontal mixing coefficients */
     void set_hmixcoef (int lev);
 
-    /** \brief Initialize flat bathymetry to value from problo */
-    void init_flat_bathymetry (int lev);
-
     /** \brief Initialize or calculate bottom drag */
     void set_drag (int lev);
 
@@ -1610,6 +1607,8 @@ private:
 
     /** \brief maximum number of steps */
     int max_step = std::numeric_limits<int>::max();
+    /** \brief Whether max_step was set in the inputs; the default above is not a
+     * distinguishable sentinel */
     /** \brief Time to stop */
     amrex::Real stop_time = std::numeric_limits<amrex::Real>::max();
 

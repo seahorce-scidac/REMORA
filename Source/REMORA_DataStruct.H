@@ -129,8 +129,6 @@ struct SolverChoice {
     {
         amrex::ParmParse pp(pp_prefix);
 
-        pp.queryAdd("flat_bathymetry", flat_bathymetry);
-
         // Which horizontal advection scheme for tracers
         static std::string tracer_hadv_string = "upstream3";
         pp.queryAdd("tracer_horizontal_advection_scheme",tracer_hadv_string);
@@ -789,7 +787,6 @@ struct SolverChoice {
         amrex::Print() << "use_prestep           : " << use_prestep << std::endl;
         amrex::Print() << "use_uv3dmix           : " << use_uv3dmix << std::endl;
         amrex::Print() << "use_barotropic        : " << use_barotropic << std::endl;
-        amrex::Print() << "flat_bathymetry       : " << flat_bathymetry << std::endl;
         amrex::Print() << "spatial_order         : " << spatial_order << std::endl;
 
         if (ic_type == IC_Type::analytic) {
@@ -838,8 +835,6 @@ struct SolverChoice {
 
     // Default prefix
     std::string pp_prefix {"remora"};
-
-    bool        flat_bathymetry        = false;
 
     bool        use_salt               = true;
 

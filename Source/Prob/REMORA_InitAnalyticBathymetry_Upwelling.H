@@ -1,7 +1,6 @@
 
     // Must not be doubly periodic, and must have terrain
     AMREX_ALWAYS_ASSERT( !NSPeriodic || !EWPeriodic);
-    AMREX_ALWAYS_ASSERT( !m_solverChoice.flat_bathymetry);
 
     mf_h.setVal(geomdata.ProbHi(2));
 
