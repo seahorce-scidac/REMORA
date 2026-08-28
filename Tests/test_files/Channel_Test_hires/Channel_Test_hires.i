@@ -19,7 +19,7 @@ remora.bc.yhi.type = "SlipWall"
 # TIME STEP CONTROL
 remora.fixed_dt       = 400.0 # Timestep size (seconds)
 
-remora.fixed_ndtfast_ratio = 10
+remora.ndtfast = 10
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
@@ -62,7 +62,6 @@ remora.Akk_bak = 5.0e-6
 remora.Akp_bak = 5.0e-6
 remora.Akv_bak = 1.0e-5
 
-
 # Linear EOS parameters
 remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
 remora.S0    = 15.0    # background salinity (nondimensional) constant
@@ -78,7 +77,6 @@ remora.use_coriolis = true
 remora.coriolis_type = beta_plane
 remora.coriolis_f0 = 1.0e-4
 remora.coriolis_beta = 0.0
-
 
 # HIGH-RESOLUTION BATHYMETRY -- transparency check
 # ChannelTest sets h = 50 everywhere with setVal, covering every grow cell and both

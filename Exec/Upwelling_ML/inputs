@@ -14,9 +14,7 @@ remora.is_periodic = 1 1 0
 # TIME STEP CONTROL
 remora.fixed_dt       = 5 # Timestep size (seconds)
 
-#remora.fixed_fast_dt  = 10.0 # Baratropic timestep size (seconds)
-
-remora.fixed_ndtfast_ratio  = 1 # Ratio of baroclinic to barotropic time step
+remora.ndtfast  = 1 # Ratio of baroclinic to barotropic time step
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between computing mass

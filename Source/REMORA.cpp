@@ -23,10 +23,9 @@ SolverChoice REMORA::solverChoice;
 // Time step control
 amrex::Real REMORA::cfl           =  Real(0.8);
 amrex::Real REMORA::fixed_dt      = -one;
-amrex::Real REMORA::fixed_fast_dt = -one;
 amrex::Real REMORA::change_max    =  Real(1.1);
 
-int   REMORA::fixed_ndtfast_ratio = 0;
+int   REMORA::ndtfast             = 0;
 
 // Dictate verbosity in screen output
 int         REMORA::verbose       = 0;
@@ -1776,16 +1775,54 @@ REMORA::ReadParameters ()
     pp.queryAdd("cfl", cfl);
     pp.queryAdd("change_max", change_max);
     pp.queryAdd("fixed_dt", fixed_dt);
-    pp.queryAdd("fixed_fast_dt", fixed_fast_dt);
-    pp.queryAdd("fixed_ndtfast_ratio", fixed_ndtfast_ratio);
 
-    if (fixed_dt > zero && fixed_fast_dt > zero && fixed_ndtfast_ratio > 0) {
-        if (fixed_dt / fixed_fast_dt != fixed_ndtfast_ratio) {
-            amrex::Abort("Dt is over-specfied");
-        }
-    } else if (fixed_dt > zero && fixed_fast_dt > zero && fixed_ndtfast_ratio <= 0) {
-        fixed_ndtfast_ratio = static_cast<int>(fixed_dt / fixed_fast_dt);
+    // remora.fixed_fast_dt has been removed. It only ever served to infer the number of
+    // barotropic substeps, and only when remora.fixed_dt was also given -- which left the
+    // ratio at zero on every other path, including a CFL-driven run. amrex does not abort
+    // on unused inputs by default, so catch it here rather than letting a stale input file
+    // silently fall back to whatever remora.ndtfast happens to be.
+    if (pp.contains("fixed_fast_dt")) {
+        amrex::Abort("remora.fixed_fast_dt has been removed. Set remora.ndtfast (the "
+                     "number of barotropic steps per baroclinic step) instead; it is what "
+                     "fixed_fast_dt was used to infer, as remora.fixed_dt / "
+                     "remora.fixed_fast_dt");
     }
+
+    // remora.ndtfast is the preferred name; remora.fixed_ndtfast_ratio is kept as a
+    // deprecated alias so existing input files keep working. Read the alias first, so
+    // that the queryAdd below records the resulting value under the preferred name.
+    if (pp.contains("fixed_ndtfast_ratio")) {
+        if (pp.contains("ndtfast")) {
+            amrex::Abort("remora.ndtfast and remora.fixed_ndtfast_ratio are both "
+                         "specified. Please use only remora.ndtfast");
+        }
+        amrex::Print() << "WARNING: remora.fixed_ndtfast_ratio is deprecated. "
+                       << "Please use remora.ndtfast instead." << std::endl;
+        // Deprecated alias for remora.ndtfast.
+        pp.queryAdd("fixed_ndtfast_ratio", ndtfast);
+    }
+    // Number of barotropic (fast) steps taken per baroclinic (slow) step.
+    pp.queryAdd("ndtfast", ndtfast);
+
+    // Advance and timeStepML form the fast step as dt / ndtfast, and set_weights sizes
+    // the barotropic filter with the same number, so a non-positive value divides by zero
+    // at all three sites. Nothing can infer it: dt is not known until run time on a
+    // CFL-driven run.
+    if (ndtfast <= 0) {
+        amrex::Abort("remora.ndtfast must be a positive integer: it is the number of "
+                     "barotropic steps taken per baroclinic step");
+    }
+
+    // remora.use_barotropic has been removed -- the barotropic mode is always on. Reject
+    // it on presence rather than on value: amrex does not abort on unused inputs by
+    // default, so a stale "= false" would otherwise silently run different physics than
+    // the input file asks for. Tested with contains() rather than query() so the schema
+    // scraper behind Exec/Generic does not re-advertise a parameter that no longer exists.
+    if (pp.contains("use_barotropic")) {
+        amrex::Abort("remora.use_barotropic has been removed. The barotropic (2D) mode is "
+                     "always active; please delete this line from your inputs file");
+    }
+
     AMREX_ASSERT(cfl > zero || fixed_dt > zero);
 
     num_files_at_level.resize(max_level + 1, 0);

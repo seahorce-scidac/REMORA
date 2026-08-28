@@ -16,7 +16,7 @@ remora.is_periodic = 1 1 0
 
 # TIME STEP CONTROL
 remora.fixed_dt       = 100.0 # Timestep size (seconds)
-remora.fixed_ndtfast_ratio  = 10 # Baratropic timestep size (seconds)
+remora.ndtfast  = 10
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval   = 10       # timesteps between computing mass
@@ -43,7 +43,6 @@ remora.expand_plotvars_to_unif_rr = 1
 
 # SOLVER CHOICE
 remora.use_coriolis = false
-remora.use_barotropic=true
 remora.tracer_horizontal_advection_scheme = "centered4" # upstream3 or centered4
 
 # Linear EOS parameters

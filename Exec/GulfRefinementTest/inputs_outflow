@@ -29,7 +29,7 @@ remora.bc.tke.type    =  outflow           outflow           outflow          ou
 
 # TIME STEP CONTROL
 remora.fixed_dt            = 40.0 # Timestep size (seconds)
-remora.fixed_ndtfast_ratio = 20 # Baratropic timestep size (seconds)
+remora.ndtfast = 20
 
 # REFINEMENT / REGRIDDING
 # Level 1 has to exist for the high-resolution data to be evaluated on and averaged down from,

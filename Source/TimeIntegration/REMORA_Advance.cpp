@@ -20,21 +20,18 @@ REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycl
 
     setup_step(lev, time, dt_lev);
 
-    if (solverChoice.use_barotropic)
-    {
-        int nfast_counter=nfast + 1;
+    int nfast_counter=nfast + 1;
 
-        //***************************************************
-        //Compute fast timestep from dt_lev and ratio
-        //***************************************************
-        Real dtfast_lev=dt_lev/Real(fixed_ndtfast_ratio);
+    //***************************************************
+    //Compute fast timestep from dt_lev and ratio
+    //***************************************************
+    Real dtfast_lev=dt_lev/Real(ndtfast);
 
-        //***************************************************
-        //Advance nfast_counter steps of the 2d integrator
-        //***************************************************
-        for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
-            advance_2d_onestep(lev, dt_lev, dtfast_lev, my_iif, nfast_counter);
-        }
+    //***************************************************
+    //Advance nfast_counter steps of the 2d integrator
+    //***************************************************
+    for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
+        advance_2d_onestep(lev, dt_lev, dtfast_lev, my_iif, nfast_counter);
     }
 
 #ifdef REMORA_USE_FUNWAVE_FORT

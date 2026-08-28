@@ -32,7 +32,7 @@ remora.bc.yhi.type = "outflow"
 
 # TIME STEP CONTROL
 remora.fixed_dt            = 1.0
-remora.fixed_ndtfast_ratio = 10
+remora.ndtfast = 10
 
 # REFINEMENT
 # Level 1 has to exist for the high-resolution data to live on. No refinement indicator is set,

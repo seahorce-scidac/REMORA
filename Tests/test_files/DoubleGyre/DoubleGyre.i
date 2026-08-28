@@ -22,9 +22,9 @@ remora.bc.yhi.type = "SlipWall"
 # TIME STEP CONTROL
 remora.fixed_dt       = 3600.0 # Timestep size (seconds)
 
-remora.fixed_ndtfast_ratio = 20
+remora.ndtfast = 20
 
-#remora.fixed_ndtfast_ratio  = 30 # Ratio of baroclinic to barotropic time step
+#remora.ndtfast  = 30 # Ratio of baroclinic to barotropic time step
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
@@ -64,7 +64,6 @@ remora.visc2 = 1280.0
 remora.tnu2_salt = 1280.0
 remora.tnu2_temp = 1280.0
 remora.tnu2_scalar = 1280.0
-
 
 # Linear EOS parameters
 remora.R0    = 1028.0  # background density value (Kg/m3) used in Linear Equation of State

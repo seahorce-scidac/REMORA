@@ -33,7 +33,7 @@ remora.bc.xlo.velocity = 0. 0. 0.
 # TIME STEP CONTROL
 remora.fixed_dt       = 3600.0 # Timestep size (seconds)
 
-remora.fixed_ndtfast_ratio = 20
+remora.ndtfast = 20
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0

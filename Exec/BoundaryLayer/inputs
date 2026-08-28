@@ -23,10 +23,9 @@ remora.bc.vbar.type   =  slipwall         periodic          outflow           pe
 remora.bc.zeta.type   =  slipwall         periodic          outflow           periodic
 remora.bc.tke.type    =  slipwall         periodic          outflow           periodic
 
-
 # TIME STEP CONTROL
 remora.fixed_dt       = 50.0 # Timestep size (seconds)
-remora.fixed_ndtfast_ratio = 30
+remora.ndtfast = 30
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
