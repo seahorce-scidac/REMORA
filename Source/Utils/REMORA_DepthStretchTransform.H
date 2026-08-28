@@ -187,23 +187,26 @@ REMORA::stretch_transform (int lev)
         // NOTE: z_phys_nd(i,j,k) and z_w(i,j,k) both refer to the node on the LOW  side of cell (i,j,k)
         //
 
-        // We shrink the box in the vertical since z_phys_nd has a ghost cell in the vertical
-        //    which we will fill by extrapolation, not from z_w
-        Box bx = mfi.growntilebox(IntVect(NGROW,NGROW,0));//Box(z_phys_nd); bx.grow(2,-1);
+        // Nodal in all three directions so that the outermost node in x and y is
+        //    filled as well.  We do not grow in the vertical since z_phys_nd has a
+        //    ghost node there which we fill by extrapolation, not from z_w.
+        Box bx = mfi.grownnodaltilebox(-1,IntVect(NGROW,NGROW,0));
 
-        ParallelFor(convert(bx,IntVect(0,0,1)), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            // For now assume all boundaries are constant height --
-            //     we will enforce periodicity below
-            if ( i >= lo.x && i <= hi.x-1 && j >= lo.y && j <= hi.y-1 )
-            {
-                z_phys_nd(i,j,k)=Real(0.25)*( z_w(i,j  ,k) + z_w(i+1,j  ,k) +
-                                         z_w(i,j+1,k) + z_w(i+1,j+1,k) );
-            } else {
-                int ii = std::min(std::max(i, lo.x), hi.x);
-                int jj = std::min(std::max(j, lo.y), hi.y);
-                z_phys_nd(i,j,k) = z_w(ii,jj,k);
-            }
+            // Node (i,j,k) is the low corner of cell (i,j,k), so the four water
+            //     columns surrounding it are cells (i-1,j-1) through (i,j).  This is
+            //     the psi-point averaging ROMS uses in set_depth / metrics.
+            // Indices are clamped so that a node on the edge of the array picks up the
+            //     one-sided value; for now we assume all boundaries are constant
+            //     height -- we will enforce periodicity below.
+            int ii = std::min(std::max(i  , lo.x), hi.x);
+            int im = std::min(std::max(i-1, lo.x), hi.x);
+            int jj = std::min(std::max(j  , lo.y), hi.y);
+            int jm = std::min(std::max(j-1, lo.y), hi.y);
+
+            z_phys_nd(i,j,k)=Real(0.25)*( z_w(im,jm,k) + z_w(ii,jm,k) +
+                                          z_w(im,jj,k) + z_w(ii,jj,k) );
         });
 
         // Fill nodes below the surface (to avoid out of bounds errors in particle functions)
