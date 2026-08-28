@@ -244,7 +244,7 @@ REMORA::nonlin_eos (const Box& bx,
         // This line may need to move once bluk fluxes are added
         rho(i,j,k) = den(i,j,k);
 
-        if (bulk_fluxes) {
+        if (calc_alpha_beta) {
             Real dCdT3=A01+Tt*(two*A02+Tt*(Real(3.0)*A03+Tt*Real(4.0)*A04));
             Real dCdT4=B01+Tt*(two*B02+Tt*Real(3.0)*B03);
             Real dCdT5=D01+Tt*two*D02;
@@ -303,7 +303,7 @@ REMORA::nonlin_eos (const Box& bx,
         }
     });
 
-    if (solverChoice.bulk_fluxes) {
+    if (calc_alpha_beta) {
         ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
             Real Tp = z_r(i,j,N);
