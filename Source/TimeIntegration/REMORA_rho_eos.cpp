@@ -185,7 +185,10 @@ REMORA::nonlin_eos (const Box& bx,
     FArrayBox fab_DbulkDS(bx,1,amrex::The_Async_Arena()); auto DbulkDS = fab_DbulkDS.array();
     FArrayBox fab_Dden1DS(bx,1,amrex::The_Async_Arena()); auto Dden1DS = fab_Dden1DS.array();
 
-    bool bulk_fluxes = solverChoice.bulk_fluxes;
+    // Only calculate alpha and beta if they have a chance of being used in bulk_fluxes
+    // This function's caller has logic to determine whether alpha and beta are
+    // defined, so testing on alpha and beta doubles as a check on the physics
+    bool calc_alpha_beta = solverChoice.bulk_fluxes && alpha && beta;
 //
 //=======================================================================
 //  Non-linear equation of state.
@@ -205,7 +208,7 @@ REMORA::nonlin_eos (const Box& bx,
         Real C1 = U00+Tt*(U01+Tt*(U02+Tt*(U03+Tt*U04)));
         Real C2 = V00+Tt*(V01+Tt*V02);
 
-        if (bulk_fluxes) {
+        if (calc_alpha_beta) {
             Real dCdT0=Q01+Tt*(two*Q02+Tt*(Real(3.0)*Q03+Tt*(Real(4.0)*Q04+
                          Tt*Real(5.0)*Q05)));
             Real dCdT1=U01+Tt*(two*U02+Tt*(Real(3.0)*U03+Tt*Real(4.0)*U04));
