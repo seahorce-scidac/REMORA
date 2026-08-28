@@ -1607,6 +1607,9 @@ private:
 
     /** \brief maximum number of steps */
     int max_step = std::numeric_limits<int>::max();
+    /** \brief Whether max_step was set in the inputs; the default above is not a
+     * distinguishable sentinel */
+    bool max_step_specified = false;
     /** \brief Time to stop */
     amrex::Real stop_time = std::numeric_limits<amrex::Real>::max();
 

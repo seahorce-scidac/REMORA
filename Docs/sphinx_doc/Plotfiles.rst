@@ -141,6 +141,13 @@ Notes
 
 -  The write_history_file option is only available if **plotfile_type = netcdf**
 
+-  A NetCDF history file stores all output times in a single file along an ``ocean_time``
+   dimension whose length is fixed when the file is created. It therefore requires
+   ``remora.max_step`` and ``remora.plot_int`` :math:`> 0`, and does not support
+   ``remora.plot_int_time``; REMORA aborts at startup if these are not met. Set
+   ``remora.write_history_file = false`` to use a time-based output cadence, which writes
+   one NetCDF file per output step.
+
 -  Depending on your PnetCDF build, the code may be unable to write files larger than 2 GB. If the code
    crashes when writing a NetCDF history file (or a single time step, if you have a particularly large grid),
    consider building with MPICH v4.2.2 or instead outputting a native AMReX plotfile instead.
@@ -153,6 +160,7 @@ Notes
 
 -  If both ``remora.plot_int`` and ``remora.plot_int_time`` have been set, plotfile output will occur
    ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
+   This combination is not allowed when writing a NetCDF history file, as noted above.
 
 -  When Fennel biology is enabled, ``fennel`` in ``remora.plot_vars_3d``
    expands to all active biology tracers. Active biology tracers can also be

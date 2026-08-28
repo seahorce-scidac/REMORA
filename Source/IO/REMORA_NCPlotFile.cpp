@@ -143,14 +143,21 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     int ny = subdomain.length(1);
     int nz = subdomain.length(2);
 
-    if (is_history && max_step < 0) {
+    // ReadParameters already checks these; re-check because nt is derived just below.
+    if (is_history && !max_step_specified) {
         amrex::Abort("Need to know max_step if writing history file");
+    }
+    if (is_history && plot_int <= 0) {
+        amrex::Abort("Need remora.plot_int > 0 if writing history file");
     }
 
     long long int nt;
     if (is_history) {
         if (max_step > 0) {
-            nt = static_cast<long long int>(max_step / std::min(plot_int, max_step)) + 1;
+            // Writes happen at step 0, every plot_int steps, and once more at the
+            // final time if max_step is not a multiple of plot_int.
+            nt = static_cast<long long int>(max_step / plot_int) + 1
+               + static_cast<long long int>((max_step % plot_int != 0) ? 1 : 0);
         } else {
             nt = 1;
         }
@@ -939,6 +946,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             if (solverChoice.output_forcing)
             {
                 const Real Hscale = solverChoice.rho0 * Cp;
+                // The copy and the mult below are both async on the same stream, so the
+                // sync has to follow the last of them and precede the host-side put().
                 // Tair
                 {
                     FArrayBox tmp_Tair;
@@ -972,10 +981,10 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                         1           // number of comps
                     );
 
-                    Gpu::streamSynchronize();
-
                     // Convert °C·m/s → W/m²
                     tmp.mult<RunOn::Device>(Hscale);
+
+                    Gpu::streamSynchronize();
 
                     auto nc_var = ncf.var("qnet");
                     nc_var.put(tmp.dataPtr(),
@@ -1007,10 +1016,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_lhflx[lev])[mfi.index()], 0, 0, 1);
-                    Gpu::streamSynchronize();
 
                     // Convert °C·m/s → W/m²
                     tmp.mult<RunOn::Device>(Hscale);
+
+                    Gpu::streamSynchronize();
 
                     auto nc_var = ncf.var("latent");
                     nc_var.put(tmp.dataPtr(),
@@ -1022,10 +1032,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_shflx[lev])[mfi.index()], 0, 0, 1);
-                    Gpu::streamSynchronize();
 
                     // Convert °C·m/s → W/m²
                     tmp.mult<RunOn::Device>(Hscale);
+
+                    Gpu::streamSynchronize();
 
                     auto nc_var = ncf.var("sensible");
                     nc_var.put(tmp.dataPtr(),
@@ -1037,10 +1048,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_lrflx[lev])[mfi.index()], 0, 0, 1);
-                    Gpu::streamSynchronize();
 
                     // Convert °C·m/s → W/m²
                     tmp.mult<RunOn::Device>(Hscale);
+
+                    Gpu::streamSynchronize();
 
                     auto nc_var = ncf.var("lwrad");
                     nc_var.put(tmp.dataPtr(),
