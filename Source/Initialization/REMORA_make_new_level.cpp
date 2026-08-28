@@ -720,11 +720,10 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 
         // Set flux vars that will be computed in bulk_fluxes to zero so initial plotting works
         vec_stflx[lev]->setVal(zero);
-        vec_sustr[lev]->setVal(zero);
-        vec_svstr[lev]->setVal(zero);
         vec_lhflx[lev]->setVal(zero);
         vec_shflx[lev]->setVal(zero);
         vec_lrflx[lev]->setVal(zero); // possibly this should be set to longwave_rad like longwave_down
+        vec_evap[lev]->setVal(zero);
     }
 
     if (solverChoice.do_rivers) {
@@ -763,6 +762,8 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_btflx[lev]->setVal(zero);
     vec_stflux[lev]->setVal(zero);
     vec_btflux[lev]->setVal(zero);
+    vec_sustr[lev]->setVal(zero);
+    vec_svstr[lev]->setVal(zero);
 
     // NOTE: Used to set vec_pm and vec_pn to 1e34 here to make foextrap work
     // when init_type = real. However, this does not appear to be necessary so removing
