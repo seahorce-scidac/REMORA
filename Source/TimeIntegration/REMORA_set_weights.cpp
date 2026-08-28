@@ -13,8 +13,7 @@ void REMORA::set_weights (int /*lev*/) {
     Real gamma, scale;
     Real wsum, shift, cff;
 
-    //HACK should possibly store fixed_ndtfast elsewhere
-    int ndtfast=fixed_ndtfast_ratio>0 ? fixed_ndtfast_ratio : static_cast<int>(fixed_fast_dt / fixed_dt);
+    // ndtfast is the REMORA member, guaranteed positive by ReadParameters.
 
     //From mod_scalars
     Real Falpha = two;

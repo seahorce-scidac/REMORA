@@ -580,18 +580,13 @@ List of Parameters for Single-Rate
 |                               | or other                |                |                            |
 |                               | settings                |                |                            |
 +-------------------------------+-------------------------+----------------+----------------------------+
-| **remora.fixed_fast_dt**      | set fast dt as this     | real > 0       | inferred from **fixed_dt** |
-|                               | value                   |                |                            |
-|                               |                         |                | and **fixed_ndfast_ratio** |
-|                               |                         |                |                            |
-|                               |                         |                | if not set                 |
-+-------------------------------+-------------------------+----------------+----------------------------+
-| **remora.fixed_ndfast_ratio** | set fast dt as          | int            | inferred from **fixed_dt** |
-|                               |                         |                |                            |
-|                               |                         |                | and **fixed_fast_dt**      |
-|                               |                         |                |                            |
-|                               | slow dt /               |                |                            |
-|                               | this ratio              |                | if not set                 |
+| **remora.ndtfast**            | number of barotropic    | int > 0        | must be set                |
+|                               | steps taken per         |                |                            |
+|                               | baroclinic step. The    |                |                            |
+|                               | fast dt is slow dt /    |                |                            |
+|                               | this ratio. Deprecated  |                |                            |
+|                               | alias:                  |                |                            |
+|                               | **fixed_ndtfast_ratio** |                |                            |
 +-------------------------------+-------------------------+----------------+----------------------------+
 | **remora.change_max**         | factor by which         | Real >= 1      | 1.1                        |
 |                               | dt can grow             |                |                            |
@@ -614,16 +609,14 @@ Examples of Usage
    | ``dt      = min(dt_adv, dt_grav)``
    | ``pm`` and ``pn`` are the per-cell 1/dx and 1/dy metrics, so stretched and
      curvilinear grids are handled; ``Hz`` is the layer thickness and ``h`` the
-     bathymetry. ``ndtfast`` is **fixed_ndtfast_ratio** when **use_barotropic** is true
-     and 1 otherwise: the baroclinic step only has to resolve the external gravity wave
-     to within the number of barotropic substeps taken per baroclinic step.
+     bathymetry. ``ndtfast`` is **remora.ndtfast**: the baroclinic step only has to
+     resolve the external gravity wave to within the number of barotropic substeps taken
+     per baroclinic step.
    | The gravity wave term is what keeps the estimate finite for a run started from rest,
      where every velocity is zero. The estimate does **not** include the internal gravity
-     wave speed, so a large **fixed_ndtfast_ratio** can yield a baroclinic step that does
-     not resolve the internal modes; lower **remora.cfl** or set **remora.fixed_dt** in
-     that case. With **use_barotropic** = false the estimate is conservative in the other
-     direction, since it applies the full external-wave limit to a run that has no free
-     surface to propagate one.
+     wave speed, so a large **remora.ndtfast** can yield a baroclinic step that does not
+     resolve the internal modes; lower **remora.cfl** or set **remora.fixed_dt** in that
+     case.
 
 -  | **remora.change_max** = 1.1
    | allows the time step to increase by no more than 10% in this case.
@@ -714,10 +707,6 @@ List of Parameters
 |                                  | debugging purposes.         |                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+
 | **remora.use_uv3dmix**           | Include harmonic viscosity. | true / false      | true        |
-|                                  |                             |                   |             |
-|                                  | Only for debugging purposes.|                   |             |
-+----------------------------------+-----------------------------+-------------------+-------------+
-| **remora.use_barotropic**        | Include 2d barotropic step. | true / false      | true        |
 |                                  |                             |                   |             |
 |                                  | Only for debugging purposes.|                   |             |
 +----------------------------------+-----------------------------+-------------------+-------------+

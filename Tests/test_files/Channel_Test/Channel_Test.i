@@ -19,7 +19,7 @@ remora.bc.yhi.type = "SlipWall"
 # TIME STEP CONTROL
 remora.fixed_dt       = 400.0 # Timestep size (seconds)
 
-remora.fixed_ndtfast_ratio = 10
+remora.ndtfast = 10
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
@@ -61,7 +61,6 @@ remora.Zos = 0.002
 remora.Akk_bak = 5.0e-6
 remora.Akp_bak = 5.0e-6
 remora.Akv_bak = 1.0e-5
-
 
 # Linear EOS parameters
 remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State

@@ -1658,10 +1658,8 @@ private:
     static amrex::Real change_max;
     /** \brief User specified fixed baroclinic time step */
     static amrex::Real fixed_dt;
-    /** \brief User specified fixed barotropic time step */
-    static amrex::Real fixed_fast_dt;
     /** \brief User specified, number of barotropic steps per baroclinic step */
-    static int fixed_ndtfast_ratio;
+    static int ndtfast;
     /** \brief Number of fast steps to take */
     int nfast;
 

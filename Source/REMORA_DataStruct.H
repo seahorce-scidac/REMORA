@@ -168,9 +168,6 @@ struct SolverChoice {
         //This affect forcing and some of the mixing terms for velocity
         pp.queryAdd("use_uv3dmix", use_uv3dmix);
 
-        //This accounts for the main 2d loop but may not include coupling and copying properly
-        pp.queryAdd("use_barotropic", use_barotropic);
-
         pp.queryAdd("use_curvilinear_grid", use_curvilinear_grid);
 
         // Whether to do rivers. By default, rivers are temp and salt sources. Rivers
@@ -786,7 +783,6 @@ struct SolverChoice {
         amrex::Print() << "use_coriolis          : " << use_coriolis << std::endl;
         amrex::Print() << "use_prestep           : " << use_prestep << std::endl;
         amrex::Print() << "use_uv3dmix           : " << use_uv3dmix << std::endl;
-        amrex::Print() << "use_barotropic        : " << use_barotropic << std::endl;
         amrex::Print() << "spatial_order         : " << spatial_order << std::endl;
 
         if (ic_type == IC_Type::analytic) {
@@ -845,7 +841,6 @@ struct SolverChoice {
     bool        use_prestep           = true;
     bool        use_uv3dmix           = true;
     bool        use_baroclinic        = true;
-    bool        use_barotropic        = true;
 
     bool        use_curvilinear_grid  = false;
 

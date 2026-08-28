@@ -70,14 +70,9 @@ REMORA::estTimeStep(int level) const
 {
     BL_PROFILE("REMORA::estTimeStep()");
 
-    // The barotropic mode is substepped fixed_ndtfast_ratio times per baroclinic step
+    // The barotropic mode is substepped ndtfast times per baroclinic step
     // (REMORA_Advance.cpp), so the slow step only has to resolve the external gravity
-    // wave to within that ratio. Without mode splitting there are no substeps to hide
-    // behind and the slow step carries the full external-wave constraint. ReadParameters
-    // rejects a non-positive ratio on the barotropic path; fall back to the restrictive
-    // choice rather than multiplying dt by zero should it somehow not be set.
-    const int ndtfast = (solverChoice.use_barotropic && fixed_ndtfast_ratio > 0)
-                      ? fixed_ndtfast_ratio : 1;
+    // wave to within that ratio. ReadParameters guarantees ndtfast is positive.
 
     // g is a file-scope constexpr; hoist it into a local for the device lambda.
     const Real grav = g;

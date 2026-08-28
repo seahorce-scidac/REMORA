@@ -102,33 +102,30 @@ REMORA::timeStepML (Real time, int /*iteration*/)
         }
     }
 
-    if (solverChoice.use_barotropic)
-    {
-        int nfast_counter=nfast + 1;
+    int nfast_counter=nfast + 1;
 
-        for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
-            //Compute fast timestep from dt[lev] and ratio
-            for (int lev=0; lev <= finest_level; lev++)
+    for (int my_iif = 0; my_iif < nfast_counter; my_iif++) {
+        //Compute fast timestep from dt[lev] and ratio
+        for (int lev=0; lev <= finest_level; lev++)
+        {
+            Real dtfast_lev=dt[lev]/Real(ndtfast);
+            advance_2d_onestep(lev, dt[lev], dtfast_lev, my_iif, nfast_counter);
+            // **************************************************************************************
+            // Register old and new coarse data if we are at a level less than the finest level
+            // **************************************************************************************
+            if (lev < finest_level)
             {
-                Real dtfast_lev=dt[lev]/Real(fixed_ndtfast_ratio);
-                advance_2d_onestep(lev, dt[lev], dtfast_lev, my_iif, nfast_counter);
-                // **************************************************************************************
-                // Register old and new coarse data if we are at a level less than the finest level
-                // **************************************************************************************
-                if (lev < finest_level)
-                {
-                    if (cf_width >= 0) {
-                        // We must fill the ghost cells of these so that the parallel copy works correctly
-                        vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
-                        FPr_ubar[lev].RegisterCoarseData({vec_ubar[lev].get(), vec_ubar[lev].get()}, {time, time + dt[lev]});
+                if (cf_width >= 0) {
+                    // We must fill the ghost cells of these so that the parallel copy works correctly
+                    vec_ubar[lev]->FillBoundary(geom[lev].periodicity());
+                    FPr_ubar[lev].RegisterCoarseData({vec_ubar[lev].get(), vec_ubar[lev].get()}, {time, time + dt[lev]});
 
-                        vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
-                        FPr_vbar[lev].RegisterCoarseData({vec_vbar[lev].get(), vec_vbar[lev].get()}, {time, time + dt[lev]});
-                    }
+                    vec_vbar[lev]->FillBoundary(geom[lev].periodicity());
+                    FPr_vbar[lev].RegisterCoarseData({vec_vbar[lev].get(), vec_vbar[lev].get()}, {time, time + dt[lev]});
                 }
-            } // my_iif
+            }
         } // lev
-    } // use_barotropic
+    } // my_iif
 
     for (int lev=0; lev <= finest_level; lev++) {
         advance_3d_ml(lev, dt[lev]);

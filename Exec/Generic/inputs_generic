@@ -82,7 +82,7 @@ remora.air_pressure = 1013.48
 # type=Real; method=queryAdd
 remora.air_temperature = 23.567
 
-# source: Source/REMORA_DataStruct.H:246
+# source: Source/REMORA_DataStruct.H:243
 # type=bool; method=queryAdd
 remora.atm2ocn_flux_mode = <UNKNOWN_DEFAULT>
 
@@ -102,19 +102,19 @@ remora.bdy_time_varname = <UNKNOWN_DEFAULT>
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_u_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1931
+# source: Source/REMORA.cpp:1977
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_ubar_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1930
+# source: Source/REMORA.cpp:1976
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_v_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1932
+# source: Source/REMORA.cpp:1978
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_vbar_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1933
+# source: Source/REMORA.cpp:1979
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_zeta_time_varname = <UNKNOWN_DEFAULT>
 
@@ -162,7 +162,7 @@ remora.boundary_per_variable = false
 # type=bool; method=queryAdd
 remora.bulk_fluxes = true
 
-# CFL number for
+# Courant number applied
 # type=Real; method=queryAdd
 remora.cfl = <UNKNOWN_DEFAULT>
 
@@ -170,19 +170,19 @@ remora.cfl = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.change_max = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1746
+# source: Source/REMORA.cpp:1754
 # type=string; method=queryAdd
 remora.check_file = chk
 
-# source: Source/REMORA.cpp:1747
+# source: Source/REMORA.cpp:1755
 # type=int; method=queryAdd
 remora.check_int = -57600
 
-# source: Source/REMORA.cpp:1748
+# source: Source/REMORA.cpp:1756
 # type=Real; method=queryAdd
 remora.check_int_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1815
+# source: Source/REMORA.cpp:1861
 # type=bool; method=queryAdd
 remora.chunk_history_file = <UNKNOWN_DEFAULT>
 
@@ -222,7 +222,7 @@ remora.coriolis_type = beta_plane
 # type=string; method=queryAdd
 remora.coupling_type = TwoWay
 
-# source: Source/REMORA.cpp:1765
+# source: Source/REMORA.cpp:1773
 # type=Vector<std::string>; method=queryarr
 remora.data_log = <UNKNOWN_DEFAULT>
 
@@ -250,7 +250,7 @@ remora.do_rivers_scalar = <UNKNOWN_DEFAULT>
 # type=bool; method=queryAdd
 remora.do_rivers_temp = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA_DataStruct.H:279
+# source: Source/REMORA_DataStruct.H:276
 # type=bool; method=queryAdd
 remora.eminusp = true
 
@@ -258,7 +258,7 @@ remora.eminusp = true
 # type=bool; method=queryAdd
 remora.eminusp_correct_ssh = true
 
-# source: Source/REMORA_DataStruct.H:275
+# source: Source/REMORA_DataStruct.H:272
 # type=Real; method=query
 remora.eminusp_value = <UNKNOWN_DEFAULT>
 
@@ -266,7 +266,7 @@ remora.eminusp_value = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.eos_type = linear
 
-# source: Source/REMORA.cpp:1749
+# source: Source/REMORA.cpp:1757
 # type=bool; method=queryAdd
 remora.expand_plotvars_to_unif_rr = <UNKNOWN_DEFAULT>
 
@@ -466,7 +466,7 @@ remora.fennel.wPhy = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.fennel.wSDet = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1773
+# source: Source/REMORA.cpp:1781
 # type=int; method=queryAdd
 remora.file_min_digits = 5
 
@@ -474,11 +474,7 @@ remora.file_min_digits = 5
 # type=Real; method=queryAdd
 remora.fixed_dt = 300.0
 
-# set fast dt as this
-# type=Real; method=queryAdd
-remora.fixed_fast_dt = 10.0
-
-# source: Source/REMORA.cpp:1783
+# Deprecated alias for remora.ndtfast.
 # type=int; method=queryAdd
 remora.fixed_ndtfast_ratio = 0
 
@@ -502,35 +498,35 @@ remora.gls_N = -1.0
 # type=Real; method=queryAdd
 remora.gls_P = 3.0
 
-# source: Source/REMORA_DataStruct.H:691
+# source: Source/REMORA_DataStruct.H:688
 # type=Real; method=queryAdd
 remora.gls_Pmin = 1.0e-12
 
-# source: Source/REMORA_DataStruct.H:694
+# source: Source/REMORA_DataStruct.H:691
 # type=Real; method=queryAdd
 remora.gls_c1 = 1.44
 
-# source: Source/REMORA_DataStruct.H:695
+# source: Source/REMORA_DataStruct.H:692
 # type=Real; method=queryAdd
 remora.gls_c2 = 1.92
 
-# source: Source/REMORA_DataStruct.H:696
+# source: Source/REMORA_DataStruct.H:693
 # type=Real; method=queryAdd
 remora.gls_c3m = -0.4
 
-# source: Source/REMORA_DataStruct.H:697
+# source: Source/REMORA_DataStruct.H:694
 # type=Real; method=queryAdd
 remora.gls_c3p = 1.0
 
-# source: Source/REMORA_DataStruct.H:693
+# source: Source/REMORA_DataStruct.H:690
 # type=Real; method=queryAdd
 remora.gls_cmu0 = 0.5477
 
-# source: Source/REMORA_DataStruct.H:698
+# source: Source/REMORA_DataStruct.H:695
 # type=Real; method=queryAdd
 remora.gls_sigk = 1.0
 
-# source: Source/REMORA_DataStruct.H:699
+# source: Source/REMORA_DataStruct.H:696
 # type=Real; method=queryAdd
 remora.gls_sigp = 1.3
 
@@ -558,7 +554,7 @@ remora.hires_init_level = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.horizontal_mixing_type = analytic
 
-# source: Source/REMORA_DataStruct.H:440
+# source: Source/REMORA_DataStruct.H:437
 # type=string; method=queryAdd
 remora.ic_bc_type = analytic
 
@@ -566,15 +562,15 @@ remora.ic_bc_type = analytic
 # type=string; method=queryAdd
 remora.ic_type = analytic
 
-# source: Source/REMORA_DataStruct.H:203
+# source: Source/REMORA_DataStruct.H:200
 # type=bool; method=queryAdd
 remora.init_ana_T = true
 
-# source: Source/REMORA_DataStruct.H:205
+# source: Source/REMORA_DataStruct.H:202
 # type=bool; method=queryAdd
 remora.init_l0int_T = false
 
-# source: Source/REMORA_DataStruct.H:201
+# source: Source/REMORA_DataStruct.H:198
 # type=bool; method=queryAdd
 remora.init_l1ad_T = false
 
@@ -598,15 +594,15 @@ remora.longwave_netcdf_varname = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.longwave_radiation_flux = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA_DataStruct.H:268
+# source: Source/REMORA_DataStruct.H:265
 # type=Real; method=query
 remora.lwrad = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA_DataStruct.H:736
+# source: Source/REMORA_DataStruct.H:733
 # type=Real; method=queryAdd
 remora.m2nudg = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA_DataStruct.H:737
+# source: Source/REMORA_DataStruct.H:734
 # type=Real; method=queryAdd
 remora.m3nudg = <UNKNOWN_DEFAULT>
 
@@ -674,7 +670,11 @@ remora.nc_init_file_hires = <UNKNOWN_DEFAULT>
 # type=Vector<std::string>; method=queryarr
 remora.nc_river_file = "idRiv_riv_v0.2_classic64.nc"
 
-# source: Source/REMORA.cpp:1751
+# Number of barotropic (fast) steps taken per baroclinic (slow) step.
+# type=int; method=queryAdd
+remora.ndtfast = 0
+
+# source: Source/REMORA.cpp:1759
 # type=Real; method=query
 remora.netcdf_fill_value = <UNKNOWN_DEFAULT>
 
@@ -682,7 +682,7 @@ remora.netcdf_fill_value = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 remora.nscalar = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA_DataStruct.H:738
+# source: Source/REMORA_DataStruct.H:735
 # type=Real; method=queryAdd
 remora.obcfac = <UNKNOWN_DEFAULT>
 
@@ -694,31 +694,31 @@ remora.omp_tile_size = 8 8 1024000
 # type=bool; method=queryAdd
 remora.output_forcing = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1801
+# source: Source/REMORA.cpp:1847
 # type=string; method=queryAdd
 remora.plot_file = plt
 
-# source: Source/REMORA.cpp:1802
+# source: Source/REMORA.cpp:1848
 # type=int; method=queryAdd
 remora.plot_int = 100
 
-# source: Source/REMORA.cpp:1803
+# source: Source/REMORA.cpp:1849
 # type=Real; method=queryAdd
 remora.plot_int_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1805
+# source: Source/REMORA.cpp:1851
 # type=bool; method=query
 remora.plot_nodal_data = true
 
-# source: Source/REMORA.cpp:1804
+# source: Source/REMORA.cpp:1850
 # type=bool; method=query
 remora.plot_staggered_vels = false
 
-# source: Source/REMORA.cpp:1750
+# source: Source/REMORA.cpp:1758
 # type=Real; method=query
 remora.plotfile_fill_value = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1808
+# source: Source/REMORA.cpp:1854
 # type=string; method=queryAdd
 remora.plotfile_type = amrex
 
@@ -830,7 +830,7 @@ remora.refinement_indicators_.value_greater = <REQUIRED>
 # type=Real; method=getarr
 remora.refinement_indicators_.value_less = <REQUIRED>
 
-# source: Source/REMORA.cpp:1752
+# source: Source/REMORA.cpp:1760
 # type=string; method=queryAdd
 remora.restart = <UNKNOWN_DEFAULT>
 
@@ -854,7 +854,7 @@ remora.smflux_type = analytic
 # type=Real; method=queryAdd
 remora.start_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:1816
+# source: Source/REMORA.cpp:1862
 # type=int; method=queryAdd
 remora.steps_per_history_file = <UNKNOWN_DEFAULT>
 
@@ -866,7 +866,7 @@ remora.stop_time = 30000.0
 # type=int; method=queryAdd
 remora.sum_interval = -1
 
-# source: Source/REMORA.cpp:1772
+# source: Source/REMORA.cpp:1780
 # type=Real; method=queryAdd
 remora.sum_period = <UNKNOWN_DEFAULT>
 
@@ -914,10 +914,6 @@ remora.tnudg = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.tracer_horizontal_advection_scheme = upstream3
 
-# This accounts for the main 2d loop but may not include coupling and copying properly
-# type=bool; method=queryAdd
-remora.use_barotropic = <UNKNOWN_DEFAULT>
-
 # Bridge-vs-native selection and diagnostic verbosity are runtime controls so a parity comparison never requires a rebuild. Both parse unconditionally; without USE_FENNEL_FORT there is no bridge to select, so asking for it is an error rather than a silent fallback to the path being validated.
 # type=int; method=queryAdd
 remora.use_biology_cpp_answer = <UNKNOWN_DEFAULT>
@@ -926,7 +922,7 @@ remora.use_biology_cpp_answer = <UNKNOWN_DEFAULT>
 # type=bool; method=queryAdd
 remora.use_coriolis = true
 
-# This accounts for the main 2d loop but may not include coupling and copying properly
+# This affect forcing and some of the mixing terms for velocity
 # type=bool; method=queryAdd
 remora.use_curvilinear_grid = <UNKNOWN_DEFAULT>
 
@@ -970,11 +966,11 @@ remora.vwind = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.wind_type = analytic
 
-# source: Source/REMORA.cpp:1814
+# source: Source/REMORA.cpp:1860
 # type=bool; method=queryAdd
 remora.write_history_file = true
 
-# source: Source/REMORA_DataStruct.H:735
+# source: Source/REMORA_DataStruct.H:732
 # type=Real; method=queryAdd
 remora.znudg = <UNKNOWN_DEFAULT>
 
@@ -1816,7 +1812,7 @@ blprofiler.prof_traceflushsize = <UNKNOWN_DEFAULT>
 #==============================================================================
 # DRIVER PARAMETERS
 #==============================================================================
-# source: Source/REMORA_DataStruct.H:250
+# source: Source/REMORA_DataStruct.H:247
 # type=string; method=query
 driver.atm2ocn_mode = state
 

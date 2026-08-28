@@ -18,9 +18,9 @@ remora.bc.yhi.type = "SlipWall"
 # TIME STEP CONTROL
 remora.fixed_dt       = 400.0 # Timestep size (seconds)
 
-remora.fixed_ndtfast_ratio = 10
+remora.ndtfast = 10
 
-#remora.fixed_ndtfast_ratio  = 30 # Ratio of baroclinic to barotropic time step
+#remora.ndtfast  = 30 # Ratio of baroclinic to barotropic time step
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0

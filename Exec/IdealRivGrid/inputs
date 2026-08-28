@@ -21,7 +21,7 @@ remora.bc.yhi.type = "clamped"
 
 # TIME STEP CONTROL
 remora.fixed_dt            = 4000.0 # Timestep size (seconds)
-remora.fixed_ndtfast_ratio = 10 # Baratropic timestep size (seconds)
+remora.ndtfast = 10 # Baratropic timestep size (seconds)
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
