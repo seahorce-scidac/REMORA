@@ -349,6 +349,33 @@ add_test_equiv(BC_per_variable BC_per_side "remora_exec" "plt00010" "plt_side000
 add_test_abort(BC_inflow_no_value "remora_exec" "needs an inflow value")
 
 #=============================================================================
+# Barotropic substep count
+#
+# remora.ndtfast is the number of barotropic steps per baroclinic step. Advance and
+# timeStepML form the fast step as dt / ndtfast and set_weights sizes the barotropic filter
+# with it, none of which is guarded at the point of use, so it has to be positive by the time
+# parsing finishes. It has no usable default: it was once inferred from remora.fixed_dt /
+# remora.fixed_fast_dt, which left it at zero on every path that did not set both -- a
+# CFL-driven run cannot set them, since dt is not known until run time. Zero divides by zero
+# and sizes the weight vectors to one element, which advance_2d then reads past the end of;
+# amrex::Vector does not bounds-check that. So the unset case must abort, and does.
+#
+# The other three lanes cover the input names around it. fixed_fast_dt is gone and must be
+# rejected rather than ignored: amrex does not abort on unused inputs, so a stale input file
+# naming it would otherwise run with whatever substep count it did not ask for. The
+# fixed_ndtfast_ratio alias must still deliver the count it names -- agreement here cannot
+# pass for the wrong reason, because a run that ignored the alias would be left at zero and
+# abort rather than agree -- and naming the count under both spellings at once is an error,
+# since silently preferring one leaves the input file reading as though it asked for the other.
+#=============================================================================
+
+add_test_equiv(Channel_Test_ndtfast_alias Channel_Test_ndtfast_named "remora_exec" "plt00010" "plt_named00010")
+
+add_test_abort(Channel_Test_ndtfast_unset_abort  "remora_exec" "remora.ndtfast must be a positive integer")
+add_test_abort(Channel_Test_fixed_fast_dt_abort  "remora_exec" "remora.fixed_fast_dt has been removed")
+add_test_abort(Channel_Test_ndtfast_both_abort   "remora_exec" "and remora.fixed_ndtfast_ratio are both")
+
+#=============================================================================
 # Performance tests
 #=============================================================================
 
