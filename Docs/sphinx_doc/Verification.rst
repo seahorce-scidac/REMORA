@@ -78,12 +78,12 @@ Ideal River Grid
 
 .. include:: ../../Exec/IdealRivGrid/README.rst
 
-.. _particlesseamount:
+.. _particleadvectionflat:
 
-Particles Over Seamount
+Particle Advection Flat
 -----------------------
 
-.. include:: ../../Exec/ParticlesOverSeaMount/README
+.. include:: ../../Exec/ParticleAdvectionFlat/README
 
 .. _seamount-desc:
 

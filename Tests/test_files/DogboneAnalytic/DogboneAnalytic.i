@@ -46,8 +46,6 @@ remora.theta_s = 0.0
 remora.theta_b = 0.0
 remora.tcline = 1e16
 
-remora.flat_bathymetry = false
-
 remora.bottom_stress_type = "quadratic"
 remora.rdrag2 = 3.0e-3
 

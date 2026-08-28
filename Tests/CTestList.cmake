@@ -276,7 +276,6 @@ endfunction(add_test_u)
 #=============================================================================
 
 add_test_r(DoublyPeriodic               "remora_exec" "plt00010")
-add_test_r(DoublyPeriodic_bathy         "remora_exec" "plt00010")
 add_test_r(Seamount                     "remora_exec" "plt00010")
 add_test_r(Advection                    "remora_exec" "plt00010")
 add_test_r(Advection_ML                 "remora_exec" "plt00010")
@@ -324,7 +323,6 @@ add_test_abort(Seamount_hires_init_abort      "remora_exec" "Cannot do high-reso
 add_test_abort(Seamount_hires_grid_max_abort  "remora_exec" "hires_grid_level must be less than or equal to amr.max_level")
 add_test_abort(Seamount_hires_init_max_abort  "remora_exec" "hires_init_level must be less than or equal to amr.max_level")
 add_test_abort(Seamount_hires_grid_zero_abort "remora_exec" "hires_grid_level must be greater than 0")
-add_test_abort(Seamount_hires_flat_abort      "remora_exec" "flat_bathymetry is incompatible with hires_grid_level")
 
 #=============================================================================
 # Boundary conditions

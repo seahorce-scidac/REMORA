@@ -1,6 +1,8 @@
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <string>
+#include <vector>
 #include <ctime>
 
 #ifdef _OPENMP
@@ -33,6 +35,133 @@ plot_2d_var_requested (const amrex::Vector<std::string>& names, const std::strin
     }
     return false;
 }
+
+/**
+ * \brief Accumulates each rank's hyperslabs and writes them with collective I/O.
+ *
+ * PnetCDF's collective APIs have to be called by every rank that opened the file,
+ * the same number of times and in the same order. REMORA's write loops are MFIter
+ * loops, so the number of hyperslabs is per-rank -- a plain put_all() inside those
+ * loops would mismatch and hang. ncmpi_put_varn_*_all() takes all of a rank's
+ * subarrays for one variable in a single call and tolerates counts that differ
+ * between ranks, including zero, which is exactly the shape we need.
+ *
+ * So the loops hand their hyperslabs here instead of writing, and flush() issues
+ * one collective call per variable at the end. Data is copied into m_entries on
+ * add(), so callers may reuse or destroy their staging buffer immediately -- unlike
+ * the nonblocking iput() path, where PnetCDF aliases buffers larger than 4 KB and
+ * only reads them at wait_all().
+ */
+class VarnCollector
+{
+public:
+    //! Stage one hyperslab of `varid`. `start`/`count` are in NetCDF dimension
+    //! order and `dptr` holds product(count) values.
+    void add (int varid,
+              const std::vector<MPI_Offset>& start,
+              const std::vector<MPI_Offset>& count,
+              const amrex::Real* dptr)
+    {
+        AMREX_ASSERT(start.size() == count.size());
+        MPI_Offset nelems = 1;
+        for (auto c : count) { nelems *= c; }
+
+        Entry& e = m_entries[varid];
+        e.starts.push_back(start);
+        e.counts.push_back(count);
+        e.data.insert(e.data.end(), dptr, dptr + nelems);
+    }
+
+    /**
+     * \brief Write everything staged so far. Collective: all ranks must call it.
+     *
+     * Ranks own different boxes, so they stage different variables -- a rank with
+     * no boxes stages nothing at all. The set of variables to write therefore has
+     * to be agreed on before any collective call, which is what the reduction over
+     * the touched-variable mask below does. Iterating that agreed set in ascending
+     * varid order gives every rank the same call sequence.
+     */
+    void flush (const ncutils::NCFile& ncf)
+    {
+        const int nvars = ncf.num_variables();
+        if (nvars <= 0) { return; }
+
+        std::vector<int> touched(nvars, 0);
+        for (const auto& kv : m_entries) {
+            if (kv.first >= 0 && kv.first < nvars) { touched[kv.first] = 1; }
+        }
+#ifdef AMREX_USE_MPI
+        MPI_Allreduce(MPI_IN_PLACE, touched.data(), nvars, MPI_INT, MPI_MAX,
+                      amrex::ParallelContext::CommunicatorSub());
+#endif
+
+        for (int varid = 0; varid < nvars; ++varid) {
+            if (!touched[varid]) { continue; }
+
+            auto it = m_entries.find(varid);
+            if (it == m_entries.end()) {
+                // This rank has nothing for this variable, but the call is
+                // collective, so it still has to take part with zero subarrays.
+                ncutils::NCVar { ncf.ncid, varid }.put_varn_all(
+                    0, nullptr, nullptr, static_cast<const amrex::Real*>(nullptr));
+                continue;
+            }
+
+            Entry& e = it->second;
+            const int num = static_cast<int>(e.starts.size());
+
+            // ncmpi_put_varn_* wants arrays of pointers into the start/count rows.
+            std::vector<MPI_Offset*> start_ptrs(num);
+            std::vector<MPI_Offset*> count_ptrs(num);
+            for (int i = 0; i < num; ++i) {
+                start_ptrs[i] = e.starts[i].data();
+                count_ptrs[i] = e.counts[i].data();
+            }
+
+            ncutils::NCVar { ncf.ncid, varid }.put_varn_all(
+                num, start_ptrs.data(), count_ptrs.data(), e.data.data());
+        }
+
+        m_entries.clear();
+    }
+
+    /**
+     * \brief Handle with the same put() shape as ncutils::NCVar, staging instead
+     *        of writing, so the write loops read the same as they always did.
+     */
+    class StagedVar
+    {
+    public:
+        StagedVar (VarnCollector& coll, int varid) : m_coll(coll), m_varid(varid) {}
+
+        void put (const amrex::Real* dptr,
+                  const std::vector<MPI_Offset>& start,
+                  const std::vector<MPI_Offset>& count) const
+        {
+            m_coll.add(m_varid, start, count, dptr);
+        }
+
+    private:
+        VarnCollector& m_coll;
+        int m_varid;
+    };
+
+    //! Handle for staging writes to the named variable.
+    StagedVar var (const ncutils::NCFile& ncf, const std::string& name)
+    {
+        return StagedVar(*this, ncf.var(name).varid);
+    }
+
+private:
+    struct Entry {
+        std::vector<std::vector<MPI_Offset>> starts;
+        std::vector<std::vector<MPI_Offset>> counts;
+        std::vector<amrex::Real> data;
+    };
+
+    //! Keyed by varid and held in a std::map so iteration is in varid order.
+    std::map<int, Entry> m_entries;
+};
 } // namespace
 
 /**
@@ -143,31 +272,6 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     int ny = subdomain.length(1);
     int nz = subdomain.length(2);
 
-    if (is_history && max_step < 0) {
-        amrex::Abort("Need to know max_step if writing history file");
-    }
-
-    long long int nt;
-    if (is_history) {
-        if (max_step > 0) {
-            nt = static_cast<long long int>(max_step / std::min(plot_int, max_step)) + 1;
-        } else {
-            nt = 1;
-        }
-    } else {
-        nt = 1;
-    }
-
-    if (chunk_history_file) {
-        // First index of the last history file
-        int last_file_index = REMORA::steps_per_history_file * int(nt / REMORA::steps_per_history_file);
-        if (history_count >= last_file_index) {
-            nt = nt - last_file_index;
-        } else {
-            nt = REMORA::steps_per_history_file;
-        }
-    }
-
     n_cells.push_back(nx);
     n_cells.push_back(ny);
     n_cells.push_back(nz);
@@ -198,7 +302,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     if (write_header) {
         ncf.enter_def_mode();
         ncf.put_attr("title", "REMORA data ");
-        ncf.def_dim(nt_name, nt);
+        // The time dimension is unlimited so the record count reflects what was
+        // actually written rather than an up-front estimate from max_step/plot_int.
+        // Note PnetCDF does not prefill record variables, so every element of a
+        // time-varying variable has to be written explicitly (see the loops below).
+        ncf.def_dim(nt_name, NC_UNLIMITED);
         ncf.def_dim(ndim_name, AMREX_SPACEDIM);
 
         ncf.def_dim(nx_r_name, nx + 2);
@@ -688,7 +796,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 
     } // end if write_header
 
-    ncmpi_begin_indep_data(ncf.ncid);
+    // Past this point every write is collective. The loops below stage their
+    // hyperslabs into the collector rather than writing them, because the number
+    // of hyperslabs a rank contributes depends on how many boxes it owns; the
+    // single flush() at the end turns each variable into one ncmpi_put_varn_*_all.
+    VarnCollector collector;
+
     //
     // We compute the offsets based on location of the box within the domain
     //
@@ -696,13 +809,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     long long local_start_nt = (is_history ? static_cast<long long>(adjusted_history_count) : static_cast<long long>(0));
     long long local_nt = 1; // We write data for only one time
 
+    if (amrex::ParallelDescriptor::IOProcessor()) // only master proc
     {
-        auto nc_plot_var = ncf.var("ocean_time");
+        auto nc_plot_var = collector.var(ncf, "ocean_time");
         //nc_plot_var.par_access(NC_COLLECTIVE);
         nc_plot_var.put(&t_new[lev], { local_start_nt }, { local_nt });
     }
-    // do all independent writes
-    //ncmpi_end_indep_data(ncf.ncid);
 
     // Check whether there are any nans or infs in variables that we will write out
     if (vec_Zt_avg1[lev]->contains_nan() || vec_Zt_avg1[lev]->contains_inf()) {
@@ -787,7 +899,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 #endif
                         Gpu::streamSynchronize();
 
-                        auto nc_plot_var = ncf.var("s_rho");
+                        auto nc_plot_var = collector.var(ncf, "s_rho");
                         //nc_plot_var.par_access(NC_INDEPENDENT);
                         nc_plot_var.put(tmp_srho.data(), { local_start_z }, { local_nz });
                     }
@@ -801,7 +913,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 #endif
                         Gpu::streamSynchronize();
 
-                        auto nc_plot_var = ncf.var("s_w");
+                        auto nc_plot_var = collector.var(ncf, "s_w");
                         //nc_plot_var.par_access(NC_INDEPENDENT);
                         nc_plot_var.put(tmp_sw.data(), { local_start_z }, { local_nz + 1});
                     }
@@ -815,7 +927,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 #endif
                         Gpu::streamSynchronize();
 
-                        auto nc_plot_var = ncf.var("Cs_r");
+                        auto nc_plot_var = collector.var(ncf, "Cs_r");
                         //nc_plot_var.par_access(NC_INDEPENDENT);
                         nc_plot_var.put(tmp_Csrho.data(), { local_start_z }, { local_nz });
                     }
@@ -830,7 +942,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 
                         Gpu::streamSynchronize();
 
-                        auto nc_plot_var = ncf.var("Cs_w");
+                        auto nc_plot_var = collector.var(ncf, "Cs_w");
                         //nc_plot_var.par_access(NC_INDEPENDENT);
                         nc_plot_var.put(tmp_Csw.data(), { local_start_z }, { local_nz + 1});
                     }
@@ -843,7 +955,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp_bathy.template copy<RunOn::Device>((*vec_h[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var("h");
+                    auto nc_plot_var = collector.var(ncf, "h");
                     //nc_plot_var.par_access(NC_INDEPENDENT);
                     nc_plot_var.put(tmp_bathy.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
@@ -855,7 +967,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp_pm.template copy<RunOn::Device>((*vec_pm[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var("pm");
+                    auto nc_plot_var = collector.var(ncf, "pm");
                     //nc_plot_var.par_access(NC_INDEPENDENT);
 
                     nc_plot_var.put(tmp_pm.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
@@ -868,7 +980,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp_pn.template copy<RunOn::Device>((*vec_pn[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var("pn");
+                    auto nc_plot_var = collector.var(ncf, "pn");
                     //nc_plot_var.par_access(NC_INDEPENDENT);
                     nc_plot_var.put(tmp_pn.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
@@ -880,7 +992,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp_f.template copy<RunOn::Device>((*vec_fcor[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var("f");
+                    auto nc_plot_var = collector.var(ncf, "f");
                     //nc_plot_var.par_access(NC_INDEPENDENT);
                     nc_plot_var.put(tmp_f.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
@@ -892,7 +1004,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp_xr.template copy<RunOn::Device>((*vec_xr[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var("x_rho");
+                    auto nc_plot_var = collector.var(ncf, "x_rho");
                     //nc_plot_var.par_access(NC_INDEPENDENT);
 
                     nc_plot_var.put(tmp_xr.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
@@ -905,7 +1017,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp_yr.template copy<RunOn::Device>((*vec_yr[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var("y_rho");
+                    auto nc_plot_var = collector.var(ncf, "y_rho");
                     //nc_plot_var.par_access(NC_INDEPENDENT);
                     nc_plot_var.put(tmp_yr.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
@@ -917,7 +1029,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp_zeta.template copy<RunOn::Device>((*vec_Zt_avg1[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("zeta");
+                auto nc_plot_var = collector.var(ncf, "zeta");
                 nc_plot_var.put(tmp_zeta.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
                         local_nx });
             }
@@ -931,7 +1043,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*vec_stflux[lev])[mfi.index()], n, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_var = ncf.var(nm);
+                auto nc_var = collector.var(ncf, nm);
                 nc_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x },
                                           { local_nt,       local_ny,       local_nx });
             }
@@ -939,6 +1051,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             if (solverChoice.output_forcing)
             {
                 const Real Hscale = solverChoice.rho0 * Cp;
+                // The copy and the mult below are both async on the same stream, so the
+                // sync has to follow the last of them and precede the host-side put().
                 // Tair
                 {
                     FArrayBox tmp_Tair;
@@ -946,7 +1060,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp_Tair.template copy<RunOn::Device>((*vec_Tair[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var("Tair");
+                    auto nc_plot_var = collector.var(ncf, "Tair");
                     nc_plot_var.put(tmp_Tair.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
                 }
                 // Pair
@@ -956,7 +1070,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp_Pair.template copy<RunOn::Device>((*vec_Pair[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var("Pair");
+                    auto nc_plot_var = collector.var(ncf, "Pair");
                     nc_plot_var.put(tmp_Pair.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
                 }
                 // qnet  (stored °C m/s → write W/m²)
@@ -972,12 +1086,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                         1           // number of comps
                     );
 
-                    Gpu::streamSynchronize();
-
                     // Convert °C·m/s → W/m²
                     tmp.mult<RunOn::Device>(Hscale);
 
-                    auto nc_var = ncf.var("qnet");
+                    Gpu::streamSynchronize();
+
+                    auto nc_var = collector.var(ncf, "qnet");
                     nc_var.put(tmp.dataPtr(),
                             { local_start_nt, local_start_y, local_start_x },
                             { local_nt,       local_ny,       local_nx });
@@ -997,7 +1111,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
 
                     Gpu::streamSynchronize();
 
-                    auto nc_var = ncf.var("ssflux");
+                    auto nc_var = collector.var(ncf, "ssflux");
                     nc_var.put(tmp.dataPtr(),
                             { local_start_nt, local_start_y, local_start_x },
                             { local_nt,       local_ny,       local_nx });
@@ -1007,12 +1121,13 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_lhflx[lev])[mfi.index()], 0, 0, 1);
-                    Gpu::streamSynchronize();
 
                     // Convert °C·m/s → W/m²
                     tmp.mult<RunOn::Device>(Hscale);
 
-                    auto nc_var = ncf.var("latent");
+                    Gpu::streamSynchronize();
+
+                    auto nc_var = collector.var(ncf, "latent");
                     nc_var.put(tmp.dataPtr(),
                             { local_start_nt, local_start_y, local_start_x },
                             { local_nt,       local_ny,       local_nx });
@@ -1022,12 +1137,13 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_shflx[lev])[mfi.index()], 0, 0, 1);
-                    Gpu::streamSynchronize();
 
                     // Convert °C·m/s → W/m²
                     tmp.mult<RunOn::Device>(Hscale);
 
-                    auto nc_var = ncf.var("sensible");
+                    Gpu::streamSynchronize();
+
+                    auto nc_var = collector.var(ncf, "sensible");
                     nc_var.put(tmp.dataPtr(),
                             { local_start_nt, local_start_y, local_start_x },
                             { local_nt,       local_ny,       local_nx });
@@ -1037,12 +1153,13 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     FArrayBox tmp;
                     tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
                     tmp.template copy<RunOn::Device>((*vec_lrflx[lev])[mfi.index()], 0, 0, 1);
-                    Gpu::streamSynchronize();
 
                     // Convert °C·m/s → W/m²
                     tmp.mult<RunOn::Device>(Hscale);
 
-                    auto nc_var = ncf.var("lwrad");
+                    Gpu::streamSynchronize();
+
+                    auto nc_var = collector.var(ncf, "lwrad");
                     nc_var.put(tmp.dataPtr(),
                             { local_start_nt, local_start_y, local_start_x },
                             { local_nt,       local_ny,       local_nx });
@@ -1054,7 +1171,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp.template copy<RunOn::Device>((*vec_srflx[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_var = ncf.var("swrad");
+                    auto nc_var = collector.var(ncf, "swrad");
                     nc_var.put(tmp.dataPtr(),
                             { local_start_nt, local_start_y, local_start_x },
                             { local_nt,       local_ny,       local_nx });
@@ -1066,7 +1183,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp.template copy<RunOn::Device>((*vec_evap[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_var = ncf.var("evaporation");
+                    auto nc_var = collector.var(ncf, "evaporation");
                     nc_var.put(tmp.dataPtr(),
                             { local_start_nt, local_start_y, local_start_x },
                             { local_nt,       local_ny,       local_nx });
@@ -1078,7 +1195,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp.template copy<RunOn::Device>((*vec_rain[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_var = ncf.var("rain");
+                    auto nc_var = collector.var(ncf, "rain");
                     nc_var.put(tmp.dataPtr(),
                             { local_start_nt, local_start_y, local_start_x },
                             { local_nt,       local_ny,       local_nx });
@@ -1097,7 +1214,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var(cons_names[n]);
+                    auto nc_plot_var = collector.var(ncf, cons_names[n]);
                     nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
                             local_nz, local_ny, local_nx });
                 }
@@ -1116,7 +1233,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp.template copy<RunOn::Device>((*plotMF)[mfi.index()], comp, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var(plot_var_names_3d[comp]);
+                    auto nc_plot_var = collector.var(ncf, plot_var_names_3d[comp]);
                     nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
                             local_nz, local_ny, local_nx });
                 } // if vorticity exists in plotMF
@@ -1134,7 +1251,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp.template copy<RunOn::Device>((*vec_visc2_r[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_var = ncf.var("visc2");
+                    auto nc_var = collector.var(ncf, "visc2");
                     nc_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
 
@@ -1146,7 +1263,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp.template copy<RunOn::Device>((*vec_diff2[lev])[mfi.index()], n, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_var = ncf.var(nm);
+                    auto nc_var = collector.var(ncf, nm);
                     nc_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
             }
@@ -1154,9 +1271,11 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         } // subdomain
     } // mfi
 
-    //ncf.wait_all(irq, &requests[0]);
-    //requests.resize(0);
-    //irq = 0;
+    // Flush at each loop boundary rather than once at the end, so the collector
+    // only ever holds one loop's worth of staged data. All ranks reach these
+    // points, which is what the collective call requires.
+    collector.flush(ncf);
+
     // Writing u (we loop over cons to get cell-centered box)
     for (MFIter mfi(*plotMF, false); mfi.isValid(); ++mfi) {
         Box bx = mfi.validbox();
@@ -1193,7 +1312,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp.template copy<RunOn::Device>((*vec_xu[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var("x_u");
+                    auto nc_plot_var = collector.var(ncf, "x_u");
                     //nc_plot_var.par_access(NC_INDEPENDENT);
                     nc_plot_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
@@ -1203,7 +1322,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                     tmp.template copy<RunOn::Device>((*vec_yu[lev])[mfi.index()], 0, 0, 1);
                     Gpu::streamSynchronize();
 
-                    auto nc_plot_var = ncf.var("y_u");
+                    auto nc_plot_var = collector.var(ncf, "y_u");
                     //nc_plot_var.par_access(NC_INDEPENDENT);
                     nc_plot_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
@@ -1215,7 +1334,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*xvel_new[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("u");
+                auto nc_plot_var = collector.var(ncf, "u");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
                         local_nz, local_ny, local_nx });
             }
@@ -1226,7 +1345,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*vec_ubar[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("ubar");
+                auto nc_plot_var = collector.var(ncf, "ubar");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
             {
@@ -1235,11 +1354,13 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*vec_sustr[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("sustr");
+                auto nc_plot_var = collector.var(ncf, "sustr");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
         } // in subdomain
     } // mfi
+
+    collector.flush(ncf);
 
     // Writing v (we loop over cons to get cell-centered box)
     for (MFIter mfi(*plotMF, false); mfi.isValid(); ++mfi) {
@@ -1280,7 +1401,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*vec_xv[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("x_v");
+                auto nc_plot_var = collector.var(ncf, "x_v");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 nc_plot_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
@@ -1290,7 +1411,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*vec_yv[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("y_v");
+                auto nc_plot_var = collector.var(ncf, "y_v");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 nc_plot_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
                 }
@@ -1302,7 +1423,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*yvel_new[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("v");
+                auto nc_plot_var = collector.var(ncf, "v");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
                         local_nz, local_ny, local_nx });
             }
@@ -1313,7 +1434,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*vec_vbar[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("vbar");
+                auto nc_plot_var = collector.var(ncf, "vbar");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
 
@@ -1323,12 +1444,14 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*vec_svstr[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("svstr");
+                auto nc_plot_var = collector.var(ncf, "svstr");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
 
         } // in subdomain
     } // mfi
+
+    collector.flush(ncf);
 
     for (MFIter mfi(*plotMF, false); mfi.isValid(); ++mfi) {
         Box bx = mfi.validbox();
@@ -1361,7 +1484,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*vec_xp[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("x_psi");
+                auto nc_plot_var = collector.var(ncf, "x_psi");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 nc_plot_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
             }
@@ -1371,7 +1494,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 tmp.template copy<RunOn::Device>((*vec_yp[lev])[mfi.index()], 0, 0, 1);
                 Gpu::streamSynchronize();
 
-                auto nc_plot_var = ncf.var("y_psi");
+                auto nc_plot_var = collector.var(ncf, "y_psi");
                 //nc_plot_var.par_access(NC_INDEPENDENT);
                 nc_plot_var.put(tmp.dataPtr(), { local_start_y, local_start_x }, { local_ny, local_nx });
             }
@@ -1379,6 +1502,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             } // header
         } // in subdomain
     } // mfi
+
+    // One collective ncmpi_put_varn_*_all per variable. Collective writes keep
+    // numrecs synced in the file header as they go, so the separate
+    // ncmpi_end_indep_data() sync the independent path needed is no longer
+    // required here.
+    collector.flush(ncf);
 
     ncf.close();
 

@@ -1,5 +1,5 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-remora.prob_name = ParticlesOverSeamount
+remora.prob_name = ParticleAdvectionFlat
 
 remora.max_step = 80
 remora.stop_time = 30000.0
@@ -39,8 +39,6 @@ remora.plot_file     = plt        # prefix of plotfile name
 remora.plot_int      = 5            # number of timesteps between plotfiles
 remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity tracer_particles_count
 remora.plotfile_type = amrex
-
-remora.flat_bathymetry=true
 
 # SOLVER CHOICE
 remora.use_coriolis = true

@@ -149,6 +149,7 @@ Notes
 
 -  If both ``remora.plot_int`` and ``remora.plot_int_time`` have been set, plotfile output will occur
    ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
+   This combination is not allowed when writing a NetCDF history file, as noted above.
 
 -  When Fennel biology is enabled, ``fennel`` in ``remora.plot_vars_3d``
    expands to all active biology tracers. Active biology tracers can also be

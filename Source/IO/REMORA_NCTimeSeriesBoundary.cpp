@@ -280,6 +280,10 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
             interp_fab(crse_ylo_dat, ylo_dat_after);
             interp_fab(crse_yhi_dat, yhi_dat_after);
 
+            // The_Pinned_Arena is not stream-ordered, so wait for interp_fab's
+            // kernels before these fabs are freed at return
+            amrex::Gpu::streamSynchronize();
+
         }
 
     } else if (i_time_before_old != i_time_before) {
@@ -309,6 +313,10 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
             interp_fab(crse_xhi_dat, xhi_dat_after);
             interp_fab(crse_ylo_dat, ylo_dat_after);
             interp_fab(crse_yhi_dat, yhi_dat_after);
+
+            // The_Pinned_Arena is not stream-ordered, so wait for interp_fab's
+            // kernels before these fabs are freed at return
+            amrex::Gpu::streamSynchronize();
         } // lev
     } // i_time
 
@@ -371,6 +379,10 @@ void NCTimeSeriesBoundary::read_in_at_time (amrex::FArrayBox& fab_xlo,
                                             amrex::FArrayBox& fab_ylo,
                                             amrex::FArrayBox& fab_yhi,
                                             int itime) {
+    // The host writes below land in pinned fabs that queued kernels may still be
+    // reading in place, so drain the stream first
+    amrex::Gpu::streamSynchronize();
+
     using RARRAY = NDArray<amrex::Real>;
     amrex::Vector<RARRAY> arrays(nc_var_names.size());
 
