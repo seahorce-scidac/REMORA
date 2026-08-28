@@ -285,10 +285,10 @@ class NCFile
 {
 public:
 
-    //! Create a file
+    //! Create a file. Defaults to CDF-5; classic CDF-1 has a 2GB limit.
     static NCFile create(
         const std::string& name,
-        const int cmode = NC_CLOBBER | NC_MPIIO,
+        const int cmode = NC_CLOBBER | NC_64BIT_DATA,
         MPI_Comm comm = MPI_COMM_WORLD,
         MPI_Info info = MPI_INFO_NULL);
 

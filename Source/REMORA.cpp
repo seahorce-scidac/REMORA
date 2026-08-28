@@ -1848,37 +1848,12 @@ REMORA::ReadParameters ()
         pp.queryAdd("write_history_file",write_history_file);
         pp.queryAdd("chunk_history_file",chunk_history_file);
         pp.queryAdd("steps_per_history_file",steps_per_history_file);
-        // Estimate size of domain for one timestep of netcdf
-        auto dom = geom[0].Domain();
-        int nx = dom.length(0) + 2;
-        int ny = dom.length(1) + 2;
-        int nz = dom.length(2);
-        Real two_gb = Real(1.6e10);
-        Real double_bits = Real(64.0);
-        if (write_history_file and chunk_history_file and (steps_per_history_file <= 0)) {
-            // Estimate number of steps that will fit into a 2GB file.
-            steps_per_history_file = int((two_gb - NCH2D * nx * ny * double_bits)
-                    / (nx * ny * double_bits * (NC3D*nz + NC2D)));
-            // If we calculate that a single step will exceed 2GB and the user has
-            // requested automatic history file sizing, warn about a possible impending
-            // error, and set steps_per_history_file = 1 to attempt output anyway.
-            if (steps_per_history_file == 0) {
-                amrex::Warning("NetCDF output for a single timestep appears to exceed 2GB. NetCDF output may not work. See Documentation for information about tested MPICH versions.");
-                steps_per_history_file = 1;
-            }
-        } else if (write_history_file and !chunk_history_file and plot_int > 0) {
-            // Estimate number of output steps to warn on file size. Only meaningful when
-            // output is driven by plot_int: plot_int stays -1 when plot_int_time is used
-            // instead, and a time-based cadence cannot be predicted from max_step.
-            // Writes happen at step 0, every plot_int steps, and once more at the final
-            // time if max_step is not a multiple of plot_int.
-            int nt_out = max_step / plot_int + 1 + ((max_step % plot_int != 0) ? 1 : 0);
-            Real est_hist_file_size = NCH2D * nx * ny * double_bits + nt_out * nx * ny * double_bits * (NC3D*nz + NC2D);
-            if (est_hist_file_size > two_gb) {
-                amrex::Warning("WARNING: NetCDF history file may be larger than 2GB limit. Consider setting remora.chunk_history_file=true");
-            }
-        }
+        // CDF-5 output has no practical size limit, so REMORA doesn't size history
+        // files. Chunking is opt-in; the writer divides by steps_per_history_file.
         if (write_history_file and chunk_history_file) {
+            if (steps_per_history_file <= 0) {
+                amrex::Abort("remora.chunk_history_file requires remora.steps_per_history_file > 0");
+            }
             Print() << "NetCDF history files will have " << steps_per_history_file << " steps per file." << std::endl;
         }
 #endif
