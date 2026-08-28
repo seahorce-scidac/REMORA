@@ -118,6 +118,14 @@ void NCVar::put_all(const double *dptr, const std::vector<MPI_Offset> &start, co
     check_ncmpi_error(ncmpi_put_vara_double_all(ncid, varid, start.data(), count.data(), dptr));
 }
 
+void NCVar::put_varn_all(int num, MPI_Offset *const *starts, MPI_Offset *const *counts, const double *dptr) const {
+    check_ncmpi_error(ncmpi_put_varn_double_all(ncid, varid, num, starts, counts, dptr));
+}
+
+void NCVar::put_varn_all(int num, MPI_Offset *const *starts, MPI_Offset *const *counts, const float *dptr) const {
+    check_ncmpi_error(ncmpi_put_varn_float_all(ncid, varid, num, starts, counts, dptr));
+}
+
 //! Write out a slice of data, non-blocking
 void NCVar::iput(const double *dptr, const std::vector<MPI_Offset> &start, const std::vector<MPI_Offset> &count,
         int *request) const {
@@ -488,7 +496,12 @@ NCFile NCFile::open(const std::string &name, const int cmode, MPI_Comm comm, MPI
 
 void NCFile::wait_all(int num_requests, int *requests) {
     std::vector<int> statuses(num_requests);
-    ncmpi_wait_all(ncid, num_requests, requests, &statuses[0]);
+    check_ncmpi_error(ncmpi_wait_all(ncid, num_requests, requests, statuses.data()));
+    // ncmpi_wait_all returns the first error it saw, but a request can also fail
+    // on its own, so the per-request statuses have to be inspected too.
+    for (int i = 0; i < num_requests; ++i) {
+        check_ncmpi_error(statuses[i]);
+    }
 }
 
 NCFile::~NCFile() {

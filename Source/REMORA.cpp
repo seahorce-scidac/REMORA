@@ -1668,7 +1668,6 @@ REMORA::ReadParameters ()
         if (remora_stop_time and noprefix_stop_time) {
             Abort("remora.stop_time and stop_time are both specified. Please use only one!");
         }
-        max_step_specified = noprefix_max_step or remora_max_step;
     }
 
     ParmParse pp(pp_prefix);
@@ -1812,20 +1811,6 @@ REMORA::ReadParameters ()
         pp.queryAdd("write_history_file",write_history_file);
         pp.queryAdd("chunk_history_file",chunk_history_file);
         pp.queryAdd("steps_per_history_file",steps_per_history_file);
-        // A history file's ocean_time dimension has a fixed length, declared when the
-        // header is written and derived from max_step and plot_int. Check here so a bad
-        // combination fails at startup rather than mid-run inside PnetCDF. See #606.
-        if (write_history_file) {
-            if (!max_step_specified) {
-                Abort("Need to set max_step if writing a NetCDF history file. Set remora.max_step, or set remora.write_history_file=false to write one NetCDF file per output step.");
-            }
-            if (plot_int <= 0) {
-                Abort("Need remora.plot_int > 0 if writing a NetCDF history file, since the length of the ocean_time dimension is fixed when the file is created. Set remora.write_history_file=false to write one NetCDF file per output step.");
-            }
-            if (plot_int_time > zero) {
-                Abort("remora.plot_int_time is not supported when writing a NetCDF history file, since the length of the ocean_time dimension is fixed when the file is created and a time-based output cadence cannot be predicted from max_step. Use remora.plot_int alone, or set remora.write_history_file=false to write one NetCDF file per output step.");
-            }
-        }
         // Estimate size of domain for one timestep of netcdf
         auto dom = geom[0].Domain();
         int nx = dom.length(0) + 2;
@@ -1844,8 +1829,12 @@ REMORA::ReadParameters ()
                 amrex::Warning("NetCDF output for a single timestep appears to exceed 2GB. NetCDF output may not work. See Documentation for information about tested MPICH versions.");
                 steps_per_history_file = 1;
             }
-        } else if (write_history_file and !chunk_history_file) {
-            // Estimate number of output steps; must match ocean_time in WriteNCPlotFile_which
+        } else if (write_history_file and !chunk_history_file and plot_int > 0) {
+            // Estimate number of output steps to warn on file size. Only meaningful when
+            // output is driven by plot_int: plot_int stays -1 when plot_int_time is used
+            // instead, and a time-based cadence cannot be predicted from max_step.
+            // Writes happen at step 0, every plot_int steps, and once more at the final
+            // time if max_step is not a multiple of plot_int.
             int nt_out = max_step / plot_int + 1 + ((max_step % plot_int != 0) ? 1 : 0);
             Real est_hist_file_size = NCH2D * nx * ny * double_bits + nt_out * nx * ny * double_bits * (NC3D*nz + NC2D);
             if (est_hist_file_size > two_gb) {
