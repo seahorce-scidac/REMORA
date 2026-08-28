@@ -1991,6 +1991,20 @@ REMORA::ReadParameters ()
     }
     solverChoice.init_params(ncons, nscalar, cons_names);
 
+    // Advance and timeStepML form the fast step as dt / fixed_ndtfast_ratio, and
+    // set_weights sizes the barotropic filter with the same number. The inference above
+    // only runs when both fixed_dt and fixed_fast_dt are given, so every other barotropic
+    // configuration must state the ratio outright or those sites divide by zero. In
+    // particular there is nothing to infer it from when dt comes from remora.cfl, since
+    // dt is not known until run time. This has to sit after init_params, which is where
+    // use_barotropic is parsed.
+    if (solverChoice.use_barotropic && fixed_ndtfast_ratio <= 0) {
+        amrex::Abort("remora.fixed_ndtfast_ratio must be a positive integer when "
+                     "remora.use_barotropic is true. It is inferred only when both "
+                     "remora.fixed_dt and remora.fixed_fast_dt are set; otherwise set it "
+                     "explicitly, or set remora.use_barotropic = false");
+    }
+
     // The biology IC source is chosen independently of ic_type, but only one of the two
     // mixed combinations works: NetCDF physics with analytic biology. The reverse has no
     // file to read from -- nc_init_file is only populated on the netcdf path -- so catch

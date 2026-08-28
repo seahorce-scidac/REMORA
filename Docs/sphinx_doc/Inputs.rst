@@ -564,9 +564,11 @@ List of Parameters for Single-Rate
 |                               |                         |                |                            |
 |                               |                         | Values         |                            |
 +===============================+=========================+================+============================+
-| **remora.cfl**                | CFL number for          | Real > 0       | 0.8                        |
-|                               | hydro                   |                |                            |
-|                               |                         | and <= 1       |                            |
+| **remora.cfl**                | Courant number applied  | Real > 0       | 0.8                        |
+|                               | to the advective and    |                |                            |
+|                               | external gravity wave   | and <= 1       |                            |
+|                               | limits. Only used if    |                |                            |
+|                               | **fixed_dt** is unset   |                |                            |
 +-------------------------------+-------------------------+----------------+----------------------------+
 | **remora.fixed_dt**           | set level 0 dt          | Real > 0       | unused if                  |
 |                               |                         |                |                            |
@@ -604,7 +606,24 @@ Examples of Usage
 -----------------
 
 -  | **remora.cfl** = 0.9
-   | defines the timestep as dt = cfl \* dx / (u+c).  Only relevant if **fixed_dt** not set
+   | scales the estimated timestep, and is only relevant if **fixed_dt** is not set. The
+     estimate is the smaller of an advective limit and an external gravity wave limit,
+     each a maximum over the wet cells (``mskr`` > 0.5) of the level:
+   | ``dt_adv  = cfl / max( |u|*pm, |v|*pn, |w|/Hz )``
+   | ``dt_grav = cfl * ndtfast / max( sqrt(g*h) * sqrt(pm**2 + pn**2) )``
+   | ``dt      = min(dt_adv, dt_grav)``
+   | ``pm`` and ``pn`` are the per-cell 1/dx and 1/dy metrics, so stretched and
+     curvilinear grids are handled; ``Hz`` is the layer thickness and ``h`` the
+     bathymetry. ``ndtfast`` is **fixed_ndtfast_ratio** when **use_barotropic** is true
+     and 1 otherwise: the baroclinic step only has to resolve the external gravity wave
+     to within the number of barotropic substeps taken per baroclinic step.
+   | The gravity wave term is what keeps the estimate finite for a run started from rest,
+     where every velocity is zero. The estimate does **not** include the internal gravity
+     wave speed, so a large **fixed_ndtfast_ratio** can yield a baroclinic step that does
+     not resolve the internal modes; lower **remora.cfl** or set **remora.fixed_dt** in
+     that case. With **use_barotropic** = false the estimate is conservative in the other
+     direction, since it applies the full external-wave limit to a run that has no free
+     surface to propagate one.
 
 -  | **remora.change_max** = 1.1
    | allows the time step to increase by no more than 10% in this case.
