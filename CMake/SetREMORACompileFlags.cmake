@@ -33,13 +33,16 @@ if(REMORA_ENABLE_CUDA)
   endif()
   separate_arguments(REMORA_CUDA_FLAGS)
   target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${REMORA_CUDA_FLAGS}>)
-  # Add arch flags to both compile and linker to avoid warnings about missing arch
-  set(CMAKE_CUDA_FLAGS ${NVCC_ARCH_FLAGS})
-  set_cuda_architectures(AMReX_CUDA_ARCH)
-  set_target_properties( ${target}
-     PROPERTIES
-     CUDA_ARCHITECTURES "${AMREX_CUDA_ARCHS}"
-     )
+  # AMReX resolves the CUDA architectures itself (Tools/CMake/AMReXCUDAArchs.cmake) into
+  # CMAKE_CUDA_ARCHITECTURES and exports the result as AMREX_CUDA_ARCHS. Build this target
+  # for the same architectures as AMReX; if AMReX did not export them, the target inherits
+  # CMAKE_CUDA_ARCHITECTURES.
+  if(AMREX_CUDA_ARCHS)
+    set_target_properties( ${target}
+       PROPERTIES
+       CUDA_ARCHITECTURES "${AMREX_CUDA_ARCHS}"
+       )
+  endif()
   set_target_properties(
     ${target} PROPERTIES
     LANGUAGE CUDA
