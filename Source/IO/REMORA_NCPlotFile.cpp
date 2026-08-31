@@ -590,6 +590,24 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         ncf.var("svstr").put_attr("coordinates","x_v y_v ocean_time");
         ncf.var("svstr").put_attr("field","surface v-momentum stress, scalar, series");
 
+        ncf.def_var("mask_rho", ncutils::NCDType::Real, { nt_name, ny_r_name, nx_r_name });
+        ncf.var("mask_rho").put_attr("long_name","mask on RHO-points");
+        ncf.var("mask_rho").put_attr("time","ocean_time");
+        ncf.var("mask_rho").put_attr("flag_values",std::vector({Real(0.0),Real(1.0)}));
+        ncf.var("mask_rho").put_attr("flag_meanings","land water");
+
+        ncf.def_var("mask_u", ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
+        ncf.var("mask_u").put_attr("long_name","mask on U-points");
+        ncf.var("mask_u").put_attr("time","ocean_time");
+        ncf.var("mask_u").put_attr("flag_values",std::vector({Real(0.0),Real(1.0)}));
+        ncf.var("mask_u").put_attr("flag_meanings","land water");
+
+        ncf.def_var("mask_v", ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
+        ncf.var("mask_v").put_attr("long_name","mask on V-points");
+        ncf.var("mask_v").put_attr("time","ocean_time");
+        ncf.var("mask_v").put_attr("flag_values",std::vector({Real(0.0),Real(1.0)}));
+        ncf.var("mask_v").put_attr("flag_meanings","land water");
+
         // Surface tracer fluxes, one per cell-centered tracer, matching what the AMReX
         // plotfile writer already offers and requested through the same remora.plot_vars_2d
         // key. vec_stflux is ncons wide and unconditionally allocated, so any tracer can be
@@ -1034,6 +1052,17 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                         local_nx });
             }
 
+            {
+                FArrayBox tmp_mask_rho;
+                tmp_mask_rho.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                tmp_mask_rho.template copy<RunOn::Device>((*vec_mskr[lev])[mfi.index()], 0, 0, 1);
+                Gpu::streamSynchronize();
+
+                auto nc_plot_var = collector.var(ncf, "mask_rho");
+                nc_plot_var.put(tmp_mask_rho.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
+                        local_nx });
+            }
+
             // stflux_*, one per tracer. Defined above under the same condition.
             for (int n = 0; n < ncons; ++n) {
                 const std::string nm = std::string("stflux_") + cons_names[n];
@@ -1357,6 +1386,15 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 auto nc_plot_var = collector.var(ncf, "sustr");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
+            {
+                FArrayBox tmp;
+                tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                tmp.template copy<RunOn::Device>((*vec_msku[lev])[mfi.index()], 0, 0, 1);
+                Gpu::streamSynchronize();
+
+                auto nc_plot_var = collector.var(ncf, "mask_u");
+                nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
+            }
         } // in subdomain
     } // mfi
 
@@ -1445,6 +1483,15 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 Gpu::streamSynchronize();
 
                 auto nc_plot_var = collector.var(ncf, "svstr");
+                nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
+            }
+            {
+                FArrayBox tmp;
+                tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                tmp.template copy<RunOn::Device>((*vec_mskv[lev])[mfi.index()], 0, 0, 1);
+                Gpu::streamSynchronize();
+
+                auto nc_plot_var = collector.var(ncf, "mask_v");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
 

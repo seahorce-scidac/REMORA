@@ -61,12 +61,15 @@ REMORA::WritePlotFile (int istep_for_plot)
          if (plot_name == "lhflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "srflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "shflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "mask_rho") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
+         if (plot_name == "mask_u") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "vbar" ) {varnames_2d_v.push_back(plot_name); ncomp_mf_2d_v++;}
          if (plot_name == "svstr") {varnames_2d_v.push_back(plot_name); ncomp_mf_2d_v++;}
          if (plot_name == "bvstr") {varnames_2d_v.push_back(plot_name); ncomp_mf_2d_v++;}
+         if (plot_name == "mask_v") {varnames_2d_v.push_back(plot_name); ncomp_mf_2d_v++;}
       }
     }
 
@@ -272,6 +275,10 @@ REMORA::WritePlotFile (int istep_for_plot)
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_shflx[lev],0,icomp_rho,1,0); }
             icomp_rho++;
         }
+        if (plot_name == "mask_rho" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_mskr[lev],0,icomp_rho,1,0); }
+            icomp_rho++;
+        }
     }
 
     int icomp_u   = 0;
@@ -291,6 +298,10 @@ REMORA::WritePlotFile (int istep_for_plot)
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_bustr[lev],0,icomp_u,1,0); }
             icomp_u++;
         }
+        if (plot_name == "mask_u" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_msku[lev],0,icomp_u,1,0); }
+            icomp_u++;
+        }
     }
 
     int icomp_v   = 0;
@@ -306,6 +317,10 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
         if (plot_name == "bvstr" ) {
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_bvstr[lev],0,icomp_v,1,0); }
+            icomp_v++;
+        }
+        if (plot_name == "mask_v" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_mskv[lev],0,icomp_v,1,0); }
             icomp_v++;
         }
     }

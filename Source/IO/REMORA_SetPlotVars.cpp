@@ -196,6 +196,10 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
     if (containerHasElement(plot_var_names_2d, "srflux")) tmp_plot_names.push_back("srflux");
     if (containerHasElement(plot_var_names_2d, "shflux")) tmp_plot_names.push_back("shflux");
 
+    if (containerHasElement(plot_var_names_2d, "mask_rho")) tmp_plot_names.push_back("mask_rho");
+    if (containerHasElement(plot_var_names_2d, "mask_u")) tmp_plot_names.push_back("mask_u");
+    if (containerHasElement(plot_var_names_2d, "mask_v")) tmp_plot_names.push_back("mask_v");
+
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_2d) {
       if (!containerHasElement(tmp_plot_names, plot_name)) {
