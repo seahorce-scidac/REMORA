@@ -96,7 +96,7 @@ if(REMORA_ENABLE_CUDA)
         message(WARNING
           "Your CMAKE_CUDA_ARCHITECTURES value is ${CMAKE_CUDA_ARCHITECTURES}, which includes "
           "unsupported architecture ${_arch}."
-          "Please use AMReX_CUDA_ARCH 6.0 or newer.")
+          "Please use CMAKE_CUDA_ARCHITECTURES 60 or newer.")
         break()
       endif()
     endforeach()
