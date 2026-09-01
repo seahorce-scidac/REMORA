@@ -266,6 +266,34 @@ REMORA::SetLongwaveFromDriver ()
 }
 
 void
+REMORA::GetDeckConfiguredAtmosStateLanes (
+    std::array<bool, AtmosState::NumTypes>& deck_configured) const
+{
+    // AtmosState and BulkFlux agree on lanes 0-8 today, but they are separate
+    // enums of separate lengths (BulkFlux carries EminusP, which has no driver
+    // lane). Map explicitly, so inserting into either breaks the build here
+    // rather than silently transposing the answer.
+    static constexpr std::array<int, AtmosState::NumTypes> lane_to_bulk_flux {{
+        BulkFlux::Uwind, // AtmosState::Uwind
+        BulkFlux::Vwind, // AtmosState::Vwind
+        BulkFlux::Pair,  // AtmosState::Pair
+        BulkFlux::Qair,  // AtmosState::Qair
+        BulkFlux::Tair,  // AtmosState::Tair
+        BulkFlux::Cloud, // AtmosState::Cloud
+        BulkFlux::Rain,  // AtmosState::Rain
+        BulkFlux::SWrad, // AtmosState::SWrad
+        BulkFlux::LWrad  // AtmosState::LWrad
+    }};
+
+    deck_configured.fill(false);
+    for (int lane = 0; lane < AtmosState::NumTypes; ++lane) {
+        const int idx = lane_to_bulk_flux[lane];
+        deck_configured[lane] = solverChoice.bulk_flux_type_specified[idx] ||
+                                solverChoice.bulk_flux_value_specified[idx];
+    }
+}
+
+void
 REMORA::SetDriverAtmosToOceanForcingMode (DriverAtmosForcingMode mode)
 {
     driver_atmos_forcing_mode = mode;

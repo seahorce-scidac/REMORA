@@ -107,15 +107,23 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         MultiFab::Copy(W_new,W_old,0,0,W_new.nComp(),W_new.nGrowVect());
     }
 
-    // If we're running in coupled mode, surface state and fluxes were already set
-    // Otherwise, if doing bulk fluxes, set winds/temp/etc
-    // And if not doing bulk fluxes, directly set surface fluxes
-    if (running_with_coupling_driver) {
-        // Surface stress and heat/moisture fluxes were already populated from the driver.
-    } else if (solverChoice.bulk_fluxes) {
+    // Refresh the atmospheric forcing fields feeding the bulk-flux path.
+    //
+    // A coupled run needs this too, and used to skip it entirely. The driver
+    // supplies only the lanes its atmosphere can fill and withholds the rest,
+    // expecting those to keep this deck's own forcing - NetCDF series included.
+    // set_surface_state is already per-lane, so the supplied ones are left
+    // alone; skipping it wholesale froze every withheld lane at its
+    // level-creation constant.
+    //
+    // The gate mirrors the bulk_fluxes() call below: in driver flux mode these
+    // fields are never read.
+    if (solverChoice.bulk_fluxes &&
+        (!running_with_coupling_driver ||
+         DriverUsesStateForcing(driver_atmos_forcing_mode))) {
         set_surface_state(lev);
-    } else {
-        set_smflux(lev);
+    } else if (!running_with_coupling_driver && !solverChoice.bulk_fluxes) {
+        set_smflux(lev); // uncoupled, no bulk fluxes: set surface fluxes directly
     }
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ

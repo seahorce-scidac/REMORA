@@ -132,6 +132,17 @@ public:
     // driver-injected keys. Safe any time before the first step: the lane is
     // allocated whenever bulk fluxes are on, independent of lwrad_type.
     void SetLongwaveFromDriver ();
+
+    // Per state lane, whether the deck named its forcing - either the selector
+    // (remora.<x>_type, its legacy aliases, remora.wind_type) or the constant
+    // (remora.air_humidity and friends). A coupling driver uses it to leave such
+    // a lane with the deck instead of overriding it with atmospheric data.
+    //
+    // Not answerable from ParmParse afterwards: queryAdd materializes the
+    // defaults. See SolverChoice::bulk_flux_type_specified.
+    void GetDeckConfiguredAtmosStateLanes (
+        std::array<bool, AtmosState::NumTypes>& deck_configured) const;
+
     // Driver currently consumes BoxArray/DistributionMapping only. If we later
     // need exact copy semantics, promote these to expose IndexType/ngrow
     // explicitly or return the underlying MultiFab pointer/reference instead.
