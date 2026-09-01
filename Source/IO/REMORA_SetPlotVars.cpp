@@ -104,7 +104,7 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
       if (plot_name == "fennel" && expand_fennel) {
           continue;
       }
-      if (!containerHasElement(tmp_plot_names, plot_name)) {
+      if (!containerHasElement(tmp_plot_names, plot_name) && ParallelDescriptor::IOProcessor()) {
            Warning("\nWARNING: Requested to plot variable '" + plot_name + "' in 3D list but it is not available");
       }
     }
@@ -202,7 +202,7 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
 
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_2d) {
-      if (!containerHasElement(tmp_plot_names, plot_name)) {
+      if (!containerHasElement(tmp_plot_names, plot_name) && ParallelDescriptor::IOProcessor()) {
            Warning("\nWARNING: Requested to plot variable '" + plot_name + "' in 2D list but it is not available");
       }
     }
