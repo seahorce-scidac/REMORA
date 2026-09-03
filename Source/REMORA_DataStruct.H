@@ -253,21 +253,27 @@ struct SolverChoice {
         }
         // Outputs forcing variables if true
         pp.queryAdd("output_forcing", output_forcing);
-        pp.queryAdd("air_pressure",Pair);
-        pp.queryAdd("air_temperature",Tair);
-        pp.queryAdd("air_humidity",Hair);
-        pp.queryAdd("surface_radiation_flux",srflux);
-        pp.queryAdd("uwind", Uwind);
-        pp.queryAdd("vwind", Vwind);
-        pp.queryAdd("longwave_radiation_flux", longwave_rad);
-        pp.query("lwrad", longwave_rad);
-        pp.queryAdd("longwave_down", longwave_down);
-        pp.queryAdd("longwave_is_net", longwave_is_net);
+        // The query return is the only moment "did the deck name this?" is
+        // knowable; see bulk_flux_value_specified. Legacy aliases (lwrad,
+        // eminusp_value) feed the same lane, so they count too.
+        auto value_specified = [&](int idx, int existed) {
+            if (existed) { bulk_flux_value_specified[idx] = true; }
+        };
+        value_specified(BulkFlux::Pair,  pp.queryAdd("air_pressure",Pair));
+        value_specified(BulkFlux::Tair,  pp.queryAdd("air_temperature",Tair));
+        value_specified(BulkFlux::Qair,  pp.queryAdd("air_humidity",Hair));
+        value_specified(BulkFlux::SWrad, pp.queryAdd("surface_radiation_flux",srflux));
+        value_specified(BulkFlux::Uwind, pp.queryAdd("uwind", Uwind));
+        value_specified(BulkFlux::Vwind, pp.queryAdd("vwind", Vwind));
+        value_specified(BulkFlux::LWrad, pp.queryAdd("longwave_radiation_flux", longwave_rad));
+        value_specified(BulkFlux::LWrad, pp.query("lwrad", longwave_rad));
+        value_specified(BulkFlux::LWrad, pp.queryAdd("longwave_down", longwave_down));
+        value_specified(BulkFlux::LWrad, pp.queryAdd("longwave_is_net", longwave_is_net));
         pp.queryAdd("longwave_netcdf_varname", longwave_netcdf_varname);
-        pp.queryAdd("cloud",cloud);
-        pp.queryAdd("rain",rain);
-        pp.queryAdd("EminusP", EminusP);
-        pp.query("eminusp_value", EminusP);
+        value_specified(BulkFlux::Cloud, pp.queryAdd("cloud",cloud));
+        value_specified(BulkFlux::Rain,  pp.queryAdd("rain",rain));
+        value_specified(BulkFlux::EminusP, pp.queryAdd("EminusP", EminusP));
+        value_specified(BulkFlux::EminusP, pp.query("eminusp_value", EminusP));
         pp.queryAdd("blk_ZQ",blk_ZQ);
         pp.queryAdd("blk_ZT",blk_ZT);
         pp.queryAdd("blk_ZW",blk_ZW);
@@ -304,6 +310,7 @@ struct SolverChoice {
                 bulk_flux_type[input.idx] = parse_bulk_forcing_type(type_string,
                                                                      "remora." + std::string(input.name),
                                                                      input.allow_computed);
+                bulk_flux_type_specified[input.idx] = true;
                 if (input.idx == BulkFlux::Uwind) {
                     uwind_type_specified = true;
                 } else if (input.idx == BulkFlux::Vwind) {
@@ -330,6 +337,7 @@ struct SolverChoice {
                 bulk_flux_type[input.idx] = parse_bulk_forcing_type(type_string,
                                                                      "remora." + std::string(input.name),
                                                                      input.allow_computed);
+                bulk_flux_type_specified[input.idx] = true;
             }
         }
 
@@ -348,12 +356,14 @@ struct SolverChoice {
             bool from_netcdf = false;
             if (pp.query(input.name, from_netcdf) && from_netcdf) {
                 bulk_flux_type[input.idx] = BulkForcingType::netcdf;
+                bulk_flux_type_specified[input.idx] = true;
             }
         }
 
         bool legacy_longwave_netcdf_is_net = false;
         if (pp.query("longwave_netcdf_is_net", legacy_longwave_netcdf_is_net) && legacy_longwave_netcdf_is_net) {
             longwave_is_net = true;
+            bulk_flux_type_specified[BulkFlux::LWrad] = true;
             if (bulk_flux_type[BulkFlux::LWrad] == BulkForcingType::computed) {
                 bulk_flux_type[BulkFlux::LWrad] = BulkForcingType::netcdf;
             }
@@ -528,6 +538,10 @@ struct SolverChoice {
         if (wind_specified) {
             const auto specified_wind_bulk_type = (wind_type == WindType::netcdf) ?
                 BulkForcingType::netcdf : BulkForcingType::analytic;
+            // wind_type names both wind lanes, so it counts as specifying them
+            // even with the per-lane keys absent.
+            bulk_flux_type_specified[BulkFlux::Uwind] = true;
+            bulk_flux_type_specified[BulkFlux::Vwind] = true;
             if (!uwind_type_specified) {
                 bulk_flux_type[BulkFlux::Uwind] = specified_wind_bulk_type;
             }
@@ -864,6 +878,16 @@ struct SolverChoice {
         BulkForcingType::computed, // LWrad defaults to the internal longwave formula
         BulkForcingType::computed  // EminusP defaults to bulk evap-rain diagnostic
     }};
+
+    // Which bulk-flux inputs the deck actually named, rather than defaulted to.
+    //
+    // Not recoverable afterwards: init_params reads these with queryAdd, which
+    // writes the default back into the table on a miss, so contains() then says
+    // "yes" for all of them. A coupling driver needs the distinction to decide
+    // whether to override a lane, so it is recorded here during parsing.
+    std::array<bool, BulkFlux::NumTypes> bulk_flux_type_specified {};
+    std::array<bool, BulkFlux::NumTypes> bulk_flux_value_specified {};
+
     bool        longwave_is_net      = false;
     bool        qair_is_percent       = false;
     std::string longwave_netcdf_varname = "lwrad";

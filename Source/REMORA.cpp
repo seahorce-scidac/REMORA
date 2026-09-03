@@ -1193,11 +1193,10 @@ REMORA::set_surface_state (int lev)
 
     auto& bulk_flux_type = solverChoice.bulk_flux_type;
 
-    for (int n=0; n < AtmosState::NumTypes; n++) {
-        if (driver_atmos_state_from_driver[n]) {
-            amrex::Abort("Reached set_surface_state() but variables have already been specified from driver!");
-        }
-    }
+    // Every update below skips driver-supplied lanes individually, on
+    // !driver_atmos_state_from_driver[...]. This used to abort outright if any
+    // lane was driver-supplied, which made the function unreachable in a coupled
+    // run and so denied the *withheld* lanes the fallback those guards provide.
 
 #ifdef REMORA_USE_NETCDF
     auto update_from_netcdf = [&](std::unique_ptr<NCTimeSeries>& data_from_file,
