@@ -1344,6 +1344,16 @@ public:
     void init_clim_nudg_coeff (int lev);
     void init_riv_pos_from_netcdf (int lev);
 
+    /** \brief the DistributionMapping every full-domain multifab is built on.
+     * Each of those covers the domain in a single box, so the map holds one entry, and which
+     * rank it names is whichever holds the least fab memory when it is built. Building one per
+     * allocator therefore put the mask and the data it weights on different ranks under MPI.
+     * Empty until full_domain_dmap first needs it. **/
+    amrex::DistributionMapping dm_full_domain;
+
+    /** \brief The shared full-domain DistributionMapping, built on first use */
+    const amrex::DistributionMapping& full_domain_dmap ();
+
     /** \brief Allocate multifabs for storing full-domain bathymetry and grid vars data */
     void allocate_bathymetry_grid_vars_full_domain ();
     /** \brief Allocate multifabs for storing full-domain high resolution initial data */
