@@ -155,21 +155,27 @@ check_hires_dims_from_netcdf (const std::string& fname,
                               const Box& domain,
                               const IntVect& ngrow)
 {
-    int too_small = 0;
+    int too_small = 0, missing = 0;
     long found_x = 0, found_y = 0;
     const long need_x = static_cast<long>(domain.length(0)) + 2L * ngrow[0];
     const long need_y = static_cast<long>(domain.length(1)) + 2L * ngrow[1];
 
     auto ncf = ncutils::NCFile::open(fname, NC_NOCLOBBER);
     ncmpi_begin_indep_data(ncf.ncid);
-    if (amrex::ParallelDescriptor::IOProcessor() && ncf.has_var(var_name))
+    if (amrex::ParallelDescriptor::IOProcessor())
     {
-        // Whatever the leading time or vertical dimensions are, the last two are (eta, xi).
-        const std::vector<MPI_Offset> shape = ncf.var(var_name).shape();
-        if (shape.size() >= 2) {
-            found_y = static_cast<long>(shape[shape.size()-2]);
-            found_x = static_cast<long>(shape[shape.size()-1]);
-            too_small = (found_x < need_x || found_y < need_y) ? 1 : 0;
+        if (!ncf.has_var(var_name)) {
+            // Say so here. The reader that follows would otherwise fail inside ncmpi_inq_varid,
+            // which names neither the file nor the variable it was asked for.
+            missing = 1;
+        } else {
+            // Whatever the leading time or vertical dimensions are, the last two are (eta, xi).
+            const std::vector<MPI_Offset> shape = ncf.var(var_name).shape();
+            if (shape.size() >= 2) {
+                found_y = static_cast<long>(shape[shape.size()-2]);
+                found_x = static_cast<long>(shape[shape.size()-1]);
+                too_small = (found_x < need_x || found_y < need_y) ? 1 : 0;
+            }
         }
     }
     ncf.close();
@@ -178,6 +184,16 @@ check_hires_dims_from_netcdf (const std::string& fname,
     amrex::ParallelDescriptor::Bcast(&too_small, 1, ioproc);
     amrex::ParallelDescriptor::Bcast(&found_x, 1, ioproc);
     amrex::ParallelDescriptor::Bcast(&found_y, 1, ioproc);
+    amrex::ParallelDescriptor::Bcast(&missing, 1, ioproc);
+
+    if (missing) {
+        amrex::Abort("High-resolution file " + fname + " has no variable " + var_name
+                     + ". With remora.hires_grid_level set, that file is the only source for it: "
+                     "level 0 is coarsened down from it rather than read. Regenerate the file "
+                     "with " + var_name + " in it (Tests/tools/make_hires_test_data.py writes h, "
+                     "pm, pn and mask_rho), or, if this is mask_rho and the run wants no "
+                     "land/sea mask, set remora.mask_type = none.");
+    }
 
     if (too_small) {
         amrex::Abort("High-resolution file " + fname + " is too small: " + var_name + " is "
