@@ -170,6 +170,30 @@ void REMORAFillPatcher::BuildMask (BoxArray const& fba,
             });
         }
     }
+
+    // A face on the domain boundary is never a coarse-fine interface. The complement above is
+    // taken from a geometric bounding box, so wherever the fine patch reaches the edge of the
+    // domain it reports the boundary faces as uncovered: across a periodic edge the fine level
+    // wraps and those faces are interior, and at a physical edge the boundary condition owns
+    // them. Left marked, they are overwritten from the parent every time the interface is set.
+    const Box mask_domain = amrex::convert(m_fgeom.Domain(), fba.ixType());
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        if (fba.ixType()[dir] != IndexType::NODE) { continue; }
+
+        const int edge_lo = mask_domain.smallEnd(dir);
+        const int edge_hi = mask_domain.bigEnd(dir);
+        const int idir    = dir;
+
+        for (MFIter mfi(*m_cf_mask); mfi.isValid(); ++mfi) {
+            const Box& vbx = mfi.validbox();
+            const Array4<int>& mask_arr = m_cf_mask->array(mfi);
+            ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+                const int idx = (idir == 0) ? i : ((idir == 1) ? j : k);
+                if (idx == edge_lo || idx == edge_hi) { mask_arr(i,j,k) = mask_val; }
+            });
+        }
+    }
 }
 
 /*
