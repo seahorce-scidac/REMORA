@@ -185,6 +185,10 @@ REMORA::advance_2d (int lev,
     }
 
     // These are needed to pass the tests with bathymetry but I don't quite see why
+    if (do_substep && cf_impose_flux) {
+        set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
+    }
+
     mf_DUon.FillBoundary(geom[lev].periodicity());
     mf_DVom.FillBoundary(geom[lev].periodicity());
 

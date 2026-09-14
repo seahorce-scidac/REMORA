@@ -2280,6 +2280,10 @@ REMORA::ReadParameters ()
                        << "      conserves volume less well: 2.0e-6 against 3.1e-10 on Dogbone.\n";
     }
 
+    // Write the parent's flux straight onto DUon/DVom instead of letting the solver rebuild it
+    // from the imposed velocity. See set_2d_cf_flux.
+    pp.queryAdd("cf_impose_flux", cf_impose_flux);
+
     // See set_2d_cf_bcs. Only has an effect when remora.do_substep = 1.
     pp.queryAdd("time_interp_flux", time_interp_flux);
 

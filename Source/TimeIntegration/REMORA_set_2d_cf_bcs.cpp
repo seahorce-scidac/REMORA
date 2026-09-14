@@ -164,3 +164,75 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
         });
     }
 }
+
+/**
+ * Impose the parent's barotropic mass flux directly on the coarse-fine interface faces.
+ *
+ * set_2d_cf_bcs writes a velocity, which the solver then turns back into a flux using its own
+ * depth at a different time index, so the flux it actually carries is not the one imposed.
+ * Writing the flux itself makes the transport exact whatever the depth does.
+ *
+ * @param[in]     lev       level of refinement
+ * @param[in]     time      simulation time to interpolate the parent's flux to
+ * @param[inout]  mf_DUon   barotropic u-flux
+ * @param[inout]  mf_DVom   barotropic v-flux
+ */
+void
+REMORA::set_2d_cf_flux (int lev, Real time, MultiFab& mf_DUon, MultiFab& mf_DVom)
+{
+    if (lev == 0 || cf_set_width < 0) { return; }
+
+    BL_PROFILE("REMORA::set_2d_cf_flux()");
+
+    const int set_mask = FPr_Dubar[lev-1].GetSetMaskVal();
+
+    MultiFab Dubar_cf(vec_Dubar_new[lev]->boxArray(), vec_Dubar_new[lev]->DistributionMap(),
+                      1, vec_Dubar_new[lev]->nGrowVect());
+    MultiFab Dvbar_cf(vec_Dvbar_new[lev]->boxArray(), vec_Dvbar_new[lev]->DistributionMap(),
+                      1, vec_Dvbar_new[lev]->nGrowVect());
+    Dubar_cf.setVal(zero);
+    Dvbar_cf.setVal(zero);
+
+    FPr_Dubar[lev-1].FillSet(Dubar_cf, time, no_bc, domain_bcs_type);
+    FPr_Dvbar[lev-1].FillSet(Dvbar_cf, time, no_bc, domain_bcs_type);
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for ( MFIter mfi(mf_DUon, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real      > const& DUon  = mf_DUon.array(mfi);
+        Array4<Real const> const& Dubar = Dubar_cf.const_array(mfi);
+        Array4<int  const> const& cmask = FPr_Dubar[lev-1].GetMask()->const_array(mfi);
+        Array4<Real const> const& pn    = vec_pn[lev]->const_array(mfi);
+        Array4<Real const> const& msku  = vec_msku[lev]->const_array(mfi);
+
+        ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            if (cmask(i,j,0) != set_mask) { return; }
+
+            Real on_u = two / (pn(i,j,0) + pn(i-1,j,0));
+            DUon(i,j,0) = Dubar(i,j,0) * on_u * msku(i,j,0);
+        });
+    }
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for ( MFIter mfi(mf_DVom, TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<Real      > const& DVom  = mf_DVom.array(mfi);
+        Array4<Real const> const& Dvbar = Dvbar_cf.const_array(mfi);
+        Array4<int  const> const& cmask = FPr_Dvbar[lev-1].GetMask()->const_array(mfi);
+        Array4<Real const> const& pm    = vec_pm[lev]->const_array(mfi);
+        Array4<Real const> const& mskv  = vec_mskv[lev]->const_array(mfi);
+
+        ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            if (cmask(i,j,0) != set_mask) { return; }
+
+            Real om_v = two / (pm(i,j,0) + pm(i,j-1,0));
+            DVom(i,j,0) = Dvbar(i,j,0) * om_v * mskv(i,j,0);
+        });
+    }
+}

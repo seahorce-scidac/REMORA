@@ -671,6 +671,10 @@ public:
     /** \brief set this level's barotropic contact points from its parent, mass-conservingly */
     void set_2d_cf_bcs (int lev, amrex::Real time, int know, int knew);
 
+    /** \brief impose the parent's barotropic mass flux on the coarse-fine interface faces */
+    void set_2d_cf_flux (int lev, amrex::Real time,
+                         amrex::MultiFab& mf_DUon, amrex::MultiFab& mf_DVom);
+
     /** \brief store this level's barotropic mass flux per unit cell edge length */
     void store_2d_flux (int lev);
 
@@ -1777,6 +1781,12 @@ private:
      *         interface, rather than holding its step average. Off matches most ROMS
      *         configurations. */
     bool time_interp_flux = false;
+
+    /** \brief impose the parent's barotropic mass flux on DUon/DVom at the coarse-fine
+     *         interface, rather than relying on the velocity written by set_2d_cf_bcs being
+     *         turned back into the same flux. Off by default: it improves conservation but
+     *         does not cure the two-level barotropic instability seen in Channel_Test. */
+    int cf_impose_flux = 0;
 
     /** \brief correct the coarse tracer with the finer level's accumulated advective flux
      *         at their interface. Only has an effect under remora.do_substep with two-way
