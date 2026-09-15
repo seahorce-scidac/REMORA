@@ -292,6 +292,8 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time, int lev,
         mf_to_fill_lev = mf_interpolated_lev[lev].get();
     }
 
+    last_updated_lev = lev;
+
     if (lev == 0) {
         amrex::MultiFab::Copy(*mf_to_fill_lev, *mf_interp_lev0, 0, 0, 1, mf_to_fill_lev->nGrowVect());
         return;
@@ -339,6 +341,12 @@ NCTimeSeries::get_interpolated_mf (int lev) const {
     AMREX_ALWAYS_ASSERT(save_interpolated);
     AMREX_ALWAYS_ASSERT(lev < static_cast<int>(mf_interpolated_lev.size()));
     AMREX_ALWAYS_ASSERT(mf_interpolated_lev[lev]);
+    // Under subcycling the levels reach this at different times, so a buffer another level
+    // filled is at the wrong time even though it is the right shape.
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(lev == last_updated_lev,
+        "NCTimeSeries '" + field_name + "' was last interpolated for level "
+        + std::to_string(last_updated_lev) + " but read for level " + std::to_string(lev)
+        + ". Call update_interpolated_to_time for this level first.");
     return mf_interpolated_lev[lev].get();
 }
 

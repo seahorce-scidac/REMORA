@@ -1,33 +1,33 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: Advection_ML.i
+inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Tests/test_files/Advection_ML/Advection_ML.i
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.000703697
+CPU time used since start of simulation (CPU-hours): 0.000743545
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Fri Aug 21 21:46:56 2026
-output dir:         /home/klion/software/REMORA_codex/Exec/Advection
+output data / time: Fri Sep  4 13:19:30 2026
+output dir:         /home/klion/.claude/jobs/9b9be4bd/tmp/g_adv
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    2026-08-17 16:37:36.532544
-build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64 x86_64 x86_64 GNU/Linux
-build dir:     /home/klion/software/REMORA_codex/Exec
-AMReX dir:     ..//Submodules/AMReX
+build date:    Sep  4 2026 12:54:30
+build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
+build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Build/Exec
+AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Submodules/AMReX
 
-COMP:          gnu
+COMP:          GNU
 COMP version:  13.3.0
 
 
-REMORA       git hash: v1.6-160-g8c9af98-dirty
-AMReX       git hash: 26.07-55-gd1b9e4ec5
+REMORA       git hash: v1.7-20-g590f8deb99cf-dirty
+AMReX       git hash: 26.08-36-gf2cbba4afc9e
 
 
 ===============================================================================
@@ -56,7 +56,7 @@ AMReX       git hash: 26.07-55-gd1b9e4ec5
 DistributionMapping.verbose = 0
 amr.blocking_factor = 1
 amr.check_input = true
-amr.do_substep = 0
+amr.do_substep = 1
 amr.grid_eff = 0.69999999999999996
 amr.max_grid_iterations = 4
 amr.max_grid_size = 2048
@@ -84,7 +84,7 @@ amrex.handle_sigill = true
 amrex.handle_sigint = true
 amrex.handle_sigsegv = true
 amrex.handle_sigterm = false
-amrex.init_snan = true
+amrex.init_snan = false
 amrex.mf.alloc_single_chunk = false
 amrex.signal_handling = true
 amrex.the_arena_defragmentation = true
@@ -149,6 +149,8 @@ remora.boundary_per_variable = false
 remora.bulk_fluxes = false
 remora.cfl = 0.80000000000000004
 remora.change_max = 1.1000000000000001
+remora.check_cf_metrics = 0
+remora.check_cf_tol = 9.9999999999999998e-13
 remora.check_file = chk
 remora.check_int = -57600
 remora.check_int_time = -1.0
@@ -159,6 +161,7 @@ remora.coriolis_f0 = 0.0
 remora.coupling_type = "TwoWay"
 remora.do_m2_clim_nudg = false
 remora.do_m3_clim_nudg = false
+remora.do_reflux = 1
 remora.do_rivers = false
 remora.do_rivers_salt = true
 remora.do_rivers_scalar = false
@@ -174,8 +177,6 @@ remora.eos_type = "linear"
 remora.expand_plotvars_to_unif_rr = 1
 remora.file_min_digits = 5
 remora.fixed_dt = 100.0
-remora.fixed_fast_dt = -1.0
-remora.fixed_ndtfast_ratio = 10
 remora.gls_stability_type = "Canuto_A"
 remora.grid_scale_type = "constant"
 remora.harmonic_mixing_type = "s"
@@ -198,6 +199,7 @@ remora.m3nudg = 0.0
 remora.mask_type = "none"
 remora.max_step = 10
 remora.n_cell = 80 80 16
+remora.ndtfast = 10
 remora.nscalar = 1
 remora.obcfac = 0.0
 remora.output_forcing = false
@@ -219,6 +221,7 @@ remora.rain_type = "constant"
 remora.rdrag = 0.0
 remora.rdrag2 = 0.0030000000000000001
 remora.refinement_indicators = scalar
+remora.reflux_clamp = 1
 remora.rho0 = 1025.0
 remora.scalar.field_name = tracer
 remora.scalar.max_level = 1
@@ -226,7 +229,6 @@ remora.scalar.start_time = 200
 remora.scalar.value_greater = 0.5
 remora.scaled_to_grid_amr_scaling = "none"
 remora.smflux_type = "analytic"
-remora.spatial_order(nvals = 1)  :: [2]
 remora.start_time = 0.0
 remora.stop_time = 300000.0
 remora.sum_interval = 10
@@ -237,6 +239,7 @@ remora.tair_type = "constant"
 remora.tcline = 150.0
 remora.theta_b = 0.0
 remora.theta_s = 3.0
+remora.time_interp_flux = false
 remora.time_ref = 0.0
 remora.tnu2_salt = 0.0
 remora.tnu2_scalar = 0.0
@@ -244,13 +247,10 @@ remora.tnu2_temp = 0.0
 remora.tnu2_tracer = 0.0
 remora.tnudg = 0.0
 remora.tracer_horizontal_advection_scheme = "centered4"
-remora.use_barotropic = true
 remora.use_coriolis = false
 remora.use_curvilinear_grid = false
-remora.use_hydro_particles = false
 remora.use_prestep = true
 remora.use_salt = true
-remora.use_tracer_particles = false
 remora.use_uv3dmix = true
 remora.uv_horizontal_advection_scheme = "upstream3"
 remora.uwind = 0.0

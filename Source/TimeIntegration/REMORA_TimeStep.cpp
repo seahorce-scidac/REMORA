@@ -23,6 +23,13 @@ REMORA::timeStep (int lev, Real time, int iteration)
         {
             if (istep[lev] % regrid_int == 0)
             {
+                // regrid interpolates this level's data to build lev+1, so its ghost cells
+                // must be current. The swap has not happened, so "new" is what regrid reads.
+                FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t,0,true,true);
+                FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u,0,true,true);
+                FillPatchNoBC(lev, time, *yvel_new[lev], yvel_new, BdyVars::v,0,true,true);
+                FillPatch(lev, time, *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null,0,true,true);
+
                 // regrid could add newly refine levels (if finest_level < max_level)
                 // so we save the previous finest level index
                 int old_finest = finest_level;
@@ -42,19 +49,30 @@ REMORA::timeStep (int lev, Real time, int iteration)
                     last_regrid_step[k] = istep[k];
                 }
 
-                // If there are newly created levels, set the time step
+                // If there are newly created levels, set the time step. nsubsteps, not the
+                // refinement ratio: without subcycling every level shares dt[0].
                 for (int k = old_finest+1; k <= finest_level; ++k) {
-                    dt[k] = dt[k-1] / MaxRefRatio(k-1);
+                    dt[k] = dt[k-1] / nsubsteps[k];
                 }
             }
         }
     }
 
-    scale_rhs_vars();
+    scale_rhs_vars(lev);
 
     // Update what we call "old" and "new" time
     t_old[lev] = t_new[lev];
     t_new[lev] += dt[lev];
+
+    // A child must stay inside its parent's step, or the fill patchers have nothing to
+    // interpolate within. REMORAFillPatcher asserts this too, but cannot name the level.
+    if (lev > 0) {
+        const Real eps = Real(1.e-6) * dt[lev];
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+            t_old[lev] >= t_old[lev-1] - eps && t_new[lev] <= t_new[lev-1] + eps,
+            "REMORA::timeStep: level " + std::to_string(lev) + " stepped outside the time "
+            "interval of level " + std::to_string(lev-1));
+    }
 
     if (Verbose()) {
         amrex::Print() << "[Level " << lev << " step " << istep[lev]+1 << "] ";
@@ -73,7 +91,7 @@ REMORA::timeStep (int lev, Real time, int iteration)
 
     ++istep[lev];
 
-    scale_rhs_vars_inv();
+    scale_rhs_vars_inv(lev);
 
     if (Verbose())
     {
@@ -88,6 +106,10 @@ REMORA::timeStep (int lev, Real time, int iteration)
         {
             timeStep(lev+1, time+(i-1)*dt[lev+1], i);
         }
+
+        // Before the average-down: refluxing writes coarse cells under the fine grid on the
+        // assumption they are about to be overwritten from it.
+        reflux_to(lev);
 
         if (solverChoice.coupling_type == CouplingType::two_way) {
             AverageDownTo(lev); // average lev+1 down to lev

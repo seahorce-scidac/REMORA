@@ -102,19 +102,19 @@ remora.bdy_time_varname = <UNKNOWN_DEFAULT>
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_u_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2330
+# source: Source/REMORA.cpp:2435
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_ubar_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2329
+# source: Source/REMORA.cpp:2434
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_v_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2331
+# source: Source/REMORA.cpp:2436
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_vbar_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2332
+# source: Source/REMORA.cpp:2437
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_zeta_time_varname = <UNKNOWN_DEFAULT>
 
@@ -170,15 +170,23 @@ remora.cfl = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.change_max = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2128
+# See check_cf_metrics. Off by default: it is a property of the grid, so one run says as much as every run.
+# type=int; method=queryAdd
+remora.check_cf_metrics = <UNKNOWN_DEFAULT>
+
+# See check_cf_metrics. Off by default: it is a property of the grid, so one run says as much as every run.
+# type=Real; method=queryAdd
+remora.check_cf_tol = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA.cpp:2196
 # type=string; method=queryAdd
 remora.check_file = chk
 
-# source: Source/REMORA.cpp:2129
+# source: Source/REMORA.cpp:2197
 # type=int; method=queryAdd
 remora.check_int = -57600
 
-# source: Source/REMORA.cpp:2130
+# source: Source/REMORA.cpp:2198
 # type=Real; method=queryAdd
 remora.check_int_time = <UNKNOWN_DEFAULT>
 
@@ -186,7 +194,7 @@ remora.check_int_time = <UNKNOWN_DEFAULT>
 # type=bool; method=queryAdd
 remora.check_mask_consistency = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2235
+# source: Source/REMORA.cpp:2340
 # type=bool; method=queryAdd
 remora.chunk_history_file = <UNKNOWN_DEFAULT>
 
@@ -226,7 +234,7 @@ remora.coriolis_type = beta_plane
 # type=string; method=queryAdd
 remora.coupling_type = TwoWay
 
-# source: Source/REMORA.cpp:2147
+# source: Source/REMORA.cpp:2215
 # type=Vector<std::string>; method=queryarr
 remora.data_log = <UNKNOWN_DEFAULT>
 
@@ -237,6 +245,10 @@ remora.do_m2_clim_nudg = <UNKNOWN_DEFAULT>
 # Whether to nudge 3D
 # type=bool; method=queryAdd
 remora.do_m3_clim_nudg = <UNKNOWN_DEFAULT>
+
+# Tracer flux correction at the coarse-fine interface. Needs remora.do_substep and two-way coupling to do anything.
+# type=int; method=queryAdd
+remora.do_reflux = <UNKNOWN_DEFAULT>
 
 # Whether to do rivers. By default, rivers are temp and salt sources. Rivers have to be momentum sources.
 # type=bool; method=queryAdd
@@ -254,6 +266,14 @@ remora.do_rivers_scalar = <UNKNOWN_DEFAULT>
 # type=bool; method=queryAdd
 remora.do_rivers_temp = <UNKNOWN_DEFAULT>
 
+# 0 selects timeStepML, kept as a comparison path. amr.do_substep is the original
+# type=int; method=queryAdd
+remora.do_substep = <UNKNOWN_DEFAULT>
+
+# time step
+# type=unknown; method=queryarr
+remora.dt_ref_ratio = <UNKNOWN_DEFAULT>
+
 # source: Source/REMORA_DataStruct.H:285
 # type=bool; method=queryAdd
 remora.eminusp = true
@@ -270,7 +290,7 @@ remora.eminusp_value = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.eos_type = linear
 
-# source: Source/REMORA.cpp:2131
+# source: Source/REMORA.cpp:2199
 # type=bool; method=queryAdd
 remora.expand_plotvars_to_unif_rr = <UNKNOWN_DEFAULT>
 
@@ -470,7 +490,7 @@ remora.fennel.wPhy = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.fennel.wSDet = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2155
+# source: Source/REMORA.cpp:2223
 # type=int; method=queryAdd
 remora.file_min_digits = 5
 
@@ -682,7 +702,7 @@ remora.nc_river_file = "idRiv_riv_v0.2_classic64.nc"
 # type=int; method=queryAdd
 remora.ndtfast = 0
 
-# source: Source/REMORA.cpp:2133
+# source: Source/REMORA.cpp:2201
 # type=Real; method=query
 remora.netcdf_fill_value = <UNKNOWN_DEFAULT>
 
@@ -702,31 +722,31 @@ remora.omp_tile_size = 8 8 1024000
 # type=bool; method=queryAdd
 remora.output_forcing = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2221
+# source: Source/REMORA.cpp:2326
 # type=string; method=queryAdd
 remora.plot_file = plt
 
-# source: Source/REMORA.cpp:2222
+# source: Source/REMORA.cpp:2327
 # type=int; method=queryAdd
 remora.plot_int = 100
 
-# source: Source/REMORA.cpp:2223
+# source: Source/REMORA.cpp:2328
 # type=Real; method=queryAdd
 remora.plot_int_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2225
+# source: Source/REMORA.cpp:2330
 # type=bool; method=query
 remora.plot_nodal_data = true
 
-# source: Source/REMORA.cpp:2224
+# source: Source/REMORA.cpp:2329
 # type=bool; method=query
 remora.plot_staggered_vels = false
 
-# source: Source/REMORA.cpp:2132
+# source: Source/REMORA.cpp:2200
 # type=Real; method=query
 remora.plotfile_fill_value = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2228
+# source: Source/REMORA.cpp:2333
 # type=string; method=queryAdd
 remora.plotfile_type = amrex
 
@@ -862,7 +882,11 @@ remora.refinement_indicators_.value_greater = <REQUIRED>
 # type=Real; method=getarr
 remora.refinement_indicators_.value_less = <REQUIRED>
 
-# source: Source/REMORA.cpp:2134
+# Whether to zero a tracer the correction drives negative, as ROMS does.
+# type=int; method=queryAdd
+remora.reflux_clamp = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA.cpp:2202
 # type=string; method=queryAdd
 remora.restart = <UNKNOWN_DEFAULT>
 
@@ -886,7 +910,7 @@ remora.smflux_type = analytic
 # type=Real; method=queryAdd
 remora.start_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2236
+# source: Source/REMORA.cpp:2341
 # type=int; method=queryAdd
 remora.steps_per_history_file = <UNKNOWN_DEFAULT>
 
@@ -898,7 +922,7 @@ remora.stop_time = 30000.0
 # type=int; method=queryAdd
 remora.sum_interval = -1
 
-# source: Source/REMORA.cpp:2154
+# source: Source/REMORA.cpp:2222
 # type=Real; method=queryAdd
 remora.sum_period = <UNKNOWN_DEFAULT>
 
@@ -921,6 +945,10 @@ remora.theta_b = 0.0
 # Grid stretching
 # type=Real; method=queryAdd
 remora.theta_s = 5.0
+
+# See set_2d_cf_bcs. Only has an effect when remora.do_substep = 1.
+# type=bool; method=queryAdd
+remora.time_interp_flux = <UNKNOWN_DEFAULT>
 
 # Reference date for the model clock, and with it the calendar, as ROMS TIME_REF: a yyyymmdd.dd date, or 0 for 0001-01-01, -1 for the 360-day calendar, -2 for truncated Julian days. See REMORA_DateClock.H.
 # type=Real; method=queryAdd
@@ -998,7 +1026,7 @@ remora.vwind = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.wind_type = analytic
 
-# source: Source/REMORA.cpp:2234
+# source: Source/REMORA.cpp:2339
 # type=bool; method=queryAdd
 remora.write_history_file = true
 
@@ -1077,7 +1105,7 @@ amr.derive_plot_vars = <REQUIRED>
 # type=string; method=get
 amr.derive_small_plot_vars = <REQUIRED>
 
-# whether to
+# 0 selects timeStepML, kept as a comparison path. amr.do_substep is the original
 # type=int; method=queryAdd
 amr.do_substep = <UNKNOWN_DEFAULT>
 

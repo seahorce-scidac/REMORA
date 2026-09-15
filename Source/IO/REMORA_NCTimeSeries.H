@@ -85,6 +85,12 @@ class NCTimeSeries
         amrex::MultiFab* mf_interp_lev0;
         /// Interpolated data on each requested AMR level if save_interpolated=true
         amrex::Vector<std::unique_ptr<amrex::MultiFab>> mf_interpolated_lev;
+
+        /** Level of the most recent update. One series serves every level, and under
+         * subcycling the levels ask for different times, so a saved buffer is only current
+         * for the level that last updated it. Callers update immediately before reading;
+         * this records enough to catch a caller that stops doing so. */
+        int last_updated_lev = -1;
         /** Pointer to REMORA data that corresponds to the variable being interpolated.
          * Filled by update_interpolated_to_time if save_interpolated==false. Otherwise,
          * just used for getting box array, nodality, and distribution mapping */

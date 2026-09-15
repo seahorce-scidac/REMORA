@@ -229,7 +229,9 @@ REMORA::EvolveOneStep (amrex::Real /*time*/, amrex::Real /*dt_request*/)
 
     int lev = 0;
     int iteration = 1;
-    if (max_level == 0) {
+    // Must match Evolve's choice: the subcycle-only paths are gated on do_substep, not on
+    // which driver ran, and timeStepML does not register the mass flux they read.
+    if (max_level == 0 || do_substep) {
         timeStep(lev, cur_time, iteration);
     } else {
         timeStepML(cur_time, iteration);

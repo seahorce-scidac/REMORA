@@ -362,16 +362,20 @@ List of Parameters
 |                                  | :math:`>` # of   |                    |                   |
 |                                  | grids            |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
-| **amr.do_substep**               | whether to       | 0 if false, 1      | 0                 |
+| **remora.do_substep**            | whether to       | 0 if false, 1      | 1                 |
 |                                  | sub-step finer   | if true            |                   |
 |                                  |                  |                    |                   |
-|                                  | levels in time   |                    |                   |
-|                                  |                  | NOTE: true         |                   |
-|                                  |                  | will               |                   |
+|                                  | levels in time   | 0 selects the      |                   |
 |                                  |                  |                    |                   |
-|                                  |                  | trigger Assert     |                   |
-|                                  |                  |                    |                   |
-|                                  |                  | failure            |                   |
+|                                  |                  | lockstep driver    |                   |
++----------------------------------+------------------+--------------------+-------------------+
+| **remora.dt_ref_ratio**          | time step        | integer > 0,       | spatial           |
+|                                  | ratio between    |                    |                   |
+|                                  |                  | one value or       | refinement        |
+|                                  | a level and      |                    |                   |
+|                                  |                  | one per ref.       | ratio             |
+|                                  | its parent       |                    |                   |
+|                                  |                  | level              |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 
 .. _notes-2:
@@ -399,7 +403,31 @@ Notes
 -  **amr.max_grid_size** must be a multiple of **amr.blocking_factor**
    at every level
 
--  the substepping turned on by **amr.do_substep** is NOT implemented yet so will trigger an Assert.
+-  **remora.do_substep** = 1 is the default, and advances a finer level
+   **remora.dt_ref_ratio** times per parent step. Setting it to 0 selects the lockstep driver,
+   which advances every level once per step through one shared barotropic loop. Because that
+   loop cannot hand a finer level the parent's completed mass flux, it cannot impose that flux
+   at a coarse-fine interface and conserves volume less well: drift of 2.0e-6 against 3.1e-10 on
+   DogboneAnalytic. It is kept for comparison against answers predating subcycling and is
+   expected to be deprecated.
+
+-  **amr.do_substep** is the original spelling of the above and still works, but amrex owns that
+   namespace. Setting both is an error.
+
+-  **remora.dt_ref_ratio** only has an effect when **remora.do_substep** = 1. It defaults to the
+   spatial refinement ratio but need not equal it. Setting it to 1 advances every level with the
+   level-0 time step, which is how the sub-stepped driver is compared against the lockstep one.
+
+-  **remora.do_reflux** (default 1) corrects the coarse tracer with the finer level's
+   accumulated advective flux at their interface. It needs **remora.do_substep** = 1 and
+   **remora.coupling_type** = TwoWay to have any effect.
+
+-  **remora.reflux_clamp** (default 1) stops that correction driving a tracer negative, matching
+   what ROMS does in ``correct_tracer_tile``. Set it to 0 to let the correction through unaltered.
+   The clamp is not free: it restores exactly the mass the correction removed, so a step that
+   clamps is not conservative -- positivity and conservation cannot both hold, and ROMS chooses
+   positivity. Note that it clamps every tracer at zero, temperature included, which suits a
+   concentration but not temperature in Celsius.
 
 .. _examples-of-usage-3:
 

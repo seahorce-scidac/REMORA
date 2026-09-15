@@ -539,6 +539,15 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DV_avg1;
     /** \brief correct time average of barotropic y velocity flux for coupling (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DV_avg2;
+    /** \brief DU_avg2 per unit cell edge length, at the start and end of this level's step.
+     *         What a subcycled finer level interpolates to get a mass-conserving ubar (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Dubar_old;
+    /** \brief see vec_Dubar_old (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Dubar_new;
+    /** \brief DV_avg2 per unit cell edge length, see vec_Dubar_old (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Dvbar_old;
+    /** \brief see vec_Dvbar_old (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Dvbar_new;
     /** \brief barotropic x velocity for the RHS (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rubar;
     /** \brief barotropic y velocity for the RHS (2D) */
@@ -654,6 +663,26 @@ public:
 
     /** \brief advance a single level for a single time step */
     void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
+
+    /** \brief register this level's completed step as the coarse bracket the next finer
+     *         level interpolates within */
+    void register_coarse_data (int lev, amrex::Real time, amrex::Real dt_lev);
+
+    /** \brief set this level's barotropic contact points from its parent, mass-conservingly */
+    void set_2d_cf_bcs (int lev, amrex::Real time, int know, int knew);
+
+    /** \brief impose the parent's barotropic mass flux on the coarse-fine interface faces */
+    void set_2d_cf_flux (int lev, amrex::Real time,
+                         amrex::MultiFab& mf_DUon, amrex::MultiFab& mf_DVom);
+
+    /** \brief store this level's barotropic mass flux per unit cell edge length */
+    void store_2d_flux (int lev);
+
+    /** \brief apply the lev/lev+1 tracer flux correction onto lev */
+    void reflux_to (int lev);
+
+    /** \brief check that fine cell edges sum to the coarse edge across an interface */
+    void check_cf_metrics (int crse_lev);
 
     /** \brief Set everything up for a step on a level */
     void setup_step(int lev, amrex::Real time, amrex::Real dt_lev);
@@ -823,7 +852,9 @@ public:
                    const amrex::Array4<amrex::Real const>& mskv,
                    const amrex::Array4<int         const>& river_pos,
                    const amrex::Array4<amrex::Real const>& river_source,
-                   int nrhs, int nnew, int N, const amrex::Real dt_lev);
+                   int nrhs, int nnew, int N, const amrex::Real dt_lev,
+                   const amrex::Array4<amrex::Real>& fx_reg = amrex::Array4<amrex::Real>(),
+                   const amrex::Array4<amrex::Real>& fy_reg = amrex::Array4<amrex::Real>());
 
     /** \brief RHS terms for 3D momentum */
     void rhs_uv_3d (int lev,
@@ -1179,9 +1210,9 @@ public:
                         const int N, const amrex::Real dt_lev);
 
     /** \brief Scale RHS momentum variables by 1/cell area, needed before FillPatch to different levels*/
-    void scale_rhs_vars ();
+    void scale_rhs_vars (int lev);
     /** \brief Scale RHS momentum variables by cell area, needed after FillPatch to different levels*/
-    void scale_rhs_vars_inv ();
+    void scale_rhs_vars_inv (int lev);
 
     /** \brief Initialize or calculate surface momentum flux from file or analytic */
     void set_smflux (int lev);
@@ -1213,7 +1244,9 @@ public:
                     const int  n_not_fill=0,
                     const int icomp_calc=0,
                     const amrex::Real dt = zero,
-                    const amrex::MultiFab& mf_calc = amrex::MultiFab());
+                    const amrex::MultiFab& mf_calc = amrex::MultiFab(),
+                    amrex::Vector<amrex::MultiFab*> const& mfs_crse_old = {},
+                    amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {});
 
     /** \brief Fill a new MultiFab by copying in phi from valid region and filling ghost cells without applying boundary conditions */
     void FillPatchNoBC (int lev, amrex::Real time,
@@ -1222,7 +1255,9 @@ public:
                     const int bdy_var_type = BdyVars::null,
                     const int icomp=0,
                     const bool fill_all=true,
-                    const bool fill_set=false);
+                    const bool fill_set=false,
+                    amrex::Vector<amrex::MultiFab*> const& mfs_crse_old = {},
+                    amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {});
     /** \brief Fill boundary data from netcdf file */
     void fill_from_bdyfiles (int lev,
                              amrex::MultiFab& mf_to_fill,
@@ -1465,6 +1500,12 @@ private:
     /** \brief a wrapper for estTimeStep() */
     void ComputeDt ();
 
+    /** \brief report the per-level slow/fast timestep hierarchy; call after ComputeDt */
+    void print_timestep_hierarchy () const;
+
+    /** \brief size nsubsteps and set how many steps each level takes per parent step */
+    void set_nsubsteps (int nlevs_max);
+
     /** \brief get plotfile name */
     std::string PlotFileName (int lev) const;
 
@@ -1578,6 +1619,10 @@ private:
     amrex::Vector<REMORAFillPatcher> FPr_ubar;
     /** \brief Vector over levels of FillPatchers for vbar (2D) */
     amrex::Vector<REMORAFillPatcher> FPr_vbar;
+    /** \brief Vector over levels of FillPatchers for Dubar (2D) */
+    amrex::Vector<REMORAFillPatcher> FPr_Dubar;
+    /** \brief Vector over levels of FillPatchers for Dvbar (2D) */
+    amrex::Vector<REMORAFillPatcher> FPr_Dvbar;
 
     /** \brief write checkpoint file to disk */
     void WriteCheckpointFile ();
@@ -1626,6 +1671,12 @@ private:
 
     /** \brief array of flux registers for refluxing in multilevel */
     amrex::Vector<std::unique_ptr<amrex::YAFluxRegister>> advflux_reg;
+
+    /** \brief flux register between lev and lev-1 */
+    amrex::YAFluxRegister* getAdvFluxReg (int lev) { return advflux_reg[lev].get(); }
+
+    /** \brief build or rebuild the flux register between lev and lev-1 */
+    void define_flux_register (int lev);
 
     ////////////////
     // boundary data members
@@ -1734,7 +1785,33 @@ private:
     int nfast;
 
     /** \brief Whether to substep fine levels in time */
-    int do_substep = 0;
+    int do_substep = 1;
+
+    /** \brief interpolate the parent's barotropic mass flux in time at the coarse-fine
+     *         interface, rather than holding its step average. Off matches most ROMS
+     *         configurations. */
+    bool time_interp_flux = false;
+
+    /** \brief impose the parent's barotropic mass flux on DUon/DVom at the coarse-fine
+     *         interface, rather than relying on the velocity written by set_2d_cf_bcs being
+     *         turned back into the same flux. Off by default: it improves conservation but
+     *         does not cure the two-level barotropic instability seen in Channel_Test. */
+    int cf_impose_flux = 0;
+
+    /** \brief correct the coarse tracer with the finer level's accumulated advective flux
+     *         at their interface. Only has an effect under remora.do_substep with two-way
+     *         coupling. */
+    int do_reflux = 1;
+
+    /** \brief stop that correction driving a tracer negative, as ROMS does. On by default to
+     *         match ROMS; costs exact conservation on any step that clamps. */
+    int reflux_clamp = 1;
+
+    /** \brief measure whether fine cell edges tile the coarse ones at a coarse-fine
+     *         interface, which is what makes the imposed mass flux conservative */
+    int check_cf_metrics_flag = 0;
+    /** \brief tolerance for the above */
+    amrex::Real check_cf_tol = 1.e-12;
 
     /** \brief how often each level regrids the higher levels of refinement (after a level advances that many time steps) */
     int regrid_int = 2;
