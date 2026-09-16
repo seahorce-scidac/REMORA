@@ -17,7 +17,7 @@ using namespace amrex;
 amrex::Real REMORA::startCPUTime        = zero;
 amrex::Real REMORA::previousCPUTimeUsed = zero;
 
-Vector<AMRErrorTag> REMORA::ref_tags;
+Vector<REMORAErrorTag> REMORA::ref_tags;
 
 SolverChoice REMORA::solverChoice;
 

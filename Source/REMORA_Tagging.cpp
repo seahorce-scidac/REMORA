@@ -86,6 +86,127 @@ fill_lateral_ghosts_zero_grad (MultiFab& mf)
 } // namespace
 
 /**
+ * Apply this criterion to tba, taking the land/sea mask into account.
+ *
+ * This is amrex::AMRErrorTag::operator()'s embedded-boundary path for GRAD, LESS and
+ * GREATER, with mskr3d standing in for the EBCellFlags: a land cell is "covered" and is
+ * never tested, and a face onto a land cell is not "connected" and is never differenced
+ * across. Every other test is the base class's unchanged.
+ *
+ * Note that a cell this criterion declines to test is left exactly as it was found, not
+ * cleared. That is what lets a static box keep the tags it set over a coast.
+ *
+ * @param[inout] tba       tags to update
+ * @param[in]    mf        single-component field this criterion tests
+ * @param[in]    mskr3d    land/sea mask on mf's layout, or nullptr to test without one
+ * @param[in]    clearval  value marking an untagged cell
+ * @param[in]    tagval    value marking a tagged cell
+ * @param[in]    time      current time
+ * @param[in]    level     level being tagged
+ * @param[in]    geom      geometry of that level
+ */
+void
+REMORAErrorTag::operator() (TagBoxArray&    tba,
+                            const MultiFab* mf,
+                            const MultiFab* mskr3d,
+                            char            clearval,
+                            char            tagval,
+                            Real            time,
+                            int             level,
+                            const Geometry& geom) const
+{
+    // Only the three tests REMORA's inputs can build read a field cell by cell and so have
+    // anything for the mask to guard. Everything else is the base class's business.
+    const bool masked_test = (m_test == GRAD || m_test == LESS || m_test == GREATER);
+
+    if (mskr3d == nullptr || !masked_test) {
+        amrex::AMRErrorTag::operator()(tba, mf, clearval, tagval, time, level, geom);
+        return;
+    }
+
+    AMREX_ALWAYS_ASSERT(mf != nullptr);
+
+    // One box index runs the tags, the field and the mask below, so all three have to be
+    // distributed the same way over the same boxes.
+    AMREX_ALWAYS_ASSERT(mskr3d->boxArray()        == mf->boxArray() &&
+                        mskr3d->DistributionMap() == mf->DistributionMap());
+
+    // GRAD reads the mask at i+-1 and j+-1. It never reads it at k+-1: the mask is constant
+    // down a column, so mskr3d carries no vertical ghost cells to read.
+    AMREX_ALWAYS_ASSERT(mskr3d->nGrowVect()[0] >= 1 && mskr3d->nGrowVect()[1] >= 1);
+
+    if ( (level <  0                 ) || (level >= m_info.m_max_level) ||
+         (time  <  m_info.m_min_time ) || (time  >  m_info.m_max_time ) ) {
+        return;
+    }
+
+    auto const& tagma = tba.arrays();
+    auto const& datma = mf->const_arrays();
+    auto const& mskma = mskr3d->const_arrays();
+
+    auto const nvalues = std::ssize(m_value);
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(nvalues > 0,
+                                     "Threshold values not properly set in REMORAErrorTag");
+    auto const threshold = m_value[(level < nvalues) ? level : nvalues-1];
+    auto const tag_update = m_info.m_derefine ? clearval : tagval;
+    auto const volume_weighting = m_info.m_volume_weighting;
+    auto const& geomdata = geom.data();
+    auto const test = m_test;
+
+    ParallelFor(tba, [=] AMREX_GPU_DEVICE (int bi, int i, int j, int k) noexcept
+    {
+        auto const& msk = mskma[bi];
+
+        // Land holds no state worth testing: advance_3d_ml zeroes the tracers there every
+        // step, so a threshold test on land reports on that zero and a difference taken at
+        // the coast reports the size of the jump down to it.
+        if (msk(i,j,k) <= Real(0.5)) { return; }
+
+        auto const& dat = datma[bi];
+        bool tag_it = false;
+
+        if (test == GRAD)
+        {
+            // A difference only across a water-water face, as AMReX's EB form of this test
+            // takes one only across a connected face.
+            Real ax = Real(0.0);
+            if (msk(i+1,j,k) > Real(0.5)) {
+                ax = amrex::max(ax, std::abs(dat(i+1,j,k) - dat(i,j,k)));
+            }
+            if (msk(i-1,j,k) > Real(0.5)) {
+                ax = amrex::max(ax, std::abs(dat(i,j,k) - dat(i-1,j,k)));
+            }
+
+            Real ay = Real(0.0);
+            if (msk(i,j+1,k) > Real(0.5)) {
+                ay = amrex::max(ay, std::abs(dat(i,j+1,k) - dat(i,j,k)));
+            }
+            if (msk(i,j-1,k) > Real(0.5)) {
+                ay = amrex::max(ay, std::abs(dat(i,j,k) - dat(i,j-1,k)));
+            }
+
+            // The mask is constant down a column, so both vertical neighbors of a water cell
+            // are water and neither face needs a guard.
+            Real az = std::abs(dat(i,j,k+1) - dat(i,j,k));
+            az = amrex::max(az, std::abs(dat(i,j,k) - dat(i,j,k-1)));
+
+            tag_it = (amrex::max(ax,ay,az) >= threshold);
+        }
+        else
+        {
+            const Real vol = volume_weighting
+                           ? Geometry::Volume(IntVect{AMREX_D_DECL(i,j,k)}, geomdata)
+                           : Real(1.0);
+            tag_it = (test == LESS) ? (dat(i,j,k) * vol <= threshold)
+                                    : (dat(i,j,k) * vol >= threshold);
+        }
+
+        if (tag_it) { tagma[bi](i,j,k) = tag_update; }
+    });
+    Gpu::streamSynchronize();
+}
+
+/**
  * Function to tag cells for refinement -- this overrides the pure virtual function in AmrCore
  *
  * @param[in]  levc    level of refinement (0 is coarsest level)
@@ -241,7 +362,14 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 #endif
         }
 
-        ref_tags[j](tags,mf.get(),clearval,tagval,time,levc,geom[levc]);
+        // A criterion keyed on the mask is asking to be told where the coast is, so it is the
+        // one that must not be guarded by the mask -- guarding it would leave it with no
+        // water-water face across which the mask varies, and it would never tag anything.
+        // Every other field is a physical state that means nothing on land.
+        const MultiFab* mskr3d_for_tag = (ref_tags[j].Field() == "mask")
+                                       ? nullptr : vec_mskr3d[levc].get();
+
+        ref_tags[j](tags,mf.get(),mskr3d_for_tag,clearval,tagval,time,levc,geom[levc]);
     }
 
     // Promote any tagged cell to a full local z-column.
@@ -506,42 +634,35 @@ REMORA::refinement_criteria_setup ()
                 Vector<Real> value(num_val);
                 ppr.getarr("value_greater",value,0,num_val);
                 std::string field; ppr.get("field_name",field);
-                ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::GREATER,field,info));
+                ref_tags.push_back(REMORAErrorTag(value,AMRErrorTag::GREATER,field,info));
             }
             else if (ppr.countval("value_less")) {
                 int num_val = ppr.countval("value_less");
                 Vector<Real> value(num_val);
                 ppr.getarr("value_less",value,0,num_val);
                 std::string field; ppr.get("field_name",field);
-                ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,field,info));
+                ref_tags.push_back(REMORAErrorTag(value,AMRErrorTag::LESS,field,info));
             }
             else if (ppr.countval("adjacent_difference_greater")) {
                 int num_val = ppr.countval("adjacent_difference_greater");
                 Vector<Real> value(num_val);
                 ppr.getarr("adjacent_difference_greater",value,0,num_val);
                 std::string field; ppr.get("field_name",field);
-                ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::GRAD,field,info));
+                ref_tags.push_back(REMORAErrorTag(value,AMRErrorTag::GRAD,field,info));
             }
             else if (realbox.ok())
             {
-                ref_tags.push_back(AMRErrorTag(info));
+                ref_tags.push_back(REMORAErrorTag(info));
             } else {
                 Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
             }
         } // loop over criteria
-        {
-            // Untag anywhere we have masks
-            AMRErrorTagInfo info;
-            info.SetDerefine(1);
-            Real value = Real(0.5);
-            ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,"mask",info));
-        }
-        {
-            // Also untag at mask-water boundaries
-            AMRErrorTagInfo info;
-            info.SetDerefine(1);
-            Real value = Real(0.5);
-            ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::GRAD,"mask",info));
-        }
+
+        // Two derefine criteria used to be appended here, one clearing every land cell and
+        // one clearing every cell beside one, to keep a gradient criterion from tagging the
+        // whole coastline. Running after the user's criteria, they also cleared tags a static
+        // box had deliberately set on land, so a box drawn across a coast came back refined
+        // only on its water part. REMORAErrorTag now guards each criterion as it is
+        // evaluated, which suppresses the same spurious tags without touching anyone else's.
     } // if max_level > 0
 }

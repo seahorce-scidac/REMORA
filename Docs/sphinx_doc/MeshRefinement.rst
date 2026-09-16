@@ -11,9 +11,10 @@ REMORA allows both static and dynamic mesh refinement, as well as the choice of 
 
 Note that any tagged region will be covered by one or more boxes.  The user may
 specify the refinement criteria and/or region to be covered, but not the decomposition of the region into
-individual grids. REMORA enforces that all refinement spans the entire vertical direction. Tagging criteria
-are ignored in masked regions and on land-sea boundaries. These regions may still be refined in order to
-accommodate adjacent tagged regions.
+individual grids. REMORA enforces that all refinement spans the entire vertical direction. Field-based
+tagging criteria ignore masked cells and do not see across the land-sea boundary, so they never tag the
+coastline on its own account; a region named explicitly, by a box, is refined in full whether it is land
+or water.
 
 See the `Gridding`_ section of the AMReX documentation for details of how individual grids are created.
 
@@ -143,7 +144,8 @@ The second will be active only when the problem time is between 100 and 300 seco
 
 Note that ``temp`` and ``scalar`` are the names of state variables and ``vorticity`` is a derived variable.
 Valid field options for refinement are: ``scalar``, ``temp``, ``salt``, ``x_velocity``, ``y_velocity``, ``z_velocity``,
-and ``vorticity``.
+``vorticity``, and ``mask``. All but ``mask`` are evaluated on water cells only; see
+`Masked Regions and Tagging`_ below.
 
 ::
 
@@ -168,8 +170,29 @@ and ``vorticity``.
 Masked Regions and Tagging
 --------------------------
 
-Masked cells and the land-sea boundary are untagged for refinement even if they otherwise meet
-refinement criteria. They may still be refined, but they will not be forced to be refined.
+A field-based criterion -- ``value_greater``, ``value_less`` or ``adjacent_difference_greater`` -- is
+evaluated only on water cells, and ``adjacent_difference_greater`` takes a difference only between two
+water cells. A land cell is therefore never tagged by such a criterion, and the jump from a field's
+value in the water to the zero it is held at on land is never mistaken for flow structure. This mirrors
+how AMReX evaluates the same criteria in the presence of an embedded boundary, where a covered cell is
+skipped and a difference is taken only across a face the geometry leaves open.
+
+Nothing else is untagged. A region named explicitly with ``in_box_lo``/``in_box_hi`` (or the index-space
+forms) is refined in full, land included, which is usually what is wanted when the region of interest
+straddles a coast. Land may also end up refined because it is adjacent to a tagged region, or because
+``amr.n_error_buf`` grew one.
+
+To refine the coastline deliberately, use ``mask`` as the field name. It is the one field exempt from the
+rule above -- a criterion keyed on the mask is asking where the coast is, so it is evaluated on every
+cell, and ``adjacent_difference_greater = 0.5`` on it tags exactly the cells that have a land neighbor.
+
+::
+
+          remora.refinement_indicators = coast
+
+          remora.coast.max_level = 1
+          remora.coast.adjacent_difference_greater = 0.5
+          remora.coast.field_name = mask
 
 How the mask itself is carried across levels, and how it weights the two-way average, is described
 in :ref:`Land/Sea Masking <sec:masking>`.
