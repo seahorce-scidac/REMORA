@@ -52,6 +52,13 @@ public:
      * @param[in]    time      current time
      * @param[in]    level     level being tagged
      * @param[in]    geom      geometry of that level
+     * @param[in]    field_radius  how far from its own cell mf's value was computed from.
+     *                         Zero for a state field, which is just itself, and the default.
+     *                         One for vorticity: remora_dervort centers a difference on
+     *                         i+-1 and j+-1 and does not mask it, so a water cell touching
+     *                         land carries the land-side velocity inside its own value and
+     *                         testing it would tag the coast as surely as differencing
+     *                         across it would.
      */
     void operator() (amrex::TagBoxArray&    tba,
                      const amrex::MultiFab* mf,
@@ -60,7 +67,8 @@ public:
                      char                   tagval,
                      amrex::Real            time,
                      int                    level,
-                     const amrex::Geometry& geom) const;
+                     const amrex::Geometry& geom,
+                     int                    field_radius = 0) const;
 };
 
 #endif

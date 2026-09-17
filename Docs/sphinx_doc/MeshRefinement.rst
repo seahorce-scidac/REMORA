@@ -177,6 +177,11 @@ value in the water to the zero it is held at on land is never mistaken for flow 
 how AMReX evaluates the same criteria in the presence of an embedded boundary, where a covered cell is
 skipped and a difference is taken only across a face the geometry leaves open.
 
+``vorticity`` needs one step more. It is derived from a centered difference of the velocities that is not
+itself masked, so a water cell touching the coast already carries the land-side velocity inside its own
+value. Such a cell is therefore skipped as well, rather than merely not differenced across. This is a
+workaround for the derived field being unmasked and can be dropped once it is not.
+
 Nothing else is untagged. A region named explicitly with ``in_box_lo``/``in_box_hi`` (or the index-space
 forms) is refined in full, land included, which is usually what is wanted when the region of interest
 straddles a coast. Land may also end up refined because it is adjacent to a tagged region, or because
@@ -184,7 +189,9 @@ straddles a coast. Land may also end up refined because it is adjacent to a tagg
 
 To refine the coastline deliberately, use ``mask`` as the field name. It is the one field exempt from the
 rule above -- a criterion keyed on the mask is asking where the coast is, so it is evaluated on every
-cell, and ``adjacent_difference_greater = 0.5`` on it tags exactly the cells that have a land neighbor.
+cell. Since the mask is 0 or 1 exactly, ``adjacent_difference_greater = 0.5`` on it tags every cell whose
+neighbor differs, which is the water cells along the coast and the land cells facing them, so the coast
+is refined from both sides.
 
 ::
 

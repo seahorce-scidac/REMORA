@@ -2,10 +2,11 @@
 # Asserts that a gradient criterion on a physical field does not tag the coastline.
 #
 # This is the case the mask guard exists for. The dogbone sits at rest with temp = 10
-# throughout the water, and advance_3d_ml zeroes the tracers on land every step, so the only
-# place in the whole domain where temp changes between neighbors is the coast, where it jumps
-# the full 10. A criterion asking for an adjacent difference over 0.5 would tag every coastal
-# cell on the strength of that jump alone, which says nothing about the flow.
+# throughout the water, and advance_3d_ml zeroes the tracers on land every step, so once a
+# step has been taken the only place in the whole domain where temp changes between neighbors
+# is the coast, where it jumps the full 10. A criterion asking for an adjacent difference over
+# 0.5 would tag every coastal cell on the strength of that jump alone, which says nothing
+# about the flow. Note that this requires regrid_int > 0 -- see the note there.
 #
 # REMORAErrorTag takes a difference only between two water cells, so it finds no difference
 # anywhere and tags nothing: the run must stay single-level. That is what check_max_level.sh
@@ -48,7 +49,11 @@ remora.ndtfast = 20
 # REFINEMENT / REGRIDDING
 amr.max_level       = 1       # maximum level number allowed
 amr.ref_ratio_vect = 3 3  1
-amr.regrid_int      = -1      # static: the grids must not move between the two plotfiles
+# Tag after stepping, not only at init. At init the analytic problem writes temp over land as
+# well as water, so the field is uniform and there is no coastline jump for the guard to have
+# an opinion about; it is advance_3d_ml zeroing the tracers on land that creates one. Tagging
+# only at InitFromScratch would make this test vacuous -- it would pass with the guard deleted.
+amr.regrid_int      = 2
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1
