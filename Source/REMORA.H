@@ -1395,6 +1395,13 @@ public:
                                       bool use_mask = false);
 
     /** \brief Average one field down a level, weighted by the land/sea mask. */
+    /** \brief coarse cell mask, 1 where covered by lev+1, with one grow cell */
+    void build_covered_mask (int crse_lev, amrex::MultiFab& covered);
+
+    /** \brief put back the coarse normal-velocity faces on the fine patch's perimeter */
+    void restore_perimeter_faces (const amrex::MultiFab& saved, amrex::MultiFab& mf,
+                                  const amrex::MultiFab& covered, int dir, int ncomp);
+
     void average_down_masked (int crse_lev, const amrex::MultiFab& S_fine,
                               amrex::MultiFab& S_crse, const amrex::MultiFab& msk_fine,
                               const amrex::MultiFab& cmsk, int ncomp, int face_dir);
@@ -1792,6 +1799,10 @@ private:
      *         at their interface. Only has an effect under remora.do_substep with two-way
      *         coupling. */
     int do_reflux = 1;
+
+    /** \brief exclude the coarse-fine perimeter's normal-velocity faces from the fine-to-coarse
+     *         average, as ROMS does. 1 (default) matches ROMS; 0 restores the old behaviour. */
+    int cf_avgdown_perimeter = 1;
 
     /** \brief stop that correction driving a tracer negative, as ROMS does. On by default to
      *         match ROMS; costs exact conservation on any step that clamps. */

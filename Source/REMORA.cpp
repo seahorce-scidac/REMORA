@@ -2291,6 +2291,10 @@ REMORA::ReadParameters ()
     // two-way coupling to do anything.
     pp.queryAdd("do_reflux", do_reflux);
 
+    // Mirror ROMS's fine2coarse, which returns every covered cell but not the perimeter's
+    // normal-velocity faces. 0 restores the behaviour from before that was matched.
+    pp.queryAdd("cf_avgdown_perimeter", cf_avgdown_perimeter);
+
     // Whether to zero a tracer the correction drives negative, as ROMS does.
     pp.queryAdd("reflux_clamp", reflux_clamp);
 
@@ -2772,10 +2776,33 @@ REMORA::AverageDownTo (int crse_lev)
                         *vec_mskr[flev], cmskr, cons_new[crse_lev]->nComp(), -1);
     average_down_masked(crse_lev, *vec_Zt_avg1[flev], *vec_Zt_avg1[crse_lev],
                         *vec_mskr[flev], cmskr, vec_Zt_avg1[crse_lev]->nComp(), -1);
+    // ROMS returns every covered cell but not the perimeter's normal-velocity faces, so the
+    // transport its nested boundary condition imposes there never comes back to the parent.
+    // Without that exclusion set_2d_cf_bcs writes the parent's own flux onto the interface and
+    // the average hands it straight back, which costs a factor of 20 to 40 in the barotropic
+    // mode against ROMS on the matched dogbone.
+    MultiFab covered;
+    MultiFab u_save, v_save;
+    const bool keep_perimeter = (cf_avgdown_perimeter != 0);
+    if (keep_perimeter) {
+        build_covered_mask(crse_lev, covered);
+        u_save.define(xvel_new[crse_lev]->boxArray(), xvel_new[crse_lev]->DistributionMap(),
+                      1, 0, MFInfo());
+        v_save.define(yvel_new[crse_lev]->boxArray(), yvel_new[crse_lev]->DistributionMap(),
+                      1, 0, MFInfo());
+        MultiFab::Copy(u_save, *xvel_new[crse_lev], 0, 0, 1, 0);
+        MultiFab::Copy(v_save, *yvel_new[crse_lev], 0, 0, 1, 0);
+    }
+
     average_down_masked(crse_lev, *xvel_new[flev], *xvel_new[crse_lev],
                         *vec_msku[flev], cmsku, 1, 0);
     average_down_masked(crse_lev, *yvel_new[flev], *yvel_new[crse_lev],
                         *vec_mskv[flev], cmskv, 1, 1);
+
+    if (keep_perimeter) {
+        restore_perimeter_faces(u_save, *xvel_new[crse_lev], covered, 0, 1);
+        restore_perimeter_faces(v_save, *yvel_new[crse_lev], covered, 1, 1);
+    }
     average_down_masked(crse_lev, *zvel_new[flev], *zvel_new[crse_lev],
                         *vec_mskr[flev], cmskr, 1, 2);
 
@@ -2788,6 +2815,16 @@ REMORA::AverageDownTo (int crse_lev)
         // Components 0 and 1 only. The three are leapfrog slots rotating per level, so the
         // two levels need not agree on which holds what -- but update_massflux_3d has just
         // set both of these to the same velocity, so averaging them cannot mix time levels.
+        MultiFab ub_save, vb_save;
+        if (keep_perimeter) {
+            ub_save.define(vec_ubar[crse_lev]->boxArray(),
+                           vec_ubar[crse_lev]->DistributionMap(), 2, 0, MFInfo());
+            vb_save.define(vec_vbar[crse_lev]->boxArray(),
+                           vec_vbar[crse_lev]->DistributionMap(), 2, 0, MFInfo());
+            MultiFab::Copy(ub_save, *vec_ubar[crse_lev], 0, 0, 2, 0);
+            MultiFab::Copy(vb_save, *vec_vbar[crse_lev], 0, 0, 2, 0);
+        }
+
         for (int icomp = 0; icomp < 2; ++icomp) {
             MultiFab ubar_f(*vec_ubar[crse_lev+1], make_alias, icomp, 1);
             MultiFab ubar_c(*vec_ubar[crse_lev  ], make_alias, icomp, 1);
@@ -2798,12 +2835,80 @@ REMORA::AverageDownTo (int crse_lev)
             average_down_faces(vbar_f, vbar_c, refRatio(crse_lev), geom[crse_lev]);
         }
 
+        if (keep_perimeter) {
+            restore_perimeter_faces(ub_save, *vec_ubar[crse_lev], covered, 0, 2);
+            restore_perimeter_faces(vb_save, *vec_vbar[crse_lev], covered, 1, 2);
+        }
+
         // zeta is deliberately absent: set_zeta_to_Ztavg overwrites all three of its
         // components from Zt_avg1 next step and stretch_transform reads Zt_avg1 anyway, so
         // averaging it here would write something nothing reads.
     }
 
     stretch_transform(crse_lev);
+}
+
+/**
+ * Coarse-level cell mask: 1 where level crse_lev+1 covers the cell, 0 elsewhere, with one grow
+ * cell so a face straddling the patch edge can see the cell outside it.
+ *
+ * @param[in   ] crse_lev  coarse level
+ * @param[out  ] covered   mask on the coarse layout
+ */
+void
+REMORA::build_covered_mask (int crse_lev, MultiFab& covered)
+{
+    // makeFineMask's (crse_value, fine_value) = (0, 1) puts a 1 exactly on the covered cells.
+    iMultiFab imask = makeFineMask(grids[crse_lev], dmap[crse_lev], grids[crse_lev+1],
+                                   ref_ratio[crse_lev], 0, 1);
+
+    covered.define(grids[crse_lev], dmap[crse_lev], 1, 1, MFInfo());
+    covered.setVal(zero);                       // grow cells outside the patch read as uncovered
+    const auto cma = covered.arrays();
+    const auto ima = imask.const_arrays();
+    ParallelFor(covered, [=] AMREX_GPU_DEVICE (int bno, int i, int j, int k) noexcept
+    {
+        cma[bno](i,j,k) = Real(ima[bno](i,j,k));
+    });
+    Gpu::streamSynchronize();
+    covered.FillBoundary(geom[crse_lev].periodicity());
+}
+
+/**
+ * Put back the values a fine-to-coarse average just wrote onto the fine patch's perimeter
+ * normal-velocity faces.
+ *
+ * ROMS's fine2coarse hands back every covered cell but excludes those faces: for a child
+ * spanning coarse cells I_lo..I_hi it updates u-faces I_lo+1..I_hi only, so the face the
+ * nested barotropic boundary condition writes is never returned to the parent. A face is
+ * interior exactly when both of the cells it separates are covered, which is the test used
+ * here.
+ *
+ * @param[in   ] saved    coarse field as it was before the average
+ * @param[inout] mf       coarse field to repair
+ * @param[in   ] covered  cell mask from build_covered_mask
+ * @param[in   ] dir      face normal direction
+ * @param[in   ] ncomp    components to repair
+ */
+void
+REMORA::restore_perimeter_faces (const MultiFab& saved, MultiFab& mf,
+                                 const MultiFab& covered, int dir, int ncomp)
+{
+    const IntVect off = IntVect::TheDimensionVector(dir);
+    for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+        Array4<Real      > const& a = mf.array(mfi);
+        Array4<Real const> const& o = saved.const_array(mfi);
+        Array4<Real const> const& c = covered.const_array(mfi);
+        ParallelFor(bx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+        {
+            const bool interior = (c(i,j,0) > Real(0.5)) &&
+                                  (c(i-off[0], j-off[1], 0) > Real(0.5));
+            if (!interior) { a(i,j,k,n) = o(i,j,k,n); }
+        });
+    }
+    Gpu::streamSynchronize();
 }
 
 /**

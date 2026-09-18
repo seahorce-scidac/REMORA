@@ -5,19 +5,19 @@ inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.000342902
+CPU time used since start of simulation (CPU-hours): 0.000160669
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Tue Sep  8 13:25:31 2026
+output data / time: Thu Sep 17 22:11:33 2026
 output dir:         /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Build/Tests/test_files/DogboneAnalytic_MLquad
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    Sep  8 2026 13:23:54
+build date:    Sep 17 2026 22:10:44
 build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
 build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Build/Exec
 AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Submodules/AMReX
@@ -26,7 +26,7 @@ COMP:          GNU
 COMP version:  13.3.0
 
 
-REMORA       git hash: v1.7-30-ge6a5b4d843e1-dirty
+REMORA       git hash: v1.7-83-ge1593fcb6761
 AMReX       git hash: 26.08-36-gf2cbba4afc9e
 
 
@@ -148,6 +148,8 @@ remora.blk_ZW = 10.0
 remora.bottom_stress_type = "quadratic"
 remora.boundary_per_variable = false
 remora.bulk_fluxes = false
+remora.cf_avgdown_perimeter = 1
+remora.cf_impose_flux = 0
 remora.cfl = 0.80000000000000004
 remora.change_max = 1.1000000000000001
 remora.check_cf_metrics = 0
@@ -155,6 +157,7 @@ remora.check_cf_tol = 9.9999999999999998e-13
 remora.check_file = chk
 remora.check_int = -1
 remora.check_int_time = -1.0
+remora.check_mask_consistency = true
 remora.cloud = 0.0
 remora.cloud_type = "constant"
 remora.coriolis_beta = 0.0
@@ -177,6 +180,7 @@ remora.eos_type = "linear"
 remora.expand_plotvars_to_unif_rr = 1
 remora.file_min_digits = 5
 remora.fixed_dt = 2.0
+remora.g = 9.8066499999999994
 remora.gls_stability_type = "Canuto_A"
 remora.grid_scale_type = "constant"
 remora.harmonic_mixing_type = "s"
@@ -203,6 +207,7 @@ remora.longwave_radiation_flux = 0.0
 remora.lwrad_type = "computed"
 remora.m2nudg = 0.0
 remora.m3nudg = 0.0
+remora.mask_consistency = "abort"
 remora.mask_type = "analytic"
 remora.max_step = 10
 remora.n_cell = 42 15 16
