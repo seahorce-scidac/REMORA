@@ -6,10 +6,12 @@
 # water-water face across which the mask varies, so it would never tag anything. This is the
 # documented way to refine a coastline deliberately, and it must keep working.
 #
-# It is also the control for DogboneAnalytic_MLcoastskip, which is this same case keyed on
-# temp and asserts that nothing is tagged. Run as a pair they separate the two ways the guard
-# can be wrong: without this one, a REMORAErrorTag that had quietly stopped tagging anything
-# at all would still satisfy MLcoastskip.
+# Note what this does and does not cover. Because the exemption is implemented by handing the
+# criterion a null mask, this case runs amrex::AMRErrorTag's own unguarded test, not REMORA's
+# guarded one -- so it pins the exemption and the delegation to the base class, and it is not
+# a control for a guard that had stopped tagging anything. Neutering the guarded path leaves
+# both this case and MLcoastskip passing; what catches that is Advection_ML and the
+# DogboneAnalytic gold-file cases, which tag on fields that do go through the guard.
 #
 # Level 1 is therefore required to exist, tracking the two coasts of the dogbone. Refining a
 # coast means refining land, which the old derefine criteria would have cleared.
@@ -60,7 +62,7 @@ remora.check_file      = chk
 remora.plot_file     = plt
 remora.plot_int      = 10
 remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
-remora.plot_vars_2d  = mask_rho   # a rho2d sidecar, for eyeballing a failure; fcompare ignores it
+remora.plot_vars_2d  = mask_rho   # a rho2d sidecar, for eyeballing a failure; time-invariant, so the stationary fcompare passes it
 remora.plotfile_type = amrex
 
 # SOLVER CHOICE

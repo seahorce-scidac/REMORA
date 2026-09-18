@@ -13,9 +13,14 @@
 # asserts, and it is the whole assertion -- fcompare cannot see it, because a run that wrongly
 # refined the coast would still produce a perfectly self-consistent plotfile.
 #
-# Its companion DogboneAnalytic_MLcoasttag is the same case keyed on the mask instead, which
-# is exempt from the guard and does build level 1 along the coast. The pair is what
-# distinguishes "correctly declined to tag" from "quietly stopped tagging anything".
+# Verified non-vacuous by deleting the guard and watching this fail. Two things it leans on:
+# regrid_int must stay positive (see the note there), and the threshold must stay below 10.
+#
+# Its companion DogboneAnalytic_MLcoasttag keys the same criterion on the mask, which is
+# exempt. That exemption is implemented by passing a null mask, so MLcoasttag runs AMReX's
+# unguarded test rather than this guarded one -- it pins the exemption, and it is not a
+# control for a guard that had stopped tagging anything. The cases that catch that are
+# Advection_ML and the DogboneAnalytic gold-file cases.
 #
 # The stationary check rides along for free, as in DogboneAnalytic_MLmask: the exact solution
 # is rest, so plt00010 must equal plt00000 with no gold file to bless.
@@ -66,7 +71,7 @@ remora.check_file      = chk
 remora.plot_file     = plt
 remora.plot_int      = 10
 remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
-remora.plot_vars_2d  = mask_rho   # a rho2d sidecar, for eyeballing a failure; fcompare ignores it
+remora.plot_vars_2d  = mask_rho   # a rho2d sidecar, for eyeballing a failure; time-invariant, so the stationary fcompare passes it
 remora.plotfile_type = amrex
 
 # SOLVER CHOICE

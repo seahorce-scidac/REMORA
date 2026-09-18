@@ -104,11 +104,10 @@ fill_lateral_ghosts_zero_grad (MultiFab& mf)
  * @param[in]    time      current time
  * @param[in]    level     level being tagged
  * @param[in]    geom      geometry of that level
- * @param[in]    field_radius  how far from its own cell mf's value was computed from. Zero
- *                         for a state field, which is just itself. One for vorticity, a
- *                         centered difference of the velocities at i+-1 and j+-1 that
- *                         remora_dervort does not mask, so a water cell touching land has
- *                         the land-side velocity already inside its own value.
+ * @param[in]    mask_lo   lowest rho-cell offset, relative to a value's own index, that the
+ *                         value depends on. Zero for a cell-centered state field.
+ * @param[in]    mask_hi   highest such offset. See ErrorEst for the per-field values and why
+ *                         a face velocity and vorticity need more than their own cell.
  */
 void
 REMORAErrorTag::operator() (TagBoxArray&    tba,
@@ -119,7 +118,8 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
                             Real            time,
                             int             level,
                             const Geometry& geom,
-                            int             field_radius) const
+                            const IntVect&  mask_lo,
+                            const IntVect&  mask_hi) const
 {
     // Only the three tests REMORA's inputs can build read a field cell by cell and so have
     // anything for the mask to guard. Everything else is the base class's business.
@@ -137,15 +137,18 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
     AMREX_ALWAYS_ASSERT(mskr3d->boxArray()        == mf->boxArray() &&
                         mskr3d->DistributionMap() == mf->DistributionMap());
 
-    AMREX_ALWAYS_ASSERT(field_radius >= 0);
+    AMREX_ALWAYS_ASSERT(mask_lo[0] <= 0 && mask_lo[1] <= 0 &&
+                        mask_hi[0] >= 0 && mask_hi[1] >= 0);
 
-    // The furthest the loop below reaches into the mask laterally: field_radius to decide
-    // whether this cell's own value is clean, plus one more for GRAD, which asks the same of
-    // the neighbor it differences against. It never reads the mask at k+-1 -- the mask is
-    // constant down a column, so mskr3d carries no vertical ghost cells to read.
-    const int mask_reach = field_radius + ((m_test == GRAD) ? 1 : 0);
-    AMREX_ALWAYS_ASSERT(mskr3d->nGrowVect()[0] >= mask_reach &&
-                        mskr3d->nGrowVect()[1] >= mask_reach);
+    // The furthest the loop below reaches into the mask laterally: the field's own dependence
+    // on mskr, plus one more for GRAD, which asks the same question of the neighbor it
+    // differences against. It never reads the mask at k+-1 -- the mask is constant down a
+    // column, so mskr3d carries no vertical ghost cells to read.
+    const int grad_reach = (m_test == GRAD) ? 1 : 0;
+    for (int d = 0; d < 2; ++d) {
+        AMREX_ALWAYS_ASSERT(mskr3d->nGrowVect()[d] >=
+                            amrex::max(-mask_lo[d], mask_hi[d]) + grad_reach);
+    }
 
     if ( (level <  0                 ) || (level >= m_info.m_max_level) ||
          (time  <  m_info.m_min_time ) || (time  >  m_info.m_max_time ) ) {
@@ -164,21 +167,23 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
     auto const volume_weighting = m_info.m_volume_weighting;
     auto const& geomdata = geom.data();
     auto const test = m_test;
-    auto const radius = field_radius;
+    auto const mlo = mask_lo;
+    auto const mhi = mask_hi;
 
     ParallelFor(tba, [=] AMREX_GPU_DEVICE (int bi, int i, int j, int k) noexcept
     {
         auto const& msk = mskma[bi];
 
-        // Whether the value at (ii,jj,k) was computed from water alone. For a state field
-        // that is just "is this cell water": land holds no state worth testing, since
-        // advance_3d_ml zeroes the tracers there every step. For a field derived from its
-        // neighbors it also takes every cell those neighbors came from, because a value that
-        // read the land side reports on the coast no matter which cell it is stored in.
+        // Whether the value stored at index (ii,jj,k) was computed from water alone. A value
+        // that read the land side reports on the coast no matter which cell index it is filed
+        // under, so this asks about every rho-cell the value depends on, not just its own.
+        // For a cell-centered state field that is the single cell (mask_lo = mask_hi = 0);
+        // for a face velocity it is the two cells sharing the face; for vorticity the 3x3
+        // block its stencil reaches.
         auto value_is_clean = [=] (int ii, int jj) noexcept
         {
-            for     (int jo = -radius; jo <= radius; ++jo) {
-                for (int io = -radius; io <= radius; ++io) {
+            for     (int jo = mlo[1]; jo <= mhi[1]; ++jo) {
+                for (int io = mlo[0]; io <= mhi[0]; ++io) {
                     if (msk(ii+io,jj+jo,k) <= Real(0.5)) { return false; }
                 }
             }
@@ -394,15 +399,28 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         const MultiFab* mskr3d_for_tag = (ref_tags[j].Field() == "mask")
                                        ? nullptr : vec_mskr3d[levc].get();
 
-        // Vorticity is the one field here that is not simply the cell's own state:
-        // remora_dervort differences the velocities at i+-1 and j+-1 without masking them
-        // (see the TODO there), so a water cell against the coast already holds the land-side
-        // zero as a large spurious shear. Tell the criterion to require a clean neighborhood
-        // rather than just a wet cell. Drop this back to 0 once the derive itself is masked.
-        const int field_radius = (ref_tags[j].Field() == "vorticity") ? 1 : 0;
+        // Which rho-cells the value at a given index actually depends on. A tracer is masked
+        // in place, so its own cell is the whole story. The face velocities are stored at a
+        // cell index but masked by msku = mskr(i-1,j)*mskr(i,j) and mskv = mskr(i,j-1)*mskr(i,j)
+        // in vert_mean_3d, so each depends on the two cells sharing its face -- u at a water
+        // cell whose i-1 neighbor is land is an exact zero that says nothing about the flow.
+        // w is at a k-face with lateral index (i,j), so its own cell is right. Vorticity
+        // reaches the full 3x3 block: remora_dervort differences the cell-centered velocities
+        // at i+-1 and j+-1 without masking (see the TODO there), and each of those averages
+        // two faces. Vorticity's entry can go back to zero once that derive is masked.
+        IntVect mask_lo = IntVect::TheZeroVector();
+        IntVect mask_hi = IntVect::TheZeroVector();
+        if (ref_tags[j].Field() == "x_velocity") {
+            mask_lo = IntVect(-1,0,0);
+        } else if (ref_tags[j].Field() == "y_velocity") {
+            mask_lo = IntVect(0,-1,0);
+        } else if (ref_tags[j].Field() == "vorticity") {
+            mask_lo = IntVect(-1,-1,0);
+            mask_hi = IntVect( 1, 1,0);
+        }
 
         ref_tags[j](tags,mf.get(),mskr3d_for_tag,clearval,tagval,time,levc,geom[levc],
-                    field_radius);
+                    mask_lo,mask_hi);
     }
 
     // Promote any tagged cell to a full local z-column.

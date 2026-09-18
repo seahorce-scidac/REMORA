@@ -12,9 +12,9 @@ REMORA allows both static and dynamic mesh refinement, as well as the choice of 
 Note that any tagged region will be covered by one or more boxes.  The user may
 specify the refinement criteria and/or region to be covered, but not the decomposition of the region into
 individual grids. REMORA enforces that all refinement spans the entire vertical direction. Field-based
-tagging criteria ignore masked cells and do not see across the land-sea boundary, so they never tag the
-coastline on its own account; a region named explicitly, by a box, is refined in full whether it is land
-or water.
+tagging criteria are evaluated only where the field means something, so the land-sea boundary does not
+drive refinement on its own account; a region named explicitly, by a box, is refined in full whether it
+is land or water. See `Masked Regions and Tagging`_ for what "means something" amounts to per field.
 
 See the `Gridding`_ section of the AMReX documentation for details of how individual grids are created.
 
@@ -143,9 +143,11 @@ The first will trigger up to AMR level 3 and the second to level 2.
 The second will be active only when the problem time is between 100 and 300 seconds.
 
 Note that ``temp`` and ``scalar`` are the names of state variables and ``vorticity`` is a derived variable.
-Valid field options for refinement are: ``scalar``, ``temp``, ``salt``, ``x_velocity``, ``y_velocity``, ``z_velocity``,
-``vorticity``, and ``mask``. All but ``mask`` are evaluated on water cells only; see
-`Masked Regions and Tagging`_ below.
+Valid field options for refinement are any cell-centered tracer -- ``temp``, ``salt``, ``scalar``, a
+numbered ``tracer_1`` or a biology tracer such as ``NO3`` -- along with ``x_velocity``, ``y_velocity``,
+``z_velocity``, ``vorticity``, ``mask``, and, in a build with particles, ``<particle>_count``. All but
+``mask`` are restricted to water; see `Masked Regions and Tagging`_ below for what that means field by
+field.
 
 ::
 
@@ -171,16 +173,25 @@ Masked Regions and Tagging
 --------------------------
 
 A field-based criterion -- ``value_greater``, ``value_less`` or ``adjacent_difference_greater`` -- is
-evaluated only on water cells, and ``adjacent_difference_greater`` takes a difference only between two
-water cells. A land cell is therefore never tagged by such a criterion, and the jump from a field's
-value in the water to the zero it is held at on land is never mistaken for flow structure. This mirrors
-how AMReX evaluates the same criteria in the presence of an embedded boundary, where a covered cell is
-skipped and a difference is taken only across a face the geometry leaves open.
+evaluated only where the value it reads was computed from water alone, and
+``adjacent_difference_greater`` differences two such values only. This mirrors how AMReX evaluates the
+same criteria in the presence of an embedded boundary, where a covered cell is skipped and a difference
+is taken only across a face the geometry leaves open.
 
-``vorticity`` needs one step more. It is derived from a centered difference of the velocities that is not
-itself masked, so a water cell touching the coast already carries the land-side velocity inside its own
-value. Such a cell is therefore skipped as well, rather than merely not differenced across. This is a
-workaround for the derived field being unmasked and can be dropped once it is not.
+Which cells that admits depends on where the field lives and how it is masked, so it is not simply "the
+wet cells":
+
+- a tracer (``temp``, ``salt``, ``tracer``, a biology tracer) and ``z_velocity`` are masked in place, so
+  the test is just whether that cell is water;
+- ``x_velocity`` and ``y_velocity`` are stored at a cell index but live on a face, and are masked by
+  ``msku(i,j) = mskr(i-1,j) * mskr(i,j)`` and ``mskv(i,j) = mskr(i,j-1) * mskr(i,j)``. A water cell whose
+  neighbor across that face is land therefore holds an exact zero that is a mask artifact rather than
+  slack water, so both cells sharing the face must be water;
+- ``vorticity`` is a centered difference of the cell-centered velocities that is not itself masked, so
+  its value depends on the whole 3x3 block of cells around it and all nine must be water. This is a
+  workaround for the derived field being unmasked and can be narrowed once it is not.
+
+A land cell is never tagged by any of these.
 
 Nothing else is untagged. A region named explicitly with ``in_box_lo``/``in_box_hi`` (or the index-space
 forms) is refined in full, land included, which is usually what is wanted when the region of interest

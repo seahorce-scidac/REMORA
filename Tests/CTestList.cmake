@@ -254,6 +254,32 @@ function(add_test_nlevels TEST_NAME TEST_EXE PLTFILE MAX_LEVEL)
     )
 endfunction(add_test_nlevels)
 
+# Assert how far a refinement level reaches, and that the run stays stationary. Where
+# add_test_nlevels checks which levels exist, this checks where one of them is, which is the
+# only thing that distinguishes "the region the user asked to refine was refined" from "part
+# of it was". Pass the level, the direction (0/1/2 for x/y/z), and the physical extent it must
+# span. See Tests/check_level_extent.sh.
+function(add_test_extent TEST_NAME TEST_EXE PLTFILE LEVEL DIM LO HI)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(FCOMPARE_TOLERANCE "-r 1e-14 --abs_tol 1.0e-14")
+    set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${CMAKE_CURRENT_SOURCE_DIR}/check_level_extent.sh ${CURRENT_TEST_BINARY_DIR}/${PLTFILE} ${LEVEL} ${DIM} ${LO} ${HI} && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${CURRENT_TEST_BINARY_DIR}/plt00000 ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_extent)
+
 # Stationary test -- compare with time 0
 function(add_test_0 TEST_NAME TEST_EXE PLTFILE)
     setup_test()
@@ -335,7 +361,10 @@ add_test_r_gold(DogboneAnalytic_MLhires  "remora_exec" "plt_ml00010" DogboneAnal
 # they need no gold file: plt00010 must equal plt00000. A plain arithmetic average-down
 # lets the zeroed fine land cells drag those coarse cells off their initial value, which
 # breaks stationarity by ~1e-2 in salt and velocity.
-add_test_0(DogboneAnalytic_MLmask       "remora_exec" "plt00010")
+# coastbox spans the full width of the domain, 0 to 750 in y, and the dogbone's coasts run
+# through it, so this asserts the thing a static box is for: the whole box is refined, land
+# included. REMORA used to clip it back to the water, giving y in [250,500].
+add_test_extent(DogboneAnalytic_MLmask  "remora_exec" "plt00010" 1 1 0.0 750.0)
 add_test_0(DogboneAnalytic_MLmask_rr2   "remora_exec" "plt00010")
 # A pair: the same gradient criterion keyed on a physical field, which must not see the coast,
 # and on the mask, which must. Either one alone passes for the wrong reason.
