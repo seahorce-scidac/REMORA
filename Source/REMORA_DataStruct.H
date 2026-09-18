@@ -223,6 +223,10 @@ struct SolverChoice {
         pp.queryAdd("T0",T0);
         pp.queryAdd("rho0", rho0);
 
+        // ROMS uses 9.81 exactly. Overridable so a run can be matched to ROMS to roundoff;
+        // the default is the physical value and every gold file assumes it.
+        pp.queryAdd("g", g);
+
         // Reference date for the model clock, and with it the calendar, as ROMS
         // TIME_REF: a yyyymmdd.dd date, or 0 for 0001-01-01, -1 for the 360-day
         // calendar, -2 for truncated Julian days. See REMORA_DateClock.H.
@@ -990,6 +994,7 @@ struct SolverChoice {
     amrex::Real Tcoef = amrex::Real(1.7e-4); // linear equation of state parameter (1/Celsius)
     amrex::Real Scoef = zero; // linear equation of state parameter (nondimensional)
     amrex::Real rho0 = amrex::Real(1025.0); // Mean density (Kg/m3) used when Boussinesq approx is inferred
+    amrex::Real g    = amrex::Real(9.80665); // acceleration due to gravity [m/s2]; remora.g
 
     // remora.time_ref: reference date of the model clock (yyyymmdd.dd), or one
     // of the special values 0, -1, -2. Selects the calendar; see

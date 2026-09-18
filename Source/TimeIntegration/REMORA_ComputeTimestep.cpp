@@ -124,7 +124,7 @@ REMORA::estTimeStep(int level) const
     // wave to within that ratio. ReadParameters guarantees ndtfast is positive.
 
     // g is a file-scope constexpr; hoist it into a local for the device lambda.
-    const Real grav = g;
+    const Real grav = solverChoice.g;
 
     MultiFab ccvel(grids[level],dmap[level],3,0);
 

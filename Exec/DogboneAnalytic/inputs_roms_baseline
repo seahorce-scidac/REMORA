@@ -1,0 +1,120 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+#
+# Single-level DogboneAnalytic matched to the ROMS dogbone case in ~/software/COAWST
+# (ROMS/External/roms_dogbone_refined.in, grid 1; Data/ROMS/Grid/dogbone_grd_whole.nc).
+#
+# The baseline for comparing REMORA's refinement against ROMS's. Run alongside
+# inputs_roms_refined, which adds the same fine box ROMS uses.
+#
+# Verified against dogbone_his_whole.nc: geometry, land mask (168 masked cells of 748),
+# initial temperature (5 C for x < 1000, else 10 C), salinity (35 uniform) and the
+# free-surface ramp all agree. REMORA's DogboneAnalytic defaults already reproduce the ROMS
+# initial state exactly -- zeta = -0.00125*(x - 100) + 1.25 for x < 1100 gives 1.25, 1.00,
+# 0.75, 0.50, 0.25, 0.00 at x = 100, 300, 500, 700, 900, 1100, which is what ROMS holds.
+#
+# The case is a dam break: a 1.25 m free-surface ramp against the western wall, released
+# from rest. The front needs about 260 s to reach the fine box at x = 2600, so a run has to
+# be several hundred steps long before the interface sees anything at all.
+#
+# Three settings differ from Exec/DogboneAnalytic/inputs_ml and are set here to ROMS values:
+#   N = 10 vertical levels, not 16
+#   Coriolis on, f = 1.458e-4 (inputs_ml turns it off)
+#   dt = 2.0 with ndtfast = 20, matching roms_dogbone_refined.in rather than the DT = 6.0
+#     in roms_dogbone_whole.in
+#
+# Remaining known differences, not expressible as inputs: ROMS builds this case with
+# SPLINES_VDIFF and SPLINES_VVISC (spline vertical diffusion and viscosity) and DJ_GRADPS
+# for the pressure gradient.
+#
+remora.prob_name = DogboneAnalytic
+
+remora.max_step = 600
+
+# PROBLEM SIZE & GEOMETRY
+# ROMS Lm = 42, Mm = 15, N = 10 over 8400 x 750 x 10 m, so dx = 200, dy = 50, dz = 1.
+remora.prob_lo     =   0.     0.   -10.
+remora.prob_hi     =   8400.  750.   0.
+remora.n_cell      =   42     15     10
+
+# ROMS LBC is Clo (closed) on all four sides for every variable.
+remora.is_periodic = 0 0 0
+remora.bc.xlo.type = "slipwall"
+remora.bc.xhi.type = "slipwall"
+remora.bc.ylo.type = "slipwall"
+remora.bc.yhi.type = "slipwall"
+
+# TIME STEP CONTROL
+remora.fixed_dt = 2.0
+remora.ndtfast  = 20
+
+# DIAGNOSTICS
+remora.v             = 1
+remora.sum_interval  = 10
+remora.sum_precision = 12
+remora.data_log      = roms_baseline.log
+
+# PLOTFILES
+remora.plot_file     = plt_roms_base/plt
+remora.plot_int      = 1
+remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
+remora.plot_vars_2d  = zeta ubar vbar
+remora.plotfile_type = netcdf
+
+remora.check_file = chk
+remora.check_int  = -1
+
+# VERTICAL COORDINATE
+# ROMS Vtransform 2, Vstretching 4, theta_s = theta_b = 0, Tcline = 1e16. With hc that large
+# the transform reduces to z = zeta + (zeta + h) * s, so the levels are uniform and the
+# quadratic Cs_r that Vstretching 4 reports never takes effect.
+remora.theta_s = 0.0
+remora.theta_b = 0.0
+remora.tcline  = 1.0e16
+
+# SOLVER CHOICE
+remora.tracer_horizontal_advection_scheme = "upstream3"
+remora.vertical_mixing_type = analytic
+remora.Akt_bak = 1.0e-6
+remora.Akv_bak = 1.0e-5
+
+# ROMS UV_QDRAG with RDRG2 = 3.0e-3.
+remora.bottom_stress_type = "quadratic"
+remora.rdrag2 = 3.0e-3
+
+# CORIOLIS
+# ROMS f is uniform at 1.458e-4 across the grid, so beta_plane with beta = 0 is an f-plane.
+remora.use_coriolis  = false
+remora.coriolis_type = beta_plane
+remora.coriolis_f0   = 1.458e-4
+remora.coriolis_beta = 0.0
+
+# ROMS uses g = 9.81 exactly (mod_scalars.F). REMORA's default is the physical 9.80665, which
+# alone puts the two models 3.4e-4 apart in velocity -- enough to swamp any nesting difference.
+# remora.g exists for exactly this: matching another model, not for production runs.
+remora.g = 9.81
+
+# EQUATION OF STATE
+remora.R0    = 1027.0
+remora.S0    = 35.0
+remora.T0    = 10.0
+remora.Tcoef = 1.7e-4
+remora.Scoef = 7.6e-4
+remora.rho0  = 1025.0
+
+# INITIAL AND MASK SETUP
+# Defaults reproduce ROMS: traditional gives the flat 10 m bottom and the 5 C western
+# temperature patch; the analytic mask carves the dogbone waist, water only for
+# 250 < y < 500 where 2800 < x < 5600.
+remora.ic_type         = "analytic"
+remora.mask_type       = "analytic"
+remora.prob.traditional = 1
+
+remora.init_l1ad_h = false
+remora.init_l1ad_T = false
+remora.init_l0int_h = true
+remora.init_l0int_T = true
+remora.init_ana_h = false
+remora.init_ana_T = false
+
+# SINGLE LEVEL
+amr.max_level = 0

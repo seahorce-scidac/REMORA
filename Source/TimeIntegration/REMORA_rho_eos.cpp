@@ -126,7 +126,8 @@ REMORA::lin_eos (const Box& bx,
     });
 
     // Compute Brunt-Vaisala frequency (1/s2)
-    Real gorho0 = g / solverChoice.rho0;
+    Real gorho0 = solverChoice.g / solverChoice.rho0;
+    const Real l_g = solverChoice.g;   // captured by value into the device lambdas below
     // Really want enclosed nodes or something similar
     Box box_w = bx;
     box_w.surroundingNodes(2);
@@ -287,6 +288,7 @@ REMORA::nonlin_eos (const Box& bx,
 
     // Compute Brunt-Vaisala frequency (1/s2)
     Box bxD = bx; bxD.makeSlab(2,0);
+    const Real l_g = solverChoice.g;   // captured by value into the device lambda below
 
     ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
     {
@@ -299,7 +301,7 @@ REMORA::nonlin_eos (const Box& bx,
             Real cff2 = one / (bulk_dn + Real(0.1) * z_w(i,j,k+1));
             Real den_up = cff1 * (den1(i,j,k+1) * bulk_up);
             Real den_dn = cff2 * (den1(i,j,k  ) * bulk_dn);
-            bvf(i,j,k+1) = -g * (den_up - den_dn) / (Real(0.5) * (den_up+den_dn) * (z_r(i,j,k+1) - z_r(i,j,k)));
+            bvf(i,j,k+1) = -l_g * (den_up - den_dn) / (Real(0.5) * (den_up+den_dn) * (z_r(i,j,k+1) - z_r(i,j,k)));
         }
     });
 

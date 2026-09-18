@@ -485,7 +485,7 @@ REMORA::advance_2d (int lev,
 !-----------------------------------------------------------------------
 !
 */
-        Real cff1 = Real(0.5) * g;
+        Real cff1 = Real(0.5) * solverChoice.g;
         Real cff2 = one / Real(3.0);
         ParallelFor(xbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
