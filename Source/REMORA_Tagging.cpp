@@ -140,6 +140,10 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
     AMREX_ALWAYS_ASSERT(mask_lo[0] <= 0 && mask_lo[1] <= 0 &&
                         mask_hi[0] >= 0 && mask_hi[1] >= 0);
 
+    // The mask is constant down a column, so a vertical offset could not mean anything; reject
+    // one rather than accept it and silently ignore it.
+    AMREX_ALWAYS_ASSERT(mask_lo[2] == 0 && mask_hi[2] == 0);
+
     // The furthest the loop below reaches into the mask laterally: the field's own dependence
     // on mskr, plus one more for GRAD, which asks the same question of the neighbor it
     // differences against. It never reads the mask at k+-1 -- the mask is constant down a
@@ -393,8 +397,9 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         }
 
         // A criterion keyed on the mask is asking to be told where the coast is, so it is the
-        // one that must not be guarded by the mask -- guarding it would leave it with no
-        // water-water face across which the mask varies, and it would never tag anything.
+        // one that must not be guarded by the mask: the documented way to refine a coastline
+        // is adjacent_difference_greater on it, and guarding that would leave it with no
+        // water-water face across which the mask varies, so it would never tag anything.
         // Every other field is a physical state that means nothing on land.
         const MultiFab* mskr3d_for_tag = (ref_tags[j].Field() == "mask")
                                        ? nullptr : vec_mskr3d[levc].get();
@@ -404,7 +409,11 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         // cell index but masked by msku = mskr(i-1,j)*mskr(i,j) and mskv = mskr(i,j-1)*mskr(i,j)
         // in vert_mean_3d, so each depends on the two cells sharing its face -- u at a water
         // cell whose i-1 neighbor is land is an exact zero that says nothing about the flow.
-        // w is at a k-face with lateral index (i,j), so its own cell is right. Vorticity
+        // zvel_new is a special case: nothing ever masks it and nothing ever gives it a value
+        // -- the model's vertical velocity lives in a scratch array inside advance_3d -- so it
+        // is identically zero and its own cell is as good an answer as any. Should it ever be
+        // wired up, note that W is built from Huon and Hvom at i+1 and j+1, which would make
+        // its real dependence the five-point cross, not its own cell. Vorticity
         // reaches the full 3x3 block: remora_dervort differences the cell-centered velocities
         // at i+-1 and j+-1 without masking (see the TODO there), and each of those averages
         // two faces. Vorticity's entry can go back to zero once that derive is masked.

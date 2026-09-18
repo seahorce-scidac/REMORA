@@ -60,6 +60,11 @@ awk -v lev="$LEVEL" -v prev="$PREV" -v dim="$DIM" \
         # 1: "<lev> <nboxes> <x>", 2: time, then 3 coordinate lines per box.
         if (nline == 1) { nboxes = $2; next }
         if (nline == 2) { next }
+        # Stop at the first line that is not a coordinate pair. An absent level has no
+        # "Level_<lev>/Cell" terminator, so without this the trailing sections of the header
+        # would be parsed as box coordinates and reported as a nonsense span.
+        if (NF != 2 || $1 !~ /^-?[0-9.eE+-]+$/ || $2 !~ /^-?[0-9.eE+-]+$/) { inblock = 0; next }
+        ncoord++
         idx = nline - 3            # 0-based index among the coordinate lines
         if (idx % 3 != dim) { next }
         if (seen++ == 0) { lo = $1; hi = $2 }
@@ -67,8 +72,14 @@ awk -v lev="$LEVEL" -v prev="$PREV" -v dim="$DIM" \
         if ($2 > hi) { hi = $2 }
     }
     END {
-        if (!seen) {
+        if (!seen || nboxes == 0) {
             printf "check_level_extent: FAIL: level %d has no boxes in the header\n", lev > "/dev/stderr"
+            exit 1
+        }
+        # Guards against a header format change silently producing a plausible span.
+        if (ncoord != 3 * nboxes) {
+            printf "check_level_extent: FAIL: level %d declares %d boxes but the header has %d coordinate lines, not %d\n", \
+                   lev, nboxes, ncoord, 3 * nboxes > "/dev/stderr"
             exit 1
         }
         dlo = lo - exp_lo; if (dlo < 0) { dlo = -dlo }

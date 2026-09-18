@@ -10,10 +10,17 @@
 # tagging the coastline, changes only which levels exist and where -- so that is what this
 # checks. An expected level of 0 asserts that no criterion tagged anything at all.
 #
-# REMORA prints one "GRIDS AT LEVEL n ARE" line per level on every regrid. The highest n
-# anywhere in the log is the deepest level the run ever built, which is what is asserted;
-# taking the maximum rather than the last means a level that appeared and later vanished
-# still counts.
+# REMORA prints a "GRIDS AT LEVEL n ARE" line whenever it builds or rebuilds a level's grids
+# -- from MakeNewLevelFromScratch, MakeNewLevelFromCoarse and RemakeLevel -- so a regrid that
+# leaves the BoxArray unchanged prints nothing and the line count is not the regrid count.
+# What the highest n in the log does mean is the deepest level the run ever built, which is
+# what is asserted; taking the maximum rather than the last means a level that appeared and
+# later vanished still counts.
+#
+# A run always builds level 0, so at least one line must match. Requiring that matters: this
+# script is used to assert an expected level of 0, and treating an unparseable log as 0 would
+# make such an assertion pass for the wrong reason if the print were reworded or if rank
+# output under MPI landed mid-line.
 
 set -eu
 
@@ -30,10 +37,15 @@ if [ ! -f "$LOGFILE" ]; then
     exit 1
 fi
 
-# No match at all is level 0, not an error: a single-level run prints the level 0 line, and
-# grep exiting 1 under `set -e` would otherwise abort before the comparison.
-ACTUAL=$(sed -n 's/^GRIDS AT LEVEL \([0-9][0-9]*\) ARE.*/\1/p' "$LOGFILE" | sort -n | tail -1)
-ACTUAL=${ACTUAL:-0}
+LEVELS=$(sed -n 's/^GRIDS AT LEVEL \([0-9][0-9]*\) ARE.*/\1/p' "$LOGFILE" | sort -n)
+
+if [ -z "$LEVELS" ]; then
+    echo "check_max_level: FAIL: no 'GRIDS AT LEVEL n ARE' line in $LOGFILE" >&2
+    echo "  Every run builds level 0, so this is a parse failure, not a level count." >&2
+    exit 1
+fi
+
+ACTUAL=$(echo "$LEVELS" | tail -1)
 
 if [ "$ACTUAL" -ne "$EXPECTED" ]; then
     echo "check_max_level: FAIL: expected max level $EXPECTED, run built $ACTUAL" >&2

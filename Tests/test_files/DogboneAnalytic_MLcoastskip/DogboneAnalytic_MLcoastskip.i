@@ -71,7 +71,7 @@ remora.check_file      = chk
 remora.plot_file     = plt
 remora.plot_int      = 10
 remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
-remora.plot_vars_2d  = mask_rho   # a rho2d sidecar, for eyeballing a failure; time-invariant, so the stationary fcompare passes it
+remora.plot_vars_2d  = mask_rho   # a rho2d sidecar, for eyeballing a failure; fcompare ignores it
 remora.plotfile_type = amrex
 
 # SOLVER CHOICE

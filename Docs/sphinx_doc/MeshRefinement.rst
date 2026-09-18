@@ -137,17 +137,19 @@ The example below adds two user-named criteria:
 
 - ``hi_temp``: cells with density greater than 10 on level 0, and greater than 20 on level 1 and higher;
 - ``lo_vort``: cells with relative vorticity less than 0 that are inside the region :math:`[0.25,0.25,\texttt{prob_lo_z}]\times[0.75,0.75,\texttt{prob_hi_z}]`;
-- ``scalardiff``: cells having a difference in the scalar of 0.01 or more from that of any immediate neighbor.
+- ``scalardiff``: cells having a difference in the tracer of 0.01 or more from that of any immediate neighbor.
 
 The first will trigger up to AMR level 3 and the second to level 2.
 The second will be active only when the problem time is between 100 and 300 seconds.
 
-Note that ``temp`` and ``scalar`` are the names of state variables and ``vorticity`` is a derived variable.
-Valid field options for refinement are any cell-centered tracer -- ``temp``, ``salt``, ``scalar``, a
+Note that ``temp`` and ``tracer`` are the names of state variables and ``vorticity`` is a derived variable.
+Valid field options for refinement are any cell-centered tracer -- ``temp``, ``salt``, ``tracer``, a
 numbered ``tracer_1`` or a biology tracer such as ``NO3`` -- along with ``x_velocity``, ``y_velocity``,
 ``z_velocity``, ``vorticity``, ``mask``, and, in a build with particles, ``<particle>_count``. All but
 ``mask`` are restricted to water; see `Masked Regions and Tagging`_ below for what that means field by
-field.
+field. Prefer ``value_greater`` for a particle count: its ghost cells are left at zero rather than
+filled, so ``adjacent_difference_greater`` on one sees a step at every grid boundary and tags a set of
+cells that depends on the domain decomposition.
 
 ::
 
@@ -159,7 +161,7 @@ field.
 
           remora.scalardiff.max_level = 2
           remora.scalardiff.adjacent_difference_greater = 0.01
-          remora.scalardiff.field_name = scalar
+          remora.scalardiff.field_name = tracer
           remora.scalardiff.start_time = 100
           remora.scalardiff.end_time = 300
 
@@ -181,7 +183,7 @@ is taken only across a face the geometry leaves open.
 Which cells that admits depends on where the field lives and how it is masked, so it is not simply "the
 wet cells":
 
-- a tracer (``temp``, ``salt``, ``tracer``, a biology tracer) and ``z_velocity`` are masked in place, so
+- a tracer (``temp``, ``salt``, ``tracer``, a biology tracer) is masked in place, so
   the test is just whether that cell is water;
 - ``x_velocity`` and ``y_velocity`` are stored at a cell index but live on a face, and are masked by
   ``msku(i,j) = mskr(i-1,j) * mskr(i,j)`` and ``mskv(i,j) = mskr(i,j-1) * mskr(i,j)``. A water cell whose
@@ -189,7 +191,11 @@ wet cells":
   slack water, so both cells sharing the face must be water;
 - ``vorticity`` is a centered difference of the cell-centered velocities that is not itself masked, so
   its value depends on the whole 3x3 block of cells around it and all nine must be water. This is a
-  workaround for the derived field being unmasked and can be narrowed once it is not.
+  workaround for the derived field being unmasked and can be narrowed once it is not;
+- ``z_velocity`` is tested on its own cell, but only because nothing currently writes it: the vertical
+  velocity the model solves for is held in a temporary, so the plotted and taggable ``z_velocity`` is
+  identically zero. If it is ever connected, its dependence will be the five-point cross, not its own
+  cell.
 
 A land cell is never tagged by any of these.
 

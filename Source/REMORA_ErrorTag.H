@@ -26,6 +26,14 @@
  * static in_box_lo/in_box_hi region had deliberately set: a box drawn across a coast came
  * back refined only on its water part. Guarding each criterion as it is evaluated leaves
  * every other criterion's tags alone, so such a box is now refined whole.
+ *
+ * One caution on the inheritance: amrex::AMRErrorTag::operator() is not virtual, so the guard
+ * lives only on this class's own overload. Keep criteria in a container of REMORAErrorTag, as
+ * REMORA::ref_tags does, and call them directly. Anything that converts one to the base --
+ * binding an AMRErrorTag const& or copying into an AMRErrorTag -- would compile and quietly
+ * run AMReX's unguarded test. The overload deliberately does not pull the base's seven-argument
+ * form in with a using-declaration, so a call that omits the mask fails to compile rather than
+ * silently skipping it.
  */
 class REMORAErrorTag final : public amrex::AMRErrorTag
 {
@@ -53,11 +61,13 @@ public:
      * @param[in]    time      current time
      * @param[in]    level     level being tagged
      * @param[in]    geom      geometry of that level
-     * @param[in]    mask_lo   lowest offset, and @param[in] mask_hi the highest, in rho-cells
-     *                         relative to a value's own index, of the cells whose wet/dry
-     *                         state that value depends on. Both default to zero, which is
-     *                         right for a cell-centered state field: it is masked in place,
-     *                         so its own cell is the only one that matters.
+     * @param[in]    mask_lo   lowest offset, in rho-cells relative to a value's own index, of
+     *                         the cells whose wet/dry state that value depends on. Defaults to
+     *                         zero, which is right for a cell-centered state field: it is
+     *                         masked in place, so its own cell is the only one that matters.
+     *                         The vertical component must be zero, since the mask is constant
+     *                         down a column.
+     * @param[in]    mask_hi   highest such offset; see mask_lo.
      *
      *                         Two kinds of field need more. A face velocity is stored at a
      *                         cell index but lives on a face, and vert_mean_3d multiplies it

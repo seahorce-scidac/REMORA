@@ -280,6 +280,30 @@ function(add_test_extent TEST_NAME TEST_EXE PLTFILE LEVEL DIM LO HI)
     )
 endfunction(add_test_extent)
 
+# Assert how many cells a refinement level covers. The third grid assertion, for a change that
+# removes cells from inside a refined region while leaving its bounding box alone -- which
+# neither add_test_nlevels nor add_test_extent can see. Summed over boxes, so it does not
+# depend on how the region is chopped for load balance. No stationary comparison: use this for
+# a case that is actually evolving. See Tests/check_level_cells.sh.
+function(add_test_cells TEST_NAME TEST_EXE PLTFILE LEVEL NCELLS)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${CMAKE_CURRENT_SOURCE_DIR}/check_level_cells.sh ${CURRENT_TEST_BINARY_DIR}/${PLTFILE} ${LEVEL} ${NCELLS}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_cells)
+
 # Stationary test -- compare with time 0
 function(add_test_0 TEST_NAME TEST_EXE PLTFILE)
     setup_test()
@@ -365,11 +389,17 @@ add_test_r_gold(DogboneAnalytic_MLhires  "remora_exec" "plt_ml00010" DogboneAnal
 # through it, so this asserts the thing a static box is for: the whole box is refined, land
 # included. REMORA used to clip it back to the water, giving y in [250,500].
 add_test_extent(DogboneAnalytic_MLmask  "remora_exec" "plt00010" 1 1 0.0 750.0)
-add_test_0(DogboneAnalytic_MLmask_rr2   "remora_exec" "plt00010")
+# Same assertion on the ref-ratio-2 twin, so that path of the same fix is covered too: its
+# grids move from 3 clipped boxes to 2 full-box grids, which add_test_0 alone cannot see.
+add_test_extent(DogboneAnalytic_MLmask_rr2 "remora_exec" "plt00010" 1 1 0.0 750.0)
 # A pair: the same gradient criterion keyed on a physical field, which must not see the coast,
 # and on the mask, which must. Either one alone passes for the wrong reason.
 add_test_nlevels(DogboneAnalytic_MLcoastskip "remora_exec" "plt00010" 0)
 add_test_nlevels(DogboneAnalytic_MLcoasttag  "remora_exec" "plt00010" 1)
+# MLcoastskip covers a cell-centered field, where the cell's own mask is the whole story.
+# This covers a face-staggered one, where it is not: 12960 cells are refined if x_velocity is
+# guarded by mskr(i,j) alone instead of by both cells sharing its face.
+add_test_cells(DogboneAnalytic_MLdryface     "remora_exec" "plt00010" 1 6480)
 add_test_r_differ(Seamount_hires         "remora_exec" "plt00010"    Seamount)
 add_test_r_differ(Seamount_hires_r4      "remora_exec" "plt00010"    Seamount_hires)
 
