@@ -548,6 +548,12 @@ public:
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Dvbar_old;
     /** \brief see vec_Dvbar_old (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_Dvbar_new;
+    /** \brief free surface at the start and end of this level's step, every leapfrog
+     *         component holding the same value. What a subcycled finer level interpolates
+     *         in time to get its contact points, as ROMS's put_refine2d does (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_zeta_crse_old;
+    /** \brief see vec_zeta_crse_old (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_zeta_crse_new;
     /** \brief barotropic x velocity for the RHS (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_rubar;
     /** \brief barotropic y velocity for the RHS (2D) */
@@ -667,6 +673,11 @@ public:
     /** \brief register this level's completed step as the coarse bracket the next finer
      *         level interpolates within */
     void register_coarse_data (int lev, amrex::Real time, amrex::Real dt_lev);
+
+    /** \brief roll a two-snapshot history of a level's end-of-step 2D state */
+    void roll_2d_snapshot (amrex::Vector<std::unique_ptr<amrex::MultiFab>>& old_v,
+                           amrex::Vector<std::unique_ptr<amrex::MultiFab>>& new_v,
+                           int lev, const amrex::MultiFab& src, const amrex::MultiFab& like);
 
     /** \brief set this level's barotropic contact points from its parent, mass-conservingly */
     void set_2d_cf_bcs (int lev, amrex::Real time, int know, int knew);
@@ -1516,7 +1527,7 @@ private:
 
 #ifdef REMORA_USE_NETCDF
     /** \brief Write plotfile using NetCDF (wrapper) */
-    void WriteNCPlotFile       (int istep, amrex::MultiFab const* plotMF);
+    void WriteNCPlotFile       (int istep, amrex::MultiFab const* plotMF, int lev = 0);
 
     /** \brief Write a particular NetCDF plotfile */
     void WriteNCPlotFile_which (int lev, int which_subdomain,
@@ -1803,6 +1814,31 @@ private:
     /** \brief exclude the coarse-fine perimeter's normal-velocity faces from the fine-to-coarse
      *         average, as ROMS does. 1 (default) matches ROMS; 0 restores the old behaviour. */
     int cf_avgdown_perimeter = 1;
+
+    /** \brief diagnostics used to attribute the coarse-fine error; each default is the
+     *         committed behaviour, so none of them changes an answer unless set. */
+    int cf_fill_vel_after = 0;
+    int cf_d_knew = 0;
+    /** \brief 0 = never impose the 2D coarse-fine interface condition, 1 = every fast
+     *         step, 2 = only the first fast step of each baroclinic step, which is the
+     *         schedule ROMS uses (put_refine2d runs before the barotropic loop). */
+    int cf_set_2d_bcs = 1;
+    int cf_avgdown_bar = 1;
+    int cf_fill_all_kcomp = 0;
+    int cf_time_interp_zeta = 0;
+    /** \brief distribute the parent's interface mass flux piecewise-constantly over the
+     *         fine faces under each parent face, as ROMS's get_persisted2d does, instead of
+     *         with the linear tangential variation of AMReX's face interpolator. Both
+     *         conserve the total; they differ in the profile along the interface. */
+    int cf_flux_pc = 0;
+    /** \brief average the fine velocity onto the coarse over ROMS's nine-point stencil
+     *         (fine2coarse2d, half-width (Rscale-1)/2 in both directions) instead of only
+     *         the faces that tile the coarse face. Not conservative; ROMS accepts that. */
+    int cf_avgdown_stencil = 0;
+
+    /** \brief print the imposed coarse-fine interface velocity at this baroclinic step
+     *         (-1 = off). Diagnostic only; the fine level is not in the NetCDF output. */
+    int cf_print_iface = -1;
 
     /** \brief stop that correction driving a tracer negative, as ROMS does. On by default to
      *         match ROMS; costs exact conservation on any step that clamps. */

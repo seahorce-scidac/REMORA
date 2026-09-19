@@ -3,7 +3,12 @@
     //If we had wind stress and bottom stress we would need to set these:
     Real tdays=time/(Real(24.0)*Real(60.0)*Real(60.0));
     Real dstart=zero;
-    Real userval=Real(0.01);
+    // Zero leaves the wind off, which a test needs if its exact solution is rest.
+    amrex::ParmParse pp_prob("remora.prob");
+    bool quiescent = false;
+    pp_prob.query("quiescent", quiescent);
+
+    Real userval = quiescent ? Real(0.0) : Real(0.01);
     Real mf_fcor=Real(1.0e-4);
     //It's possible these should be set to be nonzero only at the boundaries they affect
 

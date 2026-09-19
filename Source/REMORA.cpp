@@ -2295,6 +2295,17 @@ REMORA::ReadParameters ()
     // normal-velocity faces. 0 restores the behaviour from before that was matched.
     pp.queryAdd("cf_avgdown_perimeter", cf_avgdown_perimeter);
 
+    // Diagnostics; see the declarations in REMORA.H.
+    pp.queryAdd("cf_fill_vel_after", cf_fill_vel_after);
+    pp.queryAdd("cf_d_knew", cf_d_knew);
+    pp.queryAdd("cf_set_2d_bcs", cf_set_2d_bcs);
+    pp.queryAdd("cf_avgdown_bar", cf_avgdown_bar);
+    pp.queryAdd("cf_fill_all_kcomp", cf_fill_all_kcomp);
+    pp.queryAdd("cf_time_interp_zeta", cf_time_interp_zeta);
+    pp.queryAdd("cf_flux_pc", cf_flux_pc);
+    pp.queryAdd("cf_avgdown_stencil", cf_avgdown_stencil);
+    pp.queryAdd("cf_print_iface", cf_print_iface);
+
     // Whether to zero a tracer the correction drives negative, as ROMS does.
     pp.queryAdd("reflux_clamp", reflux_clamp);
 
@@ -2756,6 +2767,50 @@ REMORA::update_avgdown_masks (int crse_lev)
 /**
  * @param[in   ] crse_lev  level to average down to
  */
+
+namespace {
+/** \brief Replace each face by the mean of itself and its neighbours along dir.
+ *
+ * ROMS's fine2coarse2d averages the donor grid over a (Rscale-1)/2 half-width stencil in
+ * both horizontal directions, so at ratio 3 a coarse face takes the mean of nine fine faces.
+ * AMReX's average_down_faces takes only the faces that tile the coarse face -- three, all
+ * tangential -- which measures 1.00 against the tangential mean while ROMS measures 1.00
+ * against the nine-point one. Smoothing the fine data along the face normal first and then
+ * averaging down supplies the missing direction and reproduces ROMS exactly. Masked as ROMS
+ * does it: sum over wet points, divide by the wet count.
+ *
+ * This is deliberately not conservative. The nine-point mean does not preserve the transport
+ * through the interface; average_down_faces on its own does. ROMS accepts that trade.
+ */
+void smooth_faces_along (amrex::MultiFab& mf, const amrex::MultiFab& msk, int dir,
+                         const amrex::Geometry& geom, int ncomp)
+{
+    mf.FillBoundary(geom.periodicity());
+    amrex::MultiFab orig(mf.boxArray(), mf.DistributionMap(), ncomp, mf.nGrowVect());
+    amrex::MultiFab::Copy(orig, mf, 0, 0, ncomp, mf.nGrowVect());
+    const int di = (dir == 0) ? 1 : 0;
+    const int dj = (dir == 1) ? 1 : 0;
+    for (amrex::MFIter mfi(mf, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const amrex::Box& bx = mfi.tilebox();
+        const auto& a = mf.array(mfi);
+        const auto& o = orig.const_array(mfi);
+        const auto& m = msk.const_array(mfi);
+        amrex::ParallelFor(bx, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            amrex::Real sum = amrex::Real(0.0), cnt = amrex::Real(0.0);
+            for (int t = -1; t <= 1; ++t) {
+                const int ii = i + t*di, jj = j + t*dj;
+                const amrex::Real w = amrex::min(amrex::Real(1.0), m(ii,jj,0));
+                sum += o(ii,jj,k,n) * m(ii,jj,0);
+                cnt += w;
+            }
+            if (cnt > amrex::Real(0.0)) { a(i,j,k,n) = sum / cnt; }
+        });
+    }
+}
+} // namespace
+
 void
 REMORA::AverageDownTo (int crse_lev)
 {
@@ -2794,9 +2849,28 @@ REMORA::AverageDownTo (int crse_lev)
         MultiFab::Copy(v_save, *yvel_new[crse_lev], 0, 0, 1, 0);
     }
 
-    average_down_masked(crse_lev, *xvel_new[flev], *xvel_new[crse_lev],
+    // See smooth_faces_along: ROMS averages the donor over nine fine faces, AMReX over the
+    // three that tile the coarse face, so the normal direction is smoothed in first.
+    MultiFab xv_sm, yv_sm;
+    const MultiFab* xv_f = xvel_new[flev];
+    const MultiFab* yv_f = yvel_new[flev];
+    if (cf_avgdown_stencil) {
+        xv_sm.define(xvel_new[flev]->boxArray(), xvel_new[flev]->DistributionMap(),
+                     1, xvel_new[flev]->nGrowVect());
+        MultiFab::Copy(xv_sm, *xvel_new[flev], 0, 0, 1, xvel_new[flev]->nGrowVect());
+        smooth_faces_along(xv_sm, *vec_msku[flev], 0, geom[flev], 1);
+        xv_f = &xv_sm;
+
+        yv_sm.define(yvel_new[flev]->boxArray(), yvel_new[flev]->DistributionMap(),
+                     1, yvel_new[flev]->nGrowVect());
+        MultiFab::Copy(yv_sm, *yvel_new[flev], 0, 0, 1, yvel_new[flev]->nGrowVect());
+        smooth_faces_along(yv_sm, *vec_mskv[flev], 1, geom[flev], 1);
+        yv_f = &yv_sm;
+    }
+
+    average_down_masked(crse_lev, *xv_f, *xvel_new[crse_lev],
                         *vec_msku[flev], cmsku, 1, 0);
-    average_down_masked(crse_lev, *yvel_new[flev], *yvel_new[crse_lev],
+    average_down_masked(crse_lev, *yv_f, *yvel_new[crse_lev],
                         *vec_mskv[flev], cmskv, 1, 1);
 
     if (keep_perimeter) {
@@ -2811,7 +2885,7 @@ REMORA::AverageDownTo (int crse_lev)
     // Hand the child's 2D momentum back, as ROMS's fine2coarse does. The parent's next
     // advance_2d reads ubar(krhs) to form DUon, so dropping this moves Dogbone's x-velocity
     // by 9%. Subcycling only: timeStepML keeps the behaviour its answers were recorded with.
-    if (do_substep) {
+    if (do_substep && cf_avgdown_bar) {
         // Components 0 and 1 only. The three are leapfrog slots rotating per level, so the
         // two levels need not agree on which holds what -- but update_massflux_3d has just
         // set both of these to the same velocity, so averaging them cannot mix time levels.
@@ -2825,12 +2899,29 @@ REMORA::AverageDownTo (int crse_lev)
             MultiFab::Copy(vb_save, *vec_vbar[crse_lev], 0, 0, 2, 0);
         }
 
+        MultiFab ub_sm, vb_sm;
+        const MultiFab* ub_src = vec_ubar[crse_lev+1].get();
+        const MultiFab* vb_src = vec_vbar[crse_lev+1].get();
+        if (cf_avgdown_stencil) {
+            ub_sm.define(vec_ubar[flev]->boxArray(), vec_ubar[flev]->DistributionMap(),
+                         2, vec_ubar[flev]->nGrowVect());
+            MultiFab::Copy(ub_sm, *vec_ubar[flev], 0, 0, 2, vec_ubar[flev]->nGrowVect());
+            smooth_faces_along(ub_sm, *vec_msku[flev], 0, geom[flev], 2);
+            ub_src = &ub_sm;
+
+            vb_sm.define(vec_vbar[flev]->boxArray(), vec_vbar[flev]->DistributionMap(),
+                         2, vec_vbar[flev]->nGrowVect());
+            MultiFab::Copy(vb_sm, *vec_vbar[flev], 0, 0, 2, vec_vbar[flev]->nGrowVect());
+            smooth_faces_along(vb_sm, *vec_mskv[flev], 1, geom[flev], 2);
+            vb_src = &vb_sm;
+        }
+
         for (int icomp = 0; icomp < 2; ++icomp) {
-            MultiFab ubar_f(*vec_ubar[crse_lev+1], make_alias, icomp, 1);
+            MultiFab ubar_f(*ub_src, make_alias, icomp, 1);
             MultiFab ubar_c(*vec_ubar[crse_lev  ], make_alias, icomp, 1);
             average_down_faces(ubar_f, ubar_c, refRatio(crse_lev), geom[crse_lev]);
 
-            MultiFab vbar_f(*vec_vbar[crse_lev+1], make_alias, icomp, 1);
+            MultiFab vbar_f(*vb_src, make_alias, icomp, 1);
             MultiFab vbar_c(*vec_vbar[crse_lev  ], make_alias, icomp, 1);
             average_down_faces(vbar_f, vbar_c, refRatio(crse_lev), geom[crse_lev]);
         }

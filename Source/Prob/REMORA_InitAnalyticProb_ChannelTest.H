@@ -11,6 +11,13 @@
     [[maybe_unused]] bool EWPeriodic = geomdata.isPeriodic(1);
     [[maybe_unused]] bool NSPeriodic = geomdata.isPeriodic(0);
 
+    // Uniform tracers and no initial jet, which a test needs if its exact solution is rest.
+    // Pairs with remora.prob.quiescent in the surface stress, which drops the wind.
+    amrex::ParmParse pp_prob("remora.prob");
+    bool quiescent = false;
+    pp_prob.query("quiescent", quiescent);
+    const bool l_quiescent = quiescent;
+
     auto T0 = m_solverChoice.T0;
     auto S0 = m_solverChoice.S0;
     for (MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi)
@@ -39,9 +46,11 @@
             [[maybe_unused]] const Real x  = prob_lo[0] + (i + Real(0.5)) * dx[0] - xcent;
             const Real y  = prob_lo[1] + (j + Real(0.5)) * dx[1];
 
-            state(i,j,k,Temp_comp)=T0 + z / (Real(9.8) * Real(1.7));
+            state(i,j,k,Temp_comp) = l_quiescent ? T0
+                                                 : T0 + z / (Real(9.8) * Real(1.7));
             if (l_use_salt) {
-                state(i,j,k,Salt_comp)=S0 + y / (Real(9.8) * Real(760.0));
+                state(i,j,k,Salt_comp) = l_quiescent ? S0
+                                                     : S0 + y / (Real(9.8) * Real(760.0));
             }
 
             // Set tracer = 0 everywhere
@@ -69,7 +78,8 @@
 
             const Real val1  = x * Real(6.28318530718) * Real(1.0e-5);
             const Real val2  = y * Real(6.28318530718) * Real(1.0e-5);
-            x_vel(i, j, k) = (depth + z) * Real(0.01) + Real(0.05) * std::sin(val1) * std::sin(val2);
+            x_vel(i, j, k) = l_quiescent ? zero
+                           : (depth + z) * Real(0.01) + Real(0.05) * std::sin(val1) * std::sin(val2);
         });
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {

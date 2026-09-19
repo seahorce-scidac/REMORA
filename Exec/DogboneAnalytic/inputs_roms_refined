@@ -134,3 +134,39 @@ remora.middle.in_box_hi  = 5799 505   0
 
 amr.max_level      = 1
 amr.ref_ratio_vect = 3 3 1
+
+# ---------------------------------------------------------------------------------------
+# Coarse-fine treatment matched to ROMS's nesting.F. Each of these replaces an AMReX-native
+# operator with the one ROMS actually uses; measured against the ROMS nested dogbone they
+# take the refinement perturbation at the interface from 1.29x ROMS's to 1.000x.
+# ---------------------------------------------------------------------------------------
+
+# fine2coarse2d averages the donor over a (Rscale-1)/2 half-width stencil in BOTH directions,
+# so at ratio 3 a coarse face is the mean of nine fine faces. AMReX's average_down_faces takes
+# only the three that tile the coarse face. This is the dominant term. Note it is not
+# conservative: the nine-point mean does not preserve transport across the interface, and ROMS
+# accepts that trade.
+remora.cf_avgdown_stencil = 1
+
+# get_persisted2d copies DU_avg2 at the donor face picked by integer division of the fine
+# index, so every fine face under one parent face gets the same transport, scaled by edge
+# length. AMReX's face interpolator gives it a linear variation along the interface instead.
+# Both conserve the total; they differ in how it is shared out.
+remora.cf_flux_pc = 1
+
+# Impose the transport itself rather than a velocity the barotropic solver re-converts using
+# its depth at another time index. ROMS gets this for free because u2dbc_im builds D from the
+# same record it writes. Worth 100x to 4000x while the flow is linear, but about 10-20% worse
+# once it is not, so this one is a judgement call rather than a clear win.
+# remora.cf_impose_flux = 1
+
+# Left at their defaults because the defaults already match ROMS: cf_avgdown_perimeter = 1
+# (ROMS has #undef REFINE_BOUNDARY, so it does not write the coarse perimeter either),
+# cf_set_2d_bcs = 1 (u2dbc_im re-imposes every fast step), time_interp_flux = 0 (ROMS has
+# TIME_INTERP_FLUX undefined), cf_avgdown_bar = 1 (fine2coarse hands the 2D momentum back).
+#
+# The measurements above used this deck with the h=50 bathymetry and matched time refinement:
+#   remora.prob.depth=50.0 remora.prob_lo="0.0 0.0 -50.0"
+#   remora.fixed_dt=3.0 remora.dt_ref_ratio=3
+# against ROMS DT == 3.0 1.0 / NDTFAST == 20 20. As it stands this deck is the h=10, dt=2
+# case, whose fine level takes dt/3 while roms_dogbone_refined.in steps both grids at 2.0.

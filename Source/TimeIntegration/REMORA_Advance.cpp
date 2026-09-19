@@ -63,6 +63,18 @@ REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycl
     //***************************************************
     advance_3d_ml(lev, dt_lev);
 
+    // vert_mean_3d has just replaced the depth mean of the fine 3D velocity with the
+    // barotropic transport the parent imposed, while its shear is still the profile the
+    // parent handed over at the start of the step. Nothing reconciles the two, so the
+    // interface carries a depth-uniform offset that AverageDownTo then pushes onto the
+    // parent. timeStepML re-imposes the parent's profile here; timeStep does not.
+    if (cf_fill_vel_after && lev > 0) {
+        FillPatch(lev, time + dt_lev, *xvel_new[lev], xvel_new, xvel_bc(),
+                  BdyVars::u, 0, true, true);
+        FillPatch(lev, time + dt_lev, *yvel_new[lev], yvel_new, yvel_bc(),
+                  BdyVars::v, 0, true, true);
+    }
+
     //***************************************************
     //Hand the completed step to a finer level. Only timeStep reaches this;
     //timeStepML registers its own coarse data inline.
@@ -133,5 +145,63 @@ REMORA::register_coarse_data (int lev, Real time, Real dt_lev)
         Dv_old->FillBoundary(geom[lev].periodicity());
         FPr_Dvbar[lev].RegisterCoarseData({Dv_old, vec_Dvbar_new[lev].get()},
                                           {time, time + dt_lev});
+
+        // The free surface has no old/new pair above, so the generic FillPatch falls back to
+        // handing a subcycled child this level's state frozen at the end of the step, for
+        // every one of the child's substeps. ROMS's put_refine2d instead interpolates the
+        // donor linearly between two stored snapshots onto the child's own time, so keep the
+        // pair the child needs. Zt_avg1 is the end-of-step surface, and set_zeta_to_Ztavg
+        // puts it in every leapfrog component, so broadcasting it to all three here matches
+        // both what ROMS stores (zeta(:,:,knew), which set_zeta has just set to Zt_avg1) and
+        // what the child reads, whichever component its own knew happens to name.
+        if (cf_time_interp_zeta) {
+            roll_2d_snapshot(vec_zeta_crse_old, vec_zeta_crse_new, lev,
+                             *vec_Zt_avg1[lev], *vec_zeta[lev]);
+        }
+    }
+}
+
+/**
+ * Roll a two-snapshot history of one level's end-of-step 2D state: the previous "new"
+ * becomes "old" and src becomes the new one, so the pair brackets [t_old, t_new] of the step
+ * just taken. src has one component and is broadcast to all of them. On the first call, and
+ * whenever the level's layout changes, both snapshots are set to src, which makes the child's
+ * time interpolation a no-op for that step rather than reading uninitialised data -- the same
+ * special case ROMS takes when RollingIndex is still zero.
+ *
+ * @param[inout] old_v   the older snapshot, one entry per level
+ * @param[inout] new_v   the newer snapshot, one entry per level
+ * @param[in]    lev     level of refinement
+ * @param[in]    src     end-of-step value to store, single component
+ * @param[in]    like    MultiFab whose layout, component count and ghost width to match
+ */
+void
+REMORA::roll_2d_snapshot (Vector<std::unique_ptr<MultiFab>>& old_v,
+                          Vector<std::unique_ptr<MultiFab>>& new_v,
+                          int lev, const MultiFab& src, const MultiFab& like)
+{
+    if (int(old_v.size()) <= lev) { old_v.resize(lev+1); }
+    if (int(new_v.size()) <= lev) { new_v.resize(lev+1); }
+
+    const int ncomp = like.nComp();
+    const IntVect ng = like.nGrowVect();
+    const bool fresh = !new_v[lev] || new_v[lev]->boxArray() != like.boxArray()
+                       || new_v[lev]->DistributionMap() != like.DistributionMap();
+
+    if (fresh) {
+        old_v[lev].reset(new MultiFab(like.boxArray(), like.DistributionMap(), ncomp, ng));
+        new_v[lev].reset(new MultiFab(like.boxArray(), like.DistributionMap(), ncomp, ng));
+    } else {
+        MultiFab::Copy(*old_v[lev], *new_v[lev], 0, 0, ncomp, ng);
+    }
+
+    // src carries one component; every component of the snapshot gets it
+    for (int n = 0; n < ncomp; ++n) {
+        MultiFab::Copy(*new_v[lev], src, 0, n, 1, amrex::min(ng, src.nGrowVect()));
+    }
+    new_v[lev]->FillBoundary(geom[lev].periodicity());
+
+    if (fresh) {
+        MultiFab::Copy(*old_v[lev], *new_v[lev], 0, 0, ncomp, ng);
     }
 }

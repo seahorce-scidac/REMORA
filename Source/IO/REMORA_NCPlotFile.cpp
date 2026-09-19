@@ -168,10 +168,10 @@ private:
 /**
  * @param which_step   current step for output
  */
-void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF) {
-    AMREX_ASSERT(max_level == 0);
-    // For right now we assume single level -- we will generalize this later to multilevel
-    int lev = 0;
+void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev) {
+    // A refined level is written to its own file, _d02 and up, the way ROMS names a nested
+    // grid. Its dimensions come from boxes_at_level, so a level covering nx by ny cells gets
+    // xi_rho = nx+2, xi_u = nx+1 and so on, exactly as ROMS shapes a child grid.
     int which_subdomain = 0;
     int which_step_in_chunk = -1;
 
@@ -259,8 +259,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     // Number of cells in this "domain" at this level
     std::vector<int> n_cells;
 
-    // We only do single-level writes when using NetCDF format
-    int flev = 1; //max_level;
+    // One level per file, so the geometry records below describe just this level.
+    int flev = lev + 1;
 
     Box subdomain;
     if (lev == 0) {
@@ -917,13 +917,16 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             long long local_nz = tmp_bx.length()[2];
 
             // We do the "+1" because the offset needs to start at 0
-            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] + 1);
-            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] + 1);
-            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2]);
+            // Offsets are relative to this level's subdomain: a refined level's boxes
+            // start at its own index space, not at zero, while the file is sized to
+            // that subdomain.
+            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] - subdomain.smallEnd()[0] + 1);
+            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1] + 1);
+            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] - subdomain.smallEnd()[2]);
 
             if (write_header) {
                 // Only write out s_rho and s_w at x=0,y=0 to avoid NaNs
-                if (bx.contains(IntVect(0,0,0)))
+                if (bx.contains(subdomain.smallEnd()))
                 {
                     {
                         amrex::Vector<amrex::Real> tmp_srho(local_nz);
@@ -1348,9 +1351,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             long long local_nz = tmp_bx.length()[2];
 
             // We do the "+1" because the offset needs to start at 0
-            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0]);
-            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] + 1);
-            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2]);
+            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] - subdomain.smallEnd()[0]);
+            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1] + 1);
+            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] - subdomain.smallEnd()[2]);
 
             if (write_header) {
                 {
@@ -1446,9 +1449,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             long long local_nz = tmp_bx.length()[2];
 
             // We do the "+1" because the offset needs to start at 0
-            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] + 1);
-            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1]);
-            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2]);
+            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] - subdomain.smallEnd()[0] + 1);
+            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1]);
+            long long local_start_z = static_cast<long long>(tmp_bx.smallEnd()[2] - subdomain.smallEnd()[2]);
 
             if (write_header) {
                 {
@@ -1539,8 +1542,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             long long local_ny = tmp_bx.length()[1];
 
             // We do the "+1" because the offset needs to start at 0
-            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0]);
-            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1]);
+            long long local_start_x = static_cast<long long>(tmp_bx.smallEnd()[0] - subdomain.smallEnd()[0]);
+            long long local_start_y = static_cast<long long>(tmp_bx.smallEnd()[1] - subdomain.smallEnd()[1]);
 
             if (write_header) {
             {

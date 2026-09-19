@@ -1,7 +1,7 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 remora.prob_name = DogboneAnalytic
 
-remora.max_step = 10
+remora.max_step = 1000
 
 # PROBLEM SIZE & GEOMETRY
 remora.prob_lo     =   0.       0.  -10.
@@ -32,9 +32,10 @@ remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated
 remora.check_file      = chk        # root name of checkpoint file
 
 # PLOTFILES
-remora.plot_file     = plt_ml_quad   # prefix of plotfile name
+remora.plot_file     = plt_ml_quad/plt_ml_quad   # prefix of plotfile name
 remora.plot_int      = 10            # number of timesteps between plotfiles
 remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
+remora.plot_vars_2d  = zeta
 remora.plotfile_type = amrex
 
 # SOLVER CHOICE

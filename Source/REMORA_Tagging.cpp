@@ -536,12 +536,12 @@ REMORA::refinement_criteria_setup ()
             Real value = Real(0.5);
             ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::LESS,"mask",info));
         }
-        {
-            // Also untag at mask-water boundaries
-            AMRErrorTagInfo info;
-            info.SetDerefine(1);
-            Real value = Real(0.5);
-            ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::GRAD,"mask",info));
-        }
+//        {
+//            // Also untag at mask-water boundaries
+//            AMRErrorTagInfo info;
+//            info.SetDerefine(1);
+//            Real value = Real(0.5);
+//            ref_tags.push_back(AMRErrorTag(value,AMRErrorTag::GRAD,"mask",info));
+//        }
     } // if max_level > 0
 }

@@ -32,7 +32,7 @@ remora.max_step = 600
 
 # PROBLEM SIZE & GEOMETRY
 # ROMS Lm = 42, Mm = 15, N = 10 over 8400 x 750 x 10 m, so dx = 200, dy = 50, dz = 1.
-remora.prob_lo     =   0.     0.   -10.
+remora.prob_lo     =   0.     0.   -50.
 remora.prob_hi     =   8400.  750.   0.
 remora.n_cell      =   42     15     10
 
