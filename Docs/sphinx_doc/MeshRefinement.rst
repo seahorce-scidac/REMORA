@@ -136,11 +136,15 @@ Available tests include
 The example below adds two user-named criteria:
 
 - ``hi_temp``: cells with density greater than 10 on level 0, and greater than 20 on level 1 and higher;
-- ``lo_vort``: cells with relative vorticity less than 0 that are inside the region :math:`[0.25,0.25,\texttt{prob_lo_z}]\times[0.75,0.75,\texttt{prob_hi_z}]`;
+- ``lo_vort``: cells with relative vorticity less than 0, and separately the region :math:`[0.25,0.25,\texttt{prob_lo_z}]\times[0.75,0.75,\texttt{prob_hi_z}]`;
 - ``scalardiff``: cells having a difference in the tracer of 0.01 or more from that of any immediate neighbor.
 
 The first will trigger up to AMR level 3 and the second to level 2.
 The second will be active only when the problem time is between 100 and 300 seconds.
+
+Note that giving a field criterion an ``in_box_lo``/``in_box_hi`` does **not** restrict that criterion to
+the box, as ``lo_vort`` above might suggest: the box is refined, and the field test is applied over the
+whole domain. Only a box-only indicator, with no ``field_name``, refines a region and nothing else.
 
 Note that ``temp`` and ``tracer`` are the names of state variables and ``vorticity`` is a derived variable.
 Valid field options for refinement are any cell-centered tracer -- ``temp``, ``salt``, ``tracer``, a

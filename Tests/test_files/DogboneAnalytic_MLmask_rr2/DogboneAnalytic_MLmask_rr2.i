@@ -27,6 +27,16 @@ remora.prob_hi     =   8400.  750.       0.
 
 remora.n_cell           =  42 15 16
 
+# Grid generation is pinned here because this case asserts grid structure, not just values.
+# n_error_buf grows a tagged region, grid_eff sets how tightly boxes are wrapped around it, and
+# blocking_factor rounds them; each would move the assertion without any tagging having changed.
+# REMORA sets the first two imperatively in main.cpp rather than taking the AMReX defaults, and
+# Inputs.rst documents a different n_error_buf than main.cpp sets, so a commit reconciling the
+# two would otherwise turn these cases red for a reason that has nothing to do with them.
+amr.n_error_buf     = 0
+amr.blocking_factor = 1
+amr.grid_eff        = 0.7
+
 amr.blocking_factor_z = 16
 
 amr.max_grid_size_z = 1024

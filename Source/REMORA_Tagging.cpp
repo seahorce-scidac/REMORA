@@ -121,6 +121,8 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
                             const IntVect&  mask_lo,
                             const IntVect&  mask_hi) const
 {
+    BL_PROFILE("REMORAErrorTag::operator()");
+
     // Only the three tests REMORA's inputs can build read a field cell by cell and so have
     // anything for the mask to guard. Everything else is the base class's business.
     const bool masked_test = (m_test == GRAD || m_test == LESS || m_test == GREATER);
@@ -272,6 +274,14 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
     {
         const int cons_comp = cons_comp_for_field(ref_tags[j].Field());
 
+        // Which rho-cells the value this criterion will read depends on, relative to the index
+        // it is stored at. Set alongside the fill below rather than in a second switch on the
+        // field name, so that adding a field cannot leave it filled but unguarded: a value
+        // that depends on cells it does not name would be tested where it is contaminated by
+        // land. Zero, the default here, says the value is its own cell and nothing else.
+        IntVect mask_lo = IntVect::TheZeroVector();
+        IntVect mask_hi = IntVect::TheZeroVector();
+
         if (cons_comp >= 0) {
             FillPatch(levc, time, *cons_new[levc], cons_new, BCVars::cons_bc, BdyVars::t,
                 0,true,false);
@@ -279,18 +289,30 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         // This allows dynamic refinement based on the value of a tracer
         if (cons_comp >= 0)
         {
+            // A tracer is masked in place by advance_3d_ml, so its own cell is the whole story.
             MultiFab::Copy(*mf,*cons_new[levc],cons_comp,0,1,1);
         } else if (ref_tags[j].Field() == "x_velocity") {
             FillPatch(levc, time, *xvel_new[levc], xvel_new, xvel_bc(), BdyVars::u,0,true,true);
             MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,1);
+            // u is stored at a cell index but lives on that cell's low-x face, and vert_mean_3d
+            // multiplies it by msku(i,j) = mskr(i-1,j)*mskr(i,j). So u at a water cell whose
+            // i-1 neighbor is land is an exact zero that is a mask artifact, not slack water.
+            mask_lo = IntVect(-1,0,0);
         } else if (ref_tags[j].Field() == "y_velocity") {
             FillPatch(levc, time, *yvel_new[levc], yvel_new, yvel_bc(), BdyVars::v,0,true,true);
             MultiFab::Copy(*mf,*yvel_new[levc],0,0,1,1);
+            // As for u, with mskv(i,j) = mskr(i,j-1)*mskr(i,j).
+            mask_lo = IntVect(0,-1,0);
         } else if (ref_tags[j].Field() == "z_velocity") {
             FillPatch(levc, time, *zvel_new[levc], zvel_new, zvel_bc(), BdyVars::null,0,true,true);
             // zvel_new has no ghost cells in z, so we can only ask the copy for lateral ones
             MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,IntVect(1,1,0));
             fill_z_ghost_planes(*mf);
+            // Nothing masks zvel_new and nothing ever writes it -- the vertical velocity the
+            // model solves for lives in a scratch array inside advance_3d -- so it is
+            // identically zero and its own cell is as good an answer as any. If it is ever
+            // wired up, W is built from Huon and Hvom at i+1 and j+1, which would make its
+            // real dependence the five-point cross rather than zero.
         } else if (ref_tags[j].Field() == "vorticity") {
             // Fill the ghost cells of the face-based velocities -- including at
             // coarse/fine boundaries, which is what FillPatch's FillPatchTwoLevels
@@ -332,6 +354,22 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             fill_lateral_ghosts_zero_grad(*mf);
             mf->FillBoundary(geom[levc].periodicity());
             fill_z_ghost_planes(*mf);
+
+            // remora_dervort differences the cell-centered velocities at i+-1 and j+-1 without
+            // masking them (see the TODO there), and each of those is an average of two faces,
+            // so this value depends on the whole 3x3 block of rho-cells around it. Narrow this
+            // once the derive itself is masked.
+            //
+            // No regression test pins this one, unlike the face velocities, which
+            // DogboneAnalytic_MLdryface covers. It is not dead: collapsing it to zero on that
+            // case keyed on vorticity moves level 1 from 12528 cells to 19440. But the only
+            // masked problem available is near-irrotational, so the vorticity there is down at
+            // 1e-7 and below and the cell count varies continuously with the threshold instead
+            // of sitting on a plateau. An exact assertion would be pinned to roundoff and would
+            // drift with the compiler. Covering it properly wants a masked case with real
+            // shear along a coast.
+            mask_lo = IntVect(-1,-1,0);
+            mask_hi = IntVect( 1, 1,0);
 
         } else if (ref_tags[j].Field() == "mask") {
             // vec_mskr3d has no z ghost cells, so this copy leaves mf's top and bottom
@@ -396,37 +434,15 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 #endif
         }
 
-        // A criterion keyed on the mask is asking to be told where the coast is, so it is the
-        // one that must not be guarded by the mask: the documented way to refine a coastline
-        // is adjacent_difference_greater on it, and guarding that would leave it with no
-        // water-water face across which the mask varies, so it would never tag anything.
-        // Every other field is a physical state that means nothing on land.
-        const MultiFab* mskr3d_for_tag = (ref_tags[j].Field() == "mask")
-                                       ? nullptr : vec_mskr3d[levc].get();
-
-        // Which rho-cells the value at a given index actually depends on. A tracer is masked
-        // in place, so its own cell is the whole story. The face velocities are stored at a
-        // cell index but masked by msku = mskr(i-1,j)*mskr(i,j) and mskv = mskr(i,j-1)*mskr(i,j)
-        // in vert_mean_3d, so each depends on the two cells sharing its face -- u at a water
-        // cell whose i-1 neighbor is land is an exact zero that says nothing about the flow.
-        // zvel_new is a special case: nothing ever masks it and nothing ever gives it a value
-        // -- the model's vertical velocity lives in a scratch array inside advance_3d -- so it
-        // is identically zero and its own cell is as good an answer as any. Should it ever be
-        // wired up, note that W is built from Huon and Hvom at i+1 and j+1, which would make
-        // its real dependence the five-point cross, not its own cell. Vorticity
-        // reaches the full 3x3 block: remora_dervort differences the cell-centered velocities
-        // at i+-1 and j+-1 without masking (see the TODO there), and each of those averages
-        // two faces. Vorticity's entry can go back to zero once that derive is masked.
-        IntVect mask_lo = IntVect::TheZeroVector();
-        IntVect mask_hi = IntVect::TheZeroVector();
-        if (ref_tags[j].Field() == "x_velocity") {
-            mask_lo = IntVect(-1,0,0);
-        } else if (ref_tags[j].Field() == "y_velocity") {
-            mask_lo = IntVect(0,-1,0);
-        } else if (ref_tags[j].Field() == "vorticity") {
-            mask_lo = IntVect(-1,-1,0);
-            mask_hi = IntVect( 1, 1,0);
-        }
+        // Two criteria want the unguarded test. One keyed on the mask is asking to be told
+        // where the coast is -- the documented way to refine a coastline is
+        // adjacent_difference_greater on it, and guarding that would leave it with no
+        // water-water face across which the mask varies, so it would never tag anything. And
+        // with no mask at all every cell is water, so the guard could not fire; skipping it
+        // keeps an unmasked run on exactly AMReX's own code path.
+        const bool unguarded = (ref_tags[j].Field() == "mask") ||
+                               (solverChoice.mask_type == MaskType::none);
+        const MultiFab* mskr3d_for_tag = unguarded ? nullptr : vec_mskr3d[levc].get();
 
         ref_tags[j](tags,mf.get(),mskr3d_for_tag,clearval,tagval,time,levc,geom[levc],
                     mask_lo,mask_hi);

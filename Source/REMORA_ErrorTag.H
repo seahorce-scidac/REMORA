@@ -27,19 +27,23 @@
  * back refined only on its water part. Guarding each criterion as it is evaluated leaves
  * every other criterion's tags alone, so such a box is now refined whole.
  *
- * One caution on the inheritance: amrex::AMRErrorTag::operator() is not virtual, so the guard
- * lives only on this class's own overload. Keep criteria in a container of REMORAErrorTag, as
- * REMORA::ref_tags does, and call them directly. Anything that converts one to the base --
- * binding an AMRErrorTag const& or copying into an AMRErrorTag -- would compile and quietly
- * run AMReX's unguarded test. The overload deliberately does not pull the base's seven-argument
- * form in with a using-declaration, so a call that omits the mask fails to compile rather than
- * silently skipping it.
+ * The inheritance is private on purpose. amrex::AMRErrorTag::operator() is not virtual, so the
+ * guard lives only on this class's own overload, and anything that converted a criterion back
+ * to the base -- binding an AMRErrorTag const&, or copying one into an AMRErrorTag -- would
+ * compile and quietly run AMReX's unguarded test on masked data. Inheriting privately makes
+ * every such conversion ill-formed instead of merely discouraged, while still giving this
+ * class the protected m_test, m_value and m_info it is built on. Only the constructors and
+ * Field() are re-exported, because those are all a caller needs; the base's own seven-argument
+ * operator() is deliberately not, so a call that forgets the mask fails to compile.
  */
-class REMORAErrorTag final : public amrex::AMRErrorTag
+class REMORAErrorTag final : private amrex::AMRErrorTag
 {
 public:
     //! Every base constructor makes sense here unchanged; this class alters only evaluation.
     using amrex::AMRErrorTag::AMRErrorTag;
+
+    //! The field name a criterion was built with; ErrorEst switches on it to fill the data.
+    using amrex::AMRErrorTag::Field;
 
     /**
      * Apply this criterion to tba, skipping land.
