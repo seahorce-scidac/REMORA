@@ -127,6 +127,16 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
     // anything for the mask to guard. Everything else is the base class's business.
     const bool masked_test = (m_test == GRAD || m_test == LESS || m_test == GREATER);
 
+    // RELGRAD and VORT read a field cell by cell too, so they would need guarding as well --
+    // they are excluded here only because refinement_criteria_setup cannot build them. Trip
+    // rather than hand masked data to the unguarded test if that ever changes: this is the
+    // same silent-bypass mistake the private inheritance makes ill-formed at the call site,
+    // and it deserves the same treatment one level in.
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(mskr3d == nullptr || masked_test ||
+                                     (m_test != RELGRAD && m_test != VORT),
+                                     "REMORAErrorTag: RELGRAD and VORT have no mask guard; "
+                                     "give them one before building them from inputs");
+
     if (mskr3d == nullptr || !masked_test) {
         amrex::AMRErrorTag::operator()(tba, mf, clearval, tagval, time, level, geom);
         return;
@@ -270,6 +280,21 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         return -1;
     };
 
+    // Spell out the tracers this run actually has rather than saying "a tracer name". Which
+    // ones exist depends on runtime input -- "tracer" is there only when remora.nscalar > 0,
+    // and the biology names only with a biology model -- so a name that is a tracer name in
+    // another configuration is not one here, and a message that cannot say so sends the
+    // reader looking for a typo that is not there.
+    auto valid_field_names = [this] () {
+        std::string names;
+        for (int icomp = 0; icomp < ncons; ++icomp) { names += cons_names[icomp] + ", "; }
+        names += "x_velocity, y_velocity, z_velocity, vorticity, mask";
+#ifdef REMORA_USE_PARTICLES
+        names += ", <particle>_count";
+#endif
+        return names;
+    };
+
     for (int j=0; j < ref_tags.size(); ++j)
     {
         const int cons_comp = cons_comp_for_field(ref_tags[j].Field());
@@ -308,11 +333,12 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             // zvel_new has no ghost cells in z, so we can only ask the copy for lateral ones
             MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,IntVect(1,1,0));
             fill_z_ghost_planes(*mf);
-            // Nothing masks zvel_new and nothing ever writes it -- the vertical velocity the
-            // model solves for lives in a scratch array inside advance_3d -- so it is
-            // identically zero and its own cell is as good an answer as any. If it is ever
-            // wired up, W is built from Huon and Hvom at i+1 and j+1, which would make its
-            // real dependence the five-point cross rather than zero.
+            // Nothing masks zvel_new, and nothing ever puts a computed value in it -- the
+            // vertical velocity the model solves for lives in a scratch array inside
+            // advance_3d, and zvel_new only ever receives zeros -- so it is identically zero
+            // and its own cell is as good an answer as any. If it is ever wired up, W is built
+            // from Huon and Hvom at i+1 and j+1, which would make its real dependence the
+            // five-point cross rather than zero.
         } else if (ref_tags[j].Field() == "vorticity") {
             // Fill the ghost cells of the face-based velocities -- including at
             // coarse/fine boundaries, which is what FillPatch's FillPatchTwoLevels
@@ -360,14 +386,10 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             // so this value depends on the whole 3x3 block of rho-cells around it. Narrow this
             // once the derive itself is masked.
             //
-            // No regression test pins this one, unlike the face velocities, which
-            // DogboneAnalytic_MLdryface covers. It is not dead: collapsing it to zero on that
-            // case keyed on vorticity moves level 1 from 12528 cells to 19440. But the only
-            // masked problem available is near-irrotational, so the vorticity there is down at
-            // 1e-7 and below and the cell count varies continuously with the threshold instead
-            // of sitting on a plateau. An exact assertion would be pinned to roundoff and would
-            // drift with the compiler. Covering it properly wants a masked case with real
-            // shear along a coast.
+            // Unlike the face velocities, which DogboneAnalytic_MLdryface covers, no regression
+            // test pins this one: the only masked problem available is near-irrotational, so
+            // any assertion on it would be pinned to roundoff-scale values. Covering it wants a
+            // masked case with real shear along a coast.
             mask_lo = IntVect(-1,-1,0);
             mask_hi = IntVect( 1, 1,0);
 
@@ -420,8 +442,7 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             // never reads mf; only a named field that matched nothing is an error.
             if (!matched_particle_count && !ref_tags[j].Field().empty()) {
                 amrex::Abort("Unknown refinement field '" + ref_tags[j].Field() +
-                             "'. Use a tracer name, x_velocity, y_velocity, z_velocity, "
-                             "vorticity, mask, or <particle>_count.");
+                             "'. This run has: " + valid_field_names() + ".");
             }
 #else
         } else if (!ref_tags[j].Field().empty()) {
@@ -429,8 +450,7 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             // field would otherwise tag on garbage. A box-only indicator has no field
             // name, tags geometrically, and never reads mf.
             amrex::Abort("Unknown refinement field '" + ref_tags[j].Field() +
-                         "'. Use a tracer name, x_velocity, y_velocity, z_velocity, "
-                         "vorticity, or mask.");
+                         "'. This run has: " + valid_field_names() + ".");
 #endif
         }
 

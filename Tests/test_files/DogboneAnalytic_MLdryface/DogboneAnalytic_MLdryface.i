@@ -40,7 +40,8 @@ remora.n_cell           =  42 15 16
 # Grid generation is pinned here because this case asserts grid structure, not just values.
 # n_error_buf grows a tagged region, grid_eff sets how tightly boxes are wrapped around it, and
 # blocking_factor rounds them; each would move the assertion without any tagging having changed.
-# REMORA sets the first two imperatively in main.cpp rather than taking the AMReX defaults, and
+# REMORA sets n_error_buf and blocking_factor imperatively in main.cpp rather than taking the
+# AMReX defaults (grid_eff is pinned to what AMReX already uses, so that one is a no-op today), and
 # Inputs.rst documents a different n_error_buf than main.cpp sets, so a commit reconciling the
 # two would otherwise turn these cases red for a reason that has nothing to do with them.
 amr.n_error_buf     = 0
@@ -133,10 +134,15 @@ remora.prob.mask_y_hi = 500.0
 # the flow beside it, so the dry faces are the only thing that could tag here.
 #
 # Only the ratio of the field's differences to this threshold matters, so the assertion below
-# holds over a band of thresholds rather than at a point. Measured: 6480 cells for anything in
-# roughly [0.019, 0.032], 10800 below that and 5760 above. 0.025 sits near the middle, about
-# 30% from either edge, so a physics change would have to move the near-coast velocity
-# differences by that much before this case turned red for a reason unrelated to tagging.
+# holds over a band of thresholds rather than at a point. Measured on this build: 6480 cells
+# for anything in roughly [0.019, 0.032], stepping to 8640 around 0.018 and 10800 by 0.016
+# below the band, and to 5760 by 0.033 above it. 0.025 sits near the middle, about 30% from
+# either edge, so a physics change would have to move the near-coast velocity differences by
+# that much before this case turned red for a reason unrelated to tagging.
+#
+# If it does turn red, check that before suspecting the guard: this case has no gold file, so
+# the cell count is its only signal and a changed flow reports as a tagging failure. Comparing
+# plt00010 against a known-good run will tell you which it is.
 remora.refinement_indicators = dryface
 remora.dryface.max_level = 1
 remora.dryface.adjacent_difference_greater = 0.025

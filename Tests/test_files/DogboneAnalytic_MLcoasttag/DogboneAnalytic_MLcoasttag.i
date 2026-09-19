@@ -10,8 +10,9 @@
 # criterion a null mask, this case runs amrex::AMRErrorTag's own unguarded test, not REMORA's
 # guarded one -- so it pins the exemption and the delegation to the base class, and it is not
 # a control for a guard that had stopped tagging anything. Neutering the guarded path leaves
-# both this case and MLcoastskip passing; what catches that is Advection_ML and the
-# DogboneAnalytic gold-file cases, which tag on fields that do go through the guard.
+# both this case and MLcoastskip passing; what catches that is DogboneAnalytic_MLvel,
+# _MLhires and _MLdryface, which tag on fields that do go through the guard. Advection_ML
+# does not: it sets no mask_type, and an unmasked run takes AMReX's own path instead.
 #
 # Level 1 is therefore required to exist, tracking the two coasts of the dogbone. Refining a
 # coast means refining land, which the old derefine criteria would have cleared.
@@ -34,7 +35,8 @@ remora.n_cell           =  42 15 16
 # Grid generation is pinned here because this case asserts grid structure, not just values.
 # n_error_buf grows a tagged region, grid_eff sets how tightly boxes are wrapped around it, and
 # blocking_factor rounds them; each would move the assertion without any tagging having changed.
-# REMORA sets the first two imperatively in main.cpp rather than taking the AMReX defaults, and
+# REMORA sets n_error_buf and blocking_factor imperatively in main.cpp rather than taking the
+# AMReX defaults (grid_eff is pinned to what AMReX already uses, so that one is a no-op today), and
 # Inputs.rst documents a different n_error_buf than main.cpp sets, so a commit reconciling the
 # two would otherwise turn these cases red for a reason that has nothing to do with them.
 amr.n_error_buf     = 0

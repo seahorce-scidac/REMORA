@@ -58,8 +58,10 @@ public:
      * @param[in]    mskr3d    land/sea mask on mf's BoxArray and DistributionMap, with enough
      *                         lateral ghost cells for mask_lo/mask_hi below plus one more for
      *                         GRAD (so two rings for vorticity's GRAD, one for a tracer's).
-     *                         Pass nullptr to evaluate exactly as amrex::AMRErrorTag would,
-     *                         which is what a criterion keyed on the mask itself wants.
+     *                         Pass nullptr to evaluate exactly as amrex::AMRErrorTag would.
+     *                         Two callers want that: a criterion keyed on the mask itself, and
+     *                         any criterion in a run with no mask at all, where every value is
+     *                         clean and the guard could only cost time.
      * @param[in]    clearval  value marking an untagged cell
      * @param[in]    tagval    value marking a tagged cell
      * @param[in]    time      current time

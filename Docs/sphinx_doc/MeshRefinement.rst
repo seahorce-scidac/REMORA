@@ -13,7 +13,8 @@ Note that any tagged region will be covered by one or more boxes.  The user may
 specify the refinement criteria and/or region to be covered, but not the decomposition of the region into
 individual grids. REMORA enforces that all refinement spans the entire vertical direction. Field-based
 tagging criteria are evaluated only where the field means something, so the land-sea boundary does not
-drive refinement on its own account; a region named explicitly, by a box, is refined in full whether it
+drive refinement on its own account (except for a criterion keyed on ``mask`` itself, which exists to
+find the coast); a region named explicitly, by a box, is refined in full whether it
 is land or water. See `Masked Regions and Tagging`_ for what "means something" amounts to per field.
 
 See the `Gridding`_ section of the AMReX documentation for details of how individual grids are created.
@@ -127,47 +128,46 @@ defined in REMORA_derive.cpp.
 
 Available tests include
 
--  “greater\_than”: :math:`\text{field} \geq \text{threshold}`
+-  ``value_greater``: :math:`\text{field} \geq \text{threshold}`
 
--  “less\_than”: :math:`\text{field} \leq \text{threshold}`
+-  ``value_less``: :math:`\text{field} \leq \text{threshold}`
 
--  “adjacent\_difference\_greater”: :math:`\text{max}( | \text{difference between any nearest-neighbor cell} | ) \geq \text{threshold}`
+-  ``adjacent_difference_greater``: :math:`\text{max}( | \text{difference between any nearest-neighbor cell} | ) \geq \text{threshold}`
 
-The example below adds two user-named criteria:
+The example below adds three user-named criteria:
 
-- ``hi_temp``: cells with density greater than 10 on level 0, and greater than 20 on level 1 and higher;
-- ``lo_vort``: cells with relative vorticity less than 0, and separately the region :math:`[0.25,0.25,\texttt{prob_lo_z}]\times[0.75,0.75,\texttt{prob_hi_z}]`;
-- ``scalardiff``: cells having a difference in the tracer of 0.01 or more from that of any immediate neighbor.
-
-The first will trigger up to AMR level 3 and the second to level 2.
-The second will be active only when the problem time is between 100 and 300 seconds.
+- ``hi_temp``: cells with temperature greater than 10 on level 0, and greater than 20 on level 1 and higher. Triggers up to AMR level 3;
+- ``tempdiff``: cells having a difference in temperature of 0.01 or more from that of any immediate neighbor. Triggers up to level 2, and only when the problem time is between 100 and 300 seconds;
+- ``lo_vort``: cells with relative vorticity less than 0, and separately the region :math:`[0.25,0.25,\texttt{prob_lo_z}]\times[0.75,0.75,\texttt{prob_hi_z}]`.
 
 Note that giving a field criterion an ``in_box_lo``/``in_box_hi`` does **not** restrict that criterion to
-the box, as ``lo_vort`` above might suggest: the box is refined, and the field test is applied over the
+the box, as ``lo_vort`` might suggest: the box is refined, and the field test is applied over the
 whole domain. Only a box-only indicator, with no ``field_name``, refines a region and nothing else.
 
-Note that ``temp`` and ``tracer`` are the names of state variables and ``vorticity`` is a derived variable.
-Valid field options for refinement are any cell-centered tracer -- ``temp``, ``salt``, ``tracer``, a
-numbered ``tracer_1`` or a biology tracer such as ``NO3`` -- along with ``x_velocity``, ``y_velocity``,
-``z_velocity``, ``vorticity``, ``mask``, and, in a build with particles, ``<particle>_count``. All but
-``mask`` are restricted to water; see `Masked Regions and Tagging`_ below for what that means field by
-field. Prefer ``value_greater`` for a particle count: its ghost cells are left at zero rather than
+Note that ``temp`` is the name of a state variable and ``vorticity`` is a derived variable.
+Valid field options for refinement are any cell-centered tracer this run actually has, along with
+``x_velocity``, ``y_velocity``, ``z_velocity``, ``vorticity``, ``mask``, and, in a build with particles,
+``<particle>_count``. Which tracers exist depends on the input: ``temp`` and ``salt`` always, ``tracer``
+and numbered ``tracer_1`` and up only when ``remora.nscalar`` asks for them (it defaults to 0), and
+biology names such as ``NO3`` only with a biology model. Naming a field this run does not have aborts at
+setup with the list of the ones it does. All but ``mask`` are restricted to water; see
+`Masked Regions and Tagging`_ below for what that means field by field. Prefer ``value_greater`` for a particle count: its ghost cells are left at zero rather than
 filled, so ``adjacent_difference_greater`` on one sees a step at every grid boundary and tags a set of
 cells that depends on the domain decomposition.
 
 ::
 
-          remora.refinement_indicators = hi_temp scalardiff
+          remora.refinement_indicators = hi_temp tempdiff lo_vort
 
           remora.hi_temp.max_level = 3
           remora.hi_temp.value_greater = 10. 20.
           remora.hi_temp.field_name = temp
 
-          remora.scalardiff.max_level = 2
-          remora.scalardiff.adjacent_difference_greater = 0.01
-          remora.scalardiff.field_name = tracer
-          remora.scalardiff.start_time = 100
-          remora.scalardiff.end_time = 300
+          remora.tempdiff.max_level = 2
+          remora.tempdiff.adjacent_difference_greater = 0.01
+          remora.tempdiff.field_name = temp
+          remora.tempdiff.start_time = 100
+          remora.tempdiff.end_time = 300
 
           remora.lo_vort.max_level = 1
           remora.lo_vort.value_less = 0
@@ -178,8 +178,8 @@ cells that depends on the domain decomposition.
 Masked Regions and Tagging
 --------------------------
 
-A field-based criterion -- ``value_greater``, ``value_less`` or ``adjacent_difference_greater`` -- is
-evaluated only where the value it reads was computed from water alone, and
+A field-based criterion -- ``value_greater``, ``value_less`` or ``adjacent_difference_greater`` -- on any
+field but ``mask`` is evaluated only where the value it reads was computed from water alone, and
 ``adjacent_difference_greater`` differences two such values only. This mirrors how AMReX evaluates the
 same criteria in the presence of an embedded boundary, where a covered cell is skipped and a difference
 is taken only across a face the geometry leaves open.
@@ -201,7 +201,7 @@ wet cells":
   identically zero. If it is ever connected, its dependence will be the five-point cross, not its own
   cell.
 
-A land cell is never tagged by any of these.
+A land cell is never tagged by any of these. The one field exempt from all of it is ``mask``, below.
 
 Nothing else is untagged. A region named explicitly with ``in_box_lo``/``in_box_hi`` (or the index-space
 forms) is refined in full, land included, which is usually what is wanted when the region of interest
