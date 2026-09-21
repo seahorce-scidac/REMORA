@@ -86,28 +86,12 @@ fill_lateral_ghosts_zero_grad (MultiFab& mf)
 } // namespace
 
 /**
- * Apply this criterion to tba, taking the land/sea mask into account.
+ * Apply this criterion to tba, skipping values the land/sea mask makes meaningless.
+ * The parameters are documented on the declaration in REMORA_ErrorTag.H.
  *
- * This is amrex::AMRErrorTag::operator()'s embedded-boundary path for GRAD, LESS and
- * GREATER, with mskr3d standing in for the EBCellFlags: a land cell is "covered" and is
- * never tested, and a face onto a land cell is not "connected" and is never differenced
- * across. Every other test is the base class's unchanged.
- *
- * Note that a cell this criterion declines to test is left exactly as it was found, not
- * cleared. That is what lets a static box keep the tags it set over a coast.
- *
- * @param[inout] tba       tags to update
- * @param[in]    mf        single-component field this criterion tests
- * @param[in]    mskr3d    land/sea mask on mf's layout, or nullptr to test without one
- * @param[in]    clearval  value marking an untagged cell
- * @param[in]    tagval    value marking a tagged cell
- * @param[in]    time      current time
- * @param[in]    level     level being tagged
- * @param[in]    geom      geometry of that level
- * @param[in]    mask_lo   lowest rho-cell offset, relative to a value's own index, that the
- *                         value depends on. Zero for a cell-centered state field.
- * @param[in]    mask_hi   highest such offset. See ErrorEst for the per-field values and why
- *                         a face velocity and vorticity need more than their own cell.
+ * The one thing to know when reading the body: a cell this declines to test is left exactly
+ * as it was found, not cleared. That is what lets a static box keep the tags it set over a
+ * coast, and it is the whole difference from the derefine criteria this replaced.
  */
 void
 REMORAErrorTag::operator() (TagBoxArray&    tba,
@@ -123,15 +107,11 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
 {
     BL_PROFILE("REMORAErrorTag::operator()");
 
-    // Only the three tests REMORA's inputs can build read a field cell by cell and so have
-    // anything for the mask to guard. Everything else is the base class's business.
+    // The tests that read a field cell by cell, and so have something for the mask to guard.
+    // RELGRAD and VORT do too, and are absent only because refinement_criteria_setup cannot
+    // build them -- so assert rather than let a future one slip silently past the guard.
     const bool masked_test = (m_test == GRAD || m_test == LESS || m_test == GREATER);
 
-    // RELGRAD and VORT read a field cell by cell too, so they would need guarding as well --
-    // they are excluded here only because refinement_criteria_setup cannot build them. Trip
-    // rather than hand masked data to the unguarded test if that ever changes: this is the
-    // same silent-bypass mistake the private inheritance makes ill-formed at the call site,
-    // and it deserves the same treatment one level in.
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(mskr3d == nullptr || masked_test ||
                                      (m_test != RELGRAD && m_test != VORT),
                                      "REMORAErrorTag: RELGRAD and VORT have no mask guard; "
@@ -152,14 +132,13 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
     AMREX_ALWAYS_ASSERT(mask_lo[0] <= 0 && mask_lo[1] <= 0 &&
                         mask_hi[0] >= 0 && mask_hi[1] >= 0);
 
-    // The mask is constant down a column, so a vertical offset could not mean anything; reject
-    // one rather than accept it and silently ignore it.
+    // Rejected rather than silently ignored: the mask is column-constant, so a vertical offset
+    // could not mean anything, and for the same reason nothing below reads the mask at k+-1 --
+    // which is why mskr3d needs no vertical ghost cells.
     AMREX_ALWAYS_ASSERT(mask_lo[2] == 0 && mask_hi[2] == 0);
 
-    // The furthest the loop below reaches into the mask laterally: the field's own dependence
-    // on mskr, plus one more for GRAD, which asks the same question of the neighbor it
-    // differences against. It never reads the mask at k+-1 -- the mask is constant down a
-    // column, so mskr3d carries no vertical ghost cells to read.
+    // Furthest the loop below reaches laterally: the field's own dependence on mskr, plus one
+    // for GRAD, which asks the same of the neighbor it differences against.
     const int grad_reach = (m_test == GRAD) ? 1 : 0;
     for (int d = 0; d < 2; ++d) {
         AMREX_ALWAYS_ASSERT(mskr3d->nGrowVect()[d] >=
@@ -190,12 +169,9 @@ REMORAErrorTag::operator() (TagBoxArray&    tba,
     {
         auto const& msk = mskma[bi];
 
-        // Whether the value stored at index (ii,jj,k) was computed from water alone. A value
-        // that read the land side reports on the coast no matter which cell index it is filed
-        // under, so this asks about every rho-cell the value depends on, not just its own.
-        // For a cell-centered state field that is the single cell (mask_lo = mask_hi = 0);
-        // for a face velocity it is the two cells sharing the face; for vorticity the 3x3
-        // block its stencil reaches.
+        // Whether the value at index (ii,jj,k) was computed from water alone. A value that read
+        // the land side reports on the coast whichever cell index it is filed under, so this
+        // asks about every rho-cell the value depends on, not just its own.
         auto value_is_clean = [=] (int ii, int jj) noexcept
         {
             for     (int jo = mlo[1]; jo <= mhi[1]; ++jo) {
@@ -280,11 +256,9 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
         return -1;
     };
 
-    // Spell out the tracers this run actually has rather than saying "a tracer name". Which
-    // ones exist depends on runtime input -- "tracer" is there only when remora.nscalar > 0,
-    // and the biology names only with a biology model -- so a name that is a tracer name in
-    // another configuration is not one here, and a message that cannot say so sends the
-    // reader looking for a typo that is not there.
+    // Which tracers exist depends on runtime input -- "tracer" only when remora.nscalar > 0,
+    // the biology names only with a biology model -- so "use a tracer name" sends a reader
+    // hunting for a typo that is not there. Name the ones this run actually has.
     auto valid_field_names = [this] () {
         std::string names;
         for (int icomp = 0; icomp < ncons; ++icomp) { names += cons_names[icomp] + ", "; }
@@ -299,11 +273,10 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
     {
         const int cons_comp = cons_comp_for_field(ref_tags[j].Field());
 
-        // Which rho-cells the value this criterion will read depends on, relative to the index
-        // it is stored at. Set alongside the fill below rather than in a second switch on the
-        // field name, so that adding a field cannot leave it filled but unguarded: a value
-        // that depends on cells it does not name would be tested where it is contaminated by
-        // land. Zero, the default here, says the value is its own cell and nothing else.
+        // Which rho-cells the value this criterion reads depends on, relative to the index it
+        // is stored at. Set alongside the fill rather than in a second switch on the field
+        // name, so adding a field cannot leave it filled but unguarded. Zero means the value
+        // is its own cell and nothing else.
         IntVect mask_lo = IntVect::TheZeroVector();
         IntVect mask_hi = IntVect::TheZeroVector();
 
@@ -321,7 +294,7 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             MultiFab::Copy(*mf,*xvel_new[levc],0,0,1,1);
             // u is stored at a cell index but lives on that cell's low-x face, and vert_mean_3d
             // multiplies it by msku(i,j) = mskr(i-1,j)*mskr(i,j). So u at a water cell whose
-            // i-1 neighbor is land is an exact zero that is a mask artifact, not slack water.
+            // i-1 neighbor is land is an exact zero: a mask artifact, not slack water.
             mask_lo = IntVect(-1,0,0);
         } else if (ref_tags[j].Field() == "y_velocity") {
             FillPatch(levc, time, *yvel_new[levc], yvel_new, yvel_bc(), BdyVars::v,0,true,true);
@@ -333,12 +306,11 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             // zvel_new has no ghost cells in z, so we can only ask the copy for lateral ones
             MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,IntVect(1,1,0));
             fill_z_ghost_planes(*mf);
-            // Nothing masks zvel_new, and nothing ever puts a computed value in it -- the
-            // vertical velocity the model solves for lives in a scratch array inside
-            // advance_3d, and zvel_new only ever receives zeros -- so it is identically zero
-            // and its own cell is as good an answer as any. If it is ever wired up, W is built
-            // from Huon and Hvom at i+1 and j+1, which would make its real dependence the
-            // five-point cross rather than zero.
+            // zvel_new is identically zero: nothing masks it, and nothing puts a computed
+            // value in it -- the vertical velocity the model solves for lives in a scratch
+            // array inside advance_3d. So its own cell is as good an answer as any. If it is
+            // ever wired up, W is built from Huon and Hvom at i+1 and j+1, making its real
+            // dependence the five-point cross.
         } else if (ref_tags[j].Field() == "vorticity") {
             // Fill the ghost cells of the face-based velocities -- including at
             // coarse/fine boundaries, which is what FillPatch's FillPatchTwoLevels
@@ -382,14 +354,12 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             fill_z_ghost_planes(*mf);
 
             // remora_dervort differences the cell-centered velocities at i+-1 and j+-1 without
-            // masking them (see the TODO there), and each of those is an average of two faces,
-            // so this value depends on the whole 3x3 block of rho-cells around it. Narrow this
-            // once the derive itself is masked.
+            // masking them (see the TODO there), and each is an average of two faces, so this
+            // value depends on the whole 3x3 block around it. Narrow once the derive is masked.
             //
-            // Unlike the face velocities, which DogboneAnalytic_MLdryface covers, no regression
-            // test pins this one: the only masked problem available is near-irrotational, so
-            // any assertion on it would be pinned to roundoff-scale values. Covering it wants a
-            // masked case with real shear along a coast.
+            // Untested, unlike the face velocities that DogboneAnalytic_MLdryface covers: the
+            // only masked problem available is near-irrotational, so any assertion on it would
+            // be pinned to roundoff. Covering it wants a masked case with shear along a coast.
             mask_lo = IntVect(-1,-1,0);
             mask_hi = IntVect( 1, 1,0);
 
@@ -454,12 +424,10 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
 #endif
         }
 
-        // Two criteria want the unguarded test. One keyed on the mask is asking to be told
-        // where the coast is -- the documented way to refine a coastline is
-        // adjacent_difference_greater on it, and guarding that would leave it with no
-        // water-water face across which the mask varies, so it would never tag anything. And
-        // with no mask at all every cell is water, so the guard could not fire; skipping it
-        // keeps an unmasked run on exactly AMReX's own code path.
+        // Two criteria want the unguarded test. One keyed on the mask is asking where the
+        // coast is: guarding it would leave no water-water face across which the mask varies,
+        // so it would never tag. And with no mask every cell is water, so the guard could not
+        // fire -- skipping it keeps an unmasked run on exactly AMReX's own code path.
         const bool unguarded = (ref_tags[j].Field() == "mask") ||
                                (solverChoice.mask_type == MaskType::none);
         const MultiFab* mskr3d_for_tag = unguarded ? nullptr : vec_mskr3d[levc].get();

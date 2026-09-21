@@ -1,25 +1,21 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 # Asserts that a gradient criterion keyed on the mask does tag the coastline.
 #
-# field_name = mask is the one field exempt from the rule that a criterion sees only water:
-# such a criterion is asking where the coast is, and guarding it would leave it with no
-# water-water face across which the mask varies, so it would never tag anything. This is the
-# documented way to refine a coastline deliberately, and it must keep working.
+# field_name = mask is the one field exempt from the rule that a criterion sees only water: it
+# is asking where the coast is, and guarding it would leave no water-water face across which
+# the mask varies, so it would never tag. This is the documented way to refine a coastline
+# deliberately, and it must keep working. Level 1 is therefore required to exist, tracking the
+# dogbone's two coasts -- which means refining land, as the old derefine criteria would not.
 #
-# Note what this does and does not cover. Because the exemption is implemented by handing the
-# criterion a null mask, this case runs amrex::AMRErrorTag's own unguarded test, not REMORA's
-# guarded one -- so it pins the exemption and the delegation to the base class, and it is not
-# a control for a guard that had stopped tagging anything. Neutering the guarded path leaves
-# both this case and MLcoastskip passing; what catches that is DogboneAnalytic_MLvel,
-# _MLhires and _MLdryface, which tag on fields that do go through the guard. Advection_ML
-# does not: it sets no mask_type, and an unmasked run takes AMReX's own path instead.
+# Note what this does not cover. The exemption is implemented by passing a null mask, so this
+# case runs AMReX's own unguarded test and never enters REMORA's guarded path: it pins the
+# exemption and the delegation, and is not a control for a guard that had stopped tagging.
+# Neutering the guarded path leaves both this and MLcoastskip green; DogboneAnalytic_MLvel,
+# _MLhires and _MLdryface are what catch that.
 #
-# Level 1 is therefore required to exist, tracking the two coasts of the dogbone. Refining a
-# coast means refining land, which the old derefine criteria would have cleared.
-#
-# The stationary check rides along as in DogboneAnalytic_MLmask: the exact solution is rest,
-# so plt00010 must equal plt00000 with no gold file to bless. It is worth having here because
-# refining across a coast is exactly where the wet-only two-way average has to hold up.
+# The stationary check rides along as in MLmask: the exact solution is rest, so plt00010 must
+# equal plt00000. Worth having here because refining across a coast is exactly where the
+# wet-only two-way average has to hold up.
 remora.prob_name = DogboneAnalytic
 
 remora.max_step = 10
@@ -32,13 +28,11 @@ remora.prob_hi     =   8400.  750.       0.
 
 remora.n_cell           =  42 15 16
 
-# Grid generation is pinned here because this case asserts grid structure, not just values.
-# n_error_buf grows a tagged region, grid_eff sets how tightly boxes are wrapped around it, and
-# blocking_factor rounds them; each would move the assertion without any tagging having changed.
-# REMORA sets n_error_buf and blocking_factor imperatively in main.cpp rather than taking the
-# AMReX defaults (grid_eff is pinned to what AMReX already uses, so that one is a no-op today), and
-# Inputs.rst documents a different n_error_buf than main.cpp sets, so a commit reconciling the
-# two would otherwise turn these cases red for a reason that has nothing to do with them.
+# Pinned because this case asserts grid structure: each of these moves the assertion without
+# any tagging having changed. main.cpp sets n_error_buf and blocking_factor imperatively rather
+# than taking the AMReX defaults, and Inputs.rst documents a different n_error_buf than main.cpp
+# sets, so a commit reconciling the two would otherwise turn these cases red for an unrelated
+# reason. grid_eff matches the AMReX default, so pinning it is a no-op today.
 amr.n_error_buf     = 0
 amr.blocking_factor = 1
 amr.grid_eff        = 0.7

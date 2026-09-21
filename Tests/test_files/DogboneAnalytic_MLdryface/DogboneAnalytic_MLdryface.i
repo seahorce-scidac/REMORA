@@ -1,30 +1,27 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 # Asserts that a criterion on a face velocity is guarded by the face's mask, not the cell's.
 #
-# x_velocity is stored at a cell index but lives on the low-x face of that cell, and
-# vert_mean_3d multiplies it by msku(i,j) = mskr(i-1,j) * mskr(i,j). So a *water* cell whose
-# i-1 neighbor is land holds an exact zero that is a mask artifact rather than slack water.
-# Guarding such a cell by mskr(i,j) alone -- it is wet, so test it -- lets the jump between
-# that zero and the real flow one cell over drive refinement along the coast, which is the
-# behavior the two removed derefine criteria used to paper over. REMORAErrorTag is told that
-# x_velocity depends on both cells sharing its face, so it declines those cells.
+# x_velocity is stored at a cell index but lives on that cell's low-x face, and vert_mean_3d
+# multiplies it by msku(i,j) = mskr(i-1,j) * mskr(i,j). So a *water* cell whose i-1 neighbor is
+# land holds an exact zero that is a mask artifact, not slack water. Guarding it by mskr(i,j)
+# alone -- it is wet, so test it -- lets the jump between that zero and the real flow one cell
+# over refine the coast, which is what the removed derefine criteria used to paper over.
 #
-# Nothing else in the suite can see that. DogboneAnalytic_MLcoastskip pins the guard for a
-# cell-centered tracer, where the cell's own mask is the whole story; deleting the per-field
-# stencil entirely leaves it, and every other case, green.
+# Nothing else in the suite sees this: MLcoastskip pins the guard for a cell-centered tracer,
+# where the cell's own mask is the whole story, and deleting the per-field stencil leaves it,
+# and every other case, green.
 #
-# The geometry exists to put a coast where there is real flow to contrast against. The
-# free-surface bump drives x < 1100, so mask_x_lo/mask_x_hi place the dogbone's land band
-# inside it; at the shipped 2800/5600 the water by those coasts is nearly stagnant and the
-# artifact zero is indistinguishable from its neighbors. regrid_int is positive because the
-# masking that creates the artifact happens while stepping, not at init.
+# The geometry puts a coast where there is real flow to contrast against. The free-surface bump
+# drives x < 1100, so mask_x_lo/mask_x_hi move the land band inside it; at the shipped
+# 2800/5600 the water by those coasts is nearly stagnant and the artifact zero is
+# indistinguishable from its neighbors. regrid_int is positive because the masking that creates
+# the artifact happens while stepping, not at init.
 #
-# The assertion is the number of cells level 1 covers, because that is what changes: with the
-# cell-only guard the refined region reaches the coastal columns, with the face stencil it
-# does not, and the two regions have the same bounding box, so check_level_extent.sh cannot
-# tell them apart. A cell count is summed over boxes and so does not depend on how the region
-# is chopped for load balance. This case is not stationary -- the bump is driving it -- so
-# there is no plt00000 comparison to make.
+# The assertion is a cell count because that is what changes: the cell-only guard reaches the
+# coastal columns and the face stencil does not, but both regions share a bounding box, so
+# check_level_extent.sh cannot separate them. A cell count is summed over boxes and so survives
+# load-balance chopping. This case is driven by the bump, not stationary, so there is no
+# plt00000 comparison to make.
 remora.prob_name = DogboneAnalytic
 
 remora.max_step = 10
@@ -37,13 +34,11 @@ remora.prob_hi     =   8400.  750.       0.
 
 remora.n_cell           =  42 15 16
 
-# Grid generation is pinned here because this case asserts grid structure, not just values.
-# n_error_buf grows a tagged region, grid_eff sets how tightly boxes are wrapped around it, and
-# blocking_factor rounds them; each would move the assertion without any tagging having changed.
-# REMORA sets n_error_buf and blocking_factor imperatively in main.cpp rather than taking the
-# AMReX defaults (grid_eff is pinned to what AMReX already uses, so that one is a no-op today), and
-# Inputs.rst documents a different n_error_buf than main.cpp sets, so a commit reconciling the
-# two would otherwise turn these cases red for a reason that has nothing to do with them.
+# Pinned because this case asserts grid structure: each of these moves the assertion without
+# any tagging having changed. main.cpp sets n_error_buf and blocking_factor imperatively rather
+# than taking the AMReX defaults, and Inputs.rst documents a different n_error_buf than main.cpp
+# sets, so a commit reconciling the two would otherwise turn these cases red for an unrelated
+# reason. grid_eff matches the AMReX default, so pinning it is a no-op today.
 amr.n_error_buf     = 0
 amr.blocking_factor = 1
 amr.grid_eff        = 0.7

@@ -1,31 +1,25 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 # Asserts that a gradient criterion on a physical field does not tag the coastline.
 #
-# This is the case the mask guard exists for. The dogbone sits at rest with temp = 10
-# throughout the water, and advance_3d_ml zeroes the tracers on land every step, so once a
-# step has been taken the only place in the whole domain where temp changes between neighbors
-# is the coast, where it jumps the full 10. A criterion asking for an adjacent difference over
-# 0.5 would tag every coastal cell on the strength of that jump alone, which says nothing
-# about the flow. Note that this requires regrid_int > 0 -- see the note there.
+# This is the case the mask guard exists for. The dogbone sits at rest with temp = 10 in the
+# water and advance_3d_ml zeroes the tracers on land, so after a step the only place temp
+# changes between neighbors is the coast, where it jumps the full 10. An adjacent difference
+# over 0.5 would tag every coastal cell on the strength of that jump, which says nothing about
+# the flow. The guard differences only water-water pairs, so nothing is tagged and the run must
+# stay single-level -- which fcompare cannot see, since a wrongly refined run still writes a
+# self-consistent plotfile.
 #
-# REMORAErrorTag takes a difference only between two water cells, so it finds no difference
-# anywhere and tags nothing: the run must stay single-level. That is what check_max_level.sh
-# asserts, and it is the whole assertion -- fcompare cannot see it, because a run that wrongly
-# refined the coast would still produce a perfectly self-consistent plotfile.
-#
-# Verified non-vacuous by deleting the guard and watching this fail. Two things it leans on:
+# Verified non-vacuous by deleting the guard and watching this fail. It leans on two things:
 # regrid_int must stay positive (see the note there), and the threshold must stay below 10.
 #
-# Its companion DogboneAnalytic_MLcoasttag keys the same criterion on the mask, which is
-# exempt. That exemption is implemented by passing a null mask, so MLcoasttag runs AMReX's
-# unguarded test rather than this guarded one -- it pins the exemption, and it is not a
-# control for a guard that had stopped tagging anything. The cases that catch that are
-# DogboneAnalytic_MLvel, _MLhires and _MLdryface, which tag on fields that do go through the
-# guard. Advection_ML does not: it sets no mask_type, and an unmasked run takes AMReX's own
-# path rather than the guarded one.
+# Its companion MLcoasttag keys the same criterion on the mask, which is exempt. That exemption
+# is implemented by passing a null mask, so MLcoasttag runs AMReX's unguarded test rather than
+# this guarded one: it pins the exemption, not the guard. The cases that would catch a guard
+# that had stopped tagging altogether are DogboneAnalytic_MLvel, _MLhires and _MLdryface.
+# Advection_ML would not -- it sets no mask_type, and an unmasked run skips the guard.
 #
-# The stationary check rides along for free, as in DogboneAnalytic_MLmask: the exact solution
-# is rest, so plt00010 must equal plt00000 with no gold file to bless.
+# The stationary check rides along free, as in MLmask: the exact solution is rest, so plt00010
+# must equal plt00000, with no gold file to bless.
 remora.prob_name = DogboneAnalytic
 
 remora.max_step = 10
@@ -38,13 +32,11 @@ remora.prob_hi     =   8400.  750.       0.
 
 remora.n_cell           =  42 15 16
 
-# Grid generation is pinned here because this case asserts grid structure, not just values.
-# n_error_buf grows a tagged region, grid_eff sets how tightly boxes are wrapped around it, and
-# blocking_factor rounds them; each would move the assertion without any tagging having changed.
-# REMORA sets n_error_buf and blocking_factor imperatively in main.cpp rather than taking the
-# AMReX defaults (grid_eff is pinned to what AMReX already uses, so that one is a no-op today), and
-# Inputs.rst documents a different n_error_buf than main.cpp sets, so a commit reconciling the
-# two would otherwise turn these cases red for a reason that has nothing to do with them.
+# Pinned because this case asserts grid structure: each of these moves the assertion without
+# any tagging having changed. main.cpp sets n_error_buf and blocking_factor imperatively rather
+# than taking the AMReX defaults, and Inputs.rst documents a different n_error_buf than main.cpp
+# sets, so a commit reconciling the two would otherwise turn these cases red for an unrelated
+# reason. grid_eff matches the AMReX default, so pinning it is a no-op today.
 amr.n_error_buf     = 0
 amr.blocking_factor = 1
 amr.grid_eff        = 0.7
