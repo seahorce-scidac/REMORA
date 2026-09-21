@@ -47,6 +47,9 @@ This will produce an AMReX plotfile at the 10th time step called ``plt00010`` wh
 
 A similar process can be used to build other cases within ``Exec``, except for ``IdealMiniGrid``, which requires :ref:`PnetCDF<netcdf>`.
 
+Note, to build with PnetCDF support, set ``USE_PNETCDF=TRUE`` when invoking ``make``. This can be installed with spack following the instructions in the :ref:`Building<building>` section.
+
+
 Downloading the code
 --------------------
 
@@ -70,3 +73,64 @@ type:
 .. include:: building.rst
 
 .. include:: InputFiles.rst
+
+
+Building parallel-netCDF support with spack
+-------------------------------------------
+
+Clone Spack from GitHub into your home directory:
+
+.. code:: shell
+
+   cd ~
+   git clone -c feature.manyFiles=true --depth=2 https://github.com/spack/spack.git
+
+Set up the environment. The following command is for the Fish shell:
+
+.. code:: shell
+
+   source ~/spack/share/spack/setup-env.fish
+
+Optionally, create a Spack environment:
+
+.. code:: shell
+
+   spack env create remora
+
+Find and register the available compilers:
+
+.. code:: shell
+
+   spack compiler find
+
+In the macOS setup used for these instructions, the compiler configuration was
+stored in ``~/.spack/darwin/compilers.yaml``.
+
+If bootstrapping is needed before installing packages, run:
+
+.. code:: shell
+
+   spack bootstrap now
+
+Install parallel-netCDF and Open MPI:
+
+.. code:: shell
+
+   spack install parallel-netcdf
+   spack install openmpi
+
+.. note::
+
+   You can specify a compiler explicitly, for example:
+
+   .. code:: shell
+
+      spack install openmpi%gcc
+      spack install parallel-netcdf%gcc
+
+Load the installed packages:
+
+.. code:: shell
+
+   spack load parallel-netcdf
+   spack load openmpi
