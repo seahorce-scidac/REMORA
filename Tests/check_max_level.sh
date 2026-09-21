@@ -18,7 +18,7 @@
 # later vanished still counts.
 #
 # A run always builds level 0, so at least one line must match. Requiring that matters: this
-# script is used to assert an expected level of 0, and treating an unparseable log as 0 would
+# script is used to assert an expected level of 0, and treating an unparsable log as 0 would
 # make such an assertion pass for the wrong reason if the print were reworded or if rank
 # output under MPI landed mid-line.
 
