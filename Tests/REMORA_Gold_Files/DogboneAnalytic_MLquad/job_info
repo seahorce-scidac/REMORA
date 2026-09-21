@@ -1,32 +1,32 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Build/Tests/test_files/DogboneAnalytic_MLquad/DogboneAnalytic_MLquad.i
+inputs file: DogboneAnalytic_MLquad.i
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.000160669
+CPU time used since start of simulation (CPU-hours): 0.00426096
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Thu Sep 17 22:11:33 2026
-output dir:         /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Build/Tests/test_files/DogboneAnalytic_MLquad
+output data / time: Mon Sep 21 11:19:51 2026
+output dir:         /home/klion/.claude/jobs/9b9be4bd/tmp/serialgold/DogboneAnalytic_MLquad
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    Sep 17 2026 22:10:44
+build date:    Sep 21 2026 11:16:24
 build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
-build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Build/Exec
+build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/BuildCI/Exec
 AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Submodules/AMReX
 
 COMP:          GNU
 COMP version:  13.3.0
 
 
-REMORA       git hash: v1.7-83-ge1593fcb6761
+REMORA       git hash: v1.7-93-g17bd2a738ea2-dirty
 AMReX       git hash: 26.08-36-gf2cbba4afc9e
 
 
@@ -85,7 +85,7 @@ amrex.handle_sigill = true
 amrex.handle_sigint = true
 amrex.handle_sigsegv = true
 amrex.handle_sigterm = false
-amrex.init_snan = false
+amrex.init_snan = true
 amrex.mf.alloc_single_chunk = false
 amrex.signal_handling = true
 amrex.the_arena_defragmentation = true
@@ -148,8 +148,17 @@ remora.blk_ZW = 10.0
 remora.bottom_stress_type = "quadratic"
 remora.boundary_per_variable = false
 remora.bulk_fluxes = false
+remora.cf_avgdown_bar = 1
 remora.cf_avgdown_perimeter = 1
+remora.cf_avgdown_stencil = 1
+remora.cf_d_knew = 0
+remora.cf_fill_all_kcomp = 1
+remora.cf_fill_vel_after = 0
+remora.cf_flux_pc = 1
 remora.cf_impose_flux = 0
+remora.cf_print_iface = -1
+remora.cf_set_2d_bcs = 1
+remora.cf_time_interp_zeta = 1
 remora.cfl = 0.80000000000000004
 remora.change_max = 1.1000000000000001
 remora.check_cf_metrics = 0
@@ -157,7 +166,7 @@ remora.check_cf_tol = 9.9999999999999998e-13
 remora.check_file = chk
 remora.check_int = -1
 remora.check_int_time = -1.0
-remora.check_mask_consistency = true
+remora.check_mask_consistency = false
 remora.cloud = 0.0
 remora.cloud_type = "constant"
 remora.coriolis_beta = 0.0

@@ -1815,26 +1815,55 @@ private:
      *         average, as ROMS does. 1 (default) matches ROMS; 0 restores the old behaviour. */
     int cf_avgdown_perimeter = 1;
 
-    /** \brief diagnostics used to attribute the coarse-fine error; each default is the
-     *         committed behaviour, so none of them changes an answer unless set. */
+    /** \brief diagnostics used to attribute the coarse-fine error; both are off, so
+     *         neither changes an answer unless set. */
     int cf_fill_vel_after = 0;
     int cf_d_knew = 0;
     /** \brief 0 = never impose the 2D coarse-fine interface condition, 1 = every fast
-     *         step, 2 = only the first fast step of each baroclinic step, which is the
-     *         schedule ROMS uses (put_refine2d runs before the barotropic loop). */
+     *         step, 2 = only the first fast step of each baroclinic step.
+     *
+     *  1 is what ROMS does, and is the default. put_refine2d runs once, before the
+     *  barotropic loop, but u2dbc_im re-applies the same mass-flux formula inside that
+     *  loop on every fast step, so 2 is not the ROMS schedule even though it matches
+     *  put_refine2d's half of it. Measured on the dogbone, 2 helps early and is much
+     *  worse later. */
     int cf_set_2d_bcs = 1;
     int cf_avgdown_bar = 1;
-    int cf_fill_all_kcomp = 0;
-    int cf_time_interp_zeta = 0;
+    /** \brief write every leapfrog record of the coarse-fine ghost band, as
+     *         put_refine2d does when it sets zeta(:,:,1:3) and Zt_avg1 to one value.
+     *         Without it the records the solver reads there go a whole parent step
+     *         stale. On by default. It moves the answer by roundoff on the ROMS-matched
+     *         deck, where the fine zeta halo is barely read, but it is not free in
+     *         general: on the subcycled dogbone it is the dominant cost to volume
+     *         conservation, taking the drift over 20 steps from 2.0e-09 to 2.9e-08.
+     *         Volume is the integral of the free surface, and this writes the free
+     *         surface in the ghost band, so that is where a non-conservative ghost
+     *         value shows up. ROMS makes the same trade. */
+    int cf_fill_all_kcomp = 1;
+    /** \brief interpolate the parent in time onto the child's own sub-time, as
+     *         put_refine2d does, rather than handing a subcycled child the parent
+     *         frozen at the end of its step. On by default, and non-conservative for
+     *         the same reason as cf_fill_all_kcomp: 1.4e-08 of volume drift on its own
+     *         in the same measurement. */
+    int cf_time_interp_zeta = 1;
     /** \brief distribute the parent's interface mass flux piecewise-constantly over the
      *         fine faces under each parent face, as ROMS's get_persisted2d does, instead of
      *         with the linear tangential variation of AMReX's face interpolator. Both
-     *         conserve the total; they differ in the profile along the interface. */
-    int cf_flux_pc = 0;
+     *         conserve the total; they differ in the profile along the interface. On
+     *         by default: it removes the fine level's own excess divergence at the
+     *         interface, leaving it no worse than the parent it is handed. */
+    int cf_flux_pc = 1;
     /** \brief average the fine velocity onto the coarse over ROMS's nine-point stencil
      *         (fine2coarse2d, half-width (Rscale-1)/2 in both directions) instead of only
-     *         the faces that tile the coarse face. Not conservative; ROMS accepts that. */
-    int cf_avgdown_stencil = 0;
+     *         the faces that tile the coarse face. On by default: it takes the
+     *         refinement perturbation at the interface from 1.29x ROMS's to 1.01x on the
+     *         matched dogbone, together with cf_flux_pc. The residual 1% closes only with
+     *         cf_impose_flux, which is a separate judgement call and stays off. The
+     *         nine-point mean does not preserve transport across
+     *         the interface, so it is not conservative in principle, but measured on the
+     *         subcycled dogbone it costs only about 3e-10 of volume drift over 20 steps --
+     *         the free-surface ghost band, not this, is what actually moves that number. */
+    int cf_avgdown_stencil = 1;
 
     /** \brief print the imposed coarse-fine interface velocity at this baroclinic step
      *         (-1 = off). Diagnostic only; the fine level is not in the NetCDF output. */

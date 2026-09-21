@@ -441,11 +441,26 @@ add_test_conservation(Advection_conservation_baseline Advection_ML_subcycle "rem
                       "remora.max_step=20 amr.max_level=0"
                       tracer 1e-12 below volume 1e-12 below)
 
-# Volume, which is what the barotropic interface controls: the fine faces have to carry the
-# coarse face's mass flux. Single level is exact, this is 3.1e-10, and the lockstep driver --
-# which interpolates ubar instead of imposing the flux -- is 2.0e-6.
+# Volume, which is the integral of the free surface, so what costs it here is how the free
+# surface in the fine ghost band is written. REMORA writes it the way ROMS's put_refine2d
+# does -- every leapfrog record plus Zt_avg1 (cf_fill_all_kcomp), interpolated onto the
+# child's own sub-time (cf_time_interp_zeta) -- and neither preserves volume: measured one at
+# a time they take the drift from 2.0e-09 to 2.9e-08 and 1.4e-08 respectively. That is the
+# trade ROMS makes to get the rest of its nesting right. The default path measures 2.9e-08,
+# against 2.0e-09 for the lane below and 2.0e-6 for the lockstep driver, which interpolates
+# ubar instead of imposing the flux. Single level is exact.
 add_test_conservation(DogboneAnalytic_ML_conservation DogboneAnalytic_ML_subcycle "remora_exec"
                       "remora.max_step=20"
+                      volume 1e-7 below)
+
+# The conservative path, pinned where the bound above used to sit. Switching off only the two
+# ghost-band knobs leaves ROMS's restriction stencil and flux distribution in place and brings
+# the drift back to 2.0e-09, which is where the transport side of the interface sits on its
+# own: cf_avgdown_stencil's nine-point mean costs about 3e-10 of that and cf_flux_pc is
+# exactly neutral. If this lane ever drifts, the conservative path has regressed whatever the
+# default path is doing.
+add_test_conservation(DogboneAnalytic_ML_conservation_cons DogboneAnalytic_ML_subcycle "remora_exec"
+                      "remora.max_step=20 remora.cf_fill_all_kcomp=0 remora.cf_time_interp_zeta=0"
                       volume 1e-8 below)
 
 # The assumption underneath all of the above: the fine cell edges have to sum to the coarse
