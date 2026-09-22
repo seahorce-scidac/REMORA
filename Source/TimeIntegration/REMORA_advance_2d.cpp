@@ -27,6 +27,9 @@ void fill_ghost_kcomps (MultiFab& mf, int knew, const Geometry& geom)
 
     const Box dom = amrex::convert(geom.Domain(), mf.boxArray().ixType());
 
+    const bool per_x = geom.isPeriodic(0);
+    const bool per_y = geom.isPeriodic(1);
+
     for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Box gbx = mfi.growntilebox();
         const auto& a = mf.array(mfi);
@@ -36,7 +39,15 @@ void fill_ghost_kcomps (MultiFab& mf, int knew, const Geometry& geom)
         ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             if (v(i,j,k) > Real(0.5)) { return; }
-            if (i < dlo.x || i > dhi.x || j < dlo.y || j > dhi.y) { return; }
+            // Skip ghosts outside the domain only where the domain really ends. In a periodic
+            // direction a ghost beyond the edge is not a physical-boundary cell: if this level
+            // wraps onto itself there the FillBoundary above already marked it valid, and if it
+            // does not -- a patch covering only part of the periodic width -- then it is an
+            // ordinary coarse-fine ghost that FillPatch just filled from the parent across the
+            // seam, and its other leapfrog components need the same synchronisation as any
+            // other coarse-fine ghost.
+            if (!per_x && (i < dlo.x || i > dhi.x)) { return; }
+            if (!per_y && (j < dlo.y || j > dhi.y)) { return; }
             const Real val = a(i,j,k,knew);
             a(i,j,k,0) = val;
             a(i,j,k,1) = val;
