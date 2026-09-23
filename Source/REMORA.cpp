@@ -2306,7 +2306,6 @@ REMORA::ReadParameters ()
 
     // Diagnostics; see the declarations in REMORA.H.
     pp.queryAdd("cf_fill_vel_after", cf_fill_vel_after);
-    pp.queryAdd("cf_d_knew", cf_d_knew);
     pp.queryAdd("cf_set_2d_bcs", cf_set_2d_bcs);
     pp.queryAdd("cf_avgdown_bar", cf_avgdown_bar);
     pp.queryAdd("cf_fill_all_kcomp", cf_fill_all_kcomp);

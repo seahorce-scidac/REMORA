@@ -130,13 +130,12 @@ REMORA::store_2d_flux (int lev)
  *
  *     ubar_f = Dubar_c / D_f,    D_f = 0.5*(h + zeta)_{i-1} + 0.5*(h + zeta)_i
  *
- * D comes from know by default, but ROMS uses one time index for both sides: u2dbc_im.F's
- * nested branch builds D from zeta(kout) and writes ubar(kout), and put_refine2d uses indx1
- * for both. Since the next half-step forms DUon = ubar(krhs)*D(krhs) with krhs equal to this
- * knew, ROMS recovers Dubar_parent exactly while this carries an extra D(knew)/D(know).
- * remora.cf_d_knew = 1 matches ROMS, but measures negligible -- at most 1.2e-07 on the step-1
- * Channel_Test interface velocity against a 2.4e-03 artifact, with no change to Dogbone volume
- * drift or the Channel_Test blow-up -- so it is off pending gold regeneration.
+ * D comes from know; ROMS instead uses one time index for both sides: u2dbc_im.F's nested branch
+ * builds D from zeta(kout) and writes ubar(kout), and put_refine2d uses indx1 for both. Since
+ * the next half-step forms DUon = ubar(krhs)*D(krhs) with krhs equal to this knew, ROMS
+ * recovers Dubar_parent exactly while this carries an extra D(knew)/D(know). Measured at most
+ * 1.2e-07 on the step-1 Channel_Test interface velocity, against a 2.4e-03 artifact, with no
+ * change to Dogbone volume drift or the Channel_Test blow-up.
  *
  * Momentum only. setup_step resets all three zeta components to Zt_avg1, so what a finer
  * level interpolates for the free surface is already the parent's fast-time average -- as in
@@ -158,10 +157,6 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
     // conserve mass. Every fast step: unlike a ROMS contact point on a physical perimeter,
     // these faces are interior and the barotropic solver rewrites them.
     const int set_mask = FPr_Dubar[lev-1].GetSetMaskVal();
-
-    // ROMS builds D from the same zeta component it writes the velocity to, so the next
-    // half-step's DUon = ubar(krhs)*D(krhs) reproduces the parent's transport exactly.
-    const int kD = cf_d_knew ? knew : know;
 
     MultiFab Dubar_cf(vec_Dubar_new[lev]->boxArray(), vec_Dubar_new[lev]->DistributionMap(),
                       1, vec_Dubar_new[lev]->nGrowVect());
@@ -198,8 +193,8 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
         {
             if (cmask(i,j,0) != set_mask) { return; }
 
-            Real D = Real(0.5) * (h(i-1,j,0,0) + zeta(i-1,j,0,kD) +
-                                  h(i  ,j,0,0) + zeta(i  ,j,0,kD));
+            Real D = Real(0.5) * (h(i-1,j,0,0) + zeta(i-1,j,0,know) +
+                                  h(i  ,j,0,0) + zeta(i  ,j,0,know));
             if (D <= zero) { return; }
 
             ubar(i,j,0,knew) = Dubar(i,j,0) / D * msku(i,j,0);
@@ -280,8 +275,8 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
         {
             if (cmask(i,j,0) != set_mask) { return; }
 
-            Real D = Real(0.5) * (h(i,j-1,0,0) + zeta(i,j-1,0,kD) +
-                                  h(i,j  ,0,0) + zeta(i,j  ,0,kD));
+            Real D = Real(0.5) * (h(i,j-1,0,0) + zeta(i,j-1,0,know) +
+                                  h(i,j  ,0,0) + zeta(i,j  ,0,know));
             if (D <= zero) { return; }
 
             vbar(i,j,0,knew) = Dvbar(i,j,0) / D * mskv(i,j,0);

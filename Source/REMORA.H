@@ -1815,10 +1815,11 @@ private:
      *         average, as ROMS does. 1 (default) matches ROMS; 0 restores the old behaviour. */
     int cf_avgdown_perimeter = 1;
 
-    /** \brief diagnostics used to attribute the coarse-fine error; both are off, so
-     *         neither changes an answer unless set. */
+    /** \brief re-fill the child's 3D velocity from the parent after the step, so the coarse-fine
+     *         boundary carries the parent's shear profile rather than the one vert_mean_3d left
+     *         there. Diagnostic; off, so it changes no answer unless set. timeStepML does this
+     *         unconditionally, and Advance only under this knob -- see the comment there. */
     int cf_fill_vel_after = 0;
-    int cf_d_knew = 0;
     /** \brief 0 = never impose the 2D coarse-fine interface condition, 1 = every fast step,
      *         2 = only the first fast step of each baroclinic step.
      *
