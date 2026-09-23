@@ -8,7 +8,8 @@
  *        MultiFab it fills.
  *
  * REMORA::prob_coords(lev) gives a level's own arrays. The hires_init_level path passes
- * full-domain arrays for a level that does not exist yet.
+ * full-domain arrays for a level that does not exist yet. There init_analytic_zeta runs before
+ * the depths it would feed, so it gets z_r and z_w as nullptr.
  *
  * In its own header because REMORA.H and REMORA_prob_common.H include each other.
  */

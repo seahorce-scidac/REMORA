@@ -8,6 +8,20 @@
 
 using namespace amrex;
 
+/**
+ * \brief Depth at stretched coordinate sc (stretching value Cs) in a column of depth hwater
+ *        under free surface zeta, ROMS Vtransform 2. Shared by stretch_transform and
+ *        stretch_transform_full_domain.
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+Real stretched_depth (Real sc, Real Cs, Real hc, Real hwater, Real zeta)
+{
+    Real cff = hc*sc;
+    Real hinv = one/(hc+hwater);
+    Real cff2 = (cff+Cs*hwater)*hinv;
+    return zeta+(zeta+hwater)*cff2;
+}
+
 void
 REMORA::calc_stretch_coeffs ()
 {
@@ -133,24 +147,16 @@ REMORA::stretch_transform (int lev)
             if (k < N) {
                 Real sc_r=ds*(k-N+Real(0.5));
                 Real sc_w=ds*(k-N);
-                Real cff_r = hc*sc_r;
-                Real cff1_r = Cs_r_dat[k];
-                Real cff_w=hc*sc_w;
-                Real cff1_w=Cs_w_dat[k];
                 Real hwater=h(i,j,0);
 
-                Real hinv=one/(hc+hwater);
-                Real cff2_r=(cff_r+cff1_r*hwater)*hinv;
-                Real cff2_w=(cff_w+cff1_w*hwater)*hinv;
-
                 if (k==0) {
-                    h(i,j,0,1) = Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+                    h(i,j,0,1) = stretched_depth(sc_w, Cs_w_dat[k], hc, hwater, Zt_avg1(i,j,0));
                     z_w(i,j,0) = h(i,j,0,1);
                 } else {
-                    z_w(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_w;
+                    z_w(i,j,k)=stretched_depth(sc_w, Cs_w_dat[k], hc, hwater, Zt_avg1(i,j,0));
                 }
 
-                z_r(i,j,k)=Zt_avg1(i,j,0)+(Zt_avg1(i,j,0)+hwater)*cff2_r;
+                z_r(i,j,k)=stretched_depth(sc_r, Cs_r_dat[k], hc, hwater, Zt_avg1(i,j,0));
 
             } else { // k == N
                 // HACK: should actually be the normal expression with coeffs evaluated at k=N-1
@@ -221,4 +227,49 @@ REMORA::stretch_transform (int lev)
     // already filled z_phys_nd on the grown boxes, but we enforce periodicity just in case
     vec_z_phys_nd[lev]->FillBoundary(geom[lev].periodicity());
 }
+/**
+ * z_r and z_w for a level not yet created, on full-domain arrays, over every grow cell of
+ * mf_z_w. mf_h and mf_zeta must cover the same region.
+ *
+ * @param[in   ] lev       level whose vertical grid to use
+ * @param[in   ] mf_h      bathymetry (component 0), 2D
+ * @param[in   ] mf_zeta   free surface (component 0), 2D
+ * @param[  out] mf_z_r    depth of rho points
+ * @param[  out] mf_z_w    depth of w points, on the same layout as mf_z_r but nodal in z
+ */
+void
+REMORA::stretch_transform_full_domain (int lev, const MultiFab& mf_h, const MultiFab& mf_zeta,
+                                       MultiFab& mf_z_r, MultiFab& mf_z_w)
+{
+    BL_PROFILE("REMORA::stretch_transform_full_domain()");
+    auto Cs_w_dat = Cs_w.data();
+    auto Cs_r_dat = Cs_r.data();
+
+    const auto& geomdata = Geom(lev).data();
+    const int N = geom[lev].Domain().length(2);
+    const Real hc = -min(geomdata.ProbHi(2),-solverChoice.tcline);
+    const Real ds = one / Real(N);
+
+    for (MFIter mfi(mf_z_w, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& wbx = mfi.growntilebox();
+        Array4<const Real> const& h    = mf_h.const_array(mfi);
+        Array4<const Real> const& zeta = mf_zeta.const_array(mfi);
+        Array4<      Real> const& z_r  = mf_z_r.array(mfi);
+        Array4<      Real> const& z_w  = mf_z_w.array(mfi);
+
+        ParallelFor(wbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (k < N) {
+                z_w(i,j,k) = stretched_depth(ds*(k-N), Cs_w_dat[k], hc, h(i,j,0), zeta(i,j,0));
+                z_r(i,j,k) = stretched_depth(ds*(k-N+Real(0.5)), Cs_r_dat[k], hc, h(i,j,0),
+                                             zeta(i,j,0));
+            } else {
+                z_w(i,j,N) = zeta(i,j,0);
+            }
+        });
+    }
+    Gpu::streamSynchronize();
+}
+
 #endif
