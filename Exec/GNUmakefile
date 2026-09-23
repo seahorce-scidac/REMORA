@@ -26,7 +26,6 @@ USE_ASSERTION = TRUE
 
 # Enable PNETCDF support
 USE_PNETCDF = FALSE
-USE_PNETCDF = TRUE
 
 # Enable particles
 USE_PARTICLES = TRUE
