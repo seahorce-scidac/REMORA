@@ -27,6 +27,15 @@ remora.prob_hi     =   8400.  750.       0.
 
 remora.n_cell           =  42 15 16
 
+# Pinned because this case asserts grid structure: each of these moves the assertion without
+# any tagging having changed. main.cpp sets n_error_buf and blocking_factor imperatively rather
+# than taking the AMReX defaults, and Inputs.rst documents a different n_error_buf than main.cpp
+# sets, so a commit reconciling the two would otherwise turn these cases red for an unrelated
+# reason. grid_eff matches the AMReX default, so pinning it is a no-op today.
+amr.n_error_buf     = 0
+amr.blocking_factor = 1
+amr.grid_eff        = 0.7
+
 amr.blocking_factor_z = 16
 
 amr.max_grid_size_z = 1024

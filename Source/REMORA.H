@@ -34,6 +34,7 @@
 #include <REMORA_TimeInterpolatedData.H>
 #include <REMORA_DataStruct.H>
 #include <REMORA_Derive.H>
+#include <REMORA_ErrorTag.H>
 #include <REMORA_Biology.H>
 #include "REMORA_prob_common.H"
 
@@ -1890,7 +1891,7 @@ private:
     void init_ref_ratios ();
 
     /** \brief Holds info for dynamically generated tagging criteria */
-    static amrex::Vector<amrex::AMRErrorTag> ref_tags;
+    static amrex::Vector<REMORAErrorTag> ref_tags;
 
     /** \brief Mask that zeroes out values on a coarse level underlying grids on the next finest level */
     amrex::MultiFab fine_mask;

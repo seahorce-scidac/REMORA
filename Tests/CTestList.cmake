@@ -228,6 +228,82 @@ function(add_test_extrema TEST_NAME TEST_EXE PLTFILE TOL)
     )
 endfunction(add_test_extrema)
 
+# Assert which refinement levels a run creates, and that it stays stationary while doing it.
+# Grid structure is the only place a tagging bug shows: a criterion that has stopped tagging,
+# or one that has started tagging the coastline, still writes a self-consistent plotfile, so
+# fcompare alone cannot see it. MAX_LEVEL is the deepest level REMORA must build; 0 asserts
+# that nothing was tagged. See Tests/check_max_level.sh for the assertion itself.
+function(add_test_nlevels TEST_NAME TEST_EXE PLTFILE MAX_LEVEL)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(FCOMPARE_TOLERANCE "-r 1e-14 --abs_tol 1.0e-14")
+    set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${CMAKE_CURRENT_SOURCE_DIR}/check_max_level.sh ${TEST_NAME}.log ${MAX_LEVEL} && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${CURRENT_TEST_BINARY_DIR}/plt00000 ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_nlevels)
+
+# Assert how far a refinement level reaches, and that the run stays stationary. Where
+# add_test_nlevels checks which levels exist, this checks where one of them is, which is the
+# only thing that distinguishes "the region the user asked to refine was refined" from "part
+# of it was". Pass the level, the direction (0/1/2 for x/y/z), and the physical extent it must
+# span. See Tests/check_level_extent.sh.
+function(add_test_extent TEST_NAME TEST_EXE PLTFILE LEVEL DIM LO HI)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(FCOMPARE_TOLERANCE "-r 1e-14 --abs_tol 1.0e-14")
+    set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${CMAKE_CURRENT_SOURCE_DIR}/check_level_extent.sh ${CURRENT_TEST_BINARY_DIR}/${PLTFILE} ${LEVEL} ${DIM} ${LO} ${HI} && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} ${CURRENT_TEST_BINARY_DIR}/plt00000 ${CURRENT_TEST_BINARY_DIR}/${PLTFILE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_extent)
+
+# Assert how many cells a refinement level covers. The third grid assertion, for a change that
+# removes cells from inside a refined region while leaving its bounding box alone -- which
+# neither add_test_nlevels nor add_test_extent can see. Summed over boxes, so it does not
+# depend on how the region is chopped for load balance. No stationary comparison: use this for
+# a case that is actually evolving. See Tests/check_level_cells.sh.
+function(add_test_cells TEST_NAME TEST_EXE PLTFILE LEVEL NCELLS)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ${TEST_NAME}.log && ${CMAKE_CURRENT_SOURCE_DIR}/check_level_cells.sh ${CURRENT_TEST_BINARY_DIR}/${PLTFILE} ${LEVEL} ${NCELLS}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_cells)
+
 # Stationary test -- compare with time 0
 function(add_test_0 TEST_NAME TEST_EXE PLTFILE)
     setup_test()
@@ -309,8 +385,21 @@ add_test_r_gold(DogboneAnalytic_MLhires  "remora_exec" "plt_ml00010" DogboneAnal
 # they need no gold file: plt00010 must equal plt00000. A plain arithmetic average-down
 # lets the zeroed fine land cells drag those coarse cells off their initial value, which
 # breaks stationarity by ~1e-2 in salt and velocity.
-add_test_0(DogboneAnalytic_MLmask       "remora_exec" "plt00010")
-add_test_0(DogboneAnalytic_MLmask_rr2   "remora_exec" "plt00010")
+# coastbox spans the full width of the domain, 0 to 750 in y, and the dogbone's coasts run
+# through it, so this asserts the thing a static box is for: the whole box is refined, land
+# included. REMORA used to clip it back to the water, giving y in [250,500].
+add_test_extent(DogboneAnalytic_MLmask  "remora_exec" "plt00010" 1 1 0.0 750.0)
+# Same assertion on the ref-ratio-2 twin, so that path of the same fix is covered too: its
+# grids move from 3 clipped boxes to 2 full-box grids, which add_test_0 alone cannot see.
+add_test_extent(DogboneAnalytic_MLmask_rr2 "remora_exec" "plt00010" 1 1 0.0 750.0)
+# A pair: the same gradient criterion keyed on a physical field, which must not see the coast,
+# and on the mask, which must. Either one alone passes for the wrong reason.
+add_test_nlevels(DogboneAnalytic_MLcoastskip "remora_exec" "plt00010" 0)
+add_test_nlevels(DogboneAnalytic_MLcoasttag  "remora_exec" "plt00010" 1)
+# MLcoastskip covers a cell-centered field, where the cell's own mask is the whole story.
+# This covers a face-staggered one, where it is not: 12960 cells are refined if x_velocity is
+# guarded by mskr(i,j) alone instead of by both cells sharing its face.
+add_test_cells(DogboneAnalytic_MLdryface     "remora_exec" "plt00010" 1 6480)
 add_test_r_differ(Seamount_hires         "remora_exec" "plt00010"    Seamount)
 add_test_r_differ(Seamount_hires_r4      "remora_exec" "plt00010"    Seamount_hires)
 

@@ -11,6 +11,7 @@ CEXE_sources += REMORA_SumIQ.cpp
 
 CEXE_sources += REMORA_Derive.cpp
 CEXE_headers += REMORA_Derive.H
+CEXE_headers += REMORA_ErrorTag.H
 
 ifeq ($(USE_MOAB), TRUE)
   CEXE_sources += REMORA_MOAB.cpp
