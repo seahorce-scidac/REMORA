@@ -876,6 +876,12 @@ REMORA::advance_2d (int lev,
         const bool set_2d_now = (cf_set_2d_bcs == 1) || (cf_set_2d_bcs == 2 && my_iif == 0);
         if (do_substep && set_2d_now) {
             set_2d_cf_bcs(lev, t_old[lev], know, knew);
+            // set_2d_cf_bcs writes each box's own interface faces. Where a box boundary meets
+            // the interface, the neighbouring box's ghost copy of that face still holds the
+            // FillPatch value, and the shared face between the two boxes would be advanced
+            // from different neighbours -- the answer then depends on the box layout.
+            vec_ubar[lev]->FillBoundary(knew, 1, geom[lev].periodicity());
+            vec_vbar[lev]->FillBoundary(knew, 1, geom[lev].periodicity());
         }
 
 #ifdef REMORA_USE_NETCDF

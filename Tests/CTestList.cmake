@@ -376,6 +376,13 @@ add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic              "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic_MLvel        "remora_exec" "plt_ml00010")
 add_test_r(DogboneAnalytic_MLquad       "remora_exec" "plt_ml_quad00010")
+# A refined patch whose low x edge lies on the periodic seam. The only lane whose fine level
+# touches a periodic boundary, so the only one that holds the periodic-boundary handling in
+# BuildMask, fill_ghost_kcomps, FillCoarsePatchMap and the ubar/vbar average-down in place.
+# Also the only multi-level lane with Coriolis on. Its gold is from one rank, one box per
+# level; under MPI the level-1 box splits at j = 30, so it also holds the interface ghost
+# refresh after set_2d_cf_bcs, without which the answer depended on the box layout.
+add_test_r(Channel_Test_ML_seam         "remora_exec" "plt00010")
 
 #=============================================================================
 # Time subcycling on refined levels (remora.do_substep)
