@@ -2931,6 +2931,18 @@ REMORA::AverageDownTo (int crse_lev)
             restore_perimeter_faces(vb_save, *vec_vbar[crse_lev], covered, 1, 2);
         }
 
+        // The averages above rewrote this level's valid cells under the patch, but not the
+        // ghost cells that image them across a periodic seam, and nothing refreshes those
+        // before the next barotropic step reads them: FillPatch refills only the component it
+        // is asked for, and fill_ghost_kcomps runs on fine levels only. Where the patch abuts
+        // a periodic boundary the two copies of the coarse periodic u-face then see different
+        // vbar for the same physical cell -- the valid one, just averaged, against the stale
+        // ghost -- and that asymmetry grows step by step. Measured on Channel_Test with a
+        // half-width patch on the seam: 3.4e-4 by step 20 and NaN by ~300 with this missing,
+        // exactly zero with it; an interior patch is unaffected either way.
+        vec_ubar[crse_lev]->FillBoundary(geom[crse_lev].periodicity());
+        vec_vbar[crse_lev]->FillBoundary(geom[crse_lev].periodicity());
+
         // zeta is deliberately absent: set_zeta_to_Ztavg overwrites all three of its
         // components from Zt_avg1 next step and stretch_transform reads Zt_avg1 anyway, so
         // averaging it here would write something nothing reads.
