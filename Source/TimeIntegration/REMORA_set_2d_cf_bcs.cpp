@@ -206,6 +206,15 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
     // one block per baroclinic step: only the first fast step, from cf_print_iface onward.
     // cf_print_iface = N lines up with ROMS child history record N.
     if (cf_print_iface >= 0 && istep[0] >= cf_print_iface) {
+#ifdef AMREX_USE_GPU
+        // Host loops over Array4s that live in device memory, so they would fault here.
+        // Staging every fab through the pinned arena is not worth it for a diagnostic.
+        static bool warned = false;
+        if (!warned) {
+            amrex::Warning("remora.cf_print_iface is host-only; ignored on a GPU build");
+            warned = true;
+        }
+#else
         const auto dx_p = geom[lev].CellSizeArray();
         const auto lo_p = geom[lev].ProbLoArray();
         for (MFIter mfi(*vec_ubar[lev]); mfi.isValid(); ++mfi)
@@ -257,6 +266,7 @@ REMORA::set_2d_cf_bcs (int lev, Real time, int know, int knew)
             }
             break;   // one box is enough for this diagnostic
         }
+#endif
     }
 
 #ifdef _OPENMP
