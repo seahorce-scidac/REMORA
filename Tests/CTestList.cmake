@@ -396,7 +396,8 @@ add_test_log(Advection_ML_subcycle      "remora_exec" "with dt = 50")
 
 # The load-bearing one: at a timestep ratio of 1 the recursive driver must reproduce
 # timeStepML, separating a broken driver from the answer changes subcycling legitimately
-# makes. It is also the only thing still holding lockstep answers in place.
+# makes. With DogboneAnalytic_ML_conservation_lockstep it is one of the two things still
+# holding lockstep in place.
 # do_reflux is off in the subcycled run because it is a correction the lockstep driver does
 # not apply at all, so leaving it on would compare a feature rather than the drivers. It
 # moves the tracer by 3e-4 here, well clear of the tolerance.
@@ -468,6 +469,16 @@ add_test_conservation(DogboneAnalytic_ML_conservation_cons DogboneAnalytic_ML_su
                       "remora.max_step=20 remora.cf_fill_all_kcomp=0 remora.cf_time_interp_zeta=0"
                       volume 1e-8 below)
 
+# The must-drift control for both volume lanes above, and the assertion behind the lockstep
+# figure they are quoted against. Lockstep interpolates the parent's ubar at the interface
+# instead of imposing its fast-time-averaged flux -- its shared barotropic loop leaves DU_avg2
+# still accumulating when a child needs it -- and volume drifts 2.0e-6, two orders past the
+# 1e-7 the default path is held to. If this lane ever conserves, the case has stopped
+# separating the two drivers and neither bound above is measuring the coarse-fine treatment.
+add_test_conservation(DogboneAnalytic_ML_conservation_lockstep DogboneAnalytic_ML_subcycle "remora_exec"
+                      "remora.max_step=20 remora.do_substep=0"
+                      volume 1e-7 above)
+
 # The assumption underneath all of the above: the fine cell edges have to sum to the coarse
 # edge, or the mass flux imposed at the interface cannot be conservative whatever else is
 # right. check_cf_metrics aborts past remora.check_cf_tol, so reaching the printed line is the
@@ -475,6 +486,11 @@ add_test_conservation(DogboneAnalytic_ML_conservation_cons DogboneAnalytic_ML_su
 # is not guaranteed on the NetCDF path, where a finer level interpolates its metrics from the
 # parent's and scales them by the refinement ratio.
 add_test_log(Advection_ML_cf_metrics "remora_exec" "CF edge tiling")
+
+# The ratio-3 grid the DogboneAnalytic_ML golds and both volume lanes above are measured on,
+# so the identity those numbers rest on is asserted where they are taken rather than only at
+# ratio 2: three fine faces to a coarse one, 1.4e-16.
+add_test_log(DogboneAnalytic_ML_cf_metrics "remora_exec" "CF edge tiling")
 
 # The same check where it is not trivially satisfied: every other multi-level case has uniform
 # pm and pn, so their fine edges sum to the coarse edge for a reason particular to them.
