@@ -2274,10 +2274,19 @@ REMORA::ReadParameters ()
     }
     pp.queryAdd("do_substep", do_substep);
 
-    if (!do_substep && max_level > 0) {
-        amrex::Print() << "NOTE: remora.do_substep = 0 selects the lockstep driver. It cannot\n"
-                       << "      impose the parent's mass flux at a coarse-fine interface, so it\n"
-                       << "      conserves volume less well: 2.0e-6 against 3.1e-10 on Dogbone.\n";
+    if (max_level > 0) {
+        if (do_substep) {
+            amrex::Print() << "WARNING: subcycling refined levels in time is EXPERIMENTAL.\n"
+                           << "         Multi-level answers are not yet considered production\n"
+                           << "         quality; check them against a single-level run before\n"
+                           << "         relying on them. remora.do_substep = 0 selects the older\n"
+                           << "         lockstep driver instead.\n";
+        } else {
+            amrex::Print() << "NOTE: remora.do_substep = 0 selects the lockstep driver. It cannot\n"
+                           << "      impose the parent's mass flux at a coarse-fine interface, so\n"
+                           << "      it conserves volume less well: 2.0e-6 against 2.9e-08 on\n"
+                           << "      Dogbone. Refinement is EXPERIMENTAL on either driver.\n";
+        }
     }
 
     // Write the parent's flux straight onto DUon/DVom instead of letting the solver rebuild it

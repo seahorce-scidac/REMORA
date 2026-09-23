@@ -9,6 +9,14 @@ Mesh Refinement
 
 REMORA allows both static and dynamic mesh refinement, as well as the choice of one-way or two-way coupling.
 
+.. warning::
+
+   Mesh refinement is **experimental**, and subcycling refined levels in time
+   (``remora.do_substep = 1``, the default) especially so. Multi-level answers are not yet
+   considered production quality. Check a refined run against a single-level one at the same
+   resolution before relying on it, and treat a result that only appears under refinement as
+   suspect until it does.
+
 Note that any tagged region will be covered by one or more boxes.  The user may
 specify the refinement criteria and/or region to be covered, but not the decomposition of the region into
 individual grids. REMORA enforces that all refinement spans the entire vertical direction. Tagging criteria

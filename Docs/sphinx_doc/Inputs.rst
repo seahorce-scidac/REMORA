@@ -404,10 +404,12 @@ Notes
    at every level
 
 -  **remora.do_substep** = 1 is the default, and advances a finer level
-   **remora.dt_ref_ratio** times per parent step. Setting it to 0 selects the lockstep driver,
+   **remora.dt_ref_ratio** times per parent step. Subcycling is **experimental**: multi-level
+   answers are not yet production quality, and a refined run should be checked against a
+   single-level one before being relied on. Setting it to 0 selects the lockstep driver,
    which advances every level once per step through one shared barotropic loop. Because that
    loop cannot hand a finer level the parent's completed mass flux, it cannot impose that flux
-   at a coarse-fine interface and conserves volume less well: drift of 2.0e-6 against 3.1e-10 on
+   at a coarse-fine interface and conserves volume less well: drift of 2.0e-6 against 2.9e-08 on
    DogboneAnalytic. It is kept for comparison against answers predating subcycling and is
    expected to be deprecated.
 
