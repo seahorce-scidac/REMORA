@@ -9,12 +9,26 @@
 using namespace amrex;
 
 /**
+ * @param[in   ] lev     level whose coordinates to return
+ */
+ProbCoords
+REMORA::prob_coords (int lev) const
+{
+    ProbCoords coords;
+    coords.x_r = vec_xr[lev].get();
+    coords.y_r = vec_yr[lev].get();
+    coords.z_r = vec_z_r[lev].get();
+    coords.z_w = vec_z_w[lev].get();
+    return coords;
+}
+
+/**
  * @param[in   ] lev     level to initialize on
  */
 void
 REMORA::init_analytic(int lev)
 {
-    prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, *cons_new[lev], *xvel_new[lev], *yvel_new[lev]);
+    prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, prob_coords(lev), *cons_new[lev], *xvel_new[lev], *yvel_new[lev]);
 
     set_grid_scale(lev);
 }
@@ -441,7 +455,7 @@ void REMORA::allocate_init_full_domain () {
 void
 REMORA::init_full_domain_from_analytic ()
 {
-    prob->init_analytic_prob(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_cons_full_domain[hires_init_level], *vec_xvel_full_domain[hires_init_level], *vec_yvel_full_domain[hires_init_level]);
+    prob->init_analytic_prob(hires_init_level, geom[hires_init_level], solverChoice, *this, prob_coords(hires_init_level), *vec_cons_full_domain[hires_init_level], *vec_xvel_full_domain[hires_init_level], *vec_yvel_full_domain[hires_init_level]);
 
     // Biology must be filled on the hires level before the average-down loop
     // below, or the biology components of vec_cons_full_domain are averaged
@@ -458,7 +472,7 @@ REMORA::init_full_domain_from_analytic ()
 void
 REMORA::init_full_domain_zeta_from_analytic ()
 {
-    prob->init_analytic_zeta(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_zeta_full_domain[hires_init_level]);
+    prob->init_analytic_zeta(hires_init_level, geom[hires_init_level], solverChoice, *this, prob_coords(hires_init_level), *vec_zeta_full_domain[hires_init_level]);
 
     for (int lev=hires_init_level-1; lev >= 0; lev--) {
         average_down_with_grow_cells(lev, vec_zeta_full_domain, true);

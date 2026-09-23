@@ -713,7 +713,7 @@ REMORA::set_zeta (int lev)
     if (lev==0) {
         if (hires_init_level < 0) {
             if (solverChoice.ic_type == IC_Type::analytic) {
-                prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, *vec_zeta[lev]);
+                prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, prob_coords(lev), *vec_zeta[lev]);
             } else if (solverChoice.ic_type == IC_Type::netcdf) {
 #ifdef REMORA_USE_NETCDF
                 amrex::Print() << "Calling init_zeta_from_netcdf on level " << lev << std::endl;

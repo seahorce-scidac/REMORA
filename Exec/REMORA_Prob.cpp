@@ -85,9 +85,10 @@ void Problem::init_analytic_bathymetry (
  * \brief Initializes custom sea surface height
  */
 void Problem::init_analytic_zeta (
-        int lev, const amrex::Geometry& /*geom*/,
+        int /*lev*/, const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
-        REMORA const& remora,
+        REMORA const& /*remora*/,
+        ProbCoords const& coords,
         MultiFab& mf_zeta)
 {
     ParmParse pp("remora");
@@ -106,10 +107,11 @@ void Problem::init_analytic_zeta (
 }
 
 void Problem::init_analytic_prob(
-        int lev,
+        int /*lev*/,
         const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
         REMORA const& remora,
+        ProbCoords const& coords,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
         amrex::MultiFab& mf_yvel)

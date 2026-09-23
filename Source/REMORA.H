@@ -36,6 +36,7 @@
 #include <REMORA_Derive.H>
 #include <REMORA_ErrorTag.H>
 #include <REMORA_Biology.H>
+#include "REMORA_ProbCoords.H"
 #include "REMORA_prob_common.H"
 
 #ifdef REMORA_USE_PARTICLES
@@ -1490,6 +1491,8 @@ private:
 
     /** \brief Initialize initial problem data from analytic functions */
     void init_analytic(int lev);
+    /** \brief Coordinate arrays of level lev, for the prob functions */
+    ProbCoords prob_coords (int lev) const;
     /** \brief Initialize high resolution initial problem data from analytic functions */
     void init_full_domain_from_analytic();
 

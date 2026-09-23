@@ -22,14 +22,16 @@ public:
         const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
         REMORA const& remora,
+        ProbCoords const& coords,
         amrex::MultiFab& mf_cons,
         amrex::MultiFab& mf_xvel,
         amrex::MultiFab& mf_yvel) override;
 
      void init_analytic_zeta (
-        int lev, const amrex::Geometry& /*geom*/,
+        int /*lev*/, const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
-        REMORA const& remora,
+        REMORA const& /*remora*/,
+        ProbCoords const& coords,
         amrex::MultiFab& mf_zeta) override;
 
     void init_analytic_vmix(

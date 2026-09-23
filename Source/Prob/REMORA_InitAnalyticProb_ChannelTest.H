@@ -29,7 +29,7 @@
         Array4<      Real> const& x_vel = mf_xvel.array(mfi);
         Array4<      Real> const& y_vel = mf_yvel.array(mfi);
 
-        Array4<const Real> const& z_r = remora.vec_z_r[lev]->const_array(mfi);
+        Array4<const Real> const& z_r = coords.z_r->const_array(mfi);
 
         ParallelFor(grow(grow(bx,0,1),1,1), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
         {
