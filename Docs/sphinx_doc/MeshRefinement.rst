@@ -180,7 +180,7 @@ Masked Regions and Tagging
 
 A field-based criterion -- ``value_greater``, ``value_less`` or ``adjacent_difference_greater`` -- on any
 field but ``mask`` is evaluated only where the value it reads was computed from water alone, and
-``adjacent_difference_greater`` differences two such values only. This mirrors how AMReX evaluates the
+``adjacent_difference_greater`` differences two wet-cell values only. This mirrors how AMReX evaluates the
 same criteria in the presence of an embedded boundary, where a covered cell is skipped and a difference
 is taken only across a face the geometry leaves open.
 
@@ -192,7 +192,7 @@ wet cells":
 - ``x_velocity`` and ``y_velocity`` are stored at a cell index but live on a face, and are masked by
   ``msku(i,j) = mskr(i-1,j) * mskr(i,j)`` and ``mskv(i,j) = mskr(i,j-1) * mskr(i,j)``. A water cell whose
   neighbor across that face is land therefore holds an exact zero that is a mask artifact rather than
-  slack water, so both cells sharing the face must be water;
+  stationary water, so both cells sharing the face must be water;
 - ``vorticity`` is a centered difference of the cell-centered velocities that is not itself masked, so
   its value depends on the whole 3x3 block of cells around it and all nine must be water. This is a
   workaround for the derived field being unmasked and can be narrowed once it is not;
