@@ -73,6 +73,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Real blk_ZQ = solverChoice.blk_ZQ;
         Real blk_ZT = solverChoice.blk_ZT;
         Real blk_ZW = solverChoice.blk_ZW;
+        Real l_g = solverChoice.g;
 
         bool use_longwave_down = solverChoice.longwave_down;
         bool longwave_is_net = solverChoice.longwave_is_net;
@@ -242,7 +243,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real ZoW=Real(0.0001);
             Real u10=delW*std::log(Real(10.0)/ZoW)/std::log(blk_ZW/ZoW);
             Real Wstar=Real(0.035) * u10;
-            Real Zo10=Real(0.011)*Wstar*Wstar/g+Real(0.11)*VisAir/Wstar;
+            Real Zo10=Real(0.011)*Wstar*Wstar/l_g+Real(0.11)*VisAir/Wstar;
             Real Cd10 =(vonKar/std::log(Real(10.0)/Zo10));
             Cd10 = Cd10 * Cd10;
             Real Ch10 =Real(0.00115);
@@ -256,7 +257,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real CC=vonKar*Ct/Cd;
 
             Real Ribcu = -blk_ZW/(blk_Zabl*Real(0.004)*blk_beta*blk_beta*blk_beta);
-            Real Ri = -g*blk_ZW*((delT-delTc)+Real(0.61)*TairK*delQ)/
+            Real Ri = -l_g*blk_ZW*((delT-delTc)+Real(0.61)*TairK*delQ)/
                                  (TairK*delW*delW+eps);
             Real Zetu;
             if (Ri < zero) {
@@ -288,12 +289,12 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
 
             //  Iterate until convergence. It usually converges within 3 iterations.
             for (int it=0; it<IterMax; it++) {
-                ZoW=charn*Wstar*Wstar/g+Real(0.11)*VisAir/(Wstar+eps);
+                ZoW=charn*Wstar*Wstar/l_g+Real(0.11)*VisAir/(Wstar+eps);
                 Real Rr=ZoW*Wstar/VisAir;
                 //  Compute Monin-Obukhov stability parameter, Z/L.
                 Real ZoQ=std::min(Real(1.15e-4),Real(5.5e-5)/std::pow(Rr,Real(0.6)));
                 Real ZoT=ZoQ;
-                Real ZoL=vonKar*g*blk_ZW*(Tstar*(one+Real(0.61)*Q)+
+                Real ZoL=vonKar*l_g*blk_ZW*(Tstar*(one+Real(0.61)*Q)+
                              Real(0.61)*TairK*Qstar)/
                             (TairK*Wstar*Wstar*(one+Real(0.61)*Q)+eps);
                 Real L=blk_ZW/(ZoL+eps);
@@ -309,7 +310,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                 Qstar=-(delQ-delQc)*vonKar/(std::log(blk_ZQ/ZoQ)-Qpsi);
 
                 //  Compute gustiness in wind speed.
-                Real Bf=-g/TairK*Wstar*(Tstar+Real(0.61)*TairK*Qstar);
+                Real Bf=-l_g/TairK*Wstar*(Tstar+Real(0.61)*TairK*Qstar);
                 if (Bf>zero) {
                     Wgus=blk_beta*std::pow(Bf*blk_Zabl,one/Real(3.0));
                 } else {

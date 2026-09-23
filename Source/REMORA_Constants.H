@@ -35,9 +35,6 @@ constexpr amrex::Real Eradius      = amrex::Real(6371315.0);           // Earth 
 constexpr amrex::Real StefBo       = amrex::Real(5.670374419e-8);      // Stefan-Boltzmann constant [Watts/m2/K4]
 constexpr amrex::Real emmiss       = amrex::Real(0.97);                // Infrared emissivity [non_dimensional]
 constexpr amrex::Real rhow         = amrex::Real(1000.0);              // fresh water density [kg/m3]
-// Gravity is settable at runtime as remora.g (SolverChoice::g) so a case can be matched to
-// another model exactly; prefer solverChoice.g in anything that affects the solution.
-constexpr amrex::Real g            = amrex::Real(9.80665);             // acceleration due to gravity [m/s2]
 constexpr amrex::Real vonKar       = amrex::Real(0.41);                // von Karman constant
 
 //-----------------------------------------------------------------------
