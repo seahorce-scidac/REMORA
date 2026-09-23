@@ -78,11 +78,13 @@ WetMinMax (const amrex::MultiFab& mf, int comp, const amrex::MultiFab& mask)
     return e;
 }
 
-// Count the wet cells of a 2D field outside [lo, hi] and name one: the smallest
-// flat (i,j) index, the same cell under any decomposition. Collective.
+// Count the wet cells of a 2D field outside [lo, hi], NaN included, and name one:
+// the smallest flat (i,j) index, the same cell under any decomposition. The test is
+// !(lo <= v <= hi) because every comparison with NaN is false. Collective.
 struct WetOutOfRange
 {
     amrex::Long count;
+    amrex::Long nan_count;
     amrex::IntVect example;
     amrex::Real example_value;
 };
@@ -96,8 +98,8 @@ WetCellsOutOfRange (const amrex::MultiFab& mf, const amrex::MultiFab& mask,
     const Long nx = domain.length(0);
     constexpr Long no_cell = std::numeric_limits<Long>::max();
 
-    ReduceOps<ReduceOpSum, ReduceOpMin> ops;
-    ReduceData<Long, Long> data(ops);
+    ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpMin> ops;
+    ReduceData<Long, Long, Long> data(ops);
     using Tuple = typename decltype(data)::Type;
     for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
         const auto f = mf.const_array(mfi);
@@ -105,32 +107,27 @@ WetCellsOutOfRange (const amrex::MultiFab& mf, const amrex::MultiFab& mask,
         const auto dlo = lbound(domain);
         ops.eval(mfi.validbox(), data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> Tuple
         {
-            const bool bad = m(i,j,k) > Real(0.5) &&
-                             (f(i,j,k) < lo_bound || f(i,j,k) > hi_bound);
+            const Real v = f(i,j,k);
+            const bool wet = m(i,j,k) > Real(0.5);
+            const bool bad = wet && !(v >= lo_bound && v <= hi_bound);
+            const bool nan = wet && (v != v);
             const Long flat = Long(j - dlo.y) * nx + Long(i - dlo.x);
-            return { bad ? Long(1) : Long(0), bad ? flat : no_cell };
+            return { bad ? Long(1) : Long(0), nan ? Long(1) : Long(0), bad ? flat : no_cell };
         });
     }
     auto r = data.value(ops);
-    WetOutOfRange out{get<0>(r), IntVect(0), std::numeric_limits<Real>::max()};
-    Long first = get<1>(r);
+    WetOutOfRange out{get<0>(r), get<1>(r), IntVect(0), std::numeric_limits<Real>::max()};
+    Long first = get<2>(r);
     ParallelDescriptor::ReduceLongSum(out.count);
+    ParallelDescriptor::ReduceLongSum(out.nan_count);
     ParallelDescriptor::ReduceLongMin(first);
     if (out.count == 0) { return out; }
 
     out.example = IntVect(domain.smallEnd(0) + static_cast<int>(first % nx),
                           domain.smallEnd(1) + static_cast<int>(first / nx),
                           domain.smallEnd(2));
-    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
-        if (!mfi.validbox().contains(out.example)) { continue; }
-        // Host read of one cell, once per run.
-        Gpu::DeviceScalar<Real> v;
-        auto* vp = v.dataPtr();
-        const auto f = mf.const_array(mfi);
-        const IntVect ex = out.example;
-        ParallelFor(1, [=] AMREX_GPU_DEVICE (int) noexcept { *vp = f(ex); });
-        out.example_value = v.dataValue();
-    }
+    const auto here = get_cell_data(mf, out.example);   // empty off the owning rank
+    if (!here.empty()) { out.example_value = here[0]; }
     ParallelDescriptor::ReduceRealMin(out.example_value);
     return out;
 }
@@ -477,12 +474,12 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state,
         });
     }
 
-    // Surface temperature sanity check on REMORA's own wet cells, before the remap
-    // mixes in anything from the atmosphere side. Checked every exchange until it
-    // first fires, which is then reported once; remora.v >= 1 also prints the
-    // wet min/max every exchange. verbose and the reduced counts are rank-uniform.
-    if (!vec_mskr.empty() && vec_mskr[lev] != nullptr &&
-        (!m_warned_surface_temp_range || verbose >= 1)) {
+    // Surface temperature sanity check on REMORA's own wet cells, in the SST that
+    // is about to be sent to the atmosphere. Checked every exchange (2D, cheap);
+    // warned the first time and again only when it gets worse. remora.v >= 1 also
+    // prints the wet min/max every exchange. verbose and the reduced counts are
+    // rank-uniform, so every rank takes the same branches.
+    if (!vec_mskr.empty() && vec_mskr[lev] != nullptr) {
         MultiFab wet(ba2d, cons_new[lev]->DistributionMap(), 1, 0);
         wet.setVal(zero);
         wet.ParallelCopy(*vec_mskr[lev], 0, 0, 1);
@@ -496,13 +493,19 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state,
                            << " wet cells: min/max = " << e.min_value << " / "
                            << e.max_value << " K\n";
         }
-        if (bad.count > 0 && !m_warned_surface_temp_range) {
-            m_warned_surface_temp_range = true;
+        const bool worse = e.min_value < m_warned_surface_temp_min ||
+                           e.max_value > m_warned_surface_temp_max ||
+                           bad.nan_count > m_warned_surface_temp_nan;
+        if (bad.count > 0 && worse) {
+            m_warned_surface_temp_min = std::min(m_warned_surface_temp_min, e.min_value);
+            m_warned_surface_temp_max = std::max(m_warned_surface_temp_max, e.max_value);
+            m_warned_surface_temp_nan = std::max(m_warned_surface_temp_nan, bad.nan_count);
             amrex::Print() << "WARNING: REMORA surface temperature outside [" << t_lo << ", "
                            << t_hi << "] K on " << bad.count << " of " << e.wet_cells
-                           << " wet cells (min/max " << e.min_value << " / " << e.max_value
-                           << " K; e.g. REMORA (" << bad.example[0] << "," << bad.example[1]
-                           << ") = " << bad.example_value << " K). Reported once per run.\n";
+                           << " wet cells (" << bad.nan_count << " NaN; min/max " << e.min_value
+                           << " / " << e.max_value << " K; e.g. REMORA (" << bad.example[0]
+                           << "," << bad.example[1] << ") = " << bad.example_value
+                           << " K). Repeated only if it gets worse.\n";
         }
     }
 

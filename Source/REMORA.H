@@ -236,8 +236,11 @@ public:
     void ApplyAtmosphericFluxes (const amrex::Vector<amrex::MultiFab*>& states, amrex::Real time);
     //! Latch so the flux validation block prints once per run unless remora.v >= 1
     bool m_reported_atm_flux_validation = false;
-    //! Latch so an out-of-range wet surface temperature is reported once per run
-    bool m_warned_surface_temp_range = false;
+    //! Worst wet surface temperature extremes (K) and NaN count already warned about;
+    //! the warning repeats only when a later exchange is worse. Start at the bounds.
+    amrex::Real m_warned_surface_temp_min = amrex::Real(273.15 - 2.5);
+    amrex::Real m_warned_surface_temp_max = amrex::Real(273.15 + 40.0);
+    amrex::Long m_warned_surface_temp_nan = 0;
 
     // Diagnostics
 
