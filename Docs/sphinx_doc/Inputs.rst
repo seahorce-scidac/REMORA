@@ -431,6 +431,52 @@ Notes
    positivity. Note that it clamps every tracer at zero, temperature included, which suits a
    concentration but not temperature in Celsius.
 
+-  The **remora.cf_*** options select how the barotropic state crosses a coarse-fine interface.
+   Their defaults reproduce ROMS's ``nesting.F``; measured against the nested ROMS dogbone case
+   they take the refinement perturbation at the interface from 1.29x ROMS's to 1.01x. Each is
+   an integer, 0 or 1 unless stated. Like all of mesh refinement they are experimental.
+
+   -  **remora.cf_avgdown_stencil** (default 1) averages the fine barotropic velocity onto a
+      coarse face over ROMS's ``fine2coarse2d`` stencil -- half-width (ratio - 1)/2 in both
+      directions, so nine fine faces at ratio 3 -- instead of only the faces that tile the
+      coarse face. Not conservative in principle; about 3e-10 of volume drift in practice.
+
+   -  **remora.cf_flux_pc** (default 1) shares the parent's interface mass flux out
+      piecewise-constantly over the fine faces under each parent face, as ROMS's
+      ``get_persisted2d`` does, instead of with the linear tangential variation of AMReX's
+      face interpolator. Both conserve the total.
+
+   -  **remora.cf_fill_all_kcomp** (default 1) writes every leapfrog record and ``Zt_avg1`` in
+      the coarse-fine ghost band, as ROMS's ``put_refine2d`` does, so none of them goes a
+      parent step stale. This is the main cost to volume conservation: 2.0e-09 to 2.9e-08 of
+      drift over 20 steps on DogboneAnalytic, volume being the integral of the free surface
+      this writes. ROMS makes the same trade.
+
+   -  **remora.cf_time_interp_zeta** (default 1) interpolates the parent free surface in time
+      onto the child's own sub-time rather than freezing it at the end of the parent step.
+      Non-conservative for the same reason: 1.4e-08 of drift on its own.
+
+   -  **remora.cf_avgdown_perimeter** (default 1) leaves the normal-velocity faces on the
+      coarse-fine perimeter out of the fine-to-coarse average, as ROMS's ``fine2coarse`` does.
+      0 restores the earlier behaviour, in which the parent's imposed flux is averaged straight
+      back onto it, and costs a factor of 20 to 40 in the barotropic mode.
+
+   -  **remora.cf_avgdown_bar** (default 1) hands the fine level's depth-averaged momentum
+      (``ubar``, ``vbar``) back to the parent under two-way coupling, as ``fine2coarse`` does.
+
+   -  **remora.cf_set_2d_bcs** (default 1) is the schedule for imposing the interface
+      condition inside the barotropic loop: 0 never, 1 every fast step (ROMS's ``u2dbc_im``),
+      2 only the first fast step of each baroclinic step.
+
+   -  **remora.cf_impose_flux** (default 0) writes the parent's transport onto the fine
+      level's ``DUon``/``DVom`` directly rather than as a velocity the solver re-converts with a
+      depth from another time index. It closes the remaining 1% above, and conserves far better
+      while the flow is linear, but is 10-20% worse once it is not, so it is off.
+
+   The conservative alternative to the defaults is **remora.cf_fill_all_kcomp** = 0 with
+   **remora.cf_time_interp_zeta** = 0, which keeps the ROMS restriction and flux distribution
+   and brings the volume drift back to 2.0e-09.
+
 .. _examples-of-usage-3:
 
 Examples of Usage
@@ -821,9 +867,13 @@ List of Parameters
 |                                          |                                        |                        |                |
 |                                          |                                        | Values                 |                |
 +==========================================+========================================+========================+================+
-| **remora.ggrav**                         | Gravitational field strength           | Real number            | 9.81           |
+| **remora.g**                             | Acceleration due to gravity            | Real number            | 9.80665        |
 |                                          |                                        |                        |                |
-|                                          | [kg m/s^2]                             |                        |                |
+|                                          | [m/s^2]. ROMS uses 9.81                |                        |                |
+|                                          |                                        |                        |                |
+|                                          | exactly; set that to match             |                        |                |
+|                                          |                                        |                        |                |
+|                                          | a ROMS run.                            |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.eos_type**                      | Which equation of state to use.        | Linear or              | Linear         |
 |                                          |                                        |                        |                |
