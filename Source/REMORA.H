@@ -234,6 +234,10 @@ public:
      * leaves the downstream salt_old multiplication to setup_step().
      */
     void ApplyAtmosphericFluxes (const amrex::Vector<amrex::MultiFab*>& states, amrex::Real time);
+    //! Latch so the flux validation block prints once per run unless remora.v >= 1
+    bool m_reported_atm_flux_validation = false;
+    //! Latch so an out-of-range wet surface temperature is reported once per run
+    bool m_warned_surface_temp_range = false;
 
     // Diagnostics
 

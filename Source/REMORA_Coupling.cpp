@@ -36,6 +36,105 @@ using namespace amrex;
 namespace {
 constexpr int SSTIndex = 0;
 
+struct WetExtrema
+{
+    amrex::Real min_value;
+    amrex::Real max_value;
+    amrex::Long wet_cells;
+};
+
+// Min/max of one component over cells where mask > 0.5 (valid region only).
+// Land cells hold zeros or whatever the atmosphere sent over land, so an
+// unmasked min/max says nothing about what the ocean actually receives.
+// Collective.
+WetExtrema
+WetMinMax (const amrex::MultiFab& mf, int comp, const amrex::MultiFab& mask)
+{
+    using namespace amrex;
+    constexpr Real lo_sentinel = std::numeric_limits<Real>::max();
+    constexpr Real hi_sentinel = -std::numeric_limits<Real>::max();
+
+    ReduceOps<ReduceOpMin, ReduceOpMax, ReduceOpSum> ops;
+    ReduceData<Real, Real, Long> data(ops);
+    using Tuple = typename decltype(data)::Type;
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
+        Box bx = mfi.validbox();
+        bx.makeSlab(2, 0);
+        const auto f = mf.const_array(mfi, comp);
+        const auto m = mask.const_array(mfi);
+        ops.eval(bx, data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> Tuple
+        {
+            const bool wet = m(i,j,k) > Real(0.5);
+            return { wet ? f(i,j,k) : lo_sentinel,
+                     wet ? f(i,j,k) : hi_sentinel,
+                     wet ? Long(1) : Long(0) };
+        });
+    }
+    auto r = data.value(ops);
+    WetExtrema e{get<0>(r), get<1>(r), get<2>(r)};
+    ParallelDescriptor::ReduceRealMin(e.min_value);
+    ParallelDescriptor::ReduceRealMax(e.max_value);
+    ParallelDescriptor::ReduceLongSum(e.wet_cells);
+    return e;
+}
+
+// Count the wet cells of a 2D field outside [lo, hi] and name one: the smallest
+// flat (i,j) index, the same cell under any decomposition. Collective.
+struct WetOutOfRange
+{
+    amrex::Long count;
+    amrex::IntVect example;
+    amrex::Real example_value;
+};
+
+WetOutOfRange
+WetCellsOutOfRange (const amrex::MultiFab& mf, const amrex::MultiFab& mask,
+                    amrex::Real lo_bound, amrex::Real hi_bound)
+{
+    using namespace amrex;
+    const Box domain = mf.boxArray().minimalBox();
+    const Long nx = domain.length(0);
+    constexpr Long no_cell = std::numeric_limits<Long>::max();
+
+    ReduceOps<ReduceOpSum, ReduceOpMin> ops;
+    ReduceData<Long, Long> data(ops);
+    using Tuple = typename decltype(data)::Type;
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
+        const auto f = mf.const_array(mfi);
+        const auto m = mask.const_array(mfi);
+        const auto dlo = lbound(domain);
+        ops.eval(mfi.validbox(), data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> Tuple
+        {
+            const bool bad = m(i,j,k) > Real(0.5) &&
+                             (f(i,j,k) < lo_bound || f(i,j,k) > hi_bound);
+            const Long flat = Long(j - dlo.y) * nx + Long(i - dlo.x);
+            return { bad ? Long(1) : Long(0), bad ? flat : no_cell };
+        });
+    }
+    auto r = data.value(ops);
+    WetOutOfRange out{get<0>(r), IntVect(0), std::numeric_limits<Real>::max()};
+    Long first = get<1>(r);
+    ParallelDescriptor::ReduceLongSum(out.count);
+    ParallelDescriptor::ReduceLongMin(first);
+    if (out.count == 0) { return out; }
+
+    out.example = IntVect(domain.smallEnd(0) + static_cast<int>(first % nx),
+                          domain.smallEnd(1) + static_cast<int>(first / nx),
+                          domain.smallEnd(2));
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
+        if (!mfi.validbox().contains(out.example)) { continue; }
+        // Host read of one cell, once per run.
+        Gpu::DeviceScalar<Real> v;
+        auto* vp = v.dataPtr();
+        const auto f = mf.const_array(mfi);
+        const IntVect ex = out.example;
+        ParallelFor(1, [=] AMREX_GPU_DEVICE (int) noexcept { *vp = f(ex); });
+        out.example_value = v.dataValue();
+    }
+    ParallelDescriptor::ReduceRealMin(out.example_value);
+    return out;
+}
+
 // -------------------------------------------------------------------------
 // NEW: Conservative Sparse Matrix Remap Engine (Reverse: OCN -> ATM)
 // -------------------------------------------------------------------------
@@ -378,6 +477,35 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state,
         });
     }
 
+    // Surface temperature sanity check on REMORA's own wet cells, before the remap
+    // mixes in anything from the atmosphere side. Checked every exchange until it
+    // first fires, which is then reported once; remora.v >= 1 also prints the
+    // wet min/max every exchange. verbose and the reduced counts are rank-uniform.
+    if (!vec_mskr.empty() && vec_mskr[lev] != nullptr &&
+        (!m_warned_surface_temp_range || verbose >= 1)) {
+        MultiFab wet(ba2d, cons_new[lev]->DistributionMap(), 1, 0);
+        wet.setVal(zero);
+        wet.ParallelCopy(*vec_mskr[lev], 0, 0, 1);
+
+        constexpr Real t_lo = Real(273.15 - 2.5);   // below seawater freezing
+        constexpr Real t_hi = Real(273.15 + 40.0);
+        const WetExtrema e = WetMinMax(tmp, 0, wet);
+        const WetOutOfRange bad = WetCellsOutOfRange(tmp, wet, t_lo, t_hi);
+        if (verbose >= 1) {
+            amrex::Print() << "REMORA surface temperature over " << e.wet_cells
+                           << " wet cells: min/max = " << e.min_value << " / "
+                           << e.max_value << " K\n";
+        }
+        if (bad.count > 0 && !m_warned_surface_temp_range) {
+            m_warned_surface_temp_range = true;
+            amrex::Print() << "WARNING: REMORA surface temperature outside [" << t_lo << ", "
+                           << t_hi << "] K on " << bad.count << " of " << e.wet_cells
+                           << " wet cells (min/max " << e.min_value << " / " << e.max_value
+                           << " K; e.g. REMORA (" << bad.example[0] << "," << bad.example[1]
+                           << ") = " << bad.example_value << " K). Reported once per run.\n";
+        }
+    }
+
     MultiFab& dst = *state[SSTIndex];
 
     if (weight_o2a_mf != nullptr && index_o2a_mf != nullptr) {
@@ -621,30 +749,31 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     vec_evap[0]->FillBoundary(geom[0].periodicity());
     vec_stflux[0]->FillBoundary(geom[0].periodicity());
 
-    const Real sustr_min = vec_sustr[0]->min(0);
-    const Real sustr_max = vec_sustr[0]->max(0);
-    const Real svstr_min = vec_svstr[0]->min(0);
-    const Real svstr_max = vec_svstr[0]->max(0);
-    const Real stflux_temp_min = vec_stflux[0]->min(Temp_comp);
-    const Real stflux_temp_max = vec_stflux[0]->max(Temp_comp);
-    const Real stflux_salt_min = vec_stflux[0]->min(Salt_comp);
-    const Real stflux_salt_max = vec_stflux[0]->max(Salt_comp);
-    const Real srflx_min = vec_srflx[0]->min(0);
-    const Real srflx_max = vec_srflx[0]->max(0);
-    const Real lrflx_min = vec_lrflx[0]->min(0);
-    const Real lrflx_max = vec_lrflx[0]->max(0);
-    const Real lhflx_min = vec_lhflx[0]->min(0);
-    const Real lhflx_max = vec_lhflx[0]->max(0);
-    const Real shflx_min = vec_shflx[0]->min(0);
-    const Real shflx_max = vec_shflx[0]->max(0);
+    // Once per run, or every exchange at remora.v >= 1. verbose is a ParmParse
+    // value, so every rank takes the same branch around the collectives.
+    if (m_reported_atm_flux_validation && verbose < 1) { return; }
+    m_reported_atm_flux_validation = true;
 
-    amrex::Print() << "REMORA ApplyAtmosphericFluxes validation:\n"
-                   << "  sustr: min=" << sustr_min << " max=" << sustr_max << "\n"
-                   << "  svstr: min=" << svstr_min << " max=" << svstr_max << "\n"
-                   << "  stflux(Temp): min=" << stflux_temp_min << " max=" << stflux_temp_max << "\n"
-                   << "  stflux(Salt): min=" << stflux_salt_min << " max=" << stflux_salt_max << "\n"
-                   << "  srflx: min=" << srflx_min << " max=" << srflx_max << "\n"
-                   << "  lrflx: min=" << lrflx_min << " max=" << lrflx_max << "\n"
-                   << "  lhflx: min=" << lhflx_min << " max=" << lhflx_max << "\n"
-                   << "  shflx: min=" << shflx_min << " max=" << shflx_max << "\n";
+    struct Row { const char* name; const MultiFab* mf; int comp; const MultiFab* mask; };
+    const Row rows[] = {
+        {"sustr",        vec_sustr[0].get(),  0,         vec_msku[0].get()},
+        {"svstr",        vec_svstr[0].get(),  0,         vec_mskv[0].get()},
+        {"stflux(Temp)", vec_stflux[0].get(), Temp_comp, vec_mskr[0].get()},
+        {"stflux(Salt)", vec_stflux[0].get(), Salt_comp, vec_mskr[0].get()},
+        {"srflx",        vec_srflx[0].get(),  0,         vec_mskr[0].get()},
+        {"lrflx",        vec_lrflx[0].get(),  0,         vec_mskr[0].get()},
+        {"lhflx",        vec_lhflx[0].get(),  0,         vec_mskr[0].get()},
+        {"shflx",        vec_shflx[0].get(),  0,         vec_mskr[0].get()},
+    };
+    amrex::Print() << "REMORA ApplyAtmosphericFluxes validation (wet cells only; srflx W/m2, "
+                   << "others kinematic):\n";
+    for (const auto& r : rows) {
+        const WetExtrema e = WetMinMax(*r.mf, r.comp, *r.mask);
+        if (e.wet_cells == 0) {
+            amrex::Print() << "  " << r.name << ": no wet cells\n";
+        } else {
+            amrex::Print() << "  " << r.name << ": min=" << e.min_value
+                           << " max=" << e.max_value << "\n";
+        }
+    }
 }
