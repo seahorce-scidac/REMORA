@@ -6,17 +6,16 @@ namespace {
 /** \brief Copy the freshly filled leapfrog component into the other two, in the coarse-fine
  *         ghost band only.
  *
- * FillPatch writes only component knew. Inside the fine grid every component is updated by
- * the solver, but nothing writes the coarse-fine ghost band, so its other components keep
- * whatever the previous baroclinic step left there -- a full parent step stale, while the
- * 2D solver reads zeta(krhs) and ubar(kstp) from exactly those cells. ROMS's put_refine2d
- * sets the contact points it is about to read, so make every component agree with the
- * parent state that was just filled.
+ * FillPatch writes only component knew. The solver updates every component inside the fine
+ * grid but nothing writes the coarse-fine ghost band, so its other components stay a full
+ * parent step stale -- and the 2D solver reads zeta(krhs) and ubar(kstp) from exactly those
+ * cells. ROMS's put_refine2d sets the contact points it is about to read, so make every
+ * component agree with the parent state just filled.
  *
- * The band is found by marking the valid region and calling FillBoundary: ghost cells that
- * another box on this level covers pick up a 1, so the zeros that remain are the coarse-fine
- * and domain-boundary ghosts. Domain ghosts are excluded so physical boundary conditions,
- * which are applied after the FillPatch, are not overwritten.
+ * The band is found by marking the valid region and calling FillBoundary: ghosts another box
+ * on this level covers pick up a 1, so the remaining zeros are the coarse-fine and
+ * domain-boundary ghosts. Domain ghosts are excluded so the physical boundary conditions,
+ * applied after the FillPatch, are not overwritten.
  */
 void fill_ghost_kcomps (MultiFab& mf, int knew, const Geometry& geom)
 {
@@ -39,13 +38,12 @@ void fill_ghost_kcomps (MultiFab& mf, int knew, const Geometry& geom)
         ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
             if (v(i,j,k) > Real(0.5)) { return; }
-            // Skip ghosts outside the domain only where the domain really ends. In a periodic
-            // direction a ghost beyond the edge is not a physical-boundary cell: if this level
-            // wraps onto itself there the FillBoundary above already marked it valid, and if it
-            // does not -- a patch covering only part of the periodic width -- then it is an
-            // ordinary coarse-fine ghost that FillPatch just filled from the parent across the
-            // seam, and its other leapfrog components need the same synchronisation as any
-            // other coarse-fine ghost.
+            // Skip ghosts outside the domain only where the domain really ends. A ghost beyond
+            // a periodic edge is not a physical-boundary cell: if the level wraps onto itself
+            // the FillBoundary above already marked it valid, and if it does not -- a patch
+            // covering part of the periodic width -- it is an ordinary coarse-fine ghost that
+            // FillPatch just filled from the parent, needing the same synchronisation as any
+            // other.
             if (!per_x && (i < dlo.x || i > dhi.x)) { return; }
             if (!per_y && (j < dlo.y || j > dhi.y)) { return; }
             const Real val = a(i,j,k,knew);
@@ -870,11 +868,11 @@ REMORA::advance_2d (int lev,
         // Replace the interface faces the FillPatchers just set from the parent's ubar with
         // the parent's mass flux, which conserves mass. Must follow the FillPatch.
         //
-        // cf_set_2d_bcs = 2 imposes it only on the first fast step, which is where ROMS does
-        // it: main3d.F calls nesting(nputD) -- put_refine2d -- before the barotropic loop,
-        // and inside the loop only composite grids and the NESTING_DEBUG mass-flux check run.
-        // Imposing every fast step instead re-applies the parent's step-averaged transport
-        // twenty times per step rather than letting the barotropic solver carry the interface.
+        // cf_set_2d_bcs = 2 imposes it only on the first fast step, where ROMS calls
+        // put_refine2d (main3d.F, before the barotropic loop; inside it only composite grids
+        // and the NESTING_DEBUG check run). Every fast step instead re-applies the parent's
+        // step-averaged transport twenty times per step rather than letting the barotropic
+        // solver carry the interface.
         const bool set_2d_now = (cf_set_2d_bcs == 1) || (cf_set_2d_bcs == 2 && my_iif == 0);
         if (do_substep && set_2d_now) {
             set_2d_cf_bcs(lev, t_old[lev], know, knew);

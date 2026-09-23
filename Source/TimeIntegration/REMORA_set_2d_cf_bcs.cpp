@@ -9,13 +9,13 @@ namespace {
 
 /** \brief Replace each group of nr faces along the interface by their mean.
  *
- * ROMS hands every fine face under one parent face the same parent flux: get_persisted2d
+ * ROMS gives every fine face under one parent face the same parent flux: get_persisted2d
  * copies DU_avg2 at the donor face picked by integer division of the fine index, and
- * put_refine2d and u2dbc_im then scale it by the edge-length ratio. AMReX's face
- * interpolator instead gives the flux a linear variation along the interface. Both make the
- * fine fluxes sum to the parent's; they differ in how the total is shared out. Because that
- * interpolation is conservative, the group mean is the parent value, so averaging turns the
- * linear profile back into ROMS's constant one.
+ * put_refine2d and u2dbc_im scale it by the edge-length ratio. AMReX's face interpolator gives
+ * the flux a linear variation along the interface instead. Both make the fine fluxes sum to
+ * the parent's; they differ in how the total is shared out. That interpolation being
+ * conservative, the group mean is the parent value, so averaging turns the linear profile back
+ * into ROMS's constant one.
  *
  * Only groups lying wholly inside a box are touched, and only faces the set mask covers, so
  * faces the parent never wrote keep their zero.
@@ -130,13 +130,13 @@ REMORA::store_2d_flux (int lev)
  *
  *     ubar_f = Dubar_c / D_f,    D_f = 0.5*(h + zeta)_{i-1} + 0.5*(h + zeta)_i
  *
- * D comes from know by default, but ROMS uses one time index for both sides: the nested
- * branch of u2dbc_im.F builds D from zeta(kout) and writes ubar(kout), and put_refine2d uses
- * indx1 for both. Since the next half-step forms DUon = ubar(krhs)*D(krhs) with krhs equal to
- * this knew, ROMS recovers Dubar_parent exactly while this carries an extra D(knew)/D(know).
- * remora.cf_d_knew = 1 matches ROMS. Measured negligible -- at most 1.2e-07 on the step-1
- * Channel_Test interface velocity against a 2.4e-03 artifact, and no change to Dogbone volume
- * drift or to the Channel_Test blow-up -- so it is off by default pending gold regeneration.
+ * D comes from know by default, but ROMS uses one time index for both sides: u2dbc_im.F's
+ * nested branch builds D from zeta(kout) and writes ubar(kout), and put_refine2d uses indx1
+ * for both. Since the next half-step forms DUon = ubar(krhs)*D(krhs) with krhs equal to this
+ * knew, ROMS recovers Dubar_parent exactly while this carries an extra D(knew)/D(know).
+ * remora.cf_d_knew = 1 matches ROMS, but measures negligible -- at most 1.2e-07 on the step-1
+ * Channel_Test interface velocity against a 2.4e-03 artifact, with no change to Dogbone volume
+ * drift or the Channel_Test blow-up -- so it is off pending gold regeneration.
  *
  * Momentum only. setup_step resets all three zeta components to Zt_avg1, so what a finer
  * level interpolates for the free surface is already the parent's fast-time average -- as in

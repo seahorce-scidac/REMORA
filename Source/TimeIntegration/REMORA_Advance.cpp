@@ -146,14 +146,13 @@ REMORA::register_coarse_data (int lev, Real time, Real dt_lev)
         FPr_Dvbar[lev].RegisterCoarseData({Dv_old, vec_Dvbar_new[lev].get()},
                                           {time, time + dt_lev});
 
-        // The free surface has no old/new pair above, so the generic FillPatch falls back to
-        // handing a subcycled child this level's state frozen at the end of the step, for
-        // every one of the child's substeps. ROMS's put_refine2d instead interpolates the
-        // donor linearly between two stored snapshots onto the child's own time, so keep the
-        // pair the child needs. Zt_avg1 is the end-of-step surface, and set_zeta_to_Ztavg
-        // puts it in every leapfrog component, so broadcasting it to all three here matches
-        // both what ROMS stores (zeta(:,:,knew), which set_zeta has just set to Zt_avg1) and
-        // what the child reads, whichever component its own knew happens to name.
+        // The free surface has no old/new pair above, so the generic FillPatch hands a
+        // subcycled child this level's state frozen at the end of the step, for every substep.
+        // ROMS's put_refine2d interpolates the donor between two stored snapshots onto the
+        // child's own time, so keep the pair it needs. Zt_avg1 is the end-of-step surface and
+        // set_zeta_to_Ztavg puts it in every leapfrog component, so broadcasting it to all
+        // three matches both what ROMS stores and what the child reads, whichever component
+        // its own knew names.
         if (cf_time_interp_zeta) {
             roll_2d_snapshot(vec_zeta_crse_old, vec_zeta_crse_new, lev,
                              *vec_Zt_avg1[lev], *vec_zeta[lev]);
@@ -162,11 +161,11 @@ REMORA::register_coarse_data (int lev, Real time, Real dt_lev)
 }
 
 /**
- * Roll a two-snapshot history of one level's end-of-step 2D state: the previous "new"
- * becomes "old" and src becomes the new one, so the pair brackets [t_old, t_new] of the step
- * just taken. src has one component and is broadcast to all of them. On the first call, and
- * whenever the level's layout changes, both snapshots are set to src, which makes the child's
- * time interpolation a no-op for that step rather than reading uninitialised data -- the same
+ * Roll a two-snapshot history of one level's end-of-step 2D state: the previous "new" becomes
+ * "old" and src becomes the new one, so the pair brackets [t_old, t_new] of the step just
+ * taken. src has one component and is broadcast to all of them. On the first call, and
+ * whenever the level's layout changes, both snapshots are set to src, making the child's time
+ * interpolation a no-op for that step rather than reading uninitialised data -- the same
  * special case ROMS takes when RollingIndex is still zero.
  *
  * @param[inout] old_v   the older snapshot, one entry per level

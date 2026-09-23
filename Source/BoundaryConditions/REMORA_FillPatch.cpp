@@ -566,16 +566,14 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
     if  ( box_mf.ixType() == IndexType(IntVect(0,0,0)) ) {
         mf_to_fill->EnforcePeriodicity(geom[lev].periodicity());
     } else {
-        // The face-centred analogue. InterpFromCoarseLevel fills a periodic ghost by
-        // interpolating the coarse level there, and for a face tangential to the periodic
-        // direction that does not reproduce the fine value it wraps to: measured on a new
-        // level of Channel_Test, vbar's x ghosts at the seam differed from their periodic
-        // images by 2e-4 to 6e-4 while zeta's, corrected above, were exact. The first
-        // barotropic substep then sees different vbar neighbours at the two copies of the
-        // periodic u-face, and that one-shot asymmetry is amplified into a blow-up. Copying
-        // the ghosts from this level's own valid data, which is what every later FillPatch
-        // does, removes it. Cell-centred fields do not need this: EnforcePeriodicity above
-        // already is that copy.
+        // The face-centred analogue. InterpFromCoarseLevel fills a periodic ghost from the
+        // coarse level, which for a face tangential to the periodic direction does not
+        // reproduce the fine value it wraps to: on a new level of Channel_Test, vbar's x
+        // ghosts at the seam differed from their images by 2e-4 to 6e-4 where zeta's,
+        // corrected above, were exact. The first barotropic substep then sees different vbar
+        // at the two copies of the periodic u-face, and that one-shot asymmetry amplifies into
+        // a blow-up. Copying the ghosts from this level's own valid data, as every later
+        // FillPatch does, removes it.
         mf_to_fill->FillBoundary(geom[lev].periodicity());
     }
 

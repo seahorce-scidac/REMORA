@@ -117,12 +117,11 @@ void REMORAFillPatcher::BuildMask (BoxArray const& fba,
                                 int nghost,
                                 int mask_val)
 {
-    // The complement below is what defines the coarse-fine interface, so it has to be taken
-    // against a fine level that knows about periodicity: whether the far side of a periodic
-    // seam is fine or coarse depends on whether the patch wraps onto itself there. Add the
-    // periodic images of the fine boxes first, so that question is answered geometrically.
-    // Without them, complementIn reports the seam as uncovered whether or not it really is,
-    // and also misreports the corner cells where a seam meets an ordinary interface.
+    // The complement below defines the coarse-fine interface, so it must be taken against a
+    // fine level that knows about periodicity: whether the far side of a seam is fine or
+    // coarse depends on whether the patch wraps onto itself there. Adding the periodic images
+    // first answers that geometrically. Without them complementIn reports the seam as
+    // uncovered either way, and misreports the corners where a seam meets an interface.
     BoxList fimg_bl(fba.ixType());
     for (int ibox = 0; ibox < fba.size(); ++ibox) { fimg_bl.push_back(fba[ibox]); }
 
@@ -195,13 +194,10 @@ void REMORAFillPatcher::BuildMask (BoxArray const& fba,
 
     // A face on a PHYSICAL domain boundary is never a coarse-fine interface: the boundary
     // condition owns it, and left marked it would be overwritten from the parent every time
-    // the interface is set.
-    //
-    // This must not be applied to a periodic direction. There a domain-edge face IS a real
-    // interface whenever the patch covers only part of the periodic width, because the far
-    // side of the seam is then coarse. It is interior only when the patch wraps onto itself,
-    // and that case is already handled by the periodic images added above, which keep such
-    // faces out of the complement in the first place.
+    // the interface is set. Not applicable to a periodic direction, where a domain-edge face
+    // IS a real interface whenever the patch covers only part of the width -- the far side of
+    // the seam is coarse then. It is interior only when the patch wraps onto itself, which the
+    // periodic images above already keep out of the complement.
     const Box mask_domain = amrex::convert(m_fgeom.Domain(), fba.ixType());
     for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
         if (fba.ixType()[dir] != IndexType::NODE) { continue; }

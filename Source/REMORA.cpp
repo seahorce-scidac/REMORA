@@ -2771,16 +2771,14 @@ REMORA::update_avgdown_masks (int crse_lev)
 namespace {
 /** \brief Replace each face by the mean of itself and its neighbours along dir.
  *
- * ROMS's fine2coarse2d averages the donor grid over a (Rscale-1)/2 half-width stencil in
- * both horizontal directions, so at ratio 3 a coarse face takes the mean of nine fine faces.
- * AMReX's average_down_faces takes only the faces that tile the coarse face -- three, all
- * tangential -- which measures 1.00 against the tangential mean while ROMS measures 1.00
- * against the nine-point one. Smoothing the fine data along the face normal first and then
- * averaging down supplies the missing direction and reproduces ROMS exactly. Masked as ROMS
- * does it: sum over wet points, divide by the wet count.
+ * ROMS's fine2coarse2d averages the donor over a (Rscale-1)/2 half-width stencil in both
+ * horizontal directions, so at ratio 3 a coarse face takes the mean of nine fine faces;
+ * AMReX's average_down_faces takes only the three, all tangential, that tile it. Smoothing
+ * along the face normal first supplies the missing direction and reproduces ROMS exactly.
+ * Masked as ROMS does it: sum over wet points, divide by the wet count.
  *
- * This is deliberately not conservative. The nine-point mean does not preserve the transport
- * through the interface; average_down_faces on its own does. ROMS accepts that trade.
+ * Deliberately not conservative -- the nine-point mean does not preserve the transport through
+ * the interface, where average_down_faces alone does. ROMS accepts that trade.
  */
 void smooth_faces_along (amrex::MultiFab& mf, const amrex::MultiFab& msk, int dir,
                          const amrex::Geometry& geom, int ncomp)
@@ -2834,8 +2832,8 @@ REMORA::AverageDownTo (int crse_lev)
     // ROMS returns every covered cell but not the perimeter's normal-velocity faces, so the
     // transport its nested boundary condition imposes there never comes back to the parent.
     // Without that exclusion set_2d_cf_bcs writes the parent's own flux onto the interface and
-    // the average hands it straight back, which costs a factor of 20 to 40 in the barotropic
-    // mode against ROMS on the matched dogbone.
+    // the average hands it straight back: a factor of 20 to 40 in the barotropic mode against
+    // ROMS on the matched dogbone.
     MultiFab covered;
     MultiFab u_save, v_save;
     const bool keep_perimeter = (cf_avgdown_perimeter != 0);
@@ -2931,15 +2929,14 @@ REMORA::AverageDownTo (int crse_lev)
             restore_perimeter_faces(vb_save, *vec_vbar[crse_lev], covered, 1, 2);
         }
 
-        // The averages above rewrote this level's valid cells under the patch, but not the
-        // ghost cells that image them across a periodic seam, and nothing refreshes those
-        // before the next barotropic step reads them: FillPatch refills only the component it
-        // is asked for, and fill_ghost_kcomps runs on fine levels only. Where the patch abuts
-        // a periodic boundary the two copies of the coarse periodic u-face then see different
-        // vbar for the same physical cell -- the valid one, just averaged, against the stale
-        // ghost -- and that asymmetry grows step by step. Measured on Channel_Test with a
-        // half-width patch on the seam: 3.4e-4 by step 20 and NaN by ~300 with this missing,
-        // exactly zero with it; an interior patch is unaffected either way.
+        // The averages above rewrote this level's valid cells under the patch but not the
+        // ghosts imaging them across a periodic seam, and nothing else refreshes those before
+        // the next barotropic step: FillPatch refills one component, fill_ghost_kcomps runs on
+        // fine levels only. Where the patch abuts a periodic boundary the two copies of the
+        // coarse periodic u-face then read different vbar for the same physical cell -- freshly
+        // averaged against stale -- and the asymmetry grows step by step. On Channel_Test with
+        // a half-width patch on the seam: 3.4e-4 by step 20 and NaN by ~300 without this,
+        // exactly zero with it, and an interior patch unaffected either way.
         vec_ubar[crse_lev]->FillBoundary(geom[crse_lev].periodicity());
         vec_vbar[crse_lev]->FillBoundary(geom[crse_lev].periodicity());
 
