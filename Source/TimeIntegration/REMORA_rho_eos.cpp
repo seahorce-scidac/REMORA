@@ -127,7 +127,6 @@ REMORA::lin_eos (const Box& bx,
 
     // Compute Brunt-Vaisala frequency (1/s2)
     Real gorho0 = solverChoice.g / solverChoice.rho0;
-    const Real l_g = solverChoice.g;   // captured by value into the device lambdas below
     // Really want enclosed nodes or something similar
     Box box_w = bx;
     box_w.surroundingNodes(2);
