@@ -1441,6 +1441,9 @@ public:
                               amrex::MultiFab& S_crse, const amrex::MultiFab& msk_fine,
                               const amrex::MultiFab& cmsk, int ncomp, int face_dir);
 
+    /** \brief Initialize high-resolution initial data, zeta included, from analytic functions */
+    void init_full_domain_from_analytic();
+
     int xvel_bc () const noexcept { return BCVars::xvel_bc(ncons); }
     int yvel_bc () const noexcept { return BCVars::yvel_bc(ncons); }
     int zvel_bc () const noexcept { return BCVars::zvel_bc(ncons); }
@@ -1498,8 +1501,6 @@ private:
     void init_analytic(int lev);
     /** \brief Coordinate arrays of level lev, for the prob functions */
     ProbCoords prob_coords (int lev) const;
-    /** \brief Initialize high-resolution initial data, zeta included, from analytic functions */
-    void init_full_domain_from_analytic();
 
     /** \brief Allocate MultiFabs for state and evolution variables */
     void init_stuff (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
