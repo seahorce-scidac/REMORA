@@ -40,7 +40,9 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
                  const Array4<Real const>& mskv,
                  const Array4<int  const>& river_pos,
                  const Array4<Real const>& river_source,
-                 int nrhs, int nnew, int N, Real dt_lev)
+                 int nrhs, int nnew, int N, Real dt_lev,
+                 const Array4<Real>& fx_reg,
+                 const Array4<Real>& fy_reg)
 {
     BL_PROFILE("REMORA::rhs_t_3d()");
     const Box& domain = geom[lev].Domain();
@@ -247,6 +249,24 @@ REMORA::rhs_t_3d (int lev, const Box& bx,
 
         t(i,j,k,nnew) -= cff3;
     });
+
+    // Hand the same fluxes to the flux register, scaled so its internal dt/dx reproduces
+    // the dt*pm*pn above. REMORA's divergence uses the receiving cell's metric, not a face
+    // one, so the face weight is an average: exact where pm and pn are uniform.
+    if (fx_reg) {
+        const Real dx0 = geom[lev].CellSize(0);
+        const Real dx1 = geom[lev].CellSize(1);
+        ParallelFor(surroundingNodes(bx,0), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real w = Real(0.5) * (pm(i-1,j,0)*pn(i-1,j,0) + pm(i,j,0)*pn(i,j,0));
+            fx_reg(i,j,k) = FX(i,j,k) * w * dx0;
+        });
+        ParallelFor(surroundingNodes(bx,1), [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            Real w = Real(0.5) * (pm(i,j-1,0)*pn(i,j-1,0) + pm(i,j,0)*pn(i,j,0));
+            fy_reg(i,j,k) = FE(i,j,k) * w * dx1;
+        });
+    }
 
     BL_PROFILE_VAR_STOP(phadv);
     //-----------------------------------------------------------------------

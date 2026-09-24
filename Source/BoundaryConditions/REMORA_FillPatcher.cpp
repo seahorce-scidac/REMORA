@@ -4,6 +4,7 @@
 
 using namespace amrex;
 
+
 /**
  * @param[in] fba    BoxArray of data to be filled at fine level
  * @param[in] fdm    DistributionMapping of data to be filled at fine level
@@ -116,14 +117,34 @@ void REMORAFillPatcher::BuildMask (BoxArray const& fba,
                                 int nghost,
                                 int mask_val)
 {
+    // The complement below defines the coarse-fine interface, so it must be taken against a
+    // fine level that knows about periodicity: whether the far side of a seam is fine or
+    // coarse depends on whether the patch wraps onto itself there. Adding the periodic images
+    // first answers that geometrically. Without them complementIn reports the seam as
+    // uncovered either way, and misreports the corners where a seam meets an interface.
+    BoxList fimg_bl(fba.ixType());
+    for (int ibox = 0; ibox < fba.size(); ++ibox) { fimg_bl.push_back(fba[ibox]); }
+
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        if (!m_fgeom.isPeriodic(dir)) { continue; }
+        const int len = m_fgeom.Domain().length(dir);
+        BoxList images(fba.ixType());
+        for (auto const& b : fimg_bl) {
+            Box bp(b); bp.shift(dir,  len); images.push_back(bp);
+            Box bm(b); bm.shift(dir, -len); images.push_back(bm);
+        }
+        fimg_bl.join(images);
+    }
+    BoxArray fba_img(std::move(fimg_bl));
+
     // Minimal bounding box of fine BA plus a halo cell
-    Box fba_bnd = amrex::grow(fba.minimalBox(), IntVect(1,1,1));
+    Box fba_bnd = amrex::grow(fba_img.minimalBox(), IntVect(1,1,1));
 
     // BoxList and BoxArray to store complement
     BoxList com_bl; BoxArray com_ba;
 
     // Compute the complement
-    fba.complementIn(com_bl,fba_bnd);
+    fba_img.complementIn(com_bl,fba_bnd);
 
     // com_bl cannot be null since we grew with halo cells
     AMREX_ALWAYS_ASSERT(com_bl.size() > 0);
@@ -167,6 +188,32 @@ void REMORAFillPatcher::BuildMask (BoxArray const& fba,
             ParallelFor(com_bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
             {
                 mask_arr(i,j,k) = mask_val;
+            });
+        }
+    }
+
+    // A face on a PHYSICAL domain boundary is never a coarse-fine interface: the boundary
+    // condition owns it, and left marked it would be overwritten from the parent every time
+    // the interface is set. Not applicable to a periodic direction, where a domain-edge face
+    // IS a real interface whenever the patch covers only part of the width -- the far side of
+    // the seam is coarse then. It is interior only when the patch wraps onto itself, which the
+    // periodic images above already keep out of the complement.
+    const Box mask_domain = amrex::convert(m_fgeom.Domain(), fba.ixType());
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+        if (fba.ixType()[dir] != IndexType::NODE) { continue; }
+        if (m_fgeom.isPeriodic(dir)) { continue; }
+
+        const int edge_lo = mask_domain.smallEnd(dir);
+        const int edge_hi = mask_domain.bigEnd(dir);
+        const int idir    = dir;
+
+        for (MFIter mfi(*m_cf_mask); mfi.isValid(); ++mfi) {
+            const Box& vbx = mfi.validbox();
+            const Array4<int>& mask_arr = m_cf_mask->array(mfi);
+            ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+                const int idx = (idir == 0) ? i : ((idir == 1) ? j : k);
+                if (idx == edge_lo || idx == edge_hi) { mask_arr(i,j,k) = mask_val; }
             });
         }
     }

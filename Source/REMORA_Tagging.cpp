@@ -721,12 +721,5 @@ REMORA::refinement_criteria_setup ()
                 Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
             }
         } // loop over criteria
-
-        // Two derefine criteria used to be appended here, one clearing every land cell and
-        // one clearing every cell beside one, to keep a gradient criterion from tagging the
-        // whole coastline. Running after the user's criteria, they also cleared tags a static
-        // box had deliberately set on land, so a box drawn across a coast came back refined
-        // only on its water part. REMORAErrorTag now guards each criterion as it is
-        // evaluated, which suppresses the same spurious tags without touching anyone else's.
     } // if max_level > 0
 }

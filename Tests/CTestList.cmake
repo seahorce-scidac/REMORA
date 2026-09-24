@@ -203,6 +203,91 @@ function(add_test_abort TEST_NAME TEST_EXE ABORT_SUBSTRING)
     )
 endfunction(add_test_abort)
 
+# Run the same input twice under different runtime options and require the two plotfiles to
+# agree. For an invariant between two code paths -- neither run is a baseline, so this needs
+# no gold data and cannot go stale against one.
+function(add_test_r_selfcompare TEST_NAME TEST_EXE PLTFILE OPTIONS_A OPTIONS_B)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(FCOMPARE_TOLERANCE "-r 1e-11 --abs_tol 1.0e-11")
+    set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${OPTIONS_A} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${OPTIONS_B} >> ../${TEST_NAME}.log 2>&1 && cd .. && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} runA/${PLTFILE} runB/${PLTFILE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_r_selfcompare)
+
+# Assert how far an integrated quantity drifts over a run. INPUT_NAME picks the input file, so
+# several tests can share one case; OPTIONS go on the command line; the remaining arguments are
+# <column> <bound> <below|above> triples handed to check_conservation.sh.
+function(add_test_conservation TEST_NAME INPUT_NAME TEST_EXE OPTIONS)
+
+    set(CURRENT_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test_files/${INPUT_NAME})
+    set(CURRENT_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_files/${TEST_NAME})
+    file(MAKE_DIRECTORY ${CURRENT_TEST_BINARY_DIR})
+    file(GLOB TEST_FILES "${CURRENT_TEST_SOURCE_DIR}/*")
+    file(COPY ${TEST_FILES} DESTINATION "${CURRENT_TEST_BINARY_DIR}/")
+
+    if(REMORA_ENABLE_MPI)
+        set(NP 2)
+        set(MPI_COMMANDS "${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NP} ${MPIEXEC_PREFLAGS}")
+    else()
+        set(NP 1)
+        unset(MPI_COMMANDS)
+    endif()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    # sum_integrated_quantities returns immediately below verbosity 1, and its default six
+    # digits cannot resolve the drifts asserted on here. The data log is opened for append, so
+    # a stale one from an earlier run would supply the wrong first row.
+    set(SUM_OPTS "remora.v=1 remora.sum_interval=1 remora.sum_precision=12 remora.data_log=cons.log")
+    string(REPLACE ";" " " CHECKS "${ARGN}")
+
+    set(test_command sh -c "rm -f cons.log && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${INPUT_NAME}.i ${SUM_OPTS} ${OPTIONS} > ${TEST_NAME}.log 2>&1 && ${CMAKE_CURRENT_SOURCE_DIR}/check_conservation.sh cons.log ${CHECKS}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_conservation)
+
+# Run must succeed AND its log must contain LOG_SUBSTRING. For a code path whose answers are
+# not worth blessing into a gold file, but which must keep reaching the named behavior.
+function(add_test_log TEST_NAME TEST_EXE LOG_SUBSTRING)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(test_command sh -c "${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i > ${TEST_NAME}.log 2>&1 && grep -q -- \"${LOG_SUBSTRING}\" ${TEST_NAME}.log")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 600
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_log)
+
 # Assert variables' min and max in a plotfile against values known from outside REMORA -- a
 # closed-form reference, or constants that an initial condition must reproduce. Unlike a gold
 # file this says what the numbers should BE, so it also catches a baseline that was wrong when
@@ -367,6 +452,134 @@ add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic              "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic_MLvel        "remora_exec" "plt_ml00010")
 add_test_r(DogboneAnalytic_MLquad       "remora_exec" "plt_ml_quad00010")
+# A refined patch whose low x edge lies on the periodic seam. The only lane whose fine level
+# touches a periodic boundary, so the only one that holds the periodic-boundary handling in
+# BuildMask, fill_ghost_kcomps, FillCoarsePatchMap and the ubar/vbar average-down in place.
+# Also the only multi-level lane with Coriolis on. Its gold is from one rank, one box per
+# level; under MPI the level-1 box splits at j = 30, so it also holds the interface ghost
+# refresh after set_2d_cf_bcs, without which the answer depended on the box layout.
+add_test_r(Channel_Test_ML_seam         "remora_exec" "plt00010")
+
+#=============================================================================
+# Time subcycling on refined levels (remora.do_substep)
+#
+# The default path's answers are pinned by Advection_ML and the two DogboneAnalytic_ML gold
+# lanes. These assert behaviour those cannot: that subcycling actually engages, and that the
+# two drivers still agree where they should. Here, level 1 receives dt[0]/2 (fixed_dt = 100,
+# ref_ratio = 2).
+#=============================================================================
+add_test_log(Advection_ML_subcycle      "remora_exec" "with dt = 50")
+
+# The load-bearing one: at a timestep ratio of 1 the recursive driver must reproduce
+# timeStepML, separating a broken driver from the answer changes subcycling legitimately
+# makes. With DogboneAnalytic_ML_conservation_lockstep it is one of the two things still
+# holding lockstep in place.
+# do_reflux is off in the subcycled run because it is a correction the lockstep driver does
+# not apply at all, so leaving it on would compare a feature rather than the drivers. It
+# moves the tracer by 3e-4 here, well clear of the tolerance.
+add_test_r_selfcompare(Advection_ML_subcycle_identity "remora_exec" "plt00020"
+                       "remora.do_substep=0"
+                       "remora.do_substep=1 remora.dt_ref_ratio=1 remora.do_reflux=0")
+
+# Advection has a flat bottom, so D matches across the interface and set_2d_cf_bcs reduces to
+# the interpolation it replaces. This lane has varying bathymetry and a refinement ratio of 3,
+# so the mass-flux form is actually exercised.
+add_test_log(DogboneAnalytic_ML_subcycle "remora_exec" "3 x 3          3          60       0.6667")
+
+#=============================================================================
+# Conservation
+#
+# Advection is doubly periodic and DogboneAnalytic is closed by slipwalls, so in both nothing
+# can leave the domain and the totals have to hold. Bounds come from measurement, not from
+# taste; the numbers each one is separating are in the comments.
+#=============================================================================
+
+# Tracer mass. Refluxing takes the drift from 7.8e-5 to below what 12 digits can resolve.
+add_test_conservation(Advection_ML_conservation Advection_ML_subcycle "remora_exec"
+                      "remora.max_step=20 remora.do_reflux=1 remora.reflux_clamp=0"
+                      tracer 1e-10 below)
+
+# The control, and the reason the lane above means anything: without refluxing the same run
+# must drift. If this ever passes by conserving, the case has stopped exercising the
+# correction -- no interface, no gradient across it, or a no-op -- and its partner above is
+# proving nothing.
+add_test_conservation(Advection_ML_conservation_control Advection_ML_subcycle "remora_exec"
+                      "remora.max_step=20 remora.do_reflux=0"
+                      tracer 1e-6 above)
+
+# Three levels, where the correction at the 1/2 interface has to be accumulated over several
+# steps of level 1 before it is applied. A two-level case refluxes once per step of the only
+# coarse level there is, so it passes whether or not that accumulation is right.
+add_test_conservation(Advection_3L_conservation Advection_3L_conservation "remora_exec"
+                      "remora.max_step=20 remora.do_reflux=1 remora.reflux_clamp=0"
+                      tracer 1e-10 below)
+
+# Its control, for the same reason as above.
+add_test_conservation(Advection_3L_conservation_control Advection_3L_conservation "remora_exec"
+                      "remora.max_step=20 remora.do_reflux=0"
+                      tracer 1e-6 above)
+
+# The floor. Both totals are exact on one level, so the AMR bounds are measured against
+# roundoff rather than against an unknown scheme error.
+add_test_conservation(Advection_conservation_baseline Advection_ML_subcycle "remora_exec"
+                      "remora.max_step=20 amr.max_level=0"
+                      tracer 1e-12 below volume 1e-12 below)
+
+# Volume is the integral of the free surface, so what costs it here is how that surface is
+# written in the fine ghost band. REMORA writes it as ROMS's put_refine2d does -- every
+# leapfrog record plus Zt_avg1 (cf_fill_all_kcomp), interpolated onto the child's sub-time
+# (cf_time_interp_zeta) -- and neither preserves volume: one at a time they take the drift
+# from 2.0e-09 to 2.9e-08 and 1.4e-08 (measured; no lane turns off one alone). That is the
+# trade ROMS makes. The default path measures 2.9e-08, against 2.0e-09 for the lane below and
+# 2.0e-6 for the lockstep driver, which interpolates ubar instead of imposing the flux. Single
+# level is exact on this case too, measured; the lane asserting that is the Advection one.
+add_test_conservation(DogboneAnalytic_ML_conservation DogboneAnalytic_ML_subcycle "remora_exec"
+                      "remora.max_step=20"
+                      volume 1e-7 below)
+
+# The conservative path, pinned where the bound above used to sit. Switching off only the two
+# ghost-band knobs keeps ROMS's restriction stencil and flux distribution and brings the drift
+# back to 2.0e-09, where the transport side of the interface sits on its own: of that,
+# cf_avgdown_stencil's nine-point mean costs about 3e-10 and cf_flux_pc is exactly neutral
+# (both measured; no lane isolates either). If this lane drifts, the conservative path has
+# regressed whatever the default path is doing.
+add_test_conservation(DogboneAnalytic_ML_conservation_cons DogboneAnalytic_ML_subcycle "remora_exec"
+                      "remora.max_step=20 remora.cf_fill_all_kcomp=0 remora.cf_time_interp_zeta=0"
+                      volume 1e-8 below)
+
+# The must-drift control for both volume lanes above, and the assertion behind the lockstep
+# figure they are quoted against. Lockstep interpolates the parent's ubar at the interface
+# instead of imposing its fast-time-averaged flux -- its shared barotropic loop leaves DU_avg2
+# still accumulating when a child needs it -- and volume drifts 2.0e-6, two orders past the
+# 1e-7 the default path is held to. If this lane ever conserves, the case has stopped
+# separating the two drivers and neither bound above is measuring the coarse-fine treatment.
+add_test_conservation(DogboneAnalytic_ML_conservation_lockstep DogboneAnalytic_ML_subcycle "remora_exec"
+                      "remora.max_step=20 remora.do_substep=0"
+                      volume 1e-7 above)
+
+# The assumption underneath all of the above: the fine cell edges have to sum to the coarse
+# edge, or the mass flux imposed at the interface cannot be conservative whatever else is
+# right. check_cf_metrics aborts past remora.check_cf_tol, so reaching the printed line is the
+# assertion. It measures 0 on this ratio-2 analytic grid and 1.4e-16 on Dogbone's ratio 3, but
+# is not guaranteed on the NetCDF path, where a finer level interpolates its metrics from the
+# parent's and scales them by the refinement ratio. All three lanes set the tolerance to 1e-14,
+# within a factor of 40 of the largest measurement, rather than the 1e-12 default.
+add_test_log(Advection_ML_cf_metrics "remora_exec" "CF edge tiling")
+
+# The ratio-3 grid the DogboneAnalytic_ML golds and both volume lanes above are measured on,
+# so the identity those numbers rest on is asserted where they are taken rather than only at
+# ratio 2: three fine faces to a coarse one, 1.4e-16.
+add_test_log(DogboneAnalytic_ML_cf_metrics "remora_exec" "CF edge tiling")
+
+# The same check where it is not trivially satisfied: every other multi-level case has uniform
+# pm and pn, so their fine edges sum to the coarse edge for a reason particular to them.
+add_test_log(BoundaryLayer_ML_cf_metrics "remora_exec" "CF edge tiling")
+
+# amr.do_substep is the original spelling and has to keep working. The warning is the
+# observable proof the fallback was read rather than silently ignored, and setting both
+# spellings is an error rather than a silent precedence rule.
+add_test_log(Advection_ML_do_substep_alias "remora_exec" "amr.do_substep is deprecated")
+add_test_abort(Advection_ML_do_substep_both_abort "remora_exec" "and amr.do_substep are both")
 
 #=============================================================================
 # High-resolution initialization (remora.hires_grid_level / remora.hires_init_level)

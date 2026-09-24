@@ -46,14 +46,16 @@ REMORA::timeStepML (Real time, int /*iteration*/)
 
                     // If there are newly created levels, set the time step
                     for (int k = old_finest+1; k <= finest_level; ++k) {
-                        dt[k] = dt[k-1] / nsubsteps[lev];
+                        dt[k] = dt[k-1] / nsubsteps[k];
                     }
                 }
             }
         }
     }
 
-    scale_rhs_vars();
+    for (int lev=0; lev <= finest_level; lev++) {
+        scale_rhs_vars(lev);
+    }
 
     for (int lev=0; lev <= finest_level;lev++)
     {
@@ -177,7 +179,9 @@ REMORA::timeStepML (Real time, int /*iteration*/)
         }
     }
 
-    scale_rhs_vars_inv();
+    for (int lev=0; lev <= finest_level; lev++) {
+        scale_rhs_vars_inv(lev);
+    }
 
     if (solverChoice.coupling_type == CouplingType::two_way) {
         for (int lev=0; lev <= finest_level-1; lev++) {

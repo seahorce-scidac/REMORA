@@ -45,7 +45,9 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
                   const int /*icomp_calc*/,
                   const Real /*dt_lev*/,
 #endif
-                  const MultiFab& mf_calc)
+                  const MultiFab& mf_calc,
+                  Vector<MultiFab*> const& mfs_crse_old,
+                  Vector<MultiFab*> const& mfs_crse_new)
 {
     BL_PROFILE_VAR("REMORA::FillPatch()",REMORA_FillPatch);
     amrex::Interpolater* mapper = nullptr;
@@ -123,8 +125,18 @@ REMORA::FillPatch (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab*> c
     {
         Vector<MultiFab*> fmf = {mfs[lev], mfs[lev]};
         Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+        // A subcycled fine level asks for times inside the parent's step, so the coarse
+        // contribution has to be interpolated. Passing one MultiFab twice makes
+        // FillPatchTwoLevels return it whatever the time: fine in lockstep, wrong for
+        // subcycling.
         Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
-        Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
+        Vector<Real> ctime    = {time, time};
+        if (do_substep && int(mfs_crse_old.size()) >= lev && int(mfs_crse_new.size()) >= lev) {
+            cmf   = {mfs_crse_old[lev-1], mfs_crse_new[lev-1]};
+            ctime = {t_old[lev-1], t_new[lev-1]};
+            mfs_crse_old[lev-1]->FillBoundary(geom[lev-1].periodicity());
+            mfs_crse_new[lev-1]->FillBoundary(geom[lev-1].periodicity());
+        }
 
         mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
         amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
@@ -204,7 +216,9 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
 #endif
                   const int  icomp,
                   const bool fill_all,
-                  const bool fill_set)
+                  const bool fill_set,
+                  Vector<MultiFab*> const& mfs_crse_old,
+                  Vector<MultiFab*> const& mfs_crse_new)
 {
     // HACK: Note that this is hacky; should be able to have a single call to FillPatch with a
     // flag for bcs, but for some reason it was acting weird, so we're splitting this out into
@@ -284,8 +298,18 @@ REMORA::FillPatchNoBC (int lev, Real time, MultiFab& mf_to_fill, Vector<MultiFab
     {
         Vector<MultiFab*> fmf = {mfs[lev], mfs[lev]};
         Vector<Real> ftime    = {t_old[lev], t_new[lev]};
+        // A subcycled fine level asks for times inside the parent's step, so the coarse
+        // contribution has to be interpolated. Passing one MultiFab twice makes
+        // FillPatchTwoLevels return it whatever the time: fine in lockstep, wrong for
+        // subcycling.
         Vector<MultiFab*> cmf = {mfs[lev-1], mfs[lev-1]};
-        Vector<Real> ctime    = {t_old[lev-1], t_new[lev-1]};
+        Vector<Real> ctime    = {time, time};
+        if (do_substep && int(mfs_crse_old.size()) >= lev && int(mfs_crse_new.size()) >= lev) {
+            cmf   = {mfs_crse_old[lev-1], mfs_crse_new[lev-1]};
+            ctime = {t_old[lev-1], t_new[lev-1]};
+            mfs_crse_old[lev-1]->FillBoundary(geom[lev-1].periodicity());
+            mfs_crse_new[lev-1]->FillBoundary(geom[lev-1].periodicity());
+        }
 
         mfs[lev-1]->FillBoundary(geom[lev-1].periodicity());
         amrex::FillPatchTwoLevels(mf_to_fill, mf_to_fill.nGrowVect(), IntVect(0,0,0),
@@ -541,6 +565,16 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
     // Fill corners of the domain with periodic data
     if  ( box_mf.ixType() == IndexType(IntVect(0,0,0)) ) {
         mf_to_fill->EnforcePeriodicity(geom[lev].periodicity());
+    } else {
+        // The face-centred analogue. InterpFromCoarseLevel fills a periodic ghost from the
+        // coarse level, which for a face tangential to the periodic direction does not
+        // reproduce the fine value it wraps to: on a new level of Channel_Test, vbar's x
+        // ghosts at the seam differed from their images by 2e-4 to 6e-4 where zeta's,
+        // corrected above, were exact. The first barotropic substep then sees different vbar
+        // at the two copies of the periodic u-face, and that one-shot asymmetry amplifies into
+        // a blow-up. Copying the ghosts from this level's own valid data, as every later
+        // FillPatch does, removes it.
+        mf_to_fill->FillBoundary(geom[lev].periodicity());
     }
 
     // Enforce free-slip at top boundary (on xvel or yvel)

@@ -3,8 +3,13 @@
     bool traditional = true;
     pp_prob.query("traditional", traditional);
 
+    // Flat-bottom depth for the traditional dogbone. Settable so a run can be matched to a
+    // ROMS grid file with a different h; set remora.prob_lo's z to -depth to match.
+    Real depth = Real(10.0);
+    pp_prob.query("depth", depth);
+
     if (traditional) {
-        mf_h.setVal(Real(10.0));
+        mf_h.setVal(depth);
     } else {
         // Coordinates from the Geometry rather than remora.vec_xr/vec_yr, as in the mask hook:
         // the hires_grid_level path evaluates this on a full-domain MultiFab that is not built

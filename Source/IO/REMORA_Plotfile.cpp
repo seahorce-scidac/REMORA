@@ -628,11 +628,12 @@ REMORA::WritePlotFile (int istep_for_plot)
 #ifdef REMORA_USE_NETCDF
     else if (plotfile_type == PlotfileType::netcdf)
     {
-        // Currently this is hard-coded to plot only level 0
-        AMREX_ASSERT(finest_level == 0);
-        int lev = 0;
-        plotMF[0].FillBoundary(geom[lev].periodicity());
-        WriteNCPlotFile(istep_for_plot,&plotMF[lev]);
+        // Each level goes to its own file: level 0 to _d01, a refined level to _d02 and up.
+        // A level with more than one box is not handled; only its first subdomain is written.
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            plotMF[lev].FillBoundary(geom[lev].periodicity());
+            WriteNCPlotFile(istep_for_plot,&plotMF[lev],lev);
+        }
     } // end if plotfile_type == netcdf
 #endif
     if (plotfile_type == PlotfileType::amrex) {

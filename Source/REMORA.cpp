@@ -117,10 +117,7 @@ REMORA::REMORA ()
     int nlevs_max = max_level + 1;
 
     istep.resize(nlevs_max, 0);
-    nsubsteps.resize(nlevs_max, 1);
-    for (int lev = 1; lev <= max_level; ++lev) {
-        nsubsteps[lev] = do_substep ? MaxRefRatio(lev-1) : 1;
-    }
+    set_nsubsteps(nlevs_max);
 
     physbcs.resize(nlevs_max);
 
@@ -181,10 +178,7 @@ REMORA::REMORA (const amrex::RealBox& rb, int max_level_in, const amrex::Vector<
     int nlevs_max = max_level + 1;
 
     istep.resize(nlevs_max, 0);
-    nsubsteps.resize(nlevs_max, 1);
-    for (int lev = 1; lev <= max_level; ++lev) {
-        nsubsteps[lev] = do_substep ? MaxRefRatio(lev-1) : 1;
-    }
+    set_nsubsteps(nlevs_max);
 
     physbcs.resize(nlevs_max);
 
@@ -281,6 +275,12 @@ REMORA::Evolve ()
     BL_PROFILE_VAR("REMORA::Evolve()",evolve);
     Real cur_time = t_new[0];
 
+    // istep[0] advances inside the loop, so keep the value it started at.
+    const int first_step = istep[0];
+
+    // Levels appear as tagging occurs, so reprint the hierarchy when finest_level changes.
+    int reported_finest = -1;
+
     // Take one coarse timestep by calling timeStep -- which recursively calls timeStep
     //      for finer levels (with or without subcycling)
     for (int step = istep[0]; step < max_step && cur_time < stop_time; ++step)
@@ -289,11 +289,19 @@ REMORA::Evolve ()
 
         ComputeDt();
 
+        // dt is only populated once ComputeDt has run.
+        if (step == first_step || finest_level != reported_finest) {
+            print_timestep_hierarchy();
+            reported_finest = finest_level;
+        }
+
         int lev = 0;
         int iteration = 1;
         auto dEvolveTime0 = amrex::second();
 
-        if (max_level == 0) {
+        // timeStep recurses into finer levels nsubsteps[lev+1] times; timeStepML advances
+        // every level once through one shared barotropic loop.
+        if (max_level == 0 || do_substep) {
             timeStep(lev, cur_time, iteration);
         }
         else {
@@ -368,6 +376,61 @@ REMORA::WriteAtIntermediateTime(int step, amrex::Real cur_time)
 }
 
 /**
+ * Apply the tracer flux correction accumulated at the lev/lev+1 interface onto lev.
+ *
+ * Once per step of lev, pairing the reset at the top of Advance(lev), so the accumulate and
+ * apply window sits inside one step of lev. Applying it per step of level 0 instead would
+ * keep only the last correction whenever lev was itself substepped, and would let the regrid
+ * of lev+1 rebuild the register mid-accumulation.
+ *
+ * @param[in] lev            coarse level of the interface
+ */
+void
+REMORA::reflux_to (int lev)
+{
+    if (!(do_reflux && do_substep) || lev >= finest_level ||
+        solverChoice.coupling_type != CouplingType::two_way) {
+        return;
+    }
+
+    BL_PROFILE("REMORA::reflux_to()");
+
+    // The register holds the correction in Hz*t units, the form the tracer is advanced in.
+    // Reflux into a scratch fab and divide that down, rather than scaling the level into
+    // those units and back: that round trip is inexact for about a tenth of cells, which
+    // perturbs cells the correction never reached and leaves the clamp below unable to tell
+    // which ones it did.
+    MultiFab dcons(cons_new[lev]->boxArray(), cons_new[lev]->DistributionMap(), ncons, 0);
+    dcons.setVal(zero);
+    getAdvFluxReg(lev+1)->Reflux(dcons, 0, 0, ncons);
+
+    const bool clamp = reflux_clamp;
+
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        Array4<Real      > const& c  = cons_new[lev]->array(mfi);
+        Array4<Real const> const& dc = dcons.const_array(mfi);
+        Array4<Real const> const& hz = vec_Hz[lev]->const_array(mfi);
+
+        ParallelFor(mfi.tilebox(), ncons, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            // No thickness is land or dry: leave it rather than divide by zero.
+            if (dc(i,j,k,n) == zero || hz(i,j,k) <= zero) { return; }
+
+            c(i,j,k,n) += dc(i,j,k,n) / hz(i,j,k);
+
+            // Clamping restores the mass the correction removed, so a step that clamps is
+            // not conservative: ROMS's trade, and why it is an option. Zero suits a
+            // concentration, less so temperature in Celsius.
+            if (clamp && c(i,j,k,n) < zero) { c(i,j,k,n) = zero; }
+        });
+    }
+}
+
+/**
  * @param[in   ] nstep    which step we're on
  * @param[in   ] time     current time
  * @param[in   ] dt_lev0  time step on level 0
@@ -385,13 +448,6 @@ REMORA::post_timestep (int nstep, Real time, Real dt_lev0)
     {
         for (int lev = finest_level-1; lev >= 0; lev--)
         {
-            // This call refluxes from the lev/lev+1 interface onto lev
-            //getAdvFluxReg(lev+1)->Reflux(*cons_new[lev], 0, 0, NCONS);
-
-            // We need to do this before anything else because refluxing changes the
-            // values of coarse cells underneath fine grids with the assumption they'll
-            // be over-written by averaging down
-            //
             AverageDownTo(lev);
         }
     }
@@ -451,15 +507,11 @@ REMORA::InitData ()
 #ifdef REMORA_USE_MOAB
     InitMOABMesh();
 #endif
-    // Initialize flux registers (whether we start from scratch or restart)
+    // Levels that appear later, or are regridded, define their own from make_new_level.
     if (solverChoice.coupling_type == CouplingType::two_way) {
         advflux_reg[0] = nullptr;
-        for (int lev = 1; lev <= finest_level; lev++)
-        {
-            advflux_reg[lev].reset( new YAFluxRegister(grids[lev], grids[lev-1],
-                                                   dmap[lev],  dmap[lev-1],
-                                                   geom[lev],  geom[lev-1],
-                                              ref_ratio[lev-1], lev, ncons));
+        for (int lev = 1; lev <= finest_level; lev++) {
+            define_flux_register(lev);
         }
     }
 
@@ -569,6 +621,13 @@ REMORA::Construct_REMORAFillPatchers (int lev)
     FPr_vbar.emplace_back(convert(ba2d_fine, IntVect(0,1,0)), dm_fine, geom[lev]  ,
                        convert(ba2d_crse, IntVect(0,1,0)), dm_crse, geom[lev-1],
                        -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
+
+    FPr_Dubar.emplace_back(convert(ba2d_fine, IntVect(1,0,0)), dm_fine, geom[lev]  ,
+                       convert(ba2d_crse, IntVect(1,0,0)), dm_crse, geom[lev-1],
+                       -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+    FPr_Dvbar.emplace_back(convert(ba2d_fine, IntVect(0,1,0)), dm_fine, geom[lev]  ,
+                       convert(ba2d_crse, IntVect(0,1,0)), dm_crse, geom[lev-1],
+                       -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
 }
 
 /**
@@ -578,7 +637,9 @@ void
 REMORA::Define_REMORAFillPatchers (int lev)
 {
     BL_PROFILE("REMORA::Define_REMORAFillPatchers()");
-    amrex::Print() << ":::Define_REMORAFillPatchers " << lev << std::endl;
+    if (verbose > 0) {
+        amrex::Print() << ":::Define_REMORAFillPatchers " << lev << std::endl;
+    }
 
     auto& ba_fine  = cons_new[lev  ]->boxArray();
     auto& ba_crse  = cons_new[lev-1]->boxArray();
@@ -619,6 +680,13 @@ REMORA::Define_REMORAFillPatchers (int lev)
     FPr_vbar[lev-1].Define(convert(ba2d_fine, IntVect(0,1,0)), dm_fine, geom[lev]  ,
                         convert(ba2d_crse, IntVect(0,1,0)), dm_crse, geom[lev-1],
                         -cf_width, -cf_set_width, 3, &face_cons_linear_interp);
+
+    FPr_Dubar[lev-1].Define(convert(ba2d_fine, IntVect(1,0,0)), dm_fine, geom[lev]  ,
+                        convert(ba2d_crse, IntVect(1,0,0)), dm_crse, geom[lev-1],
+                        -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
+    FPr_Dvbar[lev-1].Define(convert(ba2d_fine, IntVect(0,1,0)), dm_fine, geom[lev]  ,
+                        convert(ba2d_crse, IntVect(0,1,0)), dm_crse, geom[lev-1],
+                        -cf_width, -cf_set_width, 1, &face_cons_linear_interp);
 }
 
 void
@@ -2196,6 +2264,70 @@ REMORA::ReadParameters ()
     // Number of barotropic (fast) steps taken per baroclinic (slow) step.
     pp.queryAdd("ndtfast", ndtfast);
 
+    // 0 selects timeStepML, kept as a comparison path. amr.do_substep is the original
+    // spelling; read it first so the queryAdd below records the value under the new name.
+    {
+        ParmParse pp_amr("amr");
+        if (pp_amr.contains("do_substep")) {
+            if (pp.contains("do_substep")) {
+                amrex::Abort("remora.do_substep and amr.do_substep are both specified. "
+                             "Please use only remora.do_substep");
+            }
+            amrex::Print() << "WARNING: amr.do_substep is deprecated. "
+                           << "Please use remora.do_substep instead." << std::endl;
+            pp_amr.queryAdd("do_substep", do_substep);
+        }
+    }
+    pp.queryAdd("do_substep", do_substep);
+
+    if (max_level > 0) {
+        if (do_substep) {
+            amrex::Print() << "WARNING: subcycling refined levels in time is EXPERIMENTAL.\n"
+                           << "         Multi-level answers are not yet considered production\n"
+                           << "         quality; check them against a single-level run before\n"
+                           << "         relying on them. remora.do_substep = 0 selects the older\n"
+                           << "         lockstep driver instead.\n";
+        } else {
+            amrex::Print() << "NOTE: remora.do_substep = 0 selects the lockstep driver. It cannot\n"
+                           << "      impose the parent's mass flux at a coarse-fine interface, so\n"
+                           << "      it conserves volume less well: 2.0e-6 against 2.9e-08 on\n"
+                           << "      Dogbone. Refinement is EXPERIMENTAL on either driver.\n";
+        }
+    }
+
+    // Write the parent's flux straight onto DUon/DVom instead of letting the solver rebuild it
+    // from the imposed velocity. See set_2d_cf_flux.
+    pp.queryAdd("cf_impose_flux", cf_impose_flux);
+
+    // See set_2d_cf_bcs. Only has an effect when remora.do_substep = 1.
+    pp.queryAdd("time_interp_flux", time_interp_flux);
+
+    // Tracer flux correction at the coarse-fine interface. Needs remora.do_substep and
+    // two-way coupling to do anything.
+    pp.queryAdd("do_reflux", do_reflux);
+
+    // Mirror ROMS's fine2coarse, which returns every covered cell but not the perimeter's
+    // normal-velocity faces. 0 restores the behaviour from before that was matched.
+    pp.queryAdd("cf_avgdown_perimeter", cf_avgdown_perimeter);
+
+    // Diagnostics; see the declarations in REMORA.H.
+    pp.queryAdd("cf_fill_vel_after", cf_fill_vel_after);
+    pp.queryAdd("cf_set_2d_bcs", cf_set_2d_bcs);
+    pp.queryAdd("cf_avgdown_bar", cf_avgdown_bar);
+    pp.queryAdd("cf_fill_all_kcomp", cf_fill_all_kcomp);
+    pp.queryAdd("cf_time_interp_zeta", cf_time_interp_zeta);
+    pp.queryAdd("cf_flux_pc", cf_flux_pc);
+    pp.queryAdd("cf_avgdown_stencil", cf_avgdown_stencil);
+    pp.queryAdd("cf_print_iface", cf_print_iface);
+
+    // Whether to zero a tracer the correction drives negative, as ROMS does.
+    pp.queryAdd("reflux_clamp", reflux_clamp);
+
+    // See check_cf_metrics. Off by default: it is a property of the grid, so one run says as
+    // much as every run.
+    pp.queryAdd("check_cf_metrics", check_cf_metrics_flag);
+    pp.queryAdd("check_cf_tol", check_cf_tol);
+
     // Advance and timeStepML form the fast step as dt / ndtfast, and set_weights sizes
     // the barotropic filter with the same number, so a non-positive value divides by zero
     // at all three sites. Nothing can infer it: dt is not known until run time on a
@@ -2387,11 +2519,6 @@ REMORA::ReadParameters ()
     {
         ParmParse pp_amr("amr");
         pp_amr.queryAdd("regrid_int", regrid_int);
-        pp_amr.queryAdd("do_substep", do_substep);
-        if (do_substep) {
-            amrex::Abort("Time substepping is not yet implemented. amr.do_substep must be 0");
-        }
-
     }
     solverChoice.init_params(ncons, nscalar, cons_names);
 
@@ -2461,6 +2588,158 @@ REMORA::clear_avgdown_masks (int lev)
 }
 
 /**
+ * Measure whether the fine cell edges tile the coarse ones across a coarse-fine interface:
+ * the sum of on_u over the r covering fine faces against on_u on the coarse face.
+ *
+ * Exact where pm and pn are uniform, and not guaranteed otherwise -- on the NetCDF path a
+ * finer level interpolates its metrics from the parent's and rescales them, which need not
+ * preserve a sum. set_2d_cf_bcs cannot impose a conservative flux without this identity.
+ *
+ * @param[in   ] crse_lev  coarse side of the interface
+ */
+void
+REMORA::check_cf_metrics (int crse_lev)
+{
+    const int rrx = ref_ratio[crse_lev][0];
+    const int rry = ref_ratio[crse_lev][1];
+
+    auto edge_residual = [&] (int dir, int ratio) -> Real
+    {
+        const IntVect ixt = (dir == 0) ? IntVect(1,0,0) : IntVect(0,1,0);
+        const MultiFab& metric_f = (dir == 0) ? *vec_pn[crse_lev+1] : *vec_pm[crse_lev+1];
+        const MultiFab& metric_c = (dir == 0) ? *vec_pn[crse_lev  ] : *vec_pm[crse_lev  ];
+
+        auto edge_lengths = [&] (const MultiFab& metric, int lev, MultiFab& out)
+        {
+            // pm and pn already live on the z-flattened BoxArray.
+            BoxArray ba = convert(metric.boxArray(), ixt);
+            out.define(ba, metric.DistributionMap(), 1, 0);
+            for (MFIter mfi(out, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                Array4<Real      > const& e = out.array(mfi);
+                Array4<Real const> const& m = metric.const_array(mfi);
+                const int d = dir;
+                ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    const int im = (d == 0) ? i-1 : i;
+                    const int jm = (d == 0) ? j   : j-1;
+                    e(i,j,0) = two / (m(i,j,0) + m(im,jm,0));
+                });
+            }
+            amrex::ignore_unused(lev);
+        };
+
+        MultiFab edge_f, edge_c;
+        edge_lengths(metric_f, crse_lev+1, edge_f);
+        edge_lengths(metric_c, crse_lev  , edge_c);
+
+        // average_down_faces leaves faces the finer level does not cover untouched. Seeding
+        // with the coarse value over the ratio makes those contribute exactly zero below,
+        // rather than whatever the allocation happened to hold.
+        MultiFab avg(edge_c.boxArray(), edge_c.DistributionMap(), 1, 0);
+        MultiFab::Copy(avg, edge_c, 0, 0, 1, 0);
+        avg.mult(one / Real(ratio), 0, 1, 0);
+
+        average_down_faces(edge_f, avg, refRatio(crse_lev), 0);
+
+        // avg is the mean over the covering fine faces, so ratio*avg is their sum.
+        Real worst = zero;
+        for (MFIter mfi(avg, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+            Array4<Real const> const& a = avg.const_array(mfi);
+            Array4<Real const> const& c = edge_c.const_array(mfi);
+            ReduceOps<ReduceOpMax> reduce_op;
+            ReduceData<Real> reduce_data(reduce_op);
+            reduce_op.eval(mfi.tilebox(), reduce_data,
+            [=] AMREX_GPU_DEVICE (int i, int j, int k) -> GpuTuple<Real>
+            {
+                if (c(i,j,k) == zero) { return {zero}; }
+                return {amrex::Math::abs(Real(ratio) * a(i,j,k) - c(i,j,k)) /
+                        amrex::Math::abs(c(i,j,k))};
+            });
+            worst = amrex::max(worst, amrex::get<0>(reduce_data.value(reduce_op)));
+        }
+        ParallelDescriptor::ReduceRealMax(worst);
+        return worst;
+    };
+
+    const Real res_u = edge_residual(0, rry);
+    const Real res_v = edge_residual(1, rrx);
+
+    amrex::Print() << "CF edge tiling, levels " << crse_lev << "/" << crse_lev+1
+                   << ": max relative residual on_u " << res_u
+                   << ", om_v " << res_v << std::endl;
+
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+        amrex::max(res_u, res_v) < check_cf_tol,
+        "REMORA::check_cf_metrics: fine cell edges do not sum to the coarse edge across the "
+        "coarse-fine interface, so the mass flux set_2d_cf_bcs imposes there cannot be "
+        "conservative. Raise remora.check_cf_tol only if you know why the grid does this.");
+}
+
+/**
+ * Build the flux register holding the tracer flux mismatch between lev and lev-1. Called
+ * whenever a level is created or its grids change, since one appearing mid-run through
+ * tagging would otherwise have no register.
+ *
+ * @param[in   ] lev  level of refinement, > 0
+ */
+void
+REMORA::define_flux_register (int lev)
+{
+    if (lev == 0 || solverChoice.coupling_type != CouplingType::two_way) { return; }
+
+    // Take the layout from the MultiFabs rather than grids/dmap: when a level is first
+    // created those have not been set on AmrCore yet, as the fill patchers here also assume.
+    advflux_reg[lev].reset( new YAFluxRegister(cons_new[lev  ]->boxArray(),
+                                               cons_new[lev-1]->boxArray(),
+                                               cons_new[lev  ]->DistributionMap(),
+                                               cons_new[lev-1]->DistributionMap(),
+                                               geom[lev], geom[lev-1],
+                                               ref_ratio[lev-1], lev, ncons));
+
+    // The constructor sizes the accumulators without zeroing them, and Reflux adds all of
+    // m_crse_data to the state, so a register must be zero before its first use whichever
+    // path built it.
+    advflux_reg[lev]->reset();
+}
+
+/**
+ * Set how many steps each level takes per parent step, from remora.dt_ref_ratio.
+ *
+ * @param[in   ] nlevs_max  max_level + 1
+ */
+void
+REMORA::set_nsubsteps (int nlevs_max)
+{
+    nsubsteps.resize(nlevs_max, 1);
+    if (!do_substep) { return; }
+
+    for (int lev = 1; lev <= max_level; ++lev) {
+        nsubsteps[lev] = MaxRefRatio(lev-1);
+    }
+
+    // Defaults to the spatial ratio, but the two are independent in ROMS (RefineSteps
+    // against RefineScale) and in ERF. One value for all levels or one per level.
+    if (max_level > 0) {
+        ParmParse pp("remora");
+        int count = pp.countval("dt_ref_ratio");
+        if (count > 0) {
+            Vector<int> nsub(nlevs_max, 0);
+            if (count == 1) {
+                pp.queryarr("dt_ref_ratio", nsub, 0, 1);
+                for (int lev = 1; lev <= max_level; ++lev) { nsubsteps[lev] = nsub[0]; }
+            } else {
+                pp.queryarr("dt_ref_ratio", nsub, 0, max_level);
+                for (int lev = 1; lev <= max_level; ++lev) { nsubsteps[lev] = nsub[lev-1]; }
+            }
+            for (int lev = 1; lev <= max_level; ++lev) {
+                AMREX_ALWAYS_ASSERT_WITH_MESSAGE(nsubsteps[lev] > 0,
+                    "remora.dt_ref_ratio must be positive: it divides the parent timestep");
+            }
+        }
+    }
+}
+
+/**
  * Make sure the coarse rho-, u- and v-masks are defined on the layout average_down_masked
  * computes on: level crse_lev+1's grids coarsened, rather than level crse_lev's own grids.
  *
@@ -2502,6 +2781,48 @@ REMORA::update_avgdown_masks (int crse_lev)
 /**
  * @param[in   ] crse_lev  level to average down to
  */
+
+namespace {
+/** \brief Replace each face by the mean of itself and its neighbours along dir.
+ *
+ * ROMS's fine2coarse2d averages the donor over a (Rscale-1)/2 half-width stencil in both
+ * horizontal directions, so at ratio 3 a coarse face takes the mean of nine fine faces;
+ * AMReX's average_down_faces takes only the three, all tangential, that tile it. Smoothing
+ * along the face normal first supplies the missing direction and reproduces ROMS exactly.
+ * Masked as ROMS does it: sum over wet points, divide by the wet count.
+ *
+ * Deliberately not conservative -- the nine-point mean does not preserve the transport through
+ * the interface, where average_down_faces alone does. ROMS accepts that trade.
+ */
+void smooth_faces_along (amrex::MultiFab& mf, const amrex::MultiFab& msk, int dir,
+                         const amrex::Geometry& geom, int ncomp)
+{
+    mf.FillBoundary(geom.periodicity());
+    amrex::MultiFab orig(mf.boxArray(), mf.DistributionMap(), ncomp, mf.nGrowVect());
+    amrex::MultiFab::Copy(orig, mf, 0, 0, ncomp, mf.nGrowVect());
+    const int di = (dir == 0) ? 1 : 0;
+    const int dj = (dir == 1) ? 1 : 0;
+    for (amrex::MFIter mfi(mf, amrex::TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        const amrex::Box& bx = mfi.tilebox();
+        const auto& a = mf.array(mfi);
+        const auto& o = orig.const_array(mfi);
+        const auto& m = msk.const_array(mfi);
+        amrex::ParallelFor(bx, ncomp,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
+        {
+            amrex::Real sum = amrex::Real(0.0), cnt = amrex::Real(0.0);
+            for (int t = -1; t <= 1; ++t) {
+                const int ii = i + t*di, jj = j + t*dj;
+                const amrex::Real w = amrex::min(amrex::Real(1.0), m(ii,jj,0));
+                sum += o(ii,jj,k,n) * m(ii,jj,0);
+                cnt += w;
+            }
+            if (cnt > amrex::Real(0.0)) { a(i,j,k,n) = sum / cnt; }
+        });
+    }
+}
+} // namespace
+
 void
 REMORA::AverageDownTo (int crse_lev)
 {
@@ -2522,14 +2843,186 @@ REMORA::AverageDownTo (int crse_lev)
                         *vec_mskr[flev], cmskr, cons_new[crse_lev]->nComp(), -1);
     average_down_masked(crse_lev, *vec_Zt_avg1[flev], *vec_Zt_avg1[crse_lev],
                         *vec_mskr[flev], cmskr, vec_Zt_avg1[crse_lev]->nComp(), -1);
-    average_down_masked(crse_lev, *xvel_new[flev], *xvel_new[crse_lev],
+    // ROMS returns every covered cell but not the perimeter's normal-velocity faces, so the
+    // transport its nested boundary condition imposes there never comes back to the parent.
+    // Without that exclusion set_2d_cf_bcs writes the parent's own flux onto the interface and
+    // the average hands it straight back: a factor of 20 to 40 in the barotropic mode against
+    // ROMS on the matched dogbone.
+    MultiFab covered;
+    MultiFab u_save, v_save;
+    const bool keep_perimeter = (cf_avgdown_perimeter != 0);
+    if (keep_perimeter) {
+        build_covered_mask(crse_lev, covered);
+        u_save.define(xvel_new[crse_lev]->boxArray(), xvel_new[crse_lev]->DistributionMap(),
+                      1, 0, MFInfo());
+        v_save.define(yvel_new[crse_lev]->boxArray(), yvel_new[crse_lev]->DistributionMap(),
+                      1, 0, MFInfo());
+        MultiFab::Copy(u_save, *xvel_new[crse_lev], 0, 0, 1, 0);
+        MultiFab::Copy(v_save, *yvel_new[crse_lev], 0, 0, 1, 0);
+    }
+
+    // See smooth_faces_along: ROMS averages the donor over nine fine faces, AMReX over the
+    // three that tile the coarse face, so the normal direction is smoothed in first.
+    MultiFab xv_sm, yv_sm;
+    const MultiFab* xv_f = xvel_new[flev];
+    const MultiFab* yv_f = yvel_new[flev];
+    if (cf_avgdown_stencil) {
+        xv_sm.define(xvel_new[flev]->boxArray(), xvel_new[flev]->DistributionMap(),
+                     1, xvel_new[flev]->nGrowVect());
+        MultiFab::Copy(xv_sm, *xvel_new[flev], 0, 0, 1, xvel_new[flev]->nGrowVect());
+        smooth_faces_along(xv_sm, *vec_msku[flev], 0, geom[flev], 1);
+        xv_f = &xv_sm;
+
+        yv_sm.define(yvel_new[flev]->boxArray(), yvel_new[flev]->DistributionMap(),
+                     1, yvel_new[flev]->nGrowVect());
+        MultiFab::Copy(yv_sm, *yvel_new[flev], 0, 0, 1, yvel_new[flev]->nGrowVect());
+        smooth_faces_along(yv_sm, *vec_mskv[flev], 1, geom[flev], 1);
+        yv_f = &yv_sm;
+    }
+
+    average_down_masked(crse_lev, *xv_f, *xvel_new[crse_lev],
                         *vec_msku[flev], cmsku, 1, 0);
-    average_down_masked(crse_lev, *yvel_new[flev], *yvel_new[crse_lev],
+    average_down_masked(crse_lev, *yv_f, *yvel_new[crse_lev],
                         *vec_mskv[flev], cmskv, 1, 1);
+
+    if (keep_perimeter) {
+        restore_perimeter_faces(u_save, *xvel_new[crse_lev], covered, 0, 1);
+        restore_perimeter_faces(v_save, *yvel_new[crse_lev], covered, 1, 1);
+    }
     average_down_masked(crse_lev, *zvel_new[flev], *zvel_new[crse_lev],
                         *vec_mskr[flev], cmskr, 1, 2);
 
+    if (check_cf_metrics_flag) { check_cf_metrics(crse_lev); }
+
+    // Hand the child's 2D momentum back, as ROMS's fine2coarse does. The parent's next
+    // advance_2d reads ubar(krhs) to form DUon, so dropping this moves Dogbone's x-velocity
+    // by 9%. Subcycling only: timeStepML keeps the behaviour its answers were recorded with.
+    if (do_substep && cf_avgdown_bar) {
+        // Components 0 and 1 only. The three are leapfrog slots rotating per level, so the
+        // two levels need not agree on which holds what -- but update_massflux_3d has just
+        // set both of these to the same velocity, so averaging them cannot mix time levels.
+        MultiFab ub_save, vb_save;
+        if (keep_perimeter) {
+            ub_save.define(vec_ubar[crse_lev]->boxArray(),
+                           vec_ubar[crse_lev]->DistributionMap(), 2, 0, MFInfo());
+            vb_save.define(vec_vbar[crse_lev]->boxArray(),
+                           vec_vbar[crse_lev]->DistributionMap(), 2, 0, MFInfo());
+            MultiFab::Copy(ub_save, *vec_ubar[crse_lev], 0, 0, 2, 0);
+            MultiFab::Copy(vb_save, *vec_vbar[crse_lev], 0, 0, 2, 0);
+        }
+
+        MultiFab ub_sm, vb_sm;
+        const MultiFab* ub_src = vec_ubar[crse_lev+1].get();
+        const MultiFab* vb_src = vec_vbar[crse_lev+1].get();
+        if (cf_avgdown_stencil) {
+            ub_sm.define(vec_ubar[flev]->boxArray(), vec_ubar[flev]->DistributionMap(),
+                         2, vec_ubar[flev]->nGrowVect());
+            MultiFab::Copy(ub_sm, *vec_ubar[flev], 0, 0, 2, vec_ubar[flev]->nGrowVect());
+            smooth_faces_along(ub_sm, *vec_msku[flev], 0, geom[flev], 2);
+            ub_src = &ub_sm;
+
+            vb_sm.define(vec_vbar[flev]->boxArray(), vec_vbar[flev]->DistributionMap(),
+                         2, vec_vbar[flev]->nGrowVect());
+            MultiFab::Copy(vb_sm, *vec_vbar[flev], 0, 0, 2, vec_vbar[flev]->nGrowVect());
+            smooth_faces_along(vb_sm, *vec_mskv[flev], 1, geom[flev], 2);
+            vb_src = &vb_sm;
+        }
+
+        for (int icomp = 0; icomp < 2; ++icomp) {
+            MultiFab ubar_f(*ub_src, make_alias, icomp, 1);
+            MultiFab ubar_c(*vec_ubar[crse_lev  ], make_alias, icomp, 1);
+            average_down_faces(ubar_f, ubar_c, refRatio(crse_lev), geom[crse_lev]);
+
+            MultiFab vbar_f(*vb_src, make_alias, icomp, 1);
+            MultiFab vbar_c(*vec_vbar[crse_lev  ], make_alias, icomp, 1);
+            average_down_faces(vbar_f, vbar_c, refRatio(crse_lev), geom[crse_lev]);
+        }
+
+        if (keep_perimeter) {
+            restore_perimeter_faces(ub_save, *vec_ubar[crse_lev], covered, 0, 2);
+            restore_perimeter_faces(vb_save, *vec_vbar[crse_lev], covered, 1, 2);
+        }
+
+        // The averages above rewrote this level's valid cells under the patch but not the
+        // ghosts imaging them across a periodic seam, and nothing else refreshes those before
+        // the next barotropic step: FillPatch refills one component, fill_ghost_kcomps runs on
+        // fine levels only. Where the patch abuts a periodic boundary the two copies of the
+        // coarse periodic u-face then read different vbar for the same physical cell -- freshly
+        // averaged against stale -- and the asymmetry grows step by step. On Channel_Test with
+        // a half-width patch on the seam: 3.4e-4 by step 20 and NaN by ~300 without this,
+        // exactly zero with it, and an interior patch unaffected either way.
+        vec_ubar[crse_lev]->FillBoundary(geom[crse_lev].periodicity());
+        vec_vbar[crse_lev]->FillBoundary(geom[crse_lev].periodicity());
+
+        // zeta is deliberately absent: set_zeta_to_Ztavg overwrites all three of its
+        // components from Zt_avg1 next step and stretch_transform reads Zt_avg1 anyway, so
+        // averaging it here would write something nothing reads.
+    }
+
     stretch_transform(crse_lev);
+}
+
+/**
+ * Coarse-level cell mask: 1 where level crse_lev+1 covers the cell, 0 elsewhere, with one grow
+ * cell so a face straddling the patch edge can see the cell outside it.
+ *
+ * @param[in   ] crse_lev  coarse level
+ * @param[out  ] covered   mask on the coarse layout
+ */
+void
+REMORA::build_covered_mask (int crse_lev, MultiFab& covered)
+{
+    // makeFineMask's (crse_value, fine_value) = (0, 1) puts a 1 exactly on the covered cells.
+    iMultiFab imask = makeFineMask(grids[crse_lev], dmap[crse_lev], grids[crse_lev+1],
+                                   ref_ratio[crse_lev], 0, 1);
+
+    covered.define(grids[crse_lev], dmap[crse_lev], 1, 1, MFInfo());
+    covered.setVal(zero);                       // grow cells outside the patch read as uncovered
+    const auto cma = covered.arrays();
+    const auto ima = imask.const_arrays();
+    ParallelFor(covered, [=] AMREX_GPU_DEVICE (int bno, int i, int j, int k) noexcept
+    {
+        cma[bno](i,j,k) = Real(ima[bno](i,j,k));
+    });
+    Gpu::streamSynchronize();
+    covered.FillBoundary(geom[crse_lev].periodicity());
+}
+
+/**
+ * Put back the values a fine-to-coarse average just wrote onto the fine patch's perimeter
+ * normal-velocity faces.
+ *
+ * ROMS's fine2coarse hands back every covered cell but excludes those faces: for a child
+ * spanning coarse cells I_lo..I_hi it updates u-faces I_lo+1..I_hi only, so the face the
+ * nested barotropic boundary condition writes is never returned to the parent. A face is
+ * interior exactly when both of the cells it separates are covered, which is the test used
+ * here.
+ *
+ * @param[in   ] saved    coarse field as it was before the average
+ * @param[inout] mf       coarse field to repair
+ * @param[in   ] covered  cell mask from build_covered_mask
+ * @param[in   ] dir      face normal direction
+ * @param[in   ] ncomp    components to repair
+ */
+void
+REMORA::restore_perimeter_faces (const MultiFab& saved, MultiFab& mf,
+                                 const MultiFab& covered, int dir, int ncomp)
+{
+    const IntVect off = IntVect::TheDimensionVector(dir);
+    for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+        Array4<Real      > const& a = mf.array(mfi);
+        Array4<Real const> const& o = saved.const_array(mfi);
+        Array4<Real const> const& c = covered.const_array(mfi);
+        ParallelFor(bx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+        {
+            const bool interior = (c(i,j,0) > Real(0.5)) &&
+                                  (c(i-off[0], j-off[1], 0) > Real(0.5));
+            if (!interior) { a(i,j,k,n) = o(i,j,k,n); }
+        });
+    }
+    Gpu::streamSynchronize();
 }
 
 /**

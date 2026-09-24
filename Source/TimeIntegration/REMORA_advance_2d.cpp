@@ -1,6 +1,59 @@
 #include <REMORA.H>
 
 using namespace amrex;
+
+namespace {
+/** \brief Copy the freshly filled leapfrog component into the other two, in the coarse-fine
+ *         ghost band only.
+ *
+ * FillPatch writes only component knew. The solver updates every component inside the fine
+ * grid but nothing writes the coarse-fine ghost band, so its other components stay a full
+ * parent step stale -- and the 2D solver reads zeta(krhs) and ubar(kstp) from exactly those
+ * cells. ROMS's put_refine2d sets the contact points it is about to read, so make every
+ * component agree with the parent state just filled.
+ *
+ * The band is found by marking the valid region and calling FillBoundary: ghosts another box
+ * on this level covers pick up a 1, so the remaining zeros are the coarse-fine and
+ * domain-boundary ghosts. Domain ghosts are excluded so the physical boundary conditions,
+ * applied after the FillPatch, are not overwritten.
+ */
+void fill_ghost_kcomps (MultiFab& mf, int knew, const Geometry& geom)
+{
+    MultiFab valid(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrowVect());
+    valid.setVal(Real(0.0));
+    valid.setVal(Real(1.0), 0, 1, 0);
+    valid.FillBoundary(geom.periodicity());
+
+    const Box dom = amrex::convert(geom.Domain(), mf.boxArray().ixType());
+
+    const bool per_x = geom.isPeriodic(0);
+    const bool per_y = geom.isPeriodic(1);
+
+    for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        Box gbx = mfi.growntilebox();
+        const auto& a = mf.array(mfi);
+        const auto& v = valid.const_array(mfi);
+        const auto dlo = amrex::lbound(dom);
+        const auto dhi = amrex::ubound(dom);
+        ParallelFor(gbx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+        {
+            if (v(i,j,k) > Real(0.5)) { return; }
+            // Skip ghosts outside the domain only where the domain really ends. A ghost beyond
+            // a periodic edge is not a physical-boundary cell: if the level wraps onto itself
+            // the FillBoundary above already marked it valid, and if it does not -- a patch
+            // covering part of the periodic width -- it is an ordinary coarse-fine ghost that
+            // FillPatch just filled from the parent, needing the same synchronisation as any
+            // other.
+            if (!per_x && (i < dlo.x || i > dhi.x)) { return; }
+            if (!per_y && (j < dlo.y || j > dhi.y)) { return; }
+            const Real val = a(i,j,k,knew);
+            a(i,j,k,0) = val;
+            a(i,j,k,1) = val;
+            a(i,j,k,2) = val;
+        });
+    }
+}
+} // namespace
 /** Nonlinear shallow-water rpimitive equations predictor (Leap-frog) and
  * corrector (Adams-Moulton) time-stepping engine. Corresponds to Nonlinear/step2d_LF_AM3.h
  * in ROMS.
@@ -185,6 +238,10 @@ REMORA::advance_2d (int lev,
     }
 
     // These are needed to pass the tests with bathymetry but I don't quite see why
+    if (do_substep && cf_impose_flux) {
+        set_2d_cf_flux(lev, t_old[lev], mf_DUon, mf_DVom);
+    }
+
     mf_DUon.FillBoundary(geom[lev].periodicity());
     mf_DVom.FillBoundary(geom[lev].periodicity());
 
@@ -481,7 +538,7 @@ REMORA::advance_2d (int lev,
 !-----------------------------------------------------------------------
 !
 */
-        Real cff1 = Real(0.5) * g;
+        Real cff1 = Real(0.5) * solverChoice.g;
         Real cff2 = one / Real(3.0);
         ParallelFor(xbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
@@ -782,12 +839,50 @@ REMORA::advance_2d (int lev,
         MultiFab ubar_know(*vec_ubar[lev], make_alias, know, 1);
         MultiFab vbar_know(*vec_vbar[lev], make_alias, know, 1);
         MultiFab zeta_know(*vec_zeta[lev], make_alias, know, 1);
+
         FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
                   knew, false,true, 0,know, dt2d, ubar_know);
         FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
                   knew, false,true, 0,know, dt2d, vbar_know);
-        FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
-                  knew, false,false, 0,know, dt2d, zeta_know);
+        // With the snapshot pair the coarse contribution is interpolated onto t_old[lev],
+        // which timeStep guarantees lies inside the parent's step; without it FillPatch
+        // falls back to the parent frozen at the end of that step. See roll_2d_snapshot.
+        if (cf_time_interp_zeta && lev > 0 && int(vec_zeta_crse_old.size()) >= lev
+            && vec_zeta_crse_old[lev-1] && vec_zeta_crse_new[lev-1]) {
+            FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
+                      knew, false,false, 0,know, dt2d, zeta_know,
+                      GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new));
+        } else {
+            FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
+                      knew, false,false, 0,know, dt2d, zeta_know);
+        }
+
+        // See fill_ghost_kcomps: without this the components the solver reads in the ghost
+        // band lag the one FillPatch just wrote by a whole parent step.
+        if (lev > 0 && cf_fill_all_kcomp) {
+            fill_ghost_kcomps(*vec_zeta[lev], knew, geom[lev]);
+            fill_ghost_kcomps(*vec_ubar[lev], knew, geom[lev]);
+            fill_ghost_kcomps(*vec_vbar[lev], knew, geom[lev]);
+        }
+
+        // Replace the interface faces the FillPatchers just set from the parent's ubar with
+        // the parent's mass flux, which conserves mass. Must follow the FillPatch.
+        //
+        // cf_set_2d_bcs = 2 imposes it only on the first fast step, where ROMS calls
+        // put_refine2d (main3d.F, before the barotropic loop; inside it only composite grids
+        // and the NESTING_DEBUG check run). Every fast step instead re-applies the parent's
+        // step-averaged transport twenty times per step rather than letting the barotropic
+        // solver carry the interface.
+        const bool set_2d_now = (cf_set_2d_bcs == 1) || (cf_set_2d_bcs == 2 && my_iif == 0);
+        if (do_substep && set_2d_now) {
+            set_2d_cf_bcs(lev, t_old[lev], know, knew);
+            // set_2d_cf_bcs writes each box's own interface faces. Where a box boundary meets
+            // the interface, the neighbouring box's ghost copy of that face still holds the
+            // FillPatch value, and the shared face between the two boxes would be advanced
+            // from different neighbours -- the answer then depends on the box layout.
+            vec_ubar[lev]->FillBoundary(knew, 1, geom[lev].periodicity());
+            vec_vbar[lev]->FillBoundary(knew, 1, geom[lev].periodicity());
+        }
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_rivers) {

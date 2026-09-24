@@ -9,6 +9,14 @@ Mesh Refinement
 
 REMORA allows both static and dynamic mesh refinement, as well as the choice of one-way or two-way coupling.
 
+.. warning::
+
+   Mesh refinement is **experimental**, and subcycling refined levels in time
+   (``remora.do_substep = 1``, the default) especially so. Multi-level answers are not yet
+   considered production quality. Check a refined run against a single-level one at the same
+   resolution before relying on it, and treat a result that only appears under refinement as
+   suspect until it does.
+
 Note that any tagged region will be covered by one or more boxes.  The user may
 specify the refinement criteria and/or region to be covered, but not the decomposition of the region into
 individual grids. REMORA enforces that all refinement spans the entire vertical direction. Field-based
@@ -255,6 +263,20 @@ the fine level also communicates data back to the coarse level in two ways:
 Advected quantities which are advanced in conservation form will lose conservation with one-way coupling.
 Two-way coupling ensures conservation of the advective contribution to all scalar updates but
 does not account for loss of conservation due to diffusive or source terms.
+
+Coarse-Fine Operators for the Barotropic Mode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The free surface and depth-averaged momentum cross a coarse-fine interface the way ROMS's
+``nesting.F`` passes them between nested grids, not the way AMReX's generic interpolators would.
+The normal barotropic velocity on the fine side of an interface is set from the parent's
+fast-time-averaged mass flux per unit edge length, so the fine fluxes sum to the coarse one;
+under two-way coupling the fine depth-averaged momentum is averaged back over ROMS's nine-point
+stencil with the interface faces themselves left out; and the free surface in the coarse-fine
+ghost band is written to every leapfrog record at the child's own sub-time. Each of these is a
+runtime option, ``remora.cf_*``, listed with its default and its cost under Mesh Refinement and
+(Re)gridding in the Inputs section. The defaults match ROMS and are not exactly volume
+conserving; the conservative setting is given there.
 
 .. _sec:fillghost:
 

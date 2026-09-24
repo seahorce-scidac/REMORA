@@ -1,7 +1,7 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 remora.prob_name = DogboneAnalytic
 
-remora.max_step = 10
+remora.max_step = 1000
 
 # PROBLEM SIZE & GEOMETRY
 remora.prob_lo     =   0.       0.  -10.
@@ -9,12 +9,12 @@ remora.prob_hi     =   8400.  750.       0.
 
 remora.n_cell           =  42 15 16
 
-remora.is_periodic = 0 0 0
+remora.is_periodic = 1 1 0
 
-remora.bc.xlo.type = "slipwall"
-remora.bc.xhi.type = "slipwall"
-remora.bc.ylo.type = "slipwall"
-remora.bc.yhi.type = "slipwall"
+#remora.bc.xlo.type = "slipwall"
+#remora.bc.xhi.type = "slipwall"
+#remora.bc.ylo.type = "slipwall"
+#remora.bc.yhi.type = "slipwall"
 
 # TIME STEP CONTROL
 remora.fixed_dt            = 2.0 # Timestep size (seconds)
@@ -23,18 +23,22 @@ remora.ndtfast = 20
 # REFINEMENT / REGRIDDING
 amr.max_level       = 1       # maximum level number allowed
 amr.ref_ratio_vect = 3 3  1
+remora.time_ref=1
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
-remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
+remora.v             = 1       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
+remora.sum_interval  = 10
+remora.sum_precision = 12
 
 # CHECKPOINT FILES
 remora.check_file      = chk        # root name of checkpoint file
 
 # PLOTFILES
-remora.plot_file     = plt_ml_mid   # prefix of plotfile name
-remora.plot_int      = 10           # number of timesteps between plotfiles
+remora.plot_file     = plt_ml_mid/plt_ml_mid   # prefix of plotfile name
+remora.plot_int      = 1           # number of timesteps between plotfiles
 remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
+remora.plot_vars_2d  = zeta
 remora.plotfile_type = amrex
 
 # SOLVER CHOICE
@@ -55,7 +59,7 @@ remora.tcline = 1e16
 remora.bottom_stress_type = "quadratic"
 remora.rdrag2 = 3.0e-3
 
-remora.mask_type = "analytic"
+#remora.mask_type = "analytic"
 
 remora.init_l1ad_h =false
 remora.init_l1ad_T =false
@@ -80,6 +84,9 @@ remora.ic_type       = "analytic"
 remora.refinement_indicators = middle
 remora.coupling_type = "TwoWay"
 remora.middle.max_level=1
+#remora.middle.in_box_lo = 2600 240 -10
+#remora.middle.in_box_hi = 5800 510 0
+#remora.middle.start_time = 10.
 remora.middle.in_box_lo = 2801 255 -10
 remora.middle.in_box_hi = 5601 505 0
-remora.middle.start_time = 10.
+

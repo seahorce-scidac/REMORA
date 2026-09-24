@@ -20,7 +20,6 @@ USE_SYCL = FALSE
 
 # Enable debug flags (rich backtrace)
 DEBUG = FALSE
-DEBUG = TRUE
 
 TEST = TRUE
 USE_ASSERTION = TRUE

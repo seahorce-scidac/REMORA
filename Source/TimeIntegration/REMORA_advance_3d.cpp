@@ -63,6 +63,12 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     int iic = istep[lev];
     int ntfirst = 0;
 
+    // ROMS accumulates the finer level's perimeter tracer flux over its substeps and
+    // subtracts the mismatch against the coarse flux from the coarse ring (correct_tracer,
+    // nesting.F). YAFluxRegister is the same construction.
+    const bool refluxing = do_reflux && do_substep && finest_level > 0 &&
+                           (solverChoice.coupling_type == CouplingType::two_way);
+
     // Because zeta may have changed
     stretch_transform(lev);
 
@@ -391,6 +397,18 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         auto FC  = fab_FC.array();
         auto W   = mf_W.array(mfi);
+
+        // Advective tracer fluxes for the coarse-fine correction, all components at once.
+        FArrayBox fab_fx_reg, fab_fy_reg, fab_fz_reg;
+        if (refluxing) {
+            fab_fx_reg.resize(surroundingNodes(bx,0), ncons, The_Async_Arena());
+            fab_fy_reg.resize(surroundingNodes(bx,1), ncons, The_Async_Arena());
+            fab_fz_reg.resize(surroundingNodes(bx,2), ncons, The_Async_Arena());
+            fab_fx_reg.template setVal<RunOn::Device>(zero);
+            fab_fy_reg.template setVal<RunOn::Device>(zero);
+            // No refinement in the vertical, so nothing crosses a z interface.
+            fab_fz_reg.template setVal<RunOn::Device>(zero);
+        }
         //
         //-----------------------------------------------------------------------
         // rhs_t_3d
@@ -411,7 +429,24 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 #endif
             Array4<Real> const& sstore = mf_sstore->array(mfi, i_comp);
             rhs_t_3d(lev,bx, mf_cons.array(mfi,i_comp), sstore, Huon, Hvom,
-                     Hz, pn, pm, W, FC, mskr, msku, mskv, river_pos, river_source, nrhs, nnew, N,dt_lev);
+                     Hz, pn, pm, W, FC, mskr, msku, mskv, river_pos, river_source, nrhs, nnew, N,dt_lev,
+                     refluxing ? fab_fx_reg.array(i_comp) : Array4<Real>(),
+                     refluxing ? fab_fy_reg.array(i_comp) : Array4<Real>());
+        }
+
+        if (refluxing) {
+            std::array<FArrayBox const*, AMREX_SPACEDIM> flux
+                { &fab_fx_reg, &fab_fy_reg, &fab_fz_reg };
+            const Real* dx = geom[lev].CellSize();
+            if (lev < finest_level) {
+                getAdvFluxReg(lev+1)->CrseAdd(mfi, flux, dx, dt_lev, RunOn::Device);
+            }
+            if (lev > 0) {
+                getAdvFluxReg(lev)->FineAdd(mfi, flux, dx, dt_lev, RunOn::Device);
+            }
+            // The flux FABs are temporaries scoped to this tile, so don't move on until the
+            // register has finished reading them. ERF does the same at its own CrseAdd.
+            Gpu::streamSynchronize();
         }
     } // mfi
 

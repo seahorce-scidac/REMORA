@@ -1,8 +1,57 @@
 #include <REMORA.H>
 
 #include <cmath>
+#include <iomanip>
+#include <sstream>
 
 using namespace amrex;
+
+/**
+ * Report the per-level timestep hierarchy: nsubsteps[lev] baroclinic steps per parent step,
+ * each subdivided ndtfast times. Must follow ComputeDt, since dt is seeded to
+ * bogus_large_value.
+ */
+void
+REMORA::print_timestep_hierarchy () const
+{
+    // No hierarchy to report, and estTimeStep's verbose output already covers dt. Nothing
+    // else prints the derived values, and no test exercises estTimeStep -- every input sets
+    // remora.fixed_dt -- so this is the practical check that dt and dtfast came out right.
+    if (max_level == 0) { return; }
+
+    amrex::Print() << "\n Timestep hierarchy"
+                   << "  (remora.do_substep = " << do_substep
+                   << ", remora.ndtfast = " << ndtfast
+                   << ", nfast = " << nfast << ")\n"
+                   << " ==================\n\n"
+                   << "  Level  Ref ratio   Substeps  Fast steps      Slow dt      Fast dt\n"
+                   << "                    per lev-1  per lev-0          (s)          (s)\n";
+
+    // Running product of the substep counts: barotropic work per level-0 step.
+    int cum_substeps = 1;
+
+    for (int lev = 0; lev <= finest_level; ++lev)
+    {
+        cum_substeps *= nsubsteps[lev];
+
+        std::ostringstream ratio;
+        if (lev == 0) {
+            ratio << "---";
+        } else {
+            ratio << ref_ratio[lev-1][0] << " x " << ref_ratio[lev-1][1];
+        }
+
+        amrex::Print() << "  " << std::setw(5) << lev
+                       << "  " << std::setw(9) << ratio.str()
+                       << "  " << std::setw(9) << nsubsteps[lev]
+                       << "  " << std::setw(10) << cum_substeps * ndtfast
+                       << "  " << std::setw(11) << std::fixed << std::setprecision(4) << dt[lev]
+                       << "  " << std::setw(11) << std::fixed << std::setprecision(4)
+                                               << dt[lev] / Real(ndtfast)
+                       << "\n";
+    }
+    amrex::Print() << std::endl;
+}
 
 void
 REMORA::ComputeDt ()
@@ -75,7 +124,7 @@ REMORA::estTimeStep(int level) const
     // wave to within that ratio. ReadParameters guarantees ndtfast is positive.
 
     // g is a file-scope constexpr; hoist it into a local for the device lambda.
-    const Real grav = g;
+    const Real grav = solverChoice.g;
 
     MultiFab ccvel(grids[level],dmap[level],3,0);
 

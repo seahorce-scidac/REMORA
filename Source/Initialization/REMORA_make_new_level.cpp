@@ -145,6 +145,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
         Construct_REMORAFillPatchers(lev);
            Define_REMORAFillPatchers(lev);
     }
+    define_flux_register(lev);
 
 #ifdef REMORA_USE_PARTICLES
     // particleData.Redistribute();
@@ -163,8 +164,6 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 void
 REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionMapping& dm)
 {
-    BoxArray            ba_old(cons_new[lev]->boxArray());
-    DistributionMapping dm_old(cons_new[lev]->DistributionMap());
 
     BoxList bl2d = ba.boxList();
     for (auto& b : bl2d) {
@@ -315,13 +314,14 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     }
 #endif
 
-    // We need to re-define the FillPatcher if the grids have changed
+    // Both of these hold this level's layout and the one below it, so both have to be rebuilt
+    // whenever either changes. Unconditionally: AmrCore::regrid calls RemakeLevel only when
+    // this level's BoxArray changed or the coarser one's did, and in the latter case it
+    // passes this level's own ba and dm unchanged -- so testing them here would skip exactly
+    // the case where only the coarse side moved.
     if (lev > 0 && cf_width >= 0) {
-        bool ba_changed = (ba != ba_old);
-        bool dm_changed = (dm != dm_old);
-        if (ba_changed || dm_changed) {
-          Define_REMORAFillPatchers(lev);
-        }
+        Define_REMORAFillPatchers(lev);
+        define_flux_register(lev);
     }
 
 #ifdef REMORA_USE_PARTICLES
@@ -470,6 +470,10 @@ void REMORA::resize_stuff(int lev)
     vec_DU_avg2.resize(lev+1);
     vec_DV_avg1.resize(lev+1);
     vec_DV_avg2.resize(lev+1);
+    vec_Dubar_old.resize(lev+1);
+    vec_Dubar_new.resize(lev+1);
+    vec_Dvbar_old.resize(lev+1);
+    vec_Dvbar_new.resize(lev+1);
     vec_rubar.resize(lev+1);
     vec_rvbar.resize(lev+1);
     vec_rzeta.resize(lev+1);
@@ -646,6 +650,12 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_DV_avg1[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
     vec_DV_avg2[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
+    // D*ubar and D*vbar: DU_avg2/on_u and DV_avg2/om_v, at the two ends of this level's step
+    vec_Dubar_old[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_Dubar_new[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_Dvbar_old[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_Dvbar_new[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+
     vec_rubar[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,4,IntVect(NGROW,NGROW,0))); // 2d RHS ubar
     vec_rvbar[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,4,IntVect(NGROW,NGROW,0)));
     vec_rzeta[lev].reset(new MultiFab(ba2d,dm,4,IntVect(NGROW,NGROW,0))); // 2d RHS zeta
@@ -749,6 +759,10 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_DU_avg2[lev]->setVal(zero);
     vec_DV_avg1[lev]->setVal(zero);
     vec_DV_avg2[lev]->setVal(zero);
+    vec_Dubar_old[lev]->setVal(zero);
+    vec_Dubar_new[lev]->setVal(zero);
+    vec_Dvbar_old[lev]->setVal(zero);
+    vec_Dvbar_new[lev]->setVal(zero);
     vec_rubar[lev]->setVal(zero);
     vec_rvbar[lev]->setVal(zero);
     vec_rzeta[lev]->setVal(zero);

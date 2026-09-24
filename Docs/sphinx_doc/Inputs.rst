@@ -362,16 +362,20 @@ List of Parameters
 |                                  | :math:`>` # of   |                    |                   |
 |                                  | grids            |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
-| **amr.do_substep**               | whether to       | 0 if false, 1      | 0                 |
+| **remora.do_substep**            | whether to       | 0 if false, 1      | 1                 |
 |                                  | sub-step finer   | if true            |                   |
 |                                  |                  |                    |                   |
-|                                  | levels in time   |                    |                   |
-|                                  |                  | NOTE: true         |                   |
-|                                  |                  | will               |                   |
+|                                  | levels in time   | 0 selects the      |                   |
 |                                  |                  |                    |                   |
-|                                  |                  | trigger Assert     |                   |
-|                                  |                  |                    |                   |
-|                                  |                  | failure            |                   |
+|                                  |                  | lockstep driver    |                   |
++----------------------------------+------------------+--------------------+-------------------+
+| **remora.dt_ref_ratio**          | time step        | integer > 0,       | spatial           |
+|                                  | ratio between    |                    |                   |
+|                                  |                  | one value or       | refinement        |
+|                                  | a level and      |                    |                   |
+|                                  |                  | one per ref.       | ratio             |
+|                                  | its parent       |                    |                   |
+|                                  |                  | level              |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 
 .. _notes-2:
@@ -399,7 +403,79 @@ Notes
 -  **amr.max_grid_size** must be a multiple of **amr.blocking_factor**
    at every level
 
--  the substepping turned on by **amr.do_substep** is NOT implemented yet so will trigger an Assert.
+-  **remora.do_substep** = 1 is the default, and advances a finer level
+   **remora.dt_ref_ratio** times per parent step. Subcycling is **experimental**: multi-level
+   answers are not yet production quality, and a refined run should be checked against a
+   single-level one before being relied on. Setting it to 0 selects the lockstep driver,
+   which advances every level once per step through one shared barotropic loop. Because that
+   loop cannot hand a finer level the parent's completed mass flux, it cannot impose that flux
+   at a coarse-fine interface and conserves volume less well: drift of 2.0e-6 against 2.9e-08 on
+   DogboneAnalytic. It is kept for comparison against answers predating subcycling and is
+   expected to be deprecated.
+
+-  **amr.do_substep** is the original spelling of the above and still works, but amrex owns that
+   namespace. Setting both is an error.
+
+-  **remora.dt_ref_ratio** only has an effect when **remora.do_substep** = 1. It defaults to the
+   spatial refinement ratio but need not equal it. Setting it to 1 advances every level with the
+   level-0 time step, which is how the sub-stepped driver is compared against the lockstep one.
+
+-  **remora.do_reflux** (default 1) corrects the coarse tracer with the finer level's
+   accumulated advective flux at their interface. It needs **remora.do_substep** = 1 and
+   **remora.coupling_type** = TwoWay to have any effect.
+
+-  **remora.reflux_clamp** (default 1) stops that correction driving a tracer negative, matching
+   what ROMS does in ``correct_tracer_tile``. Set it to 0 to let the correction through unaltered.
+   The clamp is not free: it restores exactly the mass the correction removed, so a step that
+   clamps is not conservative -- positivity and conservation cannot both hold, and ROMS chooses
+   positivity. Note that it clamps every tracer at zero, temperature included, which suits a
+   concentration but not temperature in Celsius.
+
+-  The **remora.cf_*** options select how the barotropic state crosses a coarse-fine interface.
+   Their defaults reproduce ROMS's ``nesting.F``; measured against the nested ROMS dogbone case
+   they take the refinement perturbation at the interface from 1.29x ROMS's to 1.01x. Each is
+   an integer, 0 or 1 unless stated. Like all of mesh refinement they are experimental.
+
+   -  **remora.cf_avgdown_stencil** (default 1) averages the fine barotropic velocity onto a
+      coarse face over ROMS's ``fine2coarse2d`` stencil -- half-width (ratio - 1)/2 in both
+      directions, so nine fine faces at ratio 3 -- instead of only the faces that tile the
+      coarse face. Not conservative in principle; about 3e-10 of volume drift in practice.
+
+   -  **remora.cf_flux_pc** (default 1) shares the parent's interface mass flux out
+      piecewise-constantly over the fine faces under each parent face, as ROMS's
+      ``get_persisted2d`` does, instead of with the linear tangential variation of AMReX's
+      face interpolator. Both conserve the total.
+
+   -  **remora.cf_fill_all_kcomp** (default 1) writes every leapfrog record and ``Zt_avg1`` in
+      the coarse-fine ghost band, as ROMS's ``put_refine2d`` does, so none of them goes a
+      parent step stale. This is the main cost to volume conservation: 2.0e-09 to 2.9e-08 of
+      drift over 20 steps on DogboneAnalytic, volume being the integral of the free surface
+      this writes. ROMS makes the same trade.
+
+   -  **remora.cf_time_interp_zeta** (default 1) interpolates the parent free surface in time
+      onto the child's own sub-time rather than freezing it at the end of the parent step.
+      Non-conservative for the same reason: 1.4e-08 of drift on its own.
+
+   -  **remora.cf_avgdown_perimeter** (default 1) leaves the normal-velocity faces on the
+      coarse-fine perimeter out of the fine-to-coarse average, as ROMS's ``fine2coarse`` does.
+      0 restores the earlier behaviour, in which the parent's imposed flux is averaged straight
+      back onto it, and costs a factor of 20 to 40 in the barotropic mode.
+
+   -  **remora.cf_avgdown_bar** (default 1) hands the fine level's depth-averaged momentum
+      (``ubar``, ``vbar``) back to the parent under two-way coupling, as ``fine2coarse`` does.
+
+   -  **remora.cf_set_2d_bcs** (default 1) is the schedule for imposing the interface
+      condition inside the barotropic loop: 0 never, 1 every fast step (ROMS's ``u2dbc_im``),
+      2 only the first fast step of each baroclinic step.
+
+   -  **remora.cf_impose_flux** (default 0) writes the parent's transport onto the fine
+      level's ``DUon``/``DVom`` directly rather than as a velocity the solver re-converts with a
+      depth from another time index. It closes the remaining 1% above, and conserves far better
+      while the flow is linear, but is 10-20% worse once it is not, so it is off.
+
+   The conservative alternative to the defaults is **remora.cf_fill_all_kcomp** = 0 with
+   **remora.cf_time_interp_zeta** = 0, which keeps the ROMS restriction and flux distribution
+   and brings the volume drift back to 2.0e-09.
 
 .. _examples-of-usage-3:
 
@@ -794,9 +870,13 @@ List of Parameters
 |                                          |                                        |                        |                |
 |                                          |                                        | Values                 |                |
 +==========================================+========================================+========================+================+
-| **remora.ggrav**                         | Gravitational field strength           | Real number            | 9.81           |
+| **remora.g**                             | Acceleration due to gravity            | Real number            | 9.80665        |
 |                                          |                                        |                        |                |
-|                                          | [kg m/s^2]                             |                        |                |
+|                                          | [m/s^2]. ROMS uses 9.81                |                        |                |
+|                                          |                                        |                        |                |
+|                                          | exactly; set that to match             |                        |                |
+|                                          |                                        |                        |                |
+|                                          | a ROMS run.                            |                        |                |
 +------------------------------------------+----------------------------------------+------------------------+----------------+
 | **remora.eos_type**                      | Which equation of state to use.        | Linear or              | Linear         |
 |                                          |                                        |                        |                |

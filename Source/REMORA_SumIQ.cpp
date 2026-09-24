@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iomanip>
 
 #include "REMORA.H"
@@ -15,13 +16,17 @@ REMORA::sum_integrated_quantities(Real time)
     if (verbose <= 0)
       return;
 
-    int datwidth = 14;
     // Six digits is enough to watch a run by eye but not to compare two runs: an averaged-down
     // bathymetry shifts the volume by ~1e-5 relative. Raise it when the sums are being used as
     // a diagnostic to assert on rather than to read.
     int datprecision = 6;
     amrex::ParmParse pp("remora");
     pp.queryAdd("sum_precision", datprecision);
+
+    // %g needs at most precision+7 characters (sign, leading digit, point, exponent), so this
+    // keeps at least one space between columns. Without it a high precision runs them
+    // together and the log stops being parseable, which is exactly when it is being parsed.
+    int datwidth = std::max(14, datprecision + 8);
     bool local = true;
 
     // One sum per cell-centered tracer past salinity: the passive scalars and the

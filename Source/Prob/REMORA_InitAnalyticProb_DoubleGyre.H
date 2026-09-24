@@ -10,7 +10,7 @@
 
     auto T0 = m_solverChoice.T0;
     Real val1 = (Real(44.69) / Real(39.382)) * (Real(44.69) / Real(39.382));
-    Real val2 = val1 * (m_solverChoice.rho0 * Real(100.0)/g) * (Real(5.0e-5)/((Real(42.689)/Real(44.69)) * (Real(42.689)/Real(44.69))));
+    Real val2 = val1 * (m_solverChoice.rho0 * Real(100.0)/m_solverChoice.g) * (Real(5.0e-5)/((Real(42.689)/Real(44.69)) * (Real(42.689)/Real(44.69))));
 
     for (MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
