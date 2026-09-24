@@ -40,12 +40,15 @@ The utility can be invoked on a plotfile named ``plt00010`` by running
 ParaView
 --------
 
-The open source visualization package ParaView v5.10 and later can be used to view REMORA
-plotfiles with and without terrain. You can download the paraview executable at https://www.paraview.org/.
+The open source visualization package ParaView can be used to view REMORA
+plotfiles with and without bathymetry. You can download the paraview executable at https://www.paraview.org/.
+The following has been verified for (stable) versions 5.12 and later.
+
+.. note:: As of 9/11/2026, Paraview v6.2.0 release candidate does not correctly warp by vector for plotfiles with multiple grids.
 
 To open a plotfile
 
-#. Run ParaView v5.10, then select "File" :math:`\rightarrow` "Open".
+#. Run ParaView, then select "File" :math:`\rightarrow` "Open".
 
 #. Navigate to your run directory, and select either a single plotfile or a set of plotfiles.
    Open multiple plotfile at once by selecting ``plt..`` Paraview will load the plotfiles as a time series.

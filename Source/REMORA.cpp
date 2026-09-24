@@ -1269,6 +1269,12 @@ REMORA::check_mask_consistency ()
 void
 REMORA::coarsen_bathymetry_with_grow_cells (int crse_lev)
 {
+    // The mask is indexed by the same local box number as the bathymetry, so the two have to
+    // be distributed alike. full_domain_dmap is what makes that true; assert it here rather
+    // than read another rank's box.
+    AMREX_ALWAYS_ASSERT(vec_mskr_full_domain[crse_lev+1]->DistributionMap() ==
+                        vec_h_full_domain[crse_lev+1]->DistributionMap());
+
     auto const& crsema = vec_h_full_domain[crse_lev]->arrays();
     auto const& finema = vec_h_full_domain[crse_lev+1]->const_arrays();
     auto const& fmskma = vec_mskr_full_domain[crse_lev+1]->const_arrays();
@@ -3129,7 +3135,7 @@ REMORA::ensure_full_domain_masks (int top_lev)
 
     BoxArray ba;
     ba.define(makeSlab(geom[0].Domain(),2,0));
-    DistributionMapping dm(ba);
+    const DistributionMapping& dm = full_domain_dmap();
     auto mskr_growvect = vec_mskr[0]->nGrowVect();
 
     if (hires_grid_level < 0) {

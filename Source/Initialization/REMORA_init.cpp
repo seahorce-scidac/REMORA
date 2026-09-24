@@ -317,13 +317,24 @@ REMORA::init_stretch_coeffs () {
     calc_stretch_coeffs();
 }
 
+const DistributionMapping&
+REMORA::full_domain_dmap ()
+{
+    if (dm_full_domain.empty()) {
+        BoxArray ba(makeSlab(geom[0].Domain(),2,0));
+        dm_full_domain.define(ba);
+    }
+    return dm_full_domain;
+}
+
 void REMORA::allocate_bathymetry_grid_vars_full_domain () {
     // Make fake boxArray that covers the whole domain on level 0
     BoxArray ba;
     ba.define(makeSlab(geom[0].Domain(),2,0));
     Box refined_domain = makeSlab(geom[0].Domain(),2,0);
 
-    DistributionMapping dm(ba);
+    // One box per level, so one map serves every level and every centering here.
+    const DistributionMapping& dm = full_domain_dmap();
     vec_h_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
     vec_pm_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
     vec_pn_full_domain[0].reset(new MultiFab(ba, dm, 1, IntVect(1,1,0)));
@@ -393,7 +404,7 @@ void REMORA::allocate_init_full_domain () {
     ba2d.define(makeSlab(geom[0].Domain(),2,0));
     Box refined_domain = geom[0].Domain();
 
-    DistributionMapping dm(ba);
+    const DistributionMapping& dm = full_domain_dmap();
     vec_cons_full_domain[0].reset(new MultiFab(ba, dm, ncons, IntVect(1,1,0)));
     vec_xvel_full_domain[0].reset(new MultiFab(convert(ba,IntVect(1,0,0)), dm, 1, IntVect(0,1,0)));
     vec_yvel_full_domain[0].reset(new MultiFab(convert(ba,IntVect(0,1,0)), dm, 1, IntVect(1,0,0)));
