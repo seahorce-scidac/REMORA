@@ -47,6 +47,9 @@ amr.ref_ratio_vect = 3 3  1
 # is over three faces rather than two, so it is the case where an off-by-one in the stencil or
 # a metric rescaled instead of summed would show.
 remora.check_cf_metrics = 1
+# The default tolerance, 1e-12, is four orders above what any of these grids measures
+# (0, 1.4e-16, 2.5e-16). 1e-14 keeps the assertion within a factor of 40 of the answer.
+remora.check_cf_tol     = 1e-14
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0

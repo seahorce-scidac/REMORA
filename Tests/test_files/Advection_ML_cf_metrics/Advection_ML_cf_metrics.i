@@ -29,6 +29,9 @@ remora.ndtfast  = 10
 # edge length and lets each fine face multiply its own length back in. check_cf_metrics aborts
 # past remora.check_cf_tol, so the run completing is the assertion.
 remora.check_cf_metrics = 1
+# The default tolerance, 1e-12, is four orders above what any of these grids measures
+# (0, 1.4e-16, 2.5e-16). 1e-14 keeps the assertion within a factor of 40 of the answer.
+remora.check_cf_tol     = 1e-14
 
 # TIME SUBCYCLING
 remora.do_substep = 1

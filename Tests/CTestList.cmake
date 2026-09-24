@@ -453,9 +453,10 @@ add_test_conservation(Advection_conservation_baseline Advection_ML_subcycle "rem
 # written in the fine ghost band. REMORA writes it as ROMS's put_refine2d does -- every
 # leapfrog record plus Zt_avg1 (cf_fill_all_kcomp), interpolated onto the child's sub-time
 # (cf_time_interp_zeta) -- and neither preserves volume: one at a time they take the drift
-# from 2.0e-09 to 2.9e-08 and 1.4e-08. That is the trade ROMS makes. The default path measures
-# 2.9e-08, against 2.0e-09 for the lane below and 2.0e-6 for the lockstep driver, which
-# interpolates ubar instead of imposing the flux. Single level is exact.
+# from 2.0e-09 to 2.9e-08 and 1.4e-08 (measured; no lane turns off one alone). That is the
+# trade ROMS makes. The default path measures 2.9e-08, against 2.0e-09 for the lane below and
+# 2.0e-6 for the lockstep driver, which interpolates ubar instead of imposing the flux. Single
+# level is exact on this case too, measured; the lane asserting that is the Advection one.
 add_test_conservation(DogboneAnalytic_ML_conservation DogboneAnalytic_ML_subcycle "remora_exec"
                       "remora.max_step=20"
                       volume 1e-7 below)
@@ -463,8 +464,9 @@ add_test_conservation(DogboneAnalytic_ML_conservation DogboneAnalytic_ML_subcycl
 # The conservative path, pinned where the bound above used to sit. Switching off only the two
 # ghost-band knobs keeps ROMS's restriction stencil and flux distribution and brings the drift
 # back to 2.0e-09, where the transport side of the interface sits on its own: of that,
-# cf_avgdown_stencil's nine-point mean costs about 3e-10 and cf_flux_pc is exactly neutral. If
-# this lane drifts, the conservative path has regressed whatever the default path is doing.
+# cf_avgdown_stencil's nine-point mean costs about 3e-10 and cf_flux_pc is exactly neutral
+# (both measured; no lane isolates either). If this lane drifts, the conservative path has
+# regressed whatever the default path is doing.
 add_test_conservation(DogboneAnalytic_ML_conservation_cons DogboneAnalytic_ML_subcycle "remora_exec"
                       "remora.max_step=20 remora.cf_fill_all_kcomp=0 remora.cf_time_interp_zeta=0"
                       volume 1e-8 below)
@@ -484,7 +486,8 @@ add_test_conservation(DogboneAnalytic_ML_conservation_lockstep DogboneAnalytic_M
 # right. check_cf_metrics aborts past remora.check_cf_tol, so reaching the printed line is the
 # assertion. It measures 0 on this ratio-2 analytic grid and 1.4e-16 on Dogbone's ratio 3, but
 # is not guaranteed on the NetCDF path, where a finer level interpolates its metrics from the
-# parent's and scales them by the refinement ratio.
+# parent's and scales them by the refinement ratio. All three lanes set the tolerance to 1e-14,
+# within a factor of 40 of the largest measurement, rather than the 1e-12 default.
 add_test_log(Advection_ML_cf_metrics "remora_exec" "CF edge tiling")
 
 # The ratio-3 grid the DogboneAnalytic_ML golds and both volume lanes above are measured on,

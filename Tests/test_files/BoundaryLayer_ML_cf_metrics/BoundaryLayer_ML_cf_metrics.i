@@ -26,6 +26,9 @@ remora.box1.in_box_lo =  20000.  1000.
 remora.box1.in_box_hi =  60000.  4000.
 
 remora.check_cf_metrics = 1
+# The default tolerance, 1e-12, is four orders above what any of these grids measures
+# (0, 1.4e-16, 2.5e-16). 1e-14 keeps the assertion within a factor of 40 of the answer.
+remora.check_cf_tol     = 1e-14
 
 remora.is_periodic = 0 1 0
 
