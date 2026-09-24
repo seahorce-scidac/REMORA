@@ -878,60 +878,60 @@ remora.rdrag = 0.0
 # type=Real; method=queryAdd
 remora.rdrag2 = 3.0e-3
 
-# source: Source/REMORA_Tagging.cpp:283
+# source: Source/REMORA_Tagging.cpp:475
 # type=Vector<std::string>; method=queryarr
 remora.refinement_indicators = bx1
 
-# source: Source/REMORA_Tagging.cpp:521
-# type=Real; method=getarr
+# source: Source/REMORA_Tagging.cpp:713
+# type=return; method=getarr
 remora.refinement_indicators_.adjacent_difference_greater = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:496
+# source: Source/REMORA_Tagging.cpp:688
 # type=Real; method=get
 remora.refinement_indicators_.end_time = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:508
+# source: Source/REMORA_Tagging.cpp:700
 # type=string; method=get
 remora.refinement_indicators_.field_name = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:320
+# source: Source/REMORA_Tagging.cpp:512
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:377
+# source: Source/REMORA_Tagging.cpp:569
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi_indices = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:454
+# source: Source/REMORA_Tagging.cpp:646
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi_indices_crse = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:319
+# source: Source/REMORA_Tagging.cpp:511
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:376
+# source: Source/REMORA_Tagging.cpp:568
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo_indices = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:453
+# source: Source/REMORA_Tagging.cpp:645
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo_indices_crse = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:316
+# source: Source/REMORA_Tagging.cpp:508
 # type=int; method=get
 remora.refinement_indicators_.max_level = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:492
+# source: Source/REMORA_Tagging.cpp:684
 # type=Real; method=get
 remora.refinement_indicators_.start_time = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:507
-# type=Real; method=getarr
+# source: Source/REMORA_Tagging.cpp:699
+# type=return; method=getarr
 remora.refinement_indicators_.value_greater = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:514
-# type=Real; method=getarr
+# source: Source/REMORA_Tagging.cpp:706
+# type=return; method=getarr
 remora.refinement_indicators_.value_less = <REQUIRED>
 
 # Whether to zero a tracer the correction drives negative, as ROMS does.

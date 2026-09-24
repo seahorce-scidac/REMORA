@@ -34,6 +34,7 @@
 #include <REMORA_TimeInterpolatedData.H>
 #include <REMORA_DataStruct.H>
 #include <REMORA_Derive.H>
+#include <REMORA_ErrorTag.H>
 #include <REMORA_Biology.H>
 #include "REMORA_prob_common.H"
 
@@ -245,6 +246,13 @@ public:
      * leaves the downstream salt_old multiplication to setup_step().
      */
     void ApplyAtmosphericFluxes (const amrex::Vector<amrex::MultiFab*>& states, amrex::Real time);
+    //! Latch so the flux validation block prints once per run unless remora.v >= 1
+    bool m_reported_atm_flux_validation = false;
+    //! Worst wet surface temperature extremes (K) and NaN count already warned about;
+    //! the warning repeats only when a later exchange is worse. Start at the bounds.
+    amrex::Real m_warned_surface_temp_min = amrex::Real(273.15 - 2.5);
+    amrex::Real m_warned_surface_temp_max = amrex::Real(273.15 + 40.0);
+    amrex::Long m_warned_surface_temp_nan = 0;
 
     // Diagnostics
 
@@ -2038,7 +2046,7 @@ private:
     void init_ref_ratios ();
 
     /** \brief Holds info for dynamically generated tagging criteria */
-    static amrex::Vector<amrex::AMRErrorTag> ref_tags;
+    static amrex::Vector<REMORAErrorTag> ref_tags;
 
     /** \brief Mask that zeroes out values on a coarse level underlying grids on the next finest level */
     amrex::MultiFab fine_mask;

@@ -1,19 +1,21 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-# Exercises a partially-masked coarse cell, which nothing else in the suite does.
+# Asserts that a gradient criterion keyed on the mask does tag the coastline.
 #
-# Two things have to line up for one to exist. hires_grid_level resolves the coastline on the
-# refined level instead of injecting it from level 0; and a static box puts refined grids over
-# the coast. The box is static because this case is at rest, so a field-based indicator like
-# DogboneAnalytic_MLvel's x_velocity > 0.05 would tag nothing anywhere. Offsetting
-# mask_y_lo/mask_y_hi by one fine cell off a coarse face then leaves coarse rows 5 and 9
-# covered by blocks that are 6 water cells out of 9.
+# field_name = mask is the one field exempt from the rule that a criterion sees only water: it
+# is asking where the coast is, and guarding it would leave no water-water face across which
+# the mask varies, so it would never tag. This is the documented way to refine a coastline
+# deliberately, and it must keep working. Level 1 is therefore required to exist, tracking the
+# dogbone's two coasts -- which means refining land, as the old derefine criteria would not.
 #
-# The exact solution is rest: flat bathymetry and free surface, uniform temperature and
-# salinity, no initial velocity, no Coriolis. So plt00010 must equal plt00000, with no gold
-# file to bless. Under the ROMS wet-only mean the partially-masked coarse cells keep
-# exactly T = 10 and S = 35. Under a plain arithmetic mean the land cells, which
-# advance_3d_ml zeroes every step, drag them to 6/9 of that and the run stops being
-# stationary, so a lost mask weighting fails loudly.
+# Note what this does not cover. The exemption is implemented by passing a null mask, so this
+# case runs AMReX's own unguarded test and never enters REMORA's guarded path: it pins the
+# exemption and the delegation, and is not a control for a guard that had stopped tagging.
+# Neutering the guarded path leaves both this and MLcoastskip green; DogboneAnalytic_MLvel,
+# _MLhires and _MLdryface are what catch that.
+#
+# The stationary check rides along as in MLmask: the exact solution is rest, so plt00010 must
+# equal plt00000. Worth having here because refining across a coast is exactly where the
+# wet-only two-way average has to hold up.
 remora.prob_name = DogboneAnalytic
 
 remora.max_step = 10
@@ -113,11 +115,12 @@ remora.prob.temp_west = 10.0
 remora.prob.mask_y_lo = 266.66666666666667
 remora.prob.mask_y_hi = 483.33333333333333
 
-# Static refinement over the coast
-remora.refinement_indicators = coastbox
-remora.coastbox.max_level = 1
-remora.coastbox.in_box_lo = 2600. 0.
-remora.coastbox.in_box_hi = 5800. 750.
+# The mask is 0 or 1 exactly, so 0.5 tags precisely the cells that have a neighbor across
+# the coast -- the same threshold the old internal derefine criteria used.
+remora.refinement_indicators = coastline
+remora.coastline.max_level = 1
+remora.coastline.adjacent_difference_greater = 0.5
+remora.coastline.field_name = mask
 
 remora.coupling_type = "TwoWay"
 

@@ -1,19 +1,25 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-# Exercises a partially-masked coarse cell, which nothing else in the suite does.
+# Asserts that a gradient criterion on a physical field does not tag the coastline.
 #
-# Two things have to line up for one to exist. hires_grid_level resolves the coastline on the
-# refined level instead of injecting it from level 0; and a static box puts refined grids over
-# the coast. The box is static because this case is at rest, so a field-based indicator like
-# DogboneAnalytic_MLvel's x_velocity > 0.05 would tag nothing anywhere. Offsetting
-# mask_y_lo/mask_y_hi by one fine cell off a coarse face then leaves coarse rows 5 and 9
-# covered by blocks that are 6 water cells out of 9.
+# This is the case the mask guard exists for. The dogbone sits at rest with temp = 10 in the
+# water and advance_3d_ml zeroes the tracers on land, so after a step the only place temp
+# changes between neighbors is the coast, where it jumps the full 10. An adjacent difference
+# over 0.5 would tag every coastal cell on the strength of that jump, which says nothing about
+# the flow. The guard differences only water-water pairs, so nothing is tagged and the run must
+# stay single-level -- which fcompare cannot see, since a wrongly refined run still writes a
+# self-consistent plotfile.
 #
-# The exact solution is rest: flat bathymetry and free surface, uniform temperature and
-# salinity, no initial velocity, no Coriolis. So plt00010 must equal plt00000, with no gold
-# file to bless. Under the ROMS wet-only mean the partially-masked coarse cells keep
-# exactly T = 10 and S = 35. Under a plain arithmetic mean the land cells, which
-# advance_3d_ml zeroes every step, drag them to 6/9 of that and the run stops being
-# stationary, so a lost mask weighting fails loudly.
+# Verified non-vacuous by deleting the guard and watching this fail. It leans on two things:
+# regrid_int must stay positive (see the note there), and the threshold must stay below 10.
+#
+# Its companion MLcoasttag keys the same criterion on the mask, which is exempt. That exemption
+# is implemented by passing a null mask, so MLcoasttag runs AMReX's unguarded test rather than
+# this guarded one: it pins the exemption, not the guard. The cases that would catch a guard
+# that had stopped tagging altogether are DogboneAnalytic_MLvel, _MLhires and _MLdryface.
+# Advection_ML would not -- it sets no mask_type, and an unmasked run skips the guard.
+#
+# The stationary check rides along free, as in MLmask: the exact solution is rest, so plt00010
+# must equal plt00000, with no gold file to bless.
 remora.prob_name = DogboneAnalytic
 
 remora.max_step = 10
@@ -53,7 +59,11 @@ remora.ndtfast = 20
 # REFINEMENT / REGRIDDING
 amr.max_level       = 1       # maximum level number allowed
 amr.ref_ratio_vect = 3 3  1
-amr.regrid_int      = -1      # static: the grids must not move between the two plotfiles
+# Tag after stepping, not only at init. At init the analytic problem writes temp over land as
+# well as water, so the field is uniform and there is no coastline jump for the guard to have
+# an opinion about; it is advance_3d_ml zeroing the tracers on land that creates one. Tagging
+# only at InitFromScratch would make this test vacuous -- it would pass with the guard deleted.
+amr.regrid_int      = 2
 
 # DIAGNOSTICS & VERBOSITY
 remora.sum_interval  = 1
@@ -113,11 +123,12 @@ remora.prob.temp_west = 10.0
 remora.prob.mask_y_lo = 266.66666666666667
 remora.prob.mask_y_hi = 483.33333333333333
 
-# Static refinement over the coast
-remora.refinement_indicators = coastbox
-remora.coastbox.max_level = 1
-remora.coastbox.in_box_lo = 2600. 0.
-remora.coastbox.in_box_hi = 5800. 750.
+# Threshold well under the 10 the coast jumps by, so nothing but the guard can keep this
+# criterion from tagging there.
+remora.refinement_indicators = coastgrad
+remora.coastgrad.max_level = 1
+remora.coastgrad.adjacent_difference_greater = 0.5
+remora.coastgrad.field_name = temp
 
 remora.coupling_type = "TwoWay"
 

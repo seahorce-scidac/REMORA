@@ -19,6 +19,12 @@ the sea surface height. We instead output the transformation from the logical z-
 These will be included in a later release. If you need these, we encourage you to use
 the NetCDF output.
 
+xamrex
+------
+
+`xamrex_` is a Python xarray backend for reading AMReX plotfiles with native support for time series concatenation and multi-level AMR data.
+
+.. _`xamrex`: https://github.com/hetland/xamrex
 
 Amrvis
 ------
@@ -211,10 +217,6 @@ Note that yt cannot currently
 access the nodal grid data used by Paraview. Future development will include
 a REMORA-specific interface that will be able to be used to read the expected
 2D data fields from plotfiles.
-
-We also note that there is active development of an xarray-like interface
-for AMReX simulation data via yt; see the `xamr docs <https://xamr.readthedocs.io/en/latest>`_
-for more details.
 
 Note - AMReX datasets require yt version 3.4 or greater.
 
