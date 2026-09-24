@@ -723,6 +723,9 @@ List of Parameters
 +----------------------------+------------------+----------------------------------+----------------+
 | **remora.v**               | verbosity of     | - 0: none                        | 0              |
 |                            | REMORA           | - 1: integrated/max quantities   |                |
+|                            |                  |   (coupled: flux validation and  |                |
+|                            |                  |   wet surface-temperature min/max|                |
+|                            |                  |   every exchange)                |                |
 |                            |                  | - 2: print boxes                 |                |
 |                            | functions        |                                  |                |
 +----------------------------+------------------+----------------------------------+----------------+
