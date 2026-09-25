@@ -27,4 +27,8 @@ This will fill the values in the `ghost cells <https://amrex-codes.github.io/amr
 However, it will not do so at interior grid-grid boundaries that fall on non-periodic domain boundaries.
 This is primarily a concern for variables such as bathymetry, which are not specified by boundary conditions, but still have well-defined values at boundaries.
 
-By default, these functions will be evaluated at level 0 and interpolated to higher levels as needed for mesh refinement. If ``remora.hires_grid_level > 0``, the analytic function for bathymetry is evaluated on level ``remora.hires_grid_level``. Bathymetry on higher levels is interpoalted as usual. Bathymetry on lower levels is calculated by averaging down.
+By default, these functions will be evaluated at level 0 and interpolated to higher levels as needed for mesh refinement. If ``remora.hires_grid_level > 0``, the analytic function for bathymetry is evaluated on level ``remora.hires_grid_level``. Bathymetry on higher levels is interpolated as usual. Bathymetry on lower levels is calculated by averaging down.
+Likewise, if ``remora.hires_init_level > 0``, the initial-condition, sea surface height, and biology functions are evaluated on that level and averaged down.
+
+That level does not exist yet when this happens, so the initial-condition and sea surface height functions must read coordinates (``z_r``, ``z_w``, ``x_r``, ``y_r``)
+from the ``ProbCoords`` argument, which is laid out like the ``MultiFab`` being filled, rather than from the level arrays on the ``REMORA`` object.

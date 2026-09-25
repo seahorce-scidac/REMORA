@@ -131,10 +131,11 @@ The following problems are currently tested in the CI. More details about the pr
 High-resolution initialization tests
 ------------------------------------
 
-These cover ``remora.hires_grid_level``: bathymetry evaluated on a refined level and averaged down to
-level 0 (see :ref:`Inputs<sec:Inputs>`). They are analytic, so they need no NetCDF build and no external
-data. ``remora.hires_init_level`` is NetCDF-only and is covered by the developer lanes in
-``Exec/GulfRefinementTest`` instead, described in that directory's ``README.rst``.
+These cover ``remora.hires_grid_level`` and ``remora.hires_init_level``: bathymetry or the initial state
+evaluated on a refined level and averaged down to level 0 (see :ref:`Inputs<sec:Inputs>`). They are
+analytic, so they need no NetCDF build and no external data. The NetCDF reader behind
+``remora.hires_init_level`` is covered by the developer lanes in ``Exec/GulfRefinementTest`` instead,
+described in that directory's ``README.rst``.
 
 The lanes come in three flavors, because "the run completed" is not evidence that an average-down
 happened, let alone that it was right.
@@ -150,6 +151,16 @@ refined samples in a coarse cell is not the coarse midpoint sample. ``Seamount_h
 both match its own reference and **differ** from the plain ``Seamount`` one; the difference is about
 16 m at the summit, some 12 orders of magnitude above the comparison tolerance. Without that second
 clause a feature that silently stops taking effect still matches its own snapshot.
+
+*Reference values.* The three ``Seamount_hires_init`` lanes assert level-0 temperature extrema computed by
+``Tests/reference/hires_init_analytic_reference.py``, which rebuilds the Seamount bathymetry, vertical
+grid, and temperature profile in NumPy on the refined grid and averages them down. It reproduces the
+whole level-0 temperature field of all three lanes to about 1e-14, against a gap of about 7e-2 to the
+plain level-0 evaluation. The asserted maxima therefore fail for a run that ignores
+``hires_init_level`` (by 1.4e-4 against a 1e-8 tolerance), and they are not snapshots of the code under
+test. The three lanes take the bathymetry at the initialization level from a different source each:
+evaluated there, evaluated there although grid data exists on a coarser level, and averaged down from
+grid data on a finer level.
 
 *Misconfiguration.* Five lanes assert that a bad combination fails with the message that names it, rather
 than segfaulting, writing out of bounds, or running on data it quietly ignored.
@@ -191,9 +202,27 @@ lost mask weighting fails the comparison rather than quietly agreeing with its o
 |                                 |          |                                                         |
 |                                 |          | asserted by value, catching a component-offset error    |
 +---------------------------------+----------+---------------------------------------------------------+
-| Seamount_hires_init_abort       | 49 48 13 | high-resolution *initialization* with analytic initial  |
+| Seamount_hires_init             | 49 48 13 | the initial state evaluated on level 1 and averaged     |
 |                                 |          |                                                         |
-|                                 |          | conditions is rejected (it is NetCDF-only)              |
+|                                 |          | down matches the reference extrema (ratio 3)            |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_hires_init_above_grid  | 49 48 13 | the same with initialization on level 2 above grid data |
+|                                 |          |                                                         |
+|                                 |          | on level 1, over the analytic level-2 bathymetry (6)    |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_hires_init_below_grid  | 49 48 13 | the same with initialization on level 1 below grid data |
+|                                 |          |                                                         |
+|                                 |          | on level 2, over the averaged-down bathymetry           |
++---------------------------------+----------+---------------------------------------------------------+
+| Upwelling_Fennel_hires_init_ic  | 41 80 16 | biology evaluated on level 1 and averaged down: the     |
+|                                 |          |                                                         |
+|                                 |          | Fennel constants survive exactly, and the max           |
+|                                 |          |                                                         |
+|                                 |          | temperature separates it from the lane above            |
++---------------------------------+----------+---------------------------------------------------------+
+| Seamount_hires_init_gridscale\_ | 49 48 13 | analytic high-resolution initialization with a          |
+| abort                           |          |                                                         |
+|                                 |          | non-constant grid scale is rejected                     |
 +---------------------------------+----------+---------------------------------------------------------+
 | Seamount_hires_grid_max_abort   | 49 48 13 | a hires level above ``amr.max_level`` is rejected       |
 +---------------------------------+----------+---------------------------------------------------------+
@@ -208,6 +237,10 @@ lost mask weighting fails the comparison rather than quietly agreeing with its o
 |                                 |          | values, so a run at rest stays at rest (ratio 3)        |
 +---------------------------------+----------+---------------------------------------------------------+
 | DogboneAnalytic_MLmask_rr2      | 42 15 16 | the same at ratio 2, where the blocks are half water    |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmask_hires\_  | 42 15 16 | the same with the initial state also averaged down      |
+| init                            |          |                                                         |
+|                                 |          | from level 1 through the partly wet cells               |
 +---------------------------------+----------+---------------------------------------------------------+
 
 ``Upwelling_Fennel_hires_init`` runs to zero steps: it writes the initial plotfile and exits, which takes

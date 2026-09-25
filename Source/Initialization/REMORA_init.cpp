@@ -9,12 +9,26 @@
 using namespace amrex;
 
 /**
+ * @param[in   ] lev     level whose coordinates to return
+ */
+ProbCoords
+REMORA::prob_coords (int lev) const
+{
+    ProbCoords coords;
+    coords.x_r = vec_xr[lev].get();
+    coords.y_r = vec_yr[lev].get();
+    coords.z_r = vec_z_r[lev].get();
+    coords.z_w = vec_z_w[lev].get();
+    return coords;
+}
+
+/**
  * @param[in   ] lev     level to initialize on
  */
 void
 REMORA::init_analytic(int lev)
 {
-    prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, *cons_new[lev], *xvel_new[lev], *yvel_new[lev]);
+    prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, prob_coords(lev), *cons_new[lev], *xvel_new[lev], *yvel_new[lev]);
 
     set_grid_scale(lev);
 }
@@ -438,10 +452,70 @@ void REMORA::allocate_init_full_domain () {
     nc_hires_init_box = refined_domain;
 }
 
+/**
+ * Evaluate the analytic initial state, free surface, and biology on the full domain at
+ * hires_init_level and average them down to level 0.
+ *
+ * That level does not exist yet, so its coordinates are built here: x_r and y_r from the cell
+ * size (constant grid scale), z_r and z_w from the free surface and the bathymetry. The
+ * bathymetry is the hires grid data when hires_grid_level >= hires_init_level, and the
+ * analytic bathymetry evaluated at hires_init_level otherwise.
+ */
 void
 REMORA::init_full_domain_from_analytic ()
 {
-    prob->init_analytic_prob(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_cons_full_domain[hires_init_level], *vec_xvel_full_domain[hires_init_level], *vec_yvel_full_domain[hires_init_level]);
+    const int lev = hires_init_level;
+    const DistributionMapping& dm = vec_cons_full_domain[lev]->DistributionMap();
+    const BoxArray& ba2d = vec_zeta_full_domain[lev]->boxArray();
+    const IntVect ng2d = vec_zeta_full_domain[lev]->nGrowVect();
+
+    MultiFab mf_xr(ba2d, dm, 1, ng2d);
+    MultiFab mf_yr(ba2d, dm, 1, ng2d);
+    const auto dxi = Geom(lev).InvCellSize();
+    const Real pm = dxi[0];
+    const Real pn = dxi[1];
+    for (MFIter mfi(mf_xr, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.growntilebox();
+        Array4<Real> const& xr = mf_xr.array(mfi);
+        Array4<Real> const& yr = mf_yr.array(mfi);
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            xr(i,j,0) = (i + Real(0.5)) / pm;
+            yr(i,j,0) = (j + Real(0.5)) / pn;
+        });
+    }
+
+    ProbCoords coords;
+    coords.x_r = &mf_xr;
+    coords.y_r = &mf_yr;
+
+    prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, coords,
+                             *vec_zeta_full_domain[lev]);
+
+    MultiFab mf_h(ba2d, dm, 1, ng2d);
+    mf_h.setVal(zero);
+    if (lev <= hires_grid_level) {
+        mf_h.ParallelCopy(*vec_h_full_domain[lev], 0, 0, 1, vec_h_full_domain[lev]->nGrowVect(),
+                          ng2d);
+    } else {
+        prob->init_analytic_bathymetry(lev, geom[lev], solverChoice, *this, mf_h);
+    }
+
+    const BoxArray& ba3d = vec_cons_full_domain[lev]->boxArray();
+    const IntVect ng3d(ng2d[0], ng2d[1], 0);
+    MultiFab mf_z_r(ba3d, dm, 1, ng3d);
+    MultiFab mf_z_w(convert(ba3d, IntVect(0,0,1)), dm, 1, ng3d);
+    stretch_transform_full_domain(lev, mf_h, *vec_zeta_full_domain[lev], mf_z_r, mf_z_w);
+    coords.z_r = &mf_z_r;
+    coords.z_w = &mf_z_w;
+
+    prob->init_analytic_prob(lev, geom[lev], solverChoice, *this, coords,
+                             *vec_cons_full_domain[lev], *vec_xvel_full_domain[lev],
+                             *vec_yvel_full_domain[lev]);
+    // The prob functions fill only the valid region, so the grow cells averaged down below
+    // are wrong. FillPatch overwrites them in set_init_data_averaged_down: filling these
+    // arrays with 1e10 instead of 0 leaves every plotfile bitwise unchanged.
 
     // Biology must be filled on the hires level before the average-down loop
     // below, or the biology components of vec_cons_full_domain are averaged
@@ -452,15 +526,5 @@ REMORA::init_full_domain_from_analytic ()
         average_down_with_grow_cells(lev, vec_cons_full_domain, true);
         average_down_with_grow_cells(lev, vec_xvel_full_domain, true);
         average_down_with_grow_cells(lev, vec_yvel_full_domain, true);
-    }
-}
-
-void
-REMORA::init_full_domain_zeta_from_analytic ()
-{
-    prob->init_analytic_zeta(hires_init_level, geom[hires_init_level], solverChoice, *this, *vec_zeta_full_domain[hires_init_level]);
-
-    for (int lev=hires_init_level-1; lev >= 0; lev--) {
-        average_down_with_grow_cells(lev, vec_zeta_full_domain, true);
     }
 }

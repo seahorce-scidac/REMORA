@@ -587,8 +587,8 @@ add_test_abort(Advection_ML_do_substep_both_abort "remora_exec" "and amr.do_subs
 # Bathymetry, grid metrics, or the initial state specified on a refined level and averaged
 # down to level 0. The two transparency lanes reuse existing baselines, since a constant
 # bathymetry must average down exactly; Seamount_hires is the lane that fails if the feature
-# silently stops doing anything. hires_init_level is NetCDF-only, so it is covered by the
-# developer lanes in Exec/GulfRefinementTest rather than here.
+# silently stops doing anything. hires_init_level is covered here for analytic initial
+# conditions, and its NetCDF reader by the developer lanes in Exec/GulfRefinementTest.
 #=============================================================================
 
 add_test_r_gold(Channel_Test_hires       "remora_exec" "plt00010"    Channel_Test)
@@ -628,7 +628,38 @@ add_test_extrema(Upwelling_Fennel_hires_init "remora_exec" "plt00000" 1e-12
                  LdetritusN    0.02 0.02
                  SdetritusN    0.04 0.04)
 
-add_test_abort(Seamount_hires_init_abort      "remora_exec" "Cannot do high-resolution initialization for analytic initial conditions")
+# Analytic hires_init_level. Seamount's temperature is convex in z and z_r varies within a
+# coarse cell, so averaging down differs from evaluating at level 0 (max temp 17.475031408 with
+# the flag off). Expected extrema come from Tests/reference/hires_init_analytic_reference.py,
+# which matches the whole level-0 field to 1e-14. One lane per bathymetry source at the init
+# level: analytic there, analytic there above coarser grid data, averaged down from finer.
+add_test_extrema(Seamount_hires_init             "remora_exec" "plt00000" 1e-8
+                 temp 10.077862333 17.474890098
+                 salt 32.0 32.0)
+add_test_extrema(Seamount_hires_init_above_grid  "remora_exec" "plt00000" 1e-8
+                 temp 10.077862333 17.474877547
+                 salt 32.0 32.0)
+add_test_extrema(Seamount_hires_init_below_grid  "remora_exec" "plt00000" 1e-8
+                 temp 10.077862333 17.474875997
+                 salt 32.0 32.0)
+
+# Rest must stay rest when the initial state is also averaged down through partial masks.
+add_test_0(DogboneAnalytic_MLmask_hires_init    "remora_exec" "plt00010")
+
+# Biology evaluated on the hires level and averaged down: the constants survive exactly, and an
+# unfilled component would come out 0. The max temp is a snapshot; it separates this lane from
+# Upwelling_Fennel_hires_init (21.935181561), which does not set hires_init_level.
+add_test_extrema(Upwelling_Fennel_hires_init_ic "remora_exec" "plt00000" 1e-8
+                 temp          14.520483402 21.935189849
+                 tracer        0.0  0.0
+                 NH4           0.1  0.1
+                 chlorophyll   0.02 0.02
+                 phytoplankton 0.08 0.08
+                 zooplankton   0.06 0.06
+                 LdetritusN    0.02 0.02
+                 SdetritusN    0.04 0.04)
+
+add_test_abort(Seamount_hires_init_gridscale_abort "remora_exec" "requires remora.grid_scale_type = constant")
 add_test_abort(Seamount_hires_grid_max_abort  "remora_exec" "hires_grid_level must be less than or equal to amr.max_level")
 add_test_abort(Seamount_hires_init_max_abort  "remora_exec" "hires_init_level must be less than or equal to amr.max_level")
 add_test_abort(Seamount_hires_grid_zero_abort "remora_exec" "hires_grid_level must be greater than 0")
