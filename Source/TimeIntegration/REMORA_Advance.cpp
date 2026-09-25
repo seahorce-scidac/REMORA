@@ -67,7 +67,7 @@ REMORA::Advance (int lev, Real time, Real dt_lev, int /*iteration*/, int /*ncycl
     // barotropic transport the parent imposed, while its shear is still the profile the
     // parent handed over at the start of the step. Nothing reconciles the two, so the
     // interface carries a depth-uniform offset that AverageDownTo then pushes onto the
-    // parent. timeStepML re-imposes the parent's profile here; timeStep does not.
+    // parent. Neither driver reconciles them unless this knob is set.
     if (cf_fill_vel_after && lev > 0) {
         FillPatch(lev, time + dt_lev, *xvel_new[lev], xvel_new, xvel_bc(),
                   BdyVars::u, 0, true, true);
