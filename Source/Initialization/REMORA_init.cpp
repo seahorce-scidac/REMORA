@@ -522,9 +522,10 @@ REMORA::init_full_domain_from_analytic ()
     // down uninitialized.
     init_biology_ic_full_domain();
 
-    for (int lev=hires_init_level-1; lev >= 0; lev--) {
-        average_down_with_grow_cells(lev, vec_cons_full_domain, true);
-        average_down_with_grow_cells(lev, vec_xvel_full_domain, true);
-        average_down_with_grow_cells(lev, vec_yvel_full_domain, true);
+    for (int crse_lev = lev-1; crse_lev >= 0; crse_lev--) {
+        average_down_with_grow_cells(crse_lev, vec_zeta_full_domain, true);
+        average_down_with_grow_cells(crse_lev, vec_cons_full_domain, true);
+        average_down_with_grow_cells(crse_lev, vec_xvel_full_domain, true);
+        average_down_with_grow_cells(crse_lev, vec_yvel_full_domain, true);
     }
 }

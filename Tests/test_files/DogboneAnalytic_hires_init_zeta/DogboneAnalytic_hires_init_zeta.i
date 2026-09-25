@@ -1,0 +1,76 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+remora.prob_name = DogboneAnalytic
+
+remora.max_step = 0
+
+# PROBLEM SIZE & GEOMETRY
+remora.prob_lo     =   0.       0.  -10.
+remora.prob_hi     =   8400.  750.       0.
+
+remora.n_cell           =  42 15 16
+
+remora.is_periodic = 0 0 0
+
+remora.bc.xlo.type = "slipwall"
+remora.bc.xhi.type = "slipwall"
+remora.bc.ylo.type = "slipwall"
+remora.bc.yhi.type = "slipwall"
+
+# TIME STEP CONTROL
+remora.fixed_dt            = 6.0 # Timestep size (seconds)
+remora.ndtfast = 20
+
+# DIAGNOSTICS & VERBOSITY
+remora.sum_interval  = 1       # timesteps between integrated/max quantities, if remora.v > 0
+remora.v             = 0       # verbosity in REMORA.cpp (0: none, 1: integrated quantities, etc, 2: print boxes)
+
+# CHECKPOINT FILES
+remora.check_file      = chk        # root name of checkpoint file
+remora.check_int       = -57600      # number of timesteps between checkpoints
+
+# PLOTFILES
+remora.plot_file     = plt        # prefix of plotfile name
+remora.plot_int      = 10         # number of timesteps between plotfiles
+remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
+remora.plot_vars_2d  = zeta
+remora.plotfile_type = amrex
+
+# SOLVER CHOICE
+remora.tracer_horizontal_advection_scheme = "upstream3" # upstream3 or centered4
+
+remora.Akt_bak = 1e-6
+remora.Akv_bak = 1e-5
+
+remora.use_coriolis  = false
+
+remora.theta_s = 0.0
+remora.theta_b = 0.0
+remora.tcline = 1e16
+
+remora.bottom_stress_type = "quadratic"
+remora.rdrag2 = 3.0e-3
+
+remora.mask_type = "analytic"
+
+# PROBLEM PARAMETERS (optional)
+remora.R0    = 1027.0  # background density value (Kg/m3) used in Linear Equation of State
+remora.S0    = 35.0    # background salinity (nondimensional) constant
+remora.T0    = 10.0    # background potential temperature (Celsius) constant
+remora.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celsius)
+remora.Scoef = 7.6e-4     # linear equation of state parameter (nondimensional)
+remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
+
+remora.ic_type       = "analytic"
+
+# HIGH-RESOLUTION ANALYTIC INITIALIZATION OF ZETA
+# VOLUME at t = 0 is sum (h + zeta) dx dy, so it reads back the averaged-down zeta. Every cell
+# is wet: h alone gives 63000000 and the coarse zeta bump 562500 more. zeta is linear in x west
+# of x = 1100, so averaging changes only the coarse column straddling it, by 1/36 m over 15
+# cells of 200 x 50 m: 63566666.667. Without hires_init_level it is 63562500, and with zeta left
+# out of the average-down, 63000000.
+amr.max_level           = 1
+amr.ref_ratio_vect      = 3 3 1
+remora.hires_init_level = 1
+remora.v                = 1
+remora.sum_interval     = 1
+remora.sum_precision    = 15

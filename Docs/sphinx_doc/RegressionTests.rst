@@ -214,6 +214,10 @@ lost mask weighting fails the comparison rather than quietly agreeing with its o
 |                                 |          |                                                         |
 |                                 |          | on level 2, over the averaged-down bathymetry           |
 +---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_hires_init\_    | 42 15 16 | zeta averaged down from level 1: VOLUME at t = 0 equals |
+| zeta                            |          |                                                         |
+|                                 |          | its closed-form value, 63566666.667                     |
++---------------------------------+----------+---------------------------------------------------------+
 | Upwelling_Fennel_hires_init_ic  | 41 80 16 | biology evaluated on level 1 and averaged down: the     |
 |                                 |          |                                                         |
 |                                 |          | Fennel constants survive exactly, and the max           |

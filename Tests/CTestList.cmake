@@ -643,6 +643,9 @@ add_test_extrema(Seamount_hires_init_below_grid  "remora_exec" "plt00000" 1e-8
                  temp 10.077862333 17.474875997
                  salt 32.0 32.0)
 
+# zeta is averaged down too: VOLUME at t = 0 reads it back. See the input for the arithmetic.
+add_test_log(DogboneAnalytic_hires_init_zeta    "remora_exec" "VOLUME *= *63566666.666")
+
 # Rest must stay rest when the initial state is also averaged down through partial masks.
 add_test_0(DogboneAnalytic_MLmask_hires_init    "remora_exec" "plt00010")
 
