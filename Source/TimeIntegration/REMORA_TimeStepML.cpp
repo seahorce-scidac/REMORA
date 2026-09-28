@@ -167,15 +167,14 @@ REMORA::timeStepML (Real time, int /*iteration*/)
                 FPr_w[lev].RegisterCoarseData({zvel_old[lev], zvel_new[lev]}, {time, time + dt[lev]});
             }
         }
-        if ( (solverChoice.boundary_from_netcdf) && (lev==0) ) {
-            // We might need to go back to normal FillPatch once the refined patches are allowed to intersect the boundary in NetCDF
-            FillPatchNoBC(lev, t_new[lev], *xvel_new[lev], xvel_new, BdyVars::u,0,true,true);
-            FillPatchNoBC(lev, t_new[lev], *yvel_new[lev], yvel_new, BdyVars::v,0,true,true);
-            FillPatchNoBC(lev, t_new[lev], *zvel_new[lev], zvel_new, BdyVars::null,0,true,true);
-        } else {
+        // Same as Advance after its step: nothing on level 0, and a child re-filled from its
+        // parent only under cf_fill_vel_after. A FillPatch of the level-0 velocity with the
+        // physical boundary conditions at t_new used to sit here; on the open-boundary
+        // dogbone it moved the answer 2e-8 away from ROMS, which the step otherwise matches
+        // to 1e-14.
+        if (cf_fill_vel_after && lev > 0) {
             FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u,0,true,true);
             FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v,0,true,true);
-            FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null,0,true,true);
         }
     }
 
