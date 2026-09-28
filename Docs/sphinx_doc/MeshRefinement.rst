@@ -184,7 +184,7 @@ The example below adds three user-named criteria:
 Here, ``temp`` is the name of a state variable and ``vorticity`` is a derived
 variable. Valid field options for refinement are any cell-centered tracer this
 run actually has, along with ``x_velocity``, ``y_velocity``, ``z_velocity``,
-``vorticity``, ``mask``, and, in a build with particles, ``<particle>_count``.
+``vorticity``, ``mask``, bathymetry ``h``, and, in a build with particles, ``<particle>_count``.
 Which tracers exist depends on the input: ``temp`` and ``salt`` always,
 ``tracer`` and numbered ``tracer_1`` and up only when ``remora.nscalar`` asks
 for them (it defaults to 0), and biology names such as ``NO3`` only with a
