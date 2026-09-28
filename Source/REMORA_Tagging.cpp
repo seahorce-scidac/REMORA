@@ -369,6 +369,22 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             // constant down a column, so the zero vertical gradient imposed here is exact.
             MultiFab::Copy(*mf,*vec_mskr3d[levc],0,0,1,IntVect(1,1,0));
             fill_z_ghost_planes(*mf);
+        } else if (ref_tags[j].Field() == "h") {
+            // Bathymetry is 2D, so spread it down each column of mf. One lateral
+            // ghost ring is enough for the GRAD test; vec_h holds NGROW+1. The value
+            // is constant down a column, so the zero vertical gradient imposed on
+            // the z ghost planes is exact.
+            for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+                const Box bx = mfi.growntilebox(IntVect(1,1,0));
+                Array4<const Real> const& h   = vec_h[levc]->const_array(mfi);
+                Array4<      Real> const& arr = mf->array(mfi);
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+                {
+                    arr(i,j,k) = h(i,j,0);
+                });
+            }
+            fill_z_ghost_planes(*mf);
 #ifdef REMORA_USE_PARTICLES
         } else {
             //
