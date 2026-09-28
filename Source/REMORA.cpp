@@ -713,7 +713,7 @@ REMORA::set_zeta (int lev)
     if (lev==0) {
         if (hires_init_level < 0) {
             if (solverChoice.ic_type == IC_Type::analytic) {
-                prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, *vec_zeta[lev]);
+                prob->init_analytic_zeta(lev, geom[lev], solverChoice, *this, prob_coords(lev), *vec_zeta[lev]);
             } else if (solverChoice.ic_type == IC_Type::netcdf) {
 #ifdef REMORA_USE_NETCDF
                 amrex::Print() << "Calling init_zeta_from_netcdf on level " << lev << std::endl;
@@ -1993,10 +1993,8 @@ REMORA::init_only (int lev, Real time)
     if (solverChoice.ic_type == IC_Type::netcdf) {
         Abort("Not compiled with NetCDF, but remora.ic_type = netcdf reads initial and grid data from file");
     }
-    // No guard on hires_grid_level here: with analytic initialization it needs no NetCDF at all --
-    // the bathymetry comes from prob->init_analytic_bathymetry evaluated at the fine level and
-    // averaged down. hires_init_level needs no guard either: it is rejected for analytic
-    // initialization in ReadParameters, and the netcdf case is caught just above.
+    // hires_grid_level and hires_init_level need no guard: with analytic initialization
+    // neither reads NetCDF, and the netcdf case is caught above.
     if (solverChoice.boundary_from_netcdf) {
         Abort("Not compiled with NetCDF, but selected boundary conditions require NetCDF");
     }
@@ -2035,16 +2033,12 @@ REMORA::init_only (int lev, Real time)
         } else if (solverChoice.ic_type == IC_Type::analytic) {
             allocate_init_full_domain();
             ensure_full_domain_masks(hires_init_level);
-            init_full_domain_zeta_from_analytic();
+            init_full_domain_from_analytic();
         }
     }
 
     set_zeta(lev);
     stretch_transform(lev);
-
-    if (lev==0 and hires_init_level > 0 and solverChoice.ic_type == IC_Type::analytic) {
-        init_full_domain_from_analytic();
-    }
 
     if (lev==0) {
         if (hires_init_level < 0) {
@@ -2541,14 +2535,11 @@ REMORA::ReadParameters ()
     }
 #endif
 
-    // NOTE: This feature is not yet implemented because it will require passing x,y,z to prob functions.
-    // Currently these are accessed by passing a pointer to the REMORA class. However, this requires the
-    // coordinates at hires_init_level to already exist (and specifically for the hires_init_level level
-    // to already be initialized), which is generally not the case. A solution is to create a separate
-    // coordinates object that is passed to the prob functions instead of the REMORA object. Then x,y,z
-    // coordinates can be calculated at any level without the corresponding level having been created.
-    if (hires_init_level >= 0 and solverChoice.ic_type == IC_Type::analytic) {
-        amrex::Abort("Cannot do high-resolution initialization for analytic initial conditions. Not yet implemented");
+    // init_full_domain_from_analytic builds x_r and y_r from the cell size.
+    if (hires_init_level > 0 and solverChoice.ic_type == IC_Type::analytic and
+        solverChoice.grid_scale_type != GridScaleType::constant) {
+        amrex::Abort("High-resolution initialization with analytic initial conditions requires "
+                     "remora.grid_scale_type = constant");
     }
 
 }

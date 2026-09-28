@@ -53,8 +53,11 @@ remora.Tcoef = 1.7e-4  # linear equation of state parameter (1/Celsius)
 remora.Scoef = 0.0     # linear equation of state parameter (nondimensional)
 remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
 
-# High-resolution INITIALIZATION is NetCDF-only; with analytic initial conditions this must
-# abort at setup rather than quietly initializing from nothing.
+# HIGH-RESOLUTION ANALYTIC INITIALIZATION
+# Initial state evaluated on level 1 and averaged down. T = T0 + 7.5 exp(z/1000) is convex in z
+# and z_r varies within a coarse cell, so max temp is 17.474890098 here against 17.475031408
+# without hires_init_level. Level-0 temp matches
+# Tests/reference/hires_init_analytic_reference.py --ref-ratio 3 to 7e-15.
 amr.max_level           = 1
 amr.ref_ratio_vect      = 3 3 1
 remora.hires_init_level = 1

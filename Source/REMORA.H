@@ -36,6 +36,7 @@
 #include <REMORA_Derive.H>
 #include <REMORA_ErrorTag.H>
 #include <REMORA_Biology.H>
+#include "REMORA_ProbCoords.H"
 #include "REMORA_prob_common.H"
 
 #ifdef REMORA_USE_PARTICLES
@@ -1207,6 +1208,11 @@ public:
     /** \brief Calculate vertical stretched coordinates */
     void stretch_transform (int lev);
 
+    /** \brief Calculate z_r and z_w on full-domain arrays at a level not yet created */
+    void stretch_transform_full_domain (int lev, const amrex::MultiFab& mf_h,
+                                        const amrex::MultiFab& mf_zeta,
+                                        amrex::MultiFab& mf_z_r, amrex::MultiFab& mf_z_w);
+
     /** \brief Initialize vertical mixing coefficients from file or analytic */
     void init_set_vmix (int lev);
     /** \brief Set vertical mixing coefficients from analytic */
@@ -1435,6 +1441,9 @@ public:
                               amrex::MultiFab& S_crse, const amrex::MultiFab& msk_fine,
                               const amrex::MultiFab& cmsk, int ncomp, int face_dir);
 
+    /** \brief Initialize high-resolution initial data, zeta included, from analytic functions */
+    void init_full_domain_from_analytic();
+
     int xvel_bc () const noexcept { return BCVars::xvel_bc(ncons); }
     int yvel_bc () const noexcept { return BCVars::yvel_bc(ncons); }
     int zvel_bc () const noexcept { return BCVars::zvel_bc(ncons); }
@@ -1490,11 +1499,8 @@ private:
 
     /** \brief Initialize initial problem data from analytic functions */
     void init_analytic(int lev);
-    /** \brief Initialize high resolution initial problem data from analytic functions */
-    void init_full_domain_from_analytic();
-
-    /** \brief Initialize high resolution initial sea surface height from analytic functions */
-    void init_full_domain_zeta_from_analytic();
+    /** \brief Coordinate arrays of level lev, for the prob functions */
+    ProbCoords prob_coords (int lev) const;
 
     /** \brief Allocate MultiFabs for state and evolution variables */
     void init_stuff (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);

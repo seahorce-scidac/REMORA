@@ -1,6 +1,7 @@
 #ifndef _REMORA_PROBCOMMON_H_
 #define _REMORA_PROBCOMMON_H_
 
+#include <REMORA_ProbCoords.H>
 #include <REMORA.H>
 #include <REMORA_DataStruct.H>
 
@@ -27,6 +28,7 @@ public:
         const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& /*remora*/,
+        ProbCoords const& /*coords*/,
         amrex::MultiFab& /*mf_cons*/,
         amrex::MultiFab& /*mf_xvel*/,
         amrex::MultiFab& /*mf_yvel*/) {
@@ -56,6 +58,7 @@ public:
         int /*lev*/, const amrex::Geometry& /*geom*/,
         SolverChoice const& /*m_solverChoice*/,
         REMORA const& /*remora*/,
+        ProbCoords const& /*coords*/,
         amrex::MultiFab& /*mf_zeta*/) {
           amrex::Error("Doing analytic sea surface height (zeta), but not defined in prob.cpp");
     }

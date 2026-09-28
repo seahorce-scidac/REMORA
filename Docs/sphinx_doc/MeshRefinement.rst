@@ -53,7 +53,7 @@ coarse-level cell; more on this below.
 
 ::
 
-          amr.max_level = 1                               # Spefifies the max level possible in any refinement region
+          amr.max_level = 1                               # Specifies the max level possible in any refinement region
           amr.ref_ratio_vect = 2 2 1                      # Note always use 'ref_ratio_vec', since z refinement is always 1
 
           remora.refinement_indicators = box1 box2        # A list of refinement region names
@@ -120,7 +120,7 @@ appendix.
 The values specified in this case need special care. The ``.in_box_lo_indices``
 values must be **divisible by the higheset refinement** specified by
 ``arm.ref_ratio``. Since these are 'inclusive' values, the
-``.in_box_hi_indices`` are requied to ``N * amr.ref_ratio - 1``. For example,
+``.in_box_hi_indices`` are required to ``N * amr.ref_ratio - 1``. For example,
 
 ::
 
