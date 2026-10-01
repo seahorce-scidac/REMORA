@@ -11,9 +11,8 @@ target_include_directories(${remora_unit_test_exe_name} PRIVATE
   ${PROJECT_SOURCE_DIR}/Source/Utils
 )
 
-# AMReX supplies amrex::Real, the inline and GPU qualifiers, and the defines
-# that go with them -- AMREX_USE_FLOAT in particular, which changes which
-# reference dates REMORA_DateClock.H can represent.
+# AMReX supplies the inline and GPU qualifiers and the defines that go with
+# them.
 target_link_libraries(${remora_unit_test_exe_name} PRIVATE ${REMORA_AMREX_TARGET})
 
 # AMREX_GPU_HOST_DEVICE expands to __host__ __device__ in a GPU build, so this
