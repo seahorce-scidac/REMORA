@@ -62,7 +62,14 @@ REMORA::timeStep (int lev, Real time, int iteration)
 
     // Update what we call "old" and "new" time
     t_old[lev] = t_new[lev];
-    t_new[lev] += dt[lev];
+    // A child's last substep lands exactly on its parent's new time. Summing dt[lev] would
+    // drift when it is inexact (dt/3 in single precision), leaving the next step's t_old
+    // just before the parent's t_old -- outside the interval the fill patchers bracket.
+    if (lev > 0 && iteration == nsubsteps[lev]) {
+        t_new[lev] = t_new[lev-1];
+    } else {
+        t_new[lev] += dt[lev];
+    }
 
     // A child must stay inside its parent's step, or the fill patchers have nothing to
     // interpolate within. REMORAFillPatcher asserts this too, but cannot name the level.
