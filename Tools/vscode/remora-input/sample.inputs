@@ -1,0 +1,46 @@
+# PROBLEM SIZE & GEOMETRY
+remora.prob_lo = 0. 0. -50.
+remora.prob_hi = 100000. 300000. 0.
+remora.n_cell = 20 60 50
+remora.is_periodic = 1 0 0
+remora.bc.ylo.type = "SlipWall"
+remora.bc.yhi.type = "SlipWall"
+
+# TIME STEP CONTROL
+remora.fixed_dt = 100.0 # Reduced for finer horizontal spacing
+remora.ndtfast = 10
+#remora.ndtfast = 30 # Disabled setting: the entire line is a comment
+
+# DIAGNOSTICS & VERBOSITY
+remora.sum_interval = 1
+remora.v = 0 # verbosity
+
+# CHECKPOINT FILES & PLOTFILES
+remora.check_file = seamount_refined/chk
+remora.check_int = -57600
+remora.plot_file = seamount_refined/plt
+remora.plot_int = 100
+remora.plot_vars_3d = salt temp x_velocity y_velocity z_velocity
+remora.plotfile_type = amrex
+
+# STATIC 3x REFINEMENT AROUND THE SEAMOUNT
+amr.max_level = 1
+amr.ref_ratio_vect = 3 3 1
+amr.regrid_int = -1
+amr.n_error_buf = 0
+remora.refinement_indicators = seamount
+remora.seamount.max_level = 1
+remora.seamount.in_box_lo = 10000. 110000. -50.
+remora.seamount.in_box_hi = 90000. 190000. 0.
+remora.hires_grid_level = 1
+remora.nc_grid_file_hires = "channel_seamount_grid_hires.nc"
+remora.hires_init_level = -1
+
+# SYNTHETIC HIGHLIGHTING EXAMPLES (not a validated simulation input)
+remora.gls_example = 1.0e-6
+remora.section.example = -2E+3 +.5 3. 1D-4 true FALSE yes off
+example.file = channel_seamount_grid.nc
+example.paths = ./data/grid.nc ../data/init.nc /tmp/output C:\data\grid.nc
+example.text = "a # inside a string" 'another # string' # actual comment
+example.escape = "quoted \"word\"" # escaped quotes
+example.bare = beta_plane salt temp 1e-6.nc
