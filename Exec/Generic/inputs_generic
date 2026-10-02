@@ -1089,7 +1089,7 @@ remora.znudg = <UNKNOWN_DEFAULT>
 #==============================================================================
 # AMR PARAMETERS
 #==============================================================================
-# source: Src/Amr/AMReX_Amr.cpp:3358
+# source: Src/Amr/AMReX_Amr.cpp:3467
 # type=bool; method=query
 amr.abort_on_stream_retry_failure = false
 
@@ -1097,43 +1097,43 @@ amr.abort_on_stream_retry_failure = false
 # type=int; method=queryAdd
 amr.blocking_factor = 1
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:297
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:300
 # type=Vector<int>; method=getarr
 amr.blocking_factor_x = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:312
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:315
 # type=Vector<int>; method=getarr
 amr.blocking_factor_y = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:328
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:331
 # type=Vector<int>; method=getarr
 amr.blocking_factor_z = <REQUIRED>
 
-# source: Src/Amr/AMReX_Amr.cpp:3294
+# source: Src/Amr/AMReX_Amr.cpp:3403
 # type=string; method=queryAdd
 amr.check_file = chk
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:379
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:388
 # type=bool; method=queryAdd
 amr.check_input = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:3297
+# source: Src/Amr/AMReX_Amr.cpp:3406
 # type=int; method=queryAdd
 amr.check_int = -1
 
-# source: Src/Amr/AMReX_Amr.cpp:3300
+# source: Src/Amr/AMReX_Amr.cpp:3409
 # type=Real; method=queryAdd
 amr.check_per = -1.0
 
-# source: Src/Amr/AMReX_Amr.cpp:3282
+# source: Src/Amr/AMReX_Amr.cpp:3391
 # type=bool; method=queryAdd
 amr.checkpoint_files_output = true
 
-# source: Src/Amr/AMReX_Amr.cpp:3368
+# source: Src/Amr/AMReX_Amr.cpp:3477
 # type=unknown; method=query
 amr.checkpoint_headerversion = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:3286
+# source: Src/Amr/AMReX_Amr.cpp:3395
 # type=int; method=queryAdd
 amr.checkpoint_nfiles = 64
 
@@ -1149,11 +1149,11 @@ amr.compute_new_dt_on_regrid = false
 # type=Vector<std::string>; method=queryarr
 amr.data_log = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_AmrLevel.cpp:1943
+# source: Src/Amr/AMReX_AmrLevel.cpp:1944
 # type=string; method=get
 amr.derive_plot_vars = <REQUIRED>
 
-# source: Src/Amr/AMReX_AmrLevel.cpp:2003
+# source: Src/Amr/AMReX_AmrLevel.cpp:2004
 # type=string; method=get
 amr.derive_small_plot_vars = <REQUIRED>
 
@@ -1185,19 +1185,19 @@ amr.initial_grid_file = <UNKNOWN_DEFAULT>
 # type=bool; method=query
 amr.insitu_on_restart = false
 
-# source: Src/Amr/AMReX_Amr.cpp:558
+# source: Src/Amr/AMReX_Amr.cpp:561
 # type=int; method=query
 amr.loadbalance_level0_int = 2
 
-# source: Src/Amr/AMReX_Amr.cpp:561
+# source: Src/Amr/AMReX_Amr.cpp:564
 # type=Real; method=query
 amr.loadbalance_max_fac = 1.5
 
-# source: Src/Amr/AMReX_Amr.cpp:555
+# source: Src/Amr/AMReX_Amr.cpp:558
 # type=int; method=query
 amr.loadbalance_with_workestimates = 0
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:380
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:389
 # type=int; method=queryAdd
 amr.max_grid_iterations = <UNKNOWN_DEFAULT>
 
@@ -1205,15 +1205,15 @@ amr.max_grid_iterations = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 amr.max_grid_size = 2048
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:241
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:244
 # type=Vector<int>; method=getarr
 amr.max_grid_size_x = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:256
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:259
 # type=Vector<int>; method=getarr
 amr.max_grid_size_y = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:272
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:275
 # type=Vector<int>; method=getarr
 amr.max_grid_size_z = <REQUIRED>
 
@@ -1237,15 +1237,15 @@ amr.n_cell = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 amr.n_error_buf = 0
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:125
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:128
 # type=Vector<int>; method=getarr
 amr.n_error_buf_x = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:140
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:143
 # type=Vector<int>; method=getarr
 amr.n_error_buf_y = <REQUIRED>
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:156
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:159
 # type=Vector<int>; method=getarr
 amr.n_error_buf_z = <REQUIRED>
 
@@ -1253,43 +1253,47 @@ amr.n_error_buf_z = <REQUIRED>
 # type=unknown; method=add
 amr.n_proper = <REQUIRED>
 
-# source: Src/Amr/AMReX_Amr.cpp:3189
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:383
+# type=int; method=query
+amr.no_box_split_dir = <UNKNOWN_DEFAULT>
+
+# source: Src/Amr/AMReX_Amr.cpp:3298
 # type=int; method=query
 amr.nosub = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:3310
+# source: Src/Amr/AMReX_Amr.cpp:3419
 # type=string; method=queryAdd
 amr.plot_file = plt
 
-# source: Src/Amr/AMReX_Amr.cpp:3283
+# source: Src/Amr/AMReX_Amr.cpp:3392
 # type=bool; method=queryAdd
 amr.plot_files_output = true
 
-# source: Src/Amr/AMReX_Amr.cpp:3364
+# source: Src/Amr/AMReX_Amr.cpp:3473
 # type=int; method=query
 amr.plot_headerversion = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:3313
+# source: Src/Amr/AMReX_Amr.cpp:3422
 # type=int; method=queryAdd
 amr.plot_int = -1
 
-# source: Src/Amr/AMReX_Amr.cpp:3319
+# source: Src/Amr/AMReX_Amr.cpp:3428
 # type=Real; method=queryAdd
 amr.plot_log_per = -1.0
 
-# source: Src/Amr/AMReX_Amr.cpp:3329
+# source: Src/Amr/AMReX_Amr.cpp:3438
 # type=int; method=queryAdd
 amr.plot_max_level = <UNKNOWN_DEFAULT>
 
-# source: Src/Amr/AMReX_Amr.cpp:3285
+# source: Src/Amr/AMReX_Amr.cpp:3394
 # type=int; method=queryAdd
 amr.plot_nfiles = 64
 
-# source: Src/Amr/AMReX_Amr.cpp:3316
+# source: Src/Amr/AMReX_Amr.cpp:3425
 # type=Real; method=queryAdd
 amr.plot_per = -1.0
 
-# source: Src/Amr/AMReX_AmrLevel.cpp:1916
+# source: Src/Amr/AMReX_AmrLevel.cpp:1917
 # type=string; method=get
 amr.plot_vars = <REQUIRED>
 
@@ -1297,11 +1301,11 @@ amr.plot_vars = <REQUIRED>
 # type=bool; method=queryAdd
 amr.plotfile_on_restart = false
 
-# source: Src/Amr/AMReX_Amr.cpp:3360
+# source: Src/Amr/AMReX_Amr.cpp:3469
 # type=bool; method=query
 amr.precreateDirectories = true
 
-# source: Src/Amr/AMReX_Amr.cpp:3361
+# source: Src/Amr/AMReX_Amr.cpp:3470
 # type=bool; method=query
 amr.prereadFAHeaders = true
 
@@ -1313,7 +1317,7 @@ amr.probin_file = probin
 # type=int; method=query
 amr.probinit_natonce = 512
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:178
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:181
 # type=Vector<int>; method=queryarr
 amr.ref_ratio = <UNKNOWN_DEFAULT>
 
@@ -1336,6 +1340,10 @@ amr.refine_grid_layout_y = <REQUIRED>
 # Set the refine_grid_layout flags to (NGROW-1,NGROW-1,0) by default
 # type=unknown; method=add
 amr.refine_grid_layout_z = <REQUIRED>
+
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:382
+# type=int; method=queryAdd
+amr.refine_whole_domain_dir = <UNKNOWN_DEFAULT>
 
 # name of file
 # type=string; method=queryAdd
@@ -1365,27 +1373,27 @@ amr.run_log = <REQUIRED>
 # type=string; method=get
 amr.run_log_terse = <REQUIRED>
 
-# source: Src/Amr/AMReX_Amr.cpp:3332
+# source: Src/Amr/AMReX_Amr.cpp:3441
 # type=string; method=queryAdd
 amr.small_plot_file = smallplt
 
-# source: Src/Amr/AMReX_Amr.cpp:3335
+# source: Src/Amr/AMReX_Amr.cpp:3444
 # type=int; method=queryAdd
 amr.small_plot_int = -1
 
-# source: Src/Amr/AMReX_Amr.cpp:3341
+# source: Src/Amr/AMReX_Amr.cpp:3450
 # type=Real; method=queryAdd
 amr.small_plot_log_per = -1.0
 
-# source: Src/Amr/AMReX_Amr.cpp:3338
+# source: Src/Amr/AMReX_Amr.cpp:3447
 # type=Real; method=queryAdd
 amr.small_plot_per = -1.0
 
-# source: Src/Amr/AMReX_AmrLevel.cpp:1976
+# source: Src/Amr/AMReX_AmrLevel.cpp:1977
 # type=string; method=get
 amr.small_plot_vars = <REQUIRED>
 
-# source: Src/Amr/AMReX_Amr.cpp:3354
+# source: Src/Amr/AMReX_Amr.cpp:3463
 # type=int; method=query
 amr.stream_max_tries = 4
 
@@ -1393,11 +1401,11 @@ amr.stream_max_tries = 4
 # type=int; method=get
 amr.subcycling_iterations = 0
 
-# source: Src/Amr/AMReX_Amr.cpp:3198
+# source: Src/Amr/AMReX_Amr.cpp:3307
 # type=string; method=queryAdd
 amr.subcycling_mode = None
 
-# source: Src/AmrCore/AMReX_AmrMesh.cpp:385
+# source: Src/AmrCore/AMReX_AmrMesh.cpp:394
 # type=bool; method=queryAdd
 amr.use_bittree = <UNKNOWN_DEFAULT>
 
@@ -1409,7 +1417,7 @@ amr.use_efficient_regrid = false
 # type=int; method=query
 amr.v = 0
 
-# source: Src/Amr/AMReX_Amr.cpp:3351
+# source: Src/Amr/AMReX_Amr.cpp:3460
 # type=bool; method=queryAdd
 amr.write_plotfile_with_checkpoint = true
 
@@ -1517,7 +1525,7 @@ vismf.v = <UNKNOWN_DEFAULT>
 # type=bool; method=queryAdd
 amrex.abort_on_out_of_gpu_memory = false
 
-# source: Src/Base/AMReX.cpp:575
+# source: Src/Base/AMReX.cpp:577
 # type=unknown; method=queryAdd
 amrex.abort_on_unused_inputs = <UNKNOWN_DEFAULT>
 
@@ -1529,7 +1537,7 @@ amrex.async_out = false
 # type=int; method=queryAdd
 amrex.async_out_nfiles = 64
 
-# source: Src/Base/AMReX.cpp:574
+# source: Src/Base/AMReX.cpp:576
 # type=unknown; method=query
 amrex.call_addr2line = <UNKNOWN_DEFAULT>
 
@@ -1549,43 +1557,43 @@ amrex.fpe_trap_overflow = false
 # type=unknown; method=queryAdd
 amrex.fpe_trap_zero = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:591
+# source: Src/Base/AMReX.cpp:593
 # type=unknown; method=queryAdd
 amrex.handle_sigabrt = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:592
+# source: Src/Base/AMReX.cpp:594
 # type=unknown; method=queryAdd
 amrex.handle_sigfpe = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:593
+# source: Src/Base/AMReX.cpp:595
 # type=unknown; method=queryAdd
 amrex.handle_sigill = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:590
+# source: Src/Base/AMReX.cpp:592
 # type=unknown; method=queryAdd
 amrex.handle_sigint = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:588
+# source: Src/Base/AMReX.cpp:590
 # type=unknown; method=queryAdd
 amrex.handle_sigsegv = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:589
+# source: Src/Base/AMReX.cpp:591
 # type=unknown; method=queryAdd
 amrex.handle_sigterm = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:684
+# source: Src/Base/AMReX.cpp:686
 # type=bool; method=queryAdd
 amrex.hypre_spgemm_use_vendor = false
 
-# source: Src/Base/AMReX.cpp:685
+# source: Src/Base/AMReX.cpp:687
 # type=bool; method=queryAdd
 amrex.hypre_spmv_use_vendor = false
 
-# source: Src/Base/AMReX.cpp:686
+# source: Src/Base/AMReX.cpp:688
 # type=bool; method=queryAdd
 amrex.hypre_sptrans_use_vendor = false
 
-# source: Src/Base/AMReX.cpp:682
+# source: Src/Base/AMReX.cpp:684
 # type=bool; method=queryAdd
 amrex.init_hypre = true
 
@@ -1609,7 +1617,7 @@ amrex.mf.alloc_single_chunk = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 amrex.omp_threads = system
 
-# source: Src/Base/AMReX_ParmParse.cpp:1737
+# source: Src/Base/AMReX_ParmParse.cpp:1786
 # type=namespace; method=query
 amrex.parmparse.v = <UNKNOWN_DEFAULT>
 
@@ -1617,19 +1625,19 @@ amrex.parmparse.v = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 amrex.pout_int = 1
 
-# source: Src/Base/AMReX.cpp:571
+# source: Src/Base/AMReX.cpp:573
 # type=unknown; method=query
 amrex.regtest_reduction = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:572
+# source: Src/Base/AMReX.cpp:574
 # type=unknown; method=queryAdd
 amrex.signal_handling = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_ParallelDescriptor.cpp:1612
+# source: Src/Base/AMReX_ParallelDescriptor.cpp:1614
 # type=int; method=query
 amrex.team.reduce = 0
 
-# source: Src/Base/AMReX_ParallelDescriptor.cpp:1611
+# source: Src/Base/AMReX_ParallelDescriptor.cpp:1613
 # type=int; method=query
 amrex.team.size = 1
 
@@ -1697,15 +1705,15 @@ amrex.the_pinned_arena_init_size = 0
 # type=Long; method=queryAdd
 amrex.the_pinned_arena_release_threshold = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX.cpp:573
+# source: Src/Base/AMReX.cpp:575
 # type=unknown; method=queryAdd
 amrex.throw_exception = <UNKNOWN_DEFAULT>
 
-# source: Src/Base/AMReX_ParallelDescriptor.cpp:1585
+# source: Src/Base/AMReX_ParallelDescriptor.cpp:1587
 # type=bool; method=queryAdd
 amrex.use_gpu_aware_mpi = false
 
-# source: Src/Base/AMReX_BLProfiler.cpp:1737
+# source: Src/Base/AMReX_BLProfiler.cpp:1738
 # type=class; method=queryAdd
 amrex.use_profiler_syncs = <UNKNOWN_DEFAULT>
 
