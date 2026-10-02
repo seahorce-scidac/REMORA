@@ -1,0 +1,251 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "REMORA Input",
+  "scopeName": "source.remora-input",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#assignments"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.line.number-sign.remora-input",
+      "begin": "#",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.comment.remora-input"
+        }
+      },
+      "end": "$"
+    },
+    "assignments": {
+      "patterns": [
+        {
+          "name": "meta.assignment.boundary.remora-input",
+          "begin": "^\\s*(remora)(\\.)(bc)(\\.)([A-Za-z_][\\w.-]*)\\s*(=)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.namespace.remora"
+            },
+            "2": {
+              "name": "punctuation.accessor.remora-input"
+            },
+            "3": {
+              "name": "support.type.boundary.remora-input"
+            },
+            "4": {
+              "name": "punctuation.accessor.remora-input"
+            },
+            "5": {
+              "name": "variable.other.boundary.remora-input"
+            },
+            "6": {
+              "name": "keyword.operator.assignment.remora-input"
+            }
+          },
+          "end": "$",
+          "patterns": [
+            {
+              "include": "#values"
+            }
+          ]
+        },
+        {
+          "name": "meta.assignment.turbulence.remora-input",
+          "begin": "^\\s*(remora)(\\.)(gls_)([A-Za-z0-9_.-]+)\\s*(=)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.namespace.remora"
+            },
+            "2": {
+              "name": "punctuation.accessor.remora-input"
+            },
+            "3": {
+              "name": "support.type.turbulence.remora-input"
+            },
+            "4": {
+              "name": "variable.other.turbulence.remora-input"
+            },
+            "5": {
+              "name": "keyword.operator.assignment.remora-input"
+            }
+          },
+          "end": "$",
+          "patterns": [
+            {
+              "include": "#values"
+            }
+          ]
+        },
+        {
+          "name": "meta.assignment.nested.remora-input",
+          "begin": "^\\s*(remora)(\\.)([A-Za-z_][\\w-]*)(\\.)([A-Za-z_][\\w.-]*)\\s*(=)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.namespace.remora"
+            },
+            "2": {
+              "name": "punctuation.accessor.remora-input"
+            },
+            "3": {
+              "name": "entity.name.section.remora-input"
+            },
+            "4": {
+              "name": "punctuation.accessor.remora-input"
+            },
+            "5": {
+              "name": "variable.other.nested.remora-input"
+            },
+            "6": {
+              "name": "keyword.operator.assignment.remora-input"
+            }
+          },
+          "end": "$",
+          "patterns": [
+            {
+              "include": "#values"
+            }
+          ]
+        },
+        {
+          "name": "meta.assignment.remora.remora-input",
+          "begin": "^\\s*(remora)(\\.)([A-Za-z_][\\w.-]*)\\s*(=)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.namespace.remora"
+            },
+            "2": {
+              "name": "punctuation.accessor.remora-input"
+            },
+            "3": {
+              "name": "variable.other.parameter.remora-input"
+            },
+            "4": {
+              "name": "keyword.operator.assignment.remora-input"
+            }
+          },
+          "end": "$",
+          "patterns": [
+            {
+              "include": "#values"
+            }
+          ]
+        },
+        {
+          "name": "meta.assignment.amr.remora-input",
+          "begin": "^\\s*(amr)(\\.)([A-Za-z_][\\w.-]*)\\s*(=)",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.namespace.amr.remora-input"
+            },
+            "2": {
+              "name": "punctuation.accessor.remora-input"
+            },
+            "3": {
+              "name": "variable.other.parameter.remora-input"
+            },
+            "4": {
+              "name": "keyword.operator.assignment.remora-input"
+            }
+          },
+          "end": "$",
+          "patterns": [
+            {
+              "include": "#values"
+            }
+          ]
+        },
+        {
+          "name": "meta.assignment.generic.remora-input",
+          "begin": "^\\s*([A-Za-z_][\\w.-]*)\\s*(=)",
+          "beginCaptures": {
+            "1": {
+              "name": "variable.other.parameter.remora-input"
+            },
+            "2": {
+              "name": "keyword.operator.assignment.remora-input"
+            }
+          },
+          "end": "$",
+          "patterns": [
+            {
+              "include": "#values"
+            }
+          ]
+        }
+      ]
+    },
+    "values": {
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "name": "string.quoted.double.remora-input",
+          "begin": "\"",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.remora-input"
+            }
+          },
+          "end": "\"|(?=$)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.remora-input"
+            }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.remora-input",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.remora-input",
+          "begin": "'",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.remora-input"
+            }
+          },
+          "end": "'|(?=$)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.remora-input"
+            }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.remora-input",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "constant.numeric.remora-input",
+          "match": "(?<![^\\s=,\\[\\](){}])[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eEdD][+-]?\\d+)?(?=$|[\\s#,\\[\\](){}])"
+        },
+        {
+          "name": "constant.language.boolean.remora-input",
+          "match": "(?i)(?<![^\\s=,\\[\\](){}])(?:true|false|yes|no|on|off)(?=$|[\\s#,\\[\\](){}])"
+        },
+        {
+          "name": "string.unquoted.path.remora-input",
+          "match": "(?=[^\\s#\\x22\\x27]+(?:[/\\\\]|\\.[A-Za-z][A-Za-z0-9]*))[^\\s#\\x22\\x27,\\[\\](){}]+"
+        },
+        {
+          "name": "punctuation.separator.remora-input",
+          "match": "[,\\[\\](){}]"
+        },
+        {
+          "name": "string.unquoted.remora-input",
+          "match": "[^\\s#\\x22\\x27,\\[\\](){}]+"
+        }
+      ]
+    }
+  }
+}

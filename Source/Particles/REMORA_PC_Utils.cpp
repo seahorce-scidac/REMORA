@@ -37,7 +37,7 @@ void REMORAPC::massDensity ( MultiFab&  a_mf,
                 [=] AMREX_GPU_DEVICE ( const REMORAPC::ParticleType&, int)
                 {
                     auto mass = ptd.m_rdata[REMORAParticlesRealIdxSoA::mass][i];
-                    return mass*inv_cell_volume;
+                    return static_cast<Real>(mass*inv_cell_volume);
                 });
         });
 

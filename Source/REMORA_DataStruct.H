@@ -999,7 +999,8 @@ struct SolverChoice {
     // remora.time_ref: reference date of the model clock (yyyymmdd.dd), or one
     // of the special values 0, -1, -2. Selects the calendar; see
     // Source/Utils/REMORA_DateClock.H.
-    amrex::Real time_ref = amrex::Real(0.0);
+    // Must be a double because reference date format needs the precision
+    double time_ref = 0.0;
 
     // Coriolis forcing
     amrex::Real coriolis_f0 = zero; // f-plane constant (1/s)

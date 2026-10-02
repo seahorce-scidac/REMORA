@@ -17,6 +17,10 @@ Biology options are documented in :ref:`sec:Fennel`. That section covers the
 (``remora.biology_ic_type``), and the options used to validate the port against
 ROMS (``remora.use_biology_cpp_answer``, ``remora.biology_debug``).
 
+   .. note::
+      There is an extension found in `REMORA/TOOLS/vscode` that can be used to highlight syntax of REMORA input files in Visual Studio Code. See the `REMORA/TOOLS/vscode/remora-input/README.md` file for information on how to install this extension.
+
+
 .. _geometry-parameters:
 
 Problem Geometry
