@@ -94,7 +94,7 @@ REMORA::WriteCheckpointFile ()
        }
        HeaderFile << "\n";
 
-       // write out array of t_new
+       // write out array of t_new, which counts from start_time
        for (int i = 0; i < t_new.size(); ++i) {
            HeaderFile << t_new[i] << " ";
        }
@@ -105,6 +105,10 @@ REMORA::WriteCheckpointFile ()
            boxArray(lev).writeOn(HeaderFile);
            HeaderFile << '\n';
        }
+
+       // start_time, the origin t_new counts from. Last, so a reader that predates it
+       // stops before it; a checkpoint without it holds t_new on the model clock.
+       HeaderFile << "start_time " << start_time << "\n";
    }
 
    // write the MultiFab data to, e.g., chk00010/Level_0/
@@ -317,31 +321,44 @@ REMORA::ReadCheckpointFile ()
         }
     }
 
-    // read in array of t_new
+    // read in array of t_new. Kept in double until the origin it counts from is known.
+    Vector<double> chk_t_new(t_new.size(), 0.0);
     std::getline(is, line);
     {
         std::istringstream lis(line);
         int i = 0;
-        while (lis >> word && i < t_new.size()) {
-#ifdef AMREX_USE_FLOAT
-            t_new[i++] = std::stof(word);
-#else
-            t_new[i++] = std::stod(word);
-#endif
+        while (lis >> word && i < chk_t_new.size()) {
+            chk_t_new[i++] = std::stod(word);
         }
     }
 
+    // read in the BoxArray at each level
+    Vector<BoxArray> chk_ba(finest_level+1);
     for (int lev = 0; lev <= finest_level; ++lev) {
-
-        // read in level 'lev' BoxArray from Header
-        BoxArray ba;
-        ba.readFrom(is);
+        chk_ba[lev].readFrom(is);
         GotoNextLine(is);
+    }
 
+    // The origin the checkpoint's t_new counts from. A checkpoint written before
+    // model time was split has no such line and holds t_new on the model clock.
+    double chk_start_time = 0.0;
+    if (is >> word && word == "start_time") {
+        is >> chk_start_time;
+    }
+
+    // Rebase onto this run's start_time. Take t_new verbatim when the origin is
+    // unchanged, the usual case, so a restart reproduces the run it continues.
+    for (int lev = 0; lev < t_new.size(); ++lev) {
+        t_new[lev] = (chk_start_time == start_time)
+                   ? static_cast<Real>(chk_t_new[lev])
+                   : elapsed_time(chk_start_time + chk_t_new[lev]);
+    }
+
+    for (int lev = 0; lev <= finest_level; ++lev) {
         // create a distribution mapping
-        DistributionMapping dm { ba, ParallelDescriptor::NProcs() };
+        DistributionMapping dm { chk_ba[lev], ParallelDescriptor::NProcs() };
 
-        MakeNewLevelFromScratch (lev, t_new[lev], ba, dm);
+        MakeNewLevelFromScratch (lev, t_new[lev], chk_ba[lev], dm);
     }
 
     // read in the MultiFab data

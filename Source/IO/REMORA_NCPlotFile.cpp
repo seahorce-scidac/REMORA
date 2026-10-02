@@ -444,7 +444,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
         const std::string ref_date_string = remora_ref_date_string(solverChoice.time_ref);
         const std::string ref_calendar = remora_ref_calendar(solverChoice.time_ref);
 
-        ncf.def_var("ocean_time", ncutils::NCDType::Real, { nt_name });
+        // Double regardless of Real, like dstart: seconds since the reference
+        // date outgrow a float's resolution within days.
+        ncf.def_var("ocean_time", NC_DOUBLE, { nt_name });
         ncf.var("ocean_time").put_attr("long_name","time since initialization");
         ncf.var("ocean_time").put_attr("units","seconds since " + ref_date_string);
         ncf.var("ocean_time").put_attr("calendar",ref_calendar);
@@ -824,7 +826,7 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("theta_b").put(&theta_b);
 
             // remora.start_time in seconds is ROMS DSTART in days.
-            double dstart = static_cast<double>(start_time) / 86400.0;
+            double dstart = start_time / 86400.0;
             ncf.var("dstart").put(&dstart);
 
         }
@@ -845,11 +847,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     long long local_start_nt = (is_history ? static_cast<long long>(adjusted_history_count) : static_cast<long long>(0));
     long long local_nt = 1; // We write data for only one time
 
-    if (amrex::ParallelDescriptor::IOProcessor()) // only master proc
+    // ocean_time is on the model clock, in double. Written here rather than staged,
+    // since the collector holds Real; collective, with only the IO rank contributing.
     {
-        auto nc_plot_var = collector.var(ncf, "ocean_time");
-        //nc_plot_var.par_access(NC_COLLECTIVE);
-        nc_plot_var.put(&t_new[lev], { local_start_nt }, { local_nt });
+        const double ocean_time = model_time(t_new[lev]);
+        const long long nt_count = amrex::ParallelDescriptor::IOProcessor() ? local_nt : 0;
+        ncf.var("ocean_time").put_all(&ocean_time, { local_start_nt }, { nt_count });
     }
 
     // Check whether there are any nans or infs in variables that we will write out

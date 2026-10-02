@@ -87,8 +87,7 @@ void NCTimeSeriesBoundary::Initialize()
             amrex::Warning("Units attribute not found on time variable " + time_name + ". Assuming days");
         }
         // get times and put in array
-        using RARRAY = NDArray<amrex::Real>;
-        amrex::Vector<RARRAY> array_ts(1);
+        amrex::Vector<NDArray<double>> array_ts(1);
         ReadNetCDFFile(file_name, {time_name}, array_ts); // filled only on proc 0
         if (amrex::ParallelDescriptor::IOProcessor())
         {
@@ -96,7 +95,7 @@ void NCTimeSeriesBoundary::Initialize()
             for (int nt(0); nt < ntimes_io; nt++)
             {
                 // Convert ocean time from days to seconds
-                bry_times.push_back((*(array_ts[0].get_data() + nt)) * amrex::Real(60.0) * amrex::Real(60.0) * amrex::Real(24.0));
+                bry_times.push_back((*(array_ts[0].get_data() + nt)) * 60.0 * 60.0 * 24.0);
                 file_for_time.push_back(ifile);
                 file_itime_offset.push_back(nt);
             }
@@ -199,7 +198,7 @@ void NCTimeSeriesBoundary::Initialize()
 /**
  * @param time   time to interpolate to
  */
-void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
+void NCTimeSeriesBoundary::update_interpolated_to_time (double time)
 {
     // Nothing in the file for this variable, so there is nothing to read or
     // interpolate. Returning here also keeps the reader from announcing that it is
@@ -320,8 +319,9 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
         } // lev
     } // i_time
 
-    amrex::Real dt = time_after - time_before;
-    amrex::Real time_before_copy = time_before;
+    // Both differences are small, so Real holds them even when the times do not.
+    const amrex::Real dt = static_cast<amrex::Real>(time_after - time_before);
+    const amrex::Real time_since_before = static_cast<amrex::Real>(time - time_before);
 
     amrex::Array4<amrex::Real> xlo_interp_arr = xlo_dat_interp.array();
     amrex::Array4<amrex::Real> xhi_interp_arr = xhi_dat_interp.array();
@@ -341,28 +341,28 @@ void NCTimeSeriesBoundary::update_interpolated_to_time (amrex::Real time)
     if (var_need_data[amrex::Orientation(amrex::Direction::x,amrex::Orientation::low)] == true) {
         amrex::ParallelFor(xlo_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            xlo_interp_arr(i,j,k) = xlo_before_arr(i,j,k) + (time - time_before_copy) * (xlo_after_arr(i,j,k) - xlo_before_arr(i,j,k)) / dt;
+            xlo_interp_arr(i,j,k) = xlo_before_arr(i,j,k) + time_since_before * (xlo_after_arr(i,j,k) - xlo_before_arr(i,j,k)) / dt;
         });
     }
 
     if (var_need_data[amrex::Orientation(amrex::Direction::x,amrex::Orientation::high)] == true) {
         amrex::ParallelFor(xhi_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            xhi_interp_arr(i,j,k) = xhi_before_arr(i,j,k) + (time - time_before_copy) * (xhi_after_arr(i,j,k) - xhi_before_arr(i,j,k)) / dt;
+            xhi_interp_arr(i,j,k) = xhi_before_arr(i,j,k) + time_since_before * (xhi_after_arr(i,j,k) - xhi_before_arr(i,j,k)) / dt;
         });
     }
 
     if (var_need_data[amrex::Orientation(amrex::Direction::y,amrex::Orientation::low)] == true) {
         amrex::ParallelFor(ylo_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            ylo_interp_arr(i,j,k) = ylo_before_arr(i,j,k) + (time - time_before_copy) * (ylo_after_arr(i,j,k) - ylo_before_arr(i,j,k)) / dt;
+            ylo_interp_arr(i,j,k) = ylo_before_arr(i,j,k) + time_since_before * (ylo_after_arr(i,j,k) - ylo_before_arr(i,j,k)) / dt;
         });
     }
 
     if (var_need_data[amrex::Orientation(amrex::Direction::y,amrex::Orientation::high)] == true) {
         amrex::ParallelFor(yhi_dat_interp.box(), [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            yhi_interp_arr(i,j,k) = yhi_before_arr(i,j,k) + (time - time_before_copy) * (yhi_after_arr(i,j,k) - yhi_before_arr(i,j,k)) / dt;
+            yhi_interp_arr(i,j,k) = yhi_before_arr(i,j,k) + time_since_before * (yhi_after_arr(i,j,k) - yhi_before_arr(i,j,k)) / dt;
         });
     }
 }

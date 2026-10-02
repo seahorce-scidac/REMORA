@@ -247,8 +247,8 @@ REMORA::advance_2d (int lev,
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_m2_clim_nudg) {
-        ubar_clim_data_from_file->update_interpolated_to_time(t_new[lev], lev, vec_ubar[lev].get(), geom, ref_ratio);
-        vbar_clim_data_from_file->update_interpolated_to_time(t_new[lev], lev, vec_vbar[lev].get(), geom, ref_ratio);
+        ubar_clim_data_from_file->update_interpolated_to_time(model_time(t_new[lev]), lev, vec_ubar[lev].get(), geom, ref_ratio);
+        vbar_clim_data_from_file->update_interpolated_to_time(model_time(t_new[lev]), lev, vec_vbar[lev].get(), geom, ref_ratio);
     }
 #endif
 
@@ -886,7 +886,7 @@ REMORA::advance_2d (int lev,
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_rivers) {
-            river_source_transportbar->update_interpolated_to_time(t_old[lev]);
+            river_source_transportbar->update_interpolated_to_time(model_time(t_old[lev]));
             int* river_direction_d = river_direction.data();
             for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
             {

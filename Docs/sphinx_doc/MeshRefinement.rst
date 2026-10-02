@@ -181,6 +181,10 @@ The example below adds three user-named criteria:
             remora.lo_vort.in_box_lo = 25000 60000          # This is not a limit on the refinement region, rather, it specifies
             remora.lo_vort.in_box_hi = 50000 80000          # to refine the box AND apply the field test over the whole domain
 
+The ``start_time`` and ``end_time`` of an indicator are times on the model clock,
+the same clock as ``remora.start_time`` and ``remora.stop_time`` (see
+:ref:`calendar`), not times since the start of the run.
+
 Here, ``temp`` is the name of a state variable and ``vorticity`` is a derived
 variable. Valid field options for refinement are any cell-centered tracer this
 run actually has, along with ``x_velocity``, ``y_velocity``, ``z_velocity``,

@@ -65,7 +65,7 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
         int icomp_to_fill_calc = (bccomp == zeta_bc() || bccomp == ubar_bc() ||
                               bccomp == vbar_bc()) ? 0 : icomp_to_fill;
 
-        boundary_series[lev][ivar+icomp]->update_interpolated_to_time(time);
+        boundary_series[lev][ivar+icomp]->update_interpolated_to_time(model_time(time));
 
         const auto& bdatxlo = boundary_series[lev][ivar+icomp]->xlo_dat_interp.const_array();
         const auto& bdatxhi = boundary_series[lev][ivar+icomp]->xhi_dat_interp.const_array();
@@ -81,7 +81,7 @@ REMORA::fill_from_bdyfiles (int lev, MultiFab& mf_to_fill, const MultiFab& mf_ma
             domain_bcs_type[bccomp+icomp].hi(0) == REMORABCType::flather ||
             domain_bcs_type[bccomp+icomp].lo(1) == REMORABCType::flather ||
             domain_bcs_type[bccomp+icomp].hi(1) == REMORABCType::flather) {
-            boundary_series[lev][bdy_zeta()]->update_interpolated_to_time(time);
+            boundary_series[lev][bdy_zeta()]->update_interpolated_to_time(model_time(time));
         }
         const auto& bdatxlo_zeta = domain_bcs_type[bccomp+icomp].lo(0) == REMORABCType::flather ?
                                    boundary_series[lev][bdy_zeta()]->xlo_dat_interp.const_array() : Array4<Real>();

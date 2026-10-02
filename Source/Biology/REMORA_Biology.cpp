@@ -238,14 +238,15 @@ Real fennel_pco2_water (Real T, Real S, Real TIC, Real TAlk) noexcept
 /**
  * Atmospheric pCO2 (ppmv) for the surface CO2 gas exchange.
  *
- * \p time_seconds is the current model time and \p time_ref the reference date
- * and calendar it is measured against, both handed to remora_caldate. The two
+ * \p time_seconds is the current time on the model clock and \p time_ref the
+ * reference date and calendar it is measured against, both handed to
+ * remora_caldate. Both are double, as the calendar is. The two
  * time-dependent forms are ROMS's PCO2AIR_DATA and PCO2AIR_SECULAR; neither
  * varies in space, so this is evaluated once per call on the host and the
  * result handed to the kernel.
  */
 Real
-fennel_pco2_air (REMORABiology::PCO2AirType type, double time_ref, Real time_seconds,
+fennel_pco2_air (REMORABiology::PCO2AirType type, double time_ref, double time_seconds,
                  Real pco2air_constant) noexcept
 {
     if (type == REMORABiology::PCO2AirType::constant) {
@@ -258,7 +259,7 @@ fennel_pco2_air (REMORABiology::PCO2AirType type, double time_ref, Real time_sec
     // float to resolve within a day.
     int year = 0;
     double yday_d = 0.0;
-    remora_caldate(time_ref, double(time_seconds) / 86400.0, year, yday_d);
+    remora_caldate(time_ref, time_seconds / 86400.0, year, yday_d);
     const Real yday = static_cast<Real>(yday_d);
 
     if (type == REMORABiology::PCO2AirType::data) {
@@ -594,7 +595,7 @@ REMORA::advance_biology (int lev, MultiFab const& mf_cons_old, MultiFab& mf_cons
     // here rather than once per column. t_old is the time at the start of the
     // step, which is the state the kernel reads.
     const Real pco2air = fennel_pco2_air(parms.pco2air_type, solverChoice.time_ref,
-                                         t_old[lev], parms.pCO2air);
+                                         model_time(t_old[lev]), parms.pCO2air);
 
     // A non-positive atmospheric pCO2 reverses the sign of the air-sea flux for the
     // whole run. Only the surface CO2 exchange reads pco2air, so a run without carbon

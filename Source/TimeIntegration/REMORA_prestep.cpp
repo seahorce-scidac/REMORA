@@ -77,7 +77,7 @@ REMORA::prestep (int lev,
     // including ranks that own no boxes, and therefore cannot be inside the MFIter loop
     for (int i_comp=0; i_comp < ncons; i_comp++) {
         if (solverChoice.do_rivers_cons[i_comp]) {
-            river_source_cons[i_comp]->update_interpolated_to_time(t_old[lev]);
+            river_source_cons[i_comp]->update_interpolated_to_time(model_time(t_old[lev]));
         }
     }
 #endif

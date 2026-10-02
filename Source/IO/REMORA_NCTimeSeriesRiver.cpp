@@ -52,8 +52,7 @@ void NCTimeSeriesRiver::Initialize() {
         }
 
         // get times and put in array
-        using RARRAY = NDArray<amrex::Real>;
-        amrex::Vector<RARRAY> array_ts(1);
+        amrex::Vector<NDArray<double>> array_ts(1);
         ReadNetCDFFile(file_name, {time_name}, array_ts); // filled only on proc 0
         if (amrex::ParallelDescriptor::IOProcessor())
         {
@@ -61,7 +60,7 @@ void NCTimeSeriesRiver::Initialize() {
             for (int nt(0); nt < ntimes_io; nt++)
             {
                 // Convert river time from days to seconds
-                river_times.push_back((*(array_ts[0].get_data() + nt)) * amrex::Real(60.0) * amrex::Real(60.0) * amrex::Real(24.0));
+                river_times.push_back((*(array_ts[0].get_data() + nt)) * 60.0 * 60.0 * 24.0);
                 file_for_time.push_back(ifile);
                 file_itime_offset.push_back(nt);
             }
@@ -143,7 +142,7 @@ void NCTimeSeriesRiver::Initialize() {
     i_time_before = -100;
 }
 
-void NCTimeSeriesRiver::update_interpolated_to_time (amrex::Real time) {
+void NCTimeSeriesRiver::update_interpolated_to_time (double time) {
     // Figure out time index:
     AMREX_ASSERT(time >= river_times[0]);
     AMREX_ASSERT(time <= river_times[river_times.size()-1]);
@@ -167,15 +166,16 @@ void NCTimeSeriesRiver::update_interpolated_to_time (amrex::Real time) {
         read_in_at_time(fab_before, i_time_before);
     }
 
-    amrex::Real dt = time_after - time_before;
-    amrex::Real time_before_copy = time_before;
+    // Both differences are small, so Real holds them even when the times do not.
+    const amrex::Real dt = static_cast<amrex::Real>(time_after - time_before);
+    const amrex::Real time_since_before = static_cast<amrex::Real>(time - time_before);
 
     amrex::Box fab_domain(amrex::IntVect(0,0,0), amrex::IntVect(nriv-1,0,nzbox-1));
     auto interp_array = fab_interp->array();
     auto before_array = fab_before->array();
     auto after_array = fab_after->array();
     amrex::ParallelFor(fab_domain, [=] AMREX_GPU_DEVICE (int r, int , int k) {
-        interp_array(r,0,k) = before_array(r,0,k) + (time - time_before_copy) * (after_array(r,0,k) - before_array(r,0,k)) / dt;
+        interp_array(r,0,k) = before_array(r,0,k) + time_since_before *(after_array(r,0,k) - before_array(r,0,k)) / dt;
     });
 }
 

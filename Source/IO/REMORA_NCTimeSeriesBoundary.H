@@ -30,8 +30,9 @@ class NCTimeSeriesBoundary
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
 
-        /** \brief Calculate interpolated values at time, reading in data as necessary */
-        void update_interpolated_to_time (amrex::Real time);
+        /** \brief Calculate interpolated values at time, in seconds on the model clock,
+         *         reading in data as necessary */
+        void update_interpolated_to_time (double time);
 
         /// FArrayBox to store data at inteprolated time at xlo boundary */
         amrex::FArrayBox xlo_dat_interp;
@@ -82,8 +83,8 @@ class NCTimeSeriesBoundary
         /// Whether the field we're reading in is 2d
         bool is2d;
 
-        /// Time points in netcdf file
-        amrex::Vector<amrex::Real> bry_times;
+        /// Time points in netcdf file, in seconds on the model clock
+        amrex::Vector<double> bry_times;
         /// File index to access a particular time
         amrex::Vector<int> file_for_time;
         /// Offset to access a particular time within its file
@@ -91,9 +92,9 @@ class NCTimeSeriesBoundary
         /// Time index immediately before the last time interpolated to
         int i_time_before;
         /// Time in ocean_times immediately before the last time interpolated to
-        amrex::Real time_before;
+        double time_before;
         /// Time in ocean_times immediately after the last time interpolated to
-        amrex::Real time_after;
+        double time_after;
 
         /// FArrayBox to store data at time_before at xlo boundary
         amrex::FArrayBox xlo_dat_before;

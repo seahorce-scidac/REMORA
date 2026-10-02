@@ -27,8 +27,9 @@ class NCTimeSeries
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
 
-        /** \brief Calculate interpolated values at time and fill data for level lev */
-        void update_interpolated_to_time (amrex::Real time, int lev,
+        /** \brief Calculate interpolated values at time, in seconds on the model clock,
+         *         and fill data for level lev */
+        void update_interpolated_to_time (double time, int lev,
                                           amrex::MultiFab* mf_lev,
                                           const amrex::Vector<amrex::Geometry>& geom,
                                           const amrex::Vector<amrex::IntVect>& ref_ratio);
@@ -60,8 +61,9 @@ class NCTimeSeries
          * data will be calculated to mf_var */
         bool save_interpolated;
 
-        /// Time points in netcdf file
-        amrex::Vector<amrex::Real> ocean_times;
+        /// Time points in netcdf file, in seconds on the model clock. Double, like
+        /// every time on the model clock: see REMORA::t_new.
+        amrex::Vector<double> ocean_times;
         /// File index to access a particular time
         amrex::Vector<int> file_for_time;
         /// Offset to access a particular time within its file
@@ -69,13 +71,13 @@ class NCTimeSeries
         /// Time index immediately before the last time interpolated to
         int i_time_before;
         /// Time in ocean_times immediately before the last time interpolated to
-        amrex::Real time_before;
+        double time_before;
         /// Time in ocean_times immediately after the last time interpolated to
-        amrex::Real time_after;
+        double time_after;
         /// Whether the time series is a cycle
         bool is_cycle;
         /// If a cycle, what is the cycle length?
-        amrex::Real cycle_length;
+        double cycle_length;
 
         /// Multifab to store data at time_before
         amrex::MultiFab* mf_before;

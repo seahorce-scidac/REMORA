@@ -696,13 +696,15 @@ REMORA::refinement_criteria_setup ()
             if (realbox.ok()) {
                 info.SetRealBox(realbox);
             }
+            // The window is given on the model clock, but ErrorEst sees time since
+            // remora.start_time, so convert here.
             if (ppr.countval("start_time") > 0) {
-                Real ref_min_time; ppr.get("start_time",ref_min_time);
-                info.SetMinTime(ref_min_time);
+                double ref_min_time; ppr.get("start_time",ref_min_time);
+                info.SetMinTime(elapsed_time(ref_min_time));
             }
             if (ppr.countval("end_time") > 0) {
-                Real ref_max_time; ppr.get("end_time",ref_max_time);
-                info.SetMaxTime(ref_max_time);
+                double ref_max_time; ppr.get("end_time",ref_max_time);
+                info.SetMaxTime(elapsed_time(ref_max_time));
             }
             if (ppr.countval("max_level") > 0) {
                 int ref_max_level; ppr.get("max_level",ref_max_level);
