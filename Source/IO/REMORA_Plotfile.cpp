@@ -11,6 +11,68 @@ bool containerHasElement(const V& iterable, const T& query) {
     return std::find(iterable.begin(), iterable.end(), query) != iterable.end();
 }
 
+// The nodal displacement a viewer adds to the Cartesian node position it builds from the
+// Header: nu = (0, 0, z_phys_nd - (prob_lo_z + k*dz)), with dz and prob_lo from the Geometry the
+// Header describes this level with. rz > 1 is the expand_plotvars_to_unif_rr case, where the
+// Header's dz is the native one over rz and mf_nd carries rz node layers per native layer: z is
+// interpolated linearly in k between native node layers, so node rz*k coincides with native
+// node k. Fills component 2 only; the caller zeroes the rest.
+static void
+fill_nodal_z_displacement (MultiFab& mf_nd, const MultiFab& z_phys_nd, const Geometry& g, int rz)
+{
+    const Real dz  = g.CellSizeArray()[2];
+    const Real zlo = g.ProbLoArray()[2];
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(mf_nd, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+        Array4<Real>       const& nu = mf_nd.array(mfi);
+        Array4<Real const> const& zp = z_phys_nd.const_array(mfi);
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int kf) noexcept
+        {
+            const int k = kf / rz;
+            const int r = kf - k * rz;
+            Real z = zp(i,j,k);
+            // z_phys_nd has one z ghost but only k = -1 is filled, so k+1 is read only when
+            // its weight is nonzero, which keeps it at or below the top node.
+            if (r > 0) { z += (Real(r) / Real(rz)) * (zp(i,j,k+1) - zp(i,j,k)); }
+            nu(i,j,kf,2) = z - (zlo + Real(kf) * dz);
+        });
+    }
+}
+
+// Refine a face- or cell-centred MultiFab in z by rz onto dst, for the same expand path:
+// piecewise constant where the data is cell-centred in z, linear between layers where it is
+// nodal in z (the w faces).
+static void
+refine_in_z (const MultiFab& src, MultiFab& dst, int rz)
+{
+    const bool nodal_z = src.boxArray().ixType().nodeCentered(2);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+        Array4<Real>       const& d = dst.array(mfi);
+        Array4<Real const> const& s = src.const_array(mfi);
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int kf) noexcept
+        {
+            const int k = kf / rz;
+            if (nodal_z) {
+                const int r = kf - k * rz;
+                Real v = s(i,j,k);
+                if (r > 0) { v += (Real(r) / Real(rz)) * (s(i,j,k+1) - s(i,j,k)); }
+                d(i,j,kf) = v;
+            } else {
+                d(i,j,kf) = s(i,j,k);
+            }
+        });
+    }
+}
+
 // Write plotfile to disk
 void
 REMORA::WritePlotFile (int istep_for_plot)
@@ -395,9 +457,11 @@ REMORA::WritePlotFile (int istep_for_plot)
                 const Array4<Real> loc_arr = dmf.array(mfi);
                 const Array4<Real const> zp_arr = vec_z_phys_nd[lev]->const_array(mfi);
 
+                const Real xlo = Geom()[lev].ProbLoArray()[0];
+                const Real ylo = Geom()[lev].ProbLoArray()[1];
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                    loc_arr(i,j,k,0) = (i+Real(0.5)) * dx;
-                    loc_arr(i,j,k,1) = (j+Real(0.5)) * dy;
+                    loc_arr(i,j,k,0) = xlo + (i+Real(0.5)) * dx;
+                    loc_arr(i,j,k,1) = ylo + (j+Real(0.5)) * dy;
                     loc_arr(i,j,k,2) = Real(0.125) * (zp_arr(i,j  ,k  ) + zp_arr(i+1,j  ,k  ) +
                                                    zp_arr(i,j+1,k  ) + zp_arr(i+1,j+1,k  ) +
                                                    zp_arr(i,j  ,k+1) + zp_arr(i+1,j  ,k+1) +
@@ -465,21 +529,7 @@ REMORA::WritePlotFile (int istep_for_plot)
 #endif
 
         if (plot_nodal_data) {
-            MultiFab::Copy(mf_nd[lev],*vec_z_phys_nd[lev],0,2,1,0);
-            Real dz = Geom()[lev].CellSizeArray()[2];
-            int N = Geom()[lev].Domain().size()[2];
-
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-            for (MFIter mfi(mf_nd[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
-            {
-                const Box& bx = mfi.tilebox();
-                Array4<Real> mf_arr = mf_nd[lev].array(mfi);
-                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                    mf_arr(i,j,k,2) = mf_arr(i,j,k,2) + (N-k) * dz;
-                });
-            } // mfi
+            fill_nodal_z_displacement(mf_nd[lev], *vec_z_phys_nd[lev], Geom(lev), 1);
         }
     } // lev
 
@@ -492,6 +542,7 @@ REMORA::WritePlotFile (int istep_for_plot)
     {
         if (plotfile_type == PlotfileType::amrex) {
             amrex::Print() << "Writing plotfile " << plotfilename << "\n";
+            if (check_plot_z) { check_plot_nodal_z(GetVecOfConstPtrs(mf_nd), Geom()); }
             WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
                                                   GetVecOfConstPtrs(plotMF),
                                                   GetVecOfConstPtrs(mf_nd),
@@ -557,6 +608,37 @@ REMORA::WritePlotFile (int istep_for_plot)
                     g2[lev].define(d2,&(Geom()[lev].ProbDomain()),0,periodicity.data());
                 }
 
+                // Everything the Header describes with g2 has to live on g2's grid, not only the
+                // cell data: a viewer places level lev's nodes with g2[lev]'s dz, so the nodal
+                // displacement and the face velocities are refined in z by the same ratio.
+                Vector<MultiFab> mf_nd2(finest_level+1);
+                Vector<MultiFab> mf_u2(finest_level+1), mf_v2(finest_level+1), mf_w2(finest_level+1);
+                Vector<const MultiFab*> nd2_ptrs = GetVecOfConstPtrs(mf_nd);
+                Vector<const MultiFab*> u2_ptrs  = GetVecOfConstPtrs(mf_u);
+                Vector<const MultiFab*> v2_ptrs  = GetVecOfConstPtrs(mf_v);
+                Vector<const MultiFab*> w2_ptrs  = GetVecOfConstPtrs(mf_w);
+                for (int lev = 1; lev <= finest_level; ++lev) {
+                    const int rz = r2[lev-1][2];
+                    if (plot_nodal_data) {
+                        BoxArray nodal2(mf2[lev].boxArray()); nodal2.surroundingNodes();
+                        mf_nd2[lev].define(nodal2, dmap[lev], AMREX_SPACEDIM, 0);
+                        mf_nd2[lev].setVal(zero);
+                        fill_nodal_z_displacement(mf_nd2[lev], *vec_z_phys_nd[lev], g2[lev], rz);
+                        nd2_ptrs[lev] = &mf_nd2[lev];
+                    }
+                    if (plot_staggered_vels) {
+                        mf_u2[lev].define(refine(mf_u[lev].boxArray(), r2[lev-1]), dmap[lev], 1, 0);
+                        mf_v2[lev].define(refine(mf_v[lev].boxArray(), r2[lev-1]), dmap[lev], 1, 0);
+                        mf_w2[lev].define(refine(mf_w[lev].boxArray(), r2[lev-1]), dmap[lev], 1, 0);
+                        refine_in_z(mf_u[lev], mf_u2[lev], rz);
+                        refine_in_z(mf_v[lev], mf_v2[lev], rz);
+                        refine_in_z(mf_w[lev], mf_w2[lev], rz);
+                        u2_ptrs[lev] = &mf_u2[lev];
+                        v2_ptrs[lev] = &mf_v2[lev];
+                        w2_ptrs[lev] = &mf_w2[lev];
+                    }
+                }
+
                 // Make a vector of BCRec with default values so we can use it here -- note the values
                 //      aren't actually used because we do PCInterp
                 amrex::Vector<amrex::BCRec> null_dom_bcs;
@@ -584,12 +666,10 @@ REMORA::WritePlotFile (int istep_for_plot)
                     rr[lev] = IntVect(ref_ratio[lev][0],ref_ratio[lev][1],ref_ratio[lev][0]);
                 }
 
+                if (check_plot_z) { check_plot_nodal_z(nd2_ptrs, g2); }
                 WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
                                                       GetVecOfConstPtrs(mf2),
-                                                      GetVecOfConstPtrs(mf_nd),
-                                                      GetVecOfConstPtrs(mf_u),
-                                                      GetVecOfConstPtrs(mf_v),
-                                                      GetVecOfConstPtrs(mf_w),
+                                                      nd2_ptrs, u2_ptrs, v2_ptrs, w2_ptrs,
                                                       GetVecOfConstPtrs(mf_2d_rho),
                                                       GetVecOfConstPtrs(mf_2d_u),
                                                       GetVecOfConstPtrs(mf_2d_v),
@@ -603,6 +683,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                 particleData.Checkpoint(plotfilename);
 #endif
             } else {
+                if (check_plot_z) { check_plot_nodal_z(GetVecOfConstPtrs(mf_nd), Geom()); }
                 WriteMultiLevelPlotfileWithBathymetry(plotfilename, finest_level+1,
                                                       GetVecOfConstPtrs(plotMF),
                                                       GetVecOfConstPtrs(mf_nd),
@@ -697,6 +778,24 @@ REMORA::WritePlotFile (int istep_for_plot)
     AMREX_ASSERT(nlevels <= level_steps.size());
 
     AMREX_ASSERT(mf[0]->nComp() == varnames_3d.size());
+
+    // Every extra set must live on the grid the Header describes with my_geom, or a viewer
+    // places it wrongly: the nodal set has one more node layer than the level has cells.
+    for (int level = 0; level < nlevels; ++level) {
+        if (plot_nodal_data) {
+            const Box nb = mf_nd[level]->boxArray().minimalBox();
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+                mf_nd[level]->boxArray().ixType().nodeCentered() &&
+                nb.length(2) == my_geom[level].Domain().length(2) + 1,
+                "plotfile nodal set does not match the geometry written to the Header");
+        }
+        if (plot_staggered_vels) {
+            AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+                mf_u[level]->boxArray().minimalBox().length(2) == my_geom[level].Domain().length(2) &&
+                mf_w[level]->boxArray().minimalBox().length(2) == my_geom[level].Domain().length(2) + 1,
+                "plotfile face sets do not match the geometry written to the Header");
+        }
+    }
 
     bool callBarrier(false);
     PreBuildDirectorHierarchy(plotfilename, levelPrefix, nlevels, callBarrier);
@@ -982,6 +1081,136 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                 HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2d_v_prefix) << "\n";
             }
         }
+}
+
+/**
+ * Check the nodal z a viewer rebuilds from what WritePlotFile is about to write.
+ *
+ * nd[lev] is the nodal displacement on the grid g[lev] describes -- the native geometry, or g2
+ * on the expand_plotvars_to_unif_rr path -- so a viewer's node is z = ProbLo(2) + k*dz + nu_z.
+ * Per level, the lowest and highest node layers must reproduce z_phys_nd's bottom and top to
+ * rounding. Per level pair, at every fine node that coincides with a coarse node, |z_f - z_c|
+ * is taken over the patch interior and its perimeter separately: a perimeter node averages
+ * fine ghost columns the parent interpolated, so it is reported, and only the interior is held
+ * to check_plot_z_tol.
+ *
+ * @param[in] nd  nodal displacement per level, as passed to the writer
+ * @param[in] g   geometry per level, as passed to the writer
+ */
+void
+REMORA::check_plot_nodal_z (const Vector<const MultiFab*>& nd, const Vector<Geometry>& g)
+{
+    if (!plot_nodal_data) { return; }
+
+    Vector<MultiFab> z(finest_level+1);
+    for (int lev = 0; lev <= finest_level; ++lev)
+    {
+        const MultiFab& nu = *nd[lev];
+        z[lev].define(nu.boxArray(), nu.DistributionMap(), 1, 0);
+        const Real dz  = g[lev].CellSizeArray()[2];
+        const Real zlo = g[lev].ProbLoArray()[2];
+        const int  klo = g[lev].Domain().smallEnd(2);
+        const int  Nf  = g[lev].Domain().length(2);     // nodes 0..Nf on this grid
+        const int  N   = Geom(lev).Domain().length(2);  // nodes 0..N on the native one
+
+        ReduceOps<ReduceOpMax, ReduceOpMax> reduce_op;
+        ReduceData<Real, Real> reduce_data(reduce_op);
+        using ReduceTuple = typename decltype(reduce_data)::Type;
+        for (MFIter mfi(z[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.tilebox();
+            Array4<Real>       const& za = z[lev].array(mfi);
+            Array4<Real const> const& na = nu.const_array(mfi);
+            Array4<Real const> const& zp = vec_z_phys_nd[lev]->const_array(mfi);
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+                za(i,j,k) = zlo + Real(k - klo) * dz + na(i,j,k,2);
+            });
+            reduce_op.eval(bx, reduce_data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
+            {
+                const Real eb = (k == klo)      ? std::abs(za(i,j,k) - zp(i,j,0)) : Real(0.0);
+                const Real et = (k == klo + Nf) ? std::abs(za(i,j,k) - zp(i,j,N)) : Real(0.0);
+                return {eb, et};
+            });
+        }
+        ReduceTuple hv = reduce_data.value(reduce_op);
+        Real err_bot = amrex::get<0>(hv);
+        Real err_top = amrex::get<1>(hv);
+        ParallelDescriptor::ReduceRealMax(err_bot);
+        ParallelDescriptor::ReduceRealMax(err_top);
+        amrex::Print() << "Plot nodal z, level " << lev << ": |z_bottom - z_phys| "
+                       << err_bot << ", |z_top - z_phys| " << err_top << "\n";
+        const Real self_tol = Real(1.e-10) * std::max(Real(1.0), std::abs(zlo));
+        if (err_bot > self_tol || err_top > self_tol) {
+            amrex::Abort("check_plot_z: the plotfile's nodal z does not reproduce z_phys_nd");
+        }
+    }
+
+    for (int lev = 1; lev <= finest_level; ++lev)
+    {
+        IntVect r;
+        for (int d = 0; d < AMREX_SPACEDIM; ++d) {
+            r[d] = g[lev].Domain().length(d) / g[lev-1].Domain().length(d);
+        }
+
+        // Sample the fine nodes that coincide with coarse nodes, then bring them onto the
+        // coarse level's layout. A coarse node no fine box reaches keeps the sentinel.
+        BoxArray cba = z[lev].boxArray(); cba.coarsen(r);
+        MultiFab zfc(cba, z[lev].DistributionMap(), 1, 0);
+        for (MFIter mfi(zfc, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.tilebox();
+            Array4<Real>       const& c = zfc.array(mfi);
+            Array4<Real const> const& f = z[lev].const_array(mfi);
+            const int r0 = r[0], r1 = r[1], r2 = r[2];
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+            {
+                c(i,j,k) = f(i*r0, j*r1, k*r2);
+            });
+        }
+        const Real sentinel = Real(1.e30);
+        MultiFab zcc(z[lev-1].boxArray(), z[lev-1].DistributionMap(), 1, 0);
+        zcc.setVal(sentinel);
+        zcc.ParallelCopy(zfc);
+
+        // A coarse node is interior to the patch when the fine level covers all four coarse
+        // cells around it; refinement spans the whole depth, so one cell row answers for k.
+        iMultiFab covered = makeFineMask(grids[lev-1], dmap[lev-1], IntVect(1,1,0), grids[lev],
+                                         refRatio(lev-1), geom[lev-1].periodicity(), 0, 1);
+        const int kcell = grids[lev-1].minimalBox().smallEnd(2);
+
+        ReduceOps<ReduceOpMax, ReduceOpMax, ReduceOpSum, ReduceOpSum> reduce_op;
+        ReduceData<Real, Real, int, int> reduce_data(reduce_op);
+        using ReduceTuple = typename decltype(reduce_data)::Type;
+        for (MFIter mfi(zcc, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.tilebox();
+            Array4<Real const> const& a = zcc.const_array(mfi);
+            Array4<Real const> const& b = z[lev-1].const_array(mfi);
+            Array4<int  const> const& m = covered.const_array(mfi);
+            reduce_op.eval(bx, reduce_data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> ReduceTuple
+            {
+                if (a(i,j,k) >= sentinel) { return {Real(0.0), Real(0.0), 0, 0}; }
+                const bool interior = m(i-1,j-1,kcell) && m(i,j-1,kcell) &&
+                                      m(i-1,j  ,kcell) && m(i,j  ,kcell);
+                const Real d = std::abs(a(i,j,k) - b(i,j,k));
+                return interior ? ReduceTuple{d, Real(0.0), 1, 0} : ReduceTuple{Real(0.0), d, 0, 1};
+            });
+        }
+        ReduceTuple hv = reduce_data.value(reduce_op);
+        Real d_int = amrex::get<0>(hv), d_per = amrex::get<1>(hv);
+        int  n_int = amrex::get<2>(hv), n_per = amrex::get<3>(hv);
+        ParallelDescriptor::ReduceRealMax(d_int);
+        ParallelDescriptor::ReduceRealMax(d_per);
+        ParallelDescriptor::ReduceIntSum(n_int);
+        ParallelDescriptor::ReduceIntSum(n_per);
+        amrex::Print() << "Plot nodal z, levels " << lev-1 << "/" << lev
+                       << ": coarse-fine max |dz| interior " << d_int << " (" << n_int << " nodes)"
+                       << ", perimeter " << d_per << " (" << n_per << " nodes)\n";
+        if (check_plot_z_tol >= Real(0.0) && d_int > check_plot_z_tol) {
+            amrex::Abort("check_plot_z: coarse and fine nodal z disagree inside the patch");
+        }
+    }
 }
 
 /**

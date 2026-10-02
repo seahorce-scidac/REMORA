@@ -102,19 +102,19 @@ remora.bdy_time_varname = <UNKNOWN_DEFAULT>
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_u_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2468
+# source: Source/REMORA.cpp:2470
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_ubar_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2467
+# source: Source/REMORA.cpp:2469
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_v_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2469
+# source: Source/REMORA.cpp:2471
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_vbar_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2470
+# source: Source/REMORA.cpp:2472
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_zeta_time_varname = <UNKNOWN_DEFAULT>
 
@@ -234,7 +234,15 @@ remora.check_int_time = <UNKNOWN_DEFAULT>
 # type=bool; method=queryAdd
 remora.check_mask_consistency = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2373
+# See check_cf_metrics. Off by default: it is a property of the grid, so one run says as much as every run.
+# type=int; method=queryAdd
+remora.check_plot_z = <UNKNOWN_DEFAULT>
+
+# See check_cf_metrics. Off by default: it is a property of the grid, so one run says as much as every run.
+# type=Real; method=queryAdd
+remora.check_plot_z_tol = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA.cpp:2375
 # type=bool; method=queryAdd
 remora.chunk_history_file = <UNKNOWN_DEFAULT>
 
@@ -766,23 +774,23 @@ remora.omp_tile_size = 8 8 1024000
 # type=bool; method=queryAdd
 remora.output_forcing = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2359
+# source: Source/REMORA.cpp:2361
 # type=string; method=queryAdd
 remora.plot_file = plt
 
-# source: Source/REMORA.cpp:2360
+# source: Source/REMORA.cpp:2362
 # type=int; method=queryAdd
 remora.plot_int = 100
 
-# source: Source/REMORA.cpp:2361
+# source: Source/REMORA.cpp:2363
 # type=Real; method=queryAdd
 remora.plot_int_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2363
+# source: Source/REMORA.cpp:2365
 # type=bool; method=query
 remora.plot_nodal_data = true
 
-# source: Source/REMORA.cpp:2362
+# source: Source/REMORA.cpp:2364
 # type=bool; method=query
 remora.plot_staggered_vels = false
 
@@ -790,7 +798,7 @@ remora.plot_staggered_vels = false
 # type=Real; method=query
 remora.plotfile_fill_value = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2366
+# source: Source/REMORA.cpp:2368
 # type=string; method=queryAdd
 remora.plotfile_type = amrex
 
@@ -962,7 +970,7 @@ remora.smflux_type = analytic
 # type=Real; method=queryAdd
 remora.start_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2374
+# source: Source/REMORA.cpp:2376
 # type=int; method=queryAdd
 remora.steps_per_history_file = <UNKNOWN_DEFAULT>
 
@@ -1078,7 +1086,7 @@ remora.vwind = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.wind_type = analytic
 
-# source: Source/REMORA.cpp:2372
+# source: Source/REMORA.cpp:2374
 # type=bool; method=queryAdd
 remora.write_history_file = true
 
