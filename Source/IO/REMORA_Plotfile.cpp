@@ -504,7 +504,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                                                   varnames_3d, varnames_2d_rho,
                                                   varnames_2d_u, varnames_2d_v,
                                                   Geom(),
-                                                  t_new[0], istep, refRatio());
+                                                  model_time(t_new[0]), istep, refRatio());
             writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
@@ -596,7 +596,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                                                       varnames_3d, varnames_2d_rho,
                                                       varnames_2d_u, varnames_2d_v,
                                                       g2,
-                                                      t_new[0], istep, rr);
+                                                      model_time(t_new[0]), istep, rr);
                 writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
@@ -615,7 +615,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                                                       varnames_3d, varnames_2d_rho,
                                                       varnames_2d_u, varnames_2d_v,
                                                       Geom(),
-                                                      t_new[0], istep, ref_ratio);
+                                                      model_time(t_new[0]), istep, ref_ratio);
                 writeJobInfo(plotfilename);
 #ifdef REMORA_USE_PARTICLES
                 particleData.Checkpoint(plotfilename);
@@ -682,7 +682,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                                                const Vector<std::string>& varnames_2d_u,
                                                const Vector<std::string>& varnames_2d_v,
                                                const Vector<Geometry>& my_geom,
-                                               Real time,
+                                               double time,
                                                const Vector<int>& level_steps,
                                                const Vector<IntVect>& rr,
                                                const std::string &versionName,
@@ -841,7 +841,7 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                                                  const Vector<std::string> &varnames_2d_u,
                                                  const Vector<std::string> &varnames_2d_v,
                                                  const Vector<Geometry>& my_geom,
-                                                 Real time,
+                                                 double time,
                                                  const Vector<int> &level_steps,
                                                  const Vector<IntVect>& my_ref_ratio,
                                                  const std::string &versionName,

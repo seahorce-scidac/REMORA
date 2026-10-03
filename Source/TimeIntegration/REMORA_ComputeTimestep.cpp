@@ -85,9 +85,10 @@ REMORA::ComputeDt ()
                                      "non-finite, or unusably large level-0 dt");
 
     // Limit dt's by the value of stop_time.
+    const Real stop_elapsed = elapsed_time(stop_time);
     const Real eps = Real(1.e-3)*dt_0;
-    if (t_new[0] + dt_0 > stop_time - eps) {
-        dt_0 = stop_time - t_new[0];
+    if (t_new[0] + dt_0 > stop_elapsed - eps) {
+        dt_0 = stop_elapsed - t_new[0];
     }
 
     dt[0] = dt_0;

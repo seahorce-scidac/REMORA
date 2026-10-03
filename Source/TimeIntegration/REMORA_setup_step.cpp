@@ -347,8 +347,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 #ifdef REMORA_USE_NETCDF
     // Get u and v climatology if we're going to do nudging
     if (solverChoice.do_m3_clim_nudg) {
-        u_clim_data_from_file->update_interpolated_to_time(t_new[lev], lev, xvel_new[lev], geom, ref_ratio);
-        v_clim_data_from_file->update_interpolated_to_time(t_new[lev], lev, yvel_new[lev], geom, ref_ratio);
+        u_clim_data_from_file->update_interpolated_to_time(model_time(t_new[lev]), lev, xvel_new[lev], geom, ref_ratio);
+        v_clim_data_from_file->update_interpolated_to_time(model_time(t_new[lev]), lev, yvel_new[lev], geom, ref_ratio);
     }
 #endif
 

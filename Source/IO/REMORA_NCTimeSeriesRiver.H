@@ -20,8 +20,8 @@ class NCTimeSeriesRiver
 
         void Initialize ();
 
-        /// Calculate
-        void update_interpolated_to_time (amrex::Real time);
+        /// Calculate interpolated values at time, in seconds on the model clock
+        void update_interpolated_to_time (double time);
 
         /// Container for interpolated data; Only used if save_interpolated == true
         amrex::FArrayBox* fab_interp;
@@ -62,8 +62,8 @@ class NCTimeSeriesRiver
         /// How many vertical cells there are in the data fabs
         int nzbox;
 
-        /// Time points in netcdf file
-        amrex::Vector<amrex::Real> river_times;
+        /// Time points in netcdf file, in seconds on the model clock
+        amrex::Vector<double> river_times;
         /// File index to access a particular time
         amrex::Vector<int> file_for_time;
         /// Offset to access a particular time within its file
@@ -71,9 +71,9 @@ class NCTimeSeriesRiver
         /// Time index immediately before the last time interpolated to
         int i_time_before;
         /// Time in ocean_time immediately before the last time interpolated to
-        amrex::Real time_before;
+        double time_before;
         /// Time in ocean_time immediately after the last time interpolated to
-        amrex::Real time_after;
+        double time_after;
 
 };
 

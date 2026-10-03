@@ -317,7 +317,7 @@ REMORA::EvolveOneStep (amrex::Real /*time*/, amrex::Real /*dt_request*/)
     Real cur_time = t_new[0];
     const int step = istep[0];
 
-    if (cur_time >= stop_time) {
+    if (cur_time >= elapsed_time(stop_time)) {
         return zero;
     }
 

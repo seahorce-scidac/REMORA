@@ -274,6 +274,7 @@ REMORA::Evolve ()
 {
     BL_PROFILE_VAR("REMORA::Evolve()",evolve);
     Real cur_time = t_new[0];
+    const Real stop_elapsed = elapsed_time(stop_time);
 
     // istep[0] advances inside the loop, so keep the value it started at.
     const int first_step = istep[0];
@@ -283,7 +284,7 @@ REMORA::Evolve ()
 
     // Take one coarse timestep by calling timeStep -- which recursively calls timeStep
     //      for finer levels (with or without subcycling)
-    for (int step = istep[0]; step < max_step && cur_time < stop_time; ++step)
+    for (int step = istep[0]; step < max_step && cur_time < stop_elapsed; ++step)
     {
         amrex::Print() << "\nCoarse STEP " << step+1 << " starts ..." << std::endl;
 
@@ -332,7 +333,7 @@ REMORA::Evolve ()
         }
 #endif
 
-        if (cur_time >= stop_time - 1.e-6*dt[0]) break;
+        if (cur_time >= stop_elapsed - 1.e-6*dt[0]) break;
     }
 
     BL_PROFILE_VAR_STOP(evolve);
@@ -489,7 +490,8 @@ REMORA::InitData ()
     if (restart_chkfile == "") {
         // start simulation from the beginning
 
-        InitFromScratch(start_time);
+        // t_new counts from start_time, so a fresh run starts at zero.
+        InitFromScratch(zero);
 
         if (solverChoice.coupling_type == CouplingType::two_way) {
             AverageDown();
@@ -1604,8 +1606,8 @@ REMORA::set_smflux(int lev)
         prob->init_analytic_smflux(lev, geom[lev], solverChoice, *this,*vec_sustr[lev], *vec_svstr[lev]);
     } else if (solverChoice.smflux_type == SMFluxType::netcdf) {
 #ifdef REMORA_USE_NETCDF
-        sustr_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_sustr[lev].get(), geom, ref_ratio);
-        svstr_data_from_file->update_interpolated_to_time(t_old[lev], lev, vec_svstr[lev].get(), geom, ref_ratio);
+        sustr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_sustr[lev].get(), geom, ref_ratio);
+        svstr_data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, vec_svstr[lev].get(), geom, ref_ratio);
         FillPatch(lev, t_old[lev], *vec_sustr[lev], GetVecOfPtrs(vec_sustr), foextrap_periodic_bc(), BdyVars::null,0,false,false);
         FillPatch(lev, t_old[lev], *vec_svstr[lev], GetVecOfPtrs(vec_svstr), foextrap_periodic_bc(), BdyVars::null,0,false,false);
 #endif
@@ -1630,7 +1632,7 @@ REMORA::set_surface_state (int lev)
 #ifdef REMORA_USE_NETCDF
     auto update_from_netcdf = [&](std::unique_ptr<NCTimeSeries>& data_from_file,
                                   Vector<std::unique_ptr<MultiFab>>& mf_vec) {
-        data_from_file->update_interpolated_to_time(t_old[lev], lev, mf_vec[lev].get(), geom, ref_ratio);
+        data_from_file->update_interpolated_to_time(model_time(t_old[lev]), lev, mf_vec[lev].get(), geom, ref_ratio);
         FillPatch(lev, t_old[lev], *mf_vec[lev], GetVecOfPtrs(mf_vec),
                   foextrap_periodic_bc(), BdyVars::null, 0, false);
     };

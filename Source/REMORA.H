@@ -121,7 +121,8 @@ public:
     /** \brief Initialize multilevel data */
     void InitData ();
     amrex::Real EvolveOneStep (amrex::Real time, amrex::Real dt_request);
-    void SetStartTime (amrex::Real time) noexcept { start_time = time; }
+    /** \brief Set remora.start_time. Call before InitData, which starts the clock from it. */
+    void SetStartTime (double time) noexcept { start_time = time; }
 
     void ConfigureDriverAtmosToOceanCoupling (bool use_coupling_driver,
                                               bool use_two_way_coupling,
@@ -350,7 +351,7 @@ public:
                                                 const amrex::Vector<std::string> &varnames_2d_u,
                                                 const amrex::Vector<std::string> &varnames_2d_v,
                                                 const amrex::Vector<amrex::Geometry>& my_geom,
-                                                amrex::Real time,
+                                                double time,
                                                 const amrex::Vector<int> &level_steps,
                                                 const amrex::Vector<amrex::IntVect>& rr,
                                                 const std::string &versionName = "HyperCLaw-V1.1",
@@ -369,7 +370,7 @@ public:
                                                    const amrex::Vector<std::string> &varnames_2d_u,
                                                    const amrex::Vector<std::string> &varnames_2d_v,
                                                    const amrex::Vector<amrex::Geometry>& my_geom,
-                                                   amrex::Real time,
+                                                   double time,
                                                    const amrex::Vector<int> &level_steps,
                                                    const amrex::Vector<amrex::IntVect>& rr,
                                                    const std::string &versionName,
@@ -1688,9 +1689,16 @@ private:
     amrex::Vector<int> istep;
     /** \brief How many substeps on each level? */
     amrex::Vector<int> nsubsteps;
-    /** \brief new time at each level */
+    /** \brief new time at each level, in seconds since start_time
+     *
+     * Model time is split into a double start_time and a Real elapsed time, as ROMS
+     * splits DSTART from the time it advances. The solver, the FillPatch time
+     * interpolation, and the kernels only ever see elapsed time, which stays small
+     * enough for a float to resolve a timestep. Anything that needs a time on the
+     * model clock -- forcing and boundary files, the calendar, output time stamps,
+     * user-given times -- goes through model_time() in double. */
     amrex::Vector<amrex::Real> t_new;
-    /** \brief old time at each level */
+    /** \brief old time at each level, in seconds since start_time */
     amrex::Vector<amrex::Real> t_old;
     /** \brief time step at each level */
     amrex::Vector<amrex::Real> dt;
@@ -1762,11 +1770,14 @@ private:
     int max_step = std::numeric_limits<int>::max();
     /** \brief Whether max_step was set in the inputs; the default above is not a
      * distinguishable sentinel */
-    /** \brief Time to stop */
-    amrex::Real stop_time = std::numeric_limits<amrex::Real>::max();
+    /** \brief Time to stop, in seconds on the model clock (not since start_time) */
+    double stop_time = std::numeric_limits<amrex::Real>::max();
 
-    /** \brief Time of the start of the simulation, in seconds */
-    amrex::Real start_time = zero;
+    /** \brief Time of the start of the simulation, in seconds on the model clock.
+     *
+     * Also the origin of t_new and t_old. Double regardless of Real: seconds since a
+     * calendar epoch outgrow a float's resolution within days. */
+    double start_time = 0.0;
 
     /** \brief If set, restart from this checkpoint file */
     std::string restart_chkfile = "";
@@ -2154,6 +2165,18 @@ public:
 
     /** \brief Accessor method for t_old to expose to outside classes */
     amrex::Real get_t_old(int lev) const;
+
+    /** \brief Time on the model clock, in seconds, of an elapsed time such as t_new */
+    double model_time (amrex::Real elapsed) const noexcept
+    {
+        return start_time + static_cast<double>(elapsed);
+    }
+
+    /** \brief Elapsed time since start_time of a time on the model clock */
+    amrex::Real elapsed_time (double time) const noexcept
+    {
+        return static_cast<amrex::Real>(time - start_time);
+    }
 
     /** \brief First cons component of the biology block. Problem setups need this to
      *         write biology initial conditions, since the passive scalars sit between

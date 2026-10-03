@@ -54,7 +54,7 @@ void NCTimeSeries::Initialize() {
     }
 
     amrex::Vector<int> file_is_cycle;
-    amrex::Vector<amrex::Real> file_cycle_length;
+    amrex::Vector<double> file_cycle_length;
     file_is_spatially_uniform.clear();
     for (int ifile = 0; ifile < file_names.size(); ++ifile) {
         const std::string& file_name = file_names[ifile];
@@ -73,7 +73,7 @@ void NCTimeSeries::Initialize() {
         // By ROMS convention it is in the same units as the time variable.
         // REMORA currently requires time units in days, so convert to seconds below.
         bool l_is_cycle = false;
-        amrex::Real l_cycle_length = 0.0;
+        double l_cycle_length = 0.0;
         int l_is_spatially_uniform = 0;
 
         auto ncf = ncutils::NCFile::open(file_name, NC_NOCLOBBER);
@@ -93,10 +93,7 @@ void NCTimeSeries::Initialize() {
                     cycle_attr.size() == 1,
                     "NetCDF time variable cycle_length attribute must be scalar");
 
-                l_cycle_length = static_cast<amrex::Real>(cycle_attr[0])
-                             * amrex::Real(60.0)
-                             * amrex::Real(60.0)
-                             * amrex::Real(24.0);
+                l_cycle_length = cycle_attr[0] * 60.0 * 60.0 * 24.0;
             }
 
             if (!ncf.has_var(field_name)) {
@@ -131,8 +128,7 @@ void NCTimeSeries::Initialize() {
         file_is_spatially_uniform.push_back(l_is_spatially_uniform);
 
         // get times and put in array
-        using RARRAY = NDArray<amrex::Real>;
-        amrex::Vector<RARRAY> array_ts(1);
+        amrex::Vector<NDArray<double>> array_ts(1);
         ReadNetCDFFile(file_name, {time_name}, array_ts); // filled only on proc 0
         if (amrex::ParallelDescriptor::IOProcessor())
         {
@@ -140,7 +136,7 @@ void NCTimeSeries::Initialize() {
             for (int nt(0); nt < ntimes_io; nt++)
             {
                 // Convert ocean time from days to seconds
-                ocean_times.push_back((*(array_ts[0].get_data() + nt)) * amrex::Real(60.0) * amrex::Real(60.0) * amrex::Real(24.0));
+                ocean_times.push_back((*(array_ts[0].get_data() + nt)) * 60.0 * 60.0 * 24.0);
                 file_for_time.push_back(ifile);
                 file_itime_offset.push_back(nt);
             }
@@ -204,7 +200,7 @@ void NCTimeSeries::Initialize() {
 /**
  * @param time   time to interpolate to
  */
-void NCTimeSeries::update_interpolated_to_time (amrex::Real time, int lev,
+void NCTimeSeries::update_interpolated_to_time (double time, int lev,
                                                 amrex::MultiFab* mf_lev,
                                                 const amrex::Vector<amrex::Geometry>& geom,
                                                 const amrex::Vector<amrex::IntVect>& ref_ratio) {
@@ -214,9 +210,9 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time, int lev,
     // than to zero because a cycling file is free to carry an absolute time axis (days
     // since some epoch) alongside its cycle length; fmod(time,cycle_length) would then
     // land far below every time the file stores.
-    amrex::Real l_time = time;
+    double l_time = time;
     if (is_cycle) {
-        const amrex::Real t_lo = ocean_times[0];
+        const double t_lo = ocean_times[0];
         l_time = t_lo + std::fmod(time - t_lo, cycle_length);
         if (l_time < t_lo) l_time += cycle_length;
     }
@@ -254,7 +250,9 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time, int lev,
         read_in_at_time(mf_before, i_time_before);
     }
 
-    amrex::Real dt = time_after - time_before;
+    // Both differences are small, so Real holds them even when the times do not.
+    const amrex::Real dt = static_cast<amrex::Real>(time_after - time_before);
+    const amrex::Real time_since_before = static_cast<amrex::Real>(l_time - time_before);
 
     auto nodality = mf_interp_lev0->ixType();
 
@@ -265,7 +263,6 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time, int lev,
         // Adjust box to match ROMS grid
         amrex::Box bx = mfi.growntilebox(amrex::IntVect(1-nodality[0],1-nodality[1],0));
 
-        amrex::Real time_before_copy = time_before;
 
         // Temporal interpolation is done once on level 0.
         amrex::MultiFab* mf_to_fill = mf_interp_lev0;
@@ -274,7 +271,7 @@ void NCTimeSeries::update_interpolated_to_time (amrex::Real time, int lev,
         amrex::Array4<const amrex::Real> after  = mf_after->const_array(mfi);
         amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            to_fill(i,j,k) = before(i,j,k) + (l_time - time_before_copy) * (after(i,j,k) - before(i,j,k)) / dt;
+            to_fill(i,j,k) = before(i,j,k) + time_since_before * (after(i,j,k) - before(i,j,k)) / dt;
         });
     }
 

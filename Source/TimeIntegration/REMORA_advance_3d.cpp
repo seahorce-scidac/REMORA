@@ -196,7 +196,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         }
 
     if (solverChoice.do_rivers) {
-        river_source_transport->update_interpolated_to_time(t_old[lev]);
+        river_source_transport->update_interpolated_to_time(model_time(t_old[lev]));
     }
 #endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
@@ -495,7 +495,7 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     for (int icomp = 0; icomp < ncons; ++icomp) {
         if (!solverChoice.do_cons_clim_nudg[icomp]) { continue; }
 
-        cons_clim_data_from_file[icomp]->update_interpolated_to_time(t_old[lev], lev, cons_new[lev], geom, ref_ratio);
+        cons_clim_data_from_file[icomp]->update_interpolated_to_time(model_time(t_old[lev]), lev, cons_new[lev], geom, ref_ratio);
 
         for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
