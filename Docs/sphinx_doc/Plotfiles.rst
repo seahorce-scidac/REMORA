@@ -265,6 +265,32 @@ Examples of Usage
    To reduce plotfile size by excluding nodal coordinate data (amrexvec_nu_x, amrexvec_nu_y, amrexvec_nu_z),
    set this parameter to false. By default, nodal data is included (true).
 
+   The nodal set is the displacement a viewer adds to the Cartesian node position it builds from
+   the plotfile header: node :math:`(i,j,k)` of a level sits at
+   :math:`\texttt{prob\_lo} + (i\,dx, j\,dy, k\,dz) + \nu(i,j,k)`, with :math:`dx, dy, dz` that
+   level's cell sizes from the header, :math:`\nu_x = \nu_y = 0` and
+   :math:`\nu_z = z_{\rm phys}(i,j,k) - (\texttt{prob\_lo}_z + k\,dz)`. The level's own ``h`` and
+   ``zeta`` set :math:`z_{\rm phys}`, so on a refined level the bottom and surface are the refined
+   level's; where its bathymetry is finer than the parent's, the two levels' bottoms differ at
+   coincident nodes by the sub-grid bathymetry, and a viewer shows that as a step at the patch edge.
+
+-  **remora.expand_plotvars_to_unif_rr** = *true*
+
+   REMORA refines only horizontally, which some viewers (amrvis) cannot display. With this option a
+   refined level is written as if it were refined vertically by the same ratio: the header's
+   :math:`dz` is the native one divided by the ratio, the cell data is repeated piecewise-constantly
+   in :math:`k`, and the nodal set and the face-velocity sets are refined in :math:`k` with it
+   (:math:`z` and ``WFace`` linearly between native node layers, so node :math:`r k` coincides with
+   native node :math:`k`; ``UFace``/``VFace`` piecewise-constantly). ``z_cc`` stays
+   piecewise-constant. The header's refinement ratio is written as a single number, as AMReX does.
+
+-  **remora.check_plot_z** = *true*
+
+   Check, every time a plotfile is written, that the nodal z a viewer rebuilds reproduces
+   :math:`z_{\rm phys}` at the bottom and surface of every level (abort otherwise), and print the
+   coarse-fine mismatch at coincident nodes, inside the refined patch and on its perimeter.
+   **remora.check_plot_z_tol** (default -1, report only) makes the interior mismatch abort too.
+
 -  **remora.plot_staggered_vels** = *true*
 
    To include velocity components on cell faces (UFace, VFace, WFace multifabs) in the plotfile,
