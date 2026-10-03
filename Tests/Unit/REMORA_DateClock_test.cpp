@@ -18,7 +18,7 @@
  *   - The round-trip checks are properties rather than tables: `datevec` must
  *     invert `datenum`, which needs no authority at all.
  *
- * The calendar works in double regardless of double, so every case runs in
+ * The calendar works in double regardless of amrex::Real, so every case runs in
  * either build precision.
  */
 
