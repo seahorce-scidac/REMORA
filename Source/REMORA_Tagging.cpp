@@ -448,6 +448,12 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
                                (solverChoice.mask_type == MaskType::none);
         const MultiFab* mskr3d_for_tag = unguarded ? nullptr : vec_mskr3d[levc].get();
 
+        // time counts from remora.start_time, but the window is on the model clock. Checked
+        // here, after the field is filled, so a misnamed field still aborts outside it.
+        if (!ref_tags[j].ActiveAt(model_time(time))) {
+            continue;
+        }
+
         ref_tags[j](tags,mf.get(),mskr3d_for_tag,clearval,tagval,time,levc,geom[levc],
                     mask_lo,mask_hi);
     }
@@ -696,16 +702,12 @@ REMORA::refinement_criteria_setup ()
             if (realbox.ok()) {
                 info.SetRealBox(realbox);
             }
-            // The window is given on the model clock, but ErrorEst sees time since
-            // remora.start_time, so convert here.
-            if (ppr.countval("start_time") > 0) {
-                double ref_min_time; ppr.get("start_time",ref_min_time);
-                info.SetMinTime(elapsed_time(ref_min_time));
-            }
-            if (ppr.countval("end_time") > 0) {
-                double ref_max_time; ppr.get("end_time",ref_max_time);
-                info.SetMaxTime(elapsed_time(ref_max_time));
-            }
+            // The window is on the model clock. It stays out of info, whose times are Real
+            // and are compared against elapsed time; ErrorEst applies it instead.
+            double ref_min_time = std::numeric_limits<double>::lowest();
+            double ref_max_time = std::numeric_limits<double>::max();
+            ppr.query("start_time",ref_min_time);
+            ppr.query("end_time",ref_max_time);
             if (ppr.countval("max_level") > 0) {
                 int ref_max_level; ppr.get("max_level",ref_max_level);
                 info.SetMaxLevel(ref_max_level);
@@ -738,6 +740,7 @@ REMORA::refinement_criteria_setup ()
             } else {
                 Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
             }
+            ref_tags.back().SetModelTimeWindow(ref_min_time, ref_max_time);
         } // loop over criteria
     } // if max_level > 0
 }

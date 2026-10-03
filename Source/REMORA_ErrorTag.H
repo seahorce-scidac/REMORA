@@ -5,6 +5,8 @@
 #include <AMReX_MultiFab.H>
 #include <AMReX_TagBox.H>
 
+#include <limits>
+
 /**
  * An amrex::AMRErrorTag that does not let the coastline drive refinement.
  *
@@ -35,6 +37,24 @@ public:
 
     //! The field name a criterion was built with; ErrorEst switches on it to fill the data.
     using amrex::AMRErrorTag::Field;
+
+    /**
+     * Restrict this criterion to model times in [min_time, max_time], in seconds on the
+     * model clock. Held here in double rather than in AMRErrorTagInfo, whose Real would round
+     * a calendar-scale time in a single-precision build, and whose times would have to be
+     * elapsed ones, fixed against whatever remora.start_time was when the inputs were read.
+     */
+    void SetModelTimeWindow (double min_time, double max_time) noexcept
+    {
+        m_min_model_time = min_time;
+        m_max_model_time = max_time;
+    }
+
+    //! Whether this criterion applies at model time t, in seconds on the model clock.
+    [[nodiscard]] bool ActiveAt (double t) const noexcept
+    {
+        return t >= m_min_model_time && t <= m_max_model_time;
+    }
 
     /**
      * Apply this criterion to tba, skipping land.
@@ -77,6 +97,10 @@ public:
                      const amrex::Geometry& geom,
                      const amrex::IntVect&  mask_lo = amrex::IntVect::TheZeroVector(),
                      const amrex::IntVect&  mask_hi = amrex::IntVect::TheZeroVector()) const;
+
+private:
+    double m_min_model_time = std::numeric_limits<double>::lowest();
+    double m_max_model_time = std::numeric_limits<double>::max();
 };
 
 #endif

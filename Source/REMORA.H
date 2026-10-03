@@ -121,8 +121,7 @@ public:
     /** \brief Initialize multilevel data */
     void InitData ();
     amrex::Real EvolveOneStep (amrex::Real time, amrex::Real dt_request);
-    /** \brief Set remora.start_time. Call before InitData, and note that refinement
-     *         time windows were already converted against the inputs' start_time. */
+    /** \brief Set remora.start_time. Call before InitData, which starts the clock from it. */
     void SetStartTime (double time) noexcept { start_time = time; }
 
     void ConfigureDriverAtmosToOceanCoupling (bool use_coupling_driver,
