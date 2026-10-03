@@ -5,9 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
-#include <type_traits>
 
-#include <AMReX_REAL.H>
 #include <AMReX_Extension.H>
 #include <AMReX_GpuQualifiers.H>
 
@@ -37,6 +35,12 @@
  * too, so each expression carries over term for term. Where ROMS uses `FLOOR`
  * -- and in the `time_ref = -2` conversion it does, which rounds differently
  * from `INT` on the negative side of the epoch -- `std::floor` is used here.
+ *
+ * Everything here is `double` regardless of the build's `amrex::Real`. A
+ * `yyyymmdd.dd` reference date carries eight significant integer digits, which a
+ * single-precision float (24-bit mantissa, exact only to 2^24 = 16777216) cannot
+ * hold, and a modern day number (about 737791 for 2020, 2440000 and up for the
+ * truncated Julian day) would keep only a fraction of a day of resolution.
  *
  * The day fraction is available from remora_caldate's `yday` for a caller that
  * needs it. The reference date does carry a time of day -- `remora.time_ref`
@@ -82,9 +86,9 @@ int remora_yearday (int year, int month, int day) noexcept
  *   - truncated Julian: `datenum(-4713,11,24) = 0`, `datenum(1968,05,23) = 2440000`.
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::Real remora_datenum (amrex::Real time_ref, int year, int month, int day,
-                            int hour = 0, int minutes = 0,
-                            amrex::Real seconds = amrex::Real(0.0)) noexcept
+double remora_datenum (double time_ref, int year, int month, int day,
+                       int hour = 0, int minutes = 0,
+                       double seconds = 0.0) noexcept
 {
     const int cal = static_cast<int>(time_ref);
     int my_day = 0;
@@ -134,10 +138,10 @@ amrex::Real remora_datenum (amrex::Real time_ref, int year, int month, int day,
         }
     }
 
-    return amrex::Real(my_day) +
-           amrex::Real(hour) / amrex::Real(24.0) +
-           amrex::Real(minutes) / amrex::Real(1440.0) +
-           seconds / amrex::Real(86400.0);
+    return double(my_day) +
+           double(hour) / 24.0 +
+           double(minutes) / 1440.0 +
+           seconds / 86400.0;
 }
 
 /**
@@ -149,7 +153,7 @@ amrex::Real remora_datenum (amrex::Real time_ref, int year, int month, int day,
  * 1968-05-23 for the truncated Julian day, and 0001-01-01 for `time_ref = 0`.
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void remora_ref_clock (amrex::Real time_ref, int& year, int& month, int& day,
+void remora_ref_clock (double time_ref, int& year, int& month, int& day,
                        int& hour, int& minute, int& second) noexcept
 {
     const int cal = static_cast<int>(time_ref);
@@ -157,17 +161,15 @@ void remora_ref_clock (amrex::Real time_ref, int& year, int& month, int& day,
     if (cal > 0) {
         // Decode yyyymmdd.dd. The clamps are ROMS's, and they are what keeps a
         // malformed value from indexing off the end of the calendar.
-        year = std::max(1, static_cast<int>(time_ref * amrex::Real(0.0001)));
+        year = std::max(1, static_cast<int>(time_ref * 0.0001));
         month = std::min(12, std::max(1, static_cast<int>(
-            (time_ref - amrex::Real(year * 10000)) * amrex::Real(0.01))));
-        const amrex::Real fday = time_ref -
-            std::trunc(time_ref * amrex::Real(0.01)) * amrex::Real(100.0);
+            (time_ref - double(year * 10000)) * 0.01)));
+        const double fday = time_ref - std::trunc(time_ref * 0.01) * 100.0;
         day = std::max(1, static_cast<int>(fday));
-        const amrex::Real sec = (fday - std::trunc(fday)) * amrex::Real(86400.0);
-        hour = static_cast<int>(sec / amrex::Real(3600.0));
-        minute = static_cast<int>(std::fmod(sec, amrex::Real(3600.0)) /
-                                  amrex::Real(60.0));
-        second = static_cast<int>(std::fmod(sec, amrex::Real(60.0)));
+        const double sec = (fday - std::trunc(fday)) * 86400.0;
+        hour = static_cast<int>(sec / 3600.0);
+        minute = static_cast<int>(std::fmod(sec, 3600.0) / 60.0);
+        second = static_cast<int>(std::fmod(sec, 60.0));
 
     } else if (cal == -1) {
         year = 0; month = 12; day = 30;       // 360_day, epoch shifted back a day
@@ -192,15 +194,15 @@ void remora_ref_clock (amrex::Real time_ref, int& year, int& month, int& day,
  * historical one-day offset, and 2440000 for the truncated Julian day.
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::Real remora_ref_datenum (amrex::Real time_ref) noexcept
+double remora_ref_datenum (double time_ref) noexcept
 {
     const int cal = static_cast<int>(time_ref);
 
     if (cal == -1) {
-        return amrex::Real(359.0);            // 0000-12-30 in the 360_day calendar
+        return 359.0;          // 0000-12-30 in the 360_day calendar
     }
     if (cal == -2) {
-        return amrex::Real(2440000.0);        // 1968-05-23, truncated Julian offset
+        return 2440000.0;      // 1968-05-23, truncated Julian offset
     }
 
     // Gregorian and proleptic Gregorian, including time_ref = 0, whose
@@ -208,7 +210,7 @@ amrex::Real remora_ref_datenum (amrex::Real time_ref) noexcept
     int year, month, day, hour, minute, second;
     remora_ref_clock(time_ref, year, month, day, hour, minute, second);
     return remora_datenum(time_ref, year, month, day, hour, minute,
-                          amrex::Real(second));
+                          double(second));
 }
 
 /**
@@ -222,7 +224,7 @@ amrex::Real remora_ref_datenum (amrex::Real time_ref) noexcept
  * path is unreachable as shipped and is not ported.
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void remora_datevec (amrex::Real time_ref, amrex::Real date_number, bool is_day_units,
+void remora_datevec (double time_ref, double date_number, bool is_day_units,
                      int& year, int& month, int& day) noexcept
 {
     const int cal = static_cast<int>(time_ref);
@@ -231,65 +233,63 @@ void remora_datevec (amrex::Real time_ref, amrex::Real date_number, bool is_day_
         // A value at or past the Gregorian changeover is taken to be a full
         // Julian day number; anything smaller is a truncated one and gets the
         // reference offset added back.
-        amrex::Real my_date_number;
+        double my_date_number;
         if (is_day_units) {
-            my_date_number = (date_number >= amrex::Real(remora_gregorian_daynum))
+            my_date_number = (date_number >= double(remora_gregorian_daynum))
                            ? date_number
                            : date_number + remora_ref_datenum(time_ref);
         } else {
             my_date_number =
-                (date_number >= amrex::Real(remora_gregorian_daynum) * amrex::Real(86400.0))
-                ? date_number / amrex::Real(86400.0)
-                : date_number / amrex::Real(86400.0) + remora_ref_datenum(time_ref);
+                (date_number >= double(remora_gregorian_daynum) * 86400.0)
+                ? date_number / 86400.0
+                : date_number / 86400.0 + remora_ref_datenum(time_ref);
         }
 
         // Proleptic Gregorian, origin 24 November 4713 BC. FLOOR throughout,
         // not truncation: this calendar runs to dates before its own origin.
-        amrex::Real jr = std::floor(my_date_number) - amrex::Real(1721119.0);
-        amrex::Real js = amrex::Real(4.0) * jr - amrex::Real(1.0);
-        amrex::Real yy = std::floor(js / amrex::Real(146097.0));
-        jr = js - amrex::Real(146097.0) * yy;
-        js = std::floor(jr * amrex::Real(0.25));
-        js = amrex::Real(4.0) * js + amrex::Real(3.0);
-        jr = std::floor(js / amrex::Real(1461.0));
-        const amrex::Real dd =
-            std::floor(((js - amrex::Real(1461.0) * jr) + amrex::Real(4.0)) * amrex::Real(0.25));
-        js = amrex::Real(5.0) * dd - amrex::Real(3.0);
-        const amrex::Real mo = std::floor(js / amrex::Real(153.0));
-        yy = yy * amrex::Real(100.0) + jr;
+        double jr = std::floor(my_date_number) - 1721119.0;
+        double js = 4.0 * jr - 1.0;
+        double yy = std::floor(js / 146097.0);
+        jr = js - 146097.0 * yy;
+        js = std::floor(jr * 0.25);
+        js = 4.0 * js + 3.0;
+        jr = std::floor(js / 1461.0);
+        const double dd = std::floor(((js - 1461.0 * jr) + 4.0) * 0.25);
+        js = 5.0 * dd - 3.0;
+        const double mo = std::floor(js / 153.0);
+        yy = yy * 100.0 + jr;
 
-        if (mo < amrex::Real(10.0)) {
+        if (mo < 10.0) {
             year = static_cast<int>(yy);
-            month = static_cast<int>(mo + amrex::Real(3.0));
+            month = static_cast<int>(mo + 3.0);
         } else {
-            year = static_cast<int>(yy + amrex::Real(1.0));
-            month = static_cast<int>(mo - amrex::Real(9.0));
+            year = static_cast<int>(yy + 1.0);
+            month = static_cast<int>(mo - 9.0);
         }
-        day = static_cast<int>(((js - amrex::Real(153.0) * mo) + amrex::Real(5.0)) *
-                               amrex::Real(0.2));
+        day = static_cast<int>(((js - 153.0 * mo) + 5.0) * 0.2);
 
     } else if (cal == -1) {
         // 360_day: 12 months of 30 days, no leap years.
         int yday;
         if (is_day_units) {
-            year = static_cast<int>(date_number / amrex::Real(360.0));
-            yday = static_cast<int>(date_number - amrex::Real(year * 360) + amrex::Real(1.0));
+            year = static_cast<int>(date_number / 360.0);
+            yday = static_cast<int>(date_number - double(year * 360) + 1.0);
         } else {
-            year = static_cast<int>(date_number / amrex::Real(31104000.0));   // 360*86400
-            yday = static_cast<int>((date_number - amrex::Real(year * 31104000) +
-                                     amrex::Real(1.0)) / amrex::Real(86400.0));
+            year = static_cast<int>(date_number / 31104000.0);   // 360*86400
+            yday = static_cast<int>((date_number - double(year * 31104000) + 1.0) /
+                                    86400.0);
         }
         month = ((yday - 1) / 30) + 1;
         day = ((yday - 1) % 30) + 1;
 
     } else {
         // Gregorian and proleptic Gregorian.
-        constexpr amrex::Real offset = amrex::Real(61.0);
+        constexpr double offset = 61.0;
 
-        amrex::Real my_date_number = is_day_units ? date_number
-                                                  : date_number / amrex::Real(86400.0);
+        double my_date_number = is_day_units ? date_number
+                                             : date_number / 86400.0;
         if (my_date_number < offset) {          // adjust for the Matlab zero
-            my_date_number = my_date_number - offset + amrex::Real(1.0);
+            my_date_number = my_date_number - offset + 1.0;
         } else {                                // origin, datenum(0,0,0) = 0
             my_date_number = my_date_number - offset;
         }
@@ -312,7 +312,7 @@ void remora_datevec (amrex::Real time_ref, amrex::Real date_number, bool is_day_
         day = my_day - static_cast<int>(0.1 * (my_month * 306.0 + 5.0)) + 1;
 
         // Matches Matlab "datestr" with the origin at 0000-00-00 00:00:00.
-        if (date_number == amrex::Real(0.0)) {
+        if (date_number == 0.0) {
             year = 0;
             month = 1;
             day = 0;
@@ -333,38 +333,38 @@ void remora_datevec (amrex::Real time_ref, amrex::Real date_number, bool is_day_
  *                                exactly 1.0
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void remora_caldate (amrex::Real time_ref, amrex::Real current_time_days,
-                     int& year, int& month, int& day, amrex::Real& yday) noexcept
+void remora_caldate (double time_ref, double current_time_days,
+                     int& year, int& month, int& day, double& yday) noexcept
 {
     const int cal = static_cast<int>(time_ref);
-    const amrex::Real ref_date_number = remora_ref_datenum(time_ref);
+    const double ref_date_number = remora_ref_datenum(time_ref);
 
     // For the truncated Julian day, a model time already past the reference is
     // taken to be an absolute day number rather than an elapsed interval.
-    amrex::Real date_number;
+    double date_number;
     if ((cal == -2) && (current_time_days >= ref_date_number)) {
         date_number = current_time_days;
     } else {
         date_number = ref_date_number + current_time_days;
     }
 
-    const amrex::Real day_fraction = std::abs(date_number - std::trunc(date_number));
+    const double day_fraction = std::abs(date_number - std::trunc(date_number));
 
     remora_datevec(time_ref, date_number, true, year, month, day);
 
     // The 360_day calendar has no leap years for yearday to reason about, so
     // ROMS takes its day of year straight from the day number.
     const int int_yday = (cal == -1)
-        ? static_cast<int>(date_number - amrex::Real(year * 360) + amrex::Real(1.0))
+        ? static_cast<int>(date_number - double(year * 360) + 1.0)
         : remora_yearday(year, month, day);
 
-    yday = amrex::Real(int_yday) + day_fraction;
+    yday = double(int_yday) + day_fraction;
 }
 
 /** \brief remora_caldate for callers that only want the year and day of year. */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void remora_caldate (amrex::Real time_ref, amrex::Real current_time_days,
-                     int& year, amrex::Real& yday) noexcept
+void remora_caldate (double time_ref, double current_time_days,
+                     int& year, double& yday) noexcept
 {
     int month = 0;
     int day = 0;
@@ -378,29 +378,9 @@ void remora_caldate (amrex::Real time_ref, amrex::Real current_time_days,
  * the date undefined rather than failing. Callers should reject it up front.
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-bool remora_time_ref_is_valid (amrex::Real time_ref) noexcept
+bool remora_time_ref_is_valid (double time_ref) noexcept
 {
     return static_cast<int>(time_ref) >= -2;
-}
-
-/**
- * \brief Whether \p time_ref survives a round trip through amrex::Real.
- *
- * A yyyymmdd.dd date carries eight significant integer digits, and remora_ref_datenum
- * pulls the year, month, and day back out of them arithmetically. That needs those digits
- * to be exact. A single-precision Real has a 24-bit mantissa, so integers above 2^24
- * (16777216) are not representable and every date from year 1678 on rounds to a
- * neighbouring value -- which then decodes to a different calendar date with nothing to
- * flag it. The three sentinel calendars (0, -1, -2) are small integers and are always
- * fine.
- */
-AMREX_FORCE_INLINE
-bool remora_time_ref_is_representable (amrex::Real time_ref) noexcept
-{
-    if (time_ref <= amrex::Real(0.0)) {
-        return true;
-    }
-    return std::is_same<amrex::Real, double>::value;
 }
 
 /**
@@ -410,7 +390,7 @@ bool remora_time_ref_is_representable (amrex::Real time_ref) noexcept
  * calendar the model clock is on.
  */
 AMREX_FORCE_INLINE
-std::string remora_ref_calendar (amrex::Real time_ref)
+std::string remora_ref_calendar (double time_ref)
 {
     const int cal = static_cast<int>(time_ref);
 
@@ -431,7 +411,7 @@ std::string remora_ref_calendar (amrex::Real time_ref)
  * only, since it builds a std::string.
  */
 AMREX_FORCE_INLINE
-std::string remora_ref_date_string (amrex::Real time_ref)
+std::string remora_ref_date_string (double time_ref)
 {
     int year, month, day, hour, minute, second;
     remora_ref_clock(time_ref, year, month, day, hour, minute, second);

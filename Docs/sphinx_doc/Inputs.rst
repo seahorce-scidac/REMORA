@@ -656,7 +656,9 @@ it also selects the calendar, exactly as ROMS ``TIME_REF`` does:
 
 The fractional part of a positive value is a time of day, so
 ``remora.time_ref = 20020115.5`` is 15 January 2002 at 12:00. A value below
-``-2`` names no calendar and is an error.
+``-2`` names no calendar and is an error. ``remora.time_ref`` and the calendar
+arithmetic are always double precision, even in a single-precision build, since
+a ``yyyymmdd.dd`` date needs more exact digits than a float holds.
 
 Model time is elapsed time since that epoch, so ``remora.start_time`` offsets
 the run within the calendar the way ROMS ``DSTART`` does. With the default

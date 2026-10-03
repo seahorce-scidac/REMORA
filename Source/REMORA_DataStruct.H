@@ -237,14 +237,6 @@ struct SolverChoice {
             amrex::Abort("remora.time_ref = " + std::to_string(time_ref) +
                          " names no calendar. Use a yyyymmdd.dd date, or 0, -1, or -2.");
         }
-        if (!remora_time_ref_is_representable(time_ref)) {
-            // Fail loudly rather than run on a silently shifted calendar: see
-            // remora_time_ref_is_representable.
-            amrex::Abort("remora.time_ref = " + std::to_string(time_ref) +
-                         " is a yyyymmdd.dd date, which needs eight exact digits and so"
-                         " cannot be represented in a single-precision build. Build in"
-                         " double precision, or use time_ref = 0, -1, or -2.");
-        }
 
         pp.queryAdd("bulk_fluxes",bulk_fluxes);
         pp.queryAdd("atm2ocn_flux_mode", atm2ocn_flux_mode);
@@ -999,7 +991,8 @@ struct SolverChoice {
     // remora.time_ref: reference date of the model clock (yyyymmdd.dd), or one
     // of the special values 0, -1, -2. Selects the calendar; see
     // Source/Utils/REMORA_DateClock.H.
-    // Must be a double because reference date format needs the precision
+    // Always double, even in a single-precision build: a yyyymmdd.dd date needs
+    // eight exact digits, more than a float holds.
     double time_ref = 0.0;
 
     // Coriolis forcing

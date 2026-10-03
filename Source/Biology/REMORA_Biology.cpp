@@ -245,7 +245,7 @@ Real fennel_pco2_water (Real T, Real S, Real TIC, Real TAlk) noexcept
  * result handed to the kernel.
  */
 Real
-fennel_pco2_air (REMORABiology::PCO2AirType type, Real time_ref, Real time_seconds,
+fennel_pco2_air (REMORABiology::PCO2AirType type, double time_ref, Real time_seconds,
                  Real pco2air_constant) noexcept
 {
     if (type == REMORABiology::PCO2AirType::constant) {
@@ -254,9 +254,12 @@ fennel_pco2_air (REMORABiology::PCO2AirType type, Real time_ref, Real time_secon
 
     constexpr Real pi2 = Real(6.2831853071796);
 
+    // The calendar works in double: a modern day number is too large for a
+    // float to resolve within a day.
     int year = 0;
-    Real yday = Real(0.0);
-    remora_caldate(time_ref, time_seconds / Real(86400.0), year, yday);
+    double yday_d = 0.0;
+    remora_caldate(time_ref, double(time_seconds) / 86400.0, year, yday_d);
+    const Real yday = static_cast<Real>(yday_d);
 
     if (type == REMORABiology::PCO2AirType::data) {
         // Annual climatology of Laurent et al. (2017).
