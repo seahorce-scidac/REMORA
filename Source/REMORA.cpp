@@ -2396,8 +2396,10 @@ REMORA::ReadParameters ()
     boundary_series.resize(max_level+1);
 
 
-    // NetCDF initialization files -- possibly multiple files at each of multiple levels
-    //        but we always have exactly one file at level 0
+    // NetCDF initialization and grid files, read independently of each other: with
+    // hires_grid_level or hires_init_level set, the corresponding level 0 file is not
+    // needed. Whether a level 0 file is required is checked once the solver choices
+    // are known, below.
     for (int lev = 0; lev <= max_level; lev++)
     {
         const std::string nc_file_names = amrex::Concatenate("nc_init_file_",lev,1);
@@ -2406,17 +2408,15 @@ REMORA::ReadParameters ()
         if (pp.contains(nc_file_names.c_str()))
         {
             int num_files = pp.countval(nc_file_names.c_str());
-            int num_bathy_files = pp.countval(nc_bathy_file_names.c_str());
-            if (num_files != num_bathy_files) {
-                amrex::Error("Must have same number of netcdf files for grid info as for solution");
-            }
-
             num_files_at_level[lev] = num_files;
             nc_init_file[lev].resize(num_files);
-            nc_grid_file[lev].resize(num_files);
-
-            pp.queryarr(nc_file_names.c_str()      , nc_init_file[lev]     ,0,num_files);
-            pp.queryarr(nc_bathy_file_names.c_str(), nc_grid_file[lev],0,num_files);
+            pp.queryarr(nc_file_names.c_str(), nc_init_file[lev], 0, num_files);
+        }
+        if (pp.contains(nc_bathy_file_names.c_str()))
+        {
+            int num_bathy_files = pp.countval(nc_bathy_file_names.c_str());
+            nc_grid_file[lev].resize(num_bathy_files);
+            pp.queryarr(nc_bathy_file_names.c_str(), nc_grid_file[lev], 0, num_bathy_files);
         }
     }
 
@@ -2534,6 +2534,26 @@ REMORA::ReadParameters ()
 #ifndef REMORA_USE_NETCDF
     if (solverChoice.ic_type == IC_Type::netcdf) {
         amrex::Abort("Please compile with NetCDF in order to use remora.ic_type = netcdf");
+    }
+#else
+    // Level 0 files are read only for the fields not supplied at hires_init_level or
+    // hires_grid_level, so require each one only where it will be read.
+    {
+        const bool have_init_0 = !nc_init_file[0].empty() && !nc_init_file[0][0].empty();
+        const bool have_grid_0 = !nc_grid_file[0].empty() && !nc_grid_file[0][0].empty();
+        if (solverChoice.ic_type == IC_Type::netcdf && hires_init_level < 0 && !have_init_0) {
+            amrex::Abort("remora.ic_type = netcdf requires remora.nc_init_file_0 unless "
+                         "remora.hires_init_level is set");
+        }
+        if (hires_grid_level < 0 && !have_grid_0 &&
+            (solverChoice.ic_type == IC_Type::netcdf || solverChoice.mask_type == MaskType::netcdf)) {
+            amrex::Abort("remora.ic_type = netcdf or remora.mask_type = netcdf requires "
+                         "remora.nc_grid_file_0 unless remora.hires_grid_level is set");
+        }
+        if (solverChoice.use_coriolis && solverChoice.coriolis_type == Cor_Type::netcdf &&
+            !have_grid_0) {
+            amrex::Abort("remora.coriolis_type = netcdf requires remora.nc_grid_file_0");
+        }
     }
 #endif
 
