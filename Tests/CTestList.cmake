@@ -227,6 +227,30 @@ function(add_test_r_selfcompare TEST_NAME TEST_EXE PLTFILE OPTIONS_A OPTIONS_B)
     )
 endfunction(add_test_r_selfcompare)
 
+# Run an input to the end with a checkpoint partway, restart a second run from CHKFILE, and
+# require the two final plotfiles to agree: a restart must continue the run it was saved from.
+# Needs no gold data.
+function(add_test_restart TEST_NAME TEST_EXE PLTFILE CHKFILE)
+
+    setup_test()
+
+    resolve_test_exe("${TEST_DIR}" "${TEST_EXE}" TEST_EXE)
+
+    set(FCOMPARE_TOLERANCE "-r 1e-11 --abs_tol 1.0e-11")
+    set(FCOMPARE_FLAGS "-a ${FCOMPARE_TOLERANCE}")
+    set(test_command sh -c "mkdir -p runA runB && cd runA && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} > ../${TEST_NAME}.log 2>&1 && cd ../runB && ${MPI_COMMANDS} ${TEST_EXE} ${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.i ${RUNTIME_OPTIONS} remora.restart=../runA/${CHKFILE} remora.check_int=-1 >> ../${TEST_NAME}.log 2>&1 && cd .. && ${FCOMPARE_EXE} ${FCOMPARE_FLAGS} runA/${PLTFILE} runB/${PLTFILE}")
+
+    add_test(${TEST_NAME} ${test_command})
+    set_tests_properties(${TEST_NAME}
+        PROPERTIES
+        TIMEOUT 5400
+        PROCESSORS ${NP}
+        WORKING_DIRECTORY "${CURRENT_TEST_BINARY_DIR}/"
+        LABELS "regression"
+        ATTACHED_FILES_ON_FAIL "${CURRENT_TEST_BINARY_DIR}/${TEST_NAME}.log"
+    )
+endfunction(add_test_restart)
+
 # Assert how far an integrated quantity drifts over a run. INPUT_NAME picks the input file, so
 # several tests can share one case; OPTIONS go on the command line; the remaining arguments are
 # <column> <bound> <below|above> triples handed to check_conservation.sh.
@@ -727,6 +751,19 @@ add_test_equiv(Channel_Test_ndtfast_alias Channel_Test_ndtfast_named "remora_exe
 add_test_abort(Channel_Test_ndtfast_unset_abort  "remora_exec" "remora.ndtfast must be a positive integer")
 add_test_abort(Channel_Test_fixed_fast_dt_abort  "remora_exec" "remora.fixed_fast_dt has been removed")
 add_test_abort(Channel_Test_ndtfast_both_abort   "remora_exec" "and remora.fixed_ndtfast_ratio are both")
+
+#=============================================================================
+# Land on the boundary ring beside water, as in a ROMS closed basin. The gold test pins the
+# wall boundary conditions putting zero on that land (ROMS t3dbc/zetabc). The other two
+# need no gold: writing output every step must not change the solution, and a run restarted
+# from its step-5 checkpoint must finish where the continuous run does. Before the wall fills
+# masked the ring, they differed in y_velocity by 3.5e-2 and 6.7e-3 relative.
+#=============================================================================
+
+add_test_r(DogboneAnalytic_maskring          "remora_exec" "plt00010")
+add_test_r_selfcompare(DogboneAnalytic_maskring_plotint "remora_exec" "plt00010"
+                       "remora.plot_int=1" "remora.plot_int=10")
+add_test_restart(DogboneAnalytic_maskring_restart "remora_exec" "plt00010" "chk00005")
 
 #=============================================================================
 # Performance tests

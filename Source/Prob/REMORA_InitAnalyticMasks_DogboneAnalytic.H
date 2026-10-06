@@ -19,6 +19,17 @@
     pp_mask.query("mask_y_lo", mask_y_lo);
     pp_mask.query("mask_y_hi", mask_y_hi);
 
+    // A ROMS closed basin has land on its boundary ring of rho points, next to interior
+    // water. mask_ring makes the grow cells outside the non-periodic domain edges land,
+    // so the wall boundary conditions meet land beside water.
+    bool mask_ring = false;
+    pp_mask.query("mask_ring", mask_ring);
+    const Box& dom = geom.Domain();
+    const auto dlo = amrex::lbound(dom);
+    const auto dhi = amrex::ubound(dom);
+    const bool ring_x = mask_ring && !geom.isPeriodic(0);
+    const bool ring_y = mask_ring && !geom.isPeriodic(1);
+
     for (MFIter mfi(mf_mskr, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         // Every grow cell, not just NGROW of them: the full-domain array carries as many as
@@ -35,6 +46,10 @@
             const Real y_r = (j + Real(0.5)) * dy;
             if ((x_r > mask_x_lo && x_r < mask_x_hi) &&
                 (y_r < mask_y_lo || y_r > mask_y_hi)) {
+                mskr(i,j,0) = zero;
+            }
+            if ((ring_x && (i < dlo.x || i > dhi.x)) ||
+                (ring_y && (j < dlo.y || j > dhi.y))) {
                 mskr(i,j,0) = zero;
             }
         });
