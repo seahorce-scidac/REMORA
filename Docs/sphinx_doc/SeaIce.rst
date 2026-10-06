@@ -17,8 +17,8 @@ upper ocean, and sets the surface stress, heat flux and salt flux the ocean
 uses.
 
 The port reproduces myROMS, quirks included (see :ref:`sec:SeaIceQuirks`). On
-the LAKE_ICE test of myROMS it matches the first ice step to the precision of
-the ROMS output in every ice field (see :ref:`sec:SeaIceValidation`).
+the LAKE_ICE test of myROMS it matches the first ice step to round-off in every
+ice field (see :ref:`sec:SeaIceValidation`).
 
 Turning Sea Ice On
 ==================
@@ -182,12 +182,14 @@ Validation
 
 The port was validated against myROMS (commit 31cabd31) on its LAKE_ICE test
 (myroms/roms_test ``lake_ice``), restarted from a day-60 spin-up in which a
-quarter of the lake is ice covered, with GLS mixing in both models. On the first
-ice step, where the ocean states agree, every ice state variable, ice field,
-rate and ocean flux matches to the 4e-8 relative precision of the ROMS output
-when REMORA uses ROMS's Stefan-Boltzmann constant. This holds for the stock
-configuration (upwind advection, quadratic drag), with MPDATA, with the
-log-layer drag, and with thermodynamics alone. ROMS's ice age depends on its
+quarter of the lake is ice covered, with GLS mixing in both models, and ROMS
+writing double-precision output (``OUT_DOUBLE``). On the first ice step, where
+the ocean states agree, every ice state variable, ice field, rate and ocean
+flux matches ROMS to round-off (at most 1e-13 relative) when REMORA uses ROMS's
+Stefan-Boltzmann constant; with REMORA's own constant the differences are at
+most 7e-5. This holds for the stock configuration (upwind advection, quadratic
+drag), with MPDATA, with the log-layer drag, with thermodynamics and momentum
+without advection, and with thermodynamics alone. ROMS's ice age depends on its
 tiling, because ``ice_limit`` leaves ``Iage`` out of its MPI exchange; REMORA's
 results are bitwise identical across ranks and box layouts, and match a
 single-tile ROMS run.
