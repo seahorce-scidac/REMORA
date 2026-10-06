@@ -200,6 +200,11 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     if (solverChoice.bulk_flux_type[BulkFlux::LWrad] != BulkForcingType::computed) {
         lw_ptr = vec_longwave_down[lev].get();
     }
+    // ROMS main3d computes the ice albedo just before the bulk flux, which reads it
+    if (has_seaice()) {
+        ice_albedo(lev);
+    }
+
     if (solverChoice.bulk_fluxes &&
         (!running_with_coupling_driver ||
          DriverUsesStateForcing(driver_atmos_forcing_mode))) {

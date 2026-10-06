@@ -831,7 +831,7 @@ public:
     /** \brief Read the ice state from the NetCDF initial file into time level 1 (index 0) */
     void init_seaice_from_netcdf (int lev);
     /** \brief Advance the ice one baroclinic step: ROMS seaice.F */
-    void advance_seaice (int lev, amrex::MultiFab const& mf_rho, int N, amrex::Real dt_lev);
+    void advance_seaice (int lev, amrex::Real dt_lev);
     /** \brief Ice/snow albedo (ROMS ice_albedo) */
     void ice_albedo (int lev);
     /** \brief Exchange ice data between boxes and across periodic sides (ROMS exchange_*2d) */
@@ -844,6 +844,21 @@ public:
     void ice_uibc (int lev, amrex::MultiFab& mf, int comp);
     /** \brief Lateral BCs of one v-point ice component (ROMS ice_vibc) */
     void ice_vibc (int lev, amrex::MultiFab& mf, int comp);
+    /** \brief ROMS's ocean bc_r2d on one rho-point component: zero gradient on every
+     *         non-periodic side. Applied to ice fields and fluxes as ROMS does */
+    void ice_bc_r2d (int lev, amrex::MultiFab& mf, int comp);
+    /** \brief ROMS's ocean bc_u2d on one u-point component; sides follow ice.bc_type */
+    void ice_bc_u2d (int lev, amrex::MultiFab& mf, int comp);
+    /** \brief ROMS's ocean bc_v2d on one v-point component; sides follow ice.bc_type */
+    void ice_bc_v2d (int lev, amrex::MultiFab& mf, int comp);
+    /** \brief Mixed-layer ocean velocity and ice-ocean shear (ROMS ice_spdiw) */
+    void ice_spdiw (int lev);
+    /** \brief Ice-ocean and air-ice stresses; blends the ocean surface stress (ROMS ice_vbc) */
+    void ice_vbc (int lev);
+    /** \brief Mellor-Kantha ice thermodynamics; sets the ocean heat and salt flux (ROMS ice_mk) */
+    void ice_thermo (int lev, amrex::Real dt_lev);
+    /** \brief Positivity and limits of the ice tracers at linew, then their BCs (ROMS ice_limit) */
+    void ice_limit (int lev);
     /** \brief Where an ice output variable lives: its MultiFab, component, and staggering
      *         (0 rho, 1 u, 2 v). False if the name is not an ice variable. State variables
      *         are taken at time level liunw, which is what ROMS writes. */

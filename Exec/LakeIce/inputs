@@ -50,11 +50,10 @@ remora.tcline  = 50.0
 
 remora.eos_type = nonlinear
 remora.rho0     = 1025.0
+remora.g        = 9.81
 remora.R0       = 1027.0
 remora.T0       = 14.0
 remora.S0       = 8.0
-remora.Tcoef    = 1.7e-4
-remora.Scoef    = 7.6e-4
 
 remora.tracer_horizontal_advection_scheme = upstream3
 remora.uv_horizontal_advection_scheme     = upstream3
@@ -103,6 +102,7 @@ remora.cloud_type  = analytic
 remora.blk_ZQ = 10.0
 remora.blk_ZT = 10.0
 remora.blk_ZW = 10.0
+remora.bulk_flux_scheme = coare35
 
 # Sea ice (ROMS lake_ice.in)
 remora.ice_model = mellor_kantha

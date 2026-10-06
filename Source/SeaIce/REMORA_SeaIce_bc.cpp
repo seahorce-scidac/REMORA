@@ -57,6 +57,79 @@ REMORA::ice_exchange (int lev, MultiFab& mf, int scomp, int ncomp)
 }
 
 /**
+ * ROMS bc_r2d: zero gradient into the boundary row of every non-periodic side,
+ * whatever its LBC type, with the corners averaged. No masking.
+ */
+void
+REMORA::ice_bc_r2d (int lev, MultiFab& mf, int comp)
+{
+    const IceDomain d = ice_domain(geom[lev]);
+
+    for (MFIter mfi(mf, false); mfi.isValid(); ++mfi) {
+        Array4<Real> const& f = mf.array(mfi, comp);
+        const Box gbx = amrex::grow(mfi.validbox(), IntVect(1,1,0));
+
+        const int jl = d.yper ? gbx.smallEnd(1) : d.jlo;
+        const int jh = d.yper ? gbx.bigEnd(1)   : d.jhi;
+        const int il = d.xper ? gbx.smallEnd(0) : d.ilo;
+        const int ih = d.xper ? gbx.bigEnd(0)   : d.ihi;
+
+        if (!d.xper && gbx.smallEnd(0) < d.ilo) {
+            ParallelFor(column_box(d.ilo-1, jl, jh, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                f(i,j,0) = f(i+1,j,0);
+            });
+        }
+        if (!d.xper && gbx.bigEnd(0) > d.ihi) {
+            ParallelFor(column_box(d.ihi+1, jl, jh, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                f(i,j,0) = f(i-1,j,0);
+            });
+        }
+        if (!d.yper && gbx.smallEnd(1) < d.jlo) {
+            ParallelFor(row_box(d.jlo-1, il, ih, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                f(i,j,0) = f(i,j+1,0);
+            });
+        }
+        if (!d.yper && gbx.bigEnd(1) > d.jhi) {
+            ParallelFor(row_box(d.jhi+1, il, ih, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                f(i,j,0) = f(i,j-1,0);
+            });
+        }
+
+        if (!d.xper && !d.yper) {
+            const int ilo = d.ilo, ihi = d.ihi, jlo = d.jlo, jhi = d.jhi;
+            if (has_cell(gbx, ilo-1, jlo-1)) {
+                ParallelFor(Box(IntVect(ilo-1,jlo-1,0), IntVect(ilo-1,jlo-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    f(i,j,0) = Real(0.5) * (f(i+1,j,0) + f(i,j+1,0));
+                });
+            }
+            if (has_cell(gbx, ihi+1, jlo-1)) {
+                ParallelFor(Box(IntVect(ihi+1,jlo-1,0), IntVect(ihi+1,jlo-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    f(i,j,0) = Real(0.5) * (f(i-1,j,0) + f(i,j+1,0));
+                });
+            }
+            if (has_cell(gbx, ilo-1, jhi+1)) {
+                ParallelFor(Box(IntVect(ilo-1,jhi+1,0), IntVect(ilo-1,jhi+1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    f(i,j,0) = Real(0.5) * (f(i,j-1,0) + f(i+1,j,0));
+                });
+            }
+            if (has_cell(gbx, ihi+1, jhi+1)) {
+                ParallelFor(Box(IntVect(ihi+1,jhi+1,0), IntVect(ihi+1,jhi+1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    f(i,j,0) = Real(0.5) * (f(i,j-1,0) + f(i-1,j,0));
+                });
+            }
+        }
+    }
+}
+
+/**
  * ROMS ice_bc2d: closed sides copy the interior value into the boundary row,
  * times the rho mask. ice_bc2d has no gradient branch, so a gradient side is
  * left as the exchange found it, as in ROMS.
