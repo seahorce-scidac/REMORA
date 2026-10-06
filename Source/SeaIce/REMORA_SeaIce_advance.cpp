@@ -51,7 +51,9 @@ REMORA::advance_seaice (int lev, Real dt_lev)
     }
 
     if (seaice_params.do_advect) {
-        amrex::Abort("ice.do_advect is not implemented yet");
+        ice_enthalpy(lev);
+        ice_advect(lev, dt_lev);
+        ice_limit(lev);
     }
 
     if (seaice_params.do_thermo) {
