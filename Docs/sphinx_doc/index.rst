@@ -69,6 +69,7 @@ In addition to this documentation, there is API documentation for REMORA generat
    Checkpoint.rst
    Climatology.rst
    Fennel.rst
+   SeaIce.rst
    MeshRefinement.rst
    Numerical_Solution_Technique.rst
    Particles.rst
