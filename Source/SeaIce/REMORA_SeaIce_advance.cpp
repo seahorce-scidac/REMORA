@@ -37,7 +37,17 @@ REMORA::advance_seaice (int lev, Real dt_lev)
     ice_vbc(lev);
 
     if (seaice_params.do_momentum) {
-        amrex::Abort("ice.do_momentum is not implemented yet");
+        // Elastic-viscous-plastic rheology, subcycled nEVP times
+        ice_lvl.liuol = ice_lvl.liunw;
+        ice_lvl.liunw = 1 - ice_lvl.liuol;
+        const Real dtevp = dt_lev / static_cast<Real>(seaice_params.nEVP);
+        for (int iEVP = 1; iEVP <= seaice_params.nEVP; ++iEVP) {
+            ice_lvl.lieol = ice_lvl.lienw;
+            ice_lvl.lienw = 1 - ice_lvl.lieol;
+            ice_evp(lev, iEVP);
+            ice_evp_sig(lev, dtevp);
+            ice_elastic(lev, iEVP, dtevp);
+        }
     }
 
     if (seaice_params.do_advect) {
