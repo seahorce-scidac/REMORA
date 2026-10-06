@@ -154,6 +154,11 @@ struct SeaIceParams {
     bool advect_upwind = false;   //!< ICE_UPWIND: no antidiffusive MPDATA pass
     bool mom_bulk = false;        //!< ICE_MOM_BULK: quadratic ice-water drag
     bool convsnow = false;        //!< ICE_CONVSNOW
+    /** Not in ROMS: copy the ice tracers from liold to linew at the start of a step
+     *  when advection is off. ROMS does not, so its thermodynamics then works on the
+     *  state of two steps back; this matches the patched ROMS used to validate
+     *  thermodynamics alone. Off by default. */
+    bool copy_old_to_new = false;
     IceAlbedoType albedo_type = IceAlbedoType::ec92;
 
     // ice.in
