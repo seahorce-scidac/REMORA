@@ -859,6 +859,12 @@ public:
     void ice_thermo (int lev, amrex::Real dt_lev);
     /** \brief Positivity and limits of the ice tracers at linew, then their BCs (ROMS ice_limit) */
     void ice_limit (int lev);
+    /** \brief EVP strain rates, ice strength and viscosities (ROMS ice_evp) */
+    void ice_evp (int lev, int iEVP);
+    /** \brief EVP internal ice stress (ROMS ice_evp_sig) */
+    void ice_evp_sig (int lev, amrex::Real dtevp);
+    /** \brief One EVP substep of the ice momentum equations (ROMS ice_elastic) */
+    void ice_elastic (int lev, int iEVP, amrex::Real dtevp);
     /** \brief Where an ice output variable lives: its MultiFab, component, and staggering
      *         (0 rho, 1 u, 2 v). False if the name is not an ice variable. State variables
      *         are taken at time level liunw, which is what ROMS writes. */
