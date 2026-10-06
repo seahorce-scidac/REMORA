@@ -372,17 +372,17 @@ void Problem::init_analytic_coriolis (
 void Problem::init_analytic_surface_var (
         int lev,
         const amrex::Geometry& /*geom*/,
-        SolverChoice const& /*m_solverChoice*/,
+        SolverChoice const& m_solverChoice,
         REMORA const& remora,
         amrex::MultiFab& mf_Uwind,
         amrex::MultiFab& mf_Vwind,
-        amrex::MultiFab& /*mf_Tair*/,
-        amrex::MultiFab& /*mf_qair*/,
-        amrex::MultiFab& /*mf_Pair*/,
-        amrex::MultiFab& /*mf_srflx*/,
+        amrex::MultiFab& mf_Tair,
+        amrex::MultiFab& mf_qair,
+        amrex::MultiFab& mf_Pair,
+        amrex::MultiFab& mf_srflx,
         amrex::MultiFab& /*mf_longwave_down*/,
-        amrex::MultiFab& /*mf_rain*/,
-        amrex::MultiFab& /*mf_cloud*/,
+        amrex::MultiFab& mf_rain,
+        amrex::MultiFab& mf_cloud,
         amrex::MultiFab& /*mf_EminusP*/)
 {
     ParmParse pp("remora");
@@ -396,6 +396,9 @@ void Problem::init_analytic_surface_var (
 
     } else if (my_prob_name_ci == "boundarylayer")  {
 #include "Prob/REMORA_InitAnalyticSurfaceVar_BoundaryLayer.H"
+
+    } else if (my_prob_name_ci == "lakeice")  {
+#include "Prob/REMORA_InitAnalyticSurfaceVar_LakeIce.H"
     }
 
     Gpu::streamSynchronize();

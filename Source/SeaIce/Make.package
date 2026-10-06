@@ -1,0 +1,5 @@
+CEXE_sources += REMORA_SeaIce.cpp
+CEXE_sources += REMORA_SeaIce_bc.cpp
+CEXE_sources += REMORA_SeaIce_init.cpp
+CEXE_headers += REMORA_SeaIce.H
+CEXE_sources += REMORA_SeaIce_io.cpp
