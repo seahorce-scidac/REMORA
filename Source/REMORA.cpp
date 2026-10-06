@@ -2117,12 +2117,21 @@ REMORA::init_only (int lev, Real time)
             // profiles need the physical fields already in place.
             init_biology_ic(lev);
 
-            // ROMS has no analytic ice initial condition; the state starts at zero
-            // unless the initial file carries it.
-            if (has_seaice() && solverChoice.ic_type == IC_Type::netcdf) {
+            // ROMS has no analytic ice initial condition and starts from zero unless the
+            // initial file carries the ice; a problem may supply an analytic one.
+            if (has_seaice()) {
+                if (solverChoice.ic_type == IC_Type::netcdf) {
 #ifdef REMORA_USE_NETCDF
-                init_seaice_from_netcdf(lev);
+                    init_seaice_from_netcdf(lev);
 #endif
+                } else {
+                    prob->init_analytic_seaice(lev, geom[lev], solverChoice, *this,
+                                               *vec_ice_si_r[lev], *vec_ice_si_u[lev],
+                                               *vec_ice_si_v[lev]);
+                    vec_ice_si_r[lev]->FillBoundary(geom[lev].periodicity());
+                    vec_ice_si_u[lev]->FillBoundary(geom[lev].periodicity());
+                    vec_ice_si_v[lev]->FillBoundary(geom[lev].periodicity());
+                }
             }
         } else {
             set_init_data_averaged_down(lev); // also sets biology data

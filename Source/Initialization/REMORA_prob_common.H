@@ -130,6 +130,20 @@ public:
           amrex::Error("Doing analytic masks, but not defined in prob.cpp");
     }
 
+    /**
+     * \brief Analytic sea-ice initial state, time level 1 (component index 0 of each
+     *        state variable). ROMS has no analytic ice initial condition and starts
+     *        from zero, so the default leaves the state at zero.
+     */
+    virtual void
+    init_analytic_seaice (
+        int /*lev*/, const amrex::Geometry& /*geom*/,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& /*remora*/,
+        amrex::MultiFab& /*mf_ice_r*/,
+        amrex::MultiFab& /*mf_ice_u*/,
+        amrex::MultiFab& /*mf_ice_v*/) {}
+
     virtual void
     init_analytic_biology (
         int /*lev*/, const amrex::Geometry& /*geom*/,

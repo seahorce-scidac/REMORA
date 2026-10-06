@@ -59,6 +59,10 @@ void Problem::init_analytic_bathymetry (
     } else if (my_prob_name_ci == "doublegyre") {
         mf_h.setVal(Real(500.0));
 
+    } else if (my_prob_name_ci == "seaicebox") {
+        // Flat bottom at the domain's lower z bound
+        mf_h.setVal(-geomdata.ProbLo(2));
+
     } else if (my_prob_name_ci == "doublyperiodic") {
 #include "Prob/REMORA_InitAnalyticBathymetry_DoublyPeriodic.H"
 
@@ -141,6 +145,9 @@ void Problem::init_analytic_prob(
 
     } else if (my_prob_name_ci == "doublegyre") {
 #include "Prob/REMORA_InitAnalyticProb_DoubleGyre.H"
+
+    } else if (my_prob_name_ci == "seaicebox") {
+#include "Prob/REMORA_InitAnalyticProb_SeaIceBox.H"
 
     } else if (my_prob_name_ci == "doublyperiodic") {
 #include "Prob/REMORA_InitAnalyticProb_DoublyPeriodic.H"
@@ -399,6 +406,27 @@ void Problem::init_analytic_surface_var (
 
     } else if (my_prob_name_ci == "lakeice")  {
 #include "Prob/REMORA_InitAnalyticSurfaceVar_LakeIce.H"
+    }
+
+    Gpu::streamSynchronize();
+}
+
+void Problem::init_analytic_seaice (
+        int lev,
+        const amrex::Geometry& geom,
+        SolverChoice const& /*m_solverChoice*/,
+        REMORA const& remora,
+        amrex::MultiFab& mf_ice_r,
+        amrex::MultiFab& mf_ice_u,
+        amrex::MultiFab& mf_ice_v)
+{
+    ParmParse pp("remora");
+    std::string my_prob_name; pp.get("prob_name",my_prob_name);
+    std::string my_prob_name_ci = amrex::toLower(my_prob_name);
+
+    // Other problems start from no ice, as ROMS does
+    if (my_prob_name_ci == "seaicebox") {
+#include "Prob/REMORA_InitAnalyticSeaIce_SeaIceBox.H"
     }
 
     Gpu::streamSynchronize();

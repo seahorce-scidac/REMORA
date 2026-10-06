@@ -92,6 +92,14 @@ public:
         amrex::MultiFab& mf_cloud,
         amrex::MultiFab& mf_EminusP) override;
 
+    void init_analytic_seaice (
+        int lev, const amrex::Geometry& geom,
+        SolverChoice const& m_solverChoice,
+        REMORA const& remora,
+        amrex::MultiFab& mf_ice_r,
+        amrex::MultiFab& mf_ice_u,
+        amrex::MultiFab& mf_ice_v) override;
+
     void init_analytic_biology (
         int lev, const amrex::Geometry& geom,
         SolverChoice const& m_solverChoice,
