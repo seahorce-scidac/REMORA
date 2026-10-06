@@ -10,8 +10,8 @@ using namespace amrex;
  * @param[in   ] mf_Tair        air temperature [°C]
  * @param[in   ] mf_qair        specific humidity [kg/kg]
  * @param[in   ] mf_Pair        air pressure [mb]
- * @param[in   ] mf_srflx       shortwave radiation flux [W/m²]
- * @param[in   ] mf_longwave_down external longwave radiation flux [W/m²]
+ * @param[in   ] mf_srflx       shortwave radiation flux [W/m^2]
+ * @param[in   ] mf_longwave_down external longwave radiation flux [W/m^2]
  * @param[inout] mf_evap        evaporation rate
  * @param[  out] mf_sustr       u-direction surface momentum stress
  * @param[  out] mf_svstr       v-direction surface momentum stress
@@ -40,6 +40,21 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
     const DistributionMapping& dm = mf_cons->DistributionMap();
     MultiFab mf_Taux(ba, dm, 1, IntVect(NGROW,NGROW,0));
     MultiFab mf_Tauy(ba, dm, 1, IntVect(NGROW,NGROW,0));
+
+    // Sea ice: ROMS's ICE_BULK_FLUXES blocks. The ice state is read at linew
+    // (ROMS li_stp, without PerfectRST); what the ice model needs goes into its fields.
+    const bool with_ice = has_seaice();
+    const bool ice_thermo = with_ice && seaice_params.do_thermo;
+    const Real Cd_ai = seaice_params.Cd_ai;
+    const Real min_ai = seaice_params.min_ai;
+    const Real SnowDryRho = seaice_params.SnowDryRho;
+    const int li_stp = ice_lvl.linew;
+    const int cAice = REMORASeaIce::rcomp(REMORASeaIce::IceR::Aice, li_stp);
+    const int cHice = REMORASeaIce::rcomp(REMORASeaIce::IceR::Hice, li_stp);
+    const int cHsno = REMORASeaIce::rcomp(REMORASeaIce::IceR::Hsno, li_stp);
+    const int cHmel = REMORASeaIce::rcomp(REMORASeaIce::IceR::Hmel, li_stp);
+    using REMORASeaIce::IceFR;
+    using REMORASeaIce::IceFU;
 
     // temps: Taux, Tauy,
     for ( MFIter mfi(*mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
@@ -71,6 +86,15 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<const Real> const& EminusP = vec_EminusP[lev]->const_array(mfi);
         Array4<const Real> const& cloud_arr = vec_cloud[lev]->const_array(mfi);
 
+        Array4<const Real> si;
+        Array4<Real> fi, fiu, fiv;
+        if (with_ice) {
+            si  = vec_ice_si_r[lev]->const_array(mfi);
+            fi  = vec_ice_fi_r[lev]->array(mfi);
+            fiu = vec_ice_fi_u[lev]->array(mfi);
+            fiv = vec_ice_fi_v[lev]->array(mfi);
+        }
+
         Real Hscale = solverChoice.rho0 * Cp;
         Real Hscale2 = one / (solverChoice.rho0 * Cp);
         Real blk_ZQ = solverChoice.blk_ZQ;
@@ -98,7 +122,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real TairK = TairC + Real(273.16); // Air temperature [K]
             Real Hair = qair_arr(i,j,0);   // Specific humidity [kg/kg] or RH [fraction]
             Real RH = Hair;
-            Real srflux = srflx_arr(i,j,0); // Shortwave radiation flux [W/m²]
+            Real srflux = srflx_arr(i,j,0); // Shortwave radiation flux [W/m^2]
             Real cloud = cloud_arr(i,j,0);  // Cloud cover fraction [0-1]
 
             // Input bulk parametrization fields
@@ -331,6 +355,9 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                 delW=std::sqrt(wind_mag*wind_mag+Wgus*Wgus);
             }
 
+            // Wind speed with gustiness, for the air-ice stress
+            Real Wspeed=std::sqrt(wind_mag*wind_mag+Wgus*Wgus);
+
             // Compute turbulent sensible heat flux (W/m2), Hs.
             Real Hs=-blk_Cpa*rhoAir*Wstar*Tstar;
 
@@ -352,6 +379,12 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
 
             Real Hl=-Hlv*rhoAir*Wstar*Qstar;
 
+            // Subtract loss of heat associated with latent heat flux from ocean
+            // to melting snow (ROMS ICE_THERMO)
+            if (ice_thermo && rain(i,j,0) < zero) {
+                Hl += Real(3.347e5)*rain(i,j,0);
+            }
+
             // Compute Webb correction (Webb effect) to latent heat flux, Hlw.
             Real upvel=Real(-1.61)*Wstar*Qstar-
                         (one+Real(1.61)*Q)*Wstar*Tstar/TairK;
@@ -368,6 +401,115 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             cff=(rhoAir*Wstar*Wstar+Taur)/(wind_mag+eps);
             Taux(i,j,0)=cff*uwind(i,j,0) * mskr(i,j,0);
             Tauy(i,j,0)=cff*vwind(i,j,0) * mskr(i,j,0);
+
+            //=======================================================================
+            //  Sea ice: air-ice stress and the ice surface heat budget
+            //  (ROMS bulk_flux.F, ICE_MODEL && ICE_BULK_FLUXES blocks)
+            //=======================================================================
+            Real srflux_ocean = srflux;
+            if (with_ice) {
+                fi(i,j,0,IceFR::sustr_ai) = rhoAir*Cd_ai*uwind(i,j,0)*Wspeed;
+                fi(i,j,0,IceFR::svstr_ai) = rhoAir*Cd_ai*vwind(i,j,0)*Wspeed;
+
+                const Real ai = si(i,j,0,cAice);
+                Real Coef_Ice = zero;
+                Real RHS_Ice = zero;
+                Real Qai = zero;
+                if (ice_thermo) {
+                    // Shortwave reaching the ice, before the ocean's share is limited below
+                    const Real srflx_ice = srflux;
+                    fi(i,j,0,IceFR::srflx_ice) = srflx_ice;
+
+                    // Bulk transfer coefficients over ice (Tale Bakken Ulfsby, 2025)
+                    const Real Ch = Real(1.75e-3);
+                    const Real Ce = Real(1.75e-3);
+
+                    // Sensible heat flux over ice
+                    const Real TiceK = (ai > min_ai) ? fi(i,j,0,IceFR::Isst) + Real(273.16)
+                                                     : cons(i,j,N,Temp_comp) + Real(273.16);
+                    Real cff_i = rhoAir*blk_Cpa*Ch*delW;
+                    Real Qsh_i = cff_i*(TairK+Real(0.0098)*blk_ZT-TiceK);
+                    Coef_Ice += cff_i;
+                    RHS_Ice  += cff_i*(TairK+Real(0.0098)*blk_ZT);
+
+                    // Sensible heat carried by warm rain or cold snow onto the ice
+                    cff_i = wet_bulb*Real(2093.0);
+                    Qsh_i += std::abs(rain(i,j,0))*cff_i*
+                             (TiceK-TairC+(Qsea-Q)*Hlv/blk_Cpa);
+                    Coef_Ice -= std::abs(rain(i,j,0))*cff_i;
+                    RHS_Ice  += std::abs(rain(i,j,0))*cff_i*
+                                (-TairK+(Qsea-Q)*Hlv/blk_Cpa);
+
+                    // Latent heat flux over ice; saturation humidity over ice from
+                    // Parkinson and Washington (1979)
+                    const Real le_i = Real(2.834e6);
+                    const Real slp = Pair_arr(i,j,0)*Real(100.0);
+                    cff_i = Real(611.0)*std::pow(Real(10.0),Real(9.5)*(TiceK-Real(273.16))/(TiceK-Real(7.66)));
+                    const Real Qsati = Real(0.62197)*cff_i/(slp-(one-Real(0.62197))*cff_i);
+                    const Real dq_i = Q-Qsati;
+                    Real Qlh_i = rhoAir*Ce*delW*le_i*dq_i;
+
+                    // Latent heat gained from rain freezing on dry ice or snow
+                    if ((rain(i,j,0) > zero) && (si(i,j,0,cHmel) == zero)) {
+                        Qlh_i += Real(3.347e5)*rain(i,j,0);
+                    }
+                    RHS_Ice += Qlh_i;
+
+                    // Shortwave radiation absorbed by the ice
+                    const Real Qsw_i = (one-fi(i,j,0,IceFR::albedo_ice))*srflx_ice;
+                    RHS_Ice += Qsw_i;
+
+                    // Net longwave radiation from the ice
+                    cff_i = Q/(one+Q);
+                    const Real vap_p_i = slp*cff_i/(Real(0.62197)+cff_i);
+                    Real Qlw_i;
+                    if (have_external_longwave && longwave_is_net) {
+                        // ROMS without LONGWAVE or LONGWAVE_OUT: lrflx is the net longwave
+                        const Real cff3 = StefBo*emmiss*TairK*TairK*TairK;
+                        const Real Lnet = longwave_down_arr(i,j,0);
+                        Qlw_i = Lnet;
+                        Coef_Ice += Real(4.0)*cff3;
+                        RHS_Ice  += -Lnet-Real(4.0)*cff3*(TiceK-Real(2.0)*TairK);
+                    } else if (have_external_longwave && use_longwave_down) {
+                        // ROMS LONGWAVE_OUT: lrflx is the downwelling longwave
+                        const Real cff3 = StefBo*emmiss*TiceK*TiceK*TiceK;
+                        const Real cff4 = cff3*TiceK;
+                        const Real Ldown = longwave_down_arr(i,j,0);
+                        Qlw_i = -(Ldown-cff4);
+                        Coef_Ice += Real(4.0)*cff3;
+                        RHS_Ice  += Ldown+Real(3.0)*cff4;
+                    } else {
+                        // ROMS LONGWAVE (Berliand)
+                        const Real cff1 = Real(0.39)-Real(0.005)*std::sqrt(vap_p_i);
+                        const Real cff2 = one-Real(0.65)*cloud;
+                        const Real cff3 = StefBo*emmiss*TairK*TairK*TairK;
+                        const Real cff4 = cff3*TairK;
+                        Qlw_i = cff4*cff1*cff2+Real(4.0)*cff3*(TiceK-TairK);
+                        Coef_Ice += Real(4.0)*cff3;
+                        RHS_Ice  -= cff4*(cff1*cff2-Real(4.0));
+                    }
+
+                    // Net heat flux from ice to atmosphere, in Kelvin terms so that
+                    // ice_mk can solve for the surface temperature
+                    Qai = -Qsh_i-Qlh_i-Qsw_i+Qlw_i;
+                }
+                fi(i,j,0,IceFR::Qcon) = Coef_Ice;
+                fi(i,j,0,IceFR::Qrhs) = RHS_Ice;
+                fi(i,j,0,IceFR::Qnet_ai) = Qai;
+
+                // Limit the shortwave reaching the ocean by the ice cover alone
+                const Real cff1 = one/(ai+eps);
+                const Real ice_thick  = si(i,j,0,cHice)*cff1;
+                const Real snow_thick = si(i,j,0,cHsno)*cff1;
+                Real cff2 = (ice_thick <= Real(0.1)) ? ice_thick*Real(5.0)
+                                                     : Real(0.1)*(Real(5.0)+(ice_thick-Real(0.1)));
+                cff2 += snow_thick*Real(20.0);
+                srflux_ocean = (one-ai)*srflux + ai*srflux*std::exp(-cff2);
+
+                // Net precipitation; negative rain is frozen precipitation
+                fi(i,j,0,IceFR::snow) = (rain(i,j,0) >= zero) ? zero
+                                      : std::abs(rain(i,j,0))/SnowDryRho;
+            }
 
             //=======================================================================
             //  Compute surface net heat flux and surface wind stress.
@@ -402,8 +544,13 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             lhflx(i,j,0) = -LHeat*Hscale2;
             shflx(i,j,0) = -SHeat*Hscale2;
             // Note: srflx from NetCDF is in W/m^2, convert to degC m/s by multiplying by Hscale2
-            stflux(i,j,0,Temp_comp)=(srflux*Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
+            const Real stflux_temp = srflux_ocean*Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0);
+            stflux(i,j,0,Temp_comp) = stflux_temp * mskr(i,j,0);
             evap(i,j,0) = LHeat/(Hlv+eps) * mskr(i,j,0);
+            if (with_ice) {
+                fi(i,j,0,IceFR::Qnet_ao) = -stflux_temp*Hscale;   // W/m2, before masking as in ROMS
+                evap(i,j,0) *= (one-si(i,j,0,cAice));
+            }
             if (use_EminusP_from_input) {
                 // Use prescribed E-P directly
                 stflux(i,j,0,Salt_comp) = mskr(i,j,0) * EminusP(i,j,0);
@@ -415,9 +562,11 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Real cff_rho = Real(0.5) / solverChoice.rho0;
         ParallelFor(makeSlab(ubx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
             sustr(i,j,0) = cff_rho*(Taux(i-1,j,0) + Taux(i,j,0)) * msku(i,j,0);
+            if (with_ice) { fiu(i,j,0,IceFU::sustr_ao) = sustr(i,j,0); }
         });
         ParallelFor(makeSlab(vbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
             svstr(i,j,0) = cff_rho*(Tauy(i,j-1,0) + Tauy(i,j,0)) * mskv(i,j,0);
+            if (with_ice) { fiv(i,j,0,IceFU::sustr_ao) = svstr(i,j,0); }
         });
     }
 

@@ -133,6 +133,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/SeaIce/REMORA_SeaIce_bc.cpp
        ${SRC_DIR}/SeaIce/REMORA_SeaIce_init.cpp
        ${SRC_DIR}/SeaIce/REMORA_SeaIce_io.cpp
+       ${SRC_DIR}/SeaIce/REMORA_SeaIce_albedo.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_cons.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_xvel.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_yvel.cpp
