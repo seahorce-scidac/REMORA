@@ -2323,6 +2323,8 @@ REMORA::ReadParameters ()
     // much as every run.
     pp.queryAdd("check_cf_metrics", check_cf_metrics_flag);
     pp.queryAdd("check_cf_tol", check_cf_tol);
+    pp.queryAdd("check_plot_z", check_plot_z);
+    pp.queryAdd("check_plot_z_tol", check_plot_z_tol);
 
     // Advance and timeStepML form the fast step as dt / ndtfast, and set_weights sizes
     // the barotropic filter with the same number, so a non-positive value divides by zero

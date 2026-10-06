@@ -704,6 +704,8 @@ public:
 
     /** \brief check that fine cell edges sum to the coarse edge across an interface */
     void check_cf_metrics (int crse_lev);
+    void check_plot_nodal_z (const amrex::Vector<const amrex::MultiFab*>& nd,
+                             const amrex::Vector<amrex::Geometry>& g);
 
     /** \brief Set everything up for a step on a level */
     void setup_step(int lev, amrex::Real time, amrex::Real dt_lev);
@@ -1908,6 +1910,14 @@ private:
     int check_cf_metrics_flag = 0;
     /** \brief tolerance for the above */
     amrex::Real check_cf_tol = 1.e-12;
+
+    /** \brief check the nodal z a viewer rebuilds from the plotfile's Nu_nd set against
+     *         z_phys_nd on each level, and fine against coarse at coincident nodes */
+    int check_plot_z = 0;
+    /** \brief abort when the coarse-fine mismatch at interior nodes exceeds this; negative
+     *         (the default) only reports it, since where a finer level carries finer
+     *         bathymetry the two levels' bottoms legitimately differ */
+    amrex::Real check_plot_z_tol = -1.0;
 
     /** \brief how often each level regrids the higher levels of refinement (after a level advances that many time steps) */
     int regrid_int = 2;
