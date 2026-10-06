@@ -868,6 +868,22 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("rain").put_attr("coordinates","x_rho y_rho ocean_time");
             ncf.var("rain").put_attr("field","rain, scalar, series");
         }
+        // With sea ice, the surface heat and salt fluxes the ocean actually takes
+        // (vec_stflx), which the ice overwrites and adds to: ROMS's shflux and ssflux.
+        // REMORA's own ssflux is the bulk-flux E-P, so the salt flux gets another name.
+        if (has_seaice()) {
+            ncf.def_var("shflux", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("shflux").put_attr("long_name","surface net heat flux applied to the ocean");
+            ncf.var("shflux").put_attr("units","watt meter-2");
+            ncf.var("shflux").put_attr("time","ocean_time");
+            ncf.var("shflux").put_attr("coordinates","x_rho y_rho ocean_time");
+            ncf.def_var("stflx_salt", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("stflx_salt").put_attr("long_name","surface net salt flux applied to the ocean");
+            ncf.var("stflx_salt").put_attr("units","meter second-1");
+            ncf.var("stflx_salt").put_attr("time","ocean_time");
+            ncf.var("stflx_salt").put_attr("coordinates","x_rho y_rho ocean_time");
+        }
+
         // Sea ice: every state variable and the ice fields ROMS can write, under
         // their ROMS (varinfo.yaml) names
         for (const auto& nm : ice_output_names()) {
@@ -1232,6 +1248,20 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 auto nc_plot_var = collector.var(ncf, "mask_rho");
                 nc_plot_var.put(tmp_mask_rho.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
                         local_nx });
+            }
+
+            if (has_seaice()) {
+                FArrayBox tmp;
+                tmp.resize(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                tmp.template copy<RunOn::Device>((*vec_stflx[lev])[mfi.index()], Temp_comp, 0, 1);
+                tmp.mult<RunOn::Device>(solverChoice.rho0 * Cp);
+                Gpu::streamSynchronize();
+                collector.var(ncf, "shflux").put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x },
+                                                                { local_nt,       local_ny,       local_nx });
+                tmp.template copy<RunOn::Device>((*vec_stflx[lev])[mfi.index()], Salt_comp, 0, 1);
+                Gpu::streamSynchronize();
+                collector.var(ncf, "stflx_salt").put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x },
+                                                                    { local_nt,       local_ny,       local_nx });
             }
 
             for (const auto& nm : ice_output_names()) {

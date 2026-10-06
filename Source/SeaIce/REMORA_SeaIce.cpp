@@ -65,6 +65,7 @@ void SeaIceParams::init_params ()
     pp.queryAdd("advect_upwind", advect_upwind);
     pp.queryAdd("mom_bulk", mom_bulk);
     pp.queryAdd("convsnow", convsnow);
+    pp.queryAdd("copy_old_to_new", copy_old_to_new);
 
     std::string albedo_string = "ec92";
     pp.queryAdd("albedo_type", albedo_string);

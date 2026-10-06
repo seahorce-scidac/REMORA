@@ -253,6 +253,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     }
 
+    // Sea ice: ROMS main3d calls seaice here, after bulk_flux and set_vbc. It sets
+    // the surface stress and heat flux and adds to the salt flux the ocean uses below.
+    if (has_seaice()) {
+        advance_seaice(lev, dt_lev);
+    }
+
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& bustr = mf_bustr->array(mfi);
