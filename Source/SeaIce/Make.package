@@ -7,3 +7,4 @@ CEXE_sources += REMORA_SeaIce_albedo.cpp
 CEXE_sources += REMORA_SeaIce_thermo.cpp
 CEXE_sources += REMORA_SeaIce_advance.cpp
 CEXE_sources += REMORA_SeaIce_evp.cpp
+CEXE_sources += REMORA_SeaIce_advect.cpp

@@ -865,6 +865,12 @@ public:
     void ice_evp_sig (int lev, amrex::Real dtevp);
     /** \brief One EVP substep of the ice momentum equations (ROMS ice_elastic) */
     void ice_elastic (int lev, int iEVP, amrex::Real dtevp);
+    /** \brief Ice enthalpy on both time levels (ROMS ice_enthalpy) */
+    void ice_enthalpy (int lev);
+    /** \brief Advect one rho-point ice component from cold to cnew (ROMS ice_mpdata_tile) */
+    void ice_mpdata (int lev, int cold, int cnew, amrex::Real dt_lev);
+    /** \brief Advect the ice tracers (ROMS ice_advect, ice_smolar.h) */
+    void ice_advect (int lev, amrex::Real dt_lev);
     /** \brief Where an ice output variable lives: its MultiFab, component, and staggering
      *         (0 rho, 1 u, 2 v). False if the name is not an ice variable. State variables
      *         are taken at time level liunw, which is what ROMS writes. */
