@@ -221,8 +221,8 @@ REMORA::gls_prestep (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     }
 
     for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, t_old[lev], *vec_tke[lev], GetVecOfPtrs(vec_tke), zvel_bc(), BdyVars::null, icomp, false, false);
-        FillPatch(lev, t_old[lev], *vec_gls[lev], GetVecOfPtrs(vec_gls), zvel_bc(), BdyVars::null, icomp, false, false);
+        FillPatch(lev, t_old[lev], *vec_tke[lev], GetVecOfPtrs(vec_tke), tke_bc(), BdyVars::null, icomp, false, false);
+        FillPatch(lev, t_old[lev], *vec_gls[lev], GetVecOfPtrs(vec_gls), tke_bc(), BdyVars::null, icomp, false, false);
     }
 }
 
@@ -918,8 +918,8 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     }
 
     for (int icomp=0; icomp<3; icomp++) {
-        FillPatch(lev, t_old[lev], *mf_tke, GetVecOfPtrs(vec_tke), zvel_bc(), BdyVars::null, icomp, false, false);
-        FillPatch(lev, t_old[lev], *mf_gls, GetVecOfPtrs(vec_gls), zvel_bc(), BdyVars::null, icomp, false, false);
+        FillPatch(lev, t_old[lev], *mf_tke, GetVecOfPtrs(vec_tke), tke_bc(), BdyVars::null, icomp, false, false);
+        FillPatch(lev, t_old[lev], *mf_gls, GetVecOfPtrs(vec_gls), tke_bc(), BdyVars::null, icomp, false, false);
     }
     for (int icomp=0; icomp<NAT; icomp++) {
         FillPatch(lev, t_old[lev], *mf_Akt, GetVecOfPtrs(vec_Akt), zvel_bc(), BdyVars::null, icomp, false, false);
