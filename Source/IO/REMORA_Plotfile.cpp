@@ -135,23 +135,6 @@ REMORA::WritePlotFile (int istep_for_plot)
       }
     }
 
-    // The fills and the land masking below work on the state itself. Keep a copy of what
-    // they touch and put it back once the output is written: ROMS masks only its output
-    // buffers, and the next step reads the ghost and land values the masking overwrites.
-    auto output_touched = [&] (int lev) {
-        return Vector<MultiFab*>{cons_new[lev], xvel_new[lev], yvel_new[lev], zvel_new[lev],
-                                 vec_visc2_r[lev].get(), vec_diff2[lev].get(),
-                                 vec_Zt_avg1[lev].get(), vec_ubar[lev].get(), vec_vbar[lev].get()};
-    };
-    Vector<Vector<MultiFab>> saved_state(finest_level+1);
-    for (int lev = 0; lev <= finest_level; ++lev) {
-        for (MultiFab* mf : output_touched(lev)) {
-            saved_state[lev].emplace_back(mf->boxArray(), mf->DistributionMap(), mf->nComp(),
-                                          mf->nGrowVect());
-            MultiFab::Copy(saved_state[lev].back(), *mf, 0, 0, mf->nComp(), mf->nGrowVect());
-        }
-    }
-
     // We fillpatch here because some of the derived quantities require derivatives
     //     which require ghost cells to be filled. Don't fill the boundary, though.
     for (int lev = 0; lev <= finest_level; ++lev) {
@@ -734,13 +717,16 @@ REMORA::WritePlotFile (int istep_for_plot)
         }
     } // end if plotfile_type == netcdf
 #endif
-    // Put back the state the fills and the masking changed
-    for (int lev = 0; lev <= finest_level; ++lev) {
-        Vector<MultiFab*> touched = output_touched(lev);
-        for (int i = 0; i < touched.size(); ++i) {
-            MultiFab::Copy(*touched[i], saved_state[lev][i], 0, 0, touched[i]->nComp(),
-                           touched[i]->nGrowVect());
+    if (plotfile_type == PlotfileType::amrex) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            mask_arrays_for_write(lev, zero, plotfile_fill_value);
         }
+    } else if (plotfile_type == PlotfileType::netcdf) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            mask_arrays_for_write(lev, zero, netcdf_fill_value);
+        }
+    } else {
+        amrex::Abort("Don't know this plotfile type");
     }
 }
 
