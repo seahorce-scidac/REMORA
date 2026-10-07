@@ -448,9 +448,9 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
                                (solverChoice.mask_type == MaskType::none);
         const MultiFab* mskr3d_for_tag = unguarded ? nullptr : vec_mskr3d[levc].get();
 
-        // time counts from remora.start_time, but the window is on the model clock. Checked
-        // here, after the field is filled, so a misnamed field still aborts outside it.
-        if (!ref_tags[j].ActiveAt(model_time(time))) {
+        // time counts from remora.start_time; a window may also be given on the model clock.
+        // Checked here, after the field is filled, so a misnamed field still aborts outside it.
+        if (!ref_tags[j].ActiveAt(static_cast<double>(time), model_time(time))) {
             continue;
         }
 
@@ -702,12 +702,22 @@ REMORA::refinement_criteria_setup ()
             if (realbox.ok()) {
                 info.SetRealBox(realbox);
             }
-            // The window is on the model clock. It stays out of info, whose times are Real
-            // and are compared against elapsed time; ErrorEst applies it instead.
-            double ref_min_time = std::numeric_limits<double>::lowest();
-            double ref_max_time = std::numeric_limits<double>::max();
-            ppr.query("start_time",ref_min_time);
-            ppr.query("end_time",ref_max_time);
+            // start_time and end_time are seconds since remora.start_time, as in ERF;
+            // start_total_time and end_total_time give the same bounds on the model clock.
+            // They stay out of info, whose times are Real; ErrorEst applies them instead.
+            double ref_min_elapsed = std::numeric_limits<double>::lowest();
+            double ref_max_elapsed = std::numeric_limits<double>::max();
+            double ref_min_total   = std::numeric_limits<double>::lowest();
+            double ref_max_total   = std::numeric_limits<double>::max();
+            const bool has_start       = ppr.query("start_time", ref_min_elapsed);
+            const bool has_end         = ppr.query("end_time", ref_max_elapsed);
+            const bool has_start_total = ppr.query("start_total_time", ref_min_total);
+            const bool has_end_total   = ppr.query("end_total_time", ref_max_total);
+            if ((has_start && has_start_total) || (has_end && has_end_total)) {
+                Abort(ref_prefix + ": give each bound of the time window once, either as"
+                      " elapsed time (start_time, end_time) or as total time on the model"
+                      " clock (start_total_time, end_total_time).");
+            }
             if (ppr.countval("max_level") > 0) {
                 int ref_max_level; ppr.get("max_level",ref_max_level);
                 info.SetMaxLevel(ref_max_level);
@@ -740,7 +750,8 @@ REMORA::refinement_criteria_setup ()
             } else {
                 Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
             }
-            ref_tags.back().SetModelTimeWindow(ref_min_time, ref_max_time);
+            ref_tags.back().SetTimeWindow(ref_min_elapsed, ref_max_elapsed,
+                                          ref_min_total, ref_max_total);
         } // loop over criteria
     } // if max_level > 0
 }

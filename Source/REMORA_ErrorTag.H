@@ -39,21 +39,25 @@ public:
     using amrex::AMRErrorTag::Field;
 
     /**
-     * Restrict this criterion to model times in [min_time, max_time], in seconds on the
-     * model clock. Held here in double rather than in AMRErrorTagInfo, whose Real would round
-     * a calendar-scale time in a single-precision build, and whose times would have to be
-     * elapsed ones, fixed against whatever remora.start_time was when the inputs were read.
+     * Restrict this criterion to a time window, given as elapsed time (seconds since
+     * remora.start_time), as total time (seconds on the model clock), or both, in which case
+     * both must hold. Held here in double rather than in AMRErrorTagInfo, whose Real would
+     * round a calendar-scale total time in a single-precision build.
      */
-    void SetModelTimeWindow (double min_time, double max_time) noexcept
+    void SetTimeWindow (double min_elapsed, double max_elapsed,
+                        double min_total, double max_total) noexcept
     {
-        m_min_model_time = min_time;
-        m_max_model_time = max_time;
+        m_min_elapsed = min_elapsed;
+        m_max_elapsed = max_elapsed;
+        m_min_total   = min_total;
+        m_max_total   = max_total;
     }
 
-    //! Whether this criterion applies at model time t, in seconds on the model clock.
-    [[nodiscard]] bool ActiveAt (double t) const noexcept
+    //! Whether this criterion applies at the given elapsed and total times.
+    [[nodiscard]] bool ActiveAt (double elapsed, double total) const noexcept
     {
-        return t >= m_min_model_time && t <= m_max_model_time;
+        return elapsed >= m_min_elapsed && elapsed <= m_max_elapsed &&
+               total   >= m_min_total   && total   <= m_max_total;
     }
 
     /**
@@ -99,8 +103,10 @@ public:
                      const amrex::IntVect&  mask_hi = amrex::IntVect::TheZeroVector()) const;
 
 private:
-    double m_min_model_time = std::numeric_limits<double>::lowest();
-    double m_max_model_time = std::numeric_limits<double>::max();
+    double m_min_elapsed = std::numeric_limits<double>::lowest();
+    double m_max_elapsed = std::numeric_limits<double>::max();
+    double m_min_total   = std::numeric_limits<double>::lowest();
+    double m_max_total   = std::numeric_limits<double>::max();
 };
 
 #endif

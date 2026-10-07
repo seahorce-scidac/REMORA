@@ -181,9 +181,13 @@ The example below adds three user-named criteria:
             remora.lo_vort.in_box_lo = 25000 60000          # This is not a limit on the refinement region, rather, it specifies
             remora.lo_vort.in_box_hi = 50000 80000          # to refine the box AND apply the field test over the whole domain
 
-The ``start_time`` and ``end_time`` of an indicator are times on the model clock,
-the same clock as ``remora.start_time`` and ``remora.stop_time`` (see
-:ref:`calendar`), not times since the start of the run.
+The ``start_time`` and ``end_time`` of an indicator are in seconds since the start
+of the run, that is, since ``remora.start_time``, as in ERF. To give a bound as a
+total time on the model clock instead -- the clock ``remora.start_time`` and
+``remora.stop_time`` are on (see :ref:`calendar`) -- use ``start_total_time`` or
+``end_total_time``. Each bound may be given in only one of the two forms, but the
+two can be mixed: ``start_time`` with ``end_total_time`` is allowed. With the
+default ``remora.start_time = 0`` the two forms coincide.
 
 Here, ``temp`` is the name of a state variable and ``vorticity`` is a derived
 variable. Valid field options for refinement are any cell-centered tracer this
