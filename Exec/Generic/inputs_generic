@@ -102,19 +102,19 @@ remora.bdy_time_varname = <UNKNOWN_DEFAULT>
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_u_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2464
+# source: Source/REMORA.cpp:2466
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_ubar_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2463
+# source: Source/REMORA.cpp:2465
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_v_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2465
+# source: Source/REMORA.cpp:2467
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_vbar_time_varname = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2466
+# source: Source/REMORA.cpp:2468
 # type=Vector<std::string>; method=queryAdd
 remora.bdy_zeta_time_varname = <UNKNOWN_DEFAULT>
 
@@ -170,7 +170,7 @@ remora.cf_avgdown_bar = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 remora.cf_avgdown_perimeter = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2314
+# source: Source/REMORA.cpp:2316
 # type=int; method=queryAdd
 remora.cf_avgdown_stencil = <UNKNOWN_DEFAULT>
 
@@ -182,7 +182,7 @@ remora.cf_fill_all_kcomp = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 remora.cf_fill_vel_after = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2313
+# source: Source/REMORA.cpp:2315
 # type=int; method=queryAdd
 remora.cf_flux_pc = <UNKNOWN_DEFAULT>
 
@@ -190,7 +190,7 @@ remora.cf_flux_pc = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 remora.cf_impose_flux = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2315
+# source: Source/REMORA.cpp:2317
 # type=int; method=queryAdd
 remora.cf_print_iface = <UNKNOWN_DEFAULT>
 
@@ -218,15 +218,15 @@ remora.check_cf_metrics = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.check_cf_tol = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2196
+# source: Source/REMORA.cpp:2198
 # type=string; method=queryAdd
 remora.check_file = chk
 
-# source: Source/REMORA.cpp:2197
+# source: Source/REMORA.cpp:2199
 # type=int; method=queryAdd
 remora.check_int = -57600
 
-# source: Source/REMORA.cpp:2198
+# source: Source/REMORA.cpp:2200
 # type=Real; method=queryAdd
 remora.check_int_time = <UNKNOWN_DEFAULT>
 
@@ -242,7 +242,7 @@ remora.check_plot_z = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 remora.check_plot_z_tol = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2369
+# source: Source/REMORA.cpp:2371
 # type=bool; method=queryAdd
 remora.chunk_history_file = <UNKNOWN_DEFAULT>
 
@@ -282,7 +282,7 @@ remora.coriolis_type = beta_plane
 # type=string; method=queryAdd
 remora.coupling_type = TwoWay
 
-# source: Source/REMORA.cpp:2215
+# source: Source/REMORA.cpp:2217
 # type=Vector<std::string>; method=queryarr
 remora.data_log = <UNKNOWN_DEFAULT>
 
@@ -338,207 +338,207 @@ remora.eminusp_value = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.eos_type = linear
 
-# source: Source/REMORA.cpp:2199
+# source: Source/REMORA.cpp:2201
 # type=bool; method=queryAdd
 remora.expand_plotvars_to_unif_rr = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:300
+# source: Source/Biology/REMORA_Biology.cpp:301
 # type=Real; method=queryAdd
 remora.fennel.AttChl = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:299
+# source: Source/Biology/REMORA_Biology.cpp:300
 # type=Real; method=queryAdd
 remora.fennel.AttSW = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:298
+# source: Source/Biology/REMORA_Biology.cpp:299
 # type=int; method=queryAdd
 remora.fennel.BioIter = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:310
+# source: Source/Biology/REMORA_Biology.cpp:311
 # type=Real; method=queryAdd
 remora.fennel.Chl2C_m = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:311
+# source: Source/Biology/REMORA_Biology.cpp:312
 # type=Real; method=queryAdd
 remora.fennel.ChlMin = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:327
+# source: Source/Biology/REMORA_Biology.cpp:328
 # type=Real; method=queryAdd
 remora.fennel.CoagR = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:304
+# source: Source/Biology/REMORA_Biology.cpp:305
 # type=Real; method=queryAdd
 remora.fennel.D_p5NH4 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:303
+# source: Source/Biology/REMORA_Biology.cpp:304
 # type=Real; method=queryAdd
 remora.fennel.I_thNH4 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:307
+# source: Source/Biology/REMORA_Biology.cpp:308
 # type=Real; method=queryAdd
 remora.fennel.K_NH4 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:306
+# source: Source/Biology/REMORA_Biology.cpp:307
 # type=Real; method=queryAdd
 remora.fennel.K_NO3 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:308
+# source: Source/Biology/REMORA_Biology.cpp:309
 # type=Real; method=queryAdd
 remora.fennel.K_PO4 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:309
+# source: Source/Biology/REMORA_Biology.cpp:310
 # type=Real; method=queryAdd
 remora.fennel.K_Phy = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:326
+# source: Source/Biology/REMORA_Biology.cpp:327
 # type=Real; method=queryAdd
 remora.fennel.LDeRRC = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:325
+# source: Source/Biology/REMORA_Biology.cpp:326
 # type=Real; method=queryAdd
 remora.fennel.LDeRRN = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:305
+# source: Source/Biology/REMORA_Biology.cpp:306
 # type=Real; method=queryAdd
 remora.fennel.NitriR = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:301
+# source: Source/Biology/REMORA_Biology.cpp:302
 # type=Real; method=queryAdd
 remora.fennel.PARfrac = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:312
+# source: Source/Biology/REMORA_Biology.cpp:313
 # type=Real; method=queryAdd
 remora.fennel.PhyCN = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:314
+# source: Source/Biology/REMORA_Biology.cpp:315
 # type=Real; method=queryAdd
 remora.fennel.PhyIP = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:315
+# source: Source/Biology/REMORA_Biology.cpp:316
 # type=Real; method=queryAdd
 remora.fennel.PhyIS = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:317
+# source: Source/Biology/REMORA_Biology.cpp:318
 # type=Real; method=queryAdd
 remora.fennel.PhyMR = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:316
+# source: Source/Biology/REMORA_Biology.cpp:317
 # type=Real; method=queryAdd
 remora.fennel.PhyMin = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:331
+# source: Source/Biology/REMORA_Biology.cpp:332
 # type=Real; method=queryAdd
 remora.fennel.RDeRRC = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:330
+# source: Source/Biology/REMORA_Biology.cpp:331
 # type=Real; method=queryAdd
 remora.fennel.RDeRRN = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:313
+# source: Source/Biology/REMORA_Biology.cpp:314
 # type=Real; method=queryAdd
 remora.fennel.R_P2N = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:329
+# source: Source/Biology/REMORA_Biology.cpp:330
 # type=Real; method=queryAdd
 remora.fennel.SDeRRC = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:328
+# source: Source/Biology/REMORA_Biology.cpp:329
 # type=Real; method=queryAdd
 remora.fennel.SDeRRN = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:302
+# source: Source/Biology/REMORA_Biology.cpp:303
 # type=Real; method=queryAdd
 remora.fennel.Vp0 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:318
+# source: Source/Biology/REMORA_Biology.cpp:319
 # type=Real; method=queryAdd
 remora.fennel.ZooAE_N = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:320
+# source: Source/Biology/REMORA_Biology.cpp:321
 # type=Real; method=queryAdd
 remora.fennel.ZooBM = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:319
+# source: Source/Biology/REMORA_Biology.cpp:320
 # type=Real; method=queryAdd
 remora.fennel.ZooCN = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:321
+# source: Source/Biology/REMORA_Biology.cpp:322
 # type=Real; method=queryAdd
 remora.fennel.ZooER = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:322
+# source: Source/Biology/REMORA_Biology.cpp:323
 # type=Real; method=queryAdd
 remora.fennel.ZooGR = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:324
+# source: Source/Biology/REMORA_Biology.cpp:325
 # type=Real; method=queryAdd
 remora.fennel.ZooMR = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:323
+# source: Source/Biology/REMORA_Biology.cpp:324
 # type=Real; method=queryAdd
 remora.fennel.ZooMin = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:341
+# source: Source/Biology/REMORA_Biology.cpp:342
 # type=bool; method=queryAdd
 remora.fennel.bio_sediment = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:337
+# source: Source/Biology/REMORA_Biology.cpp:338
 # type=bool; method=queryAdd
 remora.fennel.carbon = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:368
+# source: Source/Biology/REMORA_Biology.cpp:369
 # type=string; method=queryAdd
 remora.fennel.co2_schmidt = wanninkhof1992
 
-# source: Source/Biology/REMORA_Biology.cpp:340
+# source: Source/Biology/REMORA_Biology.cpp:341
 # type=bool; method=queryAdd
 remora.fennel.denitrification = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:339
+# source: Source/Biology/REMORA_Biology.cpp:340
 # type=Array4<Real>; method=queryAdd
 remora.fennel.odu = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:338
+# source: Source/Biology/REMORA_Biology.cpp:339
 # type=bool; method=queryAdd
 remora.fennel.oxygen = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:380
+# source: Source/Biology/REMORA_Biology.cpp:381
 # type=string; method=queryAdd
 remora.fennel.oxygen_schmidt = wanninkhof1992
 
-# source: Source/Biology/REMORA_Biology.cpp:335
+# source: Source/Biology/REMORA_Biology.cpp:336
 # type=Real; method=queryAdd
 remora.fennel.pCO2air = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:354
+# source: Source/Biology/REMORA_Biology.cpp:355
 # type=string; method=queryAdd
 remora.fennel.pco2air_type = constant
 
-# source: Source/Biology/REMORA_Biology.cpp:336
+# source: Source/Biology/REMORA_Biology.cpp:337
 # type=Array4<Real>; method=queryAdd
 remora.fennel.po4 = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:342
+# source: Source/Biology/REMORA_Biology.cpp:343
 # type=bool; method=queryAdd
 remora.fennel.river_don = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:343
+# source: Source/Biology/REMORA_Biology.cpp:344
 # type=bool; method=queryAdd
 remora.fennel.talk_nonconserv = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:333
+# source: Source/Biology/REMORA_Biology.cpp:334
 # type=Real; method=queryAdd
 remora.fennel.wLDet = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:332
+# source: Source/Biology/REMORA_Biology.cpp:333
 # type=Real; method=queryAdd
 remora.fennel.wPhy = <UNKNOWN_DEFAULT>
 
-# source: Source/Biology/REMORA_Biology.cpp:334
+# source: Source/Biology/REMORA_Biology.cpp:335
 # type=Real; method=queryAdd
 remora.fennel.wSDet = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2223
+# source: Source/REMORA.cpp:2225
 # type=int; method=queryAdd
 remora.file_min_digits = 5
 
@@ -754,7 +754,7 @@ remora.nc_river_file = "idRiv_riv_v0.2_classic64.nc"
 # type=int; method=queryAdd
 remora.ndtfast = 0
 
-# source: Source/REMORA.cpp:2201
+# source: Source/REMORA.cpp:2203
 # type=Real; method=query
 remora.netcdf_fill_value = <UNKNOWN_DEFAULT>
 
@@ -774,37 +774,41 @@ remora.omp_tile_size = 8 8 1024000
 # type=bool; method=queryAdd
 remora.output_forcing = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2355
+# source: Source/REMORA.cpp:2357
 # type=string; method=queryAdd
 remora.plot_file = plt
 
-# source: Source/REMORA.cpp:2356
+# source: Source/REMORA.cpp:2358
 # type=int; method=queryAdd
 remora.plot_int = 100
 
-# source: Source/REMORA.cpp:2357
+# source: Source/REMORA.cpp:2359
 # type=Real; method=queryAdd
 remora.plot_int_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2359
+# source: Source/REMORA.cpp:2361
 # type=bool; method=query
 remora.plot_nodal_data = true
 
-# source: Source/REMORA.cpp:2358
+# source: Source/REMORA.cpp:2360
 # type=bool; method=query
 remora.plot_staggered_vels = false
 
-# source: Source/REMORA.cpp:2200
+# source: Source/REMORA.cpp:2202
 # type=Real; method=query
 remora.plotfile_fill_value = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2362
+# source: Source/REMORA.cpp:2364
 # type=string; method=queryAdd
 remora.plotfile_type = amrex
 
 # Flat-bottom depth for the traditional dogbone. Settable so a run can be matched to a ROMS grid file with a different h; set remora.prob_lo's z to -depth to match.
 # type=Real; method=query
 remora.prob.depth = <UNKNOWN_DEFAULT>
+
+# A ROMS closed basin has land on its boundary ring of rho points, next to interior water. mask_ring makes the grow cells outside the non-periodic domain edges land, so the wall boundary conditions meet land beside water.
+# type=bool; method=query
+remora.prob.mask_ring = false
 
 # source: Source/Prob/REMORA_InitAnalyticMasks_DogboneAnalytic.H:18
 # type=Real; method=query
@@ -886,59 +890,59 @@ remora.rdrag = 0.0
 # type=Real; method=queryAdd
 remora.rdrag2 = 3.0e-3
 
-# source: Source/REMORA_Tagging.cpp:491
+# source: Source/REMORA_Tagging.cpp:497
 # type=Vector<std::string>; method=queryarr
 remora.refinement_indicators = bx1
 
-# source: Source/REMORA_Tagging.cpp:729
+# source: Source/REMORA_Tagging.cpp:733
 # type=return; method=getarr
 remora.refinement_indicators_.adjacent_difference_greater = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:704
-# type=Real; method=get
-remora.refinement_indicators_.end_time = <REQUIRED>
+# The window is on the model clock. It stays out of info, whose times are Real and are compared against elapsed time; ErrorEst applies it instead.
+# type=Real; method=query
+remora.refinement_indicators_.end_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA_Tagging.cpp:716
+# source: Source/REMORA_Tagging.cpp:720
 # type=string; method=get
 remora.refinement_indicators_.field_name = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:528
+# source: Source/REMORA_Tagging.cpp:534
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:585
+# source: Source/REMORA_Tagging.cpp:591
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi_indices = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:662
+# source: Source/REMORA_Tagging.cpp:668
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi_indices_crse = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:527
+# source: Source/REMORA_Tagging.cpp:533
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:584
+# source: Source/REMORA_Tagging.cpp:590
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo_indices = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:661
+# source: Source/REMORA_Tagging.cpp:667
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo_indices_crse = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:524
+# source: Source/REMORA_Tagging.cpp:530
 # type=int; method=get
 remora.refinement_indicators_.max_level = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:700
-# type=Real; method=get
-remora.refinement_indicators_.start_time = <REQUIRED>
+# The window is on the model clock. It stays out of info, whose times are Real and are compared against elapsed time; ErrorEst applies it instead.
+# type=Real; method=query
+remora.refinement_indicators_.start_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA_Tagging.cpp:715
+# source: Source/REMORA_Tagging.cpp:719
 # type=return; method=getarr
 remora.refinement_indicators_.value_greater = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:722
+# source: Source/REMORA_Tagging.cpp:726
 # type=return; method=getarr
 remora.refinement_indicators_.value_less = <REQUIRED>
 
@@ -946,7 +950,7 @@ remora.refinement_indicators_.value_less = <REQUIRED>
 # type=int; method=queryAdd
 remora.reflux_clamp = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2202
+# source: Source/REMORA.cpp:2204
 # type=string; method=queryAdd
 remora.restart = <UNKNOWN_DEFAULT>
 
@@ -970,7 +974,7 @@ remora.smflux_type = analytic
 # type=Real; method=queryAdd
 remora.start_time = <UNKNOWN_DEFAULT>
 
-# source: Source/REMORA.cpp:2370
+# source: Source/REMORA.cpp:2372
 # type=int; method=queryAdd
 remora.steps_per_history_file = <UNKNOWN_DEFAULT>
 
@@ -982,7 +986,7 @@ remora.stop_time = 30000.0
 # type=int; method=queryAdd
 remora.sum_interval = -1
 
-# source: Source/REMORA.cpp:2222
+# source: Source/REMORA.cpp:2224
 # type=Real; method=queryAdd
 remora.sum_period = <UNKNOWN_DEFAULT>
 
@@ -1086,7 +1090,7 @@ remora.vwind = <UNKNOWN_DEFAULT>
 # type=string; method=queryAdd
 remora.wind_type = analytic
 
-# source: Source/REMORA.cpp:2368
+# source: Source/REMORA.cpp:2370
 # type=bool; method=queryAdd
 remora.write_history_file = true
 
