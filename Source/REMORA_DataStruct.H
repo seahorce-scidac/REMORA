@@ -813,7 +813,6 @@ struct SolverChoice {
         amrex::Print() << "use_coriolis          : " << use_coriolis << std::endl;
         amrex::Print() << "use_prestep           : " << use_prestep << std::endl;
         amrex::Print() << "use_uv3dmix           : " << use_uv3dmix << std::endl;
-        amrex::Print() << "spatial_order         : " << spatial_order << std::endl;
 
         if (ic_type == IC_Type::analytic) {
             amrex::Print() << "Using analytic initial onditions" << std::endl;
@@ -1026,9 +1025,6 @@ struct SolverChoice {
     amrex::Real longwave_rad = zero;
     // Prescribed evaporation minus precipitation
     amrex::Real EminusP = zero;
-
-    // Spatial discretization
-    int         spatial_order = 2;
 
     // Horizontal mixing parameters
     amrex::Real visc2 = zero;

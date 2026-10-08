@@ -2078,34 +2078,6 @@ private:
     /** \brief Mask that zeroes out values on a coarse level underlying grids on the next finest level */
     amrex::MultiFab fine_mask;
 
-    /** \brief Helper function to determine number of ghost cells */
-    AMREX_FORCE_INLINE
-    int
-    ComputeGhostCells(const int& spatial_order) {
-        int nGhostCells = 0;
-        switch (spatial_order) {
-            case 2:
-                nGhostCells = 2; // We need this many to compute the eddy viscosity in the ghost cells
-                break;
-            case 3:
-                nGhostCells = 2;
-                break;
-            case 4:
-                nGhostCells = 2;
-                break;
-            case 5:
-                nGhostCells = 3;
-                break;
-            case 6:
-                nGhostCells = 3;
-                break;
-            default:
-                amrex::Error("Must specify spatial order to be 2,3,4,5 or 6");
-        }
-
-        return nGhostCells;
-    }
-
     /** \brief Helper function for IO stream */
     AMREX_FORCE_INLINE
     std::ostream&
