@@ -846,6 +846,11 @@ void REMORA::init_bcs ()
         }
     }
 
+    // tke and gls take w's boundary types, extrapolating at every side, but under a type of
+    // their own: ROMS masks their boundary values (tkebc) and not those of w (bc_w3d), and
+    // impose_zvel_bcs tells the two apart by it.
+    domain_bcs_type[tke_bc_idx] = domain_bcs_type[zvel_bc_idx];
+
 
 #ifdef AMREX_USE_GPU
     Gpu::htod_memcpy
