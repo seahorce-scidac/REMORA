@@ -174,19 +174,11 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
 
-#if (NGROW==2)
-    int ngrow_state   = ComputeGhostCells(solverChoice.spatial_order)+1;
-    int ngrow_vels    = ComputeGhostCells(solverChoice.spatial_order)+1;
-    int ngrow_zeta    = ComputeGhostCells(solverChoice.spatial_order)+1;
-    int ngrow_h       = ComputeGhostCells(solverChoice.spatial_order)+1;
-    int ngrow_velbar  = ComputeGhostCells(solverChoice.spatial_order);
-#else
-    int ngrow_state   = ComputeGhostCells(solverChoice.spatial_order)+2;
-    int ngrow_vels    = ComputeGhostCells(solverChoice.spatial_order)+2;
-    int ngrow_zeta    = ComputeGhostCells(solverChoice.spatial_order)+2;
-    int ngrow_h       = ComputeGhostCells(solverChoice.spatial_order)+2;
-    int ngrow_velbar  = ComputeGhostCells(solverChoice.spatial_order)+1;
-#endif
+    int ngrow_state   = 3;
+    int ngrow_vels    = 3;
+    int ngrow_zeta    = 3;
+    int ngrow_h       = 3;
+    int ngrow_velbar  = 2;
 
     MultiFab tmp_cons_new(ba, dm, ncons, ngrow_state);
     MultiFab tmp_cons_old(ba, dm, ncons, ngrow_state);
@@ -357,15 +349,8 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     amrex::Print() << "Making level " << lev << " from scratch" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
 
-    // The number of ghost cells for density must be 1 greater than that for velocity
-    //     so that we can go back in forth between velocity and momentum on all faces
-#if NGROW==2
-    int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+1;
-    int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+1;
-#else
-    int ngrow_state = ComputeGhostCells(solverChoice.spatial_order)+2;
-    int ngrow_vels  = ComputeGhostCells(solverChoice.spatial_order)+2;
-#endif
+    int ngrow_state = 3;
+    int ngrow_vels  = 3;
 
     cons_old[lev] = new MultiFab(ba, dm, ncons, ngrow_state);
     cons_new[lev] = new MultiFab(ba, dm, ncons, ngrow_state);
