@@ -808,16 +808,14 @@ REMORA::set_bathymetry (int lev)
  */
 void
 REMORA::set_bathymetry_averaged_down (int lev) {
-    Real dummy_time = zero;
-    // Note: don't understand why the grow vector args aren't vec_h and then vec_h_full_domain
+    // The full-domain array holds this level's own bathymetry everywhere, grow cells included,
+    // so a refined level's ghost ring takes the file's h rather than an interpolant of the
+    // coarse level's. Only the ghosts beyond the file's halo need extrapolating.
     ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
     ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
-    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-            foextrap_periodic_bc(),
-            BdyVars::null,0,false,false,1);
-    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-            foextrap_periodic_bc(),
-            BdyVars::null,1,false,false,1);
+    vec_h[lev]->FillBoundary(geom[lev].periodicity());
+    vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
+    extrapolate_metric_to_physical_boundaries(*vec_h[lev], geom[lev]);
 }
 
 /**
@@ -825,17 +823,19 @@ REMORA::set_bathymetry_averaged_down (int lev) {
  */
 void
 REMORA::set_grid_vars_averaged_down (int lev) {
-    Real dummy_time = zero;
+    // A level's grid metrics never come from another level: FillPatch here interpolated the
+    // coarse pm/pn into the refined level's ghost ring without the refinement ratio, which
+    // made every coarse-fine interface face 50% too long. The full-domain array has this
+    // level's metrics in every grow cell; periodic and physical ghosts follow from them.
     ParallelCopy(*vec_pm[lev].get(), *vec_pm_full_domain[lev].get(), 0, 0, 1,
             vec_pm_full_domain[lev]->nGrowVect(),vec_pm[lev]->nGrowVect());
     ParallelCopy(*vec_pn[lev].get(), *vec_pn_full_domain[lev].get(), 0, 0, 1,
             vec_pn_full_domain[lev]->nGrowVect(),vec_pn[lev]->nGrowVect());
-    FillPatch(lev,dummy_time,*vec_pm[lev],GetVecOfPtrs(vec_pm),
-            foextrap_periodic_bc(),
-            BdyVars::null,0,false);
-    FillPatch(lev,dummy_time,*vec_pn[lev],GetVecOfPtrs(vec_pn),
-            foextrap_periodic_bc(),
-            BdyVars::null,0,false);
+    for (MultiFab* mf : {vec_pm[lev].get(), vec_pn[lev].get()}) {
+        mf->FillBoundary(geom[lev].periodicity());
+        mf->EnforcePeriodicity(geom[lev].periodicity());
+        extrapolate_metric_to_physical_boundaries(*mf, geom[lev]);
+    }
 }
 
 /**

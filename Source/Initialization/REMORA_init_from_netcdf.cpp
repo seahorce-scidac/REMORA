@@ -1202,12 +1202,12 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
         {
             Array4<Real> const& pm   = vec_pm_full_domain[lev]->array(mfi);
             Array4<Real> const& pn   = vec_pn_full_domain[lev]->array(mfi);
-            Box ubx = mfi.growntilebox(cum_ref_ratios[lev] - IntVect(1,0,0));;
-            Box vbx = mfi.growntilebox(cum_ref_ratios[lev] - IntVect(0,1,0));;
-            ParallelFor(makeSlab(ubx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+            // pm and pn are cell-centred, so every grow cell the average-down filled has to be
+            // rescaled too; leaving the outermost ring out left the periodic ghosts at the
+            // fine value.
+            Box gbx = mfi.growntilebox();
+            ParallelFor(makeSlab(gbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
                 pm(i,j,0) = pm(i,j,0) / Real(rrx);
-            });
-            ParallelFor(makeSlab(vbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
                 pn(i,j,0) = pn(i,j,0) / Real(rry);
             });
         }
