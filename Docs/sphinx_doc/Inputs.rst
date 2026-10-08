@@ -666,12 +666,14 @@ the run within the calendar the way ROMS ``DSTART`` does. With the default
 ``remora.start_time = 63713433600``.
 
 ``remora.start_time``, ``remora.stop_time`` and the time variables of NetCDF
-forcing, boundary, river and climatology files are all on this model clock. The
-``start_time`` and ``end_time`` of a refinement indicator are the exception: they
-count from ``remora.start_time``, and ``start_total_time``/``end_total_time`` give
-them on the model clock instead (see :ref:`MeshRefinement`). Internally the model clock is split, as ROMS splits ``DSTART``
-from the time it advances: ``remora.start_time`` is kept in double precision,
-and the solver advances only the time elapsed since it. That keeps the timestep
+forcing, boundary, river and climatology files are all on this model clock.
+The time window of a refinement indicator is instead given in seconds since
+``remora.start_time`` by default, or on the model clock with that indicator's
+``start_total_time`` and ``end_total_time`` (see :ref:`MeshRefinement`).
+
+Internally the model clock is split, as ROMS splits ``DSTART`` from the time it
+advances: ``remora.start_time`` is kept in double precision, and the solver
+advances only the time elapsed since it. That keeps the timestep
 resolvable in a single-precision build, where seconds since a calendar epoch
 would otherwise round to tens of seconds or more. Checkpoints store the elapsed
 time together with ``remora.start_time``; a checkpoint from before this split,

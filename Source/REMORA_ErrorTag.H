@@ -39,10 +39,11 @@ public:
     using amrex::AMRErrorTag::Field;
 
     /**
-     * Restrict this criterion to a time window, given as elapsed time (seconds since
-     * remora.start_time), as total time (seconds on the model clock), or both, in which case
-     * both must hold. Held here in double rather than in AMRErrorTagInfo, whose Real would
-     * round a calendar-scale total time in a single-precision build.
+     * Restrict this criterion to a time window, given as elapsed time (seconds
+     * since remora.start_time), as total time (seconds on the model clock), or
+     * both, in which case both must hold. Held here in double rather than in
+     * AMRErrorTagInfo, whose Real would round a calendar-scale total time in a
+     * single-precision build.
      */
     void SetTimeWindow (double min_elapsed, double max_elapsed,
                         double min_total, double max_total) noexcept

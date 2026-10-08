@@ -890,59 +890,67 @@ remora.rdrag = 0.0
 # type=Real; method=queryAdd
 remora.rdrag2 = 3.0e-3
 
-# source: Source/REMORA_Tagging.cpp:497
+# source: Source/REMORA_Tagging.cpp:499
 # type=Vector<std::string>; method=queryarr
 remora.refinement_indicators = bx1
 
-# source: Source/REMORA_Tagging.cpp:733
+# source: Source/REMORA_Tagging.cpp:749
 # type=return; method=getarr
 remora.refinement_indicators_.adjacent_difference_greater = <REQUIRED>
 
-# The window is on the model clock. It stays out of info, whose times are Real and are compared against elapsed time; ErrorEst applies it instead.
+# source: Source/REMORA_Tagging.cpp:718
 # type=Real; method=query
 remora.refinement_indicators_.end_time = <UNKNOWN_DEFAULT>
 
 # source: Source/REMORA_Tagging.cpp:720
+# type=Real; method=query
+remora.refinement_indicators_.end_total_time = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA_Tagging.cpp:736
 # type=string; method=get
 remora.refinement_indicators_.field_name = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:534
+# source: Source/REMORA_Tagging.cpp:536
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:591
+# source: Source/REMORA_Tagging.cpp:593
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi_indices = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:668
+# source: Source/REMORA_Tagging.cpp:670
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_hi_indices_crse = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:533
+# source: Source/REMORA_Tagging.cpp:535
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:590
+# source: Source/REMORA_Tagging.cpp:592
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo_indices = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:667
+# source: Source/REMORA_Tagging.cpp:669
 # type=unknown; method=getarr
 remora.refinement_indicators_.in_box_lo_indices_crse = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:530
+# source: Source/REMORA_Tagging.cpp:532
 # type=int; method=get
 remora.refinement_indicators_.max_level = <REQUIRED>
 
-# The window is on the model clock. It stays out of info, whose times are Real and are compared against elapsed time; ErrorEst applies it instead.
+# source: Source/REMORA_Tagging.cpp:717
 # type=Real; method=query
 remora.refinement_indicators_.start_time = <UNKNOWN_DEFAULT>
 
 # source: Source/REMORA_Tagging.cpp:719
+# type=Real; method=query
+remora.refinement_indicators_.start_total_time = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA_Tagging.cpp:735
 # type=return; method=getarr
 remora.refinement_indicators_.value_greater = <REQUIRED>
 
-# source: Source/REMORA_Tagging.cpp:726
+# source: Source/REMORA_Tagging.cpp:742
 # type=return; method=getarr
 remora.refinement_indicators_.value_less = <REQUIRED>
 
