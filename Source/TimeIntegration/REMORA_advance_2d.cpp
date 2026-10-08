@@ -920,11 +920,11 @@ REMORA::advance_2d (int lev,
                     }
                 });
             }
+            FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),
+                      knew, false,false);
+            FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),
+                      knew, false,false);
         }
-        FillPatchNoBC(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), bdy_ubar(),
-                  knew, false,false);
-        FillPatchNoBC(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), bdy_vbar(),
-                  knew, false,false);
 #endif
     }
 }
