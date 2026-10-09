@@ -85,3 +85,6 @@ remora.coriolis_type = beta_plane
 remora.coriolis_f0 = 9.25e-4
 remora.coriolis_beta = 0.0
 
+# The reference output for this test predates the GLS length-scale cap, so run
+# with the cap off to compare against it.
+remora.gls_length_cap = false
