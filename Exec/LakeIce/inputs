@@ -33,6 +33,7 @@ remora.plot_file     = plt
 remora.plot_int      = 1
 remora.plotfile_type = netcdf
 remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
+remora.plot_vars_2d  = seaice   # every ice variable, and the fluxes it hands the ocean
 remora.output_forcing = true
 
 remora.ic_type         = netcdf
