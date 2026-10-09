@@ -2178,9 +2178,7 @@ REMORA::init_only (int lev, Real time)
                     prob->init_analytic_seaice(lev, geom[lev], solverChoice, *this,
                                                *vec_ice_si_r[lev], *vec_ice_si_u[lev],
                                                *vec_ice_si_v[lev]);
-                    vec_ice_si_r[lev]->FillBoundary(geom[lev].periodicity());
-                    vec_ice_si_u[lev]->FillBoundary(geom[lev].periodicity());
-                    vec_ice_si_v[lev]->FillBoundary(geom[lev].periodicity());
+                    ice_fill_state(lev);
                 }
             }
         } else {

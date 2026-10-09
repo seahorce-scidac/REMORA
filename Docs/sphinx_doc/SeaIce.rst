@@ -16,9 +16,10 @@ model coupled to the ocean surface: it reads the bulk-flux atmosphere and the
 upper ocean, and sets the surface stress, heat flux and salt flux the ocean
 uses.
 
-The port reproduces myROMS, quirks included (see :ref:`sec:SeaIceQuirks`). On
-the LAKE_ICE test of myROMS it matches the first ice step to round-off in every
-ice field (see :ref:`sec:SeaIceValidation`).
+The port reproduces myROMS, quirks included (see :ref:`sec:SeaIceQuirks`), except
+that its lateral boundary conditions are REMORA's. On the LAKE_ICE test of myROMS
+it matches the first ice step to round-off in every ice field (see
+:ref:`sec:SeaIceValidation`).
 
 Turning Sea Ice On
 ==================
@@ -74,13 +75,16 @@ prefix.
 | ``ice.bc_type``            | closed  | Four entries (xlo ylo xhi yhi): ``closed`` or ``gradient``.|
 |                            | x4      | Periodic sides follow ``remora.is_periodic``               |
 +----------------------------+---------+------------------------------------------------------------+
-| ``ice.gamma2``             | 1       | Slipperiness of closed ice boundaries (ROMS ``GAMMA2``)    |
+| ``ice.gamma2``             | 1       | Closed ice boundaries: 1 for free slip, -1 for no slip     |
 +----------------------------+---------+------------------------------------------------------------+
 
-``ice.bc_type`` and ``ice.gamma2`` apply to the ice state. As in ROMS, the ocean
-surface stress the ice sets, and the ocean-side fields it uses, take the ocean's
-own boundary conditions instead: walls are closed, with free or no slip as the
-ocean has it, and open boundaries extrapolate.
+The ice boundary conditions go through REMORA's ``FillPatch``, as the ocean's do,
+and fill every ghost cell. ``ice.bc_type`` and ``ice.gamma2`` apply to the ice
+state: its rho-point fields extrapolate, masked like the tracers, and a closed side
+is a wall for the ice velocities, with zero normal velocity. The ocean surface
+stress the ice sets, and the ocean-side fields it uses, take the ocean's own
+boundary conditions instead, as in ROMS: walls are closed, and open boundaries
+extrapolate.
 
 The physical parameters are those of ROMS's ``ice.in``, with its defaults:
 ``ice.nEVP`` (60), ``ice.AirRho`` (1.267), ``ice.IceRho`` (900),
@@ -148,7 +152,13 @@ Limitations
 * Single level only.
 * Ice lateral boundaries: closed, gradient and periodic. ROMS's clamped,
   radiation, nudging, mixed and nested types are not ported, nor are boundary or
-  climatology files for the ice.
+  climatology files for the ice. ``ice.gamma2`` is 1 or -1, not a fraction.
+* The boundary conditions are REMORA's, not ROMS's ice routines (``ice_bc2d``,
+  ``ice_tibc``, ``ice_uibc``, ``ice_vibc``): they fill the whole halo rather than
+  the first ghost row, gradient sides extrapolate the rho-point fields, and the
+  boundary-row ice temperature and enthalpy extrapolate rather than follow the
+  thickness. Where land lines the boundary, as in LAKE_ICE, the results are the
+  same.
 * Not ported: frazil ice (ROMS never calls ``ice_frazil``), ``ICE_SHOREFAST``,
   ``ICE_KEEL``, ``AICLM_NUDGING``, ``MICLM_NUDGING``, ``FASTICE_CLIMATOLOGY``,
   ``OUTFLOW_MASK``, ``ICE_BIO`` and ``ICESHELF`` (most do not compile in ROMS),
@@ -177,10 +187,6 @@ validated against ROMS:
 * The default albedo branch compares a Celsius temperature as if it were Kelvin,
   so it always gives the dry albedo.
 * The ice thermodynamics overwrites the ocean surface heat flux.
-* ``ice_vibc`` sets a closed western ghost row from itself rather than from the
-  interior, and masks a gradient northern row with the interior row's mask;
-  ROMS's ``ice_bc2d`` has no gradient branch, so gradient sides of the rho-point
-  fields keep their boundary values.
 * Output takes every state variable, the ice tracers included, at the velocity
   time level ``liunw``. Without momentum ``liunw`` never moves while the tracers
   alternate between time levels, so every other record holds the tracers of the

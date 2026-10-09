@@ -275,10 +275,10 @@ REMORA::ice_advect (int lev, Real dt_lev)
     };
 
     advect(IceR::Aice);
-    ice_bc2d(lev, sir, rcomp(IceR::Aice, linew));
+    ice_fill(lev, vec_ice_si_r, rcomp(IceR::Aice, linew), ice_bc());
 
     advect(IceR::Hice);
-    ice_bc2d(lev, sir, rcomp(IceR::Hice, linew));
+    ice_fill(lev, vec_ice_si_r, rcomp(IceR::Hice, linew), ice_bc());
 
     // Rate of ice divergence
     {
@@ -295,10 +295,10 @@ REMORA::ice_advect (int lev, Real dt_lev)
 
     if (seaice_params.do_thermo) {
         advect(IceR::Hsno);
-        ice_bc2d(lev, sir, rcomp(IceR::Hsno, linew));
+        ice_fill(lev, vec_ice_si_r, rcomp(IceR::Hsno, linew), ice_bc());
 
         advect(IceR::Hmel);
-        ice_bc2d(lev, sir, rcomp(IceR::Hmel, linew));
+        ice_fill(lev, vec_ice_si_r, rcomp(IceR::Hmel, linew), ice_bc());
 
         // Interior temperature, through the (negated) enthalpy. The ghost cells are
         // in the horizontal only, so negate over growntilebox rather than with
@@ -334,7 +334,8 @@ REMORA::ice_advect (int lev, Real dt_lev)
                 });
             }
         }
-        ice_tibc(lev);
+        ice_fill(lev, vec_ice_si_r, rcomp(IceR::Tice, linew), ice_bc());
+        ice_fill(lev, vec_ice_si_r, rcomp(IceR::Enth, linew), ice_bc());
 
         // Age, through the age-weighted thickness
         {
@@ -365,7 +366,7 @@ REMORA::ice_advect (int lev, Real dt_lev)
                     }
                 });
             }
-            ice_bc2d(lev, sir, cGn);
+            ice_fill(lev, vec_ice_si_r, cGn, ice_bc());
         }
     }
 

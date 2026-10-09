@@ -837,27 +837,16 @@ public:
     void advance_seaice (int lev, amrex::Real dt_lev);
     /** \brief Ice/snow albedo (ROMS ice_albedo) */
     void ice_albedo (int lev);
-    /** \brief Exchange ice data between boxes and across periodic sides (ROMS exchange_*2d) */
+    /** \brief Exchange ice data between boxes and across periodic sides, with no physical
+     *         BCs (ROMS exchange_*2d) */
     void ice_exchange (int lev, amrex::MultiFab& mf, int scomp, int ncomp);
-    /** \brief Lateral BCs of one rho-point ice component (ROMS ice_bc2d) */
-    void ice_bc2d (int lev, amrex::MultiFab& mf, int comp);
-    /** \brief Lateral BCs of ice temperature and enthalpy at level linew (ROMS ice_tibc) */
-    void ice_tibc (int lev);
-    /** \brief Lateral BCs of one u-point ice component (ROMS ice_uibc) */
-    void ice_uibc (int lev, amrex::MultiFab& mf, int comp);
-    /** \brief Lateral BCs of one v-point ice component (ROMS ice_vibc) */
-    void ice_vibc (int lev, amrex::MultiFab& mf, int comp);
-    /** \brief ROMS's ocean bc_r2d on one rho-point component: zero gradient on every
-     *         non-periodic side. Applied to ice fields and fluxes as ROMS does */
-    void ice_bc_r2d (int lev, amrex::MultiFab& mf, int comp);
-    /** \brief ROMS's ocean bc_u2d on one u-point component; sides follow the ocean's ubar BCs */
-    void ice_bc_u2d (int lev, amrex::MultiFab& mf, int comp);
-    /** \brief ROMS's ocean bc_v2d on one v-point component; sides follow the ocean's vbar BCs */
-    void ice_bc_v2d (int lev, amrex::MultiFab& mf, int comp);
-    /** \brief Closed/gradient type and slip factor of each side (xlo, ylo, xhi, yhi) for an
-     *         ocean BC variable, as ROMS's bc_u2d and bc_v2d see it */
-    void ocean_bc_2d (int bcvar, std::array<REMORASeaIce::IceBCType,4>& bc,
-                      std::array<amrex::Real,4>& gamma2) const;
+    /** \brief Exchange and physical BCs of one component of mfs[lev], with the given BC
+     *         variable: ice_bc, ice_u_bc and ice_v_bc for the ice state, foextrap_bc and
+     *         u2d/v2d_simple_bc for the fields ROMS fills with its ocean bc_r2d/bc_u2d/bc_v2d */
+    void ice_fill (int lev, amrex::Vector<std::unique_ptr<amrex::MultiFab>>& mfs, int comp,
+                   int bccomp);
+    /** \brief ice_fill of every component of the ice state */
+    void ice_fill_state (int lev);
     /** \brief Mixed-layer ocean velocity and ice-ocean shear (ROMS ice_spdiw) */
     void ice_spdiw (int lev);
     /** \brief Ice-ocean and air-ice stresses; blends the ocean surface stress (ROMS ice_vbc) */
@@ -1572,6 +1561,9 @@ public:
     int foextrap_bc () const noexcept { return BCVars::foextrap_bc(ncons); }
     int u2d_simple_bc () const noexcept { return BCVars::u2d_simple_bc(ncons); }
     int v2d_simple_bc () const noexcept { return BCVars::v2d_simple_bc(ncons); }
+    int ice_bc   () const noexcept { return BCVars::ice_bc(ncons); }
+    int ice_u_bc () const noexcept { return BCVars::ice_u_bc(ncons); }
+    int ice_v_bc () const noexcept { return BCVars::ice_v_bc(ncons); }
     int num_bc_vars () const noexcept { return BCVars::NumTypes(ncons); }
 
     ///@{

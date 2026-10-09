@@ -1,32 +1,32 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/seaice-port/Tests/test_files/SeaIceBox/SeaIceBox.i
+inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/seaice-port/Build_ci/Tests/test_files/SeaIceBox/SeaIceBox.i
 
-number of MPI processes: 1
+number of MPI processes: 2
 
-CPU time used since start of simulation (CPU-hours): 4.14088e-05
+CPU time used since start of simulation (CPU-hours): 0.00122053
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Mon Oct  5 23:50:03 2026
-output dir:         /home/klion/software/seaice_ref/remora/box/gold
+output data / time: Fri Oct  9 11:55:00 2026
+output dir:         /home/klion/software/REMORA_codex/.claude/worktrees/seaice-port/Build_ci/Tests/test_files/SeaIceBox
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    Oct  5 2026 23:44:56
+build date:    Oct  9 2026 11:50:49
 build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
-build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/seaice-port/Build/Exec
+build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/seaice-port/Build_ci/Exec
 AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/seaice-port/Submodules/AMReX
 
 COMP:          GNU
 COMP version:  13.3.0
 
 
-REMORA       git hash: v1.7-178-g540fe61f694e-dirty
+REMORA       git hash: v1.7-189-g6fd899c8dbc4
 AMReX       git hash: 26.09-185-g19d64c697f1a
 
 
@@ -34,7 +34,7 @@ AMReX       git hash: 26.09-185-g19d64c697f1a
  Grid Information
 ===============================================================================
  level: 0
-   number of boxes = 1
+   number of boxes = 2
    maximum zones   = 32 16 8 
 
  Boundary conditions
@@ -79,7 +79,7 @@ amrex.handle_sigill = true
 amrex.handle_sigint = true
 amrex.handle_sigsegv = true
 amrex.handle_sigterm = false
-amrex.init_snan = false
+amrex.init_snan = true
 amrex.mf.alloc_single_chunk = false
 amrex.signal_handling = true
 amrex.the_arena_defragmentation = true
@@ -164,7 +164,6 @@ remora.bc.yhi.type = "SlipWall"
 remora.bc.ylo.type = "SlipWall"
 remora.bc.zhi.type = "slipwall"
 remora.bc.zlo.type = "slipwall"
-remora.bdy_time_varname = "ocean_time"
 remora.biology_model = "none"
 remora.blk_ZQ = 10.0
 remora.blk_ZT = 10.0
@@ -190,13 +189,9 @@ remora.check_cf_tol = 9.9999999999999998e-13
 remora.check_file = chk
 remora.check_int = -1
 remora.check_int_time = -1.0
-remora.check_mask_consistency = false
-remora.clim_salt_time_varname = "ocean_time"
-remora.clim_temp_time_varname = "ocean_time"
-remora.clim_u_time_varname = "ocean_time"
-remora.clim_ubar_time_varname = "ocean_time"
-remora.clim_v_time_varname = "ocean_time"
-remora.clim_vbar_time_varname = "ocean_time"
+remora.check_mask_consistency = true
+remora.check_plot_z = 0
+remora.check_plot_z_tol = -1.0
 remora.cloud = 0.5
 remora.cloud_type = "constant"
 remora.coriolis_beta = 0.0
@@ -279,7 +274,6 @@ remora.rdrag = 0.00029999999999999997
 remora.rdrag2 = 3.0e-3
 remora.reflux_clamp = 1
 remora.rho0 = 1025.0
-remora.riv_time_varname = "river_time"
 remora.scaled_to_grid_amr_scaling = "none"
 remora.smflux_type = "analytic"
 remora.start_time = 0.0

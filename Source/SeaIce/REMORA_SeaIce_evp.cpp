@@ -80,13 +80,10 @@ REMORA::ice_evp (int lev, int iEVP)
         });
     }
 
-    // Only the three fields set above changed; they are not adjacent components
-    ice_exchange(lev, fir, IceFR::Pice, 1);
-    ice_exchange(lev, fir, IceFR::Bvis, 1);
-    ice_exchange(lev, fir, IceFR::Svis, 1);
-    ice_bc_r2d(lev, fir, IceFR::Pice);
-    ice_bc_r2d(lev, fir, IceFR::Bvis);
-    ice_bc_r2d(lev, fir, IceFR::Svis);
+    // Only the three fields set above changed
+    for (int n : {int(IceFR::Pice), int(IceFR::Bvis), int(IceFR::Svis)}) {
+        ice_fill(lev, vec_ice_fi_r, n, foextrap_bc());
+    }
 }
 
 /**
@@ -165,12 +162,8 @@ REMORA::ice_evp_sig (int lev, Real dtevp)
         });
     }
 
-    // Only the new stresses changed: ISxx, ISxy and ISyy are adjacent
-    static_assert(IceR::ISxy == IceR::ISxx + 1 && IceR::ISyy == IceR::ISxx + 2);
-    ice_exchange(lev, sir, cXXn, 3);
-    ice_bc2d(lev, sir, cXXn);
-    ice_bc2d(lev, sir, cXYn);
-    ice_bc2d(lev, sir, cYYn);
+    // Only the new stresses changed
+    for (int c : {cXXn, cXYn, cYYn}) { ice_fill(lev, vec_ice_si_r, c, ice_bc()); }
 }
 
 /**
@@ -340,16 +333,12 @@ REMORA::ice_elastic (int lev, int iEVP, Real dtevp)
         });
     }
 
-    ice_exchange(lev, siu, cUen, 1);
-    ice_exchange(lev, siv, cUen, 1);
-    ice_uibc(lev, siu, cUen);
-    ice_vibc(lev, siv, cUen);
+    ice_fill(lev, vec_ice_si_u, cUen, ice_u_bc());
+    ice_fill(lev, vec_ice_si_v, cUen, ice_v_bc());
 
     if (iEVP == seaice_params.nEVP) {
-        // ROMS copies the interior, boundary and first ghost faces
-        MultiFab::Copy(siu, siu, cUen, ucomp(IceU::Uice, liunw), 1, IntVect(1,1,0));
-        MultiFab::Copy(siv, siv, cUen, ucomp(IceU::Uice, liunw), 1, IntVect(1,1,0));
-        ice_exchange(lev, siu, ucomp(IceU::Uice, liunw), 1);
-        ice_exchange(lev, siv, ucomp(IceU::Uice, liunw), 1);
+        // The EVP velocity is filled, ghost faces included
+        MultiFab::Copy(siu, siu, cUen, ucomp(IceU::Uice, liunw), 1, siu.nGrowVect());
+        MultiFab::Copy(siv, siv, cUen, ucomp(IceU::Uice, liunw), 1, siv.nGrowVect());
     }
 }
