@@ -847,10 +847,14 @@ public:
     /** \brief ROMS's ocean bc_r2d on one rho-point component: zero gradient on every
      *         non-periodic side. Applied to ice fields and fluxes as ROMS does */
     void ice_bc_r2d (int lev, amrex::MultiFab& mf, int comp);
-    /** \brief ROMS's ocean bc_u2d on one u-point component; sides follow ice.bc_type */
+    /** \brief ROMS's ocean bc_u2d on one u-point component; sides follow the ocean's ubar BCs */
     void ice_bc_u2d (int lev, amrex::MultiFab& mf, int comp);
-    /** \brief ROMS's ocean bc_v2d on one v-point component; sides follow ice.bc_type */
+    /** \brief ROMS's ocean bc_v2d on one v-point component; sides follow the ocean's vbar BCs */
     void ice_bc_v2d (int lev, amrex::MultiFab& mf, int comp);
+    /** \brief Closed/gradient type and slip factor of each side (xlo, ylo, xhi, yhi) for an
+     *         ocean BC variable, as ROMS's bc_u2d and bc_v2d see it */
+    void ocean_bc_2d (int bcvar, std::array<REMORASeaIce::IceBCType,4>& bc,
+                      std::array<amrex::Real,4>& gamma2) const;
     /** \brief Mixed-layer ocean velocity and ice-ocean shear (ROMS ice_spdiw) */
     void ice_spdiw (int lev);
     /** \brief Ice-ocean and air-ice stresses; blends the ocean surface stress (ROMS ice_vbc) */
