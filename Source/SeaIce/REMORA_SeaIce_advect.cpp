@@ -369,5 +369,8 @@ REMORA::ice_advect (int lev, Real dt_lev)
         }
     }
 
-    ice_exchange(lev, sir, 0, sir.nComp());
+    // The tracers changed at linew, and the ice age and age-thickness at liold too
+    ice_exchange(lev, sir, rcomp(0, linew), IceR::NumVars);
+    ice_exchange(lev, sir, rcomp(IceR::Iage, liold), 1);
+    ice_exchange(lev, sir, rcomp(IceR::Hage, liold), 1);
 }

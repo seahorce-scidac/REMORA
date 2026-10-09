@@ -12,22 +12,6 @@ using namespace REMORASeaIce;
 // over the valid box; boundary rows and faces then come from the BC routines,
 // after an exchange, as described in REMORA_SeaIce_bc.cpp.
 
-namespace {
-
-/** The valid faces of a nodal box minus those on a non-periodic domain edge (ROMS IstrP..Iend). */
-Box interior_faces (const Box& nodal_bx, int dir, const Geometry& geom)
-{
-    Box b = nodal_bx;
-    if (!geom.isPeriodic(dir)) {
-        const Box& dom = geom.Domain();
-        b.setSmall(dir, std::max(b.smallEnd(dir), dom.smallEnd(dir)+1));
-        b.setBig  (dir, std::min(b.bigEnd(dir),   dom.bigEnd(dir)));
-    }
-    return b;
-}
-
-} // namespace
-
 /**
  * ROMS ice_spdiw: velocity averaged over the top 10 m (ROMS uses the KPP
  * boundary layer depth when it is deeper; REMORA has no KPP) and the speed of
@@ -599,8 +583,10 @@ REMORA::ice_thermo (int lev, Real dt_lev)
         });
     }
 
-    ice_exchange(lev, fir, 0, fir.nComp());
-    ice_exchange(lev, sir, 0, sir.nComp());
+    // The fields set above all lie between IOmf and W_ro, and the state changed only at
+    // linew, whose components are adjacent
+    ice_exchange(lev, fir, IceFR::IOmf, IceFR::W_ro - IceFR::IOmf + 1);
+    ice_exchange(lev, sir, rcomp(0, linew), IceR::NumVars);
     vec_stflx[lev]->FillBoundary(geom[lev].periodicity());
 
     ice_bc_r2d(lev, fir, IceFR::Isst);
@@ -659,7 +645,7 @@ REMORA::ice_limit (int lev)
         });
     }
 
-    ice_exchange(lev, sir, 0, sir.nComp());
+    ice_exchange(lev, sir, rcomp(0, linew), IceR::NumVars);   // only linew changed
     ice_bc2d(lev, sir, cA);
     ice_bc2d(lev, sir, cH);
     ice_bc2d(lev, sir, cS);
