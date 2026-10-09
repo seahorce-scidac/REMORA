@@ -808,16 +808,14 @@ REMORA::set_bathymetry (int lev)
  */
 void
 REMORA::set_bathymetry_averaged_down (int lev) {
-    Real dummy_time = zero;
-    // Note: don't understand why the grow vector args aren't vec_h and then vec_h_full_domain
+    // The full-domain array holds this level's own bathymetry everywhere, grow cells included,
+    // so a refined level's ghost ring takes the file's h rather than an interpolant of the
+    // coarse level's. Only the ghosts beyond the file's halo need extrapolating.
     ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 0, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
     ParallelCopy(*vec_h[lev].get(), *vec_h_full_domain[lev].get(), 0, 1, 1,vec_h_full_domain[lev]->nGrowVect(),vec_h[lev]->nGrowVect());
-    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-            foextrap_periodic_bc(),
-            BdyVars::null,0,false,false,1);
-    FillPatch(lev,dummy_time,*vec_h[lev],GetVecOfPtrs(vec_h),
-            foextrap_periodic_bc(),
-            BdyVars::null,1,false,false,1);
+    vec_h[lev]->FillBoundary(geom[lev].periodicity());
+    vec_h[lev]->EnforcePeriodicity(geom[lev].periodicity());
+    extrapolate_metric_to_physical_boundaries(*vec_h[lev], geom[lev]);
 }
 
 /**
@@ -825,17 +823,73 @@ REMORA::set_bathymetry_averaged_down (int lev) {
  */
 void
 REMORA::set_grid_vars_averaged_down (int lev) {
-    Real dummy_time = zero;
+    // A level's grid metrics never come from another level: FillPatch here interpolated the
+    // coarse pm/pn into the refined level's ghost ring without the refinement ratio, which
+    // made every coarse-fine interface face 50% too long. The full-domain array has this
+    // level's metrics in every grow cell; periodic and physical ghosts follow from them.
     ParallelCopy(*vec_pm[lev].get(), *vec_pm_full_domain[lev].get(), 0, 0, 1,
             vec_pm_full_domain[lev]->nGrowVect(),vec_pm[lev]->nGrowVect());
     ParallelCopy(*vec_pn[lev].get(), *vec_pn_full_domain[lev].get(), 0, 0, 1,
             vec_pn_full_domain[lev]->nGrowVect(),vec_pn[lev]->nGrowVect());
-    FillPatch(lev,dummy_time,*vec_pm[lev],GetVecOfPtrs(vec_pm),
-            foextrap_periodic_bc(),
-            BdyVars::null,0,false);
-    FillPatch(lev,dummy_time,*vec_pn[lev],GetVecOfPtrs(vec_pn),
-            foextrap_periodic_bc(),
-            BdyVars::null,0,false);
+    for (MultiFab* mf : {vec_pm[lev].get(), vec_pn[lev].get()}) {
+        mf->FillBoundary(geom[lev].periodicity());
+        mf->EnforcePeriodicity(geom[lev].periodicity());
+        extrapolate_metric_to_physical_boundaries(*mf, geom[lev]);
+    }
+}
+
+/**
+ * Copy the outermost in-domain ghost row of a cell-centred field outward over the
+ * remaining ghost rows at the physical boundaries. Used for grid metrics and bathymetry
+ * in every build, so it lives here rather than in the NetCDF-only initialisation.
+ *
+ * @param[inout] mf    multifab of data to extrapolate on
+ * @param[in   ] geom  geometry
+ */
+void
+REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry& geom)
+{
+    const IntVect ng = mf.nGrowVect();
+
+    const auto& dom_lo = amrex::lbound(geom.Domain());
+    const auto& dom_hi = amrex::ubound(geom.Domain());
+
+    for ( MFIter mfi(mf); mfi.isValid(); ++mfi )
+    {
+        Box bx = mfi.tilebox();
+
+        auto mf_arr = mf.array(mfi);
+
+        Box gbx_lox = adjCellLo(bx,0,ng[0]); gbx_lox.grow(1,ng[1]); gbx_lox.setBig  (0,dom_lo.x-2);
+        Box gbx_hix = adjCellHi(bx,0,ng[0]); gbx_hix.grow(1,ng[1]); gbx_hix.setSmall(0,dom_hi.x+2);
+        Box gbx_loy = adjCellLo(bx,1,ng[1]); gbx_loy.grow(0,ng[0]); gbx_loy.setBig  (1,dom_lo.y-2);
+        Box gbx_hiy = adjCellHi(bx,1,ng[1]); gbx_hiy.grow(0,ng[0]); gbx_hiy.setSmall(1,dom_hi.y+2);
+
+        if (gbx_lox.ok()) {
+            ParallelFor(gbx_lox, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                mf_arr(i,j,k,0) = mf_arr(dom_lo.x-1,j,k,0);
+            });
+        }
+        if (gbx_hix.ok()) {
+            ParallelFor(gbx_hix, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                mf_arr(i,j,k,0) = mf_arr(dom_hi.x+1,j,k,0);
+            });
+        }
+        if (gbx_loy.ok()) {
+            ParallelFor(gbx_loy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                mf_arr(i,j,k,0) = mf_arr(i,dom_lo.y-1,k,0);
+            });
+        }
+        if (gbx_hiy.ok()) {
+            ParallelFor(gbx_hiy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
+            {
+                mf_arr(i,j,k,0) = mf_arr(i,dom_hi.y+1,k,0);
+            });
+        }
+    } // mfi
 }
 
 /**
