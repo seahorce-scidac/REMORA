@@ -77,6 +77,11 @@ prefix.
 | ``ice.gamma2``             | 1       | Slipperiness of closed ice boundaries (ROMS ``GAMMA2``)    |
 +----------------------------+---------+------------------------------------------------------------+
 
+``ice.bc_type`` and ``ice.gamma2`` apply to the ice state. As in ROMS, the ocean
+surface stress the ice sets, and the ocean-side fields it uses, take the ocean's
+own boundary conditions instead: walls are closed, with free or no slip as the
+ocean has it, and open boundaries extrapolate.
+
 The physical parameters are those of ROMS's ``ice.in``, with its defaults:
 ``ice.nEVP`` (60), ``ice.AirRho`` (1.267), ``ice.IceRho`` (900),
 ``ice.SnowDryRho`` (330), ``ice.SnowWetRho`` (450), ``ice.Cd_ai`` (3e-3),
@@ -186,6 +191,13 @@ validated against ROMS:
 * Negative rain is snow, but the salt flux still takes it with its sign, as
   evaporation, and rain over ice reaches the ocean salt flux in full while
   evaporation is scaled by the open-water fraction.
+* The heat carried by rain or snow onto the ice subtracts the air temperature in
+  Celsius from the ice temperature in Kelvin in the ice heat budget, while its
+  linearization uses the air temperature in Kelvin.
+* The ice thermodynamics converts its ocean heat flux back to kinematic units with a
+  fixed density and heat capacity, 1026 kg/m³ and 3990 J/(kg K), rather than
+  ``remora.rho0`` and REMORA's heat capacity. Turning the ice model on therefore
+  rescales the open-water heat flux by their ratio, about 0.2%.
 
 One ROMS behavior is not kept: ROMS negates the whole enthalpy array inside each
 tile's advection call, which races under OpenMP. REMORA negates it once.
