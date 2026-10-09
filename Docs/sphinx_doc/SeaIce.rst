@@ -83,8 +83,10 @@ The physical parameters are those of ROMS's ``ice.in``, with its defaults:
 ``ice.Cd_io`` (7.5e-3), ``ice.Astrength`` (20), ``ice.Pstar`` (2.5e4),
 ``ice.zetaMin`` (0), ``ice.zetaMax`` (1e14), ``ice.ellip_sq`` (4), ``ice.min_ai``
 (0), ``ice.max_ai`` (1), ``ice.min_hi`` (0), ``ice.max_hmelt`` (0.1),
-``ice.stressAng`` (0, degrees; read but unused, as in ROMS), ``ice.ice_emiss``,
-``ice.spec_heat_air``, ``ice.trans_coeff`` and ``ice.sublimation``.
+``ice.stressAng`` (0, degrees), ``ice.ice_emiss``, ``ice.spec_heat_air``,
+``ice.trans_coeff`` and ``ice.sublimation``. As in ROMS, ``ice.stressAng``,
+``ice.AirRho``, ``ice.ice_emiss``, ``ice.spec_heat_air``, ``ice.trans_coeff`` and
+``ice.sublimation`` are read but not used.
 
 Time Stepping
 =============
@@ -126,11 +128,14 @@ ice starts at zero, as in ROMS.
 Checkpoints hold the full ice state, its time-level indices and the ice fields,
 so a restart starts from exactly the ice state that was saved.
 
-The NetCDF history file writes every ice state variable and the ice fields ROMS
-can write, under their ROMS names, along with ``shflux`` and ``stflx_salt``, the
-surface heat and salt fluxes the ocean actually takes. In AMReX plotfiles, list
-ice variables in ``remora.plot_vars_2d`` by name, or use ``seaice`` for the whole
-state. State variables are written at time level ``liunw``, as ROMS writes them.
+Both NetCDF history files and AMReX plotfiles write the ice variables listed in
+``remora.plot_vars_2d``, under their ROMS names: the state variables above and the
+ice fields ROMS can write. ``seaice`` selects all of them, along with
+``net_heat_flux`` (W/m²) and ``net_salt_flux`` (psu m/s), the surface heat and
+salt fluxes the ocean actually takes after the ice has changed them. These two can
+also be requested on their own, with or without sea ice. State variables are
+written at time level ``liunw``, as ROMS writes them (see
+:ref:`sec:SeaIceQuirks`).
 
 Limitations
 ===========
@@ -171,6 +176,16 @@ validated against ROMS:
   interior, and masks a gradient northern row with the interior row's mask;
   ROMS's ``ice_bc2d`` has no gradient branch, so gradient sides of the rho-point
   fields keep their boundary values.
+* Output takes every state variable, the ice tracers included, at the velocity
+  time level ``liunw``. Without momentum ``liunw`` never moves while the tracers
+  alternate between time levels, so every other record holds the tracers of the
+  step before.
+* ``ice.AirRho``, ``ice.ice_emiss``, ``ice.spec_heat_air``, ``ice.trans_coeff``
+  and ``ice.sublimation`` are read but not used: the bulk flux uses its own air
+  density, emissivity and transfer coefficients over ice.
+* Negative rain is snow, but the salt flux still takes it with its sign, as
+  evaporation, and rain over ice reaches the ocean salt flux in full while
+  evaporation is scaled by the open-water fraction.
 
 One ROMS behavior is not kept: ROMS negates the whole enthalpy array inside each
 tile's advection call, which races under OpenMP. REMORA negates it once.
