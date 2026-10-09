@@ -105,6 +105,10 @@ void SeaIceParams::init_params ()
     pp.queryAdd("trans_coeff", trans_coeff);
     pp.queryAdd("sublimation", sublimation);
     pp.queryAdd("gamma2", gamma2);
+    // A closed side is a free- or no-slip wall for the ice velocities
+    if (gamma2 != Real(1.0) && gamma2 != Real(-1.0)) {
+        amrex::Abort("ice.gamma2 must be 1 (free slip) or -1 (no slip)");
+    }
 
     if (nEVP < 1) {
         amrex::Abort("ice.nEVP must be at least 1");

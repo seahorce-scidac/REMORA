@@ -135,8 +135,6 @@ REMORA::init_seaice_from_netcdf (int lev)
         });
     }
 
-    vec_ice_si_r[lev]->FillBoundary(geom[lev].periodicity());
-    vec_ice_si_u[lev]->FillBoundary(geom[lev].periodicity());
-    vec_ice_si_v[lev]->FillBoundary(geom[lev].periodicity());
+    ice_fill_state(lev);
 }
 #endif

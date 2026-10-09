@@ -114,12 +114,9 @@ REMORA::ice_spdiw (int lev)
         });
     }
 
-    ice_exchange(lev, fir, IceFR::IOvs, 1);
-    ice_exchange(lev, fiu, IceFU::Uavg, 1);
-    ice_exchange(lev, fiv, IceFU::Uavg, 1);
-    ice_bc_r2d(lev, fir, IceFR::IOvs);
-    ice_bc_u2d(lev, fiu, IceFU::Uavg);
-    ice_bc_v2d(lev, fiv, IceFU::Uavg);
+    ice_fill(lev, vec_ice_fi_r, IceFR::IOvs, foextrap_bc());
+    ice_fill(lev, vec_ice_fi_u, IceFU::Uavg, u2d_simple_bc());
+    ice_fill(lev, vec_ice_fi_v, IceFU::Uavg, v2d_simple_bc());
 }
 
 /**
@@ -235,18 +232,13 @@ REMORA::ice_vbc (int lev)
     }
 
     ice_exchange(lev, fir, 0, fir.nComp());
-    ice_exchange(lev, fiu, IceFU::AIus, 1);
-    ice_exchange(lev, fiv, IceFU::AIus, 1);
-    vec_sustr[lev]->FillBoundary(geom[lev].periodicity());
-    vec_svstr[lev]->FillBoundary(geom[lev].periodicity());
-
-    ice_bc_r2d(lev, fir, IceFR::Hsse);
-    ice_bc_u2d(lev, fiu, IceFU::AIus);
-    ice_bc_v2d(lev, fiv, IceFU::AIus);
-    ice_bc_r2d(lev, fir, IceFR::IOmt);
-    ice_bc_r2d(lev, fir, IceFR::IOfv);
-    ice_bc_u2d(lev, *vec_sustr[lev], 0);
-    ice_bc_v2d(lev, *vec_svstr[lev], 0);
+    for (int n : {int(IceFR::Hsse), int(IceFR::IOmt), int(IceFR::IOfv)}) {
+        ice_fill(lev, vec_ice_fi_r, n, foextrap_bc());
+    }
+    ice_fill(lev, vec_ice_fi_u, IceFU::AIus, u2d_simple_bc());
+    ice_fill(lev, vec_ice_fi_v, IceFU::AIus, v2d_simple_bc());
+    ice_fill(lev, vec_sustr, 0, u2d_simple_bc());
+    ice_fill(lev, vec_svstr, 0, v2d_simple_bc());
 }
 
 /**
@@ -588,11 +580,11 @@ REMORA::ice_thermo (int lev, Real dt_lev)
     ice_exchange(lev, fir, IceFR::IOmf, IceFR::W_ro - IceFR::IOmf + 1);
     vec_stflx[lev]->FillBoundary(geom[lev].periodicity());
 
-    ice_bc_r2d(lev, fir, IceFR::Isst);
-    ice_bc_r2d(lev, fir, IceFR::Qcon);
-    ice_bc_r2d(lev, fir, IceFR::Qrhs);
-    ice_bc_r2d(lev, *vec_stflx[lev], Salt_comp);
-    ice_bc_r2d(lev, *vec_stflx[lev], Temp_comp);
+    for (int n : {int(IceFR::Isst), int(IceFR::Qcon), int(IceFR::Qrhs)}) {
+        ice_fill(lev, vec_ice_fi_r, n, foextrap_bc());
+    }
+    ice_fill(lev, vec_stflx, Salt_comp, foextrap_bc());
+    ice_fill(lev, vec_stflx, Temp_comp, foextrap_bc());
 }
 
 /**
@@ -638,11 +630,8 @@ REMORA::ice_limit (int lev)
         });
     }
 
-    ice_exchange(lev, sir, rcomp(0, linew), IceR::NumVars);   // only linew changed
-    ice_bc2d(lev, sir, cA);
-    ice_bc2d(lev, sir, cH);
-    ice_bc2d(lev, sir, cS);
-    ice_bc2d(lev, sir, cM);
-    ice_bc2d(lev, sir, cG);
-    ice_tibc(lev);
+    // Only linew changed, here or in the routine before (ice_thermo or ice_advect)
+    for (int n = 0; n < IceR::NumVars; ++n) {
+        ice_fill(lev, vec_ice_si_r, rcomp(n, linew), ice_bc());
+    }
 }
