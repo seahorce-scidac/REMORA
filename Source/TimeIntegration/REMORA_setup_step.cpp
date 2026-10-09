@@ -201,6 +201,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
     // ROMS main3d computes the ice albedo just before the bulk flux, which reads it
     if (has_seaice()) {
+        // The ice takes its air-ice stress, heat budget and open-water fluxes from the bulk
+        // flux, which a driver supplying fluxes rather than atmospheric state skips
+        if (running_with_coupling_driver && !DriverUsesStateForcing(driver_atmos_forcing_mode)) {
+            amrex::Abort("remora.ice_model needs the bulk flux, so a coupling driver must supply "
+                         "atmospheric state rather than surface fluxes");
+        }
         ice_albedo(lev);
     }
 
