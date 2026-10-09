@@ -36,99 +36,92 @@ using namespace amrex;
 namespace {
 constexpr int SSTIndex = 0;
 
-struct WetExtrema
+// One pass over the wet cells (mask > 0.5) of one component of a 2D field, on
+// the valid region at the field's lowest k. Land cells hold zeros or whatever
+// the atmosphere sent over land, so an unmasked min/max says nothing about what
+// the ocean actually receives.
+//
+// min/max skip NaN, which nan_count reports: NaN in a min/max reduction is
+// kept or dropped depending on the reduction order, so the result would depend
+// on the decomposition. With no finite wet cell, has_finite() is false.
+//
+// bad_count counts the wet cells outside [lo, hi], NaN included; the test is
+// !(lo <= v <= hi) because every comparison with NaN is false. One of them is
+// named: the smallest flat (i,j) index, the same cell under any decomposition.
+// Collective.
+struct WetRangeCheck
 {
+    amrex::Long wet_cells;
     amrex::Real min_value;
     amrex::Real max_value;
-    amrex::Long wet_cells;
-};
-
-// Min/max of one component over cells where mask > 0.5 (valid region only).
-// Land cells hold zeros or whatever the atmosphere sent over land, so an
-// unmasked min/max says nothing about what the ocean actually receives.
-// Collective.
-WetExtrema
-WetMinMax (const amrex::MultiFab& mf, int comp, const amrex::MultiFab& mask)
-{
-    using namespace amrex;
-    constexpr Real lo_sentinel = std::numeric_limits<Real>::max();
-    constexpr Real hi_sentinel = -std::numeric_limits<Real>::max();
-
-    ReduceOps<ReduceOpMin, ReduceOpMax, ReduceOpSum> ops;
-    ReduceData<Real, Real, Long> data(ops);
-    using Tuple = typename decltype(data)::Type;
-    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
-        Box bx = mfi.validbox();
-        bx.makeSlab(2, 0);
-        const auto f = mf.const_array(mfi, comp);
-        const auto m = mask.const_array(mfi);
-        ops.eval(bx, data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> Tuple
-        {
-            const bool wet = m(i,j,k) > Real(0.5);
-            return { wet ? f(i,j,k) : lo_sentinel,
-                     wet ? f(i,j,k) : hi_sentinel,
-                     wet ? Long(1) : Long(0) };
-        });
-    }
-    auto r = data.value(ops);
-    WetExtrema e{get<0>(r), get<1>(r), get<2>(r)};
-    ParallelDescriptor::ReduceRealMin(e.min_value);
-    ParallelDescriptor::ReduceRealMax(e.max_value);
-    ParallelDescriptor::ReduceLongSum(e.wet_cells);
-    return e;
-}
-
-// Count the wet cells of a 2D field outside [lo, hi], NaN included, and name one:
-// the smallest flat (i,j) index, the same cell under any decomposition. The test is
-// !(lo <= v <= hi) because every comparison with NaN is false. Collective.
-struct WetOutOfRange
-{
-    amrex::Long count;
+    amrex::Long bad_count;
     amrex::Long nan_count;
     amrex::IntVect example;
     amrex::Real example_value;
+
+    bool has_finite () const { return min_value <= max_value; }
 };
 
-WetOutOfRange
-WetCellsOutOfRange (const amrex::MultiFab& mf, const amrex::MultiFab& mask,
-                    amrex::Real lo_bound, amrex::Real hi_bound)
+WetRangeCheck
+CheckWetRange (const amrex::MultiFab& mf, int comp, const amrex::MultiFab& mask,
+               amrex::Real lo_bound = -std::numeric_limits<amrex::Real>::max(),
+               amrex::Real hi_bound = std::numeric_limits<amrex::Real>::max())
 {
     using namespace amrex;
     const Box domain = mf.boxArray().minimalBox();
     const Long nx = domain.length(0);
+    const int k0 = domain.smallEnd(2);
     constexpr Long no_cell = std::numeric_limits<Long>::max();
+    constexpr Real big = std::numeric_limits<Real>::max();
 
-    ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpMin> ops;
-    ReduceData<Long, Long, Long> data(ops);
+    ReduceOps<ReduceOpSum, ReduceOpSum, ReduceOpSum,
+              ReduceOpMin, ReduceOpMax, ReduceOpMin> ops;
+    ReduceData<Long, Long, Long, Real, Real, Long> data(ops);
     using Tuple = typename decltype(data)::Type;
     for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
-        const auto f = mf.const_array(mfi);
+        Box bx = mfi.validbox();
+        bx.makeSlab(2, k0);
+        const auto f = mf.const_array(mfi, comp);
         const auto m = mask.const_array(mfi);
         const auto dlo = lbound(domain);
-        ops.eval(mfi.validbox(), data, [=] AMREX_GPU_DEVICE (int i, int j, int k) -> Tuple
+        ops.eval(bx, data,
+        [=] AMREX_GPU_DEVICE (int i, int j, int k) -> Tuple
         {
             const Real v = f(i,j,k);
             const bool wet = m(i,j,k) > Real(0.5);
             const bool bad = wet && !(v >= lo_bound && v <= hi_bound);
             const bool nan = wet && (v != v);
+            const bool finite = wet && !nan;
             const Long flat = Long(j - dlo.y) * nx + Long(i - dlo.x);
-            return { bad ? Long(1) : Long(0), nan ? Long(1) : Long(0), bad ? flat : no_cell };
+            return { wet ? Long(1) : Long(0),
+                     bad ? Long(1) : Long(0),
+                     nan ? Long(1) : Long(0),
+                     finite ? v : big,
+                     finite ? v : -big,
+                     bad ? flat : no_cell };
         });
     }
     auto r = data.value(ops);
-    WetOutOfRange out{get<0>(r), get<1>(r), IntVect(0), std::numeric_limits<Real>::max()};
-    Long first = get<2>(r);
-    ParallelDescriptor::ReduceLongSum(out.count);
-    ParallelDescriptor::ReduceLongSum(out.nan_count);
+    Long counts[3] = {get<0>(r), get<1>(r), get<2>(r)};
+    Real extrema[2] = {get<3>(r), -get<4>(r)};   // max(v) = -min(-v)
+    Long first = get<5>(r);
+    ParallelDescriptor::ReduceLongSum(counts, 3);
+    ParallelDescriptor::ReduceRealMin(extrema, 2);
     ParallelDescriptor::ReduceLongMin(first);
-    if (out.count == 0) { return out; }
 
+    WetRangeCheck out{counts[0], extrema[0], -extrema[1], counts[1],
+                      counts[2], IntVect(0), big};
+    if (out.bad_count == 0) { return out; }
+
+    // Only when something is out of range: fetch the named cell's value.
     out.example = IntVect(domain.smallEnd(0) + static_cast<int>(first % nx),
                           domain.smallEnd(1) + static_cast<int>(first / nx),
-                          domain.smallEnd(2));
-    const auto here = get_cell_data(mf, out.example);   // empty off the owning rank
-    if (!here.empty()) { out.example_value = here[0]; }
-    ParallelDescriptor::ReduceRealMin(out.example_value);
+                          k0);
+    // Empty off the owning rank. Exactly one rank owns the cell, so a sum with
+    // zero elsewhere carries its value, NaN included, which a min would not.
+    const auto here = get_cell_data(mf, out.example);
+    out.example_value = here.empty() ? Real(0) : here[comp];
+    ParallelDescriptor::ReduceRealSum(out.example_value);
     return out;
 }
 
@@ -504,11 +497,14 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state,
         });
     }
 
-    // Surface temperature sanity check on REMORA's own wet cells, in the SST that
-    // is about to be sent to the atmosphere. Checked every exchange (2D, cheap);
-    // warned the first time and again only when it gets worse. remora.v >= 1 also
-    // prints the wet min/max every exchange. verbose and the reduced counts are
-    // rank-uniform, so every rank takes the same branches.
+    // Surface temperature sanity check on REMORA's own wet cells, in the SST
+    // that is about to be sent to the atmosphere: one pass, once per exchange
+    // (this runs at pack time, not every ERF substep). Warned the first time
+    // and again only when it gets worse; remora.v >= 1 also prints the wet
+    // min/max.
+    // min/max exclude NaN, so the NaN count is tracked separately. verbose and
+    // the reduced values are rank-uniform, so every rank takes the same
+    // branches.
     if (!vec_mskr.empty() && vec_mskr[lev] != nullptr) {
         MultiFab wet(ba2d, cons_new[lev]->DistributionMap(), 1, 0);
         wet.setVal(zero);
@@ -516,26 +512,42 @@ REMORA::PackSurfaceState (Vector<MultiFab*>& state,
 
         constexpr Real t_lo = Real(273.15 - 2.5);   // below seawater freezing
         constexpr Real t_hi = Real(273.15 + 40.0);
-        const WetExtrema e = WetMinMax(tmp, 0, wet);
-        const WetOutOfRange bad = WetCellsOutOfRange(tmp, wet, t_lo, t_hi);
+        const WetRangeCheck c = CheckWetRange(tmp, 0, wet, t_lo, t_hi);
         if (verbose >= 1) {
-            amrex::Print() << "REMORA surface temperature over " << e.wet_cells
-                           << " wet cells: min/max = " << e.min_value << " / "
-                           << e.max_value << " K\n";
+            amrex::Print os;
+            os << "REMORA surface temperature over " << c.wet_cells
+               << " wet cells: ";
+            if (c.has_finite()) {
+                os << "min/max = " << c.min_value << " / " << c.max_value
+                   << " K";
+            } else {
+                os << "no finite values";
+            }
+            os << "\n";
         }
-        const bool worse = e.min_value < m_warned_surface_temp_min ||
-                           e.max_value > m_warned_surface_temp_max ||
-                           bad.nan_count > m_warned_surface_temp_nan;
-        if (bad.count > 0 && worse) {
-            m_warned_surface_temp_min = std::min(m_warned_surface_temp_min, e.min_value);
-            m_warned_surface_temp_max = std::max(m_warned_surface_temp_max, e.max_value);
-            m_warned_surface_temp_nan = std::max(m_warned_surface_temp_nan, bad.nan_count);
-            amrex::Print() << "WARNING: REMORA surface temperature outside [" << t_lo << ", "
-                           << t_hi << "] K on " << bad.count << " of " << e.wet_cells
-                           << " wet cells (" << bad.nan_count << " NaN; min/max " << e.min_value
-                           << " / " << e.max_value << " K; e.g. REMORA (" << bad.example[0]
-                           << "," << bad.example[1] << ") = " << bad.example_value
-                           << " K). Repeated only if it gets worse.\n";
+        // With no finite wet cell, min/max are the +/-max sentinels, which
+        // never compare as worse; the NaN count still does.
+        const bool worse = c.min_value < m_warned_surface_temp_min ||
+                           c.max_value > m_warned_surface_temp_max ||
+                           c.nan_count > m_warned_surface_temp_nan;
+        if (c.bad_count > 0 && worse) {
+            m_warned_surface_temp_min =
+                std::min(m_warned_surface_temp_min, c.min_value);
+            m_warned_surface_temp_max =
+                std::max(m_warned_surface_temp_max, c.max_value);
+            m_warned_surface_temp_nan =
+                std::max(m_warned_surface_temp_nan, c.nan_count);
+            amrex::Print os;
+            os << "WARNING: REMORA surface temperature outside [" << t_lo
+               << ", " << t_hi << "] K on " << c.bad_count << " of "
+               << c.wet_cells << " wet cells (" << c.nan_count << " NaN";
+            if (c.has_finite()) {
+                os << "; min/max " << c.min_value << " / " << c.max_value
+                   << " K";
+            }
+            os << "; e.g. REMORA (" << c.example[0] << "," << c.example[1]
+               << ") = " << c.example_value
+               << " K). Repeated only if it gets worse.\n";
         }
     }
 
@@ -801,12 +813,17 @@ REMORA::ApplyAtmosphericFluxes (const Vector<MultiFab*>& states, Real /*time*/)
     amrex::Print() << "REMORA ApplyAtmosphericFluxes validation (wet cells only; srflx W/m2, "
                    << "others kinematic):\n";
     for (const auto& r : rows) {
-        const WetExtrema e = WetMinMax(*r.mf, r.comp, *r.mask);
+        const WetRangeCheck e = CheckWetRange(*r.mf, r.comp, *r.mask);
+        amrex::Print os;
+        os << "  " << r.name << ": ";
         if (e.wet_cells == 0) {
-            amrex::Print() << "  " << r.name << ": no wet cells\n";
+            os << "no wet cells";
+        } else if (!e.has_finite()) {
+            os << "all " << e.wet_cells << " wet cells NaN";
         } else {
-            amrex::Print() << "  " << r.name << ": min=" << e.min_value
-                           << " max=" << e.max_value << "\n";
+            os << "min=" << e.min_value << " max=" << e.max_value;
+            if (e.nan_count > 0) { os << " (" << e.nan_count << " NaN)"; }
         }
+        os << "\n";
     }
 }
