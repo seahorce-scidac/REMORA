@@ -110,15 +110,14 @@ void SeaIceParams::init_params ()
         amrex::Abort("ice.nEVP must be at least 1");
     }
 
-    if (pp.contains("bc_type")) {
-        Vector<std::string> bc_strings;
-        pp.getarr("bc_type", bc_strings);
-        if (bc_strings.size() != 4) {
-            amrex::Abort("ice.bc_type needs four entries: xlo ylo xhi yhi");
-        }
-        for (int n = 0; n < 4; ++n) {
-            bc_type[n] = parse_bc_type(bc_strings[n]);
-        }
+    // Optional: closed on every side unless given
+    Vector<std::string> bc_strings(4, "closed");
+    pp.queryarr("bc_type", bc_strings);
+    if (bc_strings.size() != 4) {
+        amrex::Abort("ice.bc_type needs four entries: xlo ylo xhi yhi");
+    }
+    for (int n = 0; n < 4; ++n) {
+        bc_type[n] = parse_bc_type(bc_strings[n]);
     }
 }
 
