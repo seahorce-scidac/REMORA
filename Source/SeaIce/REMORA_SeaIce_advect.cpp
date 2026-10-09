@@ -23,6 +23,8 @@ REMORA::ice_enthalpy (int lev)
     const int cEo = rcomp(IceR::Enth, liold), cEn = rcomp(IceR::Enth, linew);
     const Real min_hi = seaice_params.min_hi;
 
+    // Pointwise over the ghost cells too, from thickness and temperature whose halos are
+    // current, so the enthalpy needs no exchange of its own
     MultiFab& sir = *vec_ice_si_r[lev];
     for (MFIter mfi(sir, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real> const& si = sir.array(mfi);
@@ -33,8 +35,6 @@ REMORA::ice_enthalpy (int lev)
             if (si(i,j,0,cHo) <= min_hi) { si(i,j,0,cEo) = zero; }
         });
     }
-    ice_exchange(lev, sir, cEo, 1);
-    ice_exchange(lev, sir, cEn, 1);
 }
 
 /**
@@ -369,8 +369,8 @@ REMORA::ice_advect (int lev, Real dt_lev)
         }
     }
 
-    // The tracers changed at linew, and the ice age and age-thickness at liold too
-    ice_exchange(lev, sir, rcomp(0, linew), IceR::NumVars);
+    // The ice age and age-thickness changed at liold too. The linew halos are left to
+    // ice_limit, which always follows and clamps cell by cell first.
     ice_exchange(lev, sir, rcomp(IceR::Iage, liold), 1);
     ice_exchange(lev, sir, rcomp(IceR::Hage, liold), 1);
 }

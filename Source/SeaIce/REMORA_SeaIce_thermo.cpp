@@ -583,10 +583,9 @@ REMORA::ice_thermo (int lev, Real dt_lev)
         });
     }
 
-    // The fields set above all lie between IOmf and W_ro, and the state changed only at
-    // linew, whose components are adjacent
+    // The fields set above all lie between IOmf and W_ro. The state's halos and boundary
+    // rows are left to ice_limit, which always follows and clamps cell by cell first.
     ice_exchange(lev, fir, IceFR::IOmf, IceFR::W_ro - IceFR::IOmf + 1);
-    ice_exchange(lev, sir, rcomp(0, linew), IceR::NumVars);
     vec_stflx[lev]->FillBoundary(geom[lev].periodicity());
 
     ice_bc_r2d(lev, fir, IceFR::Isst);
@@ -594,12 +593,6 @@ REMORA::ice_thermo (int lev, Real dt_lev)
     ice_bc_r2d(lev, fir, IceFR::Qrhs);
     ice_bc_r2d(lev, *vec_stflx[lev], Salt_comp);
     ice_bc_r2d(lev, *vec_stflx[lev], Temp_comp);
-    ice_bc2d(lev, sir, cA);
-    ice_bc2d(lev, sir, cH);
-    ice_bc2d(lev, sir, cS);
-    ice_bc2d(lev, sir, cM);
-    ice_bc2d(lev, sir, cG);
-    ice_tibc(lev);
 }
 
 /**
