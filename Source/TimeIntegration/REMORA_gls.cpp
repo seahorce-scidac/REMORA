@@ -309,6 +309,7 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     Real gls_fac4 = std::pow(solverChoice.gls_cmu0,solverChoice.gls_p);
     Real gls_fac5 = std::pow(Real(0.56),Real(0.5)*solverChoice.gls_n)*std::pow(solverChoice.gls_cmu0,solverChoice.gls_p);
     Real gls_fac6 = Real(8.0)/std::pow(solverChoice.gls_cmu0,Real(6.0));
+    const bool l_cap = solverChoice.gls_length_cap;
 
     Real gls_exp1 = one/solverChoice.gls_n;
     Real tke_exp1 = solverChoice.gls_m/solverChoice.gls_n;
@@ -826,6 +827,10 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
                                                 std::sqrt(Real(0.56)*tke(i,j,k,nnew)/
                                                 (std::max(Real(0.0),buoy2(i,j,k))+eps))) : Ls_unlmt;
             //
+            // L <= kappa*Depth (ROMS gls_corstep.F). The Galperin limit above
+            // applies only where buoy2 > 0; this bounds L everywhere else.
+            if (l_cap) { Ls_lmt = std::min(Ls_lmt, vonKar * (z_w(i,j,N+1) - z_w(i,j,0))); }
+            //
             //  Recompute gls based on limited length scale
             //
             gls(i,j,k,nnew)=std::max(cmu0_exp_p*
@@ -896,6 +901,21 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
             //  Save limited length scale.
             Lscale(i,j,k)=Ls_lmt;
         });
+
+        // Uncomment to print where the cap binds. CPU reduction every step --
+        // do not leave enabled on a GPU build.
+        // {
+        //     Real dmax = Real(0.0), dcap = Real(0.0);
+        //     amrex::LoopOnCpu(grow(bx,2,-1), [&] (int i, int j, int k) noexcept {
+        //         Real Ls_u = std::max(eps,
+        //             std::pow(gls(i,j,k,nnew),gls_exp1)*cmu_fac1*
+        //             std::pow(tke(i,j,k,nnew),-tke_exp1));
+        //         dmax = std::max(dmax, Ls_u);
+        //         dcap = std::max(dcap, vonKar*(z_w(i,j,N+1)-z_w(i,j,0)));
+        //     });
+        //     amrex::Print() << "    [LSCALE] max uncapped L = " << dmax
+        //                    << " m,  cap = " << dcap << " m\n";
+        // }
 
         ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
