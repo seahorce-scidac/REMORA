@@ -201,20 +201,19 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
     if (containerHasElement(plot_var_names_2d, "mask_u")) tmp_plot_names.push_back("mask_u");
     if (containerHasElement(plot_var_names_2d, "mask_v")) tmp_plot_names.push_back("mask_v");
 
-    // Sea ice: any ice variable by its ROMS name, or "seaice" for the whole state
-    if (has_seaice()) {
-        const bool all_state = containerHasElement(plot_var_names_2d, "seaice");
-        if (all_state) {
-            tmp_plot_names.push_back("seaice");   // only so the check below accepts it
-        }
-        const auto state_count = REMORASeaIce::IceR::NumVars + 2*REMORASeaIce::IceU::NumVars;
-        const auto ice_names = ice_output_names();
-        for (int n = 0; n < ice_names.size(); ++n) {
-            if (containerHasElement(plot_var_names_2d, ice_names[n]) || (all_state && n < state_count)) {
-                if (!containerHasElement(tmp_plot_names, ice_names[n])) {
-                    tmp_plot_names.push_back(ice_names[n]);
-                }
-            }
+    // Sea ice: any ice variable by its ROMS name, or "seaice" for every ice state variable
+    // and ice field, along with the surface fluxes the ice hands the ocean
+    const bool all_ice = has_seaice() && containerHasElement(plot_var_names_2d, "seaice");
+    if (all_ice) {
+        tmp_plot_names.push_back("seaice");   // only so the check below accepts it
+    }
+    for (const std::string nm : {"net_heat_flux", "net_salt_flux"}) {
+        if (containerHasElement(plot_var_names_2d, nm) || all_ice) { tmp_plot_names.push_back(nm); }
+    }
+    for (const auto& nm : ice_output_names()) {
+        if ((containerHasElement(plot_var_names_2d, nm) || all_ice) &&
+            !containerHasElement(tmp_plot_names, nm)) {
+            tmp_plot_names.push_back(nm);
         }
     }
 

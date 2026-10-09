@@ -878,6 +878,10 @@ public:
                             int& comp, int& stagger) const;
     /** \brief Names of every ice output variable, ROMS (varinfo.yaml) spelling */
     amrex::Vector<std::string> ice_output_names () const;
+    /** \brief Copy ice output variable name into component dst_comp of dst on every level.
+     *         False, copying nothing, if the name is not an ice variable. */
+    bool copy_ice_output (const std::string& name, amrex::Vector<amrex::MultiFab>& dst,
+                          int dst_comp) const;
     /** \brief True when a sea-ice model is active */
     bool has_seaice () const noexcept { return REMORASeaIce::has_seaice(seaice_params.model); }
 

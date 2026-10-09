@@ -47,6 +47,25 @@ REMORA::ice_output_source (int lev, const std::string& name, MultiFab*& mf,
     return false;
 }
 
+/**
+ * @param[in]    name      output name (ROMS spelling)
+ * @param[inout] dst       one MultiFab per level, on the variable's staggering
+ * @param[in]    dst_comp  component of dst to fill
+ */
+bool
+REMORA::copy_ice_output (const std::string& name, Vector<MultiFab>& dst, int dst_comp) const
+{
+    MultiFab* mf = nullptr;
+    int comp = 0;
+    int stagger = 0;
+    if (!ice_output_source(0, name, mf, comp, stagger)) { return false; }
+    for (int lev = 0; lev <= finest_level; ++lev) {
+        ice_output_source(lev, name, mf, comp, stagger);
+        MultiFab::Copy(dst[lev], *mf, comp, dst_comp, 1, 0);
+    }
+    return true;
+}
+
 Vector<std::string>
 REMORA::ice_output_names () const
 {
