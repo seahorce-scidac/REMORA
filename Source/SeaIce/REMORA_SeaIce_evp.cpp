@@ -7,21 +7,6 @@ using namespace REMORASeaIce;
 // 1997): ROMS ice_evp.F, ice_evp_sig.F and ice_elastic.F, run nEVP times per
 // ice step from advance_seaice. Index offsets as in REMORA_SeaIce_thermo.cpp.
 
-namespace {
-
-Box interior_faces (const Box& nodal_bx, int dir, const Geometry& geom)
-{
-    Box b = nodal_bx;
-    if (!geom.isPeriodic(dir)) {
-        const Box& dom = geom.Domain();
-        b.setSmall(dir, std::max(b.smallEnd(dir), dom.smallEnd(dir)+1));
-        b.setBig  (dir, std::min(b.bigEnd(dir),   dom.bigEnd(dir)));
-    }
-    return b;
-}
-
-} // namespace
-
 /**
  * ROMS ice_evp: on the first substep, load the ice velocity (at liuol, the
  * latest after the swap) into both EVP velocity levels; then strain rates
@@ -95,7 +80,10 @@ REMORA::ice_evp (int lev, int iEVP)
         });
     }
 
-    ice_exchange(lev, fir, 0, fir.nComp());
+    // Only the three fields set above changed; they are not adjacent components
+    ice_exchange(lev, fir, IceFR::Pice, 1);
+    ice_exchange(lev, fir, IceFR::Bvis, 1);
+    ice_exchange(lev, fir, IceFR::Svis, 1);
     ice_bc_r2d(lev, fir, IceFR::Pice);
     ice_bc_r2d(lev, fir, IceFR::Bvis);
     ice_bc_r2d(lev, fir, IceFR::Svis);
@@ -177,7 +165,9 @@ REMORA::ice_evp_sig (int lev, Real dtevp)
         });
     }
 
-    ice_exchange(lev, sir, 0, sir.nComp());
+    // Only the new stresses changed: ISxx, ISxy and ISyy are adjacent
+    static_assert(IceR::ISxy == IceR::ISxx + 1 && IceR::ISyy == IceR::ISxx + 2);
+    ice_exchange(lev, sir, cXXn, 3);
     ice_bc2d(lev, sir, cXXn);
     ice_bc2d(lev, sir, cXYn);
     ice_bc2d(lev, sir, cYYn);

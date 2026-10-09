@@ -4,7 +4,9 @@
 #include <array>
 #include <string>
 
+#include <AMReX_Box.H>
 #include <AMReX_Extension.H>
+#include <AMReX_Geometry.H>
 #include <AMReX_GpuQualifiers.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Vector.H>
@@ -129,6 +131,18 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 int rcomp (int var, int lvl) noexcept { return lvl * IceR::NumVars + var; }
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 int ucomp (int var, int lvl) noexcept { return lvl * IceU::NumVars + var; }
+
+/** The valid faces of a nodal box minus those on a non-periodic domain edge (ROMS IstrP..Iend). */
+inline amrex::Box interior_faces (const amrex::Box& nodal_bx, int dir, const amrex::Geometry& geom)
+{
+    amrex::Box b = nodal_bx;
+    if (!geom.isPeriodic(dir)) {
+        const amrex::Box& dom = geom.Domain();
+        b.setSmall(dir, std::max(b.smallEnd(dir), dom.smallEnd(dir)+1));
+        b.setBig  (dir, std::min(b.bigEnd(dir),   dom.bigEnd(dir)));
+    }
+    return b;
+}
 
 /**
  * Time-level indices, 0-based versions of ROMS's mod_stepping ones. ROMS
