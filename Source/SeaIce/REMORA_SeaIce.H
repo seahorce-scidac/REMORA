@@ -37,11 +37,11 @@ enum class IceAlbedoType {
     default_mk  //!< the default branch of ice_albedo.F
 };
 
-/** Ice lateral boundary condition types (the ROMS LBC keywords that are ported). */
+/** Ice lateral boundary condition types (the ROMS LBC keywords that are ported). Periodic
+ *  sides are not a type here: they follow the geometry, and override the side's type. */
 enum class IceBCType {
     closed,     //!< Clo
-    gradient,   //!< Gra
-    periodic    //!< Per (taken from the geometry, not from the input)
+    gradient    //!< Gra
 };
 
 /**

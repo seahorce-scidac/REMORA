@@ -52,16 +52,106 @@ bool has_cell (const Box& gbx, int i, int j)
 
 /** u-point BCs shared by ice_uibc and bc_u2d; only ice_uibc masks gradient sides. */
 void ice_u_bc_impl (const Geometry& geom, MultiFab& mf, int comp, const MultiFab& msku_mf,
-                    std::array<IceBCType,4> bc, Real gamma2, bool mask_gradient);
+                    std::array<IceBCType,4> bc, std::array<Real,4> gamma2, bool mask_gradient);
 
 /** v-point BCs shared by ice_vibc and bc_v2d; ice_vibc_quirks selects ice_vibc's. */
 void ice_v_bc_impl (const Geometry& geom, MultiFab& mf, int comp, const MultiFab& mskv_mf,
-                    std::array<IceBCType,4> bc, Real gamma2, bool ice_vibc_quirks);
+                    std::array<IceBCType,4> bc, std::array<Real,4> gamma2, bool ice_vibc_quirks);
 
 void
 REMORA::ice_exchange (int lev, MultiFab& mf, int scomp, int ncomp)
 {
     mf.FillBoundary(scomp, ncomp, geom[lev].periodicity());
+}
+
+/**
+ * The rho-point side and corner logic shared by ice_bc_r2d and ice_bc2d. A side named
+ * in apply copies the interior value into its boundary row, times the rho mask if
+ * mskr_mf is given; with both sides of a corner non-periodic, the corner averages its
+ * two boundary-row neighbors.
+ */
+void ice_r_bc_impl (const Geometry& geom, MultiFab& mf, int comp, const MultiFab* mskr_mf,
+                    std::array<bool,4> apply)
+{
+    const IceDomain d = ice_domain(geom);
+    const bool masked = (mskr_mf != nullptr);
+
+    for (MFIter mfi(mf, false); mfi.isValid(); ++mfi) {
+        Array4<Real> const& f = mf.array(mfi, comp);
+        Array4<Real const> const mskr = masked ? mskr_mf->const_array(mfi) : Array4<Real const>{};
+        const Box gbx = amrex::grow(mfi.validbox(), IntVect(1,1,0));
+
+        // Boundary cell (i,j) from interior cell (ii,jj)
+        auto side = [=] AMREX_GPU_DEVICE (int i, int j, int ii, int jj)
+        {
+            f(i,j,0) = masked ? f(ii,jj,0) * mskr(i,j,0) : f(ii,jj,0);
+        };
+
+        // Along a side, the interior range; the whole ghost extent if the
+        // other direction is periodic (the exchange filled its images).
+        const int jl = d.yper ? gbx.smallEnd(1) : d.jlo;
+        const int jh = d.yper ? gbx.bigEnd(1)   : d.jhi;
+        const int il = d.xper ? gbx.smallEnd(0) : d.ilo;
+        const int ih = d.xper ? gbx.bigEnd(0)   : d.ihi;
+
+        if (!d.xper && gbx.smallEnd(0) < d.ilo && apply[0]) {
+            ParallelFor(column_box(d.ilo-1, jl, jh, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                side(i, j, i+1, j);
+            });
+        }
+        if (!d.xper && gbx.bigEnd(0) > d.ihi && apply[2]) {
+            ParallelFor(column_box(d.ihi+1, jl, jh, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                side(i, j, i-1, j);
+            });
+        }
+        if (!d.yper && gbx.smallEnd(1) < d.jlo && apply[1]) {
+            ParallelFor(row_box(d.jlo-1, il, ih, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                side(i, j, i, j+1);
+            });
+        }
+        if (!d.yper && gbx.bigEnd(1) > d.jhi && apply[3]) {
+            ParallelFor(row_box(d.jhi+1, il, ih, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
+            {
+                side(i, j, i, j-1);
+            });
+        }
+
+        if (!d.xper && !d.yper) {
+            // Corner (i,j) averages its boundary-row neighbors (ia,ja) and (ib,jb)
+            auto corner = [=] AMREX_GPU_DEVICE (int i, int j, int ia, int ja, int ib, int jb)
+            {
+                f(i,j,0) = Real(0.5) * (f(ia,ja,0) + f(ib,jb,0));
+            };
+            const int ilo = d.ilo, ihi = d.ihi, jlo = d.jlo, jhi = d.jhi;
+            if (has_cell(gbx, ilo-1, jlo-1)) {
+                ParallelFor(Box(IntVect(ilo-1,jlo-1,0), IntVect(ilo-1,jlo-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    corner(i, j, i+1, j, i, j+1);
+                });
+            }
+            if (has_cell(gbx, ihi+1, jlo-1)) {
+                ParallelFor(Box(IntVect(ihi+1,jlo-1,0), IntVect(ihi+1,jlo-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    corner(i, j, i-1, j, i, j+1);
+                });
+            }
+            if (has_cell(gbx, ilo-1, jhi+1)) {
+                ParallelFor(Box(IntVect(ilo-1,jhi+1,0), IntVect(ilo-1,jhi+1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    corner(i, j, i, j-1, i+1, j);
+                });
+            }
+            if (has_cell(gbx, ihi+1, jhi+1)) {
+                ParallelFor(Box(IntVect(ihi+1,jhi+1,0), IntVect(ihi+1,jhi+1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
+                {
+                    corner(i, j, i, j-1, i-1, j);
+                });
+            }
+        }
+    }
 }
 
 /**
@@ -71,70 +161,7 @@ REMORA::ice_exchange (int lev, MultiFab& mf, int scomp, int ncomp)
 void
 REMORA::ice_bc_r2d (int lev, MultiFab& mf, int comp)
 {
-    const IceDomain d = ice_domain(geom[lev]);
-
-    for (MFIter mfi(mf, false); mfi.isValid(); ++mfi) {
-        Array4<Real> const& f = mf.array(mfi, comp);
-        const Box gbx = amrex::grow(mfi.validbox(), IntVect(1,1,0));
-
-        const int jl = d.yper ? gbx.smallEnd(1) : d.jlo;
-        const int jh = d.yper ? gbx.bigEnd(1)   : d.jhi;
-        const int il = d.xper ? gbx.smallEnd(0) : d.ilo;
-        const int ih = d.xper ? gbx.bigEnd(0)   : d.ihi;
-
-        if (!d.xper && gbx.smallEnd(0) < d.ilo) {
-            ParallelFor(column_box(d.ilo-1, jl, jh, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                f(i,j,0) = f(i+1,j,0);
-            });
-        }
-        if (!d.xper && gbx.bigEnd(0) > d.ihi) {
-            ParallelFor(column_box(d.ihi+1, jl, jh, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                f(i,j,0) = f(i-1,j,0);
-            });
-        }
-        if (!d.yper && gbx.smallEnd(1) < d.jlo) {
-            ParallelFor(row_box(d.jlo-1, il, ih, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                f(i,j,0) = f(i,j+1,0);
-            });
-        }
-        if (!d.yper && gbx.bigEnd(1) > d.jhi) {
-            ParallelFor(row_box(d.jhi+1, il, ih, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                f(i,j,0) = f(i,j-1,0);
-            });
-        }
-
-        if (!d.xper && !d.yper) {
-            const int ilo = d.ilo, ihi = d.ihi, jlo = d.jlo, jhi = d.jhi;
-            if (has_cell(gbx, ilo-1, jlo-1)) {
-                ParallelFor(Box(IntVect(ilo-1,jlo-1,0), IntVect(ilo-1,jlo-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    f(i,j,0) = Real(0.5) * (f(i+1,j,0) + f(i,j+1,0));
-                });
-            }
-            if (has_cell(gbx, ihi+1, jlo-1)) {
-                ParallelFor(Box(IntVect(ihi+1,jlo-1,0), IntVect(ihi+1,jlo-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    f(i,j,0) = Real(0.5) * (f(i-1,j,0) + f(i,j+1,0));
-                });
-            }
-            if (has_cell(gbx, ilo-1, jhi+1)) {
-                ParallelFor(Box(IntVect(ilo-1,jhi+1,0), IntVect(ilo-1,jhi+1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    f(i,j,0) = Real(0.5) * (f(i,j-1,0) + f(i+1,j,0));
-                });
-            }
-            if (has_cell(gbx, ihi+1, jhi+1)) {
-                ParallelFor(Box(IntVect(ihi+1,jhi+1,0), IntVect(ihi+1,jhi+1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    f(i,j,0) = Real(0.5) * (f(i,j-1,0) + f(i-1,j,0));
-                });
-            }
-        }
-    }
+    ice_r_bc_impl(geom[lev], mf, comp, nullptr, {true, true, true, true});
 }
 
 /**
@@ -145,74 +172,10 @@ REMORA::ice_bc_r2d (int lev, MultiFab& mf, int comp)
 void
 REMORA::ice_bc2d (int lev, MultiFab& mf, int comp)
 {
-    const IceDomain d = ice_domain(geom[lev]);
     const auto bc = seaice_params.bc_type;
-
-    for (MFIter mfi(mf, false); mfi.isValid(); ++mfi) {
-        Array4<Real> const& f = mf.array(mfi, comp);
-        Array4<Real const> const& mskr = vec_mskr[lev]->const_array(mfi);
-        const Box gbx = amrex::grow(mfi.validbox(), IntVect(1,1,0));
-
-        // Along a side, the interior range; the whole ghost extent if the
-        // other direction is periodic (the exchange filled its images).
-        const int jl = d.yper ? gbx.smallEnd(1) : d.jlo;
-        const int jh = d.yper ? gbx.bigEnd(1)   : d.jhi;
-        const int il = d.xper ? gbx.smallEnd(0) : d.ilo;
-        const int ih = d.xper ? gbx.bigEnd(0)   : d.ihi;
-
-        if (!d.xper && gbx.smallEnd(0) < d.ilo && bc[0] == IceBCType::closed) {
-            ParallelFor(column_box(d.ilo-1, jl, jh, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                f(i,j,0) = f(i+1,j,0) * mskr(i,j,0);
-            });
-        }
-        if (!d.xper && gbx.bigEnd(0) > d.ihi && bc[2] == IceBCType::closed) {
-            ParallelFor(column_box(d.ihi+1, jl, jh, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                f(i,j,0) = f(i-1,j,0) * mskr(i,j,0);
-            });
-        }
-        if (!d.yper && gbx.smallEnd(1) < d.jlo && bc[1] == IceBCType::closed) {
-            ParallelFor(row_box(d.jlo-1, il, ih, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                f(i,j,0) = f(i,j+1,0) * mskr(i,j,0);
-            });
-        }
-        if (!d.yper && gbx.bigEnd(1) > d.jhi && bc[3] == IceBCType::closed) {
-            ParallelFor(row_box(d.jhi+1, il, ih, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
-            {
-                f(i,j,0) = f(i,j-1,0) * mskr(i,j,0);
-            });
-        }
-
-        if (!d.xper && !d.yper) {
-            const int ilo = d.ilo, ihi = d.ihi, jlo = d.jlo, jhi = d.jhi;
-            if (has_cell(gbx, ilo-1, jlo-1)) {
-                ParallelFor(Box(IntVect(ilo-1,jlo-1,0), IntVect(ilo-1,jlo-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    f(i,j,0) = Real(0.5) * (f(i+1,j,0) + f(i,j+1,0));
-                });
-            }
-            if (has_cell(gbx, ihi+1, jlo-1)) {
-                ParallelFor(Box(IntVect(ihi+1,jlo-1,0), IntVect(ihi+1,jlo-1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    f(i,j,0) = Real(0.5) * (f(i,j+1,0) + f(i-1,j,0));
-                });
-            }
-            if (has_cell(gbx, ilo-1, jhi+1)) {
-                ParallelFor(Box(IntVect(ilo-1,jhi+1,0), IntVect(ilo-1,jhi+1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    f(i,j,0) = Real(0.5) * (f(i,j-1,0) + f(i+1,j,0));
-                });
-            }
-            if (has_cell(gbx, ihi+1, jhi+1)) {
-                ParallelFor(Box(IntVect(ihi+1,jhi+1,0), IntVect(ihi+1,jhi+1,0)), [=] AMREX_GPU_DEVICE (int i, int j, int)
-                {
-                    f(i,j,0) = Real(0.5) * (f(i,j-1,0) + f(i-1,j,0));
-                });
-            }
-        }
-    }
+    std::array<bool,4> closed;
+    for (int s = 0; s < 4; ++s) { closed[s] = (bc[s] == IceBCType::closed); }
+    ice_r_bc_impl(geom[lev], mf, comp, vec_mskr[lev].get(), closed);
 }
 
 /**
@@ -264,28 +227,28 @@ REMORA::ice_tibc (int lev)
             }
         };
 
-        if (!d.xper && gbx.smallEnd(0) < d.ilo && bc[0] != IceBCType::periodic) {
+        if (!d.xper && gbx.smallEnd(0) < d.ilo) {
             const bool closed = (bc[0] == IceBCType::closed);
             ParallelFor(column_box(d.ilo-1, jl, jh, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
                 side(i, j, i+1, j, closed);
             });
         }
-        if (!d.xper && gbx.bigEnd(0) > d.ihi && bc[2] != IceBCType::periodic) {
+        if (!d.xper && gbx.bigEnd(0) > d.ihi) {
             const bool closed = (bc[2] == IceBCType::closed);
             ParallelFor(column_box(d.ihi+1, jl, jh, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
                 side(i, j, i-1, j, closed);
             });
         }
-        if (!d.yper && gbx.smallEnd(1) < d.jlo && bc[1] != IceBCType::periodic) {
+        if (!d.yper && gbx.smallEnd(1) < d.jlo) {
             const bool closed = (bc[1] == IceBCType::closed);
             ParallelFor(row_box(d.jlo-1, il, ih, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
                 side(i, j, i, j+1, closed);
             });
         }
-        if (!d.yper && gbx.bigEnd(1) > d.jhi && bc[3] != IceBCType::periodic) {
+        if (!d.yper && gbx.bigEnd(1) > d.jhi) {
             const bool closed = (bc[3] == IceBCType::closed);
             ParallelFor(row_box(d.jhi+1, il, ih, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
             {
@@ -343,26 +306,51 @@ REMORA::ice_tibc (int lev)
 void
 REMORA::ice_uibc (int lev, MultiFab& mf, int comp)
 {
+    const Real g = seaice_params.gamma2;
     ice_u_bc_impl(geom[lev], mf, comp, *vec_msku[lev], seaice_params.bc_type,
-                  seaice_params.gamma2, true);
+                  {g, g, g, g}, true);
 }
 
 /**
- * ROMS bc_u2d: as ice_uibc, except that gradient sides are not masked.
+ * ROMS bc_u2d: as ice_uibc, except that gradient sides are not masked and the
+ * sides take the ocean's 2D boundary types (ROMS isBu2d is isUbar), not the ice's.
  */
 void
 REMORA::ice_bc_u2d (int lev, MultiFab& mf, int comp)
 {
-    ice_u_bc_impl(geom[lev], mf, comp, *vec_msku[lev], seaice_params.bc_type,
-                  seaice_params.gamma2, false);
+    std::array<IceBCType,4> bc;
+    std::array<Real,4> gamma2;
+    ocean_bc_2d(ubar_bc(), bc, gamma2);
+    ice_u_bc_impl(geom[lev], mf, comp, *vec_msku[lev], bc, gamma2, false);
+}
+
+/**
+ * The closed/gradient type and slip factor of each side (xlo, ylo, xhi, yhi) for the
+ * ocean boundary-condition variable bcvar, as ROMS's bc_u2d and bc_v2d see the ocean:
+ * walls and symmetry planes are closed, with gamma2 = -1 for no slip and +1 otherwise,
+ * and the open types extrapolate. Periodic sides follow the geometry.
+ */
+void
+REMORA::ocean_bc_2d (int bcvar, std::array<IceBCType,4>& bc, std::array<Real,4>& gamma2) const
+{
+    const int ori[4] = {Orientation(0, Orientation::low),  Orientation(1, Orientation::low),
+                        Orientation(0, Orientation::high), Orientation(1, Orientation::high)};
+    for (int s = 0; s < 4; ++s) {
+        const REMORA_BC t = phys_bc_type[bcvar][ori[s]];
+        const bool wall = (t == REMORA_BC::slip_wall || t == REMORA_BC::no_slip_wall ||
+                           t == REMORA_BC::symmetry);
+        bc[s] = wall ? IceBCType::closed : IceBCType::gradient;
+        gamma2[s] = (t == REMORA_BC::no_slip_wall) ? Real(-1.0) : one;
+    }
 }
 
 void
 ice_u_bc_impl (const Geometry& geom, MultiFab& mf, int comp, const MultiFab& msku_mf,
-               std::array<IceBCType,4> bc, Real gamma2, bool mask_gradient)
+               std::array<IceBCType,4> bc, std::array<Real,4> gamma2, bool mask_gradient)
 {
     const IceDomain d = ice_domain(geom);
     const Real gmask = mask_gradient ? one : zero;
+    const Real g_s = gamma2[1], g_n = gamma2[3];   // south, north tangential ghost rows
 
     for (MFIter mfi(mf, false); mfi.isValid(); ++mfi) {
         Array4<Real> const& f = mf.array(mfi, comp);
@@ -414,7 +402,7 @@ ice_u_bc_impl (const Geometry& geom, MultiFab& mf, int comp, const MultiFab& msk
             if (bc[1] == IceBCType::closed) {
                 ParallelFor(row_box(d.jlo-1, il_c, ih_c, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
-                    f(i,j,0) = gamma2 * f(i,j+1,0) * msku(i,j,0);
+                    f(i,j,0) = g_s * f(i,j+1,0) * msku(i,j,0);
                 });
             } else if (bc[1] == IceBCType::gradient) {
                 ParallelFor(row_box(d.jlo-1, il_g, ih_g, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -427,7 +415,7 @@ ice_u_bc_impl (const Geometry& geom, MultiFab& mf, int comp, const MultiFab& msk
             if (bc[3] == IceBCType::closed) {
                 ParallelFor(row_box(d.jhi+1, il_c, ih_c, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
-                    f(i,j,0) = gamma2 * f(i,j-1,0) * msku(i,j,0);
+                    f(i,j,0) = g_n * f(i,j-1,0) * msku(i,j,0);
                 });
             } else if (bc[3] == IceBCType::gradient) {
                 ParallelFor(row_box(d.jhi+1, il_g, ih_g, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -476,26 +464,31 @@ ice_u_bc_impl (const Geometry& geom, MultiFab& mf, int comp, const MultiFab& msk
 void
 REMORA::ice_vibc (int lev, MultiFab& mf, int comp)
 {
+    const Real g = seaice_params.gamma2;
     ice_v_bc_impl(geom[lev], mf, comp, *vec_mskv[lev], seaice_params.bc_type,
-                  seaice_params.gamma2, true);
+                  {g, g, g, g}, true);
 }
 
 /**
- * ROMS bc_v2d: closed west copies the interior, and gradient sides are not masked.
+ * ROMS bc_v2d: closed west copies the interior, gradient sides are not masked, and
+ * the sides take the ocean's 2D boundary types (ROMS isBv2d is isVbar).
  */
 void
 REMORA::ice_bc_v2d (int lev, MultiFab& mf, int comp)
 {
-    ice_v_bc_impl(geom[lev], mf, comp, *vec_mskv[lev], seaice_params.bc_type,
-                  seaice_params.gamma2, false);
+    std::array<IceBCType,4> bc;
+    std::array<Real,4> gamma2;
+    ocean_bc_2d(vbar_bc(), bc, gamma2);
+    ice_v_bc_impl(geom[lev], mf, comp, *vec_mskv[lev], bc, gamma2, false);
 }
 
 void
 ice_v_bc_impl (const Geometry& geom, MultiFab& mf, int comp, const MultiFab& mskv_mf,
-               std::array<IceBCType,4> bc, Real gamma2, bool ice_vibc_quirks)
+               std::array<IceBCType,4> bc, std::array<Real,4> gamma2, bool ice_vibc_quirks)
 {
     const IceDomain d = ice_domain(geom);
     const Real q = ice_vibc_quirks ? one : zero;
+    const Real g_w = gamma2[0], g_e = gamma2[2];   // west, east tangential ghost columns
 
     for (MFIter mfi(mf, false); mfi.isValid(); ++mfi) {
         Array4<Real> const& f = mf.array(mfi, comp);
@@ -544,7 +537,7 @@ ice_v_bc_impl (const Geometry& geom, MultiFab& mf, int comp, const MultiFab& msk
             if (bc[0] == IceBCType::closed) {
                 ParallelFor(column_box(d.ilo-1, jl_c, jh_c, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
-                    f(i,j,0) = gamma2 * (ice_vibc_quirks ? f(i,j,0) : f(i+1,j,0)) * mskv(i,j,0);
+                    f(i,j,0) = g_w * (ice_vibc_quirks ? f(i,j,0) : f(i+1,j,0)) * mskv(i,j,0);
                 });
             } else if (bc[0] == IceBCType::gradient) {
                 ParallelFor(column_box(d.ilo-1, jl_g, jh_g, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
@@ -557,7 +550,7 @@ ice_v_bc_impl (const Geometry& geom, MultiFab& mf, int comp, const MultiFab& msk
             if (bc[2] == IceBCType::closed) {
                 ParallelFor(column_box(d.ihi+1, jl_c, jh_c, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
                 {
-                    f(i,j,0) = gamma2 * f(i-1,j,0) * mskv(i,j,0);
+                    f(i,j,0) = g_e * f(i-1,j,0) * mskv(i,j,0);
                 });
             } else if (bc[2] == IceBCType::gradient) {
                 ParallelFor(column_box(d.ihi+1, jl_g, jh_g, gbx), [=] AMREX_GPU_DEVICE (int i, int j, int)
