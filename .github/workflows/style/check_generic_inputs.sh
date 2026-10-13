@@ -9,9 +9,10 @@ set -eu -o pipefail
 # Usage:
 #   check_generic_inputs.sh
 #       Regenerate the file in place and fail if it changed.
-#   check_generic_inputs.sh --preview [BASE]
-#       Report how the changes since BASE (default HEAD; for a branch, pass
-#       e.g. upstream/development) change the generated file, and succeed.
+#   check_generic_inputs.sh --preview BASE
+#       Report how the changes since BASE (for a branch, the branch it merges
+#       into, e.g. upstream/development) change the generated file, and
+#       succeed.
 #       Both sides are regenerated, each with its own copy of the generator,
 #       so the report shows only this change's effect even when the committed
 #       file is stale. The working tree is left untouched.
@@ -21,13 +22,18 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 cd "${REPO_ROOT}"
 
+usage() {
+    echo "usage: ${0} [--preview BASE]" >&2
+    exit 2
+}
+
 PREVIEW=0
-BASE=HEAD
-if [ "${1:-}" = "--preview" ]
-then
-    PREVIEW=1
-    BASE="${2:-HEAD}"
-fi
+BASE=
+case "$#:${1:-}" in
+    0:) ;;
+    2:--preview) PREVIEW=1; BASE="${2}" ;;
+    *) usage ;;
+esac
 
 INPUTS=Exec/Generic/inputs_generic
 AMREX=Submodules/AMReX
@@ -64,8 +70,15 @@ then
     then
         rmdir "${BASE_TREE}/${AMREX}"
         ln -s "${REPO_ROOT}/${AMREX}" "${BASE_TREE}/${AMREX}"
-    else
-        git -C "${BASE_TREE}" submodule update --init --depth 1 "${AMREX}"
+    elif ! git -C "${BASE_TREE}" submodule update --init --depth 1 "${AMREX}"
+    then
+        # The preview is advisory; do not fail a PR because it is unavailable.
+        if [ -n "${GITHUB_ACTIONS:-}" ]
+        then
+            echo "::warning title=inputs_generic preview unavailable::Could not fetch the base AMReX commit to compare against."
+        fi
+        echo "Could not fetch the base ${AMREX}; skipping the preview." >&2
+        exit 0
     fi
     render_tree "${BASE_TREE}" "${TMPDIR_CHECK}/committed"
     render_tree "${REPO_ROOT}" "${TMPDIR_CHECK}/regenerated"

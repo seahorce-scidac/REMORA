@@ -108,14 +108,18 @@ TYPE_PATTERNS = (
 )
 
 # A statement that declares a variable of any type, used only to find the
-# declaration a description comes from: "Type name =", "Type<T>* name;", ...
-# The variable name is appended. Statements starting with a keyword are not
-# declarations.
+# declaration a description comes from: "Type name =", "Type<T>* name;",
+# "Type const& name", "Type name(args);", ... The variable name and
+# GENERIC_DECL_SUFFIX are appended. Statements starting with a keyword are not
+# declarations. A * or & with spaces on both sides ("a * name") is taken as
+# an operator, not a declarator, so expression lines do not match.
 GENERIC_DECL_PREFIX = (
-    r"^\s*(?:(?:const|static|constexpr|inline|mutable)\s+)*"
+    r"^\s*(?:(?:const|static|constexpr|inline|mutable|extern|struct|class|enum)\s+)*"
     r"(?!(?:return|delete|else|case|goto|throw|using|typedef|new)\b)"
-    r"[A-Za-z_][\w:]*(?:\s*<[^;]*?>)?[\s\*&]+"
+    r"[A-Za-z_][\w:]*(?:\s*<[^;]*?>)?(?:\s+const)?"
+    r"(?:[\*&]+\s*|\s+[\*&]*)"
 )
+GENERIC_DECL_SUFFIX = r"\s*(?:=|;|\{|\[|,|\()"
 
 ALLOWED_PARAM_NAME = re.compile(r"^[a-zA-Z0-9_.]+$")
 
@@ -389,7 +393,7 @@ def extract_var_description(var_name: str, lines: list[str], line_idx: int) -> s
         for pattern, _ in TYPE_PATTERNS
     ]
     decl_pats.append(
-        re.compile(rf"{GENERIC_DECL_PREFIX}{var_pat}\s*(?:=|;|\{{|\[|,)")
+        re.compile(rf"{GENERIC_DECL_PREFIX}{var_pat}\b{GENERIC_DECL_SUFFIX}")
     )
     for j in range(line_idx - 1, max(-1, line_idx - 140), -1):
         s = lines[j]

@@ -68,11 +68,13 @@ On pull requests, ``generic-inputs-validate.yml``:
 
   .. code-block:: bash
 
-     git checkout origin/development -- Exec/Generic/inputs_generic
+     git fetch https://github.com/seahorce-scidac/REMORA development
+     git checkout FETCH_HEAD -- Exec/Generic/inputs_generic
 
   To edit it deliberately, for example while changing the generator, label the
   PR ``inputs-generic-hand-edit``;
-* runs ``.github/workflows/style/check_generic_inputs.sh --preview``, which
+* runs ``.github/workflows/style/check_generic_inputs.sh --preview`` against
+  the PR's base, which
   warns, without failing, with the diff the merge will cause. Use it to check
   that new parameters and descriptions come out as intended. To change a
   description, edit the comment at the query or its declaration, or the row in
@@ -81,7 +83,7 @@ On pull requests, ``generic-inputs-validate.yml``:
 The preview regenerates the file both at the PR's base and at its head, so it
 shows only the PR's own effect, even while an earlier bot PR is unmerged. It
 writes nothing to the working tree. To preview a local branch, pass the branch
-it will merge into:
+it will merge into (the base is required):
 
 .. code-block:: bash
 
@@ -93,5 +95,7 @@ changed; a manual run of the workflow does this on the chosen branch.
 The file changes when a parameter is added or removed; when its default, type,
 or attached description changes; when its row in ``Inputs.rst`` changes; or
 when its query moves to another file. Moving code within a file normally does
-not change it. The exception is a description taken from the variable's
-declaration, which is looked for only within 140 lines above the query.
+not change it. The exception is anything taken from the variable's
+declaration, namely its description, default, and type: the declaration is
+looked for only in the lines just above the query (about 140), so moving the
+two far apart can change them.

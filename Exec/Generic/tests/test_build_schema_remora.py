@@ -241,6 +241,40 @@ class SchemaBuilderTests(unittest.TestCase):
         schema = self.build_schema(src)
         self.assertIsNone(schema["remora.ic_type"]["description"])
 
+    def test_expression_line_is_not_a_declaration(self) -> None:
+        src = """
+        #include <AMReX_ParmParse.H>
+        void f () {
+            // Biharmonic viscosity
+            amrex::Real visc2 = 0.0;
+            amrex::Real nu = std::max(dt,
+                dt * visc2,
+                0.0);
+            amrex::ParmParse pp("remora");
+            pp.query("visc2", visc2);
+        }
+        """
+        schema = self.build_schema(src)
+        self.assertEqual(
+            schema["remora.visc2"]["description"], "Biharmonic viscosity"
+        )
+
+    def test_direct_initialized_declaration_is_nearest(self) -> None:
+        src = """
+        #include <AMReX_ParmParse.H>
+        void g () {
+            // unrelated string of the same name
+            std::string ic_type;
+        }
+        void f () {
+            IC_Type ic_type(IC_Type::analytic);
+            amrex::ParmParse pp("remora");
+            pp.query("ic_type", ic_type);
+        }
+        """
+        schema = self.build_schema(src)
+        self.assertIsNone(schema["remora.ic_type"]["description"])
+
     def test_declaration_of_other_types_describes_query(self) -> None:
         src = """
         #include <AMReX_ParmParse.H>

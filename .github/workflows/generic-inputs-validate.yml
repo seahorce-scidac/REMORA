@@ -32,6 +32,9 @@ jobs:
   reject-hand-edits:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
 
     steps:
       # The PR merge commit's first parent is the base branch tip.
@@ -39,17 +42,30 @@ jobs:
         with:
           fetch-depth: 2
 
+      # Labels are read from the API, not the event payload: a code run and a
+      # label run can overlap, and the one finishing last must not act on a
+      # stale label list.
       - name: Reject hand edits to inputs_generic
         if: >-
           !(github.head_ref == 'bot/inputs-generic' &&
-            github.event.pull_request.head.repo.full_name == github.repository) &&
-          !contains(github.event.pull_request.labels.*.name, 'inputs-generic-hand-edit')
+            github.event.pull_request.head.repo.full_name == github.repository)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_URL: ${{ github.server_url }}/${{ github.repository }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           if git diff --quiet HEAD^1 HEAD -- Exec/Generic/inputs_generic
           then
               exit 0
           fi
-          echo "::error file=Exec/Generic/inputs_generic,title=Do not edit inputs_generic::This file is generated and is updated by a bot PR after merge. Restore it with: git checkout origin/development -- Exec/Generic/inputs_generic"
+          if gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" --jq '.[].name' \
+              | grep -qx inputs-generic-hand-edit
+          then
+              echo "Edit to inputs_generic allowed by the inputs-generic-hand-edit label."
+              exit 0
+          fi
+          echo "::error file=Exec/Generic/inputs_generic,title=Do not edit inputs_generic::This file is generated and is updated by a bot PR after merge. Restore it with: git fetch ${BASE_URL} ${BASE_REF} && git checkout FETCH_HEAD -- Exec/Generic/inputs_generic"
           exit 1
 
   preview-generic-inputs:
