@@ -598,7 +598,7 @@ remora.gls_c3p = 1.0
 # type=Real; method=queryAdd
 remora.gls_cmu0 = 0.5477
 
-# source: Source/REMORA_DataStruct.H
+# Cap the turbulent length scale at kappa times the local water-column depth, as in ROMS. Applied in every cell, after the Galperin limit in stable stratification. Set to 0 to leave the length scale uncapped.
 # type=bool; method=queryAdd
 remora.gls_length_cap = <UNKNOWN_DEFAULT>
 
