@@ -599,6 +599,10 @@ remora.gls_c3p = 1.0
 remora.gls_cmu0 = 0.5477
 
 # source: Source/REMORA_DataStruct.H
+# type=bool; method=queryAdd
+remora.gls_length_cap = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA_DataStruct.H
 # type=Real; method=queryAdd
 remora.gls_sigk = 1.0
 
@@ -903,6 +907,10 @@ remora.refinement_indicators_.adjacent_difference_greater = <REQUIRED>
 remora.refinement_indicators_.end_time = <UNKNOWN_DEFAULT>
 
 # source: Source/REMORA_Tagging.cpp
+# type=Real; method=query
+remora.refinement_indicators_.end_total_time = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA_Tagging.cpp
 # type=string; method=get
 remora.refinement_indicators_.field_name = <REQUIRED>
 
@@ -934,9 +942,13 @@ remora.refinement_indicators_.in_box_lo_indices_crse = <REQUIRED>
 # type=int; method=get
 remora.refinement_indicators_.max_level = <REQUIRED>
 
-# The window is on the model clock. It stays out of info, whose times are Real and are compared against elapsed time; ErrorEst applies it instead.
+# source: Source/REMORA_Tagging.cpp
 # type=Real; method=query
 remora.refinement_indicators_.start_time = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA_Tagging.cpp
+# type=Real; method=query
+remora.refinement_indicators_.start_total_time = <UNKNOWN_DEFAULT>
 
 # source: Source/REMORA_Tagging.cpp
 # type=return; method=getarr
