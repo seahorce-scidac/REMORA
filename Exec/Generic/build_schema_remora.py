@@ -107,15 +107,14 @@ TYPE_PATTERNS = (
     (r"\b(Vector|std::vector)\s*<", "Vector"),
 )
 
-# Further declaration types, used only to find a variable's declaration for
-# its description. They are not in TYPE_PATTERNS, which also infers the
-# parameter type.
-DECL_ONLY_TYPE_PATTERNS = (
-    r"\b(amrex::)?Long\b",
-    r"\bunsigned\b",
-    r"\b(std::)?size_t\b",
-    r"\bauto\b",
-    r"\b(std::)?array\s*<",
+# A statement that declares a variable of any type, used only to find the
+# declaration a description comes from: "Type name =", "Type<T>* name;", ...
+# The variable name is appended. Statements starting with a keyword are not
+# declarations.
+GENERIC_DECL_PREFIX = (
+    r"^\s*(?:(?:const|static|constexpr|inline|mutable)\s+)*"
+    r"(?!(?:return|delete|else|case|goto|throw|using|typedef|new)\b)"
+    r"[A-Za-z_][\w:]*(?:\s*<[^;]*?>)?[\s\*&]+"
 )
 
 ALLOWED_PARAM_NAME = re.compile(r"^[a-zA-Z0-9_.]+$")
@@ -336,8 +335,9 @@ def extract_description(lines: list[str], line_idx: int) -> str | None:
     # Only a comment block directly above the query describes it. Stop at the
     # first blank or code line so a comment that belongs to neighboring code
     # is never borrowed; borrowing made descriptions change whenever nearby,
-    # unrelated comments were edited. Preprocessor lines (#ifdef guards) do
-    # not separate a comment from its query.
+    # unrelated comments were edited. An opening #if/#ifdef/#ifndef guard
+    # does not separate a comment from its query, but #endif, #else and
+    # #elif do: a comment above them belongs to the preceding block.
     def clean(s: str) -> str:
         return s.replace("/*", "").replace("*/", "").lstrip("*").strip()
 
@@ -365,7 +365,7 @@ def extract_description(lines: list[str], line_idx: int) -> str | None:
             in_block = True
             comments.insert(0, clean(s))
             continue
-        if s.startswith("#"):
+        if re.match(r"#\s*(if|ifdef|ifndef)\b", s):
             continue
         break
 
@@ -381,12 +381,16 @@ def extract_var_description(var_name: str, lines: list[str], line_idx: int) -> s
     # description. Use the declaration's trailing comment or the comment
     # block directly above it. Only the nearest declaration counts: an earlier
     # one with the same name belongs to another scope.
+    # Recognizing declarations of any type matters: an unrecognized nearest
+    # declaration would let the scan reach an unrelated one further up.
     var_pat = re.escape(var_name)
-    decl_types = [pattern for pattern, _ in TYPE_PATTERNS] + list(DECL_ONLY_TYPE_PATTERNS)
     decl_pats = [
         re.compile(rf"{pattern}[\w:<>,\s]*?[\*&]?\s*\b{var_pat}\b")
-        for pattern in decl_types
+        for pattern, _ in TYPE_PATTERNS
     ]
+    decl_pats.append(
+        re.compile(rf"{GENERIC_DECL_PREFIX}{var_pat}\s*(?:=|;|\{{|\[|,)")
+    )
     for j in range(line_idx - 1, max(-1, line_idx - 140), -1):
         s = lines[j]
         code = s.split("//", 1)[0]

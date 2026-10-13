@@ -2,8 +2,9 @@ name: Generic Inputs Validate
 
 # Exec/Generic/inputs_generic is generated. Pull requests must not edit it; the
 # generic-inputs-update workflow regenerates it on development and opens a bot
-# PR. This check fails on hand edits and previews the change a merge will cause.
-# Label a PR "inputs-generic-hand-edit" to allow an edit deliberately.
+# PR. This workflow fails on hand edits and previews the change a merge will
+# cause. Label a PR "inputs-generic-hand-edit" to allow an edit deliberately.
+# A manual run checks strictly that the file on the branch is up to date.
 
 on:
   pull_request:
@@ -11,45 +12,55 @@ on:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - "Source/**"
-      - "Submodules/AMReX/Src/**"
+      - "Submodules/AMReX"
       - "Exec/Generic/**"
       - "Docs/sphinx_doc/Inputs.rst"
       - ".github/workflows/generic-inputs-validate.yml"
       - ".github/workflows/style/check_generic_inputs.sh"
   workflow_dispatch:
 
+# Label events only rerun the hand-edit gate, so give them their own group;
+# otherwise a label change would cancel an in-progress preview.
 concurrency:
-  group: ${{ github.ref }}-${{ github.head_ref }}-generic-inputs
+  group: ${{ github.ref }}-generic-inputs-${{ (github.event.action == 'labeled' || github.event.action == 'unlabeled') && 'label' || 'code' }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  validate-generic-inputs:
+  reject-hand-edits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      # The PR merge commit's first parent is the base branch tip.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Reject hand edits to inputs_generic
+        if: >-
+          !(github.head_ref == 'bot/inputs-generic' &&
+            github.event.pull_request.head.repo.full_name == github.repository) &&
+          !contains(github.event.pull_request.labels.*.name, 'inputs-generic-hand-edit')
+        run: |
+          if git diff --quiet HEAD^1 HEAD -- Exec/Generic/inputs_generic
+          then
+              exit 0
+          fi
+          echo "::error file=Exec/Generic/inputs_generic,title=Do not edit inputs_generic::This file is generated and is updated by a bot PR after merge. Restore it with: git checkout origin/development -- Exec/Generic/inputs_generic"
+          exit 1
+
+  preview-generic-inputs:
+    if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: true
-          fetch-depth: 0
-
-      - name: Reject hand edits to inputs_generic
-        if: >-
-          github.event_name == 'pull_request' &&
-          !(github.head_ref == 'bot/inputs-generic' &&
-            github.event.pull_request.head.repo.full_name == github.repository) &&
-          !contains(github.event.pull_request.labels.*.name, 'inputs-generic-hand-edit')
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          if git diff --quiet "${BASE_SHA}"...HEAD -- Exec/Generic/inputs_generic
-          then
-              exit 0
-          fi
-          echo "::error file=Exec/Generic/inputs_generic,title=Do not edit inputs_generic::This file is generated and is updated by a bot PR after merge. Restore it with: git checkout origin/development -- Exec/Generic/inputs_generic"
-          exit 1
+          fetch-depth: 2
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -60,10 +71,10 @@ jobs:
         run: |
           python3 -m unittest Exec/Generic/tests/test_build_schema_remora.py
 
-      - name: Validate bot PR is up to date
-        if: github.head_ref == 'bot/inputs-generic'
-        run: .github/workflows/style/check_generic_inputs.sh
-
       - name: Preview inputs_generic changes
-        if: github.head_ref != 'bot/inputs-generic'
-        run: .github/workflows/style/check_generic_inputs.sh --preview
+        if: github.event_name == 'pull_request'
+        run: .github/workflows/style/check_generic_inputs.sh --preview HEAD^1
+
+      - name: Check inputs_generic is up to date
+        if: github.event_name == 'workflow_dispatch'
+        run: .github/workflows/style/check_generic_inputs.sh

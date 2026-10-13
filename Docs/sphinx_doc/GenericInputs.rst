@@ -73,11 +73,20 @@ On pull requests, ``generic-inputs-validate.yml``:
   description, edit the comment at the query or its declaration, or the row in
   ``Docs/sphinx_doc/Inputs.rst``.
 
-The preview mode restores the committed file afterward, so running it locally
-leaves the working tree clean. Without ``--preview``, the script regenerates
-the file in place and fails if it changed.
+The preview regenerates the file both at the PR's base and at its head, so it
+shows only the PR's own effect, even while an earlier bot PR is unmerged. It
+writes nothing to the working tree. To preview a local branch, pass the branch
+it will merge into:
+
+.. code-block:: bash
+
+   .github/workflows/style/check_generic_inputs.sh --preview upstream/development
+
+Without ``--preview``, the script regenerates the file in place and fails if it
+changed; a manual run of the workflow does this on the chosen branch.
 
 The file changes when a parameter is added or removed; when its default, type,
 or attached description changes; when its row in ``Inputs.rst`` changes; or
-when its query moves to another file. Moving code within a file does not
-change it.
+when its query moves to another file. Moving code within a file normally does
+not change it. The exception is a description taken from the variable's
+declaration, which is looked for only within 140 lines above the query.
