@@ -1942,6 +1942,11 @@ private:
     int steps_per_history_file = -1;
     /** \brief Counter for which time index we are writing to in the netcdf history file */
     int history_count = 0;
+    /** \brief Per level, how many records the current history file is behind history_count.
+     *  Nonzero only when a restart found no history file to append to and began a new one. */
+    amrex::Vector<int> history_record_shift;
+    /** \brief Per level, whether the first history write since restart is still to come */
+    amrex::Vector<int> history_restart_pending;
 
     /** \brief Names of 3D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_3d;

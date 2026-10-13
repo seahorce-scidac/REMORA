@@ -205,7 +205,7 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev) {
     //       have the IOProcessor move the existing
     //       file/directory to filename.old
     //
-    if ((!REMORA::write_history_file) || (which_step == 0) || (which_step_in_chunk == 0)) {
+    if ((!REMORA::write_history_file) || (history_count == 0) || (which_step_in_chunk == 0)) {
         if (amrex::ParallelDescriptor::IOProcessor()) {
             if (amrex::FileExists(FullPath)) {
                 std::string newoldname(FullPath + ".old." + amrex::UniqueString());
@@ -224,10 +224,33 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev) {
         is_history = true;
         bool write_header = !(amrex::FileExists(FullPath));
 
+        if (history_record_shift.size() <= lev) {
+            history_record_shift.resize(lev+1, 0);
+        }
+        const int record = chunk_history_file ? history_count % steps_per_history_file : history_count;
+        if (record == 0) {
+            history_record_shift[lev] = 0;
+        }
+        // A restart appends to the history file it finds. With none to append to, it
+        // begins a new one at its first record.
+        bool first_since_restart = lev < history_restart_pending.size() && history_restart_pending[lev];
+        if (first_since_restart) {
+            history_restart_pending[lev] = 0;
+            history_record_shift[lev] = write_header ? record : 0;
+        }
+
         auto ncf =
                 write_header ?
                         ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL) :
                         ncutils::NCFile::open(FullPath, NC_WRITE, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
+
+        if (first_since_restart && !write_header) {
+            const auto nrec = ncf.dim("ocean_time").len();
+            if (nrec > record) {
+                amrex::Print() << "WriteNCPlotFile:  " << FullPath << " holds " << nrec
+                               << " records. Restart overwrites them from record " << record << std::endl;
+            }
+        }
 
         amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
 
@@ -844,6 +867,9 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     // We compute the offsets based on location of the box within the domain
     //
     long long adjusted_history_count = chunk_history_file ? history_count % steps_per_history_file : history_count;
+    if (is_history) {
+        adjusted_history_count -= history_record_shift[lev];
+    }
     long long local_start_nt = (is_history ? static_cast<long long>(adjusted_history_count) : static_cast<long long>(0));
     long long local_nt = 1; // We write data for only one time
 

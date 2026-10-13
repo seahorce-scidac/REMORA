@@ -557,8 +557,7 @@ REMORA::InitData ()
     {
         if (plot_int > 0 || plot_int_time > zero)
         {
-            int step0 = 0;
-            WritePlotFile(step0);
+            WritePlotFile(istep[0]);
             history_count++;
             last_plot_file_step = istep[0];
         }
@@ -703,6 +702,9 @@ REMORA::restart ()
 
     last_plot_file_time  = t_new[0];
     last_check_file_time = t_new[0];
+
+    // The history files of the run being continued are appended to, not replaced
+    history_restart_pending.assign(finest_level+1, 1);
 }
 
 /**
