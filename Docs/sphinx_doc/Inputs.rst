@@ -1478,13 +1478,13 @@ List of GLS-specific parameters
 |                                  |                                      |                   |                |
 |                                  | kappa times the local water-column   | if true           |                |
 |                                  |                                      |                   |                |
-|                                  | depth. Applied in every cell, after  |                   |                |
+|                                  | depth, as in ROMS. Applied in every  |                   |                |
 |                                  |                                      |                   |                |
-|                                  | the Galperin limit in stable         |                   |                |
+|                                  | cell, after the Galperin limit in    |                   |                |
 |                                  |                                      |                   |                |
-|                                  | stratification. Set to 0 to leave    |                   |                |
+|                                  | stable stratification. Set to 0 to   |                   |                |
 |                                  |                                      |                   |                |
-|                                  | the length scale uncapped.           |                   |                |
+|                                  | leave the length scale uncapped.     |                   |                |
 +----------------------------------+--------------------------------------+-------------------+----------------+
 | **remora.Akk_bak**               | Initial/minimum value of Akk         | Real number       | 5.0e-6         |
 |                                  |                                      |                   |                |
