@@ -76,3 +76,8 @@ On pull requests, ``generic-inputs-validate.yml``:
 The preview mode restores the committed file afterward, so running it locally
 leaves the working tree clean. Without ``--preview``, the script regenerates
 the file in place and fails if it changed.
+
+The file changes when a parameter is added or removed; when its default, type,
+or attached description changes; when its row in ``Inputs.rst`` changes; or
+when its query moves to another file. Moving code within a file does not
+change it.
