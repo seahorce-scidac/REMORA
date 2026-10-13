@@ -55,6 +55,8 @@ jobs:
   preview-generic-inputs:
     if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: ubuntu-latest
+    env:
+      IS_BOT_PR: ${{ github.head_ref == 'bot/inputs-generic' && github.event.pull_request.head.repo.full_name == github.repository }}
 
     steps:
       - uses: actions/checkout@v7
@@ -72,9 +74,11 @@ jobs:
           python3 -m unittest Exec/Generic/tests/test_build_schema_remora.py
 
       - name: Preview inputs_generic changes
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && env.IS_BOT_PR != 'true'
         run: .github/workflows/style/check_generic_inputs.sh --preview HEAD^1
 
+      # The bot PR is opened with a GitHub App token, so it triggers this
+      # workflow; check that it matches a regeneration of the merge result.
       - name: Check inputs_generic is up to date
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || env.IS_BOT_PR == 'true'
         run: .github/workflows/style/check_generic_inputs.sh

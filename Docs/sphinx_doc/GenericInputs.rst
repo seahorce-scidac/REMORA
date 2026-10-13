@@ -57,6 +57,11 @@ regenerates the file and opens (or updates) a single PR from the
 feature branches never touch the file, it does not conflict when merging
 ``development``.
 
+The workflow opens the PR with a token from a GitHub App, as Dependabot does,
+so CI runs on the bot PR and checks that it matches a fresh regeneration. The
+App has only Contents and Pull requests access to this repository and no
+branch-protection bypass. Setup is described at the top of the workflow file.
+
 On pull requests, ``generic-inputs-validate.yml``:
 
 * fails if the PR changes ``inputs_generic``. Restore it with
