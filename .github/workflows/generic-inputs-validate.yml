@@ -1,8 +1,14 @@
 name: Generic Inputs Validate
 
+# Exec/Generic/inputs_generic is generated. Pull requests must not edit it; the
+# generic-inputs-update workflow regenerates it on development and opens a bot
+# PR. This check fails on hand edits and previews the change a merge will cause.
+# Label a PR "inputs-generic-hand-edit" to allow an edit deliberately.
+
 on:
   pull_request:
     branches: [development]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - "Source/**"
       - "Submodules/AMReX/Src/**"
@@ -16,6 +22,9 @@ concurrency:
   group: ${{ github.ref }}-${{ github.head_ref }}-generic-inputs
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   validate-generic-inputs:
     runs-on: ubuntu-latest
@@ -24,6 +33,23 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: true
+          fetch-depth: 0
+
+      - name: Reject hand edits to inputs_generic
+        if: >-
+          github.event_name == 'pull_request' &&
+          !(github.head_ref == 'bot/inputs-generic' &&
+            github.event.pull_request.head.repo.full_name == github.repository) &&
+          !contains(github.event.pull_request.labels.*.name, 'inputs-generic-hand-edit')
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if git diff --quiet "${BASE_SHA}"...HEAD -- Exec/Generic/inputs_generic
+          then
+              exit 0
+          fi
+          echo "::error file=Exec/Generic/inputs_generic,title=Do not edit inputs_generic::This file is generated and is updated by a bot PR after merge. Restore it with: git checkout origin/development -- Exec/Generic/inputs_generic"
+          exit 1
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -34,5 +60,10 @@ jobs:
         run: |
           python3 -m unittest Exec/Generic/tests/test_build_schema_remora.py
 
-      - name: Validate generated inputs_generic is up to date
+      - name: Validate bot PR is up to date
+        if: github.head_ref == 'bot/inputs-generic'
         run: .github/workflows/style/check_generic_inputs.sh
+
+      - name: Preview inputs_generic changes
+        if: github.head_ref != 'bot/inputs-generic'
+        run: .github/workflows/style/check_generic_inputs.sh --preview

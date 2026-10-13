@@ -47,21 +47,32 @@ The source fallback names only the file, not a line number, so that unrelated
 code motion does not change the generated file. A comment that is not
 directly attached to a query is never borrowed for it.
 
-CI Validation
--------------
+CI Validation and Updates
+-------------------------
 
-GitHub Actions workflow ``generic-inputs-validate.yml`` regenerates
-``Exec/Generic/inputs_generic`` and reports when the file is stale. The check
-itself is ``.github/workflows/style/check_generic_inputs.sh``, which prints the
-stale diff along with the command that fixes it. To clear the failure, run that
-same script locally and commit the result:
+Do not commit ``Exec/Generic/inputs_generic`` from a feature branch. After a PR
+merges into ``development``, the ``generic-inputs-update.yml`` workflow
+regenerates the file and opens (or updates) a single PR from the
+``bot/inputs-generic`` branch. A maintainer reviews and merges it. Because
+feature branches never touch the file, it does not conflict when merging
+``development``.
 
-.. code-block:: bash
+On pull requests, ``generic-inputs-validate.yml``:
 
-   .github/workflows/style/check_generic_inputs.sh
-   git add Exec/Generic/inputs_generic
+* fails if the PR changes ``inputs_generic``. Restore it with
 
-The file changes only when a parameter, its default, type, or attached
-description changes. If ``inputs_generic`` conflicts when merging
-``development``, do not resolve it by hand: take either side, rerun the script
-above, and add the result.
+  .. code-block:: bash
+
+     git checkout origin/development -- Exec/Generic/inputs_generic
+
+  To edit it deliberately, for example while changing the generator, label the
+  PR ``inputs-generic-hand-edit``;
+* runs ``.github/workflows/style/check_generic_inputs.sh --preview``, which
+  warns, without failing, with the diff the merge will cause. Use it to check
+  that new parameters and descriptions come out as intended. To change a
+  description, edit the comment at the query or its declaration, or the row in
+  ``Docs/sphinx_doc/Inputs.rst``.
+
+The preview mode restores the committed file afterward, so running it locally
+leaves the working tree clean. Without ``--preview``, the script regenerates
+the file in place and fails if it changed.
