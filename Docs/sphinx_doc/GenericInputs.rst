@@ -61,7 +61,9 @@ same script locally and commit the result:
    .github/workflows/style/check_generic_inputs.sh
    git add Exec/Generic/inputs_generic
 
-The file changes only when a parameter, its default, type, or attached
-description changes. If ``inputs_generic`` conflicts when merging
+The file changes when a parameter is added or removed; when its default, type,
+or attached description changes; when its row in ``Inputs.rst`` changes; or
+when its query moves to another file. Moving code within a file does not
+change it. If ``inputs_generic`` conflicts when merging
 ``development``, do not resolve it by hand: take either side, rerun the script
 above, and add the result.

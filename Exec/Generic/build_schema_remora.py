@@ -107,6 +107,17 @@ TYPE_PATTERNS = (
     (r"\b(Vector|std::vector)\s*<", "Vector"),
 )
 
+# Further declaration types, used only to find a variable's declaration for
+# its description. They are not in TYPE_PATTERNS, which also infers the
+# parameter type.
+DECL_ONLY_TYPE_PATTERNS = (
+    r"\b(amrex::)?Long\b",
+    r"\bunsigned\b",
+    r"\b(std::)?size_t\b",
+    r"\bauto\b",
+    r"\b(std::)?array\s*<",
+)
+
 ALLOWED_PARAM_NAME = re.compile(r"^[a-zA-Z0-9_.]+$")
 
 
@@ -325,17 +336,36 @@ def extract_description(lines: list[str], line_idx: int) -> str | None:
     # Only a comment block directly above the query describes it. Stop at the
     # first blank or code line so a comment that belongs to neighboring code
     # is never borrowed; borrowing made descriptions change whenever nearby,
-    # unrelated comments were edited.
+    # unrelated comments were edited. Preprocessor lines (#ifdef guards) do
+    # not separate a comment from its query.
+    def clean(s: str) -> str:
+        return s.replace("/*", "").replace("*/", "").lstrip("*").strip()
+
     comments: list[str] = []
-    for j in range(line_idx - 1, max(-1, line_idx - 6), -1):
+    in_block = False
+    for j in range(line_idx - 1, -1, -1):
         s = lines[j].strip()
+        if in_block:
+            # Scanning upward, so this is inside a /* ... */ whose end we saw.
+            if "/*" in s:
+                in_block = False
+                s = s.split("/*", 1)[1]
+            comments.insert(0, clean(s))
+            continue
         if s.startswith("//"):
             comments.insert(0, s[2:].strip())
             continue
-        if s.startswith("/*") or s.startswith("*") or s.endswith("*/"):
-            cleaned = s.replace("/*", "").replace("*/", "").lstrip("*").strip()
-            if cleaned:
-                comments.insert(0, cleaned)
+        if s.startswith("/*"):
+            comments.insert(0, clean(s))
+            continue
+        if s.endswith("*/"):
+            if "/*" in s:
+                # Code with a trailing block comment: it describes that code.
+                break
+            in_block = True
+            comments.insert(0, clean(s))
+            continue
+        if s.startswith("#"):
             continue
         break
 
@@ -349,11 +379,13 @@ def extract_var_description(var_name: str, lines: list[str], line_idx: int) -> s
     # Look for the variable's declaration, not just any mention: a comment
     # that merely names the variable would otherwise be taken as its
     # description. Use the declaration's trailing comment or the comment
-    # block directly above it.
+    # block directly above it. Only the nearest declaration counts: an earlier
+    # one with the same name belongs to another scope.
     var_pat = re.escape(var_name)
+    decl_types = [pattern for pattern, _ in TYPE_PATTERNS] + list(DECL_ONLY_TYPE_PATTERNS)
     decl_pats = [
         re.compile(rf"{pattern}[\w:<>,\s]*?[\*&]?\s*\b{var_pat}\b")
-        for pattern, _ in TYPE_PATTERNS
+        for pattern in decl_types
     ]
     for j in range(line_idx - 1, max(-1, line_idx - 140), -1):
         s = lines[j]
@@ -369,6 +401,7 @@ def extract_var_description(var_name: str, lines: list[str], line_idx: int) -> s
             inner = s.split("/*", 1)[1].split("*/", 1)[0].strip()
             if inner:
                 return inner
+        return None
     return None
 
 

@@ -12,6 +12,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import build_schema_remora as schema_mod
+import render_inputs_generic as render_mod
 
 
 def write_file(path: Path, text: str) -> None:
@@ -132,6 +133,96 @@ class SchemaBuilderTests(unittest.TestCase):
             "Flat-bottom depth. Set prob_lo's z to -depth to match.",
         )
 
+    def test_only_nearest_declaration_describes_query(self) -> None:
+        src = """
+        #include <AMReX_ParmParse.H>
+        void g () {
+            // unrelated: depth of the sponge layer
+            amrex::Real depth = 3.0;
+        }
+        void f () {
+            amrex::Real depth = 10.0;
+            amrex::ParmParse pp("remora");
+            pp.query("depth", depth);
+        }
+        """
+        schema = self.build_schema(src)
+        self.assertIsNone(schema["remora.depth"]["description"])
+
+    def test_trailing_block_comment_on_code_is_not_borrowed(self) -> None:
+        src = """
+        #include <AMReX_ParmParse.H>
+        void f () {
+            amrex::ParmParse pp("remora");
+            int a = 0; /* a thing */
+            int b = 0;
+            pp.query("b", b);
+        }
+        """
+        schema = self.build_schema(src)
+        self.assertIsNone(schema["remora.b"]["description"])
+
+    def test_long_and_block_comments_are_read_whole(self) -> None:
+        src = """
+        #include <AMReX_ParmParse.H>
+        void f () {
+            int a = 0;
+            int b = 0;
+            amrex::ParmParse pp("remora");
+            // one
+            // two
+            // three
+            // four
+            // five
+            // six
+            // seven
+            pp.query("a", a);
+            /* first line
+               second line */
+            pp.query("b", b);
+        }
+        """
+        schema = self.build_schema(src)
+        self.assertEqual(
+            schema["remora.a"]["description"],
+            "one two three four five six seven",
+        )
+        self.assertEqual(
+            schema["remora.b"]["description"], "first line second line"
+        )
+
+    def test_preprocessor_guard_keeps_description(self) -> None:
+        src = """
+        #include <AMReX_ParmParse.H>
+        void f () {
+            std::string x;
+            amrex::ParmParse pp("remora");
+            // NetCDF file name for x
+        #ifdef REMORA_USE_NETCDF
+            pp.query("nc_x", x);
+        #endif
+        }
+        """
+        schema = self.build_schema(src)
+        self.assertEqual(
+            schema["remora.nc_x"]["description"], "NetCDF file name for x"
+        )
+
+    def test_declaration_of_other_types_describes_query(self) -> None:
+        src = """
+        #include <AMReX_ParmParse.H>
+        void f () {
+            // number of passive tracers
+            amrex::Long ntr = 0;
+            amrex::ParmParse pp("remora");
+            pp.query("ntr", ntr);
+        }
+        """
+        schema = self.build_schema(src)
+        self.assertEqual(
+            schema["remora.ntr"]["description"], "number of passive tracers"
+        )
+
     def test_compose_prefers_later_component_override(self) -> None:
         composed = schema_mod.compose_schemas(
             [
@@ -180,6 +271,33 @@ class SchemaBuilderTests(unittest.TestCase):
             self.assertEqual(len(deps), 1)
             self.assertEqual(deps[0].name, "AMReX")
             self.assertEqual(deps[0].path, (root / "Submodules" / "AMReX").resolve())
+
+
+class DocsDescriptionTests(unittest.TestCase):
+    def test_grid_table_cells_wrap_across_lines(self) -> None:
+        table = """
++-----------------------+----------------------+-------------+
+| Parameter             | Definition           | Values      |
++=======================+======================+=============+
+| **remora.do_rivers**  | Whether rivers are   | true / false|
+|                       |                      |             |
+|                       | temperature sources  |             |
++-----------------------+----------------------+-------------+
+| **remora.cfl**        | Courant number       | Real        |
++-----------------------+----------------------+-------------+
+| **remora.empty**      |                      | Real        |
++-----------------------+----------------------+-------------+
+"""
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "Inputs.rst"
+            write_file(path, table)
+            descs = render_mod.parse_docs_descriptions(path)
+
+        self.assertEqual(
+            descs["remora.do_rivers"], "Whether rivers are temperature sources"
+        )
+        self.assertEqual(descs["remora.cfl"], "Courant number")
+        self.assertNotIn("remora.empty", descs)
 
 
 if __name__ == "__main__":

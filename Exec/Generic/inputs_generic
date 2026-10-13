@@ -1273,7 +1273,7 @@ amr.n_error_buf_y = <REQUIRED>
 # type=Vector<int>; method=getarr
 amr.n_error_buf_z = <REQUIRED>
 
-# between levels (ell and ell+1) and levels (ell-1 and ell).   We want this to be greater than or equal to the stencil width (a function of spatial order) divided by ref_ratio (which can be 2,3 or 4).  This ensures that fillpatch at level (ell) does not need to reach beyond level (ell-1). Here to be conservative we set this to 2 (rather than the amrex default of 1).
+# n_proper is the minimum number of coarse cells between coarse-fine boundaries between levels (ell and ell+1) and levels (ell-1 and ell).   We want this to be greater than or equal to the stencil width (a function of spatial order) divided by ref_ratio (which can be 2,3 or 4).  This ensures that fillpatch at level (ell) does not need to reach beyond level (ell-1). Here to be conservative we set this to 2 (rather than the amrex default of 1).
 # type=unknown; method=add
 amr.n_proper = <REQUIRED>
 
@@ -1918,7 +1918,7 @@ max_step = <UNKNOWN_DEFAULT>
 # type=Real; method=queryAdd
 stop_time = <UNKNOWN_DEFAULT>
 
-# The second constructor is generally used by other classes in the code.  It permits access to the table via a large collection of query functions. Both constructors have an optional prefix argument that narrows the search to entries in the table with the same prefix.  For example, let PlanR be a
+# source: Src/Base/AMReX_ParmParse.H
 # type=std::vector<T>; method=get
 val = <REQUIRED>
 
