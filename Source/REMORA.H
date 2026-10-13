@@ -2003,10 +2003,7 @@ private:
                              const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& );
 
     /** \brief Evolve tracers and hydro particles */
-    void evolveTracers( int lev,
-                        amrex::Real dt,
-                        amrex::Vector<amrex::MultiFab const*>& flow_vel,
-                        const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& );
+    void evolveTracers (int lev, amrex::Real dt);
 
 #endif
     /** \brief Verbosity level of output */

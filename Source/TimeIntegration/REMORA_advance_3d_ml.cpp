@@ -75,7 +75,6 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     // **************************************************************************************
     // Update the particle positions
     // **************************************************************************************
-   Vector<MultiFab const*> flow_vels =  {xvel_new[lev], yvel_new[lev], zvel_new[lev]};
-   evolveTracers( lev, dt_lev, flow_vels, vec_z_phys_nd );
+   evolveTracers(lev, dt_lev);
 #endif
 }
