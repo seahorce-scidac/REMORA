@@ -73,6 +73,16 @@ The default box spans ``prob_lo`` to ``prob_hi``, but a cell is tested by the ph
 center, so with bathymetry deeper than the domain's ``prob_lo`` in z, or a free surface above
 ``prob_hi``, the cells outside that range get no particles unless the box is widened.
 
+Particles are advected in the terrain-following coordinates of the grid.  Each particle carries a
+fractional vertical index :math:`s \in [0, N]` relative to the :math:`w`-levels of its column, with
+:math:`s = 0` the bed and :math:`s = N` the free surface.  Horizontally, particles move with the
+interpolated :math:`u` and :math:`v` at fixed :math:`s`, so they follow the levels over sloping
+bathymetry; vertically, they move across the levels at :math:`\Omega / H_z`, where :math:`\Omega` is
+the velocity across the :math:`w`-levels that the model computes from the horizontal mass fluxes.
+The time integration is the midpoint method, and :math:`s` is reflected off the bed and the free
+surface, so particles always stay in the water column.  The particle ``zvel`` attribute is the rate of
+change of the particle's height over the step.
+
 Caveat: the particle information is currently output when using the AMReX-native plotfile format, but not
 when using netcdf.  Writing particles into the netcdf files is a WIP.
 
