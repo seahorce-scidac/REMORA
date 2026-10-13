@@ -20,31 +20,12 @@ fi
 TMPDIR_CHECK="$(mktemp -d)"
 trap 'rm -rf "${TMPDIR_CHECK}"' EXIT
 
-# Source line numbers shift whenever unrelated code moves, so compare with them
-# stripped: that isolates real parameter changes from incidental churn.
-strip_source_lines() {
-    sed -E 's|^(# source: .*):[0-9]+$|\1|'
-}
-
 param_keys() {
     grep -E '^[A-Za-z_][A-Za-z0-9_.]* = ' "${1}" | sed -E 's/ = .*//' | sort || true
 }
 
-git show ":${INPUTS}" | strip_source_lines > "${TMPDIR_CHECK}/committed"
-strip_source_lines < "${INPUTS}" > "${TMPDIR_CHECK}/regenerated"
-
-if diff -q "${TMPDIR_CHECK}/committed" "${TMPDIR_CHECK}/regenerated" > /dev/null
-then
-    if [ -n "${GITHUB_ACTIONS:-}" ]
-    then
-        echo "::warning title=inputs_generic source line numbers are stale::Parameters are unchanged; refresh with .github/workflows/style/check_generic_inputs.sh when convenient"
-    fi
-    echo -e "\nExec/Generic/inputs_generic records stale source line numbers, but no"
-    echo -e "parameter was added, removed, or changed. Not treating this as a failure."
-    echo -e "Refresh it whenever convenient with"
-    echo -e "  ${0}\n"
-    exit 0
-fi
+git show ":${INPUTS}" > "${TMPDIR_CHECK}/committed"
+cp "${INPUTS}" "${TMPDIR_CHECK}/regenerated"
 
 param_keys "${TMPDIR_CHECK}/committed" > "${TMPDIR_CHECK}/keys_committed"
 param_keys "${TMPDIR_CHECK}/regenerated" > "${TMPDIR_CHECK}/keys_regenerated"
@@ -84,7 +65,6 @@ echo -e "  git add ${INPUTS}\n"
 echo -e "That script runs, equivalently,"
 echo -e "  bash Exec/Generic/build_schema_remora.sh"
 echo -e "  python3 Exec/Generic/render_inputs_generic.py\n"
-echo -e "Diff below ignores source line numbers; run 'git diff -- ${INPUTS}' for the full diff.\n"
 diff -u --label "a/${INPUTS}" --label "b/${INPUTS}" \
     "${TMPDIR_CHECK}/committed" "${TMPDIR_CHECK}/regenerated" || true
 echo ""

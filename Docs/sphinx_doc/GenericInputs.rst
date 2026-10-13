@@ -37,9 +37,15 @@ Comment Selection
 
 For each parameter, comments are selected in this order:
 
-1. source-adjacent description extracted with the schema,
+1. source-adjacent description extracted with the schema: a trailing comment on
+   the query line, a comment block directly above it (no blank or code line in
+   between), or the same for the variable's declaration,
 2. table description from ``Docs/sphinx_doc/Inputs.rst``,
-3. source location fallback.
+3. source file fallback.
+
+The source fallback names only the file, not a line number, so that unrelated
+code motion does not change the generated file. A comment that is not
+directly attached to a query is never borrowed for it.
 
 CI Validation
 -------------
@@ -55,6 +61,7 @@ same script locally and commit the result:
    .github/workflows/style/check_generic_inputs.sh
    git add Exec/Generic/inputs_generic
 
-Because the schema records source file line numbers, a branch that is behind
-``development`` will report a stale file even with no local source changes.
-Merge ``development`` first, then regenerate.
+The file changes only when a parameter, its default, type, or attached
+description changes. If ``inputs_generic`` conflicts when merging
+``development``, do not resolve it by hand: take either side, rerun the script
+above, and add the result.

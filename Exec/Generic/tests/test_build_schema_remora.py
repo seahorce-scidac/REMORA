@@ -93,6 +93,45 @@ class SchemaBuilderTests(unittest.TestCase):
         self.assertEqual(entry["default"], 0.45)
         self.assertIn("target cfl value", entry["description"])
 
+    def test_comment_must_directly_precede_query(self) -> None:
+        src = """
+        #include <AMReX_ParmParse.H>
+        void f () {
+            amrex::Real a = 0.0;
+            amrex::Real b = 0.0;
+            amrex::Real c = 0.0;
+            amrex::ParmParse pp("remora");
+            // describes a
+            pp.queryAdd("a", a);
+            pp.queryAdd("b", b);
+            // separated by a blank line
+
+            pp.queryAdd("c", c);
+        }
+        """
+        schema = self.build_schema(src)
+
+        self.assertEqual(schema["remora.a"]["description"], "describes a")
+        self.assertIsNone(schema["remora.b"]["description"])
+        self.assertIsNone(schema["remora.c"]["description"])
+
+    def test_declaration_comment_describes_query(self) -> None:
+        src = """
+        #include <AMReX_ParmParse.H>
+        void f () {
+            amrex::ParmParse pp("remora");
+            // Flat-bottom depth. Set prob_lo's z to -depth to match.
+            amrex::Real depth = 10.0;
+            pp.query("depth", depth);
+        }
+        """
+        schema = self.build_schema(src)
+
+        self.assertEqual(
+            schema["remora.depth"]["description"],
+            "Flat-bottom depth. Set prob_lo's z to -depth to match.",
+        )
+
     def test_compose_prefers_later_component_override(self) -> None:
         composed = schema_mod.compose_schemas(
             [
