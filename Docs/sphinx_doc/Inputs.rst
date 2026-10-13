@@ -1474,6 +1474,18 @@ List of GLS-specific parameters
 | **remora.gls_sigp**              |                                      | Real number       | 1.3            |
 |                                  |                                      |                   |                |
 +----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.gls_length_cap**        | Cap the turbulent length scale at    | 0 if false, 1     | 1              |
+|                                  |                                      |                   |                |
+|                                  | kappa times the local water-column   | if true           |                |
+|                                  |                                      |                   |                |
+|                                  | depth, as in ROMS. Applied in every  |                   |                |
+|                                  |                                      |                   |                |
+|                                  | cell, after the Galperin limit in    |                   |                |
+|                                  |                                      |                   |                |
+|                                  | stable stratification. Set to 0 to   |                   |                |
+|                                  |                                      |                   |                |
+|                                  | leave the length scale uncapped.     |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
 | **remora.Akk_bak**               | Initial/minimum value of Akk         | Real number       | 5.0e-6         |
 |                                  |                                      |                   |                |
 +----------------------------------+--------------------------------------+-------------------+----------------+
