@@ -445,6 +445,12 @@ Notes
       directions, so nine fine faces at ratio 3 -- instead of only the faces that tile the
       coarse face. Not conservative in principle; about 3e-10 of volume drift in practice.
 
+   -  **remora.cf_avgdown_volume_weighted** (default 0) averages the fine tracers onto the
+      coarse level weighted by cell volume, ``Hz/(pm*pn)``, as well as by the mask. The
+      default is ROMS's ``fine2coarse3d``, an area mean of concentration, which gains or
+      loses tracer content wherever the fine layer thickness varies under a coarse cell, as
+      it does where interpolated bathymetry meets the coast.
+
    -  **remora.cf_flux_pc** (default 1) shares the parent's interface mass flux out
       piecewise-constantly over the fine faces under each parent face, as ROMS's
       ``get_persisted2d`` does, instead of with the linear tangential variation of AMReX's

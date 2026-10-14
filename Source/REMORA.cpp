@@ -2368,6 +2368,7 @@ REMORA::ReadParameters ()
     pp.queryAdd("cf_time_interp_zeta", cf_time_interp_zeta);
     pp.queryAdd("cf_flux_pc", cf_flux_pc);
     pp.queryAdd("cf_avgdown_stencil", cf_avgdown_stencil);
+    pp.queryAdd("cf_avgdown_volume_weighted", cf_avgdown_volume_weighted);
     pp.queryAdd("cf_print_iface", cf_print_iface);
 
     // Whether to zero a tracer the correction drives negative, as ROMS does.
@@ -2909,7 +2910,8 @@ REMORA::AverageDownTo (int crse_lev)
     // Which mask goes with which field follows the ROMS fine2coarse call sites: rmask for the
     // free surface and the tracers, umask and vmask for the momenta.
     average_down_masked(crse_lev, *cons_new[flev], *cons_new[crse_lev],
-                        *vec_mskr[flev], cmskr, cons_new[crse_lev]->nComp(), -1);
+                        *vec_mskr[flev], cmskr, cons_new[crse_lev]->nComp(), -1,
+                        cf_avgdown_volume_weighted != 0);
     average_down_masked(crse_lev, *vec_Zt_avg1[flev], *vec_Zt_avg1[crse_lev],
                         *vec_mskr[flev], cmskr, vec_Zt_avg1[crse_lev]->nComp(), -1);
     // ROMS returns every covered cell but not the perimeter's normal-velocity faces, so the
@@ -3108,11 +3110,12 @@ REMORA::restore_perimeter_faces (const MultiFab& saved, MultiFab& mf,
  * @param[in   ] cmsk       coarse-level mask, already on the coarsened-fine layout
  * @param[in   ] ncomp      number of components to average
  * @param[in   ] face_dir   face direction, or -1 for a cell-centered field
+ * @param[in   ] volume_weighted  weight a cell-centered field by fine cell volume too
  */
 void
 REMORA::average_down_masked (int crse_lev, const MultiFab& S_fine, MultiFab& S_crse,
                              const MultiFab& msk_fine, const MultiFab& cmsk,
-                             int ncomp, int face_dir)
+                             int ncomp, int face_dir, bool volume_weighted)
 {
     BL_PROFILE("REMORA::average_down_masked()");
     const IntVect ratio = refRatio(crse_lev);
@@ -3134,7 +3137,17 @@ REMORA::average_down_masked (int crse_lev, const MultiFab& S_fine, MultiFab& S_c
         Array4<const Real> const& fm = msk_fine.const_array(mfi);
         Array4<const Real> const& cm = cmsk.const_array(mfi);
 
-        if (face_dir < 0) {
+        if (face_dir < 0 && volume_weighted) {
+            // Hz, pm and pn are distributed as S_fine is, like the masks
+            const int flev = crse_lev + 1;
+            Array4<const Real> const& Hz = vec_Hz[flev]->const_array(mfi);
+            Array4<const Real> const& pm = vec_pm[flev]->const_array(mfi);
+            Array4<const Real> const& pn = vec_pn[flev]->const_array(mfi);
+            ParallelFor(bx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
+            {
+                REMORAMaskedAvgDown::avgdown_masked_volume(i,j,k,n,c,f,fm,cm,Hz,pm,pn,ratio);
+            });
+        } else if (face_dir < 0) {
             ParallelFor(bx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
             {
                 REMORAMaskedAvgDown::avgdown_masked(i,j,k,n,c,f,fm,cm,0,0,ratio);
