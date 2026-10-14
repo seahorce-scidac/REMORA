@@ -159,6 +159,9 @@ say the baseline was right, and it cannot notice a feature that has silently sto
     direction, or the number of cells a level covers, summed over boxes. A tagging bug still writes a
     self-consistent plotfile, so grid structure is the only place it shows. The first two also require
     the run to stay at rest, as ``add_test_0`` does; ``add_test_cells`` does not, for a case that evolves.
+    Pin ``amr.n_error_buf``, ``amr.blocking_factor`` and ``amr.grid_eff`` in the input: each moves the grids
+    without any tagging having changed, and ``main.cpp`` sets the first two rather than taking AMReX's
+    defaults.
 
 Cheap lanes are worth adding: ``remora.max_step = 0`` with ``remora.plot_int = 1`` is a legal
 initialize-and-dump run of about a second, which is enough for ``add_test_extrema`` to pin an initial
