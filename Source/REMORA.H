@@ -1900,7 +1900,10 @@ private:
     /** \brief average the fine tracers onto the coarse weighted by cell volume, Hz/(pm*pn),
      *         rather than by area as ROMS's fine2coarse3d does. Off by default. Where the
      *         fine layer thickness varies under a coarse cell, as interpolated bathymetry
-     *         near land makes it, the area mean gains or loses tracer content. */
+     *         near land makes it, the area mean gains or loses tracer content. Volume
+     *         weighting keeps it only where the coarse cell's volume matches the fine
+     *         volumes under it, so not at a coast, and it is not applied to the initial
+     *         high-resolution cascade (average_down_with_grow_cells). */
     int cf_avgdown_volume_weighted = 0;
 
     /** \brief print the imposed coarse-fine interface velocity at this baroclinic step

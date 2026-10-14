@@ -21,19 +21,38 @@
  * zero by land. That is not conservative; ROMS makes the same trade deliberately. The coarse
  * mask has the final say on wet or dry.
  *
- * Where every fine point is wet these have to reproduce amrex_avgdown and amrex_avgdown_faces
- * bit for bit, or every existing multilevel answer moves in its last bit.
+ * Where every fine point is wet the mask-weighted kernels have to reproduce amrex_avgdown and
+ * amrex_avgdown_faces bit for bit, or every existing multilevel answer moves in its last bit.
+ * avgdown_weighted with a volume weight (cf_avgdown_volume_weighted) is the exception: it
+ * changes the answer by design.
  */
 namespace REMORAMaskedAvgDown {
 
-/** Cell-centered fields: every fine cell under the coarse one. The mask is 2D, read at k=0. */
+/** Weight of a fine cell: its 2D mask, capped at 1 and read at k=0 */
+struct MaskWeight {
+    amrex::Array4<amrex::Real const> msk;
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    amrex::Real operator() (int i, int j, int) const noexcept {
+        return amrex::min(amrex::Real(1.0), msk(i,j,0));
+    }
+};
+
+/** Weight of a fine cell read from a 3D array, e.g. mask times volume */
+struct FieldWeight {
+    amrex::Array4<amrex::Real const> w;
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+    amrex::Real operator() (int i, int j, int k) const noexcept { return w(i,j,k); }
+};
+
+/** Cell-centered fields: the weighted mean of every fine cell under the coarse one. */
+template <typename Weight>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void avgdown_masked (int i, int j, int k, int n,
-                     amrex::Array4<amrex::Real>       const& crse,
-                     amrex::Array4<amrex::Real const> const& fine,
-                     amrex::Array4<amrex::Real const> const& fmsk,
-                     amrex::Array4<amrex::Real const> const& cmsk,
-                     int ccomp, int fcomp, amrex::IntVect const& ratio) noexcept
+void avgdown_weighted (int i, int j, int k, int n,
+                       amrex::Array4<amrex::Real>       const& crse,
+                       amrex::Array4<amrex::Real const> const& fine,
+                       Weight const& weight,
+                       amrex::Array4<amrex::Real const> const& cmsk,
+                       int ccomp, int fcomp, amrex::IntVect const& ratio) noexcept
 {
     using amrex::Real;
     const int facx = ratio[0];
@@ -50,7 +69,7 @@ void avgdown_masked (int i, int j, int k, int n,
     for (int kref = 0; kref < facz; ++kref) {
     for (int jref = 0; jref < facy; ++jref) {
     for (int iref = 0; iref < facx; ++iref) {
-        const Real m = amrex::min(Real(1.0), fmsk(ii+iref,jj+jref,0));
+        const Real m = weight(ii+iref,jj+jref,kk+kref);
         num += fine(ii+iref,jj+jref,kk+kref,n+fcomp) * m;
         den += m;
     }}}
@@ -63,40 +82,16 @@ void avgdown_masked (int i, int j, int k, int n,
                         : Real(0.0);
 }
 
-/** Cell-centered tracers weighted by each fine cell's volume, Hz/(pm*pn), as well as its
- *  mask, so the coarse cell takes the content of the fine cells under it rather than their
- *  mean concentration. Not what ROMS does; see cf_avgdown_volume_weighted. */
+/** Cell-centered fields weighted by the fine mask alone, as ROMS's fine2coarse3d does. */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void avgdown_masked_volume (int i, int j, int k, int n,
-                            amrex::Array4<amrex::Real>       const& crse,
-                            amrex::Array4<amrex::Real const> const& fine,
-                            amrex::Array4<amrex::Real const> const& fmsk,
-                            amrex::Array4<amrex::Real const> const& cmsk,
-                            amrex::Array4<amrex::Real const> const& Hz,
-                            amrex::Array4<amrex::Real const> const& pm,
-                            amrex::Array4<amrex::Real const> const& pn,
-                            amrex::IntVect const& ratio) noexcept
+void avgdown_masked (int i, int j, int k, int n,
+                     amrex::Array4<amrex::Real>       const& crse,
+                     amrex::Array4<amrex::Real const> const& fine,
+                     amrex::Array4<amrex::Real const> const& fmsk,
+                     amrex::Array4<amrex::Real const> const& cmsk,
+                     int ccomp, int fcomp, amrex::IntVect const& ratio) noexcept
 {
-    using amrex::Real;
-    const int ii = i*ratio[0];
-    const int jj = j*ratio[1];
-    const int kk = k*ratio[2];
-
-    Real num = Real(0.0);
-    Real den = Real(0.0);
-    for (int kref = 0; kref < ratio[2]; ++kref) {
-    for (int jref = 0; jref < ratio[1]; ++jref) {
-    for (int iref = 0; iref < ratio[0]; ++iref) {
-        const int fi = ii+iref;
-        const int fj = jj+jref;
-        const int fk = kk+kref;
-        const Real w = amrex::min(Real(1.0), fmsk(fi,fj,0)) * Hz(fi,fj,fk)
-                     / (pm(fi,fj,0) * pn(fi,fj,0));
-        num += fine(fi,fj,fk,n) * w;
-        den += w;
-    }}}
-
-    crse(i,j,k,n) = (den > Real(0.0)) ? num / den * cmsk(i,j,0) : Real(0.0);
+    avgdown_weighted(i,j,k,n,crse,fine,MaskWeight{fmsk},cmsk,ccomp,fcomp,ratio);
 }
 
 /** Face-centered fields: only the fine faces in the coarse face's own plane, the stencil
