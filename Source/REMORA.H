@@ -1197,7 +1197,7 @@ public:
     /** \brief Rebuild the u-, v- and psi-point masks from vec_mskr and fill their ghosts */
     void update_nodal_masks (int lev);
 
-    /** \brief Give lev's rho-mask ghost cells outside the domain the coarser level's values */
+    /** \brief Give lev's rho-mask ghost cells beyond the domain the coarser level's values */
     void inject_mask_outside_domain (int lev);
 
     /** \brief Make sure the coarse masks the average-down kernels read sit on the coarsened

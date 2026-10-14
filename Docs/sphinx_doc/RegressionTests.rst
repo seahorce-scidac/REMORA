@@ -511,9 +511,23 @@ ring is read.
 | restart                         |          |                                                         |
 |                                 |          | where the continuous run does                           |
 +---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmaskring      | 42 15 16 | a refined patch against the walls, with its mask        |
+|                                 |          |                                                         |
+|                                 |          | injected from level 0, agrees with the same run with    |
+|                                 |          |                                                         |
+|                                 |          | ``hires_grid_level = 1``, so its grow cells beyond the  |
+|                                 |          |                                                         |
+|                                 |          | domain keep the ring                                    |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmaskring\_    | 42 15 16 | the same against a periodic x seam with land on its     |
+| periodic                        |          |                                                         |
+|                                 |          | far side, so those grow cells hold what lies across it  |
++---------------------------------+----------+---------------------------------------------------------+
 
 Only the first needs a reference file. Before the wall fills masked the ring, writing output changed the
-state, and the other two differed in ``y_velocity`` by 3.5e-2 and 6.7e-3 relative.
+state, and the plotint and restart lanes differed in ``y_velocity`` by 3.5e-2 and 6.7e-3 relative. Before a
+refined level injected its out-of-domain mask from the coarser level, extrapolation copied the water inside
+the patch outward: the wall lane differed by 0.34 in ``x_velocity`` relative, and the periodic one failed too.
 
 .. _sec:ci-bc-tests:
 

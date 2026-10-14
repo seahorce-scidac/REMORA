@@ -770,6 +770,11 @@ add_test_restart(DogboneAnalytic_maskring_restart "remora_exec" "plt00010" "chk0
 # inside it outward, and the injected run differed.
 add_test_equiv(DogboneAnalytic_MLmaskring DogboneAnalytic_MLmaskring_hires "remora_exec"
                "plt00010" "plt_hires00010")
+# The same across a periodic seam with land on its far side and water on the patch's side:
+# extrapolation there made the land wet, and a fill that zeroed every out-of-domain cell would
+# make the open y=250..500 stretch across the seam dry. Either breaks the agreement.
+add_test_equiv(DogboneAnalytic_MLmaskring_periodic DogboneAnalytic_MLmaskring_periodic_hires
+               "remora_exec" "plt_per00010" "plt_per_hires00010")
 
 #=============================================================================
 # Performance tests

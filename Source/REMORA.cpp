@@ -1042,13 +1042,14 @@ REMORA::set_masks (int lev)
 }
 
 /**
- * Overwrite lev's rho-mask ghost cells beyond a non-periodic domain edge with the coarser
- * level's mask there, injected piecewise-constant.
+ * Overwrite lev's rho-mask ghost cells beyond the domain edge with the coarser level's mask
+ * there, injected piecewise-constant.
  *
- * FillCoarsePatchPC fills those cells with foextrap, which copies the interior outward. At a
- * river mouth on the domain edge that turns the land behind the river wet, and the clamped
- * boundary's salt then mixes into the river cell. Level 0 takes these cells from its grid
- * file, so the coarser level's ghost cells hold the wall.
+ * FillCoarsePatchPC fills those cells with foextrap, which copies the interior outward, even
+ * across a periodic edge. At a river mouth on a wall that turns the land behind the river
+ * wet, and the clamped boundary's salt then mixes into the river cell; at a periodic edge it
+ * ignores whatever lies across the seam. Level 0 takes these cells from its grid file, or
+ * from a periodic FillBoundary, so the coarser level's ghost cells hold the right mask.
  *
  * @param[in   ] lev   level to operate on, > 0
  */
@@ -1062,33 +1063,31 @@ REMORA::inject_mask_outside_domain (int lev)
     const IntVect ngc((ngf[0] + rr[0] - 1) / rr[0], (ngf[1] + rr[1] - 1) / rr[1], 0);
     AMREX_ALWAYS_ASSERT(mc.nGrowVect().allGE(ngc));
 
-    // The coarse mask on the fine layout, ghost cells beyond the domain included
+    // The coarse mask on the fine layout, ghost cells beyond the domain included. A cell the
+    // copy cannot reach stays water, the placeholder every mask starts from.
     MultiFab ctmp(amrex::coarsen(mf.boxArray(), rr), mf.DistributionMap(), 1, ngc);
-    ctmp.setVal(zero);
+    ctmp.setVal(one);
     ctmp.ParallelCopy(mc, 0, 0, 1, mc.nGrowVect(), ngc);
 
-    const Box& dom = geom[lev].Domain();
+    const Box dom = makeSlab(geom[lev].Domain(), 2, 0);
     const int lox = dom.smallEnd(0), hix = dom.bigEnd(0);
     const int loy = dom.smallEnd(1), hiy = dom.bigEnd(1);
-    const bool px = geom[lev].isPeriodic(0);
-    const bool py = geom[lev].isPeriodic(1);
     const int rx = rr[0], ry = rr[1];
 
     for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     {
+        if (dom.contains(mfi.fabbox())) { continue; }
         Array4<      Real> const& f = mf.array(mfi);
         Array4<const Real> const& c = ctmp.const_array(mfi);
         ParallelFor(mfi.fabbox(), [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
         {
-            const bool out = (!px && (i < lox || i > hix)) || (!py && (j < loy || j > hiy));
-            if (out) {
-                // Floor division, so ghost index -1 maps to coarse -1
-                const int ic = (i >= 0) ? i / rx : -((-i - 1) / rx) - 1;
-                const int jc = (j >= 0) ? j / ry : -((-j - 1) / ry) - 1;
-                f(i,j,k) = c(ic,jc,0);
+            if (i < lox || i > hix || j < loy || j > hiy) {
+                f(i,j,k) = c(amrex::coarsen(i, rx), amrex::coarsen(j, ry), 0);
             }
         });
     }
+    // ctmp goes out of scope next
+    Gpu::streamSynchronize();
 }
 
 /**
