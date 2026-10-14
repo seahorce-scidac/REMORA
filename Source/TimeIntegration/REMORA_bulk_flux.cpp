@@ -33,6 +33,9 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
 {
     BL_PROFILE("REMORA::bulk_fluxes()");
     const int IterMax = 3;
+    // The COARE version of the Charnock parameter and the scalar roughness lengths, the
+    // only choices myROMS's bulk_flux.F leaves to COARE_30
+    const bool coare30 = (solverChoice.bulk_flux_scheme == BulkFluxScheme::coare30);
     const BoxArray& ba = mf_cons->boxArray();
     const DistributionMapping& dm = mf_cons->DistributionMap();
     MultiFab mf_Taux(ba, dm, 1, IntVect(NGROW,NGROW,0));
@@ -99,7 +102,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Real cloud = cloud_arr(i,j,0);  // Cloud cover fraction [0-1]
 
             // Input bulk parametrization fields
-            Real wind_mag = std::sqrt(uwind(i,j,0)*uwind(i,j,0) + vwind(i,j,0) * vwind(i,j,0)) + eps;
+            Real wind_mag = std::sqrt(uwind(i,j,0)*uwind(i,j,0) + vwind(i,j,0) * vwind(i,j,0));
             Real TseaK = cons(i,j,N,Temp_comp) + Real(273.16);
 
             // Initialize
@@ -147,6 +150,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                         (one-Real(0.6823)*cloud*cloud)+
                         cff2*Real(4.0)*(TseaK-TairK));
             }
+            LRad *= mskr(i,j,0);
            /*
             -----------------------------------------------------------------------
               Compute specific humidities (kg/kg).
@@ -210,7 +214,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             //   NOTE: ROMS does not have the small-value guard here, but does for
             //   Q and Qair
 
-            Real Qsea=Real(0.62197)*(cff_vp/(PairM-Real(0.378)*cff_vp+eps));
+            Real Qsea=Real(0.62197)*(cff_vp/(PairM-Real(0.378)*cff_vp));
             //
             // -----------------------------------------------------------------------
             //   Compute Monin-Obukhov similarity parameters for wind (Wstar),
@@ -279,12 +283,18 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             //  1.0/(18.0-10.0).
 
             Real charn;
-            if (delW > Real(18.0)) {
-                charn=Real(0.018);
-            } else if ((Real(10.0) < delW) and (delW <= Real(18.0))) {
-                charn=Real(0.011)+Real(0.125)*(Real(0.018)-Real(0.011))*(delW-Real(10.0));
+            if (coare30) {
+                // Momentum roughness length based on COARE 3.0 (Fairall et al. 2003, JPO)
+                if (delW > Real(18.0)) {
+                    charn=Real(0.018);
+                } else if ((Real(10.0) < delW) and (delW <= Real(18.0))) {
+                    charn=Real(0.011)+Real(0.125)*(Real(0.018)-Real(0.011))*(delW-Real(10.0));
+                } else {
+                    charn=Real(0.011);
+                }
             } else {
-                charn=Real(0.011);
+                // Momentum roughness length based on COARE 3.5 (Edson et al. 2013, JPO)
+                charn=std::min(Real(0.028),Real(-0.005)+Real(0.0017)*delW);
             }
 
             //  Iterate until convergence. It usually converges within 3 iterations.
@@ -292,7 +302,10 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                 ZoW=charn*Wstar*Wstar/l_g+Real(0.11)*VisAir/(Wstar+eps);
                 Real Rr=ZoW*Wstar/VisAir;
                 //  Compute Monin-Obukhov stability parameter, Z/L.
-                Real ZoQ=std::min(Real(1.15e-4),Real(5.5e-5)/std::pow(Rr,Real(0.6)));
+                // Moisture and thermal roughness lengths: COARE 3.0, or COARE 3.5 adjusted
+                // to reflect COARE 3.0 fluxes (J. Edson, pers. comm., 11/2023)
+                Real ZoQ = coare30 ? std::min(Real(1.15e-4),Real(5.5e-5)/std::pow(Rr,Real(0.6)))
+                                   : std::min(Real(1.6e-4),Real(5.8e-5)/std::pow(Rr,Real(0.72)));
                 Real ZoT=ZoQ;
                 Real ZoL=vonKar*l_g*blk_ZW*(Tstar*(one+Real(0.61)*Q)+
                              Real(0.61)*TairK*Qstar)/
@@ -310,7 +323,7 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                 Qstar=-(delQ-delQc)*vonKar/(std::log(blk_ZQ/ZoQ)-Qpsi);
 
                 //  Compute gustiness in wind speed.
-                Real Bf=-l_g/TairK*Wstar*(Tstar+Real(0.61)*TairK*Qstar);
+                Real Bf = -l_g/(TairK+Real(0.61)*Qstar)*Wstar*(Tstar+Real(0.61)*TairK*Qstar);
                 if (Bf>zero) {
                     Wgus=blk_beta*std::pow(Bf*blk_Zabl,one/Real(3.0));
                 } else {
@@ -334,7 +347,9 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             cff=Qair*Hlv/(blk_Rgas*TairK*TairK);
             Real wet_bulb=one/(one+Real(0.622)*(cff*Hlv*diffw)/
                                                   (blk_Cpa*diffh));
-            Real Hsr=rain(i,j,0)*wet_bulb*blk_Cpw*
+            // Negative rain is snow, so the rain terms take its magnitude
+            const Real rain_mag = std::abs(rain(i,j,0));
+            Real Hsr=rain_mag*wet_bulb*blk_Cpw*
                               ((cons(i,j,N,Temp_comp)-TairC)+(Qsea-Q)*Hlv/blk_Cpa);
             SHeat=(Hs+Hsr) * mskr(i,j,0);
 
@@ -349,16 +364,13 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             LHeat=(Hl+Hlw) * mskr(i,j,0);
 
             // Compute momentum flux (N/m2) due to rainfall (kg/m2/s).
-            Taur=Real(0.85)*rain(i,j,0)*wind_mag;
+            Taur=Real(0.85)*rain_mag*wind_mag;
 
-            // Compute wind stress components (N/m2), Tau.
-            cff=rhoAir*Cd*Wspeed;
-            // amrex::Print() << "rhoAir: " << rhoAir << " Cd: " << Cd << " Wspeed: " << Wspeed << " cff: " << cff << "\n";
-            Real sign_u = (uwind(i,j,0) >= zero) ? 1 : -1;
-            Real sign_v = (vwind(i,j,0) >= zero) ? 1 : -1;
-            Taux(i,j,0)=(cff*uwind(i,j,0)+Taur*sign_u) * mskr(i,j,0);
-            Tauy(i,j,0)=(cff*vwind(i,j,0)+Taur*sign_v) * mskr(i,j,0);
-            // amrex::Print() << "Taux: " << Taux(i,j,0) << " Tauy: " << Tauy(i,j,0) << "\n";
+            // Sum of stresses expressed as friction velocities, normalized by the wind
+            // speed without gustiness (Wilkin and Pareja-Roman, 02/2024)
+            cff=rhoAir*(Wstar*Wstar+Taur/rhoAir)/(wind_mag+eps);
+            Taux(i,j,0)=cff*uwind(i,j,0) * mskr(i,j,0);
+            Tauy(i,j,0)=cff*vwind(i,j,0) * mskr(i,j,0);
 
             //=======================================================================
             //  Compute surface net heat flux and surface wind stress.
@@ -394,12 +406,12 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             shflx(i,j,0) = -SHeat*Hscale2;
             // Note: srflx from NetCDF is in W/m², convert to degC m/s by multiplying by Hscale2
             stflux(i,j,0,Temp_comp)=(srflux*Hscale2 + lrflx(i,j,0) + lhflx(i,j,0) + shflx(i,j,0)) * mskr(i,j,0);
-            evap(i,j,0) = (LHeat / Hlv+eps) * mskr(i,j,0);
+            evap(i,j,0) = LHeat/(Hlv+eps) * mskr(i,j,0);
             if (use_EminusP_from_input) {
                 // Use prescribed E-P directly
                 stflux(i,j,0,Salt_comp) = mskr(i,j,0) * EminusP(i,j,0);
             } else {
-                stflux(i,j,0,Salt_comp) = mskr(i,j,0) * (evap(i,j,0)-rain(i,j,0)) / rhow;
+                stflux(i,j,0,Salt_comp) = (one/rhow)*(evap(i,j,0)-rain(i,j,0)) * mskr(i,j,0);
             }
         });
 

@@ -98,6 +98,10 @@ enum class MaskConsistency {
     abort, warn
 };
 
+/** \brief COARE version of the bulk flux roughness lengths (ROMS COARE_30 or not) */
+enum class BulkFluxScheme {
+    coare30, coare35
+};
 /** \brief harmonic mixing; which surfaces to calculate along */
 enum class HarmonicMixingType {
     s, geopotential
@@ -239,6 +243,17 @@ struct SolverChoice {
         }
 
         pp.queryAdd("bulk_fluxes",bulk_fluxes);
+        {
+            std::string scheme_string = "coare30";
+            pp.queryAdd("bulk_flux_scheme", scheme_string);
+            if (amrex::toLower(scheme_string) == "coare30") {
+                bulk_flux_scheme = BulkFluxScheme::coare30;
+            } else if (amrex::toLower(scheme_string) == "coare35") {
+                bulk_flux_scheme = BulkFluxScheme::coare35;
+            } else {
+                amrex::Abort("remora.bulk_flux_scheme must be coare30 or coare35");
+            }
+        }
         pp.queryAdd("atm2ocn_flux_mode", atm2ocn_flux_mode);
         {
             amrex::ParmParse pp_driver("driver");
@@ -875,6 +890,11 @@ struct SolverChoice {
     bool        use_curvilinear_grid  = false;
 
     bool        bulk_fluxes           = false;
+    // The COARE version of the bulk flux's Charnock parameter and scalar roughness
+    // lengths: coare30 (Fairall et al. 2003; ROMS with COARE_30 defined) or coare35
+    // (Edson et al. 2013; ROMS's default). The rest of the bulk flux follows myROMS
+    // either way.
+    BulkFluxScheme bulk_flux_scheme = BulkFluxScheme::coare30;
     bool        atm2ocn_flux_mode     = false;
 
     bool        output_forcing        = false;
