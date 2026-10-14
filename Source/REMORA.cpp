@@ -347,6 +347,8 @@ REMORA::WriteAtFinalTime()
 
     if ( (plot_int > 0 || plot_int_time > zero) && istep[0] > last_plot_file_step)
     {
+        last_plot_file_step = istep[0];
+        last_plot_file_time = t_new[0];
         WritePlotFile(istep[0]);
         history_count++;
     }
@@ -557,8 +559,7 @@ REMORA::InitData ()
     {
         if (plot_int > 0 || plot_int_time > zero)
         {
-            int step0 = 0;
-            WritePlotFile(step0);
+            WritePlotFile(istep[0]);
             history_count++;
             last_plot_file_step = istep[0];
         }

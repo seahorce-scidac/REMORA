@@ -109,6 +109,13 @@ REMORA::WriteCheckpointFile ()
        // start_time, the origin t_new counts from. Last, so a reader that predates it
        // stops before it; a checkpoint without it holds t_new on the model clock.
        HeaderFile << "start_time " << start_time << "\n";
+
+       // History record for this step: the one just written if output came at
+       // this step, otherwise the next. A restart numbers records and chunk
+       // files on from it.
+       const int history_record = (last_plot_file_step == istep[0])
+                                ? history_count - 1 : history_count;
+       HeaderFile << "history_count " << history_record << "\n";
    }
 
    // write the MultiFab data to, e.g., chk00010/Level_0/
@@ -344,6 +351,11 @@ REMORA::ReadCheckpointFile ()
     double chk_start_time = 0.0;
     if (is >> word && word == "start_time") {
         is >> chk_start_time;
+    }
+
+    // History record for this step. Without it, history output starts over.
+    if (is >> word && word == "history_count") {
+        is >> history_count;
     }
 
     // Rebase onto this run's start_time. Take t_new verbatim when the origin is
