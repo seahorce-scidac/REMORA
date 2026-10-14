@@ -1032,12 +1032,63 @@ REMORA::set_masks (int lev)
             Real dummy_time = zero;
             FillCoarsePatchPC(lev, dummy_time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
                     foextrap_bc());
+            inject_mask_outside_domain(lev);
             update_nodal_masks(lev);
         } else {
             set_masks_averaged_down(lev);
         }
     }
     fill_3d_masks(lev);
+}
+
+/**
+ * Overwrite lev's rho-mask ghost cells beyond a non-periodic domain edge with the coarser
+ * level's mask there, injected piecewise-constant.
+ *
+ * FillCoarsePatchPC fills those cells with foextrap, which copies the interior outward. At a
+ * river mouth on the domain edge that turns the land behind the river wet, and the clamped
+ * boundary's salt then mixes into the river cell. Level 0 takes these cells from its grid
+ * file, so the coarser level's ghost cells hold the wall.
+ *
+ * @param[in   ] lev   level to operate on, > 0
+ */
+void
+REMORA::inject_mask_outside_domain (int lev)
+{
+    MultiFab& mf = *vec_mskr[lev];
+    const MultiFab& mc = *vec_mskr[lev-1];
+    const IntVect rr = refRatio(lev-1);
+    const IntVect ngf = mf.nGrowVect();
+    const IntVect ngc((ngf[0] + rr[0] - 1) / rr[0], (ngf[1] + rr[1] - 1) / rr[1], 0);
+    AMREX_ALWAYS_ASSERT(mc.nGrowVect().allGE(ngc));
+
+    // The coarse mask on the fine layout, ghost cells beyond the domain included
+    MultiFab ctmp(amrex::coarsen(mf.boxArray(), rr), mf.DistributionMap(), 1, ngc);
+    ctmp.setVal(zero);
+    ctmp.ParallelCopy(mc, 0, 0, 1, mc.nGrowVect(), ngc);
+
+    const Box& dom = geom[lev].Domain();
+    const int lox = dom.smallEnd(0), hix = dom.bigEnd(0);
+    const int loy = dom.smallEnd(1), hiy = dom.bigEnd(1);
+    const bool px = geom[lev].isPeriodic(0);
+    const bool py = geom[lev].isPeriodic(1);
+    const int rx = rr[0], ry = rr[1];
+
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi)
+    {
+        Array4<      Real> const& f = mf.array(mfi);
+        Array4<const Real> const& c = ctmp.const_array(mfi);
+        ParallelFor(mfi.fabbox(), [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            const bool out = (!px && (i < lox || i > hix)) || (!py && (j < loy || j > hiy));
+            if (out) {
+                // Floor division, so ghost index -1 maps to coarse -1
+                const int ic = (i >= 0) ? i / rx : -((-i - 1) / rx) - 1;
+                const int jc = (j >= 0) ? j / ry : -((-j - 1) / ry) - 1;
+                f(i,j,k) = c(ic,jc,0);
+            }
+        });
+    }
 }
 
 /**
