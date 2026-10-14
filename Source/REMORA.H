@@ -1560,7 +1560,10 @@ private:
     void WriteNCPlotFile_which (int lev, int which_subdomain,
                                 amrex::MultiFab const* plotMF,
                                 bool write_header, ncutils::NCFile& ncf,
-                                bool is_history);
+                                bool is_history, long long history_record = 0);
+
+    /** \brief Record a restarted run continues an existing history file from */
+    long long history_restart_record (int lev, const std::string& path);
 
     /** \brief Write MultiFab in NetCDF format */
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
@@ -1942,11 +1945,12 @@ private:
     int steps_per_history_file = -1;
     /** \brief Counter for which time index we are writing to in the netcdf history file */
     int history_count = 0;
-    /** \brief Per level, how many records the current history file is behind history_count.
-     *  Nonzero only when a restart found no history file to append to and began a new one. */
-    amrex::Vector<int> history_record_shift;
-    /** \brief Per level, whether the first history write since restart is still to come */
-    amrex::Vector<int> history_restart_pending;
+    /** \brief Per level, the history file this run last wrote to */
+    amrex::Vector<std::string> history_file_in_use;
+    /** \brief Per level, how many records the history file in use is behind
+     *  history_count. Nonzero when a restart began a new file or found the
+     *  one it continues out of step with the checkpoint. */
+    amrex::Vector<long long> history_record_shift;
 
     /** \brief Names of 3D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_3d;

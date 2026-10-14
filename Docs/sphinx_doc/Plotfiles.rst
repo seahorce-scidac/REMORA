@@ -138,10 +138,14 @@ Notes
 -  The write_history_file option is only available if **plotfile_type = netcdf**
 
 -  A run restarted from a checkpoint continues the NetCDF output of the run it was saved
-   from. Per-step files keep their step numbering. A history file is appended to, starting
-   from the record that holds the checkpoint's step, so any later records left by the
-   earlier run are overwritten as the new run reaches them. If the history file is not in
-   the run directory, the restarted run begins a new one at its first record.
+   from. Per-step files keep their step numbering; the file for the restart step itself is
+   written again, and the earlier copy renamed to ``*.old.*``. A history file found in the
+   run directory is continued from its first record at or after the restart time. Records
+   the earlier run wrote past that point are written over one by one as the new run reaches
+   them, and any it does not reach are left in the file, so a restarted run that stops
+   sooner leaves the earlier run's last records at the end. If there is no history file, or
+   its grid does not match, the restarted run begins a new file (moving a mismatched one
+   aside). Chunked history files are numbered on from the checkpoint.
 
 -  REMORA writes CDF-5 files, which have no practical size limit. Some MPI builds still fail on writes
    larger than 2 GB — a limit of the MPI-IO layer, not the file format. If a large write crashes, see the
