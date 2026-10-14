@@ -39,6 +39,16 @@ in the inputs file or on the command line at runtime.
 Currently, by default, the particles are initialized at cell centers, one per cell when the cell index is
 (3,j,k), with zero initial velocity.  They are advanced in time every time step.
 
+Particles are advected in the terrain-following coordinates of the grid.  Each particle carries a
+fractional vertical index :math:`s \in [0, N]` relative to the :math:`w`-levels of its column, with
+:math:`s = 0` the bed and :math:`s = N` the free surface.  Horizontally, particles move with the
+interpolated :math:`u` and :math:`v` at fixed :math:`s`, so they follow the levels over sloping
+bathymetry; vertically, they move across the levels at :math:`\Omega / H_z`, where :math:`\Omega` is
+the velocity across the :math:`w`-levels that the model computes from the horizontal mass fluxes.
+The time integration is the midpoint method, and :math:`s` is reflected off the bed and the free
+surface, so particles always stay in the water column.  The particle ``zvel`` attribute is the rate of
+change of the particle's height over the step.
+
 Caveat: the particle information is currently output when using the AMReX-native plotfile format, but not
 when using netcdf.  Writing particles into the netcdf files is a WIP.
 

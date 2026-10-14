@@ -48,6 +48,9 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     // Note that we need the fine-fine and physical bc's in order to correctly move the particles
     xvel_new[lev]->FillBoundary(geom[lev].periodicity());
     yvel_new[lev]->FillBoundary(geom[lev].periodicity());
+    // Diagnose the true vertical velocity from the updated state; nothing in the
+    // dynamics reads it
+    compute_wvel(lev, *zvel_new[lev]);
     FillPatch(lev, t_old[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null,0,true,true,0,0,zero,
               amrex::MultiFab(), zvel_old, zvel_new);
 
@@ -72,7 +75,6 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
     // **************************************************************************************
     // Update the particle positions
     // **************************************************************************************
-   Vector<MultiFab const*> flow_vels =  {xvel_new[lev], yvel_new[lev], zvel_new[lev]};
-   evolveTracers( lev, dt_lev, flow_vels, vec_z_phys_nd );
+   evolveTracers(lev, dt_lev);
 #endif
 }

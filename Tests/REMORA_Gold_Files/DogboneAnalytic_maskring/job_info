@@ -1,32 +1,32 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/wall-mask/Build_ci/Tests/test_files/DogboneAnalytic_maskring/DogboneAnalytic_maskring.i
+inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Tests/test_files/DogboneAnalytic_maskring/DogboneAnalytic_maskring.i
 
 number of MPI processes: 2
 
-CPU time used since start of simulation (CPU-hours): 0.000923752
+CPU time used since start of simulation (CPU-hours): 0.00159652
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Tue Oct  6 16:30:26 2026
-output dir:         /home/klion/software/REMORA_codex/.claude/worktrees/wall-mask/Build_ci/Tests/test_files/DogboneAnalytic_maskring
+output data / time: Wed Oct 14 12:59:58 2026
+output dir:         /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Tests/test_files/DogboneAnalytic_maskring
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    Oct  6 2026 16:30:09
+build date:    Oct 14 2026 12:03:32
 build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
-build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/wall-mask/Build_ci/Exec
-AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/wall-mask/Submodules/AMReX
+build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Exec
+AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Submodules/AMReX
 
 COMP:          GNU
 COMP version:  13.3.0
 
 
-REMORA       git hash: v1.7-177-g02d728bf1fae-dirty
+REMORA       git hash: v1.7-194-g04591ec10ec1
 AMReX       git hash: 26.09-185-g19d64c697f1a
 
 
@@ -160,6 +160,8 @@ remora.check_file = chk
 remora.check_int = 5
 remora.check_int_time = -1.0
 remora.check_mask_consistency = true
+remora.check_plot_z = 0
+remora.check_plot_z_tol = -1.0
 remora.cloud = 0.0
 remora.cloud_type = "constant"
 remora.coriolis_beta = 0.0
