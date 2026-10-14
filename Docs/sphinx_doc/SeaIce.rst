@@ -28,19 +28,16 @@ Turning Sea Ice On
 
    remora.ice_model = mellor_kantha     # none (default) or mellor_kantha
    remora.bulk_fluxes = true            # required
-   remora.bulk_flux_scheme = coare35    # recommended: the bulk flux of current myROMS
+   remora.bulk_flux_scheme = coare35    # recommended: the COARE version of current myROMS
 
 The ice model requires bulk fluxes (the air-ice stress and the ice surface heat
 budget come out of the bulk flux), salinity, and a single level
 (``amr.max_level = 0``). Regridding is not supported.
 
-``remora.bulk_flux_scheme`` selects which ROMS bulk flux REMORA follows. The
-default, ``legacy``, is REMORA's original port. ``coare35`` follows myROMS: COARE
-3.5 roughness lengths, the 2024 wind-stress normalization (Wilkin and
-Parela-Roman), the buoyancy flux with ``Qstar`` in the denominator, and negative
-rain read as snow. The ice model reuses the bulk flux's gustiness and humidities,
-so use ``coare35`` to reproduce myROMS. ROMS uses :math:`g = 9.81`; set
-``remora.g = 9.81`` to match it.
+``remora.bulk_flux_scheme`` selects the COARE version of the bulk flux roughness
+lengths: ``coare30``, the default, or ``coare35``, myROMS's default. The ice model
+reuses the bulk flux's gustiness and humidities, so use ``coare35`` to reproduce
+myROMS. ROMS uses :math:`g = 9.81`; set ``remora.g = 9.81`` to match it.
 
 Options
 =======
