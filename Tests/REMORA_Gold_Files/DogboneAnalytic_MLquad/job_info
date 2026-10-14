@@ -5,19 +5,19 @@ inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-se
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.00373098
+CPU time used since start of simulation (CPU-hours): 0.00582066
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Wed Oct 14 12:59:02 2026
+output data / time: Wed Oct 14 15:31:38 2026
 output dir:         /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Tests/test_files/DogboneAnalytic_MLquad
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    Oct 14 2026 12:03:32
+build date:    Oct 14 2026 14:56:11
 build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
 build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Exec
 AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Submodules/AMReX

@@ -1020,14 +1020,18 @@ public:
                            const amrex::Array4<amrex::Real const>& h,
                            const int N);
 
-    /** \brief Velocity across the w-levels (omega, m/s) from the current mass fluxes */
-    void compute_omega (int lev, amrex::MultiFab& mf_omega);
+    /** \brief Velocity across the w-levels (omega, m/s) from the given mass fluxes */
+    void compute_omega (int lev, amrex::MultiFab& mf_omega,
+                        const amrex::MultiFab& mf_Huon, const amrex::MultiFab& mf_Hvom);
+
+    /** \brief omega (m/s) as ROMS writes it: from mass fluxes of the current velocities */
+    void compute_diagnostic_omega (int lev, amrex::MultiFab& mf_omega);
 
     /** \brief "True" vertical velocity w (m/s) at w-points, as ROMS wvelocity */
     void compute_wvel (int lev, amrex::MultiFab& mf_w);
 
-    /** \brief Horizontal mass fluxes from the current velocities, as ROMS set_massflux */
-    void init_massflux_3d (int lev);
+    /** \brief Horizontal mass fluxes Hz*u/n and Hz*v/m of the current velocities, as ROMS set_massflux */
+    void set_massflux_3d (int lev, amrex::MultiFab& mf_Huon, amrex::MultiFab& mf_Hvom);
 
     /** \brief Correct mass flux */
     void update_massflux_3d (int lev, const amrex::Box& bx,

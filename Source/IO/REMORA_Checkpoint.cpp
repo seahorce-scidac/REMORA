@@ -464,7 +464,6 @@ REMORA::ReadCheckpointFile ()
        VisMF::Read(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akv"));
 
        stretch_transform(lev);
-       init_massflux_3d(lev);
 
     }
 

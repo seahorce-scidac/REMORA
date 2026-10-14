@@ -503,7 +503,7 @@ REMORA::WritePlotFile (int istep_for_plot)
 
         if (containerHasElement(plot_var_names_3d, "omega")) {
             MultiFab mf_omega(convert(grids[lev],IntVect(0,0,1)), dmap[lev], 1, IntVect(0));
-            compute_omega(lev, mf_omega);
+            compute_diagnostic_omega(lev, mf_omega);
             MultiFab dmf(plotMF[lev], make_alias, mf_comp, 1);
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())

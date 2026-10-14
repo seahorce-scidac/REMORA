@@ -183,8 +183,7 @@ Notes
 +--------------------------------+---------------------------+
 | **z_velocity**                 | true vertical velocity w, |
 |                                | diagnosed as in ROMS      |
-|                                | ``wvelocity``; zero until |
-|                                | the first step            |
+|                                | ``wvelocity``             |
 +--------------------------------+---------------------------+
 | **vorticity**                  | vorticity                 |
 +--------------------------------+---------------------------+
@@ -192,6 +191,11 @@ Notes
 |                                | terrain-following levels  |
 |                                | (ROMS ``omega``), m/s     |
 +--------------------------------+---------------------------+
+
+``z_velocity`` and ``omega`` are computed as ROMS computes the ``w`` and ``omega`` it writes
+to its history file: from mass fluxes of the current velocities, not the time-averaged fluxes
+the tracers are advected with. Both are on w-points in the model and are averaged to cell
+centers for the plotfile.
 
 2D Plotfile Field Options
 --------------------------

@@ -52,15 +52,18 @@ REMORA::compute_W (const Box& bx2d,
 }
 
 /**
- * W as advance_3d computes it, recomputed from the current Huon and Hvom and converted
- * from a volume flux to a velocity. It is zero at the bed and the free surface.
+ * W converted from a volume flux to a velocity, as ROMS scale_omega. It is zero at the bed
+ * and the free surface.
  *
  * @param[in ] lev       level
  * @param[out] mf_omega  z-nodal omega (m/s); ghost cells are filled across grids and
  *                       periodic boundaries, and zero outside the domain
+ * @param[in ] mf_Huon   u-volume flux on at least the valid faces
+ * @param[in ] mf_Hvom   v-volume flux on at least the valid faces
  */
 void
-REMORA::compute_omega (int lev, MultiFab& mf_omega)
+REMORA::compute_omega (int lev, MultiFab& mf_omega,
+                       const MultiFab& mf_Huon, const MultiFab& mf_Hvom)
 {
     const int N = Geom(lev).Domain().size()[2]-1;
 
@@ -78,7 +81,7 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega)
         Array4<Real const> const& pn = vec_pn[lev]->const_array(mfi);
 
         Box bx2d = makeSlab(mfi.validbox(),2,0);
-        compute_W(bx2d, W, vec_Huon[lev]->const_array(mfi), vec_Hvom[lev]->const_array(mfi),
+        compute_W(bx2d, W, mf_Huon.const_array(mfi), mf_Hvom.const_array(mfi),
                   vec_z_w[lev]->const_array(mfi), vec_h[lev]->const_array(mfi), N);
 
         ParallelFor(bx2d, N, [=] AMREX_GPU_DEVICE (int i, int j, int, int kk)
@@ -91,6 +94,24 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega)
 }
 
 /**
+ * omega as ROMS writes it to its history file: main3d calls set_massflux on the current
+ * velocities and then omega, before output. The fluxes left in vec_Huon and vec_Hvom by
+ * update_massflux_3d are instead time-averaged over the step (the ones the tracers move
+ * with), so they are not used here.
+ *
+ * @param[in ] lev       level
+ * @param[out] mf_omega  z-nodal omega (m/s)
+ */
+void
+REMORA::compute_diagnostic_omega (int lev, MultiFab& mf_omega)
+{
+    MultiFab mf_Huon(convert(grids[lev],IntVect(1,0,0)), dmap[lev], 1, IntVect(0));
+    MultiFab mf_Hvom(convert(grids[lev],IntVect(0,1,0)), dmap[lev], 1, IntVect(0));
+    set_massflux_3d(lev, mf_Huon, mf_Hvom);
+    compute_omega(lev, mf_omega, mf_Huon, mf_Hvom);
+}
+
+/**
  * The "true" vertical velocity w (m/s) at w-points, a port of ROMS wvelocity. In
  * terrain-following coordinates
  *
@@ -99,7 +120,8 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega)
  * so w adds back to omega the stretching of the levels by the moving free surface
  * (from the barotropic flux divergence) and the motion along the sloping levels, which
  * is computed at rho-points and shifted to w-points with ROMS's cubic interpolation.
- * Like ROMS, this is for output only: nothing in the dynamics reads it.
+ * Like ROMS, this is for output only: nothing in the dynamics reads it, and omega comes
+ * from the mass fluxes of the current velocities (compute_diagnostic_omega).
  *
  * @param[in ] lev     level
  * @param[out] mf_w    z-nodal w on the valid region
@@ -112,7 +134,7 @@ REMORA::compute_wvel (int lev, MultiFab& mf_w)
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(nz >= 3, "compute_wvel needs at least 3 vertical levels");
 
     MultiFab mf_omega(convert(grids[lev],IntVect(0,0,1)), dmap[lev], 1, IntVect(0));
-    compute_omega(lev, mf_omega);
+    compute_diagnostic_omega(lev, mf_omega);
 
     const Real cff1 = Real(3.0)/Real(8.0);
     const Real cff2 = Real(3.0)/Real(4.0);
@@ -183,22 +205,22 @@ REMORA::compute_wvel (int lev, MultiFab& mf_w)
 }
 
 /**
- * Horizontal mass fluxes Hz*u/n and Hz*v/m from the current velocities, as ROMS
- * set_massflux does at initialization. setup_step recomputes them before every step, so
- * this only matters for diagnostics (omega) read before the first step on a level, such
- * as at t=0, after a restart, or on a newly made level.
+ * Horizontal mass fluxes Hz*u/n and Hz*v/m of the current velocities on the valid faces,
+ * as ROMS set_massflux.
  *
- * @param[in ] lev   level
+ * @param[in ] lev       level
+ * @param[out] mf_Huon   u-volume flux
+ * @param[out] mf_Hvom   v-volume flux
  */
 void
-REMORA::init_massflux_3d (int lev)
+REMORA::set_massflux_3d (int lev, MultiFab& mf_Huon, MultiFab& mf_Hvom)
 {
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(*vec_Huon[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(mf_Huon, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-        Array4<Real      > const& Huon = vec_Huon[lev]->array(mfi);
+        Array4<Real      > const& Huon = mf_Huon.array(mfi);
         Array4<Real const> const& u    = xvel_new[lev]->const_array(mfi);
         Array4<Real const> const& Hz   = vec_Hz[lev]->const_array(mfi);
         Array4<Real const> const& pn   = vec_pn[lev]->const_array(mfi);
@@ -212,9 +234,9 @@ REMORA::init_massflux_3d (int lev)
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-    for (MFIter mfi(*vec_Hvom[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    for (MFIter mfi(mf_Hvom, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
-        Array4<Real      > const& Hvom = vec_Hvom[lev]->array(mfi);
+        Array4<Real      > const& Hvom = mf_Hvom.array(mfi);
         Array4<Real const> const& v    = yvel_new[lev]->const_array(mfi);
         Array4<Real const> const& Hz   = vec_Hz[lev]->const_array(mfi);
         Array4<Real const> const& pm   = vec_pm[lev]->const_array(mfi);
@@ -225,6 +247,4 @@ REMORA::init_massflux_3d (int lev)
             Hvom(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k))*v(i,j,k)* om_v;
         });
     }
-    vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Hvom[lev]->FillBoundary(geom[lev].periodicity());
 }
