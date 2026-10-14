@@ -475,6 +475,9 @@ add_test_r(DoubleGyre                   "remora_exec" "plt00010")
 add_test_r_hitol(BoundaryLayer          "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic              "remora_exec" "plt00010")
 add_test_r(DogboneAnalytic_MLvel        "remora_exec" "plt_ml00010")
+# MLvel with cf_avgdown_volume_weighted: must match its own gold and differ from MLvel's, so
+# the volume-weighted path runs in CI and a flag that silently does nothing is caught.
+add_test_r_differ(DogboneAnalytic_MLvel_volavg "remora_exec" "plt_ml00010" DogboneAnalytic_MLvel)
 add_test_r(DogboneAnalytic_MLquad       "remora_exec" "plt_ml_quad00010")
 # A refined patch whose low x edge lies on the periodic seam. The only lane whose fine level
 # touches a periodic boundary, so the only one that holds the periodic-boundary handling in
