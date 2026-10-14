@@ -665,12 +665,15 @@ the run within the calendar the way ROMS ``DSTART`` does. With the default
 ``time_ref = 0``, a run starting on 1 January 2020 sets
 ``remora.start_time = 63713433600``.
 
-Times given in inputs -- ``remora.start_time``, ``remora.stop_time``, the
-``start_time`` and ``end_time`` of a refinement indicator -- and the time
-variables of NetCDF forcing, boundary, river and climatology files are all on
-this model clock. Internally the model clock is split, as ROMS splits ``DSTART``
-from the time it advances: ``remora.start_time`` is kept in double precision,
-and the solver advances only the time elapsed since it. That keeps the timestep
+``remora.start_time``, ``remora.stop_time`` and the time variables of NetCDF
+forcing, boundary, river and climatology files are all on this model clock.
+The time window of a refinement indicator is instead given in seconds since
+``remora.start_time`` by default, or on the model clock with that indicator's
+``start_total_time`` and ``end_total_time`` (see :ref:`MeshRefinement`).
+
+Internally the model clock is split, as ROMS splits ``DSTART`` from the time it
+advances: ``remora.start_time`` is kept in double precision, and the solver
+advances only the time elapsed since it. That keeps the timestep
 resolvable in a single-precision build, where seconds since a calendar epoch
 would otherwise round to tens of seconds or more. Checkpoints store the elapsed
 time together with ``remora.start_time``; a checkpoint from before this split,
@@ -1470,6 +1473,18 @@ List of GLS-specific parameters
 +----------------------------------+--------------------------------------+-------------------+----------------+
 | **remora.gls_sigp**              |                                      | Real number       | 1.3            |
 |                                  |                                      |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.gls_length_cap**        | Cap the turbulent length scale at    | 0 if false, 1     | 1              |
+|                                  |                                      |                   |                |
+|                                  | kappa times the local water-column   | if true           |                |
+|                                  |                                      |                   |                |
+|                                  | depth, as in ROMS. Applied in every  |                   |                |
+|                                  |                                      |                   |                |
+|                                  | cell, after the Galperin limit in    |                   |                |
+|                                  |                                      |                   |                |
+|                                  | stable stratification. Set to 0 to   |                   |                |
+|                                  |                                      |                   |                |
+|                                  | leave the length scale uncapped.     |                   |                |
 +----------------------------------+--------------------------------------+-------------------+----------------+
 | **remora.Akk_bak**               | Initial/minimum value of Akk         | Real number       | 5.0e-6         |
 |                                  |                                      |                   |                |

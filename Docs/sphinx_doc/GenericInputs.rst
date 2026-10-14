@@ -37,24 +37,65 @@ Comment Selection
 
 For each parameter, comments are selected in this order:
 
-1. source-adjacent description extracted with the schema,
+1. source-adjacent description extracted with the schema: a trailing comment on
+   the query line, a comment block directly above it (no blank or code line in
+   between), or the same for the variable's declaration,
 2. table description from ``Docs/sphinx_doc/Inputs.rst``,
-3. source location fallback.
+3. source file fallback.
 
-CI Validation
--------------
+The source fallback names only the file, not a line number, so that unrelated
+code motion does not change the generated file. A comment that is not
+directly attached to a query is never borrowed for it.
 
-GitHub Actions workflow ``generic-inputs-validate.yml`` regenerates
-``Exec/Generic/inputs_generic`` and reports when the file is stale. The check
-itself is ``.github/workflows/style/check_generic_inputs.sh``, which prints the
-stale diff along with the command that fixes it. To clear the failure, run that
-same script locally and commit the result:
+CI Validation and Updates
+-------------------------
+
+Do not commit ``Exec/Generic/inputs_generic`` from a feature branch. After a PR
+merges into ``development``, the ``generic-inputs-update.yml`` workflow
+regenerates the file and opens (or updates) a single PR from the
+``bot/inputs-generic`` branch. A maintainer reviews and merges it. Because
+feature branches never touch the file, it does not conflict when merging
+``development``.
+
+The workflow opens the PR with a token from a GitHub App, as Dependabot does,
+so CI runs on the bot PR and checks that it matches a fresh regeneration. The
+App has only Contents and Pull requests access to this repository and no
+branch-protection bypass. Setup is described at the top of the workflow file.
+
+On pull requests, ``generic-inputs-validate.yml``:
+
+* fails if the PR changes ``inputs_generic``. Restore it with
+
+  .. code-block:: bash
+
+     git fetch https://github.com/seahorce-scidac/REMORA development
+     git checkout FETCH_HEAD -- Exec/Generic/inputs_generic
+
+  To edit it deliberately, for example while changing the generator, label the
+  PR ``inputs-generic-hand-edit``;
+* runs ``.github/workflows/style/check_generic_inputs.sh --preview`` against
+  the PR's base, which
+  warns, without failing, with the diff the merge will cause. Use it to check
+  that new parameters and descriptions come out as intended. To change a
+  description, edit the comment at the query or its declaration, or the row in
+  ``Docs/sphinx_doc/Inputs.rst``.
+
+The preview regenerates the file both at the PR's base and at its head, so it
+shows only the PR's own effect, even while an earlier bot PR is unmerged. It
+writes nothing to the working tree. To preview a local branch, pass the branch
+it will merge into (the base is required):
 
 .. code-block:: bash
 
-   .github/workflows/style/check_generic_inputs.sh
-   git add Exec/Generic/inputs_generic
+   .github/workflows/style/check_generic_inputs.sh --preview upstream/development
 
-Because the schema records source file line numbers, a branch that is behind
-``development`` will report a stale file even with no local source changes.
-Merge ``development`` first, then regenerate.
+Without ``--preview``, the script regenerates the file in place and fails if it
+changed; a manual run of the workflow does this on the chosen branch.
+
+The file changes when a parameter is added or removed; when its default, type,
+or attached description changes; when its row in ``Inputs.rst`` changes; or
+when its query moves to another file. Moving code within a file normally does
+not change it. The exception is anything taken from the variable's
+declaration, namely its description, default, and type: the declaration is
+looked for only in the lines just above the query (about 140), so moving the
+two far apart can change them.
