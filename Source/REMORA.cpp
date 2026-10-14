@@ -1033,12 +1033,62 @@ REMORA::set_masks (int lev)
             Real dummy_time = zero;
             FillCoarsePatchPC(lev, dummy_time, vec_mskr[lev].get(), vec_mskr[lev-1].get(),
                     foextrap_bc());
+            inject_mask_outside_domain(lev);
             update_nodal_masks(lev);
         } else {
             set_masks_averaged_down(lev);
         }
     }
     fill_3d_masks(lev);
+}
+
+/**
+ * Overwrite lev's rho-mask ghost cells beyond the domain edge with the coarser level's mask
+ * there, injected piecewise-constant.
+ *
+ * FillCoarsePatchPC fills those cells with foextrap, which copies the interior outward, even
+ * across a periodic edge. At a river mouth on a wall that turns the land behind the river
+ * wet, and the clamped boundary's salt then mixes into the river cell; at a periodic edge it
+ * ignores whatever lies across the seam. Level 0 takes these cells from its grid file, or
+ * from a periodic FillBoundary, so the coarser level's ghost cells hold the right mask.
+ *
+ * @param[in   ] lev   level to operate on, > 0
+ */
+void
+REMORA::inject_mask_outside_domain (int lev)
+{
+    MultiFab& mf = *vec_mskr[lev];
+    const MultiFab& mc = *vec_mskr[lev-1];
+    const IntVect rr = refRatio(lev-1);
+    const IntVect ngf = mf.nGrowVect();
+    const IntVect ngc((ngf[0] + rr[0] - 1) / rr[0], (ngf[1] + rr[1] - 1) / rr[1], 0);
+    AMREX_ALWAYS_ASSERT(mc.nGrowVect().allGE(ngc));
+
+    // The coarse mask on the fine layout, ghost cells beyond the domain included. A cell the
+    // copy cannot reach stays water, the placeholder every mask starts from.
+    MultiFab ctmp(amrex::coarsen(mf.boxArray(), rr), mf.DistributionMap(), 1, ngc);
+    ctmp.setVal(one);
+    ctmp.ParallelCopy(mc, 0, 0, 1, mc.nGrowVect(), ngc);
+
+    const Box dom = makeSlab(geom[lev].Domain(), 2, 0);
+    const int lox = dom.smallEnd(0), hix = dom.bigEnd(0);
+    const int loy = dom.smallEnd(1), hiy = dom.bigEnd(1);
+    const int rx = rr[0], ry = rr[1];
+
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi)
+    {
+        if (dom.contains(mfi.fabbox())) { continue; }
+        Array4<      Real> const& f = mf.array(mfi);
+        Array4<const Real> const& c = ctmp.const_array(mfi);
+        ParallelFor(mfi.fabbox(), [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            if (i < lox || i > hix || j < loy || j > hiy) {
+                f(i,j,k) = c(amrex::coarsen(i, rx), amrex::coarsen(j, ry), 0);
+            }
+        });
+    }
+    // ctmp goes out of scope next
+    Gpu::streamSynchronize();
 }
 
 /**

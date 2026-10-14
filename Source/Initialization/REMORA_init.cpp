@@ -403,6 +403,9 @@ REMORA::init_masks_full_domain_from_analytic ()
     // this MultiFab is not on grids[hires_grid_level].
     prob->init_analytic_masks(hires_grid_level, Geom(hires_grid_level), solverChoice, *this,
                               *vec_mskr_full_domain[hires_grid_level]);
+    // Across a periodic edge the grow cells hold what lies over the seam, as level 0's do,
+    // not the hook evaluated beyond the domain
+    vec_mskr_full_domain[hires_grid_level]->FillBoundary(Geom(hires_grid_level).periodicity());
     // Coarsen to fill the levels below hires_grid_level. Not average_down_with_grow_cells:
     // a mask has to stay exactly 0 or 1, so this takes "wet if any fine cell is wet".
     for (int lev=hires_grid_level-1; lev >= 0; lev--) {
