@@ -130,6 +130,36 @@ say the baseline was right, and it cannot notice a feature that has silently sto
     the log must contain the given plain-text substring, so a successful run, a different abort, and a
     segfault all fail the test. Prefer this to ``WILL_FAIL``, which any nonzero exit satisfies.
 
+``add_test_r_selfcompare``
+    Run one input twice under two sets of command-line options and require the plotfiles to agree to
+    1e-11. For an invariant between two code paths, such as a driver that must reproduce another at a
+    degenerate setting, or output frequency not changing the answer. Needs no gold file.
+
+``add_test_restart``
+    Run an input to the end with a checkpoint partway, restart a second run from the named checkpoint,
+    and require the two final plotfiles to agree: a restart must continue the run it was saved from.
+
+``add_test_0``
+    Require the final plotfile to equal ``plt00000`` to 1e-14. For a case whose exact solution is rest.
+
+``add_test_conservation``
+    Assert how far an integrated quantity drifts over a run, from the integrated-quantity log. The second
+    argument names the input file, so several tests can share one case under different options, and the
+    trailing ``<column> <bound> <below|above>`` triples are checked by ``check_conservation.sh``. An
+    ``above`` bound is a control: it asserts the case drifts without the correction under test, so its
+    ``below`` partner cannot pass because the case has stopped exercising anything.
+
+``add_test_log``
+    The run must succeed **and** its log must contain the given substring. For a code path whose answers
+    are not worth a gold file but which must keep reaching a behavior it reports, or for a diagnostic that
+    aborts on failure and prints a line on success.
+
+``add_test_nlevels``, ``add_test_extent``, ``add_test_cells``
+    Assert the refined grid: the deepest level that exists, the physical extent a level spans in one
+    direction, or the number of cells a level covers, summed over boxes. A tagging bug still writes a
+    self-consistent plotfile, so grid structure is the only place it shows. The first two also require
+    the run to stay at rest, as ``add_test_0`` does; ``add_test_cells`` does not, for a case that evolves.
+
 Cheap lanes are worth adding: ``remora.max_step = 0`` with ``remora.plot_int = 1`` is a legal
 initialize-and-dump run of about a second, which is enough for ``add_test_extrema`` to pin an initial
 condition with no time stepper in the way.
