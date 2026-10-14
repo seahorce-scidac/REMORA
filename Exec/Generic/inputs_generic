@@ -158,6 +158,10 @@ remora.bottom_stress_type = linear
 # type=bool; method=queryAdd
 remora.boundary_per_variable = false
 
+# COARE version of the Charnock parameter and the moisture and thermal roughness lengths (ROMS ``COARE_30``)
+# type=string; method=queryAdd
+remora.bulk_flux_scheme = coare30
+
 # Whether to use bulk fluxes parametrization
 # type=bool; method=queryAdd
 remora.bulk_fluxes = true
@@ -173,6 +177,10 @@ remora.cf_avgdown_perimeter = <UNKNOWN_DEFAULT>
 # source: Source/REMORA.cpp
 # type=int; method=queryAdd
 remora.cf_avgdown_stencil = <UNKNOWN_DEFAULT>
+
+# source: Source/REMORA.cpp
+# type=int; method=queryAdd
+remora.cf_avgdown_volume_weighted = <UNKNOWN_DEFAULT>
 
 # source: Source/REMORA.cpp
 # type=int; method=queryAdd
@@ -626,7 +634,7 @@ remora.harmonic_mixing_type = s
 # type=int; method=queryAdd
 remora.hires_grid_level = <UNKNOWN_DEFAULT>
 
-# level where high-resolution initial data is specified in a NetCDF file
+# level where high-resolution initial data is specified, either in NetCDF file or analytically
 # type=int; method=queryAdd
 remora.hires_init_level = <UNKNOWN_DEFAULT>
 

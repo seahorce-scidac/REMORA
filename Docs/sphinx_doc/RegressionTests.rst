@@ -311,8 +311,15 @@ covers -- using ``adjacent_difference_greater`` criteria on the Dogbone case at 
 |                                 |          | level 1 covers exactly 6480 cells                       |
 +---------------------------------+----------+---------------------------------------------------------+
 
-``MLcoastskip`` and ``MLcoasttag`` are a pair: either alone passes for the wrong reason, since a
-criterion that tags nothing at all also builds no level 1, and one that tags everything also builds one.
+``MLcoastskip`` and ``MLcoasttag`` are a pair: ``MLcoastskip`` catches a guard that has stopped skipping
+the coast, and ``MLcoasttag`` catches a lost ``mask`` exemption. Neither catches a guard that tags nothing
+at all. The exemption is a null mask, so ``MLcoasttag`` runs AMReX's unguarded test, and ``MLcoastskip``
+expects no level 1 anyway. That case is caught by ``DogboneAnalytic_MLvel`` and ``_MLhires``, whose
+``x_velocity`` criteria go through the guard; ``Advection_ML`` does not, since an unmasked run skips it.
+
+``MLcoastskip`` and ``MLdryface`` set ``amr.regrid_int = 2``. The land values they contrast against are
+created by masking during stepping -- at initialization ``temp`` is 10 on land as well as water -- so
+tagging only at initialization would let both pass with the guard removed.
 
 ``MLdryface`` covers a face-staggered field, where the cell's own mask is not the whole story. A wet cell
 whose low-x neighbor is land holds an exact zero in ``x_velocity`` that is a mask artifact, not slack
@@ -320,7 +327,13 @@ water. Guarding it by that cell's mask alone lets the jump between the zero and 
 refine the coast, which refines 12960 cells instead of 6480. Both regions share a bounding box, so the
 assertion is a cell count, summed over boxes so it does not depend on load balancing. The land band is
 moved into the region the free-surface bump drives, so there is real flow beside the coast to contrast
-against, and this case evolves, so there is no stationarity comparison.
+against, and this case evolves, so there is no stationarity comparison. Its threshold, 0.025, sits near
+the middle of the band that gives 6480 cells (roughly [0.019, 0.032]; 8640 or more below it, 5760 above),
+so the flow has to change by about 30% before the count moves. With no gold file the count is the only
+signal, so a failure here may be a change in the flow rather than in tagging.
+
+The ``vorticity`` stencil, a 3x3 block, has no test: the only masked problem is near-irrotational, so any
+assertion on it would be pinned to roundoff.
 
 .. _sec:ci-subcycle-tests:
 
@@ -498,9 +511,20 @@ ring is read.
 | restart                         |          |                                                         |
 |                                 |          | where the continuous run does                           |
 +---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmaskring      | 42 15 16 | a refined patch against the walls, with its mask        |
+|                                 |          |                                                         |
+|                                 |          | injected from level 0, agrees with the same run with    |
+|                                 |          |                                                         |
+|                                 |          | ``hires_grid_level = 1``, so its grow cells beyond the  |
+|                                 |          |                                                         |
+|                                 |          | domain keep the ring                                    |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmaskring\_    | 42 15 16 | the same against a periodic x seam with land on its     |
+| periodic                        |          |                                                         |
+|                                 |          | far side, so those grow cells hold what lies across it  |
++---------------------------------+----------+---------------------------------------------------------+
 
-Only the first needs a reference file. Before the wall fills masked the ring, writing output changed the
-state, and the other two differed in ``y_velocity`` by 3.5e-2 and 6.7e-3 relative.
+Only the first needs a reference file.
 
 .. _sec:ci-bc-tests:
 

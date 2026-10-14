@@ -137,6 +137,16 @@ Notes
 
 -  The write_history_file option is only available if **plotfile_type = netcdf**
 
+-  A run restarted from a checkpoint continues its NetCDF output:
+
+   - Per-step files keep their step numbers. The restart step's file is written again, and
+     the earlier copy is renamed to ``*.old.*``.
+   - A history file in the run directory is continued from its first record at or after the
+     restart time. Later records from the earlier run are written over as the new run
+     reaches them; any it does not reach stay at the end of the file.
+   - With no history file, or one for a different grid (which is renamed aside), a new file
+     is started. Chunked history files keep the numbering from the checkpoint.
+
 -  REMORA writes CDF-5 files, which have no practical size limit. Some MPI builds still fail on writes
    larger than 2 GB — a limit of the MPI-IO layer, not the file format. If a large write crashes, see the
    MPICH note in :ref:`the NetCDF build instructions<netcdf>`, or use a native AMReX plotfile.
