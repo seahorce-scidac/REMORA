@@ -210,9 +210,8 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             //   Vapor Pressure reduced for salinity (Kraus and Businger, 1994, pp42).
             Real cff_vp=cff_saturation_water*Real(0.98);
 
-            //   Compute Qsea (kg/kg) from vapor pressure.
-            //   NOTE: ROMS does not have the small-value guard here, but does for
-            //   Q and Qair
+            //   Compute Qsea (kg/kg) from vapor pressure. As in ROMS, with no small-value
+            //   guard here, unlike Q and Qair
 
             Real Qsea=Real(0.62197)*(cff_vp/(PairM-Real(0.378)*cff_vp));
             //
@@ -332,10 +331,6 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                 delW=std::sqrt(wind_mag*wind_mag+Wgus*Wgus);
             }
 
-            // Compute transfer coefficients for momentum (Cd).
-            Real Wspeed=std::sqrt(wind_mag*wind_mag+Wgus*Wgus);
-            Cd=Wstar*Wstar/(Wspeed*Wspeed+eps);
-
             // Compute turbulent sensible heat flux (W/m2), Hs.
             Real Hs=-blk_Cpa*rhoAir*Wstar*Tstar;
 
@@ -367,8 +362,10 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             Taur=Real(0.85)*rain_mag*wind_mag;
 
             // Sum of stresses expressed as friction velocities, normalized by the wind
-            // speed without gustiness (Wilkin and Pareja-Roman, 02/2024)
-            cff=rhoAir*(Wstar*Wstar+Taur/rhoAir)/(wind_mag+eps);
+            // speed without gustiness (Wilkin and Pareja-Roman, 02/2024). ROMS writes
+            // rhoAir*(Wstar^2+Taur/rhoAir); this form does not divide by rhoAir, which
+            // is 0 where the air pressure is (land fill values)
+            cff=(rhoAir*Wstar*Wstar+Taur)/(wind_mag+eps);
             Taux(i,j,0)=cff*uwind(i,j,0) * mskr(i,j,0);
             Tauy(i,j,0)=cff*vwind(i,j,0) * mskr(i,j,0);
 
