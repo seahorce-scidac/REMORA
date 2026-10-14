@@ -124,6 +124,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     }
 
     stretch_transform(lev);
+    init_massflux_3d(lev);
 
     init_set_vmix(lev);
     set_hmixcoef(lev);
@@ -292,6 +293,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     t_old[lev] = time - bogus_large_value;
 
     stretch_transform(lev);
+    init_massflux_3d(lev);
 
     init_set_vmix(lev);
     set_hmixcoef(lev);

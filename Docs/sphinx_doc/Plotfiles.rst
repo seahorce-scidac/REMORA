@@ -181,9 +181,16 @@ Notes
 +--------------------------------+---------------------------+
 | **y_velocity**                 | velocity in y-direction   |
 +--------------------------------+---------------------------+
-| **z_velocity**                 | velocity in z-direction   |
+| **z_velocity**                 | true vertical velocity w, |
+|                                | diagnosed as in ROMS      |
+|                                | ``wvelocity``; zero until |
+|                                | the first step            |
 +--------------------------------+---------------------------+
 | **vorticity**                  | vorticity                 |
++--------------------------------+---------------------------+
+| **omega**                      | velocity across the       |
+|                                | terrain-following levels  |
+|                                | (ROMS ``omega``), m/s     |
 +--------------------------------+---------------------------+
 
 2D Plotfile Field Options

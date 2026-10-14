@@ -306,11 +306,11 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             // zvel_new has no ghost cells in z, so we can only ask the copy for lateral ones
             MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,IntVect(1,1,0));
             fill_z_ghost_planes(*mf);
-            // zvel_new is identically zero: nothing masks it, and nothing puts a computed
-            // value in it -- the vertical velocity the model solves for lives in a scratch
-            // array inside advance_3d. So its own cell is as good an answer as any. If it is
-            // ever wired up, W is built from Huon and Hvom at i+1 and j+1, making its real
-            // dependence the five-point cross.
+            // w is diagnosed by compute_wvel from u at i and i+1 and v at j and j+1, each
+            // masked by the rho-cells on both sides of its face, so a land cell anywhere in
+            // the surrounding 3x3 can zero part of it, as for vorticity.
+            mask_lo = IntVect(-1,-1,0);
+            mask_hi = IntVect( 1, 1,0);
         } else if (ref_tags[j].Field() == "vorticity") {
             // Fill the ghost cells of the face-based velocities -- including at
             // coarse/fine boundaries, which is what FillPatch's FillPatchTwoLevels

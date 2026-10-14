@@ -2148,6 +2148,7 @@ REMORA::init_only (int lev, Real time)
     zvel_new[lev]->OverrideSync(geom[lev].periodicity());
 
     set_2darrays(lev);
+    init_massflux_3d(lev);
 
     init_set_vmix(lev);
     set_hmixcoef(lev);

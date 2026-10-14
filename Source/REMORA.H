@@ -1020,6 +1020,15 @@ public:
                            const amrex::Array4<amrex::Real const>& h,
                            const int N);
 
+    /** \brief Velocity across the w-levels (omega, m/s) from the current mass fluxes */
+    void compute_omega (int lev, amrex::MultiFab& mf_omega);
+
+    /** \brief "True" vertical velocity w (m/s) at w-points, as ROMS wvelocity */
+    void compute_wvel (int lev, amrex::MultiFab& mf_w);
+
+    /** \brief Horizontal mass fluxes from the current velocities, as ROMS set_massflux */
+    void init_massflux_3d (int lev);
+
     /** \brief Correct mass flux */
     void update_massflux_3d (int lev, const amrex::Box& bx,
                              const int ioff, const int joff,
@@ -1960,7 +1969,7 @@ private:
     amrex::Vector<std::string> cons_names {"temp", "salt", "tracer"};
     // Note that the order of variable names here must match the order in PlotFile.cpp
     /** \brief Names of derived fields for 3d plotfile fields */
-    const amrex::Vector<std::string> derived_names_3d {"vorticity"};
+    const amrex::Vector<std::string> derived_names_3d {"vorticity", "omega"};
     /** \brief Names of derived fields for 2d plotfile fields */
     const amrex::Vector<std::string> derived_names_2d {};
 
