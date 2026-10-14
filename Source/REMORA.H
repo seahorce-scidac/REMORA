@@ -1011,6 +1011,15 @@ public:
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
 
+    /** \brief Vertical volume flux W from the horizontal mass flux divergence */
+    static void compute_W (const amrex::Box& bx2d,
+                           const amrex::Array4<amrex::Real      >& W,
+                           const amrex::Array4<amrex::Real const>& Huon,
+                           const amrex::Array4<amrex::Real const>& Hvom,
+                           const amrex::Array4<amrex::Real const>& z_w,
+                           const amrex::Array4<amrex::Real const>& h,
+                           const int N);
+
     /** \brief Correct mass flux */
     void update_massflux_3d (int lev, const amrex::Box& bx,
                              const int ioff, const int joff,
