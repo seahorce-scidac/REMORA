@@ -764,6 +764,12 @@ add_test_r(DogboneAnalytic_maskring          "remora_exec" "plt00010")
 add_test_r_selfcompare(DogboneAnalytic_maskring_plotint "remora_exec" "plt00010"
                        "remora.plot_int=1" "remora.plot_int=10")
 add_test_restart(DogboneAnalytic_maskring_restart "remora_exec" "plt00010" "chk00005")
+# A refined patch against the walls must keep the ring in its grow cells beyond the domain.
+# Injected from level 0, or evaluated on level 1 by hires_grid_level, the mask is the same, so
+# the runs must agree. Before the ring was injected there, extrapolation copied the water
+# inside it outward, and the injected run differed.
+add_test_equiv(DogboneAnalytic_MLmaskring DogboneAnalytic_MLmaskring_hires "remora_exec"
+               "plt00010" "plt_hires00010")
 
 #=============================================================================
 # Performance tests
