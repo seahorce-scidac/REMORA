@@ -232,17 +232,16 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev) {
                                ? history_count % steps_per_history_file
                                : history_count;
 
-        // The first write this run makes to a file fixes where its records go.
-        // A restarted run continues the file it finds from the restart time,
-        // and begins a new one when there is none or it does not fit the level.
+        // On the first write to a file, fix where its records start. A restarted
+        // run continues an existing file at the restart time, else starts at 0.
         if (FullPath != history_file_in_use[lev]) {
             history_file_in_use[lev] = FullPath;
-            long long first = record;
-            if (restart_chkfile != "") {
-                first = amrex::FileExists(FullPath)
+            long long start = record;
+            if (!restart_chkfile.empty()) {
+                start = amrex::FileExists(FullPath)
                       ? history_restart_record(lev, FullPath) : 0;
             }
-            history_record_shift[lev] = record - first;
+            history_record_shift[lev] = record - start;
         }
         bool write_header = !(amrex::FileExists(FullPath));
 
@@ -270,14 +269,13 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev) {
 }
 
 /**
- * Where a restarted run takes up an existing history file: at the first record
- * at or after the restart time, so later records the earlier run left are
- * written over in turn. A file whose grid does not match this level is moved
- * aside, and the run begins a new one.
+ * Find where a restarted run continues an existing history file: its first
+ * record at or after the restart time. A file for a different grid is renamed
+ * aside, and the run starts a new one at record 0.
  *
  * @param lev               level the file holds
  * @param path              history file to continue
- * @return                  record of the file the restart time goes to
+ * @return                  record to write the restart step to
  */
 long long REMORA::history_restart_record (int lev, const std::string& path)
 {
@@ -286,7 +284,7 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
     const double t = model_time(t_new[lev]);
     long long nrec = 0;
     long long first = 0;
-    bool fits = true;
+    bool fits;
     {
         auto ncf = ncutils::NCFile::open(
             path, NC_NOWRITE, amrex::ParallelContext::CommunicatorSub(),
@@ -300,11 +298,11 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
                ncf.has_var("ocean_time");
         if (fits) {
             nrec = ncf.dim("ocean_time").len();
-            std::vector<double> times(std::max(nrec, 1LL));
+            std::vector<double> times(nrec);
             if (nrec > 0) {
                 ncf.var("ocean_time").get_all(times.data(), {0}, {nrec});
             }
-            // Records from before the restart, with half a step of slack
+            // Skip records from before the restart, allowing half a step
             const double slack = 0.5 * static_cast<double>(dt[lev]);
             while (first < nrec && times[first] < t - slack) { ++first; }
         }
@@ -326,11 +324,11 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
     }
 
     amrex::Print() << "WriteNCPlotFile:  continuing " << path
-                   << " from record " << first;
+                   << " at record " << first;
     if (nrec > first) {
-        amrex::Print() << ". The " << nrec - first
-                       << " record(s) from there on, left by the earlier run,"
-                       << " stay until written over";
+        amrex::Print() << " (" << nrec - first
+                       << " later record(s) from the earlier run remain"
+                       << " until written over)";
     }
     amrex::Print() << std::endl;
     return first;

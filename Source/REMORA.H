@@ -1562,7 +1562,7 @@ private:
                                 bool write_header, ncutils::NCFile& ncf,
                                 bool is_history, long long history_record = 0);
 
-    /** \brief Record a restarted run continues an existing history file from */
+    /** \brief Record at which a restarted run continues a history file */
     long long history_restart_record (int lev, const std::string& path);
 
     /** \brief Write MultiFab in NetCDF format */
@@ -1947,9 +1947,8 @@ private:
     int history_count = 0;
     /** \brief Per level, the history file this run last wrote to */
     amrex::Vector<std::string> history_file_in_use;
-    /** \brief Per level, how many records the history file in use is behind
-     *  history_count. Nonzero when a restart began a new file or found the
-     *  one it continues out of step with the checkpoint. */
+    /** \brief Per level, history_count minus the record written in the file in
+     *  use. Nonzero only after a restart. */
     amrex::Vector<long long> history_record_shift;
 
     /** \brief Names of 3D variables to output to AMReX plotfile */

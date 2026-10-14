@@ -110,9 +110,9 @@ REMORA::WriteCheckpointFile ()
        // stops before it; a checkpoint without it holds t_new on the model clock.
        HeaderFile << "start_time " << start_time << "\n";
 
-       // The history record that holds this step's state: the one just written
-       // when output came at this step, otherwise the next. A restart counts
-       // its records, and so its chunk files, on from here.
+       // History record for this step: the one just written if output came at
+       // this step, otherwise the next. A restart numbers records and chunk
+       // files on from it.
        const int history_record = (last_plot_file_step == istep[0])
                                 ? history_count - 1 : history_count;
        HeaderFile << "history_count " << history_record << "\n";
@@ -353,8 +353,7 @@ REMORA::ReadCheckpointFile ()
         is >> chk_start_time;
     }
 
-    // The history record this step's state goes to. A checkpoint without it
-    // starts the history file over from its first record.
+    // History record for this step. Without it, history output starts over.
     if (is >> word && word == "history_count") {
         is >> history_count;
     }
