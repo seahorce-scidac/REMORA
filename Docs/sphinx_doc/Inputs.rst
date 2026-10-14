@@ -1618,7 +1618,7 @@ Additional bulk-flux controls:
 
 The rest of the bulk flux follows myROMS's ``bulk_flux.F`` whatever the COARE
 version: the buoyancy flux in the gustiness, the vector stress normalized by the
-wind speed without gustiness, and the magnitude of the rain in the rain heat 
+wind speed without gustiness, and the magnitude of the rain in the rain heat
 flux and stress, since negative rain is snow.
 
 When a source selector is ``constant``, spatially uniform values are set
