@@ -1,33 +1,33 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Tests/test_files/Channel_Test_ML_seam/Channel_Test_ML_seam.i
+inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Tests/test_files/Channel_Test_ML_seam/Channel_Test_ML_seam.i
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.012923
+CPU time used since start of simulation (CPU-hours): 0.0194764
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Wed Sep 23 14:59:00 2026
-output dir:         /home/klion/.claude/jobs/9b9be4bd/tmp/seamgold
+output data / time: Wed Oct 14 15:32:48 2026
+output dir:         /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Tests/test_files/Channel_Test_ML_seam
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    Sep 23 2026 14:56:07
+build date:    Oct 14 2026 14:56:11
 build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
-build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/BuildCI/Exec
-AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/subcycle-phase0/Submodules/AMReX
+build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Exec
+AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Submodules/AMReX
 
 COMP:          GNU
 COMP version:  13.3.0
 
 
-REMORA       git hash: v1.7-99-g5d286ec36d17-dirty
-AMReX       git hash: 26.08-36-gf2cbba4afc9e
+REMORA       git hash: v1.7-194-g04591ec10ec1
+AMReX       git hash: 26.09-185-g19d64c697f1a
 
 
 ===============================================================================
@@ -68,6 +68,7 @@ amr.refine_grid_layout = true
 amr.refine_grid_layout_x = 1
 amr.refine_grid_layout_y = 1
 amr.refine_grid_layout_z = 0
+amr.refine_whole_domain_dir = -1
 amr.regrid_int = 2
 amr.v = 1
 amrex.abort_on_out_of_gpu_memory = false
@@ -149,7 +150,6 @@ remora.bulk_fluxes = false
 remora.cf_avgdown_bar = 1
 remora.cf_avgdown_perimeter = 1
 remora.cf_avgdown_stencil = 1
-remora.cf_d_knew = 0
 remora.cf_fill_all_kcomp = 1
 remora.cf_fill_vel_after = 0
 remora.cf_flux_pc = 1
@@ -165,6 +165,8 @@ remora.check_file = chk
 remora.check_int = -57600
 remora.check_int_time = -1.0
 remora.check_mask_consistency = true
+remora.check_plot_z = 0
+remora.check_plot_z_tol = -1.0
 remora.cloud = 0.0
 remora.cloud_type = "constant"
 remora.coriolis_beta = 0.0
@@ -199,6 +201,7 @@ remora.gls_c2 = 1.92
 remora.gls_c3m = -0.4
 remora.gls_c3p = 1.0
 remora.gls_cmu0 = 0.5477
+remora.gls_length_cap = true
 remora.gls_sigk = 1.0
 remora.gls_sigp = 1.3
 remora.gls_stability_type = "Canuto_A"
