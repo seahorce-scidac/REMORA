@@ -551,8 +551,8 @@ assertion is that they agree and neither needs a stored reference.
 
 ``BC_per_variable`` runs both inputs in its test directory and compares the two plotfiles. All four sides
 carry a different condition -- inflow, noslipwall, outflow, slipwall going West, South, East, North -- so
-any other order changes the answer. A y-symmetric case cannot do this, and every other boundary lane is
-y-symmetric, so this is the only lane that catches a South/North transposition.
+any other order changes the answer. A y-symmetric case cannot do this, so this lane is the one that targets a South/North
+transposition.
 
 The y pairing is discriminated by the *velocity* conditions specifically. For cell-centered tracers, and
 for ``zeta`` and ``tke``, ``noslipwall`` and ``slipwall`` both translate to ``foextrap``, leaving South and
