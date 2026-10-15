@@ -1030,6 +1030,9 @@ public:
     /** \brief "True" vertical velocity w (m/s) at w-points, as ROMS wvelocity */
     void compute_wvel (int lev, amrex::MultiFab& mf_w);
 
+    /** \brief As compute_wvel, from an omega already computed by compute_diagnostic_omega */
+    void compute_wvel (int lev, amrex::MultiFab& mf_w, const amrex::MultiFab& mf_omega);
+
     /** \brief Horizontal mass fluxes Hz*u/n and Hz*v/m of the current velocities, as ROMS set_massflux */
     void set_massflux_3d (int lev, amrex::MultiFab& mf_Huon, amrex::MultiFab& mf_Hvom);
 

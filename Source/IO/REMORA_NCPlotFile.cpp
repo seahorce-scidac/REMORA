@@ -1006,6 +1006,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     if (vec_vbar[lev]->contains_nan(0,1) || vec_vbar[lev]->contains_inf(0,1)) {
         amrex::Abort("Found while writing output: velocity vbar contains nan or inf");
     }
+    if (mf_omega && (mf_omega->contains_nan() || mf_omega->contains_inf())) {
+        amrex::Abort("Found while writing output: omega contains nan or inf");
+    }
+    if (mf_wvel && (mf_wvel->contains_nan() || mf_wvel->contains_inf())) {
+        amrex::Abort("Found while writing output: velocity w contains nan or inf");
+    }
 
     for (MFIter mfi(*plotMF, false); mfi.isValid(); ++mfi) {
         auto bx = mfi.validbox();

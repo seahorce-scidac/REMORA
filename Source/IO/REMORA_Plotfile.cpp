@@ -148,18 +148,18 @@ REMORA::WritePlotFile (int istep_for_plot)
 
     // omega and w are built from u and v, so they have to be computed before the land
     // faces of u and v are overwritten with the fill value below
-    Vector<MultiFab> mf_omega(finest_level+1);
-    Vector<MultiFab> mf_wvel(finest_level+1);
+    Vector<MultiFab> nc_omega(finest_level+1);
+    Vector<MultiFab> nc_wvel(finest_level+1);
     if (plotfile_type == PlotfileType::netcdf && (plot_omega || plot_wvel)) {
         for (int lev = 0; lev <= finest_level; ++lev) {
             if (plot_omega) {
-                mf_omega[lev].define(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,IntVect(1,1,0));
+                nc_omega[lev].define(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,IntVect(1,1,0));
             }
             if (plot_wvel) {
-                mf_wvel[lev].define(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,IntVect(1,1,0));
+                nc_wvel[lev].define(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,IntVect(1,1,0));
             }
-            compute_omega_and_w(lev, plot_omega ? &mf_omega[lev] : nullptr,
-                                     plot_wvel  ? &mf_wvel[lev]  : nullptr);
+            compute_omega_and_w(lev, plot_omega ? &nc_omega[lev] : nullptr,
+                                     plot_wvel  ? &nc_wvel[lev]  : nullptr);
         }
     }
 
@@ -518,20 +518,24 @@ REMORA::WritePlotFile (int istep_for_plot)
         // Note: All derived variables must be computed in order of "derived_names" defined in REMORA.H
         calculate_derived("vorticity",  derived::remora_dervort);
 
+        // The NetCDF writer takes omega on w-points from nc_omega, so the cell-centered
+        // copy is only filled for AMReX plotfiles
         if (containerHasElement(plot_var_names_3d, "omega")) {
-            MultiFab mf_omega(convert(grids[lev],IntVect(0,0,1)), dmap[lev], 1, IntVect(0));
-            compute_diagnostic_omega(lev, mf_omega);
-            MultiFab dmf(plotMF[lev], make_alias, mf_comp, 1);
+            if (plotfile_type == PlotfileType::amrex) {
+                MultiFab mf_omega(convert(grids[lev],IntVect(0,0,1)), dmap[lev], 1, IntVect(0));
+                compute_diagnostic_omega(lev, mf_omega);
+                MultiFab dmf(plotMF[lev], make_alias, mf_comp, 1);
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-            for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                const Box& bx = mfi.tilebox();
-                const Array4<Real      > dst = dmf.array(mfi);
-                const Array4<Real const> om  = mf_omega.const_array(mfi);
-                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
-                    dst(i,j,k) = myhalf * (om(i,j,k) + om(i,j,k+1));
-                });
+                for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                    const Box& bx = mfi.tilebox();
+                    const Array4<Real      > dst = dmf.array(mfi);
+                    const Array4<Real const> om  = mf_omega.const_array(mfi);
+                    ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                        dst(i,j,k) = myhalf * (om(i,j,k) + om(i,j,k+1));
+                    });
+                }
             }
             mf_comp++;
         }
@@ -749,8 +753,8 @@ REMORA::WritePlotFile (int istep_for_plot)
         for (int lev = 0; lev <= finest_level; ++lev) {
             plotMF[lev].FillBoundary(geom[lev].periodicity());
             WriteNCPlotFile(istep_for_plot,&plotMF[lev],lev,
-                            plot_omega ? &mf_omega[lev] : nullptr,
-                            plot_wvel  ? &mf_wvel[lev]  : nullptr);
+                            plot_omega ? &nc_omega[lev] : nullptr,
+                            plot_wvel  ? &nc_wvel[lev]  : nullptr);
         }
     } // end if plotfile_type == netcdf
 #endif
@@ -1357,7 +1361,12 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
         compute_diagnostic_omega(lev, *mf_omega);
     }
     if (mf_wvel) {
-        compute_wvel(lev, *mf_wvel);
+        // w is built on omega, so reuse it when it is being written too
+        if (mf_omega) {
+            compute_wvel(lev, *mf_wvel, *mf_omega);
+        } else {
+            compute_wvel(lev, *mf_wvel);
+        }
     }
 
     // The NetCDF writer adds one ghost column around the subdomain it writes, which on a
@@ -1383,6 +1392,10 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
 #endif
         for (MFIter mfi(*mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
+            // The writer skips grids outside the subdomain, and the clamp below would
+            // reach outside their arrays
+            if (!sub.contains(enclosedCells(mfi.validbox(),2))) { continue; }
+
             Box gbx = mfi.growntilebox(IntVect(1,1,0));
             Array4<Real> const& a = mf->array(mfi);
             Array4<Real const> const& mskr = vec_mskr[lev]->const_array(mfi);

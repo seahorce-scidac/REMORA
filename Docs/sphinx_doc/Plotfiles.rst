@@ -202,7 +202,7 @@ Notes
 |                                | (ROMS ``omega``), m/s           |
 +--------------------------------+---------------------------------+
 
-In NetCDF files, ``x_velocity``, ``y_velocity``, and ``z_velocity`` are called ``u``, ``v`,
+In NetCDF files, ``x_velocity``, ``y_velocity``, and ``z_velocity`` are called ``u``, ``v``,
 and ``w``, respectively, and are output on cell faces. ``z_velocity``/``w`` and ``omega`` are
 computed as in ROMS: from mass fluxes of the current velocities, not the time-averaged fluxes
 the tracers are advected with. All velocities are averaged to cell centers in AMReX plotfiles.

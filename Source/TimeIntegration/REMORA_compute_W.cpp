@@ -133,12 +133,22 @@ REMORA::compute_diagnostic_omega (int lev, MultiFab& mf_omega)
 void
 REMORA::compute_wvel (int lev, MultiFab& mf_w)
 {
+    MultiFab mf_omega(convert(grids[lev],IntVect(0,0,1)), dmap[lev], 1, IntVect(0));
+    compute_diagnostic_omega(lev, mf_omega);
+    compute_wvel(lev, mf_w, mf_omega);
+}
+
+/**
+ * @param[in ] lev       level
+ * @param[out] mf_w      z-nodal w on the valid region
+ * @param[in ] mf_omega  z-nodal omega from compute_diagnostic_omega, on the valid region
+ */
+void
+REMORA::compute_wvel (int lev, MultiFab& mf_w, const MultiFab& mf_omega)
+{
     const int nz = Geom(lev).Domain().length(2);
     // The cubic stencil reaches three rho-levels in from each end
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(nz >= 3, "compute_wvel needs at least 3 vertical levels");
-
-    MultiFab mf_omega(convert(grids[lev],IntVect(0,0,1)), dmap[lev], 1, IntVect(0));
-    compute_diagnostic_omega(lev, mf_omega);
 
     const Real cff1 = Real(3.0)/Real(8.0);
     const Real cff2 = Real(3.0)/Real(4.0);
