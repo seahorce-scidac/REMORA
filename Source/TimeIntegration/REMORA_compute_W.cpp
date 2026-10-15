@@ -8,7 +8,7 @@ using namespace amrex;
  * the free surface.
  *
  * @param[in   ] bx2d   k = 0 slab of the columns to compute
- * @param[inout] W      vertical volume flux; W(i,j,0) must already be zero
+ * @param[  out] W      vertical volume flux
  * @param[in   ] Huon   u-volume flux
  * @param[in   ] Hvom   v-volume flux
  * @param[in   ] z_w    z coordinates at w points
@@ -24,6 +24,10 @@ REMORA::compute_W (const Box& bx2d,
                    const Array4<Real const>& h,
                    const int N)
 {
+    ParallelFor(bx2d, [=] AMREX_GPU_DEVICE (int i, int j, int )
+    {
+        W(i,j,0) = zero;
+    });
     ParallelFor(bx2d, N+1,
     [=] AMREX_GPU_DEVICE (int i, int j, int , int kk)
     {
