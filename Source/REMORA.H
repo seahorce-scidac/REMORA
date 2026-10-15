@@ -1552,13 +1552,20 @@ private:
     void append2DPlotVariables (const std::string& pp_plot_var_names_2d);
     void append3DPlotVariables (const std::string& pp_plot_var_names_3d);
 
+    /** \brief Diagnose S-coordinate (omega) and true (w) vertical velocity for output */
+    void compute_omega_and_w (int lev, amrex::MultiFab* mf_omega, amrex::MultiFab* mf_wvel);
+
 #ifdef REMORA_USE_NETCDF
     /** \brief Write plotfile using NetCDF (wrapper) */
-    void WriteNCPlotFile       (int istep, amrex::MultiFab const* plotMF, int lev = 0);
+    void WriteNCPlotFile       (int istep, amrex::MultiFab const* plotMF, int lev = 0,
+                                amrex::MultiFab const* mf_omega = nullptr,
+                                amrex::MultiFab const* mf_wvel = nullptr);
 
     /** \brief Write a particular NetCDF plotfile */
     void WriteNCPlotFile_which (int lev, int which_subdomain,
                                 amrex::MultiFab const* plotMF,
+                                amrex::MultiFab const* mf_omega,
+                                amrex::MultiFab const* mf_wvel,
                                 bool write_header, ncutils::NCFile& ncf,
                                 bool is_history);
 
@@ -1947,6 +1954,10 @@ private:
     amrex::Vector<std::string> plot_var_names_3d;
     /** \brief Names of 2D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_2d;
+    /** \brief Whether to write omega, the S-coordinate vertical velocity, to NetCDF output */
+    bool plot_omega = false;
+    /** \brief Whether to write w, the true vertical velocity, to NetCDF output */
+    bool plot_wvel = false;
     /** \brief Names of scalars for plotfile output */
     amrex::Vector<std::string> cons_names {"temp", "salt", "tracer"};
     // Note that the order of variable names here must match the order in PlotFile.cpp

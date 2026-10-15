@@ -99,9 +99,26 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
     }
 #endif
 
+    // omega and w live on w points and only the NetCDF writer knows that grid, so they are
+    // flags rather than components of the cell-centered plot MultiFab
+    plot_omega = containerHasElement(plot_var_names_3d, "omega");
+    plot_wvel  = containerHasElement(plot_var_names_3d, "w");
+    if ((plot_omega || plot_wvel) && plotfile_type != PlotfileType::netcdf &&
+        ParallelDescriptor::IOProcessor()) {
+        Warning("\nWARNING: 'omega' and 'w' are only written to NetCDF output; ignoring them");
+    }
+    // The cubic shift of the slope term from rho to w points in compute_omega_and_w
+    // reaches three rho points into the column
+    if (plot_wvel && geom[0].Domain().length(2) < 3) {
+        amrex::Abort("Plotting 'w' requires at least 3 vertical levels");
+    }
+
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_3d) {
       if (plot_name == "fennel" && expand_fennel) {
+          continue;
+      }
+      if (plot_name == "omega" || plot_name == "w") {
           continue;
       }
       if (!containerHasElement(tmp_plot_names, plot_name) && ParallelDescriptor::IOProcessor()) {

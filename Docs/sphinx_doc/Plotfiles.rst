@@ -185,6 +185,24 @@ Notes
 +--------------------------------+---------------------------+
 | **vorticity**                  | vorticity                 |
 +--------------------------------+---------------------------+
+| **omega**                      | S-coordinate vertical     |
+|                                | velocity [m/s];           |
+|                                | NetCDF only               |
++--------------------------------+---------------------------+
+| **w**                          | true vertical velocity    |
+|                                | [m/s]; NetCDF only        |
++--------------------------------+---------------------------+
+
+``omega`` and ``w`` are written only to NetCDF output (an AMReX plotfile warns and
+skips them), at ``s_w`` points on the ``rho`` grid, as ROMS writes them. Both are
+diagnosed at output time from the current ``u``, ``v`` and grid, as ROMS does just
+before it writes a history record. ``omega`` is the flow through the terrain-following
+coordinate surfaces, so it is zero at the bottom and the free surface. ``w`` is the
+vertical velocity in physical space, following ROMS ``wvelocity``: ``omega`` plus the
+motion of the coordinate surfaces as the free surface moves, plus the flow along
+sloping coordinate surfaces. The free-surface term comes from the time-averaged
+barotropic fluxes, which are zero before the first step. ``w`` needs at least 3
+vertical levels.
 
 2D Plotfile Field Options
 --------------------------
