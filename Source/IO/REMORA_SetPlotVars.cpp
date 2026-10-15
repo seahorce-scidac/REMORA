@@ -99,22 +99,14 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
     }
 #endif
 
-    // The NetCDF writer puts omega and w on the s_w points ROMS writes them at. omega is
-    // also a derived field, averaged to cell centers for AMReX plotfiles; w is NetCDF-only,
-    // since an AMReX plotfile already has it as z_velocity.
+    // The NetCDF writer puts omega and z_velocity on the s_w points ROMS writes them at,
+    // the latter under the ROMS name w; AMReX plotfiles average both to cell centers
     plot_omega = containerHasElement(plot_var_names_3d, "omega");
-    plot_wvel  = containerHasElement(plot_var_names_3d, "w");
-    if (plot_wvel && plotfile_type != PlotfileType::netcdf &&
-        ParallelDescriptor::IOProcessor()) {
-        Warning("\nWARNING: 'w' is only written to NetCDF output; use z_velocity for AMReX plotfiles");
-    }
+    plot_wvel  = containerHasElement(plot_var_names_3d, "z_velocity");
 
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_3d) {
       if (plot_name == "fennel" && expand_fennel) {
-          continue;
-      }
-      if (plot_name == "w") {
           continue;
       }
       if (!containerHasElement(tmp_plot_names, plot_name) && ParallelDescriptor::IOProcessor()) {

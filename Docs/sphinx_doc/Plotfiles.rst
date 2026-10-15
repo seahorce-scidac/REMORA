@@ -201,20 +201,15 @@ Notes
 |                                | terrain-following levels  |
 |                                | (ROMS ``omega``), m/s     |
 +--------------------------------+---------------------------+
-| **w**                          | true vertical velocity w  |
-|                                | (ROMS ``w``), m/s;        |
-|                                | NetCDF only               |
-+--------------------------------+---------------------------+
 
 ``z_velocity`` and ``omega`` are computed as ROMS computes the ``w`` and ``omega`` it writes
 to its history file: from mass fluxes of the current velocities, not the time-averaged fluxes
 the tracers are advected with. Both are on w-points in the model and are averaged to cell
 centers for the plotfile.
 
-NetCDF output writes ``omega`` and ``w`` without averaging, on the ``s_w`` points of the
-``rho`` grid, as ROMS writes them. ``w`` is the same field as ``z_velocity``, under the ROMS
-name, and it is NetCDF-only: AMReX plotfiles warn and skip it, so use ``z_velocity`` there.
-The NetCDF writer does not write ``z_velocity``, so request ``w`` instead.
+NetCDF output writes ``omega`` and ``z_velocity`` without averaging, on the ``s_w`` points
+of the ``rho`` grid, as ROMS writes them. As with ``u`` and ``v``, the NetCDF variable takes
+the ROMS name, so ``z_velocity`` is written as ``w``.
 
 2D Plotfile Field Options
 --------------------------

@@ -1998,7 +1998,7 @@ private:
     amrex::Vector<std::string> plot_var_names_2d;
     /** \brief Whether to write omega, the S-coordinate vertical velocity, to NetCDF output */
     bool plot_omega = false;
-    /** \brief Whether to write w, the true vertical velocity, to NetCDF output */
+    /** \brief Whether to write z_velocity, the true vertical velocity, to NetCDF output as w */
     bool plot_wvel = false;
     /** \brief Names of scalars for plotfile output */
     amrex::Vector<std::string> cons_names {"temp", "salt", "tracer"};
