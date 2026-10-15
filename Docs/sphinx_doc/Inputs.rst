@@ -430,6 +430,9 @@ Notes
    **amr.blocking_factor** can be read in as a single value which is
    assigned to every level, or as multiple values, one for each level
 
+   REMORA always sets the blocking factor in z to 4096, whatever is given, so the
+   blocking factor only constrains the grids in x and y.
+
 -  **amr.regrid_int** is a single integer used at every level: each level
    below **amr.max_level** rebuilds the grids of the levels above it every
    **amr.regrid_int** of its own time steps. A value of 0 or less disables

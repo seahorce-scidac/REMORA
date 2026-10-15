@@ -271,12 +271,17 @@ Examples of Usage
    AMReX plotfiles will contain data at all of the refinement levels. NetCDF output
    is written one file per level, with the level 0 file ending in ``_d01.nc``, level 1
    in ``_d02.nc``, and so on. With the default ``remora.write_history_file = true``
-   the files are *plt_run_his_d01.nc*, *plt_run_his_d02.nc*, ...; with
+   the files are *out/plt_run_his_d01.nc*, *out/plt_run_his_d02.nc*, ...; with
    ``remora.chunk_history_file = true`` the chunk number is added, as in
-   *plt_run_his00000_d01.nc*; and with ``remora.write_history_file = false`` there
-   is one file per output step, as in *plt_run00010_d01.nc*. If a refined level
-   consists of more than one refinement box, only the first box of that level is
-   written to NetCDF.
+   *out/plt_run_his00000_d01.nc*; and with ``remora.write_history_file = false``
+   there is one file per output step, as in *out/plt_run00010_d01.nc*.
+
+   The region a refined level's NetCDF file covers is taken from the static
+   refinement boxes (``in_box_lo``/``in_box_hi`` or their ``_indices`` forms), not
+   from the level's actual grids, and only the first such box at that level is
+   written. NetCDF output of a refined level therefore requires the level to be
+   defined by a static box; levels created only by field-based tagging are not
+   supported.
 
 -  **remora.plot_nodal_data** = *false*
 

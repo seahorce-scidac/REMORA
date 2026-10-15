@@ -69,6 +69,9 @@ parameters prefixed by ``remora.<species>.``, for example ``remora.tracer_partic
 +--------------------------------+-----------------------------------+-------------------+-------------------+
 
 Particles are initialized on level 0 with zero initial velocity and are advanced every time step.
+The default box spans ``prob_lo`` to ``prob_hi``, but a cell is tested by the physical height of its
+center, so with bathymetry deeper than the domain's ``prob_lo`` in z, or a free surface above
+``prob_hi``, the cells outside that range get no particles unless the box is widened.
 
 Caveat: the particle information is currently output when using the AMReX-native plotfile format, but not
 when using netcdf.  Writing particles into the netcdf files is a WIP.

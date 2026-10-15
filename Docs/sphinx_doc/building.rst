@@ -10,7 +10,7 @@ Minimum Requirements
 
 REMORA requires a C++ compiler that supports the C++20 standard (required by AMReX) and a C compiler that supports the C99 standard.
 Building with GPU support may be done with CUDA, HIP, or SYCL.
-For CUDA, REMORA requires versions >= 11.0. For HIP and SYCL, only the latest compilers are supported.
+For CUDA, REMORA requires versions >= 12.2 (required by AMReX). For HIP and SYCL, only the latest compilers are supported.
 Prerequisites for building with GNU Make include Python (>= 2.7, including 3) and standard tools available
 in any Unix-like environments (e.g., Perl and sed). For building with CMake, the minimal requirement is version 3.25 (required by AMReX).
 

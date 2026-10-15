@@ -381,9 +381,10 @@ The second derivative terms are centered on a :math:`\rho` point in the grid, bu
    F^{\xi}_{i,j,k}=\frac{\overline{H_z}^{\eta}}{\overline{n}^{\xi}}\left[\max\left(0,u_{i,j,k}\right)C_{i-1,j,k}+\min\left(0,u_{i,j,k}\right)C_{i,j,k}\right].
 
 For tracers the model uses :math:`\gamma=\frac{1}{6}`, the value in ``Rasch(1994)``. For the 3D
-momentum fluxes below it uses :math:`\gamma=\frac{1}{8}`. The barotropic (2D) momentum fluxes use
-:math:`\frac{1}{6}`, applied to the average of the two neighbouring second differences rather than
-the upstream one.
+momentum fluxes below it uses :math:`\gamma=\frac{1}{8}`; the velocity factor takes the upstream
+second difference and the transport factor the average of the two neighbouring ones. The barotropic
+(2D) momentum fluxes use :math:`\frac{1}{6}`, with the average of the two neighbouring second
+differences in both factors.
 
 Because the third-order upwind scheme is designed to be two-dimensional, it is not used in the vertical (though one might argue that we are simply performing one-dimensional operations here). Instead tracers use a centered fourth-order scheme in the vertical:
 
