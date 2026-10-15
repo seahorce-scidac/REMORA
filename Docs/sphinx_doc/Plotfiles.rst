@@ -174,42 +174,38 @@ Notes
 3D Plotfile Field Options
 --------------------------
 
-+--------------------------------+---------------------------+
-| Field                          | Definition                |
-|                                |                           |
-+================================+===========================+
-| **salt**                       | salinity                  |
-+--------------------------------+---------------------------+
-| **temp**                       | temperature               |
-+--------------------------------+---------------------------+
-| **tracer**                     | passive dye; also         |
-|                                | ``tracer_1``,             |
-|                                | ``tracer_2``, ... for     |
-|                                | additional dyes           |
-+--------------------------------+---------------------------+
-| **x_velocity**                 | velocity in x-direction   |
-+--------------------------------+---------------------------+
-| **y_velocity**                 | velocity in y-direction   |
-+--------------------------------+---------------------------+
-| **z_velocity**                 | true vertical velocity w, |
-|                                | diagnosed as in ROMS      |
-|                                | ``wvelocity``             |
-+--------------------------------+---------------------------+
-| **vorticity**                  | vorticity                 |
-+--------------------------------+---------------------------+
-| **omega**                      | velocity across the       |
-|                                | terrain-following levels  |
-|                                | (ROMS ``omega``), m/s     |
-+--------------------------------+---------------------------+
++--------------------------------+---------------------------------+
+| Field                          | Definition                      |
+|                                |                                 |
++================================+=================================+
+| **salt**                       | salinity                        |
++--------------------------------+---------------------------------+
+| **temp**                       | temperature                     |
++--------------------------------+---------------------------------+
+| **tracer**                     | passive dye; also               |
+|                                | ``tracer_1``,                   |
+|                                | ``tracer_2``, ... for           |
+|                                | additional dyes                 |
++--------------------------------+---------------------------------+
+| **x_velocity**                 | velocity in x-direction (``u``) |
++--------------------------------+---------------------------------+
+| **y_velocity**                 | velocity in y-direction (``v``) |
++--------------------------------+---------------------------------+
+| **z_velocity**                 | true vertical velocity ``w``,   |
+|                                | diagnosed as in ROMS            |
+|                                | ``wvelocity``                   |
++--------------------------------+---------------------------------+
+| **vorticity**                  | vorticity                       |
++--------------------------------+---------------------------------+
+| **omega**                      | velocity across the             |
+|                                | terrain-following levels        |
+|                                | (ROMS ``omega``), m/s           |
++--------------------------------+---------------------------------+
 
-``z_velocity`` and ``omega`` are computed as ROMS computes the ``w`` and ``omega`` it writes
-to its history file: from mass fluxes of the current velocities, not the time-averaged fluxes
-the tracers are advected with. Both are on w-points in the model and are averaged to cell
-centers for the plotfile.
-
-NetCDF output writes ``omega`` and ``z_velocity`` without averaging, on the ``s_w`` points
-of the ``rho`` grid, as ROMS writes them. As with ``u`` and ``v``, the NetCDF variable takes
-the ROMS name, so ``z_velocity`` is written as ``w``.
+In NetCDF files, ``x_velocity``, ``y_velocity``, and ``z_velocity`` are called ``u``, ``v`,
+and ``w``, respectively, and are output on cell faces. ``z_velocity``/``w`` and ``omega`` are
+computed as in ROMS: from mass fluxes of the current velocities, not the time-averaged fluxes
+the tracers are advected with. All velocities are averaged to cell centers in AMReX plotfiles.
 
 2D Plotfile Field Options
 --------------------------
