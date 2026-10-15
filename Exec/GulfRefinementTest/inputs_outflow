@@ -1,7 +1,4 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-# NOTE: remora.max_step used to share this line with the banner above, so ParmParse read it
-# as part of the comment -- and this file has no remora.prob_name either, which aborts in
-# init_analytic_vmix. Both are set explicitly now.
 remora.prob_name = IdealMiniGrid
 remora.max_step = 100
 

@@ -46,7 +46,7 @@ REMORA::InitMOABMesh()
         if (subdomain.contains(box)) {
             RealBox gridloc = RealBox(grids[lev][i], geom[lev].CellSize(), geom[lev].ProbLo());
 
-            // These were originally not offset by 0.5, but were to make it cell centers.
+            // Offset by 0.5 to place the points at cell centers.
             // Before using this, should confirm what MOAB expects the vertex locations to be.
             // Also should note that this assumes a regular x,y,z grid where points match AMReX logical grid
             for (auto k1 = 0; k1 < grids[lev][i].length(0); ++k1) {

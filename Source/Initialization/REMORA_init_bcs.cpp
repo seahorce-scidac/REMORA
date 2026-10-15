@@ -228,8 +228,8 @@ void REMORA::init_bcs ()
         std::vector<std::string> bc_types = {"null","null","null","null"};
 
         // Additional scalars are addressable by their own name, but fall back to the
-        // shared "scalar" keyword when no per-tracer entry is given so that inputs
-        // written before tracers were individually addressable keep working
+        // shared "scalar" keyword when no per-tracer entry is given, so a single
+        // remora.bc.scalar entry covers every additional scalar.
         std::string prefix = "remora.bc." + varname;
         if (!fallback_varname.empty() && !ParmParse(prefix).contains("type")) {
             prefix = "remora.bc." + fallback_varname;
@@ -276,7 +276,7 @@ void REMORA::init_bcs ()
     for (OrientationIter oit; oit; ++oit) {
         Orientation ori = oit();
         // These are simply defaults for Dirichlet faces -- they should be over-written below if needed.
-        // Tracers reach ext_dir only through inflow, which now aborts without a value.
+        // Tracers reach ext_dir only through inflow, which aborts without a value.
         m_bc_extdir_vals[BCVars::Temp_bc_comp  ][ori] = Real(1.e19);
         m_bc_extdir_vals[BCVars::Salt_bc_comp  ][ori] = Real(1.e20);
         for (int icomp = Tracer_comp; icomp < ncons; ++icomp) {

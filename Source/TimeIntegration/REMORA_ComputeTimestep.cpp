@@ -74,11 +74,11 @@ REMORA::ComputeDt ()
     }
 
     // dt_0 is identical on every rank here, so this aborts collectively. The
-    // bogus_large_value test is the load-bearing one: the sentinel used to survive to
-    // this point intact whenever stop_time was left at its default of Real::max(), and to
-    // be laundered into stop_time - t_new[0] -- a single step covering the entire run --
-    // whenever stop_time was set. The change_max cap above cannot catch either case,
-    // since dt[] is itself seeded to bogus_large_value.
+    // bogus_large_value test is the load-bearing one: if no estimate replaces the
+    // sentinel, it reaches this point intact (stop_time at its default) or as
+    // stop_time - t_new[0], a single step covering the entire run. The change_max
+    // cap above cannot catch either case, since dt[] is itself seeded to
+    // bogus_large_value.
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(dt_0 > zero && std::isfinite(dt_0) &&
                                      dt_0 < bogus_large_value,
                                      "REMORA::ComputeDt: computed a non-positive, "

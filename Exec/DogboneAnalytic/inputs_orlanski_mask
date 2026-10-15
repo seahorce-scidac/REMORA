@@ -1,7 +1,7 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 #
 # Dogbone with a radiating high-x face, arranged so that the orlanski_rad
-# transverse-gradient masking has something to do. See issue #589.
+# transverse-gradient masking has something to do.
 #
 # The x extent is cut from 8400 to 5600 so the Dogbone land block, which spans
 # 2800 < x < 5600, runs into the high-x face instead of stopping short of it.

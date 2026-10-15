@@ -50,7 +50,7 @@ remora.hires_grid_level   = 1
 remora.hires_init_level   = 1
 
 # Coriolis would want `f` from a level-0 grid file, which this case does not have, so it stays
-# off. The mask no longer needs one: hires_grd.nc carries mask_rho, and a level at or below
+# off. The mask does not need one: hires_grd.nc carries mask_rho, and a level at or below
 # hires_grid_level takes the mask coarsened down from it. Left off here so this case covers the
 # unmasked path; override with remora.mask_type = netcdf to exercise the mask weighting, and see
 # the VOLUME note below for what that should give.

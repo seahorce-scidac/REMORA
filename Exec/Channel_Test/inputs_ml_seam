@@ -2,16 +2,13 @@
 # Channel_Test with a refined patch against the periodic x boundary.
 #
 # The patch covers x = 0..50000 of a domain periodic in x, so its low edge sits on the seam.
-# Before the periodic-boundary fixes in BuildMask, fill_ghost_kcomps, FillCoarsePatchMap and
-# the ubar/vbar average-down this configuration went to NaN around step 320 (and a patch
-# spanning the whole width around step 270): the two copies of the seam face were fed
-# different neighbours and diverged by about 2.8x every 20 steps. It now runs past step 400
-# with a peak velocity of 0.73, against 0.67 for the same patch placed in the interior.
+# That exercises the periodic-boundary handling in BuildMask, fill_ghost_kcomps,
+# FillCoarsePatchMap and the ubar/vbar average-down. The deck runs past step 400 with a peak
+# velocity of 0.73, against 0.67 for the same patch placed in the interior.
 #
-# Tests/test_files/Channel_Test_ML_seam is this deck cut to 10 steps. Its gold is from one
-# rank; the same deck on two ranks, where the level-1 box splits in y, exposed a fifth defect --
-# set_2d_cf_bcs left the neighbouring box's ghost copies of the interface faces stale -- that
-# no Coriolis-off case can see.
+# Tests/test_files/Channel_Test_ML_seam is this deck cut to 10 steps. On two ranks the
+# level-1 box splits in y, which exercises set_2d_cf_bcs's update of the neighbouring box's
+# ghost copies of the interface faces -- visible only with Coriolis on.
 remora.prob_name = ChannelTest
 
 remora.max_step = 400

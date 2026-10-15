@@ -5,7 +5,7 @@
 # is asking where the coast is, and guarding it would leave no water-water face across which
 # the mask varies, so it would never tag. This is the documented way to refine a coastline
 # deliberately, and it must keep working. Level 1 is therefore required to exist, tracking the
-# dogbone's two coasts -- which means refining land, as the old derefine criteria would not.
+# dogbone's two coasts -- which means refining land.
 #
 # Note what this does not cover. The exemption is implemented by passing a null mask, so this
 # case runs AMReX's own unguarded test and never enters REMORA's guarded path: it pins the
@@ -116,7 +116,7 @@ remora.prob.mask_y_lo = 266.66666666666667
 remora.prob.mask_y_hi = 483.33333333333333
 
 # The mask is 0 or 1 exactly, so 0.5 tags precisely the cells that have a neighbor across
-# the coast -- the same threshold the old internal derefine criteria used.
+# the coast.
 remora.refinement_indicators = coastline
 remora.coastline.max_level = 1
 remora.coastline.adjacent_difference_greater = 0.5

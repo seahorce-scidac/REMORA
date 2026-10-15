@@ -262,13 +262,10 @@ whichever of that variable's sides are inflow. A tracer that takes its condition
 ``.type`` to give it its own value.
 
 ``value`` is read only under a variable prefix, and there is no ``scalar`` keyword for a tracer
-inflow value at all. Earlier versions read ``scalar`` under a side prefix for the tracers past
-salt, and read nothing for temperature or salinity, so no configuration that ran correctly
-used it.
+inflow value at all.
 
 An inflow face missing a tracer value stops the run at setup, naming the input it wants, as a
-missing ``velocity`` always has. There is no default: what a missing entry used to leave behind
-was a placeholder of order :math:`10^{19}`, which ``ext_dir`` then wrote into the ghost cells.
+missing ``velocity`` does. There is no default value.
 
 We note that ``noslipwall`` allows for non-zero tangential velocities to be specified, such as
 

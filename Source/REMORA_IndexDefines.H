@@ -63,8 +63,7 @@ namespace BCVars {
  * and in component order.
  *
  * Like BCVars, everything above the tracer block is a function of ncons rather than a
- * compile-time constant. With ncons == 2 these reduce to the historical fixed values
- * (ubar 4, vbar 5, zeta 6, NumTypes 7).
+ * compile-time constant. With ncons == 2 these are ubar 4, vbar 5, zeta 6, NumTypes 7.
  */
 namespace BdyVars {
     static constexpr int null =  -1;

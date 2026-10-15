@@ -110,12 +110,11 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // Refresh the atmospheric forcing fields feeding the bulk-flux path.
     //
-    // A coupled run needs this too, and used to skip it entirely. The driver
-    // supplies only the lanes its atmosphere can fill and withholds the rest,
-    // expecting those to keep this deck's own forcing - NetCDF series included.
-    // set_surface_state is already per-lane, so the supplied ones are left
-    // alone; skipping it wholesale froze every withheld lane at its
-    // level-creation constant.
+    // A coupled run needs this too. The driver supplies only the lanes its
+    // atmosphere can fill and withholds the rest, expecting those to keep this
+    // deck's own forcing - NetCDF series included. set_surface_state is
+    // already per-lane, so the supplied ones are left alone; skipping it would
+    // freeze every withheld lane at its level-creation constant.
     //
     // The gate mirrors the bulk_fluxes() call below: in driver flux mode these
     // fields are never read.

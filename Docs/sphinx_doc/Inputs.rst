@@ -457,11 +457,11 @@ Notes
    which advances every level once per step through one shared barotropic loop. Because that
    loop cannot hand a finer level the parent's completed mass flux, it cannot impose that flux
    at a coarse-fine interface and conserves volume less well: drift of 2.0e-6 against 2.9e-08 on
-   DogboneAnalytic. It is kept for comparison against answers predating subcycling and is
-   expected to be deprecated.
+   DogboneAnalytic. It is kept for comparison with non-subcycled answers and is expected to be
+   deprecated.
 
--  **amr.do_substep** is the original spelling of the above and still works, but amrex owns that
-   namespace. Setting both is an error.
+-  **amr.do_substep** is a deprecated alias for the above (amrex owns that namespace); it still
+   works but prints a deprecation warning. Setting both is an error.
 
 -  **remora.dt_ref_ratio** only has an effect when **remora.do_substep** = 1. It defaults to the
    spatial refinement ratio but need not equal it. Setting it to 1 advances every level with the
@@ -516,8 +516,8 @@ Notes
 
    -  **remora.cf_avgdown_perimeter** (default 1) leaves the normal-velocity faces on the
       coarse-fine perimeter out of the fine-to-coarse average, as ROMS's ``fine2coarse`` does.
-      0 restores the earlier behaviour, in which the parent's imposed flux is averaged straight
-      back onto it, and costs a factor of 20 to 40 in the barotropic mode.
+      Setting it to 0 includes those faces, so the parent's imposed flux is averaged straight
+      back onto it; this costs a factor of 20 to 40 in the barotropic mode.
 
    -  **remora.cf_avgdown_bar** (default 1) hands the fine level's depth-averaged momentum
       (``ubar``, ``vbar``) back to the parent under two-way coupling, as ``fine2coarse`` does.
@@ -730,8 +730,8 @@ advances: ``remora.start_time`` is kept in double precision, and the solver
 advances only the time elapsed since it. That keeps the timestep
 resolvable in a single-precision build, where seconds since a calendar epoch
 would otherwise round to tens of seconds or more. Checkpoints store the elapsed
-time together with ``remora.start_time``; a checkpoint from before this split,
-which holds time on the model clock, still restarts correctly.
+time together with ``remora.start_time``; a checkpoint that stores only
+model-clock time, with no separate start time, still restarts correctly.
 
 NetCDF output records that offset as the scalar variable ``dstart``, in days
 since the reference date, as ROMS does. ``ocean_time`` is the time of each
@@ -1213,10 +1213,9 @@ Additional passive scalars continue with the names ``tracer_2``,
 ``tracer_3``, and so on.
 
 ``remora.nscalar`` defaults to 0, so dye is opt-in: a run carries temperature and
-salinity only until an input asks for more. A tracer nothing asked for is still
-advected and diffused every step, and still has to be accounted for in plotfiles and
-in boundary and climatology files, so carrying one by default made runs that never
-mentioned dye behave as though they had.
+salinity only until an input asks for more. Each dye tracer is advected and diffused
+every step and must be accounted for in plotfiles and in boundary and climatology
+files.
 
 Dye and biology coexist freely, so ``remora.nscalar = 2`` with a Fennel model carrying
 11 tracers gives 15 components in the order shown above. See :ref:`sec:Fennel`.

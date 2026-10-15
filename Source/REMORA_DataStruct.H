@@ -649,10 +649,10 @@ struct SolverChoice {
         // remora.tnu2_scalar sets the group default and remora.tnu2_{var} overrides a single
         // tracer by name -- remora.tnu2_NO3, remora.tnu2_tracer_1, and so on.
         //
-        // tnu2_temp and tnu2_salt are the pre-existing spelling of that per-name form for the
-        // first two components. They keep their own defaults of zero rather than inheriting
-        // tnu2_scalar, so every existing input file means exactly what it did before, and the
-        // loop below skips them to avoid querying the same key twice.
+        // tnu2_temp and tnu2_salt are that per-name form for the first two components.
+        // They keep their own defaults of zero rather than inheriting tnu2_scalar, so
+        // tnu2_scalar does not change temperature or salinity diffusion, and the loop
+        // below skips them to avoid querying the same key twice.
         tnu2.assign(ncons, tnu2_scalar);
         if (ncons > Temp_comp) {
             tnu2[Temp_comp] = tnu2_temp;
@@ -1122,7 +1122,7 @@ struct SolverChoice {
     bool do_m2_clim_nudg = false;
     bool do_m3_clim_nudg = false;
     // Per cell-centered tracer, whether to nudge toward climatology. Indexed by
-    // cons component, so entry Temp_comp is the old do_temp_clim_nudg.
+    // cons component (entry Temp_comp is temperature, Salt_comp salinity).
     amrex::Vector<int> do_cons_clim_nudg;
     bool do_any_cons_clim_nudg = false;
     bool do_any_clim_nudg = false;

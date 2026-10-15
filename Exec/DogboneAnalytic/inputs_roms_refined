@@ -138,8 +138,8 @@ amr.ref_ratio_vect = 3 3 1
 # ---------------------------------------------------------------------------------------
 # Coarse-fine treatment matched to ROMS's nesting.F.
 #
-# These are all defaults now, listed here only because this is the deck the matching was
-# measured on. Setting any of them to 0 restores the AMReX-native operator it replaced:
+# These are all defaults, listed here because this is the deck the matching was
+# measured on. Setting any of them to 0 selects the AMReX-native operator instead:
 #
 #   cf_avgdown_stencil  fine2coarse2d averages the donor over a (Rscale-1)/2 half-width
 #                       stencil in BOTH directions, so at ratio 3 a coarse face is the mean

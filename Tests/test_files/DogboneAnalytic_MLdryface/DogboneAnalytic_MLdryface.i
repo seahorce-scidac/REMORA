@@ -5,7 +5,7 @@
 # multiplies it by msku(i,j) = mskr(i-1,j) * mskr(i,j). So a *water* cell whose i-1 neighbor is
 # land holds an exact zero that is a mask artifact, not slack water. Guarding it by mskr(i,j)
 # alone -- it is wet, so test it -- lets the jump between that zero and the real flow one cell
-# over refine the coast, which is what the removed derefine criteria used to paper over.
+# over refine the coast.
 #
 # Nothing else in the suite sees this: MLcoastskip pins the guard for a cell-centered tracer,
 # where the cell's own mask is the whole story, and deleting the per-field stencil leaves it,

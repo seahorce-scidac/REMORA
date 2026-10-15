@@ -209,9 +209,8 @@ REMORA::~REMORA ()
 /**
  * Reject refinement in the vertical, and accumulate the refinement ratios.
  *
- * Shared by both constructors. It used to be written out in each of them, and the explicit one
- * had been left without the cum_ref_ratios half -- so the vector stayed empty, and every
- * full-domain hires array and every mask coarsening that indexes it read out of bounds.
+ * Shared by both constructors, so both fill cum_ref_ratios, which the
+ * full-domain hires arrays and the mask coarsening index into.
  */
 void
 REMORA::init_ref_ratios ()
@@ -1730,9 +1729,8 @@ REMORA::set_surface_state (int lev)
     auto& bulk_flux_type = solverChoice.bulk_flux_type;
 
     // Every update below skips driver-supplied lanes individually, on
-    // !driver_atmos_state_from_driver[...]. This used to abort outright if any
-    // lane was driver-supplied, which made the function unreachable in a coupled
-    // run and so denied the *withheld* lanes the fallback those guards provide.
+    // !driver_atmos_state_from_driver[...], so in a coupled run the lanes the
+    // driver withholds still get this deck's forcing.
 
 #ifdef REMORA_USE_NETCDF
     auto update_from_netcdf = [&](std::unique_ptr<NCTimeSeries>& data_from_file,
@@ -2111,10 +2109,9 @@ REMORA::init_only (int lev, Real time)
 #endif
 
     set_bathymetry(lev);
-    // Has to follow set_bathymetry, not precede it as it used to: the mask now has a
-    // hires_grid_level path of its own, which needs the full-domain data read just above,
-    // and an analytic mask needs the grid coordinates that set_bathymetry -> set_grid_scale
-    // fills on the netcdf path.
+    // Has to follow set_bathymetry: the mask's hires_grid_level path needs the
+    // full-domain data read just above, and an analytic mask needs the grid
+    // coordinates that set_bathymetry -> set_grid_scale fills on the netcdf path.
     set_masks(lev);
 
     // Has to sit between set_masks and set_zeta. After set_masks, since
@@ -2203,13 +2200,6 @@ REMORA::init_only (int lev, Real time)
     init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
-
-    // Previously set smflux here with OverrideSync:
-//    set_smflux(lev);
-//    prob->init_analytic_smflux(lev, geom[lev], solverChoice, *this, *vec_sustr[lev], *vec_svstr[lev]);
-//    vec_sustr[lev]->OverrideSync(geom[lev].periodicity());
-//    vec_svstr[lev]->OverrideSync(geom[lev].periodicity());
-
 }
 
 void
@@ -2241,7 +2231,8 @@ REMORA::ReadParameters ()
         fennel_params.init_params(pp_prefix);
 
         // Source of the biology initial condition, independent of ic_type.
-        // Default "follow" reproduces the previous behaviour exactly.
+        // Default "follow" takes the biology IC from NetCDF when ic_type is
+        // netcdf, else analytic.
         std::string biology_ic_string = REMORABiology::biology_ic_type_name(biology_ic_type);
         pp.queryAdd("biology_ic_type", biology_ic_string);
         biology_ic_type = REMORABiology::parse_biology_ic_type(biology_ic_string);
@@ -2288,10 +2279,8 @@ REMORA::ReadParameters ()
     ncons = Tracer_comp + nscalar + nbio;
     init_scalar_metadata();
 
-    // remora.nscalar used to be required to equal the biology tracer count; it now counts
-    // dye only and adds to it. Print the layout so a run carrying both is unmistakable,
-    // and an input written against the old meaning is caught by eye rather than by a
-    // surprising component count much later.
+    // remora.nscalar counts dye only; biology tracers are added on top. Print
+    // the layout so a run carrying both is unmistakable.
     if (nbio > 0 && nscalar > 0) {
         amrex::Print() << "Carrying " << nscalar << " passive scalar(s) and " << nbio
                        << " biology tracer(s), for " << ncons << " cell-centered components: ";
@@ -2337,11 +2326,10 @@ REMORA::ReadParameters ()
     pp.queryAdd("change_max", change_max);
     pp.queryAdd("fixed_dt", fixed_dt);
 
-    // remora.fixed_fast_dt has been removed. It only ever served to infer the number of
-    // barotropic substeps, and only when remora.fixed_dt was also given -- which left the
-    // ratio at zero on every other path, including a CFL-driven run. amrex does not abort
-    // on unused inputs by default, so catch it here rather than letting a stale input file
-    // silently fall back to whatever remora.ndtfast happens to be.
+    // remora.fixed_fast_dt is not accepted; use remora.ndtfast. amrex does not
+    // abort on unused inputs by default, so catch it here rather than letting a
+    // stale input file silently fall back to whatever remora.ndtfast happens to
+    // be.
     if (pp.contains("fixed_fast_dt")) {
         amrex::Abort("remora.fixed_fast_dt has been removed. Set remora.ndtfast (the "
                      "number of barotropic steps per baroclinic step) instead; it is what "
@@ -2365,8 +2353,9 @@ REMORA::ReadParameters ()
     // Number of barotropic (fast) steps taken per baroclinic (slow) step.
     pp.queryAdd("ndtfast", ndtfast);
 
-    // 0 selects timeStepML, kept as a comparison path. amr.do_substep is the original
-    // spelling; read it first so the queryAdd below records the value under the new name.
+    // 0 selects timeStepML, kept as a comparison path. amr.do_substep is a
+    // deprecated alias; read it first so the queryAdd below records the value
+    // under remora.do_substep.
     {
         ParmParse pp_amr("amr");
         if (pp_amr.contains("do_substep")) {
@@ -2386,7 +2375,7 @@ REMORA::ReadParameters ()
             amrex::Print() << "WARNING: subcycling refined levels in time is EXPERIMENTAL.\n"
                            << "         Multi-level answers are not yet considered production\n"
                            << "         quality; check them against a single-level run before\n"
-                           << "         relying on them. remora.do_substep = 0 selects the older\n"
+                           << "         relying on them. remora.do_substep = 0 selects the\n"
                            << "         lockstep driver instead.\n";
         } else {
             amrex::Print() << "NOTE: remora.do_substep = 0 selects the lockstep driver. It cannot\n"
@@ -2408,7 +2397,7 @@ REMORA::ReadParameters ()
     pp.queryAdd("do_reflux", do_reflux);
 
     // Mirror ROMS's fine2coarse, which returns every covered cell but not the perimeter's
-    // normal-velocity faces. 0 restores the behaviour from before that was matched.
+    // normal-velocity faces. 0 includes the perimeter faces in the average.
     pp.queryAdd("cf_avgdown_perimeter", cf_avgdown_perimeter);
 
     // Diagnostics; see the declarations in REMORA.H.
@@ -3018,7 +3007,7 @@ REMORA::AverageDownTo (int crse_lev)
 
     // Hand the child's 2D momentum back, as ROMS's fine2coarse does. The parent's next
     // advance_2d reads ubar(krhs) to form DUon, so dropping this moves Dogbone's x-velocity
-    // by 9%. Subcycling only: timeStepML keeps the behaviour its answers were recorded with.
+    // by 9%. Subcycling only: timeStepML does not hand ubar/vbar back.
     if (do_substep && cf_avgdown_bar) {
         // Components 0 and 1 only. The three are leapfrog slots rotating per level, so the
         // two levels need not agree on which holds what -- but update_massflux_3d has just

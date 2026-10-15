@@ -54,7 +54,8 @@ remora.Scoef = 0.0     # linear equation of state parameter (nondimensional)
 remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inferred
 
 # Level 0 is not a valid hires level: the full-domain arrays are only allocated for lev > 0,
-# so this used to reach the averaged-down path against a null MultiFab.
+# so it must be rejected before the averaged-down path, which would otherwise run against a
+# null MultiFab.
 amr.max_level           = 1
 amr.ref_ratio_vect      = 3 3 1
 remora.hires_grid_level = 0

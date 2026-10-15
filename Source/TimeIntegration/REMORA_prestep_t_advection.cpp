@@ -117,7 +117,7 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
     Box gbx1D = gbx1;
     gbx1D.makeSlab(2,0);
 
-    // We used to set W(i,j,0) = 0.0, but this should have already been set before passing into the function
+    // W(i,j,0) = 0 is set by the caller.
     ParallelFor(gbx1D, N+1,
     [=] AMREX_GPU_DEVICE (int i, int j, int , int kk)
     {

@@ -1664,9 +1664,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     } // mfi
 
     // One collective ncmpi_put_varn_*_all per variable. Collective writes keep
-    // numrecs synced in the file header as they go, so the separate
-    // ncmpi_end_indep_data() sync the independent path needed is no longer
-    // required here.
+    // numrecs synced in the file header as they go, so no separate
+    // ncmpi_end_indep_data() sync is needed.
     collector.flush(ncf);
 
     ncf.close();
