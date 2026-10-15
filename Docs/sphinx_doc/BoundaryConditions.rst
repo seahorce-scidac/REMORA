@@ -117,7 +117,7 @@ For example, setting
 
 will define a problem that is periodic on the Western and Eastern sides. Temperature, salinity, passive scalar,
 3D u-velocity, and 3D v-velocity will be clamped to values given in a NetCDF file specified by
-:ref:`remora.nc_bdry_file_0<icbc-parameters>`. The 2D momentum and zeta BCs are calculated from the
+:ref:`remora.nc_bdry_file<icbc-parameters>`. The 2D momentum and zeta BCs are calculated from the
 Chapman/Flather conditions, with nudging towards values given in the boundary NetCDF file.
 
 .. _sec:bc-per-tracer:

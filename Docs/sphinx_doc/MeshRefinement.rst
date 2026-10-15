@@ -54,7 +54,7 @@ coarse-level cell; more on this below.
 ::
 
           amr.max_level = 1                               # Specifies the max level possible in any refinement region
-          amr.ref_ratio_vect = 2 2 1                      # Note always use 'ref_ratio_vec', since z refinement is always 1
+          amr.ref_ratio_vect = 2 2 1                      # Note always use 'ref_ratio_vect', since z refinement is always 1
 
           remora.refinement_indicators = box1 box2        # A list of refinement region names
 
@@ -77,7 +77,7 @@ created, and how boxes are defined. Input variables associated with AMReX are
 accepted in REMORA input files, e.g., ``amr.max_level = 1``.
 
 Refinement does not need to be uniform in each horizontal dimension, for example
-``amr.ref_ratio_vec = 2 7 1`` is valid.
+``amr.ref_ratio_vect = 2 7 1`` is valid.
 
 Multiple levels of refinement can be specified by setting ``amr.max_level`` to
 be greater than 1. Additional vectors of refinement ratios need to be passed to
@@ -88,7 +88,7 @@ Refinement ratios are multiplicative, such that each refinement factor increases
 ::
 
             amr.max_level = 3
-            amr.ref_ratio_vec = 2 2 1   2 2 1   3 3 1
+            amr.ref_ratio_vect = 2 2 1   2 2 1   3 3 1
 
 level 1 will be refined at 2x, and level 2 will be refined 4x, and level 3 by
 12x.
@@ -161,7 +161,7 @@ The example below adds three user-named criteria:
 ::
 
             amr.max_level = 3
-            amr.ref_ratio_vec = 2 2 1   3 3 1   2 2 1
+            amr.ref_ratio_vect = 2 2 1   3 3 1   2 2 1
 
             remora.refinement_indicators = hi_temp tempdiff lo_vort
 

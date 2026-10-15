@@ -8,11 +8,11 @@ REMORA can be built using either GNU Make or CMake. The following instructions a
 Minimum Requirements
 ~~~~~~~~~~~~~~~~~~~~
 
-REMORA requires a C++ compiler that supports the C++17 standard and a C compiler that supports the C99 standard.
+REMORA requires a C++ compiler that supports the C++20 standard (required by AMReX) and a C compiler that supports the C99 standard.
 Building with GPU support may be done with CUDA, HIP, or SYCL.
 For CUDA, REMORA requires versions >= 11.0. For HIP and SYCL, only the latest compilers are supported.
 Prerequisites for building with GNU Make include Python (>= 2.7, including 3) and standard tools available
-in any Unix-like environments (e.g., Perl and sed). For building with CMake, the minimal requirement is version 3.18.
+in any Unix-like environments (e.g., Perl and sed). For building with CMake, the minimal requirement is version 3.25 (required by AMReX).
 
    .. note::
       **While REMORA is designed to work with SYCL, we do not make any guarantees that it will build and run on your Intel platform.**
@@ -182,7 +182,7 @@ The options are described in the table below. Standard CMake options like ``CMAK
    +----------------------------------+----------------------------------+------------------+-------------+
    | ``REMORA_ENABLE_MPI``            | Whether to enable MPI            | ON / OFF         | OFF         |
    +----------------------------------+----------------------------------+------------------+-------------+
-   | ``REMORA_ENABLE_OMP``            | Whether to enable OpenMP         | ON / OFF         | OFF         |
+   | ``REMORA_ENABLE_OPENMP``         | Whether to enable OpenMP         | ON / OFF         | OFF         |
    +----------------------------------+----------------------------------+------------------+-------------+
    | ``REMORA_ENABLE_CUDA``           | Whether to enable CUDA           | ON / OFF         | OFF         |
    +----------------------------------+----------------------------------+------------------+-------------+
