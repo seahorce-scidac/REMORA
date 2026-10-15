@@ -117,7 +117,6 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
     Box gbx1D = gbx1;
     gbx1D.makeSlab(2,0);
 
-    // W(i,j,0) is already zero: the caller sets it before passing W in
     compute_W(gbx1D, W, Huon, Hvom, z_w, h, N);
 
     //Use FC and DC as intermediate arrays for FX and FE
