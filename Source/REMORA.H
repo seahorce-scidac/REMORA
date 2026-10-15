@@ -1030,6 +1030,12 @@ public:
     /** \brief "True" vertical velocity w (m/s) at w-points, as ROMS wvelocity */
     void compute_wvel (int lev, amrex::MultiFab& mf_w);
 
+    /** \brief As compute_wvel, from an omega already computed by compute_diagnostic_omega */
+    void compute_wvel (int lev, amrex::MultiFab& mf_w, const amrex::MultiFab& mf_omega);
+
+    /** \brief omega and w on the s_w points of the NetCDF output, ghost columns filled and masked */
+    void compute_omega_and_w (int lev, amrex::MultiFab* mf_omega, amrex::MultiFab* mf_wvel);
+
     /** \brief Horizontal mass fluxes Hz*u/n and Hz*v/m of the current velocities, as ROMS set_massflux */
     void set_massflux_3d (int lev, amrex::MultiFab& mf_Huon, amrex::MultiFab& mf_Hvom);
 
@@ -1580,11 +1586,15 @@ private:
 
 #ifdef REMORA_USE_NETCDF
     /** \brief Write plotfile using NetCDF (wrapper) */
-    void WriteNCPlotFile       (int istep, amrex::MultiFab const* plotMF, int lev = 0);
+    void WriteNCPlotFile       (int istep, amrex::MultiFab const* plotMF, int lev = 0,
+                                amrex::MultiFab const* mf_omega = nullptr,
+                                amrex::MultiFab const* mf_wvel = nullptr);
 
     /** \brief Write a particular NetCDF plotfile */
     void WriteNCPlotFile_which (int lev, int which_subdomain,
                                 amrex::MultiFab const* plotMF,
+                                amrex::MultiFab const* mf_omega,
+                                amrex::MultiFab const* mf_wvel,
                                 bool write_header, ncutils::NCFile& ncf,
                                 bool is_history, long long history_record = 0);
 
@@ -1989,6 +1999,10 @@ private:
     amrex::Vector<std::string> plot_var_names_3d;
     /** \brief Names of 2D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_2d;
+    /** \brief Whether to write omega, the S-coordinate vertical velocity, to NetCDF output */
+    bool plot_omega = false;
+    /** \brief Whether to write z_velocity, the true vertical velocity, to NetCDF output as w */
+    bool plot_wvel = false;
     /** \brief Names of scalars for plotfile output */
     amrex::Vector<std::string> cons_names {"temp", "salt", "tracer"};
     // Note that the order of variable names here must match the order in PlotFile.cpp

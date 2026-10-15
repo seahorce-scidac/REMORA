@@ -167,8 +167,13 @@ private:
 
 /**
  * @param which_step   current step for output
+ * @param plotMF       cell-centered plot variables at this level
+ * @param lev          level to write
+ * @param mf_omega     omega at w points, or nullptr when it is not plotted
+ * @param mf_wvel      w at w points, or nullptr when it is not plotted
  */
-void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev) {
+void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev,
+                             MultiFab const* mf_omega, MultiFab const* mf_wvel) {
     // A refined level is written to its own file, _d02 and up, the way ROMS names a nested
     // grid. Its dimensions come from boxes_at_level, so a level covering nx by ny cells gets
     // xi_rho = nx+2, xi_u = nx+1 and so on, exactly as ROMS shapes a child grid.
@@ -252,7 +257,7 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev) {
 
         amrex::Print() << "Writing into level " << lev << " NetCDF history file " << FullPath << std::endl;
 
-        WriteNCPlotFile_which(lev, which_subdomain, plotMF, write_header, ncf,
+        WriteNCPlotFile_which(lev, which_subdomain, plotMF, mf_omega, mf_wvel, write_header, ncf,
                               is_history, record - history_record_shift[lev]);
 
     } else {
@@ -264,7 +269,7 @@ void REMORA::WriteNCPlotFile(int which_step, MultiFab const* plotMF, int lev) {
         auto ncf = ncutils::NCFile::create(FullPath, NC_CLOBBER|NC_64BIT_DATA, amrex::ParallelContext::CommunicatorSub(), MPI_INFO_NULL);
         amrex::Print() << "Writing level " << lev << " NetCDF plot file " << FullPath << std::endl;
 
-        WriteNCPlotFile_which(lev, which_subdomain, plotMF, write_header, ncf, is_history);
+        WriteNCPlotFile_which(lev, which_subdomain, plotMF, mf_omega, mf_wvel, write_header, ncf, is_history);
     }
 }
 
@@ -337,12 +342,16 @@ long long REMORA::history_restart_record (int lev, const std::string& path)
 /**
  * @param lev               level of data to output
  * @param which_subdomain   index of subdomain if lev != 0
+ * @param plotMF            cell-centered plot variables at this level
+ * @param mf_omega          omega at w points, or nullptr when it is not plotted
+ * @param mf_wvel           w at w points, or nullptr when it is not plotted
  * @param write_header      whether to write a header
  * @param ncf               netcdf file object
  * @param is_history        whether the file being written is a history file
  * @param history_record    record of the history file to write to
  */
 void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const* plotMF,
+                                   MultiFab const* mf_omega, MultiFab const* mf_wvel,
                                    bool write_header, ncutils::NCFile &ncf,
                                    bool is_history, long long history_record)
 {
@@ -620,6 +629,28 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                ncf.var("vorticity").put_attr("field","vorticity, scalar, series");
             }
         } // end vorticity
+
+        if (plot_omega) {
+            ncf.def_var_fill("omega", ncutils::NCDType::Real, { nt_name, nz_w_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
+            ncf.var("omega").put_attr("long_name","S-coordinate vertical momentum component");
+            ncf.var("omega").put_attr("units","meter second-1");
+            ncf.var("omega").put_attr("time","ocean_time");
+            ncf.var("omega").put_attr("grid","grid");
+            ncf.var("omega").put_attr("location","face");
+            ncf.var("omega").put_attr("coordinates","x_rho y_rho s_w ocean_time");
+            ncf.var("omega").put_attr("field","omega, scalar, series");
+        }
+
+        if (plot_wvel) {
+            ncf.def_var_fill("w", ncutils::NCDType::Real, { nt_name, nz_w_name, ny_r_name, nx_r_name }, &netcdf_fill_value);
+            ncf.var("w").put_attr("long_name","vertical momentum component");
+            ncf.var("w").put_attr("units","meter second-1");
+            ncf.var("w").put_attr("time","ocean_time");
+            ncf.var("w").put_attr("grid","grid");
+            ncf.var("w").put_attr("location","face");
+            ncf.var("w").put_attr("coordinates","x_rho y_rho s_w ocean_time");
+            ncf.var("w").put_attr("field","w-velocity, scalar, series");
+        }
 
         // Output 2D horizontal mixing coefficients if using scaled_to_grid option
         if (solverChoice.horiz_mixing_type == HorizMixingType::scaled_to_grid) {
@@ -974,6 +1005,12 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     }
     if (vec_vbar[lev]->contains_nan(0,1) || vec_vbar[lev]->contains_inf(0,1)) {
         amrex::Abort("Found while writing output: velocity vbar contains nan or inf");
+    }
+    if (mf_omega && (mf_omega->contains_nan() || mf_omega->contains_inf())) {
+        amrex::Abort("Found while writing output: omega contains nan or inf");
+    }
+    if (mf_wvel && (mf_wvel->contains_nan() || mf_wvel->contains_inf())) {
+        amrex::Abort("Found while writing output: velocity w contains nan or inf");
     }
 
     for (MFIter mfi(*plotMF, false); mfi.isValid(); ++mfi) {
@@ -1380,6 +1417,27 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                             local_nz, local_ny, local_nx });
                 } // if vorticity exists in plotMF
             } // end vorticity
+            // **************************************************************************
+
+            // **************************************************************************
+            // omega and w, on the same columns as the tracers but at the nz+1 w points
+            // **************************************************************************
+            {
+                Box tmp_bx_w(tmp_bx);
+                tmp_bx_w.surroundingNodes(2);
+                std::pair<const char*, MultiFab const*> w_vars[] = {{"omega", mf_omega}, {"w", mf_wvel}};
+                for (const auto& wv : w_vars) {
+                    if (wv.second == nullptr) { continue; }
+                    FArrayBox tmp;
+                    tmp.resize(tmp_bx_w, 1, amrex::The_Pinned_Arena());
+                    tmp.template copy<RunOn::Device>((*wv.second)[mfi.index()], 0, 0, 1);
+                    Gpu::streamSynchronize();
+
+                    auto nc_plot_var = collector.var(ncf, wv.first);
+                    nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_z, local_start_y, local_start_x }, { local_nt,
+                            local_nz+1, local_ny, local_nx });
+                }
+            } // end omega and w
             // **************************************************************************
 
             // **************************************************************************

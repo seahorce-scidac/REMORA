@@ -99,6 +99,11 @@ REMORA::set3DPlotVariables (const std::string& pp_plot_var_names_3d)
     }
 #endif
 
+    // The NetCDF writer puts omega and z_velocity on the s_w points ROMS writes them at,
+    // the latter under the ROMS name w; AMReX plotfiles average both to cell centers
+    plot_omega = containerHasElement(plot_var_names_3d, "omega");
+    plot_wvel  = containerHasElement(plot_var_names_3d, "z_velocity");
+
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_3d) {
       if (plot_name == "fennel" && expand_fennel) {
