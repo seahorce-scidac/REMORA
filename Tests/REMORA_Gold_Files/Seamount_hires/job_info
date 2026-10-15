@@ -1,33 +1,33 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: Seamount_hires.i
+inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Tests/test_files/Seamount_hires/Seamount_hires.i
 
 number of MPI processes: 2
 
-CPU time used since start of simulation (CPU-hours): 0.000270904
+CPU time used since start of simulation (CPU-hours): 0.0069013
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Wed Aug 19 09:48:04 2026
-output dir:         /tmp/claude-95021/-home-klion-software-REMORA-codex/68605636-decb-401f-9ae4-f512712c5366/scratchpad/gold_gen/Seamount_hires
+output data / time: Wed Oct 14 15:33:04 2026
+output dir:         /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Tests/test_files/Seamount_hires
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    Aug 19 2026 09:43:12
+build date:    Oct 14 2026 14:56:11
 build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
-build dir:     /tmp/claude-95021/-home-klion-software-REMORA-codex/68605636-decb-401f-9ae4-f512712c5366/scratchpad/BuildNC/Exec
-AMReX dir:     /home/klion/software/REMORA_codex/Submodules/AMReX
+build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_ci/Exec
+AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Submodules/AMReX
 
 COMP:          GNU
 COMP version:  13.3.0
 
 
-REMORA       git hash: v1.6-173-g311d96dc7c79-dirty
-AMReX       git hash: 26.07-55-gd1b9e4ec5555
+REMORA       git hash: v1.7-194-g04591ec10ec1
+AMReX       git hash: 26.09-185-g19d64c697f1a
 
 
 ===============================================================================
@@ -52,7 +52,6 @@ AMReX       git hash: 26.07-55-gd1b9e4ec5555
 DistributionMapping.verbose = 0
 amr.blocking_factor = 1
 amr.check_input = true
-amr.do_substep = 0
 amr.grid_eff = 0.69999999999999996
 amr.max_grid_iterations = 4
 amr.max_grid_size = 2048
@@ -65,6 +64,7 @@ amr.refine_grid_layout = true
 amr.refine_grid_layout_x = 1
 amr.refine_grid_layout_y = 1
 amr.refine_grid_layout_z = 0
+amr.refine_whole_domain_dir = -1
 amr.regrid_int = 2
 amr.v = 1
 amrex.abort_on_out_of_gpu_memory = false
@@ -80,7 +80,7 @@ amrex.handle_sigill = true
 amrex.handle_sigint = true
 amrex.handle_sigsegv = true
 amrex.handle_sigterm = false
-amrex.init_snan = false
+amrex.init_snan = true
 amrex.mf.alloc_single_chunk = false
 amrex.signal_handling = true
 amrex.the_arena_defragmentation = true
@@ -136,7 +136,6 @@ remora.bc.yhi.type = "null"
 remora.bc.ylo.type = "null"
 remora.bc.zhi.type = "slipwall"
 remora.bc.zlo.type = "slipwall"
-remora.bdy_time_varname = "ocean_time"
 remora.biology_model = "none"
 remora.blk_ZQ = 10.0
 remora.blk_ZT = 10.0
@@ -144,17 +143,26 @@ remora.blk_ZW = 10.0
 remora.bottom_stress_type = "linear"
 remora.boundary_per_variable = false
 remora.bulk_fluxes = false
+remora.cf_avgdown_bar = 1
+remora.cf_avgdown_perimeter = 1
+remora.cf_avgdown_stencil = 1
+remora.cf_fill_all_kcomp = 1
+remora.cf_fill_vel_after = 0
+remora.cf_flux_pc = 1
+remora.cf_impose_flux = 0
+remora.cf_print_iface = -1
+remora.cf_set_2d_bcs = 1
+remora.cf_time_interp_zeta = 1
 remora.cfl = 0.80000000000000004
 remora.change_max = 1.1000000000000001
+remora.check_cf_metrics = 0
+remora.check_cf_tol = 9.9999999999999998e-13
 remora.check_file = chk
 remora.check_int = -57600
 remora.check_int_time = -1.0
-remora.clim_salt_time_varname = "ocean_time"
-remora.clim_temp_time_varname = "ocean_time"
-remora.clim_u_time_varname = "ocean_time"
-remora.clim_ubar_time_varname = "ocean_time"
-remora.clim_v_time_varname = "ocean_time"
-remora.clim_vbar_time_varname = "ocean_time"
+remora.check_mask_consistency = true
+remora.check_plot_z = 0
+remora.check_plot_z_tol = -1.0
 remora.cloud = 0.0
 remora.cloud_type = "constant"
 remora.coriolis_beta = 0.0
@@ -163,11 +171,13 @@ remora.coriolis_type = "beta_plane"
 remora.coupling_type = "TwoWay"
 remora.do_m2_clim_nudg = false
 remora.do_m3_clim_nudg = false
+remora.do_reflux = 1
 remora.do_rivers = false
 remora.do_rivers_salt = true
 remora.do_rivers_scalar = false
 remora.do_rivers_temp = true
 remora.do_salt_clim_nudg = false
+remora.do_substep = 1
 remora.do_temp_clim_nudg = false
 remora.eminusp = false
 remora.eminusp_correct_ssh = false
@@ -176,8 +186,7 @@ remora.eos_type = "linear"
 remora.expand_plotvars_to_unif_rr = 1
 remora.file_min_digits = 5
 remora.fixed_dt = 60.0
-remora.fixed_fast_dt = -1.0
-remora.fixed_ndtfast_ratio = 20
+remora.g = 9.8066499999999994
 remora.gls_stability_type = "Canuto_A"
 remora.grid_scale_type = "constant"
 remora.harmonic_mixing_type = "s"
@@ -198,9 +207,11 @@ remora.longwave_radiation_flux = 0.0
 remora.lwrad_type = "computed"
 remora.m2nudg = 0.0
 remora.m3nudg = 0.0
+remora.mask_consistency = "abort"
 remora.mask_type = "none"
 remora.max_step = 10
 remora.n_cell = 49 48 13
+remora.ndtfast = 20
 remora.nscalar = 0
 remora.obcfac = 0.0
 remora.output_forcing = false
@@ -219,11 +230,10 @@ remora.rain = 0.0
 remora.rain_type = "constant"
 remora.rdrag = 0.00029999999999999997
 remora.rdrag2 = 0.0030000000000000001
+remora.reflux_clamp = 1
 remora.rho0 = 1025.0
-remora.riv_time_varname = "river_time"
 remora.scaled_to_grid_amr_scaling = "none"
 remora.smflux_type = "analytic"
-remora.spatial_order(nvals = 1)  :: [2]
 remora.start_time = 0.0
 remora.stop_time = 30000.0
 remora.sum_interval = 1
@@ -234,13 +244,13 @@ remora.tair_type = "constant"
 remora.tcline = 100.
 remora.theta_b = 2.0
 remora.theta_s = 6.5
+remora.time_interp_flux = false
 remora.time_ref = 0.0
 remora.tnu2_salt = 0.0
 remora.tnu2_scalar = 0.0
 remora.tnu2_temp = 0.0
 remora.tnudg = 0.0
 remora.tracer_horizontal_advection_scheme = "upstream3"
-remora.use_barotropic = true
 remora.use_coriolis = true
 remora.use_curvilinear_grid = false
 remora.use_prestep = true

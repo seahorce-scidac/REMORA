@@ -501,6 +501,24 @@ REMORA::WritePlotFile (int istep_for_plot)
         // Note: All derived variables must be computed in order of "derived_names" defined in REMORA.H
         calculate_derived("vorticity",  derived::remora_dervort);
 
+        if (containerHasElement(plot_var_names_3d, "omega")) {
+            MultiFab mf_omega(convert(grids[lev],IntVect(0,0,1)), dmap[lev], 1, IntVect(0));
+            compute_diagnostic_omega(lev, mf_omega);
+            MultiFab dmf(plotMF[lev], make_alias, mf_comp, 1);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                const Box& bx = mfi.tilebox();
+                const Array4<Real      > dst = dmf.array(mfi);
+                const Array4<Real const> om  = mf_omega.const_array(mfi);
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    dst(i,j,k) = myhalf * (om(i,j,k) + om(i,j,k+1));
+                });
+            }
+            mf_comp++;
+        }
+
 #ifdef REMORA_USE_PARTICLES
         const auto& particles_namelist( particleData.getNames() );
         for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++) {

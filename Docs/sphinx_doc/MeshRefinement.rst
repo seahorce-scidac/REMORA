@@ -234,10 +234,9 @@ so it is not simply "the wet cells":
   not itself masked, so its value depends on the whole 3x3 block of cells around
   it and all nine must be water. This is a workaround for the derived field
   being unmasked and can be narrowed once it is not;
-- ``z_velocity`` is tested on its own cell, but only because nothing currently
-  writes it: the vertical velocity the model solves for is held in a temporary,
-  so the plotted and taggable ``z_velocity`` is identically zero. If it is ever
-  connected, its dependence will be the five-point cross, not its own cell.
+- ``z_velocity`` is diagnosed from ``u`` on both x-faces and ``v`` on both
+  y-faces of its cell, each masked as above, so like ``vorticity`` it depends
+  on the 3x3 block of cells around it and all nine must be water.
 
 A land cell is never tagged by any of these. The one field exempt from all of it
 is ``mask``, below.

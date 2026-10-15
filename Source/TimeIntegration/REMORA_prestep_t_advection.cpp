@@ -117,32 +117,8 @@ REMORA::prestep_t_advection (int lev, const Box& tbx, const Box& gbx,
     Box gbx1D = gbx1;
     gbx1D.makeSlab(2,0);
 
-    // We used to set W(i,j,0) = 0.0, but this should have already been set before passing into the function
-    ParallelFor(gbx1D, N+1,
-    [=] AMREX_GPU_DEVICE (int i, int j, int , int kk)
-    {
-        //  Starting with zero vertical velocity at the bottom, integrate
-        //  from the bottom (k=0) to the free-surface (k=N).  The w(:,:,N(ng))
-        //  contains the vertical velocity at the free-surface, d(zeta)/d(t).
-        //  Notice that barotropic mass flux divergence is not used directly.
-        //
-        int k = kk + 1;
-        W(i,j,k) = W(i,j,k-1) - (Huon(i+1,j,k-1)-Huon(i,j,k-1)) - (Hvom(i,j+1,k-1)-Hvom(i,j,k-1));
-    });
-    ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
-    {
-        W(i,j,N+1)=W(i,j,N+1)/(z_w(i,j,N+1)+h(i,j,0,0)); // wrk_i
-    });
-    ParallelFor(gbx1D, N,
-    [=] AMREX_GPU_DEVICE (int i, int j, int , int kk)
-    {
-        int k = kk + 1;
-        W(i,j,k) = W(i,j,k)- W(i,j,N+1)*(z_w(i,j,k)+h(i,j,0,0));
-    });
-    ParallelFor(gbx1D, [=] AMREX_GPU_DEVICE (int i, int j, int )
-    {
-        W(i,j,N+1) = Real(0.0);
-    });
+    // W(i,j,0) is already zero: the caller sets it before passing W in
+    compute_W(gbx1D, W, Huon, Hvom, z_w, h, N);
 
     //Use FC and DC as intermediate arrays for FX and FE
     //First pass do centered 2d terms

@@ -530,6 +530,9 @@ REMORA::InitData ()
             FillPatch(lev, t_new[lev], *cons_new[lev], cons_new, BCVars::cons_bc, BdyVars::t, 0, true, false,0,0,zero,*cons_new[lev]);
             FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u, 0, true, false,0,0,zero,*xvel_new[lev]);
             FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v, 0, true, false,0,0,zero,*yvel_new[lev]);
+            // ROMS diagnoses w before its first history record, so do the same: DU_avg1 is
+            // still zero here, as in ROMS, so the free-surface term vanishes
+            compute_wvel(lev, *zvel_new[lev]);
             FillPatch(lev, t_new[lev], *zvel_new[lev], zvel_new, zvel_bc(), BdyVars::null, 0, true, false);
 
             // Copy from new into old just in case when initializing from scratch

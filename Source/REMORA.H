@@ -1011,6 +1011,28 @@ public:
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
 
+    /** \brief Vertical volume flux W from the horizontal mass flux divergence */
+    static void compute_W (const amrex::Box& bx2d,
+                           const amrex::Array4<amrex::Real      >& W,
+                           const amrex::Array4<amrex::Real const>& Huon,
+                           const amrex::Array4<amrex::Real const>& Hvom,
+                           const amrex::Array4<amrex::Real const>& z_w,
+                           const amrex::Array4<amrex::Real const>& h,
+                           const int N);
+
+    /** \brief Velocity across the w-levels (omega, m/s) from the given mass fluxes */
+    void compute_omega (int lev, amrex::MultiFab& mf_omega,
+                        const amrex::MultiFab& mf_Huon, const amrex::MultiFab& mf_Hvom);
+
+    /** \brief omega (m/s) as ROMS writes it: from mass fluxes of the current velocities */
+    void compute_diagnostic_omega (int lev, amrex::MultiFab& mf_omega);
+
+    /** \brief "True" vertical velocity w (m/s) at w-points, as ROMS wvelocity */
+    void compute_wvel (int lev, amrex::MultiFab& mf_w);
+
+    /** \brief Horizontal mass fluxes Hz*u/n and Hz*v/m of the current velocities, as ROMS set_massflux */
+    void set_massflux_3d (int lev, amrex::MultiFab& mf_Huon, amrex::MultiFab& mf_Hvom);
+
     /** \brief Correct mass flux */
     void update_massflux_3d (int lev, const amrex::Box& bx,
                              const int ioff, const int joff,
@@ -1971,7 +1993,7 @@ private:
     amrex::Vector<std::string> cons_names {"temp", "salt", "tracer"};
     // Note that the order of variable names here must match the order in PlotFile.cpp
     /** \brief Names of derived fields for 3d plotfile fields */
-    const amrex::Vector<std::string> derived_names_3d {"vorticity"};
+    const amrex::Vector<std::string> derived_names_3d {"vorticity", "omega"};
     /** \brief Names of derived fields for 2d plotfile fields */
     const amrex::Vector<std::string> derived_names_2d {};
 

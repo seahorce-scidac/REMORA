@@ -1,32 +1,32 @@
 ===============================================================================
  REMORA Job Information
 ===============================================================================
-inputs file: DogboneAnalytic_MLvel_volavg.i
+inputs file: /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_rel/Tests/test_files/DogboneAnalytic_MLvel_volavg/DogboneAnalytic_MLvel_volavg.i
 
 number of MPI processes: 1
 
-CPU time used since start of simulation (CPU-hours): 0.00489472
+CPU time used since start of simulation (CPU-hours): 0.000258061
 
 ===============================================================================
  Plotfile Information
 ===============================================================================
-output data / time: Wed Oct 14 12:22:04 2026
-output dir:         /home/klion/.claude/jobs/2aa29b7e/tmp/t713/gold
+output data / time: Wed Oct 14 16:08:25 2026
+output dir:         /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_rel/Tests/test_files/DogboneAnalytic_MLvel_volavg
 
 
 ===============================================================================
  Build Information
 ===============================================================================
-build date:    Oct 14 2026 12:20:48
+build date:    Oct 14 2026 16:01:14
 build machine: Linux varan 6.11.0-21-generic #21~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Feb 24 16:52:15 UTC 2 x86_64
-build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/issues-524-525-533/Build_ci/Exec
-AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/issues-524-525-533/Submodules/AMReX
+build dir:     /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Build_rel/Exec
+AMReX dir:     /home/klion/software/REMORA_codex/.claude/worktrees/fix-particle-seamount-655/Submodules/AMReX
 
 COMP:          GNU
 COMP version:  13.3.0
 
 
-REMORA       git hash: v1.7-192-ge32b5dfbae55-dirty
+REMORA       git hash: v1.7-197-g3293f62a5070-dirty
 AMReX       git hash: 26.09-185-g19d64c697f1a
 
 
@@ -86,7 +86,7 @@ amrex.handle_sigill = true
 amrex.handle_sigint = true
 amrex.handle_sigsegv = true
 amrex.handle_sigterm = false
-amrex.init_snan = true
+amrex.init_snan = false
 amrex.mf.alloc_single_chunk = false
 amrex.signal_handling = true
 amrex.the_arena_defragmentation = true
@@ -148,6 +148,7 @@ remora.blk_ZT = 10.0
 remora.blk_ZW = 10.0
 remora.bottom_stress_type = "quadratic"
 remora.boundary_per_variable = false
+remora.bulk_flux_scheme = "coare30"
 remora.bulk_fluxes = false
 remora.cf_avgdown_bar = 1
 remora.cf_avgdown_perimeter = 1
@@ -167,7 +168,7 @@ remora.check_cf_tol = 9.9999999999999998e-13
 remora.check_file = chk
 remora.check_int = -1
 remora.check_int_time = -1.0
-remora.check_mask_consistency = false
+remora.check_mask_consistency = true
 remora.check_plot_z = 0
 remora.check_plot_z_tol = -1.0
 remora.cloud = 0.0
