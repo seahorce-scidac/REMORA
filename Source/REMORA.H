@@ -1033,6 +1033,9 @@ public:
     /** \brief As compute_wvel, from an omega already computed by compute_diagnostic_omega */
     void compute_wvel (int lev, amrex::MultiFab& mf_w, const amrex::MultiFab& mf_omega);
 
+    /** \brief omega and w on the s_w points of the NetCDF output, ghost columns filled and masked */
+    void compute_omega_and_w (int lev, amrex::MultiFab* mf_omega, amrex::MultiFab* mf_wvel);
+
     /** \brief Horizontal mass fluxes Hz*u/n and Hz*v/m of the current velocities, as ROMS set_massflux */
     void set_massflux_3d (int lev, amrex::MultiFab& mf_Huon, amrex::MultiFab& mf_Hvom);
 
@@ -1580,9 +1583,6 @@ private:
     /* append variables to plot */
     void append2DPlotVariables (const std::string& pp_plot_var_names_2d);
     void append3DPlotVariables (const std::string& pp_plot_var_names_3d);
-
-    /** \brief Diagnose S-coordinate (omega) and true (w) vertical velocity for output */
-    void compute_omega_and_w (int lev, amrex::MultiFab* mf_omega, amrex::MultiFab* mf_wvel);
 
 #ifdef REMORA_USE_NETCDF
     /** \brief Write plotfile using NetCDF (wrapper) */
