@@ -3,8 +3,7 @@
 #
 # The patch covers x = 0..50000 of a domain periodic in x, so its low edge sits on the seam.
 # That exercises the periodic-boundary handling in BuildMask, fill_ghost_kcomps,
-# FillCoarsePatchMap and the ubar/vbar average-down. The deck runs past step 400 with a peak
-# velocity of 0.73, against 0.67 for the same patch placed in the interior.
+# FillCoarsePatchMap and the ubar/vbar average-down.
 #
 # Tests/test_files/Channel_Test_ML_seam is this deck cut to 10 steps. On two ranks the
 # level-1 box splits in y, which exercises set_2d_cf_bcs's update of the neighbouring box's

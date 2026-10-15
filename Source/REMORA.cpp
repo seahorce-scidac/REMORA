@@ -2957,8 +2957,7 @@ REMORA::AverageDownTo (int crse_lev)
     // ROMS returns every covered cell but not the perimeter's normal-velocity faces, so the
     // transport its nested boundary condition imposes there never comes back to the parent.
     // Without that exclusion set_2d_cf_bcs writes the parent's own flux onto the interface and
-    // the average hands it straight back: a factor of 20 to 40 in the barotropic mode against
-    // ROMS on the matched dogbone.
+    // the average hands it straight back.
     MultiFab covered;
     MultiFab u_save, v_save;
     const bool keep_perimeter = (cf_avgdown_perimeter != 0);

@@ -517,7 +517,7 @@ Notes
    -  **remora.cf_avgdown_perimeter** (default 1) leaves the normal-velocity faces on the
       coarse-fine perimeter out of the fine-to-coarse average, as ROMS's ``fine2coarse`` does.
       Setting it to 0 includes those faces, so the parent's imposed flux is averaged straight
-      back onto it; this costs a factor of 20 to 40 in the barotropic mode.
+      back onto it.
 
    -  **remora.cf_avgdown_bar** (default 1) hands the fine level's depth-averaged momentum
       (``ubar``, ``vbar``) back to the parent under two-way coupling, as ``fine2coarse`` does.

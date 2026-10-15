@@ -169,8 +169,8 @@ REMORA::timeStepML (Real time, int /*iteration*/)
         }
         // Same as Advance after its step: nothing on level 0, and a child re-filled from its
         // parent only under cf_fill_vel_after. Do not FillPatch the level-0 velocity with
-        // the physical boundary conditions at t_new here: on the open-boundary dogbone that
-        // moves the answer 2e-8 away from ROMS, which the step otherwise matches to 1e-14.
+        // the physical boundary conditions at t_new here: on the open-boundary dogbone it
+        // moves the answer away from ROMS.
         if (cf_fill_vel_after && lev > 0) {
             FillPatch(lev, t_new[lev], *xvel_new[lev], xvel_new, xvel_bc(), BdyVars::u,0,true,true);
             FillPatch(lev, t_new[lev], *yvel_new[lev], yvel_new, yvel_bc(), BdyVars::v,0,true,true);

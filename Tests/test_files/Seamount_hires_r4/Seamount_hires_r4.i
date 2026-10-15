@@ -57,8 +57,7 @@ remora.rho0  = 1025.0  # Mean density (Kg/m3) used when Boussinesq approx is inf
 # ref_ratio 4 makes cum_ref_ratios[1] = 4, one wider than NGROW+1 = 3. vec_h_full_domain is
 # allocated with max(cum_ref_ratios[lev], NGROW+1) grow cells, so the analytic bathymetry hook
 # has to fill the ring the ratio implies rather than a hardcoded NGROW+1, which would leave the
-# outer ring unwritten for the average-down. This lane must run clean and must not reproduce
-# the r=3 result.
+# outer ring unwritten for the average-down. This lane must run clean.
 amr.max_level                     = 1
 amr.ref_ratio_vect                = 4 4 1
 remora.expand_plotvars_to_unif_rr = 1

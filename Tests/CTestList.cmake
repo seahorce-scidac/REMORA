@@ -605,7 +605,7 @@ add_test_log(BoundaryLayer_ML_cf_metrics "remora_exec" "CF edge tiling")
 # What a viewer rebuilds from the plotfile: node (i,j,k) of a level sits at prob_lo + (i,j,k)*dx
 # from the Header plus the Nu_nd displacement. With expand_plotvars_to_unif_rr the refined
 # level's Header dz is the native one over the ratio, and the nodal set has to be refined in z
-# with it; otherwise the refined patch's surface comes out 32 m low on this case.
+# with it.
 # check_plot_z rebuilds z the viewer's way and aborts unless every level's top and bottom
 # node layers reproduce z_phys_nd, so reaching the printed line is the assertion. It also
 # prints the coarse-fine mismatch at coincident nodes, 2e-2 here from the two levels' own

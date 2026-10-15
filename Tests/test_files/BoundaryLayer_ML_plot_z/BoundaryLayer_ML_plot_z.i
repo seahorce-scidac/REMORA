@@ -5,7 +5,7 @@
 # Header's dz and the Nu_nd set must reproduce z_phys_nd's bottom and top on every level, and
 # the coarse-fine mismatch at coincident nodes is printed. check_plot_z aborts when the first
 # fails, so completing the run is the assertion. If the nodal set were written at native
-# resolution against a refined Header, the refined patch's surface would come out 32 m low here.
+# resolution against a refined Header, the refined patch's surface would come out too low.
 #
 remora.prob_name = BoundaryLayer
 
