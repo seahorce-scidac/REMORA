@@ -170,6 +170,7 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/TimeIntegration/REMORA_set_2d_cf_bcs.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_vert_visc_3d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_update_massflux_3d.cpp
+       ${SRC_DIR}/TimeIntegration/REMORA_compute_W.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_vert_mean_3d.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_ComputeTimestep.cpp
        ${SRC_DIR}/TimeIntegration/REMORA_TimeStep.cpp

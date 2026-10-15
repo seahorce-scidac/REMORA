@@ -83,19 +83,36 @@ def parse_docs_descriptions(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
 
-    row_re = re.compile(r"^\|\s+\*\*([^*]+)\*\*\s*\|\s*([^|]+?)\s*\|")
+    # Grid-table cells wrap across lines; collect the description column from
+    # every line of a row until the row's closing +---+ border.
+    row_re = re.compile(r"^\|\s+\*\*([^*]+)\*\*\s*\|\s*([^|]*?)\s*\|")
+    cont_re = re.compile(r"^\|[^|]*\|\s*([^|]*?)\s*\|")
     descs: dict[str, str] = {}
+    param: str | None = None
+    parts: list[str] = []
+
+    def finish() -> None:
+        desc = " ".join(parts)
+        # Keep first appearance for stability.
+        if param and desc:
+            descs.setdefault(param, desc)
 
     for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
         m = row_re.match(line)
-        if not m:
+        if m:
+            finish()
+            param = m.group(1).strip()
+            parts = [m.group(2)] if m.group(2) else []
             continue
-        param = m.group(1).strip()
-        desc = m.group(2).strip()
-        if not desc:
+        c = cont_re.match(line) if param else None
+        if c:
+            if c.group(1):
+                parts.append(c.group(1))
             continue
-        # Keep first appearance for stability.
-        descs.setdefault(param, desc)
+        finish()
+        param = None
+        parts = []
+    finish()
 
     return descs
 
@@ -201,10 +218,9 @@ def choose_comment(name: str, param: dict[str, Any], docs_desc: dict[str, str]) 
         return str(param["description"]).strip()
     if name in docs_desc:
         return docs_desc[name]
+    # Omit the line number: it shifts whenever unrelated code moves, which
+    # churned this file and caused merge conflicts.
     src_file = param.get("source_file")
-    src_line = param.get("source_line")
-    if src_file and src_line:
-        return f"source: {src_file}:{src_line}"
     if src_file:
         return f"source: {src_file}"
     return ""

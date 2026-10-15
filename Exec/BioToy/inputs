@@ -78,6 +78,8 @@ remora.tcline = 50.0
 remora.vertical_mixing_type="gls"
 remora.Akt_bak = 1.0e-6
 remora.Akv_bak = 1.0e-5
+# turn off GLS length cap to match COAWST-ROMS version used for initial REMORA port
+remora.gls_length_cap=0
 
 # Coriolis params
 remora.use_coriolis = true

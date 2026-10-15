@@ -137,6 +137,16 @@ Notes
 
 -  The write_history_file option is only available if **plotfile_type = netcdf**
 
+-  A run restarted from a checkpoint continues its NetCDF output:
+
+   - Per-step files keep their step numbers. The restart step's file is written again, and
+     the earlier copy is renamed to ``*.old.*``.
+   - A history file in the run directory is continued from its first record at or after the
+     restart time. Later records from the earlier run are written over as the new run
+     reaches them; any it does not reach stay at the end of the file.
+   - With no history file, or one for a different grid (which is renamed aside), a new file
+     is started. Chunked history files keep the numbering from the checkpoint.
+
 -  REMORA writes CDF-5 files, which have no practical size limit. Some MPI builds still fail on writes
    larger than 2 GB — a limit of the MPI-IO layer, not the file format. If a large write crashes, see the
    MPICH note in :ref:`the NetCDF build instructions<netcdf>`, or use a native AMReX plotfile.
@@ -181,28 +191,30 @@ Notes
 +--------------------------------+---------------------------+
 | **y_velocity**                 | velocity in y-direction   |
 +--------------------------------+---------------------------+
-| **z_velocity**                 | velocity in z-direction   |
+| **z_velocity**                 | true vertical velocity w, |
+|                                | diagnosed as in ROMS      |
+|                                | ``wvelocity``             |
 +--------------------------------+---------------------------+
 | **vorticity**                  | vorticity                 |
 +--------------------------------+---------------------------+
-| **omega**                      | S-coordinate vertical     |
-|                                | velocity [m/s];           |
+| **omega**                      | velocity across the       |
+|                                | terrain-following levels  |
+|                                | (ROMS ``omega``), m/s     |
++--------------------------------+---------------------------+
+| **w**                          | true vertical velocity w  |
+|                                | (ROMS ``w``), m/s;        |
 |                                | NetCDF only               |
 +--------------------------------+---------------------------+
-| **w**                          | true vertical velocity    |
-|                                | [m/s]; NetCDF only        |
-+--------------------------------+---------------------------+
 
-``omega`` and ``w`` are written only to NetCDF output (an AMReX plotfile warns and
-skips them), at ``s_w`` points on the ``rho`` grid, as ROMS writes them. Both are
-diagnosed at output time from the current ``u``, ``v`` and grid, as ROMS does just
-before it writes a history record. ``omega`` is the flow through the terrain-following
-coordinate surfaces, so it is zero at the bottom and the free surface. ``w`` is the
-vertical velocity in physical space, following ROMS ``wvelocity``: ``omega`` plus the
-motion of the coordinate surfaces as the free surface moves, plus the flow along
-sloping coordinate surfaces. The free-surface term comes from the time-averaged
-barotropic fluxes, which are zero before the first step. ``w`` needs at least 3
-vertical levels.
+``z_velocity`` and ``omega`` are computed as ROMS computes the ``w`` and ``omega`` it writes
+to its history file: from mass fluxes of the current velocities, not the time-averaged fluxes
+the tracers are advected with. Both are on w-points in the model and are averaged to cell
+centers for the plotfile.
+
+NetCDF output writes ``omega`` and ``w`` without averaging, on the ``s_w`` points of the
+``rho`` grid, as ROMS writes them. ``w`` is the same field as ``z_velocity``, under the ROMS
+name, and it is NetCDF-only: AMReX plotfiles warn and skip it, so use ``z_velocity`` there.
+The NetCDF writer does not write ``z_velocity``, so request ``w`` instead.
 
 2D Plotfile Field Options
 --------------------------

@@ -98,6 +98,10 @@ enum class MaskConsistency {
     abort, warn
 };
 
+/** \brief COARE version of the bulk flux roughness lengths (ROMS COARE_30 or not) */
+enum class BulkFluxScheme {
+    coare30, coare35
+};
 /** \brief harmonic mixing; which surfaces to calculate along */
 enum class HarmonicMixingType {
     s, geopotential
@@ -239,6 +243,17 @@ struct SolverChoice {
         }
 
         pp.queryAdd("bulk_fluxes",bulk_fluxes);
+        {
+            std::string scheme_string = "coare30";
+            pp.queryAdd("bulk_flux_scheme", scheme_string);
+            if (amrex::toLower(scheme_string) == "coare30") {
+                bulk_flux_scheme = BulkFluxScheme::coare30;
+            } else if (amrex::toLower(scheme_string) == "coare35") {
+                bulk_flux_scheme = BulkFluxScheme::coare35;
+            } else {
+                amrex::Abort("remora.bulk_flux_scheme must be coare30 or coare35");
+            }
+        }
         pp.queryAdd("atm2ocn_flux_mode", atm2ocn_flux_mode);
         {
             amrex::ParmParse pp_driver("driver");
@@ -714,6 +729,7 @@ struct SolverChoice {
             pp.queryAdd("gls_N", gls_n);
             pp.queryAdd("gls_Kmin", gls_Kmin);
             pp.queryAdd("gls_Pmin", gls_Pmin);
+            pp.queryAdd("gls_length_cap", gls_length_cap);
 
             pp.queryAdd("gls_cmu0", gls_cmu0);
             pp.queryAdd("gls_c1", gls_c1);
@@ -874,6 +890,11 @@ struct SolverChoice {
     bool        use_curvilinear_grid  = false;
 
     bool        bulk_fluxes           = false;
+    // The COARE version of the bulk flux's Charnock parameter and scalar roughness
+    // lengths: coare30 (Fairall et al. 2003; ROMS with COARE_30 defined) or coare35
+    // (Edson et al. 2013; ROMS's default). The rest of the bulk flux follows myROMS
+    // either way.
+    BulkFluxScheme bulk_flux_scheme = BulkFluxScheme::coare30;
     bool        atm2ocn_flux_mode     = false;
 
     bool        output_forcing        = false;
@@ -1036,6 +1057,10 @@ struct SolverChoice {
     amrex::Real gls_n = amrex::Real(-1.0);
     amrex::Real gls_Kmin = amrex::Real(7.6e-6);
     amrex::Real gls_Pmin = amrex::Real(1.0e-12);
+
+    // Cap the turbulent length scale at kappa*Depth (ROMS gls_corstep.F).
+    // false reproduces the behaviour before this limit was added.
+    bool gls_length_cap = true;
 
     amrex::Real gls_cmu0 = amrex::Real(0.5477);
     amrex::Real gls_c1 = amrex::Real(1.44);

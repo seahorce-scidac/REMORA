@@ -306,11 +306,11 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
             // zvel_new has no ghost cells in z, so we can only ask the copy for lateral ones
             MultiFab::Copy(*mf,*zvel_new[levc],0,0,1,IntVect(1,1,0));
             fill_z_ghost_planes(*mf);
-            // zvel_new is identically zero: nothing masks it, and nothing puts a computed
-            // value in it -- the vertical velocity the model solves for lives in a scratch
-            // array inside advance_3d. So its own cell is as good an answer as any. If it is
-            // ever wired up, W is built from Huon and Hvom at i+1 and j+1, making its real
-            // dependence the five-point cross.
+            // w is diagnosed by compute_wvel from u at i and i+1 and v at j and j+1, each
+            // masked by the rho-cells on both sides of its face, so a land cell anywhere in
+            // the surrounding 3x3 can zero part of it, as for vorticity.
+            mask_lo = IntVect(-1,-1,0);
+            mask_hi = IntVect( 1, 1,0);
         } else if (ref_tags[j].Field() == "vorticity") {
             // Fill the ghost cells of the face-based velocities -- including at
             // coarse/fine boundaries, which is what FillPatch's FillPatchTwoLevels
@@ -448,9 +448,11 @@ REMORA::ErrorEst (int levc, TagBoxArray& tags, Real time, int /*ngrow*/)
                                (solverChoice.mask_type == MaskType::none);
         const MultiFab* mskr3d_for_tag = unguarded ? nullptr : vec_mskr3d[levc].get();
 
-        // time counts from remora.start_time, but the window is on the model clock. Checked
-        // here, after the field is filled, so a misnamed field still aborts outside it.
-        if (!ref_tags[j].ActiveAt(model_time(time))) {
+        // time counts from remora.start_time; a window bound may also be
+        // given on the model clock. Checked after the field is filled, so a
+        // misnamed field still aborts outside the window.
+        const double elapsed = static_cast<double>(time);
+        if (!ref_tags[j].ActiveAt(elapsed, model_time(time))) {
             continue;
         }
 
@@ -702,12 +704,26 @@ REMORA::refinement_criteria_setup ()
             if (realbox.ok()) {
                 info.SetRealBox(realbox);
             }
-            // The window is on the model clock. It stays out of info, whose times are Real
-            // and are compared against elapsed time; ErrorEst applies it instead.
-            double ref_min_time = std::numeric_limits<double>::lowest();
-            double ref_max_time = std::numeric_limits<double>::max();
-            ppr.query("start_time",ref_min_time);
-            ppr.query("end_time",ref_max_time);
+            // start_time and end_time are seconds since remora.start_time, as
+            // in ERF; start_total_time and end_total_time give the same bounds
+            // on the model clock. They stay out of info, whose times are Real;
+            // ErrorEst applies them instead.
+            constexpr double t_lowest = std::numeric_limits<double>::lowest();
+            constexpr double t_max    = std::numeric_limits<double>::max();
+            double min_elapsed = t_lowest;
+            double max_elapsed = t_max;
+            double min_total   = t_lowest;
+            double max_total   = t_max;
+            const bool has_start     = ppr.query("start_time", min_elapsed);
+            const bool has_end       = ppr.query("end_time", max_elapsed);
+            const bool has_start_tot = ppr.query("start_total_time", min_total);
+            const bool has_end_tot   = ppr.query("end_total_time", max_total);
+            if ((has_start && has_start_tot) || (has_end && has_end_tot)) {
+                Abort(ref_prefix + ": give each bound of the time window once,"
+                      " either as elapsed time (start_time, end_time) or as"
+                      " total time on the model clock (start_total_time,"
+                      " end_total_time).");
+            }
             if (ppr.countval("max_level") > 0) {
                 int ref_max_level; ppr.get("max_level",ref_max_level);
                 info.SetMaxLevel(ref_max_level);
@@ -740,7 +756,8 @@ REMORA::refinement_criteria_setup ()
             } else {
                 Abort(std::string("Unrecognized refinement indicator for " + refinement_indicators[i]).c_str());
             }
-            ref_tags.back().SetModelTimeWindow(ref_min_time, ref_max_time);
+            ref_tags.back().SetTimeWindow(min_elapsed, max_elapsed,
+                                          min_total, max_total);
         } // loop over criteria
     } // if max_level > 0
 }

@@ -518,6 +518,24 @@ REMORA::WritePlotFile (int istep_for_plot)
         // Note: All derived variables must be computed in order of "derived_names" defined in REMORA.H
         calculate_derived("vorticity",  derived::remora_dervort);
 
+        if (containerHasElement(plot_var_names_3d, "omega")) {
+            MultiFab mf_omega(convert(grids[lev],IntVect(0,0,1)), dmap[lev], 1, IntVect(0));
+            compute_diagnostic_omega(lev, mf_omega);
+            MultiFab dmf(plotMF[lev], make_alias, mf_comp, 1);
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            for (MFIter mfi(dmf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+                const Box& bx = mfi.tilebox();
+                const Array4<Real      > dst = dmf.array(mfi);
+                const Array4<Real const> om  = mf_omega.const_array(mfi);
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) {
+                    dst(i,j,k) = myhalf * (om(i,j,k) + om(i,j,k+1));
+                });
+            }
+            mf_comp++;
+        }
+
 #ifdef REMORA_USE_PARTICLES
         const auto& particles_namelist( particleData.getNames() );
         for (ParticlesNamesVector::size_type i = 0; i < particles_namelist.size(); i++) {
@@ -1312,25 +1330,17 @@ REMORA::mask_arrays_for_write(int lev, Real fill_value, Real fill_where)
 }
 
 /**
- * Diagnose the two vertical velocities ROMS writes to its history file. Nothing in the
- * model reads these; they exist for output only.
+ * omega and w for the NetCDF writer, on the s_w points ROMS writes them at.
  *
- * omega (m/s) is the S-coordinate vertical velocity from continuity. W is built as
- * advance_3d builds it, but from the mass fluxes of the current u and v, Hz*u/n and
- * Hz*v/m, the same ones setup_step computes at the start of the next step. That is what
- * ROMS writes: its output follows set_massflux and omega at the top of the step. W is a
- * volume flux, so omega = pm*pn*W, as in ROMS scale_omega.
+ * Both are diagnosed from the current velocities, as ROMS does just before it writes a
+ * history record: omega by compute_diagnostic_omega and w by compute_wvel (the same w
+ * that z_velocity holds after a step). Computing w here rather than reading zvel_new
+ * keeps it consistent with omega on a coarse level whose velocities have since been
+ * averaged down.
  *
- * w (m/s) is the true vertical velocity, following ROMS wvelocity:
- *     w = pm*pn*(W + (z_w - z_bot) * d(zeta)/dt / D) + (u,v) . grad_s(z_r)
- * The slope term lives on rho points and is shifted to w points by cubic interpolation,
- * extrapolated at the bottom and top. d(zeta)/dt comes from the time-averaged barotropic
- * fluxes DU_avg1 and DV_avg1, which are zero before the first step.
- *
- * Both come out at w points with one ghost column. A ghost column at a non-periodic domain
- * edge copies its interior neighbor, as ROMS bc_w3d does, and masked columns hold the
- * NetCDF fill value. Call this before mask_arrays_for_write puts fill values into the land
- * faces of u and v.
+ * Both come out with one ghost column. A ghost column at a non-periodic edge copies its
+ * interior neighbor, as ROMS bc_w3d does, and masked columns hold the NetCDF fill value.
+ * Call this before mask_arrays_for_write puts fill values into the land faces of u and v.
  *
  * @param[in ] lev       level to diagnose
  * @param[out] mf_omega  omega, or nullptr to skip it
@@ -1341,110 +1351,13 @@ REMORA::compute_omega_and_w (int lev, MultiFab* mf_omega, MultiFab* mf_wvel)
 {
     BL_PROFILE("REMORA::compute_omega_and_w()");
 
-    if (mf_omega == nullptr && mf_wvel == nullptr) { return; }
-
-    const int N = Geom(lev).Domain().size()[2]-1; // index of the top rho level
     const Real fill_value = netcdf_fill_value;
 
-    MultiFab mf_W(convert(grids[lev],IntVect(0,0,1)),dmap[lev],1,IntVect(0,0,0));
-
-    const bool do_omega = (mf_omega != nullptr);
-    const bool do_wvel  = (mf_wvel  != nullptr);
-
-#ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-    for (MFIter mfi(mf_W, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-    {
-        Box bx2d = mfi.tilebox();
-        bx2d.makeSlab(2,0);
-
-        Array4<Real const> const& u   = xvel_new[lev]->const_array(mfi);
-        Array4<Real const> const& v   = yvel_new[lev]->const_array(mfi);
-        Array4<Real const> const& Hz  = vec_Hz[lev]->const_array(mfi);
-        Array4<Real const> const& z_r = vec_z_r[lev]->const_array(mfi);
-        Array4<Real const> const& z_w = vec_z_w[lev]->const_array(mfi);
-        Array4<Real const> const& h   = vec_h[lev]->const_array(mfi);
-        Array4<Real const> const& pm  = vec_pm[lev]->const_array(mfi);
-        Array4<Real const> const& pn  = vec_pn[lev]->const_array(mfi);
-        Array4<Real const> const& DU_avg1 = vec_DU_avg1[lev]->const_array(mfi);
-        Array4<Real const> const& DV_avg1 = vec_DV_avg1[lev]->const_array(mfi);
-        Array4<Real> const& W = mf_W.array(mfi);
-
-        Array4<Real> const& omega = do_omega ? mf_omega->array(mfi) : Array4<Real>();
-        Array4<Real> const& wvel  = do_wvel  ? mf_wvel->array(mfi)  : Array4<Real>();
-
-        ParallelFor(bx2d, [=] AMREX_GPU_DEVICE (int i, int j, int )
-        {
-            const Real on_u_lo = two / (pn(i-1,j  ,0) + pn(i  ,j  ,0));
-            const Real on_u_hi = two / (pn(i  ,j  ,0) + pn(i+1,j  ,0));
-            const Real om_v_lo = two / (pm(i  ,j-1,0) + pm(i  ,j  ,0));
-            const Real om_v_hi = two / (pm(i  ,j  ,0) + pm(i  ,j+1,0));
-
-            // Vertically integrate the horizontal mass flux divergence from zero at the
-            // bottom, then take out the free-surface motion, as advance_3d does
-            W(i,j,0) = zero;
-            for (int k = 1; k <= N+1; ++k) {
-                const Real Huon_lo = Real(0.5)*(Hz(i  ,j,k-1)+Hz(i-1,j,k-1))*u(i  ,j,k-1)*on_u_lo;
-                const Real Huon_hi = Real(0.5)*(Hz(i+1,j,k-1)+Hz(i  ,j,k-1))*u(i+1,j,k-1)*on_u_hi;
-                const Real Hvom_lo = Real(0.5)*(Hz(i,j  ,k-1)+Hz(i,j-1,k-1))*v(i,j  ,k-1)*om_v_lo;
-                const Real Hvom_hi = Real(0.5)*(Hz(i,j+1,k-1)+Hz(i,j  ,k-1))*v(i,j+1,k-1)*om_v_hi;
-                W(i,j,k) = W(i,j,k-1) - (Huon_hi-Huon_lo) - (Hvom_hi-Hvom_lo);
-            }
-            const Real wrk_i = W(i,j,N+1) / (z_w(i,j,N+1)+h(i,j,0,0));
-            for (int k = 1; k <= N; ++k) {
-                W(i,j,k) = W(i,j,k) - wrk_i*(z_w(i,j,k)+h(i,j,0,0));
-            }
-            W(i,j,N+1) = zero;
-
-            const Real pmpn = pm(i,j,0)*pn(i,j,0);
-
-            if (do_omega) {
-                for (int k = 0; k <= N+1; ++k) {
-                    omega(i,j,k) = W(i,j,k)*pmpn;
-                }
-            }
-
-            if (do_wvel) {
-                // (u,v) . grad_s(z_r) at rho level k
-                auto vert = [=] (int k) noexcept -> Real
-                {
-                    return Real(0.25) * (u(i  ,j,k)*(z_r(i  ,j,k)-z_r(i-1,j,k))*(pm(i-1,j,0)+pm(i  ,j,0))
-                                       + u(i+1,j,k)*(z_r(i+1,j,k)-z_r(i  ,j,k))*(pm(i  ,j,0)+pm(i+1,j,0)))
-                         + Real(0.25) * (v(i,j  ,k)*(z_r(i,j  ,k)-z_r(i,j-1,k))*(pn(i,j-1,0)+pn(i,j  ,0))
-                                       + v(i,j+1,k)*(z_r(i,j+1,k)-z_r(i,j  ,k))*(pn(i,j  ,0)+pn(i,j+1,0)));
-                };
-
-                const Real cff1 = Real(3.0)/Real(8.0);
-                const Real cff2 = Real(3.0)/Real(4.0);
-                const Real cff3 = Real(1.0)/Real(8.0);
-                const Real cff4 = Real(9.0)/Real(16.0);
-                const Real cff5 = Real(1.0)/Real(16.0);
-
-                // d(zeta)/dt over the total depth, spread linearly through the column
-                const Real wrk = (DU_avg1(i,j,0) - DU_avg1(i+1,j,0) +
-                                  DV_avg1(i,j,0) - DV_avg1(i,j+1,0)) /
-                                 (z_w(i,j,N+1) - z_w(i,j,0));
-                auto Wtot = [=] (int k) noexcept -> Real
-                {
-                    return pmpn * (W(i,j,k) + wrk*(z_w(i,j,k)-z_w(i,j,0)));
-                };
-
-                const Real slope_bot = (z_r(i,j,0) - z_w(i,j,0)) / (z_r(i,j,1) - z_r(i,j,0));
-                wvel(i,j,0) = cff1*(vert(0) - slope_bot*(vert(1)-vert(0)))
-                            + cff2*vert(0) - cff3*vert(1);
-                wvel(i,j,1) = Wtot(1) + cff1*vert(0) + cff2*vert(1) - cff3*vert(2);
-                for (int k = 2; k <= N-1; ++k) {
-                    wvel(i,j,k) = Wtot(k) + cff4*(vert(k-1)+vert(k  ))
-                                          - cff5*(vert(k-2)+vert(k+1));
-                }
-                const Real slope_top = (z_w(i,j,N+1) - z_r(i,j,N)) / (z_r(i,j,N) - z_r(i,j,N-1));
-                wvel(i,j,N+1) = pmpn*wrk*(z_w(i,j,N+1)-z_w(i,j,0))
-                              + cff1*(vert(N) + slope_top*(vert(N)-vert(N-1)))
-                              + cff2*vert(N) - cff3*vert(N-1);
-                wvel(i,j,N) = Wtot(N) + cff1*vert(N) + cff2*vert(N-1) - cff3*vert(N-2);
-            }
-        });
+    if (mf_omega) {
+        compute_diagnostic_omega(lev, *mf_omega);
+    }
+    if (mf_wvel) {
+        compute_wvel(lev, *mf_wvel);
     }
 
     // The NetCDF writer adds one ghost column around the subdomain it writes, which on a

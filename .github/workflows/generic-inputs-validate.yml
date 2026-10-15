@@ -1,29 +1,84 @@
 name: Generic Inputs Validate
 
+# Exec/Generic/inputs_generic is generated. Pull requests must not edit it; the
+# generic-inputs-update workflow regenerates it on development and opens a bot
+# PR. This workflow fails on hand edits and previews the change a merge will
+# cause. Label a PR "inputs-generic-hand-edit" to allow an edit deliberately.
+# A manual run checks strictly that the file on the branch is up to date.
+
 on:
   pull_request:
     branches: [development]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - "Source/**"
-      - "Submodules/AMReX/Src/**"
+      - "Submodules/AMReX"
       - "Exec/Generic/**"
       - "Docs/sphinx_doc/Inputs.rst"
       - ".github/workflows/generic-inputs-validate.yml"
       - ".github/workflows/style/check_generic_inputs.sh"
   workflow_dispatch:
 
+# Label events only rerun the hand-edit gate, so give them their own group;
+# otherwise a label change would cancel an in-progress preview.
 concurrency:
-  group: ${{ github.ref }}-${{ github.head_ref }}-generic-inputs
+  group: ${{ github.ref }}-generic-inputs-${{ (github.event.action == 'labeled' || github.event.action == 'unlabeled') && 'label' || 'code' }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  validate-generic-inputs:
+  reject-hand-edits:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      # The PR merge commit's first parent is the base branch tip.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      # Labels are read from the API, not the event payload: a code run and a
+      # label run can overlap, and the one finishing last must not act on a
+      # stale label list.
+      - name: Reject hand edits to inputs_generic
+        if: >-
+          !(github.head_ref == 'bot/inputs-generic' &&
+            github.event.pull_request.head.repo.full_name == github.repository)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_URL: ${{ github.server_url }}/${{ github.repository }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if git diff --quiet HEAD^1 HEAD -- Exec/Generic/inputs_generic
+          then
+              exit 0
+          fi
+          if gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" --jq '.[].name' \
+              | grep -qx inputs-generic-hand-edit
+          then
+              echo "Edit to inputs_generic allowed by the inputs-generic-hand-edit label."
+              exit 0
+          fi
+          echo "::error file=Exec/Generic/inputs_generic,title=Do not edit inputs_generic::This file is generated and is updated by a bot PR after merge. Restore it with: git fetch ${BASE_URL} ${BASE_REF} && git checkout FETCH_HEAD -- Exec/Generic/inputs_generic"
+          exit 1
+
+  preview-generic-inputs:
+    if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
+    runs-on: ubuntu-latest
+    env:
+      IS_BOT_PR: ${{ github.head_ref == 'bot/inputs-generic' && github.event.pull_request.head.repo.full_name == github.repository }}
 
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: true
+          fetch-depth: 2
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -34,5 +89,12 @@ jobs:
         run: |
           python3 -m unittest Exec/Generic/tests/test_build_schema_remora.py
 
-      - name: Validate generated inputs_generic is up to date
+      - name: Preview inputs_generic changes
+        if: github.event_name == 'pull_request' && env.IS_BOT_PR != 'true'
+        run: .github/workflows/style/check_generic_inputs.sh --preview HEAD^1
+
+      # The bot PR is opened with a GitHub App token, so it triggers this
+      # workflow; check that it matches a regeneration of the merge result.
+      - name: Check inputs_generic is up to date
+        if: github.event_name == 'workflow_dispatch' || env.IS_BOT_PR == 'true'
         run: .github/workflows/style/check_generic_inputs.sh

@@ -1202,12 +1202,12 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
         {
             Array4<Real> const& pm   = vec_pm_full_domain[lev]->array(mfi);
             Array4<Real> const& pn   = vec_pn_full_domain[lev]->array(mfi);
-            Box ubx = mfi.growntilebox(cum_ref_ratios[lev] - IntVect(1,0,0));;
-            Box vbx = mfi.growntilebox(cum_ref_ratios[lev] - IntVect(0,1,0));;
-            ParallelFor(makeSlab(ubx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+            // pm and pn are cell-centred, so every grow cell the average-down filled has to be
+            // rescaled too; leaving the outermost ring out left the periodic ghosts at the
+            // fine value.
+            Box gbx = mfi.growntilebox();
+            ParallelFor(makeSlab(gbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
                 pm(i,j,0) = pm(i,j,0) / Real(rrx);
-            });
-            ParallelFor(makeSlab(vbx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
                 pn(i,j,0) = pn(i,j,0) / Real(rry);
             });
         }
@@ -1217,56 +1217,6 @@ REMORA::init_grid_vars_full_domain_from_netcdf ()
         extrapolate_metric_to_physical_boundaries(*vec_pm_full_domain[lev], geom[lev]);
         extrapolate_metric_to_physical_boundaries(*vec_pn_full_domain[lev], geom[lev]);
     }
-}
-
-/**
- * @param[inout] mf    multifab of data to extrapolate on
- * @param[in   ] geom  geometry
- */
-void
-REMORA::extrapolate_metric_to_physical_boundaries (MultiFab& mf, const Geometry& geom)
-{
-    const IntVect ng = mf.nGrowVect();
-
-    const auto& dom_lo = amrex::lbound(geom.Domain());
-    const auto& dom_hi = amrex::ubound(geom.Domain());
-
-    for ( MFIter mfi(mf); mfi.isValid(); ++mfi )
-    {
-        Box bx = mfi.tilebox();
-
-        auto mf_arr = mf.array(mfi);
-
-        Box gbx_lox = adjCellLo(bx,0,ng[0]); gbx_lox.grow(1,ng[1]); gbx_lox.setBig  (0,dom_lo.x-2);
-        Box gbx_hix = adjCellHi(bx,0,ng[0]); gbx_hix.grow(1,ng[1]); gbx_hix.setSmall(0,dom_hi.x+2);
-        Box gbx_loy = adjCellLo(bx,1,ng[1]); gbx_loy.grow(0,ng[0]); gbx_loy.setBig  (1,dom_lo.y-2);
-        Box gbx_hiy = adjCellHi(bx,1,ng[1]); gbx_hiy.grow(0,ng[0]); gbx_hiy.setSmall(1,dom_hi.y+2);
-
-        if (gbx_lox.ok()) {
-            ParallelFor(gbx_lox, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(dom_lo.x-1,j,k,0);
-            });
-        }
-        if (gbx_hix.ok()) {
-            ParallelFor(gbx_hix, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(dom_hi.x+1,j,k,0);
-            });
-        }
-        if (gbx_loy.ok()) {
-            ParallelFor(gbx_loy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(i,dom_lo.y-1,k,0);
-            });
-        }
-        if (gbx_hiy.ok()) {
-            ParallelFor(gbx_hiy, [=] AMREX_GPU_DEVICE (int i, int j, int k)
-            {
-                mf_arr(i,j,k,0) = mf_arr(i,dom_hi.y+1,k,0);
-            });
-        }
-    } // mfi
 }
 
 #endif // REMORA_USE_NETCDF

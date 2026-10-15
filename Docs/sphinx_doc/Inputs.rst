@@ -95,13 +95,50 @@ Other versions of NetCDF files can be converted to 64-bit NetCDF classic by runn
 
 The utility ``ncks`` is part of the NCO suite.
 
-Currently, if initial or grid files are specified, they both must be. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
+Without the high-resolution options below, ``remora.ic_type = netcdf`` needs both ``remora.nc_init_file_0`` and ``remora.nc_grid_file_0``. Boundary condition options with NetCDF boundary data are equivalent to ROMS clamped, Chapman-Flather, and Orlanski + Nudging boundary conditions. Options and examples can be found in the section on :ref:`Domain Boundary Conditions <sec:domainBCs>`.
 
-By default, bathymetry is specified at level 0 and interpolated to the finer levels, like with any other variable. Bathymetry may also be specified at level ``remora.hires_grid_level > 0`` in file ``remora.nc_grid_file_hires``. Bathymetry on levels ``< remora.hires_grid_level`` is set by averaging down the given bathymetry. Bathymetry on higher levels is set by interpolating. High resolution bathymetry data must be given with a number of grow cells equal to the cumulative refinement ratio between level 0 and ``remora.hires_grid_level``. That is, the refined grid must fully cover the level 0 grid plus one level 0 grow cell. For example, in a problem with ``hires_grid_level = 2``, a refinement ratio of 2 between levels 0 and 1, and 3 between levels 1 and 2, ``nc_grid_file_hires`` must have 6 grow cells on each side of the domain.
+Grid and Initial Data on Refined Levels
+---------------------------------------
 
-Both levels must be greater than 0 (``-1`` means the data is specified at level 0 as usual); 0 is rejected, since the full-domain arrays it would need exist only for levels above 0. A high-resolution file smaller than the rule above is rejected by name rather than read partially, and note that on restart the bathymetry is restored from the checkpoint but ``pm``/``pn`` are re-read, so the high-resolution grid file must still be present.
+Grid and initial data files are read on level 0 only, from ``remora.nc_grid_file_0`` and ``remora.nc_init_file_0``; keys for other levels, such as ``remora.nc_grid_file_1``, are not used. By default, every field on a refined level -- bathymetry, ``pm`` and ``pn``, the land-sea mask, Coriolis, and the initial state -- is interpolated from the next coarser level.
 
-Initial data may be specified on a high-resolution level the same way, at level ``remora.hires_init_level > 0`` in file ``remora.nc_init_file_hires``, and averaged down to the levels below. The grow cell rule is the same as for bathymetry, applied to this level: the file must have as many grow cells as the cumulative refinement ratio between level 0 and ``remora.hires_init_level``. The fields it supplies are the ones a level 0 initial file supplies, on the same terms: ``temp``, ``salt``, ``u``, ``v``, and ``zeta``, plus each dye the run carries (optional, as at level 0) and the biology tracers when ``remora.biology_ic_type`` selects NetCDF. With ``remora.ic_type = analytic`` no file is read: the analytic initial state, free surface, and biology are evaluated on level ``remora.hires_init_level`` and averaged down the same way. The depths they are evaluated at use the bathymetry the model has on that level when ``remora.hires_grid_level`` is at or above it, and the analytic bathymetry evaluated on that level otherwise. Analytic high-resolution initialization requires ``remora.grid_scale_type = constant``.
+Higher-resolution data can instead be given for the whole domain at one refined level, separately for the grid and the initial state:
+
+- ``remora.hires_grid_level`` and ``remora.nc_grid_file_hires`` supply ``h``, ``pm`` and ``pn``, plus ``mask_rho`` when ``remora.mask_type = netcdf``. ``remora.mask_type`` defaults to ``netcdf`` when ``remora.ic_type = netcdf``, so the file needs ``mask_rho`` unless the mask type is set otherwise.
+- ``remora.hires_init_level`` and ``remora.nc_init_file_hires`` supply ``temp``, ``salt``, ``u``, ``v``, and ``zeta``, plus each dye the run carries (optional, as at level 0) and the biology tracers when ``remora.biology_ic_type`` selects NetCDF.
+
+Levels at or below the given level take the data coarsened down from the file. For the grid this includes levels created later by regridding. The initial state is only used to start the run, so a level created later takes its state from the coarser level, as any new level does. Levels above the given level interpolate from the coarser level as usual, except for the mask, which is copied piecewise-constant from the coarser cell. Bathymetry is coarsened as a mask-weighted mean, so a coarse cell only partly covered by water takes the depth of that water; ``pm`` and ``pn`` are averaged and divided by the refinement ratio; a coarse cell is wet if any fine cell under it is wet. When ``remora.hires_grid_level`` is set, ``remora.nc_grid_file_0`` is not needed, and likewise ``remora.nc_init_file_0`` when ``remora.hires_init_level`` is set. Coriolis is never read from the high-resolution file: ``remora.coriolis_type = netcdf`` still reads ``f`` from ``remora.nc_grid_file_0`` and interpolates it to the finer levels.
+
+Each level must be at most ``amr.max_level``. ``-1``, the default, means the data is specified at level 0 as usual, and any other negative value is treated the same way. 0 is rejected, since the full-domain arrays it would need exist only for levels above 0. The level need not be refined anywhere: the file always covers the full domain at that level's resolution, not just the refined patches.
+
+The file must also carry a number of grow cells equal to the cumulative refinement ratio ``r`` between level 0 and the given level, on every side. That is, the refined grid must fully cover the level 0 grid plus one level 0 grow cell. With ``remora.n_cell = nx ny nz``, the horizontal dimensions follow the ROMS layout:
+
+.. code:: text
+
+   xi_rho  = nx*r + 2r        eta_rho = ny*r + 2r
+   xi_u    = xi_rho - 1       eta_v   = eta_rho - 1
+
+For example, in a problem with ``hires_grid_level = 2``, a refinement ratio of 2 between levels 0 and 1, and 3 between levels 1 and 2, ``r = 6`` and ``nc_grid_file_hires`` must have 6 grow cells on each side of the domain. A file smaller than this is rejected by name rather than read partially; the size is checked on ``temp`` and ``zeta`` in the initial file and on ``h``, ``pm`` and ``mask_rho`` in the grid file. A file missing one of the other variables fails in the NetCDF reader instead, with a less specific message. ``Tests/tools/make_hires_test_data.py`` writes a matching pair of synthetic files and is a useful template.
+
+An example, from ``Exec/IdealMiniGrid/inputs_synth_hires``, with both grid and initial data given at level 1:
+
+.. code:: text
+
+   remora.n_cell             = 10 10 4
+   amr.max_level             = 1
+   amr.ref_ratio_vect        = 3 3 1
+
+   remora.ic_type            = "netcdf"
+   remora.mask_type          = "none"           # grid file has no mask_rho
+   remora.use_coriolis       = false
+   remora.hires_grid_level   = 1
+   remora.nc_grid_file_hires = "hires_grd.nc"   # xi_rho = eta_rho = 10*3 + 6 = 36
+   remora.hires_init_level   = 1
+   remora.nc_init_file_hires = "hires_ini.nc"
+
+On restart both high-resolution files must still be present. The levels are rebuilt from them before the checkpoint is read in: the checkpoint then restores the bathymetry and the state, but ``pm`` and ``pn`` are kept from the grid file.
+
+With ``remora.ic_type = analytic`` the levels work the same way, but no initial file is read, and no grid file either unless ``remora.mask_type = netcdf``, which still reads ``mask_rho`` from ``remora.nc_grid_file_hires`` (or from ``remora.nc_grid_file_0`` without ``remora.hires_grid_level``): the analytic bathymetry is evaluated on level ``remora.hires_grid_level``, and the analytic initial state, free surface, and biology on level ``remora.hires_init_level``, and averaged down. Likewise, with ``remora.mask_type = analytic`` the analytic mask is evaluated on level ``remora.hires_grid_level``. The depths the initial state is evaluated at use the bathymetry the model has on that level when ``remora.hires_grid_level`` is at or above it, and the analytic bathymetry evaluated on that level otherwise. Analytic high-resolution initialization requires ``remora.grid_scale_type = constant``.
 
 List of Parameters
 ------------------
@@ -115,23 +152,27 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   | data from files                   | or ``netcdf``   | ``analytic``                    |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
-| **remora.nc_init_file_0**         | initial data NetCDF               | string          | must be set                     |
+| **remora.nc_init_file_0**         | initial data NetCDF               | string          | must be set if                  |
 |                                   |                                   |                 |                                 |
-|                                   |                                   |                 | if ``remora.ic_type``           |
+|                                   |                                   |                 | ``remora.ic_type = netcdf``     |
 |                                   |                                   |                 |                                 |
-|                                   | file name                         |                 | is true                         |
+|                                   | file name                         |                 | without ``hires_init_level``    |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
-| **remora.nc_grid_file_0**         | grid data NetCDF                  | string          | must be set                     |
+| **remora.nc_grid_file_0**         | grid data NetCDF                  | string          | must be set if ``ic_type``      |
 |                                   |                                   |                 |                                 |
-|                                   |                                   |                 | if ``remora.ic_type``           |
+|                                   |                                   |                 | or ``mask_type`` is ``netcdf``  |
 |                                   |                                   |                 |                                 |
-|                                   | file name                         |                 | is true                         |
+|                                   | file name                         |                 | without ``hires_grid_level``    |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.nc_grid_file_hires**     | high-resolution grid data NetCDF  | string          | must be set if                  |
 |                                   |                                   |                 |                                 |
 |                                   |                                   |                 | ``remora.hires_grid_level``     |
 |                                   |                                   |                 |                                 |
-|                                   | file name                         |                 | is valid (greater than -1)      |
+|                                   | file name                         |                 | is greater than 0 and           |
+|                                   |                                   |                 |                                 |
+|                                   |                                   |                 | ``ic_type`` or ``mask_type``    |
+|                                   |                                   |                 |                                 |
+|                                   |                                   |                 | is ``netcdf``                   |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.hires_grid_level**       | level where high-resolution       | integer         | -1, meaning grid data will      |
 |                                   |                                   |                 |                                 |
@@ -143,13 +184,15 @@ List of Parameters
 |                                   |                                   |                 |                                 |
 |                                   | NetCDF file name                  |                 | ``remora.hires_init_level``     |
 |                                   |                                   |                 |                                 |
-|                                   |                                   |                 | is valid (greater than -1)      |
+|                                   |                                   |                 | is greater than 0 and           |
+|                                   |                                   |                 |                                 |
+|                                   |                                   |                 | ``ic_type = netcdf``            |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.hires_init_level**       | level where high-resolution       | integer         | -1, meaning initial data        |
 |                                   |                                   |                 |                                 |
-|                                   | initial data is specified         |                 | will be specified at level 0    |
+|                                   | initial data is specified, either |                 | will be specified at level 0    |
 |                                   |                                   |                 |                                 |
-|                                   | in a NetCDF file                  |                 |                                 |
+|                                   | in NetCDF file or analytically    |                 |                                 |
 +-----------------------------------+-----------------------------------+-----------------+---------------------------------+
 | **remora.nc_bdry_file**           | boundary data NetCDF              | string or list  | must be set if                  |
 |                                   |                                   |                 |                                 |
@@ -445,6 +488,17 @@ Notes
       directions, so nine fine faces at ratio 3 -- instead of only the faces that tile the
       coarse face. Not conservative in principle; about 3e-10 of volume drift in practice.
 
+   -  **remora.cf_avgdown_volume_weighted** (default 0) averages the fine tracers onto the
+      coarse level weighted by cell volume, ``Hz/(pm*pn)``, as well as by the mask. The
+      default is ROMS's ``fine2coarse3d``, an area mean of concentration, which gains or
+      loses tracer content wherever the fine layer thickness varies under a coarse cell, as
+      it does where interpolated bathymetry meets the coast. Volume weighting keeps the
+      content only where the coarse cell's volume matches the fine volumes under it; at a
+      coast, where a coarse cell is wet if any fine cell under it is, it does not. It applies
+      to the average-down during the run, not to the initial coarsening of high-resolution
+      data; a two-way run averages down once before its first step, so only coarse cells
+      outside the fine grids keep the area mean.
+
    -  **remora.cf_flux_pc** (default 1) shares the parent's interface mass flux out
       piecewise-constantly over the fine faces under each parent face, as ROMS's
       ``get_persisted2d`` does, instead of with the linear tangential variation of AMReX's
@@ -665,12 +719,15 @@ the run within the calendar the way ROMS ``DSTART`` does. With the default
 ``time_ref = 0``, a run starting on 1 January 2020 sets
 ``remora.start_time = 63713433600``.
 
-Times given in inputs -- ``remora.start_time``, ``remora.stop_time``, the
-``start_time`` and ``end_time`` of a refinement indicator -- and the time
-variables of NetCDF forcing, boundary, river and climatology files are all on
-this model clock. Internally the model clock is split, as ROMS splits ``DSTART``
-from the time it advances: ``remora.start_time`` is kept in double precision,
-and the solver advances only the time elapsed since it. That keeps the timestep
+``remora.start_time``, ``remora.stop_time`` and the time variables of NetCDF
+forcing, boundary, river and climatology files are all on this model clock.
+The time window of a refinement indicator is instead given in seconds since
+``remora.start_time`` by default, or on the model clock with that indicator's
+``start_total_time`` and ``end_total_time`` (see :ref:`MeshRefinement`).
+
+Internally the model clock is split, as ROMS splits ``DSTART`` from the time it
+advances: ``remora.start_time`` is kept in double precision, and the solver
+advances only the time elapsed since it. That keeps the timestep
 resolvable in a single-precision build, where seconds since a calendar epoch
 would otherwise round to tens of seconds or more. Checkpoints store the elapsed
 time together with ``remora.start_time``; a checkpoint from before this split,
@@ -1471,6 +1528,18 @@ List of GLS-specific parameters
 | **remora.gls_sigp**              |                                      | Real number       | 1.3            |
 |                                  |                                      |                   |                |
 +----------------------------------+--------------------------------------+-------------------+----------------+
+| **remora.gls_length_cap**        | Cap the turbulent length scale at    | 0 if false, 1     | 1              |
+|                                  |                                      |                   |                |
+|                                  | kappa times the local water-column   | if true           |                |
+|                                  |                                      |                   |                |
+|                                  | depth, as in ROMS. Applied in every  |                   |                |
+|                                  |                                      |                   |                |
+|                                  | cell, after the Galperin limit in    |                   |                |
+|                                  |                                      |                   |                |
+|                                  | stable stratification. Set to 0 to   |                   |                |
+|                                  |                                      |                   |                |
+|                                  | leave the length scale uncapped.     |                   |                |
++----------------------------------+--------------------------------------+-------------------+----------------+
 | **remora.Akk_bak**               | Initial/minimum value of Akk         | Real number       | 5.0e-6         |
 |                                  |                                      |                   |                |
 +----------------------------------+--------------------------------------+-------------------+----------------+
@@ -1596,6 +1665,15 @@ Additional bulk-flux controls:
 +--------------------------------------+----------------------------------------+-------------------+----------------+
 | **remora.blk_ZW**                    | Height [m] of wind measurements        | Real number       | 10.0           |
 +--------------------------------------+----------------------------------------+-------------------+----------------+
+| **remora.bulk_flux_scheme**          | COARE version of the Charnock          | coare30, coare35  | coare30        |
+|                                      | parameter and the moisture and thermal |                   |                |
+|                                      | roughness lengths (ROMS ``COARE_30``)  |                   |                |
++--------------------------------------+----------------------------------------+-------------------+----------------+
+
+The rest of the bulk flux follows myROMS's ``bulk_flux.F`` whatever the COARE
+version: the buoyancy flux in the gustiness, the vector stress normalized by the
+wind speed without gustiness, and the magnitude of the rain in the rain heat
+flux and stress, since negative rain is snow.
 
 When a source selector is ``constant``, spatially uniform values are set
 from values specified in the inputs file.

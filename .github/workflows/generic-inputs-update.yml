@@ -1,0 +1,84 @@
+name: Generic Inputs Update
+
+# Regenerate Exec/Generic/inputs_generic after merges to development and open
+# (or update) a single PR from bot/inputs-generic. Nothing is pushed to
+# development directly, so branch protection applies to the bot as to anyone.
+#
+# The PR is opened with a token from a GitHub App, like Dependabot's, rather
+# than GITHUB_TOKEN: that needs no "Allow GitHub Actions to create pull
+# requests" setting, and CI runs on the bot PR. The App needs only Contents
+# and Pull requests (read and write) on this repository, and must not be on
+# any branch-protection bypass list. Its client ID is the INPUTS_BOT_CLIENT_ID
+# variable and its private key the INPUTS_BOT_PRIVATE_KEY secret, both in the
+# inputs-bot environment, which should be limited to the development branch.
+
+on:
+  push:
+    branches: [development]
+    paths:
+      - "Source/**"
+      - "Submodules/AMReX"
+      - "Exec/Generic/**"
+      - "Docs/sphinx_doc/Inputs.rst"
+      - ".github/workflows/generic-inputs-update.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: generic-inputs-update
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  update-generic-inputs:
+    if: github.repository == 'seahorce-scidac/REMORA'
+    runs-on: ubuntu-latest
+    environment: inputs-bot
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Regenerate inputs_generic
+        run: |
+          python3 -m unittest Exec/Generic/tests/test_build_schema_remora.py
+          bash Exec/Generic/build_schema_remora.sh
+          python3 Exec/Generic/render_inputs_generic.py
+
+      # Minted after the generator has run, so no earlier step can see it. It
+      # is limited to this repository and these permissions, and is revoked
+      # when the job ends.
+      - name: Get a token for the bot App
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.INPUTS_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.INPUTS_BOT_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Open or update the bot PR
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: bot/inputs-generic
+          base: development
+          add-paths: Exec/Generic/inputs_generic
+          commit-message: Update generated inputs_generic
+          title: Update generated inputs_generic
+          body: |
+            Regenerated `Exec/Generic/inputs_generic` from `development` at ${{ github.sha }}.
+
+            Opened by the generic-inputs-update workflow. Review the parameter
+            and description changes, then merge. Later merges to `development`
+            update this PR in place.
+          delete-branch: true

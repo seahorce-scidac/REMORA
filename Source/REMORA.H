@@ -1011,6 +1011,28 @@ public:
                        const int nnew, const int N,
                        const amrex::Real dt_lev);
 
+    /** \brief Vertical volume flux W from the horizontal mass flux divergence */
+    static void compute_W (const amrex::Box& bx2d,
+                           const amrex::Array4<amrex::Real      >& W,
+                           const amrex::Array4<amrex::Real const>& Huon,
+                           const amrex::Array4<amrex::Real const>& Hvom,
+                           const amrex::Array4<amrex::Real const>& z_w,
+                           const amrex::Array4<amrex::Real const>& h,
+                           const int N);
+
+    /** \brief Velocity across the w-levels (omega, m/s) from the given mass fluxes */
+    void compute_omega (int lev, amrex::MultiFab& mf_omega,
+                        const amrex::MultiFab& mf_Huon, const amrex::MultiFab& mf_Hvom);
+
+    /** \brief omega (m/s) as ROMS writes it: from mass fluxes of the current velocities */
+    void compute_diagnostic_omega (int lev, amrex::MultiFab& mf_omega);
+
+    /** \brief "True" vertical velocity w (m/s) at w-points, as ROMS wvelocity */
+    void compute_wvel (int lev, amrex::MultiFab& mf_w);
+
+    /** \brief Horizontal mass fluxes Hz*u/n and Hz*v/m of the current velocities, as ROMS set_massflux */
+    void set_massflux_3d (int lev, amrex::MultiFab& mf_Huon, amrex::MultiFab& mf_Hvom);
+
     /** \brief Correct mass flux */
     void update_massflux_3d (int lev, const amrex::Box& bx,
                              const int ioff, const int joff,
@@ -1196,6 +1218,9 @@ public:
 
     /** \brief Rebuild the u-, v- and psi-point masks from vec_mskr and fill their ghosts */
     void update_nodal_masks (int lev);
+
+    /** \brief Give lev's rho-mask ghost cells beyond the domain the coarser level's values */
+    void inject_mask_outside_domain (int lev);
 
     /** \brief Make sure the coarse masks the average-down kernels read sit on the coarsened
      * layout of level crse_lev+1, rebuilding them if a regrid has moved it */
@@ -1442,7 +1467,8 @@ public:
 
     void average_down_masked (int crse_lev, const amrex::MultiFab& S_fine,
                               amrex::MultiFab& S_crse, const amrex::MultiFab& msk_fine,
-                              const amrex::MultiFab& cmsk, int ncomp, int face_dir);
+                              const amrex::MultiFab& cmsk, int ncomp, int face_dir,
+                              bool volume_weighted = false);
 
     /** \brief Initialize high-resolution initial data, zeta included, from analytic functions */
     void init_full_domain_from_analytic();
@@ -1567,7 +1593,10 @@ private:
                                 amrex::MultiFab const* mf_omega,
                                 amrex::MultiFab const* mf_wvel,
                                 bool write_header, ncutils::NCFile& ncf,
-                                bool is_history);
+                                bool is_history, long long history_record = 0);
+
+    /** \brief Record at which a restarted run continues a history file */
+    long long history_restart_record (int lev, const std::string& path);
 
     /** \brief Write MultiFab in NetCDF format */
     void WriteNCMultiFab (const amrex::FabArray<amrex::FArrayBox> &fab,
@@ -1903,6 +1932,14 @@ private:
      *         across the interface -- but only about 3e-10 of volume drift in practice, well
      *         under the free-surface ghost band's cost. */
     int cf_avgdown_stencil = 1;
+    /** \brief average the fine tracers onto the coarse weighted by cell volume, Hz/(pm*pn),
+     *         rather than by area as ROMS's fine2coarse3d does. Off by default. Where the
+     *         fine layer thickness varies under a coarse cell, as interpolated bathymetry
+     *         near land makes it, the area mean gains or loses tracer content. Volume
+     *         weighting keeps it only where the coarse cell's volume matches the fine
+     *         volumes under it, so not at a coast, and it is not applied to the initial
+     *         high-resolution cascade (average_down_with_grow_cells). */
+    int cf_avgdown_volume_weighted = 0;
 
     /** \brief print the imposed coarse-fine interface velocity at this baroclinic step
      *         (-1 = off). Diagnostic only; the fine level is not in the NetCDF output. */
@@ -1949,6 +1986,11 @@ private:
     int steps_per_history_file = -1;
     /** \brief Counter for which time index we are writing to in the netcdf history file */
     int history_count = 0;
+    /** \brief Per level, the history file this run last wrote to */
+    amrex::Vector<std::string> history_file_in_use;
+    /** \brief Per level, history_count minus the record written in the file in
+     *  use. Nonzero only after a restart. */
+    amrex::Vector<long long> history_record_shift;
 
     /** \brief Names of 3D variables to output to AMReX plotfile */
     amrex::Vector<std::string> plot_var_names_3d;
@@ -1962,7 +2004,7 @@ private:
     amrex::Vector<std::string> cons_names {"temp", "salt", "tracer"};
     // Note that the order of variable names here must match the order in PlotFile.cpp
     /** \brief Names of derived fields for 3d plotfile fields */
-    const amrex::Vector<std::string> derived_names_3d {"vorticity"};
+    const amrex::Vector<std::string> derived_names_3d {"vorticity", "omega"};
     /** \brief Names of derived fields for 2d plotfile fields */
     const amrex::Vector<std::string> derived_names_2d {};
 

@@ -4,10 +4,18 @@
 Regression Tests
 ================
 
-There are currently 27 tests which are run as part of every PR on a range of architectures: 20 accuracy
-tests that compare a plotfile against a stored reference, two that assert values against an external
-reference instead, and five that assert a misconfigured input fails for the stated reason.
-The CI tests use cmake and are based on the version
+There are currently 63 regression tests which are run as part of every PR on a range of architectures:
+
+* 22 that compare a plotfile against a stored reference;
+* 6 that compare two runs of the model against each other, or a run against its own initial state, and
+  need no reference;
+* 5 that assert values against an external reference;
+* 5 that assert the structure of the refined grid;
+* 8 that assert how far an integrated quantity drifts over a run;
+* 8 that assert a run reaches a behavior it reports in its log;
+* 9 that assert a misconfigured input fails for the stated reason.
+
+There is also one unit test, ``DateClock``. The CI tests use cmake and are based on the version
 of AMReX in the REMORA submodule. This suite can be run following the
 instructions in :ref:`Testing<Testing>`, which also describes the different kinds of assertion and what
 each is for. All of them run under MPI on two ranks, and are checked to be rank-invariant.
@@ -56,6 +64,12 @@ The following problems are currently tested in the CI. More details about the pr
 |                         |          |           |          | evaporation/precipitation with  |
 |                         |          |           |          |                                 |
 |                         |          |           |          | sea surface height correction   |
++-------------------------+----------+-----------+----------+---------------------------------+
+| Channel_Test_ML_seam    | 20 60 50 | Periodic  | SlipWall | Coriolis                        |
+|                         |          |           |          |                                 |
+|                         |          |           |          | static multilevel, refined      |
+|                         |          |           |          |                                 |
+|                         |          |           |          | patch on the periodic seam      |
 +-------------------------+----------+-----------+----------+---------------------------------+
 | DogboneAnalytic         | 42 15 16 | SlipWall  | SlipWall | quadratic bottom stress         |
 |                         |          |           |          |                                 |
@@ -126,6 +140,13 @@ The following problems are currently tested in the CI. More details about the pr
 |                         |          |           |          | quadratic bottom stress         |
 +-------------------------+----------+-----------+----------+---------------------------------+
 
+``Channel_Test_ML_seam`` places a refined patch whose low x edge lies on the periodic seam. It is the only
+lane whose fine level touches a periodic boundary, and so the only one covering the periodic handling in
+the mask construction, the ghost fill of the fine level, and the ubar/vbar average-down. It is also the
+only multi-level lane with Coriolis on. Its reference was produced on one rank with one box per level;
+under MPI the level-1 box splits, so the two-rank run also covers the ghost refresh at the internal box
+boundary after the coarse-fine barotropic boundary conditions are set.
+
 .. _sec:ci-hires-tests:
 
 High-resolution initialization tests
@@ -162,7 +183,7 @@ test. The three lanes take the bathymetry at the initialization level from a dif
 evaluated there, evaluated there although grid data exists on a coarser level, and averaged down from
 grid data on a finer level.
 
-*Misconfiguration.* Five lanes assert that a bad combination fails with the message that names it, rather
+*Misconfiguration.* Four lanes assert that a bad combination fails with the message that names it, rather
 than segfaulting, writing out of bounds, or running on data it quietly ignored.
 
 *Partial coverage.* The two ``DogboneAnalytic_MLmask`` tests are the only ones in which a coarse cell is
@@ -253,6 +274,257 @@ constants come from the analytic profile in ``Source/Prob/REMORA_InitAnalyticBio
 constant is unchanged by averaging, so the expected level-0 values are known outright rather than
 snapshotted. Asserting the dye is zero alongside them is what catches a regression in the
 ``Bio_comp = Tracer_comp + remora.nscalar`` offset, which would shift a biology tracer into the dye slot.
+
+The two ``DogboneAnalytic_MLmask`` lanes also assert where level 1 is. The static box spans the full
+width of the domain in y, 0 to 750, and the coasts run through it, so the whole box must be refined,
+land included, rather than clipped back to the water (which once gave y in [250, 500]). The ratio-2 lane
+covers the same fix on the other refinement-ratio path: there the grids go from three clipped boxes to
+two full-box grids, which a stationarity comparison alone cannot see.
+
+.. _sec:ci-tagging-tests:
+
+Refinement tagging tests
+------------------------
+
+Grid structure is the only place a tagging bug shows: a criterion that has stopped tagging, or one that
+has started tagging the coastline, still writes a self-consistent plotfile that a snapshot comparison
+accepts. These lanes assert the grid itself instead -- which levels exist, or how many cells a level
+covers -- using ``adjacent_difference_greater`` criteria on the Dogbone case at ratio 3.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| DogboneAnalytic_MLcoastskip     | 42 15 16 | a gradient criterion on ``temp`` does not see the jump  |
+|                                 |          |                                                         |
+|                                 |          | to the zeroed land cells: no level 1 is built, and the  |
+|                                 |          |                                                         |
+|                                 |          | run stays at rest                                       |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLcoasttag      | 42 15 16 | the same criterion on ``mask`` does see the coast and   |
+|                                 |          |                                                         |
+|                                 |          | builds level 1                                          |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLdryface       | 42 15 16 | a criterion on ``x_velocity`` is guarded by the masks   |
+|                                 |          |                                                         |
+|                                 |          | of both cells sharing the face, not by the cell's own:  |
+|                                 |          |                                                         |
+|                                 |          | level 1 covers exactly 6480 cells                       |
++---------------------------------+----------+---------------------------------------------------------+
+
+``MLcoastskip`` and ``MLcoasttag`` are a pair: ``MLcoastskip`` catches a guard that has stopped skipping
+the coast, and ``MLcoasttag`` catches a lost ``mask`` exemption. Neither catches a guard that tags nothing
+at all. The exemption is a null mask, so ``MLcoasttag`` runs AMReX's unguarded test, and ``MLcoastskip``
+expects no level 1 anyway. That case is caught by ``DogboneAnalytic_MLvel`` and ``_MLhires``, whose
+``x_velocity`` criteria go through the guard; ``Advection_ML`` does not, since an unmasked run skips it.
+
+``MLcoastskip`` and ``MLdryface`` set ``amr.regrid_int = 2``. The land values they contrast against are
+created by masking during stepping -- at initialization ``temp`` is 10 on land as well as water -- so
+tagging only at initialization would let both pass with the guard removed.
+
+``MLdryface`` covers a face-staggered field, where the cell's own mask is not the whole story. A wet cell
+whose low-x neighbor is land holds an exact zero in ``x_velocity`` that is a mask artifact, not slack
+water. Guarding it by that cell's mask alone lets the jump between the zero and the real flow next to it
+refine the coast, which refines 12960 cells instead of 6480. Both regions share a bounding box, so the
+assertion is a cell count, summed over boxes so it does not depend on load balancing. The land band is
+moved into the region the free-surface bump drives, so there is real flow beside the coast to contrast
+against, and this case evolves, so there is no stationarity comparison. Its threshold, 0.025, sits near
+the middle of the band that gives 6480 cells (roughly [0.019, 0.032]; 8640 or more below it, 5760 above),
+so the flow has to change by about 30% before the count moves. With no gold file the count is the only
+signal, so a failure here may be a change in the flow rather than in tagging.
+
+The ``vorticity`` stencil, a 3x3 block, has no test: the only masked problem is near-irrotational, so any
+assertion on it would be pinned to roundoff.
+
+.. _sec:ci-subcycle-tests:
+
+Time subcycling tests
+---------------------
+
+These cover ``remora.do_substep``, under which each refined level advances with its own time step. The
+answers on the default path are pinned by the ``Advection_ML`` and ``DogboneAnalytic_ML`` reference lanes;
+these lanes assert what those cannot -- that subcycling actually engages, that the subcycling and lockstep
+drivers agree where they should, and that the assumptions underneath the coarse-fine treatment hold.
+Unless noted otherwise, level 1 runs at half the level-0 step (``fixed_dt = 100``, ratio 2).
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Advection_ML_subcycle           | 80 80 16 | level 1 is advanced with ``dt = 50``                    |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_ML_subcycle\_         | 80 80 16 | at a time-step ratio of 1, the subcycling driver        |
+| identity                        |          |                                                         |
+|                                 |          | reproduces the lockstep driver                          |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_ML_subcycle     | 42 15 16 | subcycling engages at ratio 3 over varying bathymetry,  |
+|                                 |          |                                                         |
+|                                 |          | three level-1 steps of 0.6667 s per level-0 step        |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_ML_cf_metrics         | 80 80 16 | the fine cell edges along the coarse-fine interface sum |
+|                                 |          |                                                         |
+|                                 |          | to the coarse edge, to 1e-14 (ratio 2)                  |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_ML_cf_metrics   | 42 15 16 | the same at ratio 3, the grid the volume lanes below    |
+|                                 |          |                                                         |
+|                                 |          | are measured on                                         |
++---------------------------------+----------+---------------------------------------------------------+
+| BoundaryLayer_ML_cf_metrics     | 39 4 30  | the same over non-uniform ``pm`` and ``pn``, where it   |
+|                                 |          |                                                         |
+|                                 |          | does not hold trivially                                 |
++---------------------------------+----------+---------------------------------------------------------+
+| BoundaryLayer_ML_plot_z         | 39 4 30  | the node positions a viewer rebuilds from the plotfile  |
+|                                 |          |                                                         |
+|                                 |          | reproduce ``z_phys_nd`` on every level                  |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_ML_do_substep_alias   | 80 80 16 | the old ``amr.do_substep`` spelling is still read, and  |
+|                                 |          |                                                         |
+|                                 |          | warns that it is deprecated                             |
++---------------------------------+----------+---------------------------------------------------------+
+| Advection_ML_do_substep_both\_  | 80 80 16 | setting both ``remora.do_substep`` and                  |
+| abort                           |          |                                                         |
+|                                 |          | ``amr.do_substep`` is rejected                          |
++---------------------------------+----------+---------------------------------------------------------+
+
+``Advection_ML_subcycle_identity`` is the load-bearing one: it separates a broken driver from the answer
+changes subcycling legitimately makes. ``remora.do_reflux`` is off in its subcycled run, because
+refluxing is a correction the lockstep driver does not apply at all, and leaving it on would compare a
+feature rather than the drivers. ``Advection`` has a flat bottom, so the water depth matches across the
+interface and the mass-flux boundary condition reduces to the interpolation it replaces; the Dogbone
+lane, with varying bathymetry and ratio 3, is the one that exercises it.
+
+The three ``cf_metrics`` lanes check an identity the conservative coarse-fine flux depends on: unless the
+fine edges sum to the coarse edge, the mass flux imposed at the interface cannot be conservative. The
+check runs under ``remora.check_cf_metrics`` and aborts past ``remora.check_cf_tol``, so reaching the
+printed summary is the assertion. It measures 0 at ratio 2 and 1.4e-16 at ratio 3; every other
+multi-level case has uniform ``pm`` and ``pn``, which is why the BoundaryLayer lane is needed. It is not
+guaranteed on the NetCDF grid path, where a finer level's metrics are interpolated from the parent's.
+
+``BoundaryLayer_ML_plot_z`` rebuilds each node's height the way a viewer does, from the plotfile header's
+``prob_lo`` and ``dx`` plus the ``Nu_nd`` displacement, and aborts under ``remora.check_plot_z`` unless the
+top and bottom node layers of every level reproduce ``z_phys_nd``. With ``expand_plotvars_to_unif_rr`` the
+refined level's header ``dz`` is the native one divided by the ratio, and the refined patch's surface once
+came out 32 m low because the nodal data was not refined in z to match.
+
+.. _sec:ci-conservation-tests:
+
+Conservation tests
+------------------
+
+``Advection`` is doubly periodic and ``DogboneAnalytic`` is closed by slip walls, so nothing can leave
+either domain and the totals of tracer and volume have to hold. Each lane runs 20 steps and asserts the
+relative drift of a total in the integrated-quantity log against a bound, either below it or, for a
+control, above it. The bounds come from measurement.
+
++---------------------------------------+------------+------------------------------------------------+
+| Test                                  | Quantity   | What it asserts                                |
++=======================================+============+================================================+
+| Advection_ML_conservation             | tracer     | with refluxing, the drift is below 1e-10       |
++---------------------------------------+------------+------------------------------------------------+
+| Advection_ML_conservation_control     | tracer     | without refluxing, the same run drifts above   |
+|                                       |            |                                                |
+|                                       |            | 1e-6                                           |
++---------------------------------------+------------+------------------------------------------------+
+| Advection_3L_conservation             | tracer     | the same as the first, with three levels       |
++---------------------------------------+------------+------------------------------------------------+
+| Advection_3L_conservation_control     | tracer     | the same as the second, with three levels      |
++---------------------------------------+------------+------------------------------------------------+
+| Advection_conservation_baseline       | tracer,    | on one level, both drift below 1e-12           |
+|                                       |            |                                                |
+|                                       | volume     |                                                |
++---------------------------------------+------------+------------------------------------------------+
+| DogboneAnalytic_ML_conservation       | volume     | the default subcycling path drifts below 1e-7  |
++---------------------------------------+------------+------------------------------------------------+
+| DogboneAnalytic_ML_conservation_cons  | volume     | with the two ghost-band free-surface options   |
+|                                       |            |                                                |
+|                                       |            | off, the drift is below 1e-8                   |
++---------------------------------------+------------+------------------------------------------------+
+| DogboneAnalytic_ML_conservation\_     | volume     | the lockstep driver drifts above 1e-7          |
+| lockstep                              |            |                                                |
++---------------------------------------+------------+------------------------------------------------+
+
+The controls are what make the bounds mean something: if one ever passes by conserving, its case has
+stopped exercising the correction its partner is asserting, and the partner is proving nothing.
+Refluxing takes the two-level tracer drift from 7.8e-5 to below what 12 digits resolve. The three-level
+lanes exist because the correction at the level-1/level-2 interface has to be accumulated over several
+level-1 steps before it is applied; a two-level case refluxes once per step of its only coarse level,
+and so passes whether or not that accumulation is right. The single-level baseline is exact, so the AMR
+bounds are measured against roundoff rather than against an unknown scheme error.
+
+Volume is the integral of the free surface, so what costs it is how that surface is written in the fine
+ghost band. By default REMORA writes it as ROMS's ``put_refine2d`` does -- every leapfrog record plus
+``Zt_avg1`` (``remora.cf_fill_all_kcomp``), interpolated onto the child's sub-time
+(``remora.cf_time_interp_zeta``) -- and neither preserves volume: the default path measures 2.9e-8, and
+with both off the drift falls to 2.0e-9. The lockstep driver interpolates the parent's ubar at the
+interface instead of imposing its time-averaged flux and drifts 2.0e-6, which is what separates the two
+drivers in this case.
+
+.. _sec:ci-ndtfast-tests:
+
+Barotropic substep count tests
+------------------------------
+
+``remora.ndtfast`` is the number of barotropic steps per baroclinic step. It has no usable default, and a
+zero divides by zero and sizes the barotropic weights to one element, which the 2D step then reads past
+the end of. These lanes, all on ``Channel_Test``, cover it and the input names around it.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| Channel_Test_ndtfast_alias      | 20 60 50 | ``remora.fixed_ndtfast_ratio`` gives the same answer as |
+|                                 |          |                                                         |
+|                                 |          | ``remora.ndtfast`` with the same count                  |
++---------------------------------+----------+---------------------------------------------------------+
+| Channel_Test_ndtfast_unset\_    | 20 60 50 | a run that sets neither is rejected                     |
+| abort                           |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
+| Channel_Test_fixed_fast_dt\_    | 20 60 50 | the removed ``remora.fixed_fast_dt`` is rejected rather |
+| abort                           |          |                                                         |
+|                                 |          | than silently ignored                                   |
++---------------------------------+----------+---------------------------------------------------------+
+| Channel_Test_ndtfast_both\_     | 20 60 50 | setting both spellings is rejected                      |
+| abort                           |          |                                                         |
++---------------------------------+----------+---------------------------------------------------------+
+
+The alias comparison cannot pass for the wrong reason: a run that ignored the alias would be left without
+a count and abort rather than agree.
+
+.. _sec:ci-maskring-tests:
+
+Wall masking tests
+------------------
+
+These place land on the boundary ring of rho points beside interior water, as in a ROMS closed basin
+(``remora.prob.mask_ring``), on the ``DogboneAnalytic`` case with constant horizontal mixing so that the
+ring is read.
+
++---------------------------------+----------+---------------------------------------------------------+
+| Test                            | nx ny nz | What it asserts                                         |
++=================================+==========+=========================================================+
+| DogboneAnalytic_maskring        | 42 15 16 | the wall boundary conditions put zero on that land, as  |
+|                                 |          |                                                         |
+|                                 |          | ROMS's ``t3dbc`` and ``zetabc`` do                      |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_maskring\_      | 42 15 16 | writing a plotfile every step gives the same answer as  |
+| plotint                         |          |                                                         |
+|                                 |          | writing one at the end                                  |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_maskring\_      | 42 15 16 | a run restarted from its step-5 checkpoint finishes     |
+| restart                         |          |                                                         |
+|                                 |          | where the continuous run does                           |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmaskring      | 42 15 16 | a refined patch against the walls, with its mask        |
+|                                 |          |                                                         |
+|                                 |          | injected from level 0, agrees with the same run with    |
+|                                 |          |                                                         |
+|                                 |          | ``hires_grid_level = 1``, so its grow cells beyond the  |
+|                                 |          |                                                         |
+|                                 |          | domain keep the ring                                    |
++---------------------------------+----------+---------------------------------------------------------+
+| DogboneAnalytic_MLmaskring\_    | 42 15 16 | the same against a periodic x seam with land on its     |
+| periodic                        |          |                                                         |
+|                                 |          | far side, so those grow cells hold what lies across it  |
++---------------------------------+----------+---------------------------------------------------------+
+
+Only the first needs a reference file.
 
 .. _sec:ci-bc-tests:
 
