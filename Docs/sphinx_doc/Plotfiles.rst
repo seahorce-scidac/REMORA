@@ -254,6 +254,19 @@ the tracers are advected with. All velocities are averaged to cell centers in AM
 +--------------------------------+------------------------------------+
 | **shflux**                     | sensible heat flux [W/m2]          |
 +--------------------------------+------------------------------------+
+| **net_heat_flux**              | surface net heat flux applied to   |
+|                                | the ocean, after any sea ice       |
+|                                | [W/m2]                             |
++--------------------------------+------------------------------------+
+| **net_salt_flux**              | surface net salt flux applied to   |
+|                                | the ocean, after any sea ice       |
+|                                | [psu m/s]                          |
++--------------------------------+------------------------------------+
+| **seaice**                     | every sea-ice state variable and   |
+|                                | ice field, with net_heat_flux and  |
+|                                | net_salt_flux (see                 |
+|                                | :ref:`sec:SeaIce`)                 |
++--------------------------------+------------------------------------+
 | **mask_rho**                   | rho-point mask (sea = 1, land = 0) |
 +--------------------------------+------------------------------------+
 | **mask_u**                     | u-point mask (sea = 1, land = 0)   |

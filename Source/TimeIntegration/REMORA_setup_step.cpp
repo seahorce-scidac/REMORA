@@ -200,6 +200,17 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     if (solverChoice.bulk_flux_type[BulkFlux::LWrad] != BulkForcingType::computed) {
         lw_ptr = vec_longwave_down[lev].get();
     }
+    // ROMS main3d computes the ice albedo just before the bulk flux, which reads it
+    if (has_seaice()) {
+        // The ice takes its air-ice stress, heat budget and open-water fluxes from the bulk
+        // flux, which a driver supplying fluxes rather than atmospheric state skips
+        if (running_with_coupling_driver && !DriverUsesStateForcing(driver_atmos_forcing_mode)) {
+            amrex::Abort("remora.ice_model needs the bulk flux, so a coupling driver must supply "
+                         "atmospheric state rather than surface fluxes");
+        }
+        ice_albedo(lev);
+    }
+
     if (solverChoice.bulk_fluxes &&
         (!running_with_coupling_driver ||
          DriverUsesStateForcing(driver_atmos_forcing_mode))) {
@@ -247,6 +258,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
                 btflx(i,j,0,Salt_comp) = btflx(i,j,0,Salt_comp) * salt_old(i,j,0);
             });
         }
+    }
+
+    // Sea ice: ROMS main3d calls seaice here, after bulk_flux and set_vbc. It sets
+    // the surface stress and heat flux and adds to the salt flux the ocean uses below.
+    if (has_seaice()) {
+        advance_seaice(lev, dt_lev);
     }
 
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )

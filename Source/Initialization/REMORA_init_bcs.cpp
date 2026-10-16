@@ -851,6 +851,44 @@ void REMORA::init_bcs ()
     // impose_zvel_bcs tells the two apart by it.
     domain_bcs_type[tke_bc_idx] = domain_bcs_type[zvel_bc_idx];
 
+    // *****************************************************************************
+    //
+    // Sea ice, from ice.bc_type (xlo ylo xhi yhi) rather than the ocean's sides. Its
+    // rho-point fields extrapolate, masked as the tracers are. A closed side is a wall
+    // for the ice velocities: zero normal velocity, and free (ice.gamma2 = 1) or no
+    // (ice.gamma2 = -1) slip. A gradient side extrapolates them.
+    //
+    // *****************************************************************************
+    {
+        const int ice_bc_idx   = ice_bc();
+        const int ice_u_bc_idx = ice_u_bc();
+        const int ice_v_bc_idx = ice_v_bc();
+        const auto tangential = (seaice_params.gamma2 > zero) ? REMORABCType::reflect_even
+                                                               : REMORABCType::reflect_odd;
+        for (OrientationIter oit; oit; ++oit) {
+            Orientation ori = oit();
+            const int dir = ori.coordDir();
+            const bool low = (ori.faceDir() == Orientation::low);
+            int ice_r = REMORABCType::foextrap;
+            int ice_u = REMORABCType::foextrap;
+            int ice_v = REMORABCType::foextrap;
+            if (dir < 2) {
+                if (geom[0].isPeriodic(dir)) {
+                    ice_r = ice_u = ice_v = REMORABCType::int_dir;
+                } else if (seaice_params.bc_type[dir + (low ? 0 : 2)] == REMORASeaIce::IceBCType::closed) {
+                    ice_u = (dir == 0) ? REMORABCType::ext_dir : tangential;
+                    ice_v = (dir == 1) ? REMORABCType::ext_dir : tangential;
+                }
+            }
+            for (auto [idx, t] : {std::pair{ice_bc_idx, ice_r}, std::pair{ice_u_bc_idx, ice_u},
+                                  std::pair{ice_v_bc_idx, ice_v}}) {
+                if (low) { domain_bcs_type[idx].setLo(dir, t); } else { domain_bcs_type[idx].setHi(dir, t); }
+            }
+            m_bc_extdir_vals[ice_u_bc_idx][ori] = zero;
+            m_bc_extdir_vals[ice_v_bc_idx][ori] = zero;
+        }
+    }
+
 
 #ifdef AMREX_USE_GPU
     Gpu::htod_memcpy

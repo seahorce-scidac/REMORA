@@ -220,6 +220,27 @@ REMORA::WriteCheckpointFile ()
        VisMF::Write(*(vec_Akp[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akp"));
        VisMF::Write(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akv"));
        VisMF::Write(*(vec_Akt[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "Akt"));
+
+       if (has_seaice()) {
+           // Both time levels and every ice field: T0mk, S0mk and IOmt carry over
+           // from one step to the next, so a restart needs them to continue exactly.
+           VisMF::Write(*(vec_ice_si_r[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "IceSiR"));
+           VisMF::Write(*(vec_ice_si_u[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "IceSiU"));
+           VisMF::Write(*(vec_ice_si_v[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "IceSiV"));
+           VisMF::Write(*(vec_ice_fi_r[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "IceFiR"));
+           VisMF::Write(*(vec_ice_fi_u[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "IceFiU"));
+           VisMF::Write(*(vec_ice_fi_v[lev]), amrex::MultiFabFileFullPrefix(lev, checkpointname, "Level_", "IceFiV"));
+       }
+   }
+
+   if (has_seaice() && ParallelDescriptor::IOProcessor()) {
+       std::ofstream ice_file(checkpointname + "/SeaIceLevels");
+       ice_file << ice_lvl.liold << " " << ice_lvl.linew << " "
+                << ice_lvl.liuol << " " << ice_lvl.liunw << " "
+                << ice_lvl.lieol << " " << ice_lvl.lienw << "\n";
+       if (!ice_file.good()) {
+           amrex::FileOpenFailed(checkpointname + "/SeaIceLevels");
+       }
    }
 
 #ifdef REMORA_USE_PARTICLES
@@ -474,6 +495,21 @@ REMORA::ReadCheckpointFile ()
        VisMF::Read(*(vec_Akp[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akp"));
        VisMF::Read(*(vec_Akt[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akt"));
        VisMF::Read(*(vec_Akv[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "Akv"));
+
+       if (has_seaice()) {
+           VisMF::Read(*(vec_ice_si_r[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "IceSiR"));
+           VisMF::Read(*(vec_ice_si_u[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "IceSiU"));
+           VisMF::Read(*(vec_ice_si_v[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "IceSiV"));
+           VisMF::Read(*(vec_ice_fi_r[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "IceFiR"));
+           VisMF::Read(*(vec_ice_fi_u[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "IceFiU"));
+           VisMF::Read(*(vec_ice_fi_v[lev]), amrex::MultiFabFileFullPrefix(lev, restart_chkfile, "Level_", "IceFiV"));
+
+           Vector<char> ice_chars;
+           ParallelDescriptor::ReadAndBcastFile(restart_chkfile + "/SeaIceLevels", ice_chars);
+           std::istringstream ice_is(std::string(ice_chars.dataPtr()), std::istringstream::in);
+           ice_is >> ice_lvl.liold >> ice_lvl.linew >> ice_lvl.liuol
+                  >> ice_lvl.liunw >> ice_lvl.lieol >> ice_lvl.lienw;
+       }
 
        stretch_transform(lev);
 

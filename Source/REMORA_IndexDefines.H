@@ -49,7 +49,11 @@ namespace BCVars {
     inline int foextrap_bc          (int ncons) noexcept { return ncons + 8; }
     inline int u2d_simple_bc        (int ncons) noexcept { return ncons + 9; }
     inline int v2d_simple_bc        (int ncons) noexcept { return ncons + 10; }
-    inline int NumTypes             (int ncons) noexcept { return ncons + AMREX_SPACEDIM + 8; }
+    // Sea ice: its rho-point fields and its u and v velocities, set from ice.bc_type
+    inline int ice_bc               (int ncons) noexcept { return ncons + 11; }
+    inline int ice_u_bc             (int ncons) noexcept { return ncons + 12; }
+    inline int ice_v_bc             (int ncons) noexcept { return ncons + 13; }
+    inline int NumTypes             (int ncons) noexcept { return ncons + AMREX_SPACEDIM + 11; }
 }
 
 /**
