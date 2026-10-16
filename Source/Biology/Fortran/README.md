@@ -220,10 +220,11 @@ not threaded through the interface.
 **The preprocessor eats padding inside Fortran character literals.** AMReX
 compiles `.F` through `cpp -E -traditional-cpp -P`, which collapses runs of two
 or more spaces even inside quotes. `'G00_PRE   '` reaches the compiler as
-`'G00_PRE '`, and `Aw` right-justifies anything shorter than `w`. This silently
-destroyed the tag column alignment and made every log line appear to differ.
-Both emitters now assign into fixed-length locals, and format literals use `nX`
-descriptors rather than space runs. Do not "simplify" either back.
+`'G00_PRE '`, and `Aw` right-justifies anything shorter than `w`. Left
+unhandled, this breaks the tag column alignment and makes every log line appear
+to differ. Both emitters therefore assign into fixed-length locals, and format
+literals use `nX` descriptors rather than space runs. Do not "simplify" either
+back.
 
 **`STOP '<string>'` exits zero in gfortran.** A character stop code is written
 to stderr with exit status 0; only an integer code or `ERROR STOP` gives
@@ -244,6 +245,3 @@ tag-level rather than plotfile comparison. BioToy's 4x4 grid is doubly periodic
 with uniform IC and forcing, so all 16 columns are **degenerate replicas** —
 `biology_debug=2` widens the record count but adds no independent evidence.
 Genuine multi-column coverage needs a case with horizontal structure.
-
-See `FENNEL_BRIDGE_HANDOFF.md` at the repo root for current parity results and
-the open lane list.

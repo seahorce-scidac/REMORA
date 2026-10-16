@@ -130,7 +130,6 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     set_coriolis(lev);
     bool apply_eminusp = false;
     set_zeta_to_Ztavg(lev,apply_eminusp);
-    // Previously set smflux
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_rivers) {
@@ -298,7 +297,6 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     set_coriolis(lev);
     bool apply_eminusp = false;
     set_zeta_to_Ztavg(lev,apply_eminusp);
-    // Previously set smflux here
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_rivers) {
@@ -766,9 +764,6 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_btflux[lev]->setVal(zero);
     vec_sustr[lev]->setVal(zero);
     vec_svstr[lev]->setVal(zero);
-
-    // NOTE: Used to set vec_pm and vec_pn to 1e34 here to make foextrap work
-    // when init_type = real. However, this does not appear to be necessary so removing
 
     // Set initial linear drag coefficient
     if (solverChoice.bottom_stress_type == BottomStressType::linear) {

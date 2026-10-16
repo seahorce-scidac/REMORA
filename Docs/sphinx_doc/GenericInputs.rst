@@ -1,7 +1,7 @@
 Generic Master Inputs
 =====================
 
-REMORA now ships a generated master template at ``Exec/Generic/inputs_generic``.
+REMORA ships a generated master template at ``Exec/Generic/inputs_generic``.
 This file is intended as a comprehensive, ROMS-style reference inputs file that
 lists all currently discovered ``ParmParse`` parameters.
 

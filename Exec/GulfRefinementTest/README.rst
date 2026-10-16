@@ -57,8 +57,8 @@ grow rings on every side::
 
 The GS toy set satisfies this exactly at ``r = 3``: level 0 is ``xi_rho = 33, eta_rho = 11``
 (interior ``31 x 9``, matching ``n_cell``), level 1 is ``99 x 33``, and ``31*3 + 6 = 99``,
-``9*3 + 6 = 33``. REMORA now checks this up front and aborts naming the file, the found size and
-the required size; it used to read an undersized file cleanly and leave the outer rings unwritten.
+``9*3 + 6 = 33``. REMORA checks this up front and aborts naming the file, the found size and the
+required size.
 
 Known data problems
 -------------------
@@ -66,9 +66,7 @@ Known data problems
 **The Gulf 1 km file is too small.** ``inputs_cf_orlanski`` has ``n_cell = 19 19`` with
 ``ref_ratio 5``, which needs ``19*5 + 2*5 = 105`` points per side, and
 ``1km_gulf_test_classic64.nc`` is ``101 x 101`` -- two rings short. The lane therefore keeps
-``remora.hires_grid_level = -1`` until the file is regenerated at ``105 x 105``. (This defect was
-latent: the input previously spelled the parameter ``remora.nc_hires_grid_level``, which ParmParse
-silently ignores, so the lane looked like it exercised the feature and never opened the file.)
+``remora.hires_grid_level = -1`` until the file is regenerated at ``105 x 105``.
 
 **``GS_toyGrd_lev1_v1.1.nc`` carries unrefined metrics.** It covers the same lon/lat extent as
 ``GS_toyGrd_lev0_v1.3.nc`` with 3x the cells per side, so its ``pm``/``pn`` should be 3x the
@@ -103,16 +101,3 @@ Running
 To confirm the hires path is actually doing something, run the same input with
 ``remora.hires_grid_level=-1 remora.hires_init_level=-1`` and compare ``VOLUME`` at ``TIME`` 0.
 Identical values would mean the hires files were never read.
-
-Stale files in this directory
------------------------------
-
-``tmp_build_dir/`` (323 MB), ``CMakeLists.txt``, ``GNUmakefile``, ``Make.package`` and
-``AMReX_buildInfo.cpp`` were copied in from a pre-unification tree and are dead: they reference a
-``prob.H``/``prob.cpp`` that no longer exists anywhere in the repo, ``CMakeLists.txt`` sets
-``remora_exe_name`` to ``idealminigrid``, and nothing under ``Exec/`` is added as a CMake
-subdirectory any more -- the build produces a single ``remora_exec`` and the problem is selected at
-run time by ``remora.prob_name``. They can be removed::
-
-    rm -rf Exec/GulfRefinementTest/tmp_build_dir
-    rm -f  Exec/GulfRefinementTest/{CMakeLists.txt,GNUmakefile,Make.package,AMReX_buildInfo.cpp}

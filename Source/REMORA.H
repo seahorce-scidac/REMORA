@@ -1809,8 +1809,6 @@ private:
 
     /** \brief maximum number of steps */
     int max_step = std::numeric_limits<int>::max();
-    /** \brief Whether max_step was set in the inputs; the default above is not a
-     * distinguishable sentinel */
     /** \brief Time to stop, in seconds on the model clock (not since start_time) */
     double stop_time = std::numeric_limits<amrex::Real>::max();
 
@@ -1888,7 +1886,8 @@ private:
     int do_reflux = 1;
 
     /** \brief exclude the coarse-fine perimeter's normal-velocity faces from the fine-to-coarse
-     *         average, as ROMS does. 1 (default) matches ROMS; 0 restores the old behaviour. */
+     *         average, as ROMS does. 1 (default) matches ROMS; 0 includes the perimeter faces
+     *         in the average. */
     int cf_avgdown_perimeter = 1;
 
     /** \brief re-fill the child's 3D velocity from the parent after the step, so the coarse-fine

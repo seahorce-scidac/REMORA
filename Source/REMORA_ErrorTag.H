@@ -16,11 +16,9 @@
  * zeroed every step, so a difference taken across a coast measures the coast, not the flow.
  * This class is that EB form with mskr in place of the flags.
  *
- * REMORA used to suppress the same spurious tags afterwards instead, by appending two
- * derefine criteria that cleared every land cell and every cell beside one. Running after the
- * user's own criteria, they also cleared tags a static in_box_lo/in_box_hi region had
- * deliberately set, so a box drawn across a coast came back refined only on its water part.
- * Guarding each criterion as it is evaluated leaves every other criterion's tags alone.
+ * Guarding each criterion as it is evaluated, rather than clearing land-adjacent tags
+ * afterwards, leaves every other criterion's tags alone -- including a static
+ * in_box_lo/in_box_hi region drawn across a coast.
  *
  * The inheritance is private on purpose: AMRErrorTag::operator() is not virtual, so converting
  * a criterion back to the base would compile and quietly run the unguarded test on masked

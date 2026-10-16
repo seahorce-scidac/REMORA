@@ -72,9 +72,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     // Because zeta may have changed
     stretch_transform(lev);
 
-    // These temporaries used to be made in advance_3d_ml and passed in;
-    // now we make them here
-
     const BoxArray&            ba = mf_cons.boxArray();
     const DistributionMapping& dm = mf_cons.DistributionMap();
 

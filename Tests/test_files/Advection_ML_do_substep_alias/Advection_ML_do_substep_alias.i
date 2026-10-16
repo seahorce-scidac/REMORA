@@ -1,6 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 #
-# amr.do_substep is the original spelling of remora.do_substep and has to keep working.
+# amr.do_substep is a deprecated alias of remora.do_substep and has to keep working.
 # This lane asserts the deprecation warning, which is the observable proof the fallback
 # was read rather than silently ignored.
 #

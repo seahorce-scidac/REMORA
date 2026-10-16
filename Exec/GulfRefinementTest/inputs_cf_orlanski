@@ -75,13 +75,11 @@ remora.nc_grid_file_0     = "5km_gulf_test_classic64.nc"
 remora.nc_grid_file_hires = "1km_gulf_test_classic64.nc"
 remora.nc_bdry_file       = "5km_bc_gulf_test_classic64.nc"
 
-# This was spelled remora.nc_hires_grid_level, which ParmParse silently ignores -- the run
-# looked like it exercised high-resolution bathymetry and did not. The real name has no
-# nc_ prefix. NOTE the Gulf data does not satisfy the grow-cell rule: n_cell = 19 19 with
-# ref_ratio 5 needs xi_rho = eta_rho = 19*5 + 2*5 = 105, and 1km_gulf_test_classic64.nc is
-# 101 x 101. REMORA now rejects that by name rather than reading the outer rings unwritten,
-# so this lane stays off until the 1km file is regenerated at 105 x 105. Use inputs_outflow
-# (the GS toy set at ref_ratio 3) for a working high-resolution lane.
+# NOTE the Gulf data does not satisfy the grow-cell rule: n_cell = 19 19 with ref_ratio 5
+# needs xi_rho = eta_rho = 19*5 + 2*5 = 105, and 1km_gulf_test_classic64.nc is 101 x 101.
+# REMORA rejects that at setup, so this lane stays off until the 1km file is regenerated
+# at 105 x 105. Use inputs_outflow (the GS toy set at ref_ratio 3) for a working
+# high-resolution lane.
 remora.hires_grid_level = -1
 
 #nudging timescales, given in days

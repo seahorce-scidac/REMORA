@@ -48,9 +48,9 @@ it intact: `'G00_PRE   '` reaches the compiler as `'G00_PRE '`, while
 `'G03_ZMETAB'` is unaffected because it has no padding.
 
 Edit descriptor `Aw` right-justifies a string shorter than `w`, so writing the
-dummy argument straight into `a10` put the tag at a column that varied from tag
-to tag and never matched the C++ `%-10s`. Every line then differed under a
-plain `diff`, and the whole log looked divergent.
+dummy argument straight into `a10` would put the tag at a column that varies
+from tag to tag and never matches the C++ `%-10s`; every line would then differ
+under a plain `diff`.
 
 `fennel_tag_line` therefore assigns the tag and variable name into fixed-length
 locals (`character(len=10)`, `character(len=4)`) before writing. Character
@@ -128,13 +128,6 @@ off, `remora.biology_debug > 0` aborts rather than producing an empty log.
 `remora.biology_debug` then selects verbosity at **run time**, threaded through
 the `bind(C)` signature as `integer(c_int), value`, so switching paths or
 levels within a campaign never requires a rebuild.
-
-This is a deliberate, narrowed deviation from the source corpus, which retired
-compile-time diagnostic gating (Rule 30 addendum) on the grounds that runtime
-control must reach the Fortran. It still does — the compile flag only decides
-whether the code is present, not how it is controlled. WSM6's instrumentation
-was CPU-side and did not pay device-print costs. Record the deviation in the
-decision ledger rather than treating this paragraph as the authority.
 
 | Level | Scope                                                           |
 |-------|-----------------------------------------------------------------|

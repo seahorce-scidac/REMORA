@@ -346,8 +346,8 @@ REMORA::ReadCheckpointFile ()
         GotoNextLine(is);
     }
 
-    // The origin the checkpoint's t_new counts from. A checkpoint written before
-    // model time was split has no such line and holds t_new on the model clock.
+    // The origin the checkpoint's t_new counts from. A checkpoint without this
+    // line holds t_new on the model clock.
     double chk_start_time = 0.0;
     if (is >> word && word == "start_time") {
         is >> chk_start_time;

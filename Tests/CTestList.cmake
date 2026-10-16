@@ -20,7 +20,7 @@ function(resolve_test_exe TEST_DIR TEST_EXE OUT_VAR)
         elseif(EXISTS "${_exe_in_root}")
             set(${OUT_VAR} "${_exe_in_root}" PARENT_SCOPE)
         else()
-            # Keep the historical path so the error message is still informative.
+            # Fall back to the subdirectory path so the error message names an expected location.
             set(${OUT_VAR} "${_exe_in_subdir}" PARENT_SCOPE)
         endif()
     endif()
@@ -564,7 +564,7 @@ add_test_conservation(DogboneAnalytic_ML_conservation DogboneAnalytic_ML_subcycl
                       "remora.max_step=20"
                       volume 1e-7 below)
 
-# The conservative path, pinned where the bound above used to sit. Switching off only the two
+# The conservative path, pinned at a tighter bound (1e-8). Switching off only the two
 # ghost-band knobs keeps ROMS's restriction stencil and flux distribution and brings the drift
 # back to 2.0e-09, where the transport side of the interface sits on its own: of that,
 # cf_avgdown_stencil's nine-point mean costs about 3e-10 and cf_flux_pc is exactly neutral
@@ -605,14 +605,14 @@ add_test_log(BoundaryLayer_ML_cf_metrics "remora_exec" "CF edge tiling")
 # What a viewer rebuilds from the plotfile: node (i,j,k) of a level sits at prob_lo + (i,j,k)*dx
 # from the Header plus the Nu_nd displacement. With expand_plotvars_to_unif_rr the refined
 # level's Header dz is the native one over the ratio, and the nodal set has to be refined in z
-# with it -- it was not, and the refined patch's surface came out 32 m low on this case.
+# with it.
 # check_plot_z rebuilds z the viewer's way and aborts unless every level's top and bottom
 # node layers reproduce z_phys_nd, so reaching the printed line is the assertion. It also
 # prints the coarse-fine mismatch at coincident nodes, 2e-2 here from the two levels' own
 # bathymetry, which is reported rather than asserted (check_plot_z_tol).
 add_test_log(BoundaryLayer_ML_plot_z "remora_exec" "Plot nodal z")
 
-# amr.do_substep is the original spelling and has to keep working. The warning is the
+# amr.do_substep is a deprecated alias and has to keep working. The warning is the
 # observable proof the fallback was read rather than silently ignored, and setting both
 # spellings is an error rather than a silent precedence rule.
 add_test_log(Advection_ML_do_substep_alias "remora_exec" "amr.do_substep is deprecated")
@@ -637,10 +637,10 @@ add_test_r_gold(DogboneAnalytic_MLhires  "remora_exec" "plt_ml00010" DogboneAnal
 # breaks stationarity by ~1e-2 in salt and velocity.
 # coastbox spans the full width of the domain, 0 to 750 in y, and the dogbone's coasts run
 # through it, so this asserts the thing a static box is for: the whole box is refined, land
-# included. REMORA used to clip it back to the water, giving y in [250,500].
+# included, not clipped back to the water (which would give y in [250,500]).
 add_test_extent(DogboneAnalytic_MLmask  "remora_exec" "plt00010" 1 1 0.0 750.0)
-# Same assertion on the ref-ratio-2 twin, so that path of the same fix is covered too: its
-# grids move from 3 clipped boxes to 2 full-box grids, which add_test_0 alone cannot see.
+# Same assertion on the ref-ratio-2 twin: clipping there would give 3 clipped boxes instead of
+# 2 full-box grids, which add_test_0 alone cannot see.
 add_test_extent(DogboneAnalytic_MLmask_rr2 "remora_exec" "plt00010" 1 1 0.0 750.0)
 # A pair: the same gradient criterion keyed on a physical field, which must not see the coast,
 # and on the mask, which must. Either one alone passes for the wrong reason.
@@ -734,9 +734,8 @@ add_test_abort(BC_inflow_no_value "remora_exec" "needs an inflow value")
 # remora.ndtfast is the number of barotropic steps per baroclinic step. Advance and
 # timeStepML form the fast step as dt / ndtfast and set_weights sizes the barotropic filter
 # with it, none of which is guarded at the point of use, so it has to be positive by the time
-# parsing finishes. It has no usable default: it was once inferred from remora.fixed_dt /
-# remora.fixed_fast_dt, which left it at zero on every path that did not set both -- a
-# CFL-driven run cannot set them, since dt is not known until run time. Zero divides by zero
+# parsing finishes. It has no usable default: it cannot be inferred from dt, which a
+# CFL-driven run does not know until run time. Zero divides by zero
 # and sizes the weight vectors to one element, which advance_2d then reads past the end of;
 # amrex::Vector does not bounds-check that. So the unset case must abort, and does.
 #

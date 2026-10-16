@@ -30,12 +30,11 @@ some.
 
 .. warning::
 
-   ``remora.nscalar`` previously had to equal the biology tracer count and was a
-   consistency check. It now counts dye scalars *in addition to* biology, so an
-   input file carrying ``remora.nscalar = 11`` alongside Fennel will now allocate
-   eleven dye tracers on top of the biology ones. Remove the setting to get the
-   previous state layout. REMORA prints the full component list whenever a run
-   carries both dye and biology.
+   ``remora.nscalar`` counts dye scalars *in addition to* biology tracers; it is
+   not the biology tracer count. Setting ``remora.nscalar = 11`` alongside Fennel
+   allocates eleven dye tracers on top of the biology ones. Leave it unset for a
+   biology-only run. REMORA prints the full component list whenever a run carries
+   both dye and biology.
 
 A minimal nitrogen-only configuration is:
 

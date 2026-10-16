@@ -8,10 +8,9 @@
 # Advection_ML's patch never touches its periodic edges, so this lane is the only one that does.
 #
 # It is also the only multi-level lane with Coriolis on, and its gold comes from one rank with
-# one box per level. Under MPI the level-1 box splits at j = 30, and the first version of this
-# lane found that the answer depended on that split: set_2d_cf_bcs wrote the interface faces
-# but not the neighbouring box's ghost copies, and Coriolis read them. Both ML Dogbone inputs
-# run Coriolis off, which is why they never saw it.
+# one box per level. Under MPI the level-1 box splits at j = 30, so the answer depends on
+# set_2d_cf_bcs updating the neighbouring box's ghost copies of the interface faces, which
+# Coriolis reads. The ML Dogbone inputs run Coriolis off and cannot see this.
 remora.prob_name = ChannelTest
 
 remora.max_step = 10

@@ -17,11 +17,11 @@ remora.bc.ylo.type = "SlipWall"
 remora.bc.yhi.type = "SlipWall"
 
 # TIME STEP CONTROL
-# remora.fixed_fast_dt has been removed; it used to be the way the substep count was
-# inferred. amrex ignores unrecognized inputs by default, so this stands for the stale
-# input file that would otherwise run with a substep count it never asked for.
+# remora.fixed_fast_dt is rejected at startup. amrex ignores unrecognized inputs by default,
+# so this stands for an outdated input file that would otherwise run with a substep count it
+# never asked for.
 remora.fixed_dt       = 400.0 # Timestep size (seconds)
-remora.fixed_fast_dt  = 40.0  # Removed: no longer a REMORA input
+remora.fixed_fast_dt  = 40.0  # Rejected input
 remora.ndtfast = 10
 
 # DIAGNOSTICS & VERBOSITY

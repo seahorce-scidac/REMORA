@@ -250,7 +250,7 @@ struct Components {
  *
  * \p base is REMORA::bio_comp_start(), which is Tracer_comp plus the number of passive
  * (dye) scalars. Passing it explicitly keeps biology working when a run carries dye as
- * well, since the biology block then no longer starts at Tracer_comp.
+ * well, since the biology block then does not start at Tracer_comp.
  */
 inline Components components (FennelParameters const& parameters, int base) noexcept
 {
