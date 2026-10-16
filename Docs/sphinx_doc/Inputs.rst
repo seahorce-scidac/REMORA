@@ -276,9 +276,10 @@ List of Parameters
 |                           |                 |                           |                       |
 |                           | level           |                           |                       |
 +---------------------------+-----------------+---------------------------+-----------------------+
-| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 8 8 1024         |
+| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 8 8 1024000      |
 |                           | size            |                           |                       |
-|                           |                 | {x,y,z}                   | GPU: 1024 1024 1024   |
+|                           |                 | {x,y,z}                   | GPU: 1024000 1024000  |
+|                           |                 |                           | 1024000               |
 +---------------------------+-----------------+---------------------------+-----------------------+
 
 Notes
@@ -326,7 +327,7 @@ List of Parameters
 | Parameter                        | Definition       | Acceptable         | Default           |
 |                                  |                  | Values             |                   |
 +==================================+==================+====================+===================+
-| **amr.max_level**                | number of        | Integer >= 0       | must be set       |
+| **amr.max_level**                | number of        | Integer >= 0       | 0                 |
 |                                  | levels of        |                    |                   |
 |                                  |                  |                    |                   |
 |                                  | refinement       |                    |                   |
@@ -346,22 +347,14 @@ List of Parameters
 |                                  |                  | in z must be 1     |                   |
 |                                  |                  |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
-| **amr.regrid_int**               | how often to     | Integer            | -1 (don't regrid) |
-|                                  | regrid           |                    |                   |
+| **amr.regrid_int**               | how often to     | One integer, used  | 2                 |
+|                                  | regrid           | at every level;    |                   |
+|                                  |                  | <= 0 disables      |                   |
+|                                  |                  | regridding         |                   |
 +----------------------------------+------------------+--------------------+-------------------+
-| **amr.regrid_on_restart**        | should we        | 0 or 1             | 0                 |
-|                                  | regrid           |                    |                   |
-|                                  |                  |                    |                   |
-|                                  | immediately      |                    |                   |
-|                                  |                  |                    |                   |
-|                                  | after            |                    |                   |
-|                                  | restarting       |                    |                   |
-+----------------------------------+------------------+--------------------+-------------------+
-| **amr.regrid_file**              | name of file     | text               | no file           |
-|                                  |                  |                    |                   |
-|                                  | from which to    |                    |                   |
-|                                  |                  |                    |                   |
-|                                  | read the grids   |                    |                   |
+| **amr.max_grid_size**            | maximum grid     | Integer > 0        | 2048              |
+|                                  | size in each     |                    |                   |
+|                                  | direction        |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
 | **amr.grid_eff**                 | grid             | Real > 0, < 1      | 0.7               |
 |                                  | efficiency at    |                    |                   |
@@ -372,7 +365,7 @@ List of Parameters
 |                                  |                  |                    |                   |
 |                                  | are created      |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
-| **amr.n_error_buf**              | radius of        | Integer >= 0       | 1                 |
+| **amr.n_error_buf**              | radius of        | Integer >= 0       | 0                 |
 |                                  | additional       |                    |                   |
 |                                  |                  |                    |                   |
 |                                  | tagging around   |                    |                   |
@@ -380,7 +373,7 @@ List of Parameters
 |                                  | already tagged   |                    |                   |
 |                                  | cells            |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
-| **amr.n_error_buf_{x,y}**        | radius of        | Integer >= 0;      | 1                 |
+| **amr.n_error_buf_{x,y}**        | radius of        | Integer >= 0;      | amr.n_error_buf   |
 |                                  | additional       |                    |                   |
 |                                  |                  | Can specify up     |                   |
 |                                  | tagging around   |                    |                   |
@@ -389,7 +382,7 @@ List of Parameters
 |                                  |                  | ref. level         |                   |
 |                                  | cells in x or y  |                    |                   |
 +----------------------------------+------------------+--------------------+-------------------+
-| **amr.blocking_factor**          | grid size must   | Integer > 0        | 2                 |
+| **amr.blocking_factor**          | grid size must   | Integer > 0        | 1                 |
 |                                  |                  |                    |                   |
 |                                  | be a multiple    |                    |                   |
 |                                  |                  |                    |                   |
@@ -433,9 +426,17 @@ Notes
 -  if **amr.max_level** = 0 then you do not need to set
    **amr.ref_ratio_vect** or **amr.regrid_int**.
 
--  **amr.n_error_buf**, **remora.max_grid_size** and
+-  **amr.n_error_buf**, **amr.max_grid_size** and
    **amr.blocking_factor** can be read in as a single value which is
    assigned to every level, or as multiple values, one for each level
+
+   REMORA always sets the blocking factor in z to 4096, whatever is given, so the
+   blocking factor only constrains the grids in x and y.
+
+-  **amr.regrid_int** is a single integer used at every level: each level
+   below **amr.max_level** rebuilds the grids of the levels above it every
+   **amr.regrid_int** of its own time steps. A value of 0 or less disables
+   regridding.
 
 -  **amr.max_grid_size** at every level must be even
 
@@ -560,17 +561,10 @@ Examples of Usage
      all adjacent levels.    Note that you must specify 3 values, one for
      each coordinate direction.
 
--  | **amr.regrid_int** = 2 2
+-  | **amr.regrid_int** = 2
    | tells the code to regrid every 2 steps. Thus in this example, new
      level-1 grids will be created every 2 level-0 time steps, and new
      level-2 grids will be created every 2 level-1 time steps.
-
--  | **amr.regrid_file** = *fixed_grids*
-   | In this case the list of grids at each fine level are contained in
-     the file *fixed_grids*, which will be read during the gridding
-     procedure. These grids must not violate the **amr.max_grid_size**
-     criterion. The rest of the gridding procedure described below will
-     not occur if **amr.regrid_file** is set.
 
 -  | **amr.grid_eff** = 0.9
    | During the grid creation process, at least 90% of the cells in each
@@ -665,25 +659,25 @@ Simulation Time
 List of Parameters
 ------------------
 
-+------------------------+---------------------------+--------------+---------+
-| Parameter              | Definition                | Acceptable   | Default |
-|                        |                           | Values       |         |
-+========================+===========================+==============+=========+
-| **remora.max_step**    | maximum number of level 0 | Integer >= 0 | -1      |
-|                        | time steps                |              |         |
-+------------------------+---------------------------+--------------+---------+
-| **remora.stop_time**   | final simulation          | Real >= 0    | -1.0    |
-|                        | time on the model clock   |              |         |
-+------------------------+---------------------------+--------------+---------+
-| **remora.start_time**  | initial simulation        | Real >= 0    | 0.0     |
-|                        | time on the model clock   |              |         |
-+------------------------+---------------------------+--------------+---------+
-| **remora.time_ref**    | reference date of the     | ``yyyymmdd`` | 0.0     |
-|                        |                           |              |         |
-|                        | model clock, and with it  | ``.dd``, or  |         |
-|                        |                           |              |         |
-|                        | the calendar. See below.  | 0, -1, -2    |         |
-+------------------------+---------------------------+--------------+---------+
++------------------------+---------------------------+--------------+----------+
+| Parameter              | Definition                | Acceptable   | Default  |
+|                        |                           | Values       |          |
++========================+===========================+==============+==========+
+| **remora.max_step**    | maximum number of level 0 | Integer >= 0 | no limit |
+|                        | time steps                |              |          |
++------------------------+---------------------------+--------------+----------+
+| **remora.stop_time**   | final simulation          | Real >= 0    | no limit |
+|                        | time on the model clock   |              |          |
++------------------------+---------------------------+--------------+----------+
+| **remora.start_time**  | initial simulation        | Real >= 0    | 0.0      |
+|                        | time on the model clock   |              |          |
++------------------------+---------------------------+--------------+----------+
+| **remora.time_ref**    | reference date of the     | ``yyyymmdd`` | 0.0      |
+|                        |                           |              |          |
+|                        | model clock, and with it  | ``.dd``, or  |          |
+|                        |                           |              |          |
+|                        | the calendar. See below.  | 0, -1, -2    |          |
++------------------------+---------------------------+--------------+----------+
 
 .. _calendar:
 
@@ -1802,11 +1796,13 @@ List of Parameters
 |                                       |                             |              |                           |
 |                                       |                             | of strings   | flags is true             |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
-| **remora.nc_clim_coeff_file**         | NetCDF file name for        | string       | must be set if one of     |
+| **remora.nc_clim_coeff_file**         | NetCDF file name for        | string       | optional; if unset, the   |
 |                                       |                             |              |                           |
-|                                       | climatology nudging         |              | ``do_*_clim_nudg``        |
+|                                       | climatology nudging         |              | constant ``tnudg``,       |
 |                                       |                             |              |                           |
-|                                       | coefficients                |              | flags is true             |
+|                                       | coefficients                |              | ``m2nudg`` and ``m3nudg`` |
+|                                       |                             |              |                           |
+|                                       |                             |              | timescales are used       |
 +---------------------------------------+-----------------------------+--------------+---------------------------+
 | **remora.clim_ubar_time_varname**     | name of time variable       | string       | ``ocean_time``            |
 |                                       |                             |              |                           |

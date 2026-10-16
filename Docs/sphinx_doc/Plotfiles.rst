@@ -58,7 +58,7 @@ List of Parameters
 |                                        |                                   |                       |            |
 |                                        | file. Must be > 0 when chunking.  |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
-| **remora.plot_file**                   | prefix for                        | String                | “plt”      |
+| **remora.plot_file**                   | prefix for                        | String                | ``plt_``   |
 |                                        | plotfiles                         |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.plot_int**                    | how often (by                     | Integer               | -1         |
@@ -85,8 +85,9 @@ List of Parameters
 |                                        | 2D variables to                   |                       |            |
 |                                        | include in                        | (see table below)     |            |
 |                                        |                                   |                       |            |
-|                                        | plotfiles. Not                    |                       |            |
-|                                        | used for netCDF                   |                       |            |
+|                                        | plotfiles. For NetCDF, only the   |                       |            |
+|                                        | ``stflux_*`` fields are read      |                       |            |
+|                                        | from it                           |                       |            |
 +----------------------------------------+-----------------------------------+-----------------------+------------+
 | **remora.plot_staggered_vels**         | whether to output velocities      | false or true         | false      |
 |                                        |                                   |                       |            |
@@ -159,7 +160,7 @@ Notes
 
 -  If both ``remora.plot_int`` and ``remora.plot_int_time`` have been set, plotfile output will occur
    ``plot_int`` steps or ``plot_int_time`` simulation seconds after the last plotfile, whichever happens first.
-   This combination is not allowed when writing a NetCDF history file, as noted above.
+   This also holds for a NetCDF history file, whose records then need not be evenly spaced in time.
 
 -  When Fennel biology is enabled, ``fennel`` in ``remora.plot_vars_3d``
    expands to all active biology tracers. Active biology tracers can also be
@@ -276,10 +277,22 @@ Examples of Usage
    "*plt_run*" will be generated every 10 level-0 time steps in the directory
    `out`. If using
    amrex format, that directory names will be *plt_run00000*, *plt_run00010*,
-   *plt_run00020*, etc. If using NetCDF format, the names will have ".nc" appended.
+   *plt_run00020*, etc.
 
-   AMReX plotfiles will contain data at all of the refinement levels. NetCDF files
-   will not be output if there is more than one level.
+   AMReX plotfiles will contain data at all of the refinement levels. NetCDF output
+   is written one file per level, with the level 0 file ending in ``_d01.nc``, level 1
+   in ``_d02.nc``, and so on. With the default ``remora.write_history_file = true``
+   the files are *out/plt_run_his_d01.nc*, *out/plt_run_his_d02.nc*, ...; with
+   ``remora.chunk_history_file = true`` the chunk number is added, as in
+   *out/plt_run_his00000_d01.nc*; and with ``remora.write_history_file = false``
+   there is one file per output step, as in *out/plt_run00010_d01.nc*.
+
+   The region a refined level's NetCDF file covers is taken from the static
+   refinement boxes (``in_box_lo``/``in_box_hi`` or their ``_indices`` forms), not
+   from the level's actual grids, and only the first such box at that level is
+   written. NetCDF output of a refined level therefore requires the level to be
+   defined by a static box; levels created only by field-based tagging are not
+   supported.
 
 -  **remora.plot_nodal_data** = *false*
 

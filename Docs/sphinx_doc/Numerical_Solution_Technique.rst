@@ -380,14 +380,22 @@ The second derivative terms are centered on a :math:`\rho` point in the grid, bu
 .. math::
    F^{\xi}_{i,j,k}=\frac{\overline{H_z}^{\eta}}{\overline{n}^{\xi}}\left[\max\left(0,u_{i,j,k}\right)C_{i-1,j,k}+\min\left(0,u_{i,j,k}\right)C_{i,j,k}\right].
 
-The value of :math:`\gamma` in the model is :math:`\frac{1}{8}` while that in ``Rasch(1994)`` is :math:`\frac{1}{6}`.
+For tracers the model uses :math:`\gamma=\frac{1}{6}`, the value in ``Rasch(1994)``. For the 3D
+momentum fluxes below it uses :math:`\gamma=\frac{1}{8}`; the velocity factor takes the upstream
+second difference and the transport factor the average of the two neighbouring ones. The barotropic
+(2D) momentum fluxes use :math:`\frac{1}{6}`, with the average of the two neighbouring second
+differences in both factors.
 
-Because the third-order upwind scheme is designed to be two-dimensional, it is not used in the vertical (though one might argue that we are simply performing one-dimensional operations here). Instead we use a centered fourth-order scheme in the vertical when the third-order upwind option is turned on:
+Because the third-order upwind scheme is designed to be two-dimensional, it is not used in the vertical (though one might argue that we are simply performing one-dimensional operations here). Instead tracers use a centered fourth-order scheme in the vertical:
 
 .. math::
-   F^s=\frac{H_zw}{mn}\left[-\frac{1}{16}C_{i,j,k-1}+\frac{9}{16}C_{i,j,k}+\frac{9}{16}C_{i,j,k+1}-\frac{1}{16}C_{i,j,k+2}\right]
+   F^s=\frac{H_zw}{mn}\left[-\frac{1}{12}C_{i,j,k-1}+\frac{7}{12}C_{i,j,k}+\frac{7}{12}C_{i,j,k+1}-\frac{1}{12}C_{i,j,k+2}\right]
 
-One advantage of UTOPIA over MPDATA is that it can be used on variables having both negative and positive values. Therefore, it can be used on velocity as well as scalars (is there a reference for this?). For the :math:`u`-velocity, we have:
+(the stencil is modified next to the surface and bottom). The momentum
+equations instead use the fourth-order interpolation weights :math:`-\frac{1}{16}, \frac{9}{16}`
+shown below.
+
+One advantage of UTOPIA is that it can be used on variables having both negative and positive values. Therefore, it can be used on velocity as well as scalars. For the :math:`u`-velocity, we have:
 
 .. math::
    F^{\xi}&=\left(u-\gamma\frac{\partial^2u}{\partial\xi^2}\right)\left[\frac{H_zu}{n}-\gamma\frac{\partial^2}{\partial\xi^2}\left(\frac{H_zu}{n}\right)\right]\\
@@ -420,7 +428,14 @@ Solving for :math:`H_z\Omega/mn` and using the semi-discrete notation we obtain:
 .. math::
    \frac{H_z\Omega}{mn}=\int\left[\delta_{\xi}\left(\frac{\overline{u}\,\overline{D}^{\xi}}{\overline{n}^{\xi}}\right)+\delta_{\eta}\left(\frac{\overline{v}\,\overline{D}^{\eta}}{\overline{m}^{\eta}}\right)-\delta_{\xi}\left(\frac{u\overline{H_z}^{\xi}}{\overline{n}^{\xi}}\right)-\delta_{\eta}\left(\frac{v\overline{H_z}^{\eta}}{\overline{m}^{\eta}}\right)\right]\ d\sigma.
 
-The integral is actually computed as a sum from the bottom upwards and also as a sum from the top downwards. The value used is a linear combination of the two, weighted so that the surface down value is used near the surface while the other is used near the bottom. [Is this still done?]
+The integral is computed as a sum from the bottom upwards, starting from zero vertical velocity at
+the bottom. The value this leaves at the free surface, :math:`W_{N}`, is then removed in proportion
+to the height above the bottom,
+
+.. math::
+   W_k \leftarrow W_k - W_{N}\,\frac{z_{w,k}+h}{\zeta+h},
+
+so that the vertical velocity vanishes at both the bottom and the surface.
 
 Equation of State
 -----------------
