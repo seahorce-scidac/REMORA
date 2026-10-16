@@ -130,7 +130,7 @@ remora.biology_debug_i = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 remora.biology_debug_j = <UNKNOWN_DEFAULT>
 
-# Source of the biology initial condition, independent of ic_type. Default "follow" reproduces the previous behaviour exactly.
+# Source of the biology initial condition, independent of ic_type. Default "follow" takes the biology IC from NetCDF when ic_type is netcdf, else analytic.
 # type=string; method=queryAdd
 remora.biology_ic_type = <UNKNOWN_DEFAULT>
 
@@ -170,7 +170,7 @@ remora.bulk_fluxes = true
 # type=int; method=queryAdd
 remora.cf_avgdown_bar = <UNKNOWN_DEFAULT>
 
-# Mirror ROMS's fine2coarse, which returns every covered cell but not the perimeter's normal-velocity faces. 0 restores the behaviour from before that was matched.
+# Mirror ROMS's fine2coarse, which returns every covered cell but not the perimeter's normal-velocity faces. 0 includes the perimeter faces in the average.
 # type=int; method=queryAdd
 remora.cf_avgdown_perimeter = <UNKNOWN_DEFAULT>
 
