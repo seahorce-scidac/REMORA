@@ -2,7 +2,7 @@
     // the order set_data.F calls them: cloud, Tair, humidity, then shortwave,
     // which reads those three, then winds, rain and pressure.
     const double tdays = remora.model_time(remora.get_t_old(lev)) / 86400.0;
-    const Real pi = Real(M_PI);
+    const Real pi = PI;
     const Real deg2rad = pi / Real(180.0);
 
     const Real cloud_val = Real(0.65);
@@ -20,9 +20,8 @@
     double yday = 0.0;
     remora_caldate(m_solverChoice.time_ref, tdays, year, yday);
     const double hour = (yday - std::trunc(yday)) * 24.0;
-    const double Dangle = 23.44 * std::cos((172.0 - yday) * 2.0 * M_PI / 365.2425) * (M_PI / 180.0);
+    const double Dangle = 23.44 * std::cos((172.0 - yday) * 2.0 * double(PI) / 365.2425) * (double(PI) / 180.0);
     const Real Hangle = (Real(12.0) - Real(hour)) * pi / Real(12.0);
-    const Real Csolar = Real(1353.0);
     const Real alb_w = Real(0.06);
     const Real LatRad = Real(42.0) * deg2rad;
     const Real LonRad = Real(-81.0) * deg2rad;

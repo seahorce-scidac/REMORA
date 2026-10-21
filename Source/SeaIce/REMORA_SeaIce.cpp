@@ -1,4 +1,5 @@
 #include <REMORA_SeaIce.H>
+#include <REMORA_Constants.H>
 
 #include <AMReX.H>
 #include <AMReX_ParmParse.H>
@@ -96,9 +97,9 @@ void SeaIceParams::init_params ()
 
     // Degrees in the input, radians internally, as in ice_inp.h. ROMS reads it and never
     // uses it; neither does this port.
-    Real stressAng_deg = stressAng * Real(180.0) / Real(M_PI);
+    Real stressAng_deg = stressAng * Real(180.0) / PI;
     pp.queryAdd("stressAng", stressAng_deg);
-    stressAng = stressAng_deg * Real(M_PI) / Real(180.0);
+    stressAng = stressAng_deg * PI / Real(180.0);
 
     pp.queryAdd("ice_emiss", ice_emiss);
     pp.queryAdd("spec_heat_air", spec_heat_air);
