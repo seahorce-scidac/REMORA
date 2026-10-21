@@ -1,0 +1,546 @@
+REMORA biology extension implementation plan
+
+Add a separately selectable biology package alongside Fennel, with its own
+tracers, parameters, and reaction kernel. Preserve REMORA's existing scalar
+storage, transport, boundary machinery, and biology time integration hook.
+Use small, explicit model dispatches wherever the current implementation
+assumes that every active biology model is Fennel.
+
+ECB is the worked example because it shares much of Fennel's structure while
+adding dissolved organic pools and interactions. NEMURO demonstrates how the
+same extension must also accommodate a substantially different food web and
+silicon cycle. These examples do not choose the final scientific model: its
+tracer inventory, equations, and parameter values still need specification.
+
+This is an implementation proposal. No REMORA or ROMS source was changed.
+
+1. Scope and source versions
+
+REMORA examined:
+  /Users/hins978/Documents/Seahorce/REMORA
+  HEAD ca37d9fb801b598eb9e3cd95efb9d5081bae93d1
+
+Local ROMS reference:
+  /Users/hins978/Documents/Seahorce/codex_stuff/roms
+  HEAD f8a3aaa205daaec17c52f028ba62961cc481d379
+  Origin https://github.com/myroms/roms.git
+
+The REMORA checkout has an existing AMReX submodule revision change and
+untracked build/application files. The local ROMS checkout has existing
+modifications, including biology.F, fennel.h, ecb.h, and ecb_var.h. References
+below describe the examined working files, not an assumed pristine upstream
+release. A future port must pin the chosen ROMS revision and selected local
+patches explicitly; upstream documentation alone does not define that port.
+
+Also consulted the official ROMS ECB description and tracer table:
+  https://github.com/myroms/roms/wiki/ROMS-Kernels
+
+The analysis is static. No numerical experiments, builds, or source edits
+were performed. Proposed acceptance tests are listed in section 9.
+
+2. Existing REMORA structure and its extension points
+
+Source/Biology/REMORA_Biology.H:
+  BiologyModel currently contains none and fennel. FennelParameters owns
+  Fennel configuration. Fennel::components(parameters, base) maps optional
+  tracers to state components, using -1 for absent tracers. num_tracers and
+  tracer_names separately describe the active layout.
+
+Source/REMORA.cpp, init_scalar_metadata and parameter parsing:
+  The state already has a runtime layout:
+    [temp, salt, passive dye scalars, active biology tracers]
+    Bio_comp = Tracer_comp + nscalar
+    ncons = Tracer_comp + nscalar + nbio
+  Tracer_comp is 2. nscalar counts dyes only. Metadata builds cons_names
+  from that layout. However, any active biology currently initializes
+  fennel_params and asks a Fennel-parameter-dependent tracer_names function
+  for the biology list. Both assumptions must become model dispatches.
+
+Source/Biology/REMORA_Biology.cpp, advance_biology:
+  This function contains both model dispatch and the entire native Fennel
+  kernel. It returns early based on fennel_params.BioIter and aborts for
+  every active model other than Fennel. A new model must not inherit that
+  Fennel-specific early-return condition.
+
+Source/TimeIntegration/REMORA_advance_3d.cpp, around line 340:
+  One advance_biology call follows the GLS corrector. Subsequent operations
+  include tracer RHS advection, conversion from thickness-weighted state,
+  vertical mixing, and climatology nudging. Preserve this actual placement;
+  describing it as a generic end-of-step concentration update would hide
+  an important numerical contract.
+
+Source/Initialization/REMORA_init.cpp and REMORA_prob_common.H:
+  Biology IC selection is already independent of physical IC selection.
+  Both regular and full-domain high-resolution analytic paths call a
+  virtual hook whose arguments explicitly include FennelParameters.
+  Exec/REMORA_Prob.H and Exec/REMORA_Prob.cpp implement that hook and form
+  Fennel component indices before filling BioToy/Upwelling profiles.
+  The existing hook cannot safely initialize another package unchanged.
+
+Source/Initialization/REMORA_init_from_netcdf.cpp:
+  Biology loading obtains the active tracer names from cons_names and
+  fills an alias of the biology block. This is already reusable for a
+  different inventory with matching input variable names. Retain the
+  full-domain initialization followed by average-down.
+
+Source/REMORA_DataStruct.H and the boundary, river, and climatology code:
+  Many scalar controls are sized by ncons and use cons_names. Reuse this
+  machinery. New input variables and application settings still have to
+  be supplied; registering a tracer does not supply its forcing data.
+
+Source/REMORA_IndexDefines.H:
+  Biology and dye scalars currently use the salinity vertical diffusivity
+  through akt_comp. Horizontal diffusivity is configured per tracer.
+  Preserve this policy unless the new science requires a different one.
+
+Source/IO/REMORA_SetPlotVars.cpp:
+  The keyword fennel currently expands to all biology components whenever
+  any biology is active. That becomes misleading as soon as a second
+  model exists and needs a small model-aware adjustment.
+
+Source/IO/REMORA_Checkpoint.cpp:
+  Restart verifies the number of cell-centered components, not their
+  biological identities. Equal component counts do not establish layout
+  compatibility. This is a necessary small safety extension for multiple
+  selectable biology models.
+
+Source/IO/REMORA_NCPlotFile.cpp, around lines 592-615:
+  Scalar variables are defined by cons_names. Biology long names currently
+  default to the variable name and biological units are not attached in
+  this branch. Add metadata for the new variables without redesigning
+  the writer or its dimensions.
+
+3. Lessons from ROMS and a concrete tracer example
+
+ROMS/Nonlinear/Biology/biology.F selects one ecosystem implementation.
+ROMS/Modules/mod_biology.F selects its parameter module. The documented
+package responsibilities are: equations, parameter declarations, input
+values, parameter reader, variable metadata, and parameter output
+definitions/writes. REMORA should preserve that separation of concerns,
+using its existing C++/ParmParse and I/O conventions instead of reproducing
+the entire Fortran include structure or introducing ROMS CPP selection.
+
+Fennel in this REMORA checkout:
+  Seven base tracers: NO3, NH4, chlorophyll, phytoplankton, zooplankton,
+  LdetritusN, SdetritusN. Optional tracers cover PO4, carbon, oxygen,
+  river organic pools, and ODU. The maximum enabled inventory is 16.
+  The layout changes with runtime options, so fixed global biology
+  component constants would be inappropriate.
+
+ECB in the examined ROMS ecb_mod.h:
+  NBT is fixed at 18, in this order:
+    1 NO3                 10 LdetritusC
+    2 NH4                 11 SdetritusC
+    3 chlorophyll         12 TIC
+    4 phytoplankton       13 alkalinity
+    5 zooplankton         14 semilabileDOC
+    6 LdetritusN          15 oxygen
+    7 SdetritusN          16 refractoryDON
+    8 semilabileDON       17 refractoryDOC
+    9 PO4                18 calcium
+
+  Keep these as ECB-owned components even when their names overlap with
+  Fennel. Only one package owns the active biology block in a run. Matching
+  names do not imply matching rates, pool definitions, or restart meaning.
+  In particular, Fennel RdetritusN/RdetritusC are not automatic substitutes
+  for ECB semilabileDON/semilabileDOC.
+
+  The official ROMS ECB table agrees with this 18-variable inventory:
+    https://github.com/myroms/roms/wiki/ROMS-Kernels
+  That documentation also describes the expected carbon, oxygen,
+  sediment remineralization, and denitrification configuration. Treat a
+  faithful ECB port as one explicitly supported configuration first.
+  In the examined module, allocating 18 fields is not conditional on
+  toggling those process options. Do not infer counts from Fennel flags.
+
+  Actual ECB differences include phytoplankton exudation, carbon excess
+  uptake, grazing-related dissolved organic production, particulate
+  solubilization, organic matter remineralization, oxygen-dependent
+  nitrogen pathways, DOC-related light attenuation, and sediment burial.
+  Optional sulfate-reduction and sediment-proxy attenuation have further
+  dependencies. These require their own process equations and parameters.
+
+  Source inspection also shows that not every registered pool has a local
+  reaction: refractoryDOC contributes to light attenuation, while calcium
+  and refractoryDON have no explicit direct reaction update in the
+  inspected ecb.h. Preserve their transported/functional role in a
+  faithful port. Do not invent calcification, calcium-carbon exchange,
+  or refractory-pool transformations merely from tracer names.
+
+NEMURO in the examined nemuro_mod.h and nemuro.h:
+  Eleven tracers: small and large phytoplankton; small, large, and predator
+  zooplankton; NO3; NH4; PON; DON; silicate; and opal.
+  This changes both the food web and elemental inventory. There is no
+  reason to allocate unused Fennel chlorophyll/carbon/detritus fields to
+  represent it. New processes include size-dependent growth and grazing,
+  diatom silicon limitation, and silica regeneration. NEMURO also uses
+  its own sinking-tracer list and parameterizations.
+
+Design consequence: introduce a separate package with a separate layout
+and kernel. Reusing the driver and scalar infrastructure supports both
+ECB and NEMURO; enlarging FennelParameters to describe every ecosystem
+would couple unrelated models and complicate Fennel validation.
+
+4. Minimum implementation architecture
+
+Use the final scientific name in place of NewBio below. The following is
+schematic interface design, not a patch or compile-ready implementation.
+
+  BiologyModel { none, fennel, newbio }
+  NewBioParameters::init_params(remora_prefix)
+  NewBio::components(parameters, Bio_comp)
+  NewBio::num_tracers(parameters)
+  NewBio::tracer_names(parameters)
+  REMORA::advance_newbio(lev, old_state, weighted_new_state, N, dt_lev)
+
+Add a NewBioParameters member to REMORA alongside fennel_params. Parse
+only the selected package's parameters under remora.newbio. Continue
+parsing biology-wide options such as biology_ic_type in the common path.
+Extend model string parsing and printing, including unknown-value errors.
+
+At the two existing tracer_names call sites in REMORA.cpp, select the
+active package's inventory. A small REMORA helper returning active biology
+names can keep this decision in one place while preserving the current
+Fennel API. A plain switch is sufficient; a plugin registry, inheritance
+hierarchy, and device-side virtual dispatch are unnecessary.
+
+Turn advance_biology into a small switch. Move the existing kernel body
+into advance_fennel with its Fennel-specific guards, Fortran selection,
+and diagnostic behavior intact. Implement advance_newbio separately.
+The existing advance_3d call and its arguments remain unchanged.
+
+For native C++ NewBio, reject use_biology_cpp_answer=0 with a clear
+model-specific error until a NewBio reference backend exists. Keep the
+existing Fennel bridge as a Fennel-only option even when it is compiled
+into the executable. Scope biology_debug's Fennel parity semantics in
+the same way; do not silently ignore a requested comparison backend.
+
+Keep Fennel's current component ordering and external variable names.
+Do not relocate or rewrite its parameter definitions as a prerequisite.
+The mechanical extraction of its kernel should be separately reviewable
+from the new science and verified before adding NewBio reactions.
+
+NewBio's component map must start at Bio_comp, not Tracer_comp. Build its
+ordered tracer inventory once per parameter configuration, then derive
+the count and offsets from that ordering. If explicit named component
+members are used, validate their correspondence with the inventory.
+Check uniqueness, contiguous allocation, valid bounds, and count/name
+agreement at startup. Runtime options must freeze before state allocation;
+changing the inventory during a run is outside this design.
+
+For a faithful ECB example, retain all 18 fields, including functional
+ones. For a custom model, select only its scientifically specified pools.
+This plan does not require preserving ROMS order for a custom model, but
+any reference bridge must explicitly map its REMORA and ROMS layouts.
+
+5. Process specification and numerical contract
+
+Before implementing the new kernel, prepare one tracer table containing
+external name, meaning, units, elemental content, whether prognostic or
+functional, initial/boundary/river sources, and sinking behavior. Prepare
+one process table containing reactants, products, stoichiometric weights,
+rate equation, temperature/light/oxygen dependencies, parameter units,
+integration order, and any external inventory loss or gain.
+
+For an ECB-like setup, useful initial process groups are:
+
+  Growth and exudation: NO3/NH4 and, where enabled, PO4 support biomass;
+  exudation allocates N and C into the specified dissolved pools. Define
+  carbon excess uptake separately from nutrient-based production.
+
+  Grazing and mortality: allocate removed biomass consistently among
+  zooplankton, particulate detritus, dissolved pools, and respiration.
+  Explicitly account for model-specific C:N ratios.
+
+  Regeneration and nitrogen transformations: solubilization transfers
+  particulates into dissolved organics; remineralization regenerates
+  NH4/TIC; nitrification affects NO3, NH4, oxygen, and possibly alkalinity;
+  denitrification includes a separately accounted nitrogen loss.
+
+  Light and gas exchange: DOC-related attenuation changes growth through
+  the light profile. Oxygen and CO2 exchange use the selected chemistry,
+  atmospheric forcing, and wind/stress formulations, with documented units.
+
+  Sinking and seafloor exchange: enumerate the model's particulate fields
+  and speeds. Apply its burial/remineralization rules to bottom fluxes.
+  Do not sink dissolved pools or apply Fennel bottom rules by default.
+
+Preserve the existing driver contract:
+  a. Read old-state tracer concentrations and make model-owned scratch
+     state, applying the selected reference model's initial constraints.
+  b. Integrate local reactions, light-column interactions, and sinking
+     using dt_lev. For a ROMS-like scheme, the substep is
+       dt_days = dt_lev / 86400 / BioIter.
+     BioIter subdivisions cover one physical step; they are not repeated
+     integrations over the entire physical timestep.
+  c. Add only the biological increment to the incoming new state:
+       weighted_new[n] += mask * Hz * (bio_final[n] - bio_initial[n]).
+     This hook expects thickness-weighted increments. Do not overwrite
+     the incoming state with scratch concentrations or multiply a
+     time-integrated increment by dt a second time.
+
+Set BioIter<=0 behavior deliberately, normally matching Fennel's disabled
+reaction update while retaining tracer transport. Do not let Fennel's
+BioIter determine whether NewBio runs.
+
+Use the same constrained initial scratch values in both integration and
+subtraction, so disabled/no-change reactions yield zero increment. Any
+new model-specific final clamp needs its own scientific justification and
+budget accounting. A concrete difference is that inspected ECB constrains
+TIC to 1..3000, while REMORA Fennel uses 400..3000. A shared unconditional
+Fennel clamp would change ECB behavior.
+
+ROMS and REMORA both use split, ordered biological updates. Match the
+chosen model's process ordering and implicit/explicit updates before
+trying to generalize the solver. Do not add an unconditional final
+nonnegative clipping step to transported state: that changes inventories.
+If a custom model needs stricter positivity, specify conservative flux
+limiting or a suitable solver as part of that model's numerical design.
+
+Implement the native kernel with AMReX asynchronous scratch storage and
+device-copyable parameter/component data, following the current column
+execution pattern. Keep vertical columns intact for attenuation/sinking;
+avoid allocating host vectors or strings inside device work. Handle
+shallow columns explicitly rather than assuming every Fennel PPM boundary
+stencil is valid for one or two layers.
+
+Reusing a proven sinking or chemistry helper is useful only where its
+equations, units, limits, and boundary treatment actually match. Initially
+keep differing formulas package-local. Extract shared helpers later only
+with an independent equivalence test. In particular, do not substitute
+Fennel carbonate chemistry for ECB's optional chemistry variants.
+
+ROMS shortwave forcing is kinematic and its kernel converts it using
+rho0*Cp. REMORA's biology input is W/m2. A new native kernel should use
+the latter directly; a ROMS comparison adapter must convert exactly once.
+ROMS has 1-based wet-layer indices; REMORA has k=0..N with N+1 layers.
+The interface-depth array has N+2 entries in REMORA. Explicitly document
+these distinctions in any packing adapter.
+
+6. Initialization, forcing, output, and restart
+
+Analytic initialization:
+  Preserve the existing Fennel virtual hook for compatibility. Add a
+  package-specific init_analytic_newbio hook taking NewBioParameters,
+  with an explicit error as the default implementation. Declare and
+  implement the corresponding override in Exec/REMORA_Prob.H/.cpp.
+  Dispatch in both init_biology_ic and init_biology_ic_full_domain.
+  Fill model-specific profiles using NewBio components. This avoids
+  changing every Fennel application signature or passing Fennel parameters
+  to another model. If many more models are later added, a generic
+  initialization context can replace these hooks in a separate change.
+
+NetCDF initialization:
+  Reuse the active-name reader. Require a field for every active pool,
+  including functional ECB pools if allocated. Explicitly document any
+  scientifically justified default; never silently substitute zeros for
+  missing pools. Preserve independent physical/biology IC choice and
+  current restrictions on their supported combinations.
+
+Boundary, river, surface-flux, and climatology input:
+  Reuse name/component-based configuration and allocation. Provide example
+  files and settings for all new fields. Check each requested data source
+  before timestepping and fail clearly for missing variables. Supply
+  separate boundary/climatology time-variable names when needed.
+  Test a tracer with a NetCDF boundary alongside one with a local boundary
+  condition. Keep dissolved organic identities distinct across packages.
+  Any new physical dependency, such as suspended sediment for an ECB
+  attenuation option, needs an explicit supported provider. Defer that
+  option or reject it until the provider exists; do not emulate it by
+  repurposing a biological tracer without defining the approximation.
+
+Plot output:
+  Add a biology group keyword that expands the active block. Retain
+  fennel as an alias for Fennel runs, and optionally add the new model's
+  name as its alias. Prevent fennel from silently selecting another
+  model's fields. Individual cons_names already fit existing output.
+  Add names/units/long names from a small package metadata table to the
+  NetCDF scalar-definition branch. Keep the dimensions and data-writing
+  loops unchanged. Record model identity and effective parameter values
+  in existing job information or accompanying output metadata.
+
+Restart:
+  Add a small versioned biology-layout sidecar to checkpoints to avoid
+  changing the existing Header parser. Store model identity, ordered
+  full cons_names, biology layout/schema version, units/semantic version
+  as needed, and layout-defining options. Compare these before accepting
+  stored state. ncons alone is insufficient, including when nscalar and
+  nbio are changed in compensating ways.
+  NewBio checkpoints require this identity metadata. Preserve legacy
+  Fennel/none restart support with an explicit documented limitation:
+  an old checkpoint without names cannot prove layout compatibility.
+  Require a user-declared legacy layout when ambiguity matters rather
+  than claiming that a matching count establishes safety. Do not
+  automatically migrate Fennel checkpoints into NewBio, even if fields
+  overlap. A future conversion must explicitly define units, pool
+  partitioning, new tracers, and elemental budgets.
+  Record parameter values for reproducibility, but distinguish deliberate
+  rate changes on restart from changes that invalidate stored layout.
+
+Diagnostics:
+  Keep process rates, surface fluxes, and integrated budgets outside the
+  advected biology block unless they are actual prognostic reservoirs.
+  Start with model-local diagnostics; a general diagnostic registry is
+  unnecessary for one addition. If new persistent sediment or benthic
+  reservoirs are required, add separate state, initialization, restart,
+  and AMR handling for them. A water-column tracer cannot represent that
+  persistence without an explicit scientific approximation.
+
+7. Proposed file changes
+
+Add:
+  Source/Biology/REMORA_NewBio.H
+    Parameters, validation, ordered tracer metadata, and named components.
+  Source/Biology/REMORA_NewBio.cpp
+    Parameter parsing and the new native reaction/column kernel.
+  Source/Prob/REMORA_InitAnalyticBiology_NewBio.H
+    A reproducible model-specific example profile.
+  Example input(s), targeted regression cases, and model documentation
+    under the existing Exec, Tests, and Docs conventions.
+
+Edit narrowly:
+  Source/Biology/REMORA_Biology.H/.cpp
+    Add the enum choice, parse/name dispatch, and common advance dispatch;
+    mechanically extract advance_fennel, preserving its arithmetic.
+  Source/REMORA.H
+    New parameter member, kernel/initialization helper declarations.
+  Source/REMORA.cpp
+    Selected-package parameter parsing, metadata/count selection, and
+    model-aware validation of Fennel-only backend/diagnostic options.
+  Source/Initialization/REMORA_prob_common.H
+  Source/Initialization/REMORA_init.cpp
+  Exec/REMORA_Prob.H/.cpp
+    Add and dispatch the new analytic hook in both initialization paths.
+  Source/IO/REMORA_SetPlotVars.cpp
+    Add biology expansion and scope model-specific aliases.
+  Source/IO/REMORA_NCPlotFile.cpp and job-information output as needed
+    Attach new tracer metadata and model configuration.
+  Source/IO/REMORA_Checkpoint.cpp
+    Write/read and validate the small layout sidecar.
+  Source/Biology/Make.package
+  CMake/BuildREMORAExe.cmake
+    Register the new C++ source/header in both supported build systems.
+  Existing test-registration files and documentation index
+    Register the new cases and explain the selected model/input contract.
+
+Do not change by default:
+  Source/TimeIntegration/REMORA_advance_3d.cpp call placement;
+  scalar advection and vertical mixing;
+  ncons-based boundary, river, climatology, and scalar allocation loops;
+  AMR interpolation/average-down/reflux algorithms;
+  Source/REMORA_IndexDefines.H physical indices and mixing policy;
+  existing Fennel Fortran bridge, Fennel equations, or Fennel tag format.
+
+Changes to those paths become justified only by a demonstrated missing
+dependency or a stated scientific requirement. Validate reuse rather than
+assuming that generic allocation alone proves numerical correctness.
+
+8. Implementation sequence and review boundaries
+
+Phase 1: Freeze the scientific and numerical contract.
+  Choose ECB, NEMURO, or a custom inventory; pin the reference revision,
+  selected options, equations, defaults, units, and process ordering.
+  Separate faithful reference behavior from intentional scientific changes.
+  Define required forcing providers and external budget terms.
+  Exit: approved tracer/process tables and a reproducible reference case.
+
+Phase 2: Add dispatch and transport-only NewBio state.
+  Mechanically isolate Fennel, add model parsing/parameters/components,
+  initialization, build entries, plot metadata, and restart identity.
+  Run NewBio with reactions disabled and nonzero tracers/dye.
+  Exit: unchanged Fennel results, correct state layout, transport, I/O,
+  and restart behavior for the second model.
+
+Phase 3: Implement and validate NewBio processes.
+  Add the reference update stages with model-local scratch and diagnostics.
+  Enable stages progressively in controlled tests; preserve reference
+  ordering in the production kernel. Validate sink/source budgets for
+  each addition before introducing external forcing and bottom losses.
+  Exit: matched one-step reference states and interpretable budgets.
+
+Phase 4: Validate coupled operation and performance portability.
+  Exercise physical transport, open boundaries, rivers, AMR, high-resolution
+  initialization, CPU/MPI, and native GPU execution where available.
+  Add sustained column and small-domain scientific regression cases.
+  Exit: stable, documented behavior with defined comparison tolerances.
+
+Phase 5: Consider shared utilities only after both models are validated.
+  Extract a helper only when it reduces real duplication and its callers
+  have matching numerical requirements. Do not make a general ecosystem
+  framework or a rewrite of Fennel part of the initial delivery.
+
+9. Acceptance tests for the future implementation
+
+Fennel preservation:
+  Compare before/after native results for the existing Upwelling_Fennel
+  cases, including optional carbon/oxygen/PO4/river pools, dyes, and both
+  IC paths where represented. Preserve Fennel bridge/tag comparisons.
+  Expect identical arithmetic for the dispatch-only extraction; investigate
+  differences rather than loosening tolerances without explanation.
+
+Inventory and transport:
+  Validate ordered names, units, component maps, disabled option sentinels,
+  and bounds. Include nscalar=0 and nscalar>0. With reactions and external
+  sources disabled, verify that biology never overwrites temp, salt, or
+  dyes and that all active tracers transport through the existing loops.
+  Keep neutral physical conditions for conservation tests.
+
+Numerical coupling:
+  Use a nonuniform Hz column and a deliberately nonzero incoming new state
+  to verify additive Hz-weighted increments from old concentrations.
+  With no biology changes, the new state must be untouched. Compare
+  multiple dt and BioIter values and check units of PAR and gas fluxes.
+  Test masking, zero light, depleted nutrients, low oxygen, high biomass,
+  and one/two-layer boundary handling where supported.
+
+Process budgets:
+  Test closed reactions with external sources/losses disabled, then enable
+  gas exchange, denitrification, burial, and river/open-boundary forcing
+  one at a time. Use the process stoichiometry to predict each budget.
+  Do not count chlorophyll as an independent N or C reservoir. Account
+  for biomass using its specified ratios, and distinguish explicit from
+  implicitly represented phosphorus or silicon content.
+  For AMR domain totals, integrate concentration*Hz*horizontal wet area
+  over valid uncovered cells, excluding fine-covered coarse cells. Use
+  terrain-grid metrics, not an unweighted sum of concentrations. Include
+  all represented external fluxes and any explicitly tracked clamp error.
+
+ROMS reference comparison:
+  For a faithful port, build a dedicated host-only NewBio reference adapter
+  patterned after the Fennel bridge, or a stand-alone identical-column
+  reference harness. The existing Fennel adapter cannot call ECB/NEMURO
+  simply because some variables overlap. Match tracer mapping, vertical
+  indices, masks, units, options, initial constraints, and stage order.
+  Compare intermediate stages and final increments before long runs.
+  For custom equations, use reference subcases plus independent expected
+  fluxes; do not claim full ROMS equivalence for an intentionally new model.
+
+Input and persistence:
+  Round-trip all active fields through NetCDF and checkpoint/restart;
+  compare uninterrupted and restarted runs. Reject missing IC/forcing
+  fields, mismatched names/order, incompatible layout options, wrong model,
+  and equal-count/different-layout checkpoints. Test the documented legacy
+  restart policy. Confirm plot groups and individual new tracer selection.
+
+Parallel and AMR operation:
+  Compare column/small-domain results across MPI decomposition and native
+  CPU/GPU with justified floating-point tolerances. Verify complete column
+  execution and correct scratch lifetimes. Compare single-level and
+  refined cases with composite budgets; test hires initialization before
+  average-down. General ncons loops make reuse plausible but do not alone
+  demonstrate conservation or absence of indexing errors.
+
+10. Decisions needed before coding
+
+The architecture can be implemented without knowing the final equations,
+but the scientific kernel cannot. Resolve the actual tracer list, process
+equations, parameter values and units, reference options, required physical
+providers, and whether any new state lives outside the water column.
+Choose whether the first release is a faithful ECB/NEMURO port or a custom
+model with documented departures. Set accuracy and budget tolerances from
+controlled cases before using production simulations as acceptance tests.
+
+The smallest defensible first delivery is one additional selectable model,
+one explicit tracer inventory, one native kernel, both existing IC paths,
+the existing scalar transport/forcing infrastructure, output metadata,
+restart identity checks, and focused scientific validation.
