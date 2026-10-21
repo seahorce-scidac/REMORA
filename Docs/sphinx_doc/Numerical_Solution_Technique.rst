@@ -375,10 +375,17 @@ There is a class of third-order upwind advection schemes, both one-dimensional (
    F^{\xi}&=\frac{H_zu}{n}\left(C-\gamma\frac{\partial^2C}{\partial\xi^2}\right)\\
    F^{\eta}&=\frac{H_zv}{m}\left(C-\gamma\frac{\partial^2C}{\partial\eta^2}\right)
 
-The second derivative terms are centered on a :math:`\rho` point in the grid, but are needed at a :math:`u` or :math:`v` point in the flux. The upstream value is used:
+The second derivative terms are centered on a :math:`\rho` point in the grid, but are needed at a
+:math:`u` or :math:`v` point in the flux, so the value from the upstream :math:`\rho` point is used.
+With :math:`U_{i,j,k}=\overline{H_z}^{\xi}u_{i,j,k}/\overline{n}^{\xi}` the volume flux through the
+:math:`u` face and :math:`\delta^2_\xi C_{i,j,k}=C_{i+1,j,k}-2C_{i,j,k}+C_{i-1,j,k}`,
 
 .. math::
-   F^{\xi}_{i,j,k}=\frac{\overline{H_z}^{\eta}}{\overline{n}^{\xi}}\left[\max\left(0,u_{i,j,k}\right)C_{i-1,j,k}+\min\left(0,u_{i,j,k}\right)C_{i,j,k}\right].
+   F^{\xi}_{i,j,k}=U_{i,j,k}\left[\frac{C_{i-1,j,k}+C_{i,j,k}}{2}-\gamma\,\delta^2_\xi C_{\mathrm{up},j,k}\right],
+   \qquad \mathrm{up}=\begin{cases} i-1 & U_{i,j,k}>0\\ i & U_{i,j,k}\le 0\end{cases}
+
+and similarly for :math:`F^{\eta}` with :math:`V_{i,j,k}=\overline{H_z}^{\eta}v_{i,j,k}/\overline{m}^{\eta}`
+(the stencil is modified at masked and non-periodic boundaries).
 
 For tracers the model uses :math:`\gamma=\frac{1}{6}`, the value in ``Rasch(1994)``. For the 3D
 momentum fluxes below it uses :math:`\gamma=\frac{1}{8}`; the velocity factor takes the upstream
@@ -409,7 +416,8 @@ while for the :math:`v`-velocity we have:
    F^{\eta}&=\left(v-\gamma\frac{\partial^2v}{\partial\eta ^2}\right)\left[\frac{H_zv}{m}-\gamma\frac{\partial^2}{\partial\eta^2}\left(\frac{H_zv}{m}\right)\right]\\
    F^{\sigma}&=\frac{H_zw}{mn}\left[-\frac{1}{16}v_{i,j,k-1}+\frac{9}{16}v_{i,j,k}+\frac{9}{16}v_{i,j,k+1}-\frac{1}{16}v_{i,j,k+2}\right]
 
-In all these terms, the second derivatives are evaluated at an upstream location.
+In the 3D momentum fluxes the second derivative of the advected velocity is evaluated at the
+upstream location and that of the transport is averaged; the 2D fluxes average both.
 
 Vertical Velocity
 -----------------
