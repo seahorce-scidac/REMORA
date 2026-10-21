@@ -1982,3 +1982,23 @@ List of Parameters
 +-----------------------------+---------------------------+-------------------+------------+
 | **amrex.fpe_trap_overflow** | Raise errors for overflow |  0 / 1            | 0          |
 +-----------------------------+---------------------------+-------------------+------------+
+
+Subnormal Numbers in Single Precision
+=====================================
+
+In single-precision builds (``PRECISION = FLOAT`` or ``REMORA_PRECISION=SINGLE``),
+small intermediate values can fall below the smallest normal float (about 1.2e-38).
+On x86 CPUs, arithmetic on these subnormal numbers is very slow, which can make
+single precision slower than double. By default REMORA therefore sets the
+flush-to-zero (FTZ) and denormals-are-zero (DAZ) modes on every thread in
+single-precision x86 builds. Subnormal results and inputs are then treated as
+zero. This changes answers only at the level of single-precision roundoff.
+Double-precision builds, and builds for other architectures, are unaffected.
+
++-------------------------------+--------------------------------+-------------------+------------+
+| Parameter                     | Definition                     | Acceptable Values | Default    |
++===============================+================================+===================+============+
+| **remora.flush_subnormals**   | Treat subnormal floats as zero | true / false      | true       |
+|                               | (single-precision x86 builds   |                   |            |
+|                               | only)                          |                   |            |
++-------------------------------+--------------------------------+-------------------+------------+

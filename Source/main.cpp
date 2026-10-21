@@ -6,9 +6,39 @@
 
 #include <REMORA.H>
 
+#if defined(AMREX_USE_FLOAT) && (defined(__SSE__) || defined(__x86_64__))
+#include <xmmintrin.h>
+#include <pmmintrin.h>
+#define REMORA_CAN_FLUSH_SUBNORMALS
+#endif
+
 std::string inputs_name = "";
 
 using namespace amrex;
+
+// In single precision, small intermediate products (e.g. velocity times metric
+// terms) can fall below FLT_MIN. Operations on subnormal floats take a slow
+// microcode path on x86, which can make single precision slower than double.
+// Flush them to zero (FTZ) and treat subnormal inputs as zero (DAZ) on every
+// thread. Disable with remora.flush_subnormals = false.
+void set_flush_subnormals () {
+#ifdef REMORA_CAN_FLUSH_SUBNORMALS
+    bool flush_subnormals = true;
+    ParmParse pp("remora");
+    pp.query("flush_subnormals",flush_subnormals);
+    if (!flush_subnormals) { return; }
+
+    auto set_mode = [] () {
+        _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+        _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+    };
+    set_mode();
+#ifdef AMREX_USE_OMP
+#pragma omp parallel
+    set_mode();
+#endif
+#endif
+}
 
 // Set the refine_grid_layout flags to (NGROW-1,NGROW-1,0) by default
 // since the REMORA default is different from the amrex default (NGROW-1,NGROW-1,NGROW-1)
@@ -138,6 +168,8 @@ int main(int argc, char* argv[])
     }
 
     amrex::Initialize(argc,argv,true,MPI_COMM_WORLD,add_par);
+
+    set_flush_subnormals();
 
     // Save the inputs file name for later.
     if (!strchr(argv[1], '=')) {
