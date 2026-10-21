@@ -103,15 +103,15 @@ REMORA::ice_mpdata (int lev, int cold, int cnew, Real dt_lev)
         ParallelFor(ufaces, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             const Real on_u = Real(2.0)/(pn(i-1,j,0)+pn(i,j,0));
-            const Real cff1 = std::max(zero, ui(i,j,0));
-            const Real cff2 = std::min(zero, ui(i,j,0));
+            const Real cff1 = std::max(Real(0.0), ui(i,j,0));
+            const Real cff2 = std::min(Real(0.0), ui(i,j,0));
             aflxu(i,j,0) = on_u*(cff1*fld(i-1,j,0,cold)+cff2*fld(i,j,0,cold));
         });
         ParallelFor(vfaces, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             const Real om_v = Real(2.0)/(pm(i,j-1,0)+pm(i,j,0));
-            const Real cff1 = std::max(zero, vi(i,j,0));
-            const Real cff2 = std::min(zero, vi(i,j,0));
+            const Real cff1 = std::max(Real(0.0), vi(i,j,0));
+            const Real cff2 = std::min(Real(0.0), vi(i,j,0));
             aflxv(i,j,0) = om_v*(cff1*fld(i,j-1,0,cold)+cff2*fld(i,j,0,cold));
         });
 
@@ -209,8 +209,8 @@ REMORA::ice_mpdata (int lev, int cold, int cnew, Real dt_lev)
                                      (pn(i-1,j+1,0)+pn(i,j+1,0)+pn(i-1,j-1,0)+pn(i,j-1,0))*
                                      (vi(i-1,j+1,0)+vi(i,j+1,0)+vi(i-1,j,0)+vi(i,j,0));
                 const Real uspeed = rateu*(std::abs(ui(i,j,0))-Cu*ui(i,j,0))-rateyiu*Cu_crss*ui(i,j,0);
-                const Real cff1 = std::max(zero, uspeed);
-                const Real cff2 = std::min(zero, uspeed);
+                const Real cff1 = std::max(Real(0.0), uspeed);
+                const Real cff2 = std::min(Real(0.0), uspeed);
                 const Real on_u = Real(2.0)/(pn(i-1,j,0)+pn(i,j,0));
                 aflxu(i,j,0) = on_u*(cff1*aif(i-1,j,0)+cff2*aif(i,j,0));
             });
@@ -225,8 +225,8 @@ REMORA::ice_mpdata (int lev, int cold, int cnew, Real dt_lev)
                                      (pm(i+1,j,0)+pm(i+1,j-1,0)+pm(i-1,j,0)+pm(i-1,j-1,0))*
                                      (ui(i,j,0)+ui(i+1,j,0)+ui(i,j-1,0)+ui(i+1,j-1,0));
                 const Real vspeed = ratev*(std::abs(vi(i,j,0))-Cu*vi(i,j,0))-ratexiv*Cu_crss*vi(i,j,0);
-                const Real cff1 = std::max(zero, vspeed);
-                const Real cff2 = std::min(zero, vspeed);
+                const Real cff1 = std::max(Real(0.0), vspeed);
+                const Real cff2 = std::min(Real(0.0), vspeed);
                 const Real om_v = Real(2.0)/(pm(i,j-1,0)+pm(i,j,0));
                 aflxv(i,j,0) = om_v*(cff1*aif(i,j-1,0)+cff2*aif(i,j,0));
             });

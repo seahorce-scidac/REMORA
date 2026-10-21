@@ -71,7 +71,7 @@ REMORA::ice_spdiw (int lev)
 
         ParallelFor(xbx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            int nbotu = static_cast<int>(std::lround(Real(0.5)*(nbot(i-1,j,0)+nbot(i,j,0))));
+            int nbotu = (nbot(i-1,j,0)+nbot(i,j,0)+1)/2; // ROMS NINT of the mean
             nbotu = std::max(std::min(nbotu, nz), 1);
             Real sum = zero;
             Real totml = zero;
@@ -85,7 +85,7 @@ REMORA::ice_spdiw (int lev)
         });
         ParallelFor(ybx, [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            int nbotv = static_cast<int>(std::lround(Real(0.5)*(nbot(i,j-1,0)+nbot(i,j,0))));
+            int nbotv = (nbot(i,j-1,0)+nbot(i,j,0)+1)/2; // ROMS NINT of the mean
             nbotv = std::max(std::min(nbotv, nz), 1);
             Real sum = zero;
             Real totml = zero;
@@ -188,7 +188,7 @@ REMORA::ice_vbc (int lev)
                 utauiw(i,j,0) = std::sqrt(fr(i,j,0,IceFR::IOmt)*spd);
                 utauiw(i,j,0) = std::max(utauiw(i,j,0), Real(1.0e-4));
                 chuiw(i,j,0) = kappa*utauiw(i,j,0)/std::log(zdz0);
-                chuai(i,j,0) = one-std::cos(one*pi*std::min(thic+Real(0.05), one));
+                chuai(i,j,0) = Real(1.0)-std::cos(Real(1.0)*pi*std::min(thic+Real(0.05), Real(1.0)));
             }
         });
 
@@ -313,7 +313,7 @@ REMORA::ice_thermo (int lev, Real dt_lev)
             // Ocean surface temperature and salinity
             const Real temp_top = t(i,j,kN,Temp_comp);
             Real salt_top = t(i,j,kN,Salt_comp);
-            salt_top = std::min(std::max(zero, salt_top), Real(40.0));
+            salt_top = std::min(std::max(Real(0.0), salt_top), Real(40.0));
 
             // Square root of the surface stress magnitude
             const Real tx = Real(0.5)*(sustr(i,j,0)+sustr(i+1,j,0));
@@ -327,8 +327,8 @@ REMORA::ice_thermo (int lev, Real dt_lev)
             const Real snow_thick = si(i,j,0,cS)/(si(i,j,0,cA)+eps);
             Real brnfr = frln*sice/(si(i,j,0,cT)-eps);
             brnfr = std::min(brnfr, Real(0.2));
-            brnfr = std::max(brnfr, zero);
-            Real alph = AlphIc*std::max(one-Real(1.2)*brnfr, Real(0.25));
+            brnfr = std::max(brnfr, Real(0.0));
+            Real alph = AlphIc*std::max(Real(1.0)-Real(1.2)*brnfr, Real(0.25));
             {
                 const Real cff = (si(i,j,0,cH)/one)*(si(i,j,0,cH)/one);
                 const Real corfac = one/(Real(0.5)*(one+std::exp(-cff)));
@@ -342,7 +342,7 @@ REMORA::ice_thermo (int lev, Real dt_lev)
             if (si(i,j,0,cA) > min_ai) {
                 fi(i,j,0,IceFR::Qrhs) += b2d*(si(i,j,0,cT)+Real(273.15));
                 fi(i,j,0,IceFR::Isst) = (fi(i,j,0,IceFR::Qrhs)/fi(i,j,0,IceFR::Qcon))-Real(273.15);
-                fi(i,j,0,IceFR::Isst) = std::min(std::max(fi(i,j,0,IceFR::Isst), Real(-45.0)), zero);
+                fi(i,j,0,IceFR::Isst) = std::min(std::max(fi(i,j,0,IceFR::Isst), Real(-45.0)), Real(0.0));
             } else {
                 fi(i,j,0,IceFR::Isst) = temp_top;
             }
@@ -390,7 +390,7 @@ REMORA::ice_thermo (int lev, Real dt_lev)
             }
 
             // Surface water accumulation: ice melting
-            const Real ws = std::max(fi(i,j,0,IceFR::snow), zero);
+            const Real ws = std::max(fi(i,j,0,IceFR::snow), Real(0.0));
             Real hfus1 = zero;
             {
                 const Real tfrz = frln*sice;
@@ -414,31 +414,31 @@ REMORA::ice_thermo (int lev, Real dt_lev)
                     }
 
                     if ((si(i,j,0,cS) > eps) && (fi(i,j,0,IceFR::Isst) >= zero)) {
-                        si(i,j,0,cS) = si(i,j,0,cS)-si(i,j,0,cA)*std::max(Qsur, zero)*dtice;
-                        si(i,j,0,cM) = si(i,j,0,cM)+si(i,j,0,cA)*std::max(Qsur, zero)*
+                        si(i,j,0,cS) = si(i,j,0,cS)-si(i,j,0,cA)*std::max(Qsur, Real(0.0))*dtice;
+                        si(i,j,0,cM) = si(i,j,0,cM)+si(i,j,0,cA)*std::max(Qsur, Real(0.0))*
                                        SnowWetRho/RhoSW*dtice;
                     } else if ((si(i,j,0,cM) > eps) && (fi(i,j,0,IceFR::Isst) <= tfrz)) {
-                        fi(i,j,0,IceFR::W_ai) = std::min(Qsur, zero);
-                        si(i,j,0,cM) = si(i,j,0,cM)+si(i,j,0,cA)*std::min(Qsur, zero)*dtice;
+                        fi(i,j,0,IceFR::W_ai) = std::min(Qsur, Real(0.0));
+                        si(i,j,0,cM) = si(i,j,0,cM)+si(i,j,0,cA)*std::min(Qsur, Real(0.0))*dtice;
                     } else if ((si(i,j,0,cS) <= eps) && (si(i,j,0,cM) >= eps) &&
                                (fi(i,j,0,IceFR::Isst) > tfrz)) {
-                        fi(i,j,0,IceFR::W_ai) = std::max(Qsur, zero);
-                        si(i,j,0,cM) = si(i,j,0,cM)+si(i,j,0,cA)*std::max(Qsur, zero)*dtice;
+                        fi(i,j,0,IceFR::W_ai) = std::max(Qsur, Real(0.0));
+                        si(i,j,0,cM) = si(i,j,0,cM)+si(i,j,0,cA)*std::max(Qsur, Real(0.0))*dtice;
                     } else if ((si(i,j,0,cS) < eps) && (si(i,j,0,cM) < eps) &&
                                (fi(i,j,0,IceFR::Isst) > tfrz)) {
-                        fi(i,j,0,IceFR::W_ai) = std::max(Qsur, zero);
-                        si(i,j,0,cM) = si(i,j,0,cM)+si(i,j,0,cA)*std::max(Qsur, zero)*dtice;
+                        fi(i,j,0,IceFR::W_ai) = std::max(Qsur, Real(0.0));
+                        si(i,j,0,cM) = si(i,j,0,cM)+si(i,j,0,cA)*std::max(Qsur, Real(0.0))*dtice;
                     }
 
                     const Real rn = rain(i,j,0);
                     if (rn <= zero) {
                         si(i,j,0,cS) = si(i,j,0,cS)+si(i,j,0,cA)*ws*dtice;
                     } else if ((si(i,j,0,cS) > zero) && (si(i,j,0,cM) == zero)) {
-                        si(i,j,0,cS) = std::max(zero, si(i,j,0,cS)-si(i,j,0,cA)*rn/SnowDryRho);
+                        si(i,j,0,cS) = std::max(Real(0.0), si(i,j,0,cS)-si(i,j,0,cA)*rn/SnowDryRho);
                         fi(i,j,0,IceFR::W_ai) = fi(i,j,0,IceFR::W_ai)-
                                                 Real(2.0)*si(i,j,0,cA)*rn/IceRho;
                     } else if ((si(i,j,0,cS) > zero) && (si(i,j,0,cM) > zero)) {
-                        si(i,j,0,cS) = std::max(zero, si(i,j,0,cS)-
+                        si(i,j,0,cS) = std::max(Real(0.0), si(i,j,0,cS)-
                                                 Real(0.5)*si(i,j,0,cA)*rn/SnowDryRho);
                         fi(i,j,0,IceFR::W_ai) = fi(i,j,0,IceFR::W_ai)-
                                                 Real(0.5)*si(i,j,0,cA)*rn/IceRho;
@@ -477,7 +477,7 @@ REMORA::ice_thermo (int lev, Real dt_lev)
             const Real tfz = frln*salt_top;
             fi(i,j,0,IceFR::W_ao) = zero;
             fi(i,j,0,IceFR::W_io) = zero;
-            const Real xwai = std::max(zero, fi(i,j,0,IceFR::W_ai));
+            const Real xwai = std::max(Real(0.0), fi(i,j,0,IceFR::W_ai));
             {
                 const Real cff = one-brnfr;
                 hfus1 = hfus*cff+fi(i,j,0,IceFR::T0mk)*Cp_w-(cff*Cp_i+brnfr*Cp_w)*si(i,j,0,cT);
@@ -499,7 +499,7 @@ REMORA::ice_thermo (int lev, Real dt_lev)
                 xtot = si(i,j,0,cA)*fi(i,j,0,IceFR::W_io)+(one-si(i,j,0,cA))*fi(i,j,0,IceFR::W_ao);
                 fi(i,j,0,IceFR::S0mk) = (chs*salt_top+(xwai-fi(i,j,0,IceFR::W_io))*sice)/
                                         (chs+xwai+fi(i,j,0,IceFR::W_ro)-fi(i,j,0,IceFR::W_io));
-                fi(i,j,0,IceFR::S0mk) = std::max(fi(i,j,0,IceFR::S0mk), zero);
+                fi(i,j,0,IceFR::S0mk) = std::max(fi(i,j,0,IceFR::S0mk), Real(0.0));
                 fi(i,j,0,IceFR::S0mk) = std::min(fi(i,j,0,IceFR::S0mk), Real(40.0));
                 fi(i,j,0,IceFR::T0mk) = frln*fi(i,j,0,IceFR::S0mk);
             }
@@ -554,7 +554,7 @@ REMORA::ice_thermo (int lev, Real dt_lev)
             if ((si(i,j,0,cG) <= zero) && (si(i,j,0,cH) > min_hi)) {
                 si(i,j,0,cG) = dtice*sec2day;
             } else if ((si(i,j,0,cG) > zero) && (si(i,j,0,cH) > min_hi)) {
-                const Real delta_mi = std::min(std::max(si(i,j,0,cH)-mi_old, zero)/si(i,j,0,cH), one);
+                const Real delta_mi = std::min(std::max(si(i,j,0,cH)-mi_old, Real(0.0))/si(i,j,0,cH), Real(1.0));
                 si(i,j,0,cG) = si(i,j,0,cG)+dtice*sec2day-si(i,j,0,cG)*delta_mi;
             } else {
                 si(i,j,0,cG) = zero;
@@ -565,10 +565,10 @@ REMORA::ice_thermo (int lev, Real dt_lev)
 
             // Limit the values
             si(i,j,0,cA) = std::min(si(i,j,0,cA), max_ai);
-            si(i,j,0,cA) = std::max(si(i,j,0,cA), zero);
-            si(i,j,0,cH) = std::max(si(i,j,0,cH), zero);
-            si(i,j,0,cS) = std::max(si(i,j,0,cS), zero);
-            si(i,j,0,cM) = std::max(si(i,j,0,cM), zero);
+            si(i,j,0,cA) = std::max(si(i,j,0,cA), Real(0.0));
+            si(i,j,0,cH) = std::max(si(i,j,0,cH), Real(0.0));
+            si(i,j,0,cS) = std::max(si(i,j,0,cS), Real(0.0));
+            si(i,j,0,cM) = std::max(si(i,j,0,cM), Real(0.0));
             si(i,j,0,cT) = std::max(si(i,j,0,cT), Real(-70.0));
             if (si(i,j,0,cH) <= zero) { si(i,j,0,cA) = zero; }
             if (si(i,j,0,cA) <= zero) { si(i,j,0,cH) = zero; }
@@ -613,13 +613,13 @@ REMORA::ice_limit (int lev)
         ParallelFor(mfi.tilebox(), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
             si(i,j,0,cA) = std::min(si(i,j,0,cA), max_ai);
-            si(i,j,0,cA) = std::max(si(i,j,0,cA), zero);
-            si(i,j,0,cH) = std::max(si(i,j,0,cH), zero);
-            si(i,j,0,cS) = std::max(si(i,j,0,cS), zero);
-            si(i,j,0,cM) = std::max(si(i,j,0,cM), zero);
+            si(i,j,0,cA) = std::max(si(i,j,0,cA), Real(0.0));
+            si(i,j,0,cH) = std::max(si(i,j,0,cH), Real(0.0));
+            si(i,j,0,cS) = std::max(si(i,j,0,cS), Real(0.0));
+            si(i,j,0,cM) = std::max(si(i,j,0,cM), Real(0.0));
             si(i,j,0,cT) = std::max(si(i,j,0,cT), Real(-70.0));
-            si(i,j,0,cT) = std::min(si(i,j,0,cT), zero);
-            si(i,j,0,cG) = std::max(si(i,j,0,cG), zero);
+            si(i,j,0,cT) = std::min(si(i,j,0,cT), Real(0.0));
+            si(i,j,0,cG) = std::max(si(i,j,0,cG), Real(0.0));
             if ((si(i,j,0,cA) <= zero) || (si(i,j,0,cH) <= zero)) {
                 si(i,j,0,cA) = zero;
                 si(i,j,0,cH) = zero;
