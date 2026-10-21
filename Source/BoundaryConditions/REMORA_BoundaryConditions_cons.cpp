@@ -191,6 +191,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
     // here. Without the mask, land on the boundary would carry the interior value.
     const int ncons_wall  = m_ncons;
     const int zeta_bccomp = BCVars::zeta_bc(m_ncons);
+    const int ice_bccomp  = BCVars::ice_bc(m_ncons);   // sea-ice rho-point fields, as ROMS ice_bc2d
 
     // Next do ghost cells in x-direction but not reaching out in y
     // The corners we miss here will be covered in the y-loop below or by periodicity
@@ -199,7 +200,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
         // Populate ghost cells on lo-x and hi-x domain boundaries
         ParallelFor(bx_xlo & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 const int bcc = bccomp + n;
-                const bool masked = (bcc < ncons_wall || bcc == zeta_bccomp)
+                const bool masked = (bcc < ncons_wall || bcc == zeta_bccomp || bcc == ice_bccomp)
                                     && mskr.contains(i,j,0);
                 const bool land = masked && mskr(i,j,0) == Real(0.0);
                 int iflip = dom_lo.x - 1 - i;
@@ -215,7 +216,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             },
             bx_xhi & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 const int bcc = bccomp + n;
-                const bool masked = (bcc < ncons_wall || bcc == zeta_bccomp)
+                const bool masked = (bcc < ncons_wall || bcc == zeta_bccomp || bcc == ice_bccomp)
                                     && mskr.contains(i,j,0);
                 const bool land = masked && mskr(i,j,0) == Real(0.0);
                 int iflip =  2*dom_hi.x + 1 - i;
@@ -238,7 +239,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
         ParallelFor(
             bx_ylo & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 const int bcc = bccomp + n;
-                const bool masked = (bcc < ncons_wall || bcc == zeta_bccomp)
+                const bool masked = (bcc < ncons_wall || bcc == zeta_bccomp || bcc == ice_bccomp)
                                     && mskr.contains(i,j,0);
                 const bool land = masked && mskr(i,j,0) == Real(0.0);
                 int jflip = dom_lo.y - 1 - j;
@@ -254,7 +255,7 @@ void REMORAPhysBCFunct::impose_cons_bcs (const Array4<Real>& dest_arr, const Box
             },
             bx_yhi & dest_arr_box, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n) {
                 const int bcc = bccomp + n;
-                const bool masked = (bcc < ncons_wall || bcc == zeta_bccomp)
+                const bool masked = (bcc < ncons_wall || bcc == zeta_bccomp || bcc == ice_bccomp)
                                     && mskr.contains(i,j,0);
                 const bool land = masked && mskr(i,j,0) == Real(0.0);
                 int jflip =  2*dom_hi.y + 1 - j;

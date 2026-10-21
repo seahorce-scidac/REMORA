@@ -2166,6 +2166,21 @@ REMORA::init_only (int lev, Real time)
             // chosen independently by remora.biology_ic_type, and the analytic
             // profiles need the physical fields already in place.
             init_biology_ic(lev);
+
+            // ROMS has no analytic ice initial condition and starts from zero unless the
+            // initial file carries the ice; a problem may supply an analytic one.
+            if (has_seaice()) {
+                if (solverChoice.ic_type == IC_Type::netcdf) {
+#ifdef REMORA_USE_NETCDF
+                    init_seaice_from_netcdf(lev);
+#endif
+                } else {
+                    prob->init_analytic_seaice(lev, geom[lev], solverChoice, *this,
+                                               *vec_ice_si_r[lev], *vec_ice_si_u[lev],
+                                               *vec_ice_si_v[lev]);
+                    ice_fill_state(lev);
+                }
+            }
         } else {
             set_init_data_averaged_down(lev); // also sets biology data
             bool apply_eminusp = false;
@@ -2617,6 +2632,26 @@ REMORA::ReadParameters ()
         pp_amr.queryAdd("regrid_int", regrid_int);
     }
     solverChoice.init_params(ncons, nscalar, cons_names);
+
+    {
+        std::string ice_model_string = REMORASeaIce::ice_model_name(seaice_params.model);
+        pp.queryAdd("ice_model", ice_model_string);
+        seaice_params.model = REMORASeaIce::parse_ice_model(ice_model_string);
+    }
+    if (has_seaice()) {
+        seaice_params.init_params();
+        // ROMS cannot run its ice model without ICE_BULK_FLUXES: the air-ice stress and the
+        // ice surface heat budget both come out of bulk_flux.
+        if (!solverChoice.bulk_fluxes) {
+            amrex::Abort("remora.ice_model requires remora.bulk_fluxes = true");
+        }
+        if (max_level > 0) {
+            amrex::Abort("remora.ice_model is only supported with a single level (amr.max_level = 0)");
+        }
+        if (solverChoice.use_salt == false) {
+            amrex::Abort("remora.ice_model requires salinity");
+        }
+    }
 
     // The biology IC source is chosen independently of ic_type, but only one of the two
     // mixed combinations works: NetCDF physics with analytic biology. The reverse has no

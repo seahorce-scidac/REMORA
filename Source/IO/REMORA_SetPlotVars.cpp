@@ -1,4 +1,5 @@
 #include <REMORA.H>
+#include <algorithm>
 #include "AMReX_Interp_3D_C.H"
 #include "AMReX_PlotFileUtil.H"
 
@@ -205,12 +206,30 @@ REMORA::set2DPlotVariables (const std::string& pp_plot_var_names_2d)
     if (containerHasElement(plot_var_names_2d, "mask_u")) tmp_plot_names.push_back("mask_u");
     if (containerHasElement(plot_var_names_2d, "mask_v")) tmp_plot_names.push_back("mask_v");
 
+    // Sea ice: any ice variable by its ROMS name, or "seaice" for every ice state variable
+    // and ice field, along with the surface fluxes the ice hands the ocean
+    const bool all_ice = has_seaice() && containerHasElement(plot_var_names_2d, "seaice");
+    if (all_ice) {
+        tmp_plot_names.push_back("seaice");   // only so the check below accepts it
+    }
+    for (const std::string nm : {"net_heat_flux", "net_salt_flux"}) {
+        if (containerHasElement(plot_var_names_2d, nm) || all_ice) { tmp_plot_names.push_back(nm); }
+    }
+    for (const auto& nm : ice_output_names()) {
+        if ((containerHasElement(plot_var_names_2d, nm) || all_ice) &&
+            !containerHasElement(tmp_plot_names, nm)) {
+            tmp_plot_names.push_back(nm);
+        }
+    }
+
     // Check to see if we found all the requested variables
     for (auto plot_name : plot_var_names_2d) {
       if (!containerHasElement(tmp_plot_names, plot_name) && ParallelDescriptor::IOProcessor()) {
            Warning("\nWARNING: Requested to plot variable '" + plot_name + "' in 2D list but it is not available");
       }
     }
+    tmp_plot_names.erase(std::remove(tmp_plot_names.begin(), tmp_plot_names.end(), std::string("seaice")),
+                         tmp_plot_names.end());
     plot_var_names_2d = tmp_plot_names;
 }
 

@@ -36,6 +36,7 @@
 #include <REMORA_Derive.H>
 #include <REMORA_ErrorTag.H>
 #include <REMORA_Biology.H>
+#include <REMORA_SeaIce.H>
 #include "REMORA_ProbCoords.H"
 #include "REMORA_prob_common.H"
 
@@ -677,6 +678,20 @@ public:
     /** \brief Climatology nudging coefficients */
     amrex::Vector<amrex::Vector<std::unique_ptr<amrex::MultiFab>>> vec_nudg_coeff;
 
+    // Sea ice. State MultiFabs hold both time levels, see REMORASeaIce::rcomp/ucomp.
+    /** \brief Ice state at rho points (2D, 2*IceR::NumVars components) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ice_si_r;
+    /** \brief Ice state at u points (2D, 2*IceU::NumVars components) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ice_si_u;
+    /** \brief Ice state at v points (2D, 2*IceU::NumVars components) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ice_si_v;
+    /** \brief Ice fields at rho points (2D, IceFR::NumVars components) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ice_fi_r;
+    /** \brief Ice fields at u points (2D, IceFU::NumVars components) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ice_fi_u;
+    /** \brief Ice fields at v points (2D, IceFU::NumVars components) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_ice_fi_v;
+
     /** \brief advance a single level for a single time step */
     void Advance (int lev, amrex::Real time, amrex::Real dt_lev, int iteration, int ncycle);
 
@@ -809,6 +824,59 @@ public:
                       amrex::MultiFab* mf_lhflx,
                       amrex::MultiFab* mf_shflx,
                       const int N);
+
+    // Sea ice (Source/SeaIce)
+    /** \brief Allocate and zero the ice state and fields of a level */
+    void init_seaice (int lev, const amrex::BoxArray& ba, const amrex::DistributionMapping& dm);
+    /** \brief Read the ice state from the NetCDF initial file into time level 1 (index 0) */
+    void init_seaice_from_netcdf (int lev);
+    /** \brief Advance the ice one baroclinic step: ROMS seaice.F */
+    void advance_seaice (int lev, amrex::Real dt_lev);
+    /** \brief Ice/snow albedo (ROMS ice_albedo) */
+    void ice_albedo (int lev);
+    /** \brief Exchange ice data between boxes and across periodic sides, with no physical
+     *         BCs (ROMS exchange_*2d) */
+    void ice_exchange (int lev, amrex::MultiFab& mf, int scomp, int ncomp);
+    /** \brief Exchange and physical BCs of one component of mfs[lev], with the given BC
+     *         variable: ice_bc, ice_u_bc and ice_v_bc for the ice state, foextrap_bc and
+     *         u2d/v2d_simple_bc for the fields ROMS fills with its ocean bc_r2d/bc_u2d/bc_v2d */
+    void ice_fill (int lev, amrex::Vector<std::unique_ptr<amrex::MultiFab>>& mfs, int comp,
+                   int bccomp);
+    /** \brief ice_fill of every component of the ice state */
+    void ice_fill_state (int lev);
+    /** \brief Mixed-layer ocean velocity and ice-ocean shear (ROMS ice_spdiw) */
+    void ice_spdiw (int lev);
+    /** \brief Ice-ocean and air-ice stresses; blends the ocean surface stress (ROMS ice_vbc) */
+    void ice_vbc (int lev);
+    /** \brief Mellor-Kantha ice thermodynamics; sets the ocean heat and salt flux (ROMS ice_mk) */
+    void ice_thermo (int lev, amrex::Real dt_lev);
+    /** \brief Positivity and limits of the ice tracers at linew, then their BCs (ROMS ice_limit) */
+    void ice_limit (int lev);
+    /** \brief EVP strain rates, ice strength and viscosities (ROMS ice_evp) */
+    void ice_evp (int lev, int iEVP);
+    /** \brief EVP internal ice stress (ROMS ice_evp_sig) */
+    void ice_evp_sig (int lev, amrex::Real dtevp);
+    /** \brief One EVP substep of the ice momentum equations (ROMS ice_elastic) */
+    void ice_elastic (int lev, int iEVP, amrex::Real dtevp);
+    /** \brief Ice enthalpy on both time levels (ROMS ice_enthalpy) */
+    void ice_enthalpy (int lev);
+    /** \brief Advect one rho-point ice component from cold to cnew (ROMS ice_mpdata_tile) */
+    void ice_mpdata (int lev, int cold, int cnew, amrex::Real dt_lev);
+    /** \brief Advect the ice tracers (ROMS ice_advect, ice_smolar.h) */
+    void ice_advect (int lev, amrex::Real dt_lev);
+    /** \brief Where an ice output variable lives: its MultiFab, component, and staggering
+     *         (0 rho, 1 u, 2 v). False if the name is not an ice variable. State variables
+     *         are taken at time level liunw, which is what ROMS writes. */
+    bool ice_output_source (int lev, const std::string& name, amrex::MultiFab*& mf,
+                            int& comp, int& stagger) const;
+    /** \brief Names of every ice output variable, ROMS (varinfo.yaml) spelling */
+    amrex::Vector<std::string> ice_output_names () const;
+    /** \brief Copy ice output variable name into component dst_comp of dst on every level.
+     *         False, copying nothing, if the name is not an ice variable. */
+    bool copy_ice_output (const std::string& name, amrex::Vector<amrex::MultiFab>& dst,
+                          int dst_comp) const;
+    /** \brief True when a sea-ice model is active */
+    bool has_seaice () const noexcept { return REMORASeaIce::has_seaice(seaice_params.model); }
 
     /** \brief Wrapper function for prestep */
     void prestep (int lev,
@@ -1490,6 +1558,9 @@ public:
     int foextrap_bc () const noexcept { return BCVars::foextrap_bc(ncons); }
     int u2d_simple_bc () const noexcept { return BCVars::u2d_simple_bc(ncons); }
     int v2d_simple_bc () const noexcept { return BCVars::v2d_simple_bc(ncons); }
+    int ice_bc   () const noexcept { return BCVars::ice_bc(ncons); }
+    int ice_u_bc () const noexcept { return BCVars::ice_u_bc(ncons); }
+    int ice_v_bc () const noexcept { return BCVars::ice_v_bc(ncons); }
     int num_bc_vars () const noexcept { return BCVars::NumTypes(ncons); }
 
     ///@{
@@ -1853,6 +1924,11 @@ private:
     int biology_debug_i = 2;
     /** \brief Target column j index for biology_debug = 1 */
     int biology_debug_j = 2;
+
+    /** \brief Sea-ice model selection and parameters (remora.ice_model, ice.*) */
+    REMORASeaIce::SeaIceParams seaice_params;
+    /** \brief Ice time-level indices (ROMS liold/linew/...). Single level only. */
+    REMORASeaIce::IceLevels ice_lvl;
 
     // Time step controls
     /** \brief CFL condition */

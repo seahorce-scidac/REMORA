@@ -868,6 +868,46 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
             ncf.var("rain").put_attr("coordinates","x_rho y_rho ocean_time");
             ncf.var("rain").put_attr("field","rain, scalar, series");
         }
+        // The surface heat and salt fluxes the ocean actually takes (vec_stflx), after the
+        // sea ice has overwritten and added to the bulk flux: ROMS's shflux and ssflux.
+        // Both names mean something else here already, so these get their own.
+        if (plot_2d_var_requested(plot_var_names_2d, "net_heat_flux")) {
+            ncf.def_var("net_heat_flux", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("net_heat_flux").put_attr("long_name","surface net heat flux applied to the ocean");
+            ncf.var("net_heat_flux").put_attr("units","watt meter-2");
+            ncf.var("net_heat_flux").put_attr("time","ocean_time");
+            ncf.var("net_heat_flux").put_attr("coordinates","x_rho y_rho ocean_time");
+        }
+        if (plot_2d_var_requested(plot_var_names_2d, "net_salt_flux")) {
+            ncf.def_var("net_salt_flux", ncutils::NCDType::Real, {nt_name, ny_r_name, nx_r_name });
+            ncf.var("net_salt_flux").put_attr("long_name","surface net salt flux applied to the ocean, SALT*(E-P)/rhow");
+            ncf.var("net_salt_flux").put_attr("units","psu meter second-1");
+            ncf.var("net_salt_flux").put_attr("time","ocean_time");
+            ncf.var("net_salt_flux").put_attr("coordinates","x_rho y_rho ocean_time");
+        }
+
+        // Sea ice: the state variables and ice fields named in remora.plot_vars_2d, under
+        // their ROMS (varinfo.yaml) names
+        for (const auto& nm : ice_output_names()) {
+            if (!plot_2d_var_requested(plot_var_names_2d, nm)) { continue; }
+            MultiFab* ice_mf = nullptr;
+            int ice_comp = 0;
+            int ice_stagger = 0;
+            ice_output_source(lev, nm, ice_mf, ice_comp, ice_stagger);
+            if (ice_stagger == 1) {
+                ncf.def_var(nm, ncutils::NCDType::Real, { nt_name, ny_u_name, nx_u_name });
+                ncf.var(nm).put_attr("coordinates","x_u y_u ocean_time");
+            } else if (ice_stagger == 2) {
+                ncf.def_var(nm, ncutils::NCDType::Real, { nt_name, ny_v_name, nx_v_name });
+                ncf.var(nm).put_attr("coordinates","x_v y_v ocean_time");
+            } else {
+                ncf.def_var(nm, ncutils::NCDType::Real, { nt_name, ny_r_name, nx_r_name });
+                ncf.var(nm).put_attr("coordinates","x_rho y_rho ocean_time");
+            }
+            ncf.var(nm).put_attr("time","ocean_time");
+            ncf.var(nm).put_attr("field", nm + ", scalar, series");
+        }
+
         // Right now this is hard-wired to {temp, salt, tracer, u, v}
         ncf.put_attr("space_dimension", std::vector<int> { AMREX_SPACEDIM });
 //        ncf.put_attr("current_time", std::vector<double> { time });
@@ -966,6 +1006,25 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
     //
     long long local_start_nt = is_history ? history_record : 0;
     long long local_nt = 1; // We write data for only one time
+
+    // Stages, for one box, the requested ice fields on one staggering (0 rho, 1 u, 2 v)
+    auto put_ice_fields = [&] (int stagger, int mfi_index, const Box& box_2d,
+                               long long start_y, long long start_x, long long ny, long long nx)
+    {
+        for (const auto& nm : ice_output_names()) {
+            if (!plot_2d_var_requested(plot_var_names_2d, nm)) { continue; }
+            MultiFab* ice_mf = nullptr;
+            int ice_comp = 0;
+            int ice_stagger = 0;
+            ice_output_source(lev, nm, ice_mf, ice_comp, ice_stagger);
+            if (ice_stagger != stagger) { continue; }
+            FArrayBox tmp(box_2d, 1, amrex::The_Pinned_Arena());
+            tmp.template copy<RunOn::Device>((*ice_mf)[mfi_index], ice_comp, 0, 1);
+            Gpu::streamSynchronize();
+            collector.var(ncf, nm).put(tmp.dataPtr(), { local_start_nt, start_y, start_x },
+                                                      { local_nt,       ny,      nx });
+        }
+    };
 
     // ocean_time is on the model clock, in double. Written here rather than staged,
     // since the collector holds Real; collective, with only the IO rank contributing.
@@ -1212,6 +1271,24 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 nc_plot_var.put(tmp_mask_rho.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny,
                         local_nx });
             }
+
+            if (plot_2d_var_requested(plot_var_names_2d, "net_heat_flux")) {
+                FArrayBox tmp(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                tmp.template copy<RunOn::Device>((*vec_stflx[lev])[mfi.index()], Temp_comp, 0, 1);
+                tmp.mult<RunOn::Device>(solverChoice.rho0 * Cp);
+                Gpu::streamSynchronize();
+                collector.var(ncf, "net_heat_flux").put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x },
+                                                                       { local_nt,       local_ny,       local_nx });
+            }
+            if (plot_2d_var_requested(plot_var_names_2d, "net_salt_flux")) {
+                FArrayBox tmp(tmp_bx_2d, 1, amrex::The_Pinned_Arena());
+                tmp.template copy<RunOn::Device>((*vec_stflx[lev])[mfi.index()], Salt_comp, 0, 1);
+                Gpu::streamSynchronize();
+                collector.var(ncf, "net_salt_flux").put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x },
+                                                                       { local_nt,       local_ny,       local_nx });
+            }
+
+            put_ice_fields(0, mfi.index(), tmp_bx_2d, local_start_y, local_start_x, local_ny, local_nx);
 
             // stflux_*, one per tracer. Defined above under the same condition.
             for (int n = 0; n < ncons; ++n) {
@@ -1566,6 +1643,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 auto nc_plot_var = collector.var(ncf, "mask_u");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
+
+            put_ice_fields(1, mfi.index(), tmp_bx_2d, local_start_y, local_start_x, local_ny, local_nx);
         } // in subdomain
     } // mfi
 
@@ -1665,6 +1744,8 @@ void REMORA::WriteNCPlotFile_which(int lev, int which_subdomain, MultiFab const*
                 auto nc_plot_var = collector.var(ncf, "mask_v");
                 nc_plot_var.put(tmp.dataPtr(), { local_start_nt, local_start_y, local_start_x }, { local_nt, local_ny, local_nx });
             }
+
+            put_ice_fields(2, mfi.index(), tmp_bx_2d, local_start_y, local_start_x, local_ny, local_nx);
 
         } // in subdomain
     } // mfi

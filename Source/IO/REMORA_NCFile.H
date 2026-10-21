@@ -232,14 +232,14 @@ fill_fab_from_arrays (int iv,
     amrex::Box my_box;
 
     if (var_name == "u" || var_name == "ubar" || var_name == "mask_u" || var_name == "x_u" ||
-          var_name == "y_u" || var_name == "sustr")
+          var_name == "y_u" || var_name == "sustr" || var_name == "Uice" || var_name == "Uevp")
     {
         my_box.setSmall(amrex::IntVect(0,-1,0));
         my_box.setBig(amrex::IntVect(nsx-1,nsy-2,nsz-1));
         my_box.setType(amrex::IndexType(amrex::IntVect(1,0,0)));
     }
     else if (var_name == "v" || var_name == "vbar" || var_name == "mask_v" || var_name == "x_v" ||
-          var_name == "y_v" || var_name == "svstr")
+          var_name == "y_v" || var_name == "svstr" || var_name == "Vice" || var_name == "Vevp")
     {
         my_box.setSmall(amrex::IntVect(-1,0,0));
         my_box.setBig(amrex::IntVect(nsx-2,nsy-1,nsz-1));

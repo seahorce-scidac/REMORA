@@ -1,0 +1,131 @@
+# ------------------  LakeIce  ------------------
+# The ROMS LAKE_ICE test (myroms/roms_test lake_ice) with the native sea-ice model:
+# a 200 km x 100 km freshwater-ish lake, 20-200 m deep, under an analytic seasonal
+# atmosphere. Starts from the day-60 state of a ROMS spin-up, when a quarter of the
+# lake is ice covered. ROMS options this mirrors: ICE_MODEL ICE_THERMO ICE_MK
+# ICE_ALBEDO ICE_ALB_EC92 ICE_MOMENTUM ICE_MOM_BULK ICE_EVP ICE_ADVECT ICE_SMOLAR
+# ICE_UPWIND ICE_CONVSNOW ICE_BULK_FLUXES, with GLS mixing in place of LMD.
+
+remora.prob_name = LakeIce
+
+remora.max_step = 12
+
+remora.prob_lo     =       0.      0.  -200.
+remora.prob_hi     =  199000.  99000.     0.
+remora.n_cell      =     199      99     30
+
+remora.is_periodic = 0 0 0
+remora.bc.xlo.type = "SlipWall"
+remora.bc.xhi.type = "SlipWall"
+remora.bc.ylo.type = "SlipWall"
+remora.bc.yhi.type = "SlipWall"
+
+remora.fixed_dt = 300.0
+remora.ndtfast  = 30
+
+remora.v = 0
+remora.sum_interval = 1
+
+remora.check_file = chk
+remora.check_int  = -1
+
+remora.plot_file     = plt
+remora.plot_int      = 1
+remora.plotfile_type = netcdf
+remora.plot_vars_3d  = salt temp x_velocity y_velocity z_velocity
+remora.plot_vars_2d  = seaice   # every ice variable, and the fluxes it hands the ocean
+remora.output_forcing = true
+
+remora.ic_type         = netcdf
+remora.nc_init_file_0  = "lake_ice_day60_ini_remora.nc"
+remora.nc_grid_file_0  = "roms_lake_ice_grd.nc"
+remora.time_ref        = 20100101.0
+remora.start_time      = 5184000.0
+
+remora.use_coriolis  = true
+remora.coriolis_type = netcdf
+
+remora.theta_s = 7.0
+remora.theta_b = 0.1
+remora.tcline  = 50.0
+
+remora.eos_type = nonlinear
+remora.rho0     = 1025.0
+remora.g        = 9.81
+remora.R0       = 1027.0
+remora.T0       = 14.0
+remora.S0       = 8.0
+
+remora.tracer_horizontal_advection_scheme = upstream3
+remora.uv_horizontal_advection_scheme     = upstream3
+
+remora.horizontal_mixing_type = constant
+remora.harmonic_mixing_type   = geopotential
+remora.visc2     = 5.0
+remora.tnu2_temp = 5.0
+remora.tnu2_salt = 5.0
+
+remora.bottom_stress_type = quadratic
+remora.rdrag2 = 3.0e-3
+remora.Zob    = 0.02
+remora.Zos    = 0.02
+
+remora.vertical_mixing_type = GLS
+remora.gls_stability_type   = Galperin
+remora.Akv_bak  = 1.0e-5
+remora.Akt_bak  = 1.0e-6
+remora.Akk_bak  = 5.0e-6
+remora.Akp_bak  = 5.0e-6
+remora.gls_P    = 0.0
+remora.gls_M    = 1.0
+remora.gls_N    = 1.0
+remora.gls_Kmin = 5.0e-6
+remora.gls_Pmin = 5.0e-6
+remora.gls_cmu0 = 0.5544
+remora.gls_c1   = 0.9
+remora.gls_c2   = 0.52
+remora.gls_c3m  = 2.5
+remora.gls_c3p  = 1.0
+remora.gls_sigk = 1.96
+remora.gls_sigp = 1.96
+
+# Bulk fluxes with the analytic LAKE_ICE atmosphere (ana_*.h of the ROMS case)
+remora.bulk_fluxes = true
+remora.eminusp     = true
+remora.uwind_type  = analytic
+remora.vwind_type  = analytic
+remora.tair_type   = analytic
+remora.qair_type   = analytic
+remora.pair_type   = analytic
+remora.swrad_type  = analytic
+remora.rain_type   = analytic
+remora.cloud_type  = analytic
+remora.blk_ZQ = 10.0
+remora.blk_ZT = 10.0
+remora.blk_ZW = 10.0
+remora.bulk_flux_scheme = coare35
+
+# Sea ice (ROMS lake_ice.in)
+remora.ice_model = mellor_kantha
+ice.advect_upwind = true
+ice.mom_bulk      = true
+ice.convsnow      = true
+ice.albedo_type   = ec92
+ice.nEVP       = 60
+ice.AirRho     = 1.267
+ice.IceRho     = 900.0
+ice.SnowDryRho = 330.0
+ice.SnowWetRho = 450.0
+ice.Cd_ai      = 3.0e-3
+ice.Cd_io      = 7.5e-3
+ice.Astrength  = 20.0
+ice.Pstar      = 25000.0
+ice.zetaMin    = 0.0
+ice.zetaMax    = 1.0e14
+ice.ellip_sq   = 4.0
+ice.min_ai     = 0.0
+ice.max_ai     = 1.0
+ice.min_hi     = 0.0
+ice.max_hmelt  = 0.10
+ice.stressAng  = 0.0
+ice.bc_type    = closed closed closed closed

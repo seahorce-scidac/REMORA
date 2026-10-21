@@ -170,6 +170,11 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     }
     BoxArray ba2d(std::move(bl2d));
 
+    // init_stuff below would zero the ice state, and nothing carries it across
+    if (has_seaice()) {
+        amrex::Abort("Regridding is not supported with remora.ice_model");
+    }
+
     amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
 
@@ -512,6 +517,13 @@ void REMORA::resize_stuff(int lev)
 
     vec_river_position.resize(lev+1);
 
+    vec_ice_si_r.resize(lev+1);
+    vec_ice_si_u.resize(lev+1);
+    vec_ice_si_v.resize(lev+1);
+    vec_ice_fi_r.resize(lev+1);
+    vec_ice_fi_u.resize(lev+1);
+    vec_ice_fi_v.resize(lev+1);
+
     if (lev==0) vec_nudg_coeff.resize(num_bdy_vars());
 
     vec_nudg_coeff[BdyVars::u].resize(lev+1);
@@ -777,6 +789,9 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
         vec_ZoBot[lev]->setVal(solverChoice.Zob);
     }
 
+    if (has_seaice()) {
+        init_seaice(lev, ba, dm);
+    }
 
     // ********************************************************************************************
     // Create the REMORAFillPatcher object

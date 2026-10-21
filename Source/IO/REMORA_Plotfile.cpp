@@ -124,6 +124,8 @@ REMORA::WritePlotFile (int istep_for_plot)
          if (plot_name == "srflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "shflux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "mask_rho") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "net_heat_flux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+         if (plot_name == "net_salt_flux") {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
          if (plot_name == "ubar" ) {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "sustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
          if (plot_name == "bustr") {varnames_2d_u.push_back(plot_name); ncomp_mf_2d_u++;}
@@ -132,6 +134,15 @@ REMORA::WritePlotFile (int istep_for_plot)
          if (plot_name == "svstr") {varnames_2d_v.push_back(plot_name); ncomp_mf_2d_v++;}
          if (plot_name == "bvstr") {varnames_2d_v.push_back(plot_name); ncomp_mf_2d_v++;}
          if (plot_name == "mask_v") {varnames_2d_v.push_back(plot_name); ncomp_mf_2d_v++;}
+
+         MultiFab* ice_mf = nullptr;
+         int ice_comp = 0;
+         int ice_stagger = 0;
+         if (ice_output_source(0, plot_name, ice_mf, ice_comp, ice_stagger)) {
+             if (ice_stagger == 0) {varnames_2d_rho.push_back(plot_name); ncomp_mf_2d_rho++;}
+             if (ice_stagger == 1) {varnames_2d_u.push_back(plot_name);   ncomp_mf_2d_u++;}
+             if (ice_stagger == 2) {varnames_2d_v.push_back(plot_name);   ncomp_mf_2d_v++;}
+         }
       }
     }
 
@@ -358,6 +369,19 @@ REMORA::WritePlotFile (int istep_for_plot)
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_mskr[lev],0,icomp_rho,1,0); }
             icomp_rho++;
         }
+        // The surface heat and salt fluxes the ocean actually takes, after any sea ice
+        if (plot_name == "net_heat_flux" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) {
+                MultiFab::Copy(mf_2d_rho[lev],*vec_stflx[lev],Temp_comp,icomp_rho,1,0);
+                mf_2d_rho[lev].mult(solverChoice.rho0 * Cp, icomp_rho, 1, 0);
+            }
+            icomp_rho++;
+        }
+        if (plot_name == "net_salt_flux" ) {
+            for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_rho[lev],*vec_stflx[lev],Salt_comp,icomp_rho,1,0); }
+            icomp_rho++;
+        }
+        if (copy_ice_output(plot_name, mf_2d_rho, icomp_rho)) { icomp_rho++; }
     }
 
     int icomp_u   = 0;
@@ -381,6 +405,7 @@ REMORA::WritePlotFile (int istep_for_plot)
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_u[lev],*vec_msku[lev],0,icomp_u,1,0); }
             icomp_u++;
         }
+        if (copy_ice_output(plot_name, mf_2d_u, icomp_u)) { icomp_u++; }
     }
 
     int icomp_v   = 0;
@@ -402,6 +427,7 @@ REMORA::WritePlotFile (int istep_for_plot)
             for (int lev = 0; lev <= finest_level; ++lev) { MultiFab::Copy(mf_2d_v[lev],*vec_mskv[lev],0,icomp_v,1,0); }
             icomp_v++;
         }
+        if (copy_ice_output(plot_name, mf_2d_v, icomp_v)) { icomp_v++; }
     }
 
     for (int lev = 0; lev <= finest_level; ++lev)

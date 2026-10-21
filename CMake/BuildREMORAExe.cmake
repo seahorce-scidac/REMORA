@@ -129,6 +129,15 @@ function(build_remora_lib remora_lib_name)
        ${SRC_DIR}/REMORA_SumIQ.cpp
        ${SRC_DIR}/REMORA_Tagging.cpp
        ${SRC_DIR}/Biology/REMORA_Biology.cpp
+       ${SRC_DIR}/SeaIce/REMORA_SeaIce.cpp
+       ${SRC_DIR}/SeaIce/REMORA_SeaIce_bc.cpp
+       ${SRC_DIR}/SeaIce/REMORA_SeaIce_init.cpp
+       ${SRC_DIR}/SeaIce/REMORA_SeaIce_io.cpp
+       ${SRC_DIR}/SeaIce/REMORA_SeaIce_albedo.cpp
+       ${SRC_DIR}/SeaIce/REMORA_SeaIce_thermo.cpp
+       ${SRC_DIR}/SeaIce/REMORA_SeaIce_advance.cpp
+       ${SRC_DIR}/SeaIce/REMORA_SeaIce_evp.cpp
+       ${SRC_DIR}/SeaIce/REMORA_SeaIce_advect.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_cons.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_xvel.cpp
        ${SRC_DIR}/BoundaryConditions/REMORA_BoundaryConditions_yvel.cpp
@@ -218,6 +227,7 @@ function(build_remora_lib remora_lib_name)
   #REMORA include directories
   target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source>)
   target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/Biology>)
+  target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/SeaIce>)
   target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/BoundaryConditions>)
   target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/Initialization>)
   target_include_directories(${remora_lib_name} PUBLIC  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Source/Utils>)
