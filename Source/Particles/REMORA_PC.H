@@ -147,10 +147,10 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
         virtual void InitializeParticles (const std::unique_ptr<amrex::MultiFab>& a_ptr = nullptr);
 
         /*! Evolve particles for one time step */
-        virtual void EvolveParticles (   int lev,
-                                         amrex::Real dt,
+        virtual void EvolveParticles (   int a_lev,
+                                         amrex::Real a_dt_lev,
                                          amrex::Vector<amrex::MultiFab const*>& a_flow_vel,
-                                         const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& );
+                                         const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& a_z_phys_nd );
 
         /*! Get real-type particle attribute names */
         virtual amrex::Vector<std::string> varNames () const
@@ -167,13 +167,13 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
         }
 
         /*! Uses midpoint method to advance particles using flow velocity. */
-        virtual void AdvectWithFlow (  int lev,
-                                       amrex::Real dt,
-                                       amrex::Vector<amrex::MultiFab const*>&,
-                                       const std::unique_ptr<amrex::MultiFab>& );
+        virtual void AdvectWithFlow (  int a_lev,
+                                       amrex::Real a_dt,
+                                       amrex::Vector<amrex::MultiFab const*>& a_umac,
+                                       const std::unique_ptr<amrex::MultiFab>& a_z_height );
 
         /*! Compute mass density */
-        virtual void massDensity ( amrex::MultiFab&, const int&, const int& a_comp = 0) const;
+        virtual void massDensity ( amrex::MultiFab& a_mf, const int& a_lev, const int& a_comp = 0) const;
 
         /*! Compute mesh variable from particles */
         virtual void computeMeshVar(    const std::string&  a_var_name,
