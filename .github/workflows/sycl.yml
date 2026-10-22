@@ -59,7 +59,7 @@ jobs:
           -DREMORA_ENABLE_FCOMPARE:BOOL=ON \
           -DCMAKE_C_COMPILER=$(which icx) \
           -DCMAKE_CXX_COMPILER=$(which icpx) \
-          -DCMAKE_CXX_STANDARD=17
+          -DCMAKE_CXX_STANDARD=20
         make -j 2 2>&1 | tee -a ${{runner.workspace}}/build-output.txt;
 
         ccache -s

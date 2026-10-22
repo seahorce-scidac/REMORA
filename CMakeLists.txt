@@ -1,6 +1,6 @@
 ############################ BASE ######################################
 
-cmake_minimum_required (VERSION 3.20 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.25 FATAL_ERROR)
 
 if(REMORA_ENABLE_FUNWAVE_FORT OR REMORA_ENABLE_FENNEL_FORT)
   project(REMORA CXX C Fortran)
@@ -64,7 +64,7 @@ option(REMORA_ENABLE_SYCL   "Enable SYCL"   OFF)
 option(REMORA_ENABLE_MOAB   "Enable MOAB"   OFF)
 
 #Options for C++
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
