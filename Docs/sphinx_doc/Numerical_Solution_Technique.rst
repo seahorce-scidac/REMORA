@@ -393,7 +393,7 @@ second difference and the transport factor the average of the two neighbouring o
 (2D) momentum fluxes use :math:`\frac{1}{6}`, with the average of the two neighbouring second
 differences in both factors.
 
-Because the third-order upwind scheme is designed to be two-dimensional, it is not used in the vertical (though one might argue that we are simply performing one-dimensional operations here). Instead tracers use a centered fourth-order scheme in the vertical:
+Because the third-order upwind scheme is designed to be two-dimensional, it is not used in the vertical. Instead tracers use a centered fourth-order scheme in the vertical:
 
 .. math::
    F^s=\frac{H_zw}{mn}\left[-\frac{1}{12}C_{i,j,k-1}+\frac{7}{12}C_{i,j,k}+\frac{7}{12}C_{i,j,k+1}-\frac{1}{12}C_{i,j,k+2}\right]
@@ -421,7 +421,7 @@ upstream location and that of the transport is averaged; the 2D fluxes average b
 
 Vertical Velocity
 -----------------
-Having obtained a complete specification of the :math:`u,v,T`, and :math:`S` fields at the next time level by the methods outlined above, the vertical velocity and density fields can be calculated. the vertical velocity is obtained by rewriting equation (5) as:
+Having obtained a complete specification of the :math:`u,v,T`, and :math:`S` fields at the next time level by the methods outlined above, the vertical velocity fields can be calculated. The vertical velocity is obtained by rewriting equation (5) as:
 
 .. math::
    \frac{\partial}{\partial t}\left(\frac{\zeta}{mn}\right)+\delta_{\xi}\left(\frac{u\overline{H_z}^{\xi}}{\overline{n}^{\xi}}\right)+\delta_{\eta}\left(\frac{v\overline{H_z}^{\eta}}{\overline{m}^{\eta}}\right)+\delta_{\sigma}\left(\frac{H_z\Omega}{mn}\right)=0
