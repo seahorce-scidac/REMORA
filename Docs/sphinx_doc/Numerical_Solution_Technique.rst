@@ -437,11 +437,11 @@ Solving for :math:`H_z\Omega/mn` and using the semi-discrete notation we obtain:
    \frac{H_z\Omega}{mn}=\int\left[\delta_{\xi}\left(\frac{\overline{u}\,\overline{D}^{\xi}}{\overline{n}^{\xi}}\right)+\delta_{\eta}\left(\frac{\overline{v}\,\overline{D}^{\eta}}{\overline{m}^{\eta}}\right)-\delta_{\xi}\left(\frac{u\overline{H_z}^{\xi}}{\overline{n}^{\xi}}\right)-\delta_{\eta}\left(\frac{v\overline{H_z}^{\eta}}{\overline{m}^{\eta}}\right)\right]\ d\sigma.
 
 The integral is computed as a sum from the bottom upwards, starting from zero vertical velocity at
-the bottom. The value this leaves at the free surface, :math:`W_{N}`, is then removed in proportion
-to the height above the bottom,
+the bottom. Calling that sum :math:`W^*`, the value it leaves at the free surface, :math:`W^*_N`, is
+then removed in proportion to the height above the bottom,
 
 .. math::
-   W_k \leftarrow W_k - W_{N}\,\frac{z_{w,k}+h}{\zeta+h},
+   W_k = W^*_k - W^*_N\,\frac{z_{w,k}+h}{\zeta+h},
 
 so that the vertical velocity vanishes at both the bottom and the surface.
 
