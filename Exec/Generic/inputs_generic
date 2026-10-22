@@ -130,7 +130,7 @@ remora.biology_debug_i = <UNKNOWN_DEFAULT>
 # type=int; method=queryAdd
 remora.biology_debug_j = <UNKNOWN_DEFAULT>
 
-# Source of the biology initial condition, independent of ic_type. Default "follow" reproduces the previous behaviour exactly.
+# Source of the biology initial condition, independent of ic_type. Default "follow" takes the biology IC from NetCDF when ic_type is netcdf, else analytic.
 # type=string; method=queryAdd
 remora.biology_ic_type = <UNKNOWN_DEFAULT>
 
@@ -170,7 +170,7 @@ remora.bulk_fluxes = true
 # type=int; method=queryAdd
 remora.cf_avgdown_bar = <UNKNOWN_DEFAULT>
 
-# Mirror ROMS's fine2coarse, which returns every covered cell but not the perimeter's normal-velocity faces. 0 restores the behaviour from before that was matched.
+# Mirror ROMS's fine2coarse, which returns every covered cell but not the perimeter's normal-velocity faces. 0 includes the perimeter faces in the average.
 # type=int; method=queryAdd
 remora.cf_avgdown_perimeter = <UNKNOWN_DEFAULT>
 
@@ -557,6 +557,10 @@ remora.fixed_dt = 300.0
 # Deprecated alias for remora.ndtfast.
 # type=int; method=queryAdd
 remora.fixed_ndtfast_ratio = 0
+
+# Treat subnormal floats as zero (single-precision x86 builds only)
+# type=bool; method=query
+remora.flush_subnormals = true
 
 # name of time variable in forcing file
 # type=string; method=queryAdd
@@ -1233,7 +1237,7 @@ amr.loadbalance_with_workestimates = 0
 # type=int; method=queryAdd
 amr.max_grid_iterations = <UNKNOWN_DEFAULT>
 
-# source: Source/main.cpp
+# maximum grid size in each direction
 # type=int; method=queryAdd
 amr.max_grid_size = 2048
 
@@ -1377,7 +1381,7 @@ amr.refine_grid_layout_z = <REQUIRED>
 # type=int; method=queryAdd
 amr.refine_whole_domain_dir = <UNKNOWN_DEFAULT>
 
-# name of file from which to read the grids
+# source: Src/Amr/AMReX_Amr.cpp
 # type=string; method=queryAdd
 amr.regrid_file = <UNKNOWN_DEFAULT>
 
