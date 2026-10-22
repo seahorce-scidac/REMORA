@@ -375,19 +375,34 @@ There is a class of third-order upwind advection schemes, both one-dimensional (
    F^{\xi}&=\frac{H_zu}{n}\left(C-\gamma\frac{\partial^2C}{\partial\xi^2}\right)\\
    F^{\eta}&=\frac{H_zv}{m}\left(C-\gamma\frac{\partial^2C}{\partial\eta^2}\right)
 
-The second derivative terms are centered on a :math:`\rho` point in the grid, but are needed at a :math:`u` or :math:`v` point in the flux. The upstream value is used:
+The second derivative terms are centered on a :math:`\rho` point in the grid, but are needed at a
+:math:`u` or :math:`v` point in the flux, so the value from the upstream :math:`\rho` point is used.
+With :math:`U_{i,j,k}=\overline{H_z}^{\xi}u_{i,j,k}/\overline{n}^{\xi}` the volume flux through the
+:math:`u` face and :math:`\delta^2_\xi C_{i,j,k}=C_{i+1,j,k}-2C_{i,j,k}+C_{i-1,j,k}`,
 
 .. math::
-   F^{\xi}_{i,j,k}=\frac{\overline{H_z}^{\eta}}{\overline{n}^{\xi}}\left[\max\left(0,u_{i,j,k}\right)C_{i-1,j,k}+\min\left(0,u_{i,j,k}\right)C_{i,j,k}\right].
+   F^{\xi}_{i,j,k}=U_{i,j,k}\left[\frac{C_{i-1,j,k}+C_{i,j,k}}{2}-\gamma\,\delta^2_\xi C_{\mathrm{up},j,k}\right],
+   \qquad \mathrm{up}=\begin{cases} i-1 & U_{i,j,k}>0\\ i & U_{i,j,k}\le 0\end{cases}
 
-The value of :math:`\gamma` in the model is :math:`\frac{1}{8}` while that in ``Rasch(1994)`` is :math:`\frac{1}{6}`.
+and similarly for :math:`F^{\eta}` with :math:`V_{i,j,k}=\overline{H_z}^{\eta}v_{i,j,k}/\overline{m}^{\eta}`
+(the stencil is modified at masked and non-periodic boundaries).
 
-Because the third-order upwind scheme is designed to be two-dimensional, it is not used in the vertical (though one might argue that we are simply performing one-dimensional operations here). Instead we use a centered fourth-order scheme in the vertical when the third-order upwind option is turned on:
+For tracers the model uses :math:`\gamma=\frac{1}{6}`, the value in ``Rasch(1994)``. For the 3D
+momentum fluxes below it uses :math:`\gamma=\frac{1}{8}`; the velocity factor takes the upstream
+second difference and the transport factor the average of the two neighbouring ones. The barotropic
+(2D) momentum fluxes use :math:`\frac{1}{6}`, with the average of the two neighbouring second
+differences in both factors.
+
+Because the third-order upwind scheme is designed to be two-dimensional, it is not used in the vertical. Instead tracers use a centered fourth-order scheme in the vertical:
 
 .. math::
-   F^s=\frac{H_zw}{mn}\left[-\frac{1}{16}C_{i,j,k-1}+\frac{9}{16}C_{i,j,k}+\frac{9}{16}C_{i,j,k+1}-\frac{1}{16}C_{i,j,k+2}\right]
+   F^s=\frac{H_zw}{mn}\left[-\frac{1}{12}C_{i,j,k-1}+\frac{7}{12}C_{i,j,k}+\frac{7}{12}C_{i,j,k+1}-\frac{1}{12}C_{i,j,k+2}\right]
 
-One advantage of UTOPIA over MPDATA is that it can be used on variables having both negative and positive values. Therefore, it can be used on velocity as well as scalars (is there a reference for this?). For the :math:`u`-velocity, we have:
+(the stencil is modified next to the surface and bottom). The momentum
+equations instead use the fourth-order interpolation weights :math:`-\frac{1}{16}, \frac{9}{16}`
+shown below.
+
+One advantage of UTOPIA is that it can be used on variables having both negative and positive values. Therefore, it can be used on velocity as well as scalars. For the :math:`u`-velocity, we have:
 
 .. math::
    F^{\xi}&=\left(u-\gamma\frac{\partial^2u}{\partial\xi^2}\right)\left[\frac{H_zu}{n}-\gamma\frac{\partial^2}{\partial\xi^2}\left(\frac{H_zu}{n}\right)\right]\\
@@ -401,11 +416,12 @@ while for the :math:`v`-velocity we have:
    F^{\eta}&=\left(v-\gamma\frac{\partial^2v}{\partial\eta ^2}\right)\left[\frac{H_zv}{m}-\gamma\frac{\partial^2}{\partial\eta^2}\left(\frac{H_zv}{m}\right)\right]\\
    F^{\sigma}&=\frac{H_zw}{mn}\left[-\frac{1}{16}v_{i,j,k-1}+\frac{9}{16}v_{i,j,k}+\frac{9}{16}v_{i,j,k+1}-\frac{1}{16}v_{i,j,k+2}\right]
 
-In all these terms, the second derivatives are evaluated at an upstream location.
+In the 3D momentum fluxes the second derivative of the advected velocity is evaluated at the
+upstream location and that of the transport is averaged; the 2D fluxes average both.
 
 Vertical Velocity
 -----------------
-Having obtained a complete specification of the :math:`u,v,T`, and :math:`S` fields at the next time level by the methods outlined above, the vertical velocity and density fields can be calculated. the vertical velocity is obtained by rewriting equation (5) as:
+Having obtained a complete specification of the :math:`u,v,T`, and :math:`S` fields at the next time level by the methods outlined above, the vertical velocity fields can be calculated. The vertical velocity is obtained by rewriting equation (5) as:
 
 .. math::
    \frac{\partial}{\partial t}\left(\frac{\zeta}{mn}\right)+\delta_{\xi}\left(\frac{u\overline{H_z}^{\xi}}{\overline{n}^{\xi}}\right)+\delta_{\eta}\left(\frac{v\overline{H_z}^{\eta}}{\overline{m}^{\eta}}\right)+\delta_{\sigma}\left(\frac{H_z\Omega}{mn}\right)=0
@@ -420,7 +436,14 @@ Solving for :math:`H_z\Omega/mn` and using the semi-discrete notation we obtain:
 .. math::
    \frac{H_z\Omega}{mn}=\int\left[\delta_{\xi}\left(\frac{\overline{u}\,\overline{D}^{\xi}}{\overline{n}^{\xi}}\right)+\delta_{\eta}\left(\frac{\overline{v}\,\overline{D}^{\eta}}{\overline{m}^{\eta}}\right)-\delta_{\xi}\left(\frac{u\overline{H_z}^{\xi}}{\overline{n}^{\xi}}\right)-\delta_{\eta}\left(\frac{v\overline{H_z}^{\eta}}{\overline{m}^{\eta}}\right)\right]\ d\sigma.
 
-The integral is actually computed as a sum from the bottom upwards and also as a sum from the top downwards. The value used is a linear combination of the two, weighted so that the surface down value is used near the surface while the other is used near the bottom. [Is this still done?]
+The integral is computed as a sum from the bottom upwards, starting from zero vertical velocity at
+the bottom. Calling that sum :math:`W^*`, the value it leaves at the free surface, :math:`W^*_N`, is
+then removed in proportion to the height above the bottom,
+
+.. math::
+   W_k = W^*_k - W^*_N\,\frac{z_{w,k}+h}{\zeta+h},
+
+so that the vertical velocity vanishes at both the bottom and the surface.
 
 Equation of State
 -----------------
