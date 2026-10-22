@@ -11,16 +11,20 @@ using namespace amrex;
  * @param a_dt_lev      time step
  * @param a_flow_vel    flow velocities
  * @param a_z_phys_nd   z nodal positions of grid
+ * @param a_pm          1/dx, the inverse physical cell width in x
+ * @param a_pn          1/dy, the inverse physical cell width in y
  */
 void REMORAPC::EvolveParticles ( int                                        a_lev,
                                  Real                                       a_dt_lev,
                                  Vector<MultiFab const*>&                   a_flow_vel,
-                                 const Vector<std::unique_ptr<MultiFab>>&   a_z_phys_nd )
+                                 const Vector<std::unique_ptr<MultiFab>>&   a_z_phys_nd,
+                                 MultiFab const&                            a_pm,
+                                 MultiFab const&                            a_pn )
 {
     BL_PROFILE("REMORAPCPC::EvolveParticles()");
 
     if (m_advect_w_flow) {
-        AdvectWithFlow( a_lev, a_dt_lev, a_flow_vel, a_z_phys_nd[a_lev] );
+        AdvectWithFlow( a_lev, a_dt_lev, a_flow_vel, a_z_phys_nd[a_lev], a_pm, a_pn );
     }
 
     Redistribute();
@@ -34,6 +38,12 @@ void REMORAPC::EvolveParticles ( int                                        a_le
  * omega / Hz. The index is reflected off the bed and the free surface and then mapped
  * back to a height, so a particle can never leave the water column.
  *
+ * Particle positions are in the uniform coordinates of the AMReX geometry, whose cell size
+ * is (prob_hi - prob_lo) / n_cell, while u and v are physical velocities along the grid
+ * directions. They are converted with the local metric, dx/dt = u * pm * dx_geom and
+ * dy/dt = v * pn * dy_geom, so particles cover the right physical distance on stretched or
+ * curvilinear grids; on a uniform grid the factors are 1.
+ *
  * The index is recovered from the stored height on the current grid, so a particle stays
  * at a fixed height, not a fixed index, while the free surface moves between steps.
  *
@@ -41,11 +51,15 @@ void REMORAPC::EvolveParticles ( int                                        a_le
  * @param a_dt          time step
  * @param a_umac        u, v and omega, the velocity across the w-levels (z-nodal, m/s)
  * @param a_z_height    z nodal positions of grid
+ * @param a_pm          1/dx, the inverse physical cell width in x
+ * @param a_pn          1/dy, the inverse physical cell width in y
  */
 void REMORAPC::AdvectWithFlow ( int                                 a_lev,
                                 Real                                a_dt,
                                 Vector<MultiFab const*>&            a_umac,
-                                const std::unique_ptr<MultiFab>&    a_z_height )
+                                const std::unique_ptr<MultiFab>&    a_z_height,
+                                MultiFab const&                     a_pm,
+                                MultiFab const&                     a_pn )
 {
     BL_PROFILE("REMORAPCPC::AdvectWithUmac()");
     AMREX_ASSERT(OK(a_lev, a_lev, a_umac[0]->nGrow()-1));
@@ -91,6 +105,8 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
             const auto varr = (*a_umac[1])[grid].const_array();
             const auto warr = (*a_umac[2])[grid].const_array();
             const auto zheight = (*a_z_height)[grid].const_array();
+            const auto pmarr = a_pm[grid].const_array();
+            const auto pnarr = a_pn[grid].const_array();
 
             ParallelFor(n, [=] AMREX_GPU_DEVICE (int i)
             {
@@ -112,6 +128,10 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
                               - level_height(x, y, ks  , plo, dxi, zheight);
                 const Real sdot = interpolate_to_level_index(x, y, s, nz, IntVect(0,0,1),
                                                              plo, dxi, warr) / dz;
+                // Physical velocity to the rate of change of the geometry coordinate:
+                // pm * dx_geom is the number of geometry metres per physical metre
+                const Real xdot = u * interpolate_horizontal(x, y, plo, dxi, pmarr) / dxi[0];
+                const Real ydot = v * interpolate_horizontal(x, y, plo, dxi, pnarr) / dxi[1];
 
                 Real s_new;
                 ParticleReal z_old = zero;
@@ -119,15 +139,15 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
                     v_ptr[0][i] = x;
                     v_ptr[1][i] = y;
                     v_ptr[2][i] = static_cast<ParticleReal>(s);
-                    p.pos(0) += static_cast<ParticleReal>(myhalf*a_dt*u);
-                    p.pos(1) += static_cast<ParticleReal>(myhalf*a_dt*v);
+                    p.pos(0) += static_cast<ParticleReal>(myhalf*a_dt*xdot);
+                    p.pos(1) += static_cast<ParticleReal>(myhalf*a_dt*ydot);
                     s_new = s + myhalf*a_dt*sdot;
                 } else {
                     const auto s_old = static_cast<Real>(v_ptr[2][i]);
                     z_old = level_index_to_height(v_ptr[0][i], v_ptr[1][i], s_old, nz,
                                                   plo, dxi, zheight);
-                    p.pos(0) = v_ptr[0][i] + static_cast<ParticleReal>(a_dt*u);
-                    p.pos(1) = v_ptr[1][i] + static_cast<ParticleReal>(a_dt*v);
+                    p.pos(0) = v_ptr[0][i] + static_cast<ParticleReal>(a_dt*xdot);
+                    p.pos(1) = v_ptr[1][i] + static_cast<ParticleReal>(a_dt*ydot);
                     s_new = s_old + a_dt*sdot;
                 }
 

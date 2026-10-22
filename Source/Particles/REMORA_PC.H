@@ -189,6 +189,28 @@ amrex::Real interpolate_to_level_index ( amrex::ParticleReal a_x, amrex::Particl
     return val;
 }
 
+/**
+ * Bilinear interpolation of the 2D cell-centered field a_arr (stored at k = 0, like pm and pn)
+ * to horizontal position (a_x, a_y)
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+amrex::Real interpolate_horizontal ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
+                                     amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
+                                     amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
+                                     amrex::Array4<amrex::Real const> const& a_arr )
+{
+    const amrex::Real lx = static_cast<amrex::Real>((a_x-a_plo[0])*a_dxi[0]) - myhalf;
+    const amrex::Real ly = static_cast<amrex::Real>((a_y-a_plo[1])*a_dxi[1]) - myhalf;
+    const int i = static_cast<int>(amrex::Math::floor(lx));
+    const int j = static_cast<int>(amrex::Math::floor(ly));
+    const amrex::Real sx = lx - static_cast<amrex::Real>(i);
+    const amrex::Real sy = ly - static_cast<amrex::Real>(j);
+    return a_arr(i  ,j  ,0) * (one-sx) * (one-sy) +
+           a_arr(i+1,j  ,0) *      sx  * (one-sy) +
+           a_arr(i  ,j+1,0) * (one-sx) *      sy  +
+           a_arr(i+1,j+1,0) *      sx  *      sy;
+}
+
 class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::ncomps,  // AoS real attributes
                                                 REMORAParticlesIntIdxAoS::ncomps,   // AoS integer attributes
                                                 REMORAParticlesRealIdxSoA::ncomps,  // SoA real attributes
@@ -234,10 +256,12 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
         virtual void InitializeParticles (const std::unique_ptr<amrex::MultiFab>& a_ptr = nullptr);
 
         /*! Evolve particles for one time step */
-        virtual void EvolveParticles (   int lev,
-                                         amrex::Real dt,
+        virtual void EvolveParticles (   int a_lev,
+                                         amrex::Real a_dt_lev,
                                          amrex::Vector<amrex::MultiFab const*>& a_flow_vel,
-                                         const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& );
+                                         const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& a_z_phys_nd,
+                                         amrex::MultiFab const& a_pm,
+                                         amrex::MultiFab const& a_pn );
 
         /*! Get real-type particle attribute names */
         virtual amrex::Vector<std::string> varNames () const
@@ -254,10 +278,12 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
         }
 
         /*! Uses midpoint method to advance particles using flow velocity. */
-        virtual void AdvectWithFlow (  int lev,
-                                       amrex::Real dt,
-                                       amrex::Vector<amrex::MultiFab const*>&,
-                                       const std::unique_ptr<amrex::MultiFab>& );
+        virtual void AdvectWithFlow (  int a_lev,
+                                       amrex::Real a_dt,
+                                       amrex::Vector<amrex::MultiFab const*>& a_umac,
+                                       const std::unique_ptr<amrex::MultiFab>& a_z_height,
+                                       amrex::MultiFab const& a_pm,
+                                       amrex::MultiFab const& a_pn );
 
         /*! Compute mass density */
         virtual void massDensity ( amrex::MultiFab&, const int&, const int& a_comp = 0) const;

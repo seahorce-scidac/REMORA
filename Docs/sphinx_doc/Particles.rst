@@ -71,7 +71,9 @@ parameters prefixed by ``remora.<species>.``, for example ``remora.tracer_partic
 Particles are initialized on level 0 with zero initial velocity and are advanced every time step.
 The default box spans ``prob_lo`` to ``prob_hi``, but a cell is tested by the physical height of its
 center, so with bathymetry deeper than the domain's ``prob_lo`` in z, or a free surface above
-``prob_hi``, the cells outside that range get no particles unless the box is widened.
+``prob_hi``, the cells outside that range get no particles unless the box is widened. The box's
+:math:`x` and :math:`y` are in the geometry's uniform coordinates (see :ref:`ParticleAdvection`), which
+on a stretched or curvilinear grid are not physical metres.
 
 How the particles move is described in :ref:`ParticleAdvection` below.
 
@@ -94,6 +96,16 @@ Particle advection
 ------------------
 
 Particles are advected in the terrain-following coordinates of the grid (see :ref:`VerticalSCoord`).
+
+Horizontal coordinates
+~~~~~~~~~~~~~~~~~~~~~~
+
+A particle's horizontal position :math:`(x, y)` is in the uniform coordinates of the AMReX geometry,
+whose cell size is :math:`\Delta x = (x_{hi} - x_{lo})/N_x` and :math:`\Delta y = (y_{hi} - y_{lo})/N_y`
+(from ``prob_lo``, ``prob_hi`` and ``n_cell``). These are index coordinates scaled by a constant: the
+position :math:`x` lies in cell :math:`i = \lfloor (x - x_{lo})/\Delta x \rfloor`. The physical width of
+that cell is :math:`1/p_m`, where :math:`p_m` and :math:`p_n` are the grid metrics, which vary in space on
+stretched or curvilinear grids. On a uniform grid, :math:`p_m = 1/\Delta x` and :math:`p_n = 1/\Delta y`.
 
 Vertical coordinate
 ~~~~~~~~~~~~~~~~~~~
@@ -125,11 +137,17 @@ Equations of motion
 In these coordinates each particle obeys
 
 .. math::
-   \frac{dx}{dt} = u, \qquad \frac{dy}{dt} = v, \qquad \frac{ds}{dt} = \frac{\Omega}{H_z},
+   \frac{dx}{dt} = u\, p_m \Delta x, \qquad \frac{dy}{dt} = v\, p_n \Delta y, \qquad
+   \frac{ds}{dt} = \frac{\Omega}{H_z},
 
-where :math:`u` and :math:`v` are the horizontal velocities, :math:`H_z = z_{k+1}(x,y) - z_k(x,y)` is the
-thickness of the particle's cell, and :math:`\Omega` is the velocity across the :math:`w`-levels (ROMS's
-``omega``), obtained by integrating the divergence of the horizontal mass fluxes up the column.
+where :math:`u` and :math:`v` are the physical horizontal velocities (m/s) along the grid directions,
+:math:`p_m` and :math:`p_n` are interpolated bilinearly to the particle, :math:`H_z = z_{k+1}(x,y) - z_k(x,y)`
+is the thickness of the particle's cell, and :math:`\Omega` is the velocity across the :math:`w`-levels
+(ROMS's ``omega``), obtained by integrating the divergence of the horizontal mass fluxes up the column.
+The factors :math:`p_m \Delta x` and :math:`p_n \Delta y` convert physical metres to the geometry's
+uniform coordinates, so a particle covers the right physical distance on a stretched or curvilinear
+grid. On a uniform grid both are 1. Because :math:`u` and :math:`v` are along the grid directions, a
+rotated grid needs no further correction.
 :math:`\Omega` is built from the same time-averaged mass fluxes that the tracers are advected with, so
 the particles move with the same discrete, volume-conserving flow as the tracers.
 
@@ -155,8 +173,9 @@ Advancing :math:`s`, rather than integrating :math:`z` with :math:`w`, has two c
 Time integration
 ~~~~~~~~~~~~~~~~
 
-With :math:`\mathbf{q} = (x, y, s)` and :math:`\mathbf{F}(\mathbf{q}) = (u,\ v,\ \Omega / H_z)`, each
-particle is advanced with the midpoint method:
+With :math:`\mathbf{q} = (x, y, s)` and
+:math:`\mathbf{F}(\mathbf{q}) = (u\, p_m \Delta x,\ v\, p_n \Delta y,\ \Omega / H_z)`, each particle is
+advanced with the midpoint method:
 
 .. math::
    \mathbf{q}^{*} = R\left(\mathbf{q}^n + \tfrac{\Delta t}{2}\,\mathbf{F}(\mathbf{q}^n)\right),
@@ -178,8 +197,8 @@ The velocities are interpolated to the particle trilinearly in index space, in :
 (:math:`u` and :math:`v`) are held constant over the half cells next to the bed and the free surface,
 and :math:`\Omega`, defined on the :math:`w`-levels, is interpolated linearly between them.
 
-After the step, the particle's ``xvel`` and ``yvel`` attributes hold :math:`u` and :math:`v` at the
-midpoint, and ``zvel`` holds the rate of change of its height over the step,
+After the step, the particle's ``xvel`` and ``yvel`` attributes hold the physical velocities
+:math:`u` and :math:`v` (m/s, along the grid directions) at the midpoint, and ``zvel`` holds the rate of change of its height over the step,
 :math:`\bigl(z^{n+1} - z^n\bigr) / \Delta t`.
 
 Limitation

@@ -81,13 +81,17 @@ void REMORA::evolveTracers (int a_lev, Real a_dt_lev)
       particleData[REMORAParticleNames::tracers]->EvolveParticles( a_lev,
                                                                    a_dt_lev,
                                                                    flowvel,
-                                                                   vec_z_phys_nd );
+                                                                   vec_z_phys_nd,
+                                                                   *vec_pm[a_lev],
+                                                                   *vec_pn[a_lev] );
     }
     if (m_use_hydro_particles) {
       particleData[REMORAParticleNames::hydro]->EvolveParticles( a_lev,
                                                                  a_dt_lev,
                                                                  flowvel,
-                                                                 vec_z_phys_nd );
+                                                                 vec_z_phys_nd,
+                                                                 *vec_pm[a_lev],
+                                                                 *vec_pn[a_lev] );
     }
     return;
 }
