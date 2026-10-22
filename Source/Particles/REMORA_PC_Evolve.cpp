@@ -28,14 +28,36 @@ void REMORAPC::EvolveParticles ( int                                        a_le
 }
 
 /**
- * Midpoint-method advection in terrain-following coordinates. Horizontally the particle
- * moves with u and v at a fixed fractional w-level index (see REMORA_PC.H), so it follows
- * the s-levels over sloping bathymetry; vertically it moves across the levels at
- * omega / Hz. The index is reflected off the bed and the free surface and then mapped
- * back to a height, so a particle can never leave the water column.
+ * @brief Advances the particles one step with the midpoint method, in terrain-following
+ *        coordinates.
  *
- * The index is recovered from the stored height on the current grid, so a particle stays
- * at a fixed height, not a fixed index, while the free surface moves between steps.
+ * The particles obey the equations in @ref particle_eqs, with state
+ * \f$\mathbf{q} = (x, y, s)\f$ and
+ * \f$\dot{\mathbf{q}} = \mathbf{F}(\mathbf{q}) = (u,\ v,\ \Omega / H_z)\f$. Here
+ * \f$u, v, \Omega\f$ are interpolated with interpolate_to_level_index() and
+ * \f$H_z = z_{k+1} - z_k\f$ is evaluated at the particle with level_height().
+ *
+ * At the start of the step, \f$s^n\f$ is recovered from the stored height,
+ * \f$s^n = Z^{-1}(x^n, y^n, z^n)\f$ (height_to_level_index()). Then
+ * \f[
+ *     \mathbf{q}^{*} = R\!\left(\mathbf{q}^n + \frac{\Delta t}{2}\,\mathbf{F}(\mathbf{q}^n)\right),
+ *     \qquad
+ *     \mathbf{q}^{n+1} = R\!\left(\mathbf{q}^n + \Delta t\,\mathbf{F}(\mathbf{q}^{*})\right),
+ * \f]
+ * where \f$R\f$ acts only on \f$s\f$ and reflects it off the bed and the free surface:
+ * \f[
+ *     s \mapsto -s \ \ (s < 0), \qquad s \mapsto 2N_z - s \ \ (s > N_z),
+ * \f]
+ * followed by a clamp to \f$[0, N_z]\f$. \f$\Omega\f$ vanishes at both boundaries, so only
+ * the time discretization can carry a particle past them. After each stage the particle's
+ * height is set to \f$z = Z(x, y, s)\f$ and its cell to level_index_cell(). The midpoint stage
+ * is in space only: both stages use the same, end-of-step velocity fields.
+ *
+ * On return the particle velocity components hold \f$u\f$ and \f$v\f$ at the midpoint, and
+ * \f$v_z = \bigl(z^{n+1} - Z(x^n, y^n, s^n)\bigr) / \Delta t\f$, the rate of change of the
+ * particle's height over the step.
+ *
+ * See @ref particle_limits for what recovering \f$s\f$ from \f$z\f$ each step leaves out.
  *
  * @param a_lev         level at which to evolve particles
  * @param a_dt          time step
