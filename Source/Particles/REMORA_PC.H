@@ -277,7 +277,7 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
                                        amrex::MultiFab const& a_pn );
 
         /*! Compute mass density */
-        virtual void massDensity ( amrex::MultiFab&, const int&, const int& a_comp = 0) const;
+        virtual void massDensity ( amrex::MultiFab& a_mf, const int& a_lev, const int& a_comp = 0) const;
 
         /*! Compute mesh variable from particles */
         virtual void computeMeshVar(    const std::string&  a_var_name,
