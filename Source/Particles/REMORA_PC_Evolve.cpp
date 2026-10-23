@@ -130,8 +130,8 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
                                                              plo, dxi, warr) / dz;
                 // Physical velocity to the rate of change of the geometry coordinate:
                 // pm * dx_geom is the number of geometry metres per physical metre
-                const Real xdot = u * interpolate_horizontal(x, y, plo, dxi, pmarr) / dxi[0];
-                const Real ydot = v * interpolate_horizontal(x, y, plo, dxi, pnarr) / dxi[1];
+                const Real xdot = u * interpolate_horizontal(x, y, 0, false, plo, dxi, pmarr) / dxi[0];
+                const Real ydot = v * interpolate_horizontal(x, y, 0, false, plo, dxi, pnarr) / dxi[1];
 
                 Real s_new;
                 ParticleReal z_old = zero;
