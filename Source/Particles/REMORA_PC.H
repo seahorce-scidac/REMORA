@@ -71,35 +71,135 @@ struct REMORAParticlesAssignor
     }
 };
 
-template <typename P>
+// Particles are tracked vertically by a fractional w-level index s in [0,nz]: s = k + f puts
+// a particle the fraction f of the way from w-level k to w-level k+1 of its column, so s = 0
+// is the bed and s = nz the free surface. Moving at fixed s follows the terrain-following
+// levels, which is what keeps a particle in the water column over sloping bathymetry.
+
+/**
+ * Bilinear interpolation of a_arr at level a_k to horizontal position (a_x, a_y). a_nodal
+ * says whether the data are nodal in both x and y (like z_phys_nd, whose (i,j) is the low
+ * corner of cell (i,j)) or cell-centered in both (like pm and pn, stored at k = 0).
+ */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-void update_location_idata (  P& a_p,
-                              amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
-                              amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
-                              const amrex::Array4<amrex::Real const>&  a_height_arr )
+amrex::Real interpolate_horizontal ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
+                                     int a_k, bool a_nodal,
+                                     amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
+                                     amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
+                                     amrex::Array4<amrex::Real const> const& a_arr )
 {
-    amrex::IntVect iv( int(amrex::Math::floor((a_p.pos(0)-a_plo[0])*a_dxi[0])),
-                       int(amrex::Math::floor((a_p.pos(1)-a_plo[1])*a_dxi[1])),
-                       a_p.idata(REMORAParticlesIntIdxAoS::k) );
+    const amrex::Real offset = a_nodal ? zero : myhalf;
+    const amrex::Real lx = static_cast<amrex::Real>((a_x-a_plo[0])*a_dxi[0]) - offset;
+    const amrex::Real ly = static_cast<amrex::Real>((a_y-a_plo[1])*a_dxi[1]) - offset;
+    const int i = static_cast<int>(amrex::Math::floor(lx));
+    const int j = static_cast<int>(amrex::Math::floor(ly));
+    const amrex::Real sx = lx - static_cast<amrex::Real>(i);
+    const amrex::Real sy = ly - static_cast<amrex::Real>(j);
+    return a_arr(i  ,j  ,a_k) * (one-sx) * (one-sy) +
+           a_arr(i+1,j  ,a_k) *      sx  * (one-sy) +
+           a_arr(i  ,j+1,a_k) * (one-sx) *      sy  +
+           a_arr(i+1,j+1,a_k) *      sx  *      sy;
+}
 
-    if (a_height_arr) {
-        amrex::Real lx = (a_p.pos(0)-a_plo[0])*a_dxi[0] - static_cast<amrex::Real>(iv[0]);
-        amrex::Real ly = (a_p.pos(1)-a_plo[1])*a_dxi[1] - static_cast<amrex::Real>(iv[1]);
-        auto zlo = a_height_arr(iv[0]  ,iv[1]  ,iv[2]  ) * (one-lx) * (one-ly) +
-                   a_height_arr(iv[0]+1,iv[1]  ,iv[2]  ) *      lx  * (one-ly) +
-                   a_height_arr(iv[0]  ,iv[1]+1,iv[2]  ) * (one-lx) * ly +
-                   a_height_arr(iv[0]+1,iv[1]+1,iv[2]  ) *      lx  * ly;
-        auto zhi = a_height_arr(iv[0]  ,iv[1]  ,iv[2]+1) * (one-lx) * (one-ly) +
-                   a_height_arr(iv[0]+1,iv[1]  ,iv[2]+1) *      lx  * (one-ly) +
-                   a_height_arr(iv[0]  ,iv[1]+1,iv[2]+1) * (one-lx) * ly +
-                   a_height_arr(iv[0]+1,iv[1]+1,iv[2]+1) *      lx  * ly;
+/** Height of w-level a_k at horizontal position (a_x, a_y), from the nodal heights a_z_nd (z_phys_nd) */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+amrex::Real level_height (  amrex::ParticleReal a_x, amrex::ParticleReal a_y, int a_k,
+                            amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
+                            amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
+                            amrex::Array4<amrex::Real const> const& a_z_nd )
+{
+    return interpolate_horizontal(a_x, a_y, a_k, true, a_plo, a_dxi, a_z_nd);
+}
 
-        if (a_p.pos(2) > zhi) {
-            a_p.idata(REMORAParticlesIntIdxAoS::k) += 1;
-        } else if (a_p.pos(2) <= zlo) {
-            a_p.idata(REMORAParticlesIntIdxAoS::k) -= 1;
+/**
+ * Fractional w-level index of height a_z in the column at (a_x, a_y). A height below the
+ * bed or above the free surface is clamped onto it. a_k, the cell the particle was last
+ * in, is where the search starts.
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+amrex::Real height_to_level_index ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
+                                    amrex::ParticleReal a_z, int a_k, int a_nz,
+                                    amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
+                                    amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
+                                    amrex::Array4<amrex::Real const> const& a_z_nd )
+{
+    const auto z = static_cast<amrex::Real>(a_z);
+    int k = amrex::max(0, amrex::min(a_k, a_nz-1));
+    amrex::Real zlo = level_height(a_x, a_y, k  , a_plo, a_dxi, a_z_nd);
+    amrex::Real zhi = level_height(a_x, a_y, k+1, a_plo, a_dxi, a_z_nd);
+    while (z > zhi && k < a_nz-1) {
+        ++k;
+        zlo = zhi;
+        zhi = level_height(a_x, a_y, k+1, a_plo, a_dxi, a_z_nd);
+    }
+    while (z < zlo && k > 0) {
+        --k;
+        zhi = zlo;
+        zlo = level_height(a_x, a_y, k, a_plo, a_dxi, a_z_nd);
+    }
+    const amrex::Real f = amrex::max(zero, amrex::min(one, (z - zlo) / (zhi - zlo)));
+    return static_cast<amrex::Real>(k) + f;
+}
+
+/** Cell holding fractional w-level index a_s; the free surface s = nz belongs to the top cell */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+int level_index_cell (amrex::Real a_s, int a_nz)
+{
+    return amrex::max(0, amrex::min(static_cast<int>(amrex::Math::floor(a_s)), a_nz-1));
+}
+
+/** Height of fractional w-level index a_s at (a_x, a_y); the inverse of height_to_level_index */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+amrex::Real level_index_to_height ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
+                                    amrex::Real a_s, int a_nz,
+                                    amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
+                                    amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
+                                    amrex::Array4<amrex::Real const> const& a_z_nd )
+{
+    const int k = level_index_cell(a_s, a_nz);
+    const amrex::Real f = a_s - static_cast<amrex::Real>(k);
+    const amrex::Real zlo = level_height(a_x, a_y, k  , a_plo, a_dxi, a_z_nd);
+    const amrex::Real zhi = level_height(a_x, a_y, k+1, a_plo, a_dxi, a_z_nd);
+    return zlo + f * (zhi - zlo);
+}
+
+/**
+ * Trilinear interpolation of a_arr to horizontal position (a_x, a_y) and fractional w-level
+ * index a_s. a_nodal gives a_arr's staggering. Data that is cell-centered in z is held
+ * constant over the half cells at the bed and the surface, so the vertical stencil stays
+ * within the valid cells [0,nz) (or w-levels [0,nz] for z-nodal data).
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
+amrex::Real interpolate_to_level_index ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
+                                         amrex::Real a_s, int a_nz, amrex::IntVect const& a_nodal,
+                                         amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
+                                         amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
+                                         amrex::Array4<amrex::Real const> const& a_arr )
+{
+    const amrex::Real lx = static_cast<amrex::Real>((a_x-a_plo[0])*a_dxi[0])
+                         - static_cast<amrex::Real>(!a_nodal[0]) * myhalf;
+    const amrex::Real ly = static_cast<amrex::Real>((a_y-a_plo[1])*a_dxi[1])
+                         - static_cast<amrex::Real>(!a_nodal[1]) * myhalf;
+    const int i0 = static_cast<int>(amrex::Math::floor(lx));
+    const int j0 = static_cast<int>(amrex::Math::floor(ly));
+    const amrex::Real sx[] = {one - (lx - static_cast<amrex::Real>(i0)), lx - static_cast<amrex::Real>(i0)};
+    const amrex::Real sy[] = {one - (ly - static_cast<amrex::Real>(j0)), ly - static_cast<amrex::Real>(j0)};
+
+    const int kmax = a_nodal[2] ? a_nz : a_nz-1;
+    const amrex::Real lz = amrex::max(zero, amrex::min(static_cast<amrex::Real>(kmax),
+                                      a_s - static_cast<amrex::Real>(!a_nodal[2]) * myhalf));
+    const int k0 = amrex::min(static_cast<int>(amrex::Math::floor(lz)), amrex::max(kmax-1, 0));
+    const int k1 = amrex::min(k0+1, kmax);
+    const amrex::Real sz[] = {one - (lz - static_cast<amrex::Real>(k0)), lz - static_cast<amrex::Real>(k0)};
+
+    amrex::Real val = zero;
+    for (int jj = 0; jj < 2; ++jj) {
+        for (int ii = 0; ii < 2; ++ii) {
+            val += sx[ii] * sy[jj] * ( sz[0] * a_arr(i0+ii, j0+jj, k0)
+                                     + sz[1] * a_arr(i0+ii, j0+jj, k1) );
         }
     }
+    return val;
 }
 
 class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::ncomps,  // AoS real attributes
@@ -150,7 +250,9 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
         virtual void EvolveParticles (   int a_lev,
                                          amrex::Real a_dt_lev,
                                          amrex::Vector<amrex::MultiFab const*>& a_flow_vel,
-                                         const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& a_z_phys_nd );
+                                         const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& a_z_phys_nd,
+                                         amrex::MultiFab const& a_pm,
+                                         amrex::MultiFab const& a_pn );
 
         /*! Get real-type particle attribute names */
         virtual amrex::Vector<std::string> varNames () const
@@ -170,7 +272,9 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
         virtual void AdvectWithFlow (  int a_lev,
                                        amrex::Real a_dt,
                                        amrex::Vector<amrex::MultiFab const*>& a_umac,
-                                       const std::unique_ptr<amrex::MultiFab>& a_z_height );
+                                       const std::unique_ptr<amrex::MultiFab>& a_z_height,
+                                       amrex::MultiFab const& a_pm,
+                                       amrex::MultiFab const& a_pn );
 
         /*! Compute mass density */
         virtual void massDensity ( amrex::MultiFab& a_mf, const int& a_lev, const int& a_comp = 0) const;
