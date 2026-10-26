@@ -95,7 +95,8 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
             auto *p_pbox = aos().data();
 
             // Between the passes these hold the starting x, y and level index; afterwards
-            // the particle velocity, with vz the rate of change of its height
+            // the physical velocities u and v (m/s, not the rate of change of the geometry
+            // coordinates) and vz, the rate of change of the particle's height
             Array<ParticleReal*,AMREX_SPACEDIM> v_ptr;
             v_ptr[0] = soa.GetRealData(REMORAParticlesRealIdxSoA::vx).data();
             v_ptr[1] = soa.GetRealData(REMORAParticlesRealIdxSoA::vy).data();

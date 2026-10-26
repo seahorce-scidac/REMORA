@@ -84,6 +84,11 @@ same way as ``<species>_mass_density``:
 
    remora.plot_vars_3d = salt temp x_velocity y_velocity z_velocity tracer_particles_count
 
+The written particle positions are in the same coordinates the particles are advected in: x and y in
+the geometry's uniform coordinates, and z the physical height. On a stretched or curvilinear grid, x
+and y are therefore not physical metres; map them through the grid metrics (see
+:ref:`ParticleAdvection`). The ``xvel`` and ``yvel`` attributes are physical velocities in m/s.
+
 For an example, build the executable in ``Exec`` and run the ``ParticleAdvectionFlat`` case.
 
 .. _ParticleAdvection:
@@ -101,7 +106,9 @@ with cell size :math:`\Delta x = (x_{hi} - x_{lo})/N_x` and :math:`\Delta y = (y
 (from ``prob_lo``, ``prob_hi`` and ``n_cell``). These are index coordinates scaled by a constant:
 :math:`x` lies in cell :math:`i = \lfloor (x - x_{lo})/\Delta x \rfloor`. The physical width of that cell
 is :math:`1/p_m`, where the grid metrics :math:`p_m` and :math:`p_n` vary in space on stretched or
-curvilinear grids. On a uniform grid, :math:`p_m = 1/\Delta x` and :math:`p_n = 1/\Delta y`.
+curvilinear grids: those read from a NetCDF grid file, or set analytically with
+``remora.grid_scale_type = analytic``. On a uniform grid (``grid_scale_type = constant``, the
+default), :math:`p_m = 1/\Delta x` and :math:`p_n = 1/\Delta y`.
 
 Vertical coordinate
 ~~~~~~~~~~~~~~~~~~~
