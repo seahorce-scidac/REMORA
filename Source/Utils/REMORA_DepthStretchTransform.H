@@ -104,6 +104,9 @@ REMORA::stretch_transform (int lev)
     [[maybe_unused]] auto s_r_dat = s_r.data();
     auto Cs_r_dat = Cs_r.data();
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& z_w = (mf_z_w)->array(mfi);
@@ -178,6 +181,9 @@ REMORA::stretch_transform (int lev)
     vec_Hz[lev]->FillBoundary(geom[lev].periodicity());
 
     // Define nodal z as average of z on w-faces
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*cons_new[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& z_w = (mf_z_w)->array(mfi);
@@ -250,6 +256,9 @@ REMORA::stretch_transform_full_domain (int lev, const MultiFab& mf_h, const Mult
     const Real hc = -min(geomdata.ProbHi(2),-solverChoice.tcline);
     const Real ds = one / Real(N);
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf_z_w, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& wbx = mfi.growntilebox();

@@ -42,6 +42,9 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
     MultiFab mf_Tauy(ba, dm, 1, IntVect(NGROW,NGROW,0));
 
     // temps: Taux, Tauy,
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Array4<Real const> const& uwind = mf_uwind->const_array(mfi);
         Array4<Real const> const& vwind = mf_vwind->const_array(mfi);

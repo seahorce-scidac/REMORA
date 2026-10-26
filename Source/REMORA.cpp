@@ -3122,6 +3122,9 @@ REMORA::restore_perimeter_faces (const MultiFab& saved, MultiFab& mf,
                                  const MultiFab& covered, int dir, int ncomp)
 {
     const IntVect off = IntVect::TheDimensionVector(dir);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.tilebox();
@@ -3183,6 +3186,9 @@ REMORA::average_down_masked (int crse_lev, const MultiFab& S_fine, MultiFab& S_c
         AMREX_ALWAYS_ASSERT(S_fine.DistributionMap() == vec_pm[flev]->DistributionMap());
         AMREX_ALWAYS_ASSERT(S_fine.DistributionMap() == vec_pn[flev]->DistributionMap());
         wt.define(S_fine.boxArray(), S_fine.DistributionMap(), 1, 0);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for (MFIter mfi(wt, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
             Array4<      Real> const& w  = wt.array(mfi);
@@ -3198,6 +3204,9 @@ REMORA::average_down_masked (int crse_lev, const MultiFab& S_fine, MultiFab& S_c
         }
     }
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(ctmp, TilingIfNotGPU()); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.tilebox();

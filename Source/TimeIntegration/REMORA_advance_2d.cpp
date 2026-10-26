@@ -29,6 +29,9 @@ void fill_ghost_kcomps (MultiFab& mf, int knew, const Geometry& geom)
     const bool per_x = geom.isPeriodic(0);
     const bool per_y = geom.isPeriodic(1);
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for (MFIter mfi(mf, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
         Box gbx = mfi.growntilebox();
         const auto& a = mf.array(mfi);
@@ -178,6 +181,9 @@ REMORA::advance_2d (int lev,
 
     MultiFab mf(ba,dm,ncomp,IntVect(NGROW+1,NGROW+1,0));
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& ubar = mf_ubar->array(mfi);
@@ -252,6 +258,9 @@ REMORA::advance_2d (int lev,
     }
 #endif
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& rhoS = mf_rhoS->const_array(mfi);
@@ -888,6 +897,9 @@ REMORA::advance_2d (int lev,
         if (solverChoice.do_rivers) {
             river_source_transportbar->update_interpolated_to_time(model_time(t_old[lev]));
             int* river_direction_d = river_direction.data();
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
             for ( MFIter mfi(*mf_rhoS, TilingIfNotGPU()); mfi.isValid(); ++mfi )
             {
                 Array4<const int > const& river_pos = vec_river_position[lev]->const_array(mfi);

@@ -9,6 +9,36 @@
 
 using namespace amrex;
 
+namespace {
+/**
+ * OpenMP threads share the boxes of a level, not tiles (see the tile-size default in
+ * main.cpp), so a rank with fewer boxes than threads leaves threads idle. Say so once per
+ * level, naming the knob that fixes it.
+ */
+void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm)
+{
+#ifdef AMREX_USE_OMP
+    const int nthreads = omp_get_max_threads();
+    if (nthreads <= 1) { return; }
+    int nlocal = 0;
+    const int myproc = ParallelDescriptor::MyProc();
+    for (int i = 0; i < ba.size(); ++i) {
+        if (dm[i] == myproc) { ++nlocal; }
+    }
+    ParallelDescriptor::ReduceIntMin(nlocal);
+    if (nlocal < nthreads) {
+        amrex::Print() << "WARNING: level " << lev << " has only " << nlocal
+                       << " boxes on some rank for " << nthreads << " OpenMP threads;"
+                       << " threads beyond the box count idle. Lower amr.max_grid_size"
+                       << " (or amr.max_grid_size_x/y) to give every rank at least "
+                       << nthreads << " boxes.\n";
+    }
+#else
+    amrex::ignore_unused(lev, ba, dm);
+#endif
+}
+}
+
 /**
  * Make a new level using provided BoxArray and DistributionMapping and
  * fill with interpolated coarse level data (overrides the pure virtual function in AmrCore)
@@ -32,6 +62,7 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from coarse" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     cons_new[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
     cons_old[lev] = new MultiFab(ba, dm, ncons, cons_new[lev-1]->nGrowVect());
@@ -189,6 +220,7 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
 
     amrex::Print() << "Remaking level " << lev << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state   = 3;
     int ngrow_vels    = 3;
@@ -365,6 +397,7 @@ void REMORA::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 
     amrex::Print() << "Making level " << lev << " from scratch" << std::endl;
     amrex::Print() << "GRIDS AT LEVEL " << lev << " ARE " << ba << std::endl;
+    warn_if_fewer_boxes_than_threads(lev, ba, dm);
 
     int ngrow_state = 3;
     int ngrow_vels  = 3;

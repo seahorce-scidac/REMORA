@@ -80,6 +80,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     MultiFab mf_DC (ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
     MultiFab mf_Hzk(ba,dm,1,IntVect(NGROW,NGROW,NGROW-1)); //2d missing j coordinate
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& u = mf_u.array(mfi);
@@ -196,6 +199,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         river_source_transport->update_interpolated_to_time(model_time(t_old[lev]));
     }
 #endif
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& u = mf_u.array(mfi);
@@ -290,6 +296,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
     MultiFab mf_W(convert(ba,IntVect(0,0,1)),dm,1,IntVect(NGROW+1,NGROW+1,0));
     mf_W.setVal(zero);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& Huon = mf_Huon->array(mfi);
@@ -340,6 +349,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
     advance_biology(lev, *cons_old[lev], mf_cons, N, dt_lev);
     nnew = 0;
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& Hz  = mf_Hz->array(mfi);
@@ -425,6 +437,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
     FillPatch(lev, t_old[lev], mf_cons, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,dt_lev,*cons_old[lev]);
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& AK = mf_AK.array(mfi);
@@ -470,6 +485,9 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         cons_clim_data_from_file[icomp]->update_interpolated_to_time(model_time(t_old[lev]), lev, cons_new[lev], geom, ref_ratio);
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for ( MFIter mfi(mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Box bx = mfi.growntilebox(IntVect(1,1,0));

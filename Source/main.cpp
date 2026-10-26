@@ -107,12 +107,40 @@ void add_par () {
     pp_geometry.queryAdd("is_periodic",is_periodic);
 
     ParmParse pp_fabarray("fabarray");
-#if defined(REMORA_USE_GPU)
+#if defined(REMORA_USE_GPU) || defined(AMREX_USE_OMP)
+    // No tiling. On the GPU each box is one kernel launch. With OpenMP the threads share
+    // the boxes of a level: the step kernels write shared scratch MultiFabs on tile boxes
+    // grown by up to three cells, so tiles of one box would overlap and race (seen as
+    // run-to-run differences in Upwelling_Fennel). Boxes do not overlap, so a rank needs at
+    // least as many boxes per level as threads for them all to work.
     amrex::Vector<int> omp_tile_size = {1024000,1024000,1024000};
 #else
-    amrex::Vector<int> omp_tile_size = {8, 8, 1024000};
+    // Serial CPU: full rows in i, 16 cells in j, the whole column. The kernels recompute the
+    // grown cells of every tile, so 8x8 tiles cost 1.7x the untiled time on a 128x128-column
+    // box, while j-strips of 16 run 8% faster than no tiling.
+    amrex::Vector<int> omp_tile_size = {1024000, 16, 1024000};
 #endif
     pp_remora.queryarr("omp_tile_size",omp_tile_size,0,3);
+#ifdef AMREX_USE_OMP
+    // A tile smaller than the largest box in x or y splits boxes. Inputs commonly write
+    // "1024 1024 1024" to mean no tiling, so compare with the box extent, not a fixed value.
+    if (omp_get_max_threads() > 1) {
+        amrex::Vector<int> box_extent = {max_grid_size, max_grid_size};
+        pp.query("max_grid_size_x", box_extent[0]);
+        pp.query("max_grid_size_y", box_extent[1]);
+        if (n_cell.size() >= 2) {
+            box_extent[0] = std::min(box_extent[0], n_cell[0]);
+            box_extent[1] = std::min(box_extent[1], n_cell[1]);
+        }
+        if (omp_tile_size[0] < box_extent[0] || omp_tile_size[1] < box_extent[1]) {
+            amrex::Abort("remora.omp_tile_size turns on tiling with more than one OpenMP "
+                         "thread. The step kernels write shared scratch on grown tile boxes, "
+                         "so tiles of one box race and the answers depend on thread timing. "
+                         "Use the default (no tiling; threads share boxes) or run with "
+                         "OMP_NUM_THREADS=1.");
+        }
+    }
+#endif
     pp_fabarray.queryAdd("mfiter_tile_size",omp_tile_size);
 }
 

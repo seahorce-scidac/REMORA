@@ -82,6 +82,9 @@ REMORA::prestep (int lev,
     }
 #endif
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real> const& DC = mf_DC.array(mfi);

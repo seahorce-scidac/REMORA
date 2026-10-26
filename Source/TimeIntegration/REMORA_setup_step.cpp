@@ -128,6 +128,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     auto N = Geom(lev).Domain().size()[2]-1; // Number of vertical "levs" aka, NZ
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& h     = vec_h[lev]->const_array(mfi);
@@ -213,6 +216,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
 
     if (solverChoice.do_temp_flux) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
@@ -229,6 +235,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     }
     if (solverChoice.do_salt_flux) {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
         for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
         {
             Array4<Real      > const& stflx =  vec_stflx[lev]->array(mfi);
@@ -248,6 +257,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         }
     }
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real      > const& bustr = mf_bustr->array(mfi);
@@ -351,6 +363,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     }
 #endif
 
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
     for ( MFIter mfi(S_old, TilingIfNotGPU()); mfi.isValid(); ++mfi )
     {
         Array4<Real const> const& Hz    = vec_Hz[lev]->const_array(mfi);
