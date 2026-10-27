@@ -911,7 +911,7 @@ remora.rdrag2 = 3.0e-3
 remora.refinement_indicators = bx1
 
 # source: Source/REMORA_Tagging.cpp
-# type=return; method=getarr
+# type=Real; method=getarr
 remora.refinement_indicators_.adjacent_difference_greater = <REQUIRED>
 
 # source: Source/REMORA_Tagging.cpp
@@ -963,11 +963,11 @@ remora.refinement_indicators_.start_time = <UNKNOWN_DEFAULT>
 remora.refinement_indicators_.start_total_time = <UNKNOWN_DEFAULT>
 
 # source: Source/REMORA_Tagging.cpp
-# type=return; method=getarr
+# type=Real; method=getarr
 remora.refinement_indicators_.value_greater = <REQUIRED>
 
 # source: Source/REMORA_Tagging.cpp
-# type=return; method=getarr
+# type=Real; method=getarr
 remora.refinement_indicators_.value_less = <REQUIRED>
 
 # Whether to zero a tracer the correction drives negative, as ROMS does.
