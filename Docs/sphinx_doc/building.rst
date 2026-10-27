@@ -104,6 +104,9 @@ or if using tcsh,
    +-----------------+----------------------------------+------------------+-------------+
    | USE_OMP         | Whether to enable OpenMP         | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
+   | NATIVE_ARCH     | Compile for the CPU of the build | TRUE / FALSE     | FALSE       |
+   |                 | machine (``-march=native``)      |                  |             |
+   +-----------------+----------------------------------+------------------+-------------+
    | USE_CUDA        | Whether to enable CUDA           | TRUE / FALSE     | FALSE       |
    +-----------------+----------------------------------+------------------+-------------+
    | USE_HIP         | Whether to enable HIP            | TRUE / FALSE     | FALSE       |
@@ -192,6 +195,11 @@ The options are described in the table below. Standard CMake options like ``CMAK
    | ``REMORA_ENABLE_MPI``            | Whether to enable MPI            | ON / OFF         | OFF         |
    +----------------------------------+----------------------------------+------------------+-------------+
    | ``REMORA_ENABLE_OPENMP``         | Whether to enable OpenMP         | ON / OFF         | OFF         |
+   +----------------------------------+----------------------------------+------------------+-------------+
+   | ``REMORA_ENABLE_NATIVE_ARCH``    | Compile for the CPU of the build | ON / OFF         | OFF         |
+   |                                  | machine (``-march=native``);     |                  |             |
+   |                                  | the binary may not run on other  |                  |             |
+   |                                  | CPUs                             |                  |             |
    +----------------------------------+----------------------------------+------------------+-------------+
    | ``REMORA_ENABLE_CUDA``           | Whether to enable CUDA           | ON / OFF         | OFF         |
    +----------------------------------+----------------------------------+------------------+-------------+

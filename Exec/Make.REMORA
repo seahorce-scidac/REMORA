@@ -1,5 +1,11 @@
 AMREX_HOME      ?= $(REMORA_HOME)/Submodules/AMReX
 
+# Tune for the build machine's CPU. Off by default so a binary built on a
+# login node still runs on compute nodes of another generation.
+ifeq ($(NATIVE_ARCH), TRUE)
+CXXFLAGS += -march=native
+endif
+
 ifeq ($(USE_FUNWAVE_FORT), TRUE)
 DEFINES += -DREMORA_USE_FUNWAVE_FORT
 endif
