@@ -91,6 +91,16 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     set_grid_scale(lev);
     set_masks(lev);
 
+#ifdef REMORA_USE_NETCDF
+    // The per-level NetCDF boundary series are otherwise built only by init_only,
+    // for a level made from scratch. The FillCoarsePatch calls below apply the
+    // file's boundary data to this level and index boundary_series[lev], so a
+    // level first created at a regrid needs its series built here.
+    if (solverChoice.boundary_from_netcdf) {
+        init_bdry_from_netcdf(lev);
+    }
+#endif
+
     FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1],BCVars::Temp_bc_comp,BdyVars::t);
     FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1], xvel_bc(), BdyVars::u);
     FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
