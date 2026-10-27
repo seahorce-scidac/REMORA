@@ -22,7 +22,8 @@ class NCTimeSeries
                       const std::string a_time_name,
                       const amrex::Box& a_domain,
                       amrex::MultiFab* a_mf_var,
-                      bool a_is2d, bool a_save_interpolated);
+                      bool a_is2d, bool a_save_interpolated,
+                      double a_time_ref);
 
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
@@ -60,6 +61,10 @@ class NCTimeSeries
         /** Whether to save interpolated results in mf_interpolated. If false,
          * data will be calculated to mf_var */
         bool save_interpolated;
+        /** remora.time_ref: the reference date the model clock counts from. The
+         * file's times are placed on that clock from the reference date in their
+         * units attribute. Double, like every reference date. */
+        double time_ref;
 
         /// Time points in netcdf file, in seconds on the model clock. Double, like
         /// every time on the model clock: see REMORA::t_new.

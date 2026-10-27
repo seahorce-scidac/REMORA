@@ -67,3 +67,5 @@ remora.nc_init_file_0   = "idRiv_ini_consTS_v0.2_classic64.nc"
 remora.nc_grid_file_0   = "idRiv_grd_masked_v0.2_classic64.nc"
 remora.nc_bdry_file     = "idRiv_bry_consTS_v0.2_classic64.nc"
 remora.nc_river_file    = "idRiv_riv_v0.2_classic64.nc"
+# The boundary and river files count days since 2020-01-01; put the model clock there
+remora.time_ref         = 20200101

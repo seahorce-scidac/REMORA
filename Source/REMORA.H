@@ -707,6 +707,9 @@ public:
     void check_plot_nodal_z (const amrex::Vector<const amrex::MultiFab*>& nd,
                              const amrex::Vector<amrex::Geometry>& g);
 
+    /** \brief Physical (x, y) of the psi points on every level, for plotfile output */
+    void plot_node_coords (amrex::Vector<amrex::MultiFab>& mf_xy);
+
     /** \brief Set everything up for a step on a level */
     void setup_step(int lev, amrex::Real time, amrex::Real dt_lev);
 

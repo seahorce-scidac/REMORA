@@ -68,6 +68,8 @@ remora.ic_bc_type       = "netcdf"
 remora.nc_init_file_0   = "idmini_ini_v1_classic64.nc"
 remora.nc_grid_file_0   = "idmini_grd_v1_classic64.nc"
 remora.nc_bdry_file     = "idmini_bry_Uvel_classic64.nc"
+# The boundary file counts days since 2020-01-01; put the model clock there
+remora.time_ref         = 20200101
 
 #nudging timescales, given in days
 remora.tnudg = 0.05

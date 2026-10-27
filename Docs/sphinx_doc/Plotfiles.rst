@@ -302,8 +302,19 @@ Examples of Usage
    The nodal set is the displacement a viewer adds to the Cartesian node position it builds from
    the plotfile header: node :math:`(i,j,k)` of a level sits at
    :math:`\texttt{prob\_lo} + (i\,dx, j\,dy, k\,dz) + \nu(i,j,k)`, with :math:`dx, dy, dz` that
-   level's cell sizes from the header, :math:`\nu_x = \nu_y = 0` and
-   :math:`\nu_z = z_{\rm phys}(i,j,k) - (\texttt{prob\_lo}_z + k\,dz)`. The level's own ``h`` and
+   level's cell sizes from the header,
+
+   .. math::
+      \nu_x = x_\psi(i,j) - (\texttt{prob\_lo}_x + i\,dx), \qquad
+      \nu_y = y_\psi(i,j) - (\texttt{prob\_lo}_y + j\,dy), \qquad
+      \nu_z = z_{\rm phys}(i,j,k) - (\texttt{prob\_lo}_z + k\,dz),
+
+   where :math:`x_\psi, y_\psi` are the physical coordinates of the cell corners (:math:`\psi`-points):
+   on level 0, the grid's own ``x_psi`` and ``y_psi`` (read from the NetCDF grid file, or
+   :math:`i/p_m` and :math:`j/p_n` as in ROMS for an analytic grid). Each finer level's corners are
+   interpolated bilinearly from the level below, so a fine node that coincides with a coarse node
+   sits exactly where the coarse node does. On a uniform grid starting at the origin
+   :math:`\nu_x = \nu_y = 0`. The level's own ``h`` and
    ``zeta`` set :math:`z_{\rm phys}`, so on a refined level the bottom and surface are the refined
    level's; where its bathymetry is finer than the parent's, the two levels' bottoms differ at
    coincident nodes by the sub-grid bathymetry, and a viewer shows that as a step at the patch edge.

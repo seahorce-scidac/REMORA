@@ -84,10 +84,12 @@ same way as ``<species>_mass_density``:
 
    remora.plot_vars_3d = salt temp x_velocity y_velocity z_velocity tracer_particles_count
 
-The written particle positions are in the same coordinates the particles are advected in: x and y in
-the geometry's uniform coordinates, and z the physical height. On a stretched or curvilinear grid, x
-and y are therefore not physical metres; map them through the grid metrics (see
-:ref:`ParticleAdvection`). The ``xvel`` and ``yvel`` attributes are physical velocities in m/s.
+Plotfiles hold the particles' physical positions: x and y are the physical coordinates of the cell
+corners (the same ones the plotfile's nodal displacement gives a viewer, see :ref:`sec:Plotfiles`),
+interpolated bilinearly to each particle, and z is the physical height. A viewer that draws the mapped
+grid therefore draws each particle inside the cell that holds it. Checkpoints instead keep the
+geometry's uniform coordinates that the particles move in (see :ref:`ParticleAdvection`), which a
+restart needs. The ``xvel`` and ``yvel`` attributes are physical velocities in m/s.
 
 For an example, build the executable in ``Exec`` and run the ``ParticleAdvectionFlat`` case.
 

@@ -20,11 +20,13 @@
  * @param[inout] a_mf_var             MultiFab of data to either store into or reference for dimensions
  * @param[in   ] a_is2d               Whether the variable we're working with is 2D
  * @param[in   ] a_save_interpolated  Whether the interpolated value should be saved internally
+ * @param[in   ] a_time_ref           remora.time_ref, the reference date of the model clock
  */
 NCTimeSeries::NCTimeSeries (const amrex::Vector<std::string>& a_file_names, const std::string a_field_name,
                             const std::string a_time_name,
                             const amrex::Box& a_domain,
-                            amrex::MultiFab* a_mf_var, bool a_is2d, bool a_save_interpolated) {
+                            amrex::MultiFab* a_mf_var, bool a_is2d, bool a_save_interpolated,
+                            double a_time_ref) {
     file_names.assign(a_file_names.begin(), a_file_names.end());
     time_name = a_time_name;
     field_name = a_field_name;
@@ -32,6 +34,7 @@ NCTimeSeries::NCTimeSeries (const amrex::Vector<std::string>& a_file_names, cons
     mf_var = a_mf_var;
     is2d = a_is2d;
     save_interpolated = a_save_interpolated;
+    time_ref = a_time_ref;
 }
 
 void NCTimeSeries::Initialize() {
@@ -59,15 +62,10 @@ void NCTimeSeries::Initialize() {
     for (int ifile = 0; ifile < file_names.size(); ++ifile) {
         const std::string& file_name = file_names[ifile];
 
-        // Check units of time stamps; should be days
-        std::string unit_str = ReadNetCDFVarAttrStr(file_name, time_name, "units"); // works on proc 0
-        if (amrex::ParallelDescriptor::IOProcessor())
-        {
-            if (unit_str.find("days") == std::string::npos) {
-                amrex::Print() << "Units of ocean_time given as: " << unit_str << std::endl;
-                amrex::Abort("Units must be in days.");
-            }
-        }
+        // The time stamps must count days. Their reference date, if the units
+        // name one, is honored: this is the shift that puts them on the model clock.
+        const double offset_days = ReadNetCDFTimeOffsetDays(file_name, time_name, time_ref,
+                                                            true, true);
 
         // `cycle_length` is normally numeric, so use the NCVar utility directly.
         // By ROMS convention it is in the same units as the time variable.
@@ -135,8 +133,8 @@ void NCTimeSeries::Initialize() {
             int ntimes_io = array_ts[0].get_vshape()[0];
             for (int nt(0); nt < ntimes_io; nt++)
             {
-                // Convert ocean time from days to seconds
-                ocean_times.push_back((*(array_ts[0].get_data() + nt)) * 60.0 * 60.0 * 24.0);
+                // Onto the model clock, then from days to seconds
+                ocean_times.push_back((*(array_ts[0].get_data() + nt) + offset_days) * 60.0 * 60.0 * 24.0);
                 file_for_time.push_back(ifile);
                 file_itime_offset.push_back(nt);
             }
@@ -234,7 +232,10 @@ void NCTimeSeries::update_interpolated_to_time (double time, int lev,
                      + std::to_string(ocean_times[0]) + ", "
                      + std::to_string(ocean_times[ocean_times.size()-1])
                      + "]. Extend the forcing file to cover the run, or give its time variable a"
-                     + " cycle_length attribute so it repeats.");
+                     + " cycle_length attribute so it repeats. The file's times were placed on the"
+                     + " model clock from the reference date in their units attribute (the mapping"
+                     + " is printed when the series is loaded), so also check remora.time_ref and"
+                     + " remora.start_time.");
     }
     i_time_before = i_time_new;
     time_before = ocean_times[i_time_before];

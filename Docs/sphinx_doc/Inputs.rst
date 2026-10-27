@@ -713,8 +713,20 @@ the run within the calendar the way ROMS ``DSTART`` does. With the default
 ``time_ref = 0``, a run starting on 1 January 2020 sets
 ``remora.start_time = 63713433600``.
 
-``remora.start_time``, ``remora.stop_time`` and the time variables of NetCDF
-forcing, boundary, river and climatology files are all on this model clock.
+``remora.start_time`` and ``remora.stop_time`` are on this model clock. The
+time variables of NetCDF forcing, boundary, river and climatology files are
+placed on it from their ``units`` attribute, which must count days. A reference
+date in the units, as in ``days since 2020-01-01 00:00:00``, is honored: the
+difference between it and the ``remora.time_ref`` reference date is added, in
+the calendar ``time_ref`` selects, so a file whose epoch differs from the run's
+is read at the right time, and files with different epochs can be mixed in one
+run. Nothing changes when the two dates agree, which is the usual case. A time
+variable whose units name no reference date (``days``) is taken to be on the
+model clock already. The shift applied to each file, if any, is printed when it
+is loaded, and a ``calendar`` attribute that disagrees with the calendar
+``time_ref`` selects is an error. A reference date in a time zone other than
+UTC is not supported.
+
 The time window of a refinement indicator is instead given in seconds since
 ``remora.start_time`` by default, or on the model clock with that indicator's
 ``start_total_time`` and ``end_total_time`` (see :ref:`MeshRefinement`).
@@ -723,9 +735,18 @@ Internally the model clock is split, as ROMS splits ``DSTART`` from the time it
 advances: ``remora.start_time`` is kept in double precision, and the solver
 advances only the time elapsed since it. That keeps the timestep
 resolvable in a single-precision build, where seconds since a calendar epoch
-would otherwise round to tens of seconds or more. Checkpoints store the elapsed
-time together with ``remora.start_time``; a checkpoint that stores only
-model-clock time, with no separate start time, still restarts correctly.
+would otherwise round to tens of seconds or more. The time in a checkpoint
+header is on the model clock, as a plotfile header's is, so a reader of the
+header gets the offset included. The header also records ``remora.start_time``
+and the elapsed time separately, in its trailing ``time_origin`` and
+``elapsed_time`` lines, so a restart that keeps ``remora.start_time`` continues
+the elapsed clock exactly. A restart that changes ``remora.start_time`` keeps
+the model clock where the checkpoint left it and rebases the elapsed time, so
+anything keyed to elapsed time (an analytic forcing ramp, an indicator's
+``start_time``/``end_time`` window, the ``plot_int_time`` cadence) moves with
+it; REMORA warns when this happens. Checkpoints written by earlier versions,
+which hold either model-clock time alone or elapsed time with a ``start_time``
+line, still restart correctly.
 
 NetCDF output records that offset as the scalar variable ``dstart``, in days
 since the reference date, as ROMS does. ``ocean_time`` is the time of each

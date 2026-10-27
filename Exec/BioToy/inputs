@@ -106,4 +106,7 @@ remora.nc_init_file_0   = "bio_toy_ini_fennel_classic64.nc"
 remora.nc_grid_file_0   = "bio_toy_grd_classic64.nc"
 #remora.nc_bdry_file     = "idmini_bry_Uvel_classic64.nc"
 remora.nc_frc_file     = "bio_toy_frc_classic64.nc"
+# The forcing file counts days since 2001-01-01 and repeats every 365 days; put the
+# model clock there so the cycle starts where the file does
+remora.time_ref        = 20010101
 
