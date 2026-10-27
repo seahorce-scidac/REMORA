@@ -305,6 +305,9 @@ public:
     /** \brief Set curvilinear derivative terms on level lev based on pm and pn */
     void set_curvilinear_terms_from_grid_scale (int lev);
 
+    /** \brief fill vec_metric_r/u/v/p from the level's final pm and pn */
+    void set_derived_metrics (int lev);
+
     /** \brief Set pm/pn by averaging down from higher-resolution grid */
     void set_grid_vars_averaged_down (int lev);
 
@@ -620,6 +623,16 @@ public:
     /** \brief horizontal scaling factor: 1 / dy (2D) on whole domain */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_pn_full_domain;
 
+    /** \brief metric products of pm and pn at rho points, components MetricR (2D).
+     *  Recomputed by set_derived_metrics whenever set_grid_scale sets pm and pn */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_r;
+    /** \brief metric products at u points, components MetricU (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_u;
+    /** \brief metric products at v points, components MetricV (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_v;
+    /** \brief metric products at psi points, components MetricP (2D) */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_metric_p;
+
     /** \brief coriolis factor (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_fcor;
 
@@ -910,8 +923,8 @@ public:
                     const amrex::Array4<amrex::Real const>& bvstr,
                     const amrex::Array4<amrex::Real const>& Huon,
                     const amrex::Array4<amrex::Real const>& Hvom,
-                    const amrex::Array4<amrex::Real const>& pm,
-                    const amrex::Array4<amrex::Real const>& pn,
+                    const amrex::Array4<amrex::Real const>& omn_u,
+                    const amrex::Array4<amrex::Real const>& omn_v,
                     const amrex::Array4<amrex::Real const>& W,
                     const amrex::Array4<amrex::Real      >& FC,
                     int nrhs, int N);
@@ -981,8 +994,8 @@ public:
                  const amrex::Box& vtbx,
                  const amrex::Array4<amrex::Real      >& ru,
                  const amrex::Array4<amrex::Real      >& rv,
-                 const amrex::Array4<amrex::Real const>& pn,
-                 const amrex::Array4<amrex::Real const>& pm,
+                 const amrex::Array4<amrex::Real const>& on_u,
+                 const amrex::Array4<amrex::Real const>& om_v,
                  const amrex::Array4<amrex::Real const>& rho,
                  const amrex::Array4<amrex::Real      >& FC,
                  const amrex::Array4<amrex::Real const>& Hz,
@@ -1061,7 +1074,7 @@ public:
                              const amrex::Array4<amrex::Real      >& phibar,
                              const amrex::Array4<amrex::Real      >& Hphi,
                              const amrex::Array4<amrex::Real const>& Hz,
-                             const amrex::Array4<amrex::Real const>& pm_or_pn,
+                             const amrex::Array4<amrex::Real const>& om_v_or_on_u,
                              const amrex::Array4<amrex::Real const>& Dphi1,
                              const amrex::Array4<amrex::Real const>& Dphi2,
                              const amrex::Array4<amrex::Real      >& DC,
@@ -1077,7 +1090,7 @@ public:
                        const amrex::Array4<amrex::Real const>& Dphi_avg1,
                        const amrex::Array4<amrex::Real      >& DC,
                        const amrex::Array4<amrex::Real      >& CF,
-                       const amrex::Array4<amrex::Real const>& pm_or_pn,
+                       const amrex::Array4<amrex::Real const>& on_u_or_om_v,
                        const amrex::Array4<amrex::Real const>& msk,
                        const int nnew, const int N);
 
@@ -1095,6 +1108,8 @@ public:
                    const amrex::Array4<amrex::Real const>& Hz,
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& metr,
+                   const amrex::Array4<amrex::Real const>& metp,
                    const amrex::Array4<amrex::Real const>& mskp,
                    int nrhs, int nnew,
                    const amrex::Real dt_lev);
@@ -1108,6 +1123,8 @@ public:
                   const amrex::Array4<amrex::Real const>& z_r,
                   const amrex::Array4<amrex::Real const>& pm,
                   const amrex::Array4<amrex::Real const>& pn,
+                  const amrex::Array4<amrex::Real const>& metu,
+                  const amrex::Array4<amrex::Real const>& metv,
                   const amrex::Array4<amrex::Real const>& msku,
                   const amrex::Array4<amrex::Real const>& mskv,
                   const amrex::Real dt_lev,
@@ -1121,6 +1138,8 @@ public:
                    const amrex::Array4<amrex::Real const>& Hz,
                    const amrex::Array4<amrex::Real const>& pm,
                    const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& metu,
+                   const amrex::Array4<amrex::Real const>& metv,
                    const amrex::Array4<amrex::Real const>& msku,
                    const amrex::Array4<amrex::Real const>& mskv,
                    const amrex::Real dt_lev, const int ncomp);
@@ -1134,6 +1153,8 @@ public:
                       const amrex::Array4<amrex::Real const>& z_r,
                       const amrex::Array4<amrex::Real const>& pm,
                       const amrex::Array4<amrex::Real const>& pn,
+                      const amrex::Array4<amrex::Real const>& metu,
+                      const amrex::Array4<amrex::Real const>& metv,
                       const amrex::Array4<amrex::Real const>& msku,
                       const amrex::Array4<amrex::Real const>& mskv,
                       const amrex::Real dt_lev,
@@ -1189,8 +1210,8 @@ public:
                    const amrex::Array4<amrex::Real const>& var_clim,
                    const amrex::Array4<amrex::Real const>& clim_coeff,
                    const amrex::Array4<amrex::Real const>& Hz,
-                   const amrex::Array4<amrex::Real const>& pm,
-                   const amrex::Array4<amrex::Real const>& pn,
+                   const amrex::Array4<amrex::Real const>& om_face,
+                   const amrex::Array4<amrex::Real const>& on_face,
                    const amrex::Real dt_lev = zero);
 
     /** \brief Set 2D momentum arrays from 3D momentum */

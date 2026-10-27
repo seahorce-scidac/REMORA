@@ -11,6 +11,8 @@ using namespace amrex;
  * @param[in   ] z_r        rho-point z coordinate
  * @param[in   ] pm         1/dx
  * @param[in   ] pn         1/dy
+ * @param[in   ] metu       metric products at u points (MetricU)
+ * @param[in   ] metv       metric products at v points (MetricV)
  * @param[in   ] msku       land-sea mask on u-points
  * @param[in   ] mskv       land-sea mask on v-points
  * @param[in   ] dt_lev     time step at level
@@ -26,14 +28,16 @@ REMORA::t3dmix2   (const Box& bx,
                    const Array4<Real const>& z_r,
                    const Array4<Real const>& pm,
                    const Array4<Real const>& pn,
+                   const Array4<Real const>& metu,
+                   const Array4<Real const>& metv,
                    const Array4<Real const>& msku,
                    const Array4<Real const>& mskv,
                    const Real dt_lev, const int ncomp,
                    const int N) {
     if (solverChoice.harmonic_mixing_type == HarmonicMixingType::s) {
-        t3dmix2_s(bx, state, state_rhs, diff2, Hz, pm, pn, msku, mskv, dt_lev, ncomp);
+        t3dmix2_s(bx, state, state_rhs, diff2, Hz, pm, pn, metu, metv, msku, mskv, dt_lev, ncomp);
     } else if (solverChoice.harmonic_mixing_type == HarmonicMixingType::geopotential) {
-        t3dmix2_geo(bx, state, state_rhs, diff2, Hz, z_r, pm, pn, msku, mskv, dt_lev, ncomp, N);
+        t3dmix2_geo(bx, state, state_rhs, diff2, Hz, z_r, pm, pn, metu, metv, msku, mskv, dt_lev, ncomp, N);
     }
 }
 
@@ -46,6 +50,8 @@ REMORA::t3dmix2   (const Box& bx,
  * @param[in   ] Hz         vertical cell height
  * @param[in   ] pm         1/dx
  * @param[in   ] pn         1/dy
+ * @param[in   ] metu       metric products at u points (MetricU)
+ * @param[in   ] metv       metric products at v points (MetricV)
  * @param[in   ] msku       land-sea mask on u-points
  * @param[in   ] mskv       land-sea mask on v-points
  * @param[in   ] dt_lev     time step at level
@@ -59,6 +65,8 @@ REMORA::t3dmix2_s (const Box& bx,
                    const Array4<Real const>& Hz,
                    const Array4<Real const>& pm,
                    const Array4<Real const>& pn,
+                   const Array4<Real const>& metu,
+                   const Array4<Real const>& metv,
                    const Array4<Real const>& msku,
                    const Array4<Real const>& mskv,
                    const Real dt_lev, const int ncomp)
@@ -79,7 +87,7 @@ REMORA::t3dmix2_s (const Box& bx,
 
     ParallelFor(xbx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        const Real pmon_u = (pm(i-1,j,0)+pm(i,j,0))/(pn(i-1,j,0)+pn(i,j,0));
+        const Real pmon_u = metu(i,j,0,MetricU::pmon_u);
 
         const Real cff = Real(0.25) * (diff2(i,j,0,n) + diff2(i-1,j,0,n)) * pmon_u;
         FX(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i-1,j,k)) * (state_rhs(i,j,k,n)-state_rhs(i-1,j,k,n));
@@ -88,7 +96,7 @@ REMORA::t3dmix2_s (const Box& bx,
 
     ParallelFor(ybx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        const Real pnom_v = (pn(i,j-1,0)+pn(i,j,0))/(pm(i,j-1,0)+pm(i,j,0));
+        const Real pnom_v = metv(i,j,0,MetricV::pnom_v);
 
         const Real cff = Real(0.25)*(diff2(i,j,0,n)+diff2(i,j-1,0,n)) * pnom_v;
         FE(i,j,k,n) = cff * (Hz(i,j,k) + Hz(i,j-1,k)) * (state_rhs(i,j,k,n) - state_rhs(i,j-1,k,n));
@@ -116,6 +124,8 @@ REMORA::t3dmix2_s (const Box& bx,
  * @param[in   ] z_r        rho-point z coordinates
  * @param[in   ] pm         1/dx
  * @param[in   ] pn         1/dy
+ * @param[in   ] metu       metric products at u points (MetricU)
+ * @param[in   ] metv       metric products at v points (MetricV)
  * @param[in   ] msku       land-sea mask on u-points
  * @param[in   ] mskv       land-sea mask on v-points
  * @param[in   ] dt_lev     time step at level
@@ -131,6 +141,8 @@ REMORA::t3dmix2_geo(const Box& bx,
                    const Array4<Real const>& z_r,
                    const Array4<Real const>& pm,
                    const Array4<Real const>& pn,
+                   const Array4<Real const>& metu,
+                   const Array4<Real const>& metv,
                    const Array4<Real const>& msku,
                    const Array4<Real const>& mskv,
                    const Real dt_lev, const int ncomp, const int N)
@@ -191,7 +203,7 @@ REMORA::t3dmix2_geo(const Box& bx,
     //  geopotential surfaces.
     ParallelFor(xbx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real on_u = two / (pn(i,j,0) + pn(i-1,j,0));
+        Real on_u = metu(i,j,0,MetricU::on_u);
         Real cff = Real(0.25) * (diff2(i,j,0,n)+diff2(i-1,j,0,n)) * on_u;
         FX(i,j,k,n) = cff *
                        (Hz(i,j,k)+Hz(i-1,j,k))*
@@ -205,7 +217,7 @@ REMORA::t3dmix2_geo(const Box& bx,
     });
     ParallelFor(ybx, ncomp, [=] AMREX_GPU_DEVICE (int i, int j, int k, int n)
     {
-        Real om_v = two / (pm(i,j,0) + pm(i,j-1,0));
+        Real om_v = metv(i,j,0,MetricV::om_v);
         Real cff = Real(0.25) * (diff2(i,j,0,n)+diff2(i,j-1,0,n)) * om_v;
         FE(i,j,k,n) = cff *
                        (Hz(i,j,k)+Hz(i,j-1,k))*

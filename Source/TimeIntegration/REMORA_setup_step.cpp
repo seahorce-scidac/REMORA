@@ -148,8 +148,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
                                               DriverUsesStateForcing(driver_atmos_forcing_mode)))
                                             ? vec_beta[lev]->array(mfi)  : Array4<Real>();
 
-        Array4<Real const> const& pm = mf_pm->const_array(mfi);
-        Array4<Real const> const& pn = mf_pn->const_array(mfi);
+        Array4<Real const> const& on_u = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
+        Array4<Real const> const& om_v = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
 
         Array4<Real const> const& mskr = mf_mskr->const_array(mfi);
 
@@ -173,14 +173,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         //
         ParallelFor(ugbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real on_u = two / (pn(i-1,j,0)+pn(i,j,0));
-            Huon(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k)* on_u;
+            Huon(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i-1,j,k))*uold(i,j,k)* on_u(i,j,0);
         });
 
         ParallelFor(vgbx2, [=] AMREX_GPU_DEVICE (int i, int j, int k)
         {
-            Real om_v= two / (pm(i,j-1,0)+pm(i,j,0));
-            Hvom(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k)* om_v;
+            Hvom(i,j,k)=Real(0.5)*(Hz(i,j,k)+Hz(i,j-1,k))*vold(i,j,k)* om_v(i,j,0);
         });
 
         Array4<Real const> const& state_old = S_old.const_array(mfi);
@@ -386,6 +384,15 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real const> const& pm = mf_pm->const_array(mfi);
         Array4<Real const> const& pn = mf_pn->const_array(mfi);
         Array4<Real const> const& fcor = mf_fcor->const_array(mfi);
+        Array4<Real const> const& metr = vec_metric_r[lev]->const_array(mfi);
+        Array4<Real const> const& metu = vec_metric_u[lev]->const_array(mfi);
+        Array4<Real const> const& metv = vec_metric_v[lev]->const_array(mfi);
+        Array4<Real const> const& metp = vec_metric_p[lev]->const_array(mfi);
+        Array4<Real const> const& omn  = vec_metric_r[lev]->const_array(mfi,MetricR::omn);
+        Array4<Real const> const& om_u = vec_metric_u[lev]->const_array(mfi,MetricU::om_u);
+        Array4<Real const> const& on_u = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
+        Array4<Real const> const& om_v = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
+        Array4<Real const> const& on_v = vec_metric_v[lev]->const_array(mfi,MetricV::on_v);
 
         Array4<Real const> const& msku = mf_msku->const_array(mfi);
         Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
@@ -428,7 +435,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         if (solverChoice.use_coriolis) {
             ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
             {
-                fomn(i,j,0) = fcor(i,j,0)*(one/(pm(i,j,0)*pn(i,j,0)));
+                fomn(i,j,0) = fcor(i,j,0)*omn(i,j,0);
             });
         }
 
@@ -437,7 +444,7 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
             FC(i,j,k)=zero;
         });
 
-        prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,pn,pm,rho,FC,Hz,z_r,z_w,msku,mskv,nrhs,N);
+        prsgrd(tbxp1,gbx1,utbx,vtbx,ru,rv,on_u,om_v,rho,FC,Hz,z_r,z_w,msku,mskv,nrhs,N);
 
         // Apply mixing to temperature and, if use_salt, salt
         int ncomp = solverChoice.use_salt ? 2 : 1;
@@ -445,11 +452,11 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real> const& s_arr_rhs = S_old.array(mfi);
         Array4<Real> const& diff2_arr = vec_diff2[lev]->array(mfi);
 
-        t3dmix2(bx, s_arr, s_arr_rhs, diff2_arr, Hz, z_r, pm, pn, msku, mskv, dt_lev, ncomp, N);
+        t3dmix2(bx, s_arr, s_arr_rhs, diff2_arr, Hz, z_r, pm, pn, metu, metv, msku, mskv, dt_lev, ncomp, N);
 
         for (int itrac = Tracer_comp; itrac < ncons; ++itrac) {
             Array4<Real> const& diff2_arr_scalar = vec_diff2[lev]->array(mfi,itrac);
-            t3dmix2(bx, S_new.array(mfi,itrac), S_old.array(mfi,itrac), diff2_arr_scalar, Hz, z_r, pm, pn, msku, mskv, dt_lev, 1, N);
+            t3dmix2(bx, S_new.array(mfi,itrac), S_old.array(mfi,itrac), diff2_arr_scalar, Hz, z_r, pm, pn, metu, metv, msku, mskv, dt_lev, 1, N);
         }
 
         if (solverChoice.use_coriolis) {
@@ -480,8 +487,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
                                                        Geom(lev).Domain(), Geom(lev).isPeriodic(0));
             const Box ybx_adj = clim_nudg_momentum_box(mfi.nodaltilebox(1), 1,
                                                        Geom(lev).Domain(), Geom(lev).isPeriodic(1));
-            apply_clim_nudg(xbx_adj, 1, 0, ru, uold, uclim, u_nudg_coeff, Hz, pm, pn);
-            apply_clim_nudg(ybx_adj, 0, 1, rv, vold, vclim, v_nudg_coeff, Hz, pm, pn);
+            apply_clim_nudg(xbx_adj, 1, 0, ru, uold, uclim, u_nudg_coeff, Hz, om_u, on_u);
+            apply_clim_nudg(ybx_adj, 0, 1, rv, vold, vclim, v_nudg_coeff, Hz, om_v, on_v);
         }
 #endif
 
@@ -490,11 +497,12 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
         rhs_uv_3d(lev, xbx, ybx, uold, vold, ru, rv, rufrc, rvfrc,
                   sustr, svstr, bustr, bvstr, Huon, Hvom,
-                  pm, pn, W, FC, nrhs, N);
+                  vec_metric_u[lev]->const_array(mfi,MetricU::omn_u),
+                  vec_metric_v[lev]->const_array(mfi,MetricV::omn_v), W, FC, nrhs, N);
 
         if(solverChoice.use_uv3dmix) {
             const int nnew = 0;
-            uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, pm, pn, mskp, nrhs, nnew, dt_lev);
+            uv3dmix(xbx, ybx, u, v, uold, vold, rufrc, rvfrc, visc2_p, visc2_r, Hz, pm, pn, metr, metp, mskp, nrhs, nnew, dt_lev);
         }
     } // MFIter
 
