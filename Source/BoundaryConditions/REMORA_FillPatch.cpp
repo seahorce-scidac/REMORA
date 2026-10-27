@@ -476,13 +476,8 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
                          const int  icomp,
                          const bool fill_all,
                          const int  n_not_fill,
-#ifdef REMORA_USE_NETCDF
                          const int  icomp_calc,
                          const Real dt_lev,
-#else
-                         const int /*icomp_calc*/,
-                         const Real /*dt_lev*/,
-#endif
                          const MultiFab& mf_calc,
                                amrex::Interpolater* mapper)
 {
@@ -550,17 +545,51 @@ REMORA::FillCoarsePatchMap (int lev, Real time, MultiFab* mf_to_fill, MultiFab* 
     // Physical bc's at domain boundary
     // ***************************************************************************
 
+    // The radiation conditions compare the field with its previous state (mf_calc),
+    // which a level being created does not have. Give them the interpolated field
+    // itself: the ghost cells then keep the coarse values and the nudging term,
+    // with no time step, is zero. Only the radiation conditions read it, so the
+    // copy is made only when one of them is set on this field, and only of the
+    // components being filled. It cannot be an alias of the field: the radiation
+    // kernels read the along-boundary neighbours of the column they write, so on a
+    // GPU a thread could read a cell another thread has already overwritten.
+    MultiFab calc_copy;
+    const MultiFab* calc = &mf_calc;
+    int icomp_calc_used = icomp_calc;
+    if (!mf_calc.ok()) {
+        bool radiation = false;
+        for (int n = 0; n < ncomp; ++n) {
+            const BCRec& bcr = domain_bcs_type[bccomp+n];
+            for (int dir = 0; dir < 2; ++dir) {
+                for (int bc : {bcr.lo(dir), bcr.hi(dir)}) {
+                    radiation = radiation || bc == REMORABCType::orlanski_rad
+                                          || bc == REMORABCType::orlanski_rad_nudge;
+                }
+            }
+        }
+        if (radiation) {
+            calc_copy.define(mf_to_fill->boxArray(), mf_to_fill->DistributionMap(),
+                             ncomp, mf_to_fill->nGrowVect());
+            MultiFab::Copy(calc_copy, *mf_to_fill, icomp, 0, ncomp,
+                           mf_to_fill->nGrowVect());
+            calc = &calc_copy;
+            icomp_calc_used = 0;
+        }
+    }
+
     // Enforce physical boundary conditions
     (*physbcs[lev])(*mf_to_fill,*mask,icomp,ncomp,mf_to_fill->nGrowVect(),
-            time,bccomp,n_not_fill,mf_calc,
+            time,bccomp,n_not_fill,*calc,
             *vec_msku[lev].get(), *vec_mskv[lev].get());
 
 #ifdef REMORA_USE_NETCDF
     // Fill the data which is stored in the boundary data read from netcdf files
     if ( (solverChoice.boundary_from_netcdf) && (bdy_var_type != BdyVars::null) )
     {
-        fill_from_bdyfiles(lev, *mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc,mf_calc,dt_lev);
+        fill_from_bdyfiles(lev, *mf_to_fill,*mask,time,bccomp,bdy_var_type, icomp,icomp_calc_used,*calc,dt_lev);
     }
+#else
+    amrex::ignore_unused(icomp_calc_used, dt_lev);
 #endif
     // Fill corners of the domain with periodic data
     if  ( box_mf.ixType() == IndexType(IntVect(0,0,0)) ) {

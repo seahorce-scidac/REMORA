@@ -91,6 +91,21 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     set_grid_scale(lev);
     set_masks(lev);
 
+    // init_stuff reallocated the nudging coefficients; init_only fills them only
+    // for a level made from scratch. The radiation conditions below and the
+    // climatology nudging read them.
+    init_clim_nudg_coeff(lev);
+
+#ifdef REMORA_USE_NETCDF
+    // The per-level NetCDF boundary series are otherwise built only by init_only,
+    // for a level made from scratch. The FillCoarsePatch calls below apply the
+    // file's boundary data to this level and index boundary_series[lev], so a
+    // level first created at a regrid needs its series built here.
+    if (solverChoice.boundary_from_netcdf) {
+        init_bdry_from_netcdf(lev);
+    }
+#endif
+
     FillCoarsePatch(lev, time, cons_new[lev], cons_new[lev-1],BCVars::Temp_bc_comp,BdyVars::t);
     FillCoarsePatch(lev, time, xvel_new[lev], xvel_new[lev-1], xvel_bc(), BdyVars::u);
     FillCoarsePatch(lev, time, yvel_new[lev], yvel_new[lev-1], yvel_bc(), BdyVars::v);
@@ -105,7 +120,11 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
         set_bathymetry_averaged_down(lev);
     }
 
+    // The free surface before the barotropic velocities: a Flather condition on
+    // ubar or vbar at a domain edge reads zeta, and h, on this level.
     FillCoarsePatch(lev, time, vec_Zt_avg1[lev].get(), vec_Zt_avg1[lev-1].get(),BCVars::cons_bc);
+    bool apply_eminusp = false;
+    set_zeta_to_Ztavg(lev,apply_eminusp);
     for (int icomp=0; icomp<3; icomp++) {
         FillCoarsePatch(lev, time, vec_ubar[lev].get(), vec_ubar[lev-1].get(), ubar_bc(),
                 bdy_ubar(),icomp,false);
@@ -128,8 +147,6 @@ REMORA::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     init_set_vmix(lev);
     set_hmixcoef(lev);
     set_coriolis(lev);
-    bool apply_eminusp = false;
-    set_zeta_to_Ztavg(lev,apply_eminusp);
 
 #ifdef REMORA_USE_NETCDF
     if (solverChoice.do_rivers) {
@@ -230,9 +247,11 @@ REMORA::RemakeLevel (int lev, Real time, const BoxArray& ba, const DistributionM
     init_stuff(lev, ba, dm);
     set_grid_scale(lev);
     set_masks(lev);
+    // init_stuff reallocated the nudging coefficients the fills below may read
+    init_clim_nudg_coeff(lev);
 
     // This will fill the temporary MultiFabs with data from previous fine data as well as coarse where needed
-    FillPatch(lev, time, tmp_cons_new, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false);
+    FillPatch(lev, time, tmp_cons_new, cons_new, BCVars::cons_bc, BdyVars::t,0,true,false,0,0,zero,tmp_cons_new);
     FillPatch(lev, time, tmp_xvel_new, xvel_new, xvel_bc(), BdyVars::u,0,true,false,0,0,zero,tmp_xvel_new);
     FillPatch(lev, time, tmp_yvel_new, yvel_new, yvel_bc(), BdyVars::v,0,true,false,0,0,zero,tmp_yvel_new);
     FillPatch(lev, time, tmp_zvel_new, zvel_new, zvel_bc(), BdyVars::null,0,true,false);
