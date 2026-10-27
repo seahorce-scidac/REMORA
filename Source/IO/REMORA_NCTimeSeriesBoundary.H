@@ -25,7 +25,7 @@ class NCTimeSeriesBoundary
                               const std::string a_time_name,
                               const amrex::IntVect a_index_type,
                               const amrex::GpuArray<bool, AMREX_SPACEDIM*2>& a_var_need_data,
-                              bool a_is2d, int rx, int ry);
+                              bool a_is2d, int rx, int ry, double a_time_ref);
 
         /** \brief Read in time array from file and allocate data arrays */
         void Initialize ();
@@ -82,6 +82,11 @@ class NCTimeSeriesBoundary
 
         /// Whether the field we're reading in is 2d
         bool is2d;
+
+        /** remora.time_ref: the reference date the model clock counts from. The
+         * file's times are placed on that clock from the reference date in their
+         * units attribute. Double, like every reference date. */
+        double time_ref;
 
         /// Time points in netcdf file, in seconds on the model clock
         amrex::Vector<double> bry_times;
