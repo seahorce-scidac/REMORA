@@ -107,16 +107,15 @@ void add_par () {
     pp_geometry.queryAdd("is_periodic",is_periodic);
 
     ParmParse pp_fabarray("fabarray");
-#if defined(REMORA_USE_GPU) || defined(AMREX_USE_OMP)
-    // No tiling by default. On the GPU each box is one kernel launch. With OpenMP the
-    // threads share the boxes of a level, so a rank needs at least as many boxes per level
-    // as threads for them all to work; remora.omp_tile_size turns tiling on, and the step
-    // kernels write shared data only on cells of their own tile.
+#if defined(REMORA_USE_GPU)
+    // No tiling: on the GPU each box is one kernel launch.
     amrex::Vector<int> omp_tile_size = {1024000,1024000,1024000};
 #else
-    // Serial CPU: full rows in i, 16 cells in j, the whole column. The kernels recompute the
-    // grown cells of every tile, so 8x8 tiles cost 1.7x the untiled time on a 128x128-column
-    // box, while j-strips of 16 run 8% faster than no tiling.
+    // CPU: full rows in i, 16 cells in j, the whole column. The kernels recompute the grown
+    // cells of every tile, so 8x8 tiles cost 1.7x the untiled time on a 128x128-column box,
+    // while j-strips of 16 run 8% faster than no tiling in serial and 13% faster with four
+    // OpenMP threads, which share the tiles of a box. The step kernels write shared data
+    // only on cells of their own tile, so the answers do not depend on the tiling.
     amrex::Vector<int> omp_tile_size = {1024000, 16, 1024000};
 #endif
     pp_remora.queryarr("omp_tile_size",omp_tile_size,0,3);

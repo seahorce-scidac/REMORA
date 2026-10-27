@@ -133,14 +133,13 @@ or if using tcsh,
       **Do not set both USE_OMP and USE_CUDA to true.**
 
    .. note::
-      With OpenMP, the threads of a rank share that rank's boxes: every ``MFIter`` loop in
-      the time step runs its boxes in parallel, and a rank with fewer boxes on a level than
-      threads leaves threads idle (REMORA warns at startup). Choose ``amr.max_grid_size`` so
-      each rank holds at least as many boxes as threads. Tiling (``remora.omp_tile_size``)
-      is off by default in OpenMP builds; turning it on lets the threads share a box, and
-      the step kernels write shared data only on the cells of their own tile, so the
-      answers do not depend on the tiling or the thread count. Serial CPU builds tile by
-      default in strips of 16 rows, which runs faster than untiled or 8x8 tiles.
+      With OpenMP, every ``MFIter`` loop in the time step runs its tiles in parallel, and
+      CPU builds tile by default in strips of 16 rows (``remora.omp_tile_size``), which
+      runs faster than untiled or 8x8 tiles both in serial and with threads. The step
+      kernels write shared data only on the cells of their own tile, so the answers do not
+      depend on the tiling or the thread count. If tiling is turned off, the threads share
+      a rank's boxes instead, and a rank with fewer boxes on a level than threads leaves
+      threads idle (REMORA warns at startup); choose ``amr.max_grid_size`` accordingly.
 
    Information on using other compilers can be found in the AMReX documentation at
    https://amrex-codes.github.io/amrex/docs_html/BuildingAMReX.html .
