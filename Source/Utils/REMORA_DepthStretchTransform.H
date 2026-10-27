@@ -114,7 +114,6 @@ REMORA::stretch_transform (int lev)
         Array4<Real> const& Hz  = (mf_Hz)->array(mfi);
         Array4<Real> const& h  = (mf_h)->array(mfi);
         Array4<Real> const& Zt_avg1  = (mf_Zt_avg1)->array(mfi);
-        Box bx = mfi.tilebox();
         // Grown only where the tile meets the box boundary, so no two tiles of one box
         // write the same cell: z_w is first set to h and then overwritten below, and a
         // neighbouring tile forming Hz in between would read the bathymetry.
