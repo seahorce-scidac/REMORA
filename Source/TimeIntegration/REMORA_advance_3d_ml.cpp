@@ -33,7 +33,8 @@ void REMORA::advance_3d_ml (int lev, Real dt_lev)
                N, dt_lev);
 
     // All three time levels of ubar and vbar: one exchange at level 0, one two-level fill
-    // per field above it
+    // per field above it. Filling all components hands the interpolator the BCRecs of the
+    // next bccomps for components 1 and 2, which face_cons_linear_interp ignores.
     if (lev == 0) {
         amrex::FillBoundary(Vector<MultiFab*>{vec_ubar[lev].get(), vec_vbar[lev].get()},
                             geom[lev].periodicity());

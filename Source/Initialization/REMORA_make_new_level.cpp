@@ -6,6 +6,7 @@
 #include <REMORA_prob_common.H>
 
 #include <AMReX_buildInfo.H>
+#include <AMReX_OpenMP.H>
 
 using namespace amrex;
 
@@ -19,10 +20,9 @@ namespace {
 void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm)
 {
 #ifdef AMREX_USE_OMP
-    const int nthreads = omp_get_max_threads();
-    if (nthreads <= 1) { return; }
     // Tiling is on when a tile is smaller than some box in x or y; inputs often write
     // "1024 1024 1024" to mean no tiling, so compare with the boxes, not a fixed value.
+    const int nthreads = OpenMP::get_max_threads();
     const IntVect& tile_size = FabArrayBase::mfiter_tile_size;
     int nlocal = 0;
     bool tiled = false;
@@ -31,9 +31,9 @@ void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const Distri
         if (dm[i] == myproc) { ++nlocal; }
         tiled = tiled || ba[i].length(0) > tile_size[0] || ba[i].length(1) > tile_size[1];
     }
-    if (tiled) { return; }
+    // Collective: every rank reaches it, whatever its thread count
     ParallelDescriptor::ReduceIntMin(nlocal);
-    if (nlocal < nthreads) {
+    if (nthreads > 1 && !tiled && nlocal < nthreads) {
         amrex::Print() << "WARNING: level " << lev << " has only " << nlocal
                        << " boxes on some rank for " << nthreads << " OpenMP threads;"
                        << " threads beyond the box count idle. Lower amr.max_grid_size"

@@ -766,9 +766,10 @@ REMORA::refinement_criteria_setup ()
                           && !(has_start || has_end || has_start_tot || has_end_tot);
         } // loop over criteria
 
-        // With only static boxes the grids never change, and each regrid still remakes
-        // every refined level (interpolation, fill patchers) and tags the domain. The
-        // default regrids every other step; say so once unless the input chose.
+        // With only static boxes the grids never change, and each regrid still fills the
+        // ghost cells of the level being regridded, tags and clusters the cells and checks
+        // the masks. The default regrids every other step; say so once unless the input
+        // chose.
         if (static_only && !refinement_indicators.empty() && regrid_int > 0
             && !regrid_int_from_input) {
             Print() << "NOTE: all refinement indicators are fixed boxes without a time"

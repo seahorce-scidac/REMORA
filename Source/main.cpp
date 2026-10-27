@@ -114,8 +114,9 @@ void add_par () {
     // CPU: full rows in i, 16 cells in j, the whole column. The kernels recompute the grown
     // cells of every tile, so 8x8 tiles cost 1.7x the untiled time on a 128x128-column box,
     // while j-strips of 16 run 8% faster than no tiling in serial and 13% faster with four
-    // OpenMP threads, which share the tiles of a box. The step kernels write shared data
-    // only on cells of their own tile, so the answers do not depend on the tiling.
+    // OpenMP threads, which share the tiles of a box. Where tiles overlap on shared scratch
+    // every tile writes the same value, so the answers do not depend on the tiling or the
+    // thread count.
     amrex::Vector<int> omp_tile_size = {1024000, 16, 1024000};
 #endif
     pp_remora.queryarr("omp_tile_size",omp_tile_size,0,3);

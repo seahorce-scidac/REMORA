@@ -851,8 +851,9 @@ REMORA::advance_2d (int lev,
 
         if (lev == 0) {
             // At level 0 FillPatch is one exchange of component knew followed by the
-            // boundary conditions, and those read only the field's own `know` component,
-            // h and the masks. Post the three exchanges together so their messages are in
+            // boundary conditions, and those read only `know` components (the field's own,
+            // and zeta's for Flather and Chapman), h and the masks -- nothing the exchange
+            // of knew changes. Post the three exchanges together so their messages are in
             // flight at once -- this runs every fast step -- then apply the conditions in
             // the same order as before.
             const Periodicity& per = geom[lev].periodicity();

@@ -61,7 +61,7 @@ REMORA::compute_W (const Box& bx2d,
  *
  * @param[in ] lev       level
  * @param[out] mf_omega  z-nodal omega (m/s); ghost cells are filled across grids and
- *                       periodic boundaries, and zero outside the domain
+ *                       periodic boundaries, and left as they were outside the domain
  * @param[in ] mf_Huon   u-volume flux on at least the valid faces
  * @param[in ] mf_Hvom   v-volume flux on at least the valid faces
  */

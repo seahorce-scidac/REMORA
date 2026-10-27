@@ -549,6 +549,9 @@ public:
      *  (depths, free-surface gradients, right-hand sides), cell-centered 2D */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_scratch_2d;
     static constexpr int n_scratch_2d = 12;
+    /** \brief A fine level's advective tracer fluxes on its faces, kept only when OpenMP
+     *  threads defer the flux-register FineAdd to a fixed-order pass (see advance_3d) */
+    amrex::Vector<amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>> vec_reflux_flux;
 
     /** \brief time average of barotropic x velocity flux (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DU_avg1;

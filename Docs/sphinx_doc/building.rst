@@ -136,11 +136,12 @@ or if using tcsh,
       **Do not set both USE_OMP and USE_CUDA to true.**
 
    .. note::
-      With OpenMP, every ``MFIter`` loop in the time step runs its tiles in parallel, and
+      With OpenMP, the ``MFIter`` loops of the time step run their tiles in parallel, and
       CPU builds tile by default in strips of 16 rows (``remora.omp_tile_size``), which
-      runs faster than untiled or 8x8 tiles both in serial and with threads. The step
-      kernels write shared data only on the cells of their own tile, so the answers do not
-      depend on the tiling or the thread count. If tiling is turned off, the threads share
+      runs faster than untiled or 8x8 tiles both in serial and with threads. Where tiles
+      overlap on shared scratch every tile writes the same value, and the coarse-fine flux
+      correction is accumulated in a fixed order, so the answers do not depend on the
+      tiling or the thread count. If tiling is turned off, the threads share
       a rank's boxes instead, and a rank with fewer boxes on a level than threads leaves
       threads idle (REMORA warns at startup); choose ``amr.max_grid_size`` accordingly.
 

@@ -19,7 +19,8 @@ endif()
 # Tune for the build machine. Off by default so a binary built on a login node
 # still runs on compute nodes of another generation; the gain is in the stencil
 # kernels, which otherwise use the baseline x86-64 vector width.
-if(REMORA_ENABLE_NATIVE_ARCH AND NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if(REMORA_ENABLE_NATIVE_ARCH AND NOT (REMORA_ENABLE_CUDA OR REMORA_ENABLE_HIP OR REMORA_ENABLE_SYCL)
+   AND NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   list(APPEND REMORA_CXX_FLAGS "-march=native")
   list(APPEND REMORA_Fortran_FLAGS "-march=native")
 endif()
