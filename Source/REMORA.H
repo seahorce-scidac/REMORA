@@ -548,10 +548,11 @@ public:
      *  every fast step: the x and y mass fluxes of the current fast step */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DUon;
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DVom;
-    /** \brief Scratch for the barotropic step: the n_scratch_2d work fields of advance_2d
-     *  (depths, free-surface gradients, right-hand sides), cell-centered 2D */
+    /** \brief Scratch for the barotropic step: the n_scratch_2d fields one pass of
+     *  advance_2d hands the next (new depth, free-surface pressure-gradient terms, and the
+     *  momentum right-hand sides stored at their face index), cell-centered 2D */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_scratch_2d;
-    static constexpr int n_scratch_2d = 12;
+    static constexpr int n_scratch_2d = 7;
     /** \brief A fine level's advective tracer fluxes on its faces, kept only when OpenMP
      *  threads defer the flux-register FineAdd to a fixed-order pass (see advance_3d) */
     amrex::Vector<amrex::Array<amrex::MultiFab,AMREX_SPACEDIM>> vec_reflux_flux;
@@ -928,18 +929,6 @@ public:
                     const amrex::Array4<amrex::Real const>& W,
                     const amrex::Array4<amrex::Real      >& FC,
                     int nrhs, int N);
-
-    /** \brief RHS terms for 2D momentum */
-    void rhs_uv_2d (int lev,
-                    const amrex::Box& xbx,
-                    const amrex::Box& ybx,
-                    const amrex::Array4<amrex::Real const>& uold,
-                    const amrex::Array4<amrex::Real const>& vold,
-                    const amrex::Array4<amrex::Real      >& ru,
-                    const amrex::Array4<amrex::Real      >& rv,
-                    const amrex::Array4<amrex::Real const>& Duon,
-                    const amrex::Array4<amrex::Real const>& Dvom,
-                    const int nrhs);
 
     /** \brief Wrapper around equation of state calculation */
     void rho_eos (const amrex::Box& bx,
