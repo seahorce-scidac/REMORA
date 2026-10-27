@@ -598,7 +598,7 @@ REMORA::WritePlotFile (int istep_for_plot)
             writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
-            particleData.writePlotFile(plotfilename, vec_xr, vec_yr);
+            particleData.Checkpoint(plotfilename);
 #endif
 
         }
@@ -719,7 +719,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                 writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
-                particleData.writePlotFile(plotfilename, vec_xr, vec_yr);
+                particleData.Checkpoint(plotfilename);
 #endif
             } else {
                 if (check_plot_z) { check_plot_nodal_z(GetVecOfConstPtrs(mf_nd), Geom()); }
@@ -738,7 +738,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                                                       model_time(t_new[0]), istep, ref_ratio);
                 writeJobInfo(plotfilename);
 #ifdef REMORA_USE_PARTICLES
-                particleData.writePlotFile(plotfilename, vec_xr, vec_yr);
+                particleData.Checkpoint(plotfilename);
 #endif
             }
         }

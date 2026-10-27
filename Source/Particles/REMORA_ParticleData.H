@@ -61,19 +61,6 @@ class ParticleData
             }
         }
 
-        /*! Write particles to a plotfile, with x and y in physical coordinates */
-        void writePlotFile ( const std::string& a_fname,
-                             const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& a_xr,
-                             const amrex::Vector<std::unique_ptr<amrex::MultiFab>>& a_yr ) const
-        {
-            BL_PROFILE("ParticleData::writePlotFile()");
-            for (ParticlesNamesVector::size_type i = 0; i < m_namelist.size(); i++) {
-                auto name( m_namelist[i] );
-                auto particles( m_particle_species.at(name) );
-                particles->WritePlotFile( a_fname, name, a_xr, a_yr );
-            }
-        }
-
         /*! Read from restart file */
         void Restart ( amrex::ParGDBBase* a_gdb, const std::string& a_fname )
         {
