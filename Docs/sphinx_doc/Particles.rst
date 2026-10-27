@@ -76,6 +76,12 @@ center, so with bathymetry deeper than the domain's ``prob_lo`` in z, or a free 
 Caveat: the particle information is currently output when using the AMReX-native plotfile format, but not
 when using netcdf.  Writing particles into the netcdf files is a WIP.
 
+Plotfiles hold the particles' physical positions: x and y are the physical coordinates of the cell
+corners (the same ones the plotfile's nodal displacement gives a viewer, see :ref:`sec:Plotfiles`),
+interpolated bilinearly to each particle, and z is the physical height. A viewer that draws the
+mapped grid therefore draws each particle inside the cell that holds it. Checkpoints instead keep the
+uniform coordinates of the AMReX geometry that the particles move in, which a restart needs.
+
 To see an example of using the particle functionality, build the executable using gmake in Exec and cd into ParticleAdvectionFlat to run.
 
 To visualize the number of particles per cell as a mesh-based variable, add ``<species>_count`` (for
