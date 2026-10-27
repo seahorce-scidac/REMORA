@@ -545,6 +545,10 @@ void REMORA::resize_stuff(int lev)
 
     vec_pm.resize(lev+1);
     vec_pn.resize(lev+1);
+    vec_metric_r.resize(lev+1);
+    vec_metric_u.resize(lev+1);
+    vec_metric_v.resize(lev+1);
+    vec_metric_p.resize(lev+1);
     vec_fcor.resize(lev+1);
     vec_pm_full_domain.resize(hires_grid_level+1);
     vec_pn_full_domain.resize(hires_grid_level+1);
@@ -716,6 +720,12 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 
     vec_pm[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+2,0)));
     vec_pn[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+2,NGROW+1,0)));
+    // As wide as pm and pn allow: each product reads the cells either side of its point,
+    // and pm/pn are filled one cell further than every reader of these needs.
+    vec_metric_r[lev].reset(new MultiFab(ba2d,dm,MetricR::ncomp,IntVect(NGROW+1,NGROW+1,0)));
+    vec_metric_u[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,MetricU::ncomp,IntVect(NGROW,NGROW,0)));
+    vec_metric_v[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,MetricV::ncomp,IntVect(NGROW,NGROW,0)));
+    vec_metric_p[lev].reset(new MultiFab(convert(ba2d,IntVect(1,1,0)),dm,MetricP::ncomp,IntVect(NGROW,NGROW,0)));
     vec_fcor[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
 
     vec_xr[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+1,0)));
@@ -919,6 +929,79 @@ REMORA::set_grid_scale (int lev)
     }
     if (solverChoice.use_curvilinear_grid) {
         set_curvilinear_terms_from_grid_scale(lev);
+    }
+    // Every path that sets pm and pn on a level (analytic, NetCDF, averaged down from a
+    // high-resolution grid, interpolated from the parent, regrid) ends here.
+    set_derived_metrics(lev);
+}
+
+/**
+ * The metric products the time step needs, computed once from pm and pn rather than
+ * with divides inside every kernel (ROMS metrics.F). Each value uses the expression, and
+ * operand order, of the kernels it replaces, so they read identical bits.
+ *
+ * @param[in   ]lev   level to operate on
+ */
+void
+REMORA::set_derived_metrics (int lev)
+{
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for ( MFIter mfi(*vec_metric_r[lev], TilingIfNotGPU()); mfi.isValid(); ++mfi )
+    {
+        Array4<const Real> const& pm = vec_pm[lev]->const_array(mfi);
+        Array4<const Real> const& pn = vec_pn[lev]->const_array(mfi);
+        Array4<Real> const& mr = vec_metric_r[lev]->array(mfi);
+        Array4<Real> const& mu = vec_metric_u[lev]->array(mfi);
+        Array4<Real> const& mv = vec_metric_v[lev]->array(mfi);
+        Array4<Real> const& mp = vec_metric_p[lev]->array(mfi);
+
+        ParallelFor(mfi.growntilebox(vec_metric_r[lev]->nGrowVect()),
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            mr(i,j,0,MetricR::pmn)    = pm(i,j,0)*pn(i,j,0);
+            mr(i,j,0,MetricR::omn)    = one/(pm(i,j,0)*pn(i,j,0));
+            mr(i,j,0,MetricR::om_r)   = one/pm(i,j,0);
+            mr(i,j,0,MetricR::on_r)   = one/pn(i,j,0);
+            mr(i,j,0,MetricR::pmon_r) = pm(i,j,0)/pn(i,j,0);
+            mr(i,j,0,MetricR::pnom_r) = pn(i,j,0)/pm(i,j,0);
+        });
+
+        ParallelFor(mfi.grownnodaltilebox(0, vec_metric_u[lev]->nGrowVect()),
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            const Real om_u = two/(pm(i,j,0)+pm(i-1,j,0));
+            const Real on_u = two/(pn(i,j,0)+pn(i-1,j,0));
+            mu(i,j,0,MetricU::om_u)   = om_u;
+            mu(i,j,0,MetricU::on_u)   = on_u;
+            mu(i,j,0,MetricU::omn_u)  = om_u*on_u;
+            mu(i,j,0,MetricU::pmon_u) = (pm(i-1,j,0)+pm(i,j,0))/(pn(i-1,j,0)+pn(i,j,0));
+            mu(i,j,0,MetricU::pmn4_u) = (pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+        });
+
+        ParallelFor(mfi.grownnodaltilebox(1, vec_metric_v[lev]->nGrowVect()),
+        [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            const Real om_v = two/(pm(i,j,0)+pm(i,j-1,0));
+            const Real on_v = two/(pn(i,j,0)+pn(i,j-1,0));
+            mv(i,j,0,MetricV::om_v)   = om_v;
+            mv(i,j,0,MetricV::on_v)   = on_v;
+            mv(i,j,0,MetricV::omn_v)  = om_v*on_v;
+            mv(i,j,0,MetricV::pnom_v) = (pn(i,j-1,0)+pn(i,j,0))/(pm(i,j-1,0)+pm(i,j,0));
+            mv(i,j,0,MetricV::pmn4_v) = (pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+        });
+
+        Box pbx = mfi.tilebox(IntVect(1,1,0), vec_metric_p[lev]->nGrowVect());
+        ParallelFor(pbx, [=] AMREX_GPU_DEVICE (int i, int j, int)
+        {
+            const Real sum_pm = pm(i-1,j-1,0)+pm(i-1,j,0)+pm(i,j-1,0)+pm(i,j,0);
+            const Real sum_pn = pn(i-1,j-1,0)+pn(i-1,j,0)+pn(i,j-1,0)+pn(i,j,0);
+            mp(i,j,0,MetricP::om_p)   = Real(4.0)/sum_pm;
+            mp(i,j,0,MetricP::on_p)   = Real(4.0)/sum_pn;
+            mp(i,j,0,MetricP::pmon_p) = sum_pm/sum_pn;
+            mp(i,j,0,MetricP::pnom_p) = sum_pn/sum_pm;
+        });
     }
 }
 

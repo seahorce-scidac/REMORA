@@ -191,8 +191,8 @@ REMORA::advance_2d (int lev,
         Array4<Real      > const& zeta = mf_zeta->array(mfi);
         Array4<Real const> const& h    = mf_h->const_array(mfi);
 
-        Array4<Real const> const& pm   = mf_pm->const_array(mfi);
-        Array4<Real const> const& pn   = mf_pn->const_array(mfi);
+        Array4<Real const> const& on_u = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
+        Array4<Real const> const& om_v = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
 
         Box bx = mfi.tilebox();
         Box gbx = mfi.growntilebox();
@@ -230,15 +230,13 @@ REMORA::advance_2d (int lev,
 
         ParallelFor(makeSlab(xgbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            Real on_u = two / (pn(i,j,0)+pn(i-1,j,0));
-            Real cff1= Real(0.5) * on_u *(Drhs(i,j,0)+Drhs(i-1,j,0));
+            Real cff1= Real(0.5) * on_u(i,j,0) *(Drhs(i,j,0)+Drhs(i-1,j,0));
             DUon(i,j,0)=ubar(i,j,0,krhs)*cff1;
         });
 
         ParallelFor(makeSlab(ygbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int)
         {
-            Real om_v = two / (pm(i,j,0)+pm(i,j-1,0));
-            Real cff1= Real(0.5) * om_v * (Drhs(i,j,0)+Drhs(i,j-1,0));
+            Real cff1= Real(0.5) * om_v(i,j,0) * (Drhs(i,j,0)+Drhs(i,j-1,0));
             DVom(i,j,0)=vbar(i,j,0,krhs)*cff1;
          });
     }
@@ -288,6 +286,13 @@ REMORA::advance_2d (int lev,
         Array4<Real const> const& pm   = mf_pm->const_array(mfi);
         Array4<Real const> const& pn   = mf_pn->const_array(mfi);
         Array4<Real const> const& fcor = mf_fcor->const_array(mfi);
+
+        Array4<Real const> const& pmn    = vec_metric_r[lev]->const_array(mfi,MetricR::pmn);
+        Array4<Real const> const& omn    = vec_metric_r[lev]->const_array(mfi,MetricR::omn);
+        Array4<Real const> const& on_u   = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
+        Array4<Real const> const& pmn4_u = vec_metric_u[lev]->const_array(mfi,MetricU::pmn4_u);
+        Array4<Real const> const& om_v   = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
+        Array4<Real const> const& pmn4_v = vec_metric_v[lev]->const_array(mfi,MetricV::pmn4_v);
 
         Array4<Real const> const& mskr = mf_mskr->const_array(mfi);
         Array4<Real const> const& msku = mf_msku->const_array(mfi);
@@ -356,7 +361,7 @@ REMORA::advance_2d (int lev,
         if (solverChoice.use_coriolis) {
             ParallelFor(tbxp2D, [=] AMREX_GPU_DEVICE (int i, int j, int  )
             {
-                fomn(i,j,0) = fcor(i,j,0)*(one/(pm(i,j,0)*pn(i,j,0)));
+                fomn(i,j,0) = fcor(i,j,0)*omn(i,j,0);
             });
         }
 
@@ -457,7 +462,7 @@ REMORA::advance_2d (int lev,
             {
                 rhs_zeta(i,j,0) = (DUon(i,j,0)-DUon(i+1,j,0))+
                                   (DVom(i,j,0)-DVom(i,j+1,0));
-                zeta_new(i,j,0) = (zeta(i,j,0,kstp)+ pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0)) * mskr(i,j,0);
+                zeta_new(i,j,0) = (zeta(i,j,0,kstp)+ pmn(i,j,0)*cff1*rhs_zeta(i,j,0)) * mskr(i,j,0);
                 Dnew(i,j,0) = zeta_new(i,j,0)+h(i,j,0);
 
                 //Pressure gradient terms:
@@ -478,7 +483,7 @@ REMORA::advance_2d (int lev,
                 rhs_zeta(i,j,0)=(DUon(i,j,0)-DUon(i+1,j,0))+
                                 (DVom(i,j,0)-DVom(i,j+1,0));
                 zeta_new(i,j,0)=(zeta(i,j,0,kstp)+
-                                pm(i,j,0)*pn(i,j,0)*cff1*rhs_zeta(i,j,0)) * mskr(i,j,0);
+                                pmn(i,j,0)*cff1*rhs_zeta(i,j,0)) * mskr(i,j,0);
                 Dnew(i,j,0)=zeta_new(i,j,0)+h(i,j,0);
                 //Pressure gradient terms
                 zwrk(i,j,0)=cff5*zeta(i,j,0,krhs)+
@@ -501,7 +506,7 @@ REMORA::advance_2d (int lev,
                 Real cff=cff1*((DUon(i,j,0)-DUon(i+1,j,0))+
                                (DVom(i,j,0)-DVom(i,j+1,0)));
                 zeta_new(i,j,0)=zeta(i,j,0,kstp)+
-                    pm(i,j,0)*pn(i,j,0)*(cff+
+                    pmn(i,j,0)*(cff+
                                          cff2*rzeta(i,j,0,kstp)-
                                          cff3*rzeta(i,j,0,ptsk));
                 zeta_new(i,j,0) *= mskr(i,j,0);
@@ -552,8 +557,7 @@ REMORA::advance_2d (int lev,
         ParallelFor(xbxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real on_u = two / (pn(i,j,0)+pn(i-1,j,0));
-            rhs_ubar(i,j,0)=cff1 * on_u *
+            rhs_ubar(i,j,0)=cff1 * on_u(i,j,0) *
                           ((    h(i-1,j,0) +     h(i,j,0))*
                            (gzeta(i-1,j,0) - gzeta(i,j,0))+
                            (    h(i-1,j,0) -     h(i,j,0))*
@@ -566,8 +570,7 @@ REMORA::advance_2d (int lev,
         ParallelFor(ybxD,
         [=] AMREX_GPU_DEVICE (int i, int j, int )
         {
-            Real om_v = two / (pm(i,j,0)+pm(i,j-1,0));
-            rhs_vbar(i,j,0) = cff1*om_v *
+            rhs_vbar(i,j,0) = cff1*om_v(i,j,0) *
                           ((    h(i,j-1,0) +     h(i,j,0))*
                            (gzeta(i,j-1,0) - gzeta(i,j,0))+
                            (    h(i,j-1,0) -     h(i,j,0))*
@@ -613,7 +616,8 @@ REMORA::advance_2d (int lev,
         //-----------------------------------------------------------------------
         uv3dmix(xbxD, ybxD, ubar, vbar, ubar, vbar, rhs_ubar, rhs_vbar,
                 visc2_p, visc2_r, Drhs_const,
-                pm, pn, mskp, krhs, nnew, zero);
+                pm, pn, vec_metric_r[lev]->const_array(mfi),
+                vec_metric_p[lev]->const_array(mfi), mskp, krhs, nnew, zero);
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_m2_clim_nudg) {
@@ -631,8 +635,10 @@ REMORA::advance_2d (int lev,
             Box ybxD_adj = clim_nudg_momentum_box(mfi.nodaltilebox(1), 1,
                                                   Geom(lev).Domain(), Geom(lev).isPeriodic(1));
             ybxD_adj.makeSlab(2,0);
-            apply_clim_nudg(xbxD_adj, 1, 0, rhs_ubar, ubar_krhs, ubar_clim, ubar_nudg_coeff, Drhs_const, pm, pn);
-            apply_clim_nudg(ybxD_adj, 0, 1, rhs_vbar, vbar_krhs, vbar_clim, vbar_nudg_coeff, Drhs_const, pm, pn);
+            apply_clim_nudg(xbxD_adj, 1, 0, rhs_ubar, ubar_krhs, ubar_clim, ubar_nudg_coeff, Drhs_const,
+                            vec_metric_u[lev]->const_array(mfi,MetricU::om_u), on_u);
+            apply_clim_nudg(ybxD_adj, 0, 1, rhs_vbar, vbar_krhs, vbar_clim, vbar_nudg_coeff, Drhs_const,
+                            om_v, vec_metric_v[lev]->const_array(mfi,MetricV::on_v));
         }
 #endif
 
@@ -744,7 +750,7 @@ REMORA::advance_2d (int lev,
             ParallelFor(xbxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+                Real cff=pmn4_u(i,j,0);
                 Real Dnew_avg =one/(Dnew(i,j,0)+Dnew(i-1,j,0));
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
@@ -753,7 +759,7 @@ REMORA::advance_2d (int lev,
             ParallelFor(ybxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real cff=(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+                Real cff=pmn4_v(i,j,0);
                 Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i,j-1,0));
                 vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i,j-1,0))+
@@ -766,7 +772,7 @@ REMORA::advance_2d (int lev,
             ParallelFor(xbxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+                Real cff=pmn4_u(i,j,0);
                 Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i-1,j,0));
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
@@ -775,7 +781,7 @@ REMORA::advance_2d (int lev,
             ParallelFor(ybxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real cff=(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+                Real cff=pmn4_v(i,j,0);
                 Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i,j-1,0));
                 vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i,j-1,0))+
@@ -790,7 +796,7 @@ REMORA::advance_2d (int lev,
             ParallelFor(xbxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real cff=(pm(i,j,0)+pm(i-1,j,0))*(pn(i,j,0)+pn(i-1,j,0));
+                Real cff=pmn4_u(i,j,0);
                 Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i-1,j,0));
                 ubar(i,j,0,knew)=(ubar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i-1,j,0))+
@@ -801,7 +807,7 @@ REMORA::advance_2d (int lev,
             ParallelFor(ybxD,
             [=] AMREX_GPU_DEVICE (int i, int j, int )
             {
-                Real cff=(pm(i,j,0)+pm(i,j-1,0))*(pn(i,j,0)+pn(i,j-1,0));
+                Real cff=pmn4_v(i,j,0);
                 Real Dnew_avg=one/(Dnew(i,j,0)+Dnew(i,j-1,0));
                 vbar(i,j,0,knew)=(vbar(i,j,0,kstp)*
                                  (Dstp(i,j,0)+Dstp(i,j-1,0))+
@@ -935,8 +941,8 @@ REMORA::advance_2d (int lev,
                 Array4<Real      > const& vbar    = mf_vbar->array(mfi);
                 Array4<Real const> const& zeta    = mf_zeta->const_array(mfi);
                 Array4<Real const> const& h       = mf_h->const_array(mfi);
-                Array4<Real const> const& pm      = mf_pm->const_array(mfi);
-                Array4<Real const> const& pn      = mf_pn->const_array(mfi);
+                Array4<Real const> const& on_u    = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
+                Array4<Real const> const& om_v    = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
 
                 Box gbx1D = mfi.growntilebox(IntVect(NGROW-1,NGROW-1,0));
                 gbx1D.makeSlab(2,0);
@@ -946,13 +952,11 @@ REMORA::advance_2d (int lev,
                     int iriver = river_pos(i,j,0);
                     if (iriver >= 0) {
                         if (river_direction_d[iriver] == 0) {
-                            Real on_u = two / (pn(i,j,0)+pn(i-1,j,0));
-                            Real cff = one / (on_u * Real(0.5) * (zeta(i-1,j,0,knew) + h(i-1,j,0) +
+                            Real cff = one / (on_u(i,j,0) * Real(0.5) * (zeta(i-1,j,0,knew) + h(i-1,j,0) +
                                         zeta(i,j,0,knew) + h(i,j,0)));
                             ubar(i,j,0,knew) = river_transportbar(iriver,0,0) * cff;
                         } else {
-                            Real om_v = two / (pm(i,j,0)+pm(i,j-1,0));
-                            Real cff = one / (om_v * Real(0.5) * (zeta(i,j-1,0,knew) + h(i,j-1,0) +
+                            Real cff = one / (om_v(i,j,0) * Real(0.5) * (zeta(i,j-1,0,knew) + h(i,j-1,0) +
                                         zeta(i,j,0,knew) + h(i,j,0)));
                             vbar(i,j,0,knew) = river_transportbar(iriver,0,0) * cff;
                         }

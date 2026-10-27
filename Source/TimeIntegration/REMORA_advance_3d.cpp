@@ -105,6 +105,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
 
         Array4<Real const> const& pm  = mf_pm->const_array(mfi);
         Array4<Real const> const& pn  = mf_pn->const_array(mfi);
+        Array4<Real const> const& on_u = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
+        Array4<Real const> const& om_v = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
 
         Array4<Real const> const& msku  = mf_msku->const_array(mfi);
         Array4<Real const> const& mskv  = mf_mskv->const_array(mfi);
@@ -175,13 +177,13 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         mf_DC[mfi].template setVal<RunOn::Device>(zero,xbx);
         fab_CF.template     setVal<RunOn::Device>(zero,xbx);
 
-        vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,pn,msku,nnew,N);
+        vert_mean_3d(xbx,1,0,u,Hz,DU_avg1,DC,CF,on_u,msku,nnew,N);
 
         // Reset to zero on the box on which they'll be used
         mf_DC[mfi].template setVal<RunOn::Device>(zero,ybx);
         fab_CF.template     setVal<RunOn::Device>(zero,ybx);
 
-        vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,pm,mskv,nnew,N);
+        vert_mean_3d(ybx,0,1,v,Hz,DV_avg1,DC,CF,om_v,mskv,nnew,N);
     }
 
     // Apply physical boundary conditions to u and v
@@ -224,8 +226,8 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         Array4<Real> const& Huon = mf_Huon->array(mfi);
         Array4<Real> const& Hvom = mf_Hvom->array(mfi);
 
-        Array4<Real const> const& pm   = mf_pm->const_array(mfi);
-        Array4<Real const> const& pn   = mf_pn->const_array(mfi);
+        Array4<Real const> const& on_u = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
+        Array4<Real const> const& om_v = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
         Array4<Real const> const& msku = mf_msku->const_array(mfi);
         Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
 
@@ -246,12 +248,10 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
                 int iriver = river_pos(i,j,0);
                 if (iriver >= 0) {
                     if (river_direction_d[iriver] == 0) {
-                        Real on_u = two / (pn(i,j,0)+pn(i-1,j,0));
-                        Real cff = one / (on_u * Real(0.5) * (z_w(i-1,j,k+1) - z_w(i-1,j,k) + z_w(i,j,k+1) - z_w(i,j,k)));
+                        Real cff = one / (on_u(i,j,0) * Real(0.5) * (z_w(i-1,j,k+1) - z_w(i-1,j,k) + z_w(i,j,k+1) - z_w(i,j,k)));
                         u(i,j,k) = cff * river_transport(iriver,0,k);
                     } else {
-                        Real om_v = two / (pm(i,j,0)+pm(i,j-1,0));
-                        Real cff = one / (om_v * Real(0.5) * (z_w(i,j-1,k+1) - z_w(i,j-1,k) + z_w(i,j,k+1) - z_w(i,j,k)));
+                        Real cff = one / (om_v(i,j,0) * Real(0.5) * (z_w(i,j-1,k+1) - z_w(i,j-1,k) + z_w(i,j,k+1) - z_w(i,j,k)));
                         v(i,j,k) = cff * river_transport(iriver,0,k);
                     }
                 }
@@ -277,12 +277,12 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         // Reset to zero on the box on which they'll be used
         fab_FC.template setVal<RunOn::Device>(zero,gbx2);
         mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(lev,gbx2,1,0,u,ubar,Huon,Hz,pn,DU_avg1,DU_avg2,DC,FC,msku,nnew);
+        update_massflux_3d(lev,gbx2,1,0,u,ubar,Huon,Hz,on_u,DU_avg1,DU_avg2,DC,FC,msku,nnew);
 
         // Reset to zero on the box on which they'll be used
         fab_FC.template     setVal<RunOn::Device>(zero,gbx2);
         mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(gbx2,IntVect(0,0,1)));
-        update_massflux_3d(lev,gbx2,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,mskv,nnew);
+        update_massflux_3d(lev,gbx2,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,mskv,nnew);
 
 #endif
     }
@@ -545,10 +545,10 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
             Array4<const Real> const& cons_clim = cons_clim_data_from_file[icomp]->get_interpolated_mf(lev)->const_array(mfi);
             Array4<      Real> const& cons = cons_new[lev]->array(mfi, icomp);
             Array4<const Real> const& Hz   = vec_Hz[lev]->const_array(mfi);
-            Array4<const Real> const& pm   = vec_pm[lev]->const_array(mfi);
-            Array4<const Real> const& pn   = vec_pn[lev]->const_array(mfi);
 
-            apply_clim_nudg(bx, 0, 0, cons, cons, cons_clim, cons_nudg_coeff, Hz, pm, pn, dt_lev);
+            // Tracers are nudged at rho points: no face metrics
+            apply_clim_nudg(bx, 0, 0, cons, cons, cons_clim, cons_nudg_coeff, Hz,
+                            Array4<const Real>(), Array4<const Real>(), dt_lev);
         }
     }
 #endif

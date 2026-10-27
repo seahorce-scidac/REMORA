@@ -11,7 +11,7 @@ using namespace amrex;
  * @param[inout] phibar         ubar or vbar
  * @param[inout] Hphi           phi-volume flux
  * @param[in   ] Hz             vertical cell height
- * @param[in   ] pm_or_pn       pm or pn
+ * @param[in   ] om_v_or_on_u   on_u for u, om_v for v
  * @param[in   ] Dphi_avg1      DU_avg1 or DV_avg1
  * @param[in   ] Dphi_avg2      DU_avg2 or DV_avg2
  * @param        DC             temporary
@@ -26,7 +26,7 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
                            const Array4<Real      >& phibar,
                            const Array4<Real      >& Hphi,
                            const Array4<Real const>& Hz,
-                           const Array4<Real const>& pm_or_pn,
+                           const Array4<Real const>& om_v_or_on_u,
                            const Array4<Real const>& Dphi_avg1,
                            const Array4<Real const>& Dphi_avg2,
                            const Array4<Real      >& DC,
@@ -65,9 +65,7 @@ REMORA::update_massflux_3d (int lev, const Box& bx,
     //This takes advantage of Hz being an extra grow cell size
     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k)
     {
-        Real om_v_or_on_u = two / (pm_or_pn(i,j,0) + pm_or_pn(i-ioff,j-joff,0));
-
-        DC(i,j,k) = Real(0.5) * om_v_or_on_u * (Hz(i,j,k)+Hz(i-ioff,j-joff,k));
+        DC(i,j,k) = Real(0.5) * om_v_or_on_u(i,j,0) * (Hz(i,j,k)+Hz(i-ioff,j-joff,k));
     });
 
     ParallelFor(bxD, [=] AMREX_GPU_DEVICE (int i, int j, int )

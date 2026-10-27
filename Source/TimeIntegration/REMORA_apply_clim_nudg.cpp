@@ -11,8 +11,8 @@ using namespace amrex;
  * @param[in   ] var_clim       climatology value to nudge towards
  * @param[in   ] clim_coeff     nudging time scale (1/s)
  * @param[in   ] Hz             vertical cell height
- * @param[in   ] pm             1/dx
- * @param[in   ] pn             1/dy
+ * @param[in   ] om_face        om_u or om_v at the nudged faces (unused for tracers)
+ * @param[in   ] on_face        on_u or on_v at the nudged faces (unused for tracers)
  * @param[in   ] dt_lev         time step
  */
 void
@@ -23,8 +23,8 @@ REMORA::apply_clim_nudg (const Box& bx,
                          const Array4<Real const>& var_clim,
                          const Array4<Real const>& clim_coeff,
                          const Array4<Real const>& Hz,
-                         const Array4<Real const>& pm,
-                         const Array4<Real const>& pn,
+                         const Array4<Real const>& om_face,
+                         const Array4<Real const>& on_face,
                          const Real dt_lev)
 {
     BL_PROFILE("REMORA::apply_clim_nudg()");
@@ -32,9 +32,7 @@ REMORA::apply_clim_nudg (const Box& bx,
     {
         Real cff = Real(0.5) * (clim_coeff(i-ioff,j-joff,k) + clim_coeff(i,j,k));
         if (ioff==1 || joff==1) {
-            Real om = two / (pm(i-ioff,j-joff,0)+pm(i,j,0));
-            Real on = two / (pn(i-ioff,j-joff,0)+pn(i,j,0));
-            cff *= Real(0.5) * (Hz(i-ioff,j-joff,k) + Hz(i,j,k)) * om * on;
+            cff *= Real(0.5) * (Hz(i-ioff,j-joff,k) + Hz(i,j,k)) * om_face(i,j,0) * on_face(i,j,0);
         } else {
             cff *= dt_lev;
         }
