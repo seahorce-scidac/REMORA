@@ -932,10 +932,12 @@ REMORA::advance_2d (int lev,
             FillPatchBCs(lev, t_old[lev], *vec_zeta[lev], zeta_bc(), bdy_zeta(),
                          knew, 1, 0, know, dt2d, zeta_know);
         } else {
+            // The last argument names the cf_2d_cache slot: within a parent step these fills
+            // repeat for the same few (component, time) pairs
             FillPatch(lev, t_old[lev], *vec_ubar[lev], GetVecOfPtrs(vec_ubar), ubar_bc(), bdy_ubar(),
-                      knew, false,true, 0,know, dt2d, ubar_know);
+                      knew, false,true, 0,know, dt2d, ubar_know, {}, {}, 0);
             FillPatch(lev, t_old[lev], *vec_vbar[lev], GetVecOfPtrs(vec_vbar), vbar_bc(), bdy_vbar(),
-                      knew, false,true, 0,know, dt2d, vbar_know);
+                      knew, false,true, 0,know, dt2d, vbar_know, {}, {}, 1);
             // With the snapshot pair the coarse contribution is interpolated onto t_old[lev],
             // which timeStep guarantees lies inside the parent's step; without it FillPatch
             // falls back to the parent frozen at the end of that step. See roll_2d_snapshot.
@@ -943,10 +945,10 @@ REMORA::advance_2d (int lev,
                 && vec_zeta_crse_old[lev-1] && vec_zeta_crse_new[lev-1]) {
                 FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
                           knew, false,false, 0,know, dt2d, zeta_know,
-                          GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new));
+                          GetVecOfPtrs(vec_zeta_crse_old), GetVecOfPtrs(vec_zeta_crse_new), 2);
             } else {
                 FillPatch(lev, t_old[lev], *vec_zeta[lev], GetVecOfPtrs(vec_zeta), zeta_bc(), bdy_zeta(),
-                          knew, false,false, 0,know, dt2d, zeta_know);
+                          knew, false,false, 0,know, dt2d, zeta_know, {}, {}, 2);
             }
         }
 

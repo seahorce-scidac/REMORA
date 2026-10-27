@@ -1330,7 +1330,15 @@ public:
                     const amrex::Real dt = zero,
                     const amrex::MultiFab& mf_calc = amrex::MultiFab(),
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_old = {},
-                    amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {});
+                    amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {},
+                    const int cf_cache_slot = -1);
+
+    /** \brief Make cf_2d_cache[lev][slot] fit mf's layout: on a layout change, find the
+     *  ghost cells a two-level fill of mf from crse writes (by a probe fill) and drop the
+     *  cached values */
+    void cf_2d_cache_entry (int lev, int slot, const amrex::MultiFab& mf,
+                            const amrex::MultiFab& crse, amrex::Real time,
+                            amrex::Interpolater* mapper, int bccomp);
 
     /** \brief Fill a new MultiFab by copying in phi from valid region and filling ghost cells without applying boundary conditions */
     void FillPatchNoBC (int lev, amrex::Real time,
@@ -1958,6 +1966,27 @@ private:
      *         non-conservative for the same reason as cf_fill_all_kcomp: 1.4e-08 of volume
      *         drift on its own. */
     int cf_time_interp_zeta = 1;
+    /** \brief reuse the coarse-fine ghost values of a fine level's barotropic fills
+     *         (ubar, vbar, zeta in advance_2d). 0: recompute on every fast step, where the
+     *         two-level fill re-exchanges and re-interpolates the coarse level each time.
+     *         1 (default): compute once per (component, fill time) within a parent step and
+     *         replay the result; bitwise identical, since the fill depends on nothing else
+     *         that changes inside the parent step. 2: as 1, but also recompute and abort on
+     *         any difference. Subcycled driver only. */
+    int cf_2d_fill_cache = 1;
+    /** \brief one cached two-level fill: the values it leaves in the ghost cells it writes
+     *         (mask), per component, with the fill time and coarse generation of each */
+    struct CF2DCache {
+        std::unique_ptr<amrex::MultiFab>  vals;
+        std::unique_ptr<amrex::iMultiFab> mask;
+        amrex::Vector<amrex::Real> time;
+        amrex::Vector<long> gen;
+    };
+    /** \brief per level: the caches for ubar, vbar and zeta (slots 0, 1, 2) */
+    amrex::Vector<amrex::Array<CF2DCache,3>> cf_2d_cache;
+    /** \brief per level: bumped whenever register_coarse_data hands the level's new state to
+     *         the next finer level, which invalidates that level's cf_2d_cache */
+    amrex::Vector<long> cf_crse_gen;
     /** \brief distribute the parent's interface mass flux piecewise-constantly over the fine
      *         faces under each parent face, as ROMS's get_persisted2d does, instead of with
      *         the linear tangential variation of AMReX's face interpolator. Both conserve the
