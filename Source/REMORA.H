@@ -541,6 +541,15 @@ public:
     /** \brief Bottom stress in the v direction */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_bvstr;
 
+    /** \brief Scratch for the barotropic step, kept per level rather than allocated on
+     *  every fast step: the x and y mass fluxes of the current fast step */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DUon;
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DVom;
+    /** \brief Scratch for the barotropic step: the n_scratch_2d work fields of advance_2d
+     *  (depths, free-surface gradients, right-hand sides), cell-centered 2D */
+    amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_scratch_2d;
+    static constexpr int n_scratch_2d = 12;
+
     /** \brief time average of barotropic x velocity flux (2D) */
     amrex::Vector<std::unique_ptr<amrex::MultiFab>> vec_DU_avg1;
     /** \brief correct time average of barotropic x velocity flux for coupling (2D) */

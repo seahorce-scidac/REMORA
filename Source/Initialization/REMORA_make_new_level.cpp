@@ -509,6 +509,9 @@ void REMORA::resize_stuff(int lev)
     vec_alpha.resize(lev+1);
     vec_beta.resize(lev+1);
 
+    vec_DUon.resize(lev+1);
+    vec_DVom.resize(lev+1);
+    vec_scratch_2d.resize(lev+1);
     vec_DU_avg1.resize(lev+1);
     vec_DU_avg2.resize(lev+1);
     vec_DV_avg1.resize(lev+1);
@@ -684,6 +687,11 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
     vec_bvstr[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
 
     //all 2d -- all associated with the 2D advance
+    // Scratch of advance_2d, rewritten on every fast step
+    vec_DUon[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_DVom[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0)));
+    vec_scratch_2d[lev].reset(new MultiFab(ba2d,dm,n_scratch_2d,IntVect(NGROW+1,NGROW+1,0)));
+
     //2d DU: sum(height[incl free surface?] * u)
     vec_DU_avg1[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0)));
 

@@ -87,10 +87,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
     // We need to set these because otherwise in the first call to remora_advance we may
     //    read uninitialized data on ghost values in setting the bc's on the velocities
-    mf_rho.setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_rhoS->setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_rhoA->setVal(zero,IntVect(AMREX_D_DECL(NGROW-1,NGROW-1,0)));
-    mf_DC.setVal(zero);
 
     FillPatchNoBC(lev, time, *cons_new[lev], cons_new, BdyVars::t,0,true,true, cons_old, cons_new);
     FillPatchNoBC(lev, time, *xvel_new[lev], xvel_new, BdyVars::u,0,true,true, xvel_old, xvel_new);

@@ -159,11 +159,10 @@ REMORA::advance_2d (int lev,
     // Include indx1 updates for diagnostic purposes?
     //indx1-=1;
     ptsk-=1;
-    auto ba = mf_h->boxArray();
-    auto dm = mf_h->DistributionMap();
-
-    MultiFab mf_DUon(convert(ba,IntVect(1,0,0)),dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_DVom(convert(ba,IntVect(0,1,0)),dm,1,IntVect(NGROW,NGROW,0));
+    // Per-level scratch (see MakeNewLevel), every cell read below is written first in
+    // this call, so nothing carries over between fast steps.
+    MultiFab& mf_DUon = *vec_DUon[lev];
+    MultiFab& mf_DVom = *vec_DVom[lev];
 
     int ncomp = 0;
     int fomn_comp = ncomp++;
@@ -179,7 +178,8 @@ REMORA::advance_2d (int lev,
     int rhs_zeta_comp = ncomp++;
     int zeta_new_comp = ncomp++;
 
-    MultiFab mf(ba,dm,ncomp,IntVect(NGROW+1,NGROW+1,0));
+    AMREX_ALWAYS_ASSERT(ncomp == n_scratch_2d);
+    MultiFab& mf = *vec_scratch_2d[lev];
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())

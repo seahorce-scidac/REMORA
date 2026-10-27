@@ -63,14 +63,10 @@ REMORA::prestep (int lev,
 
     // Maybe not the best way to do this, but need to cache salt and temp since
     // they get rewritten by prestep_t
-    MultiFab mf_saltcache(ba,dm,1,IntVect(NGROW,NGROW,0));
-    MultiFab mf_tempcache(ba,dm,1,IntVect(NGROW,NGROW,0));
 
     MultiFab mf_scalarcache(ba,dm,ncons,IntVect(NGROW,NGROW,0));
     MultiFab::Copy(mf_scalarcache,S_new,0,0,ncons,IntVect(NGROW,NGROW,0));
 
-    MultiFab::Copy(mf_saltcache,S_new,Salt_comp,0,1,IntVect(NGROW,NGROW,0));
-    MultiFab::Copy(mf_tempcache,S_new,Temp_comp,0,1,IntVect(NGROW,NGROW,0));
 
 #ifdef REMORA_USE_NETCDF
     // These do MPI-collective NetCDF reads, so they must be called by every rank,

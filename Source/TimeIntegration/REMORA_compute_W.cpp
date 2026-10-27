@@ -71,7 +71,6 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
 {
     const int N = Geom(lev).Domain().size()[2]-1;
 
-    mf_omega.setVal(zero);
 
     // Not tiled: compute_W integrates whole columns
 #ifdef _OPENMP

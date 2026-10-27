@@ -463,7 +463,6 @@ REMORA::gls_corrector (int lev, MultiFab* mf_gls, MultiFab* mf_tke,
     // While potentially counterintuitive, this is what ROMS does for handling shear2 at all boundaries, even
     // periodic
     (*physbcs[lev])(mf,*mf_mskr,shear2_cache_comp,1,mf.nGrowVect(),t_new[lev],foextrap_bc());
-    mf.setVal(zero,CF_comp,1);
 
     int ncomp_fab = 0;
     int tmp_buoy_comp  = ncomp_fab++;
