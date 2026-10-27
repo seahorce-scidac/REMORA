@@ -70,11 +70,6 @@ void REMORAPC::WritePlotFile ( const std::string& a_fname, const std::string& a_
         const Geometry& geom = m_gdb->Geom(lev);
         const auto plo = geom.ProbLoArray();
         const auto dxi = geom.InvCellSizeArray();
-        const Box& dom = geom.Domain();
-        const int ilo = dom.smallEnd(0);
-        const int ihi = dom.bigEnd(0);
-        const int jlo = dom.smallEnd(1);
-        const int jhi = dom.bigEnd(1);
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -85,20 +80,27 @@ void REMORAPC::WritePlotFile ( const std::string& a_fname, const std::string& a_
             const int np = aos.numParticles();
             auto* p_pbox = aos().data();
             const auto xy = a_xy[lev].const_array(pti.index());
+            const Box& vbx = pti.validbox();
+            const int ilo = vbx.smallEnd(0);
+            const int ihi = vbx.bigEnd(0);
+            const int jlo = vbx.smallEnd(1);
+            const int jhi = vbx.bigEnd(1);
 
             ParallelFor(np, [=] AMREX_GPU_DEVICE (int n)
             {
                 auto& p = p_pbox[n];
                 if (p.id() <= 0) { return; }
 
-                // Nodal index coordinates; the cell is clamped to the domain so that a particle
-                // on the domain's high face uses the last cell's corners
-                const Real lx = static_cast<Real>((p.pos(0)-plo[0])*dxi[0]);
-                const Real ly = static_cast<Real>((p.pos(1)-plo[1])*dxi[1]);
+                // Nodal index coordinates, kept in ParticleReal: rounding them to a
+                // single-precision Real first can carry a particle at the high edge of its grid
+                // into the next cell. The cell is clamped to the particle's grid, so both corner
+                // nodes are always inside the grid's nodal box (a_xy has no ghost cells).
+                const ParticleReal lx = (p.pos(0)-plo[0])*dxi[0];
+                const ParticleReal ly = (p.pos(1)-plo[1])*dxi[1];
                 const int i = amrex::max(ilo, amrex::min(static_cast<int>(amrex::Math::floor(lx)), ihi));
                 const int j = amrex::max(jlo, amrex::min(static_cast<int>(amrex::Math::floor(ly)), jhi));
-                const Real sx = lx - static_cast<Real>(i);
-                const Real sy = ly - static_cast<Real>(j);
+                const auto sx = static_cast<Real>(lx - static_cast<ParticleReal>(i));
+                const auto sy = static_cast<Real>(ly - static_cast<ParticleReal>(j));
 
                 for (int d = 0; d < 2; ++d) {
                     p.pos(d) = static_cast<ParticleReal>(

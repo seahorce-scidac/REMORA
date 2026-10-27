@@ -11,12 +11,12 @@ bool containerHasElement(const V& iterable, const T& query) {
     return std::find(iterable.begin(), iterable.end(), query) != iterable.end();
 }
 
-// The nodal displacement a viewer adds to the Cartesian node position it builds from the
-// Header: nu = (0, 0, z_phys_nd - (prob_lo_z + k*dz)), with dz and prob_lo from the Geometry the
-// Header describes this level with. rz > 1 is the expand_plotvars_to_unif_rr case, where the
-// Header's dz is the native one over rz and mf_nd carries rz node layers per native layer: z is
-// interpolated linearly in k between native node layers, so node rz*k coincides with native
-// node k. Fills component 2 only; the caller zeroes the rest.
+// The vertical part of the nodal displacement a viewer adds to the Cartesian node position it
+// builds from the Header: nu_z = z_phys_nd - (prob_lo_z + k*dz), with dz and prob_lo from the
+// Geometry the Header describes this level with. rz > 1 is the expand_plotvars_to_unif_rr case,
+// where the Header's dz is the native one over rz and mf_nd carries rz node layers per native
+// layer: z is interpolated linearly in k between native node layers, so node rz*k coincides with
+// native node k. Fills component 2 only; fill_nodal_xy_displacement fills components 0 and 1.
 static void
 fill_nodal_z_displacement (MultiFab& mf_nd, const MultiFab& z_phys_nd, const Geometry& g, int rz)
 {
@@ -226,7 +226,11 @@ REMORA::WritePlotFile (int istep_for_plot)
 
     // Physical (x, y) of the psi points, for the nodal displacement and the particle positions
     Vector<MultiFab> mf_xy;
-    plot_node_coords(mf_xy);
+    bool need_node_coords = plot_nodal_data;
+#ifdef REMORA_USE_PARTICLES
+    need_node_coords = need_node_coords || !particleData.isEmpty();
+#endif
+    if (need_node_coords) { plot_node_coords(mf_xy); }
 
     // Array of MultiFabs for nodal data
     Vector<MultiFab> mf_nd(finest_level+1);
