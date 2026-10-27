@@ -1970,9 +1970,11 @@ private:
      *         (ubar, vbar, zeta in advance_2d). 0: recompute on every fast step, where the
      *         two-level fill re-exchanges and re-interpolates the coarse level each time.
      *         1 (default): compute once per (component, fill time) within a parent step and
-     *         replay the result; bitwise identical, since the fill depends on nothing else
-     *         that changes inside the parent step. 2: as 1, but also recompute and abort on
-     *         any difference. Subcycled driver only. */
+     *         replay the result; bitwise identical, since the fill reads only the registered
+     *         coarse data and, for faces, the interface faces FillSet rewrites before every
+     *         fill, none of which changes inside the parent step. 2: as 1, but also
+     *         recompute and abort on any difference in the replayed cells. Subcycled driver
+     *         only. */
     int cf_2d_fill_cache = 1;
     /** \brief one cached two-level fill: the values it leaves in the ghost cells it writes
      *         (mask), per component, with the fill time and coarse generation of each */

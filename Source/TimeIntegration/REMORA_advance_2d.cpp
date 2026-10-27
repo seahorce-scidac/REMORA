@@ -309,6 +309,9 @@ REMORA::advance_2d (int lev,
     const Real sixth  = one / Real(6.0);
 
     const int upstream3 = (solverChoice.uv_Hadv_scheme == AdvectionScheme::upstream3) ? 1 : 0;
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(upstream3 == 1 ||
+                                     solverChoice.uv_Hadv_scheme == AdvectionScheme::centered2,
+                                     "advance_2d: momentum advection scheme is not upstream3 or centered2");
     const int use_cor   = solverChoice.use_coriolis ? 1 : 0;
     const int use_curv  = solverChoice.use_curvilinear_grid ? 1 : 0;
 
@@ -433,7 +436,8 @@ REMORA::advance_2d (int lev,
         //  Free-surface step and the pressure-gradient fields, on the tile grown by one.
         //  zeta(knew) and rzeta(krhs) are stored on the whole grown tile rather than the
         //  growntilebox the solver needs: where two tiles of a box overlap, both compute the
-        //  same value from the same exchanged fluxes, and nothing in this loop reads them.
+        //  same value from the same exchanged fluxes, and nothing in this loop reads them --
+        //  a benign same-value overlap under OpenMP, which a race detector will still flag.
         //
         Box tbxp1D = makeSlab(grow(mfi.tilebox(),IntVect(NGROW-1,NGROW-1,0)),2,0);
         AnyCTO(TypeList<CompileTimeOptions<first_step,leapfrog,adams_moulton>,
