@@ -439,7 +439,10 @@ Notes
 -  **amr.regrid_int** is a single integer used at every level: each level
    below **amr.max_level** rebuilds the grids of the levels above it every
    **amr.regrid_int** of its own time steps. A value of 0 or less disables
-   regridding.
+   regridding. When every refinement indicator is a fixed box without a time
+   window the grids never change, so set **amr.regrid_int** = -1: each regrid
+   still remakes the refined levels and tags the domain, for nothing. REMORA
+   prints a note at startup when the default is in effect in that case.
 
 -  **amr.max_grid_size** at every level must be even
 

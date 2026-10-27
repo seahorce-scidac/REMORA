@@ -497,6 +497,8 @@ REMORA::refinement_criteria_setup ()
         ParmParse pp(pp_prefix);
         Vector<std::string> refinement_indicators;
         pp.queryarr("refinement_indicators",refinement_indicators,0,pp.countval("refinement_indicators"));
+        // Boxes without a time window tag the same cells at every regrid
+        bool static_only = true;
         for (int i=0; i<refinement_indicators.size(); ++i)
         {
             std::string ref_prefix = pp_prefix + "." + refinement_indicators[i];
@@ -758,6 +760,21 @@ REMORA::refinement_criteria_setup ()
             }
             ref_tags.back().SetTimeWindow(min_elapsed, max_elapsed,
                                           min_total, max_total);
+            static_only = static_only && realbox.ok()
+                          && !ppr.countval("value_greater") && !ppr.countval("value_less")
+                          && !ppr.countval("adjacent_difference_greater")
+                          && !(has_start || has_end || has_start_tot || has_end_tot);
         } // loop over criteria
+
+        // With only static boxes the grids never change, and each regrid still remakes
+        // every refined level (interpolation, fill patchers) and tags the domain. The
+        // default regrids every other step; say so once unless the input chose.
+        if (static_only && !refinement_indicators.empty() && regrid_int > 0
+            && !regrid_int_from_input) {
+            Print() << "NOTE: all refinement indicators are fixed boxes without a time"
+                    << " window, so the grids never change, but amr.regrid_int = "
+                    << regrid_int << " (the default) regrids every " << regrid_int
+                    << " steps anyway. Set amr.regrid_int = -1 to skip it.\n";
+        }
     } // if max_level > 0
 }

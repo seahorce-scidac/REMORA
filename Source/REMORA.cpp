@@ -2614,6 +2614,7 @@ REMORA::ReadParameters ()
 
     {
         ParmParse pp_amr("amr");
+        regrid_int_from_input = pp_amr.contains("regrid_int");
         pp_amr.queryAdd("regrid_int", regrid_int);
     }
     solverChoice.init_params(ncons, nscalar, cons_names);
