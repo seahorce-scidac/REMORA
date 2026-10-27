@@ -137,10 +137,10 @@ or if using tcsh,
       the time step runs its boxes in parallel, and a rank with fewer boxes on a level than
       threads leaves threads idle (REMORA warns at startup). Choose ``amr.max_grid_size`` so
       each rank holds at least as many boxes as threads. Tiling (``remora.omp_tile_size``)
-      is off in OpenMP builds and REMORA aborts if it is turned on with more than one
-      thread: the step kernels write shared scratch on tile boxes grown by up to three
-      cells, so tiles of one box would race. Serial CPU builds tile by default in strips of
-      16 rows, which runs faster than untiled or 8x8 tiles.
+      is off by default in OpenMP builds; turning it on lets the threads share a box, and
+      the step kernels write shared data only on the cells of their own tile, so the
+      answers do not depend on the tiling or the thread count. Serial CPU builds tile by
+      default in strips of 16 rows, which runs faster than untiled or 8x8 tiles.
 
    Information on using other compilers can be found in the AMReX documentation at
    https://amrex-codes.github.io/amrex/docs_html/BuildingAMReX.html .

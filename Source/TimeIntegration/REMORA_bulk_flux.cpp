@@ -57,8 +57,6 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             longwave_down_arr = mf_longwave_down->const_array(mfi);
         }
         Array4<Real const> const& cons = mf_cons->const_array(mfi);
-        Array4<Real> const& sustr = mf_sustr->array(mfi);
-        Array4<Real> const& svstr = mf_svstr->array(mfi);
         Array4<Real> const& stflux = mf_stflux->array(mfi);
         Array4<Real> const& lrflx = mf_lrflx->array(mfi);
         Array4<Real> const& lhflx = mf_lhflx->array(mfi);
@@ -68,8 +66,6 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
         Array4<Real> const& Tauy = mf_Tauy.array(mfi);
 
         Array4<const Real> const& mskr = vec_mskr[lev]->const_array(mfi);
-        Array4<const Real> const& msku  = vec_msku[lev]->const_array(mfi);
-        Array4<const Real> const& mskv  = vec_mskv[lev]->const_array(mfi);
         Array4<const Real> const& rain  = vec_rain[lev]->const_array(mfi);
         Array4<const Real> const& EminusP = vec_EminusP[lev]->const_array(mfi);
         Array4<const Real> const& cloud_arr = vec_cloud[lev]->const_array(mfi);
@@ -89,12 +85,13 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
 
         Real eps = Real(1e-20);
 
-        Box bx = mfi.tilebox();
-        Box ubx = mfi.grownnodaltilebox(0,IntVect(NGROW-1,NGROW-1,0));
-        Box vbx = mfi.grownnodaltilebox(1,IntVect(NGROW-1,NGROW-1,0));
-        Box gbx1 = bx; gbx1.grow(IntVect(NGROW,NGROW,0));
+        // This tile's cells plus the box's own ghost ring, which no other tile of the box
+        // writes. The stresses on the faces need Taux and Tauy one cell past the tile, so
+        // they are formed in the loop below, once every tile has written its share: a
+        // tile writing them on a grown box would race with the tile that owns those cells.
+        Box gbx2 = mfi.growntilebox(IntVect(NGROW,NGROW,0));
 
-        ParallelFor(makeSlab(gbx1,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
+        ParallelFor(makeSlab(gbx2,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
             // Get spatially-varying atmospheric forcing from input arrays
             Real PairM = Pair_arr(i,j,0);  // Air pressure [mb]
             Real TairC = Tair_arr(i,j,0);  // Air temperature [°C]
@@ -414,8 +411,24 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
                 stflux(i,j,0,Salt_comp) = (one/rhow)*(evap(i,j,0)-rain(i,j,0)) * mskr(i,j,0);
             }
         });
+    }
 
-        Real cff_rho = Real(0.5) / solverChoice.rho0;
+    // Surface stress on the u- and v-faces from the cell stresses on both sides
+    const Real cff_rho = Real(0.5) / solverChoice.rho0;
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for ( MFIter mfi(*mf_cons, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
+        Array4<Real> const& sustr = mf_sustr->array(mfi);
+        Array4<Real> const& svstr = mf_svstr->array(mfi);
+        Array4<Real const> const& Taux = mf_Taux.const_array(mfi);
+        Array4<Real const> const& Tauy = mf_Tauy.const_array(mfi);
+        Array4<Real const> const& msku = vec_msku[lev]->const_array(mfi);
+        Array4<Real const> const& mskv = vec_mskv[lev]->const_array(mfi);
+
+        Box ubx = mfi.grownnodaltilebox(0,IntVect(NGROW-1,NGROW-1,0));
+        Box vbx = mfi.grownnodaltilebox(1,IntVect(NGROW-1,NGROW-1,0));
+
         ParallelFor(makeSlab(ubx,2,0), [=] AMREX_GPU_DEVICE (int i, int j, int ) {
             sustr(i,j,0) = cff_rho*(Taux(i-1,j,0) + Taux(i,j,0)) * msku(i,j,0);
         });
@@ -423,5 +436,4 @@ REMORA::bulk_fluxes (int lev, MultiFab* mf_cons, MultiFab* mf_uwind, MultiFab* m
             svstr(i,j,0) = cff_rho*(Tauy(i,j-1,0) + Tauy(i,j,0)) * mskv(i,j,0);
         });
     }
-
 }

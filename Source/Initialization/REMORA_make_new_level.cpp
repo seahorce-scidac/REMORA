@@ -11,27 +11,35 @@ using namespace amrex;
 
 namespace {
 /**
- * OpenMP threads share the boxes of a level, not tiles (see the tile-size default in
- * main.cpp), so a rank with fewer boxes than threads leaves threads idle. Say so once per
- * level, naming the knob that fixes it.
+ * By default OpenMP threads share the boxes of a level, not tiles (see the tile-size
+ * default in main.cpp), so a rank with fewer boxes than threads leaves threads idle. Say
+ * so once per level, naming the knobs that fix it. With tiling on the threads share the
+ * tiles of a box instead, so there is nothing to warn about.
  */
 void warn_if_fewer_boxes_than_threads (int lev, const BoxArray& ba, const DistributionMapping& dm)
 {
 #ifdef AMREX_USE_OMP
     const int nthreads = omp_get_max_threads();
     if (nthreads <= 1) { return; }
+    // Tiling is on when a tile is smaller than some box in x or y; inputs often write
+    // "1024 1024 1024" to mean no tiling, so compare with the boxes, not a fixed value.
+    const IntVect& tile_size = FabArrayBase::mfiter_tile_size;
     int nlocal = 0;
+    bool tiled = false;
     const int myproc = ParallelDescriptor::MyProc();
     for (int i = 0; i < ba.size(); ++i) {
         if (dm[i] == myproc) { ++nlocal; }
+        tiled = tiled || ba[i].length(0) > tile_size[0] || ba[i].length(1) > tile_size[1];
     }
+    if (tiled) { return; }
     ParallelDescriptor::ReduceIntMin(nlocal);
     if (nlocal < nthreads) {
         amrex::Print() << "WARNING: level " << lev << " has only " << nlocal
                        << " boxes on some rank for " << nthreads << " OpenMP threads;"
                        << " threads beyond the box count idle. Lower amr.max_grid_size"
                        << " (or amr.max_grid_size_x/y) to give every rank at least "
-                       << nthreads << " boxes.\n";
+                       << nthreads << " boxes, or set remora.omp_tile_size so the"
+                       << " threads share the tiles of a box.\n";
     }
 #else
     amrex::ignore_unused(lev, ba, dm);

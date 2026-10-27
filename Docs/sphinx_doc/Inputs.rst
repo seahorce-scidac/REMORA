@@ -276,17 +276,20 @@ List of Parameters
 |                           |                 |                           |                       |
 |                           | level           |                           |                       |
 +---------------------------+-----------------+---------------------------+-----------------------+
-| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | CPU: 8 8 1024000      |
-|                           | size            |                           |                       |
-|                           |                 | {x,y,z}                   | GPU: 1024000 1024000  |
-|                           |                 |                           | 1024000               |
+| **remora.omp_tile_size**  | target tile     | Triplet of integers > 0   | Serial CPU: 1024000   |
+|                           | size            |                           | 16 1024000            |
+|                           |                 | {x,y,z}                   |                       |
+|                           |                 |                           | OpenMP or GPU:        |
+|                           |                 |                           | 1024000 1024000       |
+|                           |                 |                           | 1024000 (no tiling)   |
 +---------------------------+-----------------+---------------------------+-----------------------+
 
 Notes
 -----
 
 -  **remora.omp_tile_size** is an alias for **fabarray.mfiter_tile_size**, which controls
-   the distribution of work by OpenMP.
+   the distribution of work by OpenMP. The results do not depend on it: the step kernels
+   write shared data only on the cells of their own tile.
 
 -  The domain may not be tiled in the z direction. That is, the last component of **remora.omp_tile_size**
    must be greater than or equal to the number of vertical levels.
