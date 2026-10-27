@@ -11,12 +11,12 @@ bool containerHasElement(const V& iterable, const T& query) {
     return std::find(iterable.begin(), iterable.end(), query) != iterable.end();
 }
 
-// The nodal displacement a viewer adds to the Cartesian node position it builds from the
-// Header: nu = (0, 0, z_phys_nd - (prob_lo_z + k*dz)), with dz and prob_lo from the Geometry the
-// Header describes this level with. rz > 1 is the expand_plotvars_to_unif_rr case, where the
-// Header's dz is the native one over rz and mf_nd carries rz node layers per native layer: z is
-// interpolated linearly in k between native node layers, so node rz*k coincides with native
-// node k. Fills component 2 only; the caller zeroes the rest.
+// The vertical part of the nodal displacement a viewer adds to the Cartesian node position it
+// builds from the Header: nu_z = z_phys_nd - (prob_lo_z + k*dz), with dz and prob_lo from the
+// Geometry the Header describes this level with. rz > 1 is the expand_plotvars_to_unif_rr case,
+// where the Header's dz is the native one over rz and mf_nd carries rz node layers per native
+// layer: z is interpolated linearly in k between native node layers, so node rz*k coincides with
+// native node k. Fills component 2 only; fill_nodal_xy_displacement fills components 0 and 1.
 static void
 fill_nodal_z_displacement (MultiFab& mf_nd, const MultiFab& z_phys_nd, const Geometry& g, int rz)
 {
@@ -39,6 +39,31 @@ fill_nodal_z_displacement (MultiFab& mf_nd, const MultiFab& z_phys_nd, const Geo
             // its weight is nonzero, which keeps it at or below the top node.
             if (r > 0) { z += (Real(r) / Real(rz)) * (zp(i,j,k+1) - zp(i,j,k)); }
             nu(i,j,kf,2) = z - (zlo + Real(kf) * dz);
+        });
+    }
+}
+
+// The horizontal part of the nodal displacement: nu_x = x - (prob_lo_x + i*dx) and likewise in
+// y, from the physical psi-point coordinates mf_xy (component 0 x, 1 y) that plot_node_coords
+// builds on the nodal 2D grids of the same level. The horizontal index of mf_nd is the native
+// one on every path, since the expand path refines only in z. Fills components 0 and 1.
+static void
+fill_nodal_xy_displacement (MultiFab& mf_nd, const MultiFab& mf_xy, const Geometry& g)
+{
+    const auto dx  = g.CellSizeArray();
+    const auto plo = g.ProbLoArray();
+#ifdef _OPENMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(mf_nd, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.tilebox();
+        Array4<Real>       const& nu = mf_nd.array(mfi);
+        Array4<Real const> const& xy = mf_xy.const_array(mfi);
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+        {
+            nu(i,j,k,0) = xy(i,j,0,0) - (plo[0] + Real(i) * dx[0]);
+            nu(i,j,k,1) = xy(i,j,0,1) - (plo[1] + Real(j) * dx[1]);
         });
     }
 }
@@ -198,6 +223,14 @@ REMORA::WritePlotFile (int istep_for_plot)
           mf_2d_v[lev].define(ba2d, dmap[lev], ncomp_mf_2d_v  , IntVect(0,0,0));
     }
 
+
+    // Physical (x, y) of the psi points, for the nodal displacement and the particle positions
+    Vector<MultiFab> mf_xy;
+    bool need_node_coords = plot_nodal_data;
+#ifdef REMORA_USE_PARTICLES
+    need_node_coords = need_node_coords || !particleData.isEmpty();
+#endif
+    if (need_node_coords) { plot_node_coords(mf_xy); }
 
     // Array of MultiFabs for nodal data
     Vector<MultiFab> mf_nd(finest_level+1);
@@ -568,6 +601,7 @@ REMORA::WritePlotFile (int istep_for_plot)
 #endif
 
         if (plot_nodal_data) {
+            fill_nodal_xy_displacement(mf_nd[lev], mf_xy[lev], Geom(lev));
             fill_nodal_z_displacement(mf_nd[lev], *vec_z_phys_nd[lev], Geom(lev), 1);
         }
     } // lev
@@ -598,7 +632,7 @@ REMORA::WritePlotFile (int istep_for_plot)
             writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
-            particleData.Checkpoint(plotfilename);
+            particleData.writePlotFile(plotfilename, mf_xy);
 #endif
 
         }
@@ -662,6 +696,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                         BoxArray nodal2(mf2[lev].boxArray()); nodal2.surroundingNodes();
                         mf_nd2[lev].define(nodal2, dmap[lev], AMREX_SPACEDIM, 0);
                         mf_nd2[lev].setVal(zero);
+                        fill_nodal_xy_displacement(mf_nd2[lev], mf_xy[lev], g2[lev]);
                         fill_nodal_z_displacement(mf_nd2[lev], *vec_z_phys_nd[lev], g2[lev], rz);
                         nd2_ptrs[lev] = &mf_nd2[lev];
                     }
@@ -719,7 +754,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                 writeJobInfo(plotfilename);
 
 #ifdef REMORA_USE_PARTICLES
-                particleData.Checkpoint(plotfilename);
+                particleData.writePlotFile(plotfilename, mf_xy);
 #endif
             } else {
                 if (check_plot_z) { check_plot_nodal_z(GetVecOfConstPtrs(mf_nd), Geom()); }
@@ -738,7 +773,7 @@ REMORA::WritePlotFile (int istep_for_plot)
                                                       model_time(t_new[0]), istep, ref_ratio);
                 writeJobInfo(plotfilename);
 #ifdef REMORA_USE_PARTICLES
-                particleData.Checkpoint(plotfilename);
+                particleData.writePlotFile(plotfilename, mf_xy);
 #endif
             }
         }
@@ -1122,6 +1157,43 @@ REMORA::WriteGenericPlotfileHeaderWithBathymetry (std::ostream &HeaderFile,
                 HeaderFile << MultiFabHeaderPath(level, levelPrefix, mf_2d_v_prefix) << "\n";
             }
         }
+}
+
+/**
+ * Physical (x, y) of the psi points (cell corners) on every level, for the horizontal part of
+ * the plotfile's nodal displacement and for particle positions. Level 0 takes the grid's own
+ * x_psi and y_psi. Each finer level is interpolated bilinearly from the level below, so that
+ * a fine node that coincides with a coarse node gets the coarse node's position: a fine
+ * level's own x_psi is rebuilt from its pm and pn, which on a stretched grid does not match its
+ * parent's, and on a NetCDF grid does not carry the file's origin.
+ *
+ * @param[out] mf_xy  per level, a 2-component nodal 2D MultiFab: x, then y
+ */
+void
+REMORA::plot_node_coords (Vector<MultiFab>& mf_xy)
+{
+    mf_xy.resize(finest_level+1);
+    for (int lev = 0; lev <= finest_level; ++lev) {
+        mf_xy[lev].define(vec_xp[lev]->boxArray(), vec_xp[lev]->DistributionMap(), 2, 0);
+    }
+
+    MultiFab::Copy(mf_xy[0], *vec_xp[0], 0, 0, 1, 0);
+    MultiFab::Copy(mf_xy[0], *vec_yp[0], 0, 1, 1, 0);
+
+    Vector<BCRec> null_dom_bcs(2);
+    for (int n = 0; n < 2; ++n) {
+        for (int dir = 0; dir < AMREX_SPACEDIM; ++dir) {
+            null_dom_bcs[n].setLo(dir, REMORABCType::int_dir);
+            null_dom_bcs[n].setHi(dir, REMORABCType::int_dir);
+        }
+    }
+    for (int lev = 1; lev <= finest_level; ++lev) {
+        const IntVect rr(ref_ratio[lev-1][0], ref_ratio[lev-1][1], 1);
+        InterpFromCoarseLevel(mf_xy[lev], t_new[lev], mf_xy[lev-1], 0, 0, 2,
+                              geom[lev-1], geom[lev],
+                              null_bc_for_fill, 0, null_bc_for_fill, 0,
+                              rr, &node_bilinear_interp, null_dom_bcs, 0);
+    }
 }
 
 /**
