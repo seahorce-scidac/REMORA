@@ -2409,6 +2409,7 @@ REMORA::ReadParameters ()
     pp.queryAdd("cf_avgdown_bar", cf_avgdown_bar);
     pp.queryAdd("cf_fill_all_kcomp", cf_fill_all_kcomp);
     pp.queryAdd("cf_time_interp_zeta", cf_time_interp_zeta);
+    pp.queryAdd("cf_2d_fill_cache", cf_2d_fill_cache);
     pp.queryAdd("cf_flux_pc", cf_flux_pc);
     pp.queryAdd("cf_avgdown_stencil", cf_avgdown_stencil);
     pp.queryAdd("cf_avgdown_volume_weighted", cf_avgdown_volume_weighted);

@@ -526,6 +526,13 @@ Notes
       onto the child's own sub-time rather than freezing it at the end of the parent step.
       Non-conservative for the same reason: 1.4e-08 of drift on its own.
 
+   -  **remora.cf_2d_fill_cache** (default 1) is a speed option, not a physics one. A fine
+      level's barotropic fills (``ubar``, ``vbar``, ``zeta``, every fast step) repeat within a
+      parent step for a few (time level, time) pairs, so with 1 the coarse-fine ghost values
+      are computed once per pair and replayed, instead of exchanging and interpolating the
+      parent on every fast step. The results are bitwise identical to 0, which recomputes
+      every time; 2 does both and aborts on any difference. Subcycled driver only.
+
    -  **remora.cf_avgdown_perimeter** (default 1) leaves the normal-velocity faces on the
       coarse-fine perimeter out of the fine-to-coarse average, as ROMS's ``fine2coarse`` does.
       Setting it to 0 includes those faces, so the parent's imposed flux is averaged straight
