@@ -68,12 +68,22 @@ void REMORA::evolveTracers (int a_lev, Real a_dt_lev)
     if (!m_use_tracer_particles && !m_use_hydro_particles) { return; }
 
     // Particles are advected in terrain-following coordinates, so they need omega, the
-    // velocity across the w-levels, rather than a Cartesian vertical velocity. It comes from
-    // the time-averaged fluxes update_massflux_3d leaves, the ones the tracers move with,
-    // rather than the diagnostic omega from the current velocities.
-    MultiFab mf_omega(convert(grids[a_lev],IntVect(0,0,1)), dmap[a_lev], 1,
-                      IntVect(NGROW,NGROW,0));
-    compute_omega(a_lev, mf_omega, *vec_Huon[a_lev], *vec_Hvom[a_lev]);
+    // velocity across the w-levels, rather than a Cartesian vertical velocity. As in ROMS
+    // floats, it comes from the time-averaged fluxes update_massflux_3d leaves, the ones the
+    // tracers move with, rather than the diagnostic omega from the current velocities. It is
+    // only needed if some species moves with the flow (hydro particles do not by default).
+    bool any_advect = false;
+    if (m_use_tracer_particles) {
+        any_advect = any_advect || particleData[REMORAParticleNames::tracers]->advectsWithFlow();
+    }
+    if (m_use_hydro_particles) {
+        any_advect = any_advect || particleData[REMORAParticleNames::hydro]->advectsWithFlow();
+    }
+    MultiFab mf_omega;
+    if (any_advect) {
+        mf_omega.define(convert(grids[a_lev],IntVect(0,0,1)), dmap[a_lev], 1, IntVect(NGROW,NGROW,0));
+        compute_omega(a_lev, mf_omega, *vec_Huon[a_lev], *vec_Hvom[a_lev]);
+    }
 
     Vector<MultiFab const*> flowvel = {xvel_new[a_lev], yvel_new[a_lev], &mf_omega};
 

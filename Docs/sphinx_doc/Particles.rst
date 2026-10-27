@@ -156,8 +156,10 @@ where
 The factors :math:`p_m \Delta x` and :math:`p_n \Delta y` convert physical metres to the geometry's
 uniform coordinates, so particles cover the right physical distance on stretched or curvilinear grids;
 on a uniform grid both are 1. Because :math:`u` and :math:`v` are along the grid directions, rotated
-grids need no further correction. :math:`\Omega` comes from the same time-averaged mass fluxes that
-advect the tracers, so particles move with the same discrete, volume-conserving flow.
+grids need no further correction. As in ROMS floats, :math:`u` and :math:`v` are the velocities at the
+end of the step, while :math:`\Omega` comes from the time-averaged mass fluxes that advect the tracers,
+so a particle moves across the levels as the tracers are carried across them. The two are not one
+discretely divergence-free field: they differ by the change in the fluxes over the step.
 
 Applying the chain rule to :math:`z = Z(x,y,s,t)` gives the physical vertical velocity:
 

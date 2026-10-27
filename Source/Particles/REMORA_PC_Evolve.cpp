@@ -116,16 +116,21 @@ void REMORAPC::AdvectWithFlow ( int                                 a_lev,
 
                 const ParticleReal x = p.pos(0);
                 const ParticleReal y = p.pos(1);
+                int kfound;
+                Real dz_found;
                 const Real s = height_to_level_index(x, y, p.pos(2),
                                                      p.idata(REMORAParticlesIntIdxAoS::k),
-                                                     nz, plo, dxi, zheight);
+                                                     nz, plo, dxi, zheight, &kfound, &dz_found);
 
                 const Real u = interpolate_to_level_index(x, y, s, nz, IntVect(1,0,0),
                                                           plo, dxi, uarr);
                 const Real v = interpolate_to_level_index(x, y, s, nz, IntVect(0,1,0),
                                                           plo, dxi, varr);
+                // The search's cell is the one holding s except when k + f rounds, or f = 1
+                // puts s on the next level; only then are the level heights recomputed
                 const int ks = level_index_cell(s, nz);
-                const Real dz = level_height(x, y, ks+1, plo, dxi, zheight)
+                const Real dz = (ks == kfound) ? dz_found
+                              : level_height(x, y, ks+1, plo, dxi, zheight)
                               - level_height(x, y, ks  , plo, dxi, zheight);
                 const Real sdot = interpolate_to_level_index(x, y, s, nz, IntVect(0,0,1),
                                                              plo, dxi, warr) / dz;

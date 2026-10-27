@@ -114,14 +114,17 @@ amrex::Real level_height (  amrex::ParticleReal a_x, amrex::ParticleReal a_y, in
 /**
  * Fractional w-level index of height a_z in the column at (a_x, a_y). A height below the
  * bed or above the free surface is clamped onto it. a_k, the cell the particle was last
- * in, is where the search starts.
+ * in, is where the search starts. If a_kcell is given, the cell the search ended in and the
+ * thickness of that cell at (a_x, a_y) are returned through a_kcell and a_dz, so a caller
+ * need not recompute the level heights.
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 amrex::Real height_to_level_index ( amrex::ParticleReal a_x, amrex::ParticleReal a_y,
                                     amrex::ParticleReal a_z, int a_k, int a_nz,
                                     amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_plo,
                                     amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& a_dxi,
-                                    amrex::Array4<amrex::Real const> const& a_z_nd )
+                                    amrex::Array4<amrex::Real const> const& a_z_nd,
+                                    int* a_kcell = nullptr, amrex::Real* a_dz = nullptr )
 {
     const auto z = static_cast<amrex::Real>(a_z);
     int k = amrex::max(0, amrex::min(a_k, a_nz-1));
@@ -138,6 +141,10 @@ amrex::Real height_to_level_index ( amrex::ParticleReal a_x, amrex::ParticleReal
         zlo = level_height(a_x, a_y, k, a_plo, a_dxi, a_z_nd);
     }
     const amrex::Real f = amrex::max(zero, amrex::min(one, (z - zlo) / (zhi - zlo)));
+    if (a_kcell) {
+        *a_kcell = k;
+        *a_dz = zhi - zlo;
+    }
     return static_cast<amrex::Real>(k) + f;
 }
 
@@ -294,6 +301,9 @@ class REMORAPC : public amrex::ParticleContainer<  REMORAParticlesRealIdxAoS::nc
                 a_mf.setVal(zero);
             }
         }
+
+        /*! Whether the particles advect with the flow */
+        inline bool advectsWithFlow () const { return m_advect_w_flow; }
 
         /*! Specify if particles should advect with flow */
         inline void setAdvectWithFlow (bool a_flag)

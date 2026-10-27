@@ -71,6 +71,12 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
 {
     const int N = Geom(lev).Domain().size()[2]-1;
 
+    // Up to one ghost column is computed directly, as advance_3d computes W, so that it is
+    // right at domain and coarse/fine boundaries too, where FillBoundary does not reach. This
+    // needs the fluxes in the same ghost cells, which update_massflux_3d keeps on grown boxes.
+    const IntVect ng(amrex::min(mf_omega.nGrowVect()[0], 1), amrex::min(mf_omega.nGrowVect()[1], 1), 0);
+    AMREX_ALWAYS_ASSERT(mf_Huon.nGrowVect().allGE(ng) && mf_Hvom.nGrowVect().allGE(ng));
+
     mf_omega.setVal(zero);
 
     // Not tiled: compute_W integrates whole columns
@@ -84,7 +90,7 @@ REMORA::compute_omega (int lev, MultiFab& mf_omega,
         Array4<Real const> const& pm = vec_pm[lev]->const_array(mfi);
         Array4<Real const> const& pn = vec_pn[lev]->const_array(mfi);
 
-        Box bx2d = makeSlab(mfi.validbox(),2,0);
+        Box bx2d = makeSlab(grow(mfi.validbox(), ng), 2, 0);
         compute_W(bx2d, W, mf_Huon.const_array(mfi), mf_Hvom.const_array(mfi),
                   vec_z_w[lev]->const_array(mfi), vec_h[lev]->const_array(mfi), N);
 
