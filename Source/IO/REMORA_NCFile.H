@@ -152,6 +152,20 @@ void ReadNetCDFFile (const std::string& fname, amrex::Vector<std::string> names,
 }
 
 /**
+ * \brief Helper function for reading a single variable attribute
+ */
+std::string ReadNetCDFVarAttrStr (const std::string& fname,
+                                  const std::string& var_name,
+                                  const std::string& attr_name);
+
+/**
+ * \brief Helper function for testing for the presence of a single variable attribute
+ */
+bool QueryNetCDFVarAttrStr (const std::string& fname,
+                            const std::string& var_name,
+                            const std::string& attr_name);
+
+/**
  * \brief Offset, in days, that puts a file's time variable onto the model clock.
  *
  * Reads the `units` attribute of \p time_name, which must count days, and its
