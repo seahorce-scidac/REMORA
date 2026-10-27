@@ -387,6 +387,28 @@ REMORA::ReadCheckpointFile ()
         }
     }
 
+    // A checkpoint that records its origin can say whether this run moved it.
+    // Rebasing keeps the model clock right, but everything keyed to elapsed time
+    // shifts with the origin, so say so rather than let a forcing ramp restart
+    // or an indicator window move without a word.
+    const bool origin_known = have_time_origin || have_start_time;
+    const double chk_origin = have_time_origin ? chk_time_origin : chk_start_time;
+    if (origin_known && chk_origin != start_time && ParallelDescriptor::IOProcessor()) {
+        std::ostringstream msg;
+        msg.precision(17);
+        msg << "remora.start_time is " << start_time << " but the checkpoint "
+            << restart_chkfile << " was written with start_time " << chk_origin
+            << ". The model clock continues where the checkpoint left off, but"
+            << " the elapsed time the solver sees is rebased by "
+            << (chk_origin - start_time) << " s, so anything keyed to elapsed time"
+            << " moves with it: analytic forcing that ramps from the start of the run,"
+            << " refinement indicator start_time/end_time windows, and the"
+            << " plot_int_time/check_int_time cadence. NetCDF time axes and"
+            << " start_total_time/end_total_time windows stay where they were."
+            << " Keep remora.start_time unchanged to continue the run as it was.";
+        amrex::Warning(msg.str());
+    }
+
     // Rebase onto this run's start_time. Take the elapsed time verbatim when the
     // origin is unchanged, the usual case, so a restart reproduces the run it
     // continues.

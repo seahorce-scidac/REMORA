@@ -740,9 +740,13 @@ header is on the model clock, as a plotfile header's is, so a reader of the
 header gets the offset included. The header also records ``remora.start_time``
 and the elapsed time separately, in its trailing ``time_origin`` and
 ``elapsed_time`` lines, so a restart that keeps ``remora.start_time`` continues
-the elapsed clock exactly. Checkpoints written by earlier versions, which hold
-either model-clock time alone or elapsed time with a ``start_time`` line, still
-restart correctly.
+the elapsed clock exactly. A restart that changes ``remora.start_time`` keeps
+the model clock where the checkpoint left it and rebases the elapsed time, so
+anything keyed to elapsed time (an analytic forcing ramp, an indicator's
+``start_time``/``end_time`` window, the ``plot_int_time`` cadence) moves with
+it; REMORA warns when this happens. Checkpoints written by earlier versions,
+which hold either model-clock time alone or elapsed time with a ``start_time``
+line, still restart correctly.
 
 NetCDF output records that offset as the scalar variable ``dstart``, in days
 since the reference date, as ROMS does. ``ocean_time`` is the time of each
