@@ -389,10 +389,8 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
         Array4<Real const> const& metv = vec_metric_v[lev]->const_array(mfi);
         Array4<Real const> const& metp = vec_metric_p[lev]->const_array(mfi);
         Array4<Real const> const& omn  = vec_metric_r[lev]->const_array(mfi,MetricR::omn);
-        Array4<Real const> const& om_u = vec_metric_u[lev]->const_array(mfi,MetricU::om_u);
         Array4<Real const> const& on_u = vec_metric_u[lev]->const_array(mfi,MetricU::on_u);
         Array4<Real const> const& om_v = vec_metric_v[lev]->const_array(mfi,MetricV::om_v);
-        Array4<Real const> const& on_v = vec_metric_v[lev]->const_array(mfi,MetricV::on_v);
 
         Array4<Real const> const& msku = mf_msku->const_array(mfi);
         Array4<Real const> const& mskv = mf_mskv->const_array(mfi);
@@ -477,6 +475,9 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
 
 #ifdef REMORA_USE_NETCDF
         if (solverChoice.do_m3_clim_nudg) {
+            // Only the nudging reads these two; the rest of the loop uses on_u and om_v
+            Array4<Real const> const& om_u = vec_metric_u[lev]->const_array(mfi,MetricU::om_u);
+            Array4<Real const> const& on_v = vec_metric_v[lev]->const_array(mfi,MetricV::on_v);
             Array4<const Real> const& uclim = u_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
             Array4<const Real> const& vclim = v_clim_data_from_file->get_interpolated_mf(lev)->const_array(mfi);
             Array4<const Real> const& u_nudg_coeff = vec_nudg_coeff[BdyVars::u][lev]->const_array(mfi);

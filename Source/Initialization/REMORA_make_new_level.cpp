@@ -720,8 +720,10 @@ void REMORA::init_stuff (int lev, const BoxArray& ba, const DistributionMapping&
 
     vec_pm[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+1,NGROW+2,0)));
     vec_pn[lev].reset(new MultiFab(ba2d,dm,1,IntVect(NGROW+2,NGROW+1,0)));
-    // As wide as pm and pn allow: each product reads the cells either side of its point,
-    // and pm/pn are filled one cell further than every reader of these needs.
+    // Each product reads pm/pn either side of its point, so these can have one ghost cell
+    // fewer than pm/pn. The widest readers are the mass-flux kernels on tiles grown by
+    // NGROW (faces) and the depth and pressure-gradient fields on tiles grown by NGROW+1
+    // (rho points); set_derived_metrics fills every ghost cell allocated here.
     vec_metric_r[lev].reset(new MultiFab(ba2d,dm,MetricR::ncomp,IntVect(NGROW+1,NGROW+1,0)));
     vec_metric_u[lev].reset(new MultiFab(convert(ba2d,IntVect(1,0,0)),dm,MetricU::ncomp,IntVect(NGROW,NGROW,0)));
     vec_metric_v[lev].reset(new MultiFab(convert(ba2d,IntVect(0,1,0)),dm,MetricV::ncomp,IntVect(NGROW,NGROW,0)));

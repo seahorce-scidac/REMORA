@@ -531,7 +531,10 @@ Notes
       parent step for a few (time level, time) pairs, so with 1 the coarse-fine ghost values
       are computed once per pair and replayed, instead of exchanging and interpolating the
       parent on every fast step. The results are bitwise identical to 0, which recomputes
-      every time; 2 does both and aborts on any difference. Subcycled driver only.
+      every time; 2 does both and aborts on any difference in the replayed cells (the
+      ``*_cf_fill_cache_check`` tests run it). ``ubar`` and ``vbar`` are cached only when
+      the coarse-fine fill patchers are in use (``remora.cf_width`` and
+      ``remora.cf_set_width`` at least 0); ``zeta`` always. Subcycled driver only.
 
    -  **remora.cf_avgdown_perimeter** (default 1) leaves the normal-velocity faces on the
       coarse-fine perimeter out of the fine-to-coarse average, as ROMS's ``fine2coarse`` does.

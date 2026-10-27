@@ -259,20 +259,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         }
 #endif
 
-#if 0
-        // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(xbx,IntVect(0,0,1)));
-        fab_CF.template     setVal<RunOn::Device>(zero,grow(xbx,IntVect(0,0,1)));
-
-        update_massflux_3d(xbx,1,0,u,ubar,Huon,Hz,pn,DU_avg1,DU_avg2,DC,FC,nnew);
-
-        // Reset to zero on the box on which they'll be used
-        mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(ybx,IntVect(0,0,1)));
-        fab_CF.template     setVal<RunOn::Device>(zero,grow(ybx,IntVect(0,0,1)));
-
-        update_massflux_3d(ybx,0,1,v,vbar,Hvom,Hz,pm,DV_avg1,DV_avg2,DC,FC,nnew);
-
-#else
 
         // Reset to zero on the box on which they'll be used
         fab_FC.template setVal<RunOn::Device>(zero,gbx2);
@@ -284,7 +270,6 @@ REMORA::advance_3d (int lev, MultiFab& mf_cons,
         mf_DC[mfi].template setVal<RunOn::Device>(zero,grow(gbx2,IntVect(0,0,1)));
         update_massflux_3d(lev,gbx2,0,1,v,vbar,Hvom,Hz,om_v,DV_avg1,DV_avg2,DC,FC,mskv,nnew);
 
-#endif
     }
 
     // WE BELIEVE THESE VALUES SHOULD ALREADY BE FILLED
