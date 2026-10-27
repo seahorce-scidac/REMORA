@@ -519,6 +519,6 @@ REMORA::setup_step (int lev, Real time, Real dt_lev)
     FillPatch(lev, time, *vec_sstore[lev], GetVecOfPtrs(vec_sstore), BCVars::cons_bc, BdyVars::t,0,true,true,0,0,dt_lev,*cons_old[lev]);
 
     // Don't actually want to apply boundary conditions here
-    vec_Huon[lev]->FillBoundary(geom[lev].periodicity());
-    vec_Hvom[lev]->FillBoundary(geom[lev].periodicity());
+    amrex::FillBoundary(Vector<MultiFab*>{vec_Huon[lev].get(), vec_Hvom[lev].get()},
+                        geom[lev].periodicity());
 }

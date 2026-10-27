@@ -1320,6 +1320,20 @@ public:
                     const bool fill_set=false,
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_old = {},
                     amrex::Vector<amrex::MultiFab*> const& mfs_crse_new = {});
+
+    /** \brief The boundary-condition half of FillPatch: physical and NetCDF boundary
+     *  conditions, periodic corners and the free-slip top, for a MultiFab whose fine-fine
+     *  ghost cells are already filled. Lets several fields share one exchange. */
+    void FillPatchBCs (int lev, amrex::Real time,
+                       amrex::MultiFab& mf_to_fill,
+                       const int bccomp,
+                       const int bdy_var_type,
+                       const int icomp,
+                       const int ncomp,
+                       const int n_not_fill,
+                       const int icomp_calc,
+                       const amrex::Real dt_lev,
+                       const amrex::MultiFab& mf_calc);
     /** \brief Fill boundary data from netcdf file */
     void fill_from_bdyfiles (int lev,
                              amrex::MultiFab& mf_to_fill,
